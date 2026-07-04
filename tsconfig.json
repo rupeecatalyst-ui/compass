@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "src/app/**/*.ts",
+    "src/app/**/*.tsx",
+    "src/components/**/*.ts",
+    "src/components/**/*.tsx",
+    "src/config/**/*.ts",
+    "src/constants/**/*.ts",
+    "src/hooks/**/*.ts",
+    "src/layouts/**/*.tsx",
+    "src/lib/**/*.ts",
+    "src/services/**/*.ts",
+    "src/types/**/*.ts",
+    "src/utils/**/*.ts",
+    "src/api/**/*.ts",
+    "src/middleware.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", "server", "dist", "src/components/site", "src/routes", "src/integrations", "src/lib/site.ts", "src/lib/blog.ts", "src/lib/lead-capture.ts", "src/lib/error-page.ts", "src/lib/error-capture.ts", "src/lib/lovable-error-reporting.ts"]
+}

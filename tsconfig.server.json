@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "noEmit": false,
+    "jsx": "react-jsx"
+  },
+  "include": ["server/**/*.ts", "prisma/**/*.ts"],
+  "exclude": ["node_modules"]
+}
