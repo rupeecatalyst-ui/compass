@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
-  Compass,
   Pin,
   Search,
   Star,
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { mainNavigation, recentPages, favoritePages, pinnedPages } from "@/config/navigation";
+import { allNavigationGroups, recentPages, favoritePages, pinnedPages } from "@/config/navigation";
+import { filterNavigationByRole } from "@/lib/navigation-utils";
+import { useAuthContext } from "@/components/providers/auth-provider";
+import { CatalystBranding } from "@/components/catalyst-one/catalyst-branding";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,6 +30,8 @@ interface AppSidebarProps {
 export function AppSidebar({ onSearchClick }: AppSidebarProps) {
   const pathname = usePathname();
   const { collapsed, toggle } = useSidebar();
+  const { user } = useAuthContext();
+  const visibleNavigation = filterNavigationByRole(allNavigationGroups, user?.role);
 
   return (
     <motion.aside
@@ -36,23 +40,15 @@ export function AppSidebar({ onSearchClick }: AppSidebarProps) {
       transition={{ type: "spring", stiffness: 400, damping: 35 }}
       className="hidden md:flex h-screen flex-col border-r border-sidebar-border bg-sidebar shrink-0"
     >
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-3 px-4 border-b border-sidebar-border">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
-          <Compass className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: "auto" }}
-              exit={{ opacity: 0, width: 0 }}
-              className="overflow-hidden"
-            >
-              <span className="font-semibold text-sidebar-foreground whitespace-nowrap">COMPASS</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Branding */}
+      <div className="flex h-16 items-center px-4 border-b border-sidebar-border">
+        {collapsed ? (
+          <div className="flex h-9 w-9 mx-auto items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
+            <span className="text-xs font-bold text-white">C1</span>
+          </div>
+        ) : (
+          <CatalystBranding variant="sidebar" />
+        )}
       </div>
 
       {/* Search */}
@@ -96,7 +92,7 @@ export function AppSidebar({ onSearchClick }: AppSidebarProps) {
         )}
 
         {/* Main Navigation */}
-        {mainNavigation.map((group) => (
+        {visibleNavigation.map((group) => (
           <div key={group.title} className="mb-4">
             {!collapsed && (
               <p className="mb-2 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -110,7 +106,12 @@ export function AppSidebar({ onSearchClick }: AppSidebarProps) {
                 icon={item.icon}
                 label={item.title}
                 badge={item.badge}
-                active={pathname === item.href}
+                active={
+                  pathname === item.href ||
+                  (item.href !== "/dashboard" &&
+                    item.href !== "/organization" &&
+                    pathname.startsWith(item.href))
+                }
                 collapsed={collapsed}
               />
             ))}

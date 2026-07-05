@@ -48,4 +48,7 @@ export const STORAGE_KEYS = {
   RECENT_PAGES: "compass:recent-pages",
   FAVORITES: "compass:favorites",
   WORKSPACE: "compass:workspace",
+  LOAN_FILES_VIEW: "compass:loan-files-view",
+  LOAN_FILES_DATA: "compass:loan-files-data",
+  LOAN_FILES_SAVED_VIEWS: "compass:loan-files-saved-views",
 } as const;

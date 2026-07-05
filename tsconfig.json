@@ -26,6 +26,7 @@
     "src/components/**/*.tsx",
     "src/config/**/*.ts",
     "src/constants/**/*.ts",
+    "src/data/**/*.ts",
     "src/hooks/**/*.ts",
     "src/layouts/**/*.tsx",
     "src/lib/**/*.ts",

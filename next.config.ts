@@ -12,7 +12,9 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+    // Empty NEXT_PUBLIC_API_URL = proxy to local backend (must use || — ?? treats "" as set)
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000";
     return [
       {
         source: "/api/:path*",

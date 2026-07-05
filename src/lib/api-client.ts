@@ -4,7 +4,7 @@ import axios, {
   type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
 } from "axios";
-import { env } from "@/config/env";
+import { getApiBaseUrl } from "@/config/env";
 import type { ApiResponse } from "@/types/api";
 
 const TOKEN_KEY = "compass:access-token";
@@ -45,15 +45,16 @@ export function clearTokens(): void {
 }
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: env.NEXT_PUBLIC_API_URL,
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,
 });
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    config.baseURL = getApiBaseUrl();
     const skipAuth = (config as InternalAxiosRequestConfig & { skipAuth?: boolean }).skipAuth;
     if (!skipAuth) {
       const token = getAccessToken();
@@ -95,8 +96,9 @@ apiClient.interceptors.response.use(
 
       try {
         const { data } = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
-          `${env.NEXT_PUBLIC_API_URL}/api/auth/refresh`,
+          `${getApiBaseUrl()}/api/auth/refresh`,
           { refreshToken },
+          { withCredentials: true },
         );
 
         if (data.success && data.data) {

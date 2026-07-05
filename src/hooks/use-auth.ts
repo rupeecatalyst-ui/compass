@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 import { getErrorMessage } from "@/lib/error-handler";
@@ -16,6 +16,7 @@ interface AuthState {
 
 export function useAuth() {
   const router = useRouter();
+  const authCheckRef = useRef(0);
   const [state, setState] = useState<AuthState>({
     user: null,
     isLoading: true,
@@ -23,8 +24,20 @@ export function useAuth() {
   });
 
   const initialize = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true }));
+    const checkId = ++authCheckRef.current;
+
+    setState((prev) => {
+      if (prev.isAuthenticated && prev.user) {
+        return { ...prev, isLoading: false };
+      }
+      return { ...prev, isLoading: true };
+    });
+
     const session = await sessionService.validateSession();
+
+    // Discard stale result if login/logout ran while this check was in flight
+    if (checkId !== authCheckRef.current) return;
+
     setState({
       user: session?.user ?? null,
       isLoading: false,
@@ -38,6 +51,7 @@ export function useAuth() {
 
   const login = useCallback(
     async (credentials: LoginCredentials) => {
+      authCheckRef.current += 1;
       const session: AuthSession = await authService.login(credentials);
       sessionService.persist(session);
       setState({
@@ -52,6 +66,7 @@ export function useAuth() {
   );
 
   const logout = useCallback(async () => {
+    authCheckRef.current += 1;
     try {
       await authService.logout();
     } catch {

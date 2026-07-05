@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout: auth.logout,
       refresh: auth.refresh,
     }),
-    [auth],
+    [auth.user, auth.isLoading, auth.isAuthenticated, auth.login, auth.logout, auth.refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

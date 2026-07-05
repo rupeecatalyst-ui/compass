@@ -1,15 +1,38 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { serverEnv } from "./config/env";
+import { serverEnv, isDev } from "./config/env";
 import authRoutes from "./routes/auth.routes";
 import { errorMiddleware, notFoundMiddleware } from "./middleware/error.middleware";
 
 const app = express();
 
+const configuredOrigins = serverEnv.CORS_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean);
+
 app.use(
   cors({
-    origin: serverEnv.CORS_ORIGIN,
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (configuredOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      if (isDev) {
+        try {
+          const { hostname } = new URL(origin);
+          if (hostname === "localhost" || hostname === "127.0.0.1") {
+            callback(null, true);
+            return;
+          }
+        } catch {
+          // ignore invalid origin URL
+        }
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
   }),
 );
