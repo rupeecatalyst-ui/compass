@@ -13,7 +13,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import { commandPaletteRoutes, organizationCommandPaletteRoutes, recentPages } from "@/config/navigation";
+import { commandPaletteRoutes, organizationCommandPaletteRoutes, adminConsoleCommandPaletteRoutes, recentPages } from "@/config/navigation";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { hasAnyRole } from "@/lib/permissions";
 import { ROLES } from "@/constants/roles";
@@ -101,6 +101,17 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             {showOrganizationRoutes && (
               <CommandGroup heading="Organization">
                 {organizationCommandPaletteRoutes.map((item) => (
+                  <CommandItem key={item.href} onSelect={() => navigate(item.href)}>
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                    <CommandShortcut>↵</CommandShortcut>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {showOrganizationRoutes && (
+              <CommandGroup heading="Admin Console">
+                {adminConsoleCommandPaletteRoutes.map((item) => (
                   <CommandItem key={item.href} onSelect={() => navigate(item.href)}>
                     <item.icon className="mr-2 h-4 w-4" />
                     {item.title}

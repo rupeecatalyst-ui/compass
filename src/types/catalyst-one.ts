@@ -440,6 +440,10 @@ export interface LoanFile {
   loanAmount: number;
   requiredAmount: number;
   finalLoanAmount?: number;
+  /** UX-01A — Final approved terms (editable from Final Approved stage onward). */
+  finalRoi?: number;
+  finalTenure?: number;
+  finalApprovalDate?: string;
   lender: string;
   stage: PipelineStage;
   stageSubStatus?: string;
@@ -461,6 +465,8 @@ export interface LoanFile {
   createdAt: string;
   /** CRC-10.2C — Secured product qualification (LTV / eligibility ready). */
   propertyType?: string;
+  /** CRC-10.3 — Occupancy master id (Decision Engine: property acceptance, LTV, eligibility). */
+  occupancyId?: string;
   approxPropertyValue?: number;
   businessDetails?: LoanFileBusiness;
   coApplicant?: string;
@@ -511,6 +517,7 @@ export interface CreateLoanFileInput {
   expectedLoginDate: string;
   internalNotes: string;
   propertyType?: string;
+  occupancyId?: string;
   approxPropertyValue?: number;
   businessDetails?: LoanFileBusiness;
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { EntityButtonLink } from "@/components/catalyst-one/shared/entity-link";
-import { LoanWorkflowCards } from "@/components/catalyst-one/shared/loan-workflow-status-bar";
 import {
   CatalystCommandBar,
   CommandBarActionGroup,
@@ -13,16 +12,12 @@ import {
   CommandBarIdentity,
   CommandBarMetaField,
   CommandBarMetaGrid,
-  CommandBarWorkflow,
-  CommandBarWorkflowAside,
-  CommandBarWorkflowMain,
-  CommandBarWorkflowRow,
 } from "@/components/catalyst-one/shared/catalyst-command-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { cn } from "@/lib/utils";
-import type { LoanFile, PipelineStage } from "@/types/catalyst-one";
+import type { LoanFile } from "@/types/catalyst-one";
 
 export interface LoanWorkspaceCommandBarProps {
   draft: LoanFile;
@@ -30,20 +25,16 @@ export interface LoanWorkspaceCommandBarProps {
   onSave: () => void;
   onSaveAndExit: () => void;
   onOpenContact?: (contactId: string) => void;
-  onStageChange: (stage: PipelineStage) => void;
-  onSubStageChange: (subStatusId: string) => void;
   commandBarRef?: React.Ref<HTMLDivElement>;
 }
 
-/** CRC-10.2C — Loan Workspace Command Bar (first Catalyst One command bar implementation). */
+/** CRC-10.2C / UX-01C — Loan Workspace command bar (identity + save actions). */
 export function LoanWorkspaceCommandBar({
   draft,
   saving,
   onSave,
   onSaveAndExit,
   onOpenContact,
-  onStageChange,
-  onSubStageChange,
   commandBarRef,
 }: LoanWorkspaceCommandBarProps) {
   return (
@@ -104,22 +95,6 @@ export function LoanWorkspaceCommandBar({
           </CommandBarActions>
         </CommandBarHeaderRow>
       </CommandBarHeader>
-
-      <CommandBarWorkflow>
-        <CommandBarWorkflowRow>
-          <CommandBarWorkflowMain>
-            <LoanWorkflowCards
-              stage={draft.stage}
-              subStageId={draft.stageSubStatus}
-              daysInStage={draft.daysInStage}
-              saving={saving}
-              onStageChange={onStageChange}
-              onSubStageChange={onSubStageChange}
-            />
-          </CommandBarWorkflowMain>
-          <CommandBarWorkflowAside />
-        </CommandBarWorkflowRow>
-      </CommandBarWorkflow>
     </CatalystCommandBar>
   );
 }

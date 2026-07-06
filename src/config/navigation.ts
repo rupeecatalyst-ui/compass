@@ -28,6 +28,16 @@ import {
 
   Stamp,
 
+  Scale,
+
+  Network,
+
+  GitBranch,
+
+  Package,
+
+  Boxes,
+
   type LucideIcon,
 
 } from "lucide-react";
@@ -150,7 +160,81 @@ export const organizationNavigation: NavGroup = {
 
 
 
-export const allNavigationGroups: NavGroup[] = [...mainNavigation, organizationNavigation];
+/** Admin Console — Super Admin policy administration modules */
+
+export const adminConsoleNavigation: NavGroup = {
+
+  title: "Admin Console",
+
+  roles: [ROLES.SUPER_ADMIN],
+
+  items: [
+
+    {
+
+      title: "Credit & Risk Engine",
+
+      href: ROUTES.ADMIN_CREDIT_RISK_ENGINE,
+
+      icon: Scale,
+
+    },
+
+    {
+
+      title: "Architecture",
+
+      href: ROUTES.ADMIN_ARCHITECTURE,
+
+      icon: Network,
+
+    },
+
+    {
+
+      title: "Workflow Engine",
+
+      href: ROUTES.ADMIN_WORKFLOW_ENGINE,
+
+      icon: GitBranch,
+
+    },
+
+    {
+
+      title: "Product Library",
+
+      href: ROUTES.ADMIN_PRODUCT_LIBRARY,
+
+      icon: Package,
+
+    },
+
+    {
+
+      title: "Enterprise Asset Library",
+
+      href: ROUTES.ADMIN_ENTERPRISE_ASSETS,
+
+      icon: Boxes,
+
+    },
+
+  ],
+
+};
+
+
+
+export const allNavigationGroups: NavGroup[] = [
+
+  ...mainNavigation,
+
+  organizationNavigation,
+
+  adminConsoleNavigation,
+
+];
 
 
 
@@ -213,4 +297,6 @@ export const commandPaletteRoutes = mainNavigation[0].items.flatMap((item) =>
 
 
 export const organizationCommandPaletteRoutes = organizationNavigation.items;
+
+export const adminConsoleCommandPaletteRoutes = adminConsoleNavigation.items;
 

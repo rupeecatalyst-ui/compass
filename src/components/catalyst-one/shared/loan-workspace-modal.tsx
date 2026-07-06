@@ -1,43 +1,44 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  X,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DocumentChecklist } from "@/components/catalyst-one/loan-files/document-checklist";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
 import { TaskPanel } from "@/components/catalyst-one/loan-files/task-panel";
 import { EntityButtonLink, EntityLink } from "@/components/catalyst-one/shared/entity-link";
 import {
   attachCommandBarScrollState,
-  WorkspaceCommandBarLayout,
 } from "@/components/catalyst-one/shared/catalyst-command-bar";
+import { LoanIntelligencePanel } from "@/components/catalyst-one/shared/loan-intelligence-panel";
+import { LoanWorkbenchLayout } from "@/components/catalyst-one/shared/loan-workbench-layout";
+import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-workbench-section";
 import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-workspace-command-bar";
+import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
 import { OrganizationRegistrySelect } from "@/components/catalyst-one/shared/organization-registry-select";
-import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
+import { PropertyInformationCard } from "@/components/catalyst-one/shared/property-information-card";
 import {
   computeTopUpRequested,
   getProductsForLendingType,
   isBalanceTransferVisible,
-  isPropertyQualificationVisible,
+  isProductSecured,
   LENDING_TYPES,
   shouldShowFinalLoanAmount,
   TRANSACTION_TYPES,
 } from "@/constants/loan-pipeline";
 import { LEAD_SOURCES } from "@/constants/customer-360";
 import { loanLenders, loanManagers } from "@/data/catalyst-one/loan-files";
+import { isOccupancyApplicableToProduct } from "@/constants/occupancy-master";
 import { runWithFeedback } from "@/lib/action-feedback";
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
-import { formatINR, formatINRCompact, formatINRInput, parseINRInput } from "@/lib/format-currency";
+import { formatINR, formatINRCompact } from "@/lib/format-currency";
 import { updateLoanFileInStorage, buildStageChangePatch, buildSubStageChangePatch } from "@/lib/loan-files-utils";
-import { Button } from "@/components/ui/button";
+import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
+import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -74,7 +75,13 @@ export interface LoanWorkspaceModalProps {
 }
 
 /** CRC-005 / CRC-015 — Authoritative Loan Workspace. */
-export function LoanWorkspaceModal({
+export function LoanWorkspaceModal(props: LoanWorkspaceModalProps) {
+  const { open, file } = props;
+  if (!open || !file) return null;
+  return <LoanWorkspaceModalContent {...props} file={file} />;
+}
+
+function LoanWorkspaceModalContent({
   file,
   open,
   onOpenChange,
@@ -82,9 +89,9 @@ export function LoanWorkspaceModal({
   onOpenContact,
   contactOptions = [],
   embedded = false,
-}: LoanWorkspaceModalProps) {
-  const [draft, setDraft] = useState<LoanFile | null>(null);
-  const [notes, setNotes] = useState("");
+}: LoanWorkspaceModalProps & { file: LoanFile }) {
+  const [draft, setDraft] = useState<LoanFile>(() => ({ ...file }));
+  const [notes, setNotes] = useState(() => file.internalNotes);
   const [saving, setSaving] = useState(false);
   const stickyChromeRef = useRef<HTMLDivElement>(null);
 
@@ -95,12 +102,17 @@ export function LoanWorkspaceModal({
     }
   }, [file]);
 
-  if (!open || !file || !draft) return null;
+  const hasUnsavedChanges = useMemo(
+    () => isLoanWorkspaceDirty(draft, file, notes),
+    [draft, file, notes],
+  );
+
+  const closeWorkspace = () => onOpenChange(false);
 
   const revenueBase = getRevenueBaseAmount(draft);
   const commissionValue = Math.round(revenueBase * (draft.revenuePercent / 100));
   const productOptions = getProductsForLendingType(draft.lendingType ?? "secured");
-  const showPropertyFields = isPropertyQualificationVisible(draft.loanProduct);
+  const showPropertyInformationCard = isProductSecured(draft.loanProduct);
   const showBt = isBalanceTransferVisible(
     draft.lendingType ?? "secured",
     draft.transactionType ?? "fresh",
@@ -124,14 +136,28 @@ export function LoanWorkspaceModal({
         if (!allowed.includes(next.loanProduct)) {
           next.loanProduct = allowed[0] ?? next.loanProduct;
         }
-        if (!isPropertyQualificationVisible(next.loanProduct)) {
+        if (!isProductSecured(next.loanProduct)) {
           next.propertyType = undefined;
           next.approxPropertyValue = undefined;
+          next.occupancyId = undefined;
+        } else if (
+          next.occupancyId &&
+          !isOccupancyApplicableToProduct(next.occupancyId, next.loanProduct)
+        ) {
+          next.occupancyId = undefined;
         }
       }
-      if (p.loanProduct && !isPropertyQualificationVisible(p.loanProduct)) {
+      if (p.loanProduct && !isProductSecured(p.loanProduct)) {
         next.propertyType = undefined;
         next.approxPropertyValue = undefined;
+        next.occupancyId = undefined;
+      }
+      if (
+        p.loanProduct &&
+        next.occupancyId &&
+        !isOccupancyApplicableToProduct(next.occupancyId, p.loanProduct)
+      ) {
+        next.occupancyId = undefined;
       }
       return next;
     });
@@ -187,6 +213,13 @@ export function LoanWorkspaceModal({
 
   const handleSaveAndExit = () => persistDraft({ exitOnSuccess: true });
 
+  const closeApi = useWorkspaceClose({
+    onClose: closeWorkspace,
+    hasUnsavedChanges,
+    onSaveAndClose: () => persistDraft({ exitOnSuccess: false }),
+    enableEscapeKey: false,
+  });
+
   const handleStageChange = (newStage: PipelineStage) => {
     const workflowPatch = buildStageChangePatch(draft, newStage);
     if (!workflowPatch) return;
@@ -206,31 +239,47 @@ export function LoanWorkspaceModal({
   const commandBar = (
     <LoanWorkspaceCommandBar
       draft={draft}
-        saving={saving}
-        onSave={handleSave}
-        onSaveAndExit={handleSaveAndExit}
-        onOpenContact={onOpenContact}
-        onStageChange={handleStageChange}
-        onSubStageChange={handleSubStageChange}
+      saving={saving}
+      onSave={handleSave}
+      onSaveAndExit={handleSaveAndExit}
+      onOpenContact={onOpenContact}
       commandBarRef={stickyChromeRef}
     />
   );
 
-  const body = (
-    <WorkspaceCommandBarLayout commandBar={commandBar} onBodyScroll={handleContentScroll}>
-      <Tabs defaultValue="overview" className="px-6 pt-5 pb-6">
-          <TabsList className="w-full grid grid-cols-5 mb-4 bg-muted">
-            <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
-            <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
-            <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
-            <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
-            <TabsTrigger value="notes" className="text-xs">Notes</TabsTrigger>
-          </TabsList>
+  const intelligencePanel = (
+    <LoanIntelligencePanel
+      fileId={draft.id}
+      stage={draft.stage}
+      subStageId={draft.stageSubStatus}
+      daysInStage={draft.daysInStage}
+      timeline={draft.timeline}
+      updatedBy={draft.relationshipManager}
+      currentStatus={draft.status}
+      saving={saving}
+      finalLoanAmount={draft.finalLoanAmount}
+      finalRoi={draft.finalRoi}
+      finalTenure={draft.finalTenure}
+      finalApprovalDate={draft.finalApprovalDate}
+      onStageChange={handleStageChange}
+      onSubStageChange={handleSubStageChange}
+      onFinalTermsChange={(p) => patch(p)}
+    />
+  );
 
-          <TabsContent value="overview" className="space-y-6 mt-0">
-            <section>
-              <h4 className="text-sm font-semibold mb-3 text-foreground">Applicant</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+  const workbench = (
+    <Tabs defaultValue="overview" className="px-5 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <TabsList className="mb-6 grid h-auto w-full grid-cols-5 bg-muted p-1">
+        <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+        <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
+        <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
+        <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
+        <TabsTrigger value="notes" className="text-xs">Notes</TabsTrigger>
+      </TabsList>
+
+          <TabsContent value="overview" className="mt-0 space-y-8">
+            <LoanWorkbenchSection title="Applicant" description="Primary borrower identity and contact details.">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <Field label="Name">
                   <Input
                     className="h-8 text-xs"
@@ -266,28 +315,71 @@ export function LoanWorkspaceModal({
                     onChange={(e) => patch({ state: e.target.value })}
                   />
                 </Field>
-                <Field label="Employment">
+              </div>
+              {onOpenContact && (
+                <EntityButtonLink
+                  label="Open applicant workspace"
+                  className="mt-3 text-xs"
+                  onClick={() => onOpenContact(draft.customerId)}
+                />
+              )}
+            </LoanWorkbenchSection>
+
+            <LoanWorkbenchSection title="Co-Applicant" description="Secondary applicant linked to this loan file.">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Co-applicant Name">
+                  <Input
+                    className="h-8 text-xs"
+                    value={draft.coApplicant ?? ""}
+                    onChange={(e) => patch({ coApplicant: e.target.value || undefined })}
+                  />
+                </Field>
+                <Field label="Co-applicant Contact">
+                  <Select
+                    value={draft.coApplicantId ?? "none"}
+                    onValueChange={(v) => patch({ coApplicantId: v === "none" ? undefined : v })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" className="text-xs">—</SelectItem>
+                      {contactOptions.map((c) => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              {draft.coApplicantId && onOpenContact && (
+                <EntityButtonLink
+                  label="Open co-applicant workspace"
+                  className="mt-3 text-xs"
+                  onClick={() => onOpenContact(draft.coApplicantId!)}
+                />
+              )}
+            </LoanWorkbenchSection>
+
+            <LoanWorkbenchSection title="Employment & Income" description="Employment profile and indicative income signals.">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <Field label="Employment Type">
                   <Input
                     className="h-8 text-xs"
                     value={draft.employmentType}
                     onChange={(e) => patch({ employmentType: e.target.value })}
                   />
                 </Field>
+                <Field label="Annual Turnover">
+                  <Input
+                    type="number"
+                    className="h-8 text-xs"
+                    value={draft.businessDetails?.annualTurnover ?? ""}
+                    onChange={(e) => patchBusiness({ annualTurnover: Number(e.target.value) })}
+                  />
+                </Field>
               </div>
-              {onOpenContact && (
-                <EntityButtonLink
-                  label="Open applicant workspace"
-                  className="text-xs mt-2"
-                  onClick={() => onOpenContact(draft.customerId)}
-                />
-              )}
-            </section>
+            </LoanWorkbenchSection>
 
-            <Separator />
-
-            <section>
-              <h4 className="text-sm font-semibold mb-3 text-foreground">Loan Details</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <LoanWorkbenchSection title="Loan Details" description="Core lending parameters, product selection and file metadata.">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <Field label="File Number">
                   <Input className="h-8 text-xs bg-muted/40" value={draft.fileNumber} readOnly />
                 </Field>
@@ -322,9 +414,15 @@ export function LoanWorkspaceModal({
                     value={draft.loanProduct}
                     onValueChange={(v) => {
                       const updates: Partial<LoanFile> = { loanProduct: v };
-                      if (!isPropertyQualificationVisible(v)) {
+                      if (!isProductSecured(v)) {
                         updates.propertyType = undefined;
                         updates.approxPropertyValue = undefined;
+                        updates.occupancyId = undefined;
+                      } else if (
+                        draft.occupancyId &&
+                        !isOccupancyApplicableToProduct(draft.occupancyId, v)
+                      ) {
+                        updates.occupancyId = undefined;
                       }
                       patch(updates);
                     }}
@@ -337,28 +435,6 @@ export function LoanWorkspaceModal({
                     </SelectContent>
                   </Select>
                 </Field>
-                {showPropertyFields && (
-                  <>
-                    <Field label="Property Type *" className="sm:col-span-2">
-                      <PropertyTypeSelect
-                        value={draft.propertyType}
-                        onSelect={(type) => patch({ propertyType: type })}
-                      />
-                    </Field>
-                    <Field label="Approx Property Value (₹)">
-                      <Input
-                        className="h-8 text-xs"
-                        inputMode="numeric"
-                        placeholder="e.g. 75,00,000"
-                        value={formatINRInput(draft.approxPropertyValue)}
-                        onChange={(e) => {
-                          const amount = parseINRInput(e.target.value);
-                          patch({ approxPropertyValue: amount > 0 ? amount : undefined });
-                        }}
-                      />
-                    </Field>
-                  </>
-                )}
                 <Field label="Lender">
                   <Select value={draft.lender} onValueChange={(v) => patch({ lender: v })}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -411,16 +487,6 @@ export function LoanWorkspaceModal({
                     onChange={(e) => patch({ requiredAmount: Number(e.target.value) })}
                   />
                 </Field>
-                {showFinalAmount && (
-                  <Field label="Final Loan Amount *">
-                    <Input
-                      type="number"
-                      className="h-8 text-xs"
-                      value={draft.finalLoanAmount ?? ""}
-                      onChange={(e) => patch({ finalLoanAmount: Number(e.target.value) })}
-                    />
-                  </Field>
-                )}
                 <Field label="Sanction Amount">
                   <Input
                     type="number"
@@ -519,17 +585,30 @@ export function LoanWorkspaceModal({
                   onClick={() => onOpenContact(draft.sourceContactId!)}
                 />
               )}
-              <div className="mt-2">
+              <div className="mt-3">
                 <EntityLink type="lender" id={draft.lender} label={`Open ${draft.lender} workspace`} className="text-xs" />
               </div>
-            </section>
+            </LoanWorkbenchSection>
+
+            {showPropertyInformationCard && (
+              <LoanWorkbenchSection title="Property" description="Collateral and occupancy details for secured products.">
+                <PropertyInformationCard
+                  loanProduct={draft.loanProduct}
+                  values={{
+                    propertyType: draft.propertyType,
+                    occupancyId: draft.occupancyId,
+                    approxPropertyValue: draft.approxPropertyValue,
+                  }}
+                  onPropertyTypeChange={(type) => patch({ propertyType: type })}
+                  onOccupancyChange={(entry) => patch({ occupancyId: entry.id })}
+                  onApproxPropertyValueChange={(value) => patch({ approxPropertyValue: value })}
+                />
+              </LoanWorkbenchSection>
+            )}
 
             {showBt && (
-              <>
-                <Separator />
-                <section>
-                  <h4 className="text-sm font-semibold mb-3 text-foreground">Balance Transfer</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <LoanWorkbenchSection title="Balance Transfer" description="Existing obligation and top-up structure.">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                     <Field label="BT Institution *" className="sm:col-span-2">
                       <OrganizationRegistrySelect
                         value={draft.btInstitutionId}
@@ -567,37 +646,12 @@ export function LoanWorkspaceModal({
                       />
                     </Field>
                   </div>
-                </section>
-              </>
+              </LoanWorkbenchSection>
             )}
 
-            <Separator />
-
-            <section>
-              <h4 className="text-sm font-semibold mb-3 text-foreground">Parties</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Co-applicant">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.coApplicant ?? ""}
-                    onChange={(e) => patch({ coApplicant: e.target.value || undefined })}
-                  />
-                </Field>
-                <Field label="Co-applicant Contact">
-                  <Select
-                    value={draft.coApplicantId ?? "none"}
-                    onValueChange={(v) => patch({ coApplicantId: v === "none" ? undefined : v })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none" className="text-xs">—</SelectItem>
-                      {contactOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Guarantor">
+            <LoanWorkbenchSection title="Guarantor" description="Guarantor party linked to the loan file.">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Guarantor Name">
                   <Input
                     className="h-8 text-xs"
                     value={draft.guarantor ?? ""}
@@ -619,29 +673,17 @@ export function LoanWorkspaceModal({
                   </Select>
                 </Field>
               </div>
-              <div className="flex flex-wrap gap-3 mt-2">
-                {draft.coApplicantId && onOpenContact && (
-                  <EntityButtonLink
-                    label="Open co-applicant workspace"
-                    className="text-xs"
-                    onClick={() => onOpenContact(draft.coApplicantId!)}
-                  />
-                )}
-                {draft.guarantorId && onOpenContact && (
-                  <EntityButtonLink
-                    label="Open guarantor workspace"
-                    className="text-xs"
-                    onClick={() => onOpenContact(draft.guarantorId!)}
-                  />
-                )}
-              </div>
-            </section>
+              {draft.guarantorId && onOpenContact && (
+                <EntityButtonLink
+                  label="Open guarantor workspace"
+                  className="mt-3 text-xs"
+                  onClick={() => onOpenContact(draft.guarantorId!)}
+                />
+              )}
+            </LoanWorkbenchSection>
 
-            <Separator />
-
-            <section>
-              <h4 className="text-sm font-semibold mb-3 text-foreground">Company</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <LoanWorkbenchSection title="Company" description="Business entity details for self-employed and commercial cases.">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <Field label="Company Name">
                   <Input
                     className="h-8 text-xs"
@@ -663,26 +705,15 @@ export function LoanWorkspaceModal({
                     onChange={(e) => patchBusiness({ gst: e.target.value })}
                   />
                 </Field>
-                <Field label="Annual Turnover">
-                  <Input
-                    type="number"
-                    className="h-8 text-xs"
-                    value={draft.businessDetails?.annualTurnover ?? ""}
-                    onChange={(e) => patchBusiness({ annualTurnover: Number(e.target.value) })}
-                  />
-                </Field>
               </div>
-            </section>
+            </LoanWorkbenchSection>
 
-            <Separator />
-
-            <section>
-              <h4 className="text-sm font-semibold mb-3 text-foreground">RC Revenue & Accounting</h4>
-              <p className="text-[10px] text-muted-foreground mb-3">
+            <LoanWorkbenchSection title="RC Revenue & Accounting" description="Commission, expected revenue and settlement tracking.">
+              <p className="mb-4 text-[10px] text-muted-foreground">
                 Revenue base: {formatINR(revenueBase)}
                 {showFinalAmount ? " (Final Loan Amount)" : " (Requested Amount)"}
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Field label="Revenue %">
                   <Input
                     type="number"
@@ -719,50 +750,67 @@ export function LoanWorkspaceModal({
                   </Select>
                 </Field>
               </div>
-            </section>
+            </LoanWorkbenchSection>
           </TabsContent>
 
           <TabsContent value="documents" className="mt-0">
-            <DocumentChecklist documents={draft.documents} />
+            <LoanWorkbenchSection title="Documents" description="Checklist and collection status for this loan file.">
+              <DocumentChecklist documents={draft.documents} />
+            </LoanWorkbenchSection>
           </TabsContent>
 
           <TabsContent value="tasks" className="mt-0">
-            <TaskPanel fileId={draft.id} tasks={draft.tasks} />
+            <LoanWorkbenchSection title="Tasks" description="Operational tasks assigned to this file.">
+              <TaskPanel fileId={draft.id} tasks={draft.tasks} />
+            </LoanWorkbenchSection>
           </TabsContent>
 
           <TabsContent value="timeline" className="mt-0">
-            <FileTimeline events={draft.timeline} />
+            <LoanWorkbenchSection title="Timeline" description="Chronological activity across the loan journey.">
+              <FileTimeline events={draft.timeline} />
+            </LoanWorkbenchSection>
           </TabsContent>
 
-          <TabsContent value="notes" className="mt-0 space-y-3">
-            <h4 className="text-sm font-semibold text-foreground">Internal Notes</h4>
-            <textarea
-              rows={12}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className={cn(
-                "min-h-[240px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm",
-                "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              )}
-            />
+          <TabsContent value="notes" className="mt-0">
+            <LoanWorkbenchSection title="Internal Notes" description="Private RM notes — not visible to the customer.">
+              <textarea
+                rows={12}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className={cn(
+                  "min-h-[280px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm",
+                  "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                )}
+              />
+            </LoanWorkbenchSection>
           </TabsContent>
         </Tabs>
-    </WorkspaceCommandBarLayout>
+  );
+
+  const body = (
+    <>
+      <WorkspaceHeader
+        title="Loan Workspace"
+        onClose={closeWorkspace}
+        closeApi={closeApi}
+        hasUnsavedChanges={hasUnsavedChanges}
+        onSaveAndClose={() => persistDraft({ exitOnSuccess: false })}
+      />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {commandBar}
+        <LoanWorkbenchLayout
+          workbench={workbench}
+          intelligence={intelligencePanel}
+          onWorkbenchScroll={handleContentScroll}
+        />
+      </div>
+    </>
   );
 
   if (embedded) {
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-        <div className="relative w-[80vw] max-w-[80vw] h-[85vh] max-h-[85vh] flex flex-col overflow-hidden rounded-xl bg-background border border-border shadow-xl">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute right-3 top-3 z-10 h-8 w-8"
-            onClick={() => onOpenChange(false)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        <div className="relative flex h-[85vh] max-h-[85vh] w-[80vw] max-w-[80vw] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-xl">
           {body}
         </div>
       </div>
@@ -770,8 +818,14 @@ export function LoanWorkspaceModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[80vw] max-w-[80vw] h-[85vh] max-h-[85vh] p-0 gap-0 flex flex-col rounded-xl overflow-hidden">
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) onOpenChange(true);
+        else closeApi.requestClose();
+      }}
+    >
+      <DialogContent className="flex h-[85vh] max-h-[85vh] w-[80vw] max-w-[80vw] flex-col gap-0 overflow-hidden rounded-xl p-0 [&>button]:hidden">
         {body}
       </DialogContent>
     </Dialog>

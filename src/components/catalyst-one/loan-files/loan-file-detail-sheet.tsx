@@ -11,7 +11,8 @@ import { useLoanFiles } from "@/components/catalyst-one/loan-files/loan-files-co
 import { DocumentChecklist } from "@/components/catalyst-one/loan-files/document-checklist";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
 import { TaskPanel } from "@/components/catalyst-one/loan-files/task-panel";
-import { STAGE_LABELS } from "@/constants/loan-pipeline";
+import { STAGE_LABELS, isProductSecured } from "@/constants/loan-pipeline";
+import { getOccupancyLabel } from "@/constants/occupancy-master";
 import { formatINR } from "@/lib/format-currency";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -118,13 +119,15 @@ export function LoanFileDetailSheet() {
                     </div>
                   </section>
 
-                  {(file.propertyType || file.approxPropertyValue) && (
+                  {isProductSecured(file.loanProduct) &&
+                    (file.propertyType || file.occupancyId || file.approxPropertyValue) && (
                     <>
                       <Separator />
                       <section>
-                        <h4 className="text-sm font-semibold mb-3">Property Qualification</h4>
+                        <h4 className="text-sm font-semibold mb-3">Property Information</h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <SummaryItem label="Property Type" value={file.propertyType ?? "—"} />
+                          <SummaryItem label="Property Occupancy" value={getOccupancyLabel(file.occupancyId) ?? "—"} />
                           <SummaryItem
                             label="Approx Property Value"
                             value={file.approxPropertyValue ? formatINR(file.approxPropertyValue) : "—"}

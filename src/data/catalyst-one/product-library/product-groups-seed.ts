@@ -1,0 +1,58 @@
+import type { ProductGroup } from "@/types/product-library";
+
+export const DEFAULT_PRODUCT_GROUPS: ProductGroup[] = [
+  {
+    id: "grp_secured_retail",
+    groupCode: "SECURED_RETAIL",
+    groupName: "Secured Retail Lending",
+    categoryId: "cat_lending",
+    description: "Collateral-backed retail loan products.",
+    sortOrder: 1,
+    enabled: true,
+  },
+  {
+    id: "grp_unsecured_retail",
+    groupCode: "UNSECURED_RETAIL",
+    groupName: "Unsecured Retail Lending",
+    categoryId: "cat_lending",
+    description: "Non-collateral retail credit products.",
+    sortOrder: 2,
+    enabled: true,
+  },
+  {
+    id: "grp_business_lending",
+    groupCode: "BUSINESS_LENDING",
+    groupName: "Business Lending",
+    categoryId: "cat_lending",
+    description: "SME and commercial lending products.",
+    sortOrder: 3,
+    enabled: true,
+  },
+  {
+    id: "grp_mutual_funds",
+    groupCode: "MUTUAL_FUNDS",
+    groupName: "Mutual Funds",
+    categoryId: "cat_investment",
+    description: "Mutual fund distribution products.",
+    sortOrder: 1,
+    enabled: true,
+  },
+  {
+    id: "grp_life_insurance",
+    groupCode: "LIFE_INSURANCE",
+    groupName: "Life Insurance",
+    categoryId: "cat_insurance",
+    description: "Life and term insurance products.",
+    sortOrder: 1,
+    enabled: true,
+  },
+  {
+    id: "grp_platform",
+    groupCode: "PLATFORM",
+    groupName: "Platform Extensions",
+    categoryId: "cat_future",
+    description: "Placeholder group for future product definitions.",
+    sortOrder: 1,
+    enabled: true,
+  },
+];

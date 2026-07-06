@@ -206,18 +206,6 @@ export const PROPERTY_TYPES = [
 
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 
-const PRODUCTS_WITHOUT_PROPERTY_QUALIFICATION = new Set<string>([
-  "Personal Loan",
-  "Business Loan (Unsecured)",
-  "Working Capital",
-  "Credit Card",
-  "Machinery Loan",
-]);
-
-export function isPropertyQualificationVisible(loanProduct: string): boolean {
-  return !PRODUCTS_WITHOUT_PROPERTY_QUALIFICATION.has(loanProduct);
-}
-
 export function searchPropertyTypes(query: string): PropertyType[] {
   const q = query.trim().toLowerCase();
   if (!q) return [...PROPERTY_TYPES];

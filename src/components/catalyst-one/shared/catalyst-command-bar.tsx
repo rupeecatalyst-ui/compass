@@ -30,11 +30,13 @@ export const CatalystCommandBar = forwardRef<
 
 /** Pins command bar + scrollable workspace body (header fixed, body scrolls). */
 export function WorkspaceCommandBarLayout({
+  workspaceHeader,
   commandBar,
   children,
   onBodyScroll,
   className,
 }: {
+  workspaceHeader?: ReactNode;
   commandBar: ReactNode;
   children: ReactNode;
   onBodyScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -42,6 +44,7 @@ export function WorkspaceCommandBarLayout({
 }) {
   return (
     <div className={cn("flex h-full min-h-0 flex-col overflow-hidden bg-background", className)}>
+      {workspaceHeader}
       {commandBar}
       <div
         onScroll={onBodyScroll}
@@ -204,7 +207,16 @@ export function CommandBarWorkflowRow({ children, className }: { children: React
 }
 
 export function CommandBarWorkflowMain({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("grid min-w-0 flex-1 grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5", className)}>{children}</div>;
+  return (
+    <div
+      className={cn(
+        "grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 items-stretch",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 /**

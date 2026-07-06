@@ -183,6 +183,7 @@ export function createLoanFileFromInput(
     progress: 11,
     createdAt: now,
     propertyType: input.propertyType,
+    occupancyId: input.occupancyId,
     approxPropertyValue: input.approxPropertyValue,
     businessDetails: input.businessDetails,
     documents: [
@@ -295,7 +296,7 @@ export function buildStageChangePatch(
     completed: true,
   };
 
-  return {
+  const patch: Partial<LoanFile> = {
     stage: newStage,
     stageSubStatus: undefined,
     daysInStage: 0,
@@ -308,6 +309,18 @@ export function buildStageChangePatch(
           : existing.status,
     timeline: [timelineEvent, ...existing.timeline],
   };
+
+  if (newStage === "final_approved" && !existing.finalApprovalDate) {
+    patch.finalApprovalDate = new Date().toISOString();
+    if (existing.finalRoi == null && existing.interestRate > 0) {
+      patch.finalRoi = existing.interestRate;
+    }
+    if (existing.finalTenure == null && existing.tenure > 0) {
+      patch.finalTenure = existing.tenure;
+    }
+  }
+
+  return patch;
 }
 
 /** Build patch for a sub-stage update (stage unchanged). */

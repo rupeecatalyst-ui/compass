@@ -20,6 +20,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const isFullWidth =
     pathname.startsWith("/loan-files") ||
+    pathname.startsWith("/admin/credit-risk-engine") ||
+    pathname.startsWith("/admin/architecture") ||
+    pathname.startsWith("/admin/workflow-engine") ||
+    pathname.startsWith("/admin/product-library") ||
+    pathname.startsWith("/admin/enterprise-assets") ||
     pathname === "/dashboard" ||
     pathname === "/pipeline" ||
     pathname === "/customers";
@@ -35,6 +40,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             className={cn(
               "flex-1 overflow-y-auto scrollbar-thin",
               pathname.startsWith("/loan-files") && "overflow-hidden",
+              pathname.startsWith("/admin/credit-risk-engine") && "overflow-hidden",
             )}
           >
             <motion.div
@@ -46,6 +52,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 "container mx-auto p-4 md:p-6 lg:p-8",
                 !isFullWidth && "max-w-7xl",
                 isFullWidth && pathname.startsWith("/loan-files") && "max-w-none h-full p-0 md:p-0 lg:p-0",
+                isFullWidth && pathname.startsWith("/admin/credit-risk-engine") && "max-w-none h-full p-0 md:p-0 lg:p-0",
                 isFullWidth && (pathname === "/dashboard" || pathname === "/pipeline" || pathname === "/customers") && "max-w-none",
               )}
             >

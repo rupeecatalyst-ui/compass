@@ -6,6 +6,8 @@ import {
   SECURED_PRODUCTS,
   UNSECURED_PRODUCTS,
 } from "@/constants/loan-stage-master";
+import { getOccupancyOptionsForProduct } from "@/constants/occupancy-master";
+import { isProductSecured } from "@/constants/product-master";
 import { inferLendingTypeFromProduct } from "@/lib/loan-validation";
 import { ORGANIZATION_REGISTRY } from "@/data/catalyst-one/organization-registry-seed";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
@@ -147,15 +149,7 @@ function buildTasks(rm: string, stageIndex: number, rand: () => number, fileInde
 }
 
 function isPropertyProduct(product: string): boolean {
-  return [
-    "Home Loan",
-    "Home Loan Balance Transfer",
-    "Loan Against Property",
-    "Construction Finance",
-    "Commercial Property Loan",
-    "Plot Loan",
-    "Lease Rental Discounting",
-  ].includes(product);
+  return isProductSecured(product);
 }
 
 function isBusinessProduct(product: string): boolean {
@@ -233,6 +227,9 @@ export function generateLoanFiles(count = 100): LoanFile[] {
     const tenure = pick([120, 180, 240, 300], rand);
 
     const propertyType = isPropertyProduct(product) ? pick([...PROPERTY_TYPES], rand) : undefined;
+    const occupancyOptions = isPropertyProduct(product) ? getOccupancyOptionsForProduct(product) : [];
+    const occupancyId =
+      occupancyOptions.length > 0 ? pick(occupancyOptions, rand).id : undefined;
     const approxPropertyValue = isPropertyProduct(product)
       ? Math.round(loanAmount * (1.1 + rand() * 0.3))
       : undefined;
@@ -291,6 +288,7 @@ export function generateLoanFiles(count = 100): LoanFile[] {
       progress: getStageProgress(stage),
       createdAt: created.toISOString(),
       propertyType,
+      occupancyId,
       approxPropertyValue,
       businessDetails,
       coApplicant: rand() > 0.55 ? `${customer.name.split(" ")[0]} Co-applicant` : undefined,

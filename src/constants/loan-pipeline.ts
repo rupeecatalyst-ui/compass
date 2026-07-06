@@ -12,7 +12,6 @@ export {
   searchSubStatusesForStage,
   isBalanceTransferVisible,
   isLoanWon,
-  isPropertyQualificationVisible,
   isPropertySectionVisible,
   isStageAtOrBeyond,
   isStageBeyond,
@@ -31,6 +30,26 @@ export {
   TRANSACTION_TYPES,
   UNSECURED_PRODUCTS,
 } from "@/constants/loan-stage-master";
+
+export {
+  DEFAULT_PROPERTY_QUALIFICATION_PRODUCTS,
+  getPropertyQualificationProducts,
+  isPropertyQualificationVisible,
+  resetPropertyQualificationProducts,
+  setPropertyQualificationProducts,
+} from "@/constants/property-qualification-master";
+
+export {
+  DEFAULT_PRODUCT_MASTER,
+  getEnabledProducts,
+  getProductByName,
+  getProductMaster,
+  getSecuredProductNames,
+  getUnsecuredProductNames,
+  isProductSecured,
+  resetProductMaster,
+  setProductMaster,
+} from "@/constants/product-master";
 
 /** @deprecated Import from loan-stage-master — kept for backward compatibility. */
 export { DEMO_CURRENT_RM } from "@/constants/customer-360";

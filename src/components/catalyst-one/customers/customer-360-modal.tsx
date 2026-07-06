@@ -14,6 +14,8 @@ import { RelationshipIdentityPanel } from "@/components/catalyst-one/customers/r
 import { RelationshipPortfolioSection } from "@/components/catalyst-one/customers/relationship-portfolio-section";
 import { useCustomersContext } from "@/components/catalyst-one/customers/customers-context";
 import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-workspace-modal";
+import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
+import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import { LoanCreateFormDialog } from "@/components/catalyst-one/loan-files/loan-create-form-dialog";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { ROLES } from "@/constants/roles";
@@ -39,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import type { CustomerProfile, LoanFile } from "@/types/catalyst-one";
 
 export function Customer360Modal() {
   const {
@@ -61,11 +64,6 @@ export function Customer360Modal() {
   } = useCustomersContext();
 
   const { user } = useAuthContext();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [loanCreateOpen, setLoanCreateOpen] = useState(false);
-  const [newNote, setNewNote] = useState("");
-  const [portfolioFilter, setPortfolioFilter] = useState<"all" | "active" | "closed">("all");
-
   const isMasterAdmin = user?.role === ROLES.SUPER_ADMIN;
 
   const selectedLoan = useMemo(
@@ -77,6 +75,91 @@ export function Customer360Modal() {
     () => customers.map((c) => ({ id: c.id, name: c.name })),
     [customers],
   );
+
+  if (!selectedCustomer && !selectedLoanFileId) return null;
+
+  if (!selectedCustomer) {
+    return (
+      <LoanWorkspaceModal
+        file={selectedLoan}
+        open={Boolean(selectedLoanFileId)}
+        onOpenChange={(open) => !open && closeLoanWorkspace()}
+        onOpenContact={openContactFromWorkspace}
+        contactOptions={contactOptions}
+        onUpdate={() => refreshLoanFiles()}
+      />
+    );
+  }
+
+  return (
+    <Customer360ModalContent
+      customer={selectedCustomer}
+      loanFiles={loanFiles}
+      selectedCustomerId={selectedCustomerId}
+      selectedLoanFileId={selectedLoanFileId}
+      selectedLoan={selectedLoan}
+      closeCustomer={closeCustomer}
+      closeLoanWorkspace={closeLoanWorkspace}
+      openContactFromWorkspace={openContactFromWorkspace}
+      contactOptions={contactOptions}
+      refreshLoanFiles={refreshLoanFiles}
+      openLoanWorkspace={openLoanWorkspace}
+      workspaceTab={workspaceTab}
+      setWorkspaceTab={setWorkspaceTab}
+      workspaceScrollRef={workspaceScrollRef}
+      completedProductFilter={completedProductFilter}
+      setCompletedProductFilter={setCompletedProductFilter}
+      updateCustomer={updateCustomer}
+      isMasterAdmin={isMasterAdmin}
+    />
+  );
+}
+
+interface Customer360ModalContentProps {
+  customer: CustomerProfile;
+  loanFiles: LoanFile[];
+  selectedCustomerId: string | null;
+  selectedLoanFileId: string | null;
+  selectedLoan: LoanFile | null;
+  closeCustomer: () => void;
+  closeLoanWorkspace: () => void;
+  openContactFromWorkspace: (contactId: string) => void;
+  contactOptions: { id: string; name: string }[];
+  refreshLoanFiles: () => void;
+  openLoanWorkspace: (fileId: string) => void;
+  workspaceTab: string;
+  setWorkspaceTab: (tab: string) => void;
+  workspaceScrollRef: React.MutableRefObject<number>;
+  completedProductFilter: string | null;
+  setCompletedProductFilter: (product: string | null) => void;
+  updateCustomer: (id: string, patch: Partial<CustomerProfile>) => void;
+  isMasterAdmin: boolean;
+}
+
+function Customer360ModalContent({
+  customer,
+  loanFiles,
+  selectedCustomerId,
+  selectedLoanFileId,
+  selectedLoan,
+  closeCustomer,
+  closeLoanWorkspace,
+  openContactFromWorkspace,
+  contactOptions,
+  refreshLoanFiles,
+  openLoanWorkspace,
+  workspaceTab,
+  setWorkspaceTab,
+  workspaceScrollRef,
+  completedProductFilter,
+  setCompletedProductFilter,
+  updateCustomer,
+  isMasterAdmin,
+}: Customer360ModalContentProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [loanCreateOpen, setLoanCreateOpen] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [portfolioFilter, setPortfolioFilter] = useState<"all" | "active" | "closed">("all");
 
   useEffect(() => {
     if (!selectedCustomerId || !scrollRef.current) return;
@@ -95,22 +178,6 @@ export function Customer360Modal() {
       });
     }
   };
-
-  if (!selectedCustomer && !selectedLoanFileId) return null;
-
-  const customer = selectedCustomer;
-  if (!customer) {
-    return (
-      <LoanWorkspaceModal
-        file={selectedLoan}
-        open={Boolean(selectedLoanFileId)}
-        onOpenChange={(open) => !open && closeLoanWorkspace()}
-        onOpenContact={openContactFromWorkspace}
-        contactOptions={contactOptions}
-        onUpdate={() => refreshLoanFiles()}
-      />
-    );
-  }
 
   const { active, completed } = getCustomerLoanFiles(customer.id, loanFiles);
   const allLoans = [...active, ...completed];
@@ -142,6 +209,17 @@ export function Customer360Modal() {
     setNewNote("");
     feedback.noteSaved();
   };
+
+  const hasUnsavedChanges = newNote.trim().length > 0;
+
+  const closeApi = useWorkspaceClose({
+    onClose: closeCustomer,
+    hasUnsavedChanges,
+    onSaveAndClose: async () => {
+      if (newNote.trim()) handleAddNote();
+    },
+    enableEscapeKey: false,
+  });
 
   const handleTogglePin = (noteId: string) => {
     updateCustomer(customer.id, {
@@ -191,9 +269,21 @@ export function Customer360Modal() {
     <>
       <Dialog
         open={Boolean(selectedCustomerId) && !selectedLoanFileId}
-        onOpenChange={(open) => !open && closeCustomer()}
+        onOpenChange={(open) => {
+          if (open) return;
+          closeApi.requestClose();
+        }}
       >
-        <DialogContent className="w-[80vw] max-w-[80vw] h-[85vh] max-h-[85vh] p-0 gap-0 flex flex-col rounded-xl overflow-hidden">
+        <DialogContent className="flex h-[85vh] max-h-[85vh] w-[80vw] max-w-[80vw] flex-col gap-0 overflow-hidden rounded-xl p-0 [&>button]:hidden">
+          <WorkspaceHeader
+            title="Customer 360"
+            onClose={closeCustomer}
+            closeApi={closeApi}
+            hasUnsavedChanges={hasUnsavedChanges}
+            onSaveAndClose={async () => {
+              if (newNote.trim()) handleAddNote();
+            }}
+          />
           <CustomerWorkspaceStickyHeader
             customer={customer}
             onAddLoan={() => setLoanCreateOpen(true)}

@@ -1,10 +1,10 @@
 import type { LoanFile, PipelineStage } from "@/types/catalyst-one";
+import { isProductSecured } from "@/constants/product-master";
 import {
   computeTopUpRequested,
   getProductsForLendingType,
   isBalanceTransferVisible,
   isLoanWon,
-  isPropertyQualificationVisible,
   isStageBeyond,
   migrateLegacyStage,
   requiresFinalLoanAmount,
@@ -58,8 +58,12 @@ export function validateLoanFile(
     errors.push("Final Loan Amount is required beyond Final Approved.");
   }
 
-  if (isPropertyQualificationVisible(file.loanProduct) && !file.propertyType?.trim()) {
+  if (isProductSecured(file.loanProduct) && !file.propertyType?.trim()) {
     errors.push("Property Type is required for secured property-backed products.");
+  }
+
+  if (isProductSecured(file.loanProduct) && !file.occupancyId?.trim()) {
+    errors.push("Property Occupancy is required for secured property-backed products.");
   }
 
   if (previous && isStageBeyond(file.stage, previous.stage)) {

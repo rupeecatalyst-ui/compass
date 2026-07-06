@@ -1,0 +1,5 @@
+import { CreditRiskSectionPlaceholder } from "@/components/catalyst-one/credit-risk-engine/credit-risk-section-placeholder";
+
+export default function CreditRiskDecisionMatrixPage() {
+  return <CreditRiskSectionPlaceholder sectionId="decision-matrix" />;
+}
