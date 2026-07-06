@@ -13,10 +13,19 @@ import { LoanWorkbenchLayout } from "@/components/catalyst-one/shared/loan-workb
 import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-workbench-section";
 import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-workspace-command-bar";
 import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
+import { CitySelect } from "@/components/catalyst-one/shared/city-select";
+import { EmploymentIncomeFields } from "@/components/catalyst-one/shared/employment-income-fields";
+import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
+import { LoanParticipantsPanel } from "@/components/catalyst-one/shared/loan-participants-panel";
 import { OrganizationRegistrySelect } from "@/components/catalyst-one/shared/organization-registry-select";
 import { PropertyInformationCard } from "@/components/catalyst-one/shared/property-information-card";
 import {
-  computeTopUpRequested,
+  buildDefaultParticipantEntityOptions,
+  mapContactOptionsToParticipantEntities,
+  resolveLoanParticipants,
+  syncParticipantLegacyFields,
+} from "@/lib/loan-participants";
+import {
   getProductsForLendingType,
   isBalanceTransferVisible,
   isProductSecured,
@@ -48,6 +57,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import type { LoanParticipant } from "@/types/loan-participant";
 import type {
   LendingType,
   LoanFile,
@@ -61,6 +71,8 @@ import type {
 export interface ContactOption {
   id: string;
   name: string;
+  mobile?: string;
+  email?: string;
 }
 
 export interface LoanWorkspaceModalProps {
@@ -97,10 +109,26 @@ function LoanWorkspaceModalContent({
 
   useEffect(() => {
     if (file) {
-      setDraft({ ...file });
+      const participants = resolveLoanParticipants(file);
+      setDraft({ ...file, participants });
       setNotes(file.internalNotes);
     }
   }, [file]);
+
+  const participantEntityOptions = useMemo(
+    () =>
+      contactOptions.length > 0
+        ? mapContactOptionsToParticipantEntities(contactOptions)
+        : buildDefaultParticipantEntityOptions(),
+    [contactOptions],
+  );
+
+  const participants = draft.participants ?? [];
+
+  const handleParticipantsChange = (next: LoanParticipant[]) => {
+    const synced = syncParticipantLegacyFields(next, draft.businessDetails);
+    patch(synced);
+  };
 
   const hasUnsavedChanges = useMemo(
     () => isLoanWorkspaceDirty(draft, file, notes),
@@ -118,19 +146,11 @@ function LoanWorkspaceModalContent({
     draft.transactionType ?? "fresh",
   );
   const showFinalAmount = shouldShowFinalLoanAmount(draft.stage);
-  const topUp =
-    draft.btAmount != null
-      ? computeTopUpRequested(draft.requiredAmount, draft.btAmount)
-      : draft.topUpRequested ?? 0;
 
   const patch = (p: Partial<LoanFile>) =>
     setDraft((d) => {
       if (!d) return d;
       const next = { ...d, ...p };
-      if (p.btAmount !== undefined || p.requiredAmount !== undefined) {
-        const bt = p.btAmount ?? next.btAmount ?? 0;
-        next.topUpRequested = computeTopUpRequested(next.requiredAmount, bt);
-      }
       if (p.lendingType) {
         const allowed = getProductsForLendingType(p.lendingType);
         if (!allowed.includes(next.loanProduct)) {
@@ -165,12 +185,16 @@ function LoanWorkspaceModalContent({
   const patchBusiness = (p: Partial<LoanFileBusiness>) =>
     patch({ businessDetails: { ...draft.businessDetails, ...p } });
 
-  const buildPersistPayload = (): Partial<LoanFile> => ({
-    ...draft,
-    internalNotes: notes,
-    topUpRequested: topUp,
-    expectedRevenue: Math.round(revenueBase * (draft.revenuePercent / 100)),
-  });
+  const buildPersistPayload = (): Partial<LoanFile> => {
+    const synced = syncParticipantLegacyFields(participants, draft.businessDetails);
+    return {
+      ...draft,
+      ...synced,
+      internalNotes: notes,
+      topUpRequested: draft.topUpRequired ? draft.topUpRequested : 0,
+      expectedRevenue: Math.round(revenueBase * (draft.revenuePercent / 100)),
+    };
+  };
 
   const persistDraft = async (options?: {
     exitOnSuccess?: boolean;
@@ -279,7 +303,7 @@ function LoanWorkspaceModalContent({
 
           <TabsContent value="overview" className="mt-0 space-y-8">
             <LoanWorkbenchSection title="Applicant" description="Primary borrower identity and contact details.">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Field label="Name">
                   <Input
                     className="h-8 text-xs"
@@ -302,18 +326,14 @@ function LoanWorkspaceModalContent({
                   />
                 </Field>
                 <Field label="City">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.city}
-                    onChange={(e) => patch({ city: e.target.value })}
+                  <CitySelect
+                    city={draft.city}
+                    state={draft.state}
+                    onSelect={(entry) => patch({ city: entry.city, state: entry.state })}
                   />
                 </Field>
                 <Field label="State">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.state}
-                    onChange={(e) => patch({ state: e.target.value })}
-                  />
+                  <Input className="h-8 bg-muted/40 text-xs" value={draft.state} readOnly />
                 </Field>
               </div>
               {onOpenContact && (
@@ -325,63 +345,19 @@ function LoanWorkspaceModalContent({
               )}
             </LoanWorkbenchSection>
 
-            <LoanWorkbenchSection title="Co-Applicant" description="Secondary applicant linked to this loan file.">
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Co-applicant Name">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.coApplicant ?? ""}
-                    onChange={(e) => patch({ coApplicant: e.target.value || undefined })}
-                  />
-                </Field>
-                <Field label="Co-applicant Contact">
-                  <Select
-                    value={draft.coApplicantId ?? "none"}
-                    onValueChange={(v) => patch({ coApplicantId: v === "none" ? undefined : v })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none" className="text-xs">—</SelectItem>
-                      {contactOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-              {draft.coApplicantId && onOpenContact && (
-                <EntityButtonLink
-                  label="Open co-applicant workspace"
-                  className="mt-3 text-xs"
-                  onClick={() => onOpenContact(draft.coApplicantId!)}
-                />
-              )}
-            </LoanWorkbenchSection>
-
             <LoanWorkbenchSection title="Employment & Income" description="Employment profile and indicative income signals.">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <Field label="Employment Type">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.employmentType}
-                    onChange={(e) => patch({ employmentType: e.target.value })}
-                  />
-                </Field>
-                <Field label="Annual Turnover">
-                  <Input
-                    type="number"
-                    className="h-8 text-xs"
-                    value={draft.businessDetails?.annualTurnover ?? ""}
-                    onChange={(e) => patchBusiness({ annualTurnover: Number(e.target.value) })}
-                  />
-                </Field>
-              </div>
+              <EmploymentIncomeFields
+                employmentType={draft.employmentType}
+                businessDetails={draft.businessDetails}
+                onEmploymentTypeChange={(label) => patch({ employmentType: label })}
+                onBusinessDetailsChange={(p) => patchBusiness(p)}
+              />
             </LoanWorkbenchSection>
 
             <LoanWorkbenchSection title="Loan Details" description="Core lending parameters, product selection and file metadata.">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Field label="File Number">
-                  <Input className="h-8 text-xs bg-muted/40" value={draft.fileNumber} readOnly />
+                  <Input className="h-8 bg-muted/40 text-xs" value={draft.fileNumber} readOnly />
                 </Field>
                 <Field label="Lending Type *">
                   <Select
@@ -471,53 +447,16 @@ function LoanWorkspaceModalContent({
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Loan Amount">
-                  <Input
-                    type="number"
-                    className="h-8 text-xs"
+                <Field label="Loan Amount (₹)">
+                  <INRCurrencyInput
                     value={draft.loanAmount}
-                    onChange={(e) => patch({ loanAmount: Number(e.target.value) })}
+                    onChange={(v) => patch({ loanAmount: v ?? 0 })}
                   />
                 </Field>
-                <Field label="Requested Amount">
-                  <Input
-                    type="number"
-                    className="h-8 text-xs"
+                <Field label="Requested Amount (₹)">
+                  <INRCurrencyInput
                     value={draft.requiredAmount}
-                    onChange={(e) => patch({ requiredAmount: Number(e.target.value) })}
-                  />
-                </Field>
-                <Field label="Sanction Amount">
-                  <Input
-                    type="number"
-                    className="h-8 text-xs"
-                    value={draft.sanctionAmount}
-                    onChange={(e) => patch({ sanctionAmount: Number(e.target.value) })}
-                  />
-                </Field>
-                <Field label="Disbursement">
-                  <Input
-                    type="number"
-                    className="h-8 text-xs"
-                    value={draft.disbursementAmount}
-                    onChange={(e) => patch({ disbursementAmount: Number(e.target.value) })}
-                  />
-                </Field>
-                <Field label="ROI %">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    className="h-8 text-xs"
-                    value={draft.interestRate}
-                    onChange={(e) => patch({ interestRate: Number(e.target.value) })}
-                  />
-                </Field>
-                <Field label="Tenure (months)">
-                  <Input
-                    type="number"
-                    className="h-8 text-xs"
-                    value={draft.tenure}
-                    onChange={(e) => patch({ tenure: Number(e.target.value) })}
+                    onChange={(v) => patch({ requiredAmount: v ?? 0 })}
                   />
                 </Field>
                 <Field label="Status">
@@ -581,7 +520,7 @@ function LoanWorkspaceModalContent({
               {draft.sourceContactId && onOpenContact && (
                 <EntityButtonLink
                   label="Open source contact workspace"
-                  className="text-xs mt-2"
+                  className="mt-2 text-xs"
                   onClick={() => onOpenContact(draft.sourceContactId!)}
                 />
               )}
@@ -589,6 +528,65 @@ function LoanWorkspaceModalContent({
                 <EntityLink type="lender" id={draft.lender} label={`Open ${draft.lender} workspace`} className="text-xs" />
               </div>
             </LoanWorkbenchSection>
+
+            {showBt && (
+              <LoanWorkbenchSection title="Balance Transfer" description="Existing lender obligation and optional top-up.">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <Field label="Existing Lender *" className="sm:col-span-2">
+                    <OrganizationRegistrySelect
+                      value={draft.btInstitutionId}
+                      onSelect={(org) =>
+                        patch({
+                          btInstitutionId: org.id,
+                          btInstitutionName: org.name,
+                        })
+                      }
+                    />
+                  </Field>
+                  {draft.btInstitutionId && (
+                    <div className="flex items-end">
+                      <EntityLink
+                        type="company"
+                        id={draft.btInstitutionId}
+                        label="Open organization workspace"
+                        className="text-xs"
+                      />
+                    </div>
+                  )}
+                  <Field label="Outstanding Balance (₹) *">
+                    <INRCurrencyInput
+                      value={draft.btAmount}
+                      onChange={(v) => patch({ btAmount: v })}
+                    />
+                  </Field>
+                  <Field label="Top Up Required">
+                    <Select
+                      value={draft.topUpRequired ? "yes" : "no"}
+                      onValueChange={(v) =>
+                        patch({
+                          topUpRequired: v === "yes",
+                          topUpRequested: v === "yes" ? draft.topUpRequested : 0,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no" className="text-xs">No</SelectItem>
+                        <SelectItem value="yes" className="text-xs">Yes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  {draft.topUpRequired && (
+                    <Field label="Top Up Amount (₹)">
+                      <INRCurrencyInput
+                        value={draft.topUpRequested}
+                        onChange={(v) => patch({ topUpRequested: v })}
+                      />
+                    </Field>
+                  )}
+                </div>
+              </LoanWorkbenchSection>
+            )}
 
             {showPropertyInformationCard && (
               <LoanWorkbenchSection title="Property" description="Collateral and occupancy details for secured products.">
@@ -606,106 +604,22 @@ function LoanWorkspaceModalContent({
               </LoanWorkbenchSection>
             )}
 
-            {showBt && (
-              <LoanWorkbenchSection title="Balance Transfer" description="Existing obligation and top-up structure.">
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                    <Field label="BT Institution *" className="sm:col-span-2">
-                      <OrganizationRegistrySelect
-                        value={draft.btInstitutionId}
-                        onSelect={(org) =>
-                          patch({
-                            btInstitutionId: org.id,
-                            btInstitutionName: org.name,
-                          })
-                        }
-                      />
-                    </Field>
-                    {draft.btInstitutionId && (
-                      <div className="flex items-end">
-                        <EntityLink
-                          type="company"
-                          id={draft.btInstitutionId}
-                          label="Open organization workspace"
-                          className="text-xs"
-                        />
-                      </div>
-                    )}
-                    <Field label="BT Amount *">
-                      <Input
-                        type="number"
-                        className="h-8 text-xs"
-                        value={draft.btAmount ?? ""}
-                        onChange={(e) => patch({ btAmount: Number(e.target.value) })}
-                      />
-                    </Field>
-                    <Field label="Top-up Requested">
-                      <Input
-                        className="h-8 text-xs bg-muted/40"
-                        value={topUp}
-                        readOnly
-                      />
-                    </Field>
-                  </div>
-              </LoanWorkbenchSection>
-            )}
-
-            <LoanWorkbenchSection title="Guarantor" description="Guarantor party linked to the loan file.">
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Guarantor Name">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.guarantor ?? ""}
-                    onChange={(e) => patch({ guarantor: e.target.value || undefined })}
-                  />
-                </Field>
-                <Field label="Guarantor Contact">
-                  <Select
-                    value={draft.guarantorId ?? "none"}
-                    onValueChange={(v) => patch({ guarantorId: v === "none" ? undefined : v })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none" className="text-xs">—</SelectItem>
-                      {contactOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-              {draft.guarantorId && onOpenContact && (
-                <EntityButtonLink
-                  label="Open guarantor workspace"
-                  className="mt-3 text-xs"
-                  onClick={() => onOpenContact(draft.guarantorId!)}
-                />
-              )}
-            </LoanWorkbenchSection>
-
-            <LoanWorkbenchSection title="Company" description="Business entity details for self-employed and commercial cases.">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <Field label="Company Name">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.businessDetails?.companyName ?? ""}
-                    onChange={(e) => patchBusiness({ companyName: e.target.value })}
-                  />
-                </Field>
-                <Field label="Constitution">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.businessDetails?.constitution ?? ""}
-                    onChange={(e) => patchBusiness({ constitution: e.target.value })}
-                  />
-                </Field>
-                <Field label="GST">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.businessDetails?.gst ?? ""}
-                    onChange={(e) => patchBusiness({ gst: e.target.value })}
-                  />
-                </Field>
-              </div>
+            <LoanWorkbenchSection
+              title="Loan Participants"
+              description="Co-applicants and company entities linked to this loan (search existing contacts — no manual name entry)."
+            >
+              <LoanParticipantsPanel
+                participants={participants}
+                entityOptions={participantEntityOptions}
+                onChange={handleParticipantsChange}
+                onOpenEntity={
+                  onOpenContact
+                    ? (entityId, entityType) => {
+                        if (entityType === "individual") onOpenContact(entityId);
+                      }
+                    : undefined
+                }
+              />
             </LoanWorkbenchSection>
 
             <LoanWorkbenchSection title="RC Revenue & Accounting" description="Commission, expected revenue and settlement tracking.">
@@ -713,12 +627,12 @@ function LoanWorkspaceModalContent({
                 Revenue base: {formatINR(revenueBase)}
                 {showFinalAmount ? " (Final Loan Amount)" : " (Requested Amount)"}
               </p>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Field label="Revenue %">
                   <Input
                     type="number"
                     step="0.01"
-                    className="h-8 text-xs"
+                    className="h-8 text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     value={draft.revenuePercent}
                     onChange={(e) => patch({ revenuePercent: Number(e.target.value) })}
                   />
@@ -729,12 +643,10 @@ function LoanWorkspaceModalContent({
                   accent
                 />
                 <SummaryItem label="Commission" value={formatINRCompact(commissionValue)} accent />
-                <Field label="Revenue Received">
-                  <Input
-                    type="number"
-                    className="h-8 text-xs"
+                <Field label="Revenue Received (₹)">
+                  <INRCurrencyInput
                     value={draft.revenueReceived}
-                    onChange={(e) => patch({ revenueReceived: Number(e.target.value) })}
+                    onChange={(v) => patch({ revenueReceived: v ?? 0 })}
                   />
                 </Field>
                 <Field label="Settlement Completed" className="sm:col-span-2">

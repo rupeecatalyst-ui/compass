@@ -1,41 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ANIMATION, STORAGE_KEYS } from "@/constants/animations";
+import { useSidebarContext } from "@/components/providers/sidebar-provider";
 
-function readCollapsedState(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(STORAGE_KEYS.SIDEBAR_COLLAPSED) === "true";
-}
-
+/** Global sidebar collapse state — shared via SidebarProvider (UX-02). */
 export function useSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setCollapsed(readCollapsedState());
-    setHydrated(true);
-  }, []);
-
-  const toggle = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, String(next));
-      return next;
-    });
-  }, []);
-
-  const openMobile = useCallback(() => setMobileOpen(true), []);
-  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  const {
+    collapsed,
+    mobileOpen,
+    sidebarWidth,
+    toggle,
+    setCollapsed,
+    openMobile,
+    closeMobile,
+  } = useSidebarContext();
 
   return {
-    collapsed: hydrated ? collapsed : false,
+    collapsed,
     mobileOpen,
     toggle,
     setCollapsed,
     openMobile,
     closeMobile,
-    sidebarWidth: collapsed ? ANIMATION.sidebar.collapsed.width : ANIMATION.sidebar.expanded.width,
+    sidebarWidth,
   };
 }

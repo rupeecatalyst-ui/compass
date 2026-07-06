@@ -1,37 +1,35 @@
-import { computeTopUpRequested } from "@/constants/loan-pipeline";
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
+import { syncParticipantLegacyFields } from "@/lib/loan-participants";
 import type { LoanFile } from "@/types/catalyst-one";
 
-/** UX-01B — Detect unsaved loan workspace edits (display-only; no workflow impact). */
+/** UX-01B / UX-02 — Detect unsaved loan workspace edits (display-only; no workflow impact). */
 export function isLoanWorkspaceDirty(
   draft: LoanFile,
   original: LoanFile,
   notes: string,
 ): boolean {
-  const topUp =
-    draft.btAmount != null
-      ? computeTopUpRequested(draft.requiredAmount, draft.btAmount)
-      : draft.topUpRequested ?? 0;
+  const participants = draft.participants ?? [];
+  const synced = syncParticipantLegacyFields(participants, draft.businessDetails);
   const revenueBase = getRevenueBaseAmount(draft);
   const expectedRevenue = Math.round(revenueBase * (draft.revenuePercent / 100));
 
-  const origTopUp =
-    original.btAmount != null
-      ? computeTopUpRequested(original.requiredAmount, original.btAmount)
-      : original.topUpRequested ?? 0;
+  const origParticipants = original.participants ?? [];
+  const origSynced = syncParticipantLegacyFields(origParticipants, original.businessDetails);
   const origRevenueBase = getRevenueBaseAmount(original);
   const origExpectedRevenue = Math.round(origRevenueBase * (original.revenuePercent / 100));
 
   const currentPayload = JSON.stringify({
     ...draft,
+    ...synced,
     internalNotes: notes,
-    topUpRequested: topUp,
+    topUpRequested: draft.topUpRequired ? draft.topUpRequested : 0,
     expectedRevenue,
   });
   const originalPayload = JSON.stringify({
     ...original,
+    ...origSynced,
     internalNotes: original.internalNotes,
-    topUpRequested: origTopUp,
+    topUpRequested: original.topUpRequired ? original.topUpRequested : 0,
     expectedRevenue: origExpectedRevenue,
   });
 

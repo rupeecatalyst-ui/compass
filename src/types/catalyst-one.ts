@@ -422,6 +422,11 @@ export interface LoanFileBusiness {
   gst?: string;
   annualTurnover?: number;
   businessVintage?: number;
+  /** UX-02 — Employment income fields */
+  monthlySalary?: number;
+  annualProfit?: number;
+  annualGrossReceipts?: number;
+  annualProfessionalIncome?: number;
 }
 
 export interface LoanFile {
@@ -480,6 +485,10 @@ export interface LoanFile {
   btInstitutionName?: string;
   btAmount?: number;
   topUpRequested?: number;
+  /** UX-02 — Manual top-up flag for balance transfer cases */
+  topUpRequired?: boolean;
+  /** UX-02 — Unified loan participants (max 9 additional entities) */
+  participants?: import("@/types/loan-participant").LoanParticipant[];
   /** RC Revenue / Accounting only — not a loan stage. */
   settlementCompleted?: boolean;
   documents: LoanFileDocument[];

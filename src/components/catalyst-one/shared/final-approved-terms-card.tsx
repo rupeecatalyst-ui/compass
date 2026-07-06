@@ -8,6 +8,7 @@ import {
 import { shouldShowFinalLoanAmount } from "@/constants/loan-pipeline";
 import { calculateMonthlyEmi } from "@/lib/loan-emi-utils";
 import { formatINR } from "@/lib/format-currency";
+import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { formatWorkflowTimestamp } from "@/lib/loan-workflow-metadata";
 import type { PipelineStage } from "@/types/catalyst-one";
 import { Input } from "@/components/ui/input";
@@ -93,22 +94,19 @@ export function FinalApprovedTermsCard({
       ) : (
         <div className="flex flex-1 flex-col gap-3">
           <div className={cn("grid gap-2", layout === "panel" ? "grid-cols-1" : "grid-cols-2")}>
-            <CompactField label="Final Loan Amount">
-              <Input
-                type="number"
-                className="h-8 border-emerald-600/20 bg-background/80 text-xs font-semibold"
-                value={finalLoanAmount ?? ""}
+            <CompactField label="Final Loan Amount (₹)">
+              <INRCurrencyInput
+                value={finalLoanAmount}
                 disabled={disabled}
-                onChange={(e) =>
-                  onChange({ finalLoanAmount: Number(e.target.value) || undefined })
-                }
+                className="border-emerald-600/20 bg-background/80 font-semibold"
+                onChange={(v) => onChange({ finalLoanAmount: v })}
               />
             </CompactField>
             <CompactField label="Final ROI %">
               <Input
                 type="number"
                 step="0.1"
-                className="h-8 border-emerald-600/20 bg-background/80 text-xs font-semibold"
+                className="h-8 border-emerald-600/20 bg-background/80 text-xs font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 value={finalRoi ?? ""}
                 disabled={disabled}
                 onChange={(e) => onChange({ finalRoi: Number(e.target.value) || undefined })}
@@ -117,7 +115,7 @@ export function FinalApprovedTermsCard({
             <CompactField label="Final Tenure (mo)">
               <Input
                 type="number"
-                className="h-8 border-emerald-600/20 bg-background/80 text-xs font-semibold"
+                className="h-8 border-emerald-600/20 bg-background/80 text-xs font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 value={finalTenure ?? ""}
                 disabled={disabled}
                 onChange={(e) => onChange({ finalTenure: Number(e.target.value) || undefined })}

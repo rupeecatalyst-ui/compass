@@ -72,7 +72,13 @@ export function Customer360Modal() {
   );
 
   const contactOptions = useMemo(
-    () => customers.map((c) => ({ id: c.id, name: c.name })),
+    () =>
+      customers.map((c) => ({
+        id: c.id,
+        name: c.name,
+        mobile: c.mobile,
+        email: c.email,
+      })),
     [customers],
   );
 

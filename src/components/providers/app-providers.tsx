@@ -3,6 +3,7 @@
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { SidebarProvider } from "@/components/providers/sidebar-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -11,10 +12,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <QueryProvider>
         <AuthProvider>
-          <TooltipProvider delayDuration={0}>
-            {children}
-            <Toaster richColors closeButton position="top-right" />
-          </TooltipProvider>
+          <SidebarProvider>
+            <TooltipProvider delayDuration={0}>
+              {children}
+              <Toaster richColors closeButton position="top-right" />
+            </TooltipProvider>
+          </SidebarProvider>
         </AuthProvider>
       </QueryProvider>
     </ThemeProvider>
