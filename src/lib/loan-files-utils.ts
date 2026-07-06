@@ -1,7 +1,18 @@
 import { STAGE_LABELS } from "@/constants/loan-pipeline";
+import {
+  getStageProgress,
+  getSubStatusLabel,
+} from "@/constants/loan-stage-master";
+import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
+import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
+import {
+  applyWonTransition,
+  inferLendingTypeFromProduct,
+  normalizeLoanFile,
+  validateLoanFile,
+} from "@/lib/loan-validation";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
-import { loadLoanFiles } from "@/lib/loan-files-storage";
 import type { CustomerLoanStats, LoanFile } from "@/types/catalyst-one";
 
 export function getAllLoanFiles(): LoanFile[] {
@@ -133,9 +144,12 @@ export function createLoanFileFromInput(
   const id = `lf-${String(index + 1).padStart(3, "0")}`;
   const now = new Date().toISOString();
   const revenuePercent = 1.2;
-  const expectedRevenue = Math.round(input.loanAmount * (revenuePercent / 100));
+  const lendingType = input.lendingType ?? inferLendingTypeFromProduct(input.loanProduct);
+  const transactionType = input.transactionType ?? "fresh";
+  const revenueBase = input.requiredAmount || input.loanAmount;
+  const expectedRevenue = Math.round(revenueBase * (revenuePercent / 100));
 
-  return {
+  const file: LoanFile = {
     id,
     fileNumber: `RC-2026-${String(2000 + index)}`,
     customerId: input.customerId ?? `c-new-${Date.now()}`,
@@ -145,6 +159,8 @@ export function createLoanFileFromInput(
     city: input.city,
     state: input.state,
     employmentType: input.employmentType,
+    lendingType,
+    transactionType,
     loanProduct: input.loanProduct,
     loanAmount: input.loanAmount,
     requiredAmount: input.requiredAmount,
@@ -166,8 +182,8 @@ export function createLoanFileFromInput(
     status: "on_track",
     progress: 11,
     createdAt: now,
-    property: input.propertyDetails?.address,
-    propertyDetails: input.propertyDetails,
+    propertyType: input.propertyType,
+    approxPropertyValue: input.approxPropertyValue,
     businessDetails: input.businessDetails,
     documents: [
       "PAN",
@@ -204,6 +220,8 @@ export function createLoanFileFromInput(
     isDelayed: false,
     archived: false,
   };
+
+  return normalizeLoanFile(file);
 }
 
 export function duplicateLoanFile(file: LoanFile, existingCount: number): LoanFile {
@@ -216,4 +234,102 @@ export function duplicateLoanFile(file: LoanFile, existingCount: number): LoanFi
   copy.status = "on_track";
   copy.createdAt = new Date().toISOString();
   return copy;
+}
+
+/** Single save path — updates storage and notifies all consumers. */
+export function updateLoanFileInStorage(
+  fileId: string,
+  patch: Partial<LoanFile>,
+  timelineNote?: string,
+): LoanFile | null {
+  const files = loadLoanFiles();
+  const index = files.findIndex((f) => f.id === fileId);
+  if (index < 0) return null;
+
+  const existing = files[index]!;
+  const timeline = timelineNote
+    ? [
+        {
+          id: `tl-upd-${Date.now()}`,
+          title: "Loan Updated",
+          description: timelineNote,
+          timestamp: new Date().toISOString(),
+          completed: true,
+        },
+        ...existing.timeline,
+      ]
+    : existing.timeline;
+
+  let merged: LoanFile = normalizeLoanFile({ ...existing, ...patch, timeline });
+
+  const validation = validateLoanFile(merged, existing);
+  if (!validation.valid) {
+    throw new Error(validation.errors.join(" "));
+  }
+
+  if (merged.stage === "won" && existing.stage !== "won") {
+    merged = applyWonTransition(merged);
+  }
+
+  const revenueBase = getRevenueBaseAmount(merged);
+  merged.expectedRevenue = Math.round(revenueBase * (merged.revenuePercent / 100));
+
+  const next = [...files];
+  next[index] = merged;
+  saveLoanFiles(next);
+  return merged;
+}
+
+/** Build patch for an immediate stage transition (timeline + kanban fields). */
+export function buildStageChangePatch(
+  existing: LoanFile,
+  newStage: import("@/types/catalyst-one").PipelineStage,
+): Partial<LoanFile> | null {
+  if (existing.stage === newStage) return null;
+
+  const timelineEvent = {
+    id: `tl-stage-${Date.now()}`,
+    title: "Stage changed",
+    description: `${STAGE_LABELS[existing.stage]} → ${STAGE_LABELS[newStage]}`,
+    timestamp: new Date().toISOString(),
+    completed: true,
+  };
+
+  return {
+    stage: newStage,
+    stageSubStatus: undefined,
+    daysInStage: 0,
+    progress: getStageProgress(newStage),
+    status:
+      newStage === "won"
+        ? "completed"
+        : existing.status === "completed"
+          ? "on_track"
+          : existing.status,
+    timeline: [timelineEvent, ...existing.timeline],
+  };
+}
+
+/** Build patch for a sub-stage update (stage unchanged). */
+export function buildSubStageChangePatch(
+  existing: LoanFile,
+  subStatusId: string | undefined,
+): Partial<LoanFile> | null {
+  if (existing.stageSubStatus === subStatusId) return null;
+
+  const prevLabel = getSubStatusLabel(existing.stage, existing.stageSubStatus) ?? "—";
+  const nextLabel = getSubStatusLabel(existing.stage, subStatusId) ?? "—";
+
+  const timelineEvent = {
+    id: `tl-sub-${Date.now()}`,
+    title: "Sub stage updated",
+    description: `${prevLabel} → ${nextLabel}`,
+    timestamp: new Date().toISOString(),
+    completed: true,
+  };
+
+  return {
+    stageSubStatus: subStatusId,
+    timeline: [timelineEvent, ...existing.timeline],
+  };
 }

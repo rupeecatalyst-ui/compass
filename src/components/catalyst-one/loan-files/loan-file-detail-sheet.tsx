@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Building2,
   Mail,
   MapPin,
   Phone,
@@ -119,20 +118,17 @@ export function LoanFileDetailSheet() {
                     </div>
                   </section>
 
-                  {file.propertyDetails && (
+                  {(file.propertyType || file.approxPropertyValue) && (
                     <>
                       <Separator />
                       <section>
-                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
-                          <Building2 className="h-4 w-4" /> Property
-                        </h4>
+                        <h4 className="text-sm font-semibold mb-3">Property Qualification</h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
-                          <SummaryItem label="Type" value={file.propertyDetails.propertyType ?? "—"} />
-                          <SummaryItem label="Builder" value={file.propertyDetails.builder ?? "—"} />
-                          <SummaryItem label="Project" value={file.propertyDetails.project ?? "—"} />
-                          <SummaryItem label="Market Value" value={file.propertyDetails.marketValue ? formatINR(file.propertyDetails.marketValue) : "—"} />
-                          <SummaryItem label="Agreement Value" value={file.propertyDetails.agreementValue ? formatINR(file.propertyDetails.agreementValue) : "—"} />
-                          <SummaryItem label="Address" value={file.propertyDetails.address ?? file.property ?? "—"} />
+                          <SummaryItem label="Property Type" value={file.propertyType ?? "—"} />
+                          <SummaryItem
+                            label="Approx Property Value"
+                            value={file.approxPropertyValue ? formatINR(file.approxPropertyValue) : "—"}
+                          />
                         </div>
                       </section>
                     </>

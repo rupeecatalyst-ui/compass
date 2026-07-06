@@ -1,32 +1,14 @@
 "use client";
 
-import { CatalystBranding } from "@/components/catalyst-one/catalyst-branding";
-import { KpiGrid } from "@/components/catalyst-one/kpi-grid";
-import { LoanPipelineWorkflow } from "@/components/catalyst-one/loan-pipeline-workflow";
-import { TodaysWorkGrid } from "@/components/catalyst-one/todays-work-grid";
-import { ActivityTimeline } from "@/components/catalyst-one/activity-timeline";
-import { StatusPill } from "@/components/design-system/status-pill";
+import { DashboardContent } from "@/components/catalyst-one/dashboard/dashboard-content";
+import { DashboardFilterProvider } from "@/hooks/use-dashboard-filter";
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <CatalystBranding />
-        <StatusPill variant="success" className="self-start">Live · Jul 2026</StatusPill>
+    <DashboardFilterProvider>
+      <div className="dashboard-command-centre -mx-4 md:-mx-6 lg:-mx-8 -mt-4 md:-mt-6 lg:-mt-8 min-h-[calc(100vh-4rem)] bg-[#0b1220] px-4 md:px-6 lg:px-8 pt-3 md:pt-4 pb-6">
+        <DashboardContent />
       </div>
-
-      <KpiGrid />
-
-      <LoanPipelineWorkflow />
-
-      <div className="grid gap-8 xl:grid-cols-5">
-        <div className="xl:col-span-3">
-          <TodaysWorkGrid />
-        </div>
-        <div className="xl:col-span-2">
-          <ActivityTimeline />
-        </div>
-      </div>
-    </div>
+    </DashboardFilterProvider>
   );
 }

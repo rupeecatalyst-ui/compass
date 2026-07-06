@@ -16,6 +16,20 @@ export function formatINRCompact(amount: number): string {
   return formatINR(amount, true);
 }
 
+/** Parse user-entered INR text (commas, ₹) into a whole rupee amount. */
+export function parseINRInput(value: string): number {
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return 0;
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Format amount for currency input display (no ₹ symbol — label carries currency). */
+export function formatINRInput(amount: number | undefined): string {
+  if (!amount || amount <= 0) return "";
+  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(amount);
+}
+
 export function formatCount(count: number): string {
   return new Intl.NumberFormat("en-IN").format(count);
 }

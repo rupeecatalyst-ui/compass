@@ -1,10 +1,12 @@
-import { ModulePlaceholder } from "@/components/catalyst-one/module-placeholder";
+"use client";
+
+import { Suspense } from "react";
+import { LoanBoardWorkspace } from "@/components/catalyst-one/loan-board/loan-board-workspace";
 
 export default function PipelinePage() {
   return (
-    <ModulePlaceholder
-      title="Pipeline"
-      description="Detailed pipeline management with stage transitions, SLAs, and conversion analytics."
-    />
+    <Suspense fallback={null}>
+      <LoanBoardWorkspace />
+    </Suspense>
   );
 }

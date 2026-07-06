@@ -18,7 +18,11 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { open, setOpen } = useCommandPalette();
   const pathname = usePathname();
-  const isFullWidth = pathname.startsWith("/loan-files");
+  const isFullWidth =
+    pathname.startsWith("/loan-files") ||
+    pathname === "/dashboard" ||
+    pathname === "/pipeline" ||
+    pathname === "/customers";
 
   return (
     <AuthGuard>
@@ -27,7 +31,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <MobileNav />
         <div className="flex flex-1 flex-col overflow-hidden">
           <AppTopbar onSearchClick={() => setOpen(true)} />
-          <main className={cn("flex-1 overflow-y-auto scrollbar-thin", isFullWidth && "overflow-hidden")}>
+          <main
+            className={cn(
+              "flex-1 overflow-y-auto scrollbar-thin",
+              pathname.startsWith("/loan-files") && "overflow-hidden",
+            )}
+          >
             <motion.div
               variants={pageVariants}
               initial="initial"
@@ -36,7 +45,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               className={cn(
                 "container mx-auto p-4 md:p-6 lg:p-8",
                 !isFullWidth && "max-w-7xl",
-                isFullWidth && "max-w-none h-full p-0 md:p-0 lg:p-0",
+                isFullWidth && pathname.startsWith("/loan-files") && "max-w-none h-full p-0 md:p-0 lg:p-0",
+                isFullWidth && (pathname === "/dashboard" || pathname === "/pipeline" || pathname === "/customers") && "max-w-none",
               )}
             >
               {children}

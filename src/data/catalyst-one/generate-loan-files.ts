@@ -1,4 +1,13 @@
 import { getStageIndex, getStageProgress, STAGE_ORDER } from "@/constants/loan-pipeline";
+import {
+  computeTopUpRequested,
+  getSubStatusesForStage,
+  PROPERTY_TYPES,
+  SECURED_PRODUCTS,
+  UNSECURED_PRODUCTS,
+} from "@/constants/loan-stage-master";
+import { inferLendingTypeFromProduct } from "@/lib/loan-validation";
+import { ORGANIZATION_REGISTRY } from "@/data/catalyst-one/organization-registry-seed";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import type {
   DocumentCheckStatus,
@@ -12,15 +21,7 @@ import type {
   SavedViewPreset,
 } from "@/types/catalyst-one";
 
-export const LOAN_PRODUCTS = [
-  "Home Loan",
-  "Home Loan Balance Transfer",
-  "Loan Against Property",
-  "Business Loan",
-  "Working Capital",
-  "Construction Finance",
-  "Personal Loan",
-] as const;
+export const LOAN_PRODUCTS = [...SECURED_PRODUCTS, ...UNSECURED_PRODUCTS] as const;
 
 export const LOAN_LENDERS = [
   "HDFC Bank",
@@ -62,13 +63,13 @@ const DOC_NAMES = [
 
 const TIMELINE_TITLES = [
   "Lead Created",
+  "Pre Login",
   "Logged In",
-  "Credit Query",
-  "Document Received",
-  "Soft Approval",
-  "Final Approval",
-  "Disbursed",
-  "Payout Received",
+  "Credit WIP",
+  "Soft Approved",
+  "Final Approved",
+  "Closure WIP",
+  "Loan Won",
 ] as const;
 
 const TASK_POOL = [
@@ -146,19 +147,27 @@ function buildTasks(rm: string, stageIndex: number, rand: () => number, fileInde
 }
 
 function isPropertyProduct(product: string): boolean {
-  return ["Home Loan", "Home Loan Balance Transfer", "Loan Against Property", "Construction Finance"].includes(product);
+  return [
+    "Home Loan",
+    "Home Loan Balance Transfer",
+    "Loan Against Property",
+    "Construction Finance",
+    "Commercial Property Loan",
+    "Plot Loan",
+    "Lease Rental Discounting",
+  ].includes(product);
 }
 
 function isBusinessProduct(product: string): boolean {
-  return ["Business Loan", "Working Capital"].includes(product);
+  return product.includes("Business Loan") || product === "Working Capital";
 }
 
 export function generateLoanFiles(count = 100): LoanFile[] {
   const rand = seededRandom(2026);
   const stageDistribution: PipelineStage[] = [];
 
-  STAGE_ORDER.forEach((stage, stageIdx) => {
-    const stageCount = stageIdx < 8 ? 12 : 4;
+  STAGE_ORDER.forEach((stage) => {
+    const stageCount = stage === "won" ? 4 : 12;
     for (let i = 0; i < stageCount; i++) stageDistribution.push(stage);
   });
 
@@ -172,7 +181,7 @@ export function generateLoanFiles(count = 100): LoanFile[] {
     const amountBase =
       product.includes("Home") || product === "Loan Against Property" || product === "Construction Finance"
         ? 55_00_000
-        : product === "Business Loan" || product === "Working Capital"
+        : product.includes("Business Loan") || product === "Working Capital"
           ? 85_00_000
           : 18_00_000;
     const loanAmount = Math.round((amountBase * (0.55 + rand() * 1.35)) / 50_000) * 50_000;
@@ -180,14 +189,18 @@ export function generateLoanFiles(count = 100): LoanFile[] {
     const revenuePercent = Math.round((0.8 + rand() * 0.8) * 100) / 100;
     const expectedRevenue = Math.round(loanAmount * (revenuePercent / 100));
     const revenueReceived =
-      stageIndex >= 7 ? Math.round(expectedRevenue * (0.4 + rand() * 0.6)) : stageIndex >= 8 ? expectedRevenue : 0;
+      stage === "won"
+        ? Math.round(expectedRevenue * (0.85 + rand() * 0.15))
+        : stageIndex >= 6
+          ? Math.round(expectedRevenue * (0.4 + rand() * 0.6))
+          : 0;
     const daysInStage = Math.floor(rand() * 22) + 1;
-    const isDelayed = daysInStage > 14 && stageIndex < 8;
+    const isDelayed = daysInStage > 14 && stage !== "won";
     const isUrgent = rand() > 0.85 || isDelayed;
     const priority: LoanFilePriority = isUrgent ? "urgent" : rand() > 0.55 ? "high" : rand() > 0.35 ? "medium" : "low";
 
     let status: LoanFileStatus = "on_track";
-    if (stage === "payout_received") status = "completed";
+    if (stage === "won") status = "completed";
     else if (isDelayed) status = "delayed";
     else if (rand() > 0.82) status = "at_risk";
 
@@ -204,19 +217,24 @@ export function generateLoanFiles(count = 100): LoanFile[] {
     disbursement.setDate(disbursement.getDate() + Math.floor(rand() * 40) + 3);
 
     const sanctionAmount = stageIndex >= 5 ? Math.round(loanAmount * (0.92 + rand() * 0.08)) : 0;
-    const disbursementAmount = stageIndex >= 7 ? Math.round(sanctionAmount * (0.85 + rand() * 0.15)) : 0;
+    const disbursementAmount = stage === "won" ? Math.round(sanctionAmount * (0.85 + rand() * 0.15)) : 0;
+    const finalLoanAmount =
+      stageIndex >= 5 ? Math.round(loanAmount * (0.92 + rand() * 0.08)) : undefined;
+    const lendingType = inferLendingTypeFromProduct(product);
+    const transactionType = product.includes("Balance Transfer") || rand() > 0.75 ? "balance_transfer" : "fresh";
+    const btOrg =
+      transactionType === "balance_transfer" && lendingType === "secured"
+        ? pick(ORGANIZATION_REGISTRY, rand)
+        : null;
+    const btAmount = btOrg ? Math.round(requiredAmount * (0.55 + rand() * 0.35)) : undefined;
+    const subStatuses = getSubStatusesForStage(stage);
+    const stageSubStatus = subStatuses.length > 0 ? pick(subStatuses, rand).id : undefined;
     const interestRate = Math.round((8 + rand() * 4.5) * 100) / 100;
     const tenure = pick([120, 180, 240, 300], rand);
 
-    const propertyDetails = isPropertyProduct(product)
-      ? {
-          propertyType: pick(["Apartment", "Villa", "Plot", "Commercial"], rand),
-          builder: pick(["Lodha", "Prestige", "DLF", "Godrej", "Local Builder"], rand),
-          project: `${pick(["Heights", "Park", "Enclave", "Residency"], rand)} ${customer.city}`,
-          marketValue: Math.round(loanAmount * (1.1 + rand() * 0.3)),
-          agreementValue: Math.round(loanAmount * (0.95 + rand() * 0.1)),
-          address: `${Math.floor(rand() * 400) + 1}, ${pick(["MG Road", "Ring Road", "Sector 62"], rand)}, ${customer.city}`,
-        }
+    const propertyType = isPropertyProduct(product) ? pick([...PROPERTY_TYPES], rand) : undefined;
+    const approxPropertyValue = isPropertyProduct(product)
+      ? Math.round(loanAmount * (1.1 + rand() * 0.3))
       : undefined;
 
     const businessDetails = isBusinessProduct(product)
@@ -231,6 +249,12 @@ export function generateLoanFiles(count = 100): LoanFile[] {
 
     const taskOffset = index * 3;
 
+    const referralCustomer =
+      rand() > 0.35
+        ? CUSTOMER_SEED[(index + 7) % CUSTOMER_SEED.length]!
+        : null;
+    const sourceChannels = ["Referral", "Direct", "Digital Lead", "Partner", "Walk-in"] as const;
+
     return {
       id: `lf-${String(index + 1).padStart(3, "0")}`,
       fileNumber: `RC-2026-${String(1000 + index)}`,
@@ -241,11 +265,15 @@ export function generateLoanFiles(count = 100): LoanFile[] {
       city: customer.city,
       state: customer.state,
       employmentType: customer.employmentType,
+      lendingType,
+      transactionType,
       loanProduct: product,
       loanAmount,
       requiredAmount,
+      finalLoanAmount,
       lender,
       stage,
+      stageSubStatus,
       relationshipManager: rm,
       priority,
       daysInStage,
@@ -262,10 +290,25 @@ export function generateLoanFiles(count = 100): LoanFile[] {
       status,
       progress: getStageProgress(stage),
       createdAt: created.toISOString(),
-      property: propertyDetails?.address,
-      propertyDetails,
+      propertyType,
+      approxPropertyValue,
       businessDetails,
       coApplicant: rand() > 0.55 ? `${customer.name.split(" ")[0]} Co-applicant` : undefined,
+      coApplicantId:
+        rand() > 0.55
+          ? CUSTOMER_SEED[(index + 3) % CUSTOMER_SEED.length]!.id
+          : undefined,
+      guarantor: rand() > 0.7 ? `${customer.name.split(" ")[0]} Guarantor` : undefined,
+      guarantorId:
+        rand() > 0.7 ? CUSTOMER_SEED[(index + 11) % CUSTOMER_SEED.length]!.id : undefined,
+      source: referralCustomer ? "Referral" : pick(sourceChannels, rand),
+      sourceContactId: referralCustomer?.id,
+      sourceContactName: referralCustomer?.name,
+      btInstitutionId: btOrg?.id,
+      btInstitutionName: btOrg?.name,
+      btAmount,
+      topUpRequested: btAmount ? computeTopUpRequested(requiredAmount, btAmount) : undefined,
+      settlementCompleted: stage === "won" && rand() > 0.5,
       documents: buildDocuments(stageIndex, rand),
       tasks: buildTasks(rm, stageIndex, rand, index, taskOffset),
       timeline: buildTimeline(stage, created, rand),

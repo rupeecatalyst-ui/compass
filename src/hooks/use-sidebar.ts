@@ -1,17 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { STORAGE_KEYS } from "@/constants/animations";
+import { ANIMATION, STORAGE_KEYS } from "@/constants/animations";
+
+function readCollapsedState(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(STORAGE_KEYS.SIDEBAR_COLLAPSED) === "true";
+}
 
 export function useSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.SIDEBAR_COLLAPSED);
-    if (stored !== null) {
-      setCollapsed(stored === "true");
-    }
+    setCollapsed(readCollapsedState());
+    setHydrated(true);
   }, []);
 
   const toggle = useCallback(() => {
@@ -26,11 +30,12 @@ export function useSidebar() {
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return {
-    collapsed,
+    collapsed: hydrated ? collapsed : false,
     mobileOpen,
     toggle,
     setCollapsed,
     openMobile,
     closeMobile,
+    sidebarWidth: collapsed ? ANIMATION.sidebar.collapsed.width : ANIMATION.sidebar.expanded.width,
   };
 }

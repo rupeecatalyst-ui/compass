@@ -16,12 +16,14 @@ import { allNavigationGroups, recentPages, favoritePages, pinnedPages } from "@/
 import { filterNavigationByRole } from "@/lib/navigation-utils";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { CatalystBranding } from "@/components/catalyst-one/catalyst-branding";
+import { ANIMATION } from "@/constants/animations";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { UserProfile } from "@/components/layout/user-profile";
 import { Separator } from "@/components/ui/separator";
+import { SidebarNavItem } from "@/components/layout/sidebar-nav-item";
 
 interface AppSidebarProps {
   onSearchClick?: () => void;
@@ -36,9 +38,9 @@ export function AppSidebar({ onSearchClick }: AppSidebarProps) {
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 72 : 260 }}
-      transition={{ type: "spring", stiffness: 400, damping: 35 }}
-      className="hidden md:flex h-screen flex-col border-r border-sidebar-border bg-sidebar shrink-0"
+      animate={{ width: collapsed ? ANIMATION.sidebar.collapsed.width : ANIMATION.sidebar.expanded.width }}
+      transition={ANIMATION.sidebar.transition}
+      className="hidden md:flex h-screen flex-col border-r border-sidebar-border bg-sidebar shrink-0 overflow-hidden"
     >
       {/* Branding */}
       <div className="flex h-16 items-center px-4 border-b border-sidebar-border">
@@ -100,20 +102,7 @@ export function AppSidebar({ onSearchClick }: AppSidebarProps) {
               </p>
             )}
             {group.items.map((item) => (
-              <NavLink
-                key={item.href}
-                href={item.href}
-                icon={item.icon}
-                label={item.title}
-                badge={item.badge}
-                active={
-                  pathname === item.href ||
-                  (item.href !== "/dashboard" &&
-                    item.href !== "/organization" &&
-                    pathname.startsWith(item.href))
-                }
-                collapsed={collapsed}
-              />
+              <SidebarNavItem key={item.href + item.title} item={item} collapsed={collapsed} />
             ))}
           </div>
         ))}

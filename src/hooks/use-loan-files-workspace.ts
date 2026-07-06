@@ -126,7 +126,7 @@ export function useLoanFilesWorkspace() {
           stage: newStage,
           daysInStage: 0,
           progress: Math.round(((stageIndex + 1) / PIPELINE_STAGES.length) * 100),
-          status: newStage === "payout_received" ? "completed" : f.status === "completed" ? "on_track" : f.status,
+          status: newStage === "won" ? "completed" : f.status === "completed" ? "on_track" : f.status,
           timeline: [
             ...f.timeline,
             {
@@ -317,7 +317,7 @@ export function useLoanFilesWorkspace() {
       todayDisbursementCount: todayDisbursement.length,
       expectedRevenue,
       expectedPayout: activeFiles
-        .filter((f) => f.stage === "disbursement" || f.stage === "final_approval")
+        .filter((f) => f.stage === "closure_wip" || f.stage === "final_approved")
         .reduce((s, f) => s + f.loanAmount, 0),
       followUpCount: activeFiles.filter((f) => f.tasks.some((t) => !t.completed && new Date(t.dueDate) <= new Date())).length,
       urgentFiles: urgent.slice(0, 5),

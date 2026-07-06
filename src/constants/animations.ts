@@ -18,8 +18,8 @@ export const ANIMATION = {
   },
   sidebar: {
     expanded: { width: 260 },
-    collapsed: { width: 72 },
-    transition: { type: "spring", stiffness: 400, damping: 35 },
+    collapsed: { width: 64 },
+    transition: { type: "spring", stiffness: 380, damping: 32 },
   },
   cardHover: {
     rest: { scale: 1, y: 0 },
@@ -45,10 +45,17 @@ export const ANIMATION = {
 
 export const STORAGE_KEYS = {
   SIDEBAR_COLLAPSED: "compass:sidebar-collapsed",
+  SIDEBAR_EXPANDED: "compass:sidebar-expanded",
   RECENT_PAGES: "compass:recent-pages",
   FAVORITES: "compass:favorites",
   WORKSPACE: "compass:workspace",
   LOAN_FILES_VIEW: "compass:loan-files-view",
   LOAN_FILES_DATA: "compass:loan-files-data",
   LOAN_FILES_SAVED_VIEWS: "compass:loan-files-saved-views",
+  LOAN_BOARD_DENSITY: "compass:loan-board-density",
+  LOAN_BOARD_FIELDS: "compass:loan-board-fields",
+  LOAN_BOARD_COLLAPSED_COLUMNS: "compass:loan-board-collapsed-columns",
+  CUSTOMERS_DATA: "compass:customers-data",
+  CUSTOMERS_VIEW_MODE: "compass:customers-view-mode",
+  CUSTOMERS_COLUMNS: "compass:customers-columns",
 } as const;
