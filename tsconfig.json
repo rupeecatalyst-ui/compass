@@ -15,7 +15,8 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@server/*": ["./server/*"]
     }
   },
   "include": [
@@ -35,6 +36,12 @@
     "src/utils/**/*.ts",
     "src/api/**/*.ts",
     "src/middleware.ts",
+    "src/app/api/**/*.ts",
+    "server/config/**/*.ts",
+    "server/lib/**/*.ts",
+    "server/services/**/*.ts",
+    "server/utils/**/*.ts",
+    "server/validators/**/*.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules", "server", "dist", "src/components/site", "src/routes", "src/integrations", "src/lib/site.ts", "src/lib/blog.ts", "src/lib/lead-capture.ts", "src/lib/error-page.ts", "src/lib/error-capture.ts", "src/lib/lovable-error-reporting.ts"]

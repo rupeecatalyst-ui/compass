@@ -5,6 +5,7 @@ import { serverEnv, isDev } from "./config/env";
 import authRoutes from "./routes/auth.routes";
 import { errorMiddleware, notFoundMiddleware } from "./middleware/error.middleware";
 
+/** Legacy Express application (ADR-014). Auth routes retained for local parity; production auth uses Next.js Route Handlers. */
 const app = express();
 
 const configuredOrigins = serverEnv.CORS_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean);

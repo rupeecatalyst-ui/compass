@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  serverExternalPackages: ["bcryptjs", "jsonwebtoken", "@prisma/client"],
   images: {
     remotePatterns: [
       {
@@ -12,7 +13,8 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    // Empty NEXT_PUBLIC_API_URL = proxy to local backend (must use || — ?? treats "" as set)
+    // ADR-014: App Router handlers under src/app/api/auth/* take precedence over rewrites.
+    // Remaining /api/* routes proxy to the legacy Express API during local development.
     const apiUrl =
       process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000";
     return [

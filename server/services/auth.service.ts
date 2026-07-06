@@ -9,6 +9,10 @@ import {
   verifyRefreshToken,
 } from "./token.service";
 
+/**
+ * Shared authentication service (ADR-014).
+ * Consumed by Next.js Route Handlers and the legacy Express API.
+ */
 /** Demo user for development when database is unavailable */
 const DEMO_USER = {
   id: "demo-user-id",
