@@ -13,6 +13,7 @@ import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-head
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
+import { ChanakyaLenderPipelinePanel } from "@/components/catalyst-one/shared/chanakya-lender-pipeline-panel";
 import { DocumentsWorkspace } from "@/components/catalyst-one/execution/documents-workspace";
 import { TasksWorkspace } from "@/components/catalyst-one/execution/tasks-workspace";
 import {
@@ -31,6 +32,7 @@ import {
 import { loanManagers } from "@/data/catalyst-one/loan-files";
 import { isOccupancyApplicableToProduct } from "@/constants/occupancy-master";
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
+import { LENDER_CASE_STAGE_LABELS, normalizeLenderCaseStage } from "@/constants/lender-pipeline";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { runWithFeedback } from "@/lib/action-feedback";
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
@@ -324,7 +326,7 @@ function LoanWorkspaceModalContent({
       onSaveAndExit={handleSaveAndExit}
       onOpenContact={onOpenContact}
       commandBarRef={stickyChromeRef}
-      density={activeTab === "lenders" ? "compact" : "default"}
+      density={activeTab === "lenders" ? "pipeline" : "default"}
     />
   );
 
@@ -354,7 +356,9 @@ function LoanWorkspaceModalContent({
       key={`${draft.id}-${defaultTab}`}
       value={activeTab}
       onValueChange={setActiveTab}
-      className="px-5 py-6 sm:px-6 lg:px-8 lg:py-8"
+      className={cn(
+        activeTab === "lenders" ? "px-3 py-3 sm:px-4" : "px-5 py-6 sm:px-6 lg:px-8 lg:py-8",
+      )}
     >
       <TabsList className="mb-6 grid h-auto w-full grid-cols-5 bg-muted p-1">
         <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
@@ -591,10 +595,10 @@ function LoanWorkspaceModalContent({
                       [...active]
                         .filter((c) => c.probability && c.probability !== "rejected" && c.probability !== "withdrawn")
                         .sort((a, b) => String(a.probability).localeCompare(String(b.probability)))[0] ?? null;
-                    const sanction = cases.filter((c) => c.caseStage === "sanction").length;
-                    const queries = cases.filter((c) => c.caseStage === "bank_query").length;
-                    const rejected = cases.filter((c) => c.caseStage === "rejected" || c.probability === "rejected").length;
-                    const withdrawn = cases.filter((c) => c.caseStage === "withdrawn" || c.probability === "withdrawn").length;
+                    const finalApproved = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "final_approved").length;
+                    const closureWip = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "closure_wip").length;
+                    const lost = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "lost").length;
+                    const onHold = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "hold").length;
 
                     return (
                       <>
@@ -602,10 +606,10 @@ function LoanWorkspaceModalContent({
                           <SummaryItem label="Primary Lender" value={primary?.lender ?? "—"} accent={Boolean(primary)} />
                           <SummaryItem label="Highest Probability" value={highestProb?.probability ?? "—"} />
                           <SummaryItem label="Active Lenders" value={active.length} accent={active.length > 0} />
-                          <SummaryItem label="Sanction Received" value={sanction} />
-                          <SummaryItem label="Queries Pending" value={queries} />
-                          <SummaryItem label="Rejected" value={rejected} />
-                          <SummaryItem label="Withdrawn" value={withdrawn} />
+                          <SummaryItem label="Final Approved" value={finalApproved} />
+                          <SummaryItem label="Closure WIP" value={closureWip} />
+                          <SummaryItem label="Lost" value={lost} />
+                          <SummaryItem label="On Hold" value={onHold} />
                         </div>
 
                         <div className="mt-4 flex items-center justify-between gap-2">
@@ -626,7 +630,7 @@ function LoanWorkspaceModalContent({
                             <SummaryItem
                               key={c.id}
                               label={c.isPrimary ? "Primary Lender" : "Active Lender"}
-                              value={`${c.lender}${c.caseStage ? ` · ${c.caseStage}` : ""}`}
+                              value={`${c.lender}${c.caseStage ? ` · ${LENDER_CASE_STAGE_LABELS[normalizeLenderCaseStage(c.caseStage)]}` : ""}`}
                               accent={Boolean(c.isPrimary)}
                             />
                           ))}
@@ -651,10 +655,15 @@ function LoanWorkspaceModalContent({
           </TabsContent>
 
           <TabsContent value="lenders" className="mt-0">
-            <LoanWorkbenchSection
-              title="Lender Pipeline"
-              description="Track lender cases independently of the loan stage."
-            >
+            <div className="relative min-h-0">
+              <div className="pointer-events-none absolute right-0 top-0 z-20 hidden lg:block">
+                <div className="pointer-events-auto">
+                  <ChanakyaLenderPipelinePanel loan={draft} cases={draft.lenders ?? []} />
+                </div>
+              </div>
+              <div className="mb-2 lg:hidden">
+                <ChanakyaLenderPipelinePanel loan={draft} cases={draft.lenders ?? []} className="max-w-none" />
+              </div>
               <LenderPipelineBoard
                 loan={draft}
                 cases={draft.lenders ?? []}
@@ -675,7 +684,7 @@ function LoanWorkspaceModalContent({
                   })
                 }
               />
-            </LoanWorkbenchSection>
+            </div>
           </TabsContent>
 
           <TabsContent value="documents" className="mt-0">
@@ -743,7 +752,9 @@ function LoanWorkspaceModalContent({
             <span className="font-medium text-foreground">{draft.fileNumber}</span>
             <span className="truncate max-w-[220px]">{draft.customerName}</span>
             <span className="tabular-nums">{formatINR(draft.requiredAmount)}</span>
-            <span className="truncate">Stage {STAGE_LABELS[draft.stage]}</span>
+            {activeTab !== "lenders" && (
+              <span className="truncate">Stage {STAGE_LABELS[draft.stage]}</span>
+            )}
             <span className="truncate">RM {draft.relationshipManager}</span>
             <span className={cn("rounded border px-1.5 py-0.5 capitalize", LOAN_FILE_PRIORITY_STYLES[draft.priority].className)}>
               {draft.priority}
@@ -760,6 +771,7 @@ function LoanWorkspaceModalContent({
         <LoanWorkbenchLayout
           workbench={workbench}
           intelligence={intelligencePanel}
+          hideIntelligence={activeTab === "lenders"}
           onWorkbenchScroll={handleContentScroll}
         />
       </div>

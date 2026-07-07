@@ -260,15 +260,27 @@ export type LenderProbability =
   | "rejected"
   | "withdrawn";
 
+/** UX-04D — Frozen enterprise lender pipeline stages (master). */
 export type LenderCaseStage =
-  | "raw_lead"
-  | "login"
-  | "credit"
-  | "bank_query"
-  | "sanction"
-  | "disbursement"
+  | "prelogin"
+  | "logged_in_wip"
+  | "soft_approved"
+  | "final_approved"
+  | "closure_wip"
+  | "disbursed"
+  | "lost"
+  | "hold";
+
+export type LenderLostReason =
   | "rejected"
-  | "withdrawn";
+  | "customer_declined"
+  | "better_offer"
+  | "eligibility"
+  | "documentation"
+  | "duplicate"
+  | "other";
+
+export type LenderPaymentStatus = "pending" | "raised" | "received" | "overdue";
 
 export interface LoanLenderExecution {
   id: string;
@@ -282,10 +294,26 @@ export interface LoanLenderExecution {
   caseStage?: LenderCaseStage;
   /** Optional lender-specific sub stage label (freeform, no workflow coupling). */
   caseSubStage?: string;
+  /** UX-04D — Per-case expected loan amount. */
+  expectedLoanAmount?: number;
   /** UX-04 — Probability and primary lender signals. */
   probability?: LenderProbability;
   isPrimary?: boolean;
   remarks?: string;
+  /** UX-04D — Lost workflow */
+  lostReason?: LenderLostReason;
+  /** UX-04D — Hold workflow */
+  holdReason?: string;
+  holdReviewDate?: string;
+  /** UX-04D — Disbursement workflow */
+  disbursementDate?: string;
+  disbursedAmount?: number;
+  finalRoi?: number;
+  finalTenure?: number;
+  processingFee?: number;
+  revenue?: number;
+  invoiceRaised?: boolean;
+  paymentStatus?: LenderPaymentStatus;
   createdBy?: string;
   updatedBy?: string;
   createdAt: string;

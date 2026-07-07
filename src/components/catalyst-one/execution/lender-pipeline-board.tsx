@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { MoreHorizontal, Plus } from "lucide-react";
 import { LenderLogo } from "@/components/catalyst-one/shared/lender-logo";
+import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,6 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,11 +34,21 @@ import {
   LENDER_CASE_STAGES,
   LENDER_CASE_STAGE_COLORS,
   LENDER_CASE_STAGE_LABELS,
+  LENDER_LOST_REASONS,
   LENDER_PROBABILITY_LABELS,
   getProbabilityStyle,
+  normalizeLenderCaseStage,
 } from "@/constants/lender-pipeline";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
-import type { LenderCaseStage, LenderProbability, LoanFile, LoanLenderExecution } from "@/types/catalyst-one";
+import { formatINR } from "@/lib/format-currency";
+import type {
+  LenderCaseStage,
+  LenderLostReason,
+  LenderPaymentStatus,
+  LenderProbability,
+  LoanFile,
+  LoanLenderExecution,
+} from "@/types/catalyst-one";
 import { loanLenders } from "@/data/catalyst-one/loan-files";
 
 function nowIso() {
@@ -53,6 +73,8 @@ function formatLastUpdated(iso?: string): string {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) + ` · ${time}`;
 }
 
+type WorkflowCase = LoanLenderExecution & { targetStage: LenderCaseStage };
+
 export function LenderPipelineBoard({
   loan,
   cases,
@@ -68,18 +90,67 @@ export function LenderPipelineBoard({
 }) {
   const [dragOverStage, setDragOverStage] = useState<LenderCaseStage | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [disbursementCase, setDisbursementCase] = useState<WorkflowCase | null>(null);
+  const [lostCase, setLostCase] = useState<WorkflowCase | null>(null);
+  const [holdCase, setHoldCase] = useState<WorkflowCase | null>(null);
+
+  const [addForm, setAddForm] = useState<{
+    lender: string;
+    expectedLoanAmount: number;
+    caseStage: LenderCaseStage;
+    caseSubStage: string;
+  }>({
+    lender: loanLenders[0] ?? "HDFC Bank",
+    expectedLoanAmount: loan.requiredAmount,
+    caseStage: "prelogin" as LenderCaseStage,
+    caseSubStage: "",
+  });
+
+  const [disbursementForm, setDisbursementForm] = useState({
+    disbursementDate: new Date().toISOString().slice(0, 10),
+    disbursedAmount: loan.requiredAmount,
+    finalRoi: loan.interestRate ?? 0,
+    finalTenure: loan.tenure ?? 0,
+    processingFee: 0,
+    revenue: 0,
+    invoiceRaised: false,
+    paymentStatus: "pending" as LenderPaymentStatus,
+  });
+
+  const [lostReason, setLostReason] = useState<LenderLostReason>("rejected");
+  const [holdForm, setHoldForm] = useState({ holdReason: "", holdReviewDate: "" });
 
   const casesByStage = useMemo(() => {
     const map = new Map<LenderCaseStage, LoanLenderExecution[]>();
     for (const stage of LENDER_CASE_STAGES) map.set(stage.id, []);
     cases.forEach((c) => {
-      const stage = c.caseStage ?? "raw_lead";
+      const stage = normalizeLenderCaseStage(c.caseStage);
       const arr = map.get(stage) ?? [];
       arr.push(c);
       map.set(stage, arr);
     });
     return map;
   }, [cases]);
+
+  const applyMove = (caseId: string, stage: LenderCaseStage, patch?: Partial<LoanLenderExecution>) => {
+    const next = cases.map((c) =>
+      c.id === caseId
+        ? {
+            ...c,
+            ...patch,
+            caseStage: stage,
+            updatedBy,
+            updatedAt: nowIso(),
+          }
+        : c,
+    );
+    const moved = cases.find((c) => c.id === caseId);
+    onChange(next);
+    onTimeline(`Lender moved: ${moved?.lender ?? caseId} → ${LENDER_CASE_STAGE_LABELS[stage]}`);
+    setDragOverStage(null);
+    setDraggingId(null);
+  };
 
   const handleDragStart = (e: React.DragEvent, caseId: string) => {
     e.dataTransfer.setData("text/plain", caseId);
@@ -91,42 +162,72 @@ export function LenderPipelineBoard({
     e.preventDefault();
     const caseId = e.dataTransfer.getData("text/plain");
     if (!caseId) return;
-    const next = cases.map((c) =>
-      c.id === caseId
-        ? {
-            ...c,
-            caseStage: stage,
-            updatedBy,
-            updatedAt: nowIso(),
-          }
-        : c,
-    );
-    const moved = cases.find((c) => c.id === caseId);
-    onChange(next);
-    onTimeline(
-      `Lender moved: ${moved?.lender ?? caseId} → ${LENDER_CASE_STAGE_LABELS[stage]}`,
-    );
-    setDragOverStage(null);
-    setDraggingId(null);
+    const c = cases.find((x) => x.id === caseId);
+    if (!c) return;
+
+    if (stage === "disbursed") {
+      setDisbursementCase({ ...c, targetStage: stage });
+      setDisbursementForm({
+        disbursementDate: new Date().toISOString().slice(0, 10),
+        disbursedAmount: c.expectedLoanAmount ?? loan.requiredAmount,
+        finalRoi: c.finalRoi ?? loan.interestRate ?? 0,
+        finalTenure: c.finalTenure ?? loan.tenure ?? 0,
+        processingFee: c.processingFee ?? 0,
+        revenue: c.revenue ?? 0,
+        invoiceRaised: c.invoiceRaised ?? false,
+        paymentStatus: c.paymentStatus ?? "pending",
+      });
+      setDragOverStage(null);
+      setDraggingId(null);
+      return;
+    }
+    if (stage === "lost") {
+      setLostCase({ ...c, targetStage: stage });
+      setLostReason(c.lostReason ?? "rejected");
+      setDragOverStage(null);
+      setDraggingId(null);
+      return;
+    }
+    if (stage === "hold") {
+      setHoldCase({ ...c, targetStage: stage });
+      setHoldForm({
+        holdReason: c.holdReason ?? "",
+        holdReviewDate: c.holdReviewDate ?? "",
+      });
+      setDragOverStage(null);
+      setDraggingId(null);
+      return;
+    }
+
+    applyMove(caseId, stage);
   };
 
-  const addCase = () => {
+  const submitAddCase = () => {
     const ts = nowIso();
-    const lender = loanLenders[0] ?? "HDFC Bank";
     const next: LoanLenderExecution = {
       id: newId("lcase"),
-      lender,
+      lender: addForm.lender,
       status: "active",
-      caseStage: "raw_lead",
+      caseStage: addForm.caseStage,
+      caseSubStage: addForm.caseSubStage || undefined,
+      expectedLoanAmount: addForm.expectedLoanAmount,
       probability: "medium",
       isPrimary: cases.length === 0,
+      relationshipManager: loan.relationshipManager,
       createdBy: updatedBy,
       updatedBy,
       createdAt: ts,
       updatedAt: ts,
     };
     onChange([next, ...cases]);
-    onTimeline(`Lender case created: ${lender}`);
+    onTimeline(`Lender case created: ${addForm.lender}`);
+    setAddOpen(false);
+    setAddForm({
+      lender: loanLenders[0] ?? "HDFC Bank",
+      expectedLoanAmount: loan.requiredAmount,
+      caseStage: "prelogin",
+      caseSubStage: "",
+    });
   };
 
   const setPrimary = (id: string) => {
@@ -140,36 +241,66 @@ export function LenderPipelineBoard({
     const next = cases.map((c) => (c.id === id ? { ...c, probability: p, updatedBy, updatedAt: nowIso() } : c));
     const lender = cases.find((c) => c.id === id);
     onChange(next);
-    onTimeline(`Probability updated: ${lender?.lender ?? id} → ${LENDER_PROBABILITY_LABELS[p]}`);
+    onTimeline(`Success probability updated: ${lender?.lender ?? id} → ${LENDER_PROBABILITY_LABELS[p]}`);
   };
 
-  const removeDraft = (id: string) => {
+  const removeCase = (id: string) => {
     const lender = cases.find((c) => c.id === id);
     onChange(cases.filter((c) => c.id !== id));
     onTimeline(`Lender case removed: ${lender?.lender ?? id}`);
   };
 
+  const confirmDisbursement = () => {
+    if (!disbursementCase) return;
+    applyMove(disbursementCase.id, "disbursed", {
+      disbursementDate: disbursementForm.disbursementDate,
+      disbursedAmount: disbursementForm.disbursedAmount,
+      finalRoi: disbursementForm.finalRoi,
+      finalTenure: disbursementForm.finalTenure,
+      processingFee: disbursementForm.processingFee,
+      revenue: disbursementForm.revenue,
+      invoiceRaised: disbursementForm.invoiceRaised,
+      paymentStatus: disbursementForm.paymentStatus,
+    });
+    setDisbursementCase(null);
+  };
+
+  const confirmLost = () => {
+    if (!lostCase) return;
+    applyMove(lostCase.id, "lost", { lostReason });
+    setLostCase(null);
+  };
+
+  const confirmHold = () => {
+    if (!holdCase || !holdForm.holdReason.trim() || !holdForm.holdReviewDate) return;
+    applyMove(holdCase.id, "hold", {
+      holdReason: holdForm.holdReason.trim(),
+      holdReviewDate: holdForm.holdReviewDate,
+    });
+    setHoldCase(null);
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs text-muted-foreground">
-          Drag lender cases across stages. Loan stage remains independent.
-        </div>
-        <Button type="button" size="sm" className="h-8 text-xs" onClick={addCase}>
+        <p className="text-[11px] text-muted-foreground">
+          One loan · multiple lender cases. Drag cases across stages to update execution.
+        </p>
+        <Button type="button" size="sm" className="h-7 text-xs" onClick={() => setAddOpen(true)}>
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Add Lender Case
         </Button>
       </div>
 
-      <div className="h-[calc(100vh-320px)] min-h-[520px] overflow-x-auto overflow-y-hidden scrollbar-thin">
-        <div className="flex min-w-max gap-1 h-full">
+      <div className="h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-hidden scrollbar-thin">
+        <div className="flex min-w-max gap-1 h-full pb-1">
           {LENDER_CASE_STAGES.map((col) => {
             const colCases = casesByStage.get(col.id) ?? [];
             const isDragOver = dragOverStage === col.id;
             return (
               <div
                 key={col.id}
-                className={cn("flex shrink-0 flex-col h-full w-[228px]")}
+                className={cn("flex shrink-0 flex-col h-full w-[200px]")}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setDragOverStage(col.id);
@@ -179,50 +310,43 @@ export function LenderPipelineBoard({
               >
                 <div
                   className={cn(
-                    "shrink-0 rounded-t-lg border border-b-0 border-border bg-card/80 backdrop-blur-sm px-2 py-1.5",
+                    "shrink-0 rounded-t-md border border-b-0 border-border bg-card/90 px-2 py-1",
                     isDragOver && "border-primary/40 bg-primary/5",
                   )}
                   style={{ borderTopWidth: 3, borderTopColor: col.color }}
                 >
-                  <h4 className="text-xs font-semibold text-foreground truncate">{col.label}</h4>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {colCases.length} {colCases.length === 1 ? "Case" : "Cases"}
-                  </p>
+                  <h4 className="text-[11px] font-semibold text-foreground truncate leading-tight">{col.label}</h4>
+                  <p className="text-[9px] text-muted-foreground">{colCases.length}</p>
                 </div>
                 <div
                   className={cn(
-                    "flex-1 min-h-0 rounded-b-lg border border-t-0 border-border bg-muted/20 p-1 overflow-y-auto scrollbar-thin",
+                    "flex-1 min-h-0 rounded-b-md border border-t-0 border-border bg-muted/15 p-0.5 overflow-y-auto scrollbar-thin",
                     isDragOver && "bg-primary/5 border-primary/30",
                   )}
                 >
                   <div className="space-y-0.5">
-                    {colCases.map((c) => {
-                      const prob = c.probability ?? "medium";
-
-                      return (
-                        <div key={c.id} className="relative">
-                          <LenderCaseKanbanCard
-                            loan={loan}
-                            stageLabel={col.label}
-                            stageColor={LENDER_CASE_STAGE_COLORS[col.id]}
-                            caseExecution={c}
-                            probability={prob}
-                            onDragStart={handleDragStart}
-                            onSetPrimary={() => setPrimary(c.id)}
-                            onRemove={() => removeDraft(c.id)}
-                            onProbabilityChange={(p) => updateProbability(c.id, p)}
-                          />
-                        </div>
-                      );
-                    })}
+                    {colCases.map((c) => (
+                      <LenderCaseKanbanCard
+                        key={c.id}
+                        loan={loan}
+                        stageLabel={col.label}
+                        stageColor={LENDER_CASE_STAGE_COLORS[col.id]}
+                        caseExecution={c}
+                        probability={c.probability ?? "medium"}
+                        onDragStart={handleDragStart}
+                        onSetPrimary={() => setPrimary(c.id)}
+                        onRemove={() => removeCase(c.id)}
+                        onProbabilityChange={(p) => updateProbability(c.id, p)}
+                      />
+                    ))}
                     {colCases.length === 0 && (
                       <div
                         className={cn(
-                          "flex h-14 items-center justify-center rounded-md border border-dashed border-border text-[10px] text-muted-foreground",
+                          "flex h-12 items-center justify-center rounded border border-dashed border-border text-[9px] text-muted-foreground",
                           isDragOver && "border-primary/40 text-primary",
                         )}
                       >
-                        {isDragOver ? "Drop here" : "No cases"}
+                        {isDragOver ? "Drop" : "—"}
                       </div>
                     )}
                   </div>
@@ -241,6 +365,217 @@ export function LenderPipelineBoard({
           />
         )}
       </div>
+
+      {/* Add Lender Case */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Add Lender Case</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground">Lender</Label>
+              <Select value={addForm.lender} onValueChange={(v) => setAddForm((f) => ({ ...f, lender: v }))}>
+                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {loanLenders.map((l) => (
+                    <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground">Expected Loan Amount</Label>
+              <INRCurrencyInput
+                className="mt-1"
+                value={addForm.expectedLoanAmount}
+                onChange={(v) => setAddForm((f) => ({ ...f, expectedLoanAmount: v ?? 0 }))}
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground">Stage</Label>
+              <Select
+                value={addForm.caseStage}
+                onValueChange={(v) => setAddForm((f) => ({ ...f, caseStage: v as LenderCaseStage }))}
+              >
+                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LENDER_CASE_STAGES.map((s) => (
+                    <SelectItem key={s.id} value={s.id} className="text-xs">{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground">Sub Stage</Label>
+              <Input
+                className="mt-1 h-8 text-xs"
+                placeholder="Optional sub stage"
+                value={addForm.caseSubStage}
+                onChange={(e) => setAddForm((f) => ({ ...f, caseSubStage: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button type="button" size="sm" onClick={submitAddCase}>Add Case</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disbursement workflow */}
+      <Dialog open={Boolean(disbursementCase)} onOpenChange={(o) => !o && setDisbursementCase(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Disbursement Details — {disbursementCase?.lender}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2 sm:grid-cols-2">
+            <Field label="Disbursement Date *">
+              <Input
+                type="date"
+                className="h-8 text-xs"
+                value={disbursementForm.disbursementDate}
+                onChange={(e) => setDisbursementForm((f) => ({ ...f, disbursementDate: e.target.value }))}
+              />
+            </Field>
+            <Field label="Disbursed Amount *">
+              <INRCurrencyInput
+                value={disbursementForm.disbursedAmount}
+                onChange={(v) => setDisbursementForm((f) => ({ ...f, disbursedAmount: v ?? 0 }))}
+              />
+            </Field>
+            <Field label="Final ROI (%) *">
+              <Input
+                type="number"
+                className="h-8 text-xs"
+                value={disbursementForm.finalRoi}
+                onChange={(e) => setDisbursementForm((f) => ({ ...f, finalRoi: Number(e.target.value) }))}
+              />
+            </Field>
+            <Field label="Final Tenure (months) *">
+              <Input
+                type="number"
+                className="h-8 text-xs"
+                value={disbursementForm.finalTenure}
+                onChange={(e) => setDisbursementForm((f) => ({ ...f, finalTenure: Number(e.target.value) }))}
+              />
+            </Field>
+            <Field label="Processing Fee *">
+              <INRCurrencyInput
+                value={disbursementForm.processingFee}
+                onChange={(v) => setDisbursementForm((f) => ({ ...f, processingFee: v ?? 0 }))}
+              />
+            </Field>
+            <Field label="Revenue *">
+              <INRCurrencyInput
+                value={disbursementForm.revenue}
+                onChange={(v) => setDisbursementForm((f) => ({ ...f, revenue: v ?? 0 }))}
+              />
+            </Field>
+            <Field label="Invoice Raised *">
+              <Select
+                value={disbursementForm.invoiceRaised ? "yes" : "no"}
+                onValueChange={(v) => setDisbursementForm((f) => ({ ...f, invoiceRaised: v === "yes" }))}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no" className="text-xs">No</SelectItem>
+                  <SelectItem value="yes" className="text-xs">Yes</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Payment Status *">
+              <Select
+                value={disbursementForm.paymentStatus}
+                onValueChange={(v) => setDisbursementForm((f) => ({ ...f, paymentStatus: v as LenderPaymentStatus }))}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(["pending", "raised", "received", "overdue"] as LenderPaymentStatus[]).map((s) => (
+                    <SelectItem key={s} value={s} className="text-xs capitalize">{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setDisbursementCase(null)}>Cancel</Button>
+            <Button type="button" size="sm" onClick={confirmDisbursement}>Complete Disbursement</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lost workflow */}
+      <Dialog open={Boolean(lostCase)} onOpenChange={(o) => !o && setLostCase(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Mark as Lost — {lostCase?.lender}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <Label className="text-[10px] uppercase text-muted-foreground">Reason *</Label>
+            <Select value={lostReason} onValueChange={(v) => setLostReason(v as LenderLostReason)}>
+              <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {LENDER_LOST_REASONS.map((r) => (
+                  <SelectItem key={r.id} value={r.id} className="text-xs">{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setLostCase(null)}>Cancel</Button>
+            <Button type="button" size="sm" variant="destructive" onClick={confirmLost}>Confirm Lost</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hold workflow */}
+      <Dialog open={Boolean(holdCase)} onOpenChange={(o) => !o && setHoldCase(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Place on Hold — {holdCase?.lender}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground">Hold Reason *</Label>
+              <Input
+                className="mt-1 h-8 text-xs"
+                value={holdForm.holdReason}
+                onChange={(e) => setHoldForm((f) => ({ ...f, holdReason: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground">Expected Review Date *</Label>
+              <Input
+                type="date"
+                className="mt-1 h-8 text-xs"
+                value={holdForm.holdReviewDate}
+                onChange={(e) => setHoldForm((f) => ({ ...f, holdReviewDate: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setHoldCase(null)}>Cancel</Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={confirmHold}
+              disabled={!holdForm.holdReason.trim() || !holdForm.holdReviewDate}
+            >
+              Confirm Hold
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <Label className="text-[10px] uppercase text-muted-foreground">{label}</Label>
+      <div className="mt-1">{children}</div>
     </div>
   );
 }
@@ -270,6 +605,7 @@ function LenderCaseKanbanCard({
   const sub = caseExecution.caseSubStage;
   const lastUpdated = formatLastUpdated(caseExecution.updatedAt);
   const priority = loan.priority;
+  const expected = caseExecution.expectedLoanAmount ?? loan.requiredAmount;
 
   return (
     <div
@@ -278,28 +614,28 @@ function LenderCaseKanbanCard({
       role="button"
       tabIndex={0}
       className={cn(
-        "cursor-grab active:cursor-grabbing rounded-lg border border-border bg-card/90 backdrop-blur-sm",
-        "border-l-[3px] shadow-sm transition-all hover:border-primary/30 hover:bg-card hover:shadow-md",
+        "cursor-grab active:cursor-grabbing rounded-md border border-border bg-card/95",
+        "border-l-[3px] shadow-sm transition-all hover:border-primary/30 hover:shadow-md",
         "p-1.5",
       )}
       style={{ borderLeftColor: stageColor }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <LenderLogo lender={caseExecution.lender} size="lg" className="rounded-md" />
+      <div className="flex items-start justify-between gap-1">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <LenderLogo lender={caseExecution.lender} size="lg" className="rounded-md shrink-0" />
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-tight truncate">{caseExecution.lender}</p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-1">
+            <p className="text-[13px] font-bold leading-tight truncate text-foreground">{caseExecution.lender}</p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-0.5">
               <Badge
                 variant="outline"
-                className={cn("h-4 px-1 text-[9px] border", getProbabilityStyle(probability).className)}
+                className={cn("h-3.5 px-1 text-[8px] border", getProbabilityStyle(probability).className)}
               >
                 {LENDER_PROBABILITY_LABELS[probability]}
               </Badge>
               <Badge
                 variant="outline"
                 className={cn(
-                  "h-4 px-1 text-[9px] border",
+                  "h-3.5 px-1 text-[8px] border",
                   caseExecution.isPrimary
                     ? "border-emerald-600/25 bg-emerald-600/10 text-emerald-800 dark:text-emerald-200"
                     : "border-border bg-muted/20 text-muted-foreground",
@@ -317,29 +653,25 @@ function LenderCaseKanbanCard({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              className="h-6 w-6 shrink-0 text-muted-foreground"
               onClick={(e) => e.stopPropagation()}
               aria-label="More"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={(e) => (e.preventDefault(), onSetPrimary())}>
-              Set Primary
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => (e.preventDefault(), onSetPrimary())}>Set Primary</DropdownMenuItem>
             <DropdownMenuSeparator />
             <div className="px-2 py-1.5">
-              <p className="text-[10px] uppercase text-muted-foreground mb-1">Probability</p>
+              <p className="text-[10px] uppercase text-muted-foreground mb-1">Success Probability</p>
               <Select value={probability} onValueChange={(v) => onProbabilityChange(v as LenderProbability)}>
                 <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(
                     ["very_high", "high", "medium", "low", "very_low", "rejected", "withdrawn"] as LenderProbability[]
                   ).map((p) => (
-                    <SelectItem key={p} value={p} className="text-xs">
-                      {LENDER_PROBABILITY_LABELS[p]}
-                    </SelectItem>
+                    <SelectItem key={p} value={p} className="text-xs">{LENDER_PROBABILITY_LABELS[p]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -352,33 +684,32 @@ function LenderCaseKanbanCard({
         </DropdownMenu>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-1">
+      <div className="mt-1.5 flex flex-wrap items-center gap-0.5">
         <Badge
           variant="outline"
-          className="h-4 px-1 text-[9px] border"
+          className="h-3.5 px-1 text-[8px] border font-medium"
           style={{ borderColor: stageColor, color: stageColor }}
         >
           {stageLabel}
         </Badge>
-        {sub && (
-          <Badge variant="outline" className="h-4 px-1 text-[9px] border border-border text-muted-foreground">
+        {sub ? (
+          <Badge variant="outline" className="h-3.5 px-1 text-[8px] border border-border text-muted-foreground">
             {sub}
           </Badge>
-        )}
+        ) : null}
         <Badge
           variant="outline"
-          className={cn("h-4 px-1 text-[9px] capitalize border", LOAN_FILE_PRIORITY_STYLES[priority].className)}
+          className={cn("h-3.5 px-1 text-[8px] capitalize border", LOAN_FILE_PRIORITY_STYLES[priority].className)}
         >
           {priority}
         </Badge>
       </div>
 
-      <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground leading-snug">
-        <p>Expected ₹ {loan.requiredAmount.toLocaleString("en-IN")}</p>
+      <div className="mt-1 space-y-0 text-[9px] text-muted-foreground leading-snug">
+        <p className="tabular-nums">{formatINR(expected)}</p>
         <p className="truncate">RM {rm}</p>
         <p>{lastUpdated}</p>
       </div>
     </div>
   );
 }
-

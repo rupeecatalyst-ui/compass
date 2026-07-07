@@ -16,8 +16,8 @@ export const LOAN_FILE_PRIORITY_STYLES: Record<
   { className: string }
 > = {
   urgent: { className: "border-destructive/40 text-destructive bg-destructive/10" },
-  high: { className: "border-warning/40 text-warning bg-warning/10" },
-  medium: { className: "border-info/40 text-info bg-info/10" },
+  high: { className: "border-amber-500/40 text-amber-800 bg-amber-500/10 dark:text-amber-200" },
+  medium: { className: "border-emerald-500/40 text-emerald-800 bg-emerald-500/10 dark:text-emerald-200" },
   low: { className: "border-border text-muted-foreground bg-muted/50" },
 };
 
