@@ -45,7 +45,7 @@ export function LendersWorkspace({
     loginDate: new Date().toISOString().slice(0, 10),
     applicationNumber: "",
     status: "active",
-    subStatus: "",
+    caseSubStage: "",
     remarks: "",
   });
 
@@ -58,7 +58,7 @@ export function LendersWorkspace({
         l.branch ?? "",
         l.relationshipManager ?? "",
         l.applicationNumber ?? "",
-        l.subStatus ?? "",
+        l.caseSubStage ?? "",
         l.remarks ?? "",
         l.status,
       ]
@@ -81,7 +81,7 @@ export function LendersWorkspace({
       loginDate: draft.loginDate?.trim() || undefined,
       applicationNumber: draft.applicationNumber?.trim() || undefined,
       status: (draft.status as LenderExecutionStatus) ?? "active",
-      subStatus: draft.subStatus?.trim() || undefined,
+      caseSubStage: (draft.caseSubStage as string | undefined)?.trim() || undefined,
       remarks: draft.remarks?.trim() || undefined,
       createdBy: updatedBy,
       updatedBy,
@@ -183,8 +183,8 @@ export function LendersWorkspace({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Sub Status" className="sm:col-span-2 lg:col-span-3">
-              <Input className="h-8 text-xs" value={draft.subStatus ?? ""} onChange={(e) => setDraft((d) => ({ ...d, subStatus: e.target.value }))} />
+            <Field label="Current Sub Stage" className="sm:col-span-2 lg:col-span-3">
+              <Input className="h-8 text-xs" value={draft.caseSubStage ?? ""} onChange={(e) => setDraft((d) => ({ ...d, caseSubStage: e.target.value }))} />
             </Field>
             <Field label="Remarks" className="sm:col-span-2 lg:col-span-3">
               <Input className="h-8 text-xs" value={draft.remarks ?? ""} onChange={(e) => setDraft((d) => ({ ...d, remarks: e.target.value }))} />
@@ -219,7 +219,7 @@ export function LendersWorkspace({
                     RM: {l.relationshipManager ?? "—"} · Login:{" "}
                     {l.loginDate ? new Date(l.loginDate).toLocaleDateString("en-IN") : "—"}
                   </p>
-                  {l.subStatus && <p className="mt-1 text-xs text-muted-foreground">Sub Status: {l.subStatus}</p>}
+                  {l.caseSubStage && <p className="mt-1 text-xs text-muted-foreground">Sub Stage: {l.caseSubStage}</p>}
                   {l.remarks && <p className="mt-1 text-xs text-muted-foreground">Remarks: {l.remarks}</p>}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">

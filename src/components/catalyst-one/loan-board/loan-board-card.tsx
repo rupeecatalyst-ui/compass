@@ -51,6 +51,12 @@ interface LoanBoardCardProps {
   onOpen: (id: string) => void;
   onDragStart: (e: React.DragEvent, fileId: string) => void;
   onMoveStage?: (fileId: string) => void;
+  /** UX-04 — Allow external stage visuals (e.g. Lender Pipeline) while reusing card. */
+  stageOverride?: { label: string; color: string };
+  /** Optional sub-stage label override (e.g. lender case sub-stage). */
+  subStageOverride?: string;
+  /** Optional extra badges shown under stage badges. */
+  extraBadges?: React.ReactNode;
 }
 
 export function LoanBoardCard({
@@ -60,9 +66,12 @@ export function LoanBoardCard({
   onOpen,
   onDragStart,
   onMoveStage,
+  stageOverride,
+  subStageOverride,
+  extraBadges,
 }: LoanBoardCardProps) {
-  const stageColor = LOAN_BOARD_STAGE_COLORS[file.stage as PipelineStage] ?? "#64748b";
-  const stageLabel = LOAN_BOARD_STAGE_LABELS[file.stage] ?? file.stage;
+  const stageColor = stageOverride?.color ?? (LOAN_BOARD_STAGE_COLORS[file.stage as PipelineStage] ?? "#64748b");
+  const stageLabel = stageOverride?.label ?? (LOAN_BOARD_STAGE_LABELS[file.stage] ?? file.stage);
   const show = (field: LoanBoardFieldKey) => visibleFields.includes(field);
   const nextTask = file.tasks.find((t) => !t.completed);
   const statusStyle = LOAN_FILE_STATUS_STYLES[file.status];
@@ -187,6 +196,11 @@ export function LoanBoardCard({
           >
             {stageLabel}
           </Badge>
+          {subStageOverride && (
+            <Badge variant="outline" className="h-4 px-1 text-[9px] border border-border text-muted-foreground">
+              {subStageOverride}
+            </Badge>
+          )}
           {show("priority") && (
             <Badge
               variant="outline"
@@ -196,6 +210,7 @@ export function LoanBoardCard({
             </Badge>
           )}
         </div>
+        {extraBadges && <div className="mt-1">{extraBadges}</div>}
 
         <div className="mt-0.5 space-y-0 text-[10px] text-muted-foreground leading-snug">
           {show("ageing") && <p>{file.daysInStage}d in stage</p>}

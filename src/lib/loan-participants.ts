@@ -66,6 +66,8 @@ export function resolveLoanParticipants(file: LoanFile): LoanParticipant[] {
       entityType: "individual",
       entityId: file.coApplicantId ?? "",
       name: file.coApplicant ?? "",
+      role: "co_applicant",
+      status: "active",
     });
   }
 
@@ -76,6 +78,8 @@ export function resolveLoanParticipants(file: LoanFile): LoanParticipant[] {
       entityId: file.btInstitutionId ?? createParticipantId(),
       name: file.businessDetails.companyName,
       constitution: file.businessDetails.constitution,
+      role: "company",
+      status: "active",
     });
   }
 

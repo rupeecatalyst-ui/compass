@@ -14,8 +14,8 @@ import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-head
 import { CitySelect } from "@/components/catalyst-one/shared/city-select";
 import { EmploymentIncomeFields } from "@/components/catalyst-one/shared/employment-income-fields";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
-import { LoanParticipantsPanel } from "@/components/catalyst-one/shared/loan-participants-panel";
-import { LendersWorkspace } from "@/components/catalyst-one/execution/lenders-workspace";
+import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
+import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
 import { DocumentsWorkspace } from "@/components/catalyst-one/execution/documents-workspace";
 import { TasksWorkspace } from "@/components/catalyst-one/execution/tasks-workspace";
 import { OrganizationRegistrySelect } from "@/components/catalyst-one/shared/organization-registry-select";
@@ -322,7 +322,7 @@ function LoanWorkspaceModalContent({
     <Tabs key={`${draft.id}-${defaultTab}`} defaultValue={defaultTab} className="px-5 py-6 sm:px-6 lg:px-8 lg:py-8">
       <TabsList className="mb-6 grid h-auto w-full grid-cols-5 bg-muted p-1">
         <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
-        <TabsTrigger value="lenders" className="text-xs">Lenders</TabsTrigger>
+        <TabsTrigger value="lenders" className="text-xs">Lender Pipeline</TabsTrigger>
         <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
         <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
         <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
@@ -635,10 +635,32 @@ function LoanWorkspaceModalContent({
               title="Loan Participants"
               description="Co-applicants and company entities linked to this loan (search existing contacts — no manual name entry)."
             >
-              <LoanParticipantsPanel
+              <LoanParticipantsTable
+                primaryApplicant={{
+                  id: draft.customerId,
+                  name: draft.customerName,
+                  mobile: draft.customerMobile,
+                  email: draft.customerEmail,
+                  city: draft.city,
+                  employmentType: draft.employmentType,
+                }}
                 participants={participants}
                 entityOptions={participantEntityOptions}
                 onChange={handleParticipantsChange}
+                onTimeline={(note) =>
+                  patch({
+                    timeline: [
+                      {
+                        id: `tl-participant-${Date.now()}`,
+                        title: "Participants",
+                        description: note,
+                        timestamp: new Date().toISOString(),
+                        completed: true,
+                      },
+                      ...draft.timeline,
+                    ],
+                  })
+                }
                 onOpenEntity={
                   onOpenContact
                     ? (entityId, entityType) => {
@@ -694,11 +716,12 @@ function LoanWorkspaceModalContent({
 
           <TabsContent value="lenders" className="mt-0">
             <LoanWorkbenchSection
-              title="Lender Workspace"
-              description="Operational lender tracking for execution (single or multi-lender)."
+              title="Lender Pipeline"
+              description="Track lender cases independently of the loan stage."
             >
-              <LendersWorkspace
-                lenders={draft.lenders ?? []}
+              <LenderPipelineBoard
+                loan={draft}
+                cases={draft.lenders ?? []}
                 updatedBy={draft.relationshipManager}
                 onChange={(next) => patch({ lenders: next })}
                 onTimeline={(note) =>
@@ -706,7 +729,7 @@ function LoanWorkspaceModalContent({
                     timeline: [
                       {
                         id: `tl-lender-${Date.now()}`,
-                        title: "Lender Activity",
+                        title: "Lender Pipeline",
                         description: note,
                         timestamp: new Date().toISOString(),
                         completed: true,
@@ -813,7 +836,7 @@ function LoanWorkspaceModalContent({
         else closeApi.requestClose();
       }}
     >
-      <DialogContent className="flex h-[85vh] max-h-[85vh] w-[80vw] max-w-[80vw] flex-col gap-0 overflow-hidden rounded-xl p-0 [&>button]:hidden">
+      <DialogContent className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[96vw] flex-col gap-0 overflow-hidden rounded-xl p-0 [&>button]:hidden">
         {body}
       </DialogContent>
     </Dialog>

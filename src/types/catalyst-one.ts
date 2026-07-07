@@ -251,6 +251,25 @@ export type ExecutionTaskStatus = "pending" | "in_progress" | "completed" | "can
 
 export type LenderExecutionStatus = "active" | "closed";
 
+export type LenderProbability =
+  | "very_high"
+  | "high"
+  | "medium"
+  | "low"
+  | "very_low"
+  | "rejected"
+  | "withdrawn";
+
+export type LenderCaseStage =
+  | "raw_lead"
+  | "login"
+  | "credit"
+  | "bank_query"
+  | "sanction"
+  | "disbursement"
+  | "rejected"
+  | "withdrawn";
+
 export interface LoanLenderExecution {
   id: string;
   lender: string;
@@ -259,7 +278,13 @@ export interface LoanLenderExecution {
   loginDate?: string;
   applicationNumber?: string;
   status: LenderExecutionStatus;
-  subStatus?: string;
+  /** GL-03 / UX-04 — Lender case pipeline stage (independent from loan stage). */
+  caseStage?: LenderCaseStage;
+  /** Optional lender-specific sub stage label (freeform, no workflow coupling). */
+  caseSubStage?: string;
+  /** UX-04 — Probability and primary lender signals. */
+  probability?: LenderProbability;
+  isPrimary?: boolean;
   remarks?: string;
   createdBy?: string;
   updatedBy?: string;
