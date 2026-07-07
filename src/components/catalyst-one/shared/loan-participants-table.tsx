@@ -60,6 +60,7 @@ export function LoanParticipantsTable({
   onChange,
   onTimeline,
   onOpenEntity,
+  readOnly,
   className,
 }: {
   primaryApplicant: {
@@ -75,6 +76,7 @@ export function LoanParticipantsTable({
   onChange: (next: LoanParticipant[]) => void;
   onTimeline: (note: string) => void;
   onOpenEntity?: (entityId: string, entityType: LoanParticipantEntityType) => void;
+  readOnly?: boolean;
   className?: string;
 }) {
   const [query, setQuery] = useState("");
@@ -148,36 +150,38 @@ export function LoanParticipantsTable({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" className="h-8 text-xs" onClick={() => addRow("individual")}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Add Individual
-          </Button>
-          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => addRow("company")}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Add Company
-          </Button>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full sm:w-[260px]">
-            <Search className="pointer-events-none absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="h-8 pl-8 text-xs"
-              placeholder="Search participant..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+      {!readOnly && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" className="h-8 text-xs" onClick={() => addRow("individual")}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Add Individual
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => addRow("company")}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Add Company
+            </Button>
           </div>
-          <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-            <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="role" className="text-xs">Sort: Role</SelectItem>
-              <SelectItem value="name" className="text-xs">Sort: Name</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-[260px]">
+              <Search className="pointer-events-none absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="h-8 pl-8 text-xs"
+                placeholder="Search participant..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+              <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="role" className="text-xs">Sort: Role</SelectItem>
+                <SelectItem value="name" className="text-xs">Sort: Name</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full border-collapse">
@@ -187,10 +191,8 @@ export function LoanParticipantsTable({
               <Th>Name</Th>
               <Th>Mobile</Th>
               <Th>Email</Th>
-              <Th>City</Th>
               <Th>Employment</Th>
               <Th>Relationship</Th>
-              <Th>Status</Th>
               <Th className="text-right">Actions</Th>
             </tr>
           </thead>
@@ -201,7 +203,8 @@ export function LoanParticipantsTable({
                 key={p.id}
                 participant={p}
                 entityOptions={entityOptions}
-                isEditing={editingId === p.id || !p.entityId}
+                isEditing={!readOnly && (editingId === p.id || !p.entityId)}
+                readOnly={readOnly}
                 onEdit={() => setEditingId(p.id)}
                 onDone={() => setEditingId(null)}
                 onUpdate={(patch, note) => updateRow(p.id, patch, note)}
@@ -251,12 +254,8 @@ function ParticipantStaticRow({
       <Td className="font-semibold">{row.name}</Td>
       <Td>{row.mobile}</Td>
       <Td className="max-w-[240px] truncate">{row.email}</Td>
-      <Td>{row.city}</Td>
       <Td>{row.employmentType}</Td>
       <Td className="text-muted-foreground">{row.relationship}</Td>
-      <Td>
-        <Badge variant="secondary" className="h-5 text-[10px]">Active</Badge>
-      </Td>
       <Td className="text-right">
         <span className="text-[10px] text-muted-foreground">Locked</span>
       </Td>
@@ -268,6 +267,7 @@ function ParticipantRow({
   participant,
   entityOptions,
   isEditing,
+  readOnly,
   onEdit,
   onDone,
   onUpdate,
@@ -276,6 +276,7 @@ function ParticipantRow({
   participant: LoanParticipant;
   entityOptions: ParticipantEntityOption[];
   isEditing: boolean;
+  readOnly?: boolean;
   onEdit: () => void;
   onDone: () => void;
   onUpdate: (patch: Partial<LoanParticipant>, note: string) => void;
@@ -326,7 +327,6 @@ function ParticipantRow({
       <Td>{participant.mobile ?? "—"}</Td>
       <Td className="max-w-[240px] truncate">{participant.email ?? "—"}</Td>
       <Td className="text-muted-foreground">—</Td>
-      <Td className="text-muted-foreground">—</Td>
       <Td className="min-w-[160px]">
         {isEditing ? (
           <Input
@@ -338,11 +338,6 @@ function ParticipantRow({
         ) : (
           <span className="text-muted-foreground">{participant.relationship ?? "—"}</span>
         )}
-      </Td>
-      <Td>
-        <Badge variant="secondary" className="h-5 text-[10px] capitalize">
-          {participant.status ?? "active"}
-        </Badge>
       </Td>
       <Td className="text-right">
         <div className="inline-flex items-center gap-1">
@@ -358,9 +353,11 @@ function ParticipantRow({
               <Eye className="h-4 w-4" />
             </Button>
           )}
-          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} aria-label="Edit">
-            <Pencil className="h-4 w-4" />
-          </Button>
+          {!readOnly && (
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} aria-label="Edit">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </Td>
     </tr>

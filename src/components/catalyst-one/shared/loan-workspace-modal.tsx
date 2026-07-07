@@ -33,7 +33,7 @@ import { isOccupancyApplicableToProduct } from "@/constants/occupancy-master";
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { runWithFeedback } from "@/lib/action-feedback";
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
-import { formatINR, formatINRCompact } from "@/lib/format-currency";
+import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage, buildStageChangePatch, buildSubStageChangePatch } from "@/lib/loan-files-utils";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
@@ -42,7 +42,6 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -125,14 +124,29 @@ function LoanWorkspaceModalContent({
   const [notes, setNotes] = useState(() => file.internalNotes);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const [savedSnapshot, setSavedSnapshot] = useState<LoanFile>(() => ({ ...file }));
+  const [overviewUi, setOverviewUi] = useState(() => ({
+    loanDetails: { collapsed: false, mode: "view" as "view" | "edit" },
+    participants: { collapsed: false, mode: "view" as "view" | "edit" },
+    source: { collapsed: false, mode: "view" as "view" | "edit" },
+    lenderSummary: { collapsed: false, mode: "view" as "view" | "edit" },
+  }));
   const stickyChromeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (file) {
       const participants = resolveLoanParticipants(file);
-      setDraft({ ...file, participants });
+      const next = { ...file, participants };
+      setDraft(next);
+      setSavedSnapshot(next);
       setNotes(file.internalNotes);
       setActiveTab(defaultTab);
+      setOverviewUi({
+        loanDetails: { collapsed: false, mode: "view" },
+        participants: { collapsed: false, mode: "view" },
+        source: { collapsed: false, mode: "view" },
+        lenderSummary: { collapsed: false, mode: "view" },
+      });
     }
   }, [file, defaultTab]);
 
@@ -145,6 +159,14 @@ function LoanWorkspaceModalContent({
   );
 
   const participants = draft.participants ?? [];
+
+  const lastUpdatedAt = useMemo(() => {
+    const ts = draft.timeline?.[0]?.timestamp || draft.createdAt || draft.loginDate || draft.expectedDisbursement;
+    const d = ts ? new Date(ts) : null;
+    return d && !Number.isNaN(d.getTime()) ? d : null;
+  }, [draft.createdAt, draft.expectedDisbursement, draft.loginDate, draft.timeline]);
+
+  const updatedBy = draft.relationshipManager || "—";
 
   const handleParticipantsChange = (next: LoanParticipant[]) => {
     const synced = syncParticipantLegacyFields(next, draft.businessDetails);
@@ -159,9 +181,9 @@ function LoanWorkspaceModalContent({
   const closeWorkspace = () => onOpenChange(false);
 
   const revenueBase = getRevenueBaseAmount(draft);
-  const commissionValue = Math.round(revenueBase * (draft.revenuePercent / 100));
   const productOptions = getProductsForLendingType(draft.lendingType ?? "secured");
-  const showFinalAmount = shouldShowFinalLoanAmount(draft.stage);
+  // used in other tabs; kept for parity with existing calculations elsewhere
+  shouldShowFinalLoanAmount(draft.stage);
 
   const patch = (p: Partial<LoanFile>) =>
     setDraft((d) => {
@@ -235,6 +257,7 @@ function LoanWorkspaceModalContent({
       );
       if (!updated) return false;
       setDraft(updated);
+      setSavedSnapshot(updated);
       setNotes(updated.internalNotes);
       onUpdate?.(file.id, updated);
       if (exitOnSuccess) onOpenChange(false);
@@ -271,6 +294,25 @@ function LoanWorkspaceModalContent({
 
   const handleContentScroll = (e: React.UIEvent<HTMLDivElement>) => {
     attachCommandBarScrollState(stickyChromeRef.current, e.currentTarget.scrollTop);
+  };
+
+  const setOverviewCardMode = (key: keyof typeof overviewUi, mode: "view" | "edit") => {
+    setOverviewUi((s) => ({ ...s, [key]: { ...s[key], mode } }));
+  };
+
+  const toggleOverviewCardCollapsed = (key: keyof typeof overviewUi) => {
+    setOverviewUi((s) => ({ ...s, [key]: { ...s[key], collapsed: !s[key].collapsed } }));
+  };
+
+  const cancelEdits = (key: keyof typeof overviewUi) => {
+    setDraft(savedSnapshot);
+    setNotes(savedSnapshot.internalNotes);
+    setOverviewCardMode(key, "view");
+  };
+
+  const saveEdits = async (key: keyof typeof overviewUi, successMessage: string) => {
+    const ok = await persistDraft({ successMessage });
+    if (ok) setOverviewCardMode(key, "view");
   };
 
   const commandBar = (
@@ -321,110 +363,138 @@ function LoanWorkspaceModalContent({
       </TabsList>
 
           <TabsContent value="overview" className="mt-0 space-y-8">
-            <LoanWorkbenchSection
-              title="Loan Details"
-              description="Primary operating summary for this file (enterprise workbench view)."
-            >
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Field label="File Number">
-                  <Input className="h-8 bg-muted/40 text-xs" value={draft.fileNumber} readOnly />
-                </Field>
-                <Field label="Lending Type *">
-                  <Select
-                    value={draft.lendingType ?? "secured"}
-                    onValueChange={(v) => patch({ lendingType: v as LendingType })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {LENDING_TYPES.map((t) => (
-                        <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Transaction Type *">
-                  <Select
-                    value={draft.transactionType ?? "fresh"}
-                    onValueChange={(v) => patch({ transactionType: v as TransactionType })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {TRANSACTION_TYPES.map((t) => (
-                        <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Product *">
-                  <Select
-                    value={draft.loanProduct}
-                    onValueChange={(v) => {
-                      const updates: Partial<LoanFile> = { loanProduct: v };
-                      if (!isProductSecured(v)) {
-                        updates.propertyType = undefined;
-                        updates.approxPropertyValue = undefined;
-                        updates.occupancyId = undefined;
-                      } else if (
-                        draft.occupancyId &&
-                        !isOccupancyApplicableToProduct(draft.occupancyId, v)
-                      ) {
-                        updates.occupancyId = undefined;
-                      }
-                      patch(updates);
-                    }}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {productOptions.map((p) => (
-                        <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Priority">
-                  <Select
-                    value={draft.priority}
-                    onValueChange={(v) => patch({ priority: v as LoanFilePriority })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(["urgent", "high", "medium", "low"] as LoanFilePriority[]).map((p) => (
-                        <SelectItem key={p} value={p} className="text-xs capitalize">{p}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="RM">
-                  <Select
-                    value={draft.relationshipManager}
-                    onValueChange={(v) => patch({ relationshipManager: v })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {loanManagers.map((m) => (
-                        <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Requested Amount (₹)">
-                  <INRCurrencyInput
-                    value={draft.requiredAmount}
-                    onChange={(v) => patch({ requiredAmount: v ?? 0 })}
-                  />
-                </Field>
-              </div>
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <SummaryItem label="Loan Stage" value={STAGE_LABELS[draft.stage]} />
-                <SummaryItem label="Loan Sub Stage" value={draft.stageSubStatus ? (draft.stageSubStatus ?? "—") : "—"} />
-                <SummaryItem label="Expected Disbursement" value={new Date(draft.expectedDisbursement).toLocaleDateString("en-IN")} />
-              </div>
+            <LoanWorkbenchSection title="Loan Details" description="Executive summary (read-first, edit-second).">
+              <OverviewCardChrome
+                mode={overviewUi.loanDetails.mode}
+                collapsed={overviewUi.loanDetails.collapsed}
+                onCollapse={() => toggleOverviewCardCollapsed("loanDetails")}
+                onEdit={() => setOverviewCardMode("loanDetails", "edit")}
+                onCancel={() => cancelEdits("loanDetails")}
+                onSave={() => void saveEdits("loanDetails", "Loan details updated.")}
+              />
+              {!overviewUi.loanDetails.collapsed && (
+                <>
+                  {overviewUi.loanDetails.mode === "view" ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <SummaryItem label="Loan Number" value={draft.fileNumber} />
+                      <SummaryItem label="Product" value={draft.loanProduct || "—"} />
+                      <SummaryItem label="Product Type" value={draft.lendingType ? draft.lendingType.toUpperCase() : "—"} />
+                      <SummaryItem label="Transaction Type" value={draft.transactionType ? draft.transactionType.toUpperCase() : "—"} />
+                      <SummaryItem
+                        label="Customer Type"
+                        value={(participants.some((p) => p.entityType === "company") || Boolean(draft.businessDetails?.companyName)) ? "Business" : "Individual"}
+                      />
+                      <SummaryItem label="Required Amount" value={formatINR(draft.requiredAmount)} accent />
+                      <SummaryItem label="Priority" value={draft.priority?.toUpperCase?.() ?? draft.priority} />
+                      <SummaryItem label="Loan Stage" value={STAGE_LABELS[draft.stage]} />
+                      <SummaryItem label="Loan Sub Stage" value={draft.stageSubStatus ?? "—"} />
+                      <SummaryItem label="RM" value={draft.relationshipManager || "—"} />
+                      <SummaryItem label="Login Date" value={new Date(draft.loginDate).toLocaleDateString("en-IN")} />
+                      <SummaryItem label="Expected Login" value={new Date(draft.expectedLoginDate).toLocaleDateString("en-IN")} />
+                      <SummaryItem label="Expected Disbursement" value={new Date(draft.expectedDisbursement).toLocaleDateString("en-IN")} />
+                      <SummaryItem label="Last Updated" value={lastUpdatedAt ? lastUpdatedAt.toLocaleString("en-IN") : "—"} />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <Field label="Product *">
+                        <Select
+                          value={draft.loanProduct}
+                          onValueChange={(v) => {
+                            const updates: Partial<LoanFile> = { loanProduct: v };
+                            if (!isProductSecured(v)) {
+                              updates.propertyType = undefined;
+                              updates.approxPropertyValue = undefined;
+                              updates.occupancyId = undefined;
+                            } else if (
+                              draft.occupancyId &&
+                              !isOccupancyApplicableToProduct(draft.occupancyId, v)
+                            ) {
+                              updates.occupancyId = undefined;
+                            }
+                            patch(updates);
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {productOptions.map((p) => (
+                              <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Product Type *">
+                        <Select
+                          value={draft.lendingType ?? "secured"}
+                          onValueChange={(v) => patch({ lendingType: v as LendingType })}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {LENDING_TYPES.map((t) => (
+                              <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Transaction Type *">
+                        <Select
+                          value={draft.transactionType ?? "fresh"}
+                          onValueChange={(v) => patch({ transactionType: v as TransactionType })}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {TRANSACTION_TYPES.map((t) => (
+                              <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Required Amount (₹)">
+                        <INRCurrencyInput value={draft.requiredAmount} onChange={(v) => patch({ requiredAmount: v ?? 0 })} />
+                      </Field>
+                      <Field label="Priority">
+                        <Select value={draft.priority} onValueChange={(v) => patch({ priority: v as LoanFilePriority })}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(["urgent", "high", "medium", "low"] as LoanFilePriority[]).map((p) => (
+                              <SelectItem key={p} value={p} className="text-xs capitalize">{p}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="RM">
+                        <Select value={draft.relationshipManager} onValueChange={(v) => patch({ relationshipManager: v })}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {loanManagers.map((m) => (
+                              <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+                  )}
+                  <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                    <span>Audit: Updated By {updatedBy}</span>
+                    <span>•</span>
+                    <span>Updated Date {lastUpdatedAt ? lastUpdatedAt.toLocaleString("en-IN") : "—"}</span>
+                  </div>
+                </>
+              )}
             </LoanWorkbenchSection>
 
             <LoanWorkbenchSection
               title="Loan Participants"
               description="Master/reference participants (search and auto-populate; no manual re-entry)."
             >
+              <OverviewCardChrome
+                mode={overviewUi.participants.mode}
+                collapsed={overviewUi.participants.collapsed}
+                onCollapse={() => toggleOverviewCardCollapsed("participants")}
+                onEdit={() => setOverviewCardMode("participants", "edit")}
+                onCancel={() => cancelEdits("participants")}
+                onSave={() => void saveEdits("participants", "Participants updated.")}
+              />
+              {!overviewUi.participants.collapsed && (
               <LoanParticipantsTable
                 primaryApplicant={{
                   id: draft.customerId,
@@ -437,6 +507,7 @@ function LoanWorkspaceModalContent({
                 participants={participants}
                 entityOptions={participantEntityOptions}
                 onChange={handleParticipantsChange}
+                readOnly={overviewUi.participants.mode === "view"}
                 onTimeline={(note) =>
                   patch({
                     timeline: [
@@ -459,86 +530,121 @@ function LoanWorkspaceModalContent({
                     : undefined
                 }
               />
+              )}
+              {!overviewUi.participants.collapsed && (
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                  <span>Audit: Updated By {updatedBy}</span>
+                  <span>•</span>
+                  <span>Updated Date {lastUpdatedAt ? lastUpdatedAt.toLocaleString("en-IN") : "—"}</span>
+                </div>
+              )}
+            </LoanWorkbenchSection>
+
+            <LoanWorkbenchSection title="Source Details" description="Locked after loan creation (read-only).">
+              <OverviewCardChrome
+                lockedLabel="🔒 Read Only"
+                mode="view"
+                collapsed={overviewUi.source.collapsed}
+                onCollapse={() => toggleOverviewCardCollapsed("source")}
+              />
+              {!overviewUi.source.collapsed && (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <SummaryItem label="Source" value={draft.source ?? "—"} />
+                    <SummaryItem label="Source Contact" value={draft.sourceContactName ?? "—"} />
+                    <SummaryItem label="Lead Origin" value={draft.source ?? "—"} />
+                    <SummaryItem
+                      label="Referral"
+                      value={(draft.source ?? "").toLowerCase().includes("ref") ? (draft.sourceContactName ?? "—") : "—"}
+                    />
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                    <span>Audit: Updated By {updatedBy}</span>
+                    <span>•</span>
+                    <span>Updated Date {lastUpdatedAt ? lastUpdatedAt.toLocaleString("en-IN") : "—"}</span>
+                  </div>
+                </>
+              )}
             </LoanWorkbenchSection>
 
             <LoanWorkbenchSection
               title="Lender Pipeline Summary"
-              description="Top active lender cases for quick visibility. Full pipeline is available under the Lender Pipeline tab."
+              description="Executive summary (not the Kanban)."
             >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  Active cases: {(draft.lenders ?? []).filter((c) => c.status !== "closed").length}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => setActiveTab("lenders")}
-                >
-                  More…
-                </Button>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {(draft.lenders ?? [])
-                  .filter((c) => c.status !== "closed")
-                  .slice(0, 3)
-                  .map((c) => (
-                    <SummaryItem
-                      key={c.id}
-                      label={c.isPrimary ? "Primary Lender" : "Lender Case"}
-                      value={`${c.lender}${c.caseStage ? ` · ${c.caseStage}` : ""}`}
-                      accent={Boolean(c.isPrimary)}
-                    />
-                  ))}
-                {(draft.lenders ?? []).filter((c) => c.status !== "closed").length === 0 && (
-                  <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4 text-center text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
-                    No active lender cases yet. Add one from the Lender Pipeline tab.
-                  </div>
-                )}
-              </div>
-            </LoanWorkbenchSection>
+              <OverviewCardChrome
+                mode={overviewUi.lenderSummary.mode}
+                collapsed={overviewUi.lenderSummary.collapsed}
+                onCollapse={() => toggleOverviewCardCollapsed("lenderSummary")}
+                onEdit={() => setOverviewCardMode("lenderSummary", "edit")}
+                onCancel={() => cancelEdits("lenderSummary")}
+                onSave={() => void saveEdits("lenderSummary", "Lender pipeline updated.")}
+              />
+              {!overviewUi.lenderSummary.collapsed && (
+                <>
+                  {(() => {
+                    const cases = draft.lenders ?? [];
+                    const active = cases.filter((c) => c.status !== "closed");
+                    const primary = active.find((c) => c.isPrimary) ?? cases.find((c) => c.isPrimary);
+                    const highestProb =
+                      [...active]
+                        .filter((c) => c.probability && c.probability !== "rejected" && c.probability !== "withdrawn")
+                        .sort((a, b) => String(a.probability).localeCompare(String(b.probability)))[0] ?? null;
+                    const sanction = cases.filter((c) => c.caseStage === "sanction").length;
+                    const queries = cases.filter((c) => c.caseStage === "bank_query").length;
+                    const rejected = cases.filter((c) => c.caseStage === "rejected" || c.probability === "rejected").length;
+                    const withdrawn = cases.filter((c) => c.caseStage === "withdrawn" || c.probability === "withdrawn").length;
 
-            <LoanWorkbenchSection title="RC Revenue & Accounting" description="Commission, expected revenue and settlement tracking.">
-              <p className="mb-4 text-[10px] text-muted-foreground">
-                Revenue base: {formatINR(revenueBase)}
-                {showFinalAmount ? " (Final Loan Amount)" : " (Requested Amount)"}
-              </p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Field label="Revenue %">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="h-8 text-xs [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    value={draft.revenuePercent}
-                    onChange={(e) => patch({ revenuePercent: Number(e.target.value) })}
-                  />
-                </Field>
-                <SummaryItem
-                  label="Expected Revenue"
-                  value={formatINR(Math.round(revenueBase * (draft.revenuePercent / 100)))}
-                  accent
-                />
-                <SummaryItem label="Commission" value={formatINRCompact(commissionValue)} accent />
-                <Field label="Revenue Received (₹)">
-                  <INRCurrencyInput
-                    value={draft.revenueReceived}
-                    onChange={(v) => patch({ revenueReceived: v ?? 0 })}
-                  />
-                </Field>
-                <Field label="Settlement Completed" className="sm:col-span-2">
-                  <Select
-                    value={draft.settlementCompleted ? "yes" : "no"}
-                    onValueChange={(v) => patch({ settlementCompleted: v === "yes" })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no" className="text-xs">Pending</SelectItem>
-                      <SelectItem value="yes" className="text-xs">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <SummaryItem label="Primary Lender" value={primary?.lender ?? "—"} accent={Boolean(primary)} />
+                          <SummaryItem label="Highest Probability" value={highestProb?.probability ?? "—"} />
+                          <SummaryItem label="Active Lenders" value={active.length} accent={active.length > 0} />
+                          <SummaryItem label="Sanction Received" value={sanction} />
+                          <SummaryItem label="Queries Pending" value={queries} />
+                          <SummaryItem label="Rejected" value={rejected} />
+                          <SummaryItem label="Withdrawn" value={withdrawn} />
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between gap-2">
+                          <p className="text-xs text-muted-foreground">Top 3 active lenders</p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => setActiveTab("lenders")}
+                          >
+                            More…
+                          </Button>
+                        </div>
+
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {active.slice(0, 3).map((c) => (
+                            <SummaryItem
+                              key={c.id}
+                              label={c.isPrimary ? "Primary Lender" : "Active Lender"}
+                              value={`${c.lender}${c.caseStage ? ` · ${c.caseStage}` : ""}`}
+                              accent={Boolean(c.isPrimary)}
+                            />
+                          ))}
+                          {active.length === 0 && (
+                            <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4 text-center text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
+                              No active lender cases yet. Add one from the Lender Pipeline tab.
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                          <span>Audit: Updated By {updatedBy}</span>
+                          <span>•</span>
+                          <span>Updated Date {lastUpdatedAt ? lastUpdatedAt.toLocaleString("en-IN") : "—"}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </>
+              )}
             </LoanWorkbenchSection>
           </TabsContent>
 
@@ -703,6 +809,56 @@ function SummaryItem({
       <p className={cn("text-sm font-medium mt-0.5", accent && "text-success font-semibold")}>
         {value}
       </p>
+    </div>
+  );
+}
+
+function OverviewCardChrome({
+  mode,
+  collapsed,
+  lockedLabel,
+  onEdit,
+  onSave,
+  onCancel,
+  onCollapse,
+}: {
+  mode: "view" | "edit";
+  collapsed: boolean;
+  lockedLabel?: string;
+  onEdit?: () => void;
+  onSave?: () => void;
+  onCancel?: () => void;
+  onCollapse: () => void;
+}) {
+  return (
+    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-[10px] text-muted-foreground">
+        {lockedLabel ? <span className="font-medium">{lockedLabel}</span> : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {!lockedLabel && mode === "view" && onEdit && (
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={onEdit}>
+            Edit
+          </Button>
+        )}
+        {!lockedLabel && mode === "edit" && (
+          <>
+            {onSave && (
+              <Button type="button" size="sm" className="h-8 text-xs" onClick={onSave}>
+                Save
+              </Button>
+            )}
+            {onCancel && (
+              <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
+          </>
+        )}
+        <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={onCollapse}>
+          {collapsed ? "Expand" : "Collapse"}
+        </Button>
+      </div>
     </div>
   );
 }
