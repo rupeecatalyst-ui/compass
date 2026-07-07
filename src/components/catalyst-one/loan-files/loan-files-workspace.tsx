@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { LoanFilesProvider, useLoanFiles } from "@/components/catalyst-one/loan-files/loan-files-context";
 import { LoanFilesToolbar } from "@/components/catalyst-one/loan-files/loan-files-toolbar";
@@ -10,9 +11,10 @@ import { LoanFilesListView } from "@/components/catalyst-one/loan-files/loan-fil
 import { LoanFilesTimelineView } from "@/components/catalyst-one/loan-files/loan-files-timeline-view";
 import { LoanFilesAnalyticsView } from "@/components/catalyst-one/loan-files/loan-files-analytics-view";
 import { TaskBoardView } from "@/components/catalyst-one/loan-files/task-board-view";
-import { LoanFileDetailSheet } from "@/components/catalyst-one/loan-files/loan-file-detail-sheet";
 import { AiInsightsSidebar } from "@/components/catalyst-one/loan-files/ai-insights-sidebar";
 import { CreateLoanModal } from "@/components/catalyst-one/loan-files/create-loan-modal";
+import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-workspace-modal";
+import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 
 function LoanFilesKeyboard() {
   const { setCreateOpen, setSelectedFileId, searchInputRef } = useLoanFiles();
@@ -59,7 +61,17 @@ function LoanFilesQuerySync() {
 }
 
 function LoanFilesContent() {
-  const { view, mounted } = useLoanFiles();
+  const { view, mounted, selectedFile, selectedFileId, setSelectedFileId } = useLoanFiles();
+  const contactOptions = useMemo(
+    () =>
+      CUSTOMER_SEED.map((c) => ({
+        id: c.id,
+        name: c.name,
+        mobile: c.mobile,
+        email: c.email,
+      })),
+    [],
+  );
 
   if (!mounted) {
     return (
@@ -98,7 +110,14 @@ function LoanFilesContent() {
         <AiInsightsSidebar />
       </div>
 
-      <LoanFileDetailSheet />
+      <LoanWorkspaceModal
+        file={selectedFile}
+        open={Boolean(selectedFileId)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedFileId(null);
+        }}
+        contactOptions={contactOptions}
+      />
       <CreateLoanModal />
     </div>
   );
