@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
 import {
   attachCommandBarScrollState,
@@ -127,6 +128,7 @@ function LoanWorkspaceModalContent({
   const [notes, setNotes] = useState(() => file.internalNotes);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const [lenderAddOpen, setLenderAddOpen] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState<LoanFile>(() => ({ ...file }));
   const [overviewUi, setOverviewUi] = useState(() => ({
     loanDetails: { collapsed: false, mode: "view" as "view" | "edit" },
@@ -144,6 +146,7 @@ function LoanWorkspaceModalContent({
       setSavedSnapshot(next);
       setNotes(file.internalNotes);
       setActiveTab(defaultTab);
+      setLenderAddOpen(false);
       setOverviewUi({
         loanDetails: { collapsed: false, mode: "view" },
         participants: { collapsed: false, mode: "view" },
@@ -318,7 +321,7 @@ function LoanWorkspaceModalContent({
     if (ok) setOverviewCardMode(key, "view");
   };
 
-  const commandBar = (
+  const commandBar = activeTab !== "lenders" ? (
     <LoanWorkspaceCommandBar
       draft={draft}
       saving={saving}
@@ -326,9 +329,9 @@ function LoanWorkspaceModalContent({
       onSaveAndExit={handleSaveAndExit}
       onOpenContact={onOpenContact}
       commandBarRef={stickyChromeRef}
-      density={activeTab === "lenders" ? "pipeline" : "default"}
+      density="default"
     />
-  );
+  ) : null;
 
   const intelligencePanel = (
     <LoanIntelligencePanel
@@ -357,16 +360,35 @@ function LoanWorkspaceModalContent({
       value={activeTab}
       onValueChange={setActiveTab}
       className={cn(
-        activeTab === "lenders" ? "px-3 py-3 sm:px-4" : "px-5 py-6 sm:px-6 lg:px-8 lg:py-8",
+        activeTab === "lenders" ? "px-2 py-2 sm:px-3" : "px-5 py-6 sm:px-6 lg:px-8 lg:py-8",
       )}
     >
-      <TabsList className="mb-6 grid h-auto w-full grid-cols-5 bg-muted p-1">
-        <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
-        <TabsTrigger value="lenders" className="text-xs">Lender Pipeline</TabsTrigger>
-        <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
-        <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
-        <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
-      </TabsList>
+      <div className="mb-3 flex items-center gap-2">
+        <TabsList
+          className={cn(
+            "h-auto bg-muted p-1",
+            activeTab === "lenders" ? "grid flex-1 grid-cols-5" : "grid w-full grid-cols-5",
+          )}
+        >
+          <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+          <TabsTrigger value="lenders" className="text-xs">Lender Pipeline</TabsTrigger>
+          <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
+          <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
+          <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
+        </TabsList>
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 shrink-0 text-xs"
+          onClick={() => {
+            setActiveTab("lenders");
+            setLenderAddOpen(true);
+          }}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Add Lender Case
+        </Button>
+      </div>
 
           <TabsContent value="overview" className="mt-0 space-y-8">
             <LoanWorkbenchSection title="Loan Details" description="Executive summary (read-first, edit-second).">
@@ -655,36 +677,28 @@ function LoanWorkspaceModalContent({
           </TabsContent>
 
           <TabsContent value="lenders" className="mt-0">
-            <div className="relative min-h-0">
-              <div className="pointer-events-none absolute right-0 top-0 z-20 hidden lg:block">
-                <div className="pointer-events-auto">
-                  <ChanakyaLenderPipelinePanel loan={draft} cases={draft.lenders ?? []} />
-                </div>
-              </div>
-              <div className="mb-2 lg:hidden">
-                <ChanakyaLenderPipelinePanel loan={draft} cases={draft.lenders ?? []} className="max-w-none" />
-              </div>
-              <LenderPipelineBoard
-                loan={draft}
-                cases={draft.lenders ?? []}
-                updatedBy={draft.relationshipManager}
-                onChange={(next) => patch({ lenders: next })}
-                onTimeline={(note) =>
-                  patch({
-                    timeline: [
-                      {
-                        id: `tl-lender-${Date.now()}`,
-                        title: "Lender Pipeline",
-                        description: note,
-                        timestamp: new Date().toISOString(),
-                        completed: true,
-                      },
-                      ...draft.timeline,
-                    ],
-                  })
-                }
-              />
-            </div>
+            <LenderPipelineBoard
+              loan={draft}
+              cases={draft.lenders ?? []}
+              updatedBy={draft.relationshipManager}
+              addOpen={lenderAddOpen}
+              onAddOpenChange={setLenderAddOpen}
+              onChange={(next) => patch({ lenders: next })}
+              onTimeline={(note) =>
+                patch({
+                  timeline: [
+                    {
+                      id: `tl-lender-${Date.now()}`,
+                      title: "Lender Pipeline",
+                      description: note,
+                      timestamp: new Date().toISOString(),
+                      completed: true,
+                    },
+                    ...draft.timeline,
+                  ],
+                })
+              }
+            />
           </TabsContent>
 
           <TabsContent value="documents" className="mt-0">
@@ -747,19 +761,63 @@ function LoanWorkspaceModalContent({
     <>
       <WorkspaceHeader
         title="Loan Workspace"
+        executionLayout={
+          activeTab === "lenders"
+            ? {
+                borrowerName: draft.customerName,
+                fileNumber: draft.fileNumber,
+                requiredAmount: formatINR(draft.requiredAmount),
+                rm: draft.relationshipManager,
+                priorityBadge: (
+                  <span
+                    className={cn(
+                      "rounded border px-1.5 py-0.5 capitalize",
+                      LOAN_FILE_PRIORITY_STYLES[draft.priority].className,
+                    )}
+                  >
+                    {draft.priority}
+                  </span>
+                ),
+                chanakyaFeed: (
+                  <ChanakyaLenderPipelinePanel loan={draft} cases={draft.lenders ?? []} />
+                ),
+                saveActions: (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 px-3 text-[10px]"
+                      onClick={handleSave}
+                      disabled={saving}
+                    >
+                      {saving ? "Saving..." : "Save"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 px-3 text-[10px] bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                      onClick={handleSaveAndExit}
+                      disabled={saving}
+                    >
+                      {saving ? "Saving..." : "Save & Exit"}
+                    </Button>
+                  </>
+                ),
+              }
+            : undefined
+        }
         infoStrip={
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-            <span className="font-medium text-foreground">{draft.fileNumber}</span>
-            <span className="truncate max-w-[220px]">{draft.customerName}</span>
-            <span className="tabular-nums">{formatINR(draft.requiredAmount)}</span>
-            {activeTab !== "lenders" && (
+          activeTab !== "lenders" ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+              <span className="text-base font-bold text-foreground sm:text-lg">{draft.customerName}</span>
+              <span className="font-medium text-foreground/80">{draft.fileNumber}</span>
+              <span className="tabular-nums">{formatINR(draft.requiredAmount)}</span>
               <span className="truncate">Stage {STAGE_LABELS[draft.stage]}</span>
-            )}
-            <span className="truncate">RM {draft.relationshipManager}</span>
-            <span className={cn("rounded border px-1.5 py-0.5 capitalize", LOAN_FILE_PRIORITY_STYLES[draft.priority].className)}>
-              {draft.priority}
-            </span>
-          </div>
+              <span className="truncate">RM {draft.relationshipManager}</span>
+              <span className={cn("rounded border px-1.5 py-0.5 capitalize", LOAN_FILE_PRIORITY_STYLES[draft.priority].className)}>
+                {draft.priority}
+              </span>
+            </div>
+          ) : undefined
         }
         onClose={closeWorkspace}
         closeApi={closeApi}

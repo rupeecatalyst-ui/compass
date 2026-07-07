@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { LenderLogo } from "@/components/catalyst-one/shared/lender-logo";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { Button } from "@/components/ui/button";
@@ -81,16 +81,22 @@ export function LenderPipelineBoard({
   updatedBy,
   onChange,
   onTimeline,
+  addOpen,
+  onAddOpenChange,
 }: {
   loan: LoanFile;
   cases: LoanLenderExecution[];
   updatedBy: string;
   onChange: (next: LoanLenderExecution[]) => void;
   onTimeline: (note: string) => void;
+  addOpen?: boolean;
+  onAddOpenChange?: (open: boolean) => void;
 }) {
   const [dragOverStage, setDragOverStage] = useState<LenderCaseStage | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpenInternal, setAddOpenInternal] = useState(false);
+  const addDialogOpen = addOpen ?? addOpenInternal;
+  const setAddDialogOpen = onAddOpenChange ?? setAddOpenInternal;
   const [disbursementCase, setDisbursementCase] = useState<WorkflowCase | null>(null);
   const [lostCase, setLostCase] = useState<WorkflowCase | null>(null);
   const [holdCase, setHoldCase] = useState<WorkflowCase | null>(null);
@@ -221,7 +227,7 @@ export function LenderPipelineBoard({
     };
     onChange([next, ...cases]);
     onTimeline(`Lender case created: ${addForm.lender}`);
-    setAddOpen(false);
+    setAddDialogOpen(false);
     setAddForm({
       lender: loanLenders[0] ?? "HDFC Bank",
       expectedLoanAmount: loan.requiredAmount,
@@ -281,26 +287,16 @@ export function LenderPipelineBoard({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] text-muted-foreground">
-          One loan · multiple lender cases. Drag cases across stages to update execution.
-        </p>
-        <Button type="button" size="sm" className="h-7 text-xs" onClick={() => setAddOpen(true)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Add Lender Case
-        </Button>
-      </div>
-
-      <div className="h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-hidden scrollbar-thin">
-        <div className="flex min-w-max gap-1 h-full pb-1">
+    <div className="min-h-0">
+      <div className="h-[calc(100vh-210px)] min-h-[560px] overflow-x-auto overflow-y-hidden scrollbar-thin">
+        <div className="flex h-full w-full min-w-max gap-1 pb-1">
           {LENDER_CASE_STAGES.map((col) => {
             const colCases = casesByStage.get(col.id) ?? [];
             const isDragOver = dragOverStage === col.id;
             return (
               <div
                 key={col.id}
-                className={cn("flex shrink-0 flex-col h-full w-[200px]")}
+                className={cn("flex min-w-[148px] flex-1 flex-col h-full max-w-[220px]")}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setDragOverStage(col.id);
@@ -315,8 +311,9 @@ export function LenderPipelineBoard({
                   )}
                   style={{ borderTopWidth: 3, borderTopColor: col.color }}
                 >
-                  <h4 className="text-[11px] font-semibold text-foreground truncate leading-tight">{col.label}</h4>
-                  <p className="text-[9px] text-muted-foreground">{colCases.length}</p>
+                  <h4 className="text-[11px] font-semibold text-foreground truncate leading-tight">
+                    {col.label} ({colCases.length})
+                  </h4>
                 </div>
                 <div
                   className={cn(
@@ -367,7 +364,7 @@ export function LenderPipelineBoard({
       </div>
 
       {/* Add Lender Case */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm">Add Lender Case</DialogTitle>
@@ -417,7 +414,7 @@ export function LenderPipelineBoard({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
             <Button type="button" size="sm" onClick={submitAddCase}>Add Case</Button>
           </DialogFooter>
         </DialogContent>

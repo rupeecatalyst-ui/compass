@@ -1,10 +1,10 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { Brain, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   LENDER_CASE_STAGE_LABELS,
-  LENDER_PROBABILITY_LABELS,
   normalizeLenderCaseStage,
 } from "@/constants/lender-pipeline";
 import type { LoanFile, LoanLenderExecution } from "@/types/catalyst-one";
@@ -19,61 +19,81 @@ const PROB_RANK: Record<string, number> = {
   withdrawn: 0,
 };
 
-function buildLenderPipelineSignals(loan: LoanFile, cases: LoanLenderExecution[]) {
+const PROB_PCT: Record<string, number> = {
+  very_high: 92,
+  high: 78,
+  medium: 55,
+  low: 35,
+  very_low: 18,
+};
+
+function daysSince(iso: string) {
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return 0;
+  return Math.floor((Date.now() - d) / (24 * 60 * 60 * 1000));
+}
+
+export function buildLenderPipelineFeedMessages(loan: LoanFile, cases: LoanLenderExecution[]): string[] {
   const active = cases.filter((c) => c.status !== "closed");
-  const now = Date.now();
-  const idle = active.filter((c) => {
-    const updated = new Date(c.updatedAt).getTime();
-    return now - updated > 3 * 24 * 60 * 60 * 1000;
-  });
+  const messages: string[] = [];
 
   const best = [...active]
     .filter((c) => c.probability && c.probability !== "rejected" && c.probability !== "withdrawn")
     .sort((a, b) => (PROB_RANK[b.probability ?? ""] ?? 0) - (PROB_RANK[a.probability ?? ""] ?? 0))[0];
 
-  const pendingFollowUp = active.filter((c) => {
-    const stage = normalizeLenderCaseStage(c.caseStage);
-    return stage === "logged_in_wip" || stage === "closure_wip";
+  if (best) {
+    const pct = PROB_PCT[best.probability ?? "medium"] ?? 55;
+    messages.push(`${best.lender} has the highest success probability (${pct}%)`);
+  }
+
+  const holdCases = active.filter((c) => normalizeLenderCaseStage(c.caseStage) === "hold");
+  holdCases.forEach((c) => {
+    if (c.caseSubStage?.toLowerCase().includes("valuation")) {
+      messages.push(`${c.lender} file pending valuation report`);
+    }
   });
+
+  const idle = active.filter((c) => daysSince(c.updatedAt) >= 3);
+  idle.forEach((c) => {
+    messages.push(`${c.lender} has not been updated for ${daysSince(c.updatedAt)} days`);
+  });
+
+  if (best && !best.isPrimary) {
+    messages.push(`Recommend making ${best.lender} Primary`);
+  }
+
+  const followUp = active.filter((c) => {
+    const stage = normalizeLenderCaseStage(c.caseStage);
+    return stage === "logged_in_wip" || stage === "closure_wip" || stage === "soft_approved";
+  });
+  if (followUp.length > 0) {
+    messages.push(`${followUp.length} lender case${followUp.length === 1 ? "" : "s"} require follow-up`);
+  }
 
   const slaRisk = active.filter((c) => {
     const stage = normalizeLenderCaseStage(c.caseStage);
     return stage === "final_approved" || stage === "closure_wip";
   });
-
-  let nextAction = "Add a lender case to begin execution.";
-  if (active.length === 0) {
-    nextAction = "No active lender cases — add a lender case.";
-  } else if (!active.some((c) => c.isPrimary)) {
-    nextAction = "Set a primary lender for this loan.";
-  } else if (pendingFollowUp.length > 0) {
-    nextAction = `Follow up on ${pendingFollowUp[0]?.lender ?? "active lender"} (${LENDER_CASE_STAGE_LABELS[normalizeLenderCaseStage(pendingFollowUp[0]?.caseStage)]}).`;
-  } else if (best) {
-    nextAction = `Advance ${best.lender} — highest success probability (${LENDER_PROBABILITY_LABELS[best.probability!]}).`;
+  if (slaRisk.length > 0) {
+    messages.push(`${slaRisk.length} lender case${slaRisk.length === 1 ? "" : "s"} approaching SLA breach`);
   }
 
-  return [
-    { label: "Recommended Next Action", value: nextAction },
-    {
-      label: "Idle Lender Alerts",
-      value: idle.length > 0 ? `${idle.length} lender case(s) idle > 3 days` : "No idle lenders",
-    },
-    {
-      label: "Best Success Probability",
-      value: best ? `${best.lender} · ${LENDER_PROBABILITY_LABELS[best.probability!]}` : "—",
-    },
-    {
-      label: "Pending Follow-up",
-      value: pendingFollowUp.length > 0 ? `${pendingFollowUp.length} case(s) need follow-up` : "None",
-    },
-    {
-      label: "SLA Alerts",
-      value: slaRisk.length > 0 ? `${slaRisk.length} case(s) in approval/closure` : "No SLA risks",
-    },
-  ];
+  active.forEach((c) => {
+    const stage = normalizeLenderCaseStage(c.caseStage);
+    if (stage === "logged_in_wip" && c.caseSubStage) {
+      messages.push(`${c.lender}: ${c.caseSubStage} pending at ${LENDER_CASE_STAGE_LABELS[stage]}`);
+    }
+  });
+
+  if (messages.length === 0) {
+    messages.push("Add a lender case to begin execution tracking");
+    messages.push(`Loan ${loan.fileNumber} · ${active.length} active lender case(s)`);
+  }
+
+  return messages;
 }
 
-/** UX-04D — Compact Chanakya assistant for lender execution (rule-based placeholders). */
+/** UX-04E — Horizontal Chanakya live feed (presentation layer, rule-based). */
 export function ChanakyaLenderPipelinePanel({
   loan,
   cases,
@@ -83,27 +103,45 @@ export function ChanakyaLenderPipelinePanel({
   cases: LoanLenderExecution[];
   className?: string;
 }) {
-  const signals = buildLenderPipelineSignals(loan, cases);
+  const messages = useMemo(() => buildLenderPipelineFeedMessages(loan, cases), [loan, cases]);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [messages]);
+
+  useEffect(() => {
+    if (messages.length <= 1) return;
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % messages.length);
+    }, 3500);
+    return () => window.clearInterval(id);
+  }, [messages.length]);
 
   return (
     <div
       className={cn(
-        "w-full max-w-[320px] rounded-lg border border-emerald-600/20 bg-background/95 shadow-md backdrop-blur-sm",
+        "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-emerald-600/25",
+        "bg-gradient-to-r from-emerald-500/8 via-background/80 to-emerald-500/5 px-3 shadow-sm",
         className,
       )}
     >
-      <div className="flex items-center gap-2 border-b border-emerald-600/15 px-3 py-2">
-        <Brain className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
-        <p className="text-xs font-semibold text-foreground">Chanakya</p>
-        <Sparkles className="ml-auto h-3 w-3 text-emerald-600/70" />
-      </div>
-      <div className="max-h-[220px] space-y-1.5 overflow-y-auto p-2 scrollbar-thin">
-        {signals.map((s) => (
-          <div key={s.label} className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
-            <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{s.label}</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-foreground/90">{s.value}</p>
-          </div>
-        ))}
+      <Brain className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-300" />
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+        Chanakya Live
+      </span>
+      <Sparkles className="h-3 w-3 shrink-0 text-emerald-600/60" />
+      <div className="relative h-5 min-w-0 flex-1 overflow-hidden">
+        <div
+          className="transition-transform duration-700 ease-in-out"
+          style={{ transform: `translateY(-${index * 20}px)` }}
+        >
+          {messages.map((msg, i) => (
+            <p key={`${msg}-${i}`} className="h-5 truncate text-xs text-foreground/90">
+              • {msg}
+            </p>
+          ))}
+        </div>
       </div>
     </div>
   );
