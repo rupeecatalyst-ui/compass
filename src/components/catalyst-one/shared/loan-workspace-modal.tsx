@@ -82,6 +82,8 @@ export interface LoanWorkspaceModalProps {
   onUpdate?: (fileId: string, patch: Partial<LoanFile>) => void;
   onOpenContact?: (contactId: string) => void;
   contactOptions?: ContactOption[];
+  /** UX-03 — Initial workbench tab when opening workspace (e.g. documents after origination). */
+  defaultTab?: string;
   /** @deprecated Use standard Dialog — customer workspace hides parent while loan is open. */
   embedded?: boolean;
 }
@@ -100,6 +102,7 @@ function LoanWorkspaceModalContent({
   onUpdate,
   onOpenContact,
   contactOptions = [],
+  defaultTab = "overview",
   embedded = false,
 }: LoanWorkspaceModalProps & { file: LoanFile }) {
   const [draft, setDraft] = useState<LoanFile>(() => ({ ...file }));
@@ -292,7 +295,7 @@ function LoanWorkspaceModalContent({
   );
 
   const workbench = (
-    <Tabs defaultValue="overview" className="px-5 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <Tabs key={`${draft.id}-${defaultTab}`} defaultValue={defaultTab} className="px-5 py-6 sm:px-6 lg:px-8 lg:py-8">
       <TabsList className="mb-6 grid h-auto w-full grid-cols-5 bg-muted p-1">
         <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
         <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>

@@ -74,6 +74,7 @@ export function useCustomersWorkspace() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedLoanFileId, setSelectedLoanFileId] = useState<string | null>(null);
+  const [loanWorkspaceTab, setLoanWorkspaceTab] = useState("overview");
   const [workspaceTab, setWorkspaceTabState] = useState("overview");
   const [completedProductFilter, setCompletedProductFilter] = useState<string | null>(null);
   const [loanFilesVersion, setLoanFilesVersion] = useState(0);
@@ -219,12 +220,14 @@ export function useCustomersWorkspace() {
     setLoanFilesVersion((v) => v + 1);
   }, []);
 
-  const openLoanWorkspace = useCallback((fileId: string) => {
+  const openLoanWorkspace = useCallback((fileId: string, tab = "overview") => {
+    setLoanWorkspaceTab(tab);
     setSelectedLoanFileId(fileId);
   }, []);
 
   const closeLoanWorkspace = useCallback(() => {
     setSelectedLoanFileId(null);
+    setLoanWorkspaceTab("overview");
   }, []);
 
   const filteredCustomers = useMemo(() => {
@@ -334,6 +337,7 @@ export function useCustomersWorkspace() {
     setWorkspaceTab,
     workspaceScrollRef,
     selectedLoanFileId,
+    loanWorkspaceTab,
     openLoanWorkspace,
     closeLoanWorkspace,
     completedProductFilter,

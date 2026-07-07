@@ -16,7 +16,7 @@ import { useCustomersContext } from "@/components/catalyst-one/customers/custome
 import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-workspace-modal";
 import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
-import { LoanCreateFormDialog } from "@/components/catalyst-one/loan-files/loan-create-form-dialog";
+import { LoanCreateFormDialog, type LoanCreateSubmitMeta } from "@/components/catalyst-one/loan-files/loan-create-form-dialog";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { ROLES } from "@/constants/roles";
 import { feedback } from "@/lib/action-feedback";
@@ -35,6 +35,7 @@ import {
   mergeCustomerTimeline,
 } from "@/lib/customer-utils";
 import { createLoanFileFromInput } from "@/lib/loan-files-utils";
+import { syncParticipantLegacyFields } from "@/lib/loan-participants";
 import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
 import { saveCustomerWorkspaceContext } from "@/lib/workspace-context";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ export function Customer360Modal() {
     setWorkspaceTab,
     workspaceScrollRef,
     selectedLoanFileId,
+    loanWorkspaceTab,
     openLoanWorkspace,
     closeLoanWorkspace,
     completedProductFilter,
@@ -104,6 +106,7 @@ export function Customer360Modal() {
       selectedCustomerId={selectedCustomerId}
       selectedLoanFileId={selectedLoanFileId}
       selectedLoan={selectedLoan}
+      loanWorkspaceTab={loanWorkspaceTab}
       closeCustomer={closeCustomer}
       closeLoanWorkspace={closeLoanWorkspace}
       openContactFromWorkspace={openContactFromWorkspace}
@@ -127,12 +130,13 @@ interface Customer360ModalContentProps {
   selectedCustomerId: string | null;
   selectedLoanFileId: string | null;
   selectedLoan: LoanFile | null;
+  loanWorkspaceTab: string;
   closeCustomer: () => void;
   closeLoanWorkspace: () => void;
   openContactFromWorkspace: (contactId: string) => void;
   contactOptions: { id: string; name: string }[];
   refreshLoanFiles: () => void;
-  openLoanWorkspace: (fileId: string) => void;
+  openLoanWorkspace: (fileId: string, tab?: string) => void;
   workspaceTab: string;
   setWorkspaceTab: (tab: string) => void;
   workspaceScrollRef: React.MutableRefObject<number>;
@@ -148,6 +152,7 @@ function Customer360ModalContent({
   selectedCustomerId,
   selectedLoanFileId,
   selectedLoan,
+  loanWorkspaceTab,
   closeCustomer,
   closeLoanWorkspace,
   openContactFromWorkspace,
@@ -235,9 +240,17 @@ function Customer360ModalContent({
     });
   };
 
-  const handleLoanCreated = (input: Parameters<typeof createLoanFileFromInput>[0]) => {
+  const handleLoanCreated = (input: Parameters<typeof createLoanFileFromInput>[0], meta?: LoanCreateSubmitMeta) => {
     const existing = loadLoanFiles();
-    const file = createLoanFileFromInput(input, existing);
+    const base = createLoanFileFromInput(input, existing);
+    const synced = syncParticipantLegacyFields(meta?.participants ?? [], base.businessDetails);
+    const file: LoanFile = {
+      ...base,
+      ...synced,
+      source: meta?.source ?? base.source,
+      sourceContactId: meta?.sourceContactId,
+      sourceContactName: meta?.sourceContactName,
+    };
     saveLoanFiles([file, ...existing]);
     updateCustomer(customer.id, {
       timeline: [
@@ -256,7 +269,11 @@ function Customer360ModalContent({
     setLoanCreateOpen(false);
     refreshLoanFiles();
     feedback.loanCreated(file.fileNumber);
-    setWorkspaceTab("portfolio");
+    if (meta?.proceedToDocuments) {
+      openLoanWorkspace(file.id, "documents");
+    } else {
+      setWorkspaceTab("portfolio");
+    }
   };
 
   const tabs = [
@@ -476,6 +493,7 @@ function Customer360ModalContent({
         onOpenChange={(open) => !open && closeLoanWorkspace()}
         onOpenContact={openContactFromWorkspace}
         contactOptions={contactOptions}
+        defaultTab={loanWorkspaceTab}
         onUpdate={() => refreshLoanFiles()}
       />
 
@@ -484,6 +502,7 @@ function Customer360ModalContent({
         onOpenChange={setLoanCreateOpen}
         title="Add Loan for Customer"
         description={`Create a new loan file for ${customer.name}`}
+        onOpenSourceContact={openContactFromWorkspace}
         prefillCustomer={{
           id: customer.id,
           name: customer.name,
@@ -492,6 +511,7 @@ function Customer360ModalContent({
           city: customer.city,
           state: customer.state ?? "",
           employmentType: customer.employmentType ?? "Salaried",
+          relationshipManager: customer.relationshipManager,
         }}
         onSubmit={handleLoanCreated}
       />
