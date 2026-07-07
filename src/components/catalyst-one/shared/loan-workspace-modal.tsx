@@ -14,7 +14,7 @@ import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-head
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
-import { InsightsWorkspace } from "@/components/catalyst-one/insights/insights-workspace";
+import { MissionControlWorkspace } from "@/components/catalyst-one/mission-control/mission-control-workspace";
 import { ChanakyaLenderPipelinePanel } from "@/components/catalyst-one/shared/chanakya-lender-pipeline-panel";
 import { DocumentsWorkspace } from "@/components/catalyst-one/execution/documents-workspace";
 import { TasksWorkspace } from "@/components/catalyst-one/execution/tasks-workspace";
@@ -361,7 +361,7 @@ function LoanWorkspaceModalContent({
       value={activeTab}
       onValueChange={setActiveTab}
       className={cn(
-        activeTab === "lenders" || activeTab === "insights"
+        activeTab === "lenders" || activeTab === "mission-control"
           ? "px-2 py-2 sm:px-3"
           : "px-5 py-6 sm:px-6 lg:px-8 lg:py-8",
       )}
@@ -370,14 +370,14 @@ function LoanWorkspaceModalContent({
         <TabsList
           className={cn(
             "h-auto bg-muted p-1",
-            activeTab === "lenders" || activeTab === "insights"
+            activeTab === "lenders" || activeTab === "mission-control"
               ? "grid flex-1 grid-cols-6"
               : "grid w-full grid-cols-6",
           )}
         >
           <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
           <TabsTrigger value="lenders" className="text-xs">Lender Pipeline</TabsTrigger>
-          <TabsTrigger value="insights" className="text-xs">Insights</TabsTrigger>
+          <TabsTrigger value="mission-control" className="text-xs">Mission Control</TabsTrigger>
           <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
           <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
           <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
@@ -707,8 +707,8 @@ function LoanWorkspaceModalContent({
             />
           </TabsContent>
 
-          <TabsContent value="insights" className="mt-0 flex min-h-0 flex-1 flex-col">
-            <InsightsWorkspace loan={draft} cases={draft.lenders ?? []} />
+          <TabsContent value="mission-control" className="mt-0 flex min-h-0 flex-1 flex-col">
+            <MissionControlWorkspace loan={draft} cases={draft.lenders ?? []} />
           </TabsContent>
 
           <TabsContent value="documents" className="mt-0">
@@ -839,7 +839,7 @@ function LoanWorkspaceModalContent({
         <LoanWorkbenchLayout
           workbench={workbench}
           intelligence={intelligencePanel}
-          hideIntelligence={activeTab === "lenders" || activeTab === "insights"}
+          hideIntelligence={activeTab === "lenders" || activeTab === "mission-control"}
           onWorkbenchScroll={handleContentScroll}
         />
       </div>

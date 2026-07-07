@@ -93,6 +93,49 @@ const RACE_STAGE_ORDER: LenderCaseStage[] = [
   "lost",
 ];
 
+/** MC-01 — Main-line stages for Lender Express (terminal outcomes excluded). */
+export const EXPRESS_STAGES: LenderCaseStage[] = [
+  "prelogin",
+  "logged_in_wip",
+  "soft_approved",
+  "final_approved",
+  "closure_wip",
+  "disbursed",
+];
+
+export const APPROVAL_PROBABILITY_PCT: Record<string, number> = {
+  very_high: 92,
+  high: 78,
+  medium: 55,
+  low: 35,
+  very_low: 18,
+  rejected: 5,
+  withdrawn: 0,
+};
+
+export function getApprovalProbabilityPct(c: LoanLenderExecution): number {
+  return APPROVAL_PROBABILITY_PCT[c.probability ?? "medium"] ?? 55;
+}
+
+export function expressStageIndex(stage: LenderCaseStage): number {
+  const idx = EXPRESS_STAGES.indexOf(stage);
+  return idx >= 0 ? idx : -1;
+}
+
+export function daysSinceUpdated(iso: string) {
+  const d = new Date(iso).getTime();
+  if (Number.isNaN(d)) return 0;
+  return Math.floor((Date.now() - d) / (24 * 60 * 60 * 1000));
+}
+
+export function computeMonthlyEmi(principal: number, annualRate: number, tenureMonths: number): number {
+  if (principal <= 0 || tenureMonths <= 0) return 0;
+  const r = annualRate / 100 / 12;
+  if (r === 0) return principal / tenureMonths;
+  const factor = Math.pow(1 + r, tenureMonths);
+  return Math.round((principal * r * factor) / (factor - 1));
+}
+
 const BAND_STYLES: Record<PolicyBandId, string> = {
   excellent: "bg-emerald-500/12 border-emerald-500/20",
   preferred: "bg-blue-500/10 border-blue-500/15",
@@ -156,9 +199,7 @@ function lenderVariance(seed: string): number {
 }
 
 function daysSince(iso: string) {
-  const d = new Date(iso).getTime();
-  if (Number.isNaN(d)) return 0;
-  return Math.floor((Date.now() - d) / (24 * 60 * 60 * 1000));
+  return daysSinceUpdated(iso);
 }
 
 function stageIndex(stage: LenderCaseStage): number {
