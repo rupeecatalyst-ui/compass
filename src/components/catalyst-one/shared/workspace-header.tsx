@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 export interface WorkspaceHeaderProps {
   title: string;
+  infoStrip?: React.ReactNode;
   onClose: () => void;
   hasUnsavedChanges?: boolean;
   onSaveAndClose?: () => void | boolean | Promise<void | boolean>;
@@ -20,6 +21,7 @@ export interface WorkspaceHeaderProps {
 /** UX-01B — Standard enterprise workspace header: title left, Close right. */
 export function WorkspaceHeader({
   title,
+  infoStrip,
   onClose,
   hasUnsavedChanges,
   onSaveAndClose,
@@ -40,11 +42,14 @@ export function WorkspaceHeader({
       <header
         className={cn(
           "flex shrink-0 items-center justify-between gap-4 border-b border-border/60",
-          "bg-background/95 px-5 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6",
+          "bg-background/95 px-5 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6",
           className,
         )}
       >
-        <h1 className="text-sm font-semibold tracking-tight text-foreground">{title}</h1>
+        <div className="min-w-0">
+          <h1 className="text-sm font-semibold tracking-tight text-foreground">{title}</h1>
+          {infoStrip ? <div className="mt-0.5 min-w-0">{infoStrip}</div> : null}
+        </div>
         <Button
           type="button"
           variant="ghost"

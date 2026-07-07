@@ -26,6 +26,7 @@ export interface LoanWorkspaceCommandBarProps {
   onSaveAndExit: () => void;
   onOpenContact?: (contactId: string) => void;
   commandBarRef?: React.Ref<HTMLDivElement>;
+  density?: "default" | "compact";
 }
 
 /** CRC-10.2C / UX-01C — Loan Workspace command bar (identity + save actions). */
@@ -36,7 +37,50 @@ export function LoanWorkspaceCommandBar({
   onSaveAndExit,
   onOpenContact,
   commandBarRef,
+  density = "default",
 }: LoanWorkspaceCommandBarProps) {
+  if (density === "compact") {
+    return (
+      <div
+        ref={commandBarRef}
+        className="flex shrink-0 items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-5 py-1.5 backdrop-blur sm:px-6"
+      >
+        <div className="min-w-0 text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="font-medium text-foreground">{draft.fileNumber}</span>
+          <span className="truncate max-w-[220px]">{draft.customerName}</span>
+          <span className="tabular-nums">{draft.requiredAmount.toLocaleString("en-IN")}</span>
+          <span className="truncate">Stage {draft.stage}</span>
+          <span className="truncate">RM {draft.relationshipManager}</span>
+          <Badge
+            variant="outline"
+            className={cn("capitalize border h-6 px-2 text-[10px]", LOAN_FILE_PRIORITY_STYLES[draft.priority].className)}
+          >
+            {draft.priority}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-7 px-3 text-[10px]"
+            onClick={onSave}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save"}
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 px-3 text-[10px] bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+            onClick={onSaveAndExit}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save & Exit"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <CatalystCommandBar ref={commandBarRef} aria-label="Loan workspace command bar">
       <CommandBarHeader>

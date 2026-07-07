@@ -31,6 +31,7 @@ import {
 import { loanManagers } from "@/data/catalyst-one/loan-files";
 import { isOccupancyApplicableToProduct } from "@/constants/occupancy-master";
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
+import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { runWithFeedback } from "@/lib/action-feedback";
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
 import { formatINR } from "@/lib/format-currency";
@@ -323,6 +324,7 @@ function LoanWorkspaceModalContent({
       onSaveAndExit={handleSaveAndExit}
       onOpenContact={onOpenContact}
       commandBarRef={stickyChromeRef}
+      density={activeTab === "lenders" ? "compact" : "default"}
     />
   );
 
@@ -736,6 +738,18 @@ function LoanWorkspaceModalContent({
     <>
       <WorkspaceHeader
         title="Loan Workspace"
+        infoStrip={
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+            <span className="font-medium text-foreground">{draft.fileNumber}</span>
+            <span className="truncate max-w-[220px]">{draft.customerName}</span>
+            <span className="tabular-nums">{formatINR(draft.requiredAmount)}</span>
+            <span className="truncate">Stage {STAGE_LABELS[draft.stage]}</span>
+            <span className="truncate">RM {draft.relationshipManager}</span>
+            <span className={cn("rounded border px-1.5 py-0.5 capitalize", LOAN_FILE_PRIORITY_STYLES[draft.priority].className)}>
+              {draft.priority}
+            </span>
+          </div>
+        }
         onClose={closeWorkspace}
         closeApi={closeApi}
         hasUnsavedChanges={hasUnsavedChanges}

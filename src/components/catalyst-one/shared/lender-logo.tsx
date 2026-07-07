@@ -21,13 +21,18 @@ const LENDER_BRANDS: Record<string, { bg: string; fg: string; abbr: string }> = 
 
 interface LenderLogoProps {
   lender: string;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
   className?: string;
 }
 
 export function LenderLogo({ lender, size = "sm", className }: LenderLogoProps) {
   const brand = LENDER_BRANDS[lender];
-  const dim = size === "sm" ? "h-4 w-4 text-[7px]" : "h-5 w-5 text-[8px]";
+  const dim =
+    size === "sm"
+      ? "h-4 w-4 text-[7px]"
+      : size === "md"
+        ? "h-5 w-5 text-[8px]"
+        : "h-7 w-7 text-[10px]";
 
   if (brand) {
     return (
@@ -40,7 +45,7 @@ export function LenderLogo({ lender, size = "sm", className }: LenderLogoProps) 
         style={{ backgroundColor: brand.bg, color: brand.fg }}
         title={lender}
       >
-        {brand.abbr.slice(0, size === "sm" ? 2 : 3)}
+        {brand.abbr.slice(0, size === "sm" ? 2 : size === "md" ? 3 : 4)}
       </span>
     );
   }
