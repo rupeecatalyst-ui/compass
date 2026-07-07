@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
-import { EntityButtonLink, EntityLink } from "@/components/catalyst-one/shared/entity-link";
 import {
   attachCommandBarScrollState,
 } from "@/components/catalyst-one/shared/catalyst-command-bar";
@@ -11,15 +10,11 @@ import { LoanWorkbenchLayout } from "@/components/catalyst-one/shared/loan-workb
 import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-workbench-section";
 import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-workspace-command-bar";
 import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
-import { CitySelect } from "@/components/catalyst-one/shared/city-select";
-import { EmploymentIncomeFields } from "@/components/catalyst-one/shared/employment-income-fields";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
 import { DocumentsWorkspace } from "@/components/catalyst-one/execution/documents-workspace";
 import { TasksWorkspace } from "@/components/catalyst-one/execution/tasks-workspace";
-import { OrganizationRegistrySelect } from "@/components/catalyst-one/shared/organization-registry-select";
-import { PropertyInformationCard } from "@/components/catalyst-one/shared/property-information-card";
 import {
   buildDefaultParticipantEntityOptions,
   mapContactOptionsToParticipantEntities,
@@ -28,15 +23,14 @@ import {
 } from "@/lib/loan-participants";
 import {
   getProductsForLendingType,
-  isBalanceTransferVisible,
   isProductSecured,
   LENDING_TYPES,
   shouldShowFinalLoanAmount,
   TRANSACTION_TYPES,
 } from "@/constants/loan-pipeline";
-import { LEAD_SOURCES } from "@/constants/customer-360";
-import { loanLenders, loanManagers } from "@/data/catalyst-one/loan-files";
+import { loanManagers } from "@/data/catalyst-one/loan-files";
 import { isOccupancyApplicableToProduct } from "@/constants/occupancy-master";
+import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { runWithFeedback } from "@/lib/action-feedback";
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
 import { formatINR, formatINRCompact } from "@/lib/format-currency";
@@ -47,6 +41,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -63,8 +58,6 @@ import type {
   LendingType,
   LoanFile,
   LoanFilePriority,
-  LoanFileBusiness,
-  LoanFileStatus,
   PipelineStage,
   TransactionType,
 } from "@/types/catalyst-one";
@@ -131,6 +124,7 @@ function LoanWorkspaceModalContent({
   const [draft, setDraft] = useState<LoanFile>(() => ({ ...file }));
   const [notes, setNotes] = useState(() => file.internalNotes);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const stickyChromeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -138,8 +132,9 @@ function LoanWorkspaceModalContent({
       const participants = resolveLoanParticipants(file);
       setDraft({ ...file, participants });
       setNotes(file.internalNotes);
+      setActiveTab(defaultTab);
     }
-  }, [file]);
+  }, [file, defaultTab]);
 
   const participantEntityOptions = useMemo(
     () =>
@@ -166,11 +161,6 @@ function LoanWorkspaceModalContent({
   const revenueBase = getRevenueBaseAmount(draft);
   const commissionValue = Math.round(revenueBase * (draft.revenuePercent / 100));
   const productOptions = getProductsForLendingType(draft.lendingType ?? "secured");
-  const showPropertyInformationCard = isProductSecured(draft.loanProduct);
-  const showBt = isBalanceTransferVisible(
-    draft.lendingType ?? "secured",
-    draft.transactionType ?? "fresh",
-  );
   const showFinalAmount = shouldShowFinalLoanAmount(draft.stage);
 
   const patch = (p: Partial<LoanFile>) =>
@@ -207,9 +197,6 @@ function LoanWorkspaceModalContent({
       }
       return next;
     });
-
-  const patchBusiness = (p: Partial<LoanFileBusiness>) =>
-    patch({ businessDetails: { ...draft.businessDetails, ...p } });
 
   const buildPersistPayload = (): Partial<LoanFile> => {
     const synced = syncParticipantLegacyFields(participants, draft.businessDetails);
@@ -319,7 +306,12 @@ function LoanWorkspaceModalContent({
   );
 
   const workbench = (
-    <Tabs key={`${draft.id}-${defaultTab}`} defaultValue={defaultTab} className="px-5 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <Tabs
+      key={`${draft.id}-${defaultTab}`}
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className="px-5 py-6 sm:px-6 lg:px-8 lg:py-8"
+    >
       <TabsList className="mb-6 grid h-auto w-full grid-cols-5 bg-muted p-1">
         <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
         <TabsTrigger value="lenders" className="text-xs">Lender Pipeline</TabsTrigger>
@@ -329,59 +321,10 @@ function LoanWorkspaceModalContent({
       </TabsList>
 
           <TabsContent value="overview" className="mt-0 space-y-8">
-            <LoanWorkbenchSection title="Applicant" description="Primary borrower identity and contact details.">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Field label="Name">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.customerName}
-                    onChange={(e) => patch({ customerName: e.target.value })}
-                  />
-                </Field>
-                <Field label="Mobile">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.customerMobile}
-                    onChange={(e) => patch({ customerMobile: e.target.value })}
-                  />
-                </Field>
-                <Field label="Email">
-                  <Input
-                    className="h-8 text-xs"
-                    value={draft.customerEmail}
-                    onChange={(e) => patch({ customerEmail: e.target.value })}
-                  />
-                </Field>
-                <Field label="City">
-                  <CitySelect
-                    city={draft.city}
-                    state={draft.state}
-                    onSelect={(entry) => patch({ city: entry.city, state: entry.state })}
-                  />
-                </Field>
-                <Field label="State">
-                  <Input className="h-8 bg-muted/40 text-xs" value={draft.state} readOnly />
-                </Field>
-              </div>
-              {onOpenContact && (
-                <EntityButtonLink
-                  label="Open applicant workspace"
-                  className="mt-3 text-xs"
-                  onClick={() => onOpenContact(draft.customerId)}
-                />
-              )}
-            </LoanWorkbenchSection>
-
-            <LoanWorkbenchSection title="Employment & Income" description="Employment profile and indicative income signals.">
-              <EmploymentIncomeFields
-                employmentType={draft.employmentType}
-                businessDetails={draft.businessDetails}
-                onEmploymentTypeChange={(label) => patch({ employmentType: label })}
-                onBusinessDetailsChange={(p) => patchBusiness(p)}
-              />
-            </LoanWorkbenchSection>
-
-            <LoanWorkbenchSection title="Loan Details" description="Core lending parameters, product selection and file metadata.">
+            <LoanWorkbenchSection
+              title="Loan Details"
+              description="Primary operating summary for this file (enterprise workbench view)."
+            >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Field label="File Number">
                   <Input className="h-8 bg-muted/40 text-xs" value={draft.fileNumber} readOnly />
@@ -438,16 +381,6 @@ function LoanWorkspaceModalContent({
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Lender">
-                  <Select value={draft.lender} onValueChange={(v) => patch({ lender: v })}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {loanLenders.map((l) => (
-                        <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
                 <Field label="Priority">
                   <Select
                     value={draft.priority}
@@ -474,166 +407,23 @@ function LoanWorkspaceModalContent({
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Loan Amount (₹)">
-                  <INRCurrencyInput
-                    value={draft.loanAmount}
-                    onChange={(v) => patch({ loanAmount: v ?? 0 })}
-                  />
-                </Field>
                 <Field label="Requested Amount (₹)">
                   <INRCurrencyInput
                     value={draft.requiredAmount}
                     onChange={(v) => patch({ requiredAmount: v ?? 0 })}
                   />
                 </Field>
-                <Field label="Status">
-                  <Select
-                    value={draft.status}
-                    onValueChange={(v) => patch({ status: v as LoanFileStatus })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(["on_track", "at_risk", "delayed", "completed"] as LoanFileStatus[]).map((s) => (
-                        <SelectItem key={s} value={s} className="text-xs capitalize">
-                          {s.replace("_", " ")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Source">
-                  <Select value={draft.source ?? "Direct"} onValueChange={(v) => patch({ source: v })}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {[...LEAD_SOURCES, "Referral", "Walk-in"].map((s) => (
-                        <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Source Contact">
-                  {contactOptions.length > 0 ? (
-                    <Select
-                      value={draft.sourceContactId ?? "none"}
-                      onValueChange={(v) => {
-                        if (v === "none") {
-                          patch({ sourceContactId: undefined, sourceContactName: undefined });
-                          return;
-                        }
-                        const contact = contactOptions.find((c) => c.id === v);
-                        patch({
-                          sourceContactId: v,
-                          sourceContactName: contact?.name,
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select contact" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none" className="text-xs">—</SelectItem>
-                        {contactOptions.map((c) => (
-                          <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      className="h-8 text-xs"
-                      value={draft.sourceContactName ?? ""}
-                      onChange={(e) => patch({ sourceContactName: e.target.value })}
-                    />
-                  )}
-                </Field>
               </div>
-              {draft.sourceContactId && onOpenContact && (
-                <EntityButtonLink
-                  label="Open source contact workspace"
-                  className="mt-2 text-xs"
-                  onClick={() => onOpenContact(draft.sourceContactId!)}
-                />
-              )}
-              <div className="mt-3">
-                <EntityLink type="lender" id={draft.lender} label={`Open ${draft.lender} workspace`} className="text-xs" />
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <SummaryItem label="Loan Stage" value={STAGE_LABELS[draft.stage]} />
+                <SummaryItem label="Loan Sub Stage" value={draft.stageSubStatus ? (draft.stageSubStatus ?? "—") : "—"} />
+                <SummaryItem label="Expected Disbursement" value={new Date(draft.expectedDisbursement).toLocaleDateString("en-IN")} />
               </div>
             </LoanWorkbenchSection>
 
-            {showBt && (
-              <LoanWorkbenchSection title="Balance Transfer" description="Existing lender obligation and optional top-up.">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <Field label="Existing Lender *" className="sm:col-span-2">
-                    <OrganizationRegistrySelect
-                      value={draft.btInstitutionId}
-                      onSelect={(org) =>
-                        patch({
-                          btInstitutionId: org.id,
-                          btInstitutionName: org.name,
-                        })
-                      }
-                    />
-                  </Field>
-                  {draft.btInstitutionId && (
-                    <div className="flex items-end">
-                      <EntityLink
-                        type="company"
-                        id={draft.btInstitutionId}
-                        label="Open organization workspace"
-                        className="text-xs"
-                      />
-                    </div>
-                  )}
-                  <Field label="Outstanding Balance (₹) *">
-                    <INRCurrencyInput
-                      value={draft.btAmount}
-                      onChange={(v) => patch({ btAmount: v })}
-                    />
-                  </Field>
-                  <Field label="Top Up Required">
-                    <Select
-                      value={draft.topUpRequired ? "yes" : "no"}
-                      onValueChange={(v) =>
-                        patch({
-                          topUpRequired: v === "yes",
-                          topUpRequested: v === "yes" ? draft.topUpRequested : 0,
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no" className="text-xs">No</SelectItem>
-                        <SelectItem value="yes" className="text-xs">Yes</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  {draft.topUpRequired && (
-                    <Field label="Top Up Amount (₹)">
-                      <INRCurrencyInput
-                        value={draft.topUpRequested}
-                        onChange={(v) => patch({ topUpRequested: v })}
-                      />
-                    </Field>
-                  )}
-                </div>
-              </LoanWorkbenchSection>
-            )}
-
-            {showPropertyInformationCard && (
-              <LoanWorkbenchSection title="Property" description="Collateral and occupancy details for secured products.">
-                <PropertyInformationCard
-                  loanProduct={draft.loanProduct}
-                  values={{
-                    propertyType: draft.propertyType,
-                    occupancyId: draft.occupancyId,
-                    approxPropertyValue: draft.approxPropertyValue,
-                  }}
-                  onPropertyTypeChange={(type) => patch({ propertyType: type })}
-                  onOccupancyChange={(entry) => patch({ occupancyId: entry.id })}
-                  onApproxPropertyValueChange={(value) => patch({ approxPropertyValue: value })}
-                />
-              </LoanWorkbenchSection>
-            )}
-
             <LoanWorkbenchSection
               title="Loan Participants"
-              description="Co-applicants and company entities linked to this loan (search existing contacts — no manual name entry)."
+              description="Master/reference participants (search and auto-populate; no manual re-entry)."
             >
               <LoanParticipantsTable
                 primaryApplicant={{
@@ -669,6 +459,44 @@ function LoanWorkspaceModalContent({
                     : undefined
                 }
               />
+            </LoanWorkbenchSection>
+
+            <LoanWorkbenchSection
+              title="Lender Pipeline Summary"
+              description="Top active lender cases for quick visibility. Full pipeline is available under the Lender Pipeline tab."
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Active cases: {(draft.lenders ?? []).filter((c) => c.status !== "closed").length}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setActiveTab("lenders")}
+                >
+                  More…
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {(draft.lenders ?? [])
+                  .filter((c) => c.status !== "closed")
+                  .slice(0, 3)
+                  .map((c) => (
+                    <SummaryItem
+                      key={c.id}
+                      label={c.isPrimary ? "Primary Lender" : "Lender Case"}
+                      value={`${c.lender}${c.caseStage ? ` · ${c.caseStage}` : ""}`}
+                      accent={Boolean(c.isPrimary)}
+                    />
+                  ))}
+                {(draft.lenders ?? []).filter((c) => c.status !== "closed").length === 0 && (
+                  <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4 text-center text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
+                    No active lender cases yet. Add one from the Lender Pipeline tab.
+                  </div>
+                )}
+              </div>
             </LoanWorkbenchSection>
 
             <LoanWorkbenchSection title="RC Revenue & Accounting" description="Commission, expected revenue and settlement tracking.">
