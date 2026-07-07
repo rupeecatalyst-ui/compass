@@ -245,7 +245,27 @@ export type CustomerListView = "list" | "card" | "compact";
 
 export type CustomerActiveFilter = "all" | "active" | "inactive";
 
-export type DocumentCheckStatus = "pending" | "received" | "verified" | "rejected";
+export type DocumentCheckStatus = "pending" | "requested" | "received" | "verified" | "rejected";
+
+export type ExecutionTaskStatus = "pending" | "in_progress" | "completed" | "cancelled";
+
+export type LenderExecutionStatus = "active" | "closed";
+
+export interface LoanLenderExecution {
+  id: string;
+  lender: string;
+  branch?: string;
+  relationshipManager?: string;
+  loginDate?: string;
+  applicationNumber?: string;
+  status: LenderExecutionStatus;
+  subStatus?: string;
+  remarks?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export type CustomerRelationshipType =
   | "co_applicant"
@@ -397,6 +417,17 @@ export interface LoanFileDocument {
   id: string;
   name: string;
   status: DocumentCheckStatus;
+  /** GL-03 — Loan Execution Workspace */
+  category?: string;
+  assignedTo?: string;
+  requestedDate?: string;
+  receivedDate?: string;
+  verifiedDate?: string;
+  remarks?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LoanFileTask {
@@ -406,6 +437,14 @@ export interface LoanFileTask {
   dueDate: string;
   assignedTo: string;
   completed: boolean;
+  /** GL-03 — richer task execution states (keeps `completed` for legacy UIs). */
+  status?: ExecutionTaskStatus;
+  reminder?: string;
+  remarks?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LoanFileTimelineEvent {
@@ -498,6 +537,8 @@ export interface LoanFile {
   isUrgent: boolean;
   isDelayed: boolean;
   archived?: boolean;
+  /** GL-03 — Loan Execution: lender assignments & history. */
+  lenders?: LoanLenderExecution[];
 }
 
 export interface SavedViewPreset {

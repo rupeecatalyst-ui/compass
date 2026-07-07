@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DocumentChecklist } from "@/components/catalyst-one/loan-files/document-checklist";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
-import { TaskPanel } from "@/components/catalyst-one/loan-files/task-panel";
 import { EntityButtonLink, EntityLink } from "@/components/catalyst-one/shared/entity-link";
 import {
   attachCommandBarScrollState,
@@ -17,6 +15,9 @@ import { CitySelect } from "@/components/catalyst-one/shared/city-select";
 import { EmploymentIncomeFields } from "@/components/catalyst-one/shared/employment-income-fields";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { LoanParticipantsPanel } from "@/components/catalyst-one/shared/loan-participants-panel";
+import { LendersWorkspace } from "@/components/catalyst-one/execution/lenders-workspace";
+import { DocumentsWorkspace } from "@/components/catalyst-one/execution/documents-workspace";
+import { TasksWorkspace } from "@/components/catalyst-one/execution/tasks-workspace";
 import { OrganizationRegistrySelect } from "@/components/catalyst-one/shared/organization-registry-select";
 import { PropertyInformationCard } from "@/components/catalyst-one/shared/property-information-card";
 import {
@@ -67,6 +68,28 @@ import type {
   PipelineStage,
   TransactionType,
 } from "@/types/catalyst-one";
+
+function buildExecutionMessages(file: LoanFile): string[] {
+  const messages: string[] = [];
+  const lenders = file.lenders ?? [];
+  const activeLenders = lenders.filter((l) => l.status === "active");
+  if (lenders.length === 0) messages.push("No lender assigned.");
+  else if (activeLenders.length === 0) messages.push("All lenders are marked closed.");
+
+  const docs = file.documents ?? [];
+  const pendingDocs = docs.filter((d) => d.status === "pending" || d.status === "requested");
+  if (pendingDocs.length > 0) messages.push(`${pendingDocs.length} documents pending.`);
+
+  const tasks = file.tasks ?? [];
+  const overdue = tasks.filter((t) => {
+    const status = t.status ?? (t.completed ? "completed" : "pending");
+    if (status === "completed" || status === "cancelled") return false;
+    return new Date(t.dueDate).getTime() < Date.now();
+  });
+  if (overdue.length > 0) messages.push(`${overdue.length} overdue tasks.`);
+
+  return messages;
+}
 
 export interface ContactOption {
   id: string;
@@ -284,6 +307,7 @@ function LoanWorkspaceModalContent({
       updatedBy={draft.relationshipManager}
       currentStatus={draft.status}
       saving={saving}
+      executionMessages={buildExecutionMessages(draft)}
       finalLoanAmount={draft.finalLoanAmount}
       finalRoi={draft.finalRoi}
       finalTenure={draft.finalTenure}
@@ -298,10 +322,10 @@ function LoanWorkspaceModalContent({
     <Tabs key={`${draft.id}-${defaultTab}`} defaultValue={defaultTab} className="px-5 py-6 sm:px-6 lg:px-8 lg:py-8">
       <TabsList className="mb-6 grid h-auto w-full grid-cols-5 bg-muted p-1">
         <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+        <TabsTrigger value="lenders" className="text-xs">Lenders</TabsTrigger>
         <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
         <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
         <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
-        <TabsTrigger value="notes" className="text-xs">Notes</TabsTrigger>
       </TabsList>
 
           <TabsContent value="overview" className="mt-0 space-y-8">
@@ -668,35 +692,84 @@ function LoanWorkspaceModalContent({
             </LoanWorkbenchSection>
           </TabsContent>
 
+          <TabsContent value="lenders" className="mt-0">
+            <LoanWorkbenchSection
+              title="Lender Workspace"
+              description="Operational lender tracking for execution (single or multi-lender)."
+            >
+              <LendersWorkspace
+                lenders={draft.lenders ?? []}
+                updatedBy={draft.relationshipManager}
+                onChange={(next) => patch({ lenders: next })}
+                onTimeline={(note) =>
+                  patch({
+                    timeline: [
+                      {
+                        id: `tl-lender-${Date.now()}`,
+                        title: "Lender Activity",
+                        description: note,
+                        timestamp: new Date().toISOString(),
+                        completed: true,
+                      },
+                      ...draft.timeline,
+                    ],
+                  })
+                }
+              />
+            </LoanWorkbenchSection>
+          </TabsContent>
+
           <TabsContent value="documents" className="mt-0">
             <LoanWorkbenchSection title="Documents" description="Checklist and collection status for this loan file.">
-              <DocumentChecklist documents={draft.documents} />
+              <DocumentsWorkspace
+                documents={draft.documents}
+                updatedBy={draft.relationshipManager}
+                onChange={(next) => patch({ documents: next })}
+                onTimeline={(note) =>
+                  patch({
+                    timeline: [
+                      {
+                        id: `tl-doc-${Date.now()}`,
+                        title: "Document Activity",
+                        description: note,
+                        timestamp: new Date().toISOString(),
+                        completed: true,
+                      },
+                      ...draft.timeline,
+                    ],
+                  })
+                }
+              />
             </LoanWorkbenchSection>
           </TabsContent>
 
           <TabsContent value="tasks" className="mt-0">
             <LoanWorkbenchSection title="Tasks" description="Operational tasks assigned to this file.">
-              <TaskPanel fileId={draft.id} tasks={draft.tasks} />
+              <TasksWorkspace
+                tasks={draft.tasks}
+                updatedBy={draft.relationshipManager}
+                onChange={(next) => patch({ tasks: next })}
+                onTimeline={(note) =>
+                  patch({
+                    timeline: [
+                      {
+                        id: `tl-task-${Date.now()}`,
+                        title: "Task Activity",
+                        description: note,
+                        timestamp: new Date().toISOString(),
+                        completed: true,
+                      },
+                      ...draft.timeline,
+                    ],
+                  })
+                }
+              />
             </LoanWorkbenchSection>
           </TabsContent>
 
           <TabsContent value="timeline" className="mt-0">
             <LoanWorkbenchSection title="Timeline" description="Chronological activity across the loan journey.">
               <FileTimeline events={draft.timeline} />
-            </LoanWorkbenchSection>
-          </TabsContent>
-
-          <TabsContent value="notes" className="mt-0">
-            <LoanWorkbenchSection title="Internal Notes" description="Private RM notes — not visible to the customer.">
-              <textarea
-                rows={12}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className={cn(
-                  "min-h-[280px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm",
-                  "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                )}
-              />
             </LoanWorkbenchSection>
           </TabsContent>
         </Tabs>

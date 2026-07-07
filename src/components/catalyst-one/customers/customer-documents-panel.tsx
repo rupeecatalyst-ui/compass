@@ -10,6 +10,7 @@ import type { CustomerDocument, CustomerProfile } from "@/types/catalyst-one";
 const STATUS_STYLES: Record<CustomerDocument["status"], string> = {
   verified: "bg-success/10 text-success border-success/30",
   received: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
+  requested: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30",
   pending: "bg-muted text-muted-foreground border-border",
   rejected: "bg-destructive/10 text-destructive border-destructive/30",
 };

@@ -10,6 +10,7 @@ const statusConfig: Record<
 > = {
   verified: { icon: Check, label: "Verified", className: "text-accent bg-accent/10 border-accent/20" },
   received: { icon: FileCheck, label: "Received", className: "text-primary bg-primary/10 border-primary/20" },
+  requested: { icon: Clock, label: "Requested", className: "text-blue-700 bg-blue-600/10 border-blue-600/20 dark:text-blue-300" },
   pending: { icon: Clock, label: "Pending", className: "text-warning bg-warning/10 border-warning/20" },
   rejected: { icon: X, label: "Rejected", className: "text-destructive bg-destructive/10 border-destructive/20" },
 };

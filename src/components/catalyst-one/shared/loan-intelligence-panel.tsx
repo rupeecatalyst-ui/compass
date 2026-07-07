@@ -12,6 +12,8 @@ export interface LoanIntelligencePanelProps {
   timeline: LoanFileTimelineEvent[];
   updatedBy: string;
   currentStatus: LoanFileStatus;
+  /** GL-03 — execution workspace signals (rule-based, no AI). */
+  executionMessages?: string[];
   saving?: boolean;
   finalLoanAmount?: number;
   finalRoi?: number;
@@ -43,14 +45,25 @@ export function LoanIntelligencePanel({
 
       <div
         className="mt-auto shrink-0 border-t border-dashed border-border/50 px-4 py-3 sm:px-5"
-        aria-label="Future Chanakya Enterprise Companion capabilities"
+        aria-label="Chanakya execution signals"
       >
         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
-          Reserved · ADR-010
+          Chanakya · Execution Signals
         </p>
-        <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground/70">
-          Journey Intelligence · Next Best Action · Risks · Performance · Ask Chanakya
-        </p>
+        {workflowProps.executionMessages && workflowProps.executionMessages.length > 0 ? (
+          <ul className="mt-2 space-y-1 text-[10px] leading-relaxed text-muted-foreground/80">
+            {workflowProps.executionMessages.map((msg) => (
+              <li key={msg} className="flex gap-2">
+                <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500/70" />
+                <span className="min-w-0">{msg}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground/70">
+            No execution alerts. Lender, documents, and tasks look healthy.
+          </p>
+        )}
       </div>
     </div>
   );
