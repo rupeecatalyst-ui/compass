@@ -14,7 +14,7 @@ import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-head
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
-import { LenderRaceBoard } from "@/components/catalyst-one/execution/lender-race-board";
+import { InsightsWorkspace } from "@/components/catalyst-one/insights/insights-workspace";
 import { ChanakyaLenderPipelinePanel } from "@/components/catalyst-one/shared/chanakya-lender-pipeline-panel";
 import { DocumentsWorkspace } from "@/components/catalyst-one/execution/documents-workspace";
 import { TasksWorkspace } from "@/components/catalyst-one/execution/tasks-workspace";
@@ -708,7 +708,7 @@ function LoanWorkspaceModalContent({
           </TabsContent>
 
           <TabsContent value="insights" className="mt-0 flex min-h-0 flex-1 flex-col">
-            <LenderRaceBoard loan={draft} cases={draft.lenders ?? []} />
+            <InsightsWorkspace loan={draft} cases={draft.lenders ?? []} />
           </TabsContent>
 
           <TabsContent value="documents" className="mt-0">

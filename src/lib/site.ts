@@ -1,3 +1,4 @@
+import type { StaticImageData } from "next/image";
 import logoAsset from "@/assets/logo.asset.json";
 import homeLoanImg from "@/assets/products/home-loan.jpg";
 import homeLoanBtImg from "@/assets/products/home-loan-bt.jpg";
@@ -42,7 +43,7 @@ export interface Product {
   rate: string;
   rateNum: number;
   tagline: string;
-  image: string;
+  image: string | StaticImageData;
   benefits: string[];
   features: string[];
   eligibility: string[];
