@@ -13,6 +13,7 @@ import { TargetAchievementPanel } from "@/components/catalyst-one/dashboard/targ
 import { TodaysFocus } from "@/components/catalyst-one/dashboard/todays-focus";
 import { TodaysTasksWidget } from "@/components/catalyst-one/dashboard/todays-tasks-widget";
 import { useDashboardPersona } from "@/hooks/use-dashboard-persona";
+import { ChanakyaPanel } from "@/modules/intelligence/components";
 
 export function DashboardContent() {
   const { config } = useDashboardPersona();
@@ -20,6 +21,7 @@ export function DashboardContent() {
   return (
     <div className="space-y-2.5 pb-3 w-full max-w-none">
       <DashboardToolbar />
+      <ChanakyaPanel mode="executive" variant="expanded" userName="Rahul" className="mb-1" />
       <TodaysFocus />
       <ExecutiveKpiGrid />
 
