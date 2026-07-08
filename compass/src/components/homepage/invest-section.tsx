@@ -1,12 +1,13 @@
 "use client";
 
-import { ChartLine, Gem, Landmark, Target } from "lucide-react";
+import { LineChart, Gem, Landmark, Target } from "lucide-react";
 import { ProductChip } from "@/components/homepage/shared/product-chip";
 import { SectionHeader, SectionReveal } from "@/components/homepage/shared/section-reveal";
 import { homepageV2 } from "@/config/homepage";
+import { ROUTES } from "@/constants/routes";
 
 const iconMap = {
-  chart: ChartLine,
+  chart: LineChart,
   landmark: Landmark,
   gem: Gem,
   target: Target,
@@ -29,6 +30,7 @@ export function InvestSection() {
               icon={<Icon className="h-5 w-5" />}
               index={index}
               variant="invest"
+              href={ROUTES.RESOURCES}
             />
           );
         })}

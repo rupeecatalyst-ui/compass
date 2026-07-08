@@ -111,28 +111,28 @@ export const loanProducts = [
 ] as const;
 
 export const aboutContent = {
-  headline: "Why COMPASS Exists",
+  headline: "Built for clearer financial decisions",
   intro:
-    "Borrowing in India is fragmented between slow, opaque brokers and fast but impersonal online marketplaces. COMPASS was built to combine the best of both — intelligent technology and human expertise — with complete transparency.",
+    "Borrowing in India sits between slow, opaque brokers and fast but impersonal marketplaces. COMPASS brings intelligent guidance and human expertise together — with transparency at every step.",
   pillars: [
     {
       title: "Intelligence First",
-      description: "Every recommendation is backed by real lender intelligence, not generic rate tables.",
+      description: "Every recommendation is shaped by real lender patterns, not generic rate tables.",
     },
     {
       title: "Human When It Matters",
-      description: "Complex cases get dedicated loan specialists who negotiate on your behalf.",
+      description: "Complex cases get dedicated specialists who guide documentation and execution.",
     },
     {
       title: "Transparency Always",
-      description: "You see every stage of your journey — eligibility, application, sanction, disbursement.",
+      description: "You understand trade-offs and next steps — without pressure or hidden surprises.",
     },
   ],
 } as const;
 
 export const contactContent = {
-  headline: "Get in Touch",
-  intro: "Speak with our team about your borrowing needs. We're here to guide you with clarity.",
+  headline: "We're here to guide you",
+  intro: "Speak with our team about your borrowing needs — clarity first, forms later.",
 } as const;
 
 export const placeholderPages = {

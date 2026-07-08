@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { placeholderPages } from "@/config/content";
@@ -12,17 +16,32 @@ export function PlaceholderPageContent({ page }: PlaceholderPageContentProps) {
   const content = placeholderPages[page];
 
   return (
-    <SectionContainer className="pt-12 sm:pt-16 pb-20">
-      <div className="mx-auto max-w-2xl text-center">
-        <span className="inline-flex rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-          {content.status}
-        </span>
-        <h1 className="mt-6 text-4xl font-bold tracking-tight sm:text-5xl">{content.headline}</h1>
-        <p className="mt-6 text-lg text-muted-foreground leading-relaxed">{content.description}</p>
-        <Button className="mt-8" asChild>
-          <Link href={ROUTES.CONTACT}>Contact Us</Link>
-        </Button>
-      </div>
-    </SectionContainer>
+    <>
+      <PageHero
+        eyebrow={content.status}
+        headline={content.headline}
+        subheadline={content.description}
+      />
+
+      <SectionContainer className="pt-4 pb-20">
+        <div className="mx-auto max-w-xl rounded-2xl glass-panel p-8 text-center sm:p-10">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            This experience is being prepared. Meanwhile, explore the Home Loan journey or speak
+            with our team.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button asChild>
+              <Link href={ROUTES.HOME_LOAN}>
+                Home Loan Coach
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button variant="outline" className="bg-transparent" asChild>
+              <Link href={ROUTES.CONTACT}>Contact Us</Link>
+            </Button>
+          </div>
+        </div>
+      </SectionContainer>
+    </>
   );
 }

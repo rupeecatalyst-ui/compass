@@ -5,16 +5,14 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { SectionReveal } from "@/components/homepage/shared/section-reveal";
 import { Button } from "@/components/ui/button";
-import { homeLoanLanding } from "@/config/home-loan-landing";
+import { homepageV2 } from "@/config/homepage";
 import { ROUTES } from "@/constants/routes";
 
-// Home Loan landing CTA — keep contact as low-friction next step.
-
 export function FinalCtaSection() {
-  const { finalCta } = homeLoanLanding;
+  const { finalCta } = homepageV2;
 
   return (
-    <SectionReveal id="journey-cta" className="pb-24 sm:pb-32">
+    <SectionReveal className="pb-24 sm:pb-32">
       <motion.div
         initial={false}
         whileInView={{ opacity: 1, y: 0 }}
@@ -30,12 +28,22 @@ export function FinalCtaSection() {
           <p className="mx-auto mt-4 max-w-lg text-muted-foreground sm:text-lg">
             {finalCta.subheadline}
           </p>
-          <Button size="lg" className="mt-8 h-12 px-8" asChild>
-            <Link href={ROUTES.CONTACT}>
-              {finalCta.cta}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button size="lg" className="h-12 px-8" asChild>
+              <Link href={ROUTES.HOME_LOAN}>
+                Start with Home Loan
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12 border-border/80 bg-transparent hover:bg-white/5"
+              asChild
+            >
+              <Link href={ROUTES.CONTACT}>{finalCta.cta}</Link>
+            </Button>
+          </div>
         </div>
       </motion.div>
     </SectionReveal>

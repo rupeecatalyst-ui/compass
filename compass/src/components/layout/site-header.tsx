@@ -16,7 +16,8 @@ export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const isHome = pathname === ROUTES.HOME;
+  const isLanding =
+    pathname === ROUTES.HOME || pathname === ROUTES.HOME_LOAN;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -32,7 +33,7 @@ export function SiteHeader() {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         "sticky top-0 z-50 w-full transition-all duration-500",
-        scrolled || !isHome
+        scrolled || !isLanding
           ? "border-b border-border/60 bg-background/80 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.5)] backdrop-blur-xl"
           : "border-b border-transparent bg-transparent",
       )}
@@ -47,7 +48,7 @@ export function SiteHeader() {
               href={link.href}
               className={cn(
                 "rounded-lg px-3 py-2 text-sm transition-colors duration-300",
-                pathname === link.href
+                pathname === link.href || pathname.startsWith(`${link.href}/`)
                   ? "text-foreground font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5",
               )}

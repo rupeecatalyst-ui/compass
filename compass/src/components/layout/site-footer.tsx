@@ -14,7 +14,8 @@ export function SiteFooter() {
           <div>
             <CompassLogo showTagline />
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-              The intelligent financial platform from {siteConfig.company}. Borrow better, invest smarter, build confidence.
+              The customer platform from {siteConfig.company}. Borrow better, invest smarter, build
+              confidence — with calm guidance at every step.
             </p>
           </div>
 
@@ -63,7 +64,7 @@ export function SiteFooter() {
           <p>
             <span className="font-medium text-foreground">{siteConfig.name}</span>
             <span className="mx-2 opacity-40">·</span>
-            Powered by <span className="font-medium text-primary">{siteConfig.company}</span>
+            A product of <span className="font-medium text-primary">{siteConfig.company}</span>
           </p>
         </div>
       </SectionContainer>

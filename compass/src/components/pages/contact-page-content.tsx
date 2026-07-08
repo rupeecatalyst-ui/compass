@@ -1,45 +1,65 @@
-import { Mail, MapPin, Phone } from "lucide-react";
+"use client";
+
+import Link from "next/link";
+import { Mail, MapPin, Phone, ArrowRight } from "lucide-react";
+import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { contactContent } from "@/config/content";
 import { siteConfig } from "@/config/site";
+import { ROUTES } from "@/constants/routes";
 
 export function ContactPageContent() {
   return (
-    <SectionContainer className="pt-12 sm:pt-16 pb-20">
-      <div className="mx-auto max-w-3xl text-center">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{contactContent.headline}</h1>
-        <p className="mt-6 text-lg text-muted-foreground">{contactContent.intro}</p>
-      </div>
+    <>
+      <PageHero
+        eyebrow="Contact Us"
+        headline={contactContent.headline}
+        subheadline={contactContent.intro}
+      />
 
-      <div className="mx-auto mt-12 grid max-w-4xl gap-6 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base"><Mail className="h-4 w-4 text-primary" /> Email</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <a href={`mailto:${siteConfig.contactEmail}`} className="text-sm text-muted-foreground hover:text-foreground">
-              {siteConfig.contactEmail}
-            </a>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base"><Phone className="h-4 w-4 text-primary" /> Phone</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">{siteConfig.contactPhone}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base"><MapPin className="h-4 w-4 text-primary" /> Office</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Mumbai, India</p>
-          </CardContent>
-        </Card>
-      </div>
-    </SectionContainer>
+      <SectionContainer className="pt-8 pb-20">
+        <div className="mx-auto grid max-w-4xl gap-4 md:grid-cols-3">
+          <a
+            href={`mailto:${siteConfig.contactEmail}`}
+            className="rounded-2xl glass-panel glass-panel-hover p-6 transition-colors"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
+              <Mail className="h-4 w-4 text-primary" />
+            </div>
+            <h2 className="mt-4 text-base font-semibold">Email</h2>
+            <p className="mt-2 text-sm text-muted-foreground break-all">{siteConfig.contactEmail}</p>
+          </a>
+
+          <div className="rounded-2xl glass-panel p-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
+              <Phone className="h-4 w-4 text-primary" />
+            </div>
+            <h2 className="mt-4 text-base font-semibold">Phone</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{siteConfig.contactPhone}</p>
+          </div>
+
+          <div className="rounded-2xl glass-panel p-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
+              <MapPin className="h-4 w-4 text-primary" />
+            </div>
+            <h2 className="mt-4 text-base font-semibold">Office</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Mumbai, India</p>
+          </div>
+        </div>
+
+        <div className="mx-auto mt-12 max-w-2xl rounded-2xl border border-border/60 bg-surface/50 p-6 text-center sm:p-8">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Prefer to explore first? Begin with the Home Loan Coach — no long forms, just clarity.
+          </p>
+          <Button className="mt-6" asChild>
+            <Link href={ROUTES.HOME_LOAN}>
+              Start Home Loan Journey
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      </SectionContainer>
+    </>
   );
 }
