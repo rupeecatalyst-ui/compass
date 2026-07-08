@@ -16,10 +16,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: `${siteConfig.name} — Borrow Better. Invest Smarter.`,
+    default: `${siteConfig.name} — Home Loan Coach`,
     template: `%s | ${siteConfig.name}`,
   },
-  description: siteConfig.description,
+  description:
+    "COMPASS helps you make smarter home loan decisions with calm guidance, transparency, and clarity at every step.",
   metadataBase: new URL(siteConfig.url),
   openGraph: {
     title: `${siteConfig.name} — ${siteConfig.tagline}`,

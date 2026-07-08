@@ -10,7 +10,7 @@ export const mainNavigation = [
 
 export const footerNavigation = {
   products: [
-    { label: "Home Loan", href: ROUTES.LOAN_PRODUCTS },
+    { label: "Home Loan", href: ROUTES.HOME },
     { label: "Business Loan", href: ROUTES.LOAN_PRODUCTS },
     { label: "Loan Against Property", href: ROUTES.LOAN_PRODUCTS },
     { label: "Personal Loan", href: ROUTES.LOAN_PRODUCTS },
