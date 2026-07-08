@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { homeLoanLanding } from "@/config/home-loan-landing";
 import { ROUTES } from "@/constants/routes";
 
-// Home Loan landing CTA — keep contact as low-friction next step.
-
 export function FinalCtaSection() {
   const { finalCta } = homeLoanLanding;
 
@@ -30,12 +28,17 @@ export function FinalCtaSection() {
           <p className="mx-auto mt-4 max-w-lg text-muted-foreground sm:text-lg">
             {finalCta.subheadline}
           </p>
-          <Button size="lg" className="mt-8 h-12 px-8" asChild>
-            <Link href={ROUTES.CONTACT}>
-              {finalCta.cta}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button size="lg" className="h-12 px-8" asChild>
+              <a href="#advantage-conversation">
+                {finalCta.cta}
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </Button>
+            <Button size="lg" variant="outline" className="h-12 bg-transparent" asChild>
+              <Link href={ROUTES.CONTACT}>Talk To Us</Link>
+            </Button>
+          </div>
         </div>
       </motion.div>
     </SectionReveal>

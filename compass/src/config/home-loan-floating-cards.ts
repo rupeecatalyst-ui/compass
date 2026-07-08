@@ -1,7 +1,7 @@
 import { ROUTES } from "@/constants/routes";
 
-/** Placeholder destination — Home Loan Strategy Assessment (Coming Soon). */
-export const STRATEGY_ASSESSMENT_HREF = `${ROUTES.HOME_LOAN}#strategy-assessment` as const;
+/** Floating cards open the conversation-first advantage journey. */
+export const STRATEGY_ASSESSMENT_HREF = `${ROUTES.HOME_LOAN}#advantage-conversation` as const;
 
 export const homeLoanFloatingCards = [
   {

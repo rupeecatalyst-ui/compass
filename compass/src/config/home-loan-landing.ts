@@ -1,65 +1,83 @@
 export const homeLoanLanding = {
   hero: {
     eyebrow: "Home Loan Coach",
-    headline: "We know you deserve your dream home",
-    headlineAccent: "at the best possible terms.",
+    headline: "Your Dream Home Deserves",
+    headlineAccent: "the Right Loan Strategy.",
     subheadline:
-      "COMPASS guides you through home loan decisions with calm clarity — so you borrow with confidence, not pressure.",
+      "Answer a few simple questions and we'll build your personalized home loan strategy, recommend suitable lenders and reveal your Rupee Catalyst Advantage.",
     valueProps: [
-      "Clarity before you apply",
+      "Know More. Borrow Better.",
       "Guidance on rates, terms, and lender fit",
       "Specialists when you are ready to execute",
     ],
-    primaryCta: "Start My Journey",
-    primaryCtaShort: "Start Journey",
-    secondaryCta: "Talk to Sarathi",
+    primaryCta: "Discover My Advantage",
+    primaryCtaShort: "Discover Advantage",
+    secondaryCta: "Talk To Us",
+  },
+  metrics: {
+    eyebrow: "Trusted guidance",
+    headline: "Numbers that build confidence",
+    subheadline: "Trust indicators from two decades of helping families borrow better.",
+    items: [
+      { id: "partners", value: 100, suffix: "+", label: "Lending Partners" },
+      { id: "facilitated", value: 1000, prefix: "₹", suffix: "Cr+", label: "Facilitated" },
+      { id: "experience", value: 20, suffix: "+", label: "Years Expertise" },
+      { id: "families", displayValue: "10,000+", label: "Families Guided" },
+    ],
   },
   thoughtStream: {
-    eyebrow: "Thought Stream",
-    headline: "Questions every homebuyer asks",
+    eyebrow: "Common questions",
+    headline: "Questions every home buyer asks",
     subheadline:
-      "You do not need forms yet. Start with the thoughts that already keep you up at night — COMPASS meets you there.",
+      "Tap a question for a clear, concise answer — no forms, no pressure.",
     thoughts: [
       {
         id: "afford",
         question: "Can I afford my dream home?",
-        hint: "Begin with possibility, not pressure.",
+        answer:
+          "Affordability is about comfortable EMI, buffer for life costs, and a clear down-payment plan — not the maximum a lender might approve.",
       },
       {
         id: "interest",
         question: "Am I paying too much interest?",
-        hint: "Rate is only one part of the story.",
+        answer:
+          "Rate matters, but so do tenure, fees, and reset clauses. The right structure often saves more than chasing a slightly lower headline rate.",
       },
       {
         id: "emi",
         question: "Can I reduce my EMI?",
-        hint: "Structure matters as much as rate.",
+        answer:
+          "Sometimes yes — through tenure, product fit, or balance transfer. The goal is a payment you can sustain without stress.",
       },
       {
         id: "lender",
         question: "Which lender is right for me?",
-        hint: "Fit beats advertising.",
+        answer:
+          "The best lender matches your profile and purpose — not the one with the loudest advertising. Fit beats vanity rates.",
       },
       {
         id: "borrow",
         question: "How much can I actually borrow?",
-        hint: "Capacity, not hope.",
+        answer:
+          "Borrowing capacity depends on income stability, obligations, and lender appetite. We'll help you see a realistic range before you apply.",
       },
       {
         id: "costs",
         question: "What hidden costs should I know about?",
-        hint: "Surprises belong nowhere near your home.",
+        answer:
+          "Stamp duty, registration, processing fees, and insurance can sit beside the loan amount. Surprises belong nowhere near your home.",
       },
       {
         id: "save",
         question: "Can COMPASS save me money?",
-        hint: "Better decisions compound.",
+        answer:
+          "Better decisions compound — from lender fit to structure. Your Advantage Wallet is a visual teaser; real guidance stays calm and clear.",
       },
     ],
   },
   whyCompass: {
     eyebrow: "Why COMPASS",
-    headline: "Borrowing with confidence",
+    headline: "Confidence · Transparency · Informed Decisions",
     subheadline:
       "COMPASS helps customers make better borrowing decisions through intelligent guidance — not rushed applications.",
     pillars: [
@@ -80,49 +98,6 @@ export const homeLoanLanding = {
       },
     ],
   },
-  tools: {
-    eyebrow: "Financial Intelligence",
-    headline: "Tools for clearer home loan decisions",
-    subheadline: "Premium guidance instruments — arriving soon. Explore them as your toolkit takes shape.",
-    items: [
-      {
-        id: "advantage",
-        title: "COMPASS Advantage",
-        description: "See how informed guidance can improve your borrowing position.",
-      },
-      {
-        id: "emi",
-        title: "EMI Calculator",
-        description: "Visualise repayment with clarity — before you lock a structure.",
-      },
-      {
-        id: "eligibility",
-        title: "Eligibility Calculator",
-        description: "Understand borrowing readiness across lender patterns.",
-      },
-      {
-        id: "bt",
-        title: "Balance Transfer Calculator",
-        description: "Compare whether switching could meaningfully help.",
-      },
-      {
-        id: "affordability",
-        title: "Affordability Calculator",
-        description: "Match home dreams to sustainable monthly capacity.",
-      },
-      {
-        id: "stamp",
-        title: "Stamp Duty & Registration",
-        description: "Surface the costs that sit beyond the loan amount.",
-      },
-      {
-        id: "fitness",
-        title: "Financial Fitness",
-        description: "A calm read on readiness before you apply.",
-      },
-    ],
-    status: "Coming Soon",
-  },
   sarathi: {
     eyebrow: "Sarathi",
     title: "Your Financial Guide",
@@ -132,8 +107,8 @@ export const homeLoanLanding = {
     frames: ["Understand", "Clarify", "Decide", "Act"],
   },
   finalCta: {
-    headline: "Ready to begin your Home Loan journey?",
-    subheadline: "No long forms. Just a calm next step toward clearer borrowing.",
-    cta: "Start My Journey",
+    headline: "Ready for a calmer Home Loan conversation?",
+    subheadline: "No long forms. Just a few simple questions with Sarathi.",
+    cta: "Discover My Advantage",
   },
 } as const;

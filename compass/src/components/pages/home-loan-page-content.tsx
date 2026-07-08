@@ -1,22 +1,25 @@
 "use client";
 
 import { HeroSection } from "@/components/homepage/hero-section";
-import { StrategyAssessmentSection } from "@/components/homepage/strategy-assessment-section";
-import { ThoughtStreamSection } from "@/components/homepage/thought-stream-section";
+import { HomeLoanMetricsSection } from "@/components/homepage/home-loan-metrics-section";
 import { WhyCompassSection } from "@/components/homepage/why-compass-section";
-import { FinancialToolsSection } from "@/components/homepage/financial-tools-section";
-import { SarathiSection } from "@/components/homepage/sarathi-section";
+import { HomeBuyerQuestionsSection } from "@/components/homepage/home-buyer-questions-section";
+import { AdvantageConversationSection } from "@/components/homepage/advantage-conversation-section";
 import { FinalCtaSection } from "@/components/homepage/final-cta-section";
 
+/**
+ * HL-03 order:
+ * Hero → Metrics → Confidence/Transparency/Decisions
+ * → Questions accordion → Sarathi conversation → Final CTA
+ */
 export function HomeLoanPageContent() {
   return (
     <>
       <HeroSection />
-      <StrategyAssessmentSection />
-      <ThoughtStreamSection />
+      <HomeLoanMetricsSection />
       <WhyCompassSection />
-      <FinancialToolsSection />
-      <SarathiSection />
+      <HomeBuyerQuestionsSection />
+      <AdvantageConversationSection />
       <FinalCtaSection />
     </>
   );

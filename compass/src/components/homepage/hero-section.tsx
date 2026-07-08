@@ -2,22 +2,15 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Building2, Shield, TrendingUp } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { HeroInsightStage } from "@/components/homepage/hero-insight-stage";
 import { Button } from "@/components/ui/button";
 import { homeLoanLanding } from "@/config/home-loan-landing";
-import { homepageV2 } from "@/config/homepage";
+import { ROUTES } from "@/constants/routes";
 import { staggerContainer, staggerItem } from "@/lib/animations";
-
-const trustIcons = {
-  building: Building2,
-  trending: TrendingUp,
-  shield: Shield,
-} as const;
 
 export function HeroSection() {
   const { hero } = homeLoanLanding;
-  const trustIndicators = homepageV2.hero.trustIndicators;
 
   return (
     <section className="relative overflow-hidden pt-8 sm:pt-12 lg:pt-16 pb-16 sm:pb-20">
@@ -53,16 +46,20 @@ export function HeroSection() {
               {hero.subheadline}
             </motion.p>
 
-            <motion.div
+            <motion.p
               variants={staggerItem}
-              className="flex flex-col gap-3 sm:flex-row"
+              className="text-sm font-medium tracking-wide text-primary"
             >
+              {hero.valueProps[0]}
+            </motion.p>
+
+            <motion.div variants={staggerItem} className="flex flex-col gap-3 sm:flex-row">
               <Button size="lg" className="h-12 px-6 sm:px-8" asChild>
-                <Link href="#journey-cta">
+                <a href="#advantage-conversation">
                   <span className="sm:hidden">{hero.primaryCtaShort}</span>
                   <span className="hidden sm:inline">{hero.primaryCta}</span>
                   <ArrowRight className="h-4 w-4" />
-                </Link>
+                </a>
               </Button>
               <Button
                 size="lg"
@@ -70,41 +67,15 @@ export function HeroSection() {
                 className="h-12 border-border/80 bg-transparent hover:bg-white/5"
                 asChild
               >
-                <Link href="#sarathi">{hero.secondaryCta}</Link>
+                <Link href={ROUTES.CONTACT}>{hero.secondaryCta}</Link>
               </Button>
             </motion.div>
 
-            {/* Mobile: show intelligence cards early (after CTAs) */}
             <motion.div variants={staggerItem} className="lg:hidden">
               <HeroInsightStage />
             </motion.div>
-
-            <motion.ul variants={staggerItem} className="max-w-xl space-y-2.5">
-              {hero.valueProps.map((prop) => (
-                <li key={prop} className="flex items-start gap-2.5 text-sm text-foreground/90">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  {prop}
-                </li>
-              ))}
-            </motion.ul>
-
-            <motion.div variants={staggerItem} className="flex flex-wrap gap-2.5">
-              {trustIndicators.map((item) => {
-                const Icon = trustIcons[item.icon];
-                return (
-                  <div
-                    key={item.label}
-                    className="flex items-center gap-2 rounded-full border border-border/60 bg-surface/50 px-3 py-1.5 text-xs text-muted-foreground"
-                  >
-                    <Icon className="h-3.5 w-3.5 text-primary" />
-                    {item.label}
-                  </div>
-                );
-              })}
-            </motion.div>
           </motion.div>
 
-          {/* Desktop / large screens: illustration + floating cards on the right */}
           <motion.div
             initial={false}
             animate={{ opacity: 1, x: 0 }}

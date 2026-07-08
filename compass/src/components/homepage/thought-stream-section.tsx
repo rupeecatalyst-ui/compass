@@ -63,7 +63,7 @@ export function ThoughtStreamSection() {
                     transition={{ duration: 0.35, ease: smoothEase }}
                     className="overflow-hidden text-sm text-primary/90"
                   >
-                    {thought.hint}
+                    {"answer" in thought ? thought.answer : null}
                   </motion.p>
                 ) : null}
               </AnimatePresence>
