@@ -15,7 +15,7 @@ import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { loanProducts } from "@/config/content";
-import { ROUTES } from "@/constants/routes";
+import { ROUTES, coachRoute } from "@/constants/routes";
 
 const productIcons: Record<string, LucideIcon> = {
   "home-loan": Home,
@@ -26,20 +26,35 @@ const productIcons: Record<string, LucideIcon> = {
   "personal-loan": User,
 };
 
+const productCoachSlug: Record<string, string> = {
+  "home-loan": "home-loan",
+  "business-loan": "business-loan",
+  lap: "loan-against-property",
+  "working-capital": "working-capital",
+  "construction-finance": "construction-finance",
+  "personal-loan": "personal-loan",
+};
+
 export function LoanProductsPageContent() {
   return (
     <>
       <PageHero
         eyebrow="Borrowing"
         headline="Loan Products"
-        subheadline="Every product backed by intelligent matching and expert execution — choose your path with clarity."
+        subheadline="Every product has a dedicated coach — choose your path with clarity."
       />
 
       <SectionContainer className="pt-8 pb-20">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {loanProducts.map((product) => {
             const Icon = productIcons[product.id] ?? Home;
-            const href = product.id === "home-loan" ? ROUTES.HOME_LOAN : ROUTES.CONTACT;
+            const slug = productCoachSlug[product.id];
+            const href =
+              product.id === "home-loan"
+                ? ROUTES.HOME_LOAN
+                : slug
+                  ? coachRoute(slug)
+                  : ROUTES.COACHES;
 
             return (
               <article
@@ -55,13 +70,19 @@ export function LoanProductsPageContent() {
                 </p>
                 <Button variant="ghost" size="sm" className="mt-4 px-0 text-primary" asChild>
                   <Link href={href}>
-                    {product.id === "home-loan" ? "Explore Home Loan" : "Talk to us"}
+                    Open coach
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
               </article>
             );
           })}
+        </div>
+
+        <div className="mt-10 text-center">
+          <Button variant="outline" className="bg-transparent" asChild>
+            <Link href={ROUTES.COACHES}>Browse all coaches</Link>
+          </Button>
         </div>
       </SectionContainer>
     </>

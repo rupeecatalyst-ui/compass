@@ -6,4 +6,14 @@ export const ROUTES = {
   CONTACT: "/contact",
   FINANCIAL_FITNESS: "/financial-fitness",
   RESOURCES: "/resources",
+  COACHES: "/coaches",
+  TOOLS: "/tools",
 } as const;
+
+export function coachRoute(slug: string) {
+  return `/coaches/${slug}` as const;
+}
+
+export function toolRoute(slug: string) {
+  return `/tools/${slug}` as const;
+}

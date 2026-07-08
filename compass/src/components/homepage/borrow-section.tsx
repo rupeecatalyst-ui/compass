@@ -11,7 +11,7 @@ import {
 import { ProductChip } from "@/components/homepage/shared/product-chip";
 import { SectionHeader, SectionReveal } from "@/components/homepage/shared/section-reveal";
 import { homepageV2 } from "@/config/homepage";
-import { ROUTES } from "@/constants/routes";
+import { ROUTES, coachRoute } from "@/constants/routes";
 
 const iconMap = {
   home: Home,
@@ -24,11 +24,11 @@ const iconMap = {
 
 const productHrefs: Record<string, string> = {
   "home-loan": ROUTES.HOME_LOAN,
-  "business-loan": ROUTES.LOAN_PRODUCTS,
-  lap: ROUTES.LOAN_PRODUCTS,
-  construction: ROUTES.LOAN_PRODUCTS,
-  wc: ROUTES.LOAN_PRODUCTS,
-  personal: ROUTES.LOAN_PRODUCTS,
+  "business-loan": coachRoute("business-loan"),
+  lap: coachRoute("loan-against-property"),
+  construction: coachRoute("construction-finance"),
+  wc: coachRoute("working-capital"),
+  personal: coachRoute("personal-loan"),
 };
 
 export function BorrowSection() {
@@ -48,7 +48,7 @@ export function BorrowSection() {
               icon={<Icon className="h-5 w-5" />}
               index={index}
               variant="borrow"
-              href={productHrefs[product.id] ?? ROUTES.LOAN_PRODUCTS}
+              href={productHrefs[product.id] ?? ROUTES.COACHES}
             />
           );
         })}
