@@ -15,14 +15,40 @@ export const homeLoanLanding = {
     secondaryCta: "Talk To Us",
   },
   metrics: {
-    eyebrow: "Trusted guidance",
-    headline: "Numbers that build confidence",
-    subheadline: "Trust indicators from two decades of helping families borrow better.",
+    eyebrow: "Proof points",
+    headline: "Trusted by families. Backed by outcomes.",
+    subheadline:
+      "These aren’t statistics — they’re signals of experience, lender access, and guidance you can trust.",
     items: [
-      { id: "partners", value: 100, suffix: "+", label: "Lending Partners" },
-      { id: "facilitated", value: 1000, prefix: "₹", suffix: "Cr+", label: "Facilitated" },
-      { id: "experience", value: 20, suffix: "+", label: "Years Expertise" },
-      { id: "families", displayValue: "10,000+", label: "Families Guided" },
+      {
+        id: "partners",
+        icon: "network",
+        value: 40,
+        suffix: "+",
+        label: "Lending Partners",
+      },
+      {
+        id: "facilitated",
+        icon: "banknote",
+        value: 2500,
+        prefix: "₹",
+        suffix: "+ Cr",
+        label: "Facilitated",
+      },
+      {
+        id: "experience",
+        icon: "shield",
+        value: 15,
+        suffix: "+",
+        label: "Years of Expertise",
+      },
+      {
+        id: "families",
+        icon: "home",
+        value: 1100,
+        suffix: "+",
+        label: "Families Guided",
+      },
     ],
   },
   thoughtStream: {

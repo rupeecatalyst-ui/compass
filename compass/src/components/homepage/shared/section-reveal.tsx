@@ -8,14 +8,23 @@ interface SectionRevealProps {
   children: React.ReactNode;
   className?: string;
   id?: string;
+  spacing?: "default" | "hero" | "major" | "related";
 }
 
-export function SectionReveal({ children, className, id }: SectionRevealProps) {
+export function SectionReveal({ children, className, id, spacing = "default" }: SectionRevealProps) {
   const reduceMotion = useReducedMotion();
+  const spacingClass =
+    spacing === "hero"
+      ? "py-20 sm:py-24 lg:py-28"
+      : spacing === "major"
+        ? "py-14 sm:py-16 lg:py-20"
+        : spacing === "related"
+          ? "py-10 sm:py-12 lg:py-14"
+          : "py-16 sm:py-24 lg:py-28";
 
   if (reduceMotion) {
     return (
-      <section id={id} className={cn("py-16 sm:py-24 lg:py-28", className)}>
+      <section id={id} className={cn(spacingClass, className)}>
         <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">{children}</div>
       </section>
     );
@@ -28,7 +37,7 @@ export function SectionReveal({ children, className, id }: SectionRevealProps) {
       whileInView="animate"
       viewport={viewportOnce}
       variants={fadeUp}
-      className={cn("py-16 sm:py-24 lg:py-28", className)}
+      className={cn(spacingClass, className)}
     >
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">{children}</div>
     </motion.section>

@@ -10,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes = [
     ROUTES.HOME,
     ROUTES.HOME_LOAN,
+    ROUTES.PERSONAL_LOAN,
     ROUTES.LOAN_PRODUCTS,
     ROUTES.ABOUT,
     ROUTES.CONTACT,
