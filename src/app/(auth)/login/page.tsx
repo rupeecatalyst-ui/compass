@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <AuthLayout title="Welcome back" description="Sign in to your COMPASS account">
+    <AuthLayout title="Welcome back" description="Sign in to your Catalyst One account">
       <LoginForm />
     </AuthLayout>
   );
