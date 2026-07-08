@@ -1,13 +1,17 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
-export function CompassIllustration() {
+export function CompassIllustration({ className }: { className?: string }) {
   const reduceMotion = useReducedMotion();
 
   return (
     <div
-      className="relative mx-auto flex aspect-square w-full max-w-[220px] items-center justify-center sm:max-w-xs"
+      className={cn(
+        "relative mx-auto flex aspect-square w-full max-w-[220px] items-center justify-center sm:max-w-xs",
+        className,
+      )}
       aria-hidden
     >
       <motion.div
