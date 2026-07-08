@@ -23,10 +23,10 @@ export function AuthLayout({ children, title, description }: AuthLayoutProps) {
         </div>
         <div className="space-y-4">
           <h2 className="text-4xl font-bold tracking-tight">
-            Financial Operating System
+            Enterprise Operating System
           </h2>
           <p className="text-lg text-muted-foreground max-w-md">
-            Enterprise-grade platform powering {siteConfig.company} and the future of fintech operations.
+            Catalyst One is the enterprise operating system for lending execution, risk, and operations.
           </p>
         </div>
         <p className="text-sm text-muted-foreground">
