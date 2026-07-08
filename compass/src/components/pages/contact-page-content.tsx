@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { Mail, MapPin, Phone, ArrowRight } from "lucide-react";
+import { PageFade } from "@/components/marketing/page-fade";
 import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { contactContent } from "@/config/content";
+import { ctaCopy } from "@/config/cta";
 import { siteConfig } from "@/config/site";
 import { ROUTES } from "@/constants/routes";
 
 export function ContactPageContent() {
   return (
-    <>
+    <PageFade>
       <PageHero
         eyebrow="Contact Us"
         headline={contactContent.headline}
@@ -28,7 +30,7 @@ export function ContactPageContent() {
               <Mail className="h-4 w-4 text-primary" />
             </div>
             <h2 className="mt-4 text-base font-semibold">Email</h2>
-            <p className="mt-2 text-sm text-muted-foreground break-all">{siteConfig.contactEmail}</p>
+            <p className="mt-2 break-all text-sm text-muted-foreground">{siteConfig.contactEmail}</p>
           </a>
 
           <div className="rounded-2xl glass-panel p-6">
@@ -48,18 +50,18 @@ export function ContactPageContent() {
           </div>
         </div>
 
-        <div className="mx-auto mt-12 max-w-2xl rounded-2xl border border-border/60 bg-surface/50 p-6 text-center sm:p-8">
-          <p className="text-sm text-muted-foreground leading-relaxed">
+        <div className="mx-auto mt-12 max-w-2xl rounded-2xl glass-panel p-6 text-center sm:p-8">
+          <p className="text-sm leading-relaxed text-muted-foreground">
             Prefer to explore first? Begin with the Home Loan Coach — no long forms, just clarity.
           </p>
-          <Button className="mt-6" asChild>
+          <Button size="lg" className="mt-6 h-12" asChild>
             <Link href={ROUTES.HOME_LOAN}>
-              Start Home Loan Journey
+              {ctaCopy.primary.exploreHomeLoan}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
         </div>
       </SectionContainer>
-    </>
+    </PageFade>
   );
 }

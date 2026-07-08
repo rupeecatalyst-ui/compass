@@ -11,10 +11,12 @@ import {
   ArrowRight,
   type LucideIcon,
 } from "lucide-react";
+import { PageFade } from "@/components/marketing/page-fade";
 import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { loanProducts } from "@/config/content";
+import { ctaCopy } from "@/config/cta";
 import { ROUTES, coachRoute } from "@/constants/routes";
 
 const productIcons: Record<string, LucideIcon> = {
@@ -37,7 +39,7 @@ const productCoachSlug: Record<string, string> = {
 
 export function LoanProductsPageContent() {
   return (
-    <>
+    <PageFade>
       <PageHero
         eyebrow="Borrowing"
         headline="Loan Products"
@@ -70,7 +72,7 @@ export function LoanProductsPageContent() {
                 </p>
                 <Button variant="ghost" size="sm" className="mt-4 px-0 text-primary" asChild>
                   <Link href={href}>
-                    Open coach
+                    {ctaCopy.primary.openCoach}
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -80,11 +82,11 @@ export function LoanProductsPageContent() {
         </div>
 
         <div className="mt-10 text-center">
-          <Button variant="outline" className="bg-transparent" asChild>
-            <Link href={ROUTES.COACHES}>Browse all coaches</Link>
+          <Button size="lg" variant="outline" className="h-12 bg-transparent" asChild>
+            <Link href={ROUTES.COACHES}>{ctaCopy.secondary.browseCoaches}</Link>
           </Button>
         </div>
       </SectionContainer>
-    </>
+    </PageFade>
   );
 }

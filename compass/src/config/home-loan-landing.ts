@@ -10,7 +10,8 @@ export const homeLoanLanding = {
       "Guidance on rates, terms, and lender fit",
       "Specialists when you are ready to execute",
     ],
-    primaryCta: "Start My Home Loan Journey",
+    primaryCta: "Start My Journey",
+    primaryCtaShort: "Start Journey",
     secondaryCta: "Talk to Sarathi",
   },
   thoughtStream: {

@@ -4,39 +4,46 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ComingSoonPanel } from "@/components/coaching/coming-soon-panel";
 import { IntelligenceBadge } from "@/components/coaching/intelligence-badge";
+import { CompassIllustration } from "@/components/marketing/compass-illustration";
+import { PageFade } from "@/components/marketing/page-fade";
 import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { coaches } from "@/config/coaching";
+import { ctaCopy } from "@/config/cta";
 import { ROUTES, toolRoute } from "@/constants/routes";
 
 type Coach = (typeof coaches)[number];
 
 interface CoachLandingContentProps {
-  coach: Exclude<Coach, { slug: "home-loan" }> | Coach;
+  coach: Coach;
 }
 
 export function CoachLandingContent({ coach }: CoachLandingContentProps) {
   return (
-    <>
+    <PageFade>
       <PageHero
         eyebrow={coach.eyebrow}
         headline={`${coach.headline} ${coach.headlineAccent}`}
         subheadline={coach.subheadline}
-      />
+      >
+        <div className="mx-auto max-w-[200px]">
+          <CompassIllustration />
+        </div>
+      </PageHero>
 
-      <SectionContainer className="pt-2 pb-8">
+      <SectionContainer className="pt-0 pb-8">
         <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
           <IntelligenceBadge />
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button asChild>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <Button size="lg" className="h-12" asChild>
               <Link href={ROUTES.CONTACT}>
-                Start this journey
+                {ctaCopy.primary.startJourney}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button variant="outline" className="bg-transparent" asChild>
-              <Link href={ROUTES.TOOLS}>Explore tools</Link>
+            <Button size="lg" variant="outline" className="h-12 bg-transparent" asChild>
+              <Link href={ROUTES.TOOLS}>{ctaCopy.primary.viewTools}</Link>
             </Button>
           </div>
         </div>
@@ -57,10 +64,7 @@ export function CoachLandingContent({ coach }: CoachLandingContentProps) {
 
         <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {coach.thoughts.map((thought, index) => (
-            <div
-              key={thought}
-              className="rounded-2xl border border-border/60 bg-surface/40 p-5 transition-colors hover:border-primary/25 hover:bg-surface/70"
-            >
+            <div key={thought} className="rounded-2xl glass-panel p-5">
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 {String(index + 1).padStart(2, "0")}
               </span>
@@ -72,10 +76,12 @@ export function CoachLandingContent({ coach }: CoachLandingContentProps) {
 
       <SectionContainer className="pt-4 pb-20">
         <ComingSoonPanel
-          title="Coach experience — Coming Soon"
-          description={`${coach.title} guidance deeper than this landing is on the way. Related calculators will appear here with Catalyst One Intelligence — no formulas on COMPASS.`}
+          title="Coming Soon"
+          description={`${coach.title} goes deeper soon. Related calculators will appear with Catalyst One Intelligence — no formulas on COMPASS.`}
           ctaHref={toolRoute("compass-advantage")}
           ctaLabel="See COMPASS Advantage"
+          secondaryHref={ROUTES.COACHES}
+          secondaryLabel={ctaCopy.secondary.browseCoaches}
         />
 
         <div className="mt-8 text-center">
@@ -84,6 +90,6 @@ export function CoachLandingContent({ coach }: CoachLandingContentProps) {
           </Button>
         </div>
       </SectionContainer>
-    </>
+    </PageFade>
   );
 }

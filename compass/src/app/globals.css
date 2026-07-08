@@ -62,7 +62,23 @@
   }
 
   html {
-    @apply scroll-smooth antialiased;
+    @apply antialiased;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   body {
@@ -73,6 +89,10 @@
   ::selection {
     background: rgba(45, 212, 191, 0.25);
     color: #f4f7fb;
+  }
+
+  a:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background rounded-sm;
   }
 }
 
@@ -106,6 +126,12 @@
       0 0 40px -12px var(--glow),
       0 24px 60px -24px rgba(0, 0, 0, 0.7);
     transform: translateY(-2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .glass-panel-hover:hover {
+      transform: none;
+    }
   }
 
   .ambient-glow {

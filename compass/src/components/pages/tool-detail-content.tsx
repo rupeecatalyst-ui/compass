@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { ComingSoonPanel } from "@/components/coaching/coming-soon-panel";
 import { IntelligenceBadge } from "@/components/coaching/intelligence-badge";
+import { CompassIllustration } from "@/components/marketing/compass-illustration";
+import { PageFade } from "@/components/marketing/page-fade";
 import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
-import { type tools } from "@/config/coaching";
+import { tools } from "@/config/coaching";
+import { ctaCopy } from "@/config/cta";
 import { ROUTES } from "@/constants/routes";
 
 type Tool = (typeof tools)[number];
@@ -17,8 +20,12 @@ interface ToolDetailContentProps {
 
 export function ToolDetailContent({ tool }: ToolDetailContentProps) {
   return (
-    <>
-      <PageHero eyebrow={tool.category} headline={tool.title} subheadline={tool.description} />
+    <PageFade>
+      <PageHero eyebrow={tool.category} headline={tool.title} subheadline={tool.description}>
+        <div className="mx-auto max-w-[180px]">
+          <CompassIllustration />
+        </div>
+      </PageHero>
 
       <SectionContainer className="pt-2 pb-6">
         <div className="flex justify-center sm:justify-start">
@@ -27,7 +34,7 @@ export function ToolDetailContent({ tool }: ToolDetailContentProps) {
       </SectionContainer>
 
       <SectionContainer className="pt-2 pb-8">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3">
           {["Inputs", "Insight", "Next step"].map((label, index) => (
             <div
               key={label}
@@ -36,7 +43,7 @@ export function ToolDetailContent({ tool }: ToolDetailContentProps) {
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 {String(index + 1).padStart(2, "0")} · {label}
               </p>
-              <p className="mt-3 text-sm text-muted-foreground">UI shell only — no calculation.</p>
+              <p className="mt-3 text-sm text-muted-foreground">Empty state — no calculation yet.</p>
             </div>
           ))}
         </div>
@@ -47,7 +54,9 @@ export function ToolDetailContent({ tool }: ToolDetailContentProps) {
           title="Coming Soon"
           description={`${tool.title} will help customers make clearer decisions. Results will be powered by Catalyst One Intelligence — COMPASS will not hardcode formulas.`}
           ctaHref={ROUTES.CONTACT}
-          ctaLabel="Notify me / Talk to us"
+          ctaLabel={ctaCopy.secondary.talkToUs}
+          secondaryHref={ROUTES.TOOLS}
+          secondaryLabel="All tools"
         />
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -55,10 +64,10 @@ export function ToolDetailContent({ tool }: ToolDetailContentProps) {
             <Link href={ROUTES.TOOLS}>← All tools</Link>
           </Button>
           <Button variant="ghost" asChild>
-            <Link href={ROUTES.COACHES}>Browse coaches</Link>
+            <Link href={ROUTES.COACHES}>{ctaCopy.secondary.browseCoaches}</Link>
           </Button>
         </div>
       </SectionContainer>
-    </>
+    </PageFade>
   );
 }

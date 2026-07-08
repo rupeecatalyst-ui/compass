@@ -5,7 +5,14 @@ import { cn } from "@/lib/utils";
 
 function RupeeCatalystMark({ className }: { className?: string }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" role="img" aria-label="Rupee Catalyst" className={cn("text-primary", className)}>
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 32 32"
+      role="img"
+      aria-label="Rupee Catalyst"
+      className={cn("text-primary", className)}
+    >
       <defs>
         <linearGradient id="rcGradCompass" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
@@ -29,17 +36,27 @@ interface CompassLogoProps {
 
 export function CompassLogo({ className, showTagline = false }: CompassLogoProps) {
   return (
-    <Link href="/" className={cn("group inline-flex items-center gap-2.5", className)} aria-label={`${siteConfig.name} home`}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10">
+    <Link
+      href="/"
+      className={cn(
+        "group inline-flex min-w-0 max-w-[min(100%,14rem)] items-center gap-2 sm:max-w-none sm:gap-2.5 rounded-lg",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        className,
+      )}
+      aria-label={`${siteConfig.name} home`}
+    >
+      <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10 sm:flex">
         <RupeeCatalystMark />
       </span>
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-sm transition-transform group-hover:scale-[1.02]">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary shadow-sm transition-transform group-hover:scale-[1.02]">
         <Compass className="h-5 w-5 text-primary-foreground" aria-hidden />
       </div>
-      <div className="flex flex-col">
-        <span className="text-lg font-semibold tracking-tight">{siteConfig.name}</span>
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-base font-semibold tracking-tight sm:text-lg">
+          {siteConfig.name}
+        </span>
         {showTagline ? (
-          <span className="text-[11px] text-muted-foreground leading-tight">
+          <span className="hidden truncate text-[11px] leading-tight text-muted-foreground sm:block">
             <span className="font-medium text-foreground/80">{siteConfig.tagline}</span>
           </span>
         ) : null}

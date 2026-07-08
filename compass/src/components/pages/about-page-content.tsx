@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { ArrowRight, Eye, Scale, Sparkles } from "lucide-react";
+import { PageFade } from "@/components/marketing/page-fade";
 import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { aboutContent } from "@/config/content";
+import { ctaCopy } from "@/config/cta";
 import { ROUTES } from "@/constants/routes";
 
 const pillarIcons = [Sparkles, Scale, Eye] as const;
 
 export function AboutPageContent() {
   return (
-    <>
+    <PageFade>
       <PageHero
         eyebrow="About Us"
         headline={aboutContent.headline}
@@ -49,16 +51,16 @@ export function AboutPageContent() {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button size="lg" className="h-12 px-8" asChild>
               <Link href={ROUTES.HOME_LOAN}>
-                Home Loan Coach
+                {ctaCopy.primary.exploreHomeLoan}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button size="lg" variant="outline" className="h-12 bg-transparent" asChild>
-              <Link href={ROUTES.CONTACT}>Contact Us</Link>
+              <Link href={ROUTES.CONTACT}>{ctaCopy.secondary.talkToUs}</Link>
             </Button>
           </div>
         </div>
       </SectionContainer>
-    </>
+    </PageFade>
   );
 }

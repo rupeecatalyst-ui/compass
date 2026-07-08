@@ -6,6 +6,7 @@ interface PageHeroProps {
   subheadline?: string;
   className?: string;
   align?: "left" | "center";
+  children?: React.ReactNode;
 }
 
 export function PageHero({
@@ -14,11 +15,12 @@ export function PageHero({
   subheadline,
   className,
   align = "center",
+  children,
 }: PageHeroProps) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden pt-10 sm:pt-14 lg:pt-16 pb-4",
+        "relative overflow-hidden pt-10 sm:pt-14 lg:pt-16 pb-6 sm:pb-8",
         className,
       )}
     >
@@ -31,11 +33,11 @@ export function PageHero({
         )}
       >
         {eyebrow ? (
-          <p className="mb-4 inline-flex rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-medium text-primary">
+          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-[3.25rem] lg:leading-[1.1]">
+        <h1 className="text-[2rem] font-bold tracking-tight leading-[1.15] sm:text-5xl lg:text-[3.25rem] lg:leading-[1.1]">
           {headline}
         </h1>
         {subheadline ? (
@@ -48,6 +50,7 @@ export function PageHero({
             {subheadline}
           </p>
         ) : null}
+        {children ? <div className="mt-8">{children}</div> : null}
       </div>
     </div>
   );

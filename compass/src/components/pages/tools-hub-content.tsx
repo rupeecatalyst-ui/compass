@@ -3,22 +3,24 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { IntelligenceBadge } from "@/components/coaching/intelligence-badge";
+import { PageFade } from "@/components/marketing/page-fade";
 import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { tools } from "@/config/coaching";
+import { ctaCopy } from "@/config/cta";
 import { toolRoute } from "@/constants/routes";
 
 export function ToolsHubContent() {
   return (
-    <>
+    <PageFade>
       <PageHero
         eyebrow="Financial Intelligence"
         headline="Tools for clearer decisions"
         subheadline="Premium calculators and decision aids — Coming Soon. Each will run on Catalyst One Intelligence, not hardcoded COMPASS formulas."
       />
 
-      <SectionContainer className="pt-4 pb-4">
+      <SectionContainer className="pt-2 pb-4">
         <div className="flex justify-center">
           <IntelligenceBadge />
         </div>
@@ -53,6 +55,6 @@ export function ToolsHubContent() {
           ))}
         </div>
       </SectionContainer>
-    </>
+    </PageFade>
   );
 }

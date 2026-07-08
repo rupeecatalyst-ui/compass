@@ -84,25 +84,26 @@ export function HeroSection() {
             })}
           </motion.div>
 
-          <motion.div
-            variants={staggerItem}
-            className="flex flex-col gap-3 sm:flex-row sm:justify-center"
-          >
-            <Button size="lg" className="h-12 px-8" asChild>
-              <Link href="#journey-cta">
-                {hero.primaryCta}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-12 border-border/80 bg-transparent hover:bg-white/5"
-              asChild
+            <motion.div
+              variants={staggerItem}
+              className="flex flex-col gap-3 sm:flex-row sm:justify-center"
             >
-              <Link href="#sarathi">{hero.secondaryCta}</Link>
-            </Button>
-          </motion.div>
+              <Button size="lg" className="h-12 px-6 sm:px-8" asChild>
+                <Link href="#journey-cta">
+                  <span className="sm:hidden">{hero.primaryCtaShort}</span>
+                  <span className="hidden sm:inline">{hero.primaryCta}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-12 border-border/80 bg-transparent hover:bg-white/5"
+                asChild
+              >
+                <Link href="#sarathi">{hero.secondaryCta}</Link>
+              </Button>
+            </motion.div>
         </motion.div>
       </div>
     </section>

@@ -7,11 +7,13 @@ import "./globals.css";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -21,16 +23,34 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   metadataBase: new URL(siteConfig.url),
+  applicationName: siteConfig.name,
+  authors: [{ name: siteConfig.company }],
   openGraph: {
-    title: `${siteConfig.name} — ${siteConfig.tagline}`,
+    title: `${siteConfig.name} — Borrow Better. Invest Smarter.`,
     description: siteConfig.description,
     siteName: siteConfig.name,
     type: "website",
+    locale: "en_IN",
+    url: siteConfig.url,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${siteConfig.name} — Borrow Better. Invest Smarter.`,
+    description: siteConfig.description,
+  },
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
 export const viewport: Viewport = {
   themeColor: "#06080d",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -16,9 +16,16 @@ export async function generateMetadata({ params }: CoachPageProps): Promise<Meta
   const { slug } = await params;
   const coach = getCoach(slug);
   if (!coach) return { title: "Coach" };
+  const path = `/coaches/${coach.slug}`;
   return {
     title: coach.title,
     description: coach.subheadline,
+    alternates: { canonical: path },
+    openGraph: {
+      title: `${coach.title} | COMPASS`,
+      description: coach.subheadline,
+      url: path,
+    },
   };
 }
 

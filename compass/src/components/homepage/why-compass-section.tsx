@@ -28,7 +28,7 @@ export function WhyCompassSection() {
         whileInView="animate"
         viewport={{ once: true }}
         variants={staggerContainer}
-        className="mt-10 grid gap-4 sm:mt-14 sm:grid-cols-3 sm:gap-5"
+        className="mt-10 grid gap-4 sm:mt-14 md:grid-cols-3 md:gap-5"
       >
         {whyCompass.pillars.map((pillar) => {
           const Icon = pillarIcons[pillar.id as keyof typeof pillarIcons] ?? ShieldCheck;

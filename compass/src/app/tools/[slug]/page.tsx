@@ -15,9 +15,16 @@ export async function generateMetadata({ params }: ToolPageProps): Promise<Metad
   const { slug } = await params;
   const tool = getTool(slug);
   if (!tool) return { title: "Tool" };
+  const path = `/tools/${tool.slug}`;
   return {
     title: tool.title,
     description: tool.description,
+    alternates: { canonical: path },
+    openGraph: {
+      title: `${tool.title} | COMPASS`,
+      description: tool.description,
+      url: path,
+    },
   };
 }
 

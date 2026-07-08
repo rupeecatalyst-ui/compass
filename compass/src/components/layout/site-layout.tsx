@@ -1,11 +1,15 @@
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { SkipToContent } from "@/components/a11y/skip-to-content";
 
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      <SkipToContent />
       <SiteHeader />
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1" tabIndex={-1}>
+        {children}
+      </main>
       <SiteFooter />
     </div>
   );

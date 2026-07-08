@@ -24,7 +24,7 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2.5">
               {footerNavigation.products.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary">
+                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
                     {link.label}
                   </Link>
                 </li>
@@ -37,7 +37,7 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2.5">
               {footerNavigation.company.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary">
+                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
                     {link.label}
                   </Link>
                 </li>
@@ -50,7 +50,7 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2.5">
               {footerNavigation.resources.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary">
+                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
                     {link.label}
                   </Link>
                 </li>

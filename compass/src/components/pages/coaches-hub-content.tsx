@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { PageFade } from "@/components/marketing/page-fade";
 import { PageHero } from "@/components/marketing/page-hero";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { coaches } from "@/config/coaching";
+import { ctaCopy } from "@/config/cta";
 import { ROUTES, coachRoute } from "@/constants/routes";
 
 export function CoachesHubContent() {
   return (
-    <>
+    <PageFade>
       <PageHero
         eyebrow="Coaches"
         headline="Your borrowing coaches"
@@ -32,8 +34,8 @@ export function CoachesHubContent() {
                 {coach.subheadline}
               </p>
               <Button variant="ghost" size="sm" className="mt-5 w-fit px-0 text-primary" asChild>
-                <Link href={coachRoute(coach.slug)}>
-                  Open coach
+                <Link href={coach.slug === "home-loan" ? ROUTES.HOME_LOAN : coachRoute(coach.slug)}>
+                  {ctaCopy.primary.openCoach}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
@@ -41,21 +43,21 @@ export function CoachesHubContent() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-center gap-3 rounded-2xl border border-border/60 bg-surface/50 px-6 py-8 text-center sm:flex-row sm:justify-between sm:text-left">
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 rounded-2xl glass-panel px-6 py-8 text-center sm:flex-row sm:text-left">
           <div>
             <p className="font-semibold">Need a tool instead?</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Browse Financial Intelligence calculators — Coming Soon shells only for now.
             </p>
           </div>
-          <Button asChild>
+          <Button size="lg" className="h-12 shrink-0" asChild>
             <Link href={ROUTES.TOOLS}>
-              View tools
+              {ctaCopy.primary.viewTools}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
         </div>
       </SectionContainer>
-    </>
+    </PageFade>
   );
 }
