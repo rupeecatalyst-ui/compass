@@ -1,0 +1,122 @@
+@import "tailwindcss";
+@source "../**/*.{ts,tsx}";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-glow: var(--glow);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --font-sans: var(--font-geist-sans);
+}
+
+:root {
+  --radius: 0.875rem;
+  --background: #06080d;
+  --foreground: #f4f7fb;
+  --card: #0d1119;
+  --card-foreground: #f4f7fb;
+  --popover: #0d1119;
+  --popover-foreground: #f4f7fb;
+  --primary: #2dd4bf;
+  --primary-foreground: #042f2e;
+  --secondary: #141b27;
+  --secondary-foreground: #e2e8f0;
+  --muted: #141b27;
+  --muted-foreground: #8b9cb3;
+  --accent: #4ade80;
+  --accent-foreground: #052e16;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #2dd4bf;
+  --glow: rgba(45, 212, 191, 0.35);
+  --surface: #0a0f17;
+  --surface-elevated: #111827;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  ::selection {
+    background: rgba(45, 212, 191, 0.25);
+    color: #f4f7fb;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary via-[#5eead4] to-accent bg-clip-text text-transparent;
+  }
+
+  .text-gradient-subtle {
+    @apply bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent;
+  }
+
+  .glass-panel {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+      0 20px 50px -20px rgba(0, 0, 0, 0.6);
+  }
+
+  .glass-panel-hover {
+    @apply transition-all duration-500;
+  }
+
+  .glass-panel-hover:hover {
+    border-color: rgba(45, 212, 191, 0.25);
+    box-shadow:
+      0 0 0 1px rgba(45, 212, 191, 0.08) inset,
+      0 0 40px -12px var(--glow),
+      0 24px 60px -24px rgba(0, 0, 0, 0.7);
+    transform: translateY(-2px);
+  }
+
+  .ambient-glow {
+    background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(45, 212, 191, 0.15), transparent);
+  }
+
+  .grid-fade {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black, transparent);
+  }
+}
