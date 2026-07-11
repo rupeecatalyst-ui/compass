@@ -2,7 +2,9 @@
 
 **Sprint:** Catalyst One Sprint 1 + Sprint 1A Hardening  
 **Version:** 1.1.0 (Hardening) / 1.0.0 (Foundation API)  
-**Status:** Foundation (design-time, in-memory)
+**Status:** ✅ **OFFICIALLY COMPLETE** (CF-S01A-003)  
+**Closure Commit:** `52c21ec` — `feat(catalyst-one): Sprint 1 Enterprise Asset Framework closure (CF-S01A-003)`  
+**Repository:** Synchronized — ready for downstream sprints (Sprint 2+ builds on EAF; do not modify Sprint 1 architecture)
 
 ---
 
