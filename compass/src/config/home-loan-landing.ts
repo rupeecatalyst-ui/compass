@@ -3,6 +3,7 @@ export const homeLoanLanding = {
     eyebrow: "Home Loan Coach",
     headline: "Your Dream Home Deserves",
     headlineAccent: "the Right Loan Strategy.",
+    empathyLine: "We know you deserve your dream home — at the best possible terms.",
     subheadline:
       "Answer a few simple questions and we'll build your personalized home loan strategy, recommend suitable lenders and reveal your Rupee Catalyst Advantage.",
     valueProps: [
@@ -132,9 +133,11 @@ export const homeLoanLanding = {
     cta: "Meet Sarathi",
     frames: ["Understand", "Clarify", "Decide", "Act"],
   },
+  conversationEmpathy: "You've already come so far — let's make sure the loan matches everything you've invested.",
   finalCta: {
     headline: "Ready for a calmer Home Loan conversation?",
     subheadline: "No long forms. Just a few simple questions with Sarathi.",
+    empathyLine: "You've already invested so much — you deserve clarity before the next step.",
     cta: "Discover My Advantage",
   },
 } as const;

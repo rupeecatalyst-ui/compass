@@ -14,6 +14,7 @@ import {
   type ConversationAnswers,
   type StepId,
 } from "@/config/home-loan-conversation";
+import { homeLoanLanding } from "@/config/home-loan-landing";
 import { ROUTES } from "@/constants/routes";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
@@ -196,6 +197,11 @@ export function AdvantageConversationSection() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_45%_at_50%_0%,rgba(45,212,191,0.08),transparent)]" />
 
       <div className="relative mx-auto max-w-3xl">
+        {"conversationEmpathy" in homeLoanLanding && homeLoanLanding.conversationEmpathy ? (
+          <p className="mb-6 text-center text-sm font-medium italic text-accent/90">
+            {homeLoanLanding.conversationEmpathy}
+          </p>
+        ) : null}
         <JourneyRail activeIndex={journeyIndex} />
 
         <div className="overflow-hidden rounded-3xl glass-panel p-5 sm:p-8">

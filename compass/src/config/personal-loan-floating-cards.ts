@@ -1,6 +1,7 @@
 import { ROUTES } from "@/constants/routes";
+import { discoveryLaunchUrl } from "@/discovery-template/launch-discovery";
 
-export const PERSONAL_LOAN_ADVANTAGE_HREF = `${ROUTES.PERSONAL_LOAN}#advantage-conversation` as const;
+export const PERSONAL_LOAN_ADVANTAGE_HREF = discoveryLaunchUrl(ROUTES.PERSONAL_LOAN);
 
 export const personalLoanFloatingCards = [
   {
@@ -14,15 +15,13 @@ export const personalLoanFloatingCards = [
     destination: PERSONAL_LOAN_ADVANTAGE_HREF,
   },
   {
-    id: "advantage-wallet",
-    title: "Rupee Catalyst Advantage Wallet",
-    subtitle: "Estimated Customer Benefit",
-    badge: "Limited Period Offer",
-    icon: "wallet" as const,
+    id: "smart-match",
+    title: "Smart Lender Match",
+    badge: "Intelligence",
+    icon: "target" as const,
     emphasis: "accent" as const,
     animationVariant: "float-b" as const,
-    highlightValue: "₹XX,XXX",
-    highlightLabel: "Placeholder estimate",
+    items: ["Profile-based matching", "Rate and tenure fit", "Approval likelihood"],
     destination: PERSONAL_LOAN_ADVANTAGE_HREF,
   },
   {
@@ -36,4 +35,3 @@ export const personalLoanFloatingCards = [
     destination: PERSONAL_LOAN_ADVANTAGE_HREF,
   },
 ] as const;
-

@@ -17,7 +17,16 @@ import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { loanProducts } from "@/config/content";
 import { ctaCopy } from "@/config/cta";
-import { ROUTES, coachRoute } from "@/constants/routes";
+import { ROUTES } from "@/constants/routes";
+
+const productRoutes: Record<string, string> = {
+  "home-loan": ROUTES.HOME_LOAN,
+  "business-loan": ROUTES.BUSINESS_LOAN,
+  lap: ROUTES.LOAN_AGAINST_PROPERTY,
+  "working-capital": ROUTES.WORKING_CAPITAL,
+  "construction-finance": ROUTES.CONSTRUCTION_FINANCE,
+  "personal-loan": ROUTES.PERSONAL_LOAN,
+};
 
 const productIcons: Record<string, LucideIcon> = {
   "home-loan": Home,
@@ -26,15 +35,6 @@ const productIcons: Record<string, LucideIcon> = {
   "working-capital": Wallet,
   "construction-finance": Hammer,
   "personal-loan": User,
-};
-
-const productCoachSlug: Record<string, string> = {
-  "home-loan": "home-loan",
-  "business-loan": "business-loan",
-  lap: "loan-against-property",
-  "working-capital": "working-capital",
-  "construction-finance": "construction-finance",
-  "personal-loan": "personal-loan",
 };
 
 export function LoanProductsPageContent() {
@@ -50,13 +50,7 @@ export function LoanProductsPageContent() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {loanProducts.map((product) => {
             const Icon = productIcons[product.id] ?? Home;
-            const slug = productCoachSlug[product.id];
-            const href =
-              product.id === "home-loan"
-                ? ROUTES.HOME_LOAN
-                : slug
-                  ? coachRoute(slug)
-                  : ROUTES.COACHES;
+            const href = productRoutes[product.id] ?? ROUTES.COACHES;
 
             return (
               <article

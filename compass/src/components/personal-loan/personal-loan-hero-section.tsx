@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Zap } from "lucide-react";
+import { useDiscoverClick } from "@/components/product-experience/use-discover-click";
 import { Button } from "@/components/ui/button";
 import { PersonalLoanInsightStage } from "@/components/personal-loan/personal-loan-insight-stage";
 import { personalLoanLanding } from "@/config/personal-loan-landing";
@@ -11,18 +12,7 @@ import { staggerContainer, staggerItem } from "@/lib/animations";
 
 export function PersonalLoanHeroSection() {
   const { hero } = personalLoanLanding;
-  const reduceMotion = useReducedMotion();
-
-  const onDiscoverClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-    if (!reduceMotion) {
-      window.dispatchEvent(new CustomEvent("compass:navigate", { detail: { to: "advantage-conversation" } }));
-    }
-    document.getElementById("advantage-conversation")?.scrollIntoView({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block: "start",
-    });
-  };
+  const onDiscoverClick = useDiscoverClick(ROUTES.PERSONAL_LOAN);
 
   return (
     <section className="relative overflow-hidden pt-8 sm:pt-12 lg:pt-16 pb-9 sm:pb-11 lg:pb-12">
@@ -68,7 +58,7 @@ export function PersonalLoanHeroSection() {
 
             <motion.div variants={staggerItem} className="flex flex-col gap-3 sm:flex-row">
               <Button size="lg" className="h-12 px-6 sm:px-8" asChild>
-                <a href="#advantage-conversation" onClick={onDiscoverClick}>
+                <a href="?discovery=launch" onClick={onDiscoverClick}>
                   <span className="sm:hidden">{hero.primaryCtaShort}</span>
                   <span className="hidden sm:inline">{hero.primaryCta}</span>
                   <ArrowRight className="h-4 w-4" />

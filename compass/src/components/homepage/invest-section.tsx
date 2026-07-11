@@ -1,40 +1,34 @@
 "use client";
 
-import { LineChart, Gem, Landmark, Target } from "lucide-react";
-import { ProductChip } from "@/components/homepage/shared/product-chip";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import { SectionHeader, SectionReveal } from "@/components/homepage/shared/section-reveal";
+import { Button } from "@/components/ui/button";
 import { homepageV2 } from "@/config/homepage";
 import { ROUTES } from "@/constants/routes";
 
-const iconMap = {
-  chart: LineChart,
-  landmark: Landmark,
-  gem: Gem,
-  target: Target,
-} as const;
-
+/** Product-neutral invest entry — routes to goal selection. */
 export function InvestSection() {
   const { invest } = homepageV2;
 
   return (
     <SectionReveal id="invest" className="bg-surface/30">
       <SectionHeader headline={invest.headline} subheadline={invest.subheadline} />
-
-      <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {invest.products.map((product, index) => {
-          const Icon = iconMap[product.icon];
-          return (
-            <ProductChip
-              key={product.id}
-              label={product.label}
-              icon={<Icon className="h-5 w-5" />}
-              index={index}
-              variant="invest"
-              href={ROUTES.RESOURCES}
-            />
-          );
-        })}
-      </div>
+      <motion.div
+        initial={false}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="mt-10 flex justify-center"
+      >
+        <Button size="lg" variant="outline" className="h-12 border-accent/30 bg-transparent px-10 hover:bg-accent/5" asChild>
+          <Link href={ROUTES.INVEST}>
+            {invest.cta}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+      </motion.div>
     </SectionReveal>
   );
 }

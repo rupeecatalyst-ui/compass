@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { HeroInsightStage } from "@/components/homepage/hero-insight-stage";
+import { ProductInsightStage } from "@/components/product-experience/product-insight-stage";
+import { useDiscoverClick } from "@/components/product-experience/use-discover-click";
 import { Button } from "@/components/ui/button";
+import { homeLoanFloatingCards } from "@/config/home-loan-floating-cards";
 import { homeLoanLanding } from "@/config/home-loan-landing";
 import { ROUTES } from "@/constants/routes";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 
 export function HeroSection() {
   const { hero } = homeLoanLanding;
+  const onDiscoverClick = useDiscoverClick();
 
   return (
     <section className="relative overflow-hidden pt-8 sm:pt-12 lg:pt-16 pb-9 sm:pb-11 lg:pb-12">
@@ -39,6 +42,15 @@ export function HeroSection() {
               </h1>
             </motion.div>
 
+            {"empathyLine" in hero && hero.empathyLine ? (
+              <motion.p
+                variants={staggerItem}
+                className="text-sm font-medium italic text-accent/90 leading-relaxed"
+              >
+                {hero.empathyLine}
+              </motion.p>
+            ) : null}
+
             <motion.p
               variants={staggerItem}
               className="max-w-xl text-base text-muted-foreground leading-relaxed sm:text-lg"
@@ -55,7 +67,7 @@ export function HeroSection() {
 
             <motion.div variants={staggerItem} className="flex flex-col gap-3 sm:flex-row">
               <Button size="lg" className="h-12 px-6 sm:px-8" asChild>
-                <a href="#advantage-conversation">
+                <a href="?discovery=launch" onClick={onDiscoverClick}>
                   <span className="sm:hidden">{hero.primaryCtaShort}</span>
                   <span className="hidden sm:inline">{hero.primaryCta}</span>
                   <ArrowRight className="h-4 w-4" />
@@ -72,7 +84,7 @@ export function HeroSection() {
             </motion.div>
 
             <motion.div variants={staggerItem} className="lg:hidden">
-              <HeroInsightStage />
+              <ProductInsightStage productId="home-loan" cards={homeLoanFloatingCards} />
             </motion.div>
           </motion.div>
 
@@ -82,7 +94,7 @@ export function HeroSection() {
             transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
             className="hidden lg:block"
           >
-            <HeroInsightStage />
+            <ProductInsightStage productId="home-loan" cards={homeLoanFloatingCards} />
           </motion.div>
         </div>
       </div>

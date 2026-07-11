@@ -8,7 +8,7 @@ import { SectionContainer } from "@/components/marketing/section-container";
 import { Button } from "@/components/ui/button";
 import { coaches } from "@/config/coaching";
 import { ctaCopy } from "@/config/cta";
-import { ROUTES, coachRoute } from "@/constants/routes";
+import { ROUTES, PRODUCT_ROUTE_BY_COACH_SLUG } from "@/constants/routes";
 
 export function CoachesHubContent() {
   return (
@@ -34,7 +34,7 @@ export function CoachesHubContent() {
                 {coach.subheadline}
               </p>
               <Button variant="ghost" size="sm" className="mt-5 w-fit px-0 text-primary" asChild>
-                <Link href={coach.slug === "home-loan" ? ROUTES.HOME_LOAN : coachRoute(coach.slug)}>
+                <Link href={PRODUCT_ROUTE_BY_COACH_SLUG[coach.slug] ?? ROUTES.COACHES}>
                   {ctaCopy.primary.openCoach}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>

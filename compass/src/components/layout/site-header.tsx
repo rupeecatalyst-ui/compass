@@ -17,6 +17,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const isLanding = pathname === ROUTES.HOME || pathname === ROUTES.HOME_LOAN;
+  const getStartedHref = ROUTES.GET_STARTED;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -57,7 +58,7 @@ export function SiteHeader() {
 
         <div className="hidden lg:block">
           <Button asChild>
-            <Link href={ROUTES.CONTACT}>{ctaCopy.primary.getStarted}</Link>
+            <Link href={getStartedHref}>{ctaCopy.primary.getStarted}</Link>
           </Button>
         </div>
 
@@ -92,7 +93,7 @@ export function SiteHeader() {
                 </Link>
               ))}
               <Button className="mt-4" asChild>
-                <Link href={ROUTES.CONTACT} onClick={() => setOpen(false)}>
+                <Link href={getStartedHref} onClick={() => setOpen(false)}>
                   {ctaCopy.primary.getStarted}
                 </Link>
               </Button>

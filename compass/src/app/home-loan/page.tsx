@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { HomeLoanPageContent } from "@/components/pages/home-loan-page-content";
 
 const description =
-  "COMPASS guides you through home loan decisions with calm clarity — so you borrow with confidence, not pressure.";
+  "Find your best way home. COMPASS guides you through every step — with calm clarity, not pressure.";
 
 export const metadata: Metadata = {
-  title: "Home Loan Coach",
+  title: "Home Loan | Find Your Best Way Home",
   description,
   alternates: { canonical: "/home-loan" },
   openGraph: {

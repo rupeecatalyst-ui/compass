@@ -18,29 +18,29 @@ export type PersonalLoanStepId = "intent" | "amount" | "city" | "reveal";
 export const personalLoanConversation = {
   welcome: {
     greeting: "Welcome!",
-    headline: "Let’s discover your personal loan advantage together.",
+    headline: "Let's discover your personal loan strategy together.",
     body: "Just a few quick questions — like a calm chat with your loan advisor. No long forms.",
     note: "This takes about a minute.",
-    cta: "Let’s begin",
+    cta: "Let's begin",
   },
   analysis: {
     title: "Analysing your profile...",
     steps: [
       "Understanding your requirement",
       "Finding suitable lenders",
-      "Building your Financial Strategy",
-      "Preparing your Rupee Catalyst Advantage",
+      "Building your Personal Loan Strategy",
+      "Preparing your strategy summary",
     ],
   },
   result: {
-    title: "Welcome to the Rupee Catalyst Advantage",
+    title: "Your Personal Loan Strategy",
     cards: [
       { title: "Personal Loan Strategy", value: "Placeholder guidance" },
       { title: "Recommended Lenders", value: "Lender A · Lender B · Lender C" },
       { title: "Interest Range", value: "X.XX% – X.XX%" },
       { title: "Estimated EMI", value: "₹XX,XXX / month" },
+      { title: "Quick Eligibility", value: "High" },
       { title: "Approval Confidence", value: "High" },
-      { title: "Rupee Catalyst Advantage Wallet", value: "₹XX,XXX" },
     ],
   },
   steps: {
@@ -65,9 +65,9 @@ export const personalLoanConversation = {
       placeholder: "Search city",
     },
     reveal: {
-      prompt: "Great — I have enough to shape your advantage.",
-      helper: "Whenever you’re ready, I’ll reveal your Rupee Catalyst Advantage.",
-      cta: "Reveal My Advantage",
+      prompt: "Great — I have enough to shape your strategy.",
+      helper: "Whenever you're ready, I'll reveal your Personal Loan Strategy.",
+      cta: "Reveal My Strategy",
     },
   },
 } as const;
@@ -78,4 +78,3 @@ export function getPersonalLoanNextStep(answers: PersonalLoanAnswers): PersonalL
   if (!answers.city) return "city";
   return "reveal";
 }
-

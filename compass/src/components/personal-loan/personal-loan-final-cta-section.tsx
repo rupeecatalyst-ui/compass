@@ -4,12 +4,14 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { SectionReveal } from "@/components/homepage/shared/section-reveal";
+import { useDiscoverClick } from "@/components/product-experience/use-discover-click";
 import { Button } from "@/components/ui/button";
 import { personalLoanLanding } from "@/config/personal-loan-landing";
 import { ROUTES } from "@/constants/routes";
 
 export function PersonalLoanFinalCtaSection() {
   const { finalCta } = personalLoanLanding;
+  const onDiscoverClick = useDiscoverClick(ROUTES.PERSONAL_LOAN);
 
   return (
     <SectionReveal id="journey-cta" spacing="related" className="pb-20 sm:pb-24">
@@ -26,7 +28,7 @@ export function PersonalLoanFinalCtaSection() {
           <p className="mx-auto mt-4 max-w-lg text-muted-foreground sm:text-lg">{finalCta.subheadline}</p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button size="lg" className="h-12 px-8" asChild>
-              <a href="#advantage-conversation">
+              <a href="?discovery=launch" onClick={onDiscoverClick}>
                 {finalCta.cta}
                 <ArrowRight className="h-4 w-4" />
               </a>

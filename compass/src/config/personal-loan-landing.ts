@@ -1,14 +1,15 @@
 export const personalLoanLanding = {
   hero: {
     eyebrow: "Personal Loan Coach",
-    headline: "Life doesn’t always wait.",
-    headlineAccent: "Your finances shouldn’t either.",
+    headline: "Life doesn't always wait.",
+    headlineAccent: "Your finances shouldn't either.",
     subheadline:
-      "Answer a few quick questions and we’ll build your personalised Personal Loan Strategy, match you with suitable lenders, and reveal your Rupee Catalyst Advantage.",
+      "Answer a few quick questions and we'll build your personalised Personal Loan Strategy and match you with suitable lenders.",
     valueProps: ["Fast. Simple. Flexible.", "Smart lender selection", "A calm path from intent to approval"],
-    primaryCta: "Discover My Advantage",
-    primaryCtaShort: "Discover Advantage",
+    primaryCta: "Discover My Strategy",
+    primaryCtaShort: "Discover Strategy",
     secondaryCta: "Talk To Us",
+    badge: "Fast & flexible",
   },
   metrics: {
     eyebrow: "Built for speed",
@@ -23,7 +24,7 @@ export const personalLoanLanding = {
   },
   why: {
     eyebrow: "Why COMPASS",
-    headline: "Fast · Flexible · Stress‑free",
+    headline: "Fast · Flexible · Stress-free",
     subheadline:
       "A Personal Loan should feel simple. COMPASS keeps the experience calm — and keeps complexity inside Catalyst One.",
     pillars: [
@@ -62,7 +63,7 @@ export const personalLoanLanding = {
         id: "amount",
         question: "How much should I borrow?",
         answer:
-          "Borrow what you can repay comfortably without stress. We’ll keep it realistic, not maximal.",
+          "Borrow what you can repay comfortably without stress. We'll keep it realistic, not maximal.",
       },
       {
         id: "timeline",
@@ -81,7 +82,6 @@ export const personalLoanLanding = {
   finalCta: {
     headline: "Want a faster Personal Loan conversation?",
     subheadline: "No long forms. Just a few quick questions with Sarathi.",
-    cta: "Discover My Advantage",
+    cta: "Discover My Strategy",
   },
 } as const;
-

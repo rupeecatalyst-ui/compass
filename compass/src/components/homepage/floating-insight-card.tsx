@@ -2,18 +2,48 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { Check, Sparkles, Users, Wallet, type LucideIcon } from "lucide-react";
+import {
+  BarChart3,
+  Briefcase,
+  Building2,
+  Check,
+  FileText,
+  Shield,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
 
 export type FloatingCardEmphasis = "primary" | "accent" | "default";
 export type FloatingCardAnimationVariant = "float-a" | "float-b" | "float-c";
-export type FloatingCardIcon = "sparkles" | "wallet" | "users";
+export type FloatingCardIcon =
+  | "sparkles"
+  | "wallet"
+  | "users"
+  | "target"
+  | "chart"
+  | "file"
+  | "shield"
+  | "building"
+  | "briefcase"
+  | "trending";
 
 const iconMap: Record<FloatingCardIcon, LucideIcon> = {
   sparkles: Sparkles,
   wallet: Wallet,
   users: Users,
+  target: Target,
+  chart: BarChart3,
+  file: FileText,
+  shield: Shield,
+  building: Building2,
+  briefcase: Briefcase,
+  trending: TrendingUp,
 };
 
 const floatMotion: Record<

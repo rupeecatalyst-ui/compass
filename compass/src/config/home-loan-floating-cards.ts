@@ -1,7 +1,7 @@
 import { ROUTES } from "@/constants/routes";
 
-/** Floating cards open the conversation-first advantage journey. */
-export const STRATEGY_ASSESSMENT_HREF = `${ROUTES.HOME_LOAN}#advantage-conversation` as const;
+/** Floating cards launch the COMPASS Discovery experience — not a page section. */
+export const STRATEGY_ASSESSMENT_HREF = `${ROUTES.HOME_LOAN}?discovery=launch` as const;
 
 export const homeLoanFloatingCards = [
   {

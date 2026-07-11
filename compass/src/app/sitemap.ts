@@ -9,6 +9,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const staticRoutes = [
     ROUTES.HOME,
+    ROUTES.GET_STARTED,
+    ROUTES.BORROW,
+    ROUTES.INVEST,
     ROUTES.HOME_LOAN,
     ROUTES.PERSONAL_LOAN,
     ROUTES.LOAN_PRODUCTS,
@@ -21,7 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${base}${path === "/" ? "" : path}`,
     lastModified: now,
     changeFrequency: "weekly" as const,
-    priority: path === "/" || path === ROUTES.HOME_LOAN ? 1 : 0.7,
+    priority: path === "/" || path === ROUTES.BORROW || path === ROUTES.INVEST ? 1 : 0.7,
   }));
 
   const coachRoutes = coaches

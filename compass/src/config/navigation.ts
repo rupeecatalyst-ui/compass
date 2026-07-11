@@ -1,7 +1,8 @@
-import { ROUTES, coachRoute, toolRoute } from "@/constants/routes";
+import { ROUTES, toolRoute } from "@/constants/routes";
 
 export const mainNavigation = [
-  { label: "Home Loan", href: ROUTES.HOME_LOAN },
+  { label: "Borrow", href: ROUTES.BORROW },
+  { label: "Invest", href: ROUTES.INVEST },
   { label: "Coaches", href: ROUTES.COACHES },
   { label: "Tools", href: ROUTES.TOOLS },
   { label: "About", href: ROUTES.ABOUT },
@@ -10,12 +11,12 @@ export const mainNavigation = [
 
 export const footerNavigation = {
   products: [
+    { label: "Borrow", href: ROUTES.BORROW },
+    { label: "Invest", href: ROUTES.INVEST },
     { label: "Home Loan", href: ROUTES.HOME_LOAN },
-    { label: "Business Loan", href: coachRoute("business-loan") },
-    { label: "Loan Against Property", href: coachRoute("loan-against-property") },
-    { label: "Personal Loan", href: coachRoute("personal-loan") },
-    { label: "Construction Finance", href: coachRoute("construction-finance") },
-    { label: "Working Capital", href: coachRoute("working-capital") },
+    { label: "Business Loan", href: ROUTES.BUSINESS_LOAN },
+    { label: "Loan Against Property", href: ROUTES.LOAN_AGAINST_PROPERTY },
+    { label: "Personal Loan", href: ROUTES.PERSONAL_LOAN },
   ],
   company: [
     { label: "About", href: ROUTES.ABOUT },
@@ -27,6 +28,6 @@ export const footerNavigation = {
     { label: "Financial Tools", href: ROUTES.TOOLS },
     { label: "Knowledge Centre", href: ROUTES.RESOURCES },
     { label: "Loan Products", href: ROUTES.LOAN_PRODUCTS },
-    { label: "Sarathi", href: `${ROUTES.HOME_LOAN}#sarathi` },
+    { label: "Sarathi", href: `${ROUTES.BORROW}` },
   ],
 } as const;

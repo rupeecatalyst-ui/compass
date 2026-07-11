@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { CoachLandingContent } from "@/components/pages/coach-landing-content";
 import { coaches, getCoach } from "@/config/coaching";
-import { ROUTES } from "@/constants/routes";
+import { PRODUCT_ROUTE_BY_COACH_SLUG } from "@/constants/routes";
 
 interface CoachPageProps {
   params: Promise<{ slug: string }>;
@@ -32,8 +32,9 @@ export async function generateMetadata({ params }: CoachPageProps): Promise<Meta
 export default async function CoachPage({ params }: CoachPageProps) {
   const { slug } = await params;
 
-  if (slug === "home-loan") {
-    redirect(ROUTES.HOME_LOAN);
+  const productRoute = PRODUCT_ROUTE_BY_COACH_SLUG[slug];
+  if (productRoute) {
+    redirect(productRoute);
   }
 
   const coach = getCoach(slug);
