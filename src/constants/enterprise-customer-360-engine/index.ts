@@ -1,0 +1,16 @@
+export {
+  EC360_COMMUNICATION_CHANNELS,
+  EC360_CONSENT_STATUS,
+  EC360_CUSTOMER_LIFECYCLE_ACTION_MAP,
+  EC360_CUSTOMER_LIFECYCLE_STATUS,
+  EC360_CUSTOMER_LIFECYCLE_TRANSITIONS,
+  EC360_CUSTOMER_TYPES,
+  EC360_FRAMEWORK_VERSION,
+} from "./lifecycle";
+
+export {
+  EC360_DEFAULT_RELATIONSHIP_TYPES,
+  EC360_RELATIONSHIP_TYPE_CODES,
+} from "./relationship-types";
+
+export type { Ec360DefaultRelationshipTypeConfig, Ec360RelationshipTypeCode } from "./relationship-types";
