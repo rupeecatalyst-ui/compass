@@ -7,11 +7,27 @@ import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 
 export function WorkspaceContactSummary() {
-  const { contact } = useOpportunityWorkspace();
+  const {
+    contact,
+    contactId,
+    refresh,
+    lastPlaceholderStatus,
+    opportunityId,
+    documentStats,
+    selectedLender,
+    stageCode,
+  } = useOpportunityWorkspace();
   const roles = [
     contact?.primaryRole,
     ...(contact?.additionalRoles ?? []),
   ].filter(Boolean) as string[];
+
+  const contactHref = contactId
+    ? `${ROUTES.CONTACTS}?contact=${encodeURIComponent(contactId)}`
+    : ROUTES.CONTACTS;
+  const customerHref = contactId
+    ? `${ROUTES.CUSTOMERS}?customer=${encodeURIComponent(contactId)}`
+    : ROUTES.CUSTOMERS;
 
   return (
     <OwGlassPanel className="h-full">
@@ -20,13 +36,40 @@ export function WorkspaceContactSummary() {
         <Row label="Name" value={contact?.name ?? "—"} />
         <Row label="Applicant Type" value={contact?.primaryRole?.replace(/_/g, " ") ?? "—"} />
         <Row label="Mobile" value={contact?.mobilePrimary ?? "—"} />
-        <Row label="Email" value={contact?.personalEmail ?? contact?.officialEmail ?? "—"} />
+        <Row label="Secondary Mobile" value={contact?.mobileSecondary ?? "—"} />
+        <Row label="Personal Email" value={contact?.personalEmail ?? "—"} />
+        <Row label="Official Email" value={contact?.officialEmail ?? "—"} />
         <Row label="Active Roles" value={roles.length ? roles.join(", ") : "—"} />
         <Row label="Assigned RM" value="RM-001" />
+        <Row label="Contact Id" value={contact?.id ?? "—"} />
+        <Row label="Opportunity" value={opportunityId ? opportunityId.slice(0, 8) + "…" : "—"} />
+        <Row label="Current Stage" value={stageCode.replace(/_/g, " ")} />
+        <Row
+          label="Doc Completion"
+          value={`${documentStats.completionPct}% (${documentStats.verifiedCount}/${documentStats.requiredCount})`}
+        />
+        <Row label="Selected Lender" value={selectedLender?.lenderName ?? "Not selected"} />
       </dl>
-      <Button asChild size="sm" className="mt-4 w-full sm:w-auto" variant="secondary">
-        <Link href={ROUTES.CONTACTS}>View Full Contact</Link>
-      </Button>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="secondary">
+          <Link href={customerHref}>Open Customer 360</Link>
+        </Button>
+        <Button asChild size="sm" variant="outline">
+          <Link href={contactHref}>View Full Contact</Link>
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            refresh();
+          }}
+        >
+          Refresh
+        </Button>
+      </div>
+      {lastPlaceholderStatus && (
+        <p className="mt-2 text-[10px] text-muted-foreground">{lastPlaceholderStatus}</p>
+      )}
     </OwGlassPanel>
   );
 }

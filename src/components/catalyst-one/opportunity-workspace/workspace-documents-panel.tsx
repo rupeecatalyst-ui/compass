@@ -1,15 +1,31 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
+import { useEffect, useMemo, useState } from "react";
 import {
   listEdieDocumentRules,
   registerEdieDocumentRule,
   resolveEdieDocumentRulesForContext,
 } from "@/lib/enterprise-document-intelligence-engine";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { OwCircularProgress, OwGlassPanel, OwPanelHeader } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
+import {
+  getPlaceholderDocument,
+  getQuickIntent,
+  isDocumentMandatory,
+  placeholderConsumeQuickIntent,
+  placeholderPreviewDocument,
+  placeholderSetDocumentCategory,
+  placeholderTriggerMockDownload,
+  type PlaceholderDocCategory,
+} from "./providers/workspace-placeholder-provider";
 
 function seedDocumentRulesIfEmpty() {
   if (listEdieDocumentRules().length > 0) return;
@@ -48,11 +64,23 @@ export function WorkspaceDocumentsPanel() {
     markDocumentUploaded,
     markDocumentVerified,
     markDocumentReplaced,
+    markDocumentDeleted,
+    lastPlaceholderStatus,
   } = useOpportunityWorkspace();
+  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+  const [previewText, setPreviewText] = useState("");
+  const [highlightUpload, setHighlightUpload] = useState(false);
 
   useEffect(() => {
     seedDocumentRulesIfEmpty();
   }, []);
+
+  useEffect(() => {
+    if (!opportunityId) return;
+    if (getQuickIntent(opportunityId) !== "focus_document_upload") return;
+    placeholderConsumeQuickIntent(opportunityId);
+    setHighlightUpload(true);
+  }, [opportunityId, refreshKey]);
 
   const requiredDocs = useMemo(() => {
     if (documentStats.requiredDocs.length > 0) return documentStats.requiredDocs;
@@ -74,30 +102,10 @@ export function WorkspaceDocumentsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey, documentStats.requiredDocs]);
 
-  const completionPct =
-    documentStats.requiredCount === 0
-      ? 0
-      : Math.round((documentStats.verifiedCount / documentStats.requiredCount) * 100);
-
-  const logAction = (
-    eventType: "document_upload" | "document_verification",
-    title: string,
-    docRef: string,
-  ) => {
-    if (!opportunityId) return;
-    appendEdcTimelineEntry({
-      contextRef: { type: "opportunity", id: opportunityId },
-      eventType,
-      title,
-      description: `${title} simulated for ${docRef}`,
-      actorId: "workspace",
-      expandablePayload: { docRef, simulated: true, source: "opportunity-workspace-documents" },
-    });
-    refresh();
-  };
+  const completionPct = documentStats.completionPct;
 
   return (
-    <OwGlassPanel className="h-full">
+    <OwGlassPanel className={`h-full ${highlightUpload ? "ring-2 ring-cyan-400/40" : ""}`}>
       <OwPanelHeader title="Documents · EDIE" badge="EDIE" description="Document completion" />
 
       <div className="mb-4 flex items-center gap-4">
@@ -110,30 +118,72 @@ export function WorkspaceDocumentsPanel() {
         </div>
       </div>
 
+      {lastPlaceholderStatus && (
+        <p className="mb-2 text-[10px] text-muted-foreground">{lastPlaceholderStatus}</p>
+      )}
+
       <div className="space-y-2">
         {requiredDocs.map((docRef) => {
+          const meta = opportunityId ? getPlaceholderDocument(opportunityId, docRef) : null;
+          if (meta?.deleted) return null;
           const isUploaded = documentStats.uploaded.has(docRef);
           const isVerified = documentStats.verified.has(docRef);
+          const mandatory = isDocumentMandatory(docRef);
+          const statusLabel = isVerified
+            ? "Verified"
+            : isUploaded
+              ? meta?.uploadStatus === "uploaded"
+                ? "Uploaded"
+                : "Uploaded"
+              : "Pending";
           return (
             <div
               key={docRef}
               className="rounded-xl border border-zinc-200/70 bg-zinc-50/50 p-2.5 dark:border-white/10 dark:bg-zinc-950/40"
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-medium">{docRef}</p>
+                <p className="text-xs font-medium">
+                  {docRef}
+                  {mandatory && (
+                    <span className="ml-1 text-[10px] font-semibold text-rose-500" title="Mandatory">
+                      *
+                    </span>
+                  )}
+                </p>
                 <span className="text-[10px] text-muted-foreground">
-                  {isVerified ? "Verified" : isUploaded ? "Uploaded" : "Pending"}
+                  {statusLabel}
+                  {meta && meta.version > 0 ? ` · v${meta.version}` : ""}
                 </span>
               </div>
+
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">Category</span>
+                <Select
+                  value={meta?.category ?? "kyc"}
+                  onValueChange={(v) => {
+                    if (!opportunityId) return;
+                    placeholderSetDocumentCategory(opportunityId, docRef, v as PlaceholderDocCategory);
+                    refresh();
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-[8rem] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kyc">kyc</SelectItem>
+                    <SelectItem value="income">income</SelectItem>
+                    <SelectItem value="property">property</SelectItem>
+                    <SelectItem value="other">other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="mt-2 flex flex-wrap gap-1">
                 <Button
                   size="sm"
                   variant="secondary"
                   className="h-7 text-xs"
-                  onClick={() => {
-                    markDocumentUploaded(docRef);
-                    logAction("document_upload", "Document uploaded", docRef);
-                  }}
+                  onClick={() => markDocumentUploaded(docRef)}
                 >
                   Upload
                 </Button>
@@ -141,18 +191,20 @@ export function WorkspaceDocumentsPanel() {
                   size="sm"
                   variant="ghost"
                   className="h-7 text-xs"
-                  onClick={() => logAction("document_upload", "Document viewed", docRef)}
+                  onClick={() => {
+                    if (!opportunityId) return;
+                    setPreviewDoc(docRef);
+                    setPreviewText(placeholderPreviewDocument(opportunityId, docRef));
+                    refresh();
+                  }}
                 >
-                  View
+                  Preview
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   className="h-7 text-xs"
-                  onClick={() => {
-                    markDocumentReplaced(docRef);
-                    logAction("document_upload", "Document replaced", docRef);
-                  }}
+                  onClick={() => markDocumentReplaced(docRef)}
                 >
                   Replace
                 </Button>
@@ -160,7 +212,11 @@ export function WorkspaceDocumentsPanel() {
                   size="sm"
                   variant="ghost"
                   className="h-7 text-xs"
-                  onClick={() => logAction("document_upload", "Document downloaded", docRef)}
+                  onClick={() => {
+                    if (!opportunityId) return;
+                    placeholderTriggerMockDownload(opportunityId, docRef);
+                    refresh();
+                  }}
                 >
                   Download
                 </Button>
@@ -168,14 +224,31 @@ export function WorkspaceDocumentsPanel() {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs"
-                  onClick={() => {
-                    markDocumentVerified(docRef);
-                    logAction("document_verification", "Document verified", docRef);
-                  }}
+                  onClick={() => markDocumentVerified(docRef)}
                 >
                   Verify
                 </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    markDocumentDeleted(docRef);
+                    if (previewDoc === docRef) {
+                      setPreviewDoc(null);
+                      setPreviewText("");
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
               </div>
+
+              {previewDoc === docRef && (
+                <pre className="mt-2 overflow-auto rounded-lg bg-muted/60 p-2 text-[11px]">
+                  {previewText}
+                </pre>
+              )}
             </div>
           );
         })}

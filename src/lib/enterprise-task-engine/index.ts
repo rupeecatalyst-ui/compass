@@ -8,10 +8,14 @@ export { recordEteAudit } from "./audit-integration";
 export { runEteFoundationValidation } from "./foundation-validation";
 export { getEteFrameworkVersion, getEteRegistrySnapshot } from "./registry-snapshot";
 export {
+  completeEteTask,
+  deleteEteTask,
   deriveEteTaskColour,
   escalateEteOverdueTasks,
   escalateEteTask,
   listEteTasks,
+  patchEteTask,
   registerEteTask,
+  reopenEteTask,
 } from "./task-registry";
 export { validateEteTask } from "./validation-engine";

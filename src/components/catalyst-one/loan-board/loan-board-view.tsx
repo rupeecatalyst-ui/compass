@@ -16,6 +16,20 @@ export function LoanBoardView() {
     toggleColumnCollapse,
     moveFile,
     setSelectedFileId,
+    selectedIds,
+    toggleSelect,
+    managers,
+    openOpportunityWorkspace,
+    changeOwner,
+    holdFile,
+    unholdFile,
+    markLost,
+    archiveFile,
+    whatsappFile,
+    getPage,
+    getPageSize,
+    nextPage,
+    prevPage,
   } = useLoanBoardContext();
 
   const [dragOverStage, setDragOverStage] = useState<PipelineStage | null>(null);
@@ -35,6 +49,8 @@ export function LoanBoardView() {
     setDraggingId(null);
   };
 
+  const pageSize = getPageSize();
+
   return (
     <div className="h-full overflow-x-auto overflow-y-hidden scrollbar-thin">
       <div className="flex gap-1.5 min-w-max h-full">
@@ -42,18 +58,27 @@ export function LoanBoardView() {
           const stats = columnStats.find((s) => s.stage === id)!;
           const columnFiles = filesByStage.get(id) ?? [];
           const collapsed = collapsedColumns.includes(id);
+          const page = getPage(id);
+          const totalPages = Math.max(1, Math.ceil(columnFiles.length / pageSize));
+          const safePage = Math.min(page, totalPages - 1);
+          const pageFiles = columnFiles.slice(safePage * pageSize, safePage * pageSize + pageSize);
 
           return (
             <LoanBoardColumn
               key={id}
               stats={stats}
-              files={columnFiles}
+              pageFiles={pageFiles}
+              page={safePage}
+              totalPages={totalPages}
               density={density}
               visibleFields={visibleFields}
               collapsed={collapsed}
               isDragOver={dragOverStage === id}
+              selectedIds={selectedIds}
+              managers={managers}
               onToggleCollapse={() => toggleColumnCollapse(id)}
               onOpen={setSelectedFileId}
+              onToggleSelect={toggleSelect}
               onDragStart={handleDragStart}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -61,7 +86,16 @@ export function LoanBoardView() {
               }}
               onDragLeave={() => setDragOverStage(null)}
               onDrop={(e) => handleDrop(e, id)}
-              onMoveStage={setSelectedFileId}
+              onMoveStage={(fileId, stage) => moveFile(fileId, stage)}
+              onOpenOpportunity={openOpportunityWorkspace}
+              onChangeOwner={changeOwner}
+              onHold={holdFile}
+              onUnhold={unholdFile}
+              onMarkLost={markLost}
+              onArchive={archiveFile}
+              onWhatsApp={whatsappFile}
+              onPrevPage={() => prevPage(id)}
+              onNextPage={() => nextPage(id, totalPages)}
             />
           );
         })}

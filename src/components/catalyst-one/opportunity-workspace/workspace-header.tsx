@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { OpportunityHealthBand } from "@/types/enterprise-opportunity-intelligence";
 import { OwGlassPanel, OwInfoChip, OwSectionLabel } from "./workspace-design";
@@ -22,10 +23,20 @@ export function WorkspaceHeader() {
     loanAmountLabel,
     selectedLender,
     intelligence,
+    documentStats,
   } = useOpportunityWorkspace();
 
   const band = intelligence?.health.band ?? "needs_attention";
   const progressPct = Math.round(progressRatio * 100);
+  const successPct = selectedLender?.successProbability;
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    if (successPct == null) return;
+    setFlash(true);
+    const t = window.setTimeout(() => setFlash(false), 1400);
+    return () => window.clearTimeout(t);
+  }, [successPct, selectedLender?.lenderName]);
 
   return (
     <OwGlassPanel className="space-y-4">
@@ -52,9 +63,21 @@ export function WorkspaceHeader() {
         <OwInfoChip label="Loan Amount" value={loanAmountLabel} />
         <OwInfoChip label="Customer" value={contact?.name ?? "—"} />
         <OwInfoChip label="Selected Lender" value={selectedLender?.lenderName ?? "Not selected"} />
+        <span
+          className={cn(
+            "inline-flex transition-all duration-500",
+            flash && "scale-[1.04] ring-2 ring-teal-400/50 rounded-full",
+          )}
+        >
+          <OwInfoChip
+            label="Success Probability"
+            value={successPct != null ? `${successPct}%` : "—"}
+          />
+        </span>
         <OwInfoChip label="Relationship Manager" value="RM-001" />
         <OwInfoChip label="Current Stage" value={stageCode.replace(/_/g, " ")} className="capitalize" />
         <OwInfoChip label="Progress" value={`${progressPct}%`} />
+        <OwInfoChip label="Doc Completion" value={`${documentStats.completionPct}%`} />
       </div>
 
       <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200/80 dark:bg-zinc-800">

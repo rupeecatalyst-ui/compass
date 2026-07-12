@@ -24,7 +24,23 @@ import {
 } from "@/lib/enterprise-opportunity-lifecycle-engine";
 import { listEcmContacts, registerEcmContact } from "@/lib/enterprise-contact-master";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
-import { deriveEteTaskColour, listEteTasks } from "@/lib/enterprise-task-engine";
+import {
+  completeEteTask,
+  deriveEteTaskColour,
+  listEteTasks,
+  reopenEteTask,
+} from "@/lib/enterprise-task-engine";
+import {
+  deriveChanakyaAdvisory,
+  getWorkspacePlaceholderStatus,
+  placeholderDeleteDocument,
+  placeholderReplaceDocument,
+  placeholderSetQuickIntent,
+  placeholderUploadDocument,
+  syncWorkflowBlockers,
+  type ChanakyaAdvisoryState,
+  type WorkspaceQuickIntent,
+} from "./providers/workspace-placeholder-provider";
 import {
   listEdieDocumentRules,
   registerEdieDocumentRule,
@@ -61,9 +77,11 @@ export interface DocumentWorkspaceStats {
   uploadedCount: number;
   verifiedCount: number;
   pendingCount: number;
+  completionPct: number;
   requiredDocs: string[];
   uploaded: Set<string>;
   verified: Set<string>;
+  pendingDocs: string[];
 }
 
 export interface SelectedLenderSummary {
@@ -73,10 +91,16 @@ export interface SelectedLenderSummary {
   reportingManagerName?: string;
   recommended?: boolean;
   successProbability?: number;
+  productRefs?: string[];
+  businessMappingRefs?: string[];
+  productCompatible?: boolean;
+  eligibility?: "eligible" | "review" | "ineligible";
+  eligibilityNote?: string;
 }
 
 export interface OpportunityWorkspaceState {
   opportunityId: string;
+  contactId: string;
   opportunity: EoleOpportunity | null;
   contact: EcmContact | null;
   stageCode: string;
@@ -87,6 +111,7 @@ export interface OpportunityWorkspaceState {
   completedTaskIds: Set<string>;
   documentStats: DocumentWorkspaceStats;
   intelligence: OpportunityIntelligenceSnapshot | null;
+  chanakyaAdvisory: ChanakyaAdvisoryState | null;
   /** Presentation-only lender selection for header / LIFE card. */
   selectedLender: SelectedLenderSummary | null;
   productLabel: string;
@@ -94,13 +119,17 @@ export interface OpportunityWorkspaceState {
   focus: WorkspaceFocus;
   refreshKey: number;
   setFocus: (focus: WorkspaceFocus) => void;
+  activateQuickAction: (focus: WorkspaceFocus) => void;
   setSelectedLender: (lender: SelectedLenderSummary | null) => void;
   refresh: () => void;
   changeStage: (action: string, stageCode?: string) => void;
   markTaskCompleted: (taskId: string) => void;
+  markTaskReopened: (taskId: string) => void;
   markDocumentUploaded: (docRef: string) => void;
   markDocumentVerified: (docRef: string) => void;
   markDocumentReplaced: (docRef: string) => void;
+  markDocumentDeleted: (docRef: string) => void;
+  lastPlaceholderStatus: string | null;
 }
 
 const OpportunityWorkspaceContext = createContext<OpportunityWorkspaceState | null>(null);
@@ -310,17 +339,59 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
   const requiredDocs = useMemo(() => resolveRequiredDocs(), []);
 
   const documentStats: DocumentWorkspaceStats = useMemo(() => {
-    const pending = requiredDocs.filter((d) => !uploadedDocs.has(d) && !verifiedDocs.has(d));
+    const pendingDocs = requiredDocs.filter((d) => !uploadedDocs.has(d) && !verifiedDocs.has(d));
+    const completionPct =
+      requiredDocs.length === 0
+        ? 0
+        : Math.round((verifiedDocs.size / requiredDocs.length) * 100);
     return {
       requiredCount: requiredDocs.length,
       uploadedCount: uploadedDocs.size,
       verifiedCount: verifiedDocs.size,
-      pendingCount: pending.length,
+      pendingCount: pendingDocs.length,
+      completionPct,
       requiredDocs,
       uploaded: uploadedDocs,
       verified: verifiedDocs,
+      pendingDocs,
     };
   }, [requiredDocs, uploadedDocs, verifiedDocs]);
+
+  const chanakyaAdvisory = useMemo(() => {
+    if (!opportunityId) return null;
+    return deriveChanakyaAdvisory({
+      opportunityId,
+      docCompletionPct: documentStats.completionPct,
+      hasLender: Boolean(selectedLender),
+      lenderName: selectedLender?.lenderName,
+      overdueTaskCount: taskMetrics.overdue,
+      stageCode: opportunity?.stageCode ?? "intake",
+      lastAction: getWorkspacePlaceholderStatus(opportunityId),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    opportunityId,
+    documentStats.completionPct,
+    selectedLender,
+    taskMetrics.overdue,
+    opportunity?.stageCode,
+    refreshKey,
+  ]);
+
+  useEffect(() => {
+    if (!opportunityId) return;
+    syncWorkflowBlockers(opportunityId, {
+      pendingDocs: documentStats.pendingDocs,
+      hasLender: Boolean(selectedLender),
+      overdueTaskCount: taskMetrics.overdue,
+    });
+  }, [
+    opportunityId,
+    documentStats.pendingDocs,
+    selectedLender,
+    taskMetrics.overdue,
+    refreshKey,
+  ]);
 
   useEffect(() => {
     if (!opportunityId || !opportunity) return;
@@ -358,6 +429,7 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
     taskMetrics.overdue,
     taskMetrics.completed,
     refreshKey,
+    selectedLender,
   ]);
 
   const productLabel = useMemo(() => {
@@ -402,20 +474,49 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
 
   const markTaskCompleted = useCallback(
     (taskId: string) => {
-      if (!opportunityId) {
-        setCompletedTaskIds((prev) => new Set(prev).add(taskId));
-        refresh();
-        return;
+      try {
+        completeEteTask(taskId, "workspace");
+      } catch {
+        // Registry miss — still mark local complete for UI.
       }
       setCompletedTaskIds((prev) => new Set(prev).add(taskId));
-      appendEdcTimelineEntry({
-        contextRef: { type: "opportunity", id: opportunityId },
-        eventType: "task",
-        title: "Task completed",
-        description: `Task ${taskId} marked complete in workspace`,
-        actorId: "workspace",
-        expandablePayload: { taskId, source: "opportunity-workspace-tasks" },
+      if (opportunityId) {
+        appendEdcTimelineEntry({
+          contextRef: { type: "opportunity", id: opportunityId },
+          eventType: "task",
+          title: "Task completed",
+          description: `Task ${taskId} marked complete in workspace`,
+          actorId: "workspace",
+          expandablePayload: { taskId, source: "opportunity-workspace-tasks" },
+        });
+      }
+      refresh();
+    },
+    [opportunityId, refresh],
+  );
+
+  const markTaskReopened = useCallback(
+    (taskId: string) => {
+      try {
+        reopenEteTask(taskId, "workspace");
+      } catch {
+        // Registry miss — still reopen locally.
+      }
+      setCompletedTaskIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
       });
+      if (opportunityId) {
+        appendEdcTimelineEntry({
+          contextRef: { type: "opportunity", id: opportunityId },
+          eventType: "task",
+          title: "Task reopened",
+          description: `Task ${taskId} reopened in workspace`,
+          actorId: "workspace",
+          expandablePayload: { taskId, source: "opportunity-workspace-tasks" },
+        });
+      }
       refresh();
     },
     [opportunityId, refresh],
@@ -423,36 +524,120 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
 
   const markDocumentUploaded = useCallback(
     (docRef: string) => {
+      if (opportunityId) placeholderUploadDocument(opportunityId, docRef);
       setUploadedDocs((prev) => new Set(prev).add(docRef));
+      if (opportunityId) {
+        appendEdcTimelineEntry({
+          contextRef: { type: "opportunity", id: opportunityId },
+          eventType: "document_upload",
+          title: "Document uploaded",
+          description: `${docRef} uploaded — customer summary & completion updated`,
+          actorId: "workspace",
+          expandablePayload: { docRef, source: "opportunity-workspace-documents" },
+        });
+      }
       refresh();
     },
-    [refresh],
+    [opportunityId, refresh],
   );
 
   const markDocumentVerified = useCallback(
     (docRef: string) => {
       setVerifiedDocs((prev) => new Set(prev).add(docRef));
       setUploadedDocs((prev) => new Set(prev).add(docRef));
+      if (opportunityId) {
+        appendEdcTimelineEntry({
+          contextRef: { type: "opportunity", id: opportunityId },
+          eventType: "document_verification",
+          title: "Document verified",
+          description: `${docRef} verified`,
+          actorId: "workspace",
+          expandablePayload: { docRef, source: "opportunity-workspace-documents" },
+        });
+      }
       refresh();
     },
-    [refresh],
+    [opportunityId, refresh],
   );
 
   const markDocumentReplaced = useCallback(
     (docRef: string) => {
+      if (opportunityId) placeholderReplaceDocument(opportunityId, docRef);
       setUploadedDocs((prev) => new Set(prev).add(docRef));
       setVerifiedDocs((prev) => {
         const next = new Set(prev);
         next.delete(docRef);
         return next;
       });
+      if (opportunityId) {
+        appendEdcTimelineEntry({
+          contextRef: { type: "opportunity", id: opportunityId },
+          eventType: "document_upload",
+          title: "Document replaced",
+          description: `${docRef} replaced`,
+          actorId: "workspace",
+          expandablePayload: { docRef, source: "opportunity-workspace-documents" },
+        });
+      }
       refresh();
     },
-    [refresh],
+    [opportunityId, refresh],
   );
+
+  const markDocumentDeleted = useCallback(
+    (docRef: string) => {
+      if (opportunityId) placeholderDeleteDocument(opportunityId, docRef);
+      setUploadedDocs((prev) => {
+        const next = new Set(prev);
+        next.delete(docRef);
+        return next;
+      });
+      setVerifiedDocs((prev) => {
+        const next = new Set(prev);
+        next.delete(docRef);
+        return next;
+      });
+      if (opportunityId) {
+        appendEdcTimelineEntry({
+          contextRef: { type: "opportunity", id: opportunityId },
+          eventType: "document_upload",
+          title: "Document deleted",
+          description: `${docRef} deleted`,
+          actorId: "workspace",
+          expandablePayload: { docRef, source: "opportunity-workspace-documents" },
+        });
+      }
+      refresh();
+    },
+    [opportunityId, refresh],
+  );
+
+  const activateQuickAction = useCallback(
+    (nextFocus: WorkspaceFocus) => {
+      setFocus(nextFocus);
+      if (!opportunityId) return;
+      const intentMap: Partial<Record<WorkspaceFocus, WorkspaceQuickIntent>> = {
+        life: "open_life_selector",
+        stage: "open_stage_dialog",
+        tasks: "focus_task_form",
+        documents: "focus_document_upload",
+        dialogue: "focus_dialogue_compose",
+        timeline: "focus_dialogue_compose",
+      };
+      const intent = intentMap[nextFocus];
+      if (intent) placeholderSetQuickIntent(opportunityId, intent);
+      refresh();
+    },
+    [opportunityId, refresh],
+  );
+
+  const lastPlaceholderStatus = opportunityId
+    ? getWorkspacePlaceholderStatus(opportunityId)
+    : null;
 
   const value: OpportunityWorkspaceState = {
     opportunityId,
+    contactId,
     opportunity,
     contact,
     stageCode: opportunity?.stageCode ?? "intake",
@@ -463,19 +648,24 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
     completedTaskIds,
     documentStats,
     intelligence,
+    chanakyaAdvisory,
     selectedLender,
     productLabel,
     loanAmountLabel,
     focus,
     refreshKey,
     setFocus,
+    activateQuickAction,
     setSelectedLender,
     refresh,
     changeStage,
     markTaskCompleted,
+    markTaskReopened,
     markDocumentUploaded,
     markDocumentVerified,
     markDocumentReplaced,
+    markDocumentDeleted,
+    lastPlaceholderStatus,
   };
 
   return (

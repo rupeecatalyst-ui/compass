@@ -6,35 +6,22 @@ import type { OpportunityHealthBand } from "@/types/enterprise-opportunity-intel
 import { OwGlassPanel, OwSectionLabel } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 
-const HEADLINE: Record<OpportunityHealthBand, string> = {
+const HEADLINE_FALLBACK: Record<OpportunityHealthBand, string> = {
   excellent: "Excellent Progress",
   good: "Steady Progress",
   needs_attention: "Needs Attention",
   critical: "Critical",
 };
 
-function primaryAdvisory(
-  band: OpportunityHealthBand,
-  message?: string,
-): string {
-  if (message) return message;
-  if (band === "excellent") {
-    return "Documents are almost complete. Approval is expected soon.";
-  }
-  if (band === "good") {
-    return "Opportunity is progressing well. Maintain scheduled follow-ups.";
-  }
-  if (band === "critical") {
-    return "Immediate follow-up is recommended.";
-  }
-  return "No customer interaction in the last three days.";
-}
-
 export function WorkspaceChanakyaAdvisory() {
-  const { intelligence } = useOpportunityWorkspace();
+  const { intelligence, chanakyaAdvisory } = useOpportunityWorkspace();
   const band = intelligence?.health.band ?? "needs_attention";
-  const topInsight = intelligence?.insights?.[0];
-  const message = primaryAdvisory(band, topInsight?.message);
+  const headline = chanakyaAdvisory?.headline ?? HEADLINE_FALLBACK[band];
+  const message =
+    chanakyaAdvisory?.message ??
+    intelligence?.insights?.[0]?.message ??
+    "Opportunity is progressing. Maintain scheduled follow-ups.";
+  const reactions = chanakyaAdvisory?.reactions ?? [];
 
   return (
     <OwGlassPanel className="overflow-hidden">
@@ -65,7 +52,7 @@ export function WorkspaceChanakyaAdvisory() {
               band === "critical" && "text-rose-700 dark:text-rose-300",
             )}
           >
-            {HEADLINE[band]}
+            {headline}
           </h2>
           <p
             key={message}
@@ -73,6 +60,15 @@ export function WorkspaceChanakyaAdvisory() {
           >
             “{message}”
           </p>
+          {reactions.length > 0 && (
+            <ul className="space-y-1">
+              {reactions.map((r) => (
+                <li key={r} className="text-[11px] text-violet-800/90 dark:text-violet-200/90">
+                  · {r}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </OwGlassPanel>

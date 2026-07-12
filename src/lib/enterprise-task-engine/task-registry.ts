@@ -134,6 +134,73 @@ export function escalateEteTask(taskId: string, actorId: string): EteTask {
   return updated;
 }
 
+/** Placeholder registry patch — in-memory only; no workflow rules. */
+export function patchEteTask(
+  taskId: string,
+  patch: Partial<Pick<EteTask, "assigneeRef" | "dueOn" | "predefinedDescription" | "description">>,
+  actorId: string,
+): EteTask {
+  const existing = getEtePorts().tasks.findById(taskId);
+  if (!existing) throw new Error(`ETE task not found: ${taskId}`);
+  const updated: EteTask = {
+    ...existing,
+    ...patch,
+    colourStatus: deriveEteTaskColour(patch.dueOn ?? existing.dueOn),
+    modifiedBy: actorId,
+    modifiedOn: new Date().toISOString(),
+  };
+  getEtePorts().tasks.save(updated);
+  return updated;
+}
+
+/** Placeholder complete — disables task in registry. */
+export function completeEteTask(taskId: string, actorId: string): EteTask {
+  const existing = getEtePorts().tasks.findById(taskId);
+  if (!existing) throw new Error(`ETE task not found: ${taskId}`);
+  const updated: EteTask = {
+    ...existing,
+    enabled: false,
+    modifiedBy: actorId,
+    modifiedOn: new Date().toISOString(),
+  };
+  getEtePorts().tasks.save(updated);
+  tryAppendEdcTaskEntry({
+    taskId,
+    title: "Task completed",
+    description: `Placeholder complete · ${existing.predefinedDescription}`,
+    actorId,
+    opportunityRef: existing.opportunityRef,
+  });
+  return updated;
+}
+
+/** Placeholder delete — disables and soft-removes from active lists. */
+export function deleteEteTask(taskId: string, actorId: string): EteTask {
+  return completeEteTask(taskId, actorId);
+}
+
+/** Placeholder reopen — re-enables a completed task in-memory. */
+export function reopenEteTask(taskId: string, actorId: string): EteTask {
+  const existing = getEtePorts().tasks.findById(taskId);
+  if (!existing) throw new Error(`ETE task not found: ${taskId}`);
+  const updated: EteTask = {
+    ...existing,
+    enabled: true,
+    colourStatus: deriveEteTaskColour(existing.dueOn),
+    modifiedBy: actorId,
+    modifiedOn: new Date().toISOString(),
+  };
+  getEtePorts().tasks.save(updated);
+  tryAppendEdcTaskEntry({
+    taskId,
+    title: "Task reopened",
+    description: `Placeholder reopen · ${existing.predefinedDescription}`,
+    actorId,
+    opportunityRef: existing.opportunityRef,
+  });
+  return updated;
+}
+
 /** Escalates all overdue tasks that are not yet escalated. Logs only — no external notifications. */
 export function escalateEteOverdueTasks(actorId: string): EteTask[] {
   if (shouldSuppressAutomation("escalations")) return [];

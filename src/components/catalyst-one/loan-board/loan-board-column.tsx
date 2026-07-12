@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { LOAN_BOARD_STAGE_COLORS } from "@/constants/loan-board";
 import { formatINRCompact } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
@@ -12,18 +12,32 @@ import { AnimatePresence } from "framer-motion";
 
 interface LoanBoardColumnProps {
   stats: LoanFileColumnStats;
-  files: LoanFile[];
+  pageFiles: LoanFile[];
+  page: number;
+  totalPages: number;
   density: LoanBoardDensity;
   visibleFields: LoanBoardFieldKey[];
   collapsed: boolean;
   isDragOver: boolean;
+  selectedIds: Set<string>;
+  managers: readonly string[];
   onToggleCollapse: () => void;
   onOpen: (id: string) => void;
+  onToggleSelect: (id: string) => void;
   onDragStart: (e: React.DragEvent, fileId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
-  onMoveStage: (fileId: string) => void;
+  onMoveStage: (fileId: string, stage: PipelineStage) => void;
+  onOpenOpportunity: (fileId: string) => void;
+  onChangeOwner: (fileId: string, owner: string) => void;
+  onHold: (fileId: string) => void;
+  onUnhold: (fileId: string) => void;
+  onMarkLost: (fileId: string) => void;
+  onArchive: (fileId: string) => void;
+  onWhatsApp: (fileId: string, mobile: string) => void;
+  onPrevPage: () => void;
+  onNextPage: () => void;
 }
 
 const columnWidth: Record<LoanBoardDensity, string> = {
@@ -34,18 +48,32 @@ const columnWidth: Record<LoanBoardDensity, string> = {
 
 export function LoanBoardColumn({
   stats,
-  files,
+  pageFiles,
+  page,
+  totalPages,
   density,
   visibleFields,
   collapsed,
   isDragOver,
+  selectedIds,
+  managers,
   onToggleCollapse,
   onOpen,
+  onToggleSelect,
   onDragStart,
   onDragOver,
   onDragLeave,
   onDrop,
   onMoveStage,
+  onOpenOpportunity,
+  onChangeOwner,
+  onHold,
+  onUnhold,
+  onMarkLost,
+  onArchive,
+  onWhatsApp,
+  onPrevPage,
+  onNextPage,
 }: LoanBoardColumnProps) {
   const color = LOAN_BOARD_STAGE_COLORS[stats.stage as PipelineStage] ?? "#64748b";
 
@@ -114,19 +142,29 @@ export function LoanBoardColumn({
       >
         <div className="space-y-0.5">
           <AnimatePresence mode="popLayout">
-            {files.map((file) => (
+            {pageFiles.map((file) => (
               <LoanBoardCard
                 key={file.id}
                 file={file}
                 density={density}
                 visibleFields={visibleFields}
+                selected={selectedIds.has(file.id)}
+                managers={managers}
                 onOpen={onOpen}
+                onToggleSelect={onToggleSelect}
                 onDragStart={onDragStart}
                 onMoveStage={onMoveStage}
+                onOpenOpportunity={onOpenOpportunity}
+                onChangeOwner={onChangeOwner}
+                onHold={onHold}
+                onUnhold={onUnhold}
+                onMarkLost={onMarkLost}
+                onArchive={onArchive}
+                onWhatsApp={onWhatsApp}
               />
             ))}
           </AnimatePresence>
-          {files.length === 0 && (
+          {pageFiles.length === 0 && (
             <div
               className={cn(
                 "flex h-14 items-center justify-center rounded-md border border-dashed border-border text-[10px] text-muted-foreground",
@@ -137,6 +175,34 @@ export function LoanBoardColumn({
             </div>
           )}
         </div>
+
+        {stats.count > 0 && (
+          <div className="mt-1 flex items-center justify-between gap-1 border-t border-border/60 pt-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              disabled={page <= 0}
+              onClick={onPrevPage}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            <span className="text-[9px] text-muted-foreground tabular-nums">
+              {page + 1}/{Math.max(1, totalPages)}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              disabled={page >= totalPages - 1}
+              onClick={onNextPage}
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

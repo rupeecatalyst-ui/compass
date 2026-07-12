@@ -24,6 +24,27 @@ import type {
   LoanFilePriority,
   PipelineStage,
 } from "@/types/catalyst-one";
+import {
+  getLoanBoardOpsFlags,
+  getLoanBoardPage,
+  getLoanBoardPageSize,
+  getLoanBoardPlaceholderStatus,
+  placeholderArchiveNote,
+  placeholderBulkNote,
+  placeholderChangeOwnerNote,
+  placeholderHoldFile,
+  placeholderMarkLost,
+  placeholderClearFiltersNote,
+  placeholderNextPage,
+  placeholderOpenOpportunity,
+  placeholderPrevPage,
+  placeholderRefreshNote,
+  placeholderUnholdFile,
+  placeholderWhatsAppNote,
+  sortLoanBoardFiles,
+  type LoanBoardSortDir,
+  type LoanBoardSortKey,
+} from "@/components/catalyst-one/loan-board/providers/loan-board-placeholder-provider";
 
 function loadDensity(): LoanBoardDensity {
   if (typeof window === "undefined") return "compact";
@@ -98,7 +119,14 @@ export function useLoanBoard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [sortKey, setSortKey] = useState<LoanBoardSortKey>("customer");
+  const [sortDir, setSortDir] = useState<LoanBoardSortDir>("asc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [opsTick, setOpsTick] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const bumpOps = useCallback(() => setOpsTick((n) => n + 1), []);
 
   useEffect(() => {
     setFiles(loadLoanFiles());
@@ -210,8 +238,8 @@ export function useLoanBoard() {
       pool = applyBoardSavedView(pool, savedView);
     }
 
-    return pool;
-  }, [files, search, rmFilter, productFilter, lenderFilter, cityFilter, priorityFilter, showClosed, savedView, stageFilter]);
+    return sortLoanBoardFiles(pool, sortKey, sortDir);
+  }, [files, search, rmFilter, productFilter, lenderFilter, cityFilter, priorityFilter, showClosed, savedView, stageFilter, sortKey, sortDir]);
 
   const columnStats = useMemo((): LoanFileColumnStats[] => {
     return LOAN_BOARD_STAGES.map(({ id, label }) => {
@@ -255,7 +283,160 @@ export function useLoanBoard() {
     setStageFilter("all");
     setSavedView("all");
     setShowClosed(false);
+    placeholderClearFiltersNote();
+    bumpOps();
+  }, [bumpOps]);
+
+  const openOpportunityWorkspace = useCallback(
+    (fileId: string) => {
+      placeholderOpenOpportunity(fileId);
+      bumpOps();
+    },
+    [bumpOps],
+  );
+
+  const whatsappFile = useCallback(
+    (fileId: string, mobile: string) => {
+      placeholderWhatsAppNote(fileId);
+      bumpOps();
+      const digits = mobile.replace(/\D/g, "");
+      window.open(`https://wa.me/91${digits.replace(/^91/, "")}`, "_blank", "noopener,noreferrer");
+    },
+    [bumpOps],
+  );
+
+  const toggleSelect = useCallback((fileId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId);
+      else next.add(fileId);
+      return next;
+    });
   }, []);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const selectAllFiltered = useCallback(() => {
+    setSelectedIds(new Set(filteredFiles.map((f) => f.id)));
+  }, [filteredFiles]);
+
+  const refresh = useCallback(() => {
+    setIsRefreshing(true);
+    setFiles(loadLoanFiles());
+    placeholderRefreshNote();
+    bumpOps();
+    window.setTimeout(() => setIsRefreshing(false), 250);
+  }, [bumpOps]);
+
+  const changeOwner = useCallback(
+    (fileId: string, owner: string) => {
+      updateFile(fileId, { relationshipManager: owner });
+      placeholderChangeOwnerNote(fileId, owner);
+      bumpOps();
+    },
+    [updateFile, bumpOps],
+  );
+
+  const archiveFile = useCallback(
+    (fileId: string) => {
+      updateFile(fileId, { archived: true });
+      placeholderArchiveNote(fileId);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(fileId);
+        return next;
+      });
+      bumpOps();
+    },
+    [updateFile, bumpOps],
+  );
+
+  const holdFile = useCallback(
+    (fileId: string) => {
+      placeholderHoldFile(fileId);
+      updateFile(fileId, {
+        stageSubStatus: "on_hold",
+        timeline: [
+          ...(files.find((f) => f.id === fileId)?.timeline ?? []),
+          {
+            id: `tl-hold-${Date.now()}`,
+            title: "File put on hold",
+            description: "Placeholder hold from Loan Board",
+            timestamp: new Date().toISOString(),
+            completed: true,
+          },
+        ],
+      });
+      bumpOps();
+    },
+    [updateFile, files, bumpOps],
+  );
+
+  const unholdFile = useCallback(
+    (fileId: string) => {
+      placeholderUnholdFile(fileId);
+      updateFile(fileId, { stageSubStatus: undefined });
+      bumpOps();
+    },
+    [updateFile, bumpOps],
+  );
+
+  const markLost = useCallback(
+    (fileId: string) => {
+      placeholderMarkLost(fileId);
+      updateFile(fileId, {
+        stageSubStatus: "lost",
+        status: "at_risk",
+        timeline: [
+          ...(files.find((f) => f.id === fileId)?.timeline ?? []),
+          {
+            id: `tl-lost-${Date.now()}`,
+            title: "File marked lost",
+            description: "Placeholder lost from Loan Board",
+            timestamp: new Date().toISOString(),
+            completed: true,
+          },
+        ],
+      });
+      bumpOps();
+    },
+    [updateFile, files, bumpOps],
+  );
+
+  const bulkArchive = useCallback(() => {
+    const ids = [...selectedIds];
+    persistFiles((prev) => prev.map((f) => (ids.includes(f.id) ? { ...f, archived: true } : f)));
+    placeholderBulkNote("archive", ids.length);
+    clearSelection();
+    bumpOps();
+  }, [selectedIds, persistFiles, clearSelection, bumpOps]);
+
+  const bulkHold = useCallback(() => {
+    const ids = [...selectedIds];
+    ids.forEach((id) => placeholderHoldFile(id));
+    persistFiles((prev) =>
+      prev.map((f) => (ids.includes(f.id) ? { ...f, stageSubStatus: "on_hold" } : f)),
+    );
+    placeholderBulkNote("hold", ids.length);
+    clearSelection();
+    bumpOps();
+  }, [selectedIds, persistFiles, clearSelection, bumpOps]);
+
+  const bulkChangeOwner = useCallback(
+    (owner: string) => {
+      const ids = [...selectedIds];
+      persistFiles((prev) =>
+        prev.map((f) => (ids.includes(f.id) ? { ...f, relationshipManager: owner } : f)),
+      );
+      placeholderBulkNote(`owner→${owner}`, ids.length);
+      clearSelection();
+      bumpOps();
+    },
+    [selectedIds, persistFiles, clearSelection, bumpOps],
+  );
+
+  const lastStatus = getLoanBoardPlaceholderStatus();
+  void opsTick;
 
   return {
     files,
@@ -300,10 +481,43 @@ export function useLoanBoard() {
     mounted,
     searchInputRef,
     clearFilters,
+    openOpportunityWorkspace,
+    whatsappFile,
     managers: LOAN_MANAGERS,
     products: loanProducts,
     lenders: loanLenders,
     cities,
+    sortKey,
+    setSortKey,
+    sortDir,
+    setSortDir,
+    selectedIds,
+    toggleSelect,
+    clearSelection,
+    selectAllFiltered,
+    refresh,
+    isRefreshing,
+    changeOwner,
+    archiveFile,
+    holdFile,
+    unholdFile,
+    markLost,
+    bulkArchive,
+    bulkHold,
+    bulkChangeOwner,
+    getOpsFlags: getLoanBoardOpsFlags,
+    getPage: getLoanBoardPage,
+    getPageSize: getLoanBoardPageSize,
+    nextPage: (stage: string, totalPages: number) => {
+      placeholderNextPage(stage, totalPages);
+      bumpOps();
+    },
+    prevPage: (stage: string) => {
+      placeholderPrevPage(stage);
+      bumpOps();
+    },
+    lastStatus,
+    bumpOps,
   };
 }
 

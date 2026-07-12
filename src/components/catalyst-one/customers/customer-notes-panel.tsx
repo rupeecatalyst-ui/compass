@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { format } from "date-fns";
 import { Pin, PinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ interface CustomerNotesPanelProps {
   onNewNoteChange: (value: string) => void;
   onSaveNote: () => void;
   onTogglePin: (noteId: string) => void;
+  onEditNote: (noteId: string, content: string) => void;
+  onDeleteNote: (noteId: string) => void;
 }
 
 export function CustomerNotesPanel({
@@ -20,12 +23,14 @@ export function CustomerNotesPanel({
   onNewNoteChange,
   onSaveNote,
   onTogglePin,
+  onEditNote,
+  onDeleteNote,
 }: CustomerNotesPanelProps) {
   const sorted = [...customer.notes].sort((a, b) => Number(b.pinned) - Number(a.pinned));
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+      <div className="space-y-3 rounded-xl border border-border bg-card p-4">
         <h4 className="text-sm font-semibold text-foreground">Add Note</h4>
         <textarea
           value={newNote}
@@ -48,7 +53,13 @@ export function CustomerNotesPanel({
           <p className="text-sm text-muted-foreground">No notes yet.</p>
         ) : (
           sorted.map((note) => (
-            <NoteCard key={note.id} note={note} onTogglePin={() => onTogglePin(note.id)} />
+            <NoteCard
+              key={note.id}
+              note={note}
+              onTogglePin={() => onTogglePin(note.id)}
+              onEdit={(content) => onEditNote(note.id, content)}
+              onDelete={() => onDeleteNote(note.id)}
+            />
           ))
         )}
       </div>
@@ -56,7 +67,20 @@ export function CustomerNotesPanel({
   );
 }
 
-function NoteCard({ note, onTogglePin }: { note: CustomerNote; onTogglePin: () => void }) {
+function NoteCard({
+  note,
+  onTogglePin,
+  onEdit,
+  onDelete,
+}: {
+  note: CustomerNote;
+  onTogglePin: () => void;
+  onEdit: (content: string) => void;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(note.content);
+
   return (
     <div
       className={cn(
@@ -66,31 +90,64 @@ function NoteCard({ note, onTogglePin }: { note: CustomerNote; onTogglePin: () =
           : "border-border bg-card",
       )}
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
+      <div className="mb-2 flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           {note.pinned && <Pin className="h-3.5 w-3.5 text-primary" />}
           <span className="text-[10px] text-muted-foreground">
             {note.createdBy} · {format(new Date(note.createdAt), "dd MMM yyyy · HH:mm")}
           </span>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="h-7 w-7 p-0"
-          onClick={onTogglePin}
-          title={note.pinned ? "Unpin note" : "Pin note"}
-        >
-          {note.pinned ? (
-            <PinOff className="h-3.5 w-3.5" />
-          ) : (
-            <Pin className="h-3.5 w-3.5" />
-          )}
-        </Button>
+        <div className="flex gap-0.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={() => {
+              if (editing) {
+                onEdit(draft);
+                setEditing(false);
+              } else {
+                setDraft(note.content);
+                setEditing(true);
+              }
+            }}
+          >
+            {editing ? "Save" : "Edit"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            onClick={onTogglePin}
+            title={note.pinned ? "Unpin note" : "Pin note"}
+          >
+            {note.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            className="h-7 px-2 text-xs"
+            onClick={onDelete}
+          >
+            Delete
+          </Button>
+        </div>
       </div>
-      <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-        {note.content}
-      </div>
+      {editing ? (
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={4}
+          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+        />
+      ) : (
+        <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+          {note.content}
+        </div>
+      )}
     </div>
   );
 }

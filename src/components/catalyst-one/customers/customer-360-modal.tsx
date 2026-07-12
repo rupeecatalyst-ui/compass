@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Upload } from "lucide-react";
+import { Customer360OperationalSections } from "@/components/catalyst-one/customers/customer-360-operational-sections";
 import { CustomerAuditTrail } from "@/components/catalyst-one/customers/customer-audit-trail";
 import { CustomerDocumentsPanel } from "@/components/catalyst-one/customers/customer-documents-panel";
 import { CustomerLoanPortfolio } from "@/components/catalyst-one/customers/customer-loan-portfolio";
@@ -12,6 +12,7 @@ import { CustomerTimelineFeed } from "@/components/catalyst-one/customers/custom
 import { CustomerWorkspaceStickyHeader } from "@/components/catalyst-one/customers/customer-workspace-sticky-header";
 import { RelationshipIdentityPanel } from "@/components/catalyst-one/customers/relationship-identity-panel";
 import { RelationshipPortfolioSection } from "@/components/catalyst-one/customers/relationship-portfolio-section";
+import { getC360Status } from "@/components/catalyst-one/customers/providers/customer-360-placeholder-provider";
 import { useCustomersContext } from "@/components/catalyst-one/customers/customers-context";
 import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-workspace-modal";
 import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
@@ -171,6 +172,7 @@ function Customer360ModalContent({
   const [loanCreateOpen, setLoanCreateOpen] = useState(false);
   const [newNote, setNewNote] = useState("");
   const [portfolioFilter, setPortfolioFilter] = useState<"all" | "active" | "closed">("all");
+  const [opsRefreshKey, setOpsRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!selectedCustomerId || !scrollRef.current) return;
@@ -238,6 +240,91 @@ function Customer360ModalContent({
         n.id === noteId ? { ...n, pinned: !n.pinned } : n,
       ),
     });
+  };
+
+  const handleEditNote = (noteId: string, content: string) => {
+    updateCustomer(customer.id, {
+      notes: customer.notes.map((n) => (n.id === noteId ? { ...n, content } : n)),
+    });
+    feedback.noteSaved();
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    updateCustomer(customer.id, {
+      notes: customer.notes.filter((n) => n.id !== noteId),
+    });
+  };
+
+  const handleUploadDocument = () => {
+    const doc = {
+      id: `doc-${Date.now()}`,
+      name: `Placeholder Document ${customer.documents.length + 1}`,
+      status: "received" as const,
+      uploadedAt: new Date().toISOString(),
+      category: "KYC",
+      uploadedBy: customer.relationshipManager,
+      version: 1,
+    };
+    updateCustomer(customer.id, {
+      documents: [doc, ...customer.documents],
+      timeline: [
+        {
+          id: `tl-doc-${doc.id}`,
+          title: "Document uploaded",
+          description: doc.name,
+          timestamp: new Date().toISOString(),
+          type: "document",
+          actor: customer.relationshipManager,
+        },
+        ...customer.timeline,
+      ],
+    });
+    setWorkspaceTab("documents");
+    setOpsRefreshKey((k) => k + 1);
+    feedback.documentUploaded();
+  };
+
+  const handleReplaceDocument = (docId: string) => {
+    updateCustomer(customer.id, {
+      documents: customer.documents.map((d) =>
+        d.id === docId
+          ? {
+              ...d,
+              uploadedAt: new Date().toISOString(),
+              version: (d.version ?? 1) + 1,
+              status: "received",
+            }
+          : d,
+      ),
+    });
+    setOpsRefreshKey((k) => k + 1);
+    feedback.documentUploaded();
+  };
+
+  const handleDeleteDocument = (docId: string) => {
+    updateCustomer(customer.id, {
+      documents: customer.documents.filter((d) => d.id !== docId),
+    });
+    setOpsRefreshKey((k) => k + 1);
+  };
+
+  const handleAddTaskPlaceholder = () => {
+    updateCustomer(customer.id, {
+      timeline: [
+        {
+          id: `tl-task-${Date.now()}`,
+          title: "Task created (placeholder)",
+          description: "Follow-up task registered from Customer 360 header",
+          timestamp: new Date().toISOString(),
+          type: "task",
+          actor: customer.relationshipManager,
+        },
+        ...customer.timeline,
+      ],
+    });
+    setWorkspaceTab("tasks");
+    setOpsRefreshKey((k) => k + 1);
+    feedback.taskAssigned();
   };
 
   const handleLoanCreated = (input: Parameters<typeof createLoanFileFromInput>[0], meta?: LoanCreateSubmitMeta) => {
@@ -310,8 +397,8 @@ function Customer360ModalContent({
           <CustomerWorkspaceStickyHeader
             customer={customer}
             onAddLoan={() => setLoanCreateOpen(true)}
-            onAddTask={() => setWorkspaceTab("tasks")}
-            onUploadDocument={() => setWorkspaceTab("documents")}
+            onAddTask={handleAddTaskPlaceholder}
+            onUploadDocument={handleUploadDocument}
           />
 
           <div
@@ -336,6 +423,16 @@ function Customer360ModalContent({
                 </TabsList>
 
                 <TabsContent value="overview" className="mt-4 space-y-6">
+                  <Customer360OperationalSections
+                    customer={customer}
+                    refreshKey={opsRefreshKey}
+                    onRefresh={() => setOpsRefreshKey((k) => k + 1)}
+                    onSaveProfile={(patch) => {
+                      updateCustomer(customer.id, patch);
+                      setOpsRefreshKey((k) => k + 1);
+                      feedback.customerUpdated();
+                    }}
+                  />
                   <RelationshipPortfolioSection
                     data={portfolio}
                     intelligence={portfolioIntelligence}
@@ -352,11 +449,11 @@ function Customer360ModalContent({
                     onOpenLoan={openLoanWorkspace}
                   />
                   <section>
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="mb-3 flex items-center justify-between">
                       <h4 className="text-sm font-semibold">Recent Activity</h4>
                       <Button
                         variant="link"
-                        className="text-xs h-auto p-0"
+                        className="h-auto p-0 text-xs"
                         onClick={() => setWorkspaceTab("timeline")}
                       >
                         View all →
@@ -412,7 +509,11 @@ function Customer360ModalContent({
                 </TabsContent>
 
                 <TabsContent value="timeline" className="mt-4">
-                  <CustomerTimelineFeed events={timeline} onOpenLoan={openLoanWorkspace} />
+                  <CustomerTimelineFeed
+                    events={timeline}
+                    onOpenLoan={openLoanWorkspace}
+                    showFilters
+                  />
                 </TabsContent>
 
                 <TabsContent value="tasks" className="mt-4">
@@ -424,18 +525,13 @@ function Customer360ModalContent({
                 </TabsContent>
 
                 <TabsContent value="documents" className="mt-4 space-y-4">
-                  <div className="flex justify-end">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs"
-                      onClick={() => feedback.documentUploaded()}
-                    >
-                      <Upload className="h-3.5 w-3.5 mr-1" />
-                      Upload Document
-                    </Button>
-                  </div>
-                  <CustomerDocumentsPanel customer={customer} />
+                  <CustomerDocumentsPanel
+                    customer={customer}
+                    onUpload={handleUploadDocument}
+                    onReplace={handleReplaceDocument}
+                    onDelete={handleDeleteDocument}
+                    statusMessage={getC360Status(customer.id)}
+                  />
                 </TabsContent>
 
                 <TabsContent value="notes" className="mt-4">
@@ -445,6 +541,8 @@ function Customer360ModalContent({
                     onNewNoteChange={setNewNote}
                     onSaveNote={handleAddNote}
                     onTogglePin={handleTogglePin}
+                    onEditNote={handleEditNote}
+                    onDeleteNote={handleDeleteNote}
                   />
                 </TabsContent>
 

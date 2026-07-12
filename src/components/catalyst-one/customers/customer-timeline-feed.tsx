@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   ArrowRightLeft,
@@ -11,6 +12,7 @@ import {
   StickyNote,
 } from "lucide-react";
 import { EntityButtonLink } from "@/components/catalyst-one/shared/entity-link";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { CustomerTimelineEvent } from "@/types/catalyst-one";
 
@@ -24,64 +26,100 @@ const ICONS: Record<CustomerTimelineEvent["type"], { icon: typeof Phone; color: 
   document: { icon: FileUp, color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" },
 };
 
+type TimelineFilter = "all" | CustomerTimelineEvent["type"];
+
+const FILTERS: TimelineFilter[] = [
+  "all",
+  "call",
+  "email",
+  "meeting",
+  "stage_move",
+  "note",
+  "task",
+  "document",
+];
+
 interface CustomerTimelineFeedProps {
   events: CustomerTimelineEvent[];
   onOpenLoan?: (fileId: string) => void;
   limit?: number;
+  showFilters?: boolean;
 }
 
 export function CustomerTimelineFeed({
   events,
   onOpenLoan,
   limit,
+  showFilters = false,
 }: CustomerTimelineFeedProps) {
-  const items = limit ? events.slice(0, limit) : events;
+  const [filter, setFilter] = useState<TimelineFilter>("all");
 
-  if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">No activity recorded yet.</p>;
-  }
+  const filtered = useMemo(() => {
+    const base = filter === "all" ? events : events.filter((e) => e.type === filter);
+    return limit ? base.slice(0, limit) : base;
+  }, [events, filter, limit]);
 
   return (
     <div className="space-y-3">
-      {items.map((event, i) => {
-        const meta = ICONS[event.type] ?? ICONS.note;
-        const Icon = meta.icon;
-        return (
-          <div
-            key={event.id}
-            className={cn(
-              "flex gap-3 rounded-xl border border-border bg-card p-3",
-              "animate-in fade-in slide-in-from-bottom-1 duration-300",
-            )}
-            style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
-          >
-            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", meta.color)}>
-              <Icon className="h-4 w-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium text-sm text-foreground">{event.title}</p>
-                <span className="text-[10px] text-muted-foreground">
-                  {format(new Date(event.timestamp), "dd MMM yyyy · HH:mm")}
-                </span>
+      {showFilters && (
+        <div className="flex flex-wrap gap-1.5">
+          {FILTERS.map((f) => (
+            <Button
+              key={f}
+              size="sm"
+              variant={filter === f ? "default" : "outline"}
+              className="h-7 text-xs capitalize"
+              onClick={() => setFilter(f)}
+            >
+              {f === "stage_move" ? "Stage" : f}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+      ) : (
+        filtered.map((event, i) => {
+          const meta = ICONS[event.type] ?? ICONS.note;
+          const Icon = meta.icon;
+          return (
+            <div
+              key={event.id}
+              className={cn(
+                "flex gap-3 rounded-xl border border-border bg-card p-3",
+                "animate-in fade-in slide-in-from-bottom-1 duration-300",
+              )}
+              style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+            >
+              <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", meta.color)}>
+                <Icon className="h-4 w-4" />
               </div>
-              {event.description && (
-                <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
-              )}
-              {event.actor && (
-                <p className="text-[10px] text-muted-foreground mt-1">by {event.actor}</p>
-              )}
-              {event.loanFileId && onOpenLoan && (
-                <EntityButtonLink
-                  label="Open linked loan"
-                  className="text-xs mt-1"
-                  onClick={() => onOpenLoan(event.loanFileId!)}
-                />
-              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">{event.title}</p>
+                  <span className="text-[10px] text-muted-foreground">
+                    {format(new Date(event.timestamp), "dd MMM yyyy · HH:mm")}
+                  </span>
+                </div>
+                {event.description && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">{event.description}</p>
+                )}
+                {event.actor && (
+                  <p className="mt-1 text-[10px] text-muted-foreground">by {event.actor}</p>
+                )}
+                {event.loanFileId && onOpenLoan && (
+                  <EntityButtonLink
+                    label="Open linked loan"
+                    className="mt-1 text-xs"
+                    onClick={() => onOpenLoan(event.loanFileId!)}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })
+      )}
     </div>
   );
 }

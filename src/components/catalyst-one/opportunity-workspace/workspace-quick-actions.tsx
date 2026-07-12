@@ -28,7 +28,7 @@ const ACTIONS: Array<{
 ];
 
 export function WorkspaceQuickActions() {
-  const { focus, setFocus } = useOpportunityWorkspace();
+  const { focus, activateQuickAction } = useOpportunityWorkspace();
 
   return (
     <OwGlassPanel>
@@ -41,7 +41,7 @@ export function WorkspaceQuickActions() {
             <button
               key={action.focus}
               type="button"
-              onClick={() => setFocus(action.focus)}
+              onClick={() => activateQuickAction(action.focus)}
               className={cn(
                 "group flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3 text-center transition-all duration-200",
                 active

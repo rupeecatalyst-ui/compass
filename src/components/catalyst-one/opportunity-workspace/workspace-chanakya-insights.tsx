@@ -5,17 +5,31 @@ import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 
 export function WorkspaceChanakyaInsightsPanel() {
-  const { intelligence } = useOpportunityWorkspace();
+  const { intelligence, chanakyaAdvisory } = useOpportunityWorkspace();
   const insights = intelligence?.insights ?? [];
+  const reactions = chanakyaAdvisory?.reactions ?? [];
 
   return (
     <OwGlassPanel className="h-full">
       <OwPanelHeader
         title="CHANAKYA Insights"
         badge="Advisory"
-        description="Right-side guidance — no automation"
+        description="Rule-based reactions to workspace actions"
       />
       <div className="space-y-2">
+        {reactions.map((reaction) => (
+          <div
+            key={reaction}
+            className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-3"
+          >
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-violet-800 dark:text-violet-200">
+                Reaction
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs leading-relaxed text-foreground">{reaction}</p>
+          </div>
+        ))}
         {insights.map((insight) => (
           <div
             key={insight.id}
@@ -37,7 +51,7 @@ export function WorkspaceChanakyaInsightsPanel() {
             <p className="mt-1.5 text-xs leading-relaxed text-foreground">{insight.message}</p>
           </div>
         ))}
-        {insights.length === 0 && (
+        {reactions.length === 0 && insights.length === 0 && (
           <p className="text-xs text-muted-foreground">Insights will appear as activity unfolds.</p>
         )}
       </div>
