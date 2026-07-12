@@ -39,6 +39,7 @@ export function getEdieRegistrySnapshot(): EdieRegistrySnapshot {
     uploadPolicies: ports.uploadPolicies.list(),
     registeredFileTypes: ports.registeredFileTypes.list(),
     storageReferences: ports.storageReferences.list(),
+    documentRules: ports.documentRules.list(),
     timelineEntries: ports.timeline.list(),
     auditReferences: ports.auditReferences.list(),
   };

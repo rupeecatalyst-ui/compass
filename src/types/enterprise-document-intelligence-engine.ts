@@ -96,8 +96,27 @@ export type EdieAuditEntityType =
   | "verification"
   | "upload_policy"
   | "retention_policy"
-  | "storage_reference";
+  | "storage_reference"
+  | "document_rule";
 
+export type EdieDocumentUploadMethod = "folder" | "individual" | "both";
+
+/** SPR-001 extension — contextual document rule definitions. */
+export interface EdieDocumentRule {
+  id: string;
+  ruleCode: string;
+  ruleName: string;
+  productRef: string;
+  employmentType?: string;
+  constitution?: string;
+  customerCategory?: string;
+  loanStage?: string;
+  documentTypeRefs: string[];
+  uploadMethod: EdieDocumentUploadMethod;
+  enabled: boolean;
+  createdBy: string;
+  createdOn: string;
+}
 // ---------------------------------------------------------------------------
 // Document core
 // ---------------------------------------------------------------------------
@@ -503,6 +522,7 @@ export interface EdieRegistrySnapshot {
   uploadPolicies: EdieUploadPolicy[];
   registeredFileTypes: EdieRegisteredFileType[];
   storageReferences: EdieStorageReference[];
+  documentRules: EdieDocumentRule[];
   timelineEntries: EdieDocumentTimelineEntry[];
   auditReferences: EdieDocumentAuditReference[];
 }

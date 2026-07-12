@@ -1,0 +1,74 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
+import { createMissionControlSecurityGateway } from "../security";
+import { getMissionControlFeatureByRoute } from "../feature-registry";
+import { McEnterpriseHeader } from "./enterprise-header";
+import { McGlobalStatusBar } from "./global-status-bar";
+import { McNavigationRail } from "./navigation-rail";
+import { McSecurityGateway } from "./security-gateway";
+
+/**
+ * Persistent Mission Control shell.
+ * Header + Nav + Status remain mounted; only workspace children change.
+ */
+export function MissionControlShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() || "/mission-control";
+  const [collapsed, setCollapsed] = useState(false);
+  const feature = useMemo(() => getMissionControlFeatureByRoute(pathname), [pathname]);
+  const gateway = useMemo(() => createMissionControlSecurityGateway(), []);
+
+  const isLanding =
+    pathname === "/mission-control" || pathname === "/mission-control/executive-briefing";
+  const currentModule = feature?.displayName ?? "Mission Control";
+  const workspaceTitle = isLanding
+    ? "CHANAKYA Executive Briefing"
+    : (feature?.displayName ?? "Command Center");
+
+  return (
+    <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100">
+      <McEnterpriseHeader
+        environment="development"
+        currentModule={currentModule}
+        workspaceTitle={workspaceTitle}
+        breadcrumbs={
+          isLanding
+            ? [
+                { label: "Mission Control", href: "/mission-control" },
+                { label: "CHANAKYA" },
+              ]
+            : [
+                { label: "Mission Control", href: "/mission-control" },
+                { label: currentModule },
+              ]
+        }
+      />
+      <div className="flex min-h-0 flex-1">
+        <McNavigationRail
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((c) => !c)}
+          activeHref={pathname}
+        />
+        <main className="min-w-0 flex-1 overflow-y-auto bg-zinc-900/40">
+          <McSecurityGateway
+            gateway={gateway}
+            context={{
+              authenticated: true,
+              sessionValid: true,
+              mfaSatisfied: true,
+              roles: [],
+              permissions: [],
+              deviceTrusted: true,
+              maintenanceMode: false,
+              emergencyLock: false,
+            }}
+          >
+            <div className="mx-auto max-w-[1600px] p-4 md:p-6">{children}</div>
+          </McSecurityGateway>
+        </main>
+      </div>
+      <McGlobalStatusBar />
+    </div>
+  );
+}

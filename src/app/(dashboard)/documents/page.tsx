@@ -1,10 +1,5 @@
-import { ModulePlaceholder } from "@/components/catalyst-one/module-placeholder";
+import { DocumentsWorkspace } from "@/components/catalyst-one/documents/documents-workspace";
 
 export default function DocumentsPage() {
-  return (
-    <ModulePlaceholder
-      title="Documents"
-      description="Document collection, verification workflows, and compliance tracking for loan files."
-    />
-  );
+  return <DocumentsWorkspace />;
 }

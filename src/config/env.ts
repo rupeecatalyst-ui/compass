@@ -3,7 +3,10 @@ import { z } from "zod";
 const envSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().default("COMPASS"),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
-  /** Empty string = use same-origin /api proxy (recommended for local dev) */
+  /**
+   * Empty = same-origin /api (App Router). Set explicitly to proxy to Express
+   * (e.g. http://localhost:4000 for local dual-server mode).
+   */
   NEXT_PUBLIC_API_URL: z
     .union([z.string().url(), z.literal("")])
     .optional()
@@ -16,10 +19,8 @@ export const env = envSchema.parse({
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
 });
 
-/** Resolved API base URL for axios — empty in browser uses Next.js /api rewrite proxy */
+/** Resolved API base URL for axios — empty uses same-origin /api */
 export function getApiBaseUrl(): string {
   if (env.NEXT_PUBLIC_API_URL) return env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== "undefined") return "";
-  return "http://localhost:4000";
+  return "";
 }
-

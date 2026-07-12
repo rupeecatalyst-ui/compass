@@ -31,6 +31,7 @@ import type {
   EdieUploadPolicy,
   EdieVerification,
   EdieVerificationResult,
+  EdieDocumentRule,
 } from "@/types/enterprise-document-intelligence-engine";
 import type { EdiePorts } from "@/types/enterprise-document-intelligence-engine-ports";
 
@@ -79,6 +80,7 @@ export function createInMemoryEdiePorts(): EdiePorts {
   const uploadPolicies = createMutableListStore<EdieUploadPolicy>();
   const registeredFileTypes = createMutableListStore<EdieRegisteredFileType>();
   const storageReferences = createMutableListStore<EdieStorageReference>();
+  const documentRules = createMutableListStore<EdieDocumentRule>();
   const timeline = createMutableListStore<EdieDocumentTimelineEntry>();
   const auditReferences = createMutableListStore<EdieDocumentAuditReference>();
 
@@ -289,6 +291,13 @@ export function createInMemoryEdiePorts(): EdiePorts {
       listByDocument: (documentId) => storageReferences.list().filter((r) => r.documentId === documentId),
       save: (reference) => storageReferences.upsert(reference, (r) => r.id),
       replaceAll: (items) => storageReferences.replaceAll(items),
+    },
+    documentRules: {
+      list: () => documentRules.list(),
+      findById: (id) => documentRules.list().find((r) => r.id === id),
+      findByCode: (ruleCode) => documentRules.list().find((r) => r.ruleCode === ruleCode),
+      save: (rule) => documentRules.upsert(rule, (r) => r.id),
+      replaceAll: (items) => documentRules.replaceAll(items),
     },
     timeline: {
       list: () => timeline.list(),

@@ -1,10 +1,5 @@
-import { ModulePlaceholder } from "@/components/catalyst-one/module-placeholder";
+import { TaskEngineWorkspace } from "@/components/catalyst-one/tasks/task-engine-workspace";
 
 export default function TasksPage() {
-  return (
-    <ModulePlaceholder
-      title="Tasks"
-      description="Task management for follow-ups, credit queries, and team assignments."
-    />
-  );
+  return <TaskEngineWorkspace />;
 }

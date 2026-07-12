@@ -37,3 +37,8 @@ dist-ssr
 
 .vercel
 .env*
+!.env.example
+
+# TypeScript incremental
+*.tsbuildinfo
+tsconfig.tsbuildinfo

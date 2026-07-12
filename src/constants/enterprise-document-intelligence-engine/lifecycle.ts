@@ -2,7 +2,8 @@
  * EDIE lifecycle and framework constants.
  */
 
-export const EDIE_FRAMEWORK_VERSION = "11.0.0";
+/** SPR-001 extension: document rules port/registry (patch bump from 11.0.0). */
+export const EDIE_FRAMEWORK_VERSION = "11.0.1";
 
 export const EDIE_DOCUMENT_LIFECYCLE_STATUS = {
   DRAFT: "draft",

@@ -1,10 +1,5 @@
-import { ModulePlaceholder } from "@/components/catalyst-one/module-placeholder";
+import { LifeLenderWorkspace } from "@/components/catalyst-one/life/life-lender-workspace";
 
 export default function LendersPage() {
-  return (
-    <ModulePlaceholder
-      title="Lenders"
-      description="Lender master, ROI configurations, product mappings, and partnership management."
-    />
-  );
+  return <LifeLenderWorkspace />;
 }

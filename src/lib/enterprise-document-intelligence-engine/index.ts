@@ -18,6 +18,12 @@ export {
 } from "./checklist-registry";
 
 export {
+  listEdieDocumentRules,
+  registerEdieDocumentRule,
+  resolveEdieDocumentRulesForContext,
+} from "./document-rule-registry";
+
+export {
   createEdieDocumentRevision,
   createEdieDocumentVersion,
   getEdieDocumentByCode,

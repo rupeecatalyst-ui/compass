@@ -38,6 +38,28 @@ import {
 
   Boxes,
 
+  MessagesSquare,
+
+  Contact,
+
+  Compass,
+
+  Megaphone,
+
+  Briefcase,
+
+  Workflow,
+
+  Brain,
+
+  SlidersHorizontal,
+
+  ToggleLeft,
+
+  Shield,
+
+  Orbit,
+
   type LucideIcon,
 
 } from "lucide-react";
@@ -108,11 +130,27 @@ export const mainNavigation: NavGroup[] = [
 
       { title: "Loan Files", href: ROUTES.LOAN_FILES, icon: FileStack },
 
+      { title: "Opportunity Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE, icon: Briefcase },
+
+      { title: "Workflow (EWOE)", href: ROUTES.WORKFLOW, icon: Workflow },
+
+      { title: "Experience Console (EEI)", href: ROUTES.DECISIONS, icon: Brain },
+
       { title: "Lenders", href: ROUTES.LENDERS, icon: Building2 },
 
       { title: "Documents", href: ROUTES.DOCUMENTS, icon: FolderOpen },
 
       { title: "Tasks", href: ROUTES.TASKS, icon: ListTodo, badge: "17" },
+
+      { title: "Dialogue", href: ROUTES.DIALOGUE, icon: MessagesSquare },
+
+      { title: "Contacts", href: ROUTES.CONTACTS, icon: Contact },
+
+      { title: "Opportunity Compass", href: ROUTES.OPPORTUNITY_COMPASS, icon: Compass },
+
+      { title: "Horizon", href: ROUTES.HORIZON, icon: Orbit },
+
+      { title: "Communication", href: ROUTES.COMMUNICATION, icon: Megaphone },
 
       { title: "Accounting", href: ROUTES.ACCOUNTING, icon: Calculator },
 
@@ -217,6 +255,46 @@ export const adminConsoleNavigation: NavGroup = {
       href: ROUTES.ADMIN_ENTERPRISE_ASSETS,
 
       icon: Boxes,
+
+    },
+
+    {
+
+      title: "ECG",
+
+      href: ROUTES.ADMIN_ECG,
+
+      icon: SlidersHorizontal,
+
+    },
+
+    {
+
+      title: "System Modes",
+
+      href: ROUTES.ADMIN_SYSTEM_MODES,
+
+      icon: ToggleLeft,
+
+    },
+
+    {
+
+      title: "Mission Control",
+
+      href: ROUTES.MISSION_CONTROL,
+
+      icon: Shield,
+
+    },
+
+    {
+
+      title: "Horizon",
+
+      href: ROUTES.HORIZON,
+
+      icon: Orbit,
 
     },
 

@@ -15,6 +15,7 @@ import type {
   EdieDocumentProfile,
   EdieDocumentRelationship,
   EdieDocumentRequirement,
+  EdieDocumentRule,
   EdieDocumentSubjectReference,
   EdieDocumentTimelineEntry,
   EdieDocumentType,
@@ -250,6 +251,14 @@ export interface EdieAuditReferenceRepositoryPort {
   replaceAll(references: EdieDocumentAuditReference[]): void;
 }
 
+export interface EdieDocumentRuleRepositoryPort {
+  list(): EdieDocumentRule[];
+  findById(id: string): EdieDocumentRule | undefined;
+  findByCode(ruleCode: string): EdieDocumentRule | undefined;
+  save(rule: EdieDocumentRule): void;
+  replaceAll(rules: EdieDocumentRule[]): void;
+}
+
 export interface EdiePorts {
   enterpriseDocumentIds: EdieEnterpriseDocumentIdRepositoryPort;
   documentTypes: EdieDocumentTypeRepositoryPort;
@@ -277,10 +286,10 @@ export interface EdiePorts {
   uploadPolicies: EdieUploadPolicyRepositoryPort;
   registeredFileTypes: EdieRegisteredFileTypeRepositoryPort;
   storageReferences: EdieStorageReferenceRepositoryPort;
+  documentRules: EdieDocumentRuleRepositoryPort;
   timeline: EdieTimelineRepositoryPort;
   auditReferences: EdieAuditReferenceRepositoryPort;
 }
-
 export type PartialEdiePorts = Partial<EdiePorts>;
 
 export type { EdieRegistrySnapshot };
