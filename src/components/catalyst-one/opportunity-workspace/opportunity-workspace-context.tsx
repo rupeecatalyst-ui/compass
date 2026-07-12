@@ -176,6 +176,7 @@ function ensureWorkspaceSeed(): { opportunityId: string; contactId: string } {
       mobilePrimary: DEMO_CONTACT_MOBILE,
       mobileSecondary: "+91-9876543211",
       personalEmail: "priya.sharma@example.com",
+      roles: ["customer"],
       primaryRole: "customer",
       additionalRoles: [],
       createdBy: "system",

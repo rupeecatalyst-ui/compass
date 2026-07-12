@@ -1,6 +1,7 @@
 /**
- * ECM — Enterprise Contact Master (SPR-001).
- * Multi-role contact registry with mandatory mobile and optional emails.
+ * ECM — Enterprise Contact Master.
+ * Contact is the Single Source of Truth (SSOT) for every person in Catalyst One.
+ * Business relationships are represented through configurable Roles from Role Master.
  */
 
 export type EcmContactRole =
@@ -12,16 +13,30 @@ export type EcmContactRole =
   | "builder"
   | "chartered_accountant";
 
+export type EcmContactStatus = "active" | "archived";
+
 export interface EcmContact {
   id: string;
   name: string;
   mobilePrimary: string;
+  /** @deprecated Prefer `roles` — kept in sync as roles[0] for backward compatibility */
   primaryRole: EcmContactRole;
   mobileSecondary?: string;
   personalEmail?: string;
   officialEmail?: string;
+  /** @deprecated Prefer `roles` — kept in sync as roles.slice(1) */
   additionalRoles: EcmContactRole[];
+  /** Unlimited assigned roles from Role Master (SSOT for role assignment) */
+  roles: EcmContactRole[];
   enabled: boolean;
+  status: EcmContactStatus;
+  /** Relationship Manager / Owner display name */
+  ownerName?: string;
+  ownerId?: string;
+  /** Configuration-driven calculated score (0–100) */
+  contactScore: number;
+  /** Latest business interaction timestamp (enterprise activity) */
+  lastActiveOn: string;
   createdBy: string;
   createdOn: string;
   modifiedBy: string;
@@ -59,4 +74,21 @@ export interface EcmAuditReference {
 export interface EcmRegistrySnapshot {
   contacts: EcmContact[];
   auditReferences: EcmAuditReference[];
+}
+
+export interface EcmContactQuery {
+  search?: string;
+  roles?: EcmContactRole[];
+  status?: EcmContactStatus | "all";
+  page?: number;
+  pageSize?: number;
+  sortBy?: "createdOn" | "modifiedOn" | "lastActiveOn" | "name" | "contactScore";
+  sortDir?: "asc" | "desc";
+}
+
+export interface EcmContactQueryResult {
+  items: EcmContact[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

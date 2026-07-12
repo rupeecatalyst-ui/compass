@@ -57,7 +57,14 @@ export interface NavGroup {
 
 /**
  * Official Business & Functional Certification navigation hierarchy.
- * Future modules belong in the section that matches business purpose.
+ *
+ * Navigation Compliance (Contacts Certification R1):
+ * - Organizations (customer/legal-entity master) is NOT yet a production module.
+ *   Do not substitute Customers or Enterprise Administration → Organization.
+ *   Enterprise Administration → Organization = brokerage company profile (distinct).
+ * - Opportunity Compass vs Opportunity Workspace: DISTINCT (health vs work surface).
+ * - Loan Files vs Loan Board: DISTINCT (file workspace vs stage pipeline).
+ * - Dialogue vs Communication: DISTINCT (EDC timeline vs ENCE notifications).
  */
 
 /** Section 1 — primary customer / loan journey (100% of business production modules) */
