@@ -27,14 +27,21 @@ export function MobileNav() {
           </Button>
         </SheetHeader>
         <ScrollArea className="flex-1 p-4">
-          <nav className="space-y-1">
-            {visibleNavigation.flatMap((group) =>
-              group.items.map((item) => (
-                <div key={item.href + item.title} onClick={closeMobile}>
-                  <SidebarNavItem item={item} collapsed={false} />
+          <nav className="space-y-4">
+            {visibleNavigation.map((group) => (
+              <div key={group.title}>
+                <p className="mb-2 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  {group.title}
+                </p>
+                <div className="space-y-1">
+                  {group.items.map((item) => (
+                    <div key={item.href + item.title} onClick={closeMobile}>
+                      <SidebarNavItem item={item} collapsed={false} />
+                    </div>
+                  ))}
                 </div>
-              )),
-            )}
+              </div>
+            ))}
           </nav>
         </ScrollArea>
         <div className="border-t border-sidebar-border p-4">

@@ -59,7 +59,7 @@ export function useAuth() {
         isLoading: false,
         isAuthenticated: true,
       });
-      router.push(ROUTES.DASHBOARD);
+      router.push(ROUTES.CONTACTS);
       return session;
     },
     [router],

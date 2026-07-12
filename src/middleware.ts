@@ -19,7 +19,7 @@ export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get("compass-access-token")?.value;
 
   if (pathname === ROUTES.HOME) {
-    const destination = accessToken ? ROUTES.DASHBOARD : ROUTES.LOGIN;
+    const destination = accessToken ? ROUTES.CONTACTS : ROUTES.LOGIN;
     return NextResponse.redirect(new URL(destination, request.url));
   }
 
@@ -30,7 +30,7 @@ export function middleware(request: NextRequest) {
   }
 
   if (isAuthPath(pathname) && accessToken) {
-    return NextResponse.redirect(new URL(ROUTES.DASHBOARD, request.url));
+    return NextResponse.redirect(new URL(ROUTES.CONTACTS, request.url));
   }
 
   if (!PUBLIC_PATHS.includes(pathname as (typeof PUBLIC_PATHS)[number]) && !isProtectedPath(pathname) && !isAuthPath(pathname)) {

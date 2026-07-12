@@ -93,9 +93,10 @@ export function AppSidebar({ onSearchClick }: AppSidebarProps) {
           </div>
         )}
 
-        {/* Main Navigation */}
-        {visibleNavigation.map((group) => (
+        {/* Certification navigation: Business Operations → System → Enterprise */}
+        {visibleNavigation.map((group, index) => (
           <div key={group.title} className="mb-4">
+            {!collapsed && index > 0 && <Separator className="mb-4" />}
             {!collapsed && (
               <p className="mb-2 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {group.title}

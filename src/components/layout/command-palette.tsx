@@ -13,7 +13,13 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import { commandPaletteRoutes, organizationCommandPaletteRoutes, adminConsoleCommandPaletteRoutes, recentPages } from "@/config/navigation";
+import {
+  businessOperationsCommandPaletteRoutes,
+  systemAdministrationCommandPaletteRoutes,
+  organizationCommandPaletteRoutes,
+  adminConsoleCommandPaletteRoutes,
+  recentPages,
+} from "@/config/navigation";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { hasAnyRole } from "@/lib/permissions";
 import { ROLES } from "@/constants/roles";
@@ -89,8 +95,17 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         {!query.trim() && (
           <>
-            <CommandGroup heading="Catalyst One">
-              {commandPaletteRoutes.map((item) => (
+            <CommandGroup heading="Business Operations">
+              {businessOperationsCommandPaletteRoutes.map((item) => (
+                <CommandItem key={item.href} onSelect={() => navigate(item.href)}>
+                  <item.icon className="mr-2 h-4 w-4" />
+                  {item.title}
+                  <CommandShortcut>↵</CommandShortcut>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandGroup heading="System Administration">
+              {systemAdministrationCommandPaletteRoutes.map((item) => (
                 <CommandItem key={item.href} onSelect={() => navigate(item.href)}>
                   <item.icon className="mr-2 h-4 w-4" />
                   {item.title}
@@ -110,7 +125,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               </CommandGroup>
             )}
             {showOrganizationRoutes && (
-              <CommandGroup heading="Admin Console">
+              <CommandGroup heading="Enterprise Administration">
                 {adminConsoleCommandPaletteRoutes.map((item) => (
                   <CommandItem key={item.href} onSelect={() => navigate(item.href)}>
                     <item.icon className="mr-2 h-4 w-4" />

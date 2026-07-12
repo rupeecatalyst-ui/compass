@@ -25,14 +25,14 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
     if (isLoading) return;
 
     if (!isAuthenticated) {
-      // Clear stale middleware cookie so /login is not bounced back to /dashboard
+      // Clear stale middleware cookie so /login is not bounced back to the app
       clearSession();
       router.replace(ROUTES.LOGIN);
       return;
     }
 
     if (user && !canAccessRoute(user, allowedRoles)) {
-      router.replace(ROUTES.DASHBOARD);
+      router.replace(ROUTES.CONTACTS);
     }
   }, [isLoading, isAuthenticated, user, allowedRoles, router]);
 
