@@ -25,10 +25,11 @@ These handlers delegate to the shared `server/services/auth.service.ts` — the 
 
 ## Demo credentials
 
-When `DATABASE_URL` is unset:
+When `DATABASE_URL` is unset (current Vercel catalyst-one configuration):
 
-- Email: `admin@compass.dev`
-- Password: `Compass@123`
+- Email: `admin@compass.com`
+- Password: `Admin@123`
+- Role: `SUPER_ADMIN` (Super Admin — full Business & Functional Certification access)
 
 ## Future migration
 

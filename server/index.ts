@@ -13,6 +13,6 @@ app.listen(PORT, () => {
   console.log(`   Environment: ${serverEnv.NODE_ENV}`);
   console.log(`   Auth gateway: Next.js Route Handlers (src/app/api/auth/*)`);
   if (!serverEnv.DATABASE_URL) {
-    console.log("   ⚠️  No DATABASE_URL — using demo auth (admin@compass.dev / Compass@123)");
+    console.log("   ⚠️  No DATABASE_URL — using demo auth (admin@compass.com / Admin@123)");
   }
 });

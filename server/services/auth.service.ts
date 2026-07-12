@@ -13,13 +13,13 @@ import {
  * Shared authentication service (ADR-014).
  * Consumed by Next.js Route Handlers and the legacy Express API.
  */
-/** Demo user for development when database is unavailable */
+/** Business Certification Admin — used when DATABASE_URL is unset (Vercel demo auth) */
 const DEMO_USER = {
   id: "demo-user-id",
-  email: "admin@compass.dev",
-  password: "Compass@123",
-  firstName: "Platform",
-  lastName: "Admin",
+  email: "admin@compass.com",
+  password: "Admin@123",
+  firstName: "Business",
+  lastName: "Certification Admin",
   role: "SUPER_ADMIN" as Role,
   avatarUrl: null as string | null,
   isActive: true,
