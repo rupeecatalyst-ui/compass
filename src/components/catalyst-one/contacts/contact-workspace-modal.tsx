@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, Circle } from "lucide-react";
 import {
   getEcmRoleDefinition,
@@ -108,9 +108,10 @@ export function ContactWorkspaceModal({
   onOpenChange,
   onSaved,
 }: ContactWorkspaceModalProps) {
-  const isCreate = mode === "create" || !contact;
   const [draftSaved, setDraftSaved] = useState<EcmContact | null>(null);
   const active = draftSaved ?? contact;
+  /** True only before the first successful save in this dialog session */
+  const awaitingFirstSave = !active;
 
   const [name, setName] = useState("");
   const [mobilePrimary, setMobilePrimary] = useState("");
@@ -125,32 +126,68 @@ export function ContactWorkspaceModal({
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(initialTab);
   const [saving, setSaving] = useState(false);
+  const wasOpenRef = useRef(false);
+  const hydratedIdRef = useRef<string | null>(null);
+
+  const hydrateFromContact = (source: EcmContact) => {
+    setDraftSaved(source);
+    setName(source.name);
+    setMobilePrimary(source.mobilePrimary);
+    setMobileSecondary(source.mobileSecondary ?? "");
+    setPersonalEmail(source.personalEmail ?? "");
+    setOfficialEmail(source.officialEmail ?? "");
+    setRoles(getEcmContactAssignedRoles(source));
+    setRoleProfiles(source.roleProfiles ?? {});
+    hydratedIdRef.current = source.id;
+  };
+
+  const resetBlankCreate = () => {
+    setDraftSaved(null);
+    setName("");
+    setMobilePrimary("");
+    setMobileSecondary("");
+    setPersonalEmail("");
+    setOfficialEmail("");
+    setRoles(["customer"]);
+    setRoleProfiles({});
+    setCompletedSteps(new Set());
+    hydratedIdRef.current = null;
+  };
 
   useEffect(() => {
-    if (!open) return;
-    setError(null);
-    setDraftSaved(null);
-    setCompletedSteps(new Set());
-    setTab(initialTab);
-    if (contact && mode === "edit") {
-      setName(contact.name);
-      setMobilePrimary(contact.mobilePrimary);
-      setMobileSecondary(contact.mobileSecondary ?? "");
-      setPersonalEmail(contact.personalEmail ?? "");
-      setOfficialEmail(contact.officialEmail ?? "");
-      setRoles(getEcmContactAssignedRoles(contact));
-      setRoleProfiles(contact.roleProfiles ?? {});
-      setCompletedSteps(new Set(["identity"]));
-    } else {
-      setName("");
-      setMobilePrimary("");
-      setMobileSecondary("");
-      setPersonalEmail("");
-      setOfficialEmail("");
-      setRoles(["customer"]);
-      setRoleProfiles({});
+    const justOpened = open && !wasOpenRef.current;
+    const justClosed = !open && wasOpenRef.current;
+    wasOpenRef.current = open;
+
+    if (justClosed) {
+      resetBlankCreate();
+      setError(null);
+      setTab("identity");
+      return;
     }
-  }, [open, contact, mode, initialTab]);
+
+    if (!open) return;
+
+    if (justOpened) {
+      setError(null);
+      if (contact) {
+        hydrateFromContact(contact);
+        setCompletedSteps(new Set(["identity"]));
+        setTab(initialTab || "identity");
+      } else {
+        resetBlankCreate();
+        setTab("identity");
+      }
+      return;
+    }
+
+    // Dialog stayed open: parent promoted create → edit with the same Contact record.
+    // Hydrate Identity from that record — never reset to a blank create form.
+    if (contact && hydratedIdRef.current !== contact.id) {
+      hydrateFromContact(contact);
+      setCompletedSteps((prev) => new Set([...prev, "identity"]));
+    }
+  }, [open, contact, initialTab, mode]);
 
   const workspaceTabs = useMemo(
     () => buildEcmWorkspaceTabs(active ? getEcmContactAssignedRoles(active) : roles),
@@ -206,7 +243,7 @@ export function ContactWorkspaceModal({
     setError(null);
     setSaving(true);
     try {
-      if (isCreate && !draftSaved) {
+      if (awaitingFirstSave) {
         const created = registerEcmContact({
           name,
           mobilePrimary,
@@ -217,12 +254,14 @@ export function ContactWorkspaceModal({
           ownerName: "Platform Admin",
           createdBy: actorId,
         });
-        setDraftSaved(created);
-        onSaved(created);
+        // Continue the same Contact record — Identity owns person data.
+        hydrateFromContact(created);
         markComplete("identity");
+        onSaved(created);
+        setTab("identity");
         if (thenNext) {
           const tabs = buildEcmWorkspaceTabs(created.roles);
-          const firstRole = tabs.find((t) => t.kind === "role") ?? tabs[1];
+          const firstRole = tabs.find((t) => t.kind === "role");
           if (firstRole) setTab(firstRole.id);
         }
       } else if (active) {
@@ -239,7 +278,7 @@ export function ContactWorkspaceModal({
           },
           actorId,
         );
-        setDraftSaved(updated);
+        hydrateFromContact(updated);
         onSaved(updated);
         markComplete("identity");
         if (thenNext) goNext();
@@ -262,6 +301,7 @@ export function ContactWorkspaceModal({
         actorId,
       );
       setDraftSaved(updated);
+      hydrateFromContact({ ...active, ...updated, roleProfiles: updated.roleProfiles ?? roleProfiles });
       onSaved(updated);
       const def = getEcmRoleDefinition(roleCode);
       if (def) markComplete(def.workspaceTabId);
@@ -383,7 +423,7 @@ export function ContactWorkspaceModal({
           <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
             <div>
               <DialogTitle className="text-xl font-semibold tracking-tight">
-                {isCreate && !draftSaved ? "Add Contact" : active?.name ?? "Contact Workspace"}
+                {awaitingFirstSave ? "Add Contact" : active?.name ?? "Contact Workspace"}
               </DialogTitle>
               <DialogDescription className="mt-1 text-sm">
                 {active
@@ -436,82 +476,23 @@ export function ContactWorkspaceModal({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {!active ? (
-            <div className="space-y-0">
-              <div className="mx-auto max-w-3xl space-y-5 px-6 py-6">
-                <SectionCard
-                  title="Person identity"
-                  description="Common person information only. Role details are collected after Save & Next."
-                >
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Contact Name</Label>
-                      <Input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Full legal name"
-                        className="h-10 rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Primary Mobile</Label>
-                      <Input
-                        value={mobilePrimary}
-                        onChange={(e) => setMobilePrimary(e.target.value)}
-                        className="h-10 rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Secondary Mobile</Label>
-                      <Input
-                        value={mobileSecondary}
-                        onChange={(e) => setMobileSecondary(e.target.value)}
-                        className="h-10 rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Personal Email</Label>
-                      <Input
-                        value={personalEmail}
-                        onChange={(e) => setPersonalEmail(e.target.value)}
-                        className="h-10 rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Official Email</Label>
-                      <Input
-                        value={officialEmail}
-                        onChange={(e) => setOfficialEmail(e.target.value)}
-                        className="h-10 rounded-xl"
-                      />
-                    </div>
-                  </div>
-                </SectionCard>
-                <SectionCard
-                  title="Assigned roles"
-                  description="Select every role this person performs. Each role unlocks a dedicated workspace step."
-                >
-                  <ContactRoleChips
-                    roles={roles}
-                    selected={roles}
-                    interactive
-                    size="md"
-                    onToggle={toggleRole}
-                  />
-                </SectionCard>
-                {error && <p className="text-sm text-destructive">{error}</p>}
-              </div>
-              {footerActions({
-                onSave: () => saveIdentity(false),
-                onSaveNext: () => saveIdentity(true),
-              })}
-            </div>
-          ) : (
+          {!awaitingFirstSave && active ? (
             <div className="space-y-0">
               <div className="space-y-5 px-6 py-6">
                 {tab === "identity" && (
                   <>
-                    <SectionCard title="Identity" description="Edit person-level fields. Changes flow into every role workspace.">
+                    <SectionCard
+                      title="Identity"
+                      description="Owner of common person information for this Contact. Role workspaces reuse these fields and never ask for them again."
+                    >
+                      <div className="mb-4 rounded-xl border border-teal-200/70 bg-teal-50/80 px-4 py-3 text-sm dark:border-teal-900 dark:bg-teal-950/40">
+                        <p className="font-medium text-teal-900 dark:text-teal-100">
+                          Contact record active
+                        </p>
+                        <p className="mt-0.5 text-teal-800/80 dark:text-teal-200/80">
+                          ID <span className="font-mono text-xs">{active.id}</span> · Continuing the same onboarding workflow
+                        </p>
+                      </div>
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2 md:col-span-2">
                           <Label>Contact Name</Label>
@@ -665,6 +646,76 @@ export function ContactWorkspaceModal({
                   </>
                 )}
               </div>
+            </div>
+          ) : (
+            <div className="space-y-0">
+              <div className="mx-auto max-w-3xl space-y-5 px-6 py-6">
+                <SectionCard
+                  title="Person identity"
+                  description="Enter common person information once. After Save & Continue, Identity becomes the owner of this Contact record."
+                >
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Contact Name</Label>
+                      <Input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Full legal name"
+                        className="h-10 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Primary Mobile</Label>
+                      <Input
+                        value={mobilePrimary}
+                        onChange={(e) => setMobilePrimary(e.target.value)}
+                        className="h-10 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Secondary Mobile</Label>
+                      <Input
+                        value={mobileSecondary}
+                        onChange={(e) => setMobileSecondary(e.target.value)}
+                        className="h-10 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Personal Email</Label>
+                      <Input
+                        value={personalEmail}
+                        onChange={(e) => setPersonalEmail(e.target.value)}
+                        className="h-10 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Official Email</Label>
+                      <Input
+                        value={officialEmail}
+                        onChange={(e) => setOfficialEmail(e.target.value)}
+                        className="h-10 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </SectionCard>
+                <SectionCard
+                  title="Assigned roles"
+                  description="Select every role this person performs. Each role unlocks a dedicated workspace step that reuses Identity."
+                >
+                  <ContactRoleChips
+                    roles={roles}
+                    selected={roles}
+                    interactive
+                    size="md"
+                    onToggle={toggleRole}
+                  />
+                </SectionCard>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+              </div>
+              {footerActions({
+                onSave: () => saveIdentity(false),
+                onSaveNext: () => saveIdentity(true),
+              })}
             </div>
           )}
         </div>

@@ -205,6 +205,7 @@ function ContactRegistryInner() {
   };
 
   const onWorkspaceSaved = (contact: EcmContact) => {
+    setWorkspaceMode("edit");
     setWorkspaceContact(contact);
     setHighlightId(contact.id);
     setTick((t) => t + 1);
