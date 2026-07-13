@@ -2,6 +2,7 @@
 
 import { getEcmRoleDefinition, getEcmRoleLabel, getEnabledEcmRoleMaster } from "@/constants/enterprise-contact-master";
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TONE_CLASS: Record<string, string> = {
@@ -51,7 +52,7 @@ export function ContactRoleChips({
             disabled={!interactive}
             onClick={() => onToggle?.(code)}
             className={cn(
-              "inline-flex items-center rounded-full border font-medium tracking-tight transition-all",
+              "inline-flex items-center gap-1 rounded-full border font-medium tracking-tight transition-all",
               size === "sm" ? "px-2.5 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
               interactive && !active && "border-border/80 bg-background text-muted-foreground hover:bg-muted/60",
               active && TONE_CLASS[tone],
@@ -59,6 +60,7 @@ export function ContactRoleChips({
               !interactive && "cursor-default",
             )}
           >
+            {active && <Check className="h-3 w-3 shrink-0 opacity-80" aria-hidden />}
             {getEcmRoleLabel(code)}
           </button>
         );

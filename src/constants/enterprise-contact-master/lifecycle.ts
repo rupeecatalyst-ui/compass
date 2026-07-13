@@ -1,6 +1,6 @@
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 
-export const ECM_FRAMEWORK_VERSION = "1.4.0-cert-r4";
+export const ECM_FRAMEWORK_VERSION = "1.5.0-cert-r5";
 
 export const ECM_CONTACT_ROLES = {
   CUSTOMER: "customer",

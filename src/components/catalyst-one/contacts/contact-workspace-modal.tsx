@@ -34,7 +34,10 @@ import {
   type EcmMasterOption,
 } from "@/constants/enterprise-contact-master";
 import {
+  buildEcmBankerReportingChain,
   buildEcmWorkspaceTabs,
+  formatEcmBankerOrgPath,
+  getEcmBankerOrgPlacement,
   getEcmContactAssignedRoles,
   registerEcmContact,
   updateEcmContact,
@@ -47,6 +50,7 @@ import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-mast
 import type { CreateLoanFileInput } from "@/types/catalyst-one";
 import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-role-chips";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
+import { ReportingManagerPicker } from "@/components/catalyst-one/contacts/reporting-manager-picker";
 import {
   LoanCreateFormDialog,
   type LoanCreateSubmitMeta,
@@ -598,20 +602,42 @@ export function ContactWorkspaceModal({
       {fields.map((field) => (
         <div
           key={field.key}
-          className={cn("space-y-2", field.control === "textarea" && "md:col-span-2")}
+          className={cn(
+            "space-y-2",
+            (field.control === "textarea" || field.control === "contact_ref") && "md:col-span-2",
+          )}
         >
           <Label className="text-xs font-medium text-muted-foreground">
             {field.label}
             {field.mandatory && <span className="text-destructive"> *</span>}
           </Label>
-          <RoleFieldControl
-            field={field}
-            value={values[field.key] ?? ""}
-            parentValue={field.parentFieldKey ? values[field.parentFieldKey] : undefined}
-            onChange={(next, option) =>
-              setRoleField(roleCode, field.key, next, option, field.inheritMetaKeys)
-            }
-          />
+          {field.control === "contact_ref" ? (
+            <ReportingManagerPicker
+              valueContactId={values.reportingManagerContactId}
+              valueName={values.reportingManagerName}
+              excludeContactId={active?.id}
+              actorId={actorId}
+              onChange={(picked) => {
+                setRoleProfiles((prev) => ({
+                  ...prev,
+                  [roleCode]: {
+                    ...(prev[roleCode] ?? {}),
+                    reportingManagerContactId: picked?.id ?? "",
+                    reportingManagerName: picked?.name ?? "",
+                  },
+                }));
+              }}
+            />
+          ) : (
+            <RoleFieldControl
+              field={field}
+              value={values[field.key] ?? ""}
+              parentValue={field.parentFieldKey ? values[field.parentFieldKey] : undefined}
+              onChange={(next, option) =>
+                setRoleField(roleCode, field.key, next, option, field.inheritMetaKeys)
+              }
+            />
+          )}
           {field.helpText && <p className="text-[11px] text-muted-foreground">{field.helpText}</p>}
         </div>
       ))}
@@ -629,100 +655,140 @@ export function ContactWorkspaceModal({
     const optionalFields = getVisibleOptionalFields(step.roleCode);
     const mirComplete = isEcmRoleMirComplete(step.roleCode, values);
     const actions = template.businessActions.filter((a) => a.enabled);
+    const isBanker = step.roleCode === "lender_employee";
+    const bankerChain =
+      isBanker && active ? buildEcmBankerReportingChain(active.id) : [];
+    const bankerOrg =
+      isBanker && active
+        ? formatEcmBankerOrgPath(getEcmBankerOrgPlacement({ ...active, roleProfiles }))
+        : "—";
 
     return (
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
-              Role Workspace
-            </p>
-            <h3 className="mt-1 text-lg font-semibold tracking-tight text-zinc-50">{def.label}</h3>
-            <p className="mt-0.5 text-sm text-zinc-400">
-              Only role-specific information — identity is never re-entered.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
-            onClick={() => {
-              setShowRoleAdditional(false);
-              setTab("dashboard");
-            }}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Role Dashboard
-          </Button>
-        </div>
-
-        <SectionCard
-          title="Mandatory Information"
-          description="Minimum Information Requirement (MIR) — configurable per role."
-          badge={<MirStatusBadge complete={mirComplete} />}
-        >
-          {renderFieldGrid(mirFields, step.roleCode, values)}
-        </SectionCard>
-
-        {optionalFields.length > 0 && (
-          <div className="space-y-3">
+      <div className="flex min-h-0 flex-col">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                Role Workspace
+              </p>
+              <h3 className="mt-1 text-lg font-semibold tracking-tight text-zinc-50">{def.label}</h3>
+              <p className="mt-0.5 text-sm text-zinc-400">
+                Only role-specific information — identity is never re-entered.
+              </p>
+            </div>
             <Button
               type="button"
               variant="outline"
-              className="gap-2 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-100"
-              onClick={() => setShowRoleAdditional((v) => !v)}
+              className="gap-2 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+              onClick={() => {
+                setShowRoleAdditional(false);
+                setTab("dashboard");
+              }}
             >
-              <ChevronDown
-                className={cn("h-4 w-4 transition-transform", showRoleAdditional && "rotate-180")}
-              />
-              Additional Details
+              <ArrowLeft className="h-4 w-4" />
+              Role Dashboard
             </Button>
-            {showRoleAdditional && (
-              <SectionCard
-                title="Additional Information"
-                description="Optional fields — expand only when needed."
-              >
-                {renderFieldGrid(optionalFields, step.roleCode, values)}
-              </SectionCard>
-            )}
           </div>
-        )}
 
-        {mirComplete && actions.length > 0 && (
-          <SectionCard
-            title="Next business action"
-            description="Continue into the relevant journey — no dead ends."
-          >
-            <div className="flex flex-wrap gap-2">
-              {actions.map((action) => (
-                <Button
-                  key={action.id}
-                  type="button"
-                  size="lg"
-                  className="gap-2 rounded-xl"
-                  disabled={action.requiresMirComplete && !mirComplete}
-                  onClick={() => {
-                    saveRoleStep(step.roleCode!, false);
-                    handleBusinessAction(action.id, action.href);
-                  }}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {action.label}
-                </Button>
-              ))}
+          {isBanker && (
+            <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:grid-cols-2">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                  Organization Structure
+                </p>
+                <p className="mt-1 text-sm text-zinc-200">{bankerOrg}</p>
+                <p className="mt-1 text-[11px] text-zinc-500">
+                  Institution → Region → City → Branch (separate from reporting)
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                  Reporting Chain
+                </p>
+                {bankerChain.length <= 1 && !values.reportingManagerContactId ? (
+                  <p className="mt-1 text-sm text-zinc-400">No reporting manager linked yet</p>
+                ) : (
+                  <p className="mt-1 text-sm text-zinc-200">
+                    {bankerChain
+                      .map((n) => `${n.name}${n.designation ? ` (${n.designation})` : ""}`)
+                      .join(" ← ")}
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] text-zinc-500">
+                  Derived from Reporting Manager links — levels are not hardcoded.
+                </p>
+              </div>
             </div>
-            {actions[0]?.description && (
-              <p className="mt-3 text-sm text-muted-foreground">{actions[0].description}</p>
-            )}
-            {actionNotice && (
-              <p className="mt-3 rounded-xl border border-teal-200/70 bg-teal-50/80 px-3 py-2 text-sm text-teal-900 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-100">
-                {actionNotice}
-              </p>
-            )}
-          </SectionCard>
-        )}
+          )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-4">
+          <SectionCard
+            title="Mandatory Information"
+            description="Minimum Information Requirement (MIR) — configurable per role."
+            badge={<MirStatusBadge complete={mirComplete} />}
+          >
+            {renderFieldGrid(mirFields, step.roleCode, values)}
+          </SectionCard>
+
+          {optionalFields.length > 0 && (
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-100"
+                onClick={() => setShowRoleAdditional((v) => !v)}
+              >
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform", showRoleAdditional && "rotate-180")}
+                />
+                Additional Details
+              </Button>
+              {showRoleAdditional && (
+                <SectionCard
+                  title="Additional Information"
+                  description="Optional fields — expand only when needed."
+                >
+                  {renderFieldGrid(optionalFields, step.roleCode, values)}
+                </SectionCard>
+              )}
+            </div>
+          )}
+
+          {mirComplete && actions.length > 0 && (
+            <SectionCard
+              title="Next business action"
+              description="Continue into the relevant journey — no dead ends."
+            >
+              <div className="flex flex-wrap gap-2">
+                {actions.map((action) => (
+                  <Button
+                    key={action.id}
+                    type="button"
+                    size="lg"
+                    className="gap-2 rounded-xl"
+                    disabled={action.requiresMirComplete && !mirComplete}
+                    onClick={() => {
+                      saveRoleStep(step.roleCode!, false);
+                      handleBusinessAction(action.id, action.href);
+                    }}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {action.label}
+                  </Button>
+                ))}
+              </div>
+              {actions[0]?.description && (
+                <p className="mt-3 text-sm text-muted-foreground">{actions[0].description}</p>
+              )}
+              {actionNotice && (
+                <p className="mt-3 rounded-xl border border-teal-200/70 bg-teal-50/80 px-3 py-2 text-sm text-teal-900 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-100">
+                  {actionNotice}
+                </p>
+              )}
+            </SectionCard>
+          )}
+        </div>
+
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 bg-zinc-950/95 px-1 py-4 backdrop-blur">
           <Button
             type="button"
             variant="ghost"
@@ -742,7 +808,7 @@ export function ContactWorkspaceModal({
             }}
           >
             <Check className="h-4 w-4" />
-            Save & Return
+            Save & Continue
           </Button>
         </div>
       </div>
@@ -934,12 +1000,15 @@ export function ContactWorkspaceModal({
           </div>
         )}
 
-        {!compactCreate && (
-          <div className="mt-4 space-y-2 md:col-span-2">
-            <Label>Assigned Roles</Label>
-            <ContactRoleChips roles={roles} selected={roles} interactive size="md" onToggle={toggleRole} />
-          </div>
-        )}
+                        {!compactCreate && (
+                          <div className="mt-4 space-y-2 md:col-span-2">
+                            <Label>Assigned Roles</Label>
+                            <ContactRoleChips roles={roles} size="md" className="max-h-none" />
+                            <p className="text-[11px] text-muted-foreground">
+                              Roles display as compact chips. Use + Add Role on the dashboard to assign more.
+                            </p>
+                          </div>
+                        )}
 
         {!compactCreate && active && (
           <div className="mt-4 grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -1195,7 +1264,7 @@ export function ContactWorkspaceModal({
                   )}
 
                   {tab === "identity" && (
-                    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-1">
+                    <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40">
                       <div className="flex items-center justify-between gap-3 px-4 pt-4">
                         <div>
                           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
@@ -1215,30 +1284,30 @@ export function ContactWorkspaceModal({
                           Dashboard
                         </Button>
                       </div>
-                      <div className="p-4 text-foreground [&_.bg-card]:bg-zinc-900 [&_.bg-card]:text-zinc-100 [&_.border-border\/70]:border-zinc-800 [&_label]:text-zinc-400">
+                      <div className="min-h-0 flex-1 overflow-y-auto p-4 text-foreground [&_.bg-card]:bg-zinc-900 [&_.bg-card]:text-zinc-100 [&_.border-border\/70]:border-zinc-800 [&_label]:text-zinc-400">
                         {identityForm(false)}
                         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            className="rounded-xl"
-                            disabled={saving}
-                            onClick={() => {
-                              saveIdentity(false);
-                              setTab("dashboard");
-                            }}
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="rounded-xl border-zinc-700"
-                            onClick={() => setTab("dashboard")}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
+                      </div>
+                      <div className="sticky bottom-0 z-10 flex flex-wrap gap-2 border-t border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur">
+                        <Button
+                          type="button"
+                          className="rounded-xl"
+                          disabled={saving}
+                          onClick={() => {
+                            saveIdentity(false);
+                            setTab("dashboard");
+                          }}
+                        >
+                          Save & Continue
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-xl border-zinc-700"
+                          onClick={() => setTab("dashboard")}
+                        >
+                          Cancel
+                        </Button>
                       </div>
                     </div>
                   )}

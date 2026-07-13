@@ -22,6 +22,19 @@ export {
   updateEcmContactEmails,
 } from "./contact-registry";
 export { normalizePersonName } from "./name-normalize";
+export {
+  buildEcmBankerReportingChain,
+  formatEcmBankerOrgPath,
+  getEcmBankerOrgPlacement,
+  getEcmBankerProfile,
+  listEcmBankerDirectReports,
+  searchEcmContactsForReportingManager,
+  ECM_BANKER_PROFILE_KEYS,
+} from "./banker-hierarchy";
+export type {
+  EcmBankerOrgPlacement,
+  EcmBankerReportingNode,
+} from "./banker-hierarchy";
 export { runEcmFoundationValidation } from "./foundation-validation";
 export { getEcmFrameworkVersion, getEcmRegistrySnapshot } from "./registry-snapshot";
 export { validateEcmContact } from "./validation-engine";

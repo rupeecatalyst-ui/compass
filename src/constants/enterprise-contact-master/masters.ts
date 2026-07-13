@@ -11,6 +11,7 @@ export type EcmMasterDomain =
   | "product"
   | "builder_company"
   | "branch"
+  | "region"
   | "occupation"
   | "industry"
   | "relationship_manager"
@@ -61,11 +62,21 @@ export const ECM_MASTER_CATALOGS: Record<EcmMasterDomain, readonly EcmMasterOpti
     { id: "kotak", label: "Kotak Mahindra Bank", meta: { city: "Mumbai" } },
     { id: "bajaj", label: "Bajaj Housing Finance", meta: { city: "Pune" } },
   ],
+  /** Institution → Region (org structure; not a hardcoded reporting level) */
+  region: [
+    { id: "hdfc-west", label: "West", parentId: "hdfc" },
+    { id: "hdfc-south", label: "South", parentId: "hdfc" },
+    { id: "sbi-west", label: "West", parentId: "sbi" },
+    { id: "icici-west", label: "West", parentId: "icici" },
+    { id: "axis-west", label: "West", parentId: "axis" },
+    { id: "kotak-west", label: "West", parentId: "kotak" },
+    { id: "bajaj-west", label: "West", parentId: "bajaj" },
+  ],
   branch: [
-    { id: "hdfc-bandra", label: "Bandra West", parentId: "hdfc", meta: { city: "Mumbai" } },
-    { id: "hdfc-andheri", label: "Andheri East", parentId: "hdfc", meta: { city: "Mumbai" } },
-    { id: "sbi-fort", label: "Fort", parentId: "sbi", meta: { city: "Mumbai" } },
-    { id: "icici-koregaon", label: "Koregaon Park", parentId: "icici", meta: { city: "Pune" } },
+    { id: "hdfc-bandra", label: "Bandra West", parentId: "hdfc", meta: { city: "mumbai", region: "hdfc-west" } },
+    { id: "hdfc-andheri", label: "Andheri East", parentId: "hdfc", meta: { city: "mumbai", region: "hdfc-west" } },
+    { id: "sbi-fort", label: "Fort", parentId: "sbi", meta: { city: "mumbai", region: "sbi-west" } },
+    { id: "icici-koregaon", label: "Koregaon Park", parentId: "icici", meta: { city: "pune", region: "icici-west" } },
   ],
   product: [
     { id: "home-loan", label: "Home Loan" },
@@ -120,9 +131,14 @@ export const ECM_MASTER_CATALOGS: Record<EcmMasterDomain, readonly EcmMasterOpti
     { id: "business-expansion", label: "Business Expansion" },
   ],
   designation: [
-    { id: "rm", label: "Relationship Manager" },
-    { id: "credit-manager", label: "Credit Manager" },
+    { id: "relationship-executive", label: "Relationship Executive" },
+    { id: "relationship-manager", label: "Relationship Manager" },
+    { id: "area-manager", label: "Area Manager" },
     { id: "branch-manager", label: "Branch Manager" },
+    { id: "regional-manager", label: "Regional Manager" },
+    { id: "zonal-manager", label: "Zonal Manager" },
+    { id: "national-manager", label: "National Manager" },
+    { id: "credit-manager", label: "Credit Manager" },
     { id: "product-head", label: "Product Head" },
     { id: "sales-head", label: "Sales Head" },
   ],

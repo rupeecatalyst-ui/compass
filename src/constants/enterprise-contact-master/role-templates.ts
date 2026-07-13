@@ -7,7 +7,7 @@ import type { EcmContactRole } from "@/types/enterprise-contact-master";
 import type { EcmMasterDomain } from "./masters";
 import { getEcmRoleLabel, type EcmRoleWorkspaceTabId } from "./lifecycle";
 
-export type EcmFieldControl = "text" | "master" | "number" | "textarea";
+export type EcmFieldControl = "text" | "master" | "number" | "textarea" | "contact_ref";
 
 export interface EcmConfigurableField {
   key: string;
@@ -401,7 +401,17 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 1,
         visible: true,
-        inheritMetaKeys: ["city"],
+        helpText: "Organizational root — Institution → Region → City → Branch.",
+      },
+      {
+        key: "region",
+        label: "Region",
+        control: "master",
+        masterDomain: "region",
+        parentFieldKey: "institution",
+        mandatory: true,
+        sortOrder: 2,
+        visible: true,
       },
       {
         key: "city",
@@ -409,7 +419,17 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         control: "master",
         masterDomain: "city",
         mandatory: true,
-        sortOrder: 2,
+        sortOrder: 3,
+        visible: true,
+      },
+      {
+        key: "branch",
+        label: "Branch",
+        control: "master",
+        masterDomain: "branch",
+        parentFieldKey: "institution",
+        mandatory: true,
+        sortOrder: 4,
         visible: true,
       },
       {
@@ -418,52 +438,37 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         control: "master",
         masterDomain: "designation",
         mandatory: true,
-        sortOrder: 3,
+        sortOrder: 5,
         visible: true,
+        helpText: "Title only — reporting depth comes from Reporting Manager links.",
       },
       {
         key: "officialMobile",
         label: "Official Mobile",
         control: "text",
         mandatory: true,
-        sortOrder: 4,
+        sortOrder: 6,
         visible: true,
         helpText: "Defaults from Contact primary mobile when blank.",
       },
       {
-        key: "branch",
-        label: "Branch",
-        control: "master",
-        masterDomain: "branch",
-        parentFieldKey: "institution",
+        key: "reportingManagerContactId",
+        label: "Reporting Manager",
+        control: "contact_ref",
         mandatory: false,
-        sortOrder: 10,
+        sortOrder: 7,
         visible: true,
+        helpText:
+          "Search existing Contacts or create a basic Contact. Hierarchy is derived from this link — never hardcoded.",
       },
       {
         key: "officialEmail",
         label: "Official Email",
         control: "text",
         mandatory: false,
-        sortOrder: 11,
+        sortOrder: 10,
         visible: true,
-        helpText: "Defaults from Contact official/personal email when blank.",
-      },
-      {
-        key: "officeAddress",
-        label: "Office Address",
-        control: "textarea",
-        mandatory: false,
-        sortOrder: 12,
-        visible: true,
-      },
-      {
-        key: "notes",
-        label: "Notes",
-        control: "textarea",
-        mandatory: false,
-        sortOrder: 13,
-        visible: true,
+        helpText: "Defaults from Contact email when blank.",
       },
     ],
     businessActions: [

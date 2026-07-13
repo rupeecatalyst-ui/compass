@@ -177,12 +177,13 @@ export function QuickContactCreationWizard({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[min(720px,94vw)] max-w-[720px] overflow-hidden border-border/70 p-0 sm:rounded-3xl">
-        <div className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-teal-50/40 dark:from-zinc-950 dark:via-zinc-950 dark:to-teal-950/20">
+      <DialogContent className="flex max-h-[90vh] w-[min(720px,94vw)] max-w-[720px] flex-col gap-0 overflow-hidden border-border/70 p-0 sm:rounded-3xl">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-teal-50/40 dark:from-zinc-950 dark:via-zinc-950 dark:to-teal-950/20">
           <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-teal-200/30 blur-3xl dark:bg-teal-500/10" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-sky-200/25 blur-3xl dark:bg-sky-500/10" />
 
-          <div className="relative space-y-6 px-8 pb-8 pt-8">
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-8 pb-4 pt-8">
             <div className="pr-8">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-700/80 dark:text-teal-300/80">
                 Quick Contact Creation
@@ -368,7 +369,7 @@ export function QuickContactCreationWizard({
                       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-800 dark:text-teal-200">
                         Assigned Roles
                       </p>
-                      <div className="mt-3 flex min-h-[120px] flex-wrap content-start gap-2">
+                      <div className="mt-3 flex min-h-[72px] flex-wrap content-start gap-2">
                         {roles.map((roleCode) => (
                           <button
                             key={roleCode}
@@ -376,9 +377,10 @@ export function QuickContactCreationWizard({
                             onClick={() =>
                               setRoles((prev) => prev.filter((r) => r !== roleCode))
                             }
-                            className="animate-in fade-in-0 zoom-in-95 rounded-2xl border border-teal-500 bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-teal-600/20 transition-all hover:bg-teal-700"
+                            className="inline-flex animate-in fade-in-0 zoom-in-95 items-center gap-1.5 rounded-full border border-teal-500 bg-teal-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-teal-700"
                             title="Click to remove"
                           >
+                            <Check className="h-3.5 w-3.5" />
                             {getEcmRoleLabel(roleCode)}
                           </button>
                         ))}
@@ -389,27 +391,6 @@ export function QuickContactCreationWizard({
                         )}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-border/60 bg-white/70 p-4 dark:bg-zinc-900/40">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      Assigned Roles
-                    </p>
-                    {roles.length === 0 ? (
-                      <p className="mt-2 text-sm text-muted-foreground">None selected yet</p>
-                    ) : (
-                      <ul className="mt-2 space-y-1.5">
-                        {roles.map((role) => (
-                          <li
-                            key={role}
-                            className="flex items-center gap-2 text-sm font-medium animate-in fade-in-0 slide-in-from-left-1"
-                          >
-                            <Check className="h-4 w-4 text-teal-600" />
-                            {getEcmRoleLabel(role)}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                   </div>
                 </StepShell>
               )}
@@ -441,8 +422,9 @@ export function QuickContactCreationWizard({
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-5">
+            <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border/50 bg-white/95 px-8 py-4 backdrop-blur dark:bg-zinc-950/95">
               <Button
                 type="button"
                 variant="ghost"
