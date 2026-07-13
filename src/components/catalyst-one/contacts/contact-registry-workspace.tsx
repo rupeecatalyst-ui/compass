@@ -315,10 +315,10 @@ function ContactRegistryInner() {
         render: (row) => (
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+              "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize tracking-tight",
               row.status === "active"
-                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                : "bg-muted text-muted-foreground",
+                ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/15 dark:bg-emerald-950/40 dark:text-emerald-300"
+                : "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/10 dark:bg-slate-800 dark:text-slate-300",
             )}
           >
             {row.status}
@@ -333,7 +333,9 @@ function ContactRegistryInner() {
         defaultWidth: 110,
         align: "center",
         render: (row) => (
-          <span className="font-semibold tabular-nums text-foreground">{row.contactScore}</span>
+          <span className="inline-flex h-7 min-w-10 items-center justify-center rounded-lg bg-slate-100 px-2 text-xs font-semibold tabular-nums text-slate-800 dark:bg-zinc-800 dark:text-zinc-100">
+            {row.contactScore}
+          </span>
         ),
         exportValue: (row) => String(row.contactScore),
       },
@@ -432,23 +434,23 @@ function ContactRegistryInner() {
   const totalPages = Math.max(1, Math.ceil(queryResult.total / queryResult.pageSize));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Enterprise Contact Registry"
-        description="Single source of truth for every person. Browse, search, and open the Contact Workspace without leaving the registry."
+        description="Browse every person in Catalyst One. Open a workspace to create or enrich a contact — identity is collected once."
         actions={
-          <Button type="button" onClick={openCreate} className="gap-2">
+          <Button type="button" onClick={openCreate} className="h-10 gap-2 rounded-xl px-4 shadow-sm">
             <Plus className="h-4 w-4" />
             Add Contact
           </Button>
         }
       />
 
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 lg:flex-row lg:items-center">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border/80 bg-card/80 p-3 shadow-sm shadow-black/[0.02] lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="pl-9"
+            className="h-10 rounded-xl border-border/70 bg-background pl-9"
             placeholder="Search name, mobile, email, owner…"
             value={search}
             onChange={(e) => {
@@ -464,7 +466,7 @@ function ContactRegistryInner() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-full lg:w-44">
+          <SelectTrigger className="h-10 w-full rounded-xl lg:w-44">
             <SelectValue placeholder="Role" />
           </SelectTrigger>
           <SelectContent>
@@ -485,7 +487,7 @@ function ContactRegistryInner() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-full lg:w-36">
+          <SelectTrigger className="h-10 w-full rounded-xl lg:w-36">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -495,31 +497,25 @@ function ContactRegistryInner() {
           </SelectContent>
         </Select>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" size="icon" onClick={refresh} aria-label="Refresh">
+          <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-xl" onClick={refresh} aria-label="Refresh">
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button type="button" variant="outline" className="gap-2" onClick={exportCsv}>
+          <Button type="button" variant="outline" className="h-10 gap-2 rounded-xl" onClick={exportCsv}>
             <Download className="h-4 w-4" />
             Export
           </Button>
         </div>
       </div>
 
-      <div
-        className={cn(
-          highlightId &&
-            "[&_tr:has([data-contact-id='" + highlightId + "'])]:bg-primary/5",
-        )}
-      >
-        <EnterpriseDataGrid
-          storageKey="ecm-contact-registry-grid-v1"
-          columns={columns}
-          rows={queryResult.items}
-          rowKey={(row) => row.id}
-          onRowClick={(row) => openContact(row)}
-          emptyMessage="No contacts match the current filters."
-        />
-      </div>
+      <EnterpriseDataGrid
+        storageKey="ecm-contact-registry-grid-v1"
+        columns={columns}
+        rows={queryResult.items}
+        rowKey={(row) => row.id}
+        highlightedRowKey={highlightId}
+        onRowClick={(row) => openContact(row)}
+        emptyMessage="No contacts match the current filters."
+      />
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <p>

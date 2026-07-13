@@ -149,6 +149,7 @@ export function updateEcmContact(
       | "status"
       | "enabled"
       | "lastActiveOn"
+      | "roleProfiles"
     >
   >,
   actorId: string,

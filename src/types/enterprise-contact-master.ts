@@ -37,6 +37,8 @@ export interface EcmContact {
   contactScore: number;
   /** Latest business interaction timestamp (enterprise activity) */
   lastActiveOn: string;
+  /** Role-specific profile fields — never duplicates Identity */
+  roleProfiles?: Partial<Record<EcmContactRole, Record<string, string>>>;
   createdBy: string;
   createdOn: string;
   modifiedBy: string;

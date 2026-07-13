@@ -31,6 +31,13 @@ export type EcmRoleWorkspaceTabId =
 
 export type EcmWorkspaceTabId = EcmFixedWorkspaceTabId | EcmRoleWorkspaceTabId;
 
+export interface EcmRoleSpecificField {
+  key: string;
+  label: string;
+  placeholder?: string;
+  hint?: string;
+}
+
 export interface EcmRoleMasterDefinition {
   code: EcmContactRole;
   label: string;
@@ -40,6 +47,10 @@ export interface EcmRoleMasterDefinition {
   description: string;
   enabled: boolean;
   sortOrder: number;
+  /** Role-only fields — identity is never re-collected here */
+  roleSpecificFields: readonly EcmRoleSpecificField[];
+  /** Subtle chip accent token */
+  chipTone: "teal" | "indigo" | "amber" | "rose" | "slate" | "violet" | "sky";
 }
 
 /**
@@ -55,6 +66,12 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     description: "Borrowing / applicant relationship",
     enabled: true,
     sortOrder: 1,
+    chipTone: "teal",
+    roleSpecificFields: [
+      { key: "preferredProduct", label: "Preferred Product", placeholder: "Home Loan, LAP…" },
+      { key: "cityOfInterest", label: "City of Interest", placeholder: "Mumbai" },
+      { key: "employmentType", label: "Employment Type", placeholder: "Salaried / Self-employed" },
+    ],
   },
   {
     code: "investor",
@@ -64,6 +81,12 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     description: "Investment relationship",
     enabled: true,
     sortOrder: 2,
+    chipTone: "indigo",
+    roleSpecificFields: [
+      { key: "investmentHorizon", label: "Investment Horizon", placeholder: "3–5 years" },
+      { key: "riskAppetite", label: "Risk Appetite", placeholder: "Moderate" },
+      { key: "ticketSize", label: "Typical Ticket Size", placeholder: "₹25L+" },
+    ],
   },
   {
     code: "builder",
@@ -73,6 +96,12 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     description: "Builder / developer relationship",
     enabled: true,
     sortOrder: 3,
+    chipTone: "amber",
+    roleSpecificFields: [
+      { key: "firmName", label: "Firm / Project Name", placeholder: "Skyline Developers" },
+      { key: "reraId", label: "RERA ID", placeholder: "Optional" },
+      { key: "primaryMarket", label: "Primary Market", placeholder: "Pune" },
+    ],
   },
   {
     code: "chartered_accountant",
@@ -82,6 +111,12 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     description: "Chartered accountant relationship",
     enabled: true,
     sortOrder: 4,
+    chipTone: "violet",
+    roleSpecificFields: [
+      { key: "membershipNo", label: "Membership Number", placeholder: "ICAI membership" },
+      { key: "firmName", label: "Firm Name", placeholder: "Rao & Associates" },
+      { key: "specialization", label: "Specialization", placeholder: "Tax / Audit" },
+    ],
   },
   {
     code: "employee",
@@ -91,6 +126,12 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     description: "Internal employee",
     enabled: true,
     sortOrder: 5,
+    chipTone: "slate",
+    roleSpecificFields: [
+      { key: "department", label: "Department", placeholder: "Sales" },
+      { key: "employeeCode", label: "Employee Code", placeholder: "RC-EMP-…" },
+      { key: "designation", label: "Designation", placeholder: "Relationship Manager" },
+    ],
   },
   {
     code: "lender_employee",
@@ -100,6 +141,12 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     description: "Lender institution employee",
     enabled: true,
     sortOrder: 6,
+    chipTone: "sky",
+    roleSpecificFields: [
+      { key: "institution", label: "Institution", placeholder: "HDFC Bank" },
+      { key: "branch", label: "Branch", placeholder: "Bandra West" },
+      { key: "productDesk", label: "Product Desk", placeholder: "Home Loans" },
+    ],
   },
   {
     code: "partner",
@@ -109,6 +156,12 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     description: "Channel / business partner",
     enabled: true,
     sortOrder: 7,
+    chipTone: "rose",
+    roleSpecificFields: [
+      { key: "partnerFirm", label: "Partner Firm", placeholder: "Firm name" },
+      { key: "channelType", label: "Channel Type", placeholder: "DSA / Connector" },
+      { key: "coverageCities", label: "Coverage Cities", placeholder: "Mumbai, Thane" },
+    ],
   },
 ] as const;
 

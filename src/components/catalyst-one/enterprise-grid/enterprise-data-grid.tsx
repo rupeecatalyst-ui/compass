@@ -1,12 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Columns3,
-  GripVertical,
-} from "lucide-react";
+import { Columns3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,6 +24,7 @@ interface EnterpriseDataGridProps<T> {
   emptyMessage?: string;
   onRowClick?: (row: T) => void;
   className?: string;
+  highlightedRowKey?: string | null;
 }
 
 export function EnterpriseDataGrid<T>({
@@ -39,16 +35,16 @@ export function EnterpriseDataGrid<T>({
   emptyMessage = "No records found.",
   onRowClick,
   className,
+  highlightedRowKey,
 }: EnterpriseDataGridProps<T>) {
   const {
     activeView,
     visibleColumns,
     toggleColumn,
-    moveColumn,
-    setColumnWidth,
     resetToDefault,
     prefs,
     setActiveViewId,
+    setColumnWidth,
   } = useEnterpriseGridPreferences(storageKey, columns);
 
   const [resizing, setResizing] = useState<string | null>(null);
@@ -59,12 +55,15 @@ export function EnterpriseDataGrid<T>({
   );
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <div className="flex justify-end">
+    <div className={cn("space-y-3", className)}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Enterprise grid
+        </p>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="gap-2">
-              <Columns3 className="h-4 w-4" />
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-2 rounded-lg">
+              <Columns3 className="h-3.5 w-3.5" />
               Columns
             </Button>
           </DropdownMenuTrigger>
@@ -99,16 +98,17 @@ export function EnterpriseDataGrid<T>({
         </DropdownMenu>
       </div>
 
-      <div className="overflow-auto rounded-xl border border-border bg-card">
+      <div className="overflow-auto rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
         <table className="w-full min-w-[960px] border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/40">
+          <thead className="sticky top-0 z-20">
+            <tr className="border-b border-border bg-slate-50/95 backdrop-blur dark:bg-zinc-900/95">
               {visibleColumns.map((col) => (
                 <th
                   key={col.id}
                   className={cn(
-                    "relative px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground",
-                    frozenIds.has(col.id) && "sticky left-0 z-10 bg-muted/90 backdrop-blur",
+                    "relative px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
+                    frozenIds.has(col.id) &&
+                      "sticky left-0 z-30 bg-slate-50/95 backdrop-blur dark:bg-zinc-900/95",
                     col.align === "center" && "text-center",
                     col.align === "right" && "text-right",
                   )}
@@ -117,55 +117,33 @@ export function EnterpriseDataGrid<T>({
                     minWidth: col.minWidth ?? 80,
                   }}
                 >
-                  <div className="flex items-center gap-1">
-                    <span className="flex-1 truncate">{col.label}</span>
-                    <button
-                      type="button"
-                      className="rounded p-0.5 text-muted-foreground hover:bg-background"
-                      aria-label={`Move ${col.label} left`}
-                      onClick={() => moveColumn(col.id, "left")}
-                    >
-                      <ChevronLeft className="h-3 w-3" />
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded p-0.5 text-muted-foreground hover:bg-background"
-                      aria-label={`Move ${col.label} right`}
-                      onClick={() => moveColumn(col.id, "right")}
-                    >
-                      <ChevronRight className="h-3 w-3" />
-                    </button>
-                    <span
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/40"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setResizing(col.id);
-                        const startX = e.clientX;
-                        const startW =
-                          activeView.columnWidths[col.id] ?? col.defaultWidth ?? 140;
-                        const onMove = (ev: MouseEvent) => {
-                          const next = startW + (ev.clientX - startX);
-                          // width updates via preference hook are debounced by mouseup only
-                          (e.currentTarget as HTMLElement).parentElement!.style.width = `${Math.max(80, next)}px`;
-                        };
-                        const onUp = (ev: MouseEvent) => {
-                          const next = Math.max(80, startW + (ev.clientX - startX));
-                          setColumnWidth(col.id, next);
-                          window.removeEventListener("mousemove", onMove);
-                          window.removeEventListener("mouseup", onUp);
-                          setResizing(null);
-                        };
-                        window.addEventListener("mousemove", onMove);
-                        window.addEventListener("mouseup", onUp);
-                      }}
-                    />
-                    <GripVertical
-                      className={cn(
-                        "h-3 w-3 text-muted-foreground/50",
-                        resizing === col.id && "text-primary",
-                      )}
-                    />
-                  </div>
+                  <span className="truncate">{col.label}</span>
+                  <span
+                    className={cn(
+                      "absolute right-0 top-0 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/35",
+                      resizing === col.id && "bg-primary/50",
+                    )}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setResizing(col.id);
+                      const startX = e.clientX;
+                      const startW =
+                        activeView.columnWidths[col.id] ?? col.defaultWidth ?? 140;
+                      const onMove = (ev: MouseEvent) => {
+                        const next = Math.max(80, startW + (ev.clientX - startX));
+                        const th = (e.target as HTMLElement).closest("th");
+                        if (th) th.style.width = `${next}px`;
+                      };
+                      const onUp = (ev: MouseEvent) => {
+                        setColumnWidth(col.id, Math.max(80, startW + (ev.clientX - startX)));
+                        window.removeEventListener("mousemove", onMove);
+                        window.removeEventListener("mouseup", onUp);
+                        setResizing(null);
+                      };
+                      window.addEventListener("mousemove", onMove);
+                      window.addEventListener("mouseup", onUp);
+                    }}
+                  />
                 </th>
               ))}
             </tr>
@@ -175,40 +153,55 @@ export function EnterpriseDataGrid<T>({
               <tr>
                 <td
                   colSpan={Math.max(visibleColumns.length, 1)}
-                  className="px-4 py-12 text-center text-muted-foreground"
+                  className="px-6 py-16 text-center text-sm text-muted-foreground"
                 >
                   {emptyMessage}
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
-                <tr
-                  key={rowKey(row)}
-                  className={cn(
-                    "border-b border-border/70 transition-colors hover:bg-muted/30",
-                    onRowClick && "cursor-pointer",
-                  )}
-                  onClick={() => onRowClick?.(row)}
-                >
-                  {visibleColumns.map((col) => (
-                    <td
-                      key={col.id}
-                      className={cn(
-                        "px-3 py-2.5 align-middle text-foreground",
-                        frozenIds.has(col.id) && "sticky left-0 z-[1] bg-card",
-                        col.align === "center" && "text-center",
-                        col.align === "right" && "text-right",
-                      )}
-                      style={{
-                        width: activeView.columnWidths[col.id] ?? col.defaultWidth ?? 140,
-                        minWidth: col.minWidth ?? 80,
-                      }}
-                    >
-                      {col.render(row)}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              rows.map((row, index) => {
+                const key = rowKey(row);
+                const highlighted = highlightedRowKey === key;
+                return (
+                  <tr
+                    key={key}
+                    data-contact-id={key}
+                    className={cn(
+                      "border-b border-border/50 transition-colors duration-150",
+                      index % 2 === 1 && "bg-slate-50/60 dark:bg-white/[0.02]",
+                      onRowClick && "cursor-pointer",
+                      "hover:bg-teal-50/70 dark:hover:bg-teal-950/30",
+                      highlighted && "bg-teal-50/90 ring-1 ring-inset ring-primary/20 dark:bg-teal-950/40",
+                    )}
+                    onClick={() => onRowClick?.(row)}
+                  >
+                    {visibleColumns.map((col) => (
+                      <td
+                        key={col.id}
+                        className={cn(
+                          "px-3.5 py-3 align-middle text-[13px] text-foreground",
+                          frozenIds.has(col.id) &&
+                            cn(
+                              "sticky left-0 z-[1]",
+                              index % 2 === 1
+                                ? "bg-slate-50 dark:bg-zinc-950"
+                                : "bg-card",
+                              "group-hover:bg-teal-50 dark:group-hover:bg-teal-950",
+                            ),
+                          col.align === "center" && "text-center",
+                          col.align === "right" && "text-right",
+                        )}
+                        style={{
+                          width: activeView.columnWidths[col.id] ?? col.defaultWidth ?? 140,
+                          minWidth: col.minWidth ?? 80,
+                        }}
+                      >
+                        {col.render(row)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
