@@ -2,7 +2,11 @@
  * ECM in-memory adapters.
  */
 
-import type { EcmAuditReference, EcmContact } from "@/types/enterprise-contact-master";
+import type {
+  EcmAuditReference,
+  EcmContact,
+  EcmContactRelationship,
+} from "@/types/enterprise-contact-master";
 import type { EcmPorts } from "@/types/enterprise-contact-master-ports";
 
 function createMutableListStore<T>() {
@@ -21,6 +25,7 @@ function createMutableListStore<T>() {
 
 export function createInMemoryEcmPorts(): EcmPorts {
   const contacts = createMutableListStore<EcmContact>();
+  const relationships = createMutableListStore<EcmContactRelationship>();
   const auditReferences = createMutableListStore<EcmAuditReference>();
 
   return {
@@ -29,6 +34,12 @@ export function createInMemoryEcmPorts(): EcmPorts {
       findById: (id) => contacts.list().find((c) => c.id === id),
       save: (c) => contacts.upsert(c, (i) => i.id),
       replaceAll: (items) => contacts.replaceAll(items),
+    },
+    relationships: {
+      list: () => relationships.list(),
+      findById: (id) => relationships.list().find((r) => r.id === id),
+      save: (r) => relationships.upsert(r, (i) => i.id),
+      replaceAll: (items) => relationships.replaceAll(items),
     },
     auditReferences: {
       list: () => auditReferences.list(),

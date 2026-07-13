@@ -10,6 +10,7 @@ export function getEcmRegistrySnapshot(): EcmRegistrySnapshot {
   const ports = getEcmPorts();
   return {
     contacts: ports.contacts.list(),
+    relationships: ports.relationships.list(),
     auditReferences: ports.auditReferences.list(),
   };
 }

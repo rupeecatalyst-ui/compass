@@ -78,13 +78,49 @@ export interface EcmMissingEmailPrompt {
 export interface EcmAuditReference {
   id: string;
   entityId: string;
-  entityType: "contact";
+  entityType: "contact" | "contact_relationship";
   eafAuditEntryId: string;
   recordedOn: string;
 }
 
+/**
+ * Generic directed Contact↔Contact relationship.
+ * Banker Reporting Manager uses relationshipType `reports_to`.
+ * Additional types reuse this model without Contact schema redesign.
+ */
+export type EcmContactRelationshipType =
+  | "reports_to"
+  | "managed_by"
+  | "assistant_to"
+  | "legal_representative"
+  | "refers_to";
+
+export type EcmContactRelationshipStatus = "active" | "inactive";
+
+export interface EcmContactRelationship {
+  id: string;
+  /** Subject contact (e.g. banker who reports) */
+  fromContactId: string;
+  /** Related contact (e.g. reporting manager) */
+  toContactId: string;
+  relationshipType: EcmContactRelationshipType;
+  /** Optional role context that owns this link in the UI */
+  contextRole?: EcmContactRole;
+  /**
+   * Extensible metadata for future Escalation Matrix, Coverage, Analytics —
+   * without redesigning the Contact entity.
+   */
+  meta?: Record<string, string>;
+  status: EcmContactRelationshipStatus;
+  createdBy: string;
+  createdOn: string;
+  modifiedBy: string;
+  modifiedOn: string;
+}
+
 export interface EcmRegistrySnapshot {
   contacts: EcmContact[];
+  relationships: EcmContactRelationship[];
   auditReferences: EcmAuditReference[];
 }
 

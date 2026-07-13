@@ -459,7 +459,7 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         sortOrder: 7,
         visible: true,
         helpText:
-          "Search existing Contacts or create a basic Contact. Hierarchy is derived from this link — never hardcoded.",
+          "Persisted as a generic Contact Relationship (reports_to). Hierarchy is derived dynamically — levels are never hardcoded.",
       },
       {
         key: "officialEmail",

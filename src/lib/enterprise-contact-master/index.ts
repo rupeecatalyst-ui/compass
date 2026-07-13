@@ -23,13 +23,28 @@ export {
 } from "./contact-registry";
 export { normalizePersonName } from "./name-normalize";
 export {
+  buildEcmRelationshipChain,
+  clearEcmContactRelationship,
+  ECM_RELATIONSHIP_TYPE_LABELS,
+  ECM_RELATIONSHIP_TYPES,
+  getEcmRelatedContactId,
+  listEcmContactRelationships,
+  listEcmRelationshipsFrom,
+  listEcmRelationshipsTo,
+  upsertEcmContactRelationship,
+} from "./contact-relationships";
+export {
   buildEcmBankerReportingChain,
   formatEcmBankerOrgPath,
   getEcmBankerOrgPlacement,
   getEcmBankerProfile,
+  getEcmBankerReportingManagerId,
   listEcmBankerDirectReports,
   searchEcmContactsForReportingManager,
+  setBankerReportingManager,
+  ECM_BANKER_ORG_KEYS,
   ECM_BANKER_PROFILE_KEYS,
+  ECM_BANKER_REPORTING_CACHE_KEYS,
 } from "./banker-hierarchy";
 export type {
   EcmBankerOrgPlacement,

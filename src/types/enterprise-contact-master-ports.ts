@@ -5,6 +5,7 @@
 import type {
   EcmAuditReference,
   EcmContact,
+  EcmContactRelationship,
   EcmRegistrySnapshot,
 } from "./enterprise-contact-master";
 
@@ -15,6 +16,13 @@ export interface EcmContactRepositoryPort {
   replaceAll(contacts: EcmContact[]): void;
 }
 
+export interface EcmContactRelationshipRepositoryPort {
+  list(): EcmContactRelationship[];
+  findById(id: string): EcmContactRelationship | undefined;
+  save(relationship: EcmContactRelationship): void;
+  replaceAll(relationships: EcmContactRelationship[]): void;
+}
+
 export interface EcmAuditReferenceRepositoryPort {
   list(): EcmAuditReference[];
   save(reference: EcmAuditReference): void;
@@ -23,6 +31,7 @@ export interface EcmAuditReferenceRepositoryPort {
 
 export interface EcmPorts {
   contacts: EcmContactRepositoryPort;
+  relationships: EcmContactRelationshipRepositoryPort;
   auditReferences: EcmAuditReferenceRepositoryPort;
 }
 

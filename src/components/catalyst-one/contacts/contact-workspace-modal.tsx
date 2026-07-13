@@ -38,8 +38,11 @@ import {
   buildEcmWorkspaceTabs,
   formatEcmBankerOrgPath,
   getEcmBankerOrgPlacement,
+  getEcmBankerReportingManagerId,
   getEcmContactAssignedRoles,
+  listEcmContacts,
   registerEcmContact,
+  setBankerReportingManager,
   updateEcmContact,
 } from "@/lib/enterprise-contact-master";
 import type { EcmWorkspaceTab } from "@/lib/enterprise-contact-master";
@@ -460,6 +463,15 @@ export function ContactWorkspaceModal({
         next.city = city;
         changed = true;
       }
+      if (active?.id) {
+        const managerId = getEcmBankerReportingManagerId(active.id);
+        if (managerId && next.reportingManagerContactId !== managerId) {
+          const manager = listEcmContacts().find((c) => c.id === managerId);
+          next.reportingManagerContactId = managerId;
+          next.reportingManagerName = manager?.name ?? next.reportingManagerName ?? "";
+          changed = true;
+        }
+      }
     }
     if (roleCode === "customer") {
       if (!next.city && city) {
@@ -618,14 +630,18 @@ export function ContactWorkspaceModal({
               excludeContactId={active?.id}
               actorId={actorId}
               onChange={(picked) => {
-                setRoleProfiles((prev) => ({
-                  ...prev,
-                  [roleCode]: {
-                    ...(prev[roleCode] ?? {}),
-                    reportingManagerContactId: picked?.id ?? "",
-                    reportingManagerName: picked?.name ?? "",
-                  },
-                }));
+                if (!active) return;
+                try {
+                  const updated = setBankerReportingManager({
+                    bankerContactId: active.id,
+                    manager: picked,
+                    actorId,
+                  });
+                  hydrateFromContact(updated);
+                  onSaved(updated);
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Failed to link reporting manager");
+                }
               }}
             />
           ) : (
@@ -694,16 +710,16 @@ export function ContactWorkspaceModal({
             <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:grid-cols-2">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
-                  Organization Structure
+                  Structure 1 · Organizational Location
                 </p>
                 <p className="mt-1 text-sm text-zinc-200">{bankerOrg}</p>
                 <p className="mt-1 text-[11px] text-zinc-500">
-                  Institution → Region → City → Branch (separate from reporting)
+                  Institution → Region → City → Branch
                 </p>
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
-                  Reporting Chain
+                  Structure 2 · Reporting Hierarchy
                 </p>
                 {bankerChain.length <= 1 && !values.reportingManagerContactId ? (
                   <p className="mt-1 text-sm text-zinc-400">No reporting manager linked yet</p>
@@ -715,7 +731,7 @@ export function ContactWorkspaceModal({
                   </p>
                 )}
                 <p className="mt-1 text-[11px] text-zinc-500">
-                  Derived from Reporting Manager links — levels are not hardcoded.
+                  Generic Contact Relationship (reports_to) — levels not hardcoded.
                 </p>
               </div>
             </div>
