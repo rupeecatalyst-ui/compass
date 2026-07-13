@@ -1,6 +1,6 @@
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 
-export const ECM_FRAMEWORK_VERSION = "1.1.0-cert-r1";
+export const ECM_FRAMEWORK_VERSION = "1.2.0-cert-r2";
 
 export const ECM_CONTACT_ROLES = {
   CUSTOMER: "customer",
@@ -12,13 +12,11 @@ export const ECM_CONTACT_ROLES = {
   CHARTERED_ACCOUNTANT: "chartered_accountant",
 } as const satisfies Record<string, EcmContactRole>;
 
-/** Fixed identity / operational tabs (always available once a contact exists) */
-export type EcmFixedWorkspaceTabId =
-  | "identity"
-  | "documents"
-  | "timeline"
-  | "communication"
-  | "audit";
+/**
+ * Fixed workspace tabs for Contact onboarding.
+ * Documents / Timeline / Communication / Audit live on journey/entity workspaces — not here.
+ */
+export type EcmFixedWorkspaceTabId = "identity";
 
 export type EcmRoleWorkspaceTabId =
   | "borrower"
@@ -175,10 +173,6 @@ export interface EcmFixedWorkspaceTabDefinition {
 
 export const ECM_FIXED_WORKSPACE_TABS: readonly EcmFixedWorkspaceTabDefinition[] = [
   { id: "identity", label: "Identity", sortOrder: 0, placement: "before_roles" },
-  { id: "documents", label: "Documents", sortOrder: 90, placement: "after_roles" },
-  { id: "timeline", label: "Timeline", sortOrder: 91, placement: "after_roles" },
-  { id: "communication", label: "Communication", sortOrder: 92, placement: "after_roles" },
-  { id: "audit", label: "Audit", sortOrder: 93, placement: "after_roles" },
 ];
 
 /** Configuration-driven Contact Score weights (grid displays calculated value only) */

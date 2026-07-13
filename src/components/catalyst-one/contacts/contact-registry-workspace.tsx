@@ -395,15 +395,11 @@ function ContactRegistryInner() {
               <DropdownMenuItem onClick={() => openContact(row, "identity")}>
                 Manage Roles
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openContact(row, "documents")}>
-                Documents
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openContact(row, "timeline")}>
-                Timeline
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openContact(row, "communication")}>
-                Communication
-              </DropdownMenuItem>
+              {row.roles.includes("customer") && (
+                <DropdownMenuItem onClick={() => openContact(row, "borrower")}>
+                  Borrower / Start Loan
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {

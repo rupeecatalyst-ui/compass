@@ -24,6 +24,14 @@ export interface EcmContact {
   mobileSecondary?: string;
   personalEmail?: string;
   officialEmail?: string;
+  /** Identity master-data + KYC fields (SSOT — never re-asked on role tabs) */
+  city?: string;
+  state?: string;
+  country?: string;
+  address?: string;
+  pan?: string;
+  aadhaar?: string;
+  dateOfBirth?: string;
   /** @deprecated Prefer `roles` — kept in sync as roles.slice(1) */
   additionalRoles: EcmContactRole[];
   /** Unlimited assigned roles from Role Master (SSOT for role assignment) */

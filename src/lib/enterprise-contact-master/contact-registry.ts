@@ -48,6 +48,13 @@ export type EcmContactRegisterInput = {
   mobileSecondary?: string;
   personalEmail?: string;
   officialEmail?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  address?: string;
+  pan?: string;
+  aadhaar?: string;
+  dateOfBirth?: string;
   roles?: EcmContactRole[];
   primaryRole?: EcmContactRole;
   additionalRoles?: EcmContactRole[];
@@ -73,6 +80,13 @@ export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
     mobileSecondary: input.mobileSecondary?.trim() || undefined,
     personalEmail: input.personalEmail?.trim() || undefined,
     officialEmail: input.officialEmail?.trim() || undefined,
+    city: input.city?.trim() || undefined,
+    state: input.state?.trim() || undefined,
+    country: input.country?.trim() || undefined,
+    address: input.address?.trim() || undefined,
+    pan: input.pan?.trim() || undefined,
+    aadhaar: input.aadhaar?.trim() || undefined,
+    dateOfBirth: input.dateOfBirth?.trim() || undefined,
     ...roleFields,
     id: crypto.randomUUID(),
     enabled: true,
@@ -143,6 +157,13 @@ export function updateEcmContact(
       | "mobileSecondary"
       | "personalEmail"
       | "officialEmail"
+      | "city"
+      | "state"
+      | "country"
+      | "address"
+      | "pan"
+      | "aadhaar"
+      | "dateOfBirth"
       | "roles"
       | "ownerName"
       | "ownerId"
