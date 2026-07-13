@@ -9,23 +9,31 @@ import {
   CheckCircle2,
   ChevronDown,
   Circle,
+  Pencil,
+  Plus,
   Sparkles,
 } from "lucide-react";
 import {
   getEcmMasterLabel,
   getEcmMasterOption,
   getEcmRoleDefinition,
+  getEcmRoleLabel,
   getVisibleMirFields,
   getVisibleOptionalFields,
   getEcmRoleWorkspaceTemplate,
   isEcmRoleMirComplete,
   listEcmMasterOptions,
+  getEcmRoleCompletionPct,
+  getEcmRoleProgressStatus,
+  getEcmRoleStatusLabel,
+  getEcmRoleDashboardActionLabel,
+  getEcmContactReadinessPct,
+  getEnabledEcmRoleMaster,
   type EcmBusinessActionId,
   type EcmConfigurableField,
   type EcmMasterOption,
 } from "@/constants/enterprise-contact-master";
 import {
-  archiveEcmContact,
   buildEcmWorkspaceTabs,
   getEcmContactAssignedRoles,
   registerEcmContact,
@@ -79,62 +87,6 @@ function formatTs(value?: string) {
 function masterDisplay(domain: Parameters<typeof getEcmMasterLabel>[0], id?: string) {
   if (!id) return "—";
   return getEcmMasterLabel(domain, id) || id;
-}
-
-function IdentitySummaryCard({ contact }: { contact: EcmContact }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-slate-50 to-white p-4 dark:from-zinc-900 dark:to-zinc-950">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        Who is this person?
-      </p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <p className="text-xs text-muted-foreground">Name</p>
-          <p className="text-sm font-medium">{contact.name}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Primary mobile</p>
-          <p className="text-sm font-medium">{contact.mobilePrimary}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Email</p>
-          <p className="text-sm font-medium">
-            {contact.personalEmail || contact.officialEmail || "—"}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Location</p>
-          <p className="text-sm font-medium">
-            {[masterDisplay("city", contact.city), masterDisplay("state", contact.state)]
-              .filter((v) => v !== "—")
-              .join(", ") || "—"}
-          </p>
-        </div>
-      </div>
-      {(contact.pan || contact.aadhaar || contact.dateOfBirth) && (
-        <div className="mt-3 grid gap-3 border-t border-border/50 pt-3 sm:grid-cols-3">
-          {contact.pan && (
-            <div>
-              <p className="text-xs text-muted-foreground">PAN</p>
-              <p className="text-sm font-medium">{contact.pan}</p>
-            </div>
-          )}
-          {contact.aadhaar && (
-            <div>
-              <p className="text-xs text-muted-foreground">Aadhaar</p>
-              <p className="text-sm font-medium">{contact.aadhaar}</p>
-            </div>
-          )}
-          {contact.dateOfBirth && (
-            <div>
-              <p className="text-xs text-muted-foreground">DOB</p>
-              <p className="text-sm font-medium">{contact.dateOfBirth}</p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function SectionCard({
@@ -259,6 +211,7 @@ export function ContactWorkspaceModal({
   const [showRoleAdditional, setShowRoleAdditional] = useState(false);
   const [loanDialogOpen, setLoanDialogOpen] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [showAddRole, setShowAddRole] = useState(false);
   const wasOpenRef = useRef(false);
   const hydratedIdRef = useRef<string | null>(null);
 
@@ -340,7 +293,7 @@ export function ContactWorkspaceModal({
       if (contact) {
         hydrateFromContact(contact);
         setCompletedSteps(new Set(["identity"]));
-        setTab(initialTab || "identity");
+        setTab(initialTab || "dashboard");
       } else {
         resetBlankCreate();
         setTab("identity");
@@ -359,11 +312,8 @@ export function ContactWorkspaceModal({
     [active, roles],
   );
 
-  const stepIndex = Math.max(
-    0,
-    workspaceTabs.findIndex((t) => t.id === tab),
-  );
-  const currentStep = workspaceTabs[stepIndex];
+  const stepIndex = workspaceTabs.findIndex((t) => t.id === tab);
+  const currentStep = stepIndex >= 0 ? workspaceTabs[stepIndex] : undefined;
   const progressPct =
     workspaceTabs.length === 0
       ? 0
@@ -390,11 +340,13 @@ export function ContactWorkspaceModal({
   };
 
   const goNext = () => {
+    if (stepIndex < 0) return;
     const next = workspaceTabs[stepIndex + 1];
     if (next) goToStep(next.id);
   };
 
   const goPrev = () => {
+    if (stepIndex < 0) return;
     const prev = workspaceTabs[stepIndex - 1];
     if (prev) goToStep(prev.id);
   };
@@ -680,15 +632,28 @@ export function ContactWorkspaceModal({
 
     return (
       <div className="space-y-4">
-        <IdentitySummaryCard contact={active} />
-
-        <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm">
-          <p className="font-medium text-foreground">
-            Configuring role: {def.label}
-          </p>
-          <p className="mt-0.5 text-muted-foreground">
-            Identity owns person data. This step only asks for information this role genuinely requires.
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+              Role Workspace
+            </p>
+            <h3 className="mt-1 text-lg font-semibold tracking-tight text-zinc-50">{def.label}</h3>
+            <p className="mt-0.5 text-sm text-zinc-400">
+              Only role-specific information — identity is never re-entered.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+            onClick={() => {
+              setShowRoleAdditional(false);
+              setTab("dashboard");
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Role Dashboard
+          </Button>
         </div>
 
         <SectionCard
@@ -704,7 +669,7 @@ export function ContactWorkspaceModal({
             <Button
               type="button"
               variant="outline"
-              className="gap-2 rounded-xl"
+              className="gap-2 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-100"
               onClick={() => setShowRoleAdditional((v) => !v)}
             >
               <ChevronDown
@@ -757,19 +722,74 @@ export function ContactWorkspaceModal({
           </SectionCard>
         )}
 
-        {!mirComplete && (
-          <p className="text-sm text-muted-foreground">
-            Complete mandatory fields to unlock the next business action for this role.
-          </p>
-        )}
-
-        {footerActions({
-          onSave: () => saveRoleStep(step.roleCode!, false),
-          onSaveNext: () => saveRoleStep(step.roleCode!, true),
-          showFinish: mirComplete && stepIndex >= workspaceTabs.length - 1,
-        })}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-4">
+          <Button
+            type="button"
+            variant="ghost"
+            className="gap-2 text-zinc-300"
+            onClick={() => setTab("dashboard")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            type="button"
+            className="gap-2 rounded-xl"
+            disabled={saving}
+            onClick={() => {
+              saveRoleStep(step.roleCode!, false);
+              setTab("dashboard");
+            }}
+          >
+            <Check className="h-4 w-4" />
+            Save & Return
+          </Button>
+        </div>
       </div>
     );
+  };
+
+  const assignedRoles = useMemo(
+    () => (active ? getEcmContactAssignedRoles(active) : roles),
+    [active, roles],
+  );
+
+  const readinessPct = useMemo(
+    () => getEcmContactReadinessPct(assignedRoles, roleProfiles),
+    [assignedRoles, roleProfiles],
+  );
+
+  const handleRoleDashboardAction = (roleCode: EcmContactRole) => {
+    const values = roleProfiles[roleCode] ?? {};
+    const pct = getEcmRoleCompletionPct(roleCode, values);
+    if (pct >= 100) {
+      const action = getEcmRoleWorkspaceTemplate(roleCode)?.businessActions.find((a) => a.enabled);
+      if (action) {
+        if (active) saveRoleStep(roleCode, false);
+        handleBusinessAction(action.id, action.href);
+        return;
+      }
+    }
+    const def = getEcmRoleDefinition(roleCode);
+    if (def) {
+      setShowRoleAdditional(false);
+      setTab(def.workspaceTabId);
+    }
+  };
+
+  const addRole = (roleCode: EcmContactRole) => {
+    if (!active) return;
+    if (roles.includes(roleCode)) return;
+    const nextRoles = [...roles, roleCode];
+    setRoles(nextRoles);
+    try {
+      const updated = updateEcmContact(active.id, { roles: nextRoles, roleProfiles }, actorId);
+      hydrateFromContact(updated);
+      onSaved(updated);
+      setShowAddRole(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add role");
+    }
   };
 
   const identityForm = (compactCreate: boolean) => (
@@ -959,97 +979,286 @@ export function ContactWorkspaceModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className={cn(
-            "flex max-h-[85vh] w-[80vw] max-w-[80vw] flex-col gap-0 overflow-hidden border-border/80 p-0 sm:rounded-2xl",
+            "flex max-h-[90vh] w-[min(1100px,94vw)] max-w-[1100px] flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-100 sm:rounded-2xl",
           )}
         >
-          <DialogHeader className="shrink-0 space-y-3 border-b border-border/70 px-6 pb-4 pt-5 text-left">
-            <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
-              <div>
-                <DialogTitle className="text-xl font-semibold tracking-tight">
-                  {awaitingFirstSave ? "Add Contact" : active?.name ?? "Contact Workspace"}
-                </DialogTitle>
-                <DialogDescription className="mt-1 text-sm">
-                  {active
-                    ? `Step ${stepIndex + 1} of ${workspaceTabs.length} · ${currentStep?.label ?? "Workspace"} · Who → Role → MIR → Next journey`
-                    : "Capture identity once. Roles unlock guided MIR workspaces automatically."}
-                </DialogDescription>
-              </div>
-              {active && (
-                <div className="min-w-[160px]">
-                  <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>Progress</span>
-                    <span className="font-medium text-foreground">{progressPct}%</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-300"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {active && (
-              <div className="flex gap-1.5 overflow-x-auto pb-1">
-                {workspaceTabs.map((step, idx) => {
-                  const done = completedSteps.has(step.id) || (step.id === "identity" && Boolean(active));
-                  const current = step.id === tab;
-                  return (
-                    <button
-                      key={step.id}
-                      type="button"
-                      onClick={() => goToStep(step.id)}
-                      className={cn(
-                        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
-                        current && "border-primary/40 bg-primary text-primary-foreground shadow-sm",
-                        !current &&
-                          done &&
-                          "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200",
-                        !current && !done && "border-border bg-background text-muted-foreground hover:bg-muted/50",
-                      )}
-                    >
-                      {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
+          {!awaitingFirstSave && active ? (
+            <>
+              {/* ~20% Executive Summary */}
+              <div className="shrink-0 border-b border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 px-6 py-5 pr-12">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <div className="flex flex-wrap items-center gap-4">
+                      <DialogTitle className="truncate text-2xl font-semibold tracking-tight text-zinc-50">
+                        {active.name}
+                      </DialogTitle>
+                      <div className="min-w-[180px] flex-1 max-w-sm">
+                        <div className="mb-1 flex items-center justify-between text-[11px] text-zinc-400">
+                          <span>Contact Readiness</span>
+                          <span className="font-semibold text-teal-300">{readinessPct}% Complete</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-500"
+                            style={{ width: `${readinessPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <DialogDescription className="sr-only">
+                      Contact Workspace executive dashboard
+                    </DialogDescription>
+                    <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-zinc-400">
                       <span>
-                        {idx + 1}. {step.label}
+                        <span className="text-zinc-500">ID </span>
+                        <span className="font-mono text-xs text-zinc-300">{active.id.slice(0, 8)}…</span>
                       </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </DialogHeader>
+                      <span>
+                        <span className="text-zinc-500">Mobile </span>
+                        <span className="text-zinc-200">{active.mobilePrimary}</span>
+                      </span>
+                      <span>
+                        <span className="text-zinc-500">Email </span>
+                        <span className="text-zinc-200">
+                          {active.personalEmail || active.officialEmail || "—"}
+                        </span>
+                      </span>
+                      <span>
+                        <span className="text-zinc-500">Employment </span>
+                        <span className="text-zinc-200">
+                          {masterDisplay("employment_type", active.employmentType)}
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                          active.status === "active"
+                            ? "border-teal-800 bg-teal-950/60 text-teal-300"
+                            : "border-zinc-700 bg-zinc-900 text-zinc-400",
+                        )}
+                      >
+                        {active.status === "active" ? "Active" : "Archived"}
+                      </span>
+                    </div>
+                  </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {!awaitingFirstSave && active ? (
-              <div className="space-y-5 px-6 py-6">
-                {tab === "identity" && (
-                  <>
-                    {identityForm(false)}
-                    {error && <p className="text-sm text-destructive">{error}</p>}
-                    {footerActions({
-                      onSave: () => saveIdentity(false),
-                      onSaveNext: () => saveIdentity(true),
-                    })}
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
-                      variant="ghost"
-                      className="text-muted-foreground"
+                      variant="outline"
+                      className="gap-2 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
                       onClick={() => {
-                        archiveEcmContact(active.id, actorId);
-                        onOpenChange(false);
+                        setShowAddRole(false);
+                        setTab("identity");
                       }}
                     >
-                      Archive contact
+                      <Pencil className="h-4 w-4" />
+                      Edit Contact
                     </Button>
-                  </>
-                )}
-
-                {currentStep?.kind === "role" && renderRolePanel(currentStep)}
+                    <Button
+                      type="button"
+                      className="gap-2 rounded-xl bg-teal-600 text-white hover:bg-teal-500"
+                      onClick={() => {
+                        setTab("dashboard");
+                        setShowAddRole((v) => !v);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Role
+                    </Button>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-0">
-                <div className="mx-auto max-w-3xl space-y-5 px-6 py-6">
+
+              {/* ~80% Role Workspace */}
+              <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-950">
+                <div className="space-y-5 px-6 py-6">
+                  {tab === "dashboard" && (
+                    <>
+                      {showAddRole && (
+                        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                            Add Role
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {getEnabledEcmRoleMaster()
+                              .filter((r) => !assignedRoles.includes(r.code))
+                              .map((role) => (
+                                <button
+                                  key={role.code}
+                                  type="button"
+                                  onClick={() => addRole(role.code)}
+                                  className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 transition hover:border-teal-500 hover:text-teal-300"
+                                >
+                                  {role.label}
+                                </button>
+                              ))}
+                            {getEnabledEcmRoleMaster().every((r) =>
+                              assignedRoles.includes(r.code),
+                            ) && (
+                              <p className="text-sm text-zinc-500">All roles already assigned</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/60">
+                        <div className="border-b border-zinc-800 px-4 py-3">
+                          <h3 className="text-sm font-semibold tracking-tight text-zinc-100">
+                            Assigned Role Dashboard
+                          </h3>
+                          <p className="mt-0.5 text-xs text-zinc-500">
+                            Only assigned roles are shown. Open one role workspace at a time.
+                          </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[640px] text-left text-sm">
+                            <thead className="bg-zinc-950/80 text-[11px] uppercase tracking-[0.12em] text-zinc-500">
+                              <tr>
+                                <th className="px-4 py-3 font-medium">Assigned Role</th>
+                                <th className="px-4 py-3 font-medium">Status</th>
+                                <th className="px-4 py-3 font-medium">Completion %</th>
+                                <th className="px-4 py-3 font-medium">Next Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {assignedRoles.map((roleCode) => {
+                                const values = roleProfiles[roleCode] ?? {};
+                                const pct = getEcmRoleCompletionPct(roleCode, values);
+                                const status = getEcmRoleProgressStatus(pct);
+                                const actionLabel = getEcmRoleDashboardActionLabel(roleCode, values);
+                                return (
+                                  <tr
+                                    key={roleCode}
+                                    className="border-t border-zinc-800/80 transition-colors hover:bg-zinc-900"
+                                  >
+                                    <td className="px-4 py-3.5 font-medium text-zinc-100">
+                                      {getEcmRoleLabel(roleCode)}
+                                    </td>
+                                    <td className="px-4 py-3.5">
+                                      <span
+                                        className={cn(
+                                          "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                                          status === "complete" &&
+                                            "border-teal-800 bg-teal-950/50 text-teal-300",
+                                          status === "in_progress" &&
+                                            "border-amber-800 bg-amber-950/40 text-amber-200",
+                                          status === "not_started" &&
+                                            "border-zinc-700 bg-zinc-950 text-zinc-400",
+                                        )}
+                                      >
+                                        {getEcmRoleStatusLabel(status)}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3.5">
+                                      <div className="flex items-center gap-2">
+                                        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-zinc-800">
+                                          <div
+                                            className="h-full rounded-full bg-teal-500"
+                                            style={{ width: `${pct}%` }}
+                                          />
+                                        </div>
+                                        <span className="tabular-nums text-zinc-300">{pct}%</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3.5">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant={pct >= 100 ? "default" : "outline"}
+                                        className={cn(
+                                          "rounded-lg",
+                                          pct < 100 &&
+                                            "border-zinc-700 bg-zinc-950 text-zinc-100 hover:bg-zinc-800",
+                                          pct >= 100 && "bg-teal-600 hover:bg-teal-500",
+                                        )}
+                                        onClick={() => handleRoleDashboardAction(roleCode)}
+                                      >
+                                        {actionLabel}
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                              {assignedRoles.length === 0 && (
+                                <tr>
+                                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-500">
+                                    No roles assigned. Use + Add Role to begin.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {tab === "identity" && (
+                    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-1">
+                      <div className="flex items-center justify-between gap-3 px-4 pt-4">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                            Edit Contact
+                          </p>
+                          <p className="mt-1 text-sm text-zinc-500">
+                            Identity fields collected at creation — edit only when needed.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-zinc-300"
+                          onClick={() => setTab("dashboard")}
+                        >
+                          <ArrowLeft className="mr-2 h-4 w-4" />
+                          Dashboard
+                        </Button>
+                      </div>
+                      <div className="p-4 text-foreground [&_.bg-card]:bg-zinc-900 [&_.bg-card]:text-zinc-100 [&_.border-border\/70]:border-zinc-800 [&_label]:text-zinc-400">
+                        {identityForm(false)}
+                        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            className="rounded-xl"
+                            disabled={saving}
+                            onClick={() => {
+                              saveIdentity(false);
+                              setTab("dashboard");
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-xl border-zinc-700"
+                            onClick={() => setTab("dashboard")}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {currentStep?.kind === "role" && renderRolePanel(currentStep)}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader className="shrink-0 space-y-3 border-b border-zinc-800 px-6 pb-4 pt-5 text-left">
+                <DialogTitle className="text-xl font-semibold tracking-tight text-zinc-50">
+                  Add Contact
+                </DialogTitle>
+                <DialogDescription className="text-sm text-zinc-400">
+                  Prefer Quick Contact Creation from the registry for the guided wizard.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="mx-auto max-w-3xl space-y-5 px-6 py-6 text-foreground">
                   {identityForm(true)}
                   {error && <p className="text-sm text-destructive">{error}</p>}
                 </div>
@@ -1058,8 +1267,8 @@ export function ContactWorkspaceModal({
                   onSaveNext: () => saveIdentity(true),
                 })}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

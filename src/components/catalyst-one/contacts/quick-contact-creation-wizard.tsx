@@ -92,12 +92,6 @@ export function QuickContactCreationWizard({
     setStep(next);
   };
 
-  const toggleRole = (role: EcmContactRole) => {
-    setRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
-    );
-  };
-
   const handleNameNext = () => {
     const normalized = normalizePersonName(name);
     if (!normalized) {
@@ -183,7 +177,7 @@ export function QuickContactCreationWizard({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[min(560px,92vw)] max-w-[560px] overflow-hidden border-border/70 p-0 sm:rounded-3xl">
+      <DialogContent className="max-h-[90vh] w-[min(720px,94vw)] max-w-[720px] overflow-hidden border-border/70 p-0 sm:rounded-3xl">
         <div className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-teal-50/40 dark:from-zinc-950 dark:via-zinc-950 dark:to-teal-950/20">
           <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-teal-200/30 blur-3xl dark:bg-teal-500/10" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-sky-200/25 blur-3xl dark:bg-sky-500/10" />
@@ -342,36 +336,74 @@ export function QuickContactCreationWizard({
 
               {step === "roles" && (
                 <StepShell question="Which roles apply to this contact?">
-                  <div className="flex flex-wrap gap-2">
-                    {roleMaster.map((role) => {
-                      const selected = roles.includes(role.code);
-                      return (
-                        <button
-                          key={role.code}
-                          type="button"
-                          onClick={() => toggleRole(role.code)}
-                          className={cn(
-                            "rounded-2xl border px-4 py-2.5 text-sm font-medium transition-all",
-                            selected
-                              ? "border-teal-500 bg-teal-600 text-white shadow-md shadow-teal-600/20"
-                              : "border-border/70 bg-white/80 text-foreground hover:border-teal-300 hover:bg-teal-50/60 dark:bg-zinc-900/50",
-                          )}
-                        >
-                          {role.label}
-                        </button>
-                      );
-                    })}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-border/60 bg-white/70 p-4 dark:bg-zinc-900/40">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        Available Roles
+                      </p>
+                      <div className="mt-3 flex min-h-[120px] flex-wrap content-start gap-2">
+                        {roleMaster
+                          .filter((role) => !roles.includes(role.code))
+                          .map((role) => (
+                            <button
+                              key={role.code}
+                              type="button"
+                              onClick={() =>
+                                setRoles((prev) =>
+                                  prev.includes(role.code) ? prev : [...prev, role.code],
+                                )
+                              }
+                              className="animate-in fade-in-0 zoom-in-95 rounded-2xl border border-border/70 bg-white px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:border-teal-400 hover:bg-teal-50/70 dark:bg-zinc-900 dark:hover:bg-teal-950/40"
+                            >
+                              {role.label}
+                            </button>
+                          ))}
+                        {roleMaster.every((role) => roles.includes(role.code)) && (
+                          <p className="text-sm text-muted-foreground">All roles assigned</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-teal-200/70 bg-teal-50/50 p-4 dark:border-teal-900 dark:bg-teal-950/30">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-800 dark:text-teal-200">
+                        Assigned Roles
+                      </p>
+                      <div className="mt-3 flex min-h-[120px] flex-wrap content-start gap-2">
+                        {roles.map((roleCode) => (
+                          <button
+                            key={roleCode}
+                            type="button"
+                            onClick={() =>
+                              setRoles((prev) => prev.filter((r) => r !== roleCode))
+                            }
+                            className="animate-in fade-in-0 zoom-in-95 rounded-2xl border border-teal-500 bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-teal-600/20 transition-all hover:bg-teal-700"
+                            title="Click to remove"
+                          >
+                            {getEcmRoleLabel(roleCode)}
+                          </button>
+                        ))}
+                        {roles.length === 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            Click a role on the left to assign
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-5 rounded-2xl border border-border/60 bg-white/70 p-4 dark:bg-zinc-900/40">
+
+                  <div className="mt-4 rounded-2xl border border-border/60 bg-white/70 p-4 dark:bg-zinc-900/40">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      Selected Roles
+                      Assigned Roles
                     </p>
                     {roles.length === 0 ? (
                       <p className="mt-2 text-sm text-muted-foreground">None selected yet</p>
                     ) : (
                       <ul className="mt-2 space-y-1.5">
                         {roles.map((role) => (
-                          <li key={role} className="flex items-center gap-2 text-sm font-medium">
+                          <li
+                            key={role}
+                            className="flex items-center gap-2 text-sm font-medium animate-in fade-in-0 slide-in-from-left-1"
+                          >
                             <Check className="h-4 w-4 text-teal-600" />
                             {getEcmRoleLabel(role)}
                           </li>

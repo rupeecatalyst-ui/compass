@@ -5,7 +5,7 @@
 
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 import type { EcmMasterDomain } from "./masters";
-import type { EcmRoleWorkspaceTabId } from "./lifecycle";
+import { getEcmRoleLabel, type EcmRoleWorkspaceTabId } from "./lifecycle";
 
 export type EcmFieldControl = "text" | "master" | "number" | "textarea";
 
@@ -565,4 +565,54 @@ export function isEcmRoleMirComplete(
   values: Record<string, string>,
 ): boolean {
   return getVisibleMirFields(roleCode).every((field) => Boolean(values[field.key]?.trim()));
+}
+
+export type EcmRoleProgressStatus = "not_started" | "in_progress" | "complete";
+
+/** MIR-based role completion (0–100). */
+export function getEcmRoleCompletionPct(
+  roleCode: EcmContactRole,
+  values: Record<string, string>,
+): number {
+  const mir = getVisibleMirFields(roleCode);
+  if (mir.length === 0) return 100;
+  const filled = mir.filter((field) => Boolean(values[field.key]?.trim())).length;
+  return Math.round((filled / mir.length) * 100);
+}
+
+export function getEcmRoleProgressStatus(pct: number): EcmRoleProgressStatus {
+  if (pct <= 0) return "not_started";
+  if (pct >= 100) return "complete";
+  return "in_progress";
+}
+
+export function getEcmRoleStatusLabel(status: EcmRoleProgressStatus): string {
+  if (status === "complete") return "Complete";
+  if (status === "in_progress") return "In Progress";
+  return "Not Started";
+}
+
+/** Dashboard next-action label — switches to business journey when MIR is 100%. */
+export function getEcmRoleDashboardActionLabel(
+  roleCode: EcmContactRole,
+  values: Record<string, string>,
+): string {
+  const label = getEcmRoleLabel(roleCode);
+  const pct = getEcmRoleCompletionPct(roleCode, values);
+  if (pct <= 0) return `Configure ${label}`;
+  if (pct < 100) return `Continue ${label} Profile`;
+  const action = getEcmRoleWorkspaceTemplate(roleCode)?.businessActions.find((a) => a.enabled);
+  return action?.label?.replace(/^\+\s*/, "") ?? `Continue ${label}`;
+}
+
+/** Overall Contact Readiness across assigned roles (identity assumed established). */
+export function getEcmContactReadinessPct(
+  assignedRoles: EcmContactRole[],
+  roleProfiles: Partial<Record<EcmContactRole, Record<string, string>>> | undefined,
+): number {
+  if (assignedRoles.length === 0) return 100;
+  const sum = assignedRoles.reduce((acc, role) => {
+    return acc + getEcmRoleCompletionPct(role, roleProfiles?.[role] ?? {});
+  }, 0);
+  return Math.round(sum / assignedRoles.length);
 }

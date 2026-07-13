@@ -187,7 +187,7 @@ function ContactRegistryInner() {
     if (found) {
       setWorkspaceMode("edit");
       setWorkspaceContact(found);
-      setWorkspaceTab("identity");
+      setWorkspaceTab("dashboard");
       setWorkspaceOpen(true);
     }
   }, [searchParams]);
@@ -196,7 +196,7 @@ function ContactRegistryInner() {
     setWizardOpen(true);
   };
 
-  const openContact = (contact: EcmContact, tab = "identity") => {
+  const openContact = (contact: EcmContact, tab = "dashboard") => {
     setWorkspaceMode("edit");
     setWorkspaceContact(contact);
     setWorkspaceTab(tab);
@@ -207,13 +207,13 @@ function ContactRegistryInner() {
     setWizardOpen(false);
     setHighlightId(contact.id);
     setTick((t) => t + 1);
-    openContact(contact, "identity");
+    openContact(contact, "dashboard");
   };
 
   const onWizardOpenExisting = (contact: EcmContact) => {
     setWizardOpen(false);
     setHighlightId(contact.id);
-    openContact(contact, "identity");
+    openContact(contact, "dashboard");
   };
 
   const onWorkspaceSaved = (contact: EcmContact) => {
