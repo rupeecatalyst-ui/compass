@@ -8,9 +8,11 @@ export { recordEcmAudit } from "./audit-integration";
 export { computeEcmContactScore } from "./contact-score";
 export {
   archiveEcmContact,
+  findEcmContactByMobile,
   getEcmContactAssignedRoles,
   listEcmContacts,
   normalizeEcmAssignedRoles,
+  normalizeEcmMobile,
   promptEcmMissingEmail,
   queryEcmContacts,
   registerEcmContact,
@@ -19,6 +21,7 @@ export {
   updateEcmContact,
   updateEcmContactEmails,
 } from "./contact-registry";
+export { normalizePersonName } from "./name-normalize";
 export { runEcmFoundationValidation } from "./foundation-validation";
 export { getEcmFrameworkVersion, getEcmRegistrySnapshot } from "./registry-snapshot";
 export { validateEcmContact } from "./validation-engine";

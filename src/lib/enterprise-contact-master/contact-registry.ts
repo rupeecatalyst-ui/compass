@@ -55,7 +55,9 @@ export type EcmContactRegisterInput = {
   pan?: string;
   aadhaar?: string;
   dateOfBirth?: string;
+  employmentType?: string;
   roles?: EcmContactRole[];
+  roleProfiles?: Partial<Record<EcmContactRole, Record<string, string>>>;
   primaryRole?: EcmContactRole;
   additionalRoles?: EcmContactRole[];
   ownerName?: string;
@@ -87,6 +89,8 @@ export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
     pan: input.pan?.trim() || undefined,
     aadhaar: input.aadhaar?.trim() || undefined,
     dateOfBirth: input.dateOfBirth?.trim() || undefined,
+    employmentType: input.employmentType?.trim() || undefined,
+    roleProfiles: input.roleProfiles,
     ...roleFields,
     id: crypto.randomUUID(),
     enabled: true,
@@ -117,6 +121,16 @@ export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
  * SSOT resolver: find by primary mobile (or id) or create.
  * Other modules must call this before attaching person roles.
  */
+export function normalizeEcmMobile(mobile: string): string {
+  return mobile.replace(/\D/g, "");
+}
+
+export function findEcmContactByMobile(mobile: string): EcmContact | undefined {
+  const digits = normalizeEcmMobile(mobile);
+  if (!digits) return undefined;
+  return listEcmContacts().find((c) => normalizeEcmMobile(c.mobilePrimary) === digits);
+}
+
 export function resolveOrCreateEcmContact(
   input: EcmContactRegisterInput & { id?: string },
 ): { contact: EcmContact; created: boolean } {
@@ -164,6 +178,7 @@ export function updateEcmContact(
       | "pan"
       | "aadhaar"
       | "dateOfBirth"
+      | "employmentType"
       | "roles"
       | "ownerName"
       | "ownerId"

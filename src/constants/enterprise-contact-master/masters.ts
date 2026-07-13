@@ -109,9 +109,8 @@ export const ECM_MASTER_CATALOGS: Record<EcmMasterDomain, readonly EcmMasterOpti
   ],
   employment_type: [
     { id: "salaried", label: "Salaried" },
-    { id: "self-employed", label: "Self Employed" },
-    { id: "business", label: "Business" },
-    { id: "professional", label: "Professional" },
+    { id: "self-employed", label: "Self-Employed" },
+    { id: "others", label: "Others" },
   ],
   loan_purpose: [
     { id: "purchase", label: "Home Purchase" },

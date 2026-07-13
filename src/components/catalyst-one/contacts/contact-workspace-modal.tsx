@@ -505,9 +505,15 @@ export function ContactWorkspaceModal({
         changed = true;
       }
     }
-    if (roleCode === "customer" && !next.city && city) {
-      next.city = city;
-      changed = true;
+    if (roleCode === "customer") {
+      if (!next.city && city) {
+        next.city = city;
+        changed = true;
+      }
+      if (!next.employmentType && active?.employmentType) {
+        next.employmentType = active.employmentType;
+        changed = true;
+      }
     }
     if (changed) {
       setRoleProfiles((prev) => ({ ...prev, [roleCode]: next }));

@@ -32,6 +32,8 @@ export interface EcmContact {
   pan?: string;
   aadhaar?: string;
   dateOfBirth?: string;
+  /** Identity employment classification (captured at quick create) */
+  employmentType?: string;
   /** @deprecated Prefer `roles` — kept in sync as roles.slice(1) */
   additionalRoles: EcmContactRole[];
   /** Unlimited assigned roles from Role Master (SSOT for role assignment) */

@@ -20,6 +20,7 @@ import { getEcmRoleLabel } from "@/constants/enterprise-contact-master";
 import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
 import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-role-chips";
 import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
+import { QuickContactCreationWizard } from "@/components/catalyst-one/contacts/quick-contact-creation-wizard";
 import {
   EnterpriseDataGrid,
   type EnterpriseGridColumnDef,
@@ -151,9 +152,10 @@ function ContactRegistryInner() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [workspaceMode, setWorkspaceMode] = useState<"create" | "edit">("create");
+  const [workspaceMode, setWorkspaceMode] = useState<"create" | "edit">("edit");
   const [workspaceContact, setWorkspaceContact] = useState<EcmContact | null>(null);
   const [workspaceTab, setWorkspaceTab] = useState("identity");
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
     seedEnterpriseContactsIfEmpty();
@@ -191,10 +193,7 @@ function ContactRegistryInner() {
   }, [searchParams]);
 
   const openCreate = () => {
-    setWorkspaceMode("create");
-    setWorkspaceContact(null);
-    setWorkspaceTab("identity");
-    setWorkspaceOpen(true);
+    setWizardOpen(true);
   };
 
   const openContact = (contact: EcmContact, tab = "identity") => {
@@ -202,6 +201,19 @@ function ContactRegistryInner() {
     setWorkspaceContact(contact);
     setWorkspaceTab(tab);
     setWorkspaceOpen(true);
+  };
+
+  const onWizardCreated = (contact: EcmContact) => {
+    setWizardOpen(false);
+    setHighlightId(contact.id);
+    setTick((t) => t + 1);
+    openContact(contact, "identity");
+  };
+
+  const onWizardOpenExisting = (contact: EcmContact) => {
+    setWizardOpen(false);
+    setHighlightId(contact.id);
+    openContact(contact, "identity");
   };
 
   const onWorkspaceSaved = (contact: EcmContact) => {
@@ -540,6 +552,16 @@ function ContactRegistryInner() {
           </Button>
         </div>
       </div>
+
+      <QuickContactCreationWizard
+        open={wizardOpen}
+        actorId={user?.id ?? "ui"}
+        ownerName={[user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Platform Admin"}
+        canContinueDespiteDuplicate={user?.role === ROLES.SUPER_ADMIN}
+        onOpenChange={setWizardOpen}
+        onCreated={onWizardCreated}
+        onOpenExisting={onWizardOpenExisting}
+      />
 
       <ContactWorkspaceModal
         open={workspaceOpen}
