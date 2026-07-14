@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { buildElwWorkspaceHref, normalizeLenderId } from "@/constants/enterprise-lender-workspace";
 
 type EntityType = "customer" | "loan" | "lender" | "company" | "task" | "document";
 
@@ -20,7 +21,10 @@ function hrefFor(type: EntityType, id: string): string {
     case "loan":
       return `/pipeline?file=${id}`;
     case "lender":
-      return `/lenders?lender=${encodeURIComponent(id)}`;
+      return buildElwWorkspaceHref(normalizeLenderId(id), {
+        from: "search",
+        returnTo: "/lenders",
+      });
     case "company":
       return `/customers?company=${encodeURIComponent(id)}`;
     case "task":

@@ -681,7 +681,7 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         id: "link_lender",
         label: "Link to Lender",
         openLabel: "Open Lender Workspace",
-        description: "Open LIFE recommendations from case context.",
+        description: "Open LIFE recommendations or a dedicated Enterprise Lender Workspace from case context.",
         requiresMirComplete: true,
         href: "/lenders",
         openHref: "/lenders",

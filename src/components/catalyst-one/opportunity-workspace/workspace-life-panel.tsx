@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { LIFE_ACTIVE_STATUS, LIFE_CONTACT_ROLES } from "@/constants/enterprise-life-engine";
+import { buildElwWorkspaceHref, normalizeLenderId } from "@/constants/enterprise-lender-workspace";
+import { ROUTES } from "@/constants/routes";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
 import {
   getLifeRegistrySnapshot,
@@ -194,6 +197,27 @@ export function WorkspaceLifePanel() {
   useEffect(() => {
     seedLifeContactsIfEmpty();
   }, []);
+
+  /** CF-LIFE-010 — hydrate selection after returning from Enterprise Lender Workspace. */
+  useEffect(() => {
+    if (!opportunityId || selectedLender) return;
+    const saved = getLifePlaceholderState(opportunityId);
+    if (!saved?.saved || !saved.draft) return;
+    const d = saved.draft;
+    setSelectedLender({
+      lenderName: d.lenderName,
+      executorName: d.executorName,
+      branchName: d.branchName,
+      reportingManagerName: d.reportingManagerName,
+      recommended: d.recommended,
+      successProbability: d.successProbability,
+      productRefs: d.productRefs,
+      businessMappingRefs: d.businessMappingRefs,
+      productCompatible: d.productCompatible,
+      eligibility: d.eligibility,
+      eligibilityNote: d.eligibilityNote,
+    });
+  }, [opportunityId, selectedLender, setSelectedLender, refreshKey]);
 
   const lifeState = useMemo(
     () => (opportunityId ? getLifePlaceholderState(opportunityId) : null),
@@ -764,18 +788,32 @@ export function WorkspaceLifePanel() {
                         </span>
                       )}
                     </div>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="mt-2 h-7 text-xs"
-                      onClick={() => {
-                        setProbFlash(true);
-                        window.setTimeout(() => setProbFlash(false), 1200);
-                        onSelectInstitution(inst, index);
-                      }}
-                    >
-                      Select Institution
-                    </Button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setProbFlash(true);
+                          window.setTimeout(() => setProbFlash(false), 1200);
+                          onSelectInstitution(inst, index);
+                        }}
+                      >
+                        Select Institution
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                        <Link
+                          href={buildElwWorkspaceHref(normalizeLenderId(inst.lenderRef), {
+                            from: "opportunity_workspace",
+                            opportunityId: opportunityId ?? undefined,
+                            returnTo: ROUTES.OPPORTUNITY_WORKSPACE,
+                            selectionMode: true,
+                          })}
+                        >
+                          Open Lender Workspace
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
                 );
               })}

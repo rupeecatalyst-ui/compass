@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Check, Star } from "lucide-react";
 import {
   getLifeFrameworkVersion,
+  getLifeRegistrySnapshot,
   recommendLifeLenderExecutives,
   seedLifeContactsIfEmpty,
 } from "@/lib/enterprise-life-engine";
@@ -16,10 +17,23 @@ import type {
 import { BusinessCompletionCard } from "@/components/catalyst-one/shared/business-completion";
 import { PageHeader } from "@/components/design-system/page-header";
 import { Button } from "@/components/ui/button";
+import { buildElwWorkspaceHref, normalizeLenderId } from "@/constants/enterprise-lender-workspace";
 import { ROUTES } from "@/constants/routes";
 import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
 import { cn } from "@/lib/utils";
 import type { LoanLenderExecution } from "@/types/catalyst-one";
+
+function resolveLenderIdFromRecommendation(row: LifeBusinessRecommendation): string {
+  const contact = getLifeRegistrySnapshot().contacts.find((c) => c.id === row.contactId);
+  if (contact?.lenderRef) return normalizeLenderId(contact.lenderRef);
+  const name = row.lenderName.toLowerCase();
+  if (name.includes("hdfc")) return "hdfc";
+  if (name.includes("icici")) return "icici";
+  if (name.includes("axis")) return "axis";
+  if (name.includes("sbi") || name.includes("state bank")) return "sbi";
+  if (name.includes("kotak")) return "kotak";
+  return normalizeLenderId(row.lenderName);
+}
 
 /**
  * LIFE · Link to Lender (CF-LIFE-001)
@@ -165,6 +179,7 @@ export function LifeLenderWorkspace() {
                       key={row.contactId}
                       row={row}
                       assigned={assignedId === row.contactId}
+                      loanFileId={loanFileId}
                       onAssign={() => handleAssign(row)}
                     />
                   ))}
@@ -199,12 +214,24 @@ export function LifeLenderWorkspace() {
 function RecommendationRow({
   row,
   assigned,
+  loanFileId,
   onAssign,
 }: {
   row: LifeBusinessRecommendation;
   assigned: boolean;
+  loanFileId?: string;
   onAssign: () => void;
 }) {
+  const lenderId = resolveLenderIdFromRecommendation(row);
+  const elwHref = buildElwWorkspaceHref(lenderId, {
+    from: "life",
+    loanFileId,
+    returnTo: loanFileId
+      ? `${ROUTES.LENDERS}?loanFileId=${encodeURIComponent(loanFileId)}`
+      : ROUTES.LENDERS,
+    selectionMode: true,
+  });
+
   return (
     <tr
       className={cn(
@@ -218,7 +245,17 @@ function RecommendationRow({
           {row.rank}
         </span>
       </td>
-      <td className="px-4 py-3 font-medium text-foreground">{row.lenderName}</td>
+      <td className="px-4 py-3 font-medium text-foreground">
+        <div className="space-y-1">
+          <p>{row.lenderName}</p>
+          <Link
+            href={elwHref}
+            className="text-[11px] font-medium text-teal-700 hover:underline dark:text-teal-300"
+          >
+            Open Lender Workspace
+          </Link>
+        </div>
+      </td>
       <td className="px-4 py-3 text-muted-foreground">{row.branchName}</td>
       <td className="px-4 py-3">
         <div>

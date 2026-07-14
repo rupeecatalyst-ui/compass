@@ -9,7 +9,7 @@ import type {
   EcgVersionDescriptor,
 } from "@/types/enterprise-interface-configuration-grants";
 
-export const ECG_FRAMEWORK_VERSION = "12.6.0-cf-chanakya-009";
+export const ECG_FRAMEWORK_VERSION = "12.7.0-cf-life-010";
 
 export const ECG_SECTION_KINDS = {
   INTERFACE: "interface",
@@ -80,7 +80,7 @@ export const ECG_DOMAIN_CATALOGUE: EcgDomainSeed[] = [
   {
     domainKey: "life",
     name: "LIFE",
-    description: "Lender executor selection and hierarchy configuration.",
+    description: "Lender executor selection, hierarchy configuration, and Enterprise Lender Workspace (ELW).",
     engineKey: "life",
   },
   {
@@ -178,7 +178,7 @@ export const ECG_ENGINE_CATALOGUE: EcgEngineSeed[] = [
   { engineKey: "eole", engineName: "Opportunity Lifecycle (EOLE)", frameworkVersion: "11.0.0", domainKey: "opportunity" },
   { engineKey: "ewoe", engineName: "Workflow Orchestration (EWOE)", frameworkVersion: "12.0.0", domainKey: "workflow" },
   { engineKey: "edie", engineName: "Document Intelligence (EDIE)", frameworkVersion: "11.0.1", domainKey: "documents" },
-  { engineKey: "life", engineName: "LIFE", frameworkVersion: "1.0.0-spr001", domainKey: "life" },
+  { engineKey: "life", engineName: "LIFE · ELW", frameworkVersion: "1.3.0-cf-life-010", domainKey: "life" },
   { engineKey: "ete", engineName: "Task Engine (ETE)", frameworkVersion: "1.0.0-spr001", domainKey: "task_engine" },
   { engineKey: "ence", engineName: "Communication (ENCE)", frameworkVersion: "1.0.0-spr001", domainKey: "communication" },
   { engineKey: "opportunity_compass", engineName: "Opportunity Compass", frameworkVersion: "11.2.0", domainKey: "compass" },

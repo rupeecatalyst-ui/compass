@@ -38,6 +38,7 @@ import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { LENDER_CASE_STAGE_LABELS, normalizeLenderCaseStage } from "@/constants/lender-pipeline";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { ROUTES } from "@/constants/routes";
+import { buildElwWorkspaceHref } from "@/constants/enterprise-lender-workspace";
 import { runWithFeedback } from "@/lib/action-feedback";
 import { isBusinessCompletionRequiredError } from "@/lib/business-completion";
 import type {
@@ -808,6 +809,45 @@ function LoanWorkspaceModalContent({
                                   }}
                                 >
                                   Link to Lender
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-lg text-xs"
+                                  onClick={() => {
+                                    void persistDraft({
+                                      successMessage: "Opening Enterprise Lender Workspace…",
+                                    }).then((ok) => {
+                                      if (ok) {
+                                        const primaryName = (
+                                          draft.lenders?.find((l) => l.isPrimary)?.lender ??
+                                          draft.lender ??
+                                          "hdfc"
+                                        ).toLowerCase();
+                                        const id = primaryName.includes("icici")
+                                          ? "icici"
+                                          : primaryName.includes("axis")
+                                            ? "axis"
+                                            : primaryName.includes("sbi") ||
+                                                primaryName.includes("state bank")
+                                              ? "sbi"
+                                              : primaryName.includes("hdfc")
+                                                ? "hdfc"
+                                                : "hdfc";
+                                        router.push(
+                                          buildElwWorkspaceHref(id, {
+                                            from: "loan_files",
+                                            loanFileId: draft.id,
+                                            returnTo: `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(draft.id)}`,
+                                            selectionMode: true,
+                                          }),
+                                        );
+                                      }
+                                    });
+                                  }}
+                                >
+                                  Open Lender Workspace
                                 </Button>
                                 <Button
                                   type="button"

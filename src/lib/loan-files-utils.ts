@@ -14,6 +14,8 @@ import {
 import { throwLoanBusinessCompletionIfNeeded } from "@/lib/business-completion";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
+import { buildElwWorkspaceHref } from "@/constants/enterprise-lender-workspace";
+import { listElwRegistryEntries } from "@/lib/enterprise-lender-workspace";
 import type { CustomerLoanStats, LoanFile } from "@/types/catalyst-one";
 
 export function getAllLoanFiles(): LoanFile[] {
@@ -40,7 +42,7 @@ export function computeCustomerLoanStats(customerId: string, files?: LoanFile[])
 
 export interface GlobalSearchResult {
   id: string;
-  type: "loan" | "customer";
+  type: "loan" | "customer" | "lender";
   title: string;
   subtitle: string;
   href: string;
@@ -93,6 +95,22 @@ export function searchGlobal(query: string, files?: LoanFile[]): GlobalSearchRes
       });
     }
   });
+
+  // CF-LIFE-010 — lender institution hits open Enterprise Lender Workspace
+  for (const entry of listElwRegistryEntries()) {
+    const hay = `${entry.name} ${entry.lenderId} ${entry.headquartersCity ?? ""}`.toLowerCase();
+    if (!hay.includes(q)) continue;
+    results.push({
+      id: entry.lenderId,
+      type: "lender",
+      title: entry.name,
+      subtitle: `Lender Workspace · ${entry.contactCount} contacts`,
+      href: buildElwWorkspaceHref(entry.lenderId, {
+        from: "search",
+        returnTo: "/lenders",
+      }),
+    });
+  }
 
   return results.slice(0, 12);
 }

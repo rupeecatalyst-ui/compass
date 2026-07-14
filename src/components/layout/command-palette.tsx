@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, FileText, Search, User } from "lucide-react";
+import { Clock, FileText, Building2, Search, User } from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -80,6 +80,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               <CommandItem key={`${result.type}-${result.id}`} onSelect={() => navigate(result.href)}>
                 {result.type === "loan" ? (
                   <FileText className="mr-2 h-4 w-4" />
+                ) : result.type === "lender" ? (
+                  <Building2 className="mr-2 h-4 w-4" />
                 ) : (
                   <User className="mr-2 h-4 w-4" />
                 )}

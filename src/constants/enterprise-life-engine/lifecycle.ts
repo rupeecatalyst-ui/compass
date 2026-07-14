@@ -1,4 +1,4 @@
-export const LIFE_FRAMEWORK_VERSION = "1.2.0-cf-chanakya-001";
+export const LIFE_FRAMEWORK_VERSION = "1.3.0-cf-life-010";
 
 export const LIFE_CONTACT_ROLES = {
   LENDER_EXECUTOR: "lender_executor",

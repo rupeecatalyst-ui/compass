@@ -3,6 +3,7 @@
  */
 
 import { ROUTES } from "@/constants/routes";
+import { buildElwWorkspaceHref } from "@/constants/enterprise-lender-workspace";
 import {
   dashboardTasks,
   executiveKpis,
@@ -101,8 +102,11 @@ export function deriveChanakyaBriefingDashboard(input: {
       headline: "HDFC is leading your lender race this week.",
       insight: "Login WIP on 4 files with HDFC; Axis and ICICI cases are awaiting banker acknowledgment.",
       reason: "Lender execution data shows HDFC with highest momentum — protect the primary path first.",
-      actionLabel: "Open Lender Pipeline",
-      actionHref: ROUTES.LENDERS,
+      actionLabel: "Open Lender Workspace",
+      actionHref: buildElwWorkspaceHref("hdfc", {
+        from: "dashboard",
+        returnTo: ROUTES.DASHBOARD,
+      }),
     },
     {
       id: "business_health",
