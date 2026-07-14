@@ -19,6 +19,7 @@ import {
   Package,
   Boxes,
   BookMarked,
+  MessageSquareHeart,
   MessagesSquare,
   Contact,
   Compass,
@@ -141,6 +142,11 @@ export const enterpriseAdministrationNavigation: NavGroup = {
       title: "Foundation Libraries",
       href: ROUTES.ADMIN_FOUNDATION_LIBRARIES,
       icon: BookMarked,
+    },
+    {
+      title: "Universal Guided Journey",
+      href: ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY,
+      icon: MessageSquareHeart,
     },
     {
       title: "Credit & Risk Engine",

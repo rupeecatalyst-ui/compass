@@ -83,6 +83,7 @@ export const ROUTES = {
   ADMIN_FOUNDATION_LIBRARIES: "/admin/foundation-libraries",
   ADMIN_FOUNDATION_LIBRARIES_REGISTRY: "/admin/foundation-libraries/registry",
   ADMIN_FOUNDATION_LIBRARIES_ENTRIES: "/admin/foundation-libraries/entries",
+  ADMIN_UNIVERSAL_GUIDED_JOURNEY: "/admin/universal-guided-journey",
 } as const;
 
 export const PUBLIC_ROUTES = [
@@ -171,4 +172,5 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_FOUNDATION_LIBRARIES,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_REGISTRY,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_ENTRIES,
+  ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY,
 ] as const;

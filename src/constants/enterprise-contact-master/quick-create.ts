@@ -1,6 +1,7 @@
 /**
- * Quick Contact Creation Wizard — configuration (independent of Contact Workspace UI).
+ * Quick Contact Creation Wizard — step ids (aligned with UGJ contact_creation).
  * Employment options are sourced from the Employment Type master seed (CF-CON-035).
+ * CF-CHANAKYA-008: conversational UX is driven by Universal Guided Journey.
  */
 
 import { listEcmMasterOptions } from "./masters";

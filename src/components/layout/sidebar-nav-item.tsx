@@ -13,7 +13,7 @@ import { ROUTES } from "@/constants/routes";
 
 function isNavActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
-  if (href === "/dashboard" || href === "/organization" || href === ROUTES.ADMIN_CREDIT_RISK_ENGINE || href === ROUTES.ADMIN_ARCHITECTURE || href === ROUTES.ADMIN_WORKFLOW_ENGINE || href === ROUTES.ADMIN_PRODUCT_LIBRARY || href === ROUTES.ADMIN_ENTERPRISE_ASSETS || href === ROUTES.ADMIN_FOUNDATION_LIBRARIES) return false;
+  if (href === "/dashboard" || href === "/organization" || href === ROUTES.ADMIN_CREDIT_RISK_ENGINE || href === ROUTES.ADMIN_ARCHITECTURE || href === ROUTES.ADMIN_WORKFLOW_ENGINE || href === ROUTES.ADMIN_PRODUCT_LIBRARY || href === ROUTES.ADMIN_ENTERPRISE_ASSETS || href === ROUTES.ADMIN_FOUNDATION_LIBRARIES || href === ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY) return false;
   return pathname.startsWith(href.split("?")[0]!);
 }
 

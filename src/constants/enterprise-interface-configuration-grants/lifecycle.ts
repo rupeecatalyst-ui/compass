@@ -9,7 +9,7 @@ import type {
   EcgVersionDescriptor,
 } from "@/types/enterprise-interface-configuration-grants";
 
-export const ECG_FRAMEWORK_VERSION = "12.4.0-cf-efl-001";
+export const ECG_FRAMEWORK_VERSION = "12.5.0-cf-chanakya-008";
 
 export const ECG_SECTION_KINDS = {
   INTERFACE: "interface",
@@ -117,7 +117,7 @@ export const ECG_DOMAIN_CATALOGUE: EcgDomainSeed[] = [
     domainKey: "chanakya",
     name: "CHANAKYA",
     description:
-      "Advisory insight rules, Greeting Library, Closed Loop Business Coaching, Intelligent Stage Coaching, and CHANAKYA Briefing Dashboard — structured responses for learning, advisory only (no autonomous automation).",
+      "Advisory insight rules, Greeting Library, Closed Loop Business Coaching, Intelligent Stage Coaching, CHANAKYA Briefing Dashboard, and Universal Guided Journey — structured responses for learning, advisory only (no autonomous automation).",
     engineKey: "chanakya",
   },
   {
@@ -186,7 +186,7 @@ export const ECG_ENGINE_CATALOGUE: EcgEngineSeed[] = [
   { engineKey: "ecm", engineName: "Contact Master (ECM)", frameworkVersion: "1.0.0-spr001", domainKey: "contact_master" },
   { engineKey: "edc", engineName: "Dialogue Center (EDC)", frameworkVersion: "1.0.0-spr001", domainKey: "opportunity" },
   { engineKey: "platform_modes", engineName: "Platform Modes", frameworkVersion: "1.0.0-spr001", domainKey: "workflow" },
-  { engineKey: "chanakya", engineName: "CHANAKYA Advisory", frameworkVersion: "12.3.0-cf-chanakya-006", domainKey: "chanakya" },
+  { engineKey: "chanakya", engineName: "CHANAKYA Advisory", frameworkVersion: "12.5.0-cf-chanakya-008", domainKey: "chanakya" },
   { engineKey: "efl", engineName: "Enterprise Foundation Libraries (EFL)", frameworkVersion: "1.0.0-cf-efl-001", domainKey: "foundation_libraries" },
   { engineKey: "security_grants", engineName: "Security & Grants", frameworkVersion: "12.1.0", domainKey: "security_grants" },
   { engineKey: "ede", engineName: "Enterprise Decision Engine (EDE)", frameworkVersion: "13.0.0", domainKey: "opportunity" },
