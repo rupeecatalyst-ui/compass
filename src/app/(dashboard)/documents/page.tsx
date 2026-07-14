@@ -1,5 +1,18 @@
-import { DocumentsWorkspace } from "@/components/catalyst-one/documents/documents-workspace";
+"use client";
+
+import { Suspense } from "react";
+import { EnterpriseCreditWorkspace } from "@/components/catalyst-one/enterprise-credit-workspace";
 
 export default function DocumentsPage() {
-  return <DocumentsWorkspace />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      }
+    >
+      <EnterpriseCreditWorkspace />
+    </Suspense>
+  );
 }

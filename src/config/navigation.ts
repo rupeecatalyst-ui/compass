@@ -81,7 +81,7 @@ export const businessOperationsNavigation: NavGroup = {
     { title: "Directory", href: ROUTES.CONTACTS, icon: Contact },
     { title: "Opportunity Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE, icon: Briefcase },
     { title: "Loan Workflow", href: ROUTES.LOAN_FILES, icon: FileStack },
-    { title: "Documents", href: ROUTES.DOCUMENTS, icon: FolderOpen },
+    { title: "Credit Workspace", href: ROUTES.DOCUMENTS, icon: FolderOpen },
     { title: "Tasks", href: ROUTES.TASKS, icon: ListTodo, badge: "17" },
     { title: "Dialogue", href: ROUTES.DIALOGUE, icon: MessagesSquare },
     { title: "Lenders", href: ROUTES.LENDERS, icon: Building2 },
