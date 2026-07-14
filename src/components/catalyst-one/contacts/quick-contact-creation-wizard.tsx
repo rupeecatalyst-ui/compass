@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import {
-  ECM_QUICK_CREATE_EMPLOYMENT_OPTIONS,
   ECM_QUICK_CREATE_STEPS,
+  getEcmQuickCreateEmploymentOptions,
   getEnabledEcmRoleMaster,
   getEcmRoleLabel,
   type EcmQuickCreateEmploymentId,
@@ -299,13 +299,13 @@ export function QuickContactCreationWizard({
               {step === "employment" && (
                 <StepShell question="What is their employment type?">
                   <div className="flex flex-wrap gap-2">
-                    {ECM_QUICK_CREATE_EMPLOYMENT_OPTIONS.map((opt) => {
+                    {getEcmQuickCreateEmploymentOptions().map((opt) => {
                       const selected = employmentType === opt.id;
                       return (
                         <button
                           key={opt.id}
                           type="button"
-                          onClick={() => setEmploymentType(opt.id)}
+                          onClick={() => setEmploymentType(opt.id as EcmQuickCreateEmploymentId)}
                           className={cn(
                             "rounded-2xl border px-4 py-3 text-sm font-medium transition-all",
                             selected
@@ -403,7 +403,7 @@ export function QuickContactCreationWizard({
                     <SummaryRow
                       label="Employment"
                       value={
-                        ECM_QUICK_CREATE_EMPLOYMENT_OPTIONS.find((o) => o.id === employmentType)
+                        getEcmQuickCreateEmploymentOptions().find((o) => o.id === employmentType)
                           ?.label ?? "—"
                       }
                     />

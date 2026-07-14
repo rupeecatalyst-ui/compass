@@ -23,6 +23,7 @@ import {
   getEcmRoleWorkspaceTemplate,
   isEcmRoleMirComplete,
   listEcmMasterOptions,
+  normalizeEcmEmploymentTypeId,
   getEcmRoleCompletionPct,
   getEcmRoleProgressStatus,
   getEcmRoleStatusLabel,
@@ -432,7 +433,17 @@ export function ContactWorkspaceModal({
     inheritMetaKeys?: string[],
   ) => {
     setRoleProfiles((prev) => {
-      const current = { ...(prev[role] ?? {}), [key]: value };
+      const resolvedValue =
+        key === "employmentType"
+          ? normalizeEcmEmploymentTypeId(value) ?? value
+          : value;
+      const current = { ...(prev[role] ?? {}), [key]: resolvedValue };
+      // Clear cascading children when parent master changes (e.g. Employment → Occupation)
+      const dependents =
+        getEcmRoleWorkspaceTemplate(role)?.fields.filter((f) => f.parentFieldKey === key) ?? [];
+      for (const dep of dependents) {
+        current[dep.key] = "";
+      }
       if (option?.meta && inheritMetaKeys?.length) {
         for (const metaKey of inheritMetaKeys) {
           const metaVal = option.meta[metaKey];

@@ -1,24 +1,27 @@
-/** UX-02 — Employment type master for loan origination workbench. */
+/**
+ * UX-02 / CF-CON-035 — Employment type master for loan origination.
+ * Facade over Enterprise Contact Master seeds so loans stay aligned with ECM.
+ */
 
-export const EMPLOYMENT_TYPES = [
-  { id: "salaried", label: "Salaried" },
-  { id: "self_employed", label: "Self Employed" },
-  { id: "professional", label: "Professional" },
-  { id: "other", label: "Other" },
-] as const;
+import {
+  getEcmMasterLabel,
+  listEcmMasterOptions,
+  normalizeEcmEmploymentTypeId,
+} from "@/constants/enterprise-contact-master";
 
-export type EmploymentTypeId = (typeof EMPLOYMENT_TYPES)[number]["id"];
+export const EMPLOYMENT_TYPES = listEcmMasterOptions("employment_type").map((o) => ({
+  id: o.id,
+  label: o.label,
+}));
+
+export type EmploymentTypeId = string;
 
 export function normalizeEmploymentType(value?: string): EmploymentTypeId {
-  const v = (value ?? "").trim().toLowerCase();
-  if (v === "salaried") return "salaried";
-  if (v === "self employed" || v === "self_employed") return "self_employed";
-  if (v === "professional") return "professional";
-  return "other";
+  return normalizeEcmEmploymentTypeId(value) ?? "other";
 }
 
 export function getEmploymentTypeLabel(id: EmploymentTypeId): string {
-  return EMPLOYMENT_TYPES.find((t) => t.id === id)?.label ?? "Other";
+  return getEcmMasterLabel("employment_type", id) || "Other";
 }
 
 export function employmentTypeToLabel(id: EmploymentTypeId): string {

@@ -1,6 +1,6 @@
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 
-export const ECM_FRAMEWORK_VERSION = "1.5.4-cert-ux-density";
+export const ECM_FRAMEWORK_VERSION = "1.6.0-cf-con-035";
 
 export const ECM_CONTACT_ROLES = {
   CUSTOMER: "customer",
@@ -66,8 +66,8 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     sortOrder: 1,
     chipTone: "teal",
     roleSpecificFields: [
-      { key: "employmentType", label: "Employment Type", placeholder: "Salaried / Self-employed" },
-      { key: "occupation", label: "Occupation", placeholder: "Occupation" },
+      { key: "employmentType", label: "Employment Type", placeholder: "Salaried / Self-Employed…" },
+      { key: "occupation", label: "Profession / Occupation", placeholder: "Depends on Employment Type" },
       { key: "residentStatus", label: "Resident Status", placeholder: "Resident / NRI" },
     ],
   },

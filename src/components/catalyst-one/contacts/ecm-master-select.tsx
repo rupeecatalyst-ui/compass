@@ -44,6 +44,11 @@ export function EcmMasterSelect({
   const [open, setOpen] = useState(false);
   const options = useMemo(() => listEcmMasterOptions(domain, parentId), [domain, parentId]);
   const label = value ? getEcmMasterLabel(domain, value) || value : "";
+  const needsParent = domain === "occupation" && !parentId;
+  const emptyHint =
+    needsParent
+      ? "Select Employment Type first."
+      : "No match in master list.";
 
   return (
     <div className={cn("relative", className)}>
@@ -52,16 +57,16 @@ export function EcmMasterSelect({
         variant="outline"
         role="combobox"
         aria-expanded={open}
-        disabled={disabled}
+        disabled={disabled || needsParent}
         className="h-10 w-full justify-between rounded-xl px-3 text-sm font-normal"
         onClick={() => setOpen((o) => !o)}
       >
         <span className={cn("truncate", !label && "text-muted-foreground")}>
-          {label || placeholder}
+          {label || (needsParent ? "Select Employment Type first" : placeholder)}
         </span>
         <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
       </Button>
-      {open && (
+      {open && !needsParent && (
         <>
           <button
             type="button"
@@ -73,7 +78,7 @@ export function EcmMasterSelect({
             <Command className="bg-popover">
               <CommandInput placeholder={searchPlaceholder} className="h-9 text-sm" />
               <CommandList>
-                <CommandEmpty className="py-3 text-xs">No match in master list.</CommandEmpty>
+                <CommandEmpty className="py-3 text-xs">{emptyHint}</CommandEmpty>
                 <CommandGroup>
                   {options.map((opt) => (
                     <CommandItem

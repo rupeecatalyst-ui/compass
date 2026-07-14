@@ -74,12 +74,15 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
       },
       {
         key: "occupation",
-        label: "Occupation",
+        label: "Profession / Occupation",
         control: "master",
         masterDomain: "occupation",
+        parentFieldKey: "employmentType",
         mandatory: true,
         sortOrder: 2,
         visible: true,
+        helpText: "Options depend on Employment Type (configurable master).",
+        placeholder: "Select profession / occupation",
       },
       {
         key: "residentStatus",
