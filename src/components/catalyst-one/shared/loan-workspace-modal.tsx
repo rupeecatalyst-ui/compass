@@ -16,6 +16,7 @@ import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-par
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
 import { MissionControlWorkspace } from "@/components/catalyst-one/mission-control/mission-control-workspace";
 import { ChanakyaLenderPipelinePanel } from "@/components/catalyst-one/shared/chanakya-lender-pipeline-panel";
+import { ChanakyaClosedLoopCoachingCard } from "@/components/catalyst-one/shared/chanakya-closed-loop-coaching-card";
 import { DocumentsWorkspace } from "@/components/catalyst-one/execution/documents-workspace";
 import { TasksWorkspace } from "@/components/catalyst-one/execution/tasks-workspace";
 import {
@@ -449,6 +450,18 @@ function LoanWorkspaceModalContent({
       </div>
 
           <TabsContent value="overview" className="mt-0 space-y-8">
+            <ChanakyaClosedLoopCoachingCard
+              loan={draft}
+              saving={saving}
+              onApplyPatch={async (patch) => {
+                await persistDraft({
+                  extraPatch: patch,
+                  successMessage: "CHANAKYA coaching update saved.",
+                  loadingLabel: "Updating from CHANAKYA coaching",
+                });
+              }}
+            />
+
             <LoanWorkbenchSection title="Loan Details" description="Executive summary (read-first, edit-second).">
               <OverviewCardChrome
                 mode={overviewUi.loanDetails.mode}
