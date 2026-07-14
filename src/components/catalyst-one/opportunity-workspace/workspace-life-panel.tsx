@@ -738,13 +738,6 @@ export function WorkspaceLifePanel() {
                             {inst.eligibilityNote ? ` · ${inst.eligibilityNote}` : ""}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
-                            Recommendation score: ~{inst.successProbability ?? "—"}%
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            Supported product:{" "}
-                            {inst.productRefs.map(productDisplayLabel).join(", ") || "—"}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
                             Coverage: {inst.cities.join(", ") || "—"} · Branches:{" "}
                             {inst.branchNames.length
                               ? inst.branchNames.slice(0, 3).join(", ")
@@ -849,10 +842,11 @@ export function WorkspaceLifePanel() {
                         <p className="text-[10px] text-muted-foreground">
                           Reporting Manager: {r.reportingManagerName ?? "—"}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          Internal score: {r.recommendationScore}
-                          {index === 0 ? " · Recommended" : ""}
-                        </p>
+                        {index === 0 && (
+                          <p className="text-[10px] font-medium text-teal-700 dark:text-teal-300">
+                            Recommended
+                          </p>
+                        )}
                       </div>
                       {index === 0 && (
                         <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold uppercase text-emerald-700 dark:text-emerald-300">

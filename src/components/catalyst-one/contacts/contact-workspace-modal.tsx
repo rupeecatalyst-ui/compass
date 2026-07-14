@@ -932,10 +932,12 @@ export function ContactWorkspaceModal({
     const values = roleProfiles[roleCode] ?? {};
     const pct = getEcmRoleCompletionPct(roleCode, values);
     if (pct >= 100) {
-      const action = getEcmRoleWorkspaceTemplate(roleCode)?.businessActions.find((a) => a.enabled);
-      if (action) {
+      const actionable = getEcmRoleWorkspaceTemplate(roleCode)?.businessActions.find(
+        (a) => a.enabled && (Boolean(a.href) || a.id === "start_loan_journey"),
+      );
+      if (actionable) {
         if (active) saveRoleStep(roleCode, false);
-        handleBusinessAction(action.id, action.href);
+        handleBusinessAction(actionable.id, actionable.href);
         return;
       }
     }

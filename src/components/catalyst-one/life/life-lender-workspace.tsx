@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Check, Star } from "lucide-react";
 import {
@@ -15,7 +16,10 @@ import type {
 import { BusinessCompletionCard } from "@/components/catalyst-one/shared/business-completion";
 import { PageHeader } from "@/components/design-system/page-header";
 import { Button } from "@/components/ui/button";
+import { ROUTES } from "@/constants/routes";
+import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
 import { cn } from "@/lib/utils";
+import type { LoanLenderExecution } from "@/types/catalyst-one";
 
 /**
  * LIFE · Link to Lender (CF-LIFE-001)
@@ -28,6 +32,7 @@ export function LifeLenderWorkspace() {
 
   const [outcome, setOutcome] = useState<LifeRecommendationOutcome | null>(null);
   const [assignedId, setAssignedId] = useState<string | null>(null);
+  const [assignNotice, setAssignNotice] = useState<string | null>(null);
   const [registryCount, setRegistryCount] = useState(0);
 
   const refresh = () => {
@@ -55,12 +60,54 @@ export function LifeLenderWorkspace() {
     return "Choose a recommended lender executive to assign.";
   }, [outcome, ready]);
 
+  const handleAssign = (row: LifeBusinessRecommendation) => {
+    setAssignedId(row.contactId);
+    setAssignNotice(null);
+
+    if (!loanFileId) {
+      setAssignNotice(
+        "Executive selected. Open a Loan File and return via Link to Lender to persist the assignment.",
+      );
+      return;
+    }
+
+    try {
+      const now = new Date().toISOString();
+      const lenderCase: LoanLenderExecution = {
+        id: `life-${row.contactId}-${Date.now()}`,
+        lender: row.lenderName,
+        branch: row.branchName,
+        relationshipManager: row.executiveName,
+        status: "active",
+        caseStage: "prelogin",
+        isPrimary: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const updated = updateLoanFileInStorage(loanFileId, {
+        lenders: [lenderCase],
+        lender: row.lenderName,
+      });
+      if (updated) {
+        setAssignNotice(
+          `${row.executiveName} · ${row.lenderName} linked to loan ${updated.fileNumber}.`,
+        );
+      } else {
+        setAssignNotice("Could not find the Loan File to persist this assignment.");
+      }
+    } catch (error) {
+      // BCC / validation will surface if loan cannot save — keep context
+      setAssignNotice(
+        error instanceof Error
+          ? error.message
+          : "Could not save lender assignment. Complete missing loan details and retry.",
+      );
+    }
+  };
+
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="LIFE · Link to Lender"
-        description={subtitle}
-      />
+      <PageHeader title="LIFE · Link to Lender" description={subtitle} />
       <p className="sr-only">
         Framework {getLifeFrameworkVersion()} · registry {registryCount} contacts · engine inputs
         hidden from Relationship Managers.
@@ -90,7 +137,7 @@ export function LifeLenderWorkspace() {
               Recommended Lender Executives
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Select one executive. Internal matching criteria are applied automatically.
+              Select one executive. Matching uses case context automatically.
             </p>
           </div>
 
@@ -118,7 +165,7 @@ export function LifeLenderWorkspace() {
                       key={row.contactId}
                       row={row}
                       assigned={assignedId === row.contactId}
-                      onAssign={() => setAssignedId(row.contactId)}
+                      onAssign={() => handleAssign(row)}
                     />
                   ))}
                 </tbody>
@@ -130,12 +177,17 @@ export function LifeLenderWorkspace() {
             <div className="border-t border-border bg-teal-50/80 px-4 py-3 text-sm text-teal-900 dark:bg-teal-950/40 dark:text-teal-100">
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <Check className="h-4 w-4" />
-                Lender executive assigned for this session.
+                {assignNotice ?? "Lender executive assigned."}
               </span>
-              <span className="mt-0.5 block text-xs text-teal-800/80 dark:text-teal-200/80">
-                Assignment is recorded for certification flow. Loan Journey will persist this to the
-                Loan File when certified.
-              </span>
+              {loanFileId && (
+                <div className="mt-2">
+                  <Button asChild size="sm" variant="outline" className="h-7 rounded-md text-xs">
+                    <Link href={`${ROUTES.LOAN_FILES}?file=${encodeURIComponent(loanFileId)}`}>
+                      Open Loan File
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </section>

@@ -17,11 +17,13 @@ import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-worksp
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 
 function LoanFilesKeyboard() {
-  const { setCreateOpen, setSelectedFileId, searchInputRef } = useLoanFiles();
+  const { setCreateOpen, setSelectedFileId, selectedFileId, searchInputRef } = useLoanFiles();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // While Loan Workspace is open, Escape is owned by unsaved-changes close flow.
+        if (selectedFileId) return;
         setSelectedFileId(null);
         return;
       }
@@ -40,7 +42,7 @@ function LoanFilesKeyboard() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setCreateOpen, setSelectedFileId, searchInputRef]);
+  }, [setCreateOpen, setSelectedFileId, selectedFileId, searchInputRef]);
 
   return null;
 }

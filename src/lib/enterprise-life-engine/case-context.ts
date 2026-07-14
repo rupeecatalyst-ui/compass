@@ -144,8 +144,9 @@ export function evaluateLifeContextBlockers(context: LifeCaseContext): LifeConte
     blockers.push({
       code: "LIFE_MISSING_PROPERTY_CITY",
       title: "Cannot Recommend Lender Yet",
-      message: "Property City is required before lender recommendations can be generated.",
-      actionLabel: "Complete Property Details",
+      message:
+        "Customer / property city is required on the Loan File before lender recommendations can be generated.",
+      actionLabel: "Complete Loan Details",
       actionHref: context.loanFileId
         ? `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(context.loanFileId)}`
         : ROUTES.LOAN_FILES,

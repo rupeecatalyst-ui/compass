@@ -32,10 +32,11 @@ import {
   TRANSACTION_TYPES,
 } from "@/constants/loan-pipeline";
 import { loanManagers } from "@/data/catalyst-one/loan-files";
-import { isOccupancyApplicableToProduct } from "@/constants/occupancy-master";
+import { isOccupancyApplicableToProduct, getOccupancyLabel } from "@/constants/occupancy-master";
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { LENDER_CASE_STAGE_LABELS, normalizeLenderCaseStage } from "@/constants/lender-pipeline";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
+import { ROUTES } from "@/constants/routes";
 import { runWithFeedback } from "@/lib/action-feedback";
 import { isBusinessCompletionRequiredError } from "@/lib/business-completion";
 import type {
@@ -43,6 +44,7 @@ import type {
   BusinessCompletionValues,
 } from "@/types/business-completion";
 import { BusinessCompletionDialog } from "@/components/catalyst-one/shared/business-completion";
+import { PropertyInformationCard } from "@/components/catalyst-one/shared/property-information-card";
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage, buildStageChangePatch, buildSubStageChangePatch } from "@/lib/loan-files-utils";
@@ -63,6 +65,9 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import type { PropertyType } from "@/constants/loan-stage-master";
+import type { OccupancyMasterEntry } from "@/constants/occupancy-master";
 import type { LoanParticipant } from "@/types/loan-participant";
 import type {
   LendingType,
@@ -139,11 +144,13 @@ function LoanWorkspaceModalContent({
   const [savedSnapshot, setSavedSnapshot] = useState<LoanFile>(() => ({ ...file }));
   const [overviewUi, setOverviewUi] = useState(() => ({
     loanDetails: { collapsed: false, mode: "view" as "view" | "edit" },
+    propertyInfo: { collapsed: false, mode: "view" as "view" | "edit" },
     participants: { collapsed: false, mode: "view" as "view" | "edit" },
     source: { collapsed: false, mode: "view" as "view" | "edit" },
     lenderSummary: { collapsed: false, mode: "view" as "view" | "edit" },
   }));
   const stickyChromeRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const [completionOpen, setCompletionOpen] = useState(false);
   const [completionRequest, setCompletionRequest] = useState<BusinessCompletionRequest | null>(
     null,
@@ -166,6 +173,7 @@ function LoanWorkspaceModalContent({
       setLenderAddOpen(false);
       setOverviewUi({
         loanDetails: { collapsed: false, mode: "view" },
+        propertyInfo: { collapsed: false, mode: "view" },
         participants: { collapsed: false, mode: "view" },
         source: { collapsed: false, mode: "view" },
         lenderSummary: { collapsed: false, mode: "view" },
@@ -645,6 +653,61 @@ function LoanWorkspaceModalContent({
               )}
             </LoanWorkbenchSection>
 
+            {isProductSecured(draft.loanProduct) && (
+              <LoanWorkbenchSection
+                title="Property Information"
+                description="Required for secured products — complete once, reuse across the journey."
+              >
+                <OverviewCardChrome
+                  mode={overviewUi.propertyInfo.mode}
+                  collapsed={overviewUi.propertyInfo.collapsed}
+                  onCollapse={() => toggleOverviewCardCollapsed("propertyInfo")}
+                  onEdit={() => setOverviewCardMode("propertyInfo", "edit")}
+                  onCancel={() => cancelEdits("propertyInfo")}
+                  onSave={() => void saveEdits("propertyInfo", "Property information updated.")}
+                />
+                {!overviewUi.propertyInfo.collapsed && (
+                  <>
+                    {overviewUi.propertyInfo.mode === "view" ? (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <SummaryItem label="Property Type" value={draft.propertyType || "—"} />
+                        <SummaryItem
+                          label="Property Occupancy"
+                          value={getOccupancyLabel(draft.occupancyId) || "—"}
+                        />
+                        <SummaryItem
+                          label="Approx. Property Value"
+                          value={
+                            draft.approxPropertyValue
+                              ? formatINR(draft.approxPropertyValue)
+                              : "—"
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <PropertyInformationCard
+                        loanProduct={draft.loanProduct}
+                        values={{
+                          propertyType: draft.propertyType,
+                          occupancyId: draft.occupancyId,
+                          approxPropertyValue: draft.approxPropertyValue,
+                        }}
+                        onPropertyTypeChange={(type: PropertyType) =>
+                          patch({ propertyType: type })
+                        }
+                        onOccupancyChange={(entry: OccupancyMasterEntry) =>
+                          patch({ occupancyId: entry.id })
+                        }
+                        onApproxPropertyValueChange={(value) =>
+                          patch({ approxPropertyValue: value })
+                        }
+                      />
+                    )}
+                  </>
+                )}
+              </LoanWorkbenchSection>
+            )}
+
             <LoanWorkbenchSection
               title="Lender Pipeline Summary"
               description="Executive summary (not the Kanban)."
@@ -707,8 +770,40 @@ function LoanWorkspaceModalContent({
                             />
                           ))}
                           {active.length === 0 && (
-                            <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4 text-center text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
-                              No active lender cases yet. Add one from the Lender Pipeline tab.
+                            <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4 text-center sm:col-span-2 lg:col-span-3">
+                              <p className="text-xs text-muted-foreground">
+                                No lender linked yet. Recommend executives from case context — no
+                                manual engine filters.
+                              </p>
+                              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-8 rounded-lg text-xs"
+                                  onClick={() => {
+                                    void persistDraft({
+                                      successMessage: "Loan saved. Opening lender recommendations…",
+                                    }).then((ok) => {
+                                      if (ok) {
+                                        router.push(
+                                          `${ROUTES.LENDERS}?loanFileId=${encodeURIComponent(draft.id)}`,
+                                        );
+                                      }
+                                    });
+                                  }}
+                                >
+                                  Link to Lender
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-lg text-xs"
+                                  onClick={() => setActiveTab("lenders")}
+                                >
+                                  Open Lender Pipeline
+                                </Button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -912,7 +1007,13 @@ function LoanWorkspaceModalContent({
             transactionType: draft.transactionType,
           }}
           saving={saving}
-          onOpenChange={setCompletionOpen}
+          onOpenChange={(open) => {
+            setCompletionOpen(open);
+            if (!open) {
+              pendingPersistRef.current = null;
+              setCompletionRequest(null);
+            }
+          }}
           onSaveAndContinue={handleCompletionSaveAndContinue}
         />
       </>
@@ -946,7 +1047,13 @@ function LoanWorkspaceModalContent({
           transactionType: draft.transactionType,
         }}
         saving={saving}
-        onOpenChange={setCompletionOpen}
+        onOpenChange={(open) => {
+          setCompletionOpen(open);
+          if (!open) {
+            pendingPersistRef.current = null;
+            setCompletionRequest(null);
+          }
+        }}
         onSaveAndContinue={handleCompletionSaveAndContinue}
       />
     </>

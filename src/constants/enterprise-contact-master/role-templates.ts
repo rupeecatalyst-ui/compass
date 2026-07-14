@@ -586,8 +586,11 @@ export function getEcmRoleDashboardActionLabel(
   const pct = getEcmRoleCompletionPct(roleCode, values);
   if (pct <= 0) return `Configure ${label}`;
   if (pct < 100) return `Continue ${label} Profile`;
-  const action = getEcmRoleWorkspaceTemplate(roleCode)?.businessActions.find((a) => a.enabled);
-  return action?.label?.replace(/^\+\s*/, "") ?? `Continue ${label}`;
+  const actionable = getEcmRoleWorkspaceTemplate(roleCode)?.businessActions.find(
+    (a) => a.enabled && (Boolean(a.href) || a.id === "start_loan_journey"),
+  );
+  if (actionable) return actionable.label.replace(/^\+\s*/, "");
+  return `Open ${label} Workspace`;
 }
 
 /** Overall Contact Readiness across assigned roles (identity assumed established). */
