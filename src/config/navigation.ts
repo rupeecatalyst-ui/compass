@@ -78,7 +78,7 @@ export const businessOperationsNavigation: NavGroup = {
   title: "Business Operations",
   items: [
     { title: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
-    { title: "Contacts", href: ROUTES.CONTACTS, icon: Contact },
+    { title: "Directory", href: ROUTES.CONTACTS, icon: Contact },
     { title: "Opportunity Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE, icon: Briefcase },
     { title: "Loan Workflow", href: ROUTES.LOAN_FILES, icon: FileStack },
     { title: "Documents", href: ROUTES.DOCUMENTS, icon: FolderOpen },
@@ -234,19 +234,19 @@ export const allNavigationGroups: NavGroup[] = [
 
 export const recentPages = [
   { title: "Dashboard", href: ROUTES.DASHBOARD },
-  { title: "Contacts", href: ROUTES.CONTACTS },
+  { title: "Directory", href: ROUTES.CONTACTS },
   { title: "Opportunity Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE },
   { title: "Loan Workflow", href: ROUTES.LOAN_FILES },
   { title: "Tasks", href: ROUTES.TASKS },
 ];
 
 export const favoritePages = [
-  { title: "Contacts", href: ROUTES.CONTACTS },
+  { title: "Directory", href: ROUTES.CONTACTS },
   { title: "Loan Workflow", href: ROUTES.LOAN_FILES },
 ];
 
 export const pinnedPages = [
-  { title: "Contacts", href: ROUTES.CONTACTS, icon: Contact },
+  { title: "Directory", href: ROUTES.CONTACTS, icon: Contact },
   { title: "Loan Workflow", href: ROUTES.LOAN_FILES, icon: FileStack },
 ];
 

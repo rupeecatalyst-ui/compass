@@ -27,7 +27,9 @@ export type EcmMasterDomain =
   | "risk_appetite"
   | "investment_horizon"
   | "channel_type"
-  | "specialization";
+  | "specialization"
+  | "constitution"
+  | "nature_of_business";
 
 export interface EcmMasterOption {
   id: string;
@@ -252,6 +254,27 @@ export const ECM_MASTER_CATALOGS: Record<EcmMasterDomain, readonly EcmMasterOpti
     { id: "real-estate", label: "Real Estate" },
     { id: "healthcare", label: "Healthcare" },
     { id: "trading", label: "Trading / Distribution" },
+    { id: "other", label: "Other" },
+  ],
+  constitution: [
+    { id: "private_limited", label: "Private Limited" },
+    { id: "public_limited", label: "Public Limited" },
+    { id: "llp", label: "LLP" },
+    { id: "partnership", label: "Partnership" },
+    { id: "proprietorship", label: "Proprietorship" },
+    { id: "opc", label: "One Person Company" },
+    { id: "other", label: "Other" },
+  ],
+  nature_of_business: [
+    { id: "manufacturing", label: "Manufacturing" },
+    { id: "trading", label: "Trading" },
+    { id: "services", label: "Services" },
+    { id: "real-estate-dev", label: "Real Estate Development" },
+    { id: "construction", label: "Construction" },
+    { id: "fintech", label: "Fintech / NBFC" },
+    { id: "consulting", label: "Consulting" },
+    { id: "export-import", label: "Export / Import" },
+    { id: "retail", label: "Retail" },
     { id: "other", label: "Other" },
   ],
   relationship_manager: [

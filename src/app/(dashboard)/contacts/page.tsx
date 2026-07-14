@@ -1,5 +1,5 @@
-import { ContactRegistryWorkspace } from "@/components/catalyst-one/contacts/contact-registry-workspace";
+import { DirectoryWorkspace } from "@/components/catalyst-one/directory/directory-workspace";
 
-export default function ContactsPage() {
-  return <ContactRegistryWorkspace />;
+export default function DirectoryPage() {
+  return <DirectoryWorkspace />;
 }
