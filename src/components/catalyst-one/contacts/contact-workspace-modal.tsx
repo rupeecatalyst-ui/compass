@@ -1481,7 +1481,6 @@ export function ContactWorkspaceModal({
                                             userFirstName={advisorFirstName}
                                             roleLabel={roleLabel}
                                             completionPct={pct}
-                                            explanation={journeyAction.reason}
                                             journeyLabel={journeyAction.label}
                                             completeProfileLabel={journeyAction.guideCtaLabel}
                                             onCompleteProfile={() =>

@@ -890,6 +890,7 @@ export function getEcmBusinessJourneyDashAction(
   const mirComplete = isEcmRoleMirComplete(roleCode, values);
   const profileJourney = Boolean(values[ECM_ACTIVE_JOURNEY_PROFILE_KEY]?.trim());
   const hasActiveJourney = Boolean(options?.hasActiveJourney || profileJourney);
+  const journeyName = extractBusinessJourneyName(actionable.label);
 
   if (!mirComplete) {
     return {
@@ -897,7 +898,7 @@ export function getEcmBusinessJourneyDashAction(
       label: actionable.label,
       guideCtaLabel: `Complete ${roleLabel} Profile`,
       actionId: actionable.id,
-      reason: `Finish the essential ${roleLabel} details so Chanakya can open the right business journey for this contact.`,
+      reason: buildChanakyaJourneyGuideDetail(roleCode, journeyName),
     };
   }
 
@@ -917,6 +918,69 @@ export function getEcmBusinessJourneyDashAction(
     actionId: actionable.id,
     href: actionable.href,
     openHref: actionable.openHref ?? actionable.href,
+  };
+}
+
+/** CF-CHANAKYA-004 — journey name without Start/Open prefix. */
+export function extractBusinessJourneyName(journeyLabel: string): string {
+  return journeyLabel.replace(/^(Start|Open)\s+/i, "").trim() || "Business Journey";
+}
+
+/** CF-CHANAKYA-004 — mentor copy while MIR is incomplete (never instructional/blocking). */
+export function buildChanakyaJourneyGuideDetail(
+  roleCode: EcmContactRole,
+  journeyName: string,
+): string {
+  const roleDetail = ROLE_JOURNEY_DETAIL_PHRASE[roleCode] ?? "profile";
+  return `I need a few more ${roleDetail} details before I can begin the ${journeyName}.`;
+}
+
+const ROLE_JOURNEY_DETAIL_PHRASE: Partial<Record<EcmContactRole, string>> = {
+  customer: "borrower",
+  investor: "investor",
+  partner: "partner",
+  employee: "employee",
+  builder: "builder",
+  lender_employee: "banker",
+  chartered_accountant: "CA",
+};
+
+/** CF-CHANAKYA-004 — structured Business Journey guidance copy. */
+export function getChanakyaBusinessJourneyGuidanceCopy(input: {
+  firstName: string;
+  roleLabel: string;
+  journeyLabel: string;
+  mode: "guide" | "ready" | "open";
+}): {
+  headline: string;
+  subline?: string;
+  body: string;
+  progressLabel?: string;
+} {
+  const name = input.firstName.trim() || "there";
+  const journeyName = extractBusinessJourneyName(input.journeyLabel);
+
+  if (input.mode === "guide") {
+    return {
+      headline: `Hi ${name},`,
+      subline: "We're almost ready.",
+      body: `I need a few more ${input.roleLabel.toLowerCase()} details before I can begin the ${journeyName}.`,
+      progressLabel: "Progress",
+    };
+  }
+
+  if (input.mode === "ready") {
+    return {
+      headline: `Great work ${name}.`,
+      body: `Your ${input.roleLabel} Profile is complete.`,
+      subline: `You can now begin the ${journeyName}.`,
+    };
+  }
+
+  return {
+    headline: `Hi ${name},`,
+    subline: "Your journey is already underway.",
+    body: `Continue in the ${journeyName} — no need to start again.`,
   };
 }
 
