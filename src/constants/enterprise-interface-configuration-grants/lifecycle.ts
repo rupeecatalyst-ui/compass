@@ -9,7 +9,7 @@ import type {
   EcgVersionDescriptor,
 } from "@/types/enterprise-interface-configuration-grants";
 
-export const ECG_FRAMEWORK_VERSION = "12.3.0-cf-chanakya-006";
+export const ECG_FRAMEWORK_VERSION = "12.4.0-cf-efl-001";
 
 export const ECG_SECTION_KINDS = {
   INTERFACE: "interface",
@@ -145,6 +145,13 @@ export const ECG_DOMAIN_CATALOGUE: EcgDomainSeed[] = [
     engineKey: "ecm",
   },
   {
+    domainKey: "foundation_libraries",
+    name: "Foundation Libraries",
+    description:
+      "Enterprise Foundation Libraries (EFL) — Wisdom, Greeting, Occupation, Industry, Banking, Mutual Fund, Document Types, Communication Templates, Business Messages. Architecture frozen (CF-EFL-001); corpora populate post-certification.",
+    engineKey: "efl",
+  },
+  {
     domainKey: "security_grants",
     name: "Security & Grants",
     description: "Grants framework placeholder — no permission enforcement in SPR-005.",
@@ -180,6 +187,7 @@ export const ECG_ENGINE_CATALOGUE: EcgEngineSeed[] = [
   { engineKey: "edc", engineName: "Dialogue Center (EDC)", frameworkVersion: "1.0.0-spr001", domainKey: "opportunity" },
   { engineKey: "platform_modes", engineName: "Platform Modes", frameworkVersion: "1.0.0-spr001", domainKey: "workflow" },
   { engineKey: "chanakya", engineName: "CHANAKYA Advisory", frameworkVersion: "12.3.0-cf-chanakya-006", domainKey: "chanakya" },
+  { engineKey: "efl", engineName: "Enterprise Foundation Libraries (EFL)", frameworkVersion: "1.0.0-cf-efl-001", domainKey: "foundation_libraries" },
   { engineKey: "security_grants", engineName: "Security & Grants", frameworkVersion: "12.1.0", domainKey: "security_grants" },
   { engineKey: "ede", engineName: "Enterprise Decision Engine (EDE)", frameworkVersion: "13.0.0", domainKey: "opportunity" },
 ];

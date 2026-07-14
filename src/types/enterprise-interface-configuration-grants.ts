@@ -48,7 +48,8 @@ export type EcgDomainKey =
   | "opportunity"
   | "lenders"
   | "customers"
-  | "security_grants";
+  | "security_grants"
+  | "foundation_libraries";
 
 export type EcgEngineKey =
   | "eole"
@@ -64,7 +65,8 @@ export type EcgEngineKey =
   | "platform_modes"
   | "chanakya"
   | "security_grants"
-  | "ede";
+  | "ede"
+  | "efl";
 
 export interface EcgVersionDescriptor {
   major: number;

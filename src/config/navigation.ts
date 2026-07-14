@@ -18,6 +18,7 @@ import {
   GitBranch,
   Package,
   Boxes,
+  BookMarked,
   MessagesSquare,
   Contact,
   Compass,
@@ -135,6 +136,11 @@ export const enterpriseAdministrationNavigation: NavGroup = {
       title: "Enterprise Asset Library",
       href: ROUTES.ADMIN_ENTERPRISE_ASSETS,
       icon: Boxes,
+    },
+    {
+      title: "Foundation Libraries",
+      href: ROUTES.ADMIN_FOUNDATION_LIBRARIES,
+      icon: BookMarked,
     },
     {
       title: "Credit & Risk Engine",
