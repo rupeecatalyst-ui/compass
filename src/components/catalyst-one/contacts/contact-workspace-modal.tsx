@@ -408,7 +408,7 @@ export function ContactWorkspaceModal({
     setSaving(true);
     setError(null);
     try {
-      let profile = { ...(roleProfiles[roleCode] ?? {}) };
+      const profile = { ...(roleProfiles[roleCode] ?? {}) };
       // CF-CDC-002 — Employee Code is system-derived, never shown for manual entry
       if (roleCode === "employee" && !profile.employeeCode?.trim()) {
         profile.employeeCode = deriveEcmEmployeeCode(active.id);
