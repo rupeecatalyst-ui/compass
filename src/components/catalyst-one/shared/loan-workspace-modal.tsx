@@ -49,6 +49,7 @@ import { PropertyInformationCard } from "@/components/catalyst-one/shared/proper
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage, buildStageChangePatch, buildSubStageChangePatch } from "@/lib/loan-files-utils";
+import { captureChanakyaStageTransition } from "@/lib/chanakya-stage-coaching";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import {
@@ -341,6 +342,7 @@ function LoanWorkspaceModalContent({
   });
 
   const handleStageChange = (newStage: PipelineStage) => {
+    captureChanakyaStageTransition(draft, newStage);
     const workflowPatch = buildStageChangePatch(draft, newStage);
     if (!workflowPatch) return;
     void persistDraft({ workflowPatch, successMessage: "Stage updated." });

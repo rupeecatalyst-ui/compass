@@ -1,5 +1,5 @@
 /**
- * CF-CHANAKYA-003 — Derive structured coaching prompts from loan case context.
+ * CF-CHANAKYA-003 / CF-CHANAKYA-005 — Derive structured coaching prompts from loan case context.
  */
 
 import { normalizeLenderCaseStage } from "@/constants/lender-pipeline";
@@ -8,6 +8,7 @@ import type {
   ChanakyaCoachingPrompt,
   ChanakyaCoachingQuickAction,
 } from "@/types/chanakya-closed-loop-coaching";
+import { deriveChanakyaStageCoachingPrompt } from "@/lib/chanakya-stage-coaching";
 import { getLatestChanakyaCoachingResponse, rankChanakyaCoachingQuickActions } from "./response-store";
 
 const DEFAULT_QUICK_ACTIONS: ChanakyaCoachingQuickAction[] = [
@@ -61,7 +62,14 @@ function bankerHonorific(name: string): string {
  */
 export function deriveChanakyaCoachingPrompt(
   file: LoanFile,
+  options?: { firstName?: string },
 ): ChanakyaCoachingPrompt | null {
+  const firstName = options?.firstName ?? "there";
+
+  // CF-CHANAKYA-005 — Stage movement coaching takes priority after meaningful transitions.
+  const stagePrompt = deriveChanakyaStageCoachingPrompt(file, firstName);
+  if (stagePrompt) return stagePrompt;
+
   const lender = pickLenderCase(file);
   const org = organisationName(file);
 

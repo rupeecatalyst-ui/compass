@@ -6,6 +6,7 @@ import type { LoanFile, LoanLenderExecution, PipelineStage } from "@/types/catal
 import type { ChanakyaCoachingPrompt } from "@/types/chanakya-closed-loop-coaching";
 import { buildStageChangePatch } from "@/lib/loan-files-utils";
 import { normalizeLenderCaseStage } from "@/constants/lender-pipeline";
+import { markChanakyaStageTransitionCoached } from "@/lib/chanakya-stage-coaching";
 
 export function applyChanakyaCoachingYesPatch(
   file: LoanFile,
@@ -19,6 +20,10 @@ export function applyChanakyaCoachingYesPatch(
     timestamp: now,
     completed: true,
   };
+
+  if (prompt.triggerKind === "stage_movement" && prompt.meta.transitionId) {
+    markChanakyaStageTransitionCoached(prompt.meta.transitionId);
+  }
 
   let patch: Partial<LoanFile> = {
     timeline: [coachingEvent, ...file.timeline],
@@ -61,6 +66,42 @@ export function applyChanakyaCoachingYesPatch(
   }
 
   return patch;
+}
+
+export function buildChanakyaCoachingFollowUpCompletePatch(
+  file: LoanFile,
+  prompt: ChanakyaCoachingPrompt,
+): Partial<LoanFile> {
+  const now = new Date().toISOString();
+  if (prompt.triggerKind === "stage_movement" && prompt.meta.transitionId) {
+    markChanakyaStageTransitionCoached(prompt.meta.transitionId);
+  }
+
+  const tasks = [...(file.tasks ?? [])];
+  const followUpIdx = tasks.findIndex(
+    (t) =>
+      !t.completed &&
+      (t.title.toLowerCase().includes("follow up") ||
+        t.title.toLowerCase().includes("chanakya")),
+  );
+  if (followUpIdx >= 0) {
+    const task = tasks[followUpIdx]!;
+    tasks[followUpIdx] = { ...task, completed: true, status: "completed" };
+  }
+
+  return {
+    tasks,
+    timeline: [
+      {
+        id: `tl-followup-${Date.now()}`,
+        title: "CHANAKYA follow-up",
+        description: `Mark Follow-up Complete · ${prompt.question}`,
+        timestamp: now,
+        completed: true,
+      },
+      ...file.timeline,
+    ],
+  };
 }
 
 export function buildChanakyaCoachingRemindTask(prompt: ChanakyaCoachingPrompt): {

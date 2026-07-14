@@ -9,12 +9,20 @@ export type ChanakyaCoachingQuickActionId =
   | "call_banker"
   | "whatsapp"
   | "email"
-  | "remind_tomorrow";
+  | "remind_tomorrow"
+  | "mark_followup_complete";
 
 export type ChanakyaCoachingTriggerKind =
   | "lender_login_ack"
   | "pre_login_ready"
-  | "idle_lender_followup";
+  | "idle_lender_followup"
+  | "stage_movement";
+
+export interface ChanakyaCoachingCelebration {
+  headline: string;
+  body: string;
+  assessment?: string;
+}
 
 export interface ChanakyaCoachingQuickAction {
   id: ChanakyaCoachingQuickActionId;
@@ -28,6 +36,9 @@ export interface ChanakyaCoachingPrompt {
   loanFileId: string;
   /** Optional lender case this prompt is about. */
   lenderCaseId?: string;
+  /** CF-CHANAKYA-005 — celebrate meaningful stage movement before next recommendation. */
+  celebration?: ChanakyaCoachingCelebration;
+  recommendationLabel?: string;
   headlineContext: string;
   question: string;
   yesLabel?: string;
@@ -41,6 +52,10 @@ export interface ChanakyaCoachingPrompt {
     businessDays?: number;
     targetLoanStage?: string;
     targetLenderStage?: string;
+    fromStage?: string;
+    toStage?: string;
+    daysElapsed?: number;
+    transitionId?: string;
   };
 }
 

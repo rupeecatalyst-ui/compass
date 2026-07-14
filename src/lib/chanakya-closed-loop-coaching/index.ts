@@ -1,6 +1,7 @@
 export { deriveChanakyaCoachingPrompt } from "./derive-prompt";
 export {
   applyChanakyaCoachingYesPatch,
+  buildChanakyaCoachingFollowUpCompletePatch,
   buildChanakyaCoachingRemindTask,
 } from "./apply-yes";
 export {

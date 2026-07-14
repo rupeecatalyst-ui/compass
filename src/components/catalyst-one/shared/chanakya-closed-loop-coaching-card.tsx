@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { Phone, Mail, MessageCircle, Bell } from "lucide-react";
+import { Phone, Mail, MessageCircle, Bell, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
 import { useAuthContext } from "@/components/providers/auth-provider";
@@ -14,6 +14,7 @@ import type {
 } from "@/types/chanakya-closed-loop-coaching";
 import {
   applyChanakyaCoachingYesPatch,
+  buildChanakyaCoachingFollowUpCompletePatch,
   buildChanakyaCoachingRemindTask,
   deriveChanakyaCoachingPrompt,
   recordChanakyaCoachingResponse,
@@ -32,11 +33,12 @@ const ACTION_ICON: Record<ChanakyaCoachingQuickActionId, typeof Phone> = {
   whatsapp: MessageCircle,
   email: Mail,
   remind_tomorrow: Bell,
+  mark_followup_complete: CheckCircle2,
 };
 
 /**
- * CF-CHANAKYA-003 — Closed Loop Business Coaching.
- * Structured YES/NO + quick actions. Never open-ended when a structured path exists.
+ * CF-CHANAKYA-003 / CF-CHANAKYA-005 — Closed Loop + Intelligent Stage Coaching.
+ * Celebrates progress, coaches next step, learns from YES/NO responses.
  */
 export function ChanakyaClosedLoopCoachingCard({
   loan,
@@ -51,15 +53,16 @@ export function ChanakyaClosedLoopCoachingCard({
   const [dismissedId, setDismissedId] = useState<string | null>(null);
 
   const prompt = useMemo(() => {
-    const next = deriveChanakyaCoachingPrompt(loan);
+    const next = deriveChanakyaCoachingPrompt(loan, { firstName });
     if (!next || next.id === dismissedId) return null;
     return next;
-  }, [loan, dismissedId]);
+  }, [loan, dismissedId, firstName]);
 
+  const useRotatingGreeting = Boolean(prompt && !prompt.celebration);
   const greeting = useChanakyaGreeting({
     context: "guidance",
     firstName,
-    enabled: Boolean(prompt),
+    enabled: useRotatingGreeting,
     surfaceKey: prompt ? `coach:${prompt.id}` : "coach:idle",
   });
 
@@ -135,6 +138,19 @@ export function ChanakyaClosedLoopCoachingCard({
       }
       return;
     }
+    if (actionId === "mark_followup_complete") {
+      setBusy(true);
+      try {
+        const patch = buildChanakyaCoachingFollowUpCompletePatch(loan, prompt);
+        await onApplyPatch(patch);
+        feedback.taskAssigned();
+        setPhase("done");
+        setDismissedId(prompt.id);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (actionId === "remind_tomorrow") {
       setBusy(true);
       try {
@@ -182,11 +198,37 @@ export function ChanakyaClosedLoopCoachingCard({
         </div>
         <div className="min-w-0 flex-1 space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-300">
-            CHANAKYA · Business Coaching
+            CHANAKYA
+            {prompt.triggerKind === "stage_movement" ? " · Stage Coaching" : " · Business Coaching"}
           </p>
-          <p className="text-sm font-semibold tracking-tight text-foreground">{greeting.text}</p>
-          <p className="text-sm leading-relaxed text-foreground/90">{prompt.headlineContext}</p>
-          <p className="text-sm font-medium text-foreground">{prompt.question}</p>
+
+          {prompt.celebration ? (
+            <div className="space-y-1">
+              <p className="text-sm font-semibold tracking-tight text-foreground">
+                {prompt.celebration.headline}
+              </p>
+              <p className="text-sm leading-relaxed text-foreground/90">{prompt.celebration.body}</p>
+              {prompt.celebration.assessment && (
+                <p className="text-sm leading-relaxed text-foreground/80">
+                  {prompt.celebration.assessment}
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="text-sm font-semibold tracking-tight text-foreground">{greeting.text}</p>
+              <p className="text-sm leading-relaxed text-foreground/90">{prompt.headlineContext}</p>
+            </>
+          )}
+
+          <div className="space-y-1 border-t border-violet-200/40 pt-2 dark:border-violet-800/40">
+            {prompt.recommendationLabel && (
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {prompt.recommendationLabel}
+              </p>
+            )}
+            <p className="text-sm font-medium text-foreground">{prompt.question}</p>
+          </div>
 
           {phase === "ask" && (
             <div className="flex flex-wrap gap-2 pt-1">
@@ -215,7 +257,7 @@ export function ChanakyaClosedLoopCoachingCard({
           {phase === "no_actions" && (
             <div className="space-y-2 pt-1">
               <p className="text-xs text-muted-foreground">
-                Recommended next action — pick one to continue coaching.
+                Recommended follow-up — pick one to continue coaching.
               </p>
               <div className="flex flex-wrap gap-2">
                 {prompt.quickActions.map((action) => {

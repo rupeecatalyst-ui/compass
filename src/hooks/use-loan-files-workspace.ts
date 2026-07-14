@@ -11,6 +11,7 @@ import {
   exportLoanFilesCsv,
   downloadCsv,
 } from "@/lib/loan-files-utils";
+import { captureChanakyaStageTransition } from "@/lib/chanakya-stage-coaching";
 import {
   loadCustomSavedViews,
   loadLoanFiles,
@@ -120,6 +121,7 @@ export function useLoanFilesWorkspace() {
     persistFiles((prev) =>
       prev.map((f) => {
         if (f.id !== fileId) return f;
+        captureChanakyaStageTransition(f, newStage);
         const stageIndex = PIPELINE_STAGES.findIndex((s) => s.id === newStage);
         return {
           ...f,
