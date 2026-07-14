@@ -1,7 +1,11 @@
 import { toast } from "sonner";
 import { isBusinessCompletionRequiredError } from "@/lib/business-completion";
 
-/** CRC-004 — consistent user feedback for platform actions. */
+/** CRC-004 / CF-CHANAKYA-001 — consistent user feedback for platform actions. */
+
+function isBusinessGuidanceMessage(message: string): boolean {
+  return /missing|required|mandatory|incomplete|cannot continue|need .+ before/i.test(message);
+}
 
 export async function runWithFeedback<T>(
   label: string,
@@ -22,13 +26,21 @@ export async function runWithFeedback<T>(
     options?.onSuccess?.(result);
     return result;
   } catch (error) {
-    // CF-WF-001 — business completion is guidance, not a failure toast
+    // CF-WF-001 / CF-CHANAKYA-001 — business guidance is not a failure toast
     if (isBusinessCompletionRequiredError(error)) {
       toast.dismiss(toastId);
       throw error;
     }
-    const message = error instanceof Error ? error.message : "Something went wrong.";
-    toast.error(`${label} failed.`, { id: toastId, description: message });
+    const message = error instanceof Error ? error.message : "Something unexpected happened.";
+    if (isBusinessGuidanceMessage(message)) {
+      // Never frame business gaps as rejected saves — dialog/card owns the UX
+      toast.dismiss(toastId);
+      throw error;
+    }
+    toast.message("I couldn't finish that just now.", {
+      id: toastId,
+      description: message,
+    });
     throw error;
   }
 }

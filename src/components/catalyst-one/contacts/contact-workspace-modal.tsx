@@ -405,7 +405,7 @@ export function ContactWorkspaceModal({
         if (thenNext) goNext();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save contact");
+      setError(e instanceof Error ? e.message : "I couldn't save this contact just now. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -435,7 +435,7 @@ export function ContactWorkspaceModal({
       if (def) markComplete(def.workspaceTabId);
       if (thenNext) goNext();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save role details");
+      setError(e instanceof Error ? e.message : "I couldn't save these role details just now. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -853,11 +853,11 @@ export function ContactWorkspaceModal({
           )}
 
           <SectionCard
-            title="Mandatory Information"
+            title="Business Profile Details"
             description={
               isBanker
-                ? "Institution, City, Branch, Designation, Official Mobile — configurable MIR."
-                : "Minimum Information Requirement (MIR) — configurable per role."
+                ? "Institution, City, Branch, Designation, Official Mobile — asked once for this role."
+                : "Only the business details this role needs — asked once, reused across journeys."
             }
             badge={<MirStatusBadge complete={mirComplete} />}
           >
@@ -1065,7 +1065,7 @@ export function ContactWorkspaceModal({
       onSaved(updated);
       setShowAddRole(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to add role");
+      setError(e instanceof Error ? e.message : "I couldn't add that role just now. Please try again.");
     }
   };
 
@@ -1556,7 +1556,11 @@ export function ContactWorkspaceModal({
                       </div>
                       <div className="min-h-0 flex-1 overflow-y-auto p-3 text-foreground [&_.bg-card]:bg-zinc-900 [&_.bg-card]:text-zinc-100 [&_.border-border\/70]:border-zinc-800 [&_label]:text-zinc-400">
                         {identityForm(false)}
-                        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+                        {error && (
+                          <p className="mt-2 rounded-lg border border-violet-300/50 bg-violet-50/80 px-3 py-2 text-sm text-violet-950 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100">
+                            {error}
+                          </p>
+                        )}
                       </div>
                       <div className="sticky bottom-0 z-10 flex flex-wrap gap-2 border-t border-zinc-800 bg-zinc-950/95 px-3 py-2.5 backdrop-blur">
                         <Button
@@ -1601,7 +1605,11 @@ export function ContactWorkspaceModal({
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <div className="mx-auto max-w-3xl space-y-5 px-6 py-6 text-foreground">
                   {identityForm(true)}
-                  {error && <p className="text-sm text-destructive">{error}</p>}
+                  {error && (
+                    <p className="rounded-lg border border-violet-300/50 bg-violet-50/80 px-3 py-2 text-sm text-violet-950 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100">
+                      {error}
+                    </p>
+                  )}
                 </div>
                 {footerActions({
                   onSave: () => saveIdentity(false),

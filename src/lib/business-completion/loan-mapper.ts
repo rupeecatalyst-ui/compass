@@ -46,11 +46,20 @@ export function buildLoanBusinessCompletionRequest(
   file: LoanFile,
   issues: LoanValidationIssue[],
 ): BusinessCompletionRequest {
+  const count = issues.length;
+  const process = file.loanProduct?.trim() || "Loan Journey";
   return {
-    processTitle: file.loanProduct?.trim() || "Loan File",
+    processTitle: process,
     module: "loan",
-    message: "Missing fields required to continue this business process.",
-    fields: mapLoanIssuesToCompletionFields(issues),
+    message:
+      count === 1
+        ? `I need one more detail before I can continue this ${process}.`
+        : `I need a few more details before I can continue this ${process}.`,
+    fields: mapLoanIssuesToCompletionFields(issues).map((field) => ({
+      ...field,
+      // Prefer business why-text over technical rule codes in the UI
+      helpText: field.helpText?.replace(/^(is required|required|mandatory)[.:]?\s*/i, "") ?? field.helpText,
+    })),
     resumeToken: file.id,
   };
 }

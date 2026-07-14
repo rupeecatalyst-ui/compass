@@ -1,6 +1,7 @@
 /**
- * Business Completion Framework — CF-WF-001
+ * Business Completion / CHANAKYA Guidance — CF-WF-001 / CF-CHANAKYA-001
  * Reusable enterprise types for guiding users to fill only what a process needs.
+ * Never framed as technical validation failure.
  */
 
 export type BusinessCompletionControl =

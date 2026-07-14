@@ -1,2 +1,8 @@
-export { BusinessCompletionCard } from "./business-completion-card";
-export { BusinessCompletionDialog } from "./business-completion-dialog";
+export {
+  BusinessCompletionCard,
+  ChanakyaBusinessGuidanceCard,
+} from "./business-completion-card";
+export {
+  BusinessCompletionDialog,
+  ChanakyaBusinessGuidanceDialog,
+} from "./business-completion-dialog";

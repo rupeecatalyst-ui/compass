@@ -100,7 +100,7 @@ export function LifeLenderWorkspace() {
       setAssignNotice(
         error instanceof Error
           ? error.message
-          : "Could not save lender assignment. Complete missing loan details and retry.",
+          : "I need a few more loan details before I can save this lender link. Let's finish those and retry.",
       );
     }
   };

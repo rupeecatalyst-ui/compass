@@ -130,9 +130,10 @@ export function evaluateLifeContextBlockers(context: LifeCaseContext): LifeConte
   if (!context.productRef && !context.productLabel) {
     blockers.push({
       code: "LIFE_MISSING_PRODUCT",
-      title: "Cannot Recommend Lender Yet",
-      message: "Loan Product is not selected.",
-      actionLabel: "Select Loan Product",
+      title: "Let's finish the Loan Product first",
+      message:
+        "I need the loan product on this file before I can recommend the right lender executives.",
+      actionLabel: "Continue Loan Journey",
       actionHref: context.loanFileId
         ? `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(context.loanFileId)}`
         : ROUTES.LOAN_FILES,
@@ -143,10 +144,10 @@ export function evaluateLifeContextBlockers(context: LifeCaseContext): LifeConte
   if (!context.propertyCity && !context.customerCity && !context.resolvedCity) {
     blockers.push({
       code: "LIFE_MISSING_PROPERTY_CITY",
-      title: "Cannot Recommend Lender Yet",
+      title: "City helps me match lenders",
       message:
-        "Customer / property city is required on the Loan File before lender recommendations can be generated.",
-      actionLabel: "Complete Loan Details",
+        "Add the customer or property city on the Loan File so I can recommend executives in the right geography.",
+      actionLabel: "Continue Loan Journey",
       actionHref: context.loanFileId
         ? `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(context.loanFileId)}`
         : ROUTES.LOAN_FILES,
@@ -159,8 +160,9 @@ export function evaluateLifeContextBlockers(context: LifeCaseContext): LifeConte
     if (!context.productRef) {
       blockers.push({
         code: "LIFE_MISSING_LOAN_CONTEXT",
-        title: "Cannot Recommend Lender Yet",
-        message: "Open a Loan File so LIFE can recommend lender executives from case context.",
+        title: "Open a Loan Journey with me",
+        message:
+          "Start or open a Loan File so I can recommend lender executives from real case context.",
         actionLabel: "Open Loan Files",
         actionHref: ROUTES.LOAN_FILES,
         actionKind: "open_loan_files",

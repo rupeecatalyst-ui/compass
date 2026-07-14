@@ -25,7 +25,7 @@ export interface LoanValidationResult {
   valid: boolean;
   /** Human-readable messages (legacy consumers). */
   errors: string[];
-  /** Structured issues for Business Completion Cards (CF-WF-001). */
+  /** Structured issues for CHANAKYA Business Guidance Cards (CF-CHANAKYA-001). */
   issues: LoanValidationIssue[];
 }
 
@@ -36,7 +36,7 @@ function pushIssue(
   issues.push(issue);
 }
 
-/** CRC-024 — Centralized loan save validation (master-driven). */
+/** CRC-024 / CF-CHANAKYA-001 — Loan save rules (emits guidance, not rejections). */
 export function validateLoanFile(
   file: LoanFile,
   previous?: LoanFile,
@@ -48,7 +48,7 @@ export function validateLoanFile(
       code: "LOAN_MISSING_LENDING_TYPE",
       fieldKey: "lendingType",
       label: "Lending Type",
-      message: "Lending Type is required.",
+      message: "This tells me whether the journey is secured or unsecured.",
       control: "lending_type",
     });
   }
@@ -58,7 +58,7 @@ export function validateLoanFile(
       code: "LOAN_MISSING_TRANSACTION_TYPE",
       fieldKey: "transactionType",
       label: "Transaction Type",
-      message: "Transaction Type is required.",
+      message: "Fresh, balance transfer, or top-up shapes the rest of the journey.",
       control: "transaction_type",
     });
   }
@@ -68,7 +68,7 @@ export function validateLoanFile(
       code: "LOAN_MISSING_PRODUCT",
       fieldKey: "loanProduct",
       label: "Loan Product",
-      message: "Product is required.",
+      message: "The product chooses the path for underwriting and lender fit.",
       control: "loan_product",
     });
   } else if (file.lendingType) {
@@ -78,7 +78,7 @@ export function validateLoanFile(
         code: "LOAN_INVALID_PRODUCT",
         fieldKey: "loanProduct",
         label: "Loan Product",
-        message: `Product "${file.loanProduct}" is not valid for ${file.lendingType} lending.`,
+        message: `Let's pick a product that fits ${file.lendingType} lending.`,
         control: "loan_product",
       });
     }
@@ -92,7 +92,7 @@ export function validateLoanFile(
         code: "LOAN_MISSING_BT_INSTITUTION",
         fieldKey: "btInstitutionId",
         label: "BT Institution",
-        message: "BT Institution is required for Balance Transfer.",
+        message: "I need the existing lender so the balance transfer can proceed.",
         control: "bt_institution",
       });
     }
@@ -101,7 +101,7 @@ export function validateLoanFile(
         code: "LOAN_MISSING_BT_AMOUNT",
         fieldKey: "btAmount",
         label: "BT Amount",
-        message: "BT Amount is required for Balance Transfer.",
+        message: "The outstanding amount with the existing lender keeps the transfer accurate.",
         control: "bt_amount",
       });
     } else if (file.btAmount > file.requiredAmount) {
@@ -109,7 +109,7 @@ export function validateLoanFile(
         code: "LOAN_BT_AMOUNT_EXCEEDS",
         fieldKey: "btAmount",
         label: "BT Amount",
-        message: "BT Amount cannot exceed Requested Loan Amount.",
+        message: "BT Amount should stay within the requested loan amount for this journey.",
         control: "bt_amount",
       });
     }
@@ -120,7 +120,7 @@ export function validateLoanFile(
       code: "LOAN_MISSING_FINAL_AMOUNT",
       fieldKey: "finalLoanAmount",
       label: "Final Loan Amount",
-      message: "Final Loan Amount is required beyond Final Approved.",
+      message: "Once the case is finally approved, I need the final loan amount to continue.",
       control: "final_loan_amount",
     });
   }
@@ -130,7 +130,7 @@ export function validateLoanFile(
       code: "LOAN_MISSING_PROPERTY_TYPE",
       fieldKey: "propertyType",
       label: "Property Type",
-      message: "Property Type is required for secured property-backed products.",
+      message: "Property type helps me place this secured product correctly.",
       control: "property_type",
     });
   }
@@ -140,7 +140,7 @@ export function validateLoanFile(
       code: "LOAN_MISSING_PROPERTY_OCCUPANCY",
       fieldKey: "occupancyId",
       label: "Property Occupancy",
-      message: "Property Occupancy is required for secured property-backed products.",
+      message: "Occupancy tells me how the property is used — important for secured journeys.",
       control: "occupancy",
     });
   }
@@ -155,7 +155,7 @@ export function validateLoanFile(
         code: "LOAN_MISSING_FINAL_AMOUNT_STAGE",
         fieldKey: "finalLoanAmount",
         label: "Final Loan Amount",
-        message: "Final Loan Amount is required before moving beyond Final Approved.",
+        message: "I need the final loan amount before we move past Final Approved.",
         control: "final_loan_amount",
       });
     }
