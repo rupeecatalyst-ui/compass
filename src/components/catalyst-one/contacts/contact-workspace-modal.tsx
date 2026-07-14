@@ -28,10 +28,12 @@ import {
   getEcmRoleCompletionPct,
   getEcmRoleProgressStatus,
   getEcmRoleStatusLabel,
-  getEcmRoleDashboardActionLabel,
+  getEcmRoleWorkspaceDashAction,
+  getEcmBusinessJourneyDashAction,
   getEcmContactReadinessPct,
   getEnabledEcmRoleMaster,
   deriveEcmEmployeeCode,
+  ECM_ACTIVE_JOURNEY_PROFILE_KEY,
   type EcmBusinessActionId,
   type EcmConfigurableField,
   type EcmMasterOption,
@@ -51,9 +53,10 @@ import {
 import type { EcmWorkspaceTab } from "@/lib/enterprise-contact-master";
 import { createLoanFileFromInput } from "@/lib/loan-files-utils";
 import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
+import { isLoanCompleted } from "@/lib/customer-utils";
 import { ROUTES } from "@/constants/routes";
 import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
-import type { CreateLoanFileInput } from "@/types/catalyst-one";
+import type { CreateLoanFileInput, LoanFile } from "@/types/catalyst-one";
 import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-role-chips";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
 import { ReportingManagerPicker } from "@/components/catalyst-one/contacts/reporting-manager-picker";
@@ -65,6 +68,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type ContactWorkspaceMode = "create" | "edit";
@@ -557,32 +566,63 @@ export function ContactWorkspaceModal({
     };
   };
 
-  const handleBusinessAction = (actionId: EcmBusinessActionId, href?: string) => {
+  const handleBusinessAction = (
+    actionId: EcmBusinessActionId,
+    href?: string,
+    opts?: { mode?: "start" | "open"; openHref?: string; loanFileId?: string },
+  ) => {
     setActionNotice(null);
     if (actionId === "start_loan_journey") {
+      if (opts?.mode === "open") {
+        onOpenChange(false);
+        const target = opts.loanFileId
+          ? `${ROUTES.LOAN_FILES}?file=${opts.loanFileId}`
+          : opts.openHref ?? href ?? ROUTES.LOAN_FILES;
+        router.push(target);
+        return;
+      }
       setLoanDialogOpen(true);
       return;
     }
-    if (href) {
+    const navigateTo = opts?.mode === "open" ? opts.openHref ?? href : href;
+    if (navigateTo) {
       onOpenChange(false);
-      router.push(href);
+      router.push(navigateTo);
       return;
     }
     const messages: Partial<Record<EcmBusinessActionId, string>> = {
       start_investment: "Investment journey workspace will open from this contact once Investment Engine is certified.",
-      create_referral: "Referral capture is queued — partner MIR is ready for the next journey step.",
-      add_project: "Project registration will continue from Builder MIR on the Projects journey.",
+      create_referral: "Partner onboarding continues — next commercial / referral steps open from this role.",
+      add_project: "Builder project workspace is ready — project details belong to the Project Journey.",
       link_lender: "Opening lender relationship management…",
-      create_user_account: "User provisioning can continue from System Administration with this Contact SSOT.",
+      create_user_account: "Employee onboarding continues from System Administration with this Contact SSOT.",
       manage_ca_engagement: "CA engagement continues from this Contact identity.",
     };
     setActionNotice(messages[actionId] ?? "Next business step recorded.");
+  };
+
+  const markRoleJourneyStarted = (roleCode: EcmContactRole, journeyRef: string) => {
+    if (!active) return;
+    const profile = {
+      ...(roleProfiles[roleCode] ?? {}),
+      [ECM_ACTIVE_JOURNEY_PROFILE_KEY]: journeyRef,
+    };
+    const nextProfiles = { ...roleProfiles, [roleCode]: profile };
+    setRoleProfiles(nextProfiles);
+    try {
+      const updated = updateEcmContact(active.id, { roleProfiles: nextProfiles }, actorId);
+      hydrateFromContact(updated);
+      onSaved(updated);
+    } catch {
+      /* journey ref is best-effort continuity marker */
+    }
   };
 
   const handleLoanCreated = (input: CreateLoanFileInput, _meta?: LoanCreateSubmitMeta) => {
     const existing = loadLoanFiles();
     const created = createLoanFileFromInput(input, existing);
     saveLoanFiles([...existing, created]);
+    if (active) markRoleJourneyStarted("customer", created.id);
     setLoanDialogOpen(false);
     onOpenChange(false);
     router.push(`${ROUTES.LOAN_FILES}?file=${created.id}`);
@@ -959,24 +999,42 @@ export function ContactWorkspaceModal({
     [assignedRoles, roleProfiles],
   );
 
-  const handleRoleDashboardAction = (roleCode: EcmContactRole) => {
-    const values = roleProfiles[roleCode] ?? {};
-    const pct = getEcmRoleCompletionPct(roleCode, values);
-    if (pct >= 100) {
-      const actionable = getEcmRoleWorkspaceTemplate(roleCode)?.businessActions.find(
-        (a) => a.enabled && (Boolean(a.href) || a.id === "start_loan_journey"),
-      );
-      if (actionable) {
-        if (active) saveRoleStep(roleCode, false);
-        handleBusinessAction(actionable.id, actionable.href);
-        return;
-      }
-    }
+  const findActiveLoanForContact = (contact: EcmContact): LoanFile | undefined => {
+    const digits = contact.mobilePrimary.replace(/\D/g, "");
+    return loadLoanFiles().find((f) => {
+      if (f.archived || isLoanCompleted(f)) return false;
+      if (f.customerId === contact.id) return true;
+      const mobile = (f.customerMobile ?? "").replace(/\D/g, "");
+      return Boolean(digits) && mobile === digits;
+    });
+  };
+
+  const handleRoleWorkspaceAction = (roleCode: EcmContactRole) => {
     const def = getEcmRoleDefinition(roleCode);
     if (def) {
       setShowRoleAdditional(false);
       setTab(def.workspaceTabId);
     }
+  };
+
+  const handleBusinessJourneyAction = (roleCode: EcmContactRole) => {
+    if (!active) return;
+    const values = roleProfiles[roleCode] ?? {};
+    const activeLoan = roleCode === "customer" ? findActiveLoanForContact(active) : undefined;
+    const journey = getEcmBusinessJourneyDashAction(roleCode, values, {
+      hasActiveJourney: Boolean(activeLoan),
+    });
+    if (!journey || journey.mode === "locked") return;
+
+    if (journey.mode === "start" && journey.actionId !== "start_loan_journey") {
+      markRoleJourneyStarted(roleCode, `started-${Date.now()}`);
+    }
+
+    handleBusinessAction(journey.actionId, journey.href, {
+      mode: journey.mode,
+      openHref: journey.openHref,
+      loanFileId: activeLoan?.id,
+    });
   };
 
   const addRole = (roleCode: EcmContactRole) => {
@@ -1314,87 +1372,151 @@ export function ContactWorkspaceModal({
                           <h3 className="text-xs font-semibold tracking-tight text-zinc-100">
                             Role Dashboard
                           </h3>
+                          <p className="mt-0.5 text-[10px] text-zinc-500">
+                            Role Workspace and Business Journey are separate next steps — never a dead end.
+                          </p>
                         </div>
                         <div className="overflow-x-auto">
-                          <table className="w-full min-w-[560px] text-left text-xs">
-                            <thead className="bg-zinc-950/80 text-[10px] uppercase tracking-[0.1em] text-zinc-500">
-                              <tr>
-                                <th className="px-2.5 py-1.5 font-medium">Role</th>
-                                <th className="px-2.5 py-1.5 font-medium">Status</th>
-                                <th className="px-2.5 py-1.5 font-medium">Completion</th>
-                                <th className="px-2.5 py-1.5 font-medium">Next Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {assignedRoles.map((roleCode) => {
-                                const values = roleProfiles[roleCode] ?? {};
-                                const pct = getEcmRoleCompletionPct(roleCode, values);
-                                const status = getEcmRoleProgressStatus(pct);
-                                const actionLabel = getEcmRoleDashboardActionLabel(roleCode, values);
-                                return (
-                                  <tr
-                                    key={roleCode}
-                                    className="border-t border-zinc-800/80 transition-colors hover:bg-zinc-900"
-                                  >
-                                    <td className="px-2.5 py-1.5 font-medium text-zinc-100">
-                                      {getEcmRoleLabel(roleCode)}
-                                    </td>
-                                    <td className="px-2.5 py-1.5">
-                                      <span
-                                        className={cn(
-                                          "inline-flex rounded-full border px-1.5 py-0 text-[10px] font-medium",
-                                          status === "complete" &&
-                                            "border-teal-800 bg-teal-950/50 text-teal-300",
-                                          status === "in_progress" &&
-                                            "border-amber-800 bg-amber-950/40 text-amber-200",
-                                          status === "not_started" &&
-                                            "border-zinc-700 bg-zinc-950 text-zinc-400",
-                                        )}
-                                      >
-                                        {getEcmRoleStatusLabel(status)}
-                                      </span>
-                                    </td>
-                                    <td className="px-2.5 py-1.5">
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="h-1 w-14 overflow-hidden rounded-full bg-zinc-800">
-                                          <div
-                                            className="h-full rounded-full bg-teal-500"
-                                            style={{ width: `${pct}%` }}
-                                          />
-                                        </div>
-                                        <span className="tabular-nums text-[11px] text-zinc-300">
-                                          {pct}%
+                          <TooltipProvider delayDuration={200}>
+                            <table className="w-full min-w-[720px] text-left text-xs">
+                              <thead className="bg-zinc-950/80 text-[10px] uppercase tracking-[0.1em] text-zinc-500">
+                                <tr>
+                                  <th className="px-2.5 py-1.5 font-medium">Role</th>
+                                  <th className="px-2.5 py-1.5 font-medium">Status</th>
+                                  <th className="px-2.5 py-1.5 font-medium">Completion</th>
+                                  <th className="px-2.5 py-1.5 font-medium">Role Workspace</th>
+                                  <th className="px-2.5 py-1.5 font-medium text-right">
+                                    Business Journey
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {assignedRoles.map((roleCode) => {
+                                  const values = roleProfiles[roleCode] ?? {};
+                                  const pct = getEcmRoleCompletionPct(roleCode, values);
+                                  const status = getEcmRoleProgressStatus(pct);
+                                  const workspaceAction = getEcmRoleWorkspaceDashAction(
+                                    roleCode,
+                                    values,
+                                  );
+                                  const activeLoan =
+                                    roleCode === "customer" && active
+                                      ? findActiveLoanForContact(active)
+                                      : undefined;
+                                  const journeyAction = getEcmBusinessJourneyDashAction(
+                                    roleCode,
+                                    values,
+                                    { hasActiveJourney: Boolean(activeLoan) },
+                                  );
+                                  return (
+                                    <tr
+                                      key={roleCode}
+                                      className="border-t border-zinc-800/80 transition-colors hover:bg-zinc-900"
+                                    >
+                                      <td className="px-2.5 py-1.5 font-medium text-zinc-100">
+                                        {getEcmRoleLabel(roleCode)}
+                                      </td>
+                                      <td className="px-2.5 py-1.5">
+                                        <span
+                                          className={cn(
+                                            "inline-flex rounded-full border px-1.5 py-0 text-[10px] font-medium",
+                                            status === "complete" &&
+                                              "border-teal-800 bg-teal-950/50 text-teal-300",
+                                            status === "in_progress" &&
+                                              "border-amber-800 bg-amber-950/40 text-amber-200",
+                                            status === "not_started" &&
+                                              "border-zinc-700 bg-zinc-950 text-zinc-400",
+                                          )}
+                                        >
+                                          {getEcmRoleStatusLabel(status)}
                                         </span>
-                                      </div>
-                                    </td>
-                                    <td className="px-2.5 py-1.5">
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant={pct >= 100 ? "default" : "outline"}
-                                        className={cn(
-                                          "h-7 rounded-md px-2 text-[11px]",
-                                          pct < 100 &&
-                                            "border-zinc-700 bg-zinc-950 text-zinc-100 hover:bg-zinc-800",
-                                          pct >= 100 && "bg-teal-600 hover:bg-teal-500",
+                                      </td>
+                                      <td className="px-2.5 py-1.5">
+                                        <div className="flex items-center gap-1.5">
+                                          <div className="h-1 w-14 overflow-hidden rounded-full bg-zinc-800">
+                                            <div
+                                              className="h-full rounded-full bg-teal-500"
+                                              style={{ width: `${pct}%` }}
+                                            />
+                                          </div>
+                                          <span className="tabular-nums text-[11px] text-zinc-300">
+                                            {pct}%
+                                          </span>
+                                        </div>
+                                      </td>
+                                      <td className="px-2.5 py-1.5">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 rounded-md border-zinc-700 bg-zinc-950 px-2 text-[11px] text-zinc-100 hover:bg-zinc-800"
+                                          onClick={() => handleRoleWorkspaceAction(roleCode)}
+                                        >
+                                          {workspaceAction.label}
+                                        </Button>
+                                      </td>
+                                      <td className="px-2.5 py-1.5 text-right">
+                                        {!journeyAction ? (
+                                          <span className="text-[11px] text-zinc-600">—</span>
+                                        ) : journeyAction.mode === "locked" ? (
+                                          <div className="flex flex-col items-end gap-0.5">
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span className="inline-flex">
+                                                  <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled
+                                                    className="h-7 rounded-md border-zinc-800 bg-zinc-950/60 px-2 text-[11px] text-zinc-500"
+                                                  >
+                                                    {journeyAction.label}
+                                                  </Button>
+                                                </span>
+                                              </TooltipTrigger>
+                                              <TooltipContent
+                                                side="left"
+                                                className="max-w-[240px] text-xs"
+                                              >
+                                                {journeyAction.reason}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                            <p className="max-w-[200px] text-right text-[10px] leading-snug text-amber-400/90">
+                                              {journeyAction.reason}
+                                            </p>
+                                          </div>
+                                        ) : (
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            className={cn(
+                                              "h-7 rounded-md px-2 text-[11px]",
+                                              journeyAction.mode === "open"
+                                                ? "bg-sky-600 hover:bg-sky-500"
+                                                : "bg-teal-600 hover:bg-teal-500",
+                                            )}
+                                            onClick={() => handleBusinessJourneyAction(roleCode)}
+                                          >
+                                            {journeyAction.label}
+                                          </Button>
                                         )}
-                                        onClick={() => handleRoleDashboardAction(roleCode)}
-                                      >
-                                        {actionLabel}
-                                      </Button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                {assignedRoles.length === 0 && (
+                                  <tr>
+                                    <td
+                                      colSpan={5}
+                                      className="px-2.5 py-4 text-center text-zinc-500"
+                                    >
+                                      No roles assigned. Use + Add Role to begin.
                                     </td>
                                   </tr>
-                                );
-                              })}
-                              {assignedRoles.length === 0 && (
-                                <tr>
-                                  <td colSpan={4} className="px-2.5 py-4 text-center text-zinc-500">
-                                    No roles assigned. Use + Add Role to begin.
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
+                                )}
+                              </tbody>
+                            </table>
+                          </TooltipProvider>
                         </div>
                       </div>
                     </>

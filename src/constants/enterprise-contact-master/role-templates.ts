@@ -77,10 +77,14 @@ export type EcmBusinessActionId =
 export interface EcmRoleBusinessAction {
   id: EcmBusinessActionId;
   label: string;
+  /** CF-CON-036 — replaces label when an active journey already exists */
+  openLabel?: string;
   description: string;
   /** Only show when MIR is complete */
   requiresMirComplete: boolean;
   href?: string;
+  /** Deep-link when opening an existing journey workspace */
+  openHref?: string;
   enabled: boolean;
 }
 
@@ -265,10 +269,12 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
       {
         id: "start_loan_journey",
         label: "Start Loan Journey",
+        openLabel: "Open Loan Workspace",
         description:
           "Opens Loan Journey to capture product, amount, purpose, property and other loan-file data. Never stored on Borrower profile.",
         requiresMirComplete: true,
         href: "/loan-files",
+        openHref: "/loan-files",
         enabled: true,
       },
     ],
@@ -340,10 +346,13 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
     businessActions: [
       {
         id: "start_investment",
-        label: "Start Investment",
+        label: "Start Investment Journey",
+        openLabel: "Open Investment Workspace",
         description:
           "Begin Investment Journey (scheme selection and booking). Scheme Name is never collected on Investor Role.",
         requiresMirComplete: true,
+        href: "/opportunities",
+        openHref: "/opportunities",
         enabled: true,
       },
     ],
@@ -414,7 +423,8 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
     businessActions: [
       {
         id: "add_project",
-        label: "Add Project",
+        label: "Manage Builder Projects",
+        openLabel: "Manage Builder Projects",
         description:
           "Register a project (project name and project details belong to the Project Journey).",
         requiresMirComplete: true,
@@ -476,7 +486,8 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
     businessActions: [
       {
         id: "manage_ca_engagement",
-        label: "+ Manage Engagement",
+        label: "Start CA Engagement",
+        openLabel: "Manage CA Engagement",
         description: "Continue CA engagement workflows.",
         requiresMirComplete: true,
         enabled: true,
@@ -538,7 +549,8 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
     businessActions: [
       {
         id: "create_user_account",
-        label: "Create User Account",
+        label: "Start Employee Onboarding",
+        openLabel: "Continue Employee Onboarding",
         description: "Provision platform access for this employee.",
         requiresMirComplete: true,
         enabled: true,
@@ -657,9 +669,11 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
       {
         id: "link_lender",
         label: "Link to Lender",
+        openLabel: "Open Lender Workspace",
         description: "Open LIFE recommendations from case context.",
         requiresMirComplete: true,
         href: "/lenders",
+        openHref: "/lenders",
         enabled: true,
       },
     ],
@@ -732,7 +746,8 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
     businessActions: [
       {
         id: "create_referral",
-        label: "Create Referral",
+        label: "Start Partner Onboarding",
+        openLabel: "Continue Partner Onboarding",
         description: "Capture a referral from this partner.",
         requiresMirComplete: true,
         enabled: true,
@@ -805,20 +820,102 @@ export function getEcmRoleStatusLabel(status: EcmRoleProgressStatus): string {
   return "Not Started";
 }
 
-/** Dashboard next-action label — switches to business journey when MIR is 100%. */
+/** CF-CON-036 — Role Workspace column only (never jumps to a business journey). */
+export type EcmRoleWorkspaceDashAction = {
+  kind: "configure" | "continue" | "view";
+  label: string;
+};
+
+export function getEcmRoleWorkspaceDashAction(
+  roleCode: EcmContactRole,
+  values: Record<string, string>,
+): EcmRoleWorkspaceDashAction {
+  const label = getEcmRoleLabel(roleCode);
+  const pct = getEcmRoleCompletionPct(roleCode, values);
+  if (pct <= 0) return { kind: "configure", label: "Configure" };
+  if (pct < 100) return { kind: "continue", label: "Continue Profile" };
+  return { kind: "view", label: `View ${label}` };
+}
+
+/**
+ * Stored on roleProfiles when a non-loan journey is started from the dashboard
+ * so subsequent visits show Open Workspace instead of Start Journey.
+ */
+export const ECM_ACTIVE_JOURNEY_PROFILE_KEY = "activeJourneyRef";
+
+/** CF-CON-036 — dedicated Business Journey column state. */
+export type EcmBusinessJourneyDashAction =
+  | {
+      mode: "locked";
+      label: string;
+      reason: string;
+      actionId: EcmBusinessActionId;
+    }
+  | {
+      mode: "start" | "open";
+      label: string;
+      actionId: EcmBusinessActionId;
+      href?: string;
+      openHref?: string;
+      reason?: string;
+    };
+
+export function getPrimaryEcmBusinessAction(
+  roleCode: EcmContactRole,
+): EcmRoleBusinessAction | undefined {
+  return getEcmRoleWorkspaceTemplate(roleCode)?.businessActions.find((a) => a.enabled);
+}
+
+export function getEcmBusinessJourneyDashAction(
+  roleCode: EcmContactRole,
+  values: Record<string, string>,
+  options?: { hasActiveJourney?: boolean },
+): EcmBusinessJourneyDashAction | null {
+  const actionable = getPrimaryEcmBusinessAction(roleCode);
+  if (!actionable) return null;
+
+  const roleLabel = getEcmRoleLabel(roleCode);
+  const mirComplete = isEcmRoleMirComplete(roleCode, values);
+  const profileJourney = Boolean(values[ECM_ACTIVE_JOURNEY_PROFILE_KEY]?.trim());
+  const hasActiveJourney = Boolean(options?.hasActiveJourney || profileJourney);
+
+  if (!mirComplete) {
+    return {
+      mode: "locked",
+      label: actionable.label,
+      actionId: actionable.id,
+      reason: `Complete minimum ${roleLabel} profile information before starting the business journey.`,
+    };
+  }
+
+  if (hasActiveJourney) {
+    return {
+      mode: "open",
+      label: actionable.openLabel ?? actionable.label.replace(/^Start\s+/i, "Open "),
+      actionId: actionable.id,
+      href: actionable.href,
+      openHref: actionable.openHref ?? actionable.href,
+    };
+  }
+
+  return {
+    mode: "start",
+    label: actionable.label,
+    actionId: actionable.id,
+    href: actionable.href,
+    openHref: actionable.openHref ?? actionable.href,
+  };
+}
+
+/** @deprecated CF-CON-036 — use getEcmRoleWorkspaceDashAction + getEcmBusinessJourneyDashAction */
 export function getEcmRoleDashboardActionLabel(
   roleCode: EcmContactRole,
   values: Record<string, string>,
 ): string {
-  const label = getEcmRoleLabel(roleCode);
-  const pct = getEcmRoleCompletionPct(roleCode, values);
-  if (pct <= 0) return `Configure ${label}`;
-  if (pct < 100) return `Continue ${label} Profile`;
-  const actionable = getEcmRoleWorkspaceTemplate(roleCode)?.businessActions.find(
-    (a) => a.enabled && (Boolean(a.href) || a.id === "start_loan_journey"),
-  );
-  if (actionable) return actionable.label.replace(/^\+\s*/, "");
-  return `Open ${label} Workspace`;
+  const journey = getEcmBusinessJourneyDashAction(roleCode, values);
+  const workspace = getEcmRoleWorkspaceDashAction(roleCode, values);
+  if (journey?.mode === "start" || journey?.mode === "open") return journey.label;
+  return workspace.label;
 }
 
 /** Overall Contact Readiness across assigned roles (identity assumed established). */
