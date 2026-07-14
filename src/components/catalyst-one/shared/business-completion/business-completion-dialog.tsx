@@ -10,6 +10,7 @@ import {
 } from "@/constants/loan-stage-master";
 import type { OccupancyMasterEntry } from "@/constants/occupancy-master";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
 import { OrganizationRegistrySelect } from "@/components/catalyst-one/shared/organization-registry-select";
 import { OccupancySelect } from "@/components/catalyst-one/shared/occupancy-select";
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
@@ -65,6 +66,14 @@ export function BusinessCompletionDialog({
 }: BusinessCompletionDialogProps) {
   const { user } = useAuthContext();
   const firstName = user?.firstName?.trim() || "there";
+  const greeting = useChanakyaGreeting({
+    context: "guidance",
+    firstName,
+    enabled: open && Boolean(request),
+    surfaceKey: request
+      ? `bcc-dialog:${request.module}:${request.resumeToken ?? request.processTitle}`
+      : "bcc-dialog:idle",
+  });
   const fields = request?.fields ?? [];
   const [values, setValues] = useState<BusinessCompletionValues>({});
   const [nudge, setNudge] = useState<string | null>(null);
@@ -133,7 +142,7 @@ export function BusinessCompletionDialog({
                 CHANAKYA · Business Guidance
               </p>
               <DialogTitle className="text-base font-semibold tracking-tight text-foreground">
-                Hi {firstName},
+                {greeting.text}
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
                 {whyText}

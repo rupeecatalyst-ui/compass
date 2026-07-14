@@ -4,11 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
 import { cn } from "@/lib/utils";
 import type { BusinessCompletionGuide } from "@/types/business-completion";
 
 /**
- * CHANAKYA link/guide card (CF-CHANAKYA-001 / CF-WF-001).
+ * CHANAKYA link/guide card (CF-CHANAKYA-001 / CF-CHANAKYA-002 / CF-WF-001).
  * Use when the user must continue elsewhere (e.g. open Loan Files).
  * Prefer BusinessCompletionDialog when fields can be collected inline.
  */
@@ -21,6 +22,11 @@ export function BusinessCompletionCard({
 }) {
   const { user } = useAuthContext();
   const firstName = user?.firstName?.trim() || "there";
+  const greeting = useChanakyaGreeting({
+    context: "guidance",
+    firstName,
+    surfaceKey: `bcc-guide:${guide.code}`,
+  });
 
   return (
     <div
@@ -45,7 +51,7 @@ export function BusinessCompletionCard({
             CHANAKYA · Business Guidance
           </p>
           <h2 className="mt-1 text-base font-semibold tracking-tight text-foreground">
-            Hi {firstName},
+            {greeting.text}
           </h2>
           <p className="mt-1 text-sm font-medium text-foreground/90">{guide.title}</p>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{guide.message}</p>

@@ -116,7 +116,8 @@ export const ECG_DOMAIN_CATALOGUE: EcgDomainSeed[] = [
   {
     domainKey: "chanakya",
     name: "CHANAKYA",
-    description: "Advisory insight rules — advisory only, no automation.",
+    description:
+      "Advisory insight rules and Greeting Library (time/session-aware personalization) — advisory only, no automation.",
     engineKey: "chanakya",
   },
   {

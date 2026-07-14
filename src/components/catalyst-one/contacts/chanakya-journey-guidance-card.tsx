@@ -1,8 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { selectChanakyaGreeting } from "@/lib/chanakya-greeting-engine";
 import { cn } from "@/lib/utils";
+import type { ChanakyaGreetingContext } from "@/types/chanakya-greeting";
 
 export type ChanakyaJourneyGuidanceMode = "guide" | "ready" | "open";
 
@@ -19,11 +22,19 @@ export interface ChanakyaJourneyGuidanceCardProps {
   onCompleteProfile?: () => void;
   onStartOrOpenJourney?: () => void;
   className?: string;
+  /** Optional surface key for sticky greeting (defaults to role+mode). */
+  surfaceKey?: string;
+}
+
+function contextForMode(mode: ChanakyaJourneyGuidanceMode): ChanakyaGreetingContext {
+  if (mode === "guide") return "guidance";
+  if (mode === "ready") return "completion";
+  return "resume";
 }
 
 /**
- * CF-CON-041 — Compact CHANAKYA guidance for the Role Dashboard Business Journey column.
- * Feels enabled (guided next step), never blocked.
+ * CF-CON-041 / CF-CHANAKYA-002 — Compact CHANAKYA guidance for Role Dashboard.
+ * Personalized greeting from the Greeting Library.
  */
 export function ChanakyaJourneyGuidanceCard({
   mode,
@@ -36,9 +47,18 @@ export function ChanakyaJourneyGuidanceCard({
   onCompleteProfile,
   onStartOrOpenJourney,
   className,
+  surfaceKey,
 }: ChanakyaJourneyGuidanceCardProps) {
-  const name = userFirstName.trim() || "there";
   const profileCta = completeProfileLabel ?? `Complete ${roleLabel} Profile`;
+  const greeting = useMemo(
+    () =>
+      selectChanakyaGreeting({
+        firstName: userFirstName,
+        context: contextForMode(mode),
+        surfaceKey: surfaceKey ?? `journey-card:${roleLabel}:${mode}`,
+      }),
+    [userFirstName, mode, roleLabel, surfaceKey],
+  );
 
   return (
     <div
@@ -61,14 +81,12 @@ export function ChanakyaJourneyGuidanceCard({
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-violet-300/90">
             CHANAKYA
           </p>
+          <p className="text-[11px] font-medium leading-snug text-zinc-100">{greeting.text}</p>
           {mode === "guide" && (
             <>
-              <p className="text-[11px] font-medium leading-snug text-zinc-100">
-                Hello {name} — your {roleLabel} journey is {completionPct}% ready.
-              </p>
               <p className="text-[10px] leading-snug text-zinc-400">
                 {explanation ??
-                  `A few profile details unlock the next business step for this ${roleLabel}.`}
+                  `Your ${roleLabel} journey is ${completionPct}% ready. A few profile details unlock the next business step.`}
               </p>
               <div className="pt-0.5">
                 <div className="mb-1 h-1 overflow-hidden rounded-full bg-zinc-800">
@@ -90,9 +108,6 @@ export function ChanakyaJourneyGuidanceCard({
           )}
           {mode === "ready" && (
             <>
-              <p className="text-[11px] font-medium leading-snug text-zinc-100">
-                Great work {name}.
-              </p>
               <p className="text-[10px] leading-snug text-zinc-300">
                 Your {roleLabel} Profile is complete.
                 <br />
@@ -110,9 +125,6 @@ export function ChanakyaJourneyGuidanceCard({
           )}
           {mode === "open" && (
             <>
-              <p className="text-[11px] font-medium leading-snug text-zinc-100">
-                {name}, your journey is already underway.
-              </p>
               <p className="text-[10px] leading-snug text-zinc-400">
                 Continue in the active {roleLabel} workspace — no need to start again.
               </p>
