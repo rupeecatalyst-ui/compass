@@ -108,11 +108,11 @@ function SectionCard({
   badge?: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm shadow-black/[0.02]">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+    <section className="rounded-xl border border-border/70 bg-card p-3 shadow-sm shadow-black/[0.02]">
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold tracking-tight text-foreground">{title}</h3>
-          {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+          {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
         </div>
         {badge}
       </div>
@@ -125,13 +125,13 @@ function MirStatusBadge({ complete }: { complete: boolean }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
         complete
           ? "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200"
           : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
       )}
     >
-      {complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
+      {complete ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
       {complete ? "MIR complete" : "MIR incomplete"}
     </span>
   );
@@ -165,7 +165,7 @@ function RoleFieldControl({
         value={value}
         placeholder={field.placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-[80px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="min-h-[56px] w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       />
     );
   }
@@ -175,7 +175,7 @@ function RoleFieldControl({
       value={value}
       placeholder={field.placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="h-10 rounded-xl"
+      className="h-9 rounded-lg"
     />
   );
 }
@@ -614,16 +614,16 @@ export function ContactWorkspaceModal({
     roleCode: EcmContactRole,
     values: Record<string, string>,
   ) => (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-2.5 md:grid-cols-2">
       {fields.map((field) => (
         <div
           key={field.key}
           className={cn(
-            "space-y-2",
+            "space-y-1",
             (field.control === "textarea" || field.control === "contact_ref") && "md:col-span-2",
           )}
         >
-          <Label className="text-xs font-medium text-muted-foreground">
+          <Label className="text-[11px] font-medium text-muted-foreground">
             {field.label}
             {field.mandatory && <span className="text-destructive"> *</span>}
           </Label>
@@ -690,33 +690,31 @@ export function ContactWorkspaceModal({
 
     return (
       <div className="flex min-h-0 flex-col">
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
                 Role Workspace
               </p>
-              <h3 className="mt-1 text-lg font-semibold tracking-tight text-zinc-50">{def.label}</h3>
-              <p className="mt-0.5 text-sm text-zinc-400">
-                Role-specific data only. Person identity is read-only — edit via Edit Contact.
-              </p>
+              <h3 className="text-base font-semibold tracking-tight text-zinc-50">{def.label}</h3>
             </div>
             <Button
               type="button"
+              size="sm"
               variant="outline"
-              className="gap-2 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+              className="h-8 gap-1.5 rounded-lg border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
               onClick={() => {
                 setShowRoleAdditional(false);
                 setTab("dashboard");
               }}
             >
-              <ArrowLeft className="h-4 w-4" />
-              Role Dashboard
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Dashboard
             </Button>
           </div>
 
           {/* Contact owns person SSOT — never re-asked here */}
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
                 Contact Summary · Read-only
@@ -725,14 +723,14 @@ export function ContactWorkspaceModal({
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-7 gap-1 text-xs text-zinc-400 hover:text-zinc-100"
+                className="h-6 gap-1 px-2 text-[11px] text-zinc-400 hover:text-zinc-100"
                 onClick={() => setTab("identity")}
               >
                 <Pencil className="h-3 w-3" />
-                Edit Contact
+                Edit
               </Button>
             </div>
-            <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-1.5 grid gap-1.5 text-[11px] sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <p className="text-zinc-500">Name</p>
                 <p className="font-medium text-zinc-200">{active.name}</p>
@@ -743,62 +741,38 @@ export function ContactWorkspaceModal({
               </div>
               <div>
                 <p className="text-zinc-500">Email</p>
-                <p className="font-medium text-zinc-200">
+                <p className="font-medium text-zinc-200 truncate">
                   {active.personalEmail || active.officialEmail || "—"}
                 </p>
               </div>
               <div>
-                <p className="text-zinc-500">Employment</p>
-                <p className="font-medium text-zinc-200">
-                  {masterDisplay("employment_type", active.employmentType)}
-                </p>
-              </div>
-              <div>
-                <p className="text-zinc-500">PAN</p>
-                <p className="font-medium text-zinc-200">{active.pan || "—"}</p>
-              </div>
-              <div>
-                <p className="text-zinc-500">Aadhaar</p>
-                <p className="font-medium text-zinc-200">{active.aadhaar || "—"}</p>
-              </div>
-              <div>
-                <p className="text-zinc-500">Date of Birth</p>
-                <p className="font-medium text-zinc-200">{active.dateOfBirth || "—"}</p>
-              </div>
-              <div>
                 <p className="text-zinc-500">Roles</p>
-                <ContactRoleChips roles={active.roles} className="mt-0.5" />
+                <ContactRoleChips roles={active.roles} size="sm" className="mt-0.5" />
               </div>
             </div>
           </div>
 
           {isBanker && (
-            <div className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 sm:grid-cols-2">
+            <div className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-900/70 p-2.5 text-xs sm:grid-cols-2">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
-                  Structure 1 · Organizational Location
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">
+                  Org Location
                 </p>
-                <p className="mt-1 text-sm text-zinc-200">{bankerOrg}</p>
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  Institution → Region → City → Branch
-                </p>
+                <p className="mt-0.5 text-zinc-200">{bankerOrg}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
-                  Structure 2 · Reporting Hierarchy
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">
+                  Reporting Chain
                 </p>
                 {bankerChain.length <= 1 && !values.reportingManagerContactId ? (
-                  <p className="mt-1 text-sm text-zinc-400">No reporting manager linked yet</p>
+                  <p className="mt-0.5 text-zinc-400">No manager linked</p>
                 ) : (
-                  <p className="mt-1 text-sm text-zinc-200">
+                  <p className="mt-0.5 text-zinc-200">
                     {bankerChain
                       .map((n) => `${n.name}${n.designation ? ` (${n.designation})` : ""}`)
                       .join(" ← ")}
                   </p>
                 )}
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  Generic Contact Relationship (reports_to) — levels not hardcoded.
-                </p>
               </div>
             </div>
           )}
@@ -818,7 +792,7 @@ export function ContactWorkspaceModal({
           {isBanker && reportingField && (
             <SectionCard
               title="Reporting Manager"
-              description="Search existing Contacts or create a basic Contact without leaving this workspace. Hierarchy is derived from reports_to links — levels are never hardcoded."
+              description="Lookup/create Contact · hierarchy from reports_to (not hardcoded levels)."
             >
               <ReportingManagerPicker
                 valueContactId={values.reportingManagerContactId}
@@ -856,15 +830,16 @@ export function ContactWorkspaceModal({
           )}
 
           {optionalFields.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Button
                 type="button"
+                size="sm"
                 variant="outline"
-                className="gap-2 rounded-xl border-zinc-700 bg-zinc-900 text-zinc-100"
+                className="h-8 gap-1.5 rounded-lg border-zinc-700 bg-zinc-900 text-zinc-100"
                 onClick={() => setShowRoleAdditional((v) => !v)}
               >
                 <ChevronDown
-                  className={cn("h-4 w-4 transition-transform", showRoleAdditional && "rotate-180")}
+                  className={cn("h-3.5 w-3.5 transition-transform", showRoleAdditional && "rotate-180")}
                 />
                 Additional Details
               </Button>
@@ -889,24 +864,24 @@ export function ContactWorkspaceModal({
                   <Button
                     key={action.id}
                     type="button"
-                    size="lg"
-                    className="gap-2 rounded-xl"
+                    size="sm"
+                    className="h-8 gap-1.5 rounded-lg"
                     disabled={action.requiresMirComplete && !mirComplete}
                     onClick={() => {
                       saveRoleStep(step.roleCode!, false);
                       handleBusinessAction(action.id, action.href);
                     }}
                   >
-                    <Sparkles className="h-4 w-4" />
+                    <Sparkles className="h-3.5 w-3.5" />
                     {action.label}
                   </Button>
                 ))}
               </div>
               {actions[0]?.description && (
-                <p className="mt-3 text-sm text-muted-foreground">{actions[0].description}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{actions[0].description}</p>
               )}
               {actionNotice && (
-                <p className="mt-3 rounded-xl border border-teal-200/70 bg-teal-50/80 px-3 py-2 text-sm text-teal-900 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-100">
+                <p className="mt-2 rounded-lg border border-teal-200/70 bg-teal-50/80 px-2.5 py-1.5 text-xs text-teal-900 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-100">
                   {actionNotice}
                 </p>
               )}
@@ -914,26 +889,28 @@ export function ContactWorkspaceModal({
           )}
         </div>
 
-        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 bg-zinc-950/95 px-1 py-4 backdrop-blur">
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800 bg-zinc-950/95 px-1 py-2.5 backdrop-blur">
           <Button
             type="button"
+            size="sm"
             variant="ghost"
-            className="gap-2 text-zinc-300"
+            className="h-8 gap-1.5 text-zinc-300"
             onClick={() => setTab("dashboard")}
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-3.5 w-3.5" />
             Back
           </Button>
           <Button
             type="button"
-            className="gap-2 rounded-xl"
+            size="sm"
+            className="h-8 gap-1.5 rounded-lg"
             disabled={saving}
             onClick={() => {
               saveRoleStep(step.roleCode!, false);
               setTab("dashboard");
             }}
           >
-            <Check className="h-4 w-4" />
+            <Check className="h-3.5 w-3.5" />
             Save & Continue
           </Button>
         </div>
@@ -1127,17 +1104,17 @@ export function ContactWorkspaceModal({
         )}
 
                         {!compactCreate && (
-                          <div className="mt-4 space-y-2 md:col-span-2">
-                            <Label>Assigned Roles</Label>
-                            <ContactRoleChips roles={roles} size="md" className="max-h-none" />
-                            <p className="text-[11px] text-muted-foreground">
-                              Roles display as compact chips. Use + Add Role on the dashboard to assign more.
+                          <div className="mt-3 space-y-1 md:col-span-2">
+                            <Label className="text-[11px]">Assigned Roles</Label>
+                            <ContactRoleChips roles={roles} size="sm" />
+                            <p className="text-[10px] text-muted-foreground">
+                              Compact chips only. Use + Add Role on the dashboard to assign more.
                             </p>
                           </div>
                         )}
 
         {!compactCreate && active && (
-          <div className="mt-4 grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-3 grid gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5 text-xs sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs text-muted-foreground">Contact ID</p>
               <p className="font-mono text-xs">{active.id}</p>
@@ -1163,7 +1140,7 @@ export function ContactWorkspaceModal({
           title="Assigned roles"
           description="Select every role this person performs. Each role unlocks a guided MIR step."
         >
-          <ContactRoleChips roles={roles} selected={roles} interactive size="md" onToggle={toggleRole} />
+          <ContactRoleChips roles={roles} selected={roles} interactive size="sm" onToggle={toggleRole} />
         </SectionCard>
       )}
     </>
@@ -1180,21 +1157,21 @@ export function ContactWorkspaceModal({
           {!awaitingFirstSave && active ? (
             <>
               {/* ~20% Executive Summary — compact essentials only */}
-              <div className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-5 py-3 pr-12">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <DialogTitle className="truncate text-lg font-semibold tracking-tight text-zinc-50">
+              <div className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-4 py-2 pr-12">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <DialogTitle className="truncate text-base font-semibold tracking-tight text-zinc-50">
                         {active.name}
                       </DialogTitle>
-                      <div className="min-w-[140px] max-w-xs flex-1">
+                      <div className="min-w-[120px] max-w-[200px] flex-1">
                         <div className="mb-0.5 flex items-center justify-between text-[10px] text-zinc-400">
                           <span>Readiness</span>
                           <span className="font-semibold text-teal-300">{readinessPct}%</span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                        <div className="h-1 overflow-hidden rounded-full bg-zinc-800">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-500"
+                            className="h-full rounded-full bg-teal-500 transition-all"
                             style={{ width: `${readinessPct}%` }}
                           />
                         </div>
@@ -1203,30 +1180,30 @@ export function ContactWorkspaceModal({
                     <DialogDescription className="sr-only">
                       Contact Workspace executive dashboard
                     </DialogDescription>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-zinc-400">
                       <span>
                         <span className="text-zinc-500">ID </span>
-                        <span className="font-mono text-[11px] text-zinc-300">{active.id.slice(0, 8)}…</span>
+                        <span className="font-mono text-zinc-300">{active.id.slice(0, 8)}…</span>
                       </span>
                       <span>
                         <span className="text-zinc-500">Mobile </span>
                         <span className="text-zinc-200">{active.mobilePrimary}</span>
                       </span>
-                      <span>
+                      <span className="truncate max-w-[180px]">
                         <span className="text-zinc-500">Email </span>
                         <span className="text-zinc-200">
                           {active.personalEmail || active.officialEmail || "—"}
                         </span>
                       </span>
                       <span>
-                        <span className="text-zinc-500">Employment </span>
+                        <span className="text-zinc-500">Emp </span>
                         <span className="text-zinc-200">
                           {masterDisplay("employment_type", active.employmentType)}
                         </span>
                       </span>
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                          "inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-medium",
                           active.status === "active"
                             ? "border-teal-800 bg-teal-950/60 text-teal-300"
                             : "border-zinc-700 bg-zinc-900 text-zinc-400",
@@ -1237,30 +1214,30 @@ export function ContactWorkspaceModal({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-8 gap-1.5 rounded-lg border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+                      className="h-7 gap-1 rounded-md border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:bg-zinc-800"
                       onClick={() => {
                         setShowAddRole(false);
                         setTab("identity");
                       }}
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      <Pencil className="h-3 w-3" />
                       Edit Contact
                     </Button>
                     <Button
                       type="button"
                       size="sm"
-                      className="h-8 gap-1.5 rounded-lg bg-teal-600 text-white hover:bg-teal-500"
+                      className="h-7 gap-1 rounded-md bg-teal-600 px-2 text-xs text-white hover:bg-teal-500"
                       onClick={() => {
                         setTab("dashboard");
                         setShowAddRole((v) => !v);
                       }}
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-3 w-3" />
                       Add Role
                     </Button>
                   </div>
@@ -1269,15 +1246,15 @@ export function ContactWorkspaceModal({
 
               {/* ~80% Role Workspace */}
               <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-950">
-                <div className="space-y-4 px-5 py-4">
+                <div className="space-y-2 px-4 py-3">
                   {tab === "dashboard" && (
                     <>
                       {showAddRole && (
-                        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                        <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
                             Add Role
                           </p>
-                          <div className="mt-3 flex flex-wrap gap-2">
+                          <div className="mt-1.5 flex max-h-16 flex-wrap gap-1 overflow-y-auto">
                             {getEnabledEcmRoleMaster()
                               .filter((r) => !assignedRoles.includes(r.code))
                               .map((role) => (
@@ -1285,7 +1262,7 @@ export function ContactWorkspaceModal({
                                   key={role.code}
                                   type="button"
                                   onClick={() => addRole(role.code)}
-                                  className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 transition hover:border-teal-500 hover:text-teal-300"
+                                  className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-0.5 text-[11px] text-zinc-200 transition hover:border-teal-500 hover:text-teal-300"
                                 >
                                   {role.label}
                                 </button>
@@ -1293,26 +1270,26 @@ export function ContactWorkspaceModal({
                             {getEnabledEcmRoleMaster().every((r) =>
                               assignedRoles.includes(r.code),
                             ) && (
-                              <p className="text-sm text-zinc-500">All roles already assigned</p>
+                              <p className="text-xs text-zinc-500">All roles already assigned</p>
                             )}
                           </div>
                         </div>
                       )}
 
-                      <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60">
-                        <div className="border-b border-zinc-800 px-3 py-2">
-                          <h3 className="text-sm font-semibold tracking-tight text-zinc-100">
-                            Assigned Roles
+                      <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/60">
+                        <div className="border-b border-zinc-800 px-2.5 py-1.5">
+                          <h3 className="text-xs font-semibold tracking-tight text-zinc-100">
+                            Role Dashboard
                           </h3>
                         </div>
                         <div className="overflow-x-auto">
-                          <table className="w-full min-w-[600px] text-left text-sm">
-                            <thead className="bg-zinc-950/80 text-[10px] uppercase tracking-[0.12em] text-zinc-500">
+                          <table className="w-full min-w-[560px] text-left text-xs">
+                            <thead className="bg-zinc-950/80 text-[10px] uppercase tracking-[0.1em] text-zinc-500">
                               <tr>
-                                <th className="px-3 py-2 font-medium">Role</th>
-                                <th className="px-3 py-2 font-medium">Status</th>
-                                <th className="px-3 py-2 font-medium">Completion %</th>
-                                <th className="px-3 py-2 font-medium">Next Business Action</th>
+                                <th className="px-2.5 py-1.5 font-medium">Role</th>
+                                <th className="px-2.5 py-1.5 font-medium">Status</th>
+                                <th className="px-2.5 py-1.5 font-medium">Completion</th>
+                                <th className="px-2.5 py-1.5 font-medium">Next Action</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1326,13 +1303,13 @@ export function ContactWorkspaceModal({
                                     key={roleCode}
                                     className="border-t border-zinc-800/80 transition-colors hover:bg-zinc-900"
                                   >
-                                    <td className="px-3 py-2.5 font-medium text-zinc-100">
+                                    <td className="px-2.5 py-1.5 font-medium text-zinc-100">
                                       {getEcmRoleLabel(roleCode)}
                                     </td>
-                                    <td className="px-3 py-2.5">
+                                    <td className="px-2.5 py-1.5">
                                       <span
                                         className={cn(
-                                          "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                                          "inline-flex rounded-full border px-1.5 py-0 text-[10px] font-medium",
                                           status === "complete" &&
                                             "border-teal-800 bg-teal-950/50 text-teal-300",
                                           status === "in_progress" &&
@@ -1344,24 +1321,26 @@ export function ContactWorkspaceModal({
                                         {getEcmRoleStatusLabel(status)}
                                       </span>
                                     </td>
-                                    <td className="px-3 py-2.5">
-                                      <div className="flex items-center gap-2">
-                                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-800">
+                                    <td className="px-2.5 py-1.5">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="h-1 w-14 overflow-hidden rounded-full bg-zinc-800">
                                           <div
                                             className="h-full rounded-full bg-teal-500"
                                             style={{ width: `${pct}%` }}
                                           />
                                         </div>
-                                        <span className="tabular-nums text-xs text-zinc-300">{pct}%</span>
+                                        <span className="tabular-nums text-[11px] text-zinc-300">
+                                          {pct}%
+                                        </span>
                                       </div>
                                     </td>
-                                    <td className="px-3 py-2.5">
+                                    <td className="px-2.5 py-1.5">
                                       <Button
                                         type="button"
                                         size="sm"
                                         variant={pct >= 100 ? "default" : "outline"}
                                         className={cn(
-                                          "h-8 rounded-lg text-xs",
+                                          "h-7 rounded-md px-2 text-[11px]",
                                           pct < 100 &&
                                             "border-zinc-700 bg-zinc-950 text-zinc-100 hover:bg-zinc-800",
                                           pct >= 100 && "bg-teal-600 hover:bg-teal-500",
@@ -1376,7 +1355,7 @@ export function ContactWorkspaceModal({
                               })}
                               {assignedRoles.length === 0 && (
                                 <tr>
-                                  <td colSpan={4} className="px-3 py-6 text-center text-zinc-500">
+                                  <td colSpan={4} className="px-2.5 py-4 text-center text-zinc-500">
                                     No roles assigned. Use + Add Role to begin.
                                   </td>
                                 </tr>
@@ -1389,34 +1368,36 @@ export function ContactWorkspaceModal({
                   )}
 
                   {tab === "identity" && (
-                    <div className="flex min-h-0 flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40">
-                      <div className="flex items-center justify-between gap-3 px-4 pt-4">
+                    <div className="flex min-h-0 flex-col rounded-lg border border-zinc-800 bg-zinc-900/40">
+                      <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
                             Edit Contact
                           </p>
-                          <p className="mt-1 text-sm text-zinc-500">
-                            Identity fields collected at creation — edit only when needed.
+                          <p className="text-[11px] text-zinc-500">
+                            Identity SSOT — edit only when needed.
                           </p>
                         </div>
                         <Button
                           type="button"
+                          size="sm"
                           variant="ghost"
-                          className="text-zinc-300"
+                          className="h-7 text-zinc-300"
                           onClick={() => setTab("dashboard")}
                         >
-                          <ArrowLeft className="mr-2 h-4 w-4" />
+                          <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
                           Dashboard
                         </Button>
                       </div>
-                      <div className="min-h-0 flex-1 overflow-y-auto p-4 text-foreground [&_.bg-card]:bg-zinc-900 [&_.bg-card]:text-zinc-100 [&_.border-border\/70]:border-zinc-800 [&_label]:text-zinc-400">
+                      <div className="min-h-0 flex-1 overflow-y-auto p-3 text-foreground [&_.bg-card]:bg-zinc-900 [&_.bg-card]:text-zinc-100 [&_.border-border\/70]:border-zinc-800 [&_label]:text-zinc-400">
                         {identityForm(false)}
-                        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+                        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
                       </div>
-                      <div className="sticky bottom-0 z-10 flex flex-wrap gap-2 border-t border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur">
+                      <div className="sticky bottom-0 z-10 flex flex-wrap gap-2 border-t border-zinc-800 bg-zinc-950/95 px-3 py-2.5 backdrop-blur">
                         <Button
                           type="button"
-                          className="rounded-xl"
+                          size="sm"
+                          className="h-8 rounded-lg"
                           disabled={saving}
                           onClick={() => {
                             saveIdentity(false);
@@ -1427,8 +1408,9 @@ export function ContactWorkspaceModal({
                         </Button>
                         <Button
                           type="button"
+                          size="sm"
                           variant="outline"
-                          className="rounded-xl border-zinc-700"
+                          className="h-8 rounded-lg border-zinc-700"
                           onClick={() => setTab("dashboard")}
                         >
                           Cancel

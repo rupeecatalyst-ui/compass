@@ -183,15 +183,15 @@ export function QuickContactCreationWizard({
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-40 w-40 rounded-full bg-sky-200/25 blur-3xl dark:bg-sky-500/10" />
 
           <div className="relative flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-8 pb-4 pt-8">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-3 pt-5">
             <div className="pr-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-700/80 dark:text-teal-300/80">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700/80 dark:text-teal-300/80">
                 Quick Contact Creation
               </p>
-              <DialogTitle className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+              <DialogTitle className="mt-1.5 text-xl font-semibold tracking-tight text-foreground">
                 Create a contact in under 30 seconds
               </DialogTitle>
-              <DialogDescription className="mt-1.5 text-sm text-muted-foreground">
+              <DialogDescription className="mt-1 text-sm text-muted-foreground">
                 One question at a time. Then continue into Contact Workspace.
               </DialogDescription>
             </div>
@@ -337,12 +337,12 @@ export function QuickContactCreationWizard({
 
               {step === "roles" && (
                 <StepShell question="Which roles apply to this contact?">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-border/60 bg-white/70 p-4 dark:bg-zinc-900/40">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-border/60 bg-white/70 p-3 dark:bg-zinc-900/40">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                         Available Roles
                       </p>
-                      <div className="mt-3 flex min-h-[120px] flex-wrap content-start gap-2">
+                      <div className="mt-2 flex max-h-24 min-h-[64px] flex-wrap content-start gap-1.5 overflow-y-auto">
                         {roleMaster
                           .filter((role) => !roles.includes(role.code))
                           .map((role) => (
@@ -354,22 +354,22 @@ export function QuickContactCreationWizard({
                                   prev.includes(role.code) ? prev : [...prev, role.code],
                                 )
                               }
-                              className="animate-in fade-in-0 zoom-in-95 rounded-2xl border border-border/70 bg-white px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all hover:border-teal-400 hover:bg-teal-50/70 dark:bg-zinc-900 dark:hover:bg-teal-950/40"
+                              className="animate-in fade-in-0 zoom-in-95 rounded-full border border-border/70 bg-white px-2.5 py-1 text-[11px] font-medium text-foreground shadow-sm transition-all hover:border-teal-400 hover:bg-teal-50/70 dark:bg-zinc-900 dark:hover:bg-teal-950/40"
                             >
                               {role.label}
                             </button>
                           ))}
                         {roleMaster.every((role) => roles.includes(role.code)) && (
-                          <p className="text-sm text-muted-foreground">All roles assigned</p>
+                          <p className="text-xs text-muted-foreground">All roles assigned</p>
                         )}
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-teal-200/70 bg-teal-50/50 p-4 dark:border-teal-900 dark:bg-teal-950/30">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-800 dark:text-teal-200">
+                    <div className="rounded-xl border border-teal-200/70 bg-teal-50/50 p-3 dark:border-teal-900 dark:bg-teal-950/30">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-teal-800 dark:text-teal-200">
                         Assigned Roles
                       </p>
-                      <div className="mt-3 flex min-h-[72px] flex-wrap content-start gap-2">
+                      <div className="mt-2 flex max-h-14 min-h-[40px] flex-wrap content-start gap-1 overflow-y-auto">
                         {roles.map((roleCode) => (
                           <button
                             key={roleCode}
@@ -377,15 +377,15 @@ export function QuickContactCreationWizard({
                             onClick={() =>
                               setRoles((prev) => prev.filter((r) => r !== roleCode))
                             }
-                            className="inline-flex animate-in fade-in-0 zoom-in-95 items-center gap-1.5 rounded-full border border-teal-500 bg-teal-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-teal-700"
+                            className="inline-flex animate-in fade-in-0 zoom-in-95 items-center gap-1 rounded-full border border-teal-500 bg-teal-600 px-2 py-0.5 text-[10px] font-medium text-white shadow-sm transition-all hover:bg-teal-700"
                             title="Click to remove"
                           >
-                            <Check className="h-3.5 w-3.5" />
+                            <Check className="h-2.5 w-2.5" />
                             {getEcmRoleLabel(roleCode)}
                           </button>
                         ))}
                         {roles.length === 0 && (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             Click a role on the left to assign
                           </p>
                         )}
@@ -424,85 +424,89 @@ export function QuickContactCreationWizard({
             {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
 
-            <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border/50 bg-white/95 px-8 py-4 backdrop-blur dark:bg-zinc-950/95">
+            <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 bg-white/95 px-6 py-2.5 backdrop-blur dark:bg-zinc-950/95">
               <Button
                 type="button"
+                size="sm"
                 variant="ghost"
-                className="gap-2 rounded-xl"
+                className="h-8 gap-1.5 rounded-lg"
                 disabled={step === "name" || creating}
                 onClick={() => {
                   const prev = ECM_QUICK_CREATE_STEPS[Math.max(0, stepIndex - 1)];
                   if (prev) go(prev.id);
                 }}
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-3.5 w-3.5" />
                 Back
               </Button>
-
               <div className="flex flex-wrap gap-2">
                 {step === "name" && (
-                  <Button type="button" className="gap-2 rounded-xl px-5" onClick={handleNameNext}>
-                    Next
-                    <ArrowRight className="h-4 w-4" />
+                  <Button type="button" size="sm" className="h-8 gap-1.5 rounded-lg px-4" onClick={handleNameNext}>
+                    Continue
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 )}
                 {step === "mobile" && !duplicate && (
-                  <Button type="button" className="gap-2 rounded-xl px-5" onClick={handleMobileNext}>
-                    Next
-                    <ArrowRight className="h-4 w-4" />
+                  <Button type="button" size="sm" className="h-8 gap-1.5 rounded-lg px-4" onClick={handleMobileNext}>
+                    Continue
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 )}
                 {step === "employment" && (
                   <Button
                     type="button"
-                    className="gap-2 rounded-xl px-5"
+                    size="sm"
+                    className="h-8 gap-1.5 rounded-lg px-4"
                     onClick={handleEmploymentNext}
                   >
-                    Next
-                    <ArrowRight className="h-4 w-4" />
+                    Continue
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 )}
                 {step === "email" && (
                   <>
                     <Button
                       type="button"
-                      variant="outline"
-                      className="rounded-xl"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 rounded-lg"
                       onClick={() => handleEmailNext(true)}
                     >
                       Skip
                     </Button>
                     <Button
                       type="button"
-                      className="gap-2 rounded-xl px-5"
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-lg px-4"
                       onClick={() => handleEmailNext(false)}
                     >
-                      Next
-                      <ArrowRight className="h-4 w-4" />
+                      Continue
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   </>
                 )}
                 {step === "roles" && (
-                  <Button type="button" className="gap-2 rounded-xl px-5" onClick={handleRolesNext}>
-                    Next
-                    <ArrowRight className="h-4 w-4" />
+                  <Button type="button" size="sm" className="h-8 gap-1.5 rounded-lg px-4" onClick={handleRolesNext}>
+                    Continue
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 )}
                 {step === "create" && (
                   <Button
                     type="button"
-                    className="gap-2 rounded-xl px-5"
+                    size="sm"
+                    className="h-8 gap-1.5 rounded-lg px-4"
                     disabled={creating}
                     onClick={handleCreate}
                   >
                     {creating ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         Creating…
                       </>
                     ) : (
                       <>
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3.5 w-3.5" />
                         Create Contact
                       </>
                     )}
@@ -527,11 +531,11 @@ function StepShell({
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <div>
-        <h3 className="text-xl font-semibold tracking-tight text-foreground">{question}</h3>
+        <h3 className="text-lg font-semibold tracking-tight text-foreground">{question}</h3>
         {optional && (
-          <p className="mt-1 text-sm text-muted-foreground">Optional — you can skip this step.</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Optional — you can skip this step.</p>
         )}
       </div>
       {children}

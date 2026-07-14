@@ -40,7 +40,14 @@ export function ContactRoleChips({
   const display = interactive ? master.map((m) => m.code) : roles;
 
   return (
-    <div className={cn("flex flex-wrap gap-1.5", className)}>
+    <div
+      className={cn(
+        "flex flex-wrap gap-1",
+        /* Keep chips compact — wrap but cap height so primary actions stay visible */
+        "max-h-14 overflow-y-auto",
+        className,
+      )}
+    >
       {display.map((code) => {
         const active = interactive ? Boolean(selected?.includes(code)) : true;
         if (!interactive && !roles.includes(code)) return null;
@@ -52,15 +59,15 @@ export function ContactRoleChips({
             disabled={!interactive}
             onClick={() => onToggle?.(code)}
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border font-medium tracking-tight transition-all",
-              size === "sm" ? "px-2.5 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
+              "inline-flex shrink-0 items-center gap-0.5 rounded-full border font-medium tracking-tight",
+              size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-[11px]",
               interactive && !active && "border-border/80 bg-background text-muted-foreground hover:bg-muted/60",
               active && TONE_CLASS[tone],
               interactive && active && "ring-1 ring-black/5 dark:ring-white/10",
               !interactive && "cursor-default",
             )}
           >
-            {active && <Check className="h-3 w-3 shrink-0 opacity-80" aria-hidden />}
+            {active && <Check className="h-2.5 w-2.5 shrink-0 opacity-80" aria-hidden />}
             {getEcmRoleLabel(code)}
           </button>
         );
