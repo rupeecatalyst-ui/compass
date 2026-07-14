@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 export interface WorkspaceHeaderProps {
   title: string;
   infoStrip?: React.ReactNode;
+  /** Prompt 011 — context-preserving nav (e.g. Back To Opportunity Workspace). */
+  leadingAction?: React.ReactNode;
   /** UX-04E — Execution console layout with identity + live feed. */
   executionLayout?: {
     borrowerName: string;
@@ -30,6 +32,7 @@ export interface WorkspaceHeaderProps {
 export function WorkspaceHeader({
   title,
   infoStrip,
+  leadingAction,
   executionLayout,
   onClose,
   hasUnsavedChanges,
@@ -75,6 +78,7 @@ export function WorkspaceHeader({
               {executionLayout.chanakyaFeed}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
+              {leadingAction}
               {executionLayout.saveActions}
               <Button
                 type="button"
@@ -92,7 +96,10 @@ export function WorkspaceHeader({
         ) : (
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-sm font-semibold tracking-tight text-foreground">{title}</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                {leadingAction}
+                <h1 className="text-sm font-semibold tracking-tight text-foreground">{title}</h1>
+              </div>
               {infoStrip ? <div className="mt-0.5 min-w-0">{infoStrip}</div> : null}
             </div>
             <Button

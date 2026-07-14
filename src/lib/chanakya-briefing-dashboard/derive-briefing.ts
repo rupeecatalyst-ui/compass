@@ -1,5 +1,6 @@
 /**
  * CF-CHANAKYA-006 — Derive personalized, context-aware briefing cards.
+ * Prompt 011 — visual priority hierarchy (1 Immediate · 2 Operational · 3 Informational).
  */
 
 import { ROUTES } from "@/constants/routes";
@@ -68,6 +69,7 @@ export function deriveChanakyaBriefingDashboard(input: {
       reason: `Flagged as ${topPriority.level} priority; ${priorityFocus.label} also needs attention (${priorityFocus.count} files).`,
       actionLabel: "Open Priority Queue",
       actionHref: priorityFocus.href,
+      priority: 1,
     },
     {
       id: "pending_tasks",
@@ -77,6 +79,17 @@ export function deriveChanakyaBriefingDashboard(input: {
       reason: "Task backlog is above your usual daily band; clearing overdue items protects pipeline velocity.",
       actionLabel: "Review Pending Tasks",
       actionHref: `${ROUTES.TASKS}?filter=due`,
+      priority: 1,
+    },
+    {
+      id: "risk_watch",
+      title: "Risk Watch",
+      headline: `${topRisk.title}`,
+      insight: topRisk.description,
+      reason: `${topRisk.impact} — ${topRisk.mitigation}`,
+      actionLabel: "Review Risk Cases",
+      actionHref: `${ROUTES.LOAN_FILES}?filter=risk`,
+      priority: 1,
     },
     {
       id: "profile_completion",
@@ -86,6 +99,7 @@ export function deriveChanakyaBriefingDashboard(input: {
       reason: "Incomplete ECM profiles are the top blocker before business journeys can open.",
       actionLabel: "Complete Borrower Profiles",
       actionHref: ROUTES.CONTACTS,
+      priority: 2,
     },
     {
       id: "opportunity_watch",
@@ -95,6 +109,7 @@ export function deriveChanakyaBriefingDashboard(input: {
       reason: "Opportunity Compass flagged movement or inactivity on files in your active portfolio.",
       actionLabel: "Open Opportunity Compass",
       actionHref: ROUTES.OPPORTUNITY_COMPASS,
+      priority: 2,
     },
     {
       id: "lender_intelligence",
@@ -107,6 +122,7 @@ export function deriveChanakyaBriefingDashboard(input: {
         from: "dashboard",
         returnTo: ROUTES.DASHBOARD,
       }),
+      priority: 2,
     },
     {
       id: "business_health",
@@ -116,15 +132,7 @@ export function deriveChanakyaBriefingDashboard(input: {
       reason: "Portfolio health is within normal bands, but disbursement and credit queues need same-day action.",
       actionLabel: "View Business Pipeline",
       actionHref: ROUTES.PIPELINE,
-    },
-    {
-      id: "risk_watch",
-      title: "Risk Watch",
-      headline: `${topRisk.title}`,
-      insight: topRisk.description,
-      reason: `${topRisk.impact} — ${topRisk.mitigation}`,
-      actionLabel: "Review Risk Cases",
-      actionHref: `${ROUTES.LOAN_FILES}?filter=risk`,
+      priority: 3,
     },
     {
       id: "recommendations",
@@ -134,6 +142,7 @@ export function deriveChanakyaBriefingDashboard(input: {
       reason: `CHANAKYA confidence ${topRecommendation.confidence}% — highest-impact next move for ${firstName} today.`,
       actionLabel: "Act on Recommendation",
       actionHref: ROUTES.OPPORTUNITY_WORKSPACE,
+      priority: 3,
     },
     {
       id: "daily_wisdom",
@@ -143,8 +152,11 @@ export function deriveChanakyaBriefingDashboard(input: {
       reason: "CHANAKYA shares one operational principle each day — tied to your live portfolio context.",
       actionLabel: wisdom.label,
       actionHref: wisdom.href,
+      priority: 3,
     },
   ];
+
+  cards.sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title));
 
   return {
     firstName,

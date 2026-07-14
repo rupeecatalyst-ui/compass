@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
 import { UgjShell } from "@/components/catalyst-one/universal-guided-journey";
+import type { ContactCreationIntentResult } from "@/components/catalyst-one/contacts/contact-creation-intent-screen";
 
 interface QuickContactCreationWizardProps {
   open: boolean;
@@ -37,6 +38,10 @@ interface QuickContactCreationWizardProps {
   ownerName?: string;
   /** Permission to force-create when mobile already exists */
   canContinueDespiteDuplicate?: boolean;
+  /** Prompt 011 — pre-workflow intent (does not redesign the journey). */
+  creationIntent?: ContactCreationIntentResult;
+  /** Pre-filled name from intent screen. */
+  initialName?: string;
   onOpenChange: (open: boolean) => void;
   onCreated: (contact: EcmContact) => void;
   onOpenExisting: (contact: EcmContact) => void;
@@ -62,6 +67,8 @@ export function QuickContactCreationWizard({
   actorId = "ui",
   ownerName = "Platform Admin",
   canContinueDespiteDuplicate = false,
+  creationIntent,
+  initialName,
   onOpenChange,
   onCreated,
   onOpenExisting,
@@ -130,8 +137,11 @@ export function QuickContactCreationWizard({
       firstStepId: "name",
     });
     setSessionId(session.sessionId);
+    if (initialName?.trim()) {
+      setName(normalizePersonName(initialName) || initialName.trim());
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, initialName, creationIntent?.kind]);
 
   const persistStep = (nextStep: WizardStep, nextAnswers = answers) => {
     const stepDef = journey.steps.find((s) => s.id === step);
@@ -214,13 +224,36 @@ export function QuickContactCreationWizard({
         roleProfiles.customer = { employmentType };
       }
 
+      const intentProfile =
+        creationIntent != null
+          ? {
+              creation_intent: creationIntent.kind,
+              ...(creationIntent.companyName
+                ? { linked_company_name: creationIntent.companyName }
+                : {}),
+              ...(creationIntent.individualName
+                ? { individual_name: creationIntent.individualName }
+                : {}),
+            }
+          : null;
+
       const created = registerEcmContact({
         name: normalizedName,
         mobilePrimary: digits,
         personalEmail: email.trim() || undefined,
         employmentType: employmentType || undefined,
         roles,
-        roleProfiles: Object.keys(roleProfiles).length > 0 ? roleProfiles : undefined,
+        roleProfiles: {
+          ...roleProfiles,
+          ...(intentProfile
+            ? {
+                customer: {
+                  ...(roleProfiles.customer ?? {}),
+                  ...intentProfile,
+                },
+              }
+            : {}),
+        },
         ownerName,
         createdBy: actorId,
       });

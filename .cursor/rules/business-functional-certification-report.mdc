@@ -1,0 +1,85 @@
+---
+description: Business & Functional Certification Mode — environment freeze, workflow, and report
+alwaysApply: true
+---
+
+# Catalyst One — Business Certification Environment Contract
+
+Active until Business & Functional Certification is formally completed.
+
+## 1. Freeze (do not change without explicit user approval)
+
+STOP and explain first if any of these must change:
+
+- Business Certification Admin account / password / role
+- Auth provider or auth configuration
+- Demo seed users
+- Vercel project, deployment target, or database configuration
+
+## 2. Official Business Certification Admin (frozen)
+
+- Email: `admin@compass.com`
+- Password: `Admin@123`
+- Role: `SUPER_ADMIN`
+
+Do **not** generate new credentials. If unchanged, report `Authentication: ✅ Unchanged`. If changed (only after approval), report why, what changed, and new credentials.
+
+## 3. Mandatory completion workflow (every certification implementation)
+
+Do automatically — do not wait to be asked:
+
+1. Verify implementation
+2. Build
+3. Fix build / TypeScript / lint errors
+4. Smoke test
+5. Commit
+6. Push to GitHub
+7. Deploy to Vercel (certification project / production target unless user directs otherwise)
+8. Verify deployed app
+9. Share latest deployment URL
+10. Deliver Certification Report (below)
+
+Use single-line `git commit -m "..."` on Windows PowerShell (no heredoc).
+
+## 4. Definition of Done
+
+Not complete until: implementation done, GitHub updated, Vercel deployed, live verified, URL shared, Certification Report delivered.
+
+## 5. Required report format (end every completed implementation)
+
+```markdown
+---
+
+## Business & Functional Certification Report
+
+### Development
+- Build Status: ✅ / ❌
+- TypeScript Status: ✅ / ❌
+- Lint Status: ✅ / ❌
+- Smoke Test Status: ✅ / ❌ / ⚠️
+
+### Git
+- Branch: <branch>
+- Commit SHA: `<sha>`
+
+### Deployment
+- Deployment Status: ✅ / ❌
+- Latest Vercel URL: <url>
+
+### Authentication
+Authentication: ✅ Unchanged
+(or new credentials + reason if changed with approval)
+
+### Implementation Summary
+- Completed: <bullets>
+- Partially Completed: <bullets or None>
+- Pending: <bullets or None>
+
+### Final Status
+✅ Ready for Business Certification
+(or 🟡 Partially Ready / 🔴 Requires Further Development)
+```
+
+## 6. Claims
+
+Do not mark a module “Certified” unless the user explicitly certifies it. Use Ready / Partially Ready / Requires Further Development.

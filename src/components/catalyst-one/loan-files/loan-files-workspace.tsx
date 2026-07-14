@@ -62,6 +62,19 @@ function LoanFilesQuerySync() {
   return null;
 }
 
+function LoanFilesCreateQuery() {
+  const searchParams = useSearchParams();
+  const { setCreateOpen } = useLoanFiles();
+
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      setCreateOpen(true);
+    }
+  }, [searchParams, setCreateOpen]);
+
+  return null;
+}
+
 function LoanFilesContent() {
   const { view, mounted, selectedFile, selectedFileId, setSelectedFileId } = useLoanFiles();
   const contactOptions = useMemo(
@@ -87,6 +100,7 @@ function LoanFilesContent() {
     <div className="flex flex-col h-[calc(100vh-4rem)] -mx-4 md:-mx-6 lg:-mx-8">
       <LoanFilesKeyboard />
       <LoanFilesQuerySync />
+      <LoanFilesCreateQuery />
       <div className="px-4 md:px-6 lg:px-8 shrink-0">
         <LoanFilesToolbar />
       </div>

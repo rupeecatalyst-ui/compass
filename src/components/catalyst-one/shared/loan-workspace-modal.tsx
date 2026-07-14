@@ -69,6 +69,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import type { PropertyType } from "@/constants/loan-stage-master";
 import type { OccupancyMasterEntry } from "@/constants/occupancy-master";
 import type { LoanParticipant } from "@/types/loan-participant";
@@ -154,6 +157,11 @@ function LoanWorkspaceModalContent({
   }));
   const stickyChromeRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const opportunityId = searchParams.get("opportunityId");
+  const backToOpportunityHref = opportunityId
+    ? `${ROUTES.OPPORTUNITY_WORKSPACE}?opportunityId=${encodeURIComponent(opportunityId)}`
+    : ROUTES.OPPORTUNITY_WORKSPACE;
   const [completionOpen, setCompletionOpen] = useState(false);
   const [completionRequest, setCompletionRequest] = useState<BusinessCompletionRequest | null>(
     null,
@@ -964,7 +972,15 @@ function LoanWorkspaceModalContent({
   const body = (
     <>
       <WorkspaceHeader
-        title="Loan Workspace"
+        title="Loan Workflow"
+        leadingAction={
+          <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs">
+            <Link href={backToOpportunityHref}>
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back To Opportunity Workspace
+            </Link>
+          </Button>
+        }
         executionLayout={
           activeTab === "lenders"
             ? {

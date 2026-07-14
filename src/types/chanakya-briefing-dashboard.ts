@@ -14,6 +14,9 @@ export type ChanakyaBriefingCardKind =
   | "recommendations"
   | "daily_wisdom";
 
+/** Prompt 011 — dashboard visual priority hierarchy. */
+export type ChanakyaBriefingPriority = 1 | 2 | 3;
+
 export interface ChanakyaBriefingCard {
   id: ChanakyaBriefingCardKind;
   title: string;
@@ -25,6 +28,8 @@ export interface ChanakyaBriefingCard {
   reason: string;
   actionLabel: string;
   actionHref: string;
+  /** 1 = Immediate Attention · 2 = Operational · 3 = Informational */
+  priority: ChanakyaBriefingPriority;
 }
 
 export interface ChanakyaBriefingDashboardModel {

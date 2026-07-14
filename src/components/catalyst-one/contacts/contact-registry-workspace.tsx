@@ -22,6 +22,10 @@ import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-rol
 import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
 import { QuickContactCreationWizard } from "@/components/catalyst-one/contacts/quick-contact-creation-wizard";
 import {
+  ContactCreationIntentScreen,
+  type ContactCreationIntentResult,
+} from "@/components/catalyst-one/contacts/contact-creation-intent-screen";
+import {
   EnterpriseDataGrid,
   type EnterpriseGridColumnDef,
 } from "@/components/catalyst-one/enterprise-grid";
@@ -156,11 +160,19 @@ function ContactRegistryInner() {
   const [workspaceContact, setWorkspaceContact] = useState<EcmContact | null>(null);
   const [workspaceTab, setWorkspaceTab] = useState("identity");
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [intentOpen, setIntentOpen] = useState(false);
+  const [creationIntent, setCreationIntent] = useState<ContactCreationIntentResult | null>(null);
 
   useEffect(() => {
     seedEnterpriseContactsIfEmpty();
     setTick((t) => t + 1);
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      setIntentOpen(true);
+    }
+  }, [searchParams]);
 
   const refresh = useCallback(() => {
     setTick((t) => t + 1);
@@ -193,7 +205,8 @@ function ContactRegistryInner() {
   }, [searchParams]);
 
   const openCreate = () => {
-    setWizardOpen(true);
+    setCreationIntent(null);
+    setIntentOpen(true);
   };
 
   const openContact = (contact: EcmContact, tab = "dashboard") => {
@@ -553,12 +566,30 @@ function ContactRegistryInner() {
         </div>
       </div>
 
+      <ContactCreationIntentScreen
+        open={intentOpen}
+        firstName={user?.firstName?.trim() || "there"}
+        onOpenChange={setIntentOpen}
+        onContinue={(result) => {
+          setCreationIntent(result);
+          setIntentOpen(false);
+          setWizardOpen(true);
+        }}
+      />
+
       <QuickContactCreationWizard
         open={wizardOpen}
         actorId={user?.id ?? "ui"}
         ownerName={[user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Platform Admin"}
         canContinueDespiteDuplicate={user?.role === ROLES.SUPER_ADMIN}
-        onOpenChange={setWizardOpen}
+        creationIntent={creationIntent ?? undefined}
+        initialName={
+          creationIntent?.individualName ?? creationIntent?.companyName ?? undefined
+        }
+        onOpenChange={(open) => {
+          setWizardOpen(open);
+          if (!open) setCreationIntent(null);
+        }}
         onCreated={onWizardCreated}
         onOpenExisting={onWizardOpenExisting}
       />

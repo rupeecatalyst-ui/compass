@@ -70,36 +70,39 @@ export interface NavGroup {
  * - Dialogue vs Communication: DISTINCT (EDC timeline vs ENCE notifications).
  */
 
-/** Section 1 — primary customer / loan journey (100% of business production modules) */
+/**
+ * Section 1 — Prompt 011 business-journey order.
+ * LIFE is not a nav item (intelligence inside Loan Workflow). Lenders = Lender Master / ELW.
+ */
 export const businessOperationsNavigation: NavGroup = {
   title: "Business Operations",
   items: [
+    { title: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
     { title: "Contacts", href: ROUTES.CONTACTS, icon: Contact },
-    { title: "Customers", href: ROUTES.CUSTOMERS, icon: Users, badge: "18" },
-    { title: "Opportunity Compass", href: ROUTES.OPPORTUNITY_COMPASS, icon: Compass },
     { title: "Opportunity Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE, icon: Briefcase },
-    { title: "Loan Files", href: ROUTES.LOAN_FILES, icon: FileStack },
-    { title: "Loan Board", href: ROUTES.PIPELINE, icon: Columns3 },
+    { title: "Loan Workflow", href: ROUTES.LOAN_FILES, icon: FileStack },
+    { title: "Documents", href: ROUTES.DOCUMENTS, icon: FolderOpen },
     { title: "Tasks", href: ROUTES.TASKS, icon: ListTodo, badge: "17" },
     { title: "Dialogue", href: ROUTES.DIALOGUE, icon: MessagesSquare },
-    { title: "Communication", href: ROUTES.COMMUNICATION, icon: Megaphone },
-    { title: "Documents", href: ROUTES.DOCUMENTS, icon: FolderOpen },
     { title: "Lenders", href: ROUTES.LENDERS, icon: Building2 },
     { title: "Accounting", href: ROUTES.ACCOUNTING, icon: Calculator },
-    { title: "Reports", href: ROUTES.REPORTS, icon: BarChart3 },
-    { title: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
-    { title: "Horizon", href: ROUTES.HORIZON, icon: Orbit },
+    { title: "Settings", href: ROUTES.SETTINGS, icon: Settings },
   ],
 };
 
-/** Section 2 — supports operations; not the primary customer journey */
+/** Section 2 — supporting modules (not the primary business-journey spine) */
 export const systemAdministrationNavigation: NavGroup = {
   title: "System Administration",
   items: [
+    { title: "Customers", href: ROUTES.CUSTOMERS, icon: Users, badge: "18" },
+    { title: "Opportunity Compass", href: ROUTES.OPPORTUNITY_COMPASS, icon: Compass },
+    { title: "Loan Board", href: ROUTES.PIPELINE, icon: Columns3 },
+    { title: "Communication", href: ROUTES.COMMUNICATION, icon: Megaphone },
+    { title: "Reports", href: ROUTES.REPORTS, icon: BarChart3 },
+    { title: "Horizon", href: ROUTES.HORIZON, icon: Orbit },
     { title: "Workflow (EWOE)", href: ROUTES.WORKFLOW, icon: Workflow },
     { title: "Experience Console (EEI)", href: ROUTES.DECISIONS, icon: Brain },
     { title: "AI Assistant", href: ROUTES.AI_ASSISTANT, icon: Bot },
-    { title: "Settings", href: ROUTES.SETTINGS, icon: Settings },
   ],
 };
 
@@ -230,20 +233,21 @@ export const allNavigationGroups: NavGroup[] = [
 ];
 
 export const recentPages = [
+  { title: "Dashboard", href: ROUTES.DASHBOARD },
   { title: "Contacts", href: ROUTES.CONTACTS },
-  { title: "Customers", href: ROUTES.CUSTOMERS },
-  { title: "Loan Files", href: ROUTES.LOAN_FILES },
+  { title: "Opportunity Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE },
+  { title: "Loan Workflow", href: ROUTES.LOAN_FILES },
   { title: "Tasks", href: ROUTES.TASKS },
 ];
 
 export const favoritePages = [
   { title: "Contacts", href: ROUTES.CONTACTS },
-  { title: "Loan Files", href: ROUTES.LOAN_FILES },
+  { title: "Loan Workflow", href: ROUTES.LOAN_FILES },
 ];
 
 export const pinnedPages = [
   { title: "Contacts", href: ROUTES.CONTACTS, icon: Contact },
-  { title: "Loan Files", href: ROUTES.LOAN_FILES, icon: FileStack },
+  { title: "Loan Workflow", href: ROUTES.LOAN_FILES, icon: FileStack },
 ];
 
 export const workspaces = [

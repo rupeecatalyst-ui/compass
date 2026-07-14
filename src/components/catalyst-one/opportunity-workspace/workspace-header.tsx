@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OpportunityHealthBand } from "@/types/enterprise-opportunity-intelligence";
+import { ROUTES } from "@/constants/routes";
+import { Button } from "@/components/ui/button";
 import { OwGlassPanel, OwInfoChip, OwSectionLabel } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 
@@ -38,23 +42,38 @@ export function WorkspaceHeader() {
     return () => window.clearTimeout(t);
   }, [successPct, selectedLender?.lenderName]);
 
+  const loanHref = opportunity?.id
+    ? `${ROUTES.LOAN_FILES}?from=opportunity_workspace&opportunityId=${encodeURIComponent(opportunity.id)}`
+    : ROUTES.LOAN_FILES;
+
   return (
     <OwGlassPanel className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <OwSectionLabel>Opportunity Summary</OwSectionLabel>
+          <OwSectionLabel>Opportunity Workspace · Planning</OwSectionLabel>
           <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
             {opportunity?.opportunityCode ?? "Opportunity"}
           </h1>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Planning and opportunity management — execution continues in Loan Workflow.
+          </p>
         </div>
-        <span
-          className={cn(
-            "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
-            BAND_STYLES[band],
-          )}
-        >
-          {band.replace(/_/g, " ")}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide",
+              BAND_STYLES[band],
+            )}
+          >
+            {band.replace(/_/g, " ")}
+          </span>
+          <Button asChild size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
+            <Link href={loanHref}>
+              Go To Loan Workflow
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

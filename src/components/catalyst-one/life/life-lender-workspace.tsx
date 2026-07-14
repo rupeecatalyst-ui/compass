@@ -121,7 +121,7 @@ export function LifeLenderWorkspace() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="LIFE · Link to Lender" description={subtitle} />
+      <PageHeader title="LIFE · Case Recommendations" description={subtitle} />
       <p className="sr-only">
         Framework {getLifeFrameworkVersion()} · registry {registryCount} contacts · engine inputs
         hidden from Relationship Managers.
