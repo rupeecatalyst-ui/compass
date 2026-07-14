@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { ChanakyaAvatar, ChanakyaIdentityLabel } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import {
   getProductsForLendingType,
   LENDING_TYPES,
@@ -128,19 +128,9 @@ export function BusinessCompletionDialog({
       <DialogContent className="max-h-[90vh] w-[min(520px,94vw)] overflow-y-auto border-violet-500/20 bg-gradient-to-b from-background via-background to-violet-50/40 p-0 sm:rounded-2xl dark:to-violet-950/30">
         <DialogHeader className="space-y-3 border-b border-violet-500/15 px-5 pb-4 pt-5 text-left">
           <div className="flex gap-3">
-            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-violet-400/35 shadow-sm">
-              <Image
-                src="/images/chanakya-portrait.png"
-                alt="CHANAKYA"
-                fill
-                className="object-cover"
-                sizes="44px"
-              />
-            </div>
+            <ChanakyaAvatar size="md" />
             <div className="min-w-0 space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-300">
-                CHANAKYA · Business Guidance
-              </p>
+              <ChanakyaIdentityLabel surface="completion" />
               <DialogTitle className="text-base font-semibold tracking-tight text-foreground">
                 {greeting.text}
               </DialogTitle>

@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ChanakyaAvatar, ChanakyaIdentityLabel } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
 import { cn } from "@/lib/utils";
@@ -37,19 +37,9 @@ export function BusinessCompletionCard({
       role="status"
     >
       <div className="flex gap-3">
-        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-violet-400/35">
-          <Image
-            src="/images/chanakya-portrait.png"
-            alt="CHANAKYA"
-            fill
-            className="object-cover"
-            sizes="44px"
-          />
-        </div>
+        <ChanakyaAvatar size="md" />
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-300">
-            CHANAKYA · Business Guidance
-          </p>
+          <ChanakyaIdentityLabel surface="completion" />
           <h2 className="mt-1 text-base font-semibold tracking-tight text-foreground">
             {greeting.text}
           </h2>

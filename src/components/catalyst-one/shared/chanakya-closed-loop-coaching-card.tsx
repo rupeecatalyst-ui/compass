@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { Phone, Mail, MessageCircle, Bell, CheckCircle2 } from "lucide-react";
+import { ChanakyaAvatar, ChanakyaIdentityLabel } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import { Button } from "@/components/ui/button";
 import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
 import { useAuthContext } from "@/components/providers/auth-provider";
@@ -187,20 +187,13 @@ export function ChanakyaClosedLoopCoachingCard({
       aria-label="CHANAKYA Business Coaching"
     >
       <div className="flex gap-3">
-        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-violet-400/35">
-          <Image
-            src="/images/chanakya-portrait.png"
-            alt="CHANAKYA"
-            fill
-            className="object-cover"
-            sizes="44px"
-          />
-        </div>
+        <ChanakyaAvatar size="md" />
         <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-300">
-            CHANAKYA
-            {prompt.triggerKind === "stage_movement" ? " · Stage Coaching" : " · Business Coaching"}
-          </p>
+          <ChanakyaIdentityLabel
+            surface={
+              prompt.triggerKind === "stage_movement" ? "stage_coaching" : "business_coaching"
+            }
+          />
 
           {prompt.celebration ? (
             <div className="space-y-1">

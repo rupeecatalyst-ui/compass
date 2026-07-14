@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { ChanakyaAvatar, ChanakyaIdentityLabel } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import { getChanakyaBusinessJourneyGuidanceCopy } from "@/constants/enterprise-contact-master";
 import { cn } from "@/lib/utils";
 
@@ -52,19 +52,12 @@ export function ChanakyaJourneyGuidanceCard({
       )}
     >
       <div className="flex gap-2.5">
-        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-violet-400/30">
-          <Image
-            src="/images/chanakya-portrait.png"
-            alt="CHANAKYA"
-            fill
-            className="object-cover"
-            sizes="40px"
-          />
-        </div>
+        <ChanakyaAvatar size="sm" animate className="border-violet-400/30" />
         <div className="min-w-0 flex-1 space-y-1.5">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-violet-300/90">
-            CHANAKYA
-          </p>
+          <ChanakyaIdentityLabel
+            surface="business_journey"
+            className="text-[9px] tracking-[0.14em] text-violet-300/90"
+          />
           <p className="text-[12px] font-semibold leading-snug text-zinc-50">{copy.headline}</p>
           <p className="text-[11px] leading-snug text-zinc-300">{copy.body}</p>
           {copy.subline && (

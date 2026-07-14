@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo } from "react";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
+import { ChanakyaAvatar, ChanakyaIdentityLabel } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import { deriveChanakyaBriefingDashboard } from "@/lib/chanakya-briefing-dashboard";
 import { ChanakyaBriefingCardView } from "./chanakya-briefing-card";
 
@@ -30,20 +30,9 @@ export function ChanakyaBriefingWorkspace() {
     <div className="space-y-4 pb-4">
       <header className="rounded-xl border border-violet-500/25 bg-gradient-to-br from-slate-900/90 via-slate-900/60 to-violet-950/30 p-4 md:p-5">
         <div className="flex gap-3 md:gap-4">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-violet-400/35 md:h-14 md:w-14">
-            <Image
-              src="/images/chanakya-portrait.png"
-              alt="CHANAKYA"
-              fill
-              className="object-cover"
-              sizes="56px"
-              priority
-            />
-          </div>
+          <ChanakyaAvatar size="lg" priority />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-300/90">
-              CHANAKYA · Briefing Workspace
-            </p>
+            <ChanakyaIdentityLabel surface="briefing" className="tracking-[0.16em] text-violet-300/90" />
             <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-50 md:text-xl">
               {briefing.greeting}
             </h1>

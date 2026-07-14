@@ -27,6 +27,7 @@ import {
   Briefcase,
   Workflow,
   Brain,
+  Sparkles,
   SlidersHorizontal,
   ToggleLeft,
   Shield,
@@ -147,6 +148,11 @@ export const enterpriseAdministrationNavigation: NavGroup = {
       title: "Universal Guided Journey",
       href: ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY,
       icon: MessageSquareHeart,
+    },
+    {
+      title: "CHANAKYA Identity",
+      href: ROUTES.ADMIN_CHANAKYA_ENTERPRISE_IDENTITY,
+      icon: Sparkles,
     },
     {
       title: "Credit & Risk Engine",

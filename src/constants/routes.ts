@@ -84,6 +84,7 @@ export const ROUTES = {
   ADMIN_FOUNDATION_LIBRARIES_REGISTRY: "/admin/foundation-libraries/registry",
   ADMIN_FOUNDATION_LIBRARIES_ENTRIES: "/admin/foundation-libraries/entries",
   ADMIN_UNIVERSAL_GUIDED_JOURNEY: "/admin/universal-guided-journey",
+  ADMIN_CHANAKYA_ENTERPRISE_IDENTITY: "/admin/chanakya-enterprise-identity",
 } as const;
 
 export const PUBLIC_ROUTES = [
@@ -173,4 +174,5 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_REGISTRY,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_ENTRIES,
   ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY,
+  ROUTES.ADMIN_CHANAKYA_ENTERPRISE_IDENTITY,
 ] as const;

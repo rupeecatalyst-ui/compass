@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { ChanakyaAvatar } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import type { OpportunityHealthBand } from "@/types/enterprise-opportunity-intelligence";
 import { OwGlassPanel, OwSectionLabel } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
@@ -26,16 +26,7 @@ export function WorkspaceChanakyaAdvisory() {
   return (
     <OwGlassPanel className="overflow-hidden">
       <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
-        <div className="relative mx-auto h-28 w-28 overflow-hidden rounded-2xl border border-teal-500/25 shadow-lg sm:mx-0 sm:h-32 sm:w-32">
-          <Image
-            src="/images/chanakya-portrait.png"
-            alt="CHANAKYA"
-            fill
-            className="object-cover"
-            sizes="128px"
-            priority
-          />
-        </div>
+        <ChanakyaAvatar size="xl" shape="rounded" priority className="mx-auto sm:mx-0 shadow-lg" />
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <OwSectionLabel>CHANAKYA</OwSectionLabel>

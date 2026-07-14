@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import type { UgjStepDefinition } from "@/types/universal-guided-journey";
+import { ChanakyaAvatar, ChanakyaIdentityLabel } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import { cn } from "@/lib/utils";
 
 export interface UgjGuidanceCardProps {
@@ -22,19 +22,9 @@ export function UgjGuidanceCard({ greeting, step, className }: UgjGuidanceCardPr
       )}
     >
       <div className="flex gap-3">
-        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-violet-400/35">
-          <Image
-            src="/images/chanakya-portrait.png"
-            alt="CHANAKYA"
-            fill
-            className="object-cover"
-            sizes="44px"
-          />
-        </div>
+        <ChanakyaAvatar size="md" />
         <div className="min-w-0 flex-1 space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-300">
-            CHANAKYA · Guided Journey
-          </p>
+          <ChanakyaIdentityLabel surface="guided_journey" />
           <p className="text-sm font-semibold tracking-tight text-foreground">{greeting}</p>
           {step.guidanceHint && (
             <p className="text-xs leading-relaxed text-foreground/85">{step.guidanceHint}</p>
