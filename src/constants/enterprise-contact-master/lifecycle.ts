@@ -1,6 +1,6 @@
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 
-export const ECM_FRAMEWORK_VERSION = "1.5.1-cert-r5-amend";
+export const ECM_FRAMEWORK_VERSION = "1.5.2-cert-r5a";
 
 export const ECM_CONTACT_ROLES = {
   CUSTOMER: "customer",
@@ -66,9 +66,9 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     sortOrder: 1,
     chipTone: "teal",
     roleSpecificFields: [
-      { key: "preferredProduct", label: "Preferred Product", placeholder: "Home Loan, LAP…" },
-      { key: "cityOfInterest", label: "City of Interest", placeholder: "Mumbai" },
       { key: "employmentType", label: "Employment Type", placeholder: "Salaried / Self-employed" },
+      { key: "occupation", label: "Occupation", placeholder: "Occupation" },
+      { key: "residentStatus", label: "Resident Status", placeholder: "Resident / NRI" },
     ],
   },
   {

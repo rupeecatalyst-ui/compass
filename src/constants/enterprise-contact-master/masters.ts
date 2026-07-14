@@ -17,6 +17,7 @@ export type EcmMasterDomain =
   | "relationship_manager"
   | "partner_category"
   | "employment_type"
+  | "resident_status"
   | "loan_purpose"
   | "designation"
   | "department"
@@ -122,6 +123,11 @@ export const ECM_MASTER_CATALOGS: Record<EcmMasterDomain, readonly EcmMasterOpti
     { id: "salaried", label: "Salaried" },
     { id: "self-employed", label: "Self-Employed" },
     { id: "others", label: "Others" },
+  ],
+  resident_status: [
+    { id: "resident", label: "Resident Indian" },
+    { id: "nri", label: "NRI" },
+    { id: "pio", label: "PIO / OCI" },
   ],
   loan_purpose: [
     { id: "purchase", label: "Home Purchase" },
