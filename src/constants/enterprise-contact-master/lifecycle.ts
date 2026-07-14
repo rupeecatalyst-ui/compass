@@ -1,6 +1,6 @@
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 
-export const ECM_FRAMEWORK_VERSION = "1.6.0-cf-con-035";
+export const ECM_FRAMEWORK_VERSION = "1.7.0-cf-cdc-002";
 
 export const ECM_CONTACT_ROLES = {
   CUSTOMER: "customer",
@@ -127,7 +127,6 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     chipTone: "slate",
     roleSpecificFields: [
       { key: "department", label: "Department", placeholder: "Sales" },
-      { key: "employeeCode", label: "Employee Code", placeholder: "RC-EMP-…" },
       { key: "designation", label: "Designation", placeholder: "Relationship Manager" },
     ],
   },

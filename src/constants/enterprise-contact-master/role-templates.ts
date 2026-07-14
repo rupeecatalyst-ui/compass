@@ -1,13 +1,38 @@
 /**
  * Configurable MIR + optional fields + contextual business actions per role.
  * Administrators can change these templates without UI code changes.
+ *
+ * CF-CDC-002 — Business Relevance Driven Data Capture:
+ * Every field must answer Why / When / Who. Irrelevant fields are not rendered.
  */
 
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 import type { EcmMasterDomain } from "./masters";
+import { normalizeEcmEmploymentTypeId } from "./masters";
 import { getEcmRoleLabel, type EcmRoleWorkspaceTabId } from "./lifecycle";
 
 export type EcmFieldControl = "text" | "master" | "number" | "textarea" | "contact_ref";
+
+/** Information ownership class — enterprise design principle CF-CDC-002. */
+export type EcmFieldDataClass =
+  | "identity"
+  | "role"
+  | "journey"
+  | "derived"
+  | "external";
+
+/**
+ * When to show a field. Evaluated against current role profile values.
+ * If omitted, field follows `visible` only.
+ */
+export interface EcmFieldRelevanceRule {
+  /** Show only when `whenField` equals one of `whenValues` (after employment normalize). */
+  whenField?: string;
+  whenValues?: readonly string[];
+  /** Hide when `hideWhenField` equals one of `hideWhenValues`. */
+  hideWhenField?: string;
+  hideWhenValues?: readonly string[];
+}
 
 export interface EcmConfigurableField {
   key: string;
@@ -28,7 +53,16 @@ export interface EcmConfigurableField {
     minLength?: number;
     pattern?: string;
   };
+  /** Template-level default visibility (false = never shown / derived / journey-owned). */
   visible: boolean;
+  /** Identity | Role | Journey | Derived | External */
+  dataClass?: EcmFieldDataClass;
+  /** Why this field exists (documentation for admins / certification). */
+  why?: string;
+  /** Who owns this information (role / journey / system). */
+  owner?: string;
+  /** Contextual show/hide rules. */
+  relevance?: EcmFieldRelevanceRule;
 }
 
 export type EcmBusinessActionId =
@@ -57,6 +91,47 @@ export interface EcmRoleWorkspaceTemplate {
   businessActions: readonly EcmRoleBusinessAction[];
 }
 
+const SALARIED = ["salaried"] as const;
+const BUSINESS_OWNERS = ["self-employed-business", "self-employed-professional"] as const;
+const SELF_EMPLOYED_BUSINESS = ["self-employed-business"] as const;
+
+function normalizeValueForRelevance(fieldKey: string, value: string | undefined): string {
+  if (!value) return "";
+  if (fieldKey === "employmentType") {
+    return normalizeEcmEmploymentTypeId(value) ?? value.trim().toLowerCase();
+  }
+  return value.trim().toLowerCase();
+}
+
+/** CF-CDC-002 — decide if a field is relevant in the current role profile context. */
+export function isEcmFieldRelevant(
+  field: EcmConfigurableField,
+  values: Record<string, string> = {},
+): boolean {
+  if (!field.visible) return false;
+  if (field.dataClass === "derived" || field.dataClass === "external" || field.dataClass === "journey") {
+    return false;
+  }
+  const rule = field.relevance;
+  if (!rule) return true;
+
+  if (rule.whenField && rule.whenValues && rule.whenValues.length > 0) {
+    const current = normalizeValueForRelevance(rule.whenField, values[rule.whenField]);
+    const allowed = rule.whenValues.map((v) => normalizeValueForRelevance(rule.whenField!, v));
+    if (!allowed.includes(current)) return false;
+  }
+
+  if (rule.hideWhenField && rule.hideWhenValues && rule.hideWhenValues.length > 0) {
+    const current = normalizeValueForRelevance(rule.hideWhenField, values[rule.hideWhenField]);
+    const blocked = rule.hideWhenValues.map((v) =>
+      normalizeValueForRelevance(rule.hideWhenField!, v),
+    );
+    if (blocked.includes(current)) return false;
+  }
+
+  return true;
+}
+
 export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] = [
   {
     roleCode: "customer",
@@ -70,6 +145,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 1,
         visible: true,
+        dataClass: "role",
+        owner: "Borrower Role",
+        why: "Classifies how the borrower earns — drives which profile fields are relevant.",
         helpText: "Borrower profile only — loan product/amount belong to Loan Journey.",
       },
       {
@@ -81,6 +159,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 2,
         visible: true,
+        dataClass: "role",
+        owner: "Borrower Role",
+        why: "Captures profession for underwriting identity — not loan terms.",
         helpText: "Options depend on Employment Type (configurable master).",
         placeholder: "Select profession / occupation",
       },
@@ -92,45 +173,92 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 3,
         visible: true,
+        dataClass: "role",
+        owner: "Borrower Role",
+        why: "Required for regulatory / residency classification of the borrower.",
       },
       {
         key: "employerName",
         label: "Employer Name",
         control: "text",
-        mandatory: false,
+        mandatory: true,
         sortOrder: 10,
         visible: true,
-        helpText: "For salaried borrowers.",
+        dataClass: "role",
+        owner: "Borrower Role",
+        why: "Know where a salaried customer works.",
+        helpText: "Shown only for Salaried employment.",
         placeholder: "Employer legal name",
+        relevance: { whenField: "employmentType", whenValues: SALARIED },
       },
       {
         key: "businessName",
         label: "Business Name",
         control: "text",
-        mandatory: false,
+        mandatory: true,
         sortOrder: 11,
         visible: true,
-        helpText: "For self-employed / business borrowers.",
+        dataClass: "role",
+        owner: "Borrower Role",
+        why: "Identify the business / practice for self-employed borrowers.",
         placeholder: "Business / firm name",
-      },
-      {
-        key: "monthlyIncome",
-        label: "Monthly Income",
-        control: "number",
-        mandatory: false,
-        sortOrder: 12,
-        visible: true,
-        placeholder: "₹ amount",
-        helpText: "Borrower capacity — not a loan amount.",
+        relevance: { whenField: "employmentType", whenValues: BUSINESS_OWNERS },
       },
       {
         key: "industry",
         label: "Industry",
         control: "master",
         masterDomain: "industry",
-        mandatory: false,
+        mandatory: true,
+        sortOrder: 12,
+        visible: true,
+        dataClass: "role",
+        owner: "Borrower Role",
+        why: "Industry context for business-owner risk and advisory.",
+        relevance: { whenField: "employmentType", whenValues: SELF_EMPLOYED_BUSINESS },
+      },
+      {
+        key: "natureOfBusiness",
+        label: "Nature of Business",
+        control: "text",
+        mandatory: true,
         sortOrder: 13,
         visible: true,
+        dataClass: "role",
+        owner: "Borrower Role",
+        why: "Describe what the business does — relevant for self-employed business owners.",
+        placeholder: "e.g. Wholesale trading of industrial chemicals",
+        relevance: { whenField: "employmentType", whenValues: SELF_EMPLOYED_BUSINESS },
+      },
+      {
+        key: "yearsInBusiness",
+        label: "Years in Business",
+        control: "number",
+        mandatory: true,
+        sortOrder: 14,
+        visible: true,
+        dataClass: "role",
+        owner: "Borrower Role",
+        why: "Tenure of the business for capacity and stability assessment.",
+        placeholder: "Years",
+        relevance: { whenField: "employmentType", whenValues: SELF_EMPLOYED_BUSINESS },
+      },
+      {
+        key: "monthlyIncome",
+        label: "Monthly Income",
+        control: "number",
+        mandatory: false,
+        sortOrder: 20,
+        visible: true,
+        dataClass: "role",
+        owner: "Borrower Role",
+        why: "Borrower capacity signal — not a loan amount.",
+        placeholder: "₹ amount",
+        helpText: "Borrower capacity — not a loan amount.",
+        relevance: {
+          hideWhenField: "employmentType",
+          hideWhenValues: ["homemaker", "student"],
+        },
       },
     ],
     businessActions: [
@@ -157,6 +285,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 1,
         visible: true,
+        dataClass: "role",
+        owner: "Investor Role",
+        why: "Investor profile preference — scheme selection belongs to Investment Journey.",
       },
       {
         key: "riskAppetite",
@@ -166,6 +297,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 2,
         visible: true,
+        dataClass: "role",
+        owner: "Investor Role",
+        why: "Risk profile for the investor identity — not product selection.",
       },
       {
         key: "ticketSize",
@@ -174,6 +308,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 3,
         visible: true,
+        dataClass: "role",
+        owner: "Investor Role",
+        why: "Capacity band for matching — scheme name is journey-owned.",
         placeholder: "₹25L+",
       },
       {
@@ -184,6 +321,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 10,
         visible: true,
+        dataClass: "role",
+        owner: "Investor Role",
+        why: "Optional location preference for investor servicing.",
       },
       {
         key: "notes",
@@ -192,13 +332,17 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 11,
         visible: true,
+        dataClass: "role",
+        owner: "Investor Role",
+        why: "Free-form investor profile notes.",
       },
     ],
     businessActions: [
       {
         id: "start_investment",
         label: "Start Investment",
-        description: "Begin an investment journey for this contact.",
+        description:
+          "Begin Investment Journey (scheme selection and booking). Scheme Name is never collected on Investor Role.",
         requiresMirComplete: true,
         enabled: true,
       },
@@ -217,14 +361,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         sortOrder: 1,
         visible: true,
         inheritMetaKeys: ["city", "website"],
-      },
-      {
-        key: "projectName",
-        label: "Project Name",
-        control: "text",
-        mandatory: true,
-        sortOrder: 2,
-        visible: true,
+        dataClass: "role",
+        owner: "Builder Role",
+        why: "Org identity for the builder contact.",
       },
       {
         key: "city",
@@ -232,8 +371,11 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         control: "master",
         masterDomain: "city",
         mandatory: true,
-        sortOrder: 3,
+        sortOrder: 2,
         visible: true,
+        dataClass: "role",
+        owner: "Builder Role",
+        why: "Primary operating city for the builder relationship.",
       },
       {
         key: "officeAddress",
@@ -242,6 +384,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 10,
         visible: true,
+        dataClass: "role",
+        owner: "Builder Role",
+        why: "Optional builder office contact detail.",
       },
       {
         key: "website",
@@ -250,6 +395,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 11,
         visible: true,
+        dataClass: "role",
+        owner: "Builder Role",
+        why: "Optional builder digital presence.",
       },
       {
         key: "notes",
@@ -258,13 +406,17 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 12,
         visible: true,
+        dataClass: "role",
+        owner: "Builder Role",
+        why: "Free-form builder relationship notes.",
       },
     ],
     businessActions: [
       {
         id: "add_project",
         label: "Add Project",
-        description: "Register a project linked to this builder contact.",
+        description:
+          "Register a project (project name and project details belong to the Project Journey).",
         requiresMirComplete: true,
         enabled: true,
       },
@@ -281,6 +433,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 1,
         visible: true,
+        dataClass: "role",
+        owner: "CA Role",
+        why: "Professional identity for the CA relationship.",
       },
       {
         key: "specialization",
@@ -290,6 +445,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 2,
         visible: true,
+        dataClass: "role",
+        owner: "CA Role",
+        why: "Practice focus for engagement routing.",
       },
       {
         key: "firmName",
@@ -298,6 +456,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 10,
         visible: true,
+        dataClass: "role",
+        owner: "CA Role",
+        why: "Optional firm affiliation.",
       },
       {
         key: "city",
@@ -307,6 +468,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 11,
         visible: true,
+        dataClass: "role",
+        owner: "CA Role",
+        why: "Optional practice location.",
       },
     ],
     businessActions: [
@@ -331,6 +495,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 1,
         visible: true,
+        dataClass: "role",
+        owner: "Employee Role",
+        why: "Internal org placement for the employee contact.",
       },
       {
         key: "designation",
@@ -340,14 +507,20 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 2,
         visible: true,
+        dataClass: "role",
+        owner: "Employee Role",
+        why: "Job title for the employee relationship.",
       },
       {
         key: "employeeCode",
         label: "Employee Code",
         control: "text",
-        mandatory: true,
+        mandatory: false,
         sortOrder: 3,
-        visible: true,
+        visible: false,
+        dataClass: "derived",
+        owner: "System",
+        why: "System-generated identifier — never manually entered.",
       },
       {
         key: "city",
@@ -357,6 +530,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 10,
         visible: true,
+        dataClass: "role",
+        owner: "Employee Role",
+        why: "Optional work location.",
       },
     ],
     businessActions: [
@@ -381,6 +557,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 1,
         visible: true,
+        dataClass: "role",
+        owner: "Banker Role",
+        why: "Org location: Institution → Region → City → Branch.",
         helpText: "Lender Master. Org path: Institution → Region → City → Branch.",
       },
       {
@@ -391,6 +570,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 2,
         visible: true,
+        dataClass: "role",
+        owner: "Banker Role",
+        why: "Banker operating city.",
       },
       {
         key: "branch",
@@ -401,6 +583,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 3,
         visible: true,
+        dataClass: "role",
+        owner: "Banker Role",
+        why: "Branch affiliation for lender relationship.",
         helpText: "Branch Master — filtered by Institution when selected.",
       },
       {
@@ -411,6 +596,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 4,
         visible: true,
+        dataClass: "role",
+        owner: "Banker Role",
+        why: "Job title only — reporting depth is relationship-derived.",
         helpText:
           "Job title only (e.g. Relationship Executive … National Manager). Reporting depth is derived from Reporting Manager links — never hardcoded.",
       },
@@ -421,6 +609,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 5,
         visible: true,
+        dataClass: "role",
+        owner: "Banker Role",
+        why: "Official banker contact channel.",
         helpText: "Defaults from Contact primary mobile when blank.",
       },
       {
@@ -430,6 +621,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 6,
         visible: true,
+        dataClass: "role",
+        owner: "Banker Role",
+        why: "Hierarchy via Contact Relationship (reports_to).",
         helpText:
           "Contact Lookup. Persisted as generic Contact Relationship (reports_to). Hierarchy walks dynamically; missing levels never break the chain.",
       },
@@ -440,6 +634,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 10,
         visible: true,
+        dataClass: "role",
+        owner: "Banker Role",
+        why: "Optional official email for banker.",
         helpText: "Optional. Defaults from Contact email when blank.",
       },
       {
@@ -451,14 +648,16 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 11,
         visible: true,
-        helpText: "Optional org-location layer (Institution → Region → City → Branch).",
+        dataClass: "role",
+        owner: "Banker Role",
+        why: "Optional org region under Institution.",
       },
     ],
     businessActions: [
       {
         id: "link_lender",
         label: "Link to Lender",
-        description: "Open lender relationship management.",
+        description: "Open LIFE recommendations from case context.",
         requiresMirComplete: true,
         href: "/lenders",
         enabled: true,
@@ -477,6 +676,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 1,
         visible: true,
+        dataClass: "role",
+        owner: "Partner Role",
+        why: "Classify the partner channel relationship.",
       },
       {
         key: "channelType",
@@ -486,6 +688,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 2,
         visible: true,
+        dataClass: "role",
+        owner: "Partner Role",
+        why: "How this partner originates business.",
       },
       {
         key: "partnerFirm",
@@ -494,6 +699,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 3,
         visible: true,
+        dataClass: "role",
+        owner: "Partner Role",
+        why: "Firm identity for the partner onboarding profile.",
       },
       {
         key: "city",
@@ -503,6 +711,9 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 10,
         visible: true,
+        dataClass: "role",
+        owner: "Partner Role",
+        why: "Optional primary city.",
       },
       {
         key: "coverageCities",
@@ -511,8 +722,12 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: false,
         sortOrder: 11,
         visible: true,
+        dataClass: "role",
+        owner: "Partner Role",
+        why: "Optional coverage footprint.",
         placeholder: "Mumbai, Thane",
       },
+      // Bank Account is Journey/Settlement-owned — not collected at Partner Role onboarding (CF-CDC-002).
     ],
     businessActions: [
       {
@@ -532,19 +747,27 @@ export function getEcmRoleWorkspaceTemplate(
   return ECM_ROLE_WORKSPACE_TEMPLATES.find((t) => t.roleCode === roleCode);
 }
 
-export function getVisibleMirFields(roleCode: EcmContactRole): EcmConfigurableField[] {
+/** Relevant + visible MIR fields for the current profile values (CF-CDC-002). */
+export function getVisibleMirFields(
+  roleCode: EcmContactRole,
+  values: Record<string, string> = {},
+): EcmConfigurableField[] {
   const template = getEcmRoleWorkspaceTemplate(roleCode);
   if (!template) return [];
   return template.fields
-    .filter((f) => f.visible && f.mandatory)
+    .filter((f) => f.mandatory && isEcmFieldRelevant(f, values))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export function getVisibleOptionalFields(roleCode: EcmContactRole): EcmConfigurableField[] {
+/** Relevant + visible optional fields for the current profile values (CF-CDC-002). */
+export function getVisibleOptionalFields(
+  roleCode: EcmContactRole,
+  values: Record<string, string> = {},
+): EcmConfigurableField[] {
   const template = getEcmRoleWorkspaceTemplate(roleCode);
   if (!template) return [];
   return template.fields
-    .filter((f) => f.visible && !f.mandatory)
+    .filter((f) => !f.mandatory && isEcmFieldRelevant(f, values))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
@@ -552,17 +775,19 @@ export function isEcmRoleMirComplete(
   roleCode: EcmContactRole,
   values: Record<string, string>,
 ): boolean {
-  return getVisibleMirFields(roleCode).every((field) => Boolean(values[field.key]?.trim()));
+  return getVisibleMirFields(roleCode, values).every((field) =>
+    Boolean(values[field.key]?.trim()),
+  );
 }
 
 export type EcmRoleProgressStatus = "not_started" | "in_progress" | "complete";
 
-/** MIR-based role completion (0–100). */
+/** MIR-based role completion (0–100) — only currently relevant mandatory fields. */
 export function getEcmRoleCompletionPct(
   roleCode: EcmContactRole,
   values: Record<string, string>,
 ): number {
-  const mir = getVisibleMirFields(roleCode);
+  const mir = getVisibleMirFields(roleCode, values);
   if (mir.length === 0) return 100;
   const filled = mir.filter((field) => Boolean(values[field.key]?.trim())).length;
   return Math.round((filled / mir.length) * 100);
@@ -606,4 +831,10 @@ export function getEcmContactReadinessPct(
     return acc + getEcmRoleCompletionPct(role, roleProfiles?.[role] ?? {});
   }, 0);
   return Math.round(sum / assignedRoles.length);
+}
+
+/** Generate system Employee Code — derived, never user-entered (CF-CDC-002). */
+export function deriveEcmEmployeeCode(contactId: string): string {
+  const stamp = contactId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase() || "NEW";
+  return `EMP-${stamp}`;
 }

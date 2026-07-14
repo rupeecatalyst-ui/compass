@@ -21,6 +21,7 @@ import {
   getVisibleMirFields,
   getVisibleOptionalFields,
   getEcmRoleWorkspaceTemplate,
+  isEcmFieldRelevant,
   isEcmRoleMirComplete,
   listEcmMasterOptions,
   normalizeEcmEmploymentTypeId,
@@ -30,6 +31,7 @@ import {
   getEcmRoleDashboardActionLabel,
   getEcmContactReadinessPct,
   getEnabledEcmRoleMaster,
+  deriveEcmEmployeeCode,
   type EcmBusinessActionId,
   type EcmConfigurableField,
   type EcmMasterOption,
@@ -406,12 +408,18 @@ export function ContactWorkspaceModal({
     setSaving(true);
     setError(null);
     try {
-      const profile = roleProfiles[roleCode] ?? {};
-      const patch: Parameters<typeof updateEcmContact>[1] = { roleProfiles };
+      let profile = { ...(roleProfiles[roleCode] ?? {}) };
+      // CF-CDC-002 — Employee Code is system-derived, never shown for manual entry
+      if (roleCode === "employee" && !profile.employeeCode?.trim()) {
+        profile.employeeCode = deriveEcmEmployeeCode(active.id);
+      }
+      const nextProfiles = { ...roleProfiles, [roleCode]: profile };
+      const patch: Parameters<typeof updateEcmContact>[1] = { roleProfiles: nextProfiles };
       // Keep Contact identity employment in sync when Borrower profile updates it (SSOT header)
       if (roleCode === "customer" && profile.employmentType) {
         patch.employmentType = profile.employmentType;
       }
+      setRoleProfiles(nextProfiles);
       const updated = updateEcmContact(active.id, patch, actorId);
       hydrateFromContact(updated);
       onSaved(updated);
@@ -443,6 +451,16 @@ export function ContactWorkspaceModal({
         getEcmRoleWorkspaceTemplate(role)?.fields.filter((f) => f.parentFieldKey === key) ?? [];
       for (const dep of dependents) {
         current[dep.key] = "";
+      }
+      // CF-CDC-002 — drop values that are no longer relevant after the controlling field changes
+      if (key === "employmentType") {
+        const templateFields = getEcmRoleWorkspaceTemplate(role)?.fields ?? [];
+        for (const field of templateFields) {
+          if (field.key === key || field.parentFieldKey === key) continue;
+          if (!isEcmFieldRelevant(field, current) && current[field.key]) {
+            current[field.key] = "";
+          }
+        }
       }
       if (option?.meta && inheritMetaKeys?.length) {
         for (const metaKey of inheritMetaKeys) {
@@ -682,8 +700,10 @@ export function ContactWorkspaceModal({
     if (!def || !template) return null;
 
     const values = roleProfiles[step.roleCode] ?? {};
-    const mirFields = getVisibleMirFields(step.roleCode).filter((f) => f.control !== "contact_ref");
-    const optionalFields = getVisibleOptionalFields(step.roleCode).filter(
+    const mirFields = getVisibleMirFields(step.roleCode, values).filter(
+      (f) => f.control !== "contact_ref",
+    );
+    const optionalFields = getVisibleOptionalFields(step.roleCode, values).filter(
       (f) => f.control !== "contact_ref",
     );
     const reportingField = getEcmRoleWorkspaceTemplate(step.roleCode)?.fields.find(
