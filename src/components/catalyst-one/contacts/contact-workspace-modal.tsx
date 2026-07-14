@@ -671,8 +671,13 @@ export function ContactWorkspaceModal({
     if (!def || !template) return null;
 
     const values = roleProfiles[step.roleCode] ?? {};
-    const mirFields = getVisibleMirFields(step.roleCode);
-    const optionalFields = getVisibleOptionalFields(step.roleCode);
+    const mirFields = getVisibleMirFields(step.roleCode).filter((f) => f.control !== "contact_ref");
+    const optionalFields = getVisibleOptionalFields(step.roleCode).filter(
+      (f) => f.control !== "contact_ref",
+    );
+    const reportingField = getEcmRoleWorkspaceTemplate(step.roleCode)?.fields.find(
+      (f) => f.control === "contact_ref",
+    );
     const mirComplete = isEcmRoleMirComplete(step.roleCode, values);
     const actions = template.businessActions.filter((a) => a.enabled);
     const isBanker = step.roleCode === "lender_employee";
@@ -800,11 +805,55 @@ export function ContactWorkspaceModal({
 
           <SectionCard
             title="Mandatory Information"
-            description="Minimum Information Requirement (MIR) — configurable per role."
+            description={
+              isBanker
+                ? "Institution, City, Branch, Designation, Official Mobile — configurable MIR."
+                : "Minimum Information Requirement (MIR) — configurable per role."
+            }
             badge={<MirStatusBadge complete={mirComplete} />}
           >
             {renderFieldGrid(mirFields, step.roleCode, values)}
           </SectionCard>
+
+          {isBanker && reportingField && (
+            <SectionCard
+              title="Reporting Manager"
+              description="Search existing Contacts or create a basic Contact without leaving this workspace. Hierarchy is derived from reports_to links — levels are never hardcoded."
+            >
+              <ReportingManagerPicker
+                valueContactId={values.reportingManagerContactId}
+                valueName={values.reportingManagerName}
+                excludeContactId={active?.id}
+                actorId={actorId}
+                onChange={(picked) => {
+                  if (!active) return;
+                  try {
+                    const updated = setBankerReportingManager({
+                      bankerContactId: active.id,
+                      manager: picked,
+                      actorId,
+                    });
+                    hydrateFromContact(updated);
+                    onSaved(updated);
+                  } catch (e) {
+                    setError(
+                      e instanceof Error ? e.message : "Failed to link reporting manager",
+                    );
+                  }
+                }}
+              />
+              {bankerChain.length > 1 && (
+                <p className="mt-3 text-xs text-zinc-400">
+                  Live chain:{" "}
+                  <span className="text-zinc-200">
+                    {bankerChain
+                      .map((n) => `${n.name}${n.designation ? ` (${n.designation})` : ""}`)
+                      .join(" ← ")}
+                  </span>
+                </p>
+              )}
+            </SectionCard>
+          )}
 
           {optionalFields.length > 0 && (
             <div className="space-y-3">

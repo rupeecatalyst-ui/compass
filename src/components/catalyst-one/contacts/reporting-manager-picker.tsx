@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Check, Plus, Search, UserRound, X } from "lucide-react";
 import {
+  listEcmContacts,
   normalizePersonName,
   registerEcmContact,
   searchEcmContactsForReportingManager,
@@ -37,10 +38,11 @@ export function ReportingManagerPicker({
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const results = useMemo(
-    () => searchEcmContactsForReportingManager(query, excludeContactId),
-    [query, excludeContactId],
-  );
+  const results = useMemo(() => {
+    const q = query.trim();
+    if (!q) return [];
+    return searchEcmContactsForReportingManager(q, excludeContactId);
+  }, [query, excludeContactId]);
 
   const createBasic = () => {
     setError(null);
@@ -50,9 +52,11 @@ export function ReportingManagerPicker({
       return;
     }
     try {
+      const mobile = newMobile.trim();
+      // Optional mobile — use unique placeholder so Contact SSOT remains valid without trapping the user
       const created = registerEcmContact({
         name,
-        mobilePrimary: newMobile.trim() || `9${String(Date.now()).slice(-9)}`,
+        mobilePrimary: mobile || `9${String(Date.now()).slice(-9)}`,
         personalEmail: newEmail.trim() || undefined,
         roles: ["lender_employee"],
         createdBy: actorId,
@@ -69,17 +73,26 @@ export function ReportingManagerPicker({
     }
   };
 
+  const linked = valueContactId
+    ? listEcmContacts().find((c) => c.id === valueContactId)
+    : undefined;
+
   return (
     <div className={cn("space-y-3", className)}>
       {valueContactId ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-teal-800/60 bg-teal-950/30 px-3 py-2.5">
           <div className="flex min-w-0 items-center gap-2">
             <UserRound className="h-4 w-4 shrink-0 text-teal-400" />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-zinc-100">
-                {valueName || "Selected Contact"}
+                {valueName || linked?.name || "Selected Contact"}
               </p>
-              <p className="font-mono text-[10px] text-zinc-500">{valueContactId.slice(0, 8)}…</p>
+              <p className="text-xs text-zinc-400">
+                {linked?.mobilePrimary ? `${linked.mobilePrimary} · ` : ""}
+                <span className="font-mono text-[10px] text-zinc-500">
+                  {valueContactId.slice(0, 8)}…
+                </span>
+              </p>
             </div>
           </div>
           <Button
@@ -99,14 +112,21 @@ export function ReportingManagerPicker({
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search contacts by name, mobile, email…"
+              placeholder="Search contacts by name, mobile, or email…"
               className="h-10 rounded-xl border-zinc-700 bg-zinc-950 pl-9 text-zinc-100"
             />
           </div>
+          {!query.trim() && (
+            <p className="text-xs text-zinc-500">
+              Type to look up an existing Contact. If not found, create a basic Contact below.
+            </p>
+          )}
           {query.trim() && (
-            <div className="max-h-40 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950">
+            <div className="max-h-44 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950">
               {results.length === 0 ? (
-                <p className="px-3 py-3 text-sm text-zinc-500">No matching contacts</p>
+                <p className="px-3 py-3 text-sm text-zinc-500">
+                  No match. Create a basic Contact below and link immediately.
+                </p>
               ) : (
                 results.map((c) => (
                   <button
@@ -143,7 +163,7 @@ export function ReportingManagerPicker({
           ) : (
             <div className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-950 p-3">
               <p className="text-xs font-medium text-zinc-300">
-                Create basic Contact (stay on Banker screen)
+                Create basic Contact · stay on Banker workspace · auto-link on create
               </p>
               <div className="space-y-2">
                 <Label className="text-xs text-zinc-400">
@@ -154,6 +174,7 @@ export function ReportingManagerPicker({
                   onChange={(e) => setNewName(e.target.value)}
                   className="h-9 rounded-lg border-zinc-700 bg-zinc-900"
                   placeholder="Full name"
+                  autoFocus
                 />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -163,6 +184,7 @@ export function ReportingManagerPicker({
                     value={newMobile}
                     onChange={(e) => setNewMobile(e.target.value)}
                     className="h-9 rounded-lg border-zinc-700 bg-zinc-900"
+                    placeholder="10-digit mobile"
                   />
                 </div>
                 <div className="space-y-2">
@@ -171,6 +193,7 @@ export function ReportingManagerPicker({
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     className="h-9 rounded-lg border-zinc-700 bg-zinc-900"
+                    placeholder="name@example.com"
                   />
                 </div>
               </div>

@@ -87,6 +87,12 @@ export interface EcmAuditReference {
  * Generic directed Contact↔Contact relationship.
  * Banker Reporting Manager uses relationshipType `reports_to`.
  * Additional types reuse this model without Contact schema redesign.
+ *
+ * Future readiness (no redesign of Contact required):
+ * - Escalation Matrix → walk `reports_to` chain / meta.escalationPriority
+ * - Organization Charts → graph of from→to by type
+ * - Relationship Intelligence → aggregate by type + contextRole
+ * - Branch Analytics → join banker org placement + relationship edges
  */
 export type EcmContactRelationshipType =
   | "reports_to"

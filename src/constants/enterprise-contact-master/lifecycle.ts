@@ -1,6 +1,6 @@
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 
-export const ECM_FRAMEWORK_VERSION = "1.5.2-cert-r5a";
+export const ECM_FRAMEWORK_VERSION = "1.5.3-cert-banker";
 
 export const ECM_CONTACT_ROLES = {
   CUSTOMER: "customer",
@@ -142,8 +142,10 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     chipTone: "sky",
     roleSpecificFields: [
       { key: "institution", label: "Institution", placeholder: "HDFC Bank" },
+      { key: "city", label: "City", placeholder: "Mumbai" },
       { key: "branch", label: "Branch", placeholder: "Bandra West" },
-      { key: "productDesk", label: "Product Desk", placeholder: "Home Loans" },
+      { key: "designation", label: "Designation", placeholder: "Relationship Manager" },
+      { key: "officialMobile", label: "Official Mobile", placeholder: "Mobile" },
     ],
   },
   {
