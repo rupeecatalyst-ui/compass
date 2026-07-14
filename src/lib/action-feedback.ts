@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { isBusinessCompletionRequiredError } from "@/lib/business-completion";
 
 /** CRC-004 — consistent user feedback for platform actions. */
 
@@ -21,6 +22,11 @@ export async function runWithFeedback<T>(
     options?.onSuccess?.(result);
     return result;
   } catch (error) {
+    // CF-WF-001 — business completion is guidance, not a failure toast
+    if (isBusinessCompletionRequiredError(error)) {
+      toast.dismiss(toastId);
+      throw error;
+    }
     const message = error instanceof Error ? error.message : "Something went wrong.";
     toast.error(`${label} failed.`, { id: toastId, description: message });
     throw error;

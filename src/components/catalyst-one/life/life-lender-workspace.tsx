@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Check, Star } from "lucide-react";
 import {
@@ -11,9 +10,9 @@ import {
 } from "@/lib/enterprise-life-engine";
 import type {
   LifeBusinessRecommendation,
-  LifeContextBlocker,
   LifeRecommendationOutcome,
 } from "@/types/enterprise-life-engine";
+import { BusinessCompletionCard } from "@/components/catalyst-one/shared/business-completion";
 import { PageHeader } from "@/components/design-system/page-header";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -70,7 +69,16 @@ export function LifeLenderWorkspace() {
       {!ready && blockers.length > 0 && (
         <div className="space-y-3">
           {blockers.map((blocker) => (
-            <BusinessCompletionCard key={blocker.code} blocker={blocker} />
+            <BusinessCompletionCard
+              key={blocker.code}
+              guide={{
+                code: blocker.code,
+                title: blocker.title,
+                message: blocker.message,
+                actionLabel: blocker.actionLabel,
+                actionHref: blocker.actionHref,
+              }}
+            />
           ))}
         </div>
       )}
@@ -132,20 +140,6 @@ export function LifeLenderWorkspace() {
           )}
         </section>
       )}
-    </div>
-  );
-}
-
-function BusinessCompletionCard({ blocker }: { blocker: LifeContextBlocker }) {
-  return (
-    <div className="rounded-xl border border-amber-300/70 bg-amber-50/90 p-5 dark:border-amber-900 dark:bg-amber-950/40">
-      <h2 className="text-base font-semibold tracking-tight text-amber-950 dark:text-amber-50">
-        {blocker.title}
-      </h2>
-      <p className="mt-1.5 text-sm text-amber-900/90 dark:text-amber-100/90">{blocker.message}</p>
-      <Button asChild className="mt-4 rounded-lg" size="sm">
-        <Link href={blocker.actionHref}>{blocker.actionLabel}</Link>
-      </Button>
     </div>
   );
 }

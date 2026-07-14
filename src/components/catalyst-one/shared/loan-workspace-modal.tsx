@@ -37,6 +37,12 @@ import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { LENDER_CASE_STAGE_LABELS, normalizeLenderCaseStage } from "@/constants/lender-pipeline";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { runWithFeedback } from "@/lib/action-feedback";
+import { isBusinessCompletionRequiredError } from "@/lib/business-completion";
+import type {
+  BusinessCompletionRequest,
+  BusinessCompletionValues,
+} from "@/types/business-completion";
+import { BusinessCompletionDialog } from "@/components/catalyst-one/shared/business-completion";
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage, buildStageChangePatch, buildSubStageChangePatch } from "@/lib/loan-files-utils";
@@ -138,6 +144,16 @@ function LoanWorkspaceModalContent({
     lenderSummary: { collapsed: false, mode: "view" as "view" | "edit" },
   }));
   const stickyChromeRef = useRef<HTMLDivElement>(null);
+  const [completionOpen, setCompletionOpen] = useState(false);
+  const [completionRequest, setCompletionRequest] = useState<BusinessCompletionRequest | null>(
+    null,
+  );
+  const pendingPersistRef = useRef<{
+    exitOnSuccess?: boolean;
+    workflowPatch?: Partial<LoanFile>;
+    successMessage?: string;
+    loadingLabel?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (file) {
@@ -243,12 +259,14 @@ function LoanWorkspaceModalContent({
     workflowPatch?: Partial<LoanFile>;
     successMessage?: string;
     loadingLabel?: string;
+    extraPatch?: Partial<LoanFile>;
   }): Promise<boolean> => {
     const {
       exitOnSuccess = false,
       workflowPatch,
       successMessage = "Loan updated successfully.",
       loadingLabel = workflowPatch ? "Updating workflow" : "Saving loan",
+      extraPatch,
     } = options ?? {};
 
     setSaving(true);
@@ -258,6 +276,7 @@ function LoanWorkspaceModalContent({
         async () =>
           updateLoanFileInStorage(file.id, {
             ...buildPersistPayload(),
+            ...extraPatch,
             ...workflowPatch,
           }),
         { successMessage },
@@ -269,11 +288,36 @@ function LoanWorkspaceModalContent({
       onUpdate?.(file.id, updated);
       if (exitOnSuccess) onOpenChange(false);
       return true;
-    } catch {
+    } catch (error) {
+      if (isBusinessCompletionRequiredError(error)) {
+        pendingPersistRef.current = {
+          exitOnSuccess,
+          workflowPatch,
+          successMessage,
+          loadingLabel,
+        };
+        setCompletionRequest(error.request);
+        setCompletionOpen(true);
+        return false;
+      }
       return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCompletionSaveAndContinue = async (values: BusinessCompletionValues) => {
+    const completionPatch = businessCompletionValuesToLoanPatch(values);
+    setDraft((d) => ({ ...d, ...completionPatch }));
+    const pending = pendingPersistRef.current ?? {};
+    pendingPersistRef.current = null;
+    setCompletionOpen(false);
+    setCompletionRequest(null);
+    await persistDraft({
+      ...pending,
+      extraPatch: completionPatch,
+      successMessage: pending.successMessage ?? "Loan updated successfully.",
+    });
   };
 
   const handleSave = () => persistDraft();
@@ -848,27 +892,95 @@ function LoanWorkspaceModalContent({
 
   if (embedded) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-        <div className="relative flex h-[85vh] max-h-[85vh] w-[80vw] max-w-[80vw] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-xl">
-          {body}
+      <>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div className="relative flex h-[85vh] max-h-[85vh] w-[80vw] max-w-[80vw] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-xl">
+            {body}
+          </div>
         </div>
-      </div>
+        <BusinessCompletionDialog
+          open={completionOpen}
+          request={completionRequest}
+          contextValues={{
+            loanProduct: draft.loanProduct,
+            lendingType: draft.lendingType,
+            propertyType: draft.propertyType,
+            occupancyId: draft.occupancyId,
+            btInstitutionId: draft.btInstitutionId,
+            btAmount: draft.btAmount,
+            finalLoanAmount: draft.finalLoanAmount,
+            transactionType: draft.transactionType,
+          }}
+          saving={saving}
+          onOpenChange={setCompletionOpen}
+          onSaveAndContinue={handleCompletionSaveAndContinue}
+        />
+      </>
     );
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (next) onOpenChange(true);
-        else closeApi.requestClose();
-      }}
-    >
-      <DialogContent className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[96vw] flex-col gap-0 overflow-hidden rounded-xl p-0 [&>button]:hidden">
-        {body}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) onOpenChange(true);
+          else closeApi.requestClose();
+        }}
+      >
+        <DialogContent className="flex h-[94vh] max-h-[94vh] w-[96vw] max-w-[96vw] flex-col gap-0 overflow-hidden rounded-xl p-0 [&>button]:hidden">
+          {body}
+        </DialogContent>
+      </Dialog>
+      <BusinessCompletionDialog
+        open={completionOpen}
+        request={completionRequest}
+        contextValues={{
+          loanProduct: draft.loanProduct,
+          lendingType: draft.lendingType,
+          propertyType: draft.propertyType,
+          occupancyId: draft.occupancyId,
+          btInstitutionId: draft.btInstitutionId,
+          btAmount: draft.btAmount,
+          finalLoanAmount: draft.finalLoanAmount,
+          transactionType: draft.transactionType,
+        }}
+        saving={saving}
+        onOpenChange={setCompletionOpen}
+        onSaveAndContinue={handleCompletionSaveAndContinue}
+      />
+    </>
   );
+}
+
+function businessCompletionValuesToLoanPatch(
+  values: BusinessCompletionValues,
+): Partial<LoanFile> {
+  const patch: Partial<LoanFile> = {};
+  if (values.lendingType !== undefined) patch.lendingType = values.lendingType as LendingType;
+  if (values.transactionType !== undefined) {
+    patch.transactionType = values.transactionType as TransactionType;
+  }
+  if (values.loanProduct !== undefined) patch.loanProduct = String(values.loanProduct);
+  if (values.propertyType !== undefined) patch.propertyType = String(values.propertyType);
+  if (values.occupancyId !== undefined) patch.occupancyId = String(values.occupancyId);
+  if (values.btInstitutionId !== undefined) {
+    patch.btInstitutionId = String(values.btInstitutionId);
+  }
+  if (values.btInstitutionName !== undefined) {
+    patch.btInstitutionName = String(values.btInstitutionName);
+  }
+  if (values.btAmount !== undefined && values.btAmount !== null && values.btAmount !== "") {
+    patch.btAmount = Number(values.btAmount);
+  }
+  if (
+    values.finalLoanAmount !== undefined &&
+    values.finalLoanAmount !== null &&
+    values.finalLoanAmount !== ""
+  ) {
+    patch.finalLoanAmount = Number(values.finalLoanAmount);
+  }
+  return patch;
 }
 
 function Field({

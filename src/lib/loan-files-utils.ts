@@ -11,6 +11,7 @@ import {
   normalizeLoanFile,
   validateLoanFile,
 } from "@/lib/loan-validation";
+import { throwLoanBusinessCompletionIfNeeded } from "@/lib/business-completion";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
 import type { CustomerLoanStats, LoanFile } from "@/types/catalyst-one";
@@ -265,6 +266,7 @@ export function updateLoanFileInStorage(
 
   const validation = validateLoanFile(merged, existing);
   if (!validation.valid) {
+    throwLoanBusinessCompletionIfNeeded(merged, validation.issues);
     throw new Error(validation.errors.join(" "));
   }
 

@@ -11,10 +11,29 @@ import {
   shouldShowFinalLoanAmount,
 } from "@/constants/loan-stage-master";
 import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
+import type { BusinessCompletionControl } from "@/types/business-completion";
+
+export interface LoanValidationIssue {
+  code: string;
+  fieldKey: string;
+  label: string;
+  message: string;
+  control?: BusinessCompletionControl;
+}
 
 export interface LoanValidationResult {
   valid: boolean;
+  /** Human-readable messages (legacy consumers). */
   errors: string[];
+  /** Structured issues for Business Completion Cards (CF-WF-001). */
+  issues: LoanValidationIssue[];
+}
+
+function pushIssue(
+  issues: LoanValidationIssue[],
+  issue: LoanValidationIssue,
+): void {
+  issues.push(issue);
 }
 
 /** CRC-024 — Centralized loan save validation (master-driven). */
@@ -22,22 +41,46 @@ export function validateLoanFile(
   file: LoanFile,
   previous?: LoanFile,
 ): LoanValidationResult {
-  const errors: string[] = [];
+  const issues: LoanValidationIssue[] = [];
 
   if (!file.lendingType) {
-    errors.push("Lending Type is required.");
+    pushIssue(issues, {
+      code: "LOAN_MISSING_LENDING_TYPE",
+      fieldKey: "lendingType",
+      label: "Lending Type",
+      message: "Lending Type is required.",
+      control: "lending_type",
+    });
   }
 
   if (!file.transactionType) {
-    errors.push("Transaction Type is required.");
+    pushIssue(issues, {
+      code: "LOAN_MISSING_TRANSACTION_TYPE",
+      fieldKey: "transactionType",
+      label: "Transaction Type",
+      message: "Transaction Type is required.",
+      control: "transaction_type",
+    });
   }
 
   if (!file.loanProduct) {
-    errors.push("Product is required.");
+    pushIssue(issues, {
+      code: "LOAN_MISSING_PRODUCT",
+      fieldKey: "loanProduct",
+      label: "Loan Product",
+      message: "Product is required.",
+      control: "loan_product",
+    });
   } else if (file.lendingType) {
     const allowed = getProductsForLendingType(file.lendingType);
     if (!allowed.includes(file.loanProduct)) {
-      errors.push(`Product "${file.loanProduct}" is not valid for ${file.lendingType} lending.`);
+      pushIssue(issues, {
+        code: "LOAN_INVALID_PRODUCT",
+        fieldKey: "loanProduct",
+        label: "Loan Product",
+        message: `Product "${file.loanProduct}" is not valid for ${file.lendingType} lending.`,
+        control: "loan_product",
+      });
     }
   }
 
@@ -45,25 +88,61 @@ export function validateLoanFile(
     isBalanceTransferVisible(file.lendingType ?? "secured", file.transactionType ?? "fresh")
   ) {
     if (!file.btInstitutionId) {
-      errors.push("BT Institution is required for Balance Transfer.");
+      pushIssue(issues, {
+        code: "LOAN_MISSING_BT_INSTITUTION",
+        fieldKey: "btInstitutionId",
+        label: "BT Institution",
+        message: "BT Institution is required for Balance Transfer.",
+        control: "bt_institution",
+      });
     }
     if (!file.btAmount || file.btAmount <= 0) {
-      errors.push("BT Amount is required for Balance Transfer.");
+      pushIssue(issues, {
+        code: "LOAN_MISSING_BT_AMOUNT",
+        fieldKey: "btAmount",
+        label: "BT Amount",
+        message: "BT Amount is required for Balance Transfer.",
+        control: "bt_amount",
+      });
     } else if (file.btAmount > file.requiredAmount) {
-      errors.push("BT Amount cannot exceed Requested Loan Amount.");
+      pushIssue(issues, {
+        code: "LOAN_BT_AMOUNT_EXCEEDS",
+        fieldKey: "btAmount",
+        label: "BT Amount",
+        message: "BT Amount cannot exceed Requested Loan Amount.",
+        control: "bt_amount",
+      });
     }
   }
 
   if (requiresFinalLoanAmount(file.stage) && (!file.finalLoanAmount || file.finalLoanAmount <= 0)) {
-    errors.push("Final Loan Amount is required beyond Final Approved.");
+    pushIssue(issues, {
+      code: "LOAN_MISSING_FINAL_AMOUNT",
+      fieldKey: "finalLoanAmount",
+      label: "Final Loan Amount",
+      message: "Final Loan Amount is required beyond Final Approved.",
+      control: "final_loan_amount",
+    });
   }
 
   if (isProductSecured(file.loanProduct) && !file.propertyType?.trim()) {
-    errors.push("Property Type is required for secured property-backed products.");
+    pushIssue(issues, {
+      code: "LOAN_MISSING_PROPERTY_TYPE",
+      fieldKey: "propertyType",
+      label: "Property Type",
+      message: "Property Type is required for secured property-backed products.",
+      control: "property_type",
+    });
   }
 
   if (isProductSecured(file.loanProduct) && !file.occupancyId?.trim()) {
-    errors.push("Property Occupancy is required for secured property-backed products.");
+    pushIssue(issues, {
+      code: "LOAN_MISSING_PROPERTY_OCCUPANCY",
+      fieldKey: "occupancyId",
+      label: "Property Occupancy",
+      message: "Property Occupancy is required for secured property-backed products.",
+      control: "occupancy",
+    });
   }
 
   if (previous && isStageBeyond(file.stage, previous.stage)) {
@@ -72,11 +151,18 @@ export function validateLoanFile(
       !file.finalLoanAmount &&
       !previous.finalLoanAmount
     ) {
-      errors.push("Final Loan Amount is required before moving beyond Final Approved.");
+      pushIssue(issues, {
+        code: "LOAN_MISSING_FINAL_AMOUNT_STAGE",
+        fieldKey: "finalLoanAmount",
+        label: "Final Loan Amount",
+        message: "Final Loan Amount is required before moving beyond Final Approved.",
+        control: "final_loan_amount",
+      });
     }
   }
 
-  return { valid: errors.length === 0, errors };
+  const errors = issues.map((i) => i.message);
+  return { valid: issues.length === 0, errors, issues };
 }
 
 /** Normalize legacy/migrated fields on load or save. */
