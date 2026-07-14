@@ -23,14 +23,14 @@ function SectionNav({
   onChange: (id: EcwLeftSectionId) => void;
 }) {
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-border/50 px-2 py-2 lg:flex-col lg:overflow-visible">
+    <nav className="flex gap-0.5 overflow-x-auto border-b border-border/50 px-1.5 py-1.5 lg:flex-col lg:overflow-y-auto lg:overflow-x-visible">
       {ECW_LEFT_SECTIONS.map((s) => (
         <button
           key={s.id}
           type="button"
           onClick={() => onChange(s.id)}
           className={cn(
-            "shrink-0 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-medium transition-colors",
+            "shrink-0 rounded-md px-2 py-1 text-left text-[10px] font-medium leading-snug transition-colors",
             active === s.id
               ? "bg-teal-600 text-white shadow-sm"
               : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -81,57 +81,45 @@ export function EcwLeftPanel({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-background">
-      <div className="border-b border-border/50 px-3 py-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Credit Working Area
-        </p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Enter Stated Information while reviewing documents.
-        </p>
+      <div className="flex h-9 shrink-0 items-center border-b border-border/50 px-2.5">
+        <div className="min-w-0">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Credit Workbench
+          </p>
+          <p className="truncate text-[10px] text-muted-foreground">Capture stated info while reviewing.</p>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="lg:w-[168px] lg:shrink-0 lg:border-r lg:border-border/50">
+        <div className="lg:w-[150px] lg:shrink-0 lg:border-r lg:border-border/50">
           <SectionNav active={section} onChange={onSectionChange} />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-2">
           {section === "customer_snapshot" && (
-            <div className="space-y-3 text-xs">
-              <p className="text-sm font-semibold">{file.customerName}</p>
-              <dl className="grid gap-2 sm:grid-cols-2">
-                <div>
-                  <dt className="text-[10px] uppercase text-muted-foreground">Opportunity</dt>
-                  <dd className="font-medium">{opportunityNumber}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase text-muted-foreground">Product</dt>
-                  <dd className="font-medium">{file.loanProduct}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase text-muted-foreground">Loan Amount</dt>
-                  <dd className="font-medium tabular-nums">{formatINR(file.requiredAmount || file.loanAmount)}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase text-muted-foreground">Selected Lender</dt>
-                  <dd className="font-medium">{lenderName}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase text-muted-foreground">Stage</dt>
-                  <dd className="font-medium capitalize">{STAGE_LABELS[file.stage] ?? file.stage}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase text-muted-foreground">Mobile</dt>
-                  <dd className="font-medium">{file.customerMobile}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase text-muted-foreground">Employment</dt>
-                  <dd className="font-medium">{file.employmentType}</dd>
-                </div>
-                <div>
-                  <dt className="text-[10px] uppercase text-muted-foreground">City</dt>
-                  <dd className="font-medium">{file.city}</dd>
-                </div>
+            <div className="space-y-1.5 text-[11px]">
+              <p className="truncate text-xs font-semibold leading-tight">{file.customerName}</p>
+              <dl className="divide-y divide-border/50 rounded-md border border-border/60 bg-muted/10">
+                {(
+                  [
+                    ["Opportunity", opportunityNumber],
+                    ["Product", file.loanProduct],
+                    ["Loan Amount", formatINR(file.requiredAmount || file.loanAmount)],
+                    ["Selected Lender", lenderName],
+                    ["Stage", STAGE_LABELS[file.stage] ?? file.stage],
+                    ["Employment", file.employmentType || "—"],
+                    ["City", file.city || "—"],
+                  ] as const
+                ).map(([label, value]) => (
+                  <div key={label} className="flex items-baseline justify-between gap-2 px-2 py-1">
+                    <dt className="shrink-0 text-[9px] uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </dt>
+                    <dd className="min-w-0 truncate text-right font-medium capitalize text-foreground">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
               </dl>
             </div>
           )}

@@ -25,8 +25,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EcwLeftPanel } from "./ecw-left-panel";
-import { EcwDocumentList, EcwDocumentViewer } from "./ecw-document-centre";
+import { EcwDocumentCentre } from "./ecw-document-centre";
 import { EcwChanakyaPanel } from "./ecw-chanakya-panel";
+import { EcwResizableShell, EcwStackedShell } from "./ecw-resizable-shell";
 import type { LoanFile } from "@/types/catalyst-one";
 import type {
   EcwLeftSectionId,
@@ -43,7 +44,8 @@ function loadActiveFile(fileId: string | null): LoanFile | null {
 }
 
 /**
- * Prompt 016 — Full-screen Enterprise Credit Workspace (UI/UX only).
+ * Prompt 016 / 018 — Credit Workbench (UI/UX only).
+ * Document viewer is the hero; side panels stay compact and resizable.
  */
 export function EnterpriseCreditWorkspace() {
   const searchParams = useSearchParams();
@@ -122,20 +124,68 @@ export function EnterpriseCreditWorkspace() {
 
   const stageLabel = STAGE_LABELS[file.stage] ?? file.stage;
 
+  const workbenchPane = (
+    <EcwLeftPanel
+      file={file}
+      opportunityNumber={opportunityNumber}
+      lenderName={lender.lenderName}
+      section={section}
+      onSectionChange={setSection}
+      stated={stated}
+      onStatedChange={(patch) => setStated((prev) => ({ ...prev, ...patch }))}
+      documents={file.documents ?? []}
+      readiness={readiness}
+    />
+  );
+
+  const documentPane = (
+    <EcwDocumentCentre
+      documents={viewerDocs}
+      selectedId={selectedDocId}
+      onSelect={setSelectedDocId}
+      selectedDoc={selectedDoc}
+    />
+  );
+
+  const chanakyaPane = (
+    <EcwChanakyaPanel
+      readiness={readiness}
+      missingLabels={missingLabels}
+      recommendations={[
+        pendingDocs.length > 0
+          ? `Request ${pendingDocs.length} pending document(s) from the borrower in one batch.`
+          : "Document checklist looks current — refine Stated Financial Information next.",
+        lender.enabled
+          ? `When ready, send the lender pack to ${lender.contactName} (${lender.lenderName}) — recipient is locked to the lender relationship.`
+          : "Select a lender in the Lender Pipeline before sending documents.",
+        readiness.ready
+          ? "Proposal readiness met — prepare the draft from the Proposal section."
+          : "Complete missing Stated Information while viewing financial statements.",
+      ]}
+      recentActivities={file.timeline ?? []}
+      actionSuggestions={[
+        section !== "stated_financial"
+          ? "Open Stated Financial Information and align figures to the open statement."
+          : "Keep the bank statement open while completing Stated Income Information.",
+        "Stay in this workspace for checklist, readiness, and proposal preparation.",
+      ]}
+    />
+  );
+
   return (
     <div className="-mx-4 flex h-[calc(100vh-4rem)] flex-col bg-background md:-mx-6 lg:-mx-8">
       {/* Sticky compact header */}
-      <header className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/90 sm:px-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <header className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-background/95 px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/90 sm:px-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700/80 dark:text-teal-300/80">
-              Enterprise Credit Workspace
+            <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-teal-700/80 dark:text-teal-300/80">
+              Credit Workbench · Credit Workflow
             </p>
-            <h1 className="mt-0.5 truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+            <h1 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
               {file.customerName}
             </h1>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <HeaderChip label="Opportunity" value={opportunityNumber} />
             <HeaderChip label="Product" value={file.loanProduct} />
             <HeaderChip
@@ -145,96 +195,44 @@ export function EnterpriseCreditWorkspace() {
             />
             <HeaderChip label="Selected Lender" value={lender.lenderName} />
             <HeaderChip label="Stage" value={stageLabel} />
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 gap-1 text-[11px]"
+              onClick={() => setRequestOpen(true)}
+            >
+              <MessageSquare className="h-3 w-3" />
+              Request Pending Docs
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-7 gap-1 text-[11px]"
+              disabled={!lender.enabled}
+              title={
+                lender.enabled
+                  ? `Send to ${lender.contactName} at ${lender.lenderName}`
+                  : "Select a lender in the Lender Pipeline first"
+              }
+              onClick={() => setSendOpen(true)}
+            >
+              <SendHorizonal className="h-3 w-3" />
+              Send to Lender
+            </Button>
           </div>
         </div>
       </header>
 
-      {/* Two primary actions only */}
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 bg-muted/20 px-4 py-2 sm:px-5">
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 gap-1.5 text-xs"
-          onClick={() => setRequestOpen(true)}
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-          Request Pending Documents
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="h-8 gap-1.5 text-xs"
-          disabled={!lender.enabled}
-          title={
-            lender.enabled
-              ? `Send to ${lender.contactName} at ${lender.lenderName}`
-              : "Select a lender in the Lender Pipeline first"
-          }
-          onClick={() => setSendOpen(true)}
-        >
-          <SendHorizonal className="h-3.5 w-3.5" />
-          Send Documents to Lender
-        </Button>
-        {!lender.enabled && (
-          <span className="text-[10px] text-muted-foreground">
-            Send to Lender enables after a lender is selected.
-          </span>
-        )}
-      </div>
-
       {toast && (
-        <div className="shrink-0 border-b border-teal-500/20 bg-teal-500/10 px-4 py-1.5 text-xs text-teal-950 dark:text-teal-100 sm:px-5">
+        <div className="shrink-0 border-b border-teal-500/20 bg-teal-500/10 px-3 py-1 text-[11px] text-teal-950 dark:text-teal-100 sm:px-4">
           {toast}
         </div>
       )}
 
-      {/* Three-pane body */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)_minmax(260px,300px)]">
-        <EcwLeftPanel
-          file={file}
-          opportunityNumber={opportunityNumber}
-          lenderName={lender.lenderName}
-          section={section}
-          onSectionChange={setSection}
-          stated={stated}
-          onStatedChange={(patch) => setStated((prev) => ({ ...prev, ...patch }))}
-          documents={file.documents ?? []}
-          readiness={readiness}
-        />
-
-        <div className="grid min-h-0 grid-rows-[minmax(160px,32%)_minmax(0,1fr)] border-r border-border/40">
-          <EcwDocumentList
-            documents={viewerDocs}
-            selectedId={selectedDocId}
-            onSelect={setSelectedDocId}
-          />
-          <EcwDocumentViewer document={selectedDoc} />
-        </div>
-
-        <EcwChanakyaPanel
-          readiness={readiness}
-          missingLabels={missingLabels}
-          recommendations={[
-            pendingDocs.length > 0
-              ? `Request ${pendingDocs.length} pending document(s) from the borrower in one batch.`
-              : "Document checklist looks current — refine Stated Financial Information next.",
-            lender.enabled
-              ? `When ready, send the lender pack to ${lender.contactName} (${lender.lenderName}) — recipient is locked to the lender relationship.`
-              : "Select a lender in the Lender Pipeline before sending documents.",
-            readiness.ready
-              ? "Proposal readiness met — prepare the draft from the Proposal section."
-              : "Complete missing Stated Information while viewing financial statements.",
-          ]}
-          recentActivities={file.timeline ?? []}
-          actionSuggestions={[
-            section !== "stated_financial"
-              ? "Open Stated Financial Information and align figures to the open statement."
-              : "Keep the bank statement open while completing Stated Income Information.",
-            "Stay in this workspace for checklist, readiness, and proposal preparation.",
-          ]}
-        />
-      </div>
+      {/* Viewer-dominant body; drag dividers on desktop */}
+      <EcwResizableShell left={workbenchPane} centre={documentPane} right={chanakyaPane} />
+      <EcwStackedShell left={workbenchPane} centre={documentPane} right={chanakyaPane} />
 
       {/* Request pending docs — batch UI (channels stub; no engine change) */}
       <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
@@ -335,14 +333,14 @@ function HeaderChip({
   return (
     <span
       className={cn(
-        "inline-flex max-w-[220px] flex-col rounded-lg border px-2.5 py-1",
+        "inline-flex max-w-[180px] flex-col rounded-md border px-2 py-0.5",
         accent
           ? "border-teal-500/30 bg-teal-500/10"
           : "border-border/60 bg-muted/30",
       )}
     >
-      <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="truncate text-[11px] font-semibold text-foreground">{value}</span>
+      <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="truncate text-[10px] font-semibold text-foreground">{value}</span>
     </span>
   );
 }
