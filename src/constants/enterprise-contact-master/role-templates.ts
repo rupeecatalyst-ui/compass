@@ -10,6 +10,10 @@ import type { EcmContactRole } from "@/types/enterprise-contact-master";
 import type { EcmMasterDomain } from "./masters";
 import { normalizeEcmEmploymentTypeId } from "./masters";
 import { getEcmRoleLabel, type EcmRoleWorkspaceTabId } from "./lifecycle";
+import {
+  ECM_DEFAULT_RESIDENT_STATUS_ID,
+  isEcmResidentStatusVariantsEnabled,
+} from "./enterprise-features";
 
 export type EcmFieldControl = "text" | "master" | "number" | "textarea" | "contact_ref";
 
@@ -113,6 +117,10 @@ export function isEcmFieldRelevant(
   values: Record<string, string> = {},
 ): boolean {
   if (!field.visible) return false;
+  // CF-CON-041 — Resident Status is system-owned while only Resident Indians are enabled
+  if (field.key === "residentStatus" && !isEcmResidentStatusVariantsEnabled()) {
+    return false;
+  }
   if (field.dataClass === "derived" || field.dataClass === "external" || field.dataClass === "journey") {
     return false;
   }
@@ -177,9 +185,12 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         mandatory: true,
         sortOrder: 3,
         visible: true,
+        defaultValue: ECM_DEFAULT_RESIDENT_STATUS_ID,
         dataClass: "role",
-        owner: "Borrower Role",
-        why: "Required for regulatory / residency classification of the borrower.",
+        owner: "System / Enterprise Configuration",
+        why: "Regulatory residency class. Defaulted to Resident Indian while NRI/OCI variants are disabled in Enterprise Configuration.",
+        helpText:
+          "Hidden while Resident Indian–only mode is active. Exposed automatically when NRI / OCI / Foreign Resident support is enabled.",
       },
       {
         key: "employerName",
@@ -843,11 +854,12 @@ export function getEcmRoleWorkspaceDashAction(
  */
 export const ECM_ACTIVE_JOURNEY_PROFILE_KEY = "activeJourneyRef";
 
-/** CF-CON-036 — dedicated Business Journey column state. */
+/** CF-CON-036 / CF-CON-041 — dedicated Business Journey column state. */
 export type EcmBusinessJourneyDashAction =
   | {
-      mode: "locked";
+      mode: "guide";
       label: string;
+      guideCtaLabel: string;
       reason: string;
       actionId: EcmBusinessActionId;
     }
@@ -881,10 +893,11 @@ export function getEcmBusinessJourneyDashAction(
 
   if (!mirComplete) {
     return {
-      mode: "locked",
+      mode: "guide",
       label: actionable.label,
+      guideCtaLabel: `Complete ${roleLabel} Profile`,
       actionId: actionable.id,
-      reason: `Complete minimum ${roleLabel} profile information before starting the business journey.`,
+      reason: `Finish the essential ${roleLabel} details so Chanakya can open the right business journey for this contact.`,
     };
   }
 

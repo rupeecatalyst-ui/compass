@@ -270,6 +270,7 @@ export const ECM_MASTER_CATALOGS: Record<EcmMasterDomain, readonly EcmMasterOpti
   ],
   employment_type: EMPLOYMENT_TYPE_SEED,
   resident_status: [
+    // CF-CON-041 — only Resident Indian is active today; NRI/OCI reserved for ECC enablement
     { id: "resident", label: "Resident Indian" },
     { id: "nri", label: "NRI" },
     { id: "pio", label: "PIO / OCI" },

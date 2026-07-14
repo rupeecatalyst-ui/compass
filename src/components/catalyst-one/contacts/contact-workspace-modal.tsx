@@ -34,6 +34,7 @@ import {
   getEnabledEcmRoleMaster,
   deriveEcmEmployeeCode,
   ECM_ACTIVE_JOURNEY_PROFILE_KEY,
+  ECM_DEFAULT_RESIDENT_STATUS_ID,
   type EcmBusinessActionId,
   type EcmConfigurableField,
   type EcmMasterOption,
@@ -58,6 +59,7 @@ import { ROUTES } from "@/constants/routes";
 import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
 import type { CreateLoanFileInput, LoanFile } from "@/types/catalyst-one";
 import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-role-chips";
+import { ChanakyaJourneyGuidanceCard } from "@/components/catalyst-one/contacts/chanakya-journey-guidance-card";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
 import { ReportingManagerPicker } from "@/components/catalyst-one/contacts/reporting-manager-picker";
 import {
@@ -68,12 +70,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 
 export type ContactWorkspaceMode = "create" | "edit";
@@ -202,6 +199,8 @@ export function ContactWorkspaceModal({
   onSaved,
 }: ContactWorkspaceModalProps) {
   const router = useRouter();
+  const { user } = useAuthContext();
+  const advisorFirstName = user?.firstName?.trim() || "there";
   const [draftSaved, setDraftSaved] = useState<EcmContact | null>(null);
   const active = draftSaved ?? contact;
   const awaitingFirstSave = !active;
@@ -524,6 +523,11 @@ export function ContactWorkspaceModal({
       }
       if (!next.employmentType && active?.employmentType) {
         next.employmentType = active.employmentType;
+        changed = true;
+      }
+      // CF-CON-041 — Resident Indian default; field hidden until ECC enables variants
+      if (!next.residentStatus) {
+        next.residentStatus = ECM_DEFAULT_RESIDENT_STATUS_ID;
         changed = true;
       }
     }
@@ -1024,7 +1028,7 @@ export function ContactWorkspaceModal({
     const journey = getEcmBusinessJourneyDashAction(roleCode, values, {
       hasActiveJourney: Boolean(activeLoan),
     });
-    if (!journey || journey.mode === "locked") return;
+    if (!journey || journey.mode === "guide") return;
 
     if (journey.mode === "start" && journey.actionId !== "start_loan_journey") {
       markRoleJourneyStarted(roleCode, `started-${Date.now()}`);
@@ -1041,9 +1045,22 @@ export function ContactWorkspaceModal({
     if (!active) return;
     if (roles.includes(roleCode)) return;
     const nextRoles = [...roles, roleCode];
+    const nextProfiles = { ...roleProfiles };
+    if (roleCode === "customer") {
+      nextProfiles.customer = {
+        ...nextProfiles.customer,
+        residentStatus:
+          nextProfiles.customer?.residentStatus || ECM_DEFAULT_RESIDENT_STATUS_ID,
+      };
+      setRoleProfiles(nextProfiles);
+    }
     setRoles(nextRoles);
     try {
-      const updated = updateEcmContact(active.id, { roles: nextRoles, roleProfiles }, actorId);
+      const updated = updateEcmContact(
+        active.id,
+        { roles: nextRoles, roleProfiles: nextProfiles },
+        actorId,
+      );
       hydrateFromContact(updated);
       onSaved(updated);
       setShowAddRole(false);
@@ -1377,15 +1394,14 @@ export function ContactWorkspaceModal({
                           </p>
                         </div>
                         <div className="overflow-x-auto">
-                          <TooltipProvider delayDuration={200}>
-                            <table className="w-full min-w-[720px] text-left text-xs">
+                            <table className="w-full min-w-[860px] text-left text-xs">
                               <thead className="bg-zinc-950/80 text-[10px] uppercase tracking-[0.1em] text-zinc-500">
                                 <tr>
                                   <th className="px-2.5 py-1.5 font-medium">Role</th>
                                   <th className="px-2.5 py-1.5 font-medium">Status</th>
                                   <th className="px-2.5 py-1.5 font-medium">Completion</th>
                                   <th className="px-2.5 py-1.5 font-medium">Role Workspace</th>
-                                  <th className="px-2.5 py-1.5 font-medium text-right">
+                                  <th className="px-2.5 py-1.5 font-medium">
                                     Business Journey
                                   </th>
                                 </tr>
@@ -1408,15 +1424,16 @@ export function ContactWorkspaceModal({
                                     values,
                                     { hasActiveJourney: Boolean(activeLoan) },
                                   );
+                                  const roleLabel = getEcmRoleLabel(roleCode);
                                   return (
                                     <tr
                                       key={roleCode}
-                                      className="border-t border-zinc-800/80 transition-colors hover:bg-zinc-900"
+                                      className="border-t border-zinc-800/80 align-top transition-colors hover:bg-zinc-900"
                                     >
-                                      <td className="px-2.5 py-1.5 font-medium text-zinc-100">
-                                        {getEcmRoleLabel(roleCode)}
+                                      <td className="px-2.5 py-2 font-medium text-zinc-100">
+                                        {roleLabel}
                                       </td>
-                                      <td className="px-2.5 py-1.5">
+                                      <td className="px-2.5 py-2">
                                         <span
                                           className={cn(
                                             "inline-flex rounded-full border px-1.5 py-0 text-[10px] font-medium",
@@ -1431,7 +1448,7 @@ export function ContactWorkspaceModal({
                                           {getEcmRoleStatusLabel(status)}
                                         </span>
                                       </td>
-                                      <td className="px-2.5 py-1.5">
+                                      <td className="px-2.5 py-2">
                                         <div className="flex items-center gap-1.5">
                                           <div className="h-1 w-14 overflow-hidden rounded-full bg-zinc-800">
                                             <div
@@ -1444,7 +1461,7 @@ export function ContactWorkspaceModal({
                                           </span>
                                         </div>
                                       </td>
-                                      <td className="px-2.5 py-1.5">
+                                      <td className="px-2.5 py-2">
                                         <Button
                                           type="button"
                                           size="sm"
@@ -1455,50 +1472,44 @@ export function ContactWorkspaceModal({
                                           {workspaceAction.label}
                                         </Button>
                                       </td>
-                                      <td className="px-2.5 py-1.5 text-right">
+                                      <td className="px-2.5 py-2">
                                         {!journeyAction ? (
                                           <span className="text-[11px] text-zinc-600">—</span>
-                                        ) : journeyAction.mode === "locked" ? (
-                                          <div className="flex flex-col items-end gap-0.5">
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <span className="inline-flex">
-                                                  <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    disabled
-                                                    className="h-7 rounded-md border-zinc-800 bg-zinc-950/60 px-2 text-[11px] text-zinc-500"
-                                                  >
-                                                    {journeyAction.label}
-                                                  </Button>
-                                                </span>
-                                              </TooltipTrigger>
-                                              <TooltipContent
-                                                side="left"
-                                                className="max-w-[240px] text-xs"
-                                              >
-                                                {journeyAction.reason}
-                                              </TooltipContent>
-                                            </Tooltip>
-                                            <p className="max-w-[200px] text-right text-[10px] leading-snug text-amber-400/90">
-                                              {journeyAction.reason}
-                                            </p>
-                                          </div>
+                                        ) : journeyAction.mode === "guide" ? (
+                                          <ChanakyaJourneyGuidanceCard
+                                            mode="guide"
+                                            userFirstName={advisorFirstName}
+                                            roleLabel={roleLabel}
+                                            completionPct={pct}
+                                            explanation={journeyAction.reason}
+                                            journeyLabel={journeyAction.label}
+                                            completeProfileLabel={journeyAction.guideCtaLabel}
+                                            onCompleteProfile={() =>
+                                              handleRoleWorkspaceAction(roleCode)
+                                            }
+                                          />
+                                        ) : journeyAction.mode === "start" ? (
+                                          <ChanakyaJourneyGuidanceCard
+                                            mode="ready"
+                                            userFirstName={advisorFirstName}
+                                            roleLabel={roleLabel}
+                                            completionPct={pct}
+                                            journeyLabel={journeyAction.label}
+                                            onStartOrOpenJourney={() =>
+                                              handleBusinessJourneyAction(roleCode)
+                                            }
+                                          />
                                         ) : (
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            className={cn(
-                                              "h-7 rounded-md px-2 text-[11px]",
-                                              journeyAction.mode === "open"
-                                                ? "bg-sky-600 hover:bg-sky-500"
-                                                : "bg-teal-600 hover:bg-teal-500",
-                                            )}
-                                            onClick={() => handleBusinessJourneyAction(roleCode)}
-                                          >
-                                            {journeyAction.label}
-                                          </Button>
+                                          <ChanakyaJourneyGuidanceCard
+                                            mode="open"
+                                            userFirstName={advisorFirstName}
+                                            roleLabel={roleLabel}
+                                            completionPct={pct}
+                                            journeyLabel={journeyAction.label}
+                                            onStartOrOpenJourney={() =>
+                                              handleBusinessJourneyAction(roleCode)
+                                            }
+                                          />
                                         )}
                                       </td>
                                     </tr>
@@ -1516,7 +1527,6 @@ export function ContactWorkspaceModal({
                                 )}
                               </tbody>
                             </table>
-                          </TooltipProvider>
                         </div>
                       </div>
                     </>

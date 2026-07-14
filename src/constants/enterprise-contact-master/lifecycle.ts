@@ -1,6 +1,6 @@
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 
-export const ECM_FRAMEWORK_VERSION = "1.8.0-cf-con-036";
+export const ECM_FRAMEWORK_VERSION = "1.9.0-cf-con-041";
 
 export const ECM_CONTACT_ROLES = {
   CUSTOMER: "customer",
@@ -68,7 +68,7 @@ export const ECM_ROLE_MASTER: readonly EcmRoleMasterDefinition[] = [
     roleSpecificFields: [
       { key: "employmentType", label: "Employment Type", placeholder: "Salaried / Self-Employed…" },
       { key: "occupation", label: "Profession / Occupation", placeholder: "Depends on Employment Type" },
-      { key: "residentStatus", label: "Resident Status", placeholder: "Resident / NRI" },
+      // Resident Status: system-defaulted (Resident Indian) until ECC enables NRI/OCI variants (CF-CON-041)
     ],
   },
   {
