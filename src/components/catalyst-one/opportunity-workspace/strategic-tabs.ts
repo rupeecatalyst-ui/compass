@@ -1,6 +1,5 @@
 /**
- * Prompt 017 — Strategic tab presentation (UI only).
- * Maps to existing panels without changing WorkspaceFocus business APIs.
+ * Prompt 017 — Strategic Workflow navigation (UI only).
  */
 
 export type OwStrategicTabId =
@@ -10,28 +9,24 @@ export type OwStrategicTabId =
   | "product"
   | "funding_strategy"
   | "relationships"
+  | "competition"
   | "notes"
   | "timeline"
   | "documents"
   | "tasks"
   | "workflow";
 
-export const OW_STRATEGIC_TABS: Array<{ id: OwStrategicTabId; label: string }> = [
+/** Left Strategic Navigation — primary workflow (mockup order). */
+export const OW_STRATEGIC_NAV: Array<{ id: OwStrategicTabId; label: string }> = [
   { id: "overview", label: "Overview" },
-  { id: "customer", label: "Customer" },
+  { id: "customer", label: "Customer Profile" },
   { id: "requirement", label: "Requirement" },
-  { id: "product", label: "Product" },
+  { id: "product", label: "Product Interest" },
   { id: "funding_strategy", label: "Funding Strategy" },
   { id: "relationships", label: "Relationships" },
-  { id: "notes", label: "Notes" },
+  { id: "competition", label: "Competition" },
+  { id: "notes", label: "Notes & Summary" },
   { id: "timeline", label: "Timeline" },
-];
-
-/** Secondary execution surfaces — available without cluttering the primary strip. */
-export const OW_SECONDARY_TABS: Array<{ id: OwStrategicTabId; label: string }> = [
-  { id: "documents", label: "Documents" },
-  { id: "tasks", label: "Tasks" },
-  { id: "workflow", label: "Workflow" },
 ];
 
 export function getOwChanakyaTabGuidance(tab: OwStrategicTabId): {
@@ -42,88 +37,82 @@ export function getOwChanakyaTabGuidance(tab: OwStrategicTabId): {
   switch (tab) {
     case "customer":
       return {
-        headline: "Customer readiness",
-        message:
-          "I recommend confirming the promoter and key applicant details before advancing this opportunity.",
+        headline: "Customer Profile",
+        message: "I recommend adding promoter details before progressing this opportunity.",
         nudges: [
-          "Ensure mobile and email are present for follow-ups.",
-          "Capture decision-maker context before lender outreach.",
+          "Confirm decision-maker and promoter context.",
+          "Use Add Contact for co-applicant, director, partner, guarantor, or banker.",
         ],
       };
     case "requirement":
       return {
-        headline: "Requirement clarity",
-        message: "The funding purpose needs additional clarification to qualify lenders accurately.",
-        nudges: [
-          "Confirm amount and intended use of funds.",
-          "Align tenure expectations with the selected product path.",
-        ],
+        headline: "Requirement",
+        message: "Funding purpose needs additional clarification.",
+        nudges: ["Confirm amount, purpose, and urgency before Funding Strategy."],
       };
     case "product":
       return {
-        headline: "Product fit",
-        message: "Keep the product framing consistent with the funding requirement and customer profile.",
-        nudges: [
-          "Avoid switching products once lender conversations start.",
-          "Use Product Master names exactly as planned for execution.",
-        ],
+        headline: "Product Interest",
+        message: "Keep product interest aligned with the funding requirement and customer profile.",
+        nudges: ["Avoid product drift once lender conversations begin."],
       };
     case "funding_strategy":
       return {
-        headline: "Funding strategy",
-        message: "This requirement appears suitable for a Loan Against Property or a secured path — confirm fit before assigning a lender.",
-        nudges: [
-          "Select one primary institution from LIFE.",
-          "Do not expand to multiple lenders until strategy is settled.",
-        ],
+        headline: "Funding Strategy",
+        message: "This requirement appears suitable for LAP.",
+        nudges: ["Select one primary institution before expanding options."],
       };
     case "relationships":
       return {
-        headline: "Relationship map",
-        message: "You have not identified the primary decision maker for this opportunity.",
-        nudges: [
-          "Mark the primary contact for banker conversations.",
-          "Keep lender executor alignment with the selected institution.",
-        ],
+        headline: "Relationships",
+        message: "Primary decision maker has not yet been identified.",
+        nudges: ["Mark the primary contact for banker and customer conversations."],
+      };
+    case "competition":
+      return {
+        headline: "Competition",
+        message: "Capture competing offers or parallel channels so strategy stays intentional.",
+        nudges: ["Note competing lenders or in-house options briefly."],
       };
     case "notes":
       return {
-        headline: "Strategic notes",
-        message: "Capture planning decisions here so execution teams inherit context without restarting discovery.",
-        nudges: ["Prefer concise decisions over long narrative dumps."],
+        headline: "Notes & Summary",
+        message: "I recommend documenting today's customer discussion.",
+        nudges: ["Capture decisions, not transcript dumps."],
       };
     case "timeline":
       return {
-        headline: "Planning timeline",
+        headline: "Timeline",
         message: "Use the timeline to confirm what has been qualified — not as an execution backlog.",
-        nudges: ["Review stage movements before opening Credit Workbench."],
+        nudges: ["Review before opening Credit Workbench."],
       };
     case "documents":
       return {
-        headline: "Document readiness",
+        headline: "Documents",
         message: "Planning documents belong here; credit assessment continues in Credit Workbench.",
-        nudges: ["Open Credit Workbench when you need stated information with viewer context."],
+        nudges: [],
       };
     case "tasks":
       return {
-        headline: "Planning tasks",
-        message: "Keep opportunity tasks focused on qualification and follow-ups — not loan execution chores.",
+        headline: "Tasks",
+        message: "Keep opportunity tasks focused on qualification and follow-ups.",
         nudges: [],
       };
     case "workflow":
       return {
-        headline: "Strategic workflow",
-        message: "Advance stages only when planning gates are clear — Catalyst One owns the workflow truth.",
+        headline: "Workflow",
+        message: "Advance stages only when planning gates are clear.",
         nudges: [],
       };
     case "overview":
     default:
       return {
-        headline: "Strategic planning",
-        message: "You are planning this opportunity. Qualify customer, requirement, product, and funding strategy before execution.",
+        headline: "Strategic Workflow",
+        message:
+          "Analyse, plan, structure, and qualify this opportunity before Credit Workbench.",
         nudges: [
-          "Use Credit Workbench for credit assessment.",
-          "Use Loan Workspace when execution begins.",
+          "Credit Workbench = Credit Workflow.",
+          "Loan Workspace = Business Operations Workflow.",
         ],
       };
   }

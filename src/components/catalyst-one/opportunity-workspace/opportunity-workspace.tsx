@@ -16,23 +16,36 @@ import { WorkspaceTasksPanel } from "./workspace-tasks-panel";
 import { WorkspaceWorkflowPanel } from "./workspace-workflow-panel";
 import { WorkspaceOverviewPanel } from "./workspace-overview-panel";
 import {
+  WorkspaceCompetitionPanel,
   WorkspaceProductPanel,
   WorkspaceRelationshipsPanel,
   WorkspaceRequirementPanel,
 } from "./workspace-planning-panels";
 import { WorkspaceChanakyaTabGuide } from "./workspace-chanakya-tab-guide";
+import { WorkspaceStrategicNav } from "./workspace-strategic-nav";
+import type { OwStrategicTabId } from "./strategic-tabs";
+import { OwGlassPanel, OwSectionLabel } from "./workspace-design";
 import {
-  OW_SECONDARY_TABS,
-  OW_STRATEGIC_TABS,
-  type OwStrategicTabId,
-} from "./strategic-tabs";
+  ContactCreationIntentScreen,
+  type ContactCreationIntentResult,
+} from "@/components/catalyst-one/contacts/contact-creation-intent-screen";
+import { QuickContactCreationWizard } from "@/components/catalyst-one/contacts/quick-contact-creation-wizard";
+import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
+import { useAuthContext } from "@/components/providers/auth-provider";
+import type { EcmContact } from "@/types/enterprise-contact-master";
+import { ROLES } from "@/constants/roles";
 
 function OpportunityWorkspaceShell() {
-  const { opportunityId, focus, setFocus } = useOpportunityWorkspace();
+  const { user } = useAuthContext();
+  const { opportunityId, contact, focus, setFocus, refresh } = useOpportunityWorkspace();
   const [tab, setTab] = useState<OwStrategicTabId>("overview");
 
-  // Sync when child panels request a WorkspaceFocus change (e.g. Workflow → Tasks).
-  // Do not map overview → tab, so Customer / Product / Relationships stay selected.
+  const [intentOpen, setIntentOpen] = useState(false);
+  const [creationIntent, setCreationIntent] = useState<ContactCreationIntentResult | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editContact, setEditContact] = useState<EcmContact | null>(null);
+
   useEffect(() => {
     const map: Partial<Record<WorkspaceFocus, OwStrategicTabId>> = {
       life: "funding_strategy",
@@ -56,6 +69,7 @@ function OpportunityWorkspaceShell() {
       product: "overview",
       funding_strategy: "life",
       relationships: "overview",
+      competition: "overview",
       notes: "dialogue",
       timeline: "timeline",
       documents: "documents",
@@ -66,6 +80,8 @@ function OpportunityWorkspaceShell() {
     if (mapped) setFocus(mapped);
   };
 
+  const firstName = user?.firstName?.trim() || "there";
+
   if (!opportunityId) {
     return (
       <div className="rounded-2xl border border-white/10 bg-zinc-900/50 p-8 text-center text-sm text-muted-foreground backdrop-blur-xl">
@@ -75,79 +91,144 @@ function OpportunityWorkspaceShell() {
   }
 
   return (
-    <div className="dark relative flex h-[calc(100vh-4rem)] flex-col gap-3 overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/40 p-3 sm:p-4">
-      <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-[radial-gradient(ellipse_at_top,rgba(15,118,110,0.16),transparent_55%)]" />
+    <div className="dark relative flex h-[calc(100vh-4rem)] flex-col gap-3 overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/50 p-3 sm:p-4">
+      <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-[radial-gradient(ellipse_at_top,rgba(15,118,110,0.18),transparent_55%)]" />
 
-      <WorkspaceHeader />
+      <WorkspaceHeader
+        onAddContact={() => setIntentOpen(true)}
+        onEditContact={() => {
+          if (!contact) return;
+          setEditContact(contact);
+          setEditOpen(true);
+        }}
+      />
 
-      {/* Primary strategic tabs — single active workspace */}
-      <div className="shrink-0 space-y-2">
-        <div className="flex flex-wrap gap-1.5">
-          {OW_STRATEGIC_TABS.map((t) => {
-            const active = tab === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => openTab(t.id)}
-                className={cn(
-                  "rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all",
-                  active
-                    ? "bg-teal-500 text-zinc-950 shadow-md shadow-teal-900/30"
-                    : "border border-white/10 bg-zinc-950/50 text-zinc-300 hover:border-teal-500/40 hover:text-zinc-50",
-                )}
-              >
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-            Also
-          </span>
-          {OW_SECONDARY_TABS.map((t) => {
-            const active = tab === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => openTab(t.id)}
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors",
-                  active
-                    ? "bg-white/15 text-zinc-50"
-                    : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
-                )}
-              >
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_17.5rem]">
-        <div className="min-h-0 overflow-y-auto rounded-2xl">
-          {tab === "overview" && <WorkspaceOverviewPanel onOpenTab={openTab} />}
-          {tab === "customer" && <WorkspaceContactSummary />}
-          {tab === "requirement" && <WorkspaceRequirementPanel />}
-          {tab === "product" && <WorkspaceProductPanel />}
-          {tab === "funding_strategy" && <WorkspaceLifePanel />}
-          {tab === "relationships" && <WorkspaceRelationshipsPanel />}
-          {tab === "notes" && <WorkspaceDialoguePanel />}
-          {tab === "timeline" && <WorkspaceDialoguePanel />}
-          {tab === "documents" && <WorkspaceDocumentsPanel />}
-          {tab === "tasks" && <WorkspaceTasksPanel />}
-          {tab === "workflow" && <WorkspaceWorkflowPanel />}
+      {/* LEFT nav · CENTRE workspace · RIGHT CHANAKYA — mockup proportions */}
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 gap-3",
+          "grid-cols-1 lg:grid-cols-[13.5rem_minmax(0,1fr)_18rem] xl:grid-cols-[14.5rem_minmax(0,1fr)_19rem]",
+        )}
+      >
+        <div className="min-h-0">
+          <WorkspaceStrategicNav active={tab} onSelect={openTab} />
         </div>
 
-        <div className="min-h-0 lg:sticky lg:top-0">
+        <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="shrink-0 border-b border-white/10 px-4 py-2.5">
+              <OwSectionLabel>Active Workspace</OwSectionLabel>
+              <p className="mt-0.5 text-sm font-semibold text-zinc-50">
+                {tabLabel(tab)}
+              </p>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+              {tab === "overview" && <WorkspaceOverviewPanel onOpenTab={openTab} />}
+              {tab === "customer" && <WorkspaceContactSummary />}
+              {tab === "requirement" && <WorkspaceRequirementPanel />}
+              {tab === "product" && <WorkspaceProductPanel />}
+              {tab === "funding_strategy" && <WorkspaceLifePanel />}
+              {tab === "relationships" && <WorkspaceRelationshipsPanel />}
+              {tab === "competition" && <WorkspaceCompetitionPanel />}
+              {tab === "notes" && (
+                <div className="space-y-3">
+                  <OwGlassPanel className="!p-3">
+                    <p className="text-xs text-zinc-300">
+                      Notes & Summary — document planning decisions and today’s customer discussion. Dialogue
+                      entries below stay in-context.
+                    </p>
+                  </OwGlassPanel>
+                  <WorkspaceDialoguePanel />
+                </div>
+              )}
+              {tab === "timeline" && <WorkspaceDialoguePanel />}
+              {tab === "documents" && <WorkspaceDocumentsPanel />}
+              {tab === "tasks" && <WorkspaceTasksPanel />}
+              {tab === "workflow" && <WorkspaceWorkflowPanel />}
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-0">
           <WorkspaceChanakyaTabGuide tab={tab} />
         </div>
       </div>
+
+      {/* Add Contact — existing Directory/UGJ workflow, stays in OW context */}
+      <ContactCreationIntentScreen
+        open={intentOpen}
+        firstName={firstName}
+        onOpenChange={setIntentOpen}
+        onContinue={(result) => {
+          setCreationIntent(result);
+          setIntentOpen(false);
+          setWizardOpen(true);
+        }}
+      />
+      <QuickContactCreationWizard
+        open={wizardOpen}
+        ownerName={[user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Platform Admin"}
+        actorId={user?.id ?? "ui"}
+        canContinueDespiteDuplicate={user?.role === ROLES.SUPER_ADMIN}
+        creationIntent={creationIntent ?? undefined}
+        initialName={
+          creationIntent?.individualName ??
+          (creationIntent?.kind === "individual" ? creationIntent.companyName : undefined)
+        }
+        onOpenChange={(open) => {
+          setWizardOpen(open);
+          if (!open && creationIntent?.kind !== "individual_company") setCreationIntent(null);
+        }}
+        onCreated={() => {
+          setWizardOpen(false);
+          setCreationIntent(null);
+          refresh();
+          openTab("relationships");
+        }}
+        onOpenExisting={(existing) => {
+          setWizardOpen(false);
+          setCreationIntent(null);
+          setEditContact(existing);
+          setEditOpen(true);
+        }}
+      />
+
+      {/* Edit Contact — existing Contact Workspace in edit mode; return stays in OW */}
+      <ContactWorkspaceModal
+        open={editOpen}
+        contact={editContact}
+        mode="edit"
+        actorId={user?.id ?? "ui"}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) {
+            setEditContact(null);
+            refresh();
+          }
+        }}
+        onSaved={() => {
+          refresh();
+        }}
+      />
     </div>
   );
+}
+
+function tabLabel(tab: OwStrategicTabId): string {
+  switch (tab) {
+    case "customer":
+      return "Customer Profile";
+    case "product":
+      return "Product Interest";
+    case "funding_strategy":
+      return "Funding Strategy";
+    case "notes":
+      return "Notes & Summary";
+    case "competition":
+      return "Competition";
+    default:
+      return tab.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
 }
 
 export function OpportunityWorkspace() {

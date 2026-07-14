@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BriefcaseBusiness, FileStack } from "lucide-react";
+import { ArrowUpRight, BriefcaseBusiness, FileStack, Pencil, Plus, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OpportunityHealthBand } from "@/types/enterprise-opportunity-intelligence";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,15 @@ const BAND_STYLES: Record<OpportunityHealthBand, string> = {
 };
 
 /**
- * Prompt 017 — Compact fixed strategic header (presentation only).
+ * Prompt 017 — Compact fixed enterprise header (implementation target).
  */
-export function WorkspaceHeader() {
+export function WorkspaceHeader({
+  onAddContact,
+  onEditContact,
+}: {
+  onAddContact: () => void;
+  onEditContact: () => void;
+}) {
   const {
     opportunity,
     contact,
@@ -32,6 +38,7 @@ export function WorkspaceHeader() {
   } = useOpportunityWorkspace();
 
   const band = intelligence?.health.band ?? "needs_attention";
+  const ownerName = contact?.ownerName?.trim() || "RM-001";
 
   const loanHref = useMemo(() => {
     if (!opportunity?.id) return ROUTES.LOAN_FILES;
@@ -50,7 +57,6 @@ export function WorkspaceHeader() {
   const creditHref = useMemo(() => {
     const params = new URLSearchParams();
     if (opportunity?.id) params.set("opportunityId", opportunity.id);
-    // Prefer deep-link into Credit Workbench with same continuity as loan href when file is known
     try {
       const loanUrl = new URL(loanHref, "https://local.invalid");
       const file = loanUrl.searchParams.get("file");
@@ -63,18 +69,15 @@ export function WorkspaceHeader() {
   }, [opportunity?.id, loanHref]);
 
   return (
-    <OwGlassPanel className="sticky top-0 z-30 space-y-3 !rounded-2xl shadow-lg shadow-black/20">
+    <OwGlassPanel className="shrink-0 space-y-3 !rounded-2xl !py-3 shadow-lg shadow-black/25">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-300/80">
-            Opportunity Workspace · Strategic Planning
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-300/85">
+            Opportunity Workspace · Strategic Workflow
           </p>
           <h1 className="mt-1 truncate text-xl font-semibold tracking-tight text-zinc-50 md:text-2xl">
-            {contact?.name ?? "Customer"}
+            {contact?.name ?? "Customer / Company"}
           </h1>
-          <p className="mt-1 text-xs text-zinc-400">
-            Plan and qualify this opportunity — execution continues in Credit Workbench and Loan Workspace.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -86,17 +89,38 @@ export function WorkspaceHeader() {
           >
             {band.replace(/_/g, " ")}
           </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 rounded-lg border-white/15 bg-zinc-950/40 text-xs text-zinc-100 hover:bg-white/5"
+            onClick={onAddContact}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Contact
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 rounded-lg border-white/15 bg-zinc-950/40 text-xs text-zinc-100 hover:bg-white/5"
+            onClick={onEditContact}
+            disabled={!contact}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit Contact
+          </Button>
           <Button asChild size="sm" variant="secondary" className="h-8 gap-1.5 rounded-lg text-xs">
             <Link href={creditHref}>
               <FileStack className="h-3.5 w-3.5" />
-              Credit Workbench
+              Open Credit Workbench
               <ArrowUpRight className="h-3 w-3 opacity-70" />
             </Link>
           </Button>
           <Button asChild size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
             <Link href={loanHref}>
               <BriefcaseBusiness className="h-3.5 w-3.5" />
-              Loan Workspace
+              Open Loan Workspace
               <ArrowUpRight className="h-3 w-3 opacity-70" />
             </Link>
           </Button>
@@ -106,18 +130,34 @@ export function WorkspaceHeader() {
       <div className="flex flex-wrap gap-2">
         <Chip label="Opportunity" value={opportunity?.opportunityCode ?? "—"} />
         <Chip label="Product" value={productLabel} />
-        <Chip label="Status" value={stageCode.replace(/_/g, " ")} />
+        <Chip label="Opportunity Status" value={stageCode.replace(/_/g, " ")} />
+        <Chip label="Opportunity Owner" value={ownerName} icon />
         <Chip label="Selected Lender" value={selectedLender?.lenderName ?? "Not selected"} />
       </div>
     </OwGlassPanel>
   );
 }
 
-function Chip({ label, value }: { label: string; value: string }) {
+function Chip({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: boolean;
+}) {
   return (
-    <span className="inline-flex max-w-[240px] flex-col rounded-lg border border-white/10 bg-zinc-950/50 px-2.5 py-1">
-      <span className="text-[9px] font-semibold uppercase tracking-wide text-zinc-400">{label}</span>
-      <span className="truncate text-[11px] font-semibold capitalize text-zinc-50">{value}</span>
+    <span className="inline-flex max-w-[240px] items-start gap-1.5 rounded-lg border border-white/10 bg-zinc-950/55 px-2.5 py-1">
+      {icon && <UserRound className="mt-0.5 h-3 w-3 shrink-0 text-zinc-400" />}
+      <span className="min-w-0">
+        <span className="block text-[9px] font-semibold uppercase tracking-wide text-zinc-400">
+          {label}
+        </span>
+        <span className="block truncate text-[11px] font-semibold capitalize text-zinc-50">
+          {value}
+        </span>
+      </span>
     </span>
   );
 }
