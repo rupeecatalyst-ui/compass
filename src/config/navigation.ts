@@ -158,6 +158,11 @@ export const enterpriseAdministrationNavigation: NavGroup = {
       icon: Sparkles,
     },
     {
+      title: "CHANAKYA Phase 5",
+      href: ROUTES.ADMIN_CHANAKYA_PHASE5_INTELLIGENCE,
+      icon: Brain,
+    },
+    {
       title: "Credit & Risk Engine",
       href: ROUTES.ADMIN_CREDIT_RISK_ENGINE,
       icon: Scale,

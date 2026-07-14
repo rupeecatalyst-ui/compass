@@ -9,7 +9,7 @@ import type {
   EcgVersionDescriptor,
 } from "@/types/enterprise-interface-configuration-grants";
 
-export const ECG_FRAMEWORK_VERSION = "12.7.0-cf-life-010";
+export const ECG_FRAMEWORK_VERSION = "13.0.0-cf-chanakya-015";
 
 export const ECG_SECTION_KINDS = {
   INTERFACE: "interface",
@@ -117,7 +117,7 @@ export const ECG_DOMAIN_CATALOGUE: EcgDomainSeed[] = [
     domainKey: "chanakya",
     name: "CHANAKYA",
     description:
-      "Enterprise Chief of Staff — Enterprise Identity Framework, advisory insight rules, Greeting Library, Closed Loop Business Coaching, Intelligent Stage Coaching, CHANAKYA Briefing Dashboard, and Universal Guided Journey. Intelligence thinks; presentation presents.",
+      "Enterprise Chief of Staff — Enterprise Identity Framework, advisory insight rules, Greeting Library, Closed Loop Business Coaching, Intelligent Stage Coaching, CHANAKYA Briefing Dashboard, Universal Guided Journey, and Phase 5 Enterprise Intelligence & Overnight Reflection Foundation. Catalyst One owns truth; ChatGPT is overnight reasoning only.",
     engineKey: "chanakya",
   },
   {
@@ -186,7 +186,7 @@ export const ECG_ENGINE_CATALOGUE: EcgEngineSeed[] = [
   { engineKey: "ecm", engineName: "Contact Master (ECM)", frameworkVersion: "1.0.0-spr001", domainKey: "contact_master" },
   { engineKey: "edc", engineName: "Dialogue Center (EDC)", frameworkVersion: "1.0.0-spr001", domainKey: "opportunity" },
   { engineKey: "platform_modes", engineName: "Platform Modes", frameworkVersion: "1.0.0-spr001", domainKey: "workflow" },
-  { engineKey: "chanakya", engineName: "CHANAKYA · Enterprise Chief of Staff", frameworkVersion: "12.6.0-cf-chanakya-009", domainKey: "chanakya" },
+  { engineKey: "chanakya", engineName: "CHANAKYA · Enterprise Chief of Staff", frameworkVersion: "13.0.0-cf-chanakya-015", domainKey: "chanakya" },
   { engineKey: "efl", engineName: "Enterprise Foundation Libraries (EFL)", frameworkVersion: "1.0.0-cf-efl-001", domainKey: "foundation_libraries" },
   { engineKey: "security_grants", engineName: "Security & Grants", frameworkVersion: "12.1.0", domainKey: "security_grants" },
   { engineKey: "ede", engineName: "Enterprise Decision Engine (EDE)", frameworkVersion: "13.0.0", domainKey: "opportunity" },
