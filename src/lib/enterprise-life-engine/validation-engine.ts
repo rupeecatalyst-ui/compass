@@ -66,9 +66,7 @@ export function selectLifeLenderExecutors(
         reportingHierarchy: contact.reportingHierarchy,
         reportingManagerRef: contact.reportingManagerRef,
         reportingManagerName: contact.reportingManagerName,
-        selectionReason: `Matched product ${criteria.productRef}, city ${criteria.city}${
-          criteria.businessMappingRef ? `, mapping ${criteria.businessMappingRef}` : ""
-        }`,
+        selectionReason: "Matched case product, city, and business mapping",
         recommendationScore: score,
       } satisfies LifeLenderSelectionResult;
     })

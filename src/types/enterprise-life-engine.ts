@@ -59,6 +59,76 @@ export interface LifeLenderSelectionResult {
   recommendationScore: number;
 }
 
+/**
+ * Case context for LIFE recommendations (CF-LIFE-001).
+ * Populated from Loan File / Contact / Role — never edited as engine filters in UI.
+ * Ready for Loan Journey: swap source to loan_file fields without UI redesign.
+ */
+export type LifeCaseContextSource =
+  | "loan_file"
+  | "opportunity"
+  | "contact_role"
+  | "provisional";
+
+export interface LifeCaseContext {
+  source: LifeCaseContextSource;
+  loanFileId?: string;
+  loanFileNumber?: string;
+  customerName?: string;
+  productRef?: string;
+  productLabel?: string;
+  customerCity?: string;
+  propertyCity?: string;
+  loanAmount?: number;
+  employmentType?: string;
+  /** Hidden engine city used for matching */
+  resolvedCity?: string;
+  /** Hidden engine business mapping — auto-derived */
+  businessMappingRef?: string;
+}
+
+export interface LifeCaseContextInput {
+  loanFileId?: string;
+  loanFile?: import("@/types/catalyst-one").LoanFile;
+  provisional?: Partial<LifeCaseContext> & {
+    source?: LifeCaseContextSource;
+  };
+}
+
+export type LifeCompletionActionKind =
+  | "complete_property_details"
+  | "select_loan_product"
+  | "complete_loan_file"
+  | "open_loan_files";
+
+export interface LifeContextBlocker {
+  code: string;
+  title: string;
+  message: string;
+  actionLabel: string;
+  actionHref: string;
+  actionKind: LifeCompletionActionKind;
+}
+
+/** Business-facing recommendation row — what the RM chooses from. */
+export interface LifeBusinessRecommendation {
+  rank: number;
+  contactId: string;
+  lenderName: string;
+  branchName: string;
+  executiveName: string;
+  relationshipManagerName: string;
+  reason: string;
+  recommendationScore: number;
+}
+
+export interface LifeRecommendationOutcome {
+  ready: boolean;
+  blockers: LifeContextBlocker[];
+  recommendations: LifeBusinessRecommendation[];
+  context: LifeCaseContext;
+}
+
 export interface LifeRecommendationHint {
   id: string;
   contactId: string;

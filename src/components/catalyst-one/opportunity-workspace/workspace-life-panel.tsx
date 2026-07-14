@@ -35,9 +35,8 @@ import {
 } from "./providers/workspace-placeholder-provider";
 import { cn } from "@/lib/utils";
 
-/** Opportunity-owned context — display only (not LIFE inputs). */
+/** Opportunity-owned selection defaults — hidden engine inputs (not shown in UI). */
 const OPPORTUNITY_CITY = "Pune";
-const OPPORTUNITY_BUSINESS_MAPPING = "West";
 const OPPORTUNITY_PRODUCT_REF = "product:home-loan";
 
 function seedLifeContactsIfEmpty() {
@@ -505,17 +504,7 @@ export function WorkspaceLifePanel() {
         description="Assign one lender institution and one contact to this opportunity"
       />
 
-      {/* Opportunity context — read-only */}
-      <div className="mb-3 rounded-xl border border-zinc-200/70 bg-zinc-50/80 p-3 dark:border-white/10 dark:bg-zinc-950/50">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Opportunity context
-        </p>
-        <div className="grid gap-1.5 text-xs sm:grid-cols-3">
-          <ContextChip label="Product" value={productLabel || "Home Loan"} />
-          <ContextChip label="City" value={OPPORTUNITY_CITY} />
-          <ContextChip label="Business Mapping" value={OPPORTUNITY_BUSINESS_MAPPING} />
-        </div>
-      </div>
+      {/* Case context chips removed (CF-LIFE-001) — engine inputs stay hidden. */}
 
       {/* Lightweight step indicator */}
       <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px]">
@@ -921,15 +910,6 @@ export function WorkspaceLifePanel() {
         </p>
       )}
     </OwGlassPanel>
-  );
-}
-
-function ContextChip({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/60 bg-background/60 px-2 py-1.5">
-      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-xs font-medium capitalize text-foreground">{value}</p>
-    </div>
   );
 }
 

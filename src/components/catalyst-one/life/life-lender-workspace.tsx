@@ -1,179 +1,199 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { LIFE_ACTIVE_STATUS, LIFE_CONTACT_ROLES } from "@/constants/enterprise-life-engine";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Check, Star } from "lucide-react";
 import {
-  getLifeRegistrySnapshot,
-  registerLifeLenderContact,
-  selectLifeLenderExecutors,
+  getLifeFrameworkVersion,
+  recommendLifeLenderExecutives,
+  seedLifeContactsIfEmpty,
 } from "@/lib/enterprise-life-engine";
-import type { LifeLenderSelectionResult } from "@/types/enterprise-life-engine";
-import { EnterpriseEngagementCard } from "@/components/catalyst-one/shared/enterprise-engagement-card";
+import type {
+  LifeBusinessRecommendation,
+  LifeContextBlocker,
+  LifeRecommendationOutcome,
+} from "@/types/enterprise-life-engine";
 import { PageHeader } from "@/components/design-system/page-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
-function seedLifeContactsIfEmpty() {
-  if (getLifeRegistrySnapshot().contacts.length > 0) return;
-
-  registerLifeLenderContact({
-    contactCode: "LIFE-HDFC-EXE-001",
-    contactName: "Priya Sharma",
-    mobile: "9876500001",
-    email: "priya.sharma@hdfc.demo",
-    lenderRef: "lender:hdfc",
-    lenderName: "HDFC Bank",
-    branchRef: "branch:hdfc-pune",
-    branchName: "Pune Camp",
-    city: "Pune",
-    productRefs: ["product:home-loan"],
-    businessMappingRefs: ["mapping:west"],
-    roles: [LIFE_CONTACT_ROLES.LENDER_EXECUTOR, LIFE_CONTACT_ROLES.RELATIONSHIP_MANAGER],
-    lenderExecutor: true,
-    activeStatus: LIFE_ACTIVE_STATUS.ACTIVE,
-    reportingManagerRef: "employee:mgr-hdfc-01",
-    reportingManagerName: "Anil Mehta",
-    reportingHierarchy: ["Priya Sharma", "Anil Mehta", "West Zonal Head"],
-    createdBy: "system",
-  });
-
-  registerLifeLenderContact({
-    contactCode: "LIFE-ICICI-EXE-001",
-    contactName: "Rahul Verma",
-    mobile: "9876500002",
-    email: "rahul.verma@icici.demo",
-    lenderRef: "lender:icici",
-    lenderName: "ICICI Bank",
-    branchRef: "branch:icici-pune",
-    branchName: "Baner",
-    city: "Pune",
-    productRefs: ["product:home-loan", "product:lap"],
-    businessMappingRefs: ["mapping:west"],
-    roles: [LIFE_CONTACT_ROLES.LENDER_EXECUTOR],
-    lenderExecutor: true,
-    activeStatus: LIFE_ACTIVE_STATUS.ACTIVE,
-    reportingManagerRef: "employee:mgr-icici-01",
-    reportingManagerName: "Sneha Kapoor",
-    reportingHierarchy: ["Rahul Verma", "Sneha Kapoor", "Regional Credit Head"],
-    createdBy: "system",
-  });
-
-  registerLifeLenderContact({
-    contactCode: "LIFE-SBI-EXE-001",
-    contactName: "Neha Joshi",
-    mobile: "9876500003",
-    lenderRef: "lender:sbi",
-    lenderName: "State Bank of India",
-    branchRef: "branch:sbi-mumbai",
-    branchName: "Andheri West",
-    city: "Mumbai",
-    productRefs: ["product:home-loan"],
-    businessMappingRefs: ["mapping:west", "mapping:metro"],
-    roles: [LIFE_CONTACT_ROLES.LENDER_EXECUTOR, LIFE_CONTACT_ROLES.OPERATIONS],
-    lenderExecutor: true,
-    activeStatus: LIFE_ACTIVE_STATUS.ACTIVE,
-    reportingManagerRef: "employee:mgr-sbi-01",
-    reportingManagerName: "Vikram Desai",
-    reportingHierarchy: ["Neha Joshi", "Vikram Desai"],
-    createdBy: "system",
-  });
-
-  // Credit contact without executor — must not appear in selection results
-  registerLifeLenderContact({
-    contactCode: "LIFE-HDFC-CR-001",
-    contactName: "Amit Credit Desk",
-    mobile: "9876500099",
-    email: "credit.desk@hdfc.demo",
-    lenderRef: "lender:hdfc",
-    lenderName: "HDFC Bank",
-    branchRef: "branch:hdfc-pune",
-    branchName: "Pune Camp",
-    city: "Pune",
-    productRefs: ["product:home-loan"],
-    businessMappingRefs: ["mapping:west"],
-    roles: [LIFE_CONTACT_ROLES.CREDIT],
-    lenderExecutor: false,
-    activeStatus: LIFE_ACTIVE_STATUS.ACTIVE,
-    reportingHierarchy: ["Amit Credit Desk", "Credit Manager"],
-    createdBy: "system",
-  });
-}
-
+/**
+ * LIFE · Link to Lender (CF-LIFE-001)
+ * Business action surface — ranks lender executives from case context.
+ * Engine parameters (product ref, city, business mapping) are never editable here.
+ */
 export function LifeLenderWorkspace() {
-  const [productRef, setProductRef] = useState("product:home-loan");
-  const [city, setCity] = useState("Pune");
-  const [businessMappingRef, setBusinessMappingRef] = useState("mapping:west");
-  const [results, setResults] = useState<LifeLenderSelectionResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [seededCount, setSeededCount] = useState(0);
+  const searchParams = useSearchParams();
+  const loanFileId = searchParams.get("loanFileId") ?? searchParams.get("file") ?? undefined;
 
-  useEffect(() => {
+  const [outcome, setOutcome] = useState<LifeRecommendationOutcome | null>(null);
+  const [assignedId, setAssignedId] = useState<string | null>(null);
+  const [registryCount, setRegistryCount] = useState(0);
+
+  const refresh = () => {
     seedLifeContactsIfEmpty();
-    setSeededCount(getLifeRegistrySnapshot().contacts.length);
-  }, []);
-
-  const onSelect = () => {
-    setError(null);
-    try {
-      const matched = selectLifeLenderExecutors({
-        productRef,
-        city,
-        businessMappingRef: businessMappingRef || undefined,
-      });
-      setResults(matched);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Selection failed");
-    }
+    setRegistryCount(seedLifeContactsIfEmpty());
+    setOutcome(recommendLifeLenderExecutives({ loanFileId }));
   };
 
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run when loan context changes
+  }, [loanFileId]);
+
+  const blockers = outcome?.blockers ?? [];
+  const recommendations = outcome?.recommendations ?? [];
+  const ready = Boolean(outcome?.ready);
+
+  const subtitle = useMemo(() => {
+    if (!outcome) return "Preparing lender recommendations from case context…";
+    if (!ready) return "Complete required loan details to generate recommendations.";
+    const customer = outcome.context.customerName;
+    const file = outcome.context.loanFileNumber;
+    if (customer && file) return `Recommendations for ${customer} · ${file}`;
+    if (customer) return `Recommendations for ${customer}`;
+    return "Choose a recommended lender executive to assign.";
+  }, [outcome, ready]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
-        title="LIFE · Lender Selection"
-        description={`Intelligent lender executor selection by product, city, and business mapping. Credit-only contacts without executor flag are excluded. ${seededCount} contacts in registry.`}
+        title="LIFE · Link to Lender"
+        description={subtitle}
       />
+      <p className="sr-only">
+        Framework {getLifeFrameworkVersion()} · registry {registryCount} contacts · engine inputs
+        hidden from Relationship Managers.
+      </p>
 
-      <div className="grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="space-y-2">
-          <Label>Product ref</Label>
-          <Input value={productRef} onChange={(e) => setProductRef(e.target.value)} />
+      {!ready && blockers.length > 0 && (
+        <div className="space-y-3">
+          {blockers.map((blocker) => (
+            <BusinessCompletionCard key={blocker.code} blocker={blocker} />
+          ))}
         </div>
-        <div className="space-y-2">
-          <Label>City</Label>
-          <Input value={city} onChange={(e) => setCity(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label>Business mapping</Label>
-          <Input value={businessMappingRef} onChange={(e) => setBusinessMappingRef(e.target.value)} />
-        </div>
-        <div className="flex items-end">
-          <Button onClick={onSelect}>Select executors</Button>
-        </div>
-        {error && <p className="text-sm text-destructive md:col-span-full">{error}</p>}
-      </div>
+      )}
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {results.map((r) => (
-          <EnterpriseEngagementCard
-            key={r.contact.id}
-            title={r.contact.contactName}
-            description={`${r.lenderName}${r.branchName ? ` · ${r.branchName}` : ""}`}
-            tone="emerald"
-            badge={`Score ${r.recommendationScore}`}
-            meta={`Manager: ${r.reportingManagerName ?? "—"} · ${r.selectionReason}`}
-          >
-            <p className="text-xs text-muted-foreground">
-              Hierarchy: {r.reportingHierarchy.join(" → ") || "—"}
+      {ready && (
+        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold tracking-tight text-foreground">
+              Recommended Lender Executives
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Select one executive. Internal matching criteria are applied automatically.
             </p>
-          </EnterpriseEngagementCard>
-        ))}
-        {results.length === 0 && (
-          <p className="text-sm text-muted-foreground md:col-span-2">
-            No executor matches yet. Run selection with product/city filters.
-          </p>
-        )}
-      </div>
+          </div>
+
+          {recommendations.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No eligible lender executives matched this case yet. Complete more loan details or try
+              another file.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="bg-muted/40 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Rank</th>
+                    <th className="px-4 py-2.5 font-medium">Lender</th>
+                    <th className="px-4 py-2.5 font-medium">Branch</th>
+                    <th className="px-4 py-2.5 font-medium">Relationship Manager</th>
+                    <th className="px-4 py-2.5 font-medium">Reason</th>
+                    <th className="px-4 py-2.5 font-medium">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recommendations.map((row) => (
+                    <RecommendationRow
+                      key={row.contactId}
+                      row={row}
+                      assigned={assignedId === row.contactId}
+                      onAssign={() => setAssignedId(row.contactId)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {assignedId && (
+            <div className="border-t border-border bg-teal-50/80 px-4 py-3 text-sm text-teal-900 dark:bg-teal-950/40 dark:text-teal-100">
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <Check className="h-4 w-4" />
+                Lender executive assigned for this session.
+              </span>
+              <span className="mt-0.5 block text-xs text-teal-800/80 dark:text-teal-200/80">
+                Assignment is recorded for certification flow. Loan Journey will persist this to the
+                Loan File when certified.
+              </span>
+            </div>
+          )}
+        </section>
+      )}
     </div>
+  );
+}
+
+function BusinessCompletionCard({ blocker }: { blocker: LifeContextBlocker }) {
+  return (
+    <div className="rounded-xl border border-amber-300/70 bg-amber-50/90 p-5 dark:border-amber-900 dark:bg-amber-950/40">
+      <h2 className="text-base font-semibold tracking-tight text-amber-950 dark:text-amber-50">
+        {blocker.title}
+      </h2>
+      <p className="mt-1.5 text-sm text-amber-900/90 dark:text-amber-100/90">{blocker.message}</p>
+      <Button asChild className="mt-4 rounded-lg" size="sm">
+        <Link href={blocker.actionHref}>{blocker.actionLabel}</Link>
+      </Button>
+    </div>
+  );
+}
+
+function RecommendationRow({
+  row,
+  assigned,
+  onAssign,
+}: {
+  row: LifeBusinessRecommendation;
+  assigned: boolean;
+  onAssign: () => void;
+}) {
+  return (
+    <tr
+      className={cn(
+        "border-t border-border/80 transition-colors",
+        assigned ? "bg-teal-50/70 dark:bg-teal-950/30" : "hover:bg-muted/30",
+      )}
+    >
+      <td className="px-4 py-3">
+        <span className="inline-flex items-center gap-1 font-semibold tabular-nums text-foreground">
+          {row.rank === 1 && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />}
+          {row.rank}
+        </span>
+      </td>
+      <td className="px-4 py-3 font-medium text-foreground">{row.lenderName}</td>
+      <td className="px-4 py-3 text-muted-foreground">{row.branchName}</td>
+      <td className="px-4 py-3">
+        <div>
+          <p className="font-medium text-foreground">{row.executiveName}</p>
+          {row.relationshipManagerName !== row.executiveName && (
+            <p className="text-[11px] text-muted-foreground">RM: {row.relationshipManagerName}</p>
+          )}
+        </div>
+      </td>
+      <td className="px-4 py-3 text-muted-foreground">{row.reason}</td>
+      <td className="px-4 py-3">
+        <Button
+          type="button"
+          size="sm"
+          variant={assigned ? "default" : "outline"}
+          className="h-8 rounded-lg"
+          onClick={onAssign}
+        >
+          {assigned ? "Assigned" : "Assign"}
+        </Button>
+      </td>
+    </tr>
   );
 }

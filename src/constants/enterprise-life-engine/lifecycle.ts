@@ -1,4 +1,4 @@
-export const LIFE_FRAMEWORK_VERSION = "1.0.0-spr001";
+export const LIFE_FRAMEWORK_VERSION = "1.1.0-cf-life-001";
 
 export const LIFE_CONTACT_ROLES = {
   LENDER_EXECUTOR: "lender_executor",

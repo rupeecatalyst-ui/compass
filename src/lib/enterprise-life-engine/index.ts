@@ -18,3 +18,16 @@ export {
   selectLifeLenderExecutors,
   validateLifeLenderContact,
 } from "./validation-engine";
+export {
+  deriveLifeBusinessMappingRef,
+  evaluateLifeContextBlockers,
+  mapLifeProductLabelToRef,
+  resolveLifeCaseContext,
+  toLifeSelectionCriteria,
+} from "./case-context";
+export {
+  getLifeRecommendationContext,
+  recommendLifeLenderExecutives,
+  toLifeBusinessRecommendations,
+} from "./business-recommendations";
+export { seedLifeContactsIfEmpty } from "./demo-seed";
