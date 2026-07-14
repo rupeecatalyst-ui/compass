@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { LenderLogo } from "@/components/catalyst-one/shared/lender-logo";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
@@ -97,6 +97,16 @@ export function LenderPipelineBoard({
   const [addOpenInternal, setAddOpenInternal] = useState(false);
   const addDialogOpen = addOpen ?? addOpenInternal;
   const setAddDialogOpen = onAddOpenChange ?? setAddOpenInternal;
+
+  const assignedLenders = useMemo(
+    () => new Set(cases.map((c) => c.lender).filter(Boolean)),
+    [cases],
+  );
+  const availableLenders = useMemo(
+    () => loanLenders.filter((l) => !assignedLenders.has(l)),
+    [assignedLenders],
+  );
+
   const [disbursementCase, setDisbursementCase] = useState<WorkflowCase | null>(null);
   const [lostCase, setLostCase] = useState<WorkflowCase | null>(null);
   const [holdCase, setHoldCase] = useState<WorkflowCase | null>(null);
@@ -126,6 +136,18 @@ export function LenderPipelineBoard({
 
   const [lostReason, setLostReason] = useState<LenderLostReason>("rejected");
   const [holdForm, setHoldForm] = useState({ holdReason: "", holdReviewDate: "" });
+
+  useEffect(() => {
+    if (!addDialogOpen) return;
+    setAddForm((f) => {
+      const currentOk = availableLenders.includes(f.lender as (typeof availableLenders)[number]);
+      return {
+        ...f,
+        lender: currentOk ? f.lender : (availableLenders[0] ?? ""),
+        expectedLoanAmount: f.expectedLoanAmount || loan.requiredAmount,
+      };
+    });
+  }, [addDialogOpen, availableLenders, loan.requiredAmount]);
 
   const casesByStage = useMemo(() => {
     const map = new Map<LenderCaseStage, LoanLenderExecution[]>();
@@ -209,6 +231,7 @@ export function LenderPipelineBoard({
   };
 
   const submitAddCase = () => {
+    if (!addForm.lender || assignedLenders.has(addForm.lender)) return;
     const ts = nowIso();
     const next: LoanLenderExecution = {
       id: newId("lcase"),
@@ -228,8 +251,11 @@ export function LenderPipelineBoard({
     onChange([next, ...cases]);
     onTimeline(`Lender case created: ${addForm.lender}`);
     setAddDialogOpen(false);
+    const remaining = loanLenders.filter(
+      (l) => l !== addForm.lender && !assignedLenders.has(l),
+    );
     setAddForm({
-      lender: loanLenders[0] ?? "HDFC Bank",
+      lender: remaining[0] ?? "",
       expectedLoanAmount: loan.requiredAmount,
       caseStage: "prelogin",
       caseSubStage: "",
@@ -372,14 +398,29 @@ export function LenderPipelineBoard({
           <div className="grid gap-3 py-2">
             <div>
               <Label className="text-[10px] uppercase text-muted-foreground">Lender</Label>
-              <Select value={addForm.lender} onValueChange={(v) => setAddForm((f) => ({ ...f, lender: v }))}>
-                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+              <Select
+                value={addForm.lender}
+                onValueChange={(v) => setAddForm((f) => ({ ...f, lender: v }))}
+                disabled={availableLenders.length === 0}
+              >
+                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Select lender" /></SelectTrigger>
                 <SelectContent>
-                  {loanLenders.map((l) => (
-                    <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
-                  ))}
+                  {availableLenders.length === 0 ? (
+                    <SelectItem value="__none" disabled className="text-xs">
+                      All lenders already assigned
+                    </SelectItem>
+                  ) : (
+                    availableLenders.map((l) => (
+                      <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {availableLenders.length === 0 && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Each lender may appear once on this opportunity. Remove a case to restore it here.
+                </p>
+              )}
             </div>
             <div>
               <Label className="text-[10px] uppercase text-muted-foreground">Expected Loan Amount</Label>
@@ -415,7 +456,14 @@ export function LenderPipelineBoard({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
-            <Button type="button" size="sm" onClick={submitAddCase}>Add Case</Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={submitAddCase}
+              disabled={!addForm.lender || availableLenders.length === 0}
+            >
+              Add Case
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -12,8 +12,12 @@ import { DocumentChecklist } from "@/components/catalyst-one/loan-files/document
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
 import { TaskPanel } from "@/components/catalyst-one/loan-files/task-panel";
 import { STAGE_LABELS, isProductSecured } from "@/constants/loan-pipeline";
-import { getOccupancyLabel } from "@/constants/occupancy-master";
+import { getOccupancyLabel, isOccupancyFieldVisible } from "@/constants/occupancy-master";
 import { formatINR } from "@/lib/format-currency";
+import {
+  formatExpectedRevenueLabel,
+  isExpectedRevenueReady,
+} from "@/lib/financial-engine-revenue";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -113,21 +117,39 @@ export function LoanFileDetailSheet() {
                   <section>
                     <h4 className="text-sm font-semibold mb-3">Revenue</h4>
                     <div className="grid grid-cols-2 gap-3">
-                      <SummaryItem label="Revenue %" value={`${file.revenuePercent}%`} />
-                      <SummaryItem label="Expected Revenue" value={formatINR(file.expectedRevenue)} accent />
+                      <SummaryItem
+                        label="Revenue %"
+                        value={
+                          isExpectedRevenueReady(file)
+                            ? `${file.revenuePercent}%`
+                            : "Awaiting Payout Configuration"
+                        }
+                      />
+                      <SummaryItem
+                        label="Expected Revenue"
+                        value={formatExpectedRevenueLabel(file)}
+                        accent
+                      />
                       <SummaryItem label="Revenue Received" value={formatINR(file.revenueReceived)} accent />
                     </div>
                   </section>
 
                   {isProductSecured(file.loanProduct) &&
-                    (file.propertyType || file.occupancyId || file.approxPropertyValue) && (
+                    (file.propertyType ||
+                      (isOccupancyFieldVisible(file.loanProduct) && file.occupancyId) ||
+                      file.approxPropertyValue) && (
                     <>
                       <Separator />
                       <section>
                         <h4 className="text-sm font-semibold mb-3">Property Information</h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <SummaryItem label="Property Type" value={file.propertyType ?? "—"} />
-                          <SummaryItem label="Property Occupancy" value={getOccupancyLabel(file.occupancyId) ?? "—"} />
+                          {isOccupancyFieldVisible(file.loanProduct) && (
+                            <SummaryItem
+                              label="Property Occupancy"
+                              value={getOccupancyLabel(file.occupancyId) ?? "—"}
+                            />
+                          )}
                           <SummaryItem
                             label="Approx Property Value"
                             value={file.approxPropertyValue ? formatINR(file.approxPropertyValue) : "—"}

@@ -549,6 +549,11 @@ export interface LoanFile {
   daysInStage: number;
   expectedRevenue: number;
   revenuePercent: number;
+  /**
+   * Prompt 013 — true when Financial Engine payout rule + commission are bound.
+   * Until configured, Expected Revenue / Payout show awaiting states.
+   */
+  payoutConfigured?: boolean;
   revenueReceived: number;
   expectedDisbursement: string;
   loginDate: string;

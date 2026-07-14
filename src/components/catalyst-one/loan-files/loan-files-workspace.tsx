@@ -15,6 +15,11 @@ import { AiInsightsSidebar } from "@/components/catalyst-one/loan-files/ai-insig
 import { CreateLoanModal } from "@/components/catalyst-one/loan-files/create-loan-modal";
 import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-workspace-modal";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
+import {
+  getRememberedOpportunityActiveLoan,
+  rememberOpportunityActiveLoan,
+  resolveLoansForOpportunity,
+} from "@/lib/opportunity-loan-continuity";
 
 function LoanFilesKeyboard() {
   const { setCreateOpen, setSelectedFileId, selectedFileId, searchInputRef } = useLoanFiles();
@@ -49,15 +54,39 @@ function LoanFilesKeyboard() {
 
 function LoanFilesQuerySync() {
   const searchParams = useSearchParams();
-  const { setSelectedFileId, setCustomerFilterId } = useLoanFiles();
+  const { setSelectedFileId, setCustomerFilterId, files } = useLoanFiles();
 
   useEffect(() => {
+    const browseAll = searchParams.get("browse") === "1";
     const fileId = searchParams.get("file");
-    if (fileId) setSelectedFileId(fileId);
+    const opportunityId = searchParams.get("opportunityId");
+
+    if (fileId) {
+      setSelectedFileId(fileId);
+      if (opportunityId) rememberOpportunityActiveLoan(opportunityId, fileId);
+    } else if (opportunityId && !browseAll) {
+      const contactId = searchParams.get("customer");
+      const matches = files.filter((f) => {
+        if (contactId && f.customerId === contactId) return true;
+        return false;
+      });
+      const remembered = getRememberedOpportunityActiveLoan(opportunityId);
+      if (remembered && files.some((f) => f.id === remembered)) {
+        setSelectedFileId(remembered);
+      } else if (matches.length === 1) {
+        setSelectedFileId(matches[0]!.id);
+        rememberOpportunityActiveLoan(opportunityId, matches[0]!.id);
+      } else {
+        const byOpportunity = resolveLoansForOpportunity(opportunityId, null);
+        if (byOpportunity.length === 1) {
+          setSelectedFileId(byOpportunity[0]!.id);
+        }
+      }
+    }
 
     const customerId = searchParams.get("customer");
     setCustomerFilterId(customerId);
-  }, [searchParams, setSelectedFileId, setCustomerFilterId]);
+  }, [searchParams, setSelectedFileId, setCustomerFilterId, files]);
 
   return null;
 }

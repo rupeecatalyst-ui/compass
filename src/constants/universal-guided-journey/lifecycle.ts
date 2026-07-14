@@ -57,6 +57,8 @@ function contactSteps(): UgjStepDefinition[] {
       label: "Mobile",
       question: "What is the primary mobile number?",
       whyRequired: "Primary mobile is the unique contact key used across journeys and communications.",
+      guidanceHint:
+        "Next I will check for an existing contact so we continue the same conversation — not start a new one.",
       fieldKind: "tel",
       primaryActionLabel: "Continue",
       autoSave: true,

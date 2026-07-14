@@ -33,7 +33,7 @@ import {
   TRANSACTION_TYPES,
 } from "@/constants/loan-pipeline";
 import { loanManagers } from "@/data/catalyst-one/loan-files";
-import { isOccupancyApplicableToProduct, getOccupancyLabel } from "@/constants/occupancy-master";
+import { isOccupancyApplicableToProduct, isOccupancyFieldVisible, getOccupancyLabel } from "@/constants/occupancy-master";
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { LENDER_CASE_STAGE_LABELS, normalizeLenderCaseStage } from "@/constants/lender-pipeline";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
@@ -47,7 +47,8 @@ import type {
 } from "@/types/business-completion";
 import { BusinessCompletionDialog } from "@/components/catalyst-one/shared/business-completion";
 import { PropertyInformationCard } from "@/components/catalyst-one/shared/property-information-card";
-import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
+import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
+import { rememberOpportunityActiveLoan } from "@/lib/opportunity-loan-continuity";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage, buildStageChangePatch, buildSubStageChangePatch } from "@/lib/loan-files-utils";
 import { captureChanakyaStageTransition } from "@/lib/chanakya-stage-coaching";
@@ -174,6 +175,12 @@ function LoanWorkspaceModalContent({
   } | null>(null);
 
   useEffect(() => {
+    if (opportunityId && file?.id) {
+      rememberOpportunityActiveLoan(opportunityId, file.id);
+    }
+  }, [opportunityId, file?.id]);
+
+  useEffect(() => {
     if (file) {
       const participants = resolveLoanParticipants(file);
       const next = { ...file, participants };
@@ -222,7 +229,6 @@ function LoanWorkspaceModalContent({
 
   const closeWorkspace = () => onOpenChange(false);
 
-  const revenueBase = getRevenueBaseAmount(draft);
   const productOptions = getProductsForLendingType(draft.lendingType ?? "secured");
   // used in other tabs; kept for parity with existing calculations elsewhere
   shouldShowFinalLoanAmount(draft.stage);
@@ -241,8 +247,9 @@ function LoanWorkspaceModalContent({
           next.approxPropertyValue = undefined;
           next.occupancyId = undefined;
         } else if (
-          next.occupancyId &&
-          !isOccupancyApplicableToProduct(next.occupancyId, next.loanProduct)
+          !isOccupancyFieldVisible(next.loanProduct) ||
+          (next.occupancyId &&
+            !isOccupancyApplicableToProduct(next.occupancyId, next.loanProduct))
         ) {
           next.occupancyId = undefined;
         }
@@ -254,8 +261,9 @@ function LoanWorkspaceModalContent({
       }
       if (
         p.loanProduct &&
-        next.occupancyId &&
-        !isOccupancyApplicableToProduct(next.occupancyId, p.loanProduct)
+        (!isOccupancyFieldVisible(p.loanProduct) ||
+          (next.occupancyId &&
+            !isOccupancyApplicableToProduct(next.occupancyId, p.loanProduct)))
       ) {
         next.occupancyId = undefined;
       }
@@ -269,7 +277,11 @@ function LoanWorkspaceModalContent({
       ...synced,
       internalNotes: notes,
       topUpRequested: draft.topUpRequired ? draft.topUpRequested : 0,
-      expectedRevenue: Math.round(revenueBase * (draft.revenuePercent / 100)),
+      expectedRevenue: computeExpectedRevenueAmount({
+        ...draft,
+        ...synced,
+        internalNotes: notes,
+      }),
     };
   };
 
@@ -695,10 +707,12 @@ function LoanWorkspaceModalContent({
                     {overviewUi.propertyInfo.mode === "view" ? (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         <SummaryItem label="Property Type" value={draft.propertyType || "—"} />
-                        <SummaryItem
-                          label="Property Occupancy"
-                          value={getOccupancyLabel(draft.occupancyId) || "—"}
-                        />
+                        {isOccupancyFieldVisible(draft.loanProduct) && (
+                          <SummaryItem
+                            label="Property Occupancy"
+                            value={getOccupancyLabel(draft.occupancyId) || "—"}
+                          />
+                        )}
                         <SummaryItem
                           label="Approx. Property Value"
                           value={

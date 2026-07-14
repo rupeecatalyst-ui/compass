@@ -52,9 +52,22 @@ export function ExecutiveKpiStrip({ kpis }: { kpis: ExecutiveKpis }) {
         <KpiCard label="Mission Status" value={kpis.missionStatusLabel} tone={statusTone} />
         <KpiCard label="Loan Health" value={`${kpis.loanHealth}%`} tone={kpis.loanHealth >= 70 ? "success" : "warning"} />
         <KpiCard label="Rec. Confidence" value={`${kpis.recommendationConfidence}%`} sub="Chanakya" tone="info" />
-        <KpiCard label="Best ROI" value={`${kpis.bestRoi.toFixed(2)}%`} sub={kpis.bestRoiLender} tone="success" />
-        <KpiCard label="Expected Revenue" value={formatINR(kpis.expectedRevenue)} />
-        <KpiCard label="Expected Payout" value={formatINR(kpis.expectedPayout)} />
+        <KpiCard
+          label="Expected Revenue"
+          value={kpis.revenueReady ? formatINR(kpis.expectedRevenue) : "Awaiting Payout Configuration"}
+          tone={kpis.revenueReady ? "default" : "warning"}
+        />
+        <KpiCard
+          label="Expected Payout"
+          value={kpis.revenueReady ? formatINR(kpis.expectedPayout) : "Not Yet Calculated"}
+          tone={kpis.revenueReady ? "default" : "warning"}
+        />
+        <KpiCard
+          label="Best ROI"
+          value={kpis.revenueReady ? `${kpis.bestRoi.toFixed(2)}%` : "Not Yet Calculated"}
+          sub={kpis.revenueReady ? kpis.bestRoiLender : "Awaiting Payout Configuration"}
+          tone={kpis.revenueReady ? "success" : "warning"}
+        />
         <KpiCard label="Average TAT" value={`${kpis.averageTat}d`} tone={kpis.averageTat > 5 ? "warning" : "default"} />
         <KpiCard label="Documents" value={`${kpis.documentsCompletion}%`} />
         <KpiCard label="Tasks" value={`${kpis.tasksCompletion}%`} />

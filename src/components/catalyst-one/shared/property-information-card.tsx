@@ -8,7 +8,10 @@ import { Label } from "@/components/ui/label";
 import { formatINRInput, parseINRInput } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
 import type { PropertyType } from "@/constants/loan-stage-master";
-import type { OccupancyMasterEntry } from "@/constants/occupancy-master";
+import {
+  isOccupancyFieldVisible,
+  type OccupancyMasterEntry,
+} from "@/constants/occupancy-master";
 
 export interface PropertyInformationValues {
   propertyType?: string;
@@ -61,13 +64,15 @@ export function PropertyInformationCard({
           />
         </PropertyField>
 
-        <PropertyField label="Property Occupancy *">
-          <OccupancySelect
-            loanProduct={loanProduct}
-            value={values.occupancyId}
-            onSelect={onOccupancyChange}
-          />
-        </PropertyField>
+        {isOccupancyFieldVisible(loanProduct) && (
+          <PropertyField label="Property Occupancy *">
+            <OccupancySelect
+              loanProduct={loanProduct}
+              value={values.occupancyId}
+              onSelect={onOccupancyChange}
+            />
+          </PropertyField>
+        )}
 
         <PropertyField label="Approximate Property Value (₹)" className="sm:col-span-2 lg:col-span-1">
           <Input

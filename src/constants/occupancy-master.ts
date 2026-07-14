@@ -49,8 +49,16 @@ export function getOccupancyLabel(id?: string): string | undefined {
   return getOccupancyById(id)?.label ?? id;
 }
 
+/**
+ * Prompt 013 — Product-aware occupancy.
+ * Home Loan (purchase / BT) must not collect Property Occupancy.
+ * LAP and other secured-property products require it.
+ */
 export function isOccupancyFieldVisible(loanProduct: string): boolean {
-  return isProductSecured(loanProduct);
+  if (!isProductSecured(loanProduct)) return false;
+  const name = loanProduct.trim().toLowerCase();
+  if (name === "home loan" || name.startsWith("home loan ")) return false;
+  return true;
 }
 
 export function isOccupancyApplicableToProduct(

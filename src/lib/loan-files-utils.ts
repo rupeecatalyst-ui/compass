@@ -3,7 +3,7 @@ import {
   getStageProgress,
   getSubStatusLabel,
 } from "@/constants/loan-stage-master";
-import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
+import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
 import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
 import {
   applyWonTransition,
@@ -165,8 +165,9 @@ export function createLoanFileFromInput(
   const revenuePercent = 1.2;
   const lendingType = input.lendingType ?? inferLendingTypeFromProduct(input.loanProduct);
   const transactionType = input.transactionType ?? "fresh";
-  const revenueBase = input.requiredAmount || input.loanAmount;
-  const expectedRevenue = Math.round(revenueBase * (revenuePercent / 100));
+  /** Prompt 013 — do not pre-calculate until Financial Engine payout is configured. */
+  const payoutConfigured = false;
+  const expectedRevenue = 0;
 
   const file: LoanFile = {
     id,
@@ -190,6 +191,7 @@ export function createLoanFileFromInput(
     daysInStage: 0,
     expectedRevenue,
     revenuePercent,
+    payoutConfigured,
     revenueReceived: 0,
     expectedDisbursement: new Date(Date.now() + 30 * 86400000).toISOString(),
     loginDate: input.loginDate,
@@ -292,8 +294,7 @@ export function updateLoanFileInStorage(
     merged = applyWonTransition(merged);
   }
 
-  const revenueBase = getRevenueBaseAmount(merged);
-  merged.expectedRevenue = Math.round(revenueBase * (merged.revenuePercent / 100));
+  merged.expectedRevenue = computeExpectedRevenueAmount(merged);
 
   const next = [...files];
   next[index] = merged;

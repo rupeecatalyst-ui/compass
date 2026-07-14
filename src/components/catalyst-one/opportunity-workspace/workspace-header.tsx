@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OpportunityHealthBand } from "@/types/enterprise-opportunity-intelligence";
-import { ROUTES } from "@/constants/routes";
 import { Button } from "@/components/ui/button";
+import { buildOpportunityLoanWorkspaceHref } from "@/lib/opportunity-loan-continuity";
 import { OwGlassPanel, OwInfoChip, OwSectionLabel } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
+import { ROUTES } from "@/constants/routes";
 
 const BAND_STYLES: Record<OpportunityHealthBand, string> = {
   excellent: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
@@ -42,9 +43,19 @@ export function WorkspaceHeader() {
     return () => window.clearTimeout(t);
   }, [successPct, selectedLender?.lenderName]);
 
-  const loanHref = opportunity?.id
-    ? `${ROUTES.LOAN_FILES}?from=opportunity_workspace&opportunityId=${encodeURIComponent(opportunity.id)}`
-    : ROUTES.LOAN_FILES;
+  const loanHref = useMemo(() => {
+    if (!opportunity?.id) return ROUTES.LOAN_FILES;
+    return buildOpportunityLoanWorkspaceHref({
+      opportunityId: opportunity.id,
+      contact: contact
+        ? {
+            id: contact.id,
+            name: contact.name,
+            mobilePrimary: contact.mobilePrimary,
+          }
+        : null,
+    });
+  }, [opportunity?.id, contact]);
 
   return (
     <OwGlassPanel className="space-y-4">

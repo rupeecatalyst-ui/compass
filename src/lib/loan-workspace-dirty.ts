@@ -1,4 +1,4 @@
-import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
+import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
 import { syncParticipantLegacyFields } from "@/lib/loan-participants";
 import type { LoanFile } from "@/types/catalyst-one";
 
@@ -10,13 +10,11 @@ export function isLoanWorkspaceDirty(
 ): boolean {
   const participants = draft.participants ?? [];
   const synced = syncParticipantLegacyFields(participants, draft.businessDetails);
-  const revenueBase = getRevenueBaseAmount(draft);
-  const expectedRevenue = Math.round(revenueBase * (draft.revenuePercent / 100));
+  const expectedRevenue = computeExpectedRevenueAmount(draft);
 
   const origParticipants = original.participants ?? [];
   const origSynced = syncParticipantLegacyFields(origParticipants, original.businessDetails);
-  const origRevenueBase = getRevenueBaseAmount(original);
-  const origExpectedRevenue = Math.round(origRevenueBase * (original.revenuePercent / 100));
+  const origExpectedRevenue = computeExpectedRevenueAmount(original);
 
   const currentPayload = JSON.stringify({
     ...draft,

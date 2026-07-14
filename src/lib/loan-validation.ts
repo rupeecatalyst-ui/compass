@@ -1,5 +1,6 @@
 import type { LoanFile, PipelineStage } from "@/types/catalyst-one";
 import { isProductSecured } from "@/constants/product-master";
+import { isOccupancyFieldVisible } from "@/constants/occupancy-master";
 import {
   computeTopUpRequested,
   getProductsForLendingType,
@@ -10,7 +11,7 @@ import {
   requiresFinalLoanAmount,
   shouldShowFinalLoanAmount,
 } from "@/constants/loan-stage-master";
-import { getRevenueBaseAmount } from "@/lib/loan-amount-utils";
+import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
 import type { BusinessCompletionControl } from "@/types/business-completion";
 
 export interface LoanValidationIssue {
@@ -135,12 +136,13 @@ export function validateLoanFile(
     });
   }
 
-  if (isProductSecured(file.loanProduct) && !file.occupancyId?.trim()) {
+  if (isOccupancyFieldVisible(file.loanProduct) && !file.occupancyId?.trim()) {
     pushIssue(issues, {
       code: "LOAN_MISSING_PROPERTY_OCCUPANCY",
       fieldKey: "occupancyId",
       label: "Property Occupancy",
-      message: "Occupancy tells me how the property is used — important for secured journeys.",
+      message:
+        "Occupancy tells me how the secured property is used — required for this product before we move ahead.",
       control: "occupancy",
     });
   }
@@ -196,10 +198,15 @@ export function normalizeLoanFile(file: LoanFile): LoanFile {
     topUpRequested,
     propertyType,
     approxPropertyValue,
-    expectedRevenue: Math.round(
-      getRevenueBaseAmount({ ...file, stage, finalLoanAmount: file.finalLoanAmount }) *
-        (file.revenuePercent / 100),
-    ),
+    expectedRevenue: computeExpectedRevenueAmount({
+      ...file,
+      stage,
+      lendingType,
+      transactionType,
+      topUpRequested,
+      propertyType,
+      approxPropertyValue,
+    }),
   };
 
   if (isLoanWon(stage)) {
@@ -224,7 +231,6 @@ function inferLendingType(product: string): LoanFile["lendingType"] {
 
 /** CRC-017 — Won stage business rules. */
 export function applyWonTransition(file: LoanFile): LoanFile {
-  const revenueBase = getRevenueBaseAmount(file);
   const wonTimeline = {
     id: `tl-won-${Date.now()}`,
     title: "Loan Won",
@@ -241,7 +247,13 @@ export function applyWonTransition(file: LoanFile): LoanFile {
     stage: "won",
     status: "completed",
     progress: 100,
-    expectedRevenue: Math.round(revenueBase * (file.revenuePercent / 100)),
+    expectedRevenue: computeExpectedRevenueAmount({
+      ...file,
+      stage: "won",
+      status: "completed",
+      progress: 100,
+      timeline,
+    }),
     timeline,
   };
 }

@@ -17,6 +17,10 @@ import {
   type LenderMomentumProfile,
   type LenderRoiProfile,
 } from "@/lib/insights/lender-intelligence";
+import {
+  computeExpectedRevenueAmount,
+  isExpectedRevenueReady,
+} from "@/lib/financial-engine-revenue";
 import type { LenderCaseStage, LoanFile, LoanLenderExecution } from "@/types/catalyst-one";
 
 export type MissionStatus = "on_track" | "at_risk" | "critical" | "completed";
@@ -32,6 +36,8 @@ export interface ExecutiveKpis {
   bestRoiLender: string;
   expectedRevenue: number;
   expectedPayout: number;
+  /** Prompt 013 — when false, UI must show awaiting / not-yet-calculated labels. */
+  revenueReady: boolean;
   averageTat: number;
   documentsCompletion: number;
   tasksCompletion: number;
@@ -317,7 +323,13 @@ export function buildMissionControlSnapshot(loan: LoanFile, cases: LoanLenderExe
   const bestRoi = roiProfiles[0];
   const lead = expressRows[0];
   const missionStatus = resolveMissionStatus(loan, cases);
-  const expectedPayout = Math.round(loan.expectedRevenue * (loan.revenuePercent / 100));
+  const revenueReady = isExpectedRevenueReady(loan);
+  const expectedRevenue = revenueReady
+    ? computeExpectedRevenueAmount(loan) || loan.expectedRevenue
+    : 0;
+  const expectedPayout = revenueReady
+    ? Math.round(expectedRevenue * (loan.revenuePercent / 100))
+    : 0;
 
   const principal = loan.finalLoanAmount ?? loan.requiredAmount;
   const tenure = loan.finalTenure ?? loan.tenure ?? 240;
@@ -336,8 +348,9 @@ export function buildMissionControlSnapshot(loan: LoanFile, cases: LoanLenderExe
     recommendationConfidence: lead?.confidenceScore ?? 0,
     bestRoi: bestRoi?.negotiatedRoi ?? loan.interestRate,
     bestRoiLender: bestRoi?.lender ?? "—",
-    expectedRevenue: loan.expectedRevenue,
+    expectedRevenue,
     expectedPayout,
+    revenueReady,
     averageTat: avgTat,
     documentsCompletion: docsPct,
     tasksCompletion: tasksPct,

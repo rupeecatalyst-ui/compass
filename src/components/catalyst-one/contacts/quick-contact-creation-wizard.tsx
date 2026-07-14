@@ -132,14 +132,15 @@ export function QuickContactCreationWizard({
       reset();
       return;
     }
+    const prefill = normalizePersonName(initialName ?? "") || initialName?.trim() || "";
+    const startStep: WizardStep = prefill ? "mobile" : "name";
     const session = createUgjSession({
       journeyCode: "contact_creation",
-      firstStepId: "name",
+      firstStepId: startStep,
     });
     setSessionId(session.sessionId);
-    if (initialName?.trim()) {
-      setName(normalizePersonName(initialName) || initialName.trim());
-    }
+    if (prefill) setName(prefill);
+    setStep(startStep);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialName, creationIntent?.kind]);
 
@@ -164,7 +165,9 @@ export function QuickContactCreationWizard({
   const handleNameNext = () => {
     const normalized = normalizePersonName(name);
     if (!normalized) {
-      setError("Please enter the contact's full name.");
+      setError(
+        "I need a full name so I can personalize this journey and keep records unique. What should we call them?",
+      );
       return;
     }
     setName(normalized);
@@ -174,7 +177,9 @@ export function QuickContactCreationWizard({
   const handleMobileNext = () => {
     const digits = normalizeEcmMobile(mobile);
     if (!isValidMobile(digits)) {
-      setError("Enter a valid primary mobile number (10–15 digits).");
+      setError(
+        "I use the primary mobile as the contact key across journeys. Enter a valid 10–15 digit number so we can continue without creating a duplicate trail.",
+      );
       return;
     }
     setMobile(digits);
@@ -190,7 +195,9 @@ export function QuickContactCreationWizard({
 
   const handleEmploymentNext = () => {
     if (!employmentType) {
-      setError("Select an employment type to continue.");
+      setError(
+        "Employment type drives borrower relevance and document expectations next. Choose one so I can guide the right path.",
+      );
       return;
     }
     go("email");
@@ -207,7 +214,9 @@ export function QuickContactCreationWizard({
 
   const handleRolesNext = () => {
     if (roles.length === 0) {
-      setError("Select at least one role.");
+      setError(
+        "Roles tell me how this person participates in Catalyst One. Select at least one so the workspace opens with the right context.",
+      );
       return;
     }
     go("create");
@@ -277,6 +286,31 @@ export function QuickContactCreationWizard({
 
   const footerActions = (
     <>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className="h-8 rounded-lg text-muted-foreground"
+        disabled={creating}
+        onClick={() => onOpenChange(false)}
+      >
+        Exit
+      </Button>
+      {step !== "create" && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 rounded-lg"
+          disabled={creating}
+          onClick={() => {
+            persistStep(step);
+            onOpenChange(false);
+          }}
+        >
+          Save & Exit
+        </Button>
+      )}
       {step === "name" && (
         <Button type="button" size="sm" className="h-8 gap-1.5 rounded-lg px-4" onClick={handleNameNext}>
           Continue
@@ -359,6 +393,11 @@ export function QuickContactCreationWizard({
       busy={creating}
       onBack={() => {
         const prev = getAdjacentUgjStep(journey, step, "prev");
+        if (prev?.id === "name" && initialName?.trim()) {
+          // Name already known from intent — do not re-ask.
+          onOpenChange(false);
+          return;
+        }
         if (prev) go(prev.id as WizardStep);
       }}
       footerActions={footerActions}
@@ -397,10 +436,13 @@ export function QuickContactCreationWizard({
           {duplicate && (
             <div className="mt-4 space-y-3 rounded-2xl border border-amber-200/80 bg-amber-50/90 p-4 dark:border-amber-900 dark:bg-amber-950/40">
               <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
-                This contact already exists.
+                Hi {firstName}, I found an existing Contact with this Mobile Number.
               </p>
               <p className="text-sm text-amber-900/80 dark:text-amber-200/80">
                 {duplicate.name} · {duplicate.mobilePrimary}
+              </p>
+              <p className="text-xs text-amber-900/70 dark:text-amber-200/70">
+                Opening the existing record keeps your journey continuous. Merge if you want to bring new details into that Contact. Continue Anyway only when your business rules allow a second record.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -412,6 +454,17 @@ export function QuickContactCreationWizard({
                   }}
                 >
                   Open Existing Contact
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="rounded-xl"
+                  onClick={() => {
+                    onOpenChange(false);
+                    onOpenExisting(duplicate);
+                  }}
+                >
+                  Merge Information
                 </Button>
                 {canContinueDespiteDuplicate && (
                   <Button
