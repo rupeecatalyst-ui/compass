@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { DocumentsWorkspace } from "@/components/catalyst-one/documents/documents-workspace";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
+import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
 import {
   journeyContextFromLoanFile,
   loadLeadJourneyLoanFile,
@@ -22,6 +23,7 @@ import {
   resolveEdieDocumentRulesForContext,
 } from "@/lib/enterprise-document-intelligence-engine";
 import { resolveApplicableWeights, computeDocumentCompletionScore } from "@/lib/document-completion/score";
+import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
 import type { LoanFile } from "@/types/catalyst-one";
 
@@ -86,11 +88,11 @@ export function DocumentCenterWorkspace() {
   useEffect(() => {
     setLoading(true);
     seedDocumentRulesIfEmpty();
-    const next = loadLeadJourneyLoanFile(fileParam);
+    const next = loadLeadJourneyLoanFile(fileParam, opportunityId);
     setFile(next);
     if (next) setReceipts(loadReceipts(next.id));
     setLoading(false);
-  }, [fileParam]);
+  }, [fileParam, opportunityId]);
 
   const employmentKey = useMemo(() => {
     const e = (file?.employmentType || "salaried").toLowerCase();
@@ -158,12 +160,22 @@ export function DocumentCenterWorkspace() {
     );
   }
 
+  if (!file) {
+    return (
+      <OpportunityContextPicker
+        targetHref={ROUTES.DOCUMENT_CENTER}
+        title="Select an opportunity for Document Center"
+        description="Document collection needs an active case. Choose one below or continue from Opportunity Setup."
+      />
+    );
+  }
+
   return (
     <div className="-mx-4 flex h-[calc(100vh-4rem)] flex-col md:-mx-6 lg:-mx-8">
       <LeadOpportunityJourneyChrome
         moduleId="document_center"
         context={context}
-        fileId={file?.id}
+        fileId={file.id}
         opportunityId={opportunityId}
         onSaveDraft={async () => {
           if (file) saveReceipts(file.id, receipts);

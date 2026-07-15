@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Mail, MessageSquare, SendHorizonal } from "lucide-react";
 import Link from "next/link";
-import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
-import { loadLoanFiles } from "@/lib/loan-files-storage";
 import { formatINR } from "@/lib/format-currency";
 import { getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
 import { ROUTES } from "@/constants/routes";
@@ -15,9 +13,7 @@ import {
   opportunityNumberForFile,
   resolveEcwSelectedLender,
 } from "@/lib/enterprise-credit-workspace";
-import {
-  buildProposalReadinessReview,
-} from "@/lib/chanakya-phase5-intelligence";
+import { buildProposalReadinessReview } from "@/lib/chanakya-phase5-intelligence";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,6 +24,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
+import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
+import { loadLeadJourneyLoanFile } from "@/lib/lead-opportunity-journey/load-context";
+import {
+  resolveStatedDraftForFile,
+  saveStatedDraft,
+} from "@/lib/lead-opportunity-journey/stated-draft";
 import { EcwLeftPanel } from "./ecw-left-panel";
 import { EcwDocumentCentre } from "./ecw-document-centre";
 import { EcwChanakyaLiveBanner } from "./ecw-chanakya-live-banner";
@@ -36,14 +38,6 @@ import type {
   EcwLeftSectionId,
   EcwStatedInformationDraft,
 } from "@/types/enterprise-credit-workspace";
-
-function loadActiveFile(fileId: string | null): LoanFile | null {
-  const files = typeof window === "undefined" ? getInitialLoanFiles() : loadLoanFiles() ?? getInitialLoanFiles();
-  if (fileId) {
-    return files.find((f) => f.id === fileId && !f.archived) ?? null;
-  }
-  return files.find((f) => !f.archived) ?? null;
-}
 
 /**
  * Lead Stage — Credit Workbench (verification desk).
@@ -54,6 +48,7 @@ export function EnterpriseCreditWorkspace() {
   const fileParam = searchParams.get("file");
   const opportunityId = searchParams.get("opportunityId");
   const [file, setFile] = useState<LoanFile | null>(null);
+  const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<EcwLeftSectionId>("stated_financial");
   const [stated, setStated] = useState<EcwStatedInformationDraft>({});
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
@@ -62,21 +57,34 @@ export function EnterpriseCreditWorkspace() {
   const [sendOpen, setSendOpen] = useState(false);
 
   useEffect(() => {
-    const next = loadActiveFile(fileParam);
+    setLoading(true);
+    const next = loadLeadJourneyLoanFile(fileParam, opportunityId);
     setFile(next);
-    setStated({});
-    setSelectedDocId(next?.documents?.[0]?.id ?? null);
-  }, [fileParam]);
+    if (next) {
+      setStated(resolveStatedDraftForFile(next));
+      setSelectedDocId(next.documents?.[0]?.id ?? null);
+    } else {
+      setStated({});
+      setSelectedDocId(null);
+    }
+    setLoading(false);
+  }, [fileParam, opportunityId]);
 
   const lender = useMemo(
-    () => (file ? resolveEcwSelectedLender(file) : { lenderName: "Not selected", contactName: "—", enabled: false }),
+    () =>
+      file
+        ? resolveEcwSelectedLender(file)
+        : { lenderName: "Not selected", contactName: "—", enabled: false },
     [file],
   );
 
   const opportunityNumber = file ? opportunityNumberForFile(file) : "—";
 
   const viewerDocs = useMemo(
-    () => (file ? mapLoanDocumentsToEcwViewerDocs(file.documents ?? [], file.relationshipManager) : []),
+    () =>
+      file
+        ? mapLoanDocumentsToEcwViewerDocs(file.documents ?? [], file.relationshipManager)
+        : [],
     [file],
   );
 
@@ -96,7 +104,8 @@ export function EnterpriseCreditWorkspace() {
           stated.statedTurnover || stated.statedNatureOfBusiness || null,
         stated_property_information:
           stated.statedPropertyValue || stated.statedPropertyType || null,
-        stated_financial_information: stated.statedIncomeMonthly || file.requiredAmount || null,
+        stated_financial_information:
+          stated.statedIncomeMonthly || file.requiredAmount || null,
       },
     });
   }, [file, stated]);
@@ -112,17 +121,21 @@ export function EnterpriseCreditWorkspace() {
     window.setTimeout(() => setToast(null), 3200);
   };
 
+  if (loading) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
+      </div>
+    );
+  }
+
   if (!file) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center px-6">
-        <div className="max-w-md rounded-2xl border border-border/70 bg-card p-8 text-center shadow-sm">
-          <p className="text-sm font-semibold">No loan file available</p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Open Credit Workbench from Credit Bench, Document Center, or a loan file so verification
-            context loads automatically.
-          </p>
-        </div>
-      </div>
+      <OpportunityContextPicker
+        targetHref={ROUTES.CREDIT_WORKBENCH}
+        title="Select an opportunity for Credit Workbench"
+        description="Verification needs an active case. Choose one below or continue from Document Center."
+      />
     );
   }
 
@@ -145,7 +158,7 @@ export function EnterpriseCreditWorkspace() {
   });
 
   return (
-    <div className="-mx-4 flex h-[calc(100vh-4rem)] flex-col bg-background md:-mx-6 lg:-mx-8">
+    <div className="-mx-4 flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-background md:-mx-6 lg:-mx-8">
       <LeadOpportunityJourneyChrome
         moduleId="credit_workbench"
         context={{
@@ -160,67 +173,74 @@ export function EnterpriseCreditWorkspace() {
         fileId={file.id}
         opportunityId={opportunityId}
         onSaveDraft={async () => {
-          showToast("Verification draft retained for this session.");
+          saveStatedDraft(file.id, stated);
+          showToast("Verification draft saved for Opportunity Setup continuity.");
         }}
       >
-        <EcwChanakyaLiveBanner
-          readiness={readiness}
-          missingLabels={missingLabels}
-          recommendations={recommendations}
-        />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <EcwChanakyaLiveBanner
+            readiness={readiness}
+            missingLabels={missingLabels}
+            recommendations={recommendations}
+          />
 
-        {toast && (
-          <div className="shrink-0 border-b border-teal-500/20 bg-teal-500/10 px-3 py-1 text-[11px] text-teal-950 dark:text-teal-100 sm:px-4">
-            {toast}
+          {toast && (
+            <div className="shrink-0 border-b border-teal-500/20 bg-teal-500/10 px-3 py-1 text-[11px] text-teal-950 dark:text-teal-100 sm:px-4">
+              {toast}
+            </div>
+          )}
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 bg-muted/15 px-3 py-2 sm:px-4">
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 gap-1 text-[11px]"
+              onClick={() => setRequestOpen(true)}
+            >
+              <MessageSquare className="h-3 w-3" />
+              Request Pending Docs
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-7 gap-1 text-[11px]"
+              disabled={!lender.enabled}
+              onClick={() => setSendOpen(true)}
+            >
+              <SendHorizonal className="h-3 w-3" />
+              Send to Lender
+            </Button>
+            <Button asChild size="sm" variant="outline" className="h-7 text-[11px]">
+              <Link href={docCenterHref}>Open Document Center</Link>
+            </Button>
+            <span className="text-[10px] text-muted-foreground">
+              Collection → Document Center · Verification → this desk
+            </span>
           </div>
-        )}
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 bg-muted/15 px-3 py-2 sm:px-4">
-          <Button type="button" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setRequestOpen(true)}>
-            <MessageSquare className="h-3 w-3" />
-            Request Pending Docs
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="h-7 gap-1 text-[11px]"
-            disabled={!lender.enabled}
-            onClick={() => setSendOpen(true)}
-          >
-            <SendHorizonal className="h-3 w-3" />
-            Send to Lender
-          </Button>
-          <Button asChild size="sm" variant="outline" className="h-7 text-[11px]">
-            <Link href={docCenterHref}>Open Document Center</Link>
-          </Button>
-          <span className="text-[10px] text-muted-foreground">
-            Collection → Document Center · Verification → this desk
-          </span>
-        </div>
-
-        {/* LEFT verification (~25%) · RIGHT hero viewer (~75%) */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(240px,28%)_minmax(0,1fr)]">
-          <div className="min-h-0 border-r border-border/50">
-            <EcwLeftPanel
-              file={file}
-              opportunityNumber={opportunityNumber}
-              lenderName={lender.lenderName}
-              section={section}
-              onSectionChange={setSection}
-              stated={stated}
-              onStatedChange={(patch) => setStated((prev) => ({ ...prev, ...patch }))}
-              documents={file.documents ?? []}
-              readiness={readiness}
-            />
-          </div>
-          <div className="min-h-0 min-h-[420px]">
-            <EcwDocumentCentre
-              documents={viewerDocs}
-              selectedId={selectedDocId}
-              onSelect={setSelectedDocId}
-              selectedDoc={selectedDoc}
-            />
+          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(240px,28%)_minmax(0,1fr)]">
+            <div className="flex min-h-0 flex-col overflow-hidden border-r border-border/50">
+              <EcwLeftPanel
+                file={file}
+                opportunityNumber={opportunityNumber}
+                lenderName={lender.lenderName}
+                section={section}
+                onSectionChange={setSection}
+                stated={stated}
+                onStatedChange={(patch) => setStated((prev) => ({ ...prev, ...patch }))}
+                documents={file.documents ?? []}
+                readiness={readiness}
+              />
+            </div>
+            <div className="flex min-h-0 flex-col overflow-hidden">
+              <EcwDocumentCentre
+                documents={viewerDocs}
+                selectedId={selectedDocId}
+                onSelect={setSelectedDocId}
+                selectedDoc={selectedDoc}
+              />
+            </div>
           </div>
         </div>
       </LeadOpportunityJourneyChrome>
@@ -312,3 +332,4 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+

@@ -10,6 +10,7 @@ import {
   journeyStageEyebrow,
   type LeadJourneyModuleId,
 } from "@/constants/lead-opportunity-journey";
+import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +68,15 @@ export function LeadOpportunityJourneyChrome({
     }
     if (onSaveDraft) await onSaveDraft();
     if (!next) return;
+    if (fileId) {
+      setActiveOpportunityContext({
+        fileId,
+        opportunityId: opportunityId ?? undefined,
+        customerName: context?.customer,
+        product: context?.product,
+        label: context?.opportunity,
+      });
+    }
     router.push(
       buildJourneyHref(next.href, {
         fileId,

@@ -35,7 +35,7 @@ export function ChanakyaJourneyGuidanceCard({
   onStartOrOpenJourney,
   className,
 }: ChanakyaJourneyGuidanceCardProps) {
-  const profileCta = completeProfileLabel ?? `Complete ${roleLabel} Profile`;
+  const profileCta = completeProfileLabel ?? journeyLabel;
   const copy = getChanakyaBusinessJourneyGuidanceCopy({
     firstName: userFirstName,
     roleLabel,

@@ -82,24 +82,24 @@ export function EcwLeftPanel({
   readiness: ChanakyaProposalReadinessReview;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-background">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <div className="flex h-9 shrink-0 items-center border-b border-border/50 px-2.5">
         <div className="min-w-0">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Verification Form
           </p>
           <p className="truncate text-[10px] text-muted-foreground">
-            Align figures to the document — collect docs in Document Center.
+            Align figures to the document — Business Profile values are reused from Opportunity Setup.
           </p>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="lg:w-[150px] lg:shrink-0 lg:border-r lg:border-border/50">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        <div className="shrink-0 overflow-x-auto lg:w-[150px] lg:shrink-0 lg:overflow-y-auto lg:overflow-x-visible lg:border-r lg:border-border/50">
           <SectionNav active={section} onChange={onSectionChange} />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-2">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 py-2">
           {section === "customer_snapshot" && (
             <div className="space-y-1.5 text-[11px]">
               <p className="truncate text-xs font-semibold leading-tight">{file.customerName}</p>
@@ -165,22 +165,25 @@ export function EcwLeftPanel({
 
           {section === "stated_business" && (
             <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">Stated Business Information</p>
-              <Field label="Stated Annual Turnover">
+              <p className="text-xs text-muted-foreground">
+                Business figures reused from Business Profile / Opportunity Setup — verify against the open document.
+              </p>
+              <Field label="Annual Turnover (from profile)">
                 <Input
                   className="h-8 text-xs"
                   value={stated.statedTurnover ?? ""}
                   onChange={(e) => onStatedChange({ statedTurnover: e.target.value })}
+                  placeholder="Prefilled when available"
                 />
               </Field>
-              <Field label="Stated Business Vintage (years)">
+              <Field label="Business Vintage (years)">
                 <Input
                   className="h-8 text-xs"
                   value={stated.statedBusinessVintage ?? ""}
                   onChange={(e) => onStatedChange({ statedBusinessVintage: e.target.value })}
                 />
               </Field>
-              <Field label="Stated Nature of Business">
+              <Field label="Nature of Business">
                 <Input
                   className="h-8 text-xs"
                   value={stated.statedNatureOfBusiness ?? ""}

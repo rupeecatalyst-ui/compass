@@ -4,37 +4,28 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Building2, FileText, Home, UserRound, Wallet } from "lucide-react";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
+import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
 import {
   journeyContextFromLoanFile,
   loadLeadJourneyLoanFile,
 } from "@/lib/lead-opportunity-journey/load-context";
+import {
+  businessProfileFromLoanFile,
+  resolveStatedDraftForFile,
+  saveStatedDraft,
+} from "@/lib/lead-opportunity-journey/stated-draft";
 import { formatINR } from "@/lib/format-currency";
 import { getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
+import { ROUTES } from "@/constants/routes";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { EcwStatedInformationDraft } from "@/types/enterprise-credit-workspace";
 import type { LoanFile } from "@/types/catalyst-one";
 
-const DRAFT_KEY = "catalyst.credit-bench.stated";
-
-function loadStatedDraft(fileId: string): EcwStatedInformationDraft {
-  try {
-    const raw = localStorage.getItem(`${DRAFT_KEY}:${fileId}`);
-    if (!raw) return {};
-    return JSON.parse(raw) as EcwStatedInformationDraft;
-  } catch {
-    return {};
-  }
-}
-
-function saveStatedDraft(fileId: string, draft: EcwStatedInformationDraft) {
-  localStorage.setItem(`${DRAFT_KEY}:${fileId}`, JSON.stringify(draft));
-}
-
 /**
- * Lead Stage — Credit Bench.
- * Capture customer, loan, financial, business, property context (UI only).
+ * Lead Stage — Opportunity Setup (formerly Credit Bench).
+ * Capture/reuse profile context. Verification stays in Credit Workbench.
  */
 export function CreditBenchWorkspace() {
   const searchParams = useSearchParams();
@@ -50,14 +41,18 @@ export function CreditBenchWorkspace() {
 
   useEffect(() => {
     setLoading(true);
-    const next = loadLeadJourneyLoanFile(fileParam);
+    const next = loadLeadJourneyLoanFile(fileParam, opportunityId);
     setFile(next);
-    if (next) setStated(loadStatedDraft(next.id));
+    if (next) setStated(resolveStatedDraftForFile(next));
     else setStated({});
     setLoading(false);
-  }, [fileParam]);
+  }, [fileParam, opportunityId]);
 
   const context = useMemo(() => journeyContextFromLoanFile(file), [file]);
+  const profile = useMemo(
+    () => (file ? businessProfileFromLoanFile(file) : null),
+    [file],
+  );
 
   const persistDraft = async () => {
     if (!file) return;
@@ -74,7 +69,7 @@ export function CreditBenchWorkspace() {
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-          <p className="text-xs text-muted-foreground">Loading Credit Bench…</p>
+          <p className="text-xs text-muted-foreground">Loading Opportunity Setup…</p>
         </div>
       </div>
     );
@@ -82,16 +77,11 @@ export function CreditBenchWorkspace() {
 
   if (!file) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center px-6">
-        <div className="max-w-md rounded-2xl border border-border/70 bg-card p-8 text-center shadow-sm">
-          <UserRound className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-3 text-sm font-semibold">No loan file in context</p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Open Credit Bench from a loan file or Opportunity Workspace so customer and loan context
-            load automatically.
-          </p>
-        </div>
-      </div>
+      <OpportunityContextPicker
+        targetHref={ROUTES.CREDIT_BENCH}
+        title="Select an opportunity to set up"
+        description="Opportunity Setup needs an active case. Pick one below or arrive here via Save & Continue from a guided journey."
+      />
     );
   }
 
@@ -99,10 +89,16 @@ export function CreditBenchWorkspace() {
     { id: "customer" as const, label: "Customer", icon: UserRound },
     { id: "loan" as const, label: "Loan Details", icon: FileText },
     { id: "financial" as const, label: "Financial", icon: Wallet },
-    { id: "business" as const, label: "Business", icon: Building2 },
+    { id: "business" as const, label: "Business Profile", icon: Building2 },
     { id: "property" as const, label: "Property", icon: Home },
     { id: "eligibility" as const, label: "Eligibility", icon: FileText },
   ];
+
+  const businessFromProfile = Boolean(
+    profile &&
+      profile.source !== "none" &&
+      (profile.turnover || profile.vintage || profile.natureOfBusiness || profile.companyName),
+  );
 
   return (
     <div className="-mx-4 flex h-[calc(100vh-4rem)] flex-col md:-mx-6 lg:-mx-8">
@@ -114,10 +110,10 @@ export function CreditBenchWorkspace() {
         onSaveDraft={persistDraft}
         saving={saving}
       >
-        <div className="mx-auto grid max-w-6xl gap-4 p-4 sm:p-5 lg:grid-cols-[200px_minmax(0,1fr)]">
+        <div className="mx-auto grid max-w-6xl gap-4 overflow-y-auto p-4 sm:p-5 lg:grid-cols-[200px_minmax(0,1fr)]">
           <aside className="h-fit rounded-2xl border border-border/70 bg-card/80 p-2 shadow-sm backdrop-blur">
             <p className="px-2 py-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Capture
+              Setup
             </p>
             <nav className="space-y-0.5">
               {sections.map((s) => {
@@ -179,19 +175,27 @@ export function CreditBenchWorkspace() {
             {section === "financial" && (
               <Panel
                 title="Financial Details"
-                description="Stated financial parameters for planning — verification happens in Credit Workbench."
+                description="Reuse salary from Business Profile when present; only capture gaps here."
               >
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Stated Monthly Income">
-                    <Input
-                      className="h-9 text-sm"
-                      value={stated.statedIncomeMonthly ?? ""}
-                      onChange={(e) =>
-                        setStated((p) => ({ ...p, statedIncomeMonthly: e.target.value }))
-                      }
-                      placeholder="e.g. 1,85,000"
+                  {profile?.monthlyIncome && !stated.statedIncomeMonthly?.startsWith("override:") ? (
+                    <ReadOnly
+                      label="Monthly Income (Business Profile)"
+                      value={profile.monthlyIncome}
+                      badge="Reused"
                     />
-                  </Field>
+                  ) : (
+                    <Field label="Stated Monthly Income">
+                      <Input
+                        className="h-9 text-sm"
+                        value={stated.statedIncomeMonthly ?? ""}
+                        onChange={(e) =>
+                          setStated((p) => ({ ...p, statedIncomeMonthly: e.target.value }))
+                        }
+                        placeholder="e.g. 1,85,000"
+                      />
+                    </Field>
+                  )}
                   <Field label="Stated Obligations / EMIs">
                     <Input
                       className="h-9 text-sm"
@@ -207,34 +211,69 @@ export function CreditBenchWorkspace() {
             )}
 
             {section === "business" && (
-              <Panel title="Business Details" description="Stated business profile for self-employed paths.">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Stated Annual Turnover">
-                    <Input
-                      className="h-9 text-sm"
-                      value={stated.statedTurnover ?? ""}
-                      onChange={(e) => setStated((p) => ({ ...p, statedTurnover: e.target.value }))}
+              <Panel
+                title="Business Profile"
+                description={
+                  businessFromProfile
+                    ? "Previously captured Business Profile fields are shown read-only — no re-entry required."
+                    : "Capture business context when not already on the customer / company profile."
+                }
+              >
+                {businessFromProfile ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {profile?.companyName && (
+                      <ReadOnly label="Business / Company" value={profile.companyName} badge="Reused" />
+                    )}
+                    {profile?.constitution && (
+                      <ReadOnly label="Constitution" value={profile.constitution} badge="Reused" />
+                    )}
+                    <ReadOnly
+                      label="Annual Turnover"
+                      value={stated.statedTurnover || profile?.turnover || "—"}
+                      badge="Reused"
                     />
-                  </Field>
-                  <Field label="Business Vintage (years)">
-                    <Input
-                      className="h-9 text-sm"
-                      value={stated.statedBusinessVintage ?? ""}
-                      onChange={(e) =>
-                        setStated((p) => ({ ...p, statedBusinessVintage: e.target.value }))
-                      }
+                    <ReadOnly
+                      label="Business Vintage (years)"
+                      value={stated.statedBusinessVintage || profile?.vintage || "—"}
+                      badge="Reused"
                     />
-                  </Field>
-                  <Field label="Nature of Business">
-                    <Input
-                      className="h-9 text-sm"
-                      value={stated.statedNatureOfBusiness ?? ""}
-                      onChange={(e) =>
-                        setStated((p) => ({ ...p, statedNatureOfBusiness: e.target.value }))
-                      }
+                    <ReadOnly
+                      label="Nature of Business"
+                      value={stated.statedNatureOfBusiness || profile?.natureOfBusiness || "—"}
+                      badge="Reused"
                     />
-                  </Field>
-                </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Stated Annual Turnover">
+                      <Input
+                        className="h-9 text-sm"
+                        value={stated.statedTurnover ?? ""}
+                        onChange={(e) =>
+                          setStated((p) => ({ ...p, statedTurnover: e.target.value }))
+                        }
+                      />
+                    </Field>
+                    <Field label="Business Vintage (years)">
+                      <Input
+                        className="h-9 text-sm"
+                        value={stated.statedBusinessVintage ?? ""}
+                        onChange={(e) =>
+                          setStated((p) => ({ ...p, statedBusinessVintage: e.target.value }))
+                        }
+                      />
+                    </Field>
+                    <Field label="Nature of Business">
+                      <Input
+                        className="h-9 text-sm"
+                        value={stated.statedNatureOfBusiness ?? ""}
+                        onChange={(e) =>
+                          setStated((p) => ({ ...p, statedNatureOfBusiness: e.target.value }))
+                        }
+                      />
+                    </Field>
+                  </div>
+                )}
               </Panel>
             )}
 
@@ -282,21 +321,21 @@ export function CreditBenchWorkspace() {
                   <ReadOnly label="Employment" value={file.employmentType || "—"} />
                   <ReadOnly label="Product Path" value={file.loanProduct} />
                   <ReadOnly
-                    label="Stated Income Captured"
-                    value={stated.statedIncomeMonthly ? "Yes" : "Pending"}
+                    label="Income Context"
+                    value={
+                      stated.statedIncomeMonthly || profile?.monthlyIncome
+                        ? "Available"
+                        : "Pending"
+                    }
                   />
                   <ReadOnly
-                    label="Property Stated"
-                    value={
-                      stated.statedPropertyType || file.propertyType
-                        ? "Available"
-                        : "Not required / pending"
-                    }
+                    label="Business Profile"
+                    value={businessFromProfile ? "Reused from profile" : "Capture if required"}
                   />
                 </div>
                 <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                  Save Draft keeps stated information in this workspace. Save & Continue opens Document
-                  Center to collect the applicable checklist — not verify documents.
+                  Save Draft keeps setup information for Credit Workbench. Save & Continue opens Document
+                  Center to collect the applicable checklist.
                 </p>
               </Panel>
             )}
@@ -317,8 +356,8 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm sm:p-5">
-      <h2 className="text-sm font-semibold tracking-tight text-foreground">{title}</h2>
+    <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
       <p className="mt-1 text-xs text-muted-foreground">{description}</p>
       <div className="mt-4">{children}</div>
     </section>
@@ -328,17 +367,35 @@ function Panel({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
       {children}
     </div>
   );
 }
 
-function ReadOnly({ label, value }: { label: string; value: string }) {
+function ReadOnly({
+  label,
+  value,
+  badge,
+}: {
+  label: string;
+  value?: string | null;
+  badge?: string;
+}) {
   return (
-    <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
-      <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-sm font-medium capitalize text-foreground">{value || "—"}</p>
+    <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        {badge && (
+          <span className="rounded-md border border-teal-500/30 bg-teal-500/10 px-1.5 py-px text-[9px] font-semibold text-teal-800 dark:text-teal-200">
+            {badge}
+          </span>
+        )}
+      </div>
+      <p className="mt-0.5 truncate text-sm font-medium text-foreground">{value || "—"}</p>
     </div>
   );
 }
+

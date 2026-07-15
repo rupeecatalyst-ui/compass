@@ -842,7 +842,13 @@ export function getEcmRoleWorkspaceDashAction(
   const label = getEcmRoleLabel(roleCode);
   const pct = getEcmRoleCompletionPct(roleCode, values);
   if (pct <= 0) return { kind: "configure", label: "Configure" };
-  if (pct < 100) return { kind: "continue", label: "Continue Profile" };
+  if (pct < 100) {
+    const journey = getPrimaryEcmBusinessAction(roleCode);
+    return {
+      kind: "continue",
+      label: journey?.label ?? `Continue ${label}`,
+    };
+  }
   return { kind: "view", label: `View ${label}` };
 }
 
@@ -894,7 +900,7 @@ export function getEcmBusinessJourneyDashAction(
     return {
       mode: "guide",
       label: actionable.label,
-      guideCtaLabel: `Complete ${roleLabel} Profile`,
+      guideCtaLabel: actionable.label,
       actionId: actionable.id,
       reason: buildChanakyaJourneyGuideDetail(roleCode, journeyName),
     };

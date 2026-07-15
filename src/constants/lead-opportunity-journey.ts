@@ -30,9 +30,9 @@ export const LEAD_OPPORTUNITY_JOURNEY: LeadJourneyModule[] = [
   {
     id: "credit_bench",
     stage: "lead",
-    label: "Credit Bench",
+    label: "Opportunity Setup",
     href: ROUTES.CREDIT_BENCH,
-    title: "Credit Bench",
+    title: "Opportunity Setup",
   },
   {
     id: "document_center",

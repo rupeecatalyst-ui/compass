@@ -58,10 +58,15 @@ export function EcmMasterSelect({
         role="combobox"
         aria-expanded={open}
         disabled={disabled || needsParent}
-        className="h-10 w-full justify-between rounded-xl px-3 text-sm font-normal"
+        className="h-10 w-full justify-between rounded-xl px-3 text-sm font-normal text-foreground"
         onClick={() => setOpen((o) => !o)}
       >
-        <span className={cn("truncate", !label && "text-muted-foreground")}>
+        <span
+          className={cn(
+            "truncate",
+            label ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
           {label || (needsParent ? "Select Employment Type first" : placeholder)}
         </span>
         <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />

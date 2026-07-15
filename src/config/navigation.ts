@@ -72,14 +72,14 @@ export interface NavGroup {
 
 /**
  * Official Business & Functional Certification navigation hierarchy.
- * Lead Stage Phase 1A — business journey spine ordered for Credit Bench → Loan Workspace.
+ * Lead Stage Phase 1A — business journey spine ordered for Opportunity Setup → Loan Workspace.
  */
 export const businessOperationsNavigation: NavGroup = {
   title: "Business Operations",
   items: [
     { title: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
     { title: "Directory", href: ROUTES.CONTACTS, icon: Contact },
-    { title: "Credit Bench", href: ROUTES.CREDIT_BENCH, icon: Scale },
+    { title: "Opportunity Setup", href: ROUTES.CREDIT_BENCH, icon: Scale },
     { title: "Document Center", href: ROUTES.DOCUMENT_CENTER, icon: FolderOpen },
     { title: "Credit Workbench", href: ROUTES.CREDIT_WORKBENCH, icon: FileStack },
     { title: "Strategic Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE, icon: Briefcase },
