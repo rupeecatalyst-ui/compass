@@ -1,5 +1,8 @@
 "use client";
 
+import { Mail, Phone, UserRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EntityLink } from "@/components/catalyst-one/shared/entity-link";
 import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 import { WorkspaceStagePanel } from "./workspace-stage-panel";
@@ -22,7 +25,7 @@ export function WorkspaceRequirementPanel() {
           <Fact label="Planning Stage" value={stageCode.replace(/_/g, " ")} />
         </dl>
         <p className="mt-4 text-xs leading-relaxed text-zinc-400">
-          Clarify purpose and quantum with the customer before locking Funding Strategy. Stage controls below remain
+          Clarify purpose and quantum with the customer before locking LIFE. Stage controls below remain
           Catalyst One’s workflow truth.
         </p>
       </OwGlassPanel>
@@ -57,39 +60,131 @@ export function WorkspaceProductPanel() {
 export function WorkspaceRelationshipsPanel() {
   const { contact, selectedLender, opportunityId } = useOpportunityWorkspace();
 
+  const rows: Array<{
+    id: string;
+    name: string;
+    org: string;
+    mobile: string;
+    email: string;
+    role: string;
+    linkType?: "customer" | "lender";
+    linkId?: string;
+  }> = [];
+
+  if (contact) {
+    rows.push({
+      id: contact.id,
+      name: contact.name,
+      org:
+        contact.roleProfiles?.customer?.companyName ||
+        contact.roleProfiles?.partner?.companyName ||
+        contact.city ||
+        "—",
+      mobile: contact.mobilePrimary ?? "—",
+      email: contact.officialEmail || contact.personalEmail || "—",
+      role: "Customer / Promoter",
+      linkType: "customer",
+      linkId: contact.id,
+    });
+  }
+
+  if (selectedLender) {
+    rows.push({
+      id: `lender-${selectedLender.lenderName}`,
+      name: selectedLender.executorName || "—",
+      org: selectedLender.lenderName,
+      mobile: "—",
+      email: "—",
+      role: "Lender contact",
+      linkType: "lender",
+      linkId: selectedLender.lenderName,
+    });
+  }
+
   return (
     <OwGlassPanel>
       <OwPanelHeader
-        title="Relationships"
+        title="Relationship Directory"
         badge="Planning"
-        description="People and institution relationships for this opportunity."
+        description="People and institutions on this opportunity — no new CRM; navigate via existing links."
       />
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <div className="rounded-xl border border-white/10 bg-zinc-950/40 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Customer</p>
-          <p className="mt-1 text-sm font-semibold text-zinc-50">{contact?.name ?? "—"}</p>
-          <p className="mt-1 text-xs text-zinc-400">{contact?.mobilePrimary ?? "—"}</p>
-          <p className="mt-2 text-[11px] text-amber-200/90">
-            Primary decision maker:{" "}
-            <span className="font-medium">Not identified</span>
-          </p>
-        </div>
-        <div className="rounded-xl border border-white/10 bg-zinc-950/40 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Lender</p>
-          <p className="mt-1 text-sm font-semibold text-zinc-50">
-            {selectedLender?.lenderName ?? "Not selected"}
-          </p>
-          <p className="mt-1 text-xs text-zinc-400">
-            {selectedLender?.executorName
-              ? `Contact · ${selectedLender.executorName}`
-              : "Assign institution contact via Funding Strategy"}
-          </p>
-          {selectedLender?.branchName && (
-            <p className="mt-1 text-xs text-zinc-400">Branch · {selectedLender.branchName}</p>
-          )}
-        </div>
+      <div className="mt-3 overflow-x-auto rounded-xl border border-white/10">
+        <table className="w-full min-w-[640px] text-left text-xs">
+          <thead className="border-b border-white/10 bg-zinc-950/60 text-[10px] uppercase tracking-wide text-zinc-400">
+            <tr>
+              <th className="px-3 py-2 font-semibold">Name</th>
+              <th className="px-3 py-2 font-semibold">Organisation</th>
+              <th className="px-3 py-2 font-semibold">Mobile</th>
+              <th className="px-3 py-2 font-semibold">Email</th>
+              <th className="px-3 py-2 font-semibold">Role</th>
+              <th className="px-3 py-2 font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-3 py-8 text-center text-zinc-500">
+                  No relationships linked yet. Add a contact from the header to populate this directory.
+                </td>
+              </tr>
+            )}
+            {rows.map((r) => (
+              <tr key={r.id} className="border-b border-white/5 last:border-0">
+                <td className="px-3 py-2.5 font-medium text-zinc-50">{r.name}</td>
+                <td className="px-3 py-2.5 text-zinc-300">{r.org}</td>
+                <td className="px-3 py-2.5 text-zinc-300">{r.mobile}</td>
+                <td className="px-3 py-2.5 text-zinc-300">{r.email}</td>
+                <td className="px-3 py-2.5 text-zinc-400">{r.role}</td>
+                <td className="px-3 py-2.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {r.linkType && r.linkId && (
+                      <EntityLink
+                        type={r.linkType}
+                        id={r.linkId}
+                        label="Open"
+                        className="text-[11px] text-teal-300"
+                      />
+                    )}
+                    {r.mobile !== "—" && (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-zinc-400"
+                        asChild
+                      >
+                        <a href={`tel:${r.mobile}`} aria-label="Call">
+                          <Phone className="h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                    )}
+                    {r.email !== "—" && (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-zinc-400"
+                        asChild
+                      >
+                        <a href={`mailto:${r.email}`} aria-label="Email">
+                          <Mail className="h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                    )}
+                    {!r.linkType && (
+                      <UserRound className="h-3.5 w-3.5 text-zinc-500" />
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <p className="mt-3 text-[10px] text-zinc-500">Opportunity · {opportunityId.slice(0, 12)}…</p>
+      <p className="mt-3 text-[10px] text-zinc-500">
+        Opportunity · {opportunityId.slice(0, 12)}…
+        {!selectedLender && " · Assign LIFE contact to add the lender row."}
+      </p>
     </OwGlassPanel>
   );
 }
@@ -116,7 +211,8 @@ export function WorkspaceCompetitionPanel() {
         </div>
         <p className="text-xs leading-relaxed text-zinc-400">
           Record competing banks, existing banking limits, or customer-spoken alternatives as planning notes.
-          This surface does not change lender assignment — use Funding Strategy for institution selection.
+          This surface does not change lender assignment — use LIFE for institution selection. Competition
+          Intelligence capture remains Phase 2.
         </p>
         <ul className="space-y-2 text-xs text-zinc-300">
           <li className="rounded-lg border border-white/10 bg-zinc-950/40 px-2.5 py-2">

@@ -21,13 +21,13 @@ export function WorkspaceOverviewPanel({
         <OwSectionLabel>Strategic Overview</OwSectionLabel>
         <p className="mt-1 max-w-2xl text-sm text-zinc-300">
           Plan and qualify this opportunity before execution. Move through Customer → Requirement → Product →
-          Funding Strategy with CHANAKYA on the right.
+          LIFE with CHANAKYA on the right.
         </p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Customer" value={contact?.name ?? "—"} />
           <Stat label="Product" value={productLabel} />
           <Stat label="Requirement" value={loanAmountLabel} />
-          <Stat label="Funding" value={selectedLender?.lenderName ?? "Not selected"} />
+          <Stat label="LIFE" value={selectedLender?.lenderName ?? "Not selected"} />
         </div>
         <p className="mt-3 text-[11px] text-zinc-400">
           Current planning stage · <span className="capitalize text-zinc-200">{stageCode.replace(/_/g, " ")}</span>
@@ -47,9 +47,9 @@ export function WorkspaceOverviewPanel({
             [
               ["customer", "Customer"],
               ["requirement", "Requirement"],
-              ["funding_strategy", "Funding Strategy"],
-              ["documents", "Documents"],
-              ["tasks", "Tasks"],
+              ["funding_strategy", "LIFE"],
+              ["deviation_mitigant", "Deviation & Mitigant"],
+              ["notes", "Notes"],
             ] as const
           ).map(([id, label]) => (
             <Button

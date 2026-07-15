@@ -30,7 +30,7 @@ function hrefFor(type: EntityType, id: string): string {
     case "task":
       return `/tasks?task=${id}`;
     case "document":
-      return `/documents?doc=${id}`;
+      return `/document-center?doc=${id}`;
     default:
       return "#";
   }

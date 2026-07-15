@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getProposalButtonLabel } from "@/lib/chanakya-phase5-intelligence";
 import { formatINR } from "@/lib/format-currency";
-import { STAGE_LABELS } from "@/constants/loan-stage-master";
+import { getJourneyStageDisplayLabel, buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { ROUTES } from "@/constants/routes";
 import type { LoanFile, LoanFileDocument, LoanFileTimelineEvent } from "@/types/catalyst-one";
 import type {
   EcwLeftSectionId,
@@ -84,9 +86,11 @@ export function EcwLeftPanel({
       <div className="flex h-9 shrink-0 items-center border-b border-border/50 px-2.5">
         <div className="min-w-0">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Credit Workbench
+            Verification Form
           </p>
-          <p className="truncate text-[10px] text-muted-foreground">Capture stated info while reviewing.</p>
+          <p className="truncate text-[10px] text-muted-foreground">
+            Align figures to the document — collect docs in Document Center.
+          </p>
         </div>
       </div>
 
@@ -106,7 +110,7 @@ export function EcwLeftPanel({
                     ["Product", file.loanProduct],
                     ["Loan Amount", formatINR(file.requiredAmount || file.loanAmount)],
                     ["Selected Lender", lenderName],
-                    ["Stage", STAGE_LABELS[file.stage] ?? file.stage],
+                    ["Stage", getJourneyStageDisplayLabel(file.stage)],
                     ["Employment", file.employmentType || "—"],
                     ["City", file.city || "—"],
                   ] as const
@@ -215,20 +219,33 @@ export function EcwLeftPanel({
           )}
 
           {section === "document_checklist" && (
-            <ul className="space-y-2">
-              {documents.map((d) => (
-                <li
-                  key={d.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-border/60 px-2.5 py-2 text-xs"
+            <div className="space-y-3 text-xs">
+              <p className="leading-relaxed text-muted-foreground">
+                Document collection belongs in Document Center. This desk is for verification against
+                the open viewer.
+              </p>
+              <Button asChild size="sm" className="h-8 text-xs">
+                <Link
+                  href={buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
+                    fileId: file.id,
+                    opportunityId: null,
+                  })}
                 >
-                  <span className="min-w-0 truncate font-medium">{d.name}</span>
-                  <span className="shrink-0 capitalize text-muted-foreground">{d.status}</span>
-                </li>
-              ))}
-              {documents.length === 0 && (
-                <p className="text-xs text-muted-foreground">Checklist will populate from the loan file documents.</p>
-              )}
-            </ul>
+                  Open Document Center
+                </Link>
+              </Button>
+              <ul className="space-y-2">
+                {documents.map((d) => (
+                  <li
+                    key={d.id}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border/60 px-2.5 py-2 text-xs"
+                  >
+                    <span className="min-w-0 truncate font-medium">{d.name}</span>
+                    <span className="shrink-0 capitalize text-muted-foreground">{d.status}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {section === "proposal_readiness" && (

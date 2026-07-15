@@ -175,7 +175,12 @@ function productDisplayLabel(ref: string): string {
   return ref.replace(/^product:/, "").replace(/-/g, " ");
 }
 
-export function WorkspaceLifePanel() {
+export function WorkspaceLifePanel({
+  onBeforeAssign,
+}: {
+  /** Return false to block Assign (e.g. document completion gate). */
+  onBeforeAssign?: () => boolean;
+} = {}) {
   const {
     opportunityId,
     refresh,
@@ -417,6 +422,7 @@ export function WorkspaceLifePanel() {
 
   const onAssign = () => {
     if (!opportunityId) return;
+    if (onBeforeAssign && !onBeforeAssign()) return;
     const saved = placeholderSaveLifeSelection(opportunityId);
     if (!saved) {
       syncUi();

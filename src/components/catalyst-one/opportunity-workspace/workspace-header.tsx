@@ -19,14 +19,18 @@ const BAND_STYLES: Record<OpportunityHealthBand, string> = {
 };
 
 /**
- * Prompt 017 — Compact fixed enterprise header (implementation target).
+ * Strategic Workspace header — Lead / Opportunity framing + gated Loan Workspace.
  */
 export function WorkspaceHeader({
   onAddContact,
   onEditContact,
+  onLoanWorkspaceNavigate,
 }: {
   onAddContact: () => void;
   onEditContact: () => void;
+  /** When provided, Loan Workspace click is intercepted for document gates. */
+  onLoanWorkspaceNavigate?: (href: string) => void;
+  onLifeFinalizeGate?: () => boolean;
 }) {
   const {
     opportunity,
@@ -39,6 +43,7 @@ export function WorkspaceHeader({
 
   const band = intelligence?.health.band ?? "needs_attention";
   const ownerName = contact?.ownerName?.trim() || "RM-001";
+  const lifeFinalized = Boolean(selectedLender);
 
   const loanHref = useMemo(() => {
     if (!opportunity?.id) return ROUTES.LOAN_FILES;
@@ -65,7 +70,7 @@ export function WorkspaceHeader({
       /* ignore */
     }
     const q = params.toString();
-    return q ? `${ROUTES.DOCUMENTS}?${q}` : ROUTES.DOCUMENTS;
+    return q ? `${ROUTES.CREDIT_WORKBENCH}?${q}` : ROUTES.CREDIT_WORKBENCH;
   }, [opportunity?.id, loanHref]);
 
   return (
@@ -73,7 +78,7 @@ export function WorkspaceHeader({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-300/85">
-            Opportunity Workspace · Strategic Workflow
+            {lifeFinalized ? "OPPORTUNITY STAGE" : "LEAD STAGE"} · Strategic Workspace
           </p>
           <h1 className="mt-1 truncate text-xl font-semibold tracking-tight text-zinc-50 md:text-2xl">
             {contact?.name ?? "Customer / Company"}
@@ -117,13 +122,26 @@ export function WorkspaceHeader({
               <ArrowUpRight className="h-3 w-3 opacity-70" />
             </Link>
           </Button>
-          <Button asChild size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
-            <Link href={loanHref}>
+          {onLoanWorkspaceNavigate ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5 rounded-lg text-xs"
+              onClick={() => onLoanWorkspaceNavigate(loanHref)}
+            >
               <BriefcaseBusiness className="h-3.5 w-3.5" />
               Open Loan Workspace
               <ArrowUpRight className="h-3 w-3 opacity-70" />
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button asChild size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
+              <Link href={loanHref}>
+                <BriefcaseBusiness className="h-3.5 w-3.5" />
+                Open Loan Workspace
+                <ArrowUpRight className="h-3 w-3 opacity-70" />
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -161,3 +179,4 @@ function Chip({
     </span>
   );
 }
+

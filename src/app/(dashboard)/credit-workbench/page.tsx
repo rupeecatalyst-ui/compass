@@ -1,0 +1,18 @@
+"use client";
+
+import { Suspense } from "react";
+import { EnterpriseCreditWorkspace } from "@/components/catalyst-one/enterprise-credit-workspace";
+
+export default function CreditWorkbenchPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
+        </div>
+      }
+    >
+      <EnterpriseCreditWorkspace />
+    </Suspense>
+  );
+}

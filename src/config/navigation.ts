@@ -71,17 +71,19 @@ export interface NavGroup {
  */
 
 /**
- * Section 1 — Prompt 011 business-journey order.
- * LIFE is not a nav item (intelligence inside Loan Workflow). Lenders = Lender Master / ELW.
+ * Official Business & Functional Certification navigation hierarchy.
+ * Lead Stage Phase 1A — business journey spine ordered for Credit Bench → Loan Workspace.
  */
 export const businessOperationsNavigation: NavGroup = {
   title: "Business Operations",
   items: [
     { title: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
     { title: "Directory", href: ROUTES.CONTACTS, icon: Contact },
-    { title: "Opportunity Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE, icon: Briefcase },
-    { title: "Loan Workflow", href: ROUTES.LOAN_FILES, icon: FileStack },
-    { title: "Credit Workspace", href: ROUTES.DOCUMENTS, icon: FolderOpen },
+    { title: "Credit Bench", href: ROUTES.CREDIT_BENCH, icon: Scale },
+    { title: "Document Center", href: ROUTES.DOCUMENT_CENTER, icon: FolderOpen },
+    { title: "Credit Workbench", href: ROUTES.CREDIT_WORKBENCH, icon: FileStack },
+    { title: "Strategic Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE, icon: Briefcase },
+    { title: "Loan Workspace", href: ROUTES.LOAN_FILES, icon: Landmark },
     { title: "Tasks", href: ROUTES.TASKS, icon: ListTodo, badge: "17" },
     { title: "Dialogue", href: ROUTES.DIALOGUE, icon: MessagesSquare },
     { title: "Lenders", href: ROUTES.LENDERS, icon: Building2 },
@@ -241,18 +243,18 @@ export const recentPages = [
   { title: "Dashboard", href: ROUTES.DASHBOARD },
   { title: "Directory", href: ROUTES.CONTACTS },
   { title: "Opportunity Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE },
-  { title: "Loan Workflow", href: ROUTES.LOAN_FILES },
+  { title: "Loan Workspace", href: ROUTES.LOAN_FILES },
   { title: "Tasks", href: ROUTES.TASKS },
 ];
 
 export const favoritePages = [
   { title: "Directory", href: ROUTES.CONTACTS },
-  { title: "Loan Workflow", href: ROUTES.LOAN_FILES },
+  { title: "Loan Workspace", href: ROUTES.LOAN_FILES },
 ];
 
 export const pinnedPages = [
   { title: "Directory", href: ROUTES.CONTACTS, icon: Contact },
-  { title: "Loan Workflow", href: ROUTES.LOAN_FILES, icon: FileStack },
+  { title: "Loan Workspace", href: ROUTES.LOAN_FILES, icon: FileStack },
 ];
 
 export const workspaces = [
