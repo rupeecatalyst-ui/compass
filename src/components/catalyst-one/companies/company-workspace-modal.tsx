@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Building2, Plus, Search, X } from "lucide-react";
 import {
@@ -26,6 +26,7 @@ import {
 import type { EcmCompany, EcmCompanyRelationRole } from "@/types/enterprise-company-master";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
+import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -100,6 +102,7 @@ export function CompanyWorkspaceModal({
   const [newRelMobile, setNewRelMobile] = useState("");
   const [newRelRole, setNewRelRole] = useState<EcmCompanyRelationRole>("director");
   const [busy, setBusy] = useState(false);
+  const baselineRef = useRef("");
 
   useEffect(() => {
     if (!open) return;
@@ -120,6 +123,7 @@ export function CompanyWorkspaceModal({
       setProfit(company.approximateNetProfit ?? "");
       setEmployees(company.employeeStrength ?? "");
       setWebsite(company.website ?? "");
+      baselineRef.current = company.companyName;
     } else {
       setDraftId(null);
       setCompanyName(initialCompanyName?.trim() || "");
@@ -136,6 +140,7 @@ export function CompanyWorkspaceModal({
       setProfit("");
       setEmployees("");
       setWebsite("");
+      baselineRef.current = initialCompanyName?.trim() || "";
     }
   }, [open, company, initialCompanyName]);
 
@@ -314,9 +319,31 @@ export function CompanyWorkspaceModal({
     { id: "readiness", label: "Business Readiness" },
   ];
 
+  const hasUnsavedChanges =
+    open &&
+    (companyName.trim() !== baselineRef.current.trim() ||
+      Boolean(constitution || cin || pan || gst || address || industry || nature));
+
+  const closeApi = useWorkspaceClose({
+    onClose: () => onOpenChange(false),
+    hasUnsavedChanges,
+    enableEscapeKey: false,
+    onSaveAndClose: () => {
+      const saved = persistIdentity();
+      return Boolean(saved);
+    },
+  });
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(92vh,860px)] max-w-4xl flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-50 sm:rounded-2xl">
+    <>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) onOpenChange(true);
+        else closeApi.requestClose();
+      }}
+    >
+      <DialogContent className="flex h-[min(92vh,860px)] max-w-4xl flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-50 sm:rounded-2xl [&>button]:hidden">
         <DialogHeader className="space-y-0 border-b border-zinc-800 px-5 py-4 text-left">
           <div className="flex items-start justify-between gap-3">
             <div className="flex gap-3">
@@ -337,7 +364,7 @@ export function CompanyWorkspaceModal({
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-50"
-              onClick={() => onOpenChange(false)}
+              onClick={closeApi.requestClose}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -650,6 +677,14 @@ export function CompanyWorkspaceModal({
         </div>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesDialog
+      open={closeApi.confirmOpen}
+      onOpenChange={closeApi.setConfirmOpen}
+      onDiscard={closeApi.handleDiscard}
+      onSaveAndClose={closeApi.handleSaveAndClose}
+      saving={closeApi.saving || busy}
+    />
+    </>
   );
 }
 

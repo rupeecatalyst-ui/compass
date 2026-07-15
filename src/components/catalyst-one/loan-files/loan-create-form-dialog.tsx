@@ -4,11 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  FileText,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { FileText, Sparkles, Users } from "lucide-react";
 import { ChanakyaOriginationPanel } from "@/components/catalyst-one/shared/chanakya-origination-panel";
 import { EntityButtonLink } from "@/components/catalyst-one/shared/entity-link";
 import {
@@ -18,7 +14,9 @@ import {
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { LoanOriginationSection } from "@/components/catalyst-one/shared/loan-origination-section";
 import { LoanParticipantsPanel } from "@/components/catalyst-one/shared/loan-participants-panel";
-import { LEAD_SOURCES } from "@/constants/customer-360";
+import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
+import { useWorkspaceClose } from "@/hooks/use-workspace-close";
+import { LOAN_JOURNEY_SOURCES } from "@/constants/loan-journey-sources";
 import {
   getProductsForLendingType,
   LENDING_TYPES,
@@ -32,6 +30,12 @@ import {
   mapContactOptionsToParticipantEntities,
   syncParticipantLegacyFields,
 } from "@/lib/loan-participants";
+import {
+  findSourceContactOption,
+  listSourceContactOptions,
+} from "@/lib/loan-journey/source-contact-filter";
+import { resolveAssociatedCompanyFromBorrowerProfile } from "@/lib/loan-journey/reuse-borrower-company";
+import { listEcmContacts } from "@/lib/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -69,6 +73,7 @@ const schema = z.object({
   customerType: z.string().min(1),
   loanProduct: z.string().min(1),
   requiredAmount: z.coerce.number().min(100000),
+  monthlyIncome: z.coerce.number().min(1, "Monthly Income is required for loan assessment"),
   priority: z.enum(["urgent", "high", "medium", "low"]),
   loginDate: z.string().min(1),
   expectedLoginDate: z.string().min(1),
@@ -107,15 +112,10 @@ export interface LoanCreateFormDialogProps {
     state: string;
     employmentType: string;
     relationshipManager?: string;
+    employerName?: string;
+    businessName?: string;
   };
   onOpenSourceContact?: (contactId: string) => void;
-}
-
-function deriveOrganisation(name: string, city: string): string {
-  if (/pvt|ltd|llp|industries|traders|exports|logistics|pharma|construction/i.test(name)) {
-    return name;
-  }
-  return city ? `${city} Region` : "—";
 }
 
 export function LoanCreateFormDialog({
@@ -132,8 +132,10 @@ export function LoanCreateFormDialog({
   const [participants, setParticipants] = useState<LoanParticipant[]>([]);
   const [associatedCompanyId, setAssociatedCompanyId] = useState<string>();
   const [associatedCompanyName, setAssociatedCompanyName] = useState<string>();
+  const [companyFromProfile, setCompanyFromProfile] = useState(false);
   const [sourceContactRole, setSourceContactRole] = useState<string>();
   const [sourceContactOrganisation, setSourceContactOrganisation] = useState<string>();
+  const [baselineSnapshot, setBaselineSnapshot] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -149,6 +151,7 @@ export function LoanCreateFormDialog({
       customerType: "Individual",
       loanProduct: getProductsForLendingType("secured")[0] ?? "",
       requiredAmount: 45_00_000,
+      monthlyIncome: undefined as unknown as number,
       priority: "medium",
       loginDate: today,
       expectedLoginDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
@@ -159,78 +162,144 @@ export function LoanCreateFormDialog({
   });
 
   const lendingType = form.watch("lendingType");
+  const source = form.watch("source");
   const productOptions = useMemo(() => getProductsForLendingType(lendingType), [lendingType]);
 
-  const contactOptions = useMemo(
-    () =>
-      CUSTOMER_SEED.map((c) => ({
+  const contactOptions = useMemo(() => {
+    const ecm = listEcmContacts();
+    if (ecm.length > 0) {
+      return ecm.map((c) => ({
         id: c.id,
         label: c.name,
-        sublabel: c.mobile,
-        mobile: c.mobile,
-        email: c.email,
-        city: c.city,
-        state: c.state,
-        employmentType: c.employmentType,
-      })),
-    [],
-  );
+        sublabel: c.mobilePrimary,
+        mobile: c.mobilePrimary,
+        email: c.personalEmail || c.officialEmail || "",
+        city: c.city || "",
+        state: c.state || "",
+        employmentType: c.employmentType || "Salaried",
+      }));
+    }
+    return CUSTOMER_SEED.map((c) => ({
+      id: c.id,
+      label: c.name,
+      sublabel: c.mobile,
+      mobile: c.mobile,
+      email: c.email,
+      city: c.city,
+      state: c.state,
+      employmentType: c.employmentType,
+    }));
+  }, []);
 
-  const companyOptions = useMemo(
-    () =>
-      buildDefaultParticipantEntityOptions()
-        .filter((o) => o.entityType === "company")
-        .map((o) => ({ id: o.id, label: o.name, sublabel: o.constitution })),
-    [],
-  );
+  const sourceContactOptions = useMemo(() => listSourceContactOptions(source), [source]);
+  const hideSourceContact = source === "Direct";
+
+  const companyOptions = useMemo(() => {
+    const base = buildDefaultParticipantEntityOptions()
+      .filter((o) => o.entityType === "company")
+      .map((o) => ({ id: o.id, label: o.name, sublabel: o.constitution }));
+    if (
+      associatedCompanyId &&
+      associatedCompanyName &&
+      !base.some((o) => o.id === associatedCompanyId)
+    ) {
+      return [
+        {
+          id: associatedCompanyId,
+          label: associatedCompanyName,
+          sublabel: companyFromProfile ? "From Borrower Profile" : undefined,
+        },
+        ...base,
+      ];
+    }
+    return base;
+  }, [associatedCompanyId, associatedCompanyName, companyFromProfile]);
 
   const participantEntityOptions = useMemo(
-    () => mapContactOptionsToParticipantEntities(
-      contactOptions.map((c) => ({
-        id: c.id,
-        name: c.label,
-        mobile: c.mobile,
-        email: c.email,
-      })),
-    ),
+    () =>
+      mapContactOptionsToParticipantEntities(
+        contactOptions.map((c) => ({
+          id: c.id,
+          name: c.label,
+          mobile: c.mobile,
+          email: c.email,
+        })),
+      ),
     [contactOptions],
   );
 
+  const applyAssociatedCompanyFromProfile = (employerName?: string, businessName?: string) => {
+    const resolved = resolveAssociatedCompanyFromBorrowerProfile({ employerName, businessName });
+    if (resolved) {
+      setAssociatedCompanyId(resolved.id);
+      setAssociatedCompanyName(resolved.name);
+      setCompanyFromProfile(true);
+    } else {
+      setAssociatedCompanyId(undefined);
+      setAssociatedCompanyName(undefined);
+      setCompanyFromProfile(false);
+    }
+  };
+
   const selectPrimaryApplicant = (option: EntityMasterOption) => {
+    const ecm = listEcmContacts().find((x) => x.id === option.id);
+    if (ecm) {
+      const profile = ecm.roleProfiles?.customer ?? {};
+      form.setValue("customerId", ecm.id, { shouldDirty: true });
+      form.setValue("customerName", ecm.name, { shouldDirty: true });
+      form.setValue("customerMobile", ecm.mobilePrimary, { shouldDirty: true });
+      form.setValue(
+        "customerEmail",
+        ecm.personalEmail || ecm.officialEmail || `${ecm.mobilePrimary}@contact.local`,
+        { shouldDirty: true },
+      );
+      form.setValue("city", ecm.city || "Mumbai", { shouldDirty: true });
+      form.setValue("state", ecm.state || "Maharashtra", { shouldDirty: true });
+      form.setValue("employmentType", ecm.employmentType || "Salaried", { shouldDirty: true });
+      applyAssociatedCompanyFromProfile(profile.employerName, profile.businessName);
+      return;
+    }
+
     const c = CUSTOMER_SEED.find((x) => x.id === option.id);
     if (!c) return;
-    form.setValue("customerId", c.id);
-    form.setValue("customerName", c.name);
-    form.setValue("customerMobile", c.mobile);
-    form.setValue("customerEmail", c.email);
-    form.setValue("city", c.city);
-    form.setValue("state", c.state);
-    form.setValue("employmentType", c.employmentType);
+    form.setValue("customerId", c.id, { shouldDirty: true });
+    form.setValue("customerName", c.name, { shouldDirty: true });
+    form.setValue("customerMobile", c.mobile, { shouldDirty: true });
+    form.setValue("customerEmail", c.email, { shouldDirty: true });
+    form.setValue("city", c.city, { shouldDirty: true });
+    form.setValue("state", c.state, { shouldDirty: true });
+    form.setValue("employmentType", c.employmentType, { shouldDirty: true });
     if (/pvt|ltd|llp|industries/i.test(c.name)) {
-      form.setValue("customerType", "Corporate");
+      form.setValue("customerType", "Corporate", { shouldDirty: true });
+      applyAssociatedCompanyFromProfile(c.name, undefined);
+    } else {
+      setAssociatedCompanyId(undefined);
+      setAssociatedCompanyName(undefined);
+      setCompanyFromProfile(false);
     }
   };
 
   const selectSourceContact = (option: EntityMasterOption) => {
-    const c = CUSTOMER_SEED.find((x) => x.id === option.id);
-    if (!c) return;
-    form.setValue("sourceContactId", c.id);
-    setSourceContactRole(c.employmentType);
-    setSourceContactOrganisation(deriveOrganisation(c.name, c.city));
+    const found = findSourceContactOption(source, option.id);
+    form.setValue("sourceContactId", option.id, { shouldDirty: true });
+    setSourceContactRole(found?.roleLabel);
+    setSourceContactOrganisation(found?.organisation);
   };
 
   const selectAssociatedCompany = (option: EntityMasterOption) => {
     setAssociatedCompanyId(option.id);
     setAssociatedCompanyName(option.label);
+    setCompanyFromProfile(false);
   };
 
   useEffect(() => {
     if (!open) return;
     setParticipants([]);
-    setAssociatedCompanyId(undefined);
-    setAssociatedCompanyName(undefined);
     setSourceContactRole(undefined);
     setSourceContactOrganisation(undefined);
+
+    applyAssociatedCompanyFromProfile(prefillCustomer?.employerName, prefillCustomer?.businessName);
+
     form.reset({
       customerName: prefillCustomer?.name ?? "",
       customerMobile: prefillCustomer?.mobile ?? "",
@@ -243,6 +312,7 @@ export function LoanCreateFormDialog({
       customerType: "Individual",
       loanProduct: getProductsForLendingType("secured")[0] ?? "",
       requiredAmount: 45_00_000,
+      monthlyIncome: undefined as unknown as number,
       priority: "medium",
       loginDate: today,
       expectedLoginDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
@@ -251,6 +321,14 @@ export function LoanCreateFormDialog({
       relationshipManager: prefillCustomer?.relationshipManager ?? loanManagers[0] ?? "",
       customerId: prefillCustomer?.id ?? "",
     });
+    setBaselineSnapshot(
+      JSON.stringify({
+        form: form.getValues(),
+        participants: [],
+        associatedCompanyId: null,
+        associatedCompanyName: null,
+      }),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when dialog opens
   }, [open, prefillCustomer]);
 
@@ -261,16 +339,42 @@ export function LoanCreateFormDialog({
     }
   }, [productOptions, form]);
 
+  useEffect(() => {
+    if (hideSourceContact) {
+      form.setValue("sourceContactId", undefined);
+      setSourceContactRole(undefined);
+      setSourceContactOrganisation(undefined);
+      return;
+    }
+    const currentId = form.getValues("sourceContactId");
+    if (currentId && !sourceContactOptions.some((o) => o.id === currentId)) {
+      form.setValue("sourceContactId", undefined);
+      setSourceContactRole(undefined);
+      setSourceContactOrganisation(undefined);
+    }
+  }, [source, hideSourceContact, sourceContactOptions, form]);
+
+  const watched = form.watch();
+  const isDirty =
+    form.formState.isDirty ||
+    participants.length > 0 ||
+    Boolean(associatedCompanyId) ||
+    JSON.stringify({
+      form: watched,
+      participants,
+      associatedCompanyId: associatedCompanyId ?? null,
+      associatedCompanyName: associatedCompanyName ?? null,
+    }) !== baselineSnapshot;
+
   const buildPayload = (
     values: FormValues,
     proceedToDocuments: boolean,
   ): { input: CreateLoanFileInput; meta: LoanCreateSubmitMeta } => {
-    const synced = syncParticipantLegacyFields(participants, associatedCompanyName
-      ? { companyName: associatedCompanyName }
-      : undefined);
-    const sourceContact = values.sourceContactId
-      ? CUSTOMER_SEED.find((c) => c.id === values.sourceContactId)
-      : undefined;
+    const synced = syncParticipantLegacyFields(
+      participants,
+      associatedCompanyName ? { companyName: associatedCompanyName } : undefined,
+    );
+    const sourceContact = findSourceContactOption(values.source, values.sourceContactId);
 
     return {
       input: {
@@ -292,7 +396,10 @@ export function LoanCreateFormDialog({
         loginDate: new Date(values.loginDate).toISOString(),
         expectedLoginDate: new Date(values.expectedLoginDate).toISOString(),
         internalNotes: `Customer Type: ${values.customerType}`,
-        businessDetails: synced.businessDetails,
+        businessDetails: {
+          ...synced.businessDetails,
+          monthlySalary: values.monthlyIncome,
+        },
       },
       meta: {
         participants: synced.participants,
@@ -300,267 +407,373 @@ export function LoanCreateFormDialog({
         associatedCompanyName,
         source: values.source,
         sourceContactId: values.sourceContactId,
-        sourceContactName: sourceContact?.name,
-        sourceContactRole,
-        sourceContactOrganisation,
+        sourceContactName: sourceContact?.label,
+        sourceContactRole: sourceContactRole ?? sourceContact?.roleLabel,
+        sourceContactOrganisation: sourceContactOrganisation ?? sourceContact?.organisation,
         proceedToDocuments,
       },
     };
   };
 
-  const handleSaveAndExit = form.handleSubmit((values) => {
-    const { input, meta } = buildPayload(values, false);
+  const submitAndClose = (values: FormValues, proceedToDocuments: boolean) => {
+    const { input, meta } = buildPayload(values, proceedToDocuments);
     onSubmit(input, meta);
     onOpenChange(false);
-  });
+  };
 
-  const handleProceedToDocuments = form.handleSubmit((values) => {
-    const { input, meta } = buildPayload(values, true);
-    onSubmit(input, { ...meta, proceedToDocuments: true });
-    onOpenChange(false);
+  const handleSaveAndExit = form.handleSubmit((values) => submitAndClose(values, false));
+  const handleProceedToDocuments = form.handleSubmit((values) => submitAndClose(values, true));
+
+  const closeApi = useWorkspaceClose({
+    onClose: () => onOpenChange(false),
+    hasUnsavedChanges: isDirty,
+    enableEscapeKey: false,
+    onSaveAndClose: () =>
+      new Promise<boolean>((resolve) => {
+        void form.handleSubmit(
+          (values) => {
+            submitAndClose(values, false);
+            resolve(true);
+          },
+          () => resolve(false),
+        )();
+      }),
   });
 
   const sourceContactId = form.watch("sourceContactId");
-  const sourceContact = sourceContactId
-    ? CUSTOMER_SEED.find((c) => c.id === sourceContactId)
-    : undefined;
+  const sourceContact = findSourceContactOption(source, sourceContactId);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={cn(
-          "max-w-6xl w-[min(96vw,72rem)] max-h-[92vh] p-0 gap-0 rounded-xl",
-          contentClassName,
-        )}
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) onOpenChange(true);
+          else closeApi.requestClose();
+        }}
       >
-        <DialogHeader className="shrink-0 border-b border-border p-6 pb-4">
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+        <DialogContent
+          className={cn(
+            "max-w-6xl w-[min(96vw,72rem)] max-h-[92vh] p-0 gap-0 rounded-xl",
+            contentClassName,
+          )}
+        >
+          <DialogHeader className="shrink-0 border-b border-border p-6 pb-4">
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
 
-        <ScrollArea className="max-h-[calc(92vh-10rem)]">
-          <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
-            <div className="space-y-6">
-              <LoanOriginationSection
-                theme="blue"
-                title="Loan Participants"
-                description="Who is borrowing?"
-                icon={<Users className="h-4 w-4" />}
-              >
-                <div className="space-y-4">
-                  <FormField label="Primary Applicant *" error={form.formState.errors.customerId?.message}>
-                    <EntityMasterSearch
-                      placeholder="Search contact…"
-                      selectedId={form.watch("customerId")}
-                      selectedLabel={form.watch("customerName") || undefined}
-                      options={contactOptions}
-                      onSelect={selectPrimaryApplicant}
-                    />
-                  </FormField>
+          <ScrollArea className="max-h-[calc(92vh-10rem)]">
+            <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+              <div className="space-y-6">
+                <LoanOriginationSection
+                  theme="blue"
+                  title="Loan Participants"
+                  description="Who is borrowing?"
+                  icon={<Users className="h-4 w-4" />}
+                >
+                  <div className="space-y-4">
+                    <FormField label="Primary Applicant *" error={form.formState.errors.customerId?.message}>
+                      <EntityMasterSearch
+                        placeholder="Search contact…"
+                        selectedId={form.watch("customerId")}
+                        selectedLabel={form.watch("customerName") || undefined}
+                        options={contactOptions}
+                        onSelect={selectPrimaryApplicant}
+                      />
+                    </FormField>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <ReadOnlyField label="Mobile Number" value={form.watch("customerMobile")} />
-                    <ReadOnlyField label="Email Address" value={form.watch("customerEmail")} />
-                    <ReadOnlyField label="Employment Type" value={form.watch("employmentType")} />
-                    <ReadOnlyField label="City" value={form.watch("city")} />
-                  </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <ReadOnlyField label="Mobile Number" value={form.watch("customerMobile")} />
+                      <ReadOnlyField label="Email Address" value={form.watch("customerEmail")} />
+                      <ReadOnlyField label="Employment Type" value={form.watch("employmentType")} />
+                      <ReadOnlyField label="City" value={form.watch("city")} />
+                    </div>
 
-                  <FormField label="Associated Company (Optional)">
-                    <EntityMasterSearch
-                      placeholder="Search company…"
-                      selectedId={associatedCompanyId}
-                      selectedLabel={associatedCompanyName}
-                      options={companyOptions}
-                      onSelect={selectAssociatedCompany}
-                    />
-                  </FormField>
-
-                  <div className="border-t border-blue-600/15 pt-4">
-                    <p className="mb-3 text-xs font-semibold text-foreground">Co-Applicants / Loan Participants</p>
-                    <LoanParticipantsPanel
-                      participants={participants}
-                      entityOptions={participantEntityOptions}
-                      onChange={setParticipants}
-                      maxParticipants={9}
-                    />
-                  </div>
-                </div>
-              </LoanOriginationSection>
-
-              <LoanOriginationSection
-                theme="purple"
-                title="Source Details"
-                description="Where did this business come from?"
-                icon={<Sparkles className="h-4 w-4" />}
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField label="Source">
-                    <Select
-                      value={form.watch("source")}
-                      onValueChange={(v) => form.setValue("source", v)}
+                    <FormField
+                      label={
+                        companyFromProfile
+                          ? "Associated Company (from Borrower Profile)"
+                          : "Associated Company (Optional)"
+                      }
                     >
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {[...LEAD_SOURCES, "Referral", "Walk-in", "Direct"].map((s) => (
-                          <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormField>
+                      <EntityMasterSearch
+                        placeholder="Search company…"
+                        selectedId={associatedCompanyId}
+                        selectedLabel={associatedCompanyName}
+                        options={companyOptions}
+                        onSelect={selectAssociatedCompany}
+                      />
+                      {companyFromProfile && (
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          Capture once on Borrower Profile · reused here. Change only if needed.
+                        </p>
+                      )}
+                    </FormField>
 
-                  <FormField label="Source Contact">
-                    <EntityMasterSearch
-                      placeholder="Search contact…"
-                      selectedId={sourceContactId}
-                      selectedLabel={sourceContact?.name}
-                      options={contactOptions}
-                      onSelect={selectSourceContact}
+                    <div className="border-t border-blue-600/15 pt-4">
+                      <p className="mb-3 text-xs font-semibold text-foreground">
+                        Co-Applicants / Loan Participants
+                      </p>
+                      <LoanParticipantsPanel
+                        participants={participants}
+                        entityOptions={participantEntityOptions}
+                        onChange={setParticipants}
+                        maxParticipants={9}
+                      />
+                    </div>
+                  </div>
+                </LoanOriginationSection>
+
+                <LoanOriginationSection
+                  theme="purple"
+                  title="Source Details"
+                  description="Where did this business come from?"
+                  icon={<Sparkles className="h-4 w-4" />}
+                >
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField label="Source">
+                      <Select
+                        value={form.watch("source")}
+                        onValueChange={(v) => form.setValue("source", v, { shouldDirty: true })}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LOAN_JOURNEY_SOURCES.map((s) => (
+                            <SelectItem key={s} value={s} className="text-xs">
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+
+                    {!hideSourceContact && (
+                      <FormField label="Source Contact">
+                        <EntityMasterSearch
+                          placeholder={
+                            sourceContactOptions.length === 0
+                              ? "No matching contacts for this source"
+                              : "Search contact…"
+                          }
+                          selectedId={sourceContactId}
+                          selectedLabel={sourceContact?.label}
+                          options={sourceContactOptions}
+                          onSelect={selectSourceContact}
+                        />
+                      </FormField>
+                    )}
+
+                    {!hideSourceContact && sourceContact && (
+                      <>
+                        <ReadOnlyField label="Mobile Number" value={sourceContact.mobile} />
+                        <ReadOnlyField label="Email Address" value={sourceContact.email} />
+                        <ReadOnlyField
+                          label="Role / Designation"
+                          value={sourceContactRole ?? sourceContact.roleLabel}
+                        />
+                        <ReadOnlyField
+                          label="Organisation"
+                          value={sourceContactOrganisation ?? sourceContact.organisation ?? "—"}
+                        />
+                      </>
+                    )}
+                  </div>
+                  {!hideSourceContact && sourceContactId && onOpenSourceContact && (
+                    <EntityButtonLink
+                      label="Open Source Contact Workspace"
+                      className="mt-3 text-xs"
+                      onClick={() => onOpenSourceContact(sourceContactId)}
                     />
-                  </FormField>
-
-                  {sourceContact && (
-                    <>
-                      <ReadOnlyField label="Mobile Number" value={sourceContact.mobile} />
-                      <ReadOnlyField label="Email Address" value={sourceContact.email} />
-                      <ReadOnlyField label="Role / Designation" value={sourceContactRole ?? sourceContact.employmentType} />
-                      <ReadOnlyField label="Organisation" value={sourceContactOrganisation ?? "—"} />
-                    </>
                   )}
-                </div>
-                {sourceContactId && onOpenSourceContact && (
-                  <EntityButtonLink
-                    label="Open Source Contact Workspace"
-                    className="mt-3 text-xs"
-                    onClick={() => onOpenSourceContact(sourceContactId)}
-                  />
-                )}
-              </LoanOriginationSection>
+                </LoanOriginationSection>
 
-              <LoanOriginationSection
-                theme="amber"
-                title="Loan Details"
-                description="Loan request information"
-                icon={<FileText className="h-4 w-4" />}
+                <LoanOriginationSection
+                  theme="amber"
+                  title="Loan Details"
+                  description="Loan request and credit parameters"
+                  icon={<FileText className="h-4 w-4" />}
+                >
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <FormField label="Product Type">
+                      <Select
+                        value={lendingType}
+                        onValueChange={(v) => {
+                          form.setValue("lendingType", v as LendingType, { shouldDirty: true });
+                          const products = getProductsForLendingType(v as LendingType);
+                          form.setValue("loanProduct", products[0] ?? "", { shouldDirty: true });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LENDING_TYPES.map((t) => (
+                            <SelectItem key={t.id} value={t.id} className="text-xs">
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+
+                    <FormField label="Product">
+                      <Select
+                        value={form.watch("loanProduct")}
+                        onValueChange={(v) => form.setValue("loanProduct", v, { shouldDirty: true })}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {productOptions.map((p) => (
+                            <SelectItem key={p} value={p} className="text-xs">
+                              {p}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+
+                    <FormField label="Transaction Type">
+                      <Select
+                        value={form.watch("transactionType")}
+                        onValueChange={(v) =>
+                          form.setValue("transactionType", v as TransactionType, { shouldDirty: true })
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TRANSACTION_TYPES.map((t) => (
+                            <SelectItem key={t.id} value={t.id} className="text-xs">
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+
+                    <FormField label="Customer Type">
+                      <Select
+                        value={form.watch("customerType")}
+                        onValueChange={(v) => form.setValue("customerType", v, { shouldDirty: true })}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CUSTOMER_TYPES.map((t) => (
+                            <SelectItem key={t} value={t} className="text-xs">
+                              {t}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+
+                    <FormField
+                      label="Required Amount (₹) *"
+                      error={form.formState.errors.requiredAmount?.message}
+                    >
+                      <INRCurrencyInput
+                        value={form.watch("requiredAmount")}
+                        onChange={(v) =>
+                          form.setValue("requiredAmount", v ?? 0, { shouldDirty: true })
+                        }
+                      />
+                    </FormField>
+
+                    <FormField
+                      label="Monthly Income (₹) *"
+                      error={form.formState.errors.monthlyIncome?.message}
+                    >
+                      <INRCurrencyInput
+                        value={form.watch("monthlyIncome")}
+                        onChange={(v) =>
+                          form.setValue("monthlyIncome", v ?? 0, { shouldDirty: true })
+                        }
+                      />
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Credit parameter — captured in Loan Journey, not Borrower Profile.
+                      </p>
+                    </FormField>
+
+                    <FormField label="Priority">
+                      <Select
+                        value={form.watch("priority")}
+                        onValueChange={(v) =>
+                          form.setValue("priority", v as FormValues["priority"], {
+                            shouldDirty: true,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(["urgent", "high", "medium", "low"] as const).map((p) => (
+                            <SelectItem key={p} value={p} className="text-xs capitalize">
+                              {p}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+
+                    <ReadOnlyField label="Current Stage" value={STAGE_LABELS.raw_lead} />
+                    <ReadOnlyField label="Sub Stage" value="—" />
+
+                    <FormField label="Login Date">
+                      <Input className="h-8 bg-muted/40 text-xs" value={today} readOnly />
+                    </FormField>
+
+                    <FormField label="Expected Login Date">
+                      <Input
+                        type="date"
+                        className="h-8 text-xs"
+                        {...form.register("expectedLoginDate")}
+                      />
+                    </FormField>
+                  </div>
+                </LoanOriginationSection>
+              </div>
+
+              <div className="lg:sticky lg:top-0 lg:self-start">
+                <ChanakyaOriginationPanel />
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/20 px-6 py-4 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={closeApi.requestClose}>
+                Cancel
+              </Button>
+              <Button type="button" variant="secondary" onClick={handleSaveAndExit}>
+                Save &amp; Exit
+              </Button>
+              <Button
+                type="button"
+                className="bg-primary hover:bg-primary/90"
+                onClick={handleProceedToDocuments}
               >
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <FormField label="Product Type">
-                    <Select
-                      value={lendingType}
-                      onValueChange={(v) => {
-                        form.setValue("lendingType", v as LendingType);
-                        const products = getProductsForLendingType(v as LendingType);
-                        form.setValue("loanProduct", products[0] ?? "");
-                      }}
-                    >
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {LENDING_TYPES.map((t) => (
-                          <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormField>
-
-                  <FormField label="Product">
-                    <Select
-                      value={form.watch("loanProduct")}
-                      onValueChange={(v) => form.setValue("loanProduct", v)}
-                    >
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {productOptions.map((p) => (
-                          <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormField>
-
-                  <FormField label="Transaction Type">
-                    <Select
-                      value={form.watch("transactionType")}
-                      onValueChange={(v) => form.setValue("transactionType", v as TransactionType)}
-                    >
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {TRANSACTION_TYPES.map((t) => (
-                          <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormField>
-
-                  <FormField label="Customer Type">
-                    <Select
-                      value={form.watch("customerType")}
-                      onValueChange={(v) => form.setValue("customerType", v)}
-                    >
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {CUSTOMER_TYPES.map((t) => (
-                          <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormField>
-
-                  <FormField label="Required Amount (₹) *" error={form.formState.errors.requiredAmount?.message}>
-                    <INRCurrencyInput
-                      value={form.watch("requiredAmount")}
-                      onChange={(v) => form.setValue("requiredAmount", v ?? 0)}
-                    />
-                  </FormField>
-
-                  <FormField label="Priority">
-                    <Select
-                      value={form.watch("priority")}
-                      onValueChange={(v) => form.setValue("priority", v as FormValues["priority"])}
-                    >
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {(["urgent", "high", "medium", "low"] as const).map((p) => (
-                          <SelectItem key={p} value={p} className="text-xs capitalize">{p}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormField>
-
-                  <ReadOnlyField label="Current Stage" value={STAGE_LABELS.raw_lead} />
-                  <ReadOnlyField label="Sub Stage" value="—" />
-
-                  <FormField label="Login Date">
-                    <Input className="h-8 bg-muted/40 text-xs" value={today} readOnly />
-                  </FormField>
-
-                  <FormField label="Expected Login Date">
-                    <Input
-                      type="date"
-                      className="h-8 text-xs"
-                      {...form.register("expectedLoginDate")}
-                    />
-                  </FormField>
-                </div>
-              </LoanOriginationSection>
+                Proceed to Document Stage
+              </Button>
             </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
-            <div className="lg:sticky lg:top-0 lg:self-start">
-              <ChanakyaOriginationPanel />
-            </div>
-          </div>
-
-          <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/20 px-6 py-4 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="button" variant="secondary" onClick={handleSaveAndExit}>
-              Save &amp; Exit
-            </Button>
-            <Button type="button" className="bg-primary hover:bg-primary/90" onClick={handleProceedToDocuments}>
-              Proceed to Document Stage
-            </Button>
-          </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+      <UnsavedChangesDialog
+        open={closeApi.confirmOpen}
+        onOpenChange={closeApi.setConfirmOpen}
+        onDiscard={closeApi.handleDiscard}
+        onSaveAndClose={closeApi.handleSaveAndClose}
+        saving={closeApi.saving}
+      />
+    </>
   );
 }
 

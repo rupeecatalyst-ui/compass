@@ -70,7 +70,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import { cn } from "@/lib/utils";
 
 export type ContactWorkspaceMode = "create" | "edit";
@@ -103,6 +105,25 @@ function formatTs(value?: string) {
 function masterDisplay(domain: Parameters<typeof getEcmMasterLabel>[0], id?: string) {
   if (!id) return "—";
   return getEcmMasterLabel(domain, id) || id;
+}
+
+function serializeContactDraft(input: {
+  name: string;
+  mobilePrimary: string;
+  mobileSecondary: string;
+  personalEmail: string;
+  officialEmail: string;
+  city: string;
+  state: string;
+  country: string;
+  address: string;
+  pan: string;
+  aadhaar: string;
+  dateOfBirth: string;
+  roles: EcmContactRole[];
+  roleProfiles: Partial<Record<EcmContactRole, Record<string, string>>>;
+}) {
+  return JSON.stringify(input);
 }
 
 function SectionCard({
@@ -232,6 +253,7 @@ export function ContactWorkspaceModal({
   const [showAddRole, setShowAddRole] = useState(false);
   const wasOpenRef = useRef(false);
   const hydratedIdRef = useRef<string | null>(null);
+  const baselineRef = useRef("");
 
   const identityPayload = () => ({
     name,
@@ -266,6 +288,22 @@ export function ContactWorkspaceModal({
     setRoles(getEcmContactAssignedRoles(source));
     setRoleProfiles(source.roleProfiles ?? {});
     hydratedIdRef.current = source.id;
+    baselineRef.current = serializeContactDraft({
+      name: source.name,
+      mobilePrimary: source.mobilePrimary,
+      mobileSecondary: source.mobileSecondary ?? "",
+      personalEmail: source.personalEmail ?? "",
+      officialEmail: source.officialEmail ?? "",
+      city: source.city ?? "",
+      state: source.state ?? "",
+      country: source.country ?? "IN",
+      address: source.address ?? "",
+      pan: source.pan ?? "",
+      aadhaar: source.aadhaar ?? "",
+      dateOfBirth: source.dateOfBirth ?? "",
+      roles: getEcmContactAssignedRoles(source),
+      roleProfiles: source.roleProfiles ?? {},
+    });
   };
 
   const resetBlankCreate = () => {
@@ -567,6 +605,8 @@ export function ContactWorkspaceModal({
       state: stateLabel,
       employmentType: employmentLabel,
       relationshipManager: source.ownerName || undefined,
+      employerName: profile.employerName || undefined,
+      businessName: profile.businessName || undefined,
     };
   };
 
@@ -1254,9 +1294,51 @@ export function ContactWorkspaceModal({
     </>
   );
 
+  const draftSnapshot = serializeContactDraft({
+    name,
+    mobilePrimary,
+    mobileSecondary,
+    personalEmail,
+    officialEmail,
+    city,
+    state,
+    country,
+    address,
+    pan,
+    aadhaar,
+    dateOfBirth,
+    roles,
+    roleProfiles,
+  });
+  const hasUnsavedChanges =
+    open &&
+    (awaitingFirstSave
+      ? Boolean(name.trim() || mobilePrimary.trim())
+      : draftSnapshot !== baselineRef.current);
+
+  const closeApi = useWorkspaceClose({
+    onClose: () => onOpenChange(false),
+    hasUnsavedChanges,
+    enableEscapeKey: false,
+    onSaveAndClose: () => {
+      if (currentStep?.kind === "role" && currentStep.roleCode) {
+        saveRoleStep(currentStep.roleCode, false);
+        return true;
+      }
+      saveIdentity(false);
+      return true;
+    },
+  });
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) onOpenChange(true);
+          else closeApi.requestClose();
+        }}
+      >
         <DialogContent
           className={cn(
             "flex max-h-[90vh] w-[min(1100px,94vw)] max-w-[1100px] flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-100 sm:rounded-2xl",
@@ -1630,6 +1712,14 @@ export function ContactWorkspaceModal({
           onSubmit={handleLoanCreated}
         />
       )}
+
+      <UnsavedChangesDialog
+        open={closeApi.confirmOpen}
+        onOpenChange={closeApi.setConfirmOpen}
+        onDiscard={closeApi.handleDiscard}
+        onSaveAndClose={closeApi.handleSaveAndClose}
+        saving={closeApi.saving}
+      />
     </>
   );
 }

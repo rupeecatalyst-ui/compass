@@ -18,7 +18,10 @@ export interface UnsavedChangesDialogProps {
   saving?: boolean;
 }
 
-/** UX-01B — Standard unsaved-changes confirmation before leaving a workspace. */
+/**
+ * Prompt 019 / UX-01B — Enterprise unsaved-changes confirmation.
+ * Never silently discard entered information.
+ */
 export function UnsavedChangesDialog({
   open,
   onOpenChange,
@@ -30,21 +33,44 @@ export function UnsavedChangesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md [&>button]:hidden">
         <DialogHeader>
-          <DialogTitle>Unsaved Changes</DialogTitle>
-          <DialogDescription>You have unsaved changes.</DialogDescription>
+          <DialogTitle>You have unsaved changes</DialogTitle>
+          <DialogDescription>
+            Closing now will discard information entered in this workspace. Choose how you want to
+            proceed.
+          </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="button" variant="secondary" size="sm" onClick={onDiscard} disabled={saving}>
-            Discard Changes
-          </Button>
+        <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
           {onSaveAndClose && (
-            <Button type="button" size="sm" onClick={() => void onSaveAndClose()} disabled={saving}>
-              {saving ? "Saving..." : "Save & Close"}
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              onClick={() => void onSaveAndClose()}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save & Exit"}
             </Button>
           )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="w-full"
+            onClick={onDiscard}
+            disabled={saving}
+          >
+            Discard Changes
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Continue Editing
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
