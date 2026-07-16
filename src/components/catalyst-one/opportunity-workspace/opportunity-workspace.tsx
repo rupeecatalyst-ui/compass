@@ -228,14 +228,6 @@ function OpportunityWorkspaceShell() {
         onSaveDraft={async () => {
           /* Planning state already persists via local workspace storage. */
         }}
-        onBeforeContinue={async () => {
-          if (!lifeFinalized) {
-            openTab("funding_strategy");
-            return false;
-          }
-          return checkDocumentGate("enter Loan Workspace");
-        }}
-        hideContinue={!lifeFinalized}
       >
         <div className="dark relative flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/50 p-2 sm:p-3">
           <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-[radial-gradient(ellipse_at_top,rgba(15,118,110,0.18),transparent_55%)]" />

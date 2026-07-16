@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ArrowLeft, ArrowRight } from "lucide-react";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
 import {
   attachCommandBarScrollState,
@@ -49,7 +49,12 @@ import { BusinessCompletionDialog } from "@/components/catalyst-one/shared/busin
 import { PropertyInformationCard } from "@/components/catalyst-one/shared/property-information-card";
 import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
 import { rememberOpportunityActiveLoan } from "@/lib/opportunity-loan-continuity";
-import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
+import {
+  buildBusinessJourneyHref,
+  getBusinessBackLabel,
+  getBusinessJourneyNavStep,
+  resolveLoanWorkspaceContinue,
+} from "@/constants/enterprise-business-journey-navigation";
 import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
@@ -72,8 +77,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import type { PropertyType } from "@/constants/loan-stage-master";
 import type { OccupancyMasterEntry } from "@/constants/occupancy-master";
 import type { LoanParticipant } from "@/types/loan-participant";
@@ -124,7 +127,10 @@ function LoanWorkspaceModalContent({
   const [draft, setDraft] = useState<LoanFile>(() => ({ ...file }));
   const [notes, setNotes] = useState(() => file.internalNotes);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
+  const initialTab = tabFromUrl || defaultTab;
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [lenderAddOpen, setLenderAddOpen] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState<LoanFile>(() => ({ ...file }));
   const [overviewUi, setOverviewUi] = useState(() => ({
@@ -136,13 +142,44 @@ function LoanWorkspaceModalContent({
   }));
   const stickyChromeRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const opportunityId =
     searchParams.get("opportunityId") ?? getActiveOpportunityContext()?.opportunityId ?? null;
-  const backToOpportunityHref = buildJourneyHref(ROUTES.OPPORTUNITY_WORKSPACE, {
-    fileId: draft.id,
-    opportunityId,
+  const journeyCtx = { fileId: draft.id, opportunityId };
+  const backToCreditHref = buildBusinessJourneyHref(
+    getBusinessJourneyNavStep("credit_workbench"),
+    journeyCtx,
+  );
+  const hasActiveLenderCases = (draft.lenders ?? []).length > 0;
+  const loanContinue = resolveLoanWorkspaceContinue({
+    activeTab,
+    hasActiveLenderCases,
   });
+  const backLabel =
+    activeTab === "lenders"
+      ? "Back to Loan Workspace"
+      : activeTab === "timeline" || activeTab === "tasks"
+        ? "Back to Lender Pipeline"
+        : getBusinessBackLabel(getBusinessJourneyNavStep("credit_workbench"));
+  const handleJourneyBack = () => {
+    if (activeTab === "lenders" || activeTab === "timeline" || activeTab === "tasks") {
+      setActiveTab(activeTab === "lenders" ? "overview" : "lenders");
+      return;
+    }
+    router.push(backToCreditHref);
+  };
+  const handleJourneyContinue = () => {
+    if (loanContinue.navId === "lender_pipeline") {
+      setActiveTab("lenders");
+      return;
+    }
+    if (loanContinue.navId === "timeline") {
+      setActiveTab("timeline");
+      return;
+    }
+    router.push(
+      buildBusinessJourneyHref(getBusinessJourneyNavStep(loanContinue.navId), journeyCtx),
+    );
+  };
   const [completionOpen, setCompletionOpen] = useState(false);
   const [completionRequest, setCompletionRequest] = useState<BusinessCompletionRequest | null>(
     null,
@@ -167,7 +204,7 @@ function LoanWorkspaceModalContent({
       setDraft(next);
       setSavedSnapshot(next);
       setNotes(file.internalNotes);
-      setActiveTab(defaultTab);
+      setActiveTab(tabFromUrl || defaultTab);
       setLenderAddOpen(false);
       setOverviewUi({
         loanDetails: { collapsed: false, mode: "view" },
@@ -177,7 +214,7 @@ function LoanWorkspaceModalContent({
         lenderSummary: { collapsed: false, mode: "view" },
       });
     }
-  }, [file, defaultTab]);
+  }, [file, defaultTab, tabFromUrl]);
 
   const participantEntityOptions = useMemo(
     () =>
@@ -936,11 +973,15 @@ function LoanWorkspaceModalContent({
       <WorkspaceHeader
         title="Loan Workflow"
         leadingAction={
-          <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs">
-            <Link href={backToOpportunityHref}>
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back To Opportunity Workspace
-            </Link>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1.5 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={handleJourneyBack}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {backLabel}
           </Button>
         }
         headerActions={
@@ -973,6 +1014,15 @@ function LoanWorkspaceModalContent({
                 })
               }
             />
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5 px-3 text-xs font-semibold shadow-sm"
+              onClick={handleJourneyContinue}
+            >
+              {loanContinue.label}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
           </div>
         }
         executionLayout={

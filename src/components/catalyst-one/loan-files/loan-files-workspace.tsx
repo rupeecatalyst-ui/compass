@@ -135,6 +135,8 @@ function LoanFilesCreateQuery() {
 
 function LoanFilesContent() {
   const { view, mounted, selectedFile, selectedFileId, setSelectedFileId } = useLoanFiles();
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams.get("tab") || "overview";
   const contactOptions = useMemo(
     () =>
       CUSTOMER_SEED.map((c) => ({
@@ -203,6 +205,7 @@ function LoanFilesContent() {
           if (!open) setSelectedFileId(null);
         }}
         contactOptions={contactOptions}
+        defaultTab={defaultTab}
       />
       <CreateLoanModal />
     </div>

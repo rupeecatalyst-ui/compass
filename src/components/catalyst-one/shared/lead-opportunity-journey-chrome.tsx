@@ -1,15 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import {
   buildJourneyHref,
   getLeadJourneyModule,
   getNextLeadJourneyModule,
+  getPreviousLeadJourneyModule,
   journeyStageEyebrow,
   type LeadJourneyModuleId,
 } from "@/constants/lead-opportunity-journey";
+import {
+  getBusinessBackLabel,
+  getBusinessContinueLabel,
+  leadModuleToBusinessJourneyNavId,
+  getNextBusinessJourneyNavStep,
+  getPreviousBusinessJourneyNavStep,
+  buildBusinessJourneyHref,
+} from "@/constants/enterprise-business-journey-navigation";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -42,16 +50,18 @@ export interface LeadOpportunityJourneyChromeProps {
   fileId?: string | null;
   opportunityId?: string | null;
   onSaveDraft?: () => void | Promise<void>;
-  /** Extra validation before Save & Continue (return false to block). */
+  /** Extra validation before Continue (return false to block). */
   onBeforeContinue?: () => boolean | Promise<boolean>;
   saving?: boolean;
   className?: string;
   children?: React.ReactNode;
   hideContinue?: boolean;
+  hideBack?: boolean;
 }
 
 /**
  * Shared Lead / Opportunity journey chrome — single Enterprise Workspace Header.
+ * Continue / Back preserve transaction context (never dashboards).
  */
 export function LeadOpportunityJourneyChrome({
   moduleId,
@@ -70,12 +80,39 @@ export function LeadOpportunityJourneyChrome({
   className,
   children,
   hideContinue,
+  hideBack,
 }: LeadOpportunityJourneyChromeProps) {
   const router = useRouter();
   const mod = getLeadJourneyModule(moduleId);
   const stage = stageOverride ?? mod.stage;
-  const next = getNextLeadJourneyModule(moduleId);
+  const nextModule = getNextLeadJourneyModule(moduleId);
+  const prevModule = getPreviousLeadJourneyModule(moduleId);
+  const navId = leadModuleToBusinessJourneyNavId(moduleId);
+  const nextNav = getNextBusinessJourneyNavStep(navId);
+  const prevNav = getPreviousBusinessJourneyNavStep(navId);
   const compact = density === "compact";
+
+  const continueLabel = nextNav
+    ? getBusinessContinueLabel(nextNav)
+    : nextModule
+      ? `Continue to ${nextModule.label}`
+      : null;
+  const backLabel = prevNav
+    ? getBusinessBackLabel(prevNav)
+    : prevModule
+      ? `Back to ${prevModule.label}`
+      : null;
+
+  const rememberContext = () => {
+    if (!fileId) return;
+    setActiveOpportunityContext({
+      fileId,
+      opportunityId: opportunityId ?? undefined,
+      customerName: context?.customer,
+      product: context?.product,
+      label: context?.opportunity,
+    });
+  };
 
   const handleContinue = async () => {
     if (onBeforeContinue) {
@@ -83,18 +120,31 @@ export function LeadOpportunityJourneyChrome({
       if (!ok) return;
     }
     if (onSaveDraft) await onSaveDraft();
-    if (!next) return;
-    if (fileId) {
-      setActiveOpportunityContext({
-        fileId,
-        opportunityId: opportunityId ?? undefined,
-        customerName: context?.customer,
-        product: context?.product,
-        label: context?.opportunity,
-      });
+    rememberContext();
+    if (nextNav) {
+      router.push(
+        buildBusinessJourneyHref(nextNav, { fileId, opportunityId }),
+      );
+      return;
     }
+    if (!nextModule) return;
     router.push(
-      buildJourneyHref(next.href, {
+      buildJourneyHref(nextModule.href, {
+        fileId,
+        opportunityId,
+      }),
+    );
+  };
+
+  const handleBack = () => {
+    rememberContext();
+    if (prevNav) {
+      router.push(buildBusinessJourneyHref(prevNav, { fileId, opportunityId }));
+      return;
+    }
+    if (!prevModule) return;
+    router.push(
+      buildJourneyHref(prevModule.href, {
         fileId,
         opportunityId,
       }),
@@ -125,7 +175,19 @@ export function LeadOpportunityJourneyChrome({
           )}
         >
           <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+              {!hideBack && backLabel ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+                  onClick={handleBack}
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                  {backLabel}
+                </Button>
+              ) : null}
               <p
                 className={cn(
                   "shrink-0 text-[9px] font-semibold uppercase tracking-[0.16em]",
@@ -178,31 +240,16 @@ export function LeadOpportunityJourneyChrome({
                 Save Draft
               </Button>
             )}
-            {!hideContinue && next && (
+            {!hideContinue && continueLabel && (
               <Button
                 type="button"
                 size="sm"
-                className="h-7 gap-1 px-2 text-[11px]"
+                className="h-8 gap-1.5 px-3 text-[11px] font-semibold shadow-sm"
                 disabled={saving}
                 onClick={() => void handleContinue()}
               >
-                Save & Continue
-                <ArrowRight className="h-3 w-3" />
-              </Button>
-            )}
-            {!hideContinue && next && (
-              <Button
-                asChild
-                size="sm"
-                variant="ghost"
-                className="h-7 px-2 text-[10px] text-muted-foreground"
-              >
-                <Link
-                  href={buildJourneyHref(next.href, { fileId, opportunityId })}
-                  className="gap-1"
-                >
-                  Skip to {next.label}
-                </Link>
+                {continueLabel}
+                <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>

@@ -1,27 +1,45 @@
 ---
-description: Enterprise Navigation — Transaction Context Preservation (permanent SSOT)
+description: Enterprise Navigation — Transaction Context Preservation + Business Journey CTAs (permanent SSOT)
 alwaysApply: true
 ---
 
-# Enterprise Navigation Principle — Transaction Context Preservation (Frozen SSOT)
+# Enterprise Navigation Principle — Business Journey Navigation (Frozen SSOT)
 
 Applies across Catalyst One. The transaction is the anchor of the experience.
 
 ## Objective
 
-Once a user opens a business transaction, that transaction becomes the active working context.
+Catalyst One is a **Business Journey**, not a collection of independent screens.
 
-All navigation between related workspaces must preserve this context.
+Users continuously move through the business journey while remaining on the **same transaction**.
 
-Users must not be taken back to dashboard, Kanban, list, or search screens unless they explicitly choose to do so.
+At no point should navigation take the user back to Dashboard, Kanban, List View, or Search Results unless the user explicitly chooses to leave the transaction.
+
+## Certified business journey (navigable hops)
+
+Contact → Opportunity Workspace → Strategic Workspace → Document Center → Credit Workbench → Loan Workspace → Lender Pipeline → Tasks → Timeline → (Approval / Disbursement / Accounting / Closure on journey map)
+
+## Primary CTA + Back (required on every workspace)
+
+Every Enterprise Workspace must expose:
+
+1. **Primary Continue CTA** — next logical business action with forward arrow  
+   Examples: `Continue to Document Center →`, `Continue to Credit Workbench →`, `Open Lender Pipeline →`, `Continue Execution →`
+2. **Subtle Back** — previous workspace, always with transaction context  
+   Examples: `Back to Strategic Workspace`, `Back to Credit Workbench`
+
+CTA copy may change by transaction state (e.g. Loan Workspace: Open Lender Pipeline vs Continue Execution). Destination must still be the **same** Opportunity / Loan File — never a module dashboard.
 
 ## Context preservation
 
-From an open Opportunity / Loan File, navigation among related workspaces must stay on the same transaction:
+Whenever a user navigates from one workspace to another, preserve:
 
-Strategic Workspace → Loan Workspace → Lender Pipeline → Documents → Credit Workbench → Timeline → Dialogue → Tasks → Action Center destinations
+- Opportunity ID
+- Customer
+- Loan File
+- Current Context / Stage
 
-No intermediate dashboard or Kanban.
+Example: from Strategic Workspace for OPP-WS-001, **Continue to Credit Workbench** opens Credit Workbench for OPP-WS-001 — not Credit Workbench Dashboard, Kanban, Search, or Recent Files.
 
 ## When dashboards appear
 
@@ -31,20 +49,20 @@ Dashboard / list / Kanban / picker views are **entry points**. They appear only 
 2. The user intentionally returns to the dashboard / browse-all
 3. The user searches for or selects another transaction
 
-## When context is preserved
-
-Whenever the user is already working inside a transaction.
-
-Active Opportunity / Loan File remains active across related workspaces until the user explicitly changes it (dashboard entry, browse-all, or picking another case).
-
 ## Implementation SSOT
 
 - Session store: `src/lib/lead-opportunity-journey/active-context.ts`
 - Resolve loader: `src/lib/lead-opportunity-journey/load-context.ts`
-- In-transaction links: `buildJourneyHref(...)` (merges active context)
+- Lead spine: `src/constants/lead-opportunity-journey.ts` (`buildJourneyHref`, Continue/Back module order)
+- Business journey CTAs: `src/constants/enterprise-business-journey-navigation.ts`
+- Shared chrome: `LeadOpportunityJourneyChrome` (Continue → / Back)
 - Main-nav entry: `buildDashboardHref(...)` → `?entry=dashboard` (clears / ignores restore)
 
 Do not invent parallel “current case” stores for journey modules. Prefer these helpers.
+
+## Future workspaces
+
+Every future Enterprise Workspace must preserve transaction context and expose the next logical business action without routing through dashboards or module lists.
 
 ## Exception
 

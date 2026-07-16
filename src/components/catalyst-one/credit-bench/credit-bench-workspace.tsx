@@ -84,7 +84,7 @@ export function CreditBenchWorkspace() {
       <OpportunityContextPicker
         targetHref={ROUTES.CREDIT_BENCH}
         title="Select an opportunity to set up"
-        description="Opportunity Setup needs an active case. Pick one below or arrive here via Save & Continue from a guided journey."
+        description="Opportunity Setup needs an active case. Pick one below or continue from Contact while staying on the same transaction."
       />
     );
   }
@@ -352,8 +352,8 @@ export function CreditBenchWorkspace() {
                   />
                 </div>
                 <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                  Save Draft keeps setup information for Credit Workbench. Save & Continue opens Document
-                  Center to collect the applicable checklist.
+                  Save Draft keeps setup information. Continue to Strategic Workspace → advances this
+                  opportunity without leaving the transaction.
                 </p>
               </Panel>
             )}

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Plus } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
 import { ETE_PREDEFINED_DESCRIPTIONS, ETE_TASK_TYPES } from "@/constants/enterprise-task-engine";
 import {
   completeEteTask,
@@ -13,6 +14,13 @@ import {
 } from "@/lib/enterprise-task-engine";
 import type { EteTask } from "@/types/enterprise-task-engine";
 import { ROUTES } from "@/constants/routes";
+import {
+  buildBusinessJourneyHref,
+  getBusinessBackLabel,
+  getBusinessContinueLabel,
+  getBusinessJourneyNavStep,
+} from "@/constants/enterprise-business-journey-navigation";
+import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { PageHeader } from "@/components/design-system/page-header";
 import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { Button } from "@/components/ui/button";
@@ -121,8 +129,15 @@ function deadlineTone(task: EteTask): "green" | "amber" | "red" {
 }
 
 function workflowHref(task: EteTask): { href: string; label: string } {
-  if (task.taskType === "opportunity" || task.opportunityRef) {
-    return { href: ROUTES.OPPORTUNITY_WORKSPACE, label: "Opportunity Workspace" };
+  const active = getActiveOpportunityContext();
+  if (task.taskType === "opportunity" || task.opportunityRef || active?.fileId) {
+    return {
+      href: buildBusinessJourneyHref(getBusinessJourneyNavStep("loan_workspace"), {
+        fileId: active?.fileId,
+        opportunityId: active?.opportunityId ?? task.opportunityRef,
+      }),
+      label: "Loan Workspace",
+    };
   }
   return { href: ROUTES.LOAN_FILES, label: "Loan Workflow" };
 }
@@ -142,6 +157,7 @@ function assigneeLabel(ref: string): string {
  * Prompt 011 PART 6 — Task Experience (Create + Kanban).
  */
 export function TaskEngineWorkspace() {
+  const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<EteTask[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [taskType, setTaskType] = useState<EteTask["taskType"]>(ETE_TASK_TYPES.INDEPENDENT);
@@ -152,6 +168,23 @@ export function TaskEngineWorkspace() {
   const [customDescription, setCustomDescription] = useState("");
   const [dueOn, setDueOn] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [txFileId, setTxFileId] = useState<string | null>(null);
+  const [txOpportunityId, setTxOpportunityId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const active = getActiveOpportunityContext();
+    setTxFileId(searchParams.get("file") ?? active?.fileId ?? null);
+    setTxOpportunityId(searchParams.get("opportunityId") ?? active?.opportunityId ?? null);
+  }, [searchParams]);
+
+  const lenderBackHref = buildBusinessJourneyHref(getBusinessJourneyNavStep("lender_pipeline"), {
+    fileId: txFileId,
+    opportunityId: txOpportunityId,
+  });
+  const timelineContinueHref = buildBusinessJourneyHref(getBusinessJourneyNavStep("timeline"), {
+    fileId: txFileId,
+    opportunityId: txOpportunityId,
+  });
 
   const refresh = () => setTasks(listEteTasks());
 
@@ -201,7 +234,23 @@ export function TaskEngineWorkspace() {
         title="Tasks"
         description="Create work, then execute from the Kanban board — every card links to the related workflow."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {txFileId ? (
+              <>
+                <Button asChild size="sm" variant="ghost" className="h-9 gap-1.5 text-xs text-muted-foreground">
+                  <Link href={lenderBackHref}>
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    {getBusinessBackLabel(getBusinessJourneyNavStep("lender_pipeline"))}
+                  </Link>
+                </Button>
+                <Button asChild size="sm" className="h-9 gap-1.5 text-xs font-semibold">
+                  <Link href={timelineContinueHref}>
+                    {getBusinessContinueLabel(getBusinessJourneyNavStep("timeline"))}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </>
+            ) : null}
             <ChanakyaGuide
               offerTour={false}
               context={{ platform: "catalyst_one", workspaceId: "tasks" }}

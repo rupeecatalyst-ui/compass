@@ -29,14 +29,21 @@ export interface LeadJourneyModule {
   title: string;
 }
 
-/** Official Lead → Opportunity spine (nav + Save & Continue). */
+/** Official Lead → Opportunity spine — certified business order (frozen). */
 export const LEAD_OPPORTUNITY_JOURNEY: LeadJourneyModule[] = [
   {
     id: "credit_bench",
     stage: "lead",
-    label: "Opportunity Setup",
+    label: "Opportunity Workspace",
     href: ROUTES.CREDIT_BENCH,
     title: "Opportunity Setup",
+  },
+  {
+    id: "strategic_workspace",
+    stage: "lead",
+    label: "Strategic Workspace",
+    href: ROUTES.OPPORTUNITY_WORKSPACE,
+    title: "Strategic Workspace",
   },
   {
     id: "document_center",
@@ -51,13 +58,6 @@ export const LEAD_OPPORTUNITY_JOURNEY: LeadJourneyModule[] = [
     label: "Credit Workbench",
     href: ROUTES.CREDIT_WORKBENCH,
     title: "Credit Workbench",
-  },
-  {
-    id: "strategic_workspace",
-    stage: "lead",
-    label: "Strategic Workspace",
-    href: ROUTES.OPPORTUNITY_WORKSPACE,
-    title: "Strategic Workspace",
   },
   {
     id: "loan_workspace",
@@ -78,6 +78,12 @@ export function getNextLeadJourneyModule(id: LeadJourneyModuleId): LeadJourneyMo
   return LEAD_OPPORTUNITY_JOURNEY[idx + 1]!;
 }
 
+export function getPreviousLeadJourneyModule(id: LeadJourneyModuleId): LeadJourneyModule | null {
+  const idx = LEAD_OPPORTUNITY_JOURNEY.findIndex((m) => m.id === id);
+  if (idx <= 0) return null;
+  return LEAD_OPPORTUNITY_JOURNEY[idx - 1]!;
+}
+
 /**
  * Preserve file / opportunity context across in-transaction navigation.
  * Merges explicit context with Active Opportunity Context (SSOT).
@@ -85,17 +91,24 @@ export function getNextLeadJourneyModule(id: LeadJourneyModuleId): LeadJourneyMo
  */
 export function buildJourneyHref(
   baseHref: string,
-  context?: { fileId?: string | null; opportunityId?: string | null },
+  context?: {
+    fileId?: string | null;
+    opportunityId?: string | null;
+    /** Loan Workspace tab deep link (overview | lenders | timeline | …). */
+    tab?: string | null;
+  },
 ): string {
   const active =
     typeof window !== "undefined" ? getActiveOpportunityContext() : null;
   const fileId = context?.fileId ?? active?.fileId ?? null;
   const opportunityId = context?.opportunityId ?? active?.opportunityId ?? null;
+  const tab = context?.tab ?? null;
 
   const url = new URL(baseHref, "https://local.invalid");
   url.searchParams.delete(DASHBOARD_ENTRY_PARAM);
   if (fileId) url.searchParams.set("file", fileId);
   if (opportunityId) url.searchParams.set("opportunityId", opportunityId);
+  if (tab) url.searchParams.set("tab", tab);
   const q = url.searchParams.toString();
   return q ? `${url.pathname}?${q}` : url.pathname;
 }
