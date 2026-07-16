@@ -69,10 +69,49 @@ export const ACTION_CENTER_CATALOG: Array<
     group: "commercial",
     entityTypes: ["loan", "opportunity", "wealth_partner"],
   },
+  {
+    id: "open_credit_workbench",
+    label: "Open Credit Workbench",
+    description: "Continue credit evaluation without leaving this opportunity context.",
+    group: "navigation",
+    entityTypes: ["opportunity"],
+  },
+  {
+    id: "open_loan_workspace",
+    label: "Open Loan Workspace",
+    description: "Enter the loan execution workspace for this opportunity.",
+    group: "navigation",
+    entityTypes: ["opportunity"],
+  },
+  {
+    id: "add_contact",
+    label: "Add Contact",
+    description: "Create a contact linked to this opportunity.",
+    group: "navigation",
+    entityTypes: ["opportunity"],
+  },
+  {
+    id: "edit_contact",
+    label: "Edit Contact",
+    description: "Update the primary contact for this opportunity.",
+    group: "navigation",
+    entityTypes: ["opportunity"],
+  },
 ];
 
 /** Reference implementation actions available in Loan Workspace. */
 export const LOAN_REFERENCE_ACTION_IDS = [
+  "send_email",
+  "send_whatsapp",
+  "upload_documents",
+] as const;
+
+/** Strategic Workspace — Action Center as primary entry (nav + contacts). */
+export const OPPORTUNITY_REFERENCE_ACTION_IDS = [
+  "open_credit_workbench",
+  "open_loan_workspace",
+  "add_contact",
+  "edit_contact",
   "send_email",
   "send_whatsapp",
   "upload_documents",

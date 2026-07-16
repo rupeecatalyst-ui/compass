@@ -2,10 +2,14 @@
 
 import { useMemo, useState } from "react";
 import {
+  BriefcaseBusiness,
+  FileStack,
   FileUp,
   Mail,
   MessageCircle,
   MoreHorizontal,
+  Pencil,
+  Plus,
   Sparkles,
   Zap,
 } from "lucide-react";
@@ -35,9 +39,14 @@ const ICONS: Partial<Record<ActionCenterActionId, typeof Mail>> = {
   send_whatsapp: MessageCircle,
   upload_documents: FileUp,
   ask_chanakya: Sparkles,
+  open_credit_workbench: FileStack,
+  open_loan_workspace: BriefcaseBusiness,
+  add_contact: Plus,
+  edit_contact: Pencil,
 };
 
 const GROUP_LABEL: Record<string, string> = {
+  navigation: "Navigate",
   communication: "Communication",
   documents: "Documents",
   workflow: "Workflow",
@@ -87,7 +96,17 @@ export function ActionCenter({
       list.push(a);
       map.set(a.group, list);
     }
-    return [...map.entries()];
+    const order = [
+      "navigation",
+      "communication",
+      "documents",
+      "workflow",
+      "intelligence",
+      "commercial",
+    ];
+    return order
+      .filter((g) => map.has(g))
+      .map((g) => [g, map.get(g)!] as const);
   }, [actions]);
 
   return (
@@ -154,4 +173,4 @@ export function ActionCenter({
     </DropdownMenu>
   );
 }
-
+

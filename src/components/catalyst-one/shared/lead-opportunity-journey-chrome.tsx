@@ -28,7 +28,17 @@ export interface LeadOpportunityJourneyChromeProps {
   moduleId: LeadJourneyModuleId;
   /** Override business stage eyebrow (e.g. Opportunity after LIFE finalize). */
   stageOverride?: "lead" | "opportunity";
+  /** Override module title (e.g. customer name as workspace identity). */
+  title?: string;
+  /** Single-line meta under title — prefer over chip rows. */
+  identityLine?: string;
   context?: JourneyContextChips;
+  /** Hide context chip row (use identityLine instead). */
+  hideContextChips?: boolean;
+  /** Compact Enterprise Workspace Header (~40–50% shorter). */
+  density?: "default" | "compact";
+  /** Primary contextual actions (Action Center) — before Save. */
+  headerActions?: React.ReactNode;
   fileId?: string | null;
   opportunityId?: string | null;
   onSaveDraft?: () => void | Promise<void>;
@@ -41,12 +51,17 @@ export interface LeadOpportunityJourneyChromeProps {
 }
 
 /**
- * Shared Lead / Opportunity journey chrome — enterprise header + Save Draft / Save & Continue.
+ * Shared Lead / Opportunity journey chrome — single Enterprise Workspace Header.
  */
 export function LeadOpportunityJourneyChrome({
   moduleId,
   stageOverride,
+  title,
+  identityLine,
   context,
+  hideContextChips = false,
+  density = "default",
+  headerActions,
   fileId,
   opportunityId,
   onSaveDraft,
@@ -60,6 +75,7 @@ export function LeadOpportunityJourneyChrome({
   const mod = getLeadJourneyModule(moduleId);
   const stage = stageOverride ?? mod.stage;
   const next = getNextLeadJourneyModule(moduleId);
+  const compact = density === "compact";
 
   const handleContinue = async () => {
     if (onBeforeContinue) {
@@ -85,62 +101,80 @@ export function LeadOpportunityJourneyChrome({
     );
   };
 
-  const chips: Array<{ label: string; value: string }> = [
-    context?.opportunity ? { label: "Opportunity", value: context.opportunity } : null,
-    context?.customer ? { label: "Customer", value: context.customer } : null,
-    context?.product ? { label: "Product", value: context.product } : null,
-    context?.amount ? { label: "Loan Amount", value: context.amount } : null,
-    context?.life ? { label: "Selected LIFE", value: context.life } : null,
-    context?.stage ? { label: "Stage", value: context.stage } : null,
-    context?.rm ? { label: "RM", value: context.rm } : null,
-  ].filter(Boolean) as Array<{ label: string; value: string }>;
+  const chips: Array<{ label: string; value: string }> = hideContextChips
+    ? []
+    : ([
+        context?.opportunity ? { label: "Opportunity", value: context.opportunity } : null,
+        context?.customer ? { label: "Customer", value: context.customer } : null,
+        context?.product ? { label: "Product", value: context.product } : null,
+        context?.amount ? { label: "Loan Amount", value: context.amount } : null,
+        context?.life ? { label: "Selected LIFE", value: context.life } : null,
+        context?.stage ? { label: "Stage", value: context.stage } : null,
+        context?.rm ? { label: "RM", value: context.rm } : null,
+      ].filter(Boolean) as Array<{ label: string; value: string }>);
+
+  const displayTitle = title?.trim() || mod.title;
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <header className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
-        <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 sm:px-5">
-          <div className="min-w-0 space-y-1">
-            <p
-              className={cn(
-                "text-[10px] font-semibold uppercase tracking-[0.18em]",
-                stage === "lead"
-                  ? "text-teal-700/90 dark:text-teal-300/90"
-                  : "text-violet-700/90 dark:text-violet-300/90",
-              )}
-            >
-              {journeyStageEyebrow(stage)}
-            </p>
-            <h1 className="truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-              {mod.title}
-            </h1>
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-4 sm:px-5",
+            compact ? "py-1.5" : "py-2",
+          )}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <p
+                className={cn(
+                  "shrink-0 text-[9px] font-semibold uppercase tracking-[0.16em]",
+                  stage === "lead"
+                    ? "text-teal-700/90 dark:text-teal-300/90"
+                    : "text-violet-700/90 dark:text-violet-300/90",
+                )}
+              >
+                {journeyStageEyebrow(stage)}
+              </p>
+              <h1
+                className={cn(
+                  "truncate font-semibold tracking-tight text-foreground",
+                  compact ? "text-sm sm:text-base" : "text-base sm:text-lg",
+                )}
+              >
+                {displayTitle}
+              </h1>
+            </div>
+            {identityLine ? (
+              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{identityLine}</p>
+            ) : null}
             {chips.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
+              <div className="flex flex-wrap gap-1 pt-1">
                 {chips.map((c) => (
                   <span
                     key={c.label}
-                    className="inline-flex max-w-[200px] flex-col rounded-md border border-border/60 bg-muted/30 px-2 py-0.5"
+                    className="inline-flex max-w-[180px] items-center gap-1 rounded border border-border/50 bg-muted/20 px-1.5 py-px text-[10px]"
                   >
-                    <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {c.label}
-                    </span>
-                    <span className="truncate text-[10px] font-semibold text-foreground">{c.value}</span>
+                    <span className="font-medium text-muted-foreground">{c.label}</span>
+                    <span className="truncate font-semibold text-foreground">{c.value}</span>
                   </span>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {headerActions}
             {onSaveDraft && (
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 gap-1.5 text-xs"
+                className="h-7 gap-1 px-2 text-[11px]"
                 disabled={saving}
                 onClick={() => void onSaveDraft()}
               >
-                <Save className="h-3.5 w-3.5" />
+                <Save className="h-3 w-3" />
                 Save Draft
               </Button>
             )}
@@ -148,16 +182,21 @@ export function LeadOpportunityJourneyChrome({
               <Button
                 type="button"
                 size="sm"
-                className="h-8 gap-1.5 text-xs"
+                className="h-7 gap-1 px-2 text-[11px]"
                 disabled={saving}
                 onClick={() => void handleContinue()}
               >
                 Save & Continue
-                <ArrowRight className="h-3.5 w-3.5" />
+                <ArrowRight className="h-3 w-3" />
               </Button>
             )}
             {!hideContinue && next && (
-              <Button asChild size="sm" variant="ghost" className="h-8 text-[11px] text-muted-foreground">
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[10px] text-muted-foreground"
+              >
                 <Link
                   href={buildJourneyHref(next.href, { fileId, opportunityId })}
                   className="gap-1"

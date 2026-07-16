@@ -20,7 +20,11 @@ export type ActionCenterActionId =
   | "assign_user"
   | "schedule_followup"
   | "ask_chanakya"
-  | "view_commercial_summary";
+  | "view_commercial_summary"
+  | "open_credit_workbench"
+  | "open_loan_workspace"
+  | "add_contact"
+  | "edit_contact";
 
 export type CommunicationRecipientType =
   | "customer"
@@ -48,7 +52,13 @@ export interface ActionCenterActionDef {
   /** When false, shown disabled with reason. */
   available: boolean;
   reason?: string;
-  group: "communication" | "documents" | "workflow" | "intelligence" | "commercial";
+  group:
+    | "communication"
+    | "documents"
+    | "workflow"
+    | "intelligence"
+    | "commercial"
+    | "navigation";
 }
 
 export interface ContextParticipant {
@@ -100,4 +110,4 @@ export interface OutboxMessage {
   /** Epoch ms when countdown should fire. */
   dispatchAtMs: number;
 }
-
+

@@ -10,7 +10,6 @@ import {
 } from "./opportunity-workspace-context";
 import { WorkspaceContactSummary } from "./workspace-contact-summary";
 import { WorkspaceDocumentsPanel } from "./workspace-documents-panel";
-import { WorkspaceHeader } from "./workspace-header";
 import { WorkspaceLifePanel } from "./workspace-life-panel";
 import { WorkspaceTasksPanel } from "./workspace-tasks-panel";
 import { WorkspaceWorkflowPanel } from "./workspace-workflow-panel";
@@ -26,7 +25,6 @@ import { WorkspaceNotesPanel } from "./workspace-notes-panel";
 import { WorkspaceChanakyaTabGuide } from "./workspace-chanakya-tab-guide";
 import { WorkspaceStrategicNav } from "./workspace-strategic-nav";
 import type { OwStrategicTabId } from "./strategic-tabs";
-import { OwSectionLabel } from "./workspace-design";
 import {
   ContactCreationIntentScreen,
   type ContactCreationIntentResult,
@@ -35,13 +33,18 @@ import { QuickContactCreationWizard } from "@/components/catalyst-one/contacts/q
 import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { DocumentCompletionGateDialog } from "@/components/catalyst-one/shared/document-completion-gate-dialog";
+import { OpportunityActionCenter } from "@/components/catalyst-one/action-center";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { ROLES } from "@/constants/roles";
 import { evaluateDocumentCompletionForLoanFile } from "@/lib/document-completion/evaluate-for-loan";
-import { resolveLoansForOpportunity } from "@/lib/opportunity-loan-continuity";
+import {
+  buildOpportunityLoanWorkspaceHref,
+  resolveLoansForOpportunity,
+} from "@/lib/opportunity-loan-continuity";
 import type { DocumentCompletionScore } from "@/lib/document-completion/score";
 import { getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
+import { ROUTES } from "@/constants/routes";
 
 function OpportunityWorkspaceShell() {
   const { user } = useAuthContext();
@@ -89,6 +92,34 @@ function OpportunityWorkspaceShell() {
     return loans[0] ?? null;
   }, [opportunityId, contact]);
 
+  const loanHref = useMemo(() => {
+    if (!opportunity?.id) return ROUTES.LOAN_FILES;
+    return buildOpportunityLoanWorkspaceHref({
+      opportunityId: opportunity.id,
+      contact: contact
+        ? {
+            id: contact.id,
+            name: contact.name,
+            mobilePrimary: contact.mobilePrimary,
+          }
+        : null,
+    });
+  }, [opportunity?.id, contact]);
+
+  const creditHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (opportunity?.id) params.set("opportunityId", opportunity.id);
+    try {
+      const loanUrl = new URL(loanHref, "https://local.invalid");
+      const file = loanUrl.searchParams.get("file");
+      if (file) params.set("file", file);
+    } catch {
+      /* ignore */
+    }
+    const q = params.toString();
+    return q ? `${ROUTES.CREDIT_WORKBENCH}?${q}` : ROUTES.CREDIT_WORKBENCH;
+  }, [opportunity?.id, loanHref]);
+
   const openTab = (next: OwStrategicTabId) => {
     setTab(next);
     const focusMap: Partial<Record<OwStrategicTabId, WorkspaceFocus>> = {
@@ -121,6 +152,16 @@ function OpportunityWorkspaceShell() {
 
   const firstName = user?.firstName?.trim() || "there";
   const lifeFinalized = Boolean(selectedLender);
+  const stageLabel = getJourneyStageDisplayLabel(stageCode);
+  const identityLine = [
+    opportunity?.opportunityCode,
+    productLabel,
+    stageLabel,
+    selectedLender?.lenderName,
+    contact?.ownerName ? `RM ${contact.ownerName}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   if (!opportunityId) {
     return (
@@ -135,17 +176,42 @@ function OpportunityWorkspaceShell() {
       <LeadOpportunityJourneyChrome
         moduleId="strategic_workspace"
         stageOverride={lifeFinalized ? "opportunity" : "lead"}
+        density="compact"
+        hideContextChips
+        title={contact?.name ?? "Strategic Workspace"}
+        identityLine={identityLine || undefined}
         context={{
           opportunity: opportunity?.opportunityCode,
           customer: contact?.name,
           product: productLabel,
           amount: loanAmountLabel,
           life: selectedLender?.lenderName,
-          stage: getJourneyStageDisplayLabel(stageCode),
+          stage: stageLabel,
           rm: contact?.ownerName,
         }}
         fileId={activeLoan?.id}
         opportunityId={opportunityId}
+        headerActions={
+          <OpportunityActionCenter
+            entityId={opportunityId}
+            entityLabel={`${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
+            product={productLabel}
+            stage={stageLabel}
+            canEditContact={Boolean(contact)}
+            onOpenCreditWorkbench={() => router.push(creditHref)}
+            onOpenLoanWorkspace={() => {
+              if (!checkDocumentGate("open Loan Workspace")) return;
+              router.push(loanHref);
+            }}
+            onAddContact={() => setIntentOpen(true)}
+            onEditContact={() => {
+              if (!contact) return;
+              setEditContact(contact);
+              setEditOpen(true);
+            }}
+            onUploadDocuments={() => openTab("documents")}
+          />
+        }
         onSaveDraft={async () => {
           /* Planning state already persists via local workspace storage. */
         }}
@@ -158,25 +224,12 @@ function OpportunityWorkspaceShell() {
         }}
         hideContinue={!lifeFinalized}
       >
-        <div className="dark relative flex min-h-0 flex-1 flex-col gap-3 overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/50 p-3 sm:p-4">
+        <div className="dark relative flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/50 p-2 sm:p-3">
           <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-[radial-gradient(ellipse_at_top,rgba(15,118,110,0.18),transparent_55%)]" />
-
-          <WorkspaceHeader
-            onAddContact={() => setIntentOpen(true)}
-            onEditContact={() => {
-              if (!contact) return;
-              setEditContact(contact);
-              setEditOpen(true);
-            }}
-            onLoanWorkspaceNavigate={(href) => {
-              if (!checkDocumentGate("open Loan Workspace")) return;
-              router.push(href);
-            }}
-          />
 
           <div
             className={cn(
-              "grid min-h-0 flex-1 gap-3",
+              "grid min-h-0 flex-1 gap-2",
               "grid-cols-1 lg:grid-cols-[13.5rem_minmax(0,1fr)_18rem] xl:grid-cols-[14.5rem_minmax(0,1fr)_19rem]",
             )}
           >
@@ -186,9 +239,8 @@ function OpportunityWorkspaceShell() {
 
             <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
               <div className="flex h-full min-h-0 flex-col">
-                <div className="shrink-0 border-b border-white/10 px-4 py-2.5">
-                  <OwSectionLabel>Active Workspace</OwSectionLabel>
-                  <p className="mt-0.5 text-sm font-semibold text-zinc-50">{tabLabel(tab)}</p>
+                <div className="shrink-0 border-b border-white/10 px-3 py-1.5">
+                  <p className="text-xs font-semibold text-zinc-50">{tabLabel(tab)}</p>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
                   {tab === "overview" && <WorkspaceOverviewPanel onOpenTab={openTab} />}
@@ -311,4 +363,3 @@ export function OpportunityWorkspace() {
     </OpportunityWorkspaceProvider>
   );
 }
-

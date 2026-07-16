@@ -18,4 +18,6 @@ Frozen interaction model for Catalyst One (and reusable across ecosystem platfor
 9. This model is reusable across Customer, Opportunity, Loan File, Wealth Partner, Lender, and future modules.
 
 Prefer alignment with `src/components/catalyst-one/action-center/` rather than inventing parallel action menus or navigation-based compose flows.
+
+Header rule: one Enterprise Workspace Header per screen; never duplicate identity chips/CTAs. Navigation actions (Open Credit Workbench, Open Loan Workspace, Add/Edit Contact) belong in Action Center — not as permanent header buttons.
 
