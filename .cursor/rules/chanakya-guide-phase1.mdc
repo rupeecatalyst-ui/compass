@@ -1,0 +1,43 @@
+---
+description: Chanakya Guide Phase 1 — Enterprise Guide certification requirement
+alwaysApply: true
+---
+
+# Chanakya Guide (Phase 1) — Frozen
+
+Chanakya Guide is the built-in Enterprise Guide of Catalyst One.
+
+## Phase boundary
+
+Phase 1 only: guidance framework (what / why / what to do / what next / best practice).
+
+Do **not** implement in this phase:
+
+- Enterprise Success Coach
+- Stage Tolerance Policies
+- Resolution Tasks
+- Learning Framework
+- Supervisor Collaboration
+- Enterprise Intelligence / Coaching Engine
+
+## Requirements
+
+1. Every major Enterprise Workspace must expose a permanent **Chanakya Guide** button.
+2. Guide opens as a slide-over Context Workspace — never leave the current screen.
+3. Guidance content lives in the configurable repository (`src/constants/chanakya-guide/`), not hardcoded in page components.
+4. Cards follow Purpose → Business Value → Recommended Next Step, with Learn More expansion.
+5. First-time tour supports Skip / Pause / Resume / Restart — never forced.
+6. Context-aware: platform, workspace, module, transaction label where applicable.
+
+## Certification rule
+
+Every Enterprise Workspace must have Chanakya Guide content before it is considered Enterprise Certified.
+
+If Chanakya cannot explain a page, that page is not yet complete.
+
+## SSOT paths
+
+- Types: `src/types/chanakya-guide.ts`
+- Repository: `src/constants/chanakya-guide/`
+- Resolve / tour state: `src/lib/chanakya-guide/`
+- UI: `src/components/catalyst-one/chanakya-guide/`

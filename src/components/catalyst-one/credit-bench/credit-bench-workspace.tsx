@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Building2, FileText, Home, UserRound, Wallet } from "lucide-react";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
+import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import {
   journeyContextFromLoanFile,
   loadLeadJourneyLoanFile,
@@ -110,6 +111,19 @@ export function CreditBenchWorkspace() {
         context={context}
         fileId={file.id}
         opportunityId={opportunityId}
+        headerActions={
+          <ChanakyaGuide
+            offerTour={false}
+            context={{
+              platform: "catalyst_one",
+              workspaceId: "opportunity_setup",
+              moduleId: section,
+              transactionLabel: context.customer
+                ? `${context.customer}${context.opportunity ? ` · ${context.opportunity}` : ""}`
+                : undefined,
+            }}
+          />
+        }
         onSaveDraft={persistDraft}
         saving={saving}
       >

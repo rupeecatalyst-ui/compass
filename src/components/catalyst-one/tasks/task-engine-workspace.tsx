@@ -14,6 +14,7 @@ import {
 import type { EteTask } from "@/types/enterprise-task-engine";
 import { ROUTES } from "@/constants/routes";
 import { PageHeader } from "@/components/design-system/page-header";
+import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -200,10 +201,16 @@ export function TaskEngineWorkspace() {
         title="Tasks"
         description="Create work, then execute from the Kanban board — every card links to the related workflow."
         actions={
-          <Button type="button" className="h-10 gap-2 rounded-xl" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Create Task
-          </Button>
+          <div className="flex items-center gap-2">
+            <ChanakyaGuide
+              offerTour={false}
+              context={{ platform: "catalyst_one", workspaceId: "tasks" }}
+            />
+            <Button type="button" className="h-10 gap-2 rounded-xl" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Create Task
+            </Button>
+          </div>
         }
       />
 

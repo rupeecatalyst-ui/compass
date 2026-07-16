@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
+import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { loadLeadJourneyLoanFile } from "@/lib/lead-opportunity-journey/load-context";
 import { isDashboardNavEntry } from "@/lib/lead-opportunity-journey/active-context";
 import {
@@ -175,6 +176,16 @@ export function EnterpriseCreditWorkspace() {
         }}
         fileId={file.id}
         opportunityId={opportunityId}
+        headerActions={
+          <ChanakyaGuide
+            offerTour={false}
+            context={{
+              platform: "catalyst_one",
+              workspaceId: "credit_workbench",
+              transactionLabel: `${file.customerName} · ${opportunityNumber}`,
+            }}
+          />
+        }
         onSaveDraft={async () => {
           saveStatedDraft(file.id, stated);
           showToast("Verification draft saved for Opportunity Setup continuity.");

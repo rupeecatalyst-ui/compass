@@ -13,6 +13,7 @@ import {
 import { DocumentsWorkspace } from "@/components/catalyst-one/documents/documents-workspace";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
+import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import {
   journeyContextFromLoanFile,
   loadLeadJourneyLoanFile,
@@ -180,6 +181,18 @@ export function DocumentCenterWorkspace() {
         context={context}
         fileId={file.id}
         opportunityId={opportunityId}
+        headerActions={
+          <ChanakyaGuide
+            offerTour={false}
+            context={{
+              platform: "catalyst_one",
+              workspaceId: "document_center",
+              transactionLabel: context.customer
+                ? `${context.customer}${context.opportunity ? ` · ${context.opportunity}` : ""}`
+                : undefined,
+            }}
+          />
+        }
         onSaveDraft={async () => {
           if (file) saveReceipts(file.id, receipts);
         }}

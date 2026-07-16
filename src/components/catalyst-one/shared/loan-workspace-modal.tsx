@@ -11,6 +11,7 @@ import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-work
 import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-workspace-command-bar";
 import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
+import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
@@ -943,24 +944,35 @@ function LoanWorkspaceModalContent({
           </Button>
         }
         headerActions={
-          <LoanActionCenter
-            loan={draft}
-            onDocumentsChange={(documents) => patch({ documents })}
-            onTimelineNote={(title, description) =>
-              patch({
-                timeline: [
-                  {
-                    id: `tl-${Date.now()}`,
-                    title,
-                    description,
-                    timestamp: new Date().toISOString(),
-                    completed: true,
-                  },
-                  ...draft.timeline,
-                ],
-              })
-            }
-          />
+          <div className="flex items-center gap-1.5">
+            <ChanakyaGuide
+              offerTour={false}
+              context={{
+                platform: "catalyst_one",
+                workspaceId: activeTab === "lenders" ? "lender_pipeline" : "loan_workspace",
+                moduleId: activeTab,
+                transactionLabel: `${draft.customerName} · ${draft.fileNumber}`,
+              }}
+            />
+            <LoanActionCenter
+              loan={draft}
+              onDocumentsChange={(documents) => patch({ documents })}
+              onTimelineNote={(title, description) =>
+                patch({
+                  timeline: [
+                    {
+                      id: `tl-${Date.now()}`,
+                      title,
+                      description,
+                      timestamp: new Date().toISOString(),
+                      completed: true,
+                    },
+                    ...draft.timeline,
+                  ],
+                })
+              }
+            />
+          </div>
         }
         executionLayout={
           activeTab === "lenders"

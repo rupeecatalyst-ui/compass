@@ -34,6 +34,7 @@ import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contac
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { DocumentCompletionGateDialog } from "@/components/catalyst-one/shared/document-completion-gate-dialog";
 import { OpportunityActionCenter } from "@/components/catalyst-one/action-center";
+import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { ROLES } from "@/constants/roles";
@@ -192,25 +193,36 @@ function OpportunityWorkspaceShell() {
         fileId={activeLoan?.id}
         opportunityId={opportunityId}
         headerActions={
-          <OpportunityActionCenter
-            entityId={opportunityId}
-            entityLabel={`${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
-            product={productLabel}
-            stage={stageLabel}
-            canEditContact={Boolean(contact)}
-            onOpenCreditWorkbench={() => router.push(creditHref)}
-            onOpenLoanWorkspace={() => {
-              if (!checkDocumentGate("open Loan Workspace")) return;
-              router.push(loanHref);
-            }}
-            onAddContact={() => setIntentOpen(true)}
-            onEditContact={() => {
-              if (!contact) return;
-              setEditContact(contact);
-              setEditOpen(true);
-            }}
-            onUploadDocuments={() => openTab("documents")}
-          />
+          <div className="flex items-center gap-1.5">
+            <ChanakyaGuide
+              offerTour
+              context={{
+                platform: "catalyst_one",
+                workspaceId: "strategic_workspace",
+                moduleId: tab,
+                transactionLabel: `${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`,
+              }}
+            />
+            <OpportunityActionCenter
+              entityId={opportunityId}
+              entityLabel={`${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
+              product={productLabel}
+              stage={stageLabel}
+              canEditContact={Boolean(contact)}
+              onOpenCreditWorkbench={() => router.push(creditHref)}
+              onOpenLoanWorkspace={() => {
+                if (!checkDocumentGate("open Loan Workspace")) return;
+                router.push(loanHref);
+              }}
+              onAddContact={() => setIntentOpen(true)}
+              onEditContact={() => {
+                if (!contact) return;
+                setEditContact(contact);
+                setEditOpen(true);
+              }}
+              onUploadDocuments={() => openTab("documents")}
+            />
+          </div>
         }
         onSaveDraft={async () => {
           /* Planning state already persists via local workspace storage. */
