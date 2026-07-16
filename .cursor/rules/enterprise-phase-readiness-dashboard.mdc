@@ -1,0 +1,59 @@
+---
+description: Enterprise UX — Phase Readiness Dashboard (transaction health below Journey Navigator)
+alwaysApply: true
+---
+
+# Phase Readiness Dashboard — Enterprise UX Constitution
+
+Complements Business Journey Navigator and Chanakya Guide.
+
+- Navigator shows **where** the user is.
+- Phase Readiness shows **how ready** the transaction is.
+- Chanakya explains **why** and **what next**.
+
+## Placement
+
+Immediately below the Business Journey Navigator on every major Enterprise Workspace.
+
+## Four certified phases (frozen)
+
+1. Lead Qualification (blue)
+2. Credit Readiness (purple)
+3. Loan Execution (green)
+4. Post Disbursement (orange)
+
+Each phase: circular progress · percentage · status colour · hover tooltip · expandable details.
+
+## Overall Transaction Readiness
+
+Headline KPI derived from all four phases — premium circular indicator above the phase cards.
+
+## Document Completion (first-class)
+
+Not a bare `18 / 25` count. Show:
+
+- Document Collection % + progress bar
+- Document count
+- Mandatory vs Optional
+- Critical missing documents
+- Document Health: Received · Pending · Rejected · Expired · Under Verification · Verified (each coloured)
+
+## Chanakya intelligence
+
+Short, mentor-like, actionable readiness messages (business-oriented).
+
+## Implementation SSOT
+
+- Derive: `src/lib/enterprise-phase-readiness/`
+- Types: `src/types/enterprise-phase-readiness.ts`
+- UI: `src/components/catalyst-one/phase-readiness-dashboard/`
+- Wired via `LeadOpportunityJourneyChrome`, Loan Workspace, Tasks
+
+## Principle
+
+Never show isolated statistics. Every metric explains business readiness:
+
+- Where the transaction stands
+- What is missing
+- Why it is blocked
+- What should happen next

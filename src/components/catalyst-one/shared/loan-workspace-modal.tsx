@@ -65,6 +65,7 @@ import {
   BusinessJourneyNavigator,
   BusinessTransitionCard,
 } from "@/components/catalyst-one/business-journey-navigator";
+import { PhaseReadinessDashboard } from "@/components/catalyst-one/phase-readiness-dashboard";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
@@ -986,6 +987,14 @@ function LoanWorkspaceModalContent({
       <BusinessJourneyNavigator
         currentStageId={navigatorStageId}
         className="border-b border-border/60 bg-background/95"
+      />
+      <PhaseReadinessDashboard
+        file={draft}
+        lifeFinalized
+        hasContact
+        hasOpportunity
+        customerName={draft.customerName}
+        productLabel={draft.loanProduct}
       />
       <WorkspaceHeader
         title="Loan Workflow"

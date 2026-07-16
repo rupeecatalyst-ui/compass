@@ -192,6 +192,7 @@ function OpportunityWorkspaceShell() {
         }}
         fileId={activeLoan?.id}
         opportunityId={opportunityId}
+        lifeFinalized={lifeFinalized}
         headerActions={
           <div className="flex items-center gap-1.5">
             <ChanakyaGuide

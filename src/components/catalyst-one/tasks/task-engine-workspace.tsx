@@ -26,6 +26,7 @@ import {
   BusinessJourneyNavigator,
   BusinessTransitionCard,
 } from "@/components/catalyst-one/business-journey-navigator";
+import { PhaseReadinessDashboard } from "@/components/catalyst-one/phase-readiness-dashboard";
 import { PageHeader } from "@/components/design-system/page-header";
 import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { Button } from "@/components/ui/button";
@@ -237,10 +238,18 @@ export function TaskEngineWorkspace() {
   return (
     <div className="space-y-5">
       {txFileId ? (
-        <BusinessJourneyNavigator
-          currentStageId="tasks"
-          className="-mx-4 border-b border-border/60 bg-background/95 md:-mx-6 lg:-mx-8"
-        />
+        <>
+          <BusinessJourneyNavigator
+            currentStageId="tasks"
+            className="-mx-4 border-b border-border/60 bg-background/95 md:-mx-6 lg:-mx-8"
+          />
+          <PhaseReadinessDashboard
+            fileId={txFileId}
+            hasContact
+            hasOpportunity
+            className="-mx-4 md:-mx-6 lg:-mx-8"
+          />
+        </>
       ) : null}
       <PageHeader
         title="Tasks"

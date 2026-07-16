@@ -28,6 +28,7 @@ import {
   BusinessJourneyNavigator,
   BusinessTransitionCard,
 } from "@/components/catalyst-one/business-journey-navigator";
+import { PhaseReadinessDashboard } from "@/components/catalyst-one/phase-readiness-dashboard";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +69,10 @@ export interface LeadOpportunityJourneyChromeProps {
   hideBack?: boolean;
   /** Hide Business Journey Navigator strip (rare). */
   hideJourneyNavigator?: boolean;
+  /** Hide Phase Readiness Dashboard (rare). */
+  hidePhaseReadiness?: boolean;
+  /** LIFE finalized — improves Lead Qualification readiness. */
+  lifeFinalized?: boolean;
 }
 
 /**
@@ -93,6 +98,8 @@ export function LeadOpportunityJourneyChrome({
   hideContinue,
   hideBack,
   hideJourneyNavigator,
+  hidePhaseReadiness,
+  lifeFinalized,
 }: LeadOpportunityJourneyChromeProps) {
   const router = useRouter();
   const mod = getLeadJourneyModule(moduleId);
@@ -188,6 +195,16 @@ export function LeadOpportunityJourneyChrome({
       <div className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
         {!hideJourneyNavigator ? (
           <BusinessJourneyNavigator currentStageId={navigatorStageId} />
+        ) : null}
+        {!hidePhaseReadiness && (fileId || opportunityId) ? (
+          <PhaseReadinessDashboard
+            fileId={fileId}
+            lifeFinalized={lifeFinalized}
+            hasContact={Boolean(context?.customer)}
+            hasOpportunity={Boolean(fileId || opportunityId || context?.opportunity)}
+            customerName={context?.customer}
+            productLabel={context?.product}
+          />
         ) : null}
         <header>
           <div
