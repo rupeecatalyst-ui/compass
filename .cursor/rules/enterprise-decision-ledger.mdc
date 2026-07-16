@@ -1,0 +1,59 @@
+---
+description: Enterprise Decision Ledger (EDL) — constitutional memory; facts immutable; history never rewritten
+alwaysApply: true
+---
+
+# Enterprise Decision Ledger (EDL) — Governance Constitution
+
+Status: **ENTERPRISE APPROVED** · P0 Go-Live Critical · Constitutional
+
+This is **NOT** an Audit Log.  
+This is **NOT** the Dialogue Center.
+
+## Constitutional principles (frozen)
+
+1. Facts are immutable.
+2. Enterprise history must never be rewritten.
+3. Business rules are versioned.
+4. Commercial agreements are versioned.
+5. Historical calculations remain historically correct.
+6. Every important enterprise decision must leave a permanent, time-stamped, explainable record.
+
+## Purpose
+
+EDL is the constitutional memory of Catalyst One. Configuration and commercial changes are append-only ledger entries — never silent overwrites.
+
+## When to record
+
+Create an EDL entry for: Commission Structure · Partner/Lender Commercials · Product Rules · Credit Policies · Workflow/Stage/SLA Configuration · Document Checklist · Business Rules · Policy Engine · Credit & Risk Engine · Experience Console · Organization Settings · User Role / Permission changes · any future Enterprise Engine configuration.
+
+Categories are configurable via `EDL_CHANGE_CATEGORIES`.
+
+## Required fields
+
+Ledger ID · Date/Time · Requested By · Approved By · Implemented By · Previous Value · New Value · Business Justification (mandatory) · Effective From · Effective Until · Version Number · Impact Scope · Change Type · Related Engine · Related Entity
+
+## Temporal integrity
+
+Future changes affect **future** transactions only unless an explicit migration runs. Historical transactions keep the rule / commercial version effective on their creation date.
+
+## Chanakya
+
+Chanakya uses EDL as a knowledge source (`resolveChanakyaEdlExplanation`). Chanakya explains history. Chanakya **never invents** history.
+
+## Implementation SSOT (Phase 1)
+
+- Types: `src/types/enterprise-decision-ledger.ts` (+ ports)
+- Constants: `src/constants/enterprise-decision-ledger/`
+- Engine: `src/lib/enterprise-decision-ledger/`
+- UI: `/admin/enterprise-decision-ledger`
+- Emitters (Phase 1): ECG config changes, Product Library drafts, Credit Risk policy audits, EPDE policy registration, commercial versioning APIs
+
+Database structure = TypeScript domain + ports; Prisma adapters later via `configureEdlPorts()`.
+
+## Do not
+
+- Overwrite or delete ledger rows
+- Silently mutate original lead source / campaign / creator / creation date
+- Auto-recalculate historical commissions when a new commercial version publishes
+- Treat EDL as Dialogue Center or a generic audit dump

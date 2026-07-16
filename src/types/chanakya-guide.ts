@@ -15,6 +15,7 @@ export type ChanakyaGuideWorkspaceId =
   | "dialogue"
   | "tasks"
   | "lender_pipeline"
+  | "enterprise_decision_ledger"
   | "platform_tour";
 
 /** Runtime context used to resolve repository entries. */

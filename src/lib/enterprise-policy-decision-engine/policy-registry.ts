@@ -75,6 +75,35 @@ export function registerEpdePolicy(input: CreatePolicyInput): EpdePolicy {
     remarks: `Registered policy ${policy.policyCode}`,
   });
 
+  void import("@/lib/enterprise-decision-ledger")
+    .then((edl) =>
+      edl.recordEnterpriseDecision({
+        requestedBy: input.createdBy,
+        approvedBy: input.createdBy,
+        previousValue: null,
+        newValue: {
+          policyCode: policy.policyCode,
+          policyName: policy.policyName,
+          lifecycleStatus: policy.lifecycleStatus,
+          priority: policy.priority,
+        },
+        businessJustification: `EPDE policy registered: ${policy.policyName} (${policy.policyCode}).`,
+        effectiveFrom: policy.effectiveFrom || now,
+        effectiveUntil: policy.effectiveTo || null,
+        versionNumber: "1.0",
+        impactScope: "policy",
+        changeType: "created",
+        changeCategory: "policy_engine_configuration",
+        relatedEngine: "EPDE · Enterprise Policy Decision Engine",
+        relatedEntityType: "epde_policy",
+        relatedEntityId: policy.id,
+        relatedEntityLabel: policy.policyName,
+        notImpactedNote:
+          "Policy versions are temporally bound; historical evaluations remain on the version effective at evaluation time.",
+      }),
+    )
+    .catch(() => undefined);
+
   return policy;
 }
 

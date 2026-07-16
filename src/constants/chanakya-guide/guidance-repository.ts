@@ -67,6 +67,13 @@ export const CHANAKYA_GUIDE_WORKSPACE_META: ChanakyaGuideWorkspaceMeta[] = [
     workspaceLabel: "Tasks",
     pagePurpose: "Manage follow-ups and operational tasks across the book.",
   },
+  {
+    platform: "catalyst_one",
+    workspaceId: "enterprise_decision_ledger",
+    workspaceLabel: "Enterprise Decision Ledger",
+    pagePurpose:
+      "Browse permanent enterprise decisions — configuration and commercial history that must never be rewritten.",
+  },
 ];
 
 /**
@@ -312,6 +319,25 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     relatedWorkflow: "Task follow-up",
     relatedRegistry: "Enterprise Task Engine (ETE)",
     relatedEnterpriseEngine: "ETE",
+    sortOrder: 10,
+  },
+  {
+    id: "c1-edl-purpose",
+    platform: "catalyst_one",
+    workspaceId: "enterprise_decision_ledger",
+    section: "default",
+    guidanceTitle: "Constitutional memory",
+    mentorMessage:
+      "Every important enterprise decision leaves a permanent, time-stamped record here. Chanakya explains this history — Chanakya never invents it.",
+    detailedGuidance:
+      "Use the Enterprise Decision Ledger to answer what changed, who requested and approved it, why it changed, when it became effective, and which transactions stay on prior versions. Commercial agreements are versioned; historical calculations remain historically correct.",
+    bestPractice:
+      "When explaining commission or policy on a transaction, cite the EDL version effective on the transaction creation date.",
+    recommendedNextStep:
+      "Open a ledger entry and confirm Requested By, Approved By, Justification, and Effective From before advising stakeholders.",
+    relatedWorkflow: "Enterprise governance",
+    relatedRegistry: "Enterprise Decision Ledger (EDL)",
+    relatedEnterpriseEngine: "EDL · Enterprise Decision Ledger",
     sortOrder: 10,
   },
 ];

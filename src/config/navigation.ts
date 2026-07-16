@@ -166,6 +166,11 @@ export const enterpriseAdministrationNavigation: NavGroup = {
       icon: Boxes,
     },
     {
+      title: "Enterprise Decision Ledger",
+      href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER,
+      icon: Scale,
+    },
+    {
       title: "Foundation Libraries",
       href: ROUTES.ADMIN_FOUNDATION_LIBRARIES,
       icon: BookMarked,

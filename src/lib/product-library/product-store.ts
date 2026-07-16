@@ -335,6 +335,33 @@ export function saveProductDraft(draft: ProductDraftInput): ProductDefinition {
     newValue: "draft",
   });
 
+  void import("@/lib/enterprise-decision-ledger")
+    .then((edl) =>
+      edl.recordEnterpriseDecision({
+        requestedBy: draft.createdBy,
+        approvedBy: draft.createdBy,
+        previousValue: null,
+        newValue: {
+          productCode: record.productCode,
+          productName: record.productName,
+          version: formatProductVersion(major, minor),
+          lifecycleStatus: record.lifecycleStatus,
+        },
+        businessJustification: `Product definition draft created for ${record.productName} (${formatProductVersion(major, minor)}).`,
+        effectiveFrom: now,
+        versionNumber: formatProductVersion(major, minor),
+        impactScope: "product",
+        changeType: "created",
+        changeCategory: "product_rules",
+        relatedEngine: "Product Library",
+        relatedEntityType: "product",
+        relatedEntityId: productId,
+        relatedEntityLabel: record.productName,
+        notImpactedNote: "Future product publishes affect future transactions only unless an explicit migration is executed.",
+      }),
+    )
+    .catch(() => undefined);
+
   notifyAtlasProductRegistration(record);
   return record;
 }

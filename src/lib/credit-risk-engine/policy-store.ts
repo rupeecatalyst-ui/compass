@@ -292,6 +292,35 @@ function recordPolicyAudit(
     oldValue,
     newValue,
   });
+
+  void import("@/lib/enterprise-decision-ledger")
+    .then((edl) =>
+      edl.recordEnterpriseDecision({
+        requestedBy: actor,
+        approvedBy: actor,
+        previousValue: field ? { [field]: oldValue ?? null } : null,
+        newValue: field ? { [field]: newValue ?? null } : { status: policy.status },
+        businessJustification: `Credit Risk policy ${action.toLowerCase()}: ${policy.policyName} (${formatPolicyVersion(policy.majorVersion, policy.minorVersion)}).`,
+        effectiveFrom: policy.effectiveFrom || new Date().toISOString(),
+        effectiveUntil: policy.effectiveTo || null,
+        versionNumber: formatPolicyVersion(policy.majorVersion, policy.minorVersion),
+        impactScope: "policy",
+        changeType:
+          action === "Created"
+            ? "created"
+            : action === "Published"
+              ? "published"
+              : "updated",
+        changeCategory: "credit_risk_engine_configuration",
+        relatedEngine: "Credit & Risk Engine",
+        relatedEntityType: "credit_risk_policy",
+        relatedEntityId: policy.policyId,
+        relatedEntityLabel: policy.policyName,
+        notImpactedNote:
+          "Historical transactions continue using the policy version applicable when they were created.",
+      }),
+    )
+    .catch(() => undefined);
 }
 
 export interface PolicyDraftInput {
