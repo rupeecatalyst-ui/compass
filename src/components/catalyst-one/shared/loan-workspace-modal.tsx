@@ -6,7 +6,6 @@ import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline
 import {
   attachCommandBarScrollState,
 } from "@/components/catalyst-one/shared/catalyst-command-bar";
-import { LoanIntelligencePanel } from "@/components/catalyst-one/shared/loan-intelligence-panel";
 import { LoanWorkbenchLayout } from "@/components/catalyst-one/shared/loan-workbench-layout";
 import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-workbench-section";
 import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-workspace-command-bar";
@@ -35,7 +34,6 @@ import {
 } from "@/constants/loan-pipeline";
 import { loanManagers } from "@/data/catalyst-one/loan-files";
 import { isOccupancyApplicableToProduct, isOccupancyFieldVisible, getOccupancyLabel } from "@/constants/occupancy-master";
-import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { LENDER_CASE_STAGE_LABELS, normalizeLenderCaseStage } from "@/constants/lender-pipeline";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { ROUTES } from "@/constants/routes";
@@ -51,8 +49,7 @@ import { PropertyInformationCard } from "@/components/catalyst-one/shared/proper
 import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
 import { rememberOpportunityActiveLoan } from "@/lib/opportunity-loan-continuity";
 import { formatINR } from "@/lib/format-currency";
-import { updateLoanFileInStorage, buildStageChangePatch, buildSubStageChangePatch } from "@/lib/loan-files-utils";
-import { captureChanakyaStageTransition } from "@/lib/chanakya-stage-coaching";
+import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import {
@@ -81,31 +78,8 @@ import type {
   LendingType,
   LoanFile,
   LoanFilePriority,
-  PipelineStage,
   TransactionType,
 } from "@/types/catalyst-one";
-
-function buildExecutionMessages(file: LoanFile): string[] {
-  const messages: string[] = [];
-  const lenders = file.lenders ?? [];
-  const activeLenders = lenders.filter((l) => l.status === "active");
-  if (lenders.length === 0) messages.push("No lender assigned.");
-  else if (activeLenders.length === 0) messages.push("All lenders are marked closed.");
-
-  const docs = file.documents ?? [];
-  const pendingDocs = docs.filter((d) => d.status === "pending" || d.status === "requested");
-  if (pendingDocs.length > 0) messages.push(`${pendingDocs.length} documents pending.`);
-
-  const tasks = file.tasks ?? [];
-  const overdue = tasks.filter((t) => {
-    const status = t.status ?? (t.completed ? "completed" : "pending");
-    if (status === "completed" || status === "cancelled") return false;
-    return new Date(t.dueDate).getTime() < Date.now();
-  });
-  if (overdue.length > 0) messages.push(`${overdue.length} overdue tasks.`);
-
-  return messages;
-}
 
 export interface ContactOption {
   id: string;
@@ -363,19 +337,6 @@ function LoanWorkspaceModalContent({
     enableEscapeKey: false,
   });
 
-  const handleStageChange = (newStage: PipelineStage) => {
-    captureChanakyaStageTransition(draft, newStage);
-    const workflowPatch = buildStageChangePatch(draft, newStage);
-    if (!workflowPatch) return;
-    void persistDraft({ workflowPatch, successMessage: "Stage updated." });
-  };
-
-  const handleSubStageChange = (subStatusId: string) => {
-    const workflowPatch = buildSubStageChangePatch(draft, subStatusId);
-    if (!workflowPatch) return;
-    void persistDraft({ workflowPatch, successMessage: "Sub stage updated." });
-  };
-
   const handleContentScroll = (e: React.UIEvent<HTMLDivElement>) => {
     attachCommandBarScrollState(stickyChromeRef.current, e.currentTarget.scrollTop);
   };
@@ -410,27 +371,6 @@ function LoanWorkspaceModalContent({
       density="default"
     />
   ) : null;
-
-  const intelligencePanel = (
-    <LoanIntelligencePanel
-      fileId={draft.id}
-      stage={draft.stage}
-      subStageId={draft.stageSubStatus}
-      daysInStage={draft.daysInStage}
-      timeline={draft.timeline}
-      updatedBy={draft.relationshipManager}
-      currentStatus={draft.status}
-      saving={saving}
-      executionMessages={buildExecutionMessages(draft)}
-      finalLoanAmount={draft.finalLoanAmount}
-      finalRoi={draft.finalRoi}
-      finalTenure={draft.finalTenure}
-      finalApprovalDate={draft.finalApprovalDate}
-      onStageChange={handleStageChange}
-      onSubStageChange={handleSubStageChange}
-      onFinalTermsChange={(p) => patch(p)}
-    />
-  );
 
   const workbench = (
     <Tabs
@@ -509,9 +449,11 @@ function LoanWorkspaceModalContent({
                       />
                       <SummaryItem label="Required Amount" value={formatINR(draft.requiredAmount)} accent />
                       <SummaryItem label="Priority" value={draft.priority?.toUpperCase?.() ?? draft.priority} />
-                      <SummaryItem label="Loan Stage" value={STAGE_LABELS[draft.stage]} />
-                      <SummaryItem label="Loan Sub Stage" value={draft.stageSubStatus ?? "—"} />
                       <SummaryItem label="RM" value={draft.relationshipManager || "—"} />
+                      <SummaryItem
+                        label="Active lender cases"
+                        value={String((draft.lenders ?? []).filter((l) => l.status === "active").length)}
+                      />
                       <SummaryItem label="Login Date" value={new Date(draft.loginDate).toLocaleDateString("en-IN")} />
                       <SummaryItem label="Expected Login" value={new Date(draft.expectedLoginDate).toLocaleDateString("en-IN")} />
                       <SummaryItem label="Expected Disbursement" value={new Date(draft.expectedDisbursement).toLocaleDateString("en-IN")} />
@@ -1066,7 +1008,6 @@ function LoanWorkspaceModalContent({
               <span className="text-base font-bold text-foreground sm:text-lg">{draft.customerName}</span>
               <span className="font-medium text-foreground/80">{draft.fileNumber}</span>
               <span className="tabular-nums">{formatINR(draft.requiredAmount)}</span>
-              <span className="truncate">Stage {STAGE_LABELS[draft.stage]}</span>
               <span className="truncate">RM {draft.relationshipManager}</span>
               <span className={cn("rounded border px-1.5 py-0.5 capitalize", LOAN_FILE_PRIORITY_STYLES[draft.priority].className)}>
                 {draft.priority}
@@ -1083,8 +1024,6 @@ function LoanWorkspaceModalContent({
         {commandBar}
         <LoanWorkbenchLayout
           workbench={workbench}
-          intelligence={intelligencePanel}
-          hideIntelligence={activeTab === "lenders" || activeTab === "mission-control"}
           onWorkbenchScroll={handleContentScroll}
         />
       </div>

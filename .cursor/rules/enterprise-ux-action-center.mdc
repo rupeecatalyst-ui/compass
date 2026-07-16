@@ -1,23 +1,41 @@
 ---
-description: Enterprise UX — Action Center & Context Workspace constitution
+description: Enterprise UX Constitution — Workspace First, Action Center, Context Workspaces
 alwaysApply: true
 ---
 
-# Enterprise UX Constitution — Action Center & Context Workspace
+# Enterprise UX Constitution (Frozen)
 
-Frozen interaction model for Catalyst One (and reusable across ecosystem platforms).
+Applies to all Catalyst One transaction workspaces. Loan Workspace is the Enterprise Reference Workspace — reuse this model; do not redesign independently.
+
+## Workspace First
+
+1. The workspace is always the largest and most important area of the screen.
+2. Navigation, summaries, badges, and supporting chrome must never dominate.
+3. Every pixel should have a purpose — avoid duplicate information, oversized headers, large unused blanks, and permanent side panels with little business value.
+4. Do not overload pages; information appears only where it contributes to the current task.
+5. Prefer Context Workspaces, expandable sections, tabs, and progressive disclosure over permanent cards that fill leftover space.
+
+## Reference layout hierarchy
+
+Workspace Header → Action Center → Primary Workspace → Context Workspace (temporary) → Timeline / Dialogue / Communication
+
+## Action Center & Context Workspaces
 
 1. Users never leave their current business context for routine actions.
-2. Action Center launches Context Workspaces (slide-over temporary workspaces, not CRM popups).
-3. Context Workspaces are dynamically composed from Enterprise Registries (recipients, templates, documents, permissions).
-4. Communication is relationship-aware and context-aware — no manual recipient address entry during transaction processing.
-5. Templates are intelligent and filtered by recipient type, product, workflow stage, and transaction context.
-6. Business communications enter the Enterprise Outbox (review timer) before dispatch; Send Now is an intentional override.
+2. Action Center in the page header is the standard entry point (frozen — do not relocate).
+3. Action Center launches Context Workspaces (slide-over temporary workspaces, not CRM popups). Trailing space after removing permanent rails is reserved for these overlays.
+4. Context Workspaces are dynamically composed from Enterprise Registries.
+5. Communication is relationship-aware; templates are filtered by recipient, product, stage, and context.
+6. Business communications enter the Enterprise Outbox before dispatch; Send Now is an intentional override.
 7. Chanakya is available inside every Context Workspace.
 8. Timeline, Audit Trail, and Communication History update automatically after dispatch.
-9. This model is reusable across Customer, Opportunity, Loan File, Wealth Partner, Lender, and future modules.
 
-Prefer alignment with `src/components/catalyst-one/action-center/` rather than inventing parallel action menus or navigation-based compose flows.
+## Loan / multi-lender architecture
 
-Header rule: one Enterprise Workspace Header per screen; never duplicate identity chips/CTAs. Navigation actions (Open Credit Workbench, Open Loan Workspace, Add/Edit Contact) belong in Action Center — not as permanent header buttons.
-
+A Loan File does **not** have a single workflow stage. Lender Pipeline is the SSOT for lender-specific statuses (login, credit, PD, legal, pricing, approval, disbursement). Do not restore a permanent “Current Stage / Sub Stage / Loan Intelligence” right panel.
+
+## Consistency
+
+Reuse across Opportunity, Loan, Credit Workbench, Wealth Partner, Lender, and future workspaces. Prefer `src/components/catalyst-one/action-center/` over parallel action menus.
+
+Header rule: one Enterprise Workspace Header per screen; navigation actions belong in Action Center.
