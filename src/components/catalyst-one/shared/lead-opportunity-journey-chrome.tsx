@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import {
   buildJourneyHref,
   getLeadJourneyModule,
@@ -18,7 +18,16 @@ import {
   getPreviousBusinessJourneyNavStep,
   buildBusinessJourneyHref,
 } from "@/constants/enterprise-business-journey-navigation";
+import {
+  getBusinessJourneyTransitionPurpose,
+  leadModuleToNavigatorStageId,
+  businessNavIdToNavigatorStageId,
+} from "@/constants/enterprise-business-journey-navigator";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
+import {
+  BusinessJourneyNavigator,
+  BusinessTransitionCard,
+} from "@/components/catalyst-one/business-journey-navigator";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -57,10 +66,12 @@ export interface LeadOpportunityJourneyChromeProps {
   children?: React.ReactNode;
   hideContinue?: boolean;
   hideBack?: boolean;
+  /** Hide Business Journey Navigator strip (rare). */
+  hideJourneyNavigator?: boolean;
 }
 
 /**
- * Shared Lead / Opportunity journey chrome — single Enterprise Workspace Header.
+ * Shared Lead / Opportunity journey chrome — Navigator + Workspace Header + Transition Card.
  * Continue / Back preserve transaction context (never dashboards).
  */
 export function LeadOpportunityJourneyChrome({
@@ -81,6 +92,7 @@ export function LeadOpportunityJourneyChrome({
   children,
   hideContinue,
   hideBack,
+  hideJourneyNavigator,
 }: LeadOpportunityJourneyChromeProps) {
   const router = useRouter();
   const mod = getLeadJourneyModule(moduleId);
@@ -91,6 +103,7 @@ export function LeadOpportunityJourneyChrome({
   const nextNav = getNextBusinessJourneyNavStep(navId);
   const prevNav = getPreviousBusinessJourneyNavStep(navId);
   const compact = density === "compact";
+  const navigatorStageId = leadModuleToNavigatorStageId(moduleId);
 
   const continueLabel = nextNav
     ? getBusinessContinueLabel(nextNav)
@@ -101,6 +114,11 @@ export function LeadOpportunityJourneyChrome({
     ? getBusinessBackLabel(prevNav)
     : prevModule
       ? `Back to ${prevModule.label}`
+      : null;
+  const continuePurpose = nextNav
+    ? getBusinessJourneyTransitionPurpose(businessNavIdToNavigatorStageId(nextNav.id))
+    : nextModule
+      ? getBusinessJourneyTransitionPurpose(leadModuleToNavigatorStageId(nextModule.id))
       : null;
 
   const rememberContext = () => {
@@ -167,94 +185,85 @@ export function LeadOpportunityJourneyChrome({
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-      <header className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
-        <div
-          className={cn(
-            "flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-4 sm:px-5",
-            compact ? "py-1.5" : "py-2",
-          )}
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-              {!hideBack && backLabel ? (
+      <div className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+        {!hideJourneyNavigator ? (
+          <BusinessJourneyNavigator currentStageId={navigatorStageId} />
+        ) : null}
+        <header>
+          <div
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-4 sm:px-5",
+              compact ? "py-1.5" : "py-2",
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                <p
+                  className={cn(
+                    "shrink-0 text-[9px] font-semibold uppercase tracking-[0.16em]",
+                    stage === "lead"
+                      ? "text-teal-700/90 dark:text-teal-300/90"
+                      : "text-violet-700/90 dark:text-violet-300/90",
+                  )}
+                >
+                  {journeyStageEyebrow(stage)}
+                </p>
+                <h1
+                  className={cn(
+                    "truncate font-semibold tracking-tight text-foreground",
+                    compact ? "text-sm sm:text-base" : "text-base sm:text-lg",
+                  )}
+                >
+                  {displayTitle}
+                </h1>
+              </div>
+              {identityLine ? (
+                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{identityLine}</p>
+              ) : null}
+              {chips.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {chips.map((c) => (
+                    <span
+                      key={c.label}
+                      className="inline-flex max-w-[180px] items-center gap-1 rounded border border-border/50 bg-muted/20 px-1.5 py-px text-[10px]"
+                    >
+                      <span className="font-medium text-muted-foreground">{c.label}</span>
+                      <span className="truncate font-semibold text-foreground">{c.value}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {headerActions}
+              {onSaveDraft && (
                 <Button
                   type="button"
                   size="sm"
-                  variant="ghost"
-                  className="h-7 gap-1 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-                  onClick={handleBack}
+                  variant="outline"
+                  className="h-7 gap-1 px-2 text-[11px]"
+                  disabled={saving}
+                  onClick={() => void onSaveDraft()}
                 >
-                  <ArrowLeft className="h-3 w-3" />
-                  {backLabel}
+                  <Save className="h-3 w-3" />
+                  Save Draft
                 </Button>
-              ) : null}
-              <p
-                className={cn(
-                  "shrink-0 text-[9px] font-semibold uppercase tracking-[0.16em]",
-                  stage === "lead"
-                    ? "text-teal-700/90 dark:text-teal-300/90"
-                    : "text-violet-700/90 dark:text-violet-300/90",
-                )}
-              >
-                {journeyStageEyebrow(stage)}
-              </p>
-              <h1
-                className={cn(
-                  "truncate font-semibold tracking-tight text-foreground",
-                  compact ? "text-sm sm:text-base" : "text-base sm:text-lg",
-                )}
-              >
-                {displayTitle}
-              </h1>
+              )}
+              <BusinessTransitionCard
+                continueLabel={continueLabel}
+                continuePurpose={continuePurpose}
+                onContinue={() => void handleContinue()}
+                backLabel={backLabel}
+                onBack={handleBack}
+                hideContinue={hideContinue}
+                hideBack={hideBack}
+                disabled={saving}
+              />
             </div>
-            {identityLine ? (
-              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{identityLine}</p>
-            ) : null}
-            {chips.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {chips.map((c) => (
-                  <span
-                    key={c.label}
-                    className="inline-flex max-w-[180px] items-center gap-1 rounded border border-border/50 bg-muted/20 px-1.5 py-px text-[10px]"
-                  >
-                    <span className="font-medium text-muted-foreground">{c.label}</span>
-                    <span className="truncate font-semibold text-foreground">{c.value}</span>
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
-
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-            {headerActions}
-            {onSaveDraft && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 gap-1 px-2 text-[11px]"
-                disabled={saving}
-                onClick={() => void onSaveDraft()}
-              >
-                <Save className="h-3 w-3" />
-                Save Draft
-              </Button>
-            )}
-            {!hideContinue && continueLabel && (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 gap-1.5 px-3 text-[11px] font-semibold shadow-sm"
-                disabled={saving}
-                onClick={() => void handleContinue()}
-              >
-                {continueLabel}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
+        </header>
+      </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
     </div>
   );

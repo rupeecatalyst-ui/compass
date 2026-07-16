@@ -1,0 +1,55 @@
+---
+description: Enterprise UX — Business Journey Navigator (permanent progress visualisation)
+alwaysApply: true
+---
+
+# Business Journey Navigator — Enterprise UX Constitution
+
+Complements Chanakya Guide. Do **not** replace Chanakya.
+
+- **Chanakya** explains the journey.
+- **Business Journey Navigator** visually represents where the user is.
+
+## Placement
+
+Immediately below the workspace chrome entry / above workspace content — full-width horizontal strip on every major Enterprise Workspace.
+
+## Certified order (frozen — same as Chanakya Loan Journey)
+
+Lead Qualification: Contact → Opportunity Workspace → Strategic Workspace  
+Credit Readiness: Document Center → Credit Workbench  
+Loan Execution: Loan Workspace → Lender Pipeline → Tasks → Timeline → Approval  
+Post Disbursement: Disbursement → Accounting → Closure
+
+SSOT stages: `src/constants/chanakya-guide/loan-journey.ts`  
+Navigator helpers: `src/constants/enterprise-business-journey-navigator.ts`  
+UI: `src/components/catalyst-one/business-journey-navigator/`
+
+## Visual states
+
+- Completed — soft glow + check
+- Current — bright glow + gentle pulse + “Current”
+- Upcoming — visible, slightly muted
+- Connectors — calm left → right flow animation
+- Small screens — horizontal scroll only; never wrap to multiple rows
+
+## Business Transition Card
+
+Right side of workspace header:
+
+- Primary: `Continue to {Next} →` + purpose sentence
+- Subtle: `Back to {Previous}`
+- Always preserve Opportunity / Loan File context — never Dashboard / Kanban / list / search
+
+Wired via `LeadOpportunityJourneyChrome` and Loan Workspace / Tasks.
+
+## Not a menu
+
+The Navigator is a **progress visualisation**. Users should answer:
+
+1. Where am I?
+2. Why am I here?
+3. What is my next business step?
+4. What business phase am I in?
+
+Every future major workspace must include this navigator philosophy.

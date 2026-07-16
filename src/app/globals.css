@@ -188,4 +188,33 @@
     background: var(--muted);
     border-radius: 9999px;
   }
+
+  /* Business Journey Navigator — calm enterprise micro-interactions */
+  @keyframes bjn-pulse-glow {
+    0%,
+    100% {
+      filter: brightness(1);
+    }
+    50% {
+      filter: brightness(1.07);
+    }
+  }
+
+  @keyframes bjn-flow {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 200% 50%;
+    }
+  }
+
+  .bjn-pulse {
+    animation: bjn-pulse-glow 2.8s ease-in-out infinite;
+  }
+
+  .bjn-connector {
+    background-size: 200% 100%;
+    animation: bjn-flow 3.2s linear infinite;
+  }
 }

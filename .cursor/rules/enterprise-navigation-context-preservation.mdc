@@ -62,7 +62,13 @@ Do not invent parallel “current case” stores for journey modules. Prefer the
 
 ## Future workspaces
 
-Every future Enterprise Workspace must preserve transaction context and expose the next logical business action without routing through dashboards or module lists.
+Every future Enterprise Workspace must:
+
+1. Preserve transaction context on Continue / Back
+2. Expose the next logical business action without dashboards
+3. Show the **Business Journey Navigator** (progress visualisation) — complements Chanakya Guide
+
+See `.cursor/rules/enterprise-business-journey-navigator.mdc`.
 
 ## Exception
 

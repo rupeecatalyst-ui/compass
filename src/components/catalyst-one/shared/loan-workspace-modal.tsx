@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, ArrowLeft, ArrowRight } from "lucide-react";
+import { Plus } from "lucide-react";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
 import {
   attachCommandBarScrollState,
@@ -55,7 +55,16 @@ import {
   getBusinessJourneyNavStep,
   resolveLoanWorkspaceContinue,
 } from "@/constants/enterprise-business-journey-navigation";
+import {
+  getBusinessJourneyTransitionPurpose,
+  businessNavIdToNavigatorStageId,
+  loanTabToNavigatorStageId,
+} from "@/constants/enterprise-business-journey-navigator";
 import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
+import {
+  BusinessJourneyNavigator,
+  BusinessTransitionCard,
+} from "@/components/catalyst-one/business-journey-navigator";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
@@ -154,6 +163,10 @@ function LoanWorkspaceModalContent({
     activeTab,
     hasActiveLenderCases,
   });
+  const continuePurpose = getBusinessJourneyTransitionPurpose(
+    businessNavIdToNavigatorStageId(loanContinue.navId),
+  );
+  const navigatorStageId = loanTabToNavigatorStageId(activeTab);
   const backLabel =
     activeTab === "lenders"
       ? "Back to Loan Workspace"
@@ -970,20 +983,12 @@ function LoanWorkspaceModalContent({
 
   const body = (
     <>
+      <BusinessJourneyNavigator
+        currentStageId={navigatorStageId}
+        className="border-b border-border/60 bg-background/95"
+      />
       <WorkspaceHeader
         title="Loan Workflow"
-        leadingAction={
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-8 gap-1.5 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground"
-            onClick={handleJourneyBack}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {backLabel}
-          </Button>
-        }
         headerActions={
           <div className="flex items-center gap-1.5">
             <ChanakyaGuide
@@ -1014,15 +1019,13 @@ function LoanWorkspaceModalContent({
                 })
               }
             />
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 gap-1.5 px-3 text-xs font-semibold shadow-sm"
-              onClick={handleJourneyContinue}
-            >
-              {loanContinue.label}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
+            <BusinessTransitionCard
+              continueLabel={loanContinue.label}
+              continuePurpose={continuePurpose}
+              onContinue={handleJourneyContinue}
+              backLabel={backLabel}
+              onBack={handleJourneyBack}
+            />
           </div>
         }
         executionLayout={

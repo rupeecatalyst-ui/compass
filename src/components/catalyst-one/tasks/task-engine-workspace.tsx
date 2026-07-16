@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, Plus } from "lucide-react";
 import { ETE_PREDEFINED_DESCRIPTIONS, ETE_TASK_TYPES } from "@/constants/enterprise-task-engine";
 import {
   completeEteTask,
@@ -20,7 +20,12 @@ import {
   getBusinessContinueLabel,
   getBusinessJourneyNavStep,
 } from "@/constants/enterprise-business-journey-navigation";
+import { getBusinessJourneyTransitionPurpose } from "@/constants/enterprise-business-journey-navigator";
 import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
+import {
+  BusinessJourneyNavigator,
+  BusinessTransitionCard,
+} from "@/components/catalyst-one/business-journey-navigator";
 import { PageHeader } from "@/components/design-system/page-header";
 import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { Button } from "@/components/ui/button";
@@ -158,6 +163,7 @@ function assigneeLabel(ref: string): string {
  */
 export function TaskEngineWorkspace() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [tasks, setTasks] = useState<EteTask[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [taskType, setTaskType] = useState<EteTask["taskType"]>(ETE_TASK_TYPES.INDEPENDENT);
@@ -230,26 +236,25 @@ export function TaskEngineWorkspace() {
 
   return (
     <div className="space-y-5">
+      {txFileId ? (
+        <BusinessJourneyNavigator
+          currentStageId="tasks"
+          className="-mx-4 border-b border-border/60 bg-background/95 md:-mx-6 lg:-mx-8"
+        />
+      ) : null}
       <PageHeader
         title="Tasks"
         description="Create work, then execute from the Kanban board — every card links to the related workflow."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {txFileId ? (
-              <>
-                <Button asChild size="sm" variant="ghost" className="h-9 gap-1.5 text-xs text-muted-foreground">
-                  <Link href={lenderBackHref}>
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    {getBusinessBackLabel(getBusinessJourneyNavStep("lender_pipeline"))}
-                  </Link>
-                </Button>
-                <Button asChild size="sm" className="h-9 gap-1.5 text-xs font-semibold">
-                  <Link href={timelineContinueHref}>
-                    {getBusinessContinueLabel(getBusinessJourneyNavStep("timeline"))}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
-              </>
+              <BusinessTransitionCard
+                continueLabel={getBusinessContinueLabel(getBusinessJourneyNavStep("timeline"))}
+                continuePurpose={getBusinessJourneyTransitionPurpose("timeline")}
+                onContinue={() => router.push(timelineContinueHref)}
+                backLabel={getBusinessBackLabel(getBusinessJourneyNavStep("lender_pipeline"))}
+                onBack={() => router.push(lenderBackHref)}
+              />
             ) : null}
             <ChanakyaGuide
               offerTour={false}
