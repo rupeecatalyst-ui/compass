@@ -4,3 +4,7 @@ export {
   CHANAKYA_GUIDE_TOUR_STEPS,
   CHANAKYA_GUIDE_PAGES,
 } from "./guidance-repository";
+export {
+  CHANAKYA_LOAN_JOURNEY_PHASES,
+  CHANAKYA_LOAN_JOURNEY_STAGES,
+} from "./loan-journey";

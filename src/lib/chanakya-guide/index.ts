@@ -147,4 +147,11 @@ export function shouldOfferFirstTimeTour(state?: ChanakyaTourState): boolean {
   return s.status === "not_started" || s.status === "paused" || s.status === "in_progress";
 }
 
+export {
+  listChanakyaLoanJourneyStages,
+  getChanakyaLoanJourneyPhase,
+  resolveChanakyaLoanJourneyStageIndex,
+  getChanakyaLoanJourneyProgress,
+} from "./resolve-journey";
+
 export { CHANAKYA_GUIDE_TOUR_STEPS, CHANAKYA_GUIDE_REPOSITORY };

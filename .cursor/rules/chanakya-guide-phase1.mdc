@@ -33,3 +33,16 @@ This repository is the foundation for Phase 2 Enterprise Success Coach.
 Every Enterprise Workspace must have Guide Repository content before it is Enterprise Certified.
 
 If Chanakya cannot explain a page, the page is not complete — add repository entries, do not hardcode text in components.
+
+## Certified Loan Journey (frozen)
+
+Chanakya Guide opens the **Enterprise Loan Journey** map (full-width, left → right).
+
+Stage order is frozen:
+
+Contact → Opportunity Workspace → Strategic Workspace → Document Center → Credit Workbench → Loan Workspace → Lender Pipeline → Tasks → Timeline → Approval → Disbursement → Accounting → Closure
+
+Phases: Lead Qualification (blue) · Credit Readiness (purple) · Loan Execution (green) · Post Disbursement (orange)
+
+Do not reorder stages or redesign this map without explicit certification approval.
+SSOT: `src/constants/chanakya-guide/loan-journey.ts`

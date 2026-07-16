@@ -84,3 +84,47 @@ export interface ChanakyaTourState {
   stepIndex: number;
   updatedAt: string;
 }
+
+/** Certified Enterprise Loan Journey — phase colour bands. */
+export type ChanakyaLoanJourneyPhaseId =
+  | "lead_qualification"
+  | "credit_readiness"
+  | "loan_execution"
+  | "post_disbursement";
+
+export type ChanakyaLoanJourneyStageId =
+  | "contact"
+  | "opportunity_workspace"
+  | "strategic_workspace"
+  | "document_center"
+  | "credit_workbench"
+  | "loan_workspace"
+  | "lender_pipeline"
+  | "tasks"
+  | "timeline"
+  | "approval"
+  | "disbursement"
+  | "accounting"
+  | "closure";
+
+export interface ChanakyaLoanJourneyPhaseDef {
+  id: ChanakyaLoanJourneyPhaseId;
+  label: string;
+  description: string;
+  /** Tailwind colour token key for certified palette. */
+  tone: "blue" | "purple" | "green" | "orange";
+}
+
+export interface ChanakyaLoanJourneyStageDef {
+  id: ChanakyaLoanJourneyStageId;
+  order: number;
+  phaseId: ChanakyaLoanJourneyPhaseId;
+  name: string;
+  /** One-line business objective. */
+  objective: string;
+  /** Mentor message when this stage is focused. */
+  chanakyaMessage: string;
+  /** Maps Guide workspace / section context to this stage. */
+  matchWorkspaceIds?: ChanakyaGuideWorkspaceId[];
+  matchSections?: string[];
+}

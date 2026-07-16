@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronDown, ChevronRight, Compass, Sparkles } from "lucide-react";
 import { ContextWorkspaceShell } from "@/components/catalyst-one/action-center/context-workspace-shell";
-import { ChanakyaAvatar, ChanakyaIdentityLabel } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +26,7 @@ import type {
   ChanakyaTourState,
 } from "@/types/chanakya-guide";
 import { cn } from "@/lib/utils";
+import { ChanakyaLoanJourneyExperience } from "./loan-journey-experience";
 
 /** Permanent header control — always available, never first-login only. */
 export function ChanakyaGuideButton({
@@ -168,15 +168,16 @@ function ChanakyaGuidePanel({
     () => resolveChanakyaGuideEntries(resolvedContext),
     [resolvedContext],
   );
+  const [tipsOpen, setTipsOpen] = useState(false);
 
   return (
     <ContextWorkspaceShell
       open={open}
       onOpenChange={onOpenChange}
       title="Chanakya Guide"
-      description={meta?.pagePurpose}
+      description="Enterprise Loan Journey — understand where you are and what comes next."
       entityLabel={context.transactionLabel ?? meta?.workspaceLabel}
-      className="sm:max-w-md md:max-w-lg"
+      className="w-[min(96vw,1280px)] sm:max-w-[min(96vw,1280px)] md:max-w-[min(96vw,1280px)]"
       footer={
         <div className="flex flex-wrap gap-2">
           <Button
@@ -200,33 +201,33 @@ function ChanakyaGuidePanel({
         </div>
       }
     >
-      <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-xl border border-violet-500/25 bg-gradient-to-br from-violet-500/10 to-transparent px-3 py-3">
-          <ChanakyaAvatar size="sm" animate />
-          <div className="min-w-0">
-            <ChanakyaIdentityLabel surface="advisory" />
-            <p className="mt-0.5 text-sm font-semibold text-foreground">
-              {meta?.workspaceLabel ?? "Workspace"} guidance
-            </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              Content from the Enterprise Guide Repository. Evolve guidance in the repository — not in
-              UI components.
-            </p>
-          </div>
-        </div>
+      <div className="space-y-6">
+        <ChanakyaLoanJourneyExperience context={resolvedContext} />
 
-        {entries.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-xs text-muted-foreground">
-            No Guide Repository entries for this workspace yet. Enterprise certification requires
-            Chanakya Guide content before this page is complete.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {entries.map((entry) => (
-              <GuideEntryCard key={entry.id} entry={entry} />
-            ))}
+        {entries.length > 0 ? (
+          <div className="border-t border-border/50 pt-3">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-800 hover:underline dark:text-violet-200"
+              onClick={() => setTipsOpen((v) => !v)}
+              aria-expanded={tipsOpen}
+            >
+              {tipsOpen ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
+              Workspace tips from Guide Repository
+            </button>
+            {tipsOpen ? (
+              <div className="mt-3 space-y-3">
+                {entries.map((entry) => (
+                  <GuideEntryCard key={entry.id} entry={entry} />
+                ))}
+              </div>
+            ) : null}
           </div>
-        )}
+        ) : null}
       </div>
     </ContextWorkspaceShell>
   );
