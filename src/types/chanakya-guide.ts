@@ -1,6 +1,7 @@
 /**
- * Chanakya Guide Phase 1 — presentation contracts only.
- * Not Enterprise Success Coach. No learning, tolerance, escalation, or coaching engines.
+ * Chanakya Guide Phase 1 — Enterprise Guide Repository contracts.
+ * Configuration-driven knowledge source. UI renders entries only.
+ * Foundation for future Enterprise Success Coach (Phase 2) — not coaching itself.
  */
 
 export type ChanakyaGuidePlatform = "catalyst_one" | "catalyst_connect" | "compass";
@@ -16,46 +17,63 @@ export type ChanakyaGuideWorkspaceId =
   | "lender_pipeline"
   | "platform_tour";
 
+/** Runtime context used to resolve repository entries. */
 export interface ChanakyaGuideContext {
   platform?: ChanakyaGuidePlatform;
   workspaceId: ChanakyaGuideWorkspaceId;
-  /** Optional module / tab within the workspace (e.g. overview, lenders). */
+  /** Section / tab within the workspace (maps to Guide.section). */
+  section?: string;
+  /** @deprecated Prefer `section`. Kept for existing callers. */
   moduleId?: string;
-  /** Optional workflow / stage label for filtering. */
   workflowContext?: string;
-  /** Display-only transaction label (customer · file). */
   transactionLabel?: string;
 }
 
-export interface ChanakyaGuideCard {
+/**
+ * Atomic Guide entry — Enterprise Knowledge unit.
+ * All user-facing copy lives here; components must not invent guidance text.
+ */
+export interface ChanakyaGuideEntry {
   id: string;
-  /** Short mentor headline. */
-  title: string;
-  purpose: string;
-  businessValue: string;
+  platform: ChanakyaGuidePlatform;
+  workspaceId: ChanakyaGuideWorkspaceId;
+  /** Section within the workspace (e.g. overview, lenders, default). */
+  section: string;
+  guidanceTitle: string;
+  /** Short mentor-style message (primary). */
+  mentorMessage: string;
+  /** Expanded detail — Learn More. */
+  detailedGuidance: string;
+  bestPractice: string;
   recommendedNextStep: string;
-  /** Expanded mentor detail — shown via Learn More. */
-  learnMore: string;
-  /** Optional tags for module / workflow filtering. */
-  moduleIds?: string[];
+  relatedWorkflow?: string;
+  relatedRegistry?: string;
+  relatedEnterpriseEngine?: string;
+  /** Optional workflow filter tags. */
   workflowContexts?: string[];
+  sortOrder?: number;
 }
 
-export interface ChanakyaGuidePageDef {
-  workspaceId: ChanakyaGuideWorkspaceId;
+/** Workspace chrome metadata (label + one-line purpose). */
+export interface ChanakyaGuideWorkspaceMeta {
   platform: ChanakyaGuidePlatform;
-  /** Workspace display name. */
+  workspaceId: ChanakyaGuideWorkspaceId;
   workspaceLabel: string;
-  /** One-line what this page is for. */
   pagePurpose: string;
-  cards: ChanakyaGuideCard[];
+}
+
+/** @deprecated Use ChanakyaGuideEntry — kept for transitional imports. */
+export type ChanakyaGuideCard = ChanakyaGuideEntry;
+
+/** @deprecated Use ChanakyaGuideWorkspaceMeta + entries. */
+export interface ChanakyaGuidePageDef extends ChanakyaGuideWorkspaceMeta {
+  cards: ChanakyaGuideEntry[];
 }
 
 export interface ChanakyaTourStep {
   id: string;
   title: string;
   body: string;
-  /** Optional workspace to highlight conceptually. */
   relatedWorkspaceId?: ChanakyaGuideWorkspaceId;
 }
 

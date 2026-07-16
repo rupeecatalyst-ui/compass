@@ -1,43 +1,35 @@
 ---
-description: Chanakya Guide Phase 1 — Enterprise Guide certification requirement
+description: Chanakya Guide Phase 1 — Enterprise Guide Repository foundation
 alwaysApply: true
 ---
 
-# Chanakya Guide (Phase 1) — Frozen
+# Chanakya Guide (Phase 1) — Enterprise Guide Repository
 
 Chanakya Guide is the built-in Enterprise Guide of Catalyst One.
 
+## Knowledge SSOT
+
+Guidance is **configuration-driven**. The Enterprise Guide Repository is the knowledge source.
+
+- Repository: `src/constants/chanakya-guide/guidance-repository.ts` (`CHANAKYA_GUIDE_REPOSITORY`)
+- Types: `src/types/chanakya-guide.ts` (`ChanakyaGuideEntry`)
+- Resolve: `src/lib/chanakya-guide/`
+- UI: `src/components/catalyst-one/chanakya-guide/` — **render only**, never invent mentor copy
+
+### Entry schema (required fields)
+
+Platform · Workspace · Section · Guidance Title · Mentor Message · Detailed Guidance · Best Practice · Recommended Next Step
+
+Optional: Related Workflow · Related Registry · Related Enterprise Engine
+
 ## Phase boundary
 
-Phase 1 only: guidance framework (what / why / what to do / what next / best practice).
+Do **not** implement Success Coach, tolerance policies, resolution tasks, learning, supervisor collaboration, or coaching intelligence in Phase 1.
 
-Do **not** implement in this phase:
+This repository is the foundation for Phase 2 Enterprise Success Coach.
 
-- Enterprise Success Coach
-- Stage Tolerance Policies
-- Resolution Tasks
-- Learning Framework
-- Supervisor Collaboration
-- Enterprise Intelligence / Coaching Engine
+## Certification
 
-## Requirements
+Every Enterprise Workspace must have Guide Repository content before it is Enterprise Certified.
 
-1. Every major Enterprise Workspace must expose a permanent **Chanakya Guide** button.
-2. Guide opens as a slide-over Context Workspace — never leave the current screen.
-3. Guidance content lives in the configurable repository (`src/constants/chanakya-guide/`), not hardcoded in page components.
-4. Cards follow Purpose → Business Value → Recommended Next Step, with Learn More expansion.
-5. First-time tour supports Skip / Pause / Resume / Restart — never forced.
-6. Context-aware: platform, workspace, module, transaction label where applicable.
-
-## Certification rule
-
-Every Enterprise Workspace must have Chanakya Guide content before it is considered Enterprise Certified.
-
-If Chanakya cannot explain a page, that page is not yet complete.
-
-## SSOT paths
-
-- Types: `src/types/chanakya-guide.ts`
-- Repository: `src/constants/chanakya-guide/`
-- Resolve / tour state: `src/lib/chanakya-guide/`
-- UI: `src/components/catalyst-one/chanakya-guide/`
+If Chanakya cannot explain a page, the page is not complete — add repository entries, do not hardcode text in components.

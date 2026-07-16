@@ -117,6 +117,7 @@ export function CreditBenchWorkspace() {
             context={{
               platform: "catalyst_one",
               workspaceId: "opportunity_setup",
+              section,
               moduleId: section,
               transactionLabel: context.customer
                 ? `${context.customer}${context.opportunity ? ` · ${context.opportunity}` : ""}`

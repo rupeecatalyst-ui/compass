@@ -950,6 +950,7 @@ function LoanWorkspaceModalContent({
               context={{
                 platform: "catalyst_one",
                 workspaceId: activeTab === "lenders" ? "lender_pipeline" : "loan_workspace",
+                section: activeTab,
                 moduleId: activeTab,
                 transactionLabel: `${draft.customerName} · ${draft.fileNumber}`,
               }}

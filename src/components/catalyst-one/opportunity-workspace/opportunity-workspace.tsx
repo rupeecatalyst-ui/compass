@@ -199,6 +199,7 @@ function OpportunityWorkspaceShell() {
               context={{
                 platform: "catalyst_one",
                 workspaceId: "strategic_workspace",
+                section: tab,
                 moduleId: tab,
                 transactionLabel: `${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`,
               }}

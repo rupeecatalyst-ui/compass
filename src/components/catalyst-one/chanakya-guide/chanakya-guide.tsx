@@ -16,12 +16,16 @@ import {
 import {
   CHANAKYA_GUIDE_TOUR_STEPS,
   loadChanakyaTourState,
-  resolveChanakyaGuideCards,
-  resolveChanakyaGuidePage,
+  resolveChanakyaGuideEntries,
+  resolveChanakyaGuideWorkspaceMeta,
   saveChanakyaTourState,
   shouldOfferFirstTimeTour,
 } from "@/lib/chanakya-guide";
-import type { ChanakyaGuideContext, ChanakyaTourState } from "@/types/chanakya-guide";
+import type {
+  ChanakyaGuideContext,
+  ChanakyaGuideEntry,
+  ChanakyaTourState,
+} from "@/types/chanakya-guide";
 import { cn } from "@/lib/utils";
 
 /** Permanent header control — always available, never first-login only. */
@@ -49,43 +53,62 @@ export function ChanakyaGuideButton({
   );
 }
 
-function GuideCard({
-  title,
-  purpose,
-  businessValue,
-  recommendedNextStep,
-  learnMore,
+function Field({
+  label,
+  value,
+  emphasize,
 }: {
-  title: string;
-  purpose: string;
-  businessValue: string;
-  recommendedNextStep: string;
-  learnMore: string;
+  label: string;
+  value: string;
+  emphasize?: boolean;
 }) {
+  return (
+    <div>
+      <dt
+        className={cn(
+          "text-[9px] font-semibold uppercase tracking-[0.14em]",
+          emphasize ? "text-teal-700 dark:text-teal-300" : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </dt>
+      <dd
+        className={cn(
+          "mt-0.5 text-foreground/90",
+          emphasize && "font-medium text-foreground",
+        )}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+/** Renders one Enterprise Guide Repository entry — no invented copy. */
+function GuideEntryCard({ entry }: { entry: ChanakyaGuideEntry }) {
   const [open, setOpen] = useState(false);
+  const related = [
+    entry.relatedWorkflow ? { label: "Related workflow", value: entry.relatedWorkflow } : null,
+    entry.relatedRegistry ? { label: "Related registry", value: entry.relatedRegistry } : null,
+    entry.relatedEnterpriseEngine
+      ? { label: "Related enterprise engine", value: entry.relatedEnterpriseEngine }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   return (
     <article className="rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
-      <h3 className="text-sm font-semibold tracking-tight text-foreground">{title}</h3>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h3 className="text-sm font-semibold tracking-tight text-foreground">
+          {entry.guidanceTitle}
+        </h3>
+        <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+          {entry.section}
+        </span>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-foreground/95">{entry.mentorMessage}</p>
       <dl className="mt-2.5 space-y-2 text-xs leading-relaxed">
-        <div>
-          <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Purpose
-          </dt>
-          <dd className="mt-0.5 text-foreground/90">{purpose}</dd>
-        </div>
-        <div>
-          <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Business value
-          </dt>
-          <dd className="mt-0.5 text-foreground/90">{businessValue}</dd>
-        </div>
-        <div>
-          <dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-teal-700 dark:text-teal-300">
-            Recommended next step
-          </dt>
-          <dd className="mt-0.5 font-medium text-foreground">{recommendedNextStep}</dd>
-        </div>
+        <Field label="Best practice" value={entry.bestPractice} />
+        <Field label="Recommended next step" value={entry.recommendedNextStep} emphasize />
       </dl>
       <button
         type="button"
@@ -97,12 +120,32 @@ function GuideCard({
         Learn More
       </button>
       {open ? (
-        <p className="mt-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-2.5 py-2 text-[11px] leading-relaxed text-foreground/85">
-          {learnMore}
-        </p>
+        <div className="mt-2 space-y-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-2.5 py-2 text-[11px] leading-relaxed text-foreground/85">
+          <p>{entry.detailedGuidance}</p>
+          {related.length > 0 ? (
+            <dl className="space-y-1.5 border-t border-violet-500/15 pt-2">
+              {related.map((r) => (
+                <div key={r.label}>
+                  <dt className="text-[9px] font-semibold uppercase tracking-wide text-violet-800/80 dark:text-violet-200/80">
+                    {r.label}
+                  </dt>
+                  <dd className="text-foreground/80">{r.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+        </div>
       ) : null}
     </article>
   );
+}
+
+function normalizeGuideContext(context: ChanakyaGuideContext): ChanakyaGuideContext {
+  return {
+    ...context,
+    platform: context.platform ?? "catalyst_one",
+    section: context.section ?? context.moduleId,
+  };
 }
 
 function ChanakyaGuidePanel({
@@ -116,16 +159,23 @@ function ChanakyaGuidePanel({
   context: ChanakyaGuideContext;
   onOpenTour: () => void;
 }) {
-  const page = useMemo(() => resolveChanakyaGuidePage(context), [context]);
-  const cards = useMemo(() => resolveChanakyaGuideCards(context), [context]);
+  const resolvedContext = useMemo(() => normalizeGuideContext(context), [context]);
+  const meta = useMemo(
+    () => resolveChanakyaGuideWorkspaceMeta(resolvedContext),
+    [resolvedContext],
+  );
+  const entries = useMemo(
+    () => resolveChanakyaGuideEntries(resolvedContext),
+    [resolvedContext],
+  );
 
   return (
     <ContextWorkspaceShell
       open={open}
       onOpenChange={onOpenChange}
       title="Chanakya Guide"
-      description={page?.pagePurpose}
-      entityLabel={context.transactionLabel ?? page?.workspaceLabel}
+      description={meta?.pagePurpose}
+      entityLabel={context.transactionLabel ?? meta?.workspaceLabel}
       className="sm:max-w-md md:max-w-lg"
       footer={
         <div className="flex flex-wrap gap-2">
@@ -156,24 +206,24 @@ function ChanakyaGuidePanel({
           <div className="min-w-0">
             <ChanakyaIdentityLabel surface="advisory" />
             <p className="mt-0.5 text-sm font-semibold text-foreground">
-              {page?.workspaceLabel ?? "Workspace"} guidance
+              {meta?.workspaceLabel ?? "Workspace"} guidance
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              Short mentor guidance for this screen — not technical help. Skip anytime; your work stays
-              underneath.
+              Content from the Enterprise Guide Repository. Evolve guidance in the repository — not in
+              UI components.
             </p>
           </div>
         </div>
 
-        {cards.length === 0 ? (
+        {entries.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-xs text-muted-foreground">
-            Guidance for this workspace is not configured yet. Enterprise certification requires Chanakya
-            Guide content before this page is complete.
+            No Guide Repository entries for this workspace yet. Enterprise certification requires
+            Chanakya Guide content before this page is complete.
           </p>
         ) : (
           <div className="space-y-3">
-            {cards.map((card) => (
-              <GuideCard key={card.id} {...card} />
+            {entries.map((entry) => (
+              <GuideEntryCard key={entry.id} entry={entry} />
             ))}
           </div>
         )}
@@ -301,7 +351,7 @@ function ChanakyaTourDialog({
 }
 
 /**
- * Chanakya Guide Phase 1 — button + on-demand Context Workspace + optional first-time tour.
+ * Chanakya Guide Phase 1 — button + Context Workspace rendering Guide Repository entries.
  */
 export function ChanakyaGuide({
   context,
@@ -310,7 +360,6 @@ export function ChanakyaGuide({
 }: {
   context: ChanakyaGuideContext;
   className?: string;
-  /** Offer first-time / paused tour after mount. */
   offerTour?: boolean;
 }) {
   const [guideOpen, setGuideOpen] = useState(false);
