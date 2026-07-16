@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -72,6 +72,8 @@ function OpportunityWorkspaceShell() {
   const [gateOpen, setGateOpen] = useState(false);
   const [gateScore, setGateScore] = useState<DocumentCompletionScore | null>(null);
   const [gateIntent, setGateIntent] = useState("finalize LIFE");
+  const [gateHasProceed, setGateHasProceed] = useState(false);
+  const gateProceedRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const map: Partial<Record<WorkspaceFocus, OwStrategicTabId>> = {
@@ -142,13 +144,26 @@ function OpportunityWorkspaceShell() {
     if (mapped) setFocus(mapped);
   };
 
-  const checkDocumentGate = (intentLabel: string): boolean => {
+  /**
+   * Chanakya Operating Principles — never block workflow.
+   * Shows a readiness advisory when documents are incomplete; always allows proceed.
+   */
+  const adviseDocumentReadiness = (
+    intentLabel: string,
+    onProceed?: () => void,
+  ): boolean => {
     const score = evaluateDocumentCompletionForLoanFile(activeLoan);
-    if (score.canProgressToLifeOrLoan) return true;
+    if (score.canProgressToLifeOrLoan) {
+      onProceed?.();
+      return true;
+    }
+    gateProceedRef.current = onProceed ?? null;
+    setGateHasProceed(Boolean(onProceed));
     setGateScore(score);
     setGateIntent(intentLabel);
     setGateOpen(true);
-    return false;
+    // Non-blocking: caller may still proceed; advisory offers Continue anyway when deferred.
+    return true;
   };
 
   const firstName = user?.firstName?.trim() || "there";
@@ -213,8 +228,9 @@ function OpportunityWorkspaceShell() {
               canEditContact={Boolean(contact)}
               onOpenCreditWorkbench={() => router.push(creditHref)}
               onOpenLoanWorkspace={() => {
-                if (!checkDocumentGate("open Loan Workspace")) return;
-                router.push(loanHref);
+                adviseDocumentReadiness("open Loan Workspace", () => {
+                  router.push(loanHref);
+                });
               }}
               onAddContact={() => setIntentOpen(true)}
               onEditContact={() => {
@@ -258,7 +274,10 @@ function OpportunityWorkspaceShell() {
                   {tab === "deviation_mitigant" && <WorkspaceDeviationMitigantPanel />}
                   {tab === "funding_strategy" && (
                     <WorkspaceLifePanel
-                      onBeforeAssign={() => checkDocumentGate("finalize LIFE")}
+                      onBeforeAssign={() => {
+                        adviseDocumentReadiness("finalize LIFE");
+                        return true;
+                      }}
                     />
                   )}
                   {tab === "notes" && <WorkspaceNotesPanel />}
@@ -333,11 +352,27 @@ function OpportunityWorkspaceShell() {
 
       <DocumentCompletionGateDialog
         open={gateOpen}
-        onOpenChange={setGateOpen}
+        onOpenChange={(open) => {
+          setGateOpen(open);
+          if (!open) {
+            gateProceedRef.current = null;
+            setGateHasProceed(false);
+          }
+        }}
         score={gateScore}
         fileId={activeLoan?.id}
         opportunityId={opportunityId}
         intentLabel={gateIntent}
+        onProceedAnyway={
+          gateHasProceed
+            ? () => {
+                const fn = gateProceedRef.current;
+                gateProceedRef.current = null;
+                setGateHasProceed(false);
+                fn?.();
+              }
+            : undefined
+        }
       />
     </div>
   );

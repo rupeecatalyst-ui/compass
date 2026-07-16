@@ -57,3 +57,5 @@ Never show isolated statistics. Every metric explains business readiness:
 - What is missing
 - Why it is blocked
 - What should happen next
+
+Readiness scores and Chanakya messages are **advisory only**. They must never disable Continue, Back, or workspace hops (see Chanakya Operating Principles).

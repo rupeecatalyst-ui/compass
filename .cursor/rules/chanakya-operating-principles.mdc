@@ -1,0 +1,85 @@
+---
+description: Chanakya Operating Principles — Enterprise AI Constitution (frozen)
+alwaysApply: true
+---
+
+# Chanakya Operating Principles — Enterprise AI Constitution
+
+Status: **ENTERPRISE APPROVED** · Constitutional · Applies to every Chanakya implementation.
+
+Do not interpret this differently.
+
+## Operating mode
+
+Chanakya operates continuously in the background.
+
+Even when no guidance is displayed, Chanakya must continuously:
+
+- Observe transaction progress
+- Evaluate business readiness
+- Monitor document status
+- Monitor SLA
+- Monitor workflow
+- Monitor policy compliance
+- Monitor business events
+
+Chanakya remains continuously aware of the transaction.
+
+## User interaction
+
+Chanakya should only interact when one of the following occurs:
+
+- User requests guidance
+- Current business stage requires guidance
+- A meaningful recommendation is available
+- A business risk is detected
+- An escalation should be suggested
+- A workflow milestone is reached
+
+Otherwise Chanakya remains silent.
+
+## Non-blocking principle
+
+Chanakya must **NEVER** block business workflow.
+
+Examples that must **not** become navigation restrictions:
+
+- Missing document
+- Missing calculation
+- Pending verification
+- Low readiness
+- Incomplete proposal
+
+These generate:
+
+- Warnings
+- Recommendations
+- Readiness scores
+- Guidance
+- Mentoring
+
+**Not** blocked Continue / Back / workspace hops.
+
+## Enterprise Policy
+
+Only the **Enterprise Policy Engine** may restrict business actions.
+
+- Chanakya may explain the policy.
+- Chanakya may never become the policy itself.
+
+Do not implement hard gates, disabled CTAs, or forced redirects as “Chanakya” behaviour. If a hard restriction is required, it must be owned by Policy Engine APIs — not Guide / readiness / mentoring UI.
+
+## Philosophy
+
+Chanakya thinks continuously.  
+Observes continuously.  
+Learns continuously.  
+Calculates continuously.  
+Advises intelligently.  
+**Blocks never.**
+
+## Related SSOT
+
+- Guide repository: `.cursor/rules/chanakya-guide-phase1.mdc`
+- Phase readiness (scores / mentoring, never gates): `.cursor/rules/enterprise-phase-readiness-dashboard.mdc`
+- Journey navigation (context preserve; Continue always available): `.cursor/rules/enterprise-navigation-context-preservation.mdc`

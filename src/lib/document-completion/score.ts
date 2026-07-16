@@ -26,6 +26,7 @@ export interface DocumentCompletionScore {
   uploadedCount: number;
   totalCount: number;
   canProgressToLifeOrLoan: boolean;
+  /** Readiness signal only — never use as a hard navigation gate (Chanakya Operating Principles). */
   blockReasons: string[];
 }
 
