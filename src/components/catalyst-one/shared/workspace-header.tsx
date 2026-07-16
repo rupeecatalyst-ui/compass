@@ -11,6 +11,8 @@ export interface WorkspaceHeaderProps {
   infoStrip?: React.ReactNode;
   /** Prompt 011 — context-preserving nav (e.g. Back To Opportunity Workspace). */
   leadingAction?: React.ReactNode;
+  /** Enterprise Action Center (and other header actions) — before Close. */
+  headerActions?: React.ReactNode;
   /** UX-04E — Execution console layout with identity + live feed. */
   executionLayout?: {
     borrowerName: string;
@@ -33,6 +35,7 @@ export function WorkspaceHeader({
   title,
   infoStrip,
   leadingAction,
+  headerActions,
   executionLayout,
   onClose,
   hasUnsavedChanges,
@@ -79,6 +82,7 @@ export function WorkspaceHeader({
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {leadingAction}
+              {headerActions}
               {executionLayout.saveActions}
               <Button
                 type="button"
@@ -102,17 +106,20 @@ export function WorkspaceHeader({
               </div>
               {infoStrip ? <div className="mt-0.5 min-w-0">{infoStrip}</div> : null}
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-              onClick={api.requestClose}
-              aria-label="Close workspace"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden />
-              Close
-            </Button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {headerActions}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                onClick={api.requestClose}
+                aria-label="Close workspace"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+                Close
+              </Button>
+            </div>
           </div>
         )}
       </header>

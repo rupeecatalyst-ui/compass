@@ -11,6 +11,7 @@ import { LoanWorkbenchLayout } from "@/components/catalyst-one/shared/loan-workb
 import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-workbench-section";
 import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-workspace-command-bar";
 import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
+import { LoanActionCenter } from "@/components/catalyst-one/action-center";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
@@ -994,6 +995,26 @@ function LoanWorkspaceModalContent({
               Back To Opportunity Workspace
             </Link>
           </Button>
+        }
+        headerActions={
+          <LoanActionCenter
+            loan={draft}
+            onDocumentsChange={(documents) => patch({ documents })}
+            onTimelineNote={(title, description) =>
+              patch({
+                timeline: [
+                  {
+                    id: `tl-${Date.now()}`,
+                    title,
+                    description,
+                    timestamp: new Date().toISOString(),
+                    completed: true,
+                  },
+                  ...draft.timeline,
+                ],
+              })
+            }
+          />
         }
         executionLayout={
           activeTab === "lenders"

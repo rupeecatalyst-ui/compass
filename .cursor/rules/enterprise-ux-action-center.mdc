@@ -1,0 +1,21 @@
+---
+description: Enterprise UX — Action Center & Context Workspace constitution
+alwaysApply: true
+---
+
+# Enterprise UX Constitution — Action Center & Context Workspace
+
+Frozen interaction model for Catalyst One (and reusable across ecosystem platforms).
+
+1. Users never leave their current business context for routine actions.
+2. Action Center launches Context Workspaces (slide-over temporary workspaces, not CRM popups).
+3. Context Workspaces are dynamically composed from Enterprise Registries (recipients, templates, documents, permissions).
+4. Communication is relationship-aware and context-aware — no manual recipient address entry during transaction processing.
+5. Templates are intelligent and filtered by recipient type, product, workflow stage, and transaction context.
+6. Business communications enter the Enterprise Outbox (review timer) before dispatch; Send Now is an intentional override.
+7. Chanakya is available inside every Context Workspace.
+8. Timeline, Audit Trail, and Communication History update automatically after dispatch.
+9. This model is reusable across Customer, Opportunity, Loan File, Wealth Partner, Lender, and future modules.
+
+Prefer alignment with `src/components/catalyst-one/action-center/` rather than inventing parallel action menus or navigation-based compose flows.
+
