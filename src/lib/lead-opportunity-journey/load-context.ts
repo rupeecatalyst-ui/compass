@@ -2,7 +2,8 @@
 
 /**
  * Shared loan-file context loader for Lead Stage surfaces (presentation only).
- * Does NOT default to the first file — bare routes require Active Opportunity Context / picker.
+ * In-transaction: restore Active Opportunity Context when URL omits params.
+ * Dashboard entry (`entry=dashboard`): clear context and return null (picker / list).
  */
 
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
@@ -28,49 +29,59 @@ function allFiles(): LoanFile[] {
     : loadLoanFiles() ?? getInitialLoanFiles();
 }
 
+function rememberFile(
+  hit: LoanFile,
+  opportunityId?: string | null,
+): void {
+  setActiveOpportunityContext({
+    fileId: hit.id,
+    opportunityId: opportunityId ?? undefined,
+    customerName: hit.customerName,
+    product: hit.loanProduct,
+    label: opportunityNumberForFile(hit),
+  });
+}
+
 /**
- * Resolve loan file for guided URL params only.
- * Bare open (no file / opportunityId) returns null — caller shows Opportunity Picker.
- * Guided continue may pass only opportunityId; we resolve via continuity helpers.
+ * Resolve loan file for journey surfaces.
+ * - dashboardEntry: explicit main-nav / return-to-dashboard → no transaction
+ * - file / opportunityId URL params: load and remember
+ * - bare URL with active context: restore same transaction (no Kanban bounce)
  */
 export function loadLeadJourneyLoanFile(
   fileId: string | null,
   opportunityId?: string | null,
+  options?: { dashboardEntry?: boolean },
 ): LoanFile | null {
   const files = allFiles().filter((f) => !f.archived);
 
+  if (options?.dashboardEntry) {
+    clearActiveOpportunityContext();
+    return null;
+  }
+
   if (fileId) {
     const hit = files.find((f) => f.id === fileId) ?? null;
-    if (hit) {
-      setActiveOpportunityContext({
-        fileId: hit.id,
-        opportunityId: opportunityId ?? undefined,
-        customerName: hit.customerName,
-        product: hit.loanProduct,
-        label: opportunityNumberForFile(hit),
-      });
-    }
+    if (hit) rememberFile(hit, opportunityId);
     return hit;
   }
 
   if (opportunityId) {
     const matches = resolveLoansForOpportunity(opportunityId, null);
     const hit = matches[0] ?? null;
-    if (hit) {
-      setActiveOpportunityContext({
-        fileId: hit.id,
-        opportunityId,
-        customerName: hit.customerName,
-        product: hit.loanProduct,
-        label: opportunityNumberForFile(hit),
-      });
-    }
+    if (hit) rememberFile(hit, opportunityId);
     return hit;
   }
 
-  // Bare navigation: do not resurrect stale defaults.
-  // Guided session context is only used when already mid-journey via URL params.
-  clearActiveOpportunityContext();
+  const ctx = getActiveOpportunityContext();
+  if (ctx?.fileId) {
+    const hit = files.find((f) => f.id === ctx.fileId) ?? null;
+    if (hit) {
+      rememberFile(hit, ctx.opportunityId ?? opportunityId);
+      return hit;
+    }
+  }
+
   return null;
 }
 
@@ -94,4 +105,3 @@ export function journeyContextFromLoanFile(file: LoanFile | null): JourneyContex
     life: lender.enabled ? lender.lenderName : undefined,
   };
 }
-

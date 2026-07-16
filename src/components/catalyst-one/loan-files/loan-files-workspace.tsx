@@ -20,6 +20,13 @@ import {
   rememberOpportunityActiveLoan,
   resolveLoansForOpportunity,
 } from "@/lib/opportunity-loan-continuity";
+import {
+  clearActiveOpportunityContext,
+  getActiveOpportunityContext,
+  isDashboardNavEntry,
+  setActiveOpportunityContext,
+} from "@/lib/lead-opportunity-journey/active-context";
+import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
 
 function LoanFilesKeyboard() {
   const { setCreateOpen, setSelectedFileId, selectedFileId, searchInputRef } = useLoanFiles();
@@ -58,11 +65,28 @@ function LoanFilesQuerySync() {
 
   useEffect(() => {
     const browseAll = searchParams.get("browse") === "1";
+    const dashboardEntry = isDashboardNavEntry(searchParams);
     const fileId = searchParams.get("file");
     const opportunityId = searchParams.get("opportunityId");
 
+    if (dashboardEntry && !fileId && !opportunityId) {
+      clearActiveOpportunityContext();
+      setCustomerFilterId(searchParams.get("customer"));
+      return;
+    }
+
     if (fileId) {
       setSelectedFileId(fileId);
+      const hit = files.find((f) => f.id === fileId);
+      if (hit) {
+        setActiveOpportunityContext({
+          fileId: hit.id,
+          opportunityId: opportunityId ?? undefined,
+          customerName: hit.customerName,
+          product: hit.loanProduct,
+          label: opportunityNumberForFile(hit),
+        });
+      }
       if (opportunityId) rememberOpportunityActiveLoan(opportunityId, fileId);
     } else if (opportunityId && !browseAll) {
       const contactId = searchParams.get("customer");
@@ -81,6 +105,11 @@ function LoanFilesQuerySync() {
         if (byOpportunity.length === 1) {
           setSelectedFileId(byOpportunity[0]!.id);
         }
+      }
+    } else if (!browseAll && !dashboardEntry) {
+      const active = getActiveOpportunityContext();
+      if (active?.fileId && files.some((f) => f.id === active.fileId)) {
+        setSelectedFileId(active.fileId);
       }
     }
 
@@ -116,6 +145,18 @@ function LoanFilesContent() {
       })),
     [],
   );
+
+  useEffect(() => {
+    if (!selectedFile) return;
+    const active = getActiveOpportunityContext();
+    setActiveOpportunityContext({
+      fileId: selectedFile.id,
+      opportunityId: active?.opportunityId,
+      customerName: selectedFile.customerName,
+      product: selectedFile.loanProduct,
+      label: opportunityNumberForFile(selectedFile),
+    });
+  }, [selectedFile]);
 
   if (!mounted) {
     return (

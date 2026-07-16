@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { ROLES, type Role } from "@/constants/roles";
+import { buildDashboardHref } from "@/lib/lead-opportunity-journey/active-context";
 
 export interface NavSubItem {
   title: string;
@@ -79,11 +80,31 @@ export const businessOperationsNavigation: NavGroup = {
   items: [
     { title: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
     { title: "Directory", href: ROUTES.CONTACTS, icon: Contact },
-    { title: "Opportunity Setup", href: ROUTES.CREDIT_BENCH, icon: Scale },
-    { title: "Document Center", href: ROUTES.DOCUMENT_CENTER, icon: FolderOpen },
-    { title: "Credit Workbench", href: ROUTES.CREDIT_WORKBENCH, icon: FileStack },
-    { title: "Strategic Workspace", href: ROUTES.OPPORTUNITY_WORKSPACE, icon: Briefcase },
-    { title: "Loan Workspace", href: ROUTES.LOAN_FILES, icon: Landmark },
+    {
+      title: "Opportunity Setup",
+      href: buildDashboardHref(ROUTES.CREDIT_BENCH),
+      icon: Scale,
+    },
+    {
+      title: "Document Center",
+      href: buildDashboardHref(ROUTES.DOCUMENT_CENTER),
+      icon: FolderOpen,
+    },
+    {
+      title: "Credit Workbench",
+      href: buildDashboardHref(ROUTES.CREDIT_WORKBENCH),
+      icon: FileStack,
+    },
+    {
+      title: "Strategic Workspace",
+      href: buildDashboardHref(ROUTES.OPPORTUNITY_WORKSPACE),
+      icon: Briefcase,
+    },
+    {
+      title: "Loan Workspace",
+      href: buildDashboardHref(ROUTES.LOAN_FILES),
+      icon: Landmark,
+    },
     { title: "Tasks", href: ROUTES.TASKS, icon: ListTodo, badge: "17" },
     { title: "Dialogue", href: ROUTES.DIALOGUE, icon: MessagesSquare },
     { title: "Lenders", href: ROUTES.LENDERS, icon: Building2 },

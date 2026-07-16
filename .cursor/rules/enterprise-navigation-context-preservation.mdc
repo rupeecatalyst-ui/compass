@@ -1,0 +1,53 @@
+---
+description: Enterprise Navigation — Transaction Context Preservation (permanent SSOT)
+alwaysApply: true
+---
+
+# Enterprise Navigation Principle — Transaction Context Preservation (Frozen SSOT)
+
+Applies across Catalyst One. The transaction is the anchor of the experience.
+
+## Objective
+
+Once a user opens a business transaction, that transaction becomes the active working context.
+
+All navigation between related workspaces must preserve this context.
+
+Users must not be taken back to dashboard, Kanban, list, or search screens unless they explicitly choose to do so.
+
+## Context preservation
+
+From an open Opportunity / Loan File, navigation among related workspaces must stay on the same transaction:
+
+Strategic Workspace → Loan Workspace → Lender Pipeline → Documents → Credit Workbench → Timeline → Dialogue → Tasks → Action Center destinations
+
+No intermediate dashboard or Kanban.
+
+## When dashboards appear
+
+Dashboard / list / Kanban / picker views are **entry points**. They appear only when:
+
+1. The user opens the module from main (left) navigation or global menu (`entry=dashboard`)
+2. The user intentionally returns to the dashboard / browse-all
+3. The user searches for or selects another transaction
+
+## When context is preserved
+
+Whenever the user is already working inside a transaction.
+
+Active Opportunity / Loan File remains active across related workspaces until the user explicitly changes it (dashboard entry, browse-all, or picking another case).
+
+## Implementation SSOT
+
+- Session store: `src/lib/lead-opportunity-journey/active-context.ts`
+- Resolve loader: `src/lib/lead-opportunity-journey/load-context.ts`
+- In-transaction links: `buildJourneyHref(...)` (merges active context)
+- Main-nav entry: `buildDashboardHref(...)` → `?entry=dashboard` (clears / ignores restore)
+
+Do not invent parallel “current case” stores for journey modules. Prefer these helpers.
+
+## Exception
+
+Left navigation / global menu → dashboard entry for that module.
+
+In-transaction navigation → open the destination directly for the same transaction.

@@ -6,6 +6,10 @@
 import { ROUTES } from "@/constants/routes";
 import type { PipelineStage } from "@/types/catalyst-one";
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
+import {
+  DASHBOARD_ENTRY_PARAM,
+  getActiveOpportunityContext,
+} from "@/lib/lead-opportunity-journey/active-context";
 
 export type JourneyBusinessStage = "lead" | "opportunity";
 
@@ -74,16 +78,26 @@ export function getNextLeadJourneyModule(id: LeadJourneyModuleId): LeadJourneyMo
   return LEAD_OPPORTUNITY_JOURNEY[idx + 1]!;
 }
 
-/** Preserve file / opportunity context across Save & Continue transitions. */
+/**
+ * Preserve file / opportunity context across in-transaction navigation.
+ * Merges explicit context with Active Opportunity Context (SSOT).
+ * Never emits `entry=dashboard` — that is only for main-nav dashboard entry.
+ */
 export function buildJourneyHref(
   baseHref: string,
   context?: { fileId?: string | null; opportunityId?: string | null },
 ): string {
-  const params = new URLSearchParams();
-  if (context?.fileId) params.set("file", context.fileId);
-  if (context?.opportunityId) params.set("opportunityId", context.opportunityId);
-  const q = params.toString();
-  return q ? `${baseHref}?${q}` : baseHref;
+  const active =
+    typeof window !== "undefined" ? getActiveOpportunityContext() : null;
+  const fileId = context?.fileId ?? active?.fileId ?? null;
+  const opportunityId = context?.opportunityId ?? active?.opportunityId ?? null;
+
+  const url = new URL(baseHref, "https://local.invalid");
+  url.searchParams.delete(DASHBOARD_ENTRY_PARAM);
+  if (fileId) url.searchParams.set("file", fileId);
+  if (opportunityId) url.searchParams.set("opportunityId", opportunityId);
+  const q = url.searchParams.toString();
+  return q ? `${url.pathname}?${q}` : url.pathname;
 }
 
 /**

@@ -26,6 +26,7 @@ import {
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
 import { loadLeadJourneyLoanFile } from "@/lib/lead-opportunity-journey/load-context";
+import { isDashboardNavEntry } from "@/lib/lead-opportunity-journey/active-context";
 import {
   resolveStatedDraftForFile,
   saveStatedDraft,
@@ -58,7 +59,9 @@ export function EnterpriseCreditWorkspace() {
 
   useEffect(() => {
     setLoading(true);
-    const next = loadLeadJourneyLoanFile(fileParam, opportunityId);
+    const next = loadLeadJourneyLoanFile(fileParam, opportunityId, {
+      dashboardEntry: isDashboardNavEntry(searchParams),
+    });
     setFile(next);
     if (next) {
       setStated(resolveStatedDraftForFile(next));
@@ -68,7 +71,7 @@ export function EnterpriseCreditWorkspace() {
       setSelectedDocId(null);
     }
     setLoading(false);
-  }, [fileParam, opportunityId]);
+  }, [fileParam, opportunityId, searchParams]);
 
   const lender = useMemo(
     () =>
@@ -332,4 +335,4 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
+

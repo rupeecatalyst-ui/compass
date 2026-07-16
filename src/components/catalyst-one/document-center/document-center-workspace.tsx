@@ -17,6 +17,7 @@ import {
   journeyContextFromLoanFile,
   loadLeadJourneyLoanFile,
 } from "@/lib/lead-opportunity-journey/load-context";
+import { isDashboardNavEntry } from "@/lib/lead-opportunity-journey/active-context";
 import {
   listEdieDocumentRules,
   registerEdieDocumentRule,
@@ -88,11 +89,13 @@ export function DocumentCenterWorkspace() {
   useEffect(() => {
     setLoading(true);
     seedDocumentRulesIfEmpty();
-    const next = loadLeadJourneyLoanFile(fileParam, opportunityId);
+    const next = loadLeadJourneyLoanFile(fileParam, opportunityId, {
+      dashboardEntry: isDashboardNavEntry(searchParams),
+    });
     setFile(next);
     if (next) setReceipts(loadReceipts(next.id));
     setLoading(false);
-  }, [fileParam, opportunityId]);
+  }, [fileParam, opportunityId, searchParams]);
 
   const employmentKey = useMemo(() => {
     const e = (file?.employmentType || "salaried").toLowerCase();

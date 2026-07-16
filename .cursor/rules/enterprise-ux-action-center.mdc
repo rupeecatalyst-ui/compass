@@ -41,3 +41,5 @@ Reuse across Opportunity, Loan, Credit Workbench, Wealth Partner, Lender, and fu
 Header rule: one Enterprise Workspace Header per screen; navigation actions belong in Action Center.
 
 Accessibility: follow `.cursor/rules/enterprise-accessibility-contrast.mdc` — every hover/focus/selected/active/pressed/disabled state must keep readable contrast between background, text, icons, borders, and badges.
+
+Navigation: follow `.cursor/rules/enterprise-navigation-context-preservation.mdc` — in-transaction links use `buildJourneyHref`; main nav uses `buildDashboardHref` / `entry=dashboard`.

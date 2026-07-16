@@ -48,6 +48,8 @@ import { BusinessCompletionDialog } from "@/components/catalyst-one/shared/busin
 import { PropertyInformationCard } from "@/components/catalyst-one/shared/property-information-card";
 import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
 import { rememberOpportunityActiveLoan } from "@/lib/opportunity-loan-continuity";
+import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
+import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
@@ -134,10 +136,12 @@ function LoanWorkspaceModalContent({
   const stickyChromeRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const opportunityId = searchParams.get("opportunityId");
-  const backToOpportunityHref = opportunityId
-    ? `${ROUTES.OPPORTUNITY_WORKSPACE}?opportunityId=${encodeURIComponent(opportunityId)}`
-    : ROUTES.OPPORTUNITY_WORKSPACE;
+  const opportunityId =
+    searchParams.get("opportunityId") ?? getActiveOpportunityContext()?.opportunityId ?? null;
+  const backToOpportunityHref = buildJourneyHref(ROUTES.OPPORTUNITY_WORKSPACE, {
+    fileId: draft.id,
+    opportunityId,
+  });
   const [completionOpen, setCompletionOpen] = useState(false);
   const [completionRequest, setCompletionRequest] = useState<BusinessCompletionRequest | null>(
     null,

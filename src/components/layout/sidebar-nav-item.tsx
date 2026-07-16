@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -8,13 +7,35 @@ import { cn } from "@/lib/utils";
 import { useSidebarExpanded } from "@/hooks/use-sidebar-expanded";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { NavItem } from "@/config/navigation";
-
 import { ROUTES } from "@/constants/routes";
+import {
+  clearActiveOpportunityContext,
+  isTransactionContextRoute,
+} from "@/lib/lead-opportunity-journey/active-context";
 
 function isNavActive(pathname: string, href: string): boolean {
-  if (pathname === href) return true;
-  if (href === "/dashboard" || href === "/organization" || href === ROUTES.ADMIN_CREDIT_RISK_ENGINE || href === ROUTES.ADMIN_ARCHITECTURE || href === ROUTES.ADMIN_WORKFLOW_ENGINE || href === ROUTES.ADMIN_PRODUCT_LIBRARY || href === ROUTES.ADMIN_ENTERPRISE_ASSETS || href === ROUTES.ADMIN_FOUNDATION_LIBRARIES || href === ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY) return false;
-  return pathname.startsWith(href.split("?")[0]!);
+  const hrefPath = href.split("?")[0]!;
+  if (pathname === hrefPath) return true;
+  if (
+    hrefPath === "/dashboard" ||
+    hrefPath === "/organization" ||
+    hrefPath === ROUTES.ADMIN_CREDIT_RISK_ENGINE ||
+    hrefPath === ROUTES.ADMIN_ARCHITECTURE ||
+    hrefPath === ROUTES.ADMIN_WORKFLOW_ENGINE ||
+    hrefPath === ROUTES.ADMIN_PRODUCT_LIBRARY ||
+    hrefPath === ROUTES.ADMIN_ENTERPRISE_ASSETS ||
+    hrefPath === ROUTES.ADMIN_FOUNDATION_LIBRARIES ||
+    hrefPath === ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY
+  ) {
+    return false;
+  }
+  return pathname.startsWith(hrefPath);
+}
+
+function onMainNavClick(href: string) {
+  if (isTransactionContextRoute(href.split("?")[0] ?? href)) {
+    clearActiveOpportunityContext();
+  }
 }
 
 interface SidebarNavItemProps {
@@ -39,6 +60,7 @@ export function SidebarNavItem({ item, collapsed }: SidebarNavItemProps) {
         <TooltipTrigger asChild>
           <Link
             href={item.href}
+            onClick={() => onMainNavClick(item.href)}
             className={cn(
               "flex items-center justify-center rounded-lg px-0 py-2 text-sm font-medium transition-all",
               active
@@ -58,6 +80,7 @@ export function SidebarNavItem({ item, collapsed }: SidebarNavItemProps) {
     return (
       <Link
         href={item.href}
+        onClick={() => onMainNavClick(item.href)}
         className={cn(
           "flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-all",
           active
@@ -79,6 +102,7 @@ export function SidebarNavItem({ item, collapsed }: SidebarNavItemProps) {
       <div className="flex items-center gap-0.5">
         <Link
           href={item.href}
+          onClick={() => onMainNavClick(item.href)}
           className={cn(
             "flex flex-1 items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-all min-w-0",
             active
