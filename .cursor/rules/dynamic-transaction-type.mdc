@@ -1,0 +1,36 @@
+---
+description: Dynamic Transaction Type — progressive reveal of Balance Transfer fields
+alwaysApply: true
+---
+
+# Dynamic Transaction Type — Enterprise UX
+
+Status: **Enterprise Approved**
+
+## Principle
+
+Forms progressively reveal only the information required for the selected business scenario.
+
+## Rules
+
+| Transaction Type | UI |
+|------------------|----|
+| **Fresh** | Standard Loan Journey fields only. Do **not** show Balance Transfer / Existing Loan Information. |
+| **Balance Transfer** | Immediately reveal **Existing Loan Information** below Transaction Type. |
+
+## Existing Loan Information (BT only)
+
+Exactly two fields at this stage:
+
+1. **Current Lending Institution** — mandatory, searchable dropdown
+2. **Outstanding Loan Amount** — mandatory, currency
+
+No additional BT fields at this stage.
+
+## UX
+
+- Section appears immediately on selecting Balance Transfer
+- Expands smoothly
+- Switching back to Fresh collapses the section automatically
+
+Do not overload the user. Do not ask for BT information on a Fresh loan.

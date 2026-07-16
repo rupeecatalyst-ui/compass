@@ -218,11 +218,15 @@ export const TRANSACTION_TYPES: { id: TransactionType; label: string }[] = [
   { id: "balance_transfer", label: "Balance Transfer" },
 ];
 
+/**
+ * Dynamic Transaction Type — Existing Loan Information is revealed when
+ * Transaction Type = Balance Transfer (any lending type). Fresh never shows BT fields.
+ */
 export function isBalanceTransferVisible(
-  lendingType: LendingType,
+  _lendingType: LendingType,
   transactionType: TransactionType,
 ): boolean {
-  return lendingType === "secured" && transactionType === "balance_transfer";
+  return transactionType === "balance_transfer";
 }
 
 export function computeTopUpRequested(requiredAmount: number, btAmount: number): number {

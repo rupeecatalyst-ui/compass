@@ -13,6 +13,7 @@ import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-head
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
 import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
+import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
 import { MissionControlWorkspace } from "@/components/catalyst-one/mission-control/mission-control-workspace";
@@ -499,6 +500,23 @@ function LoanWorkspaceModalContent({
                       <SummaryItem label="Product" value={draft.loanProduct || "—"} />
                       <SummaryItem label="Product Type" value={draft.lendingType ? draft.lendingType.toUpperCase() : "—"} />
                       <SummaryItem label="Transaction Type" value={draft.transactionType ? draft.transactionType.toUpperCase() : "—"} />
+                      {draft.transactionType === "balance_transfer" ? (
+                        <>
+                          <SummaryItem
+                            label="Current Lending Institution"
+                            value={draft.btInstitutionName || "—"}
+                          />
+                          <SummaryItem
+                            label="Outstanding Loan Amount"
+                            value={
+                              draft.btAmount && draft.btAmount > 0
+                                ? formatINR(draft.btAmount)
+                                : "—"
+                            }
+                            accent
+                          />
+                        </>
+                      ) : null}
                       <SummaryItem
                         label="Customer Type"
                         value={(participants.some((p) => p.entityType === "company") || Boolean(draft.businessDetails?.companyName)) ? "Business" : "Individual"}
@@ -559,7 +577,20 @@ function LoanWorkspaceModalContent({
                       <Field label="Transaction Type *">
                         <Select
                           value={draft.transactionType ?? "fresh"}
-                          onValueChange={(v) => patch({ transactionType: v as TransactionType })}
+                          onValueChange={(v) => {
+                            const next = v as TransactionType;
+                            if (next === "balance_transfer") {
+                              patch({ transactionType: next });
+                            } else {
+                              patch({
+                                transactionType: next,
+                                btInstitutionId: undefined,
+                                btInstitutionName: undefined,
+                                btAmount: undefined,
+                                topUpRequested: undefined,
+                              });
+                            }
+                          }}
                         >
                           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -569,6 +600,26 @@ function LoanWorkspaceModalContent({
                           </SelectContent>
                         </Select>
                       </Field>
+                      <div className="sm:col-span-2 lg:col-span-3">
+                        <ExistingLoanInformationSection
+                          visible={(draft.transactionType ?? "fresh") === "balance_transfer"}
+                          institutionId={draft.btInstitutionId}
+                          institutionName={draft.btInstitutionName}
+                          outstandingAmount={draft.btAmount}
+                          onInstitutionChange={(id, name) =>
+                            patch({ btInstitutionId: id, btInstitutionName: name })
+                          }
+                          onOutstandingChange={(amount) =>
+                            patch({
+                              btAmount: amount,
+                              topUpRequested:
+                                typeof amount === "number"
+                                  ? Math.max(0, (draft.requiredAmount ?? 0) - amount)
+                                  : undefined,
+                            })
+                          }
+                        />
+                      </div>
                       <Field label="Required Amount (₹)">
                         <INRCurrencyInput value={draft.requiredAmount} onChange={(v) => patch({ requiredAmount: v ?? 0 })} />
                       </Field>

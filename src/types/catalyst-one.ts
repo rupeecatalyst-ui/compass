@@ -628,6 +628,10 @@ export interface CreateLoanFileInput {
   occupancyId?: string;
   approxPropertyValue?: number;
   businessDetails?: LoanFileBusiness;
+  /** Dynamic Transaction Type — Balance Transfer only. */
+  btInstitutionId?: string;
+  btInstitutionName?: string;
+  btAmount?: number;
 }
 
 export type LoanFileSortField = keyof Pick<

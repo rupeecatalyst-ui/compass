@@ -207,6 +207,15 @@ export function createLoanFileFromInput(
     occupancyId: input.occupancyId,
     approxPropertyValue: input.approxPropertyValue,
     businessDetails: input.businessDetails,
+    btInstitutionId:
+      transactionType === "balance_transfer" ? input.btInstitutionId : undefined,
+    btInstitutionName:
+      transactionType === "balance_transfer" ? input.btInstitutionName : undefined,
+    btAmount: transactionType === "balance_transfer" ? input.btAmount : undefined,
+    topUpRequested:
+      transactionType === "balance_transfer" && input.btAmount
+        ? Math.max(0, input.requiredAmount - input.btAmount)
+        : undefined,
     documents: [
       "PAN",
       "Aadhaar",

@@ -92,7 +92,7 @@ export function validateLoanFile(
       pushIssue(issues, {
         code: "LOAN_MISSING_BT_INSTITUTION",
         fieldKey: "btInstitutionId",
-        label: "BT Institution",
+        label: "Current Lending Institution",
         message: "I need the existing lender so the balance transfer can proceed.",
         control: "bt_institution",
       });
@@ -101,7 +101,7 @@ export function validateLoanFile(
       pushIssue(issues, {
         code: "LOAN_MISSING_BT_AMOUNT",
         fieldKey: "btAmount",
-        label: "BT Amount",
+        label: "Outstanding Loan Amount",
         message: "The outstanding amount with the existing lender keeps the transfer accurate.",
         control: "bt_amount",
       });
@@ -109,8 +109,8 @@ export function validateLoanFile(
       pushIssue(issues, {
         code: "LOAN_BT_AMOUNT_EXCEEDS",
         fieldKey: "btAmount",
-        label: "BT Amount",
-        message: "BT Amount should stay within the requested loan amount for this journey.",
+        label: "Outstanding Loan Amount",
+        message: "Outstanding amount should stay within the requested loan amount for this journey.",
         control: "bt_amount",
       });
     }

@@ -36,6 +36,7 @@ import {
 } from "@/lib/loan-journey/source-contact-filter";
 import { resolveAssociatedCompanyFromBorrowerProfile } from "@/lib/loan-journey/reuse-borrower-company";
 import { ProgressiveContactCreateModal } from "@/components/catalyst-one/contacts/progressive-contact-create-modal";
+import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
 import {
   isEcmContactUsable,
   listEcmContacts,
@@ -85,6 +86,25 @@ const schema = z.object({
   source: z.string().min(1),
   sourceContactId: z.string().optional(),
   relationshipManager: z.string().min(1),
+  btInstitutionId: z.string().optional(),
+  btInstitutionName: z.string().optional(),
+  btAmount: z.number().optional(),
+}).superRefine((values, ctx) => {
+  if (values.transactionType !== "balance_transfer") return;
+  if (!values.btInstitutionId?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["btInstitutionId"],
+      message: "Current Lending Institution is required for Balance Transfer",
+    });
+  }
+  if (!values.btAmount || values.btAmount <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["btAmount"],
+      message: "Outstanding Loan Amount is required for Balance Transfer",
+    });
+  }
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -166,12 +186,17 @@ export function LoanCreateFormDialog({
       source: "Direct",
       relationshipManager: loanManagers[0] ?? "",
       customerId: "",
+      btInstitutionId: "",
+      btInstitutionName: "",
+      btAmount: undefined as unknown as number,
     },
   });
 
   const lendingType = form.watch("lendingType");
+  const transactionType = form.watch("transactionType");
   const source = form.watch("source");
   const productOptions = useMemo(() => getProductsForLendingType(lendingType), [lendingType]);
+  const showExistingLoan = transactionType === "balance_transfer";
 
   const contactOptions = useMemo(() => {
     const ecm = listEcmContacts()
@@ -347,6 +372,9 @@ export function LoanCreateFormDialog({
       sourceContactId: undefined,
       relationshipManager: prefillCustomer?.relationshipManager ?? loanManagers[0] ?? "",
       customerId: prefillCustomer?.id ?? "",
+      btInstitutionId: "",
+      btInstitutionName: "",
+      btAmount: undefined as unknown as number,
     });
     setBaselineSnapshot(
       JSON.stringify({
@@ -427,6 +455,13 @@ export function LoanCreateFormDialog({
           ...synced.businessDetails,
           monthlySalary: values.monthlyIncome,
         },
+        ...(values.transactionType === "balance_transfer"
+          ? {
+              btInstitutionId: values.btInstitutionId,
+              btInstitutionName: values.btInstitutionName,
+              btAmount: values.btAmount,
+            }
+          : {}),
       },
       meta: {
         participants: synced.participants,
@@ -672,9 +707,17 @@ export function LoanCreateFormDialog({
                     <FormField label="Transaction Type">
                       <Select
                         value={form.watch("transactionType")}
-                        onValueChange={(v) =>
-                          form.setValue("transactionType", v as TransactionType, { shouldDirty: true })
-                        }
+                        onValueChange={(v) => {
+                          const next = v as TransactionType;
+                          form.setValue("transactionType", next, { shouldDirty: true });
+                          if (next !== "balance_transfer") {
+                            form.setValue("btInstitutionId", "", { shouldDirty: true });
+                            form.setValue("btInstitutionName", "", { shouldDirty: true });
+                            form.setValue("btAmount", undefined as unknown as number, {
+                              shouldDirty: true,
+                            });
+                          }
+                        }}
                       >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
@@ -688,6 +731,25 @@ export function LoanCreateFormDialog({
                         </SelectContent>
                       </Select>
                     </FormField>
+
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <ExistingLoanInformationSection
+                        visible={showExistingLoan}
+                        institutionId={form.watch("btInstitutionId") || undefined}
+                        outstandingAmount={form.watch("btAmount")}
+                        onInstitutionChange={(id, name) => {
+                          form.setValue("btInstitutionId", id, { shouldDirty: true });
+                          form.setValue("btInstitutionName", name, { shouldDirty: true });
+                        }}
+                        onOutstandingChange={(amount) =>
+                          form.setValue("btAmount", (amount ?? undefined) as number, {
+                            shouldDirty: true,
+                          })
+                        }
+                        institutionError={form.formState.errors.btInstitutionId?.message}
+                        amountError={form.formState.errors.btAmount?.message}
+                      />
+                    </div>
 
                     <FormField label="Customer Type">
                       <Select
