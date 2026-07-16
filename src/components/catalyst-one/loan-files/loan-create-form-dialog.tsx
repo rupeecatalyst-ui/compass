@@ -35,7 +35,12 @@ import {
   listSourceContactOptions,
 } from "@/lib/loan-journey/source-contact-filter";
 import { resolveAssociatedCompanyFromBorrowerProfile } from "@/lib/loan-journey/reuse-borrower-company";
-import { listEcmContacts } from "@/lib/enterprise-contact-master";
+import { ProgressiveContactCreateModal } from "@/components/catalyst-one/contacts/progressive-contact-create-modal";
+import {
+  isEcmContactUsable,
+  listEcmContacts,
+} from "@/lib/enterprise-contact-master";
+import type { EcmContact } from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -136,6 +141,9 @@ export function LoanCreateFormDialog({
   const [sourceContactRole, setSourceContactRole] = useState<string>();
   const [sourceContactOrganisation, setSourceContactOrganisation] = useState<string>();
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
+  const [contactOptionsTick, setContactOptionsTick] = useState(0);
+  const [primaryCreateOpen, setPrimaryCreateOpen] = useState(false);
+  const [primaryCreatePrefill, setPrimaryCreatePrefill] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -166,20 +174,19 @@ export function LoanCreateFormDialog({
   const productOptions = useMemo(() => getProductsForLendingType(lendingType), [lendingType]);
 
   const contactOptions = useMemo(() => {
-    const ecm = listEcmContacts();
-    if (ecm.length > 0) {
-      return ecm.map((c) => ({
+    const ecm = listEcmContacts()
+      .filter((c) => isEcmContactUsable(c.status))
+      .map((c) => ({
         id: c.id,
         label: c.name,
-        sublabel: c.mobilePrimary,
-        mobile: c.mobilePrimary,
+        sublabel: c.mobilePrimary?.startsWith("pending-") ? "Provisional" : c.mobilePrimary,
+        mobile: c.mobilePrimary?.startsWith("pending-") ? "" : c.mobilePrimary,
         email: c.personalEmail || c.officialEmail || "",
         city: c.city || "",
         state: c.state || "",
         employmentType: c.employmentType || "Salaried",
       }));
-    }
-    return CUSTOMER_SEED.map((c) => ({
+    const seed = CUSTOMER_SEED.map((c) => ({
       id: c.id,
       label: c.name,
       sublabel: c.mobile,
@@ -189,7 +196,10 @@ export function LoanCreateFormDialog({
       state: c.state,
       employmentType: c.employmentType,
     }));
-  }, []);
+    const byId = new Map<string, (typeof seed)[number]>();
+    for (const row of [...seed, ...ecm]) byId.set(row.id, row);
+    return [...byId.values()];
+  }, [contactOptionsTick]);
 
   const sourceContactOptions = useMemo(() => listSourceContactOptions(source), [source]);
   const hideSourceContact = source === "Direct";
@@ -247,10 +257,18 @@ export function LoanCreateFormDialog({
       const profile = ecm.roleProfiles?.customer ?? {};
       form.setValue("customerId", ecm.id, { shouldDirty: true });
       form.setValue("customerName", ecm.name, { shouldDirty: true });
-      form.setValue("customerMobile", ecm.mobilePrimary, { shouldDirty: true });
+      form.setValue(
+        "customerMobile",
+        ecm.mobilePrimary?.startsWith("pending-") ? "" : ecm.mobilePrimary,
+        { shouldDirty: true },
+      );
       form.setValue(
         "customerEmail",
-        ecm.personalEmail || ecm.officialEmail || `${ecm.mobilePrimary}@contact.local`,
+        ecm.personalEmail ||
+          ecm.officialEmail ||
+          (ecm.mobilePrimary?.startsWith("pending-")
+            ? "pending@contact.local"
+            : `${ecm.mobilePrimary}@contact.local`),
         { shouldDirty: true },
       );
       form.setValue("city", ecm.city || "Mumbai", { shouldDirty: true });
@@ -277,6 +295,15 @@ export function LoanCreateFormDialog({
       setAssociatedCompanyName(undefined);
       setCompanyFromProfile(false);
     }
+  };
+
+  const applyProgressivePrimary = (contact: EcmContact) => {
+    setContactOptionsTick((t) => t + 1);
+    selectPrimaryApplicant({
+      id: contact.id,
+      label: contact.name,
+      sublabel: contact.mobilePrimary,
+    });
   };
 
   const selectSourceContact = (option: EntityMasterOption) => {
@@ -480,6 +507,10 @@ export function LoanCreateFormDialog({
                         selectedLabel={form.watch("customerName") || undefined}
                         options={contactOptions}
                         onSelect={selectPrimaryApplicant}
+                        onCreateNew={(q) => {
+                          setPrimaryCreatePrefill(q);
+                          setPrimaryCreateOpen(true);
+                        }}
                       />
                     </FormField>
 
@@ -520,6 +551,7 @@ export function LoanCreateFormDialog({
                         entityOptions={participantEntityOptions}
                         onChange={setParticipants}
                         maxParticipants={9}
+                        onContactCreated={() => setContactOptionsTick((t) => t + 1)}
                       />
                     </div>
                   </div>
@@ -765,6 +797,14 @@ export function LoanCreateFormDialog({
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      <ProgressiveContactCreateModal
+        open={primaryCreateOpen}
+        onOpenChange={setPrimaryCreateOpen}
+        initialName={primaryCreatePrefill}
+        participantKind="primary_applicant"
+        onCreated={applyProgressivePrimary}
+      />
 
       <UnsavedChangesDialog
         open={closeApi.confirmOpen}

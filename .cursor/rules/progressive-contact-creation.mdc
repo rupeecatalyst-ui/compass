@@ -1,0 +1,55 @@
+---
+description: Progressive Contact Creation — never interrupt Loan Journey for incomplete Contacts
+alwaysApply: true
+---
+
+# Progressive Contact Creation — Enterprise UX Constitution
+
+Status: **ENTERPRISE APPROVED**
+
+## Principle (frozen)
+
+Never interrupt a business process because a supporting Contact is incomplete.
+
+Create the Contact with the minimum information required.  
+Allow the business process to continue.  
+Let Chanakya progressively drive data completeness throughout the journey.
+
+## Minimum mandatory fields
+
+| Participant | Required at create |
+|-------------|-------------------|
+| Primary Applicant | Full Name + Mobile |
+| Co-Applicant / Guarantor / Other | Full Name only |
+
+All other fields (email, PAN, Aadhaar, address, occupation, relationship, DOB) are optional and must **never** stop the Loan Journey.
+
+## Search → Create
+
+1. Search existing Contact  
+2. If found → select, link, continue  
+3. If not found → show “No matching Contact found.” + **Create New Contact** directly under search  
+4. Modal overlay opens (Loan Journey stays in background)  
+5. Save & Continue → create · auto-link · close modal · populate participant · continue  
+
+Never force navigation away from the transaction.
+
+## Contact lifecycle
+
+- **PROVISIONAL** — minimum captured; business continues; Chanakya follows up  
+- **COMPLETE** — required business information captured  
+- **VERIFIED** — KYC / verification done  
+
+## Chanakya (non-blocking)
+
+Monitor provisional gaps (Mobile, PAN, Email, Address, Relationship, KYC).  
+Produce guidance, readiness impact, briefing reminders — **never** block navigation.  
+Only Enterprise Policy Engine may block workflow.
+
+## Implementation SSOT
+
+- Lifecycle helpers: `src/lib/enterprise-contact-master/progressive-contact.ts`
+- Create API: `registerProgressiveLoanContact`
+- Search CTA: `EntityMasterSearch` `onCreateNew`
+- Modal: `ProgressiveContactCreateModal`
+- Wired: Loan Participants table/panel, Loan create Primary Applicant

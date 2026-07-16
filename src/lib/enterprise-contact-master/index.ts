@@ -16,12 +16,22 @@ export {
   promptEcmMissingEmail,
   queryEcmContacts,
   registerEcmContact,
+  registerProgressiveLoanContact,
   resolveOrCreateEcmContact,
   touchEcmContactActivity,
   updateEcmContact,
   updateEcmContactEmails,
 } from "./contact-registry";
 export { normalizePersonName } from "./name-normalize";
+export {
+  deriveContactStatusAfterSave,
+  isEcmContactUsable,
+  listProvisionalContactGaps,
+  progressiveRequiresMobile,
+  toEcmContactLifecycleLabel,
+  ECM_CONTACT_LIFECYCLE_LABELS,
+  type ProgressiveParticipantKind,
+} from "./progressive-contact";
 export {
   buildEcmRelationshipChain,
   clearEcmContactRelationship,

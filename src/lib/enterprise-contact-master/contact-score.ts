@@ -20,7 +20,11 @@ export function computeEcmContactScore(
     1 + (contact.additionalRoles?.length ?? 0);
   score += Math.min(cfg.maxRolesContribution, roleCount * cfg.perRole);
 
-  if ((contact.status ?? "active") === "active") score += cfg.activeStatus;
+  if ((contact.status ?? "active") !== "archived" && contact.status !== "provisional") {
+    score += cfg.activeStatus;
+  }
+  // Provisional still scores lightly so Chanakya can show progress
+  if (contact.status === "provisional") score += Math.round(cfg.activeStatus * 0.35);
 
   return Math.max(0, Math.min(cfg.ceiling, Math.round(score)));
 }

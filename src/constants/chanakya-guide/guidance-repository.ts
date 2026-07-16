@@ -340,6 +340,25 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     relatedEnterpriseEngine: "EDL · Enterprise Decision Ledger",
     sortOrder: 10,
   },
+  {
+    id: "c1-lw-progressive-contact",
+    platform: "catalyst_one",
+    workspaceId: "loan_workspace",
+    section: "participants",
+    guidanceTitle: "Progressive Contact Creation",
+    mentorMessage:
+      "Never leave the Loan Journey to create a missing Contact. Search first — if none match, create a Provisional Contact inline and continue.",
+    detailedGuidance:
+      "Primary Applicant needs Full Name and Mobile. Co-applicants, guarantors, and other participants need Full Name only. Provisional Contacts remain fully usable. Chanakya will remind you about Mobile, PAN, Email, Address, and KYC — without blocking navigation.",
+    bestPractice:
+      "Create minimum viable Contacts, keep moving, and complete supporting fields before lender-critical stages.",
+    recommendedNextStep:
+      "If search finds no match, choose Create New Contact under the search field and Save & Continue to auto-link.",
+    relatedWorkflow: "Loan Journey · Participants",
+    relatedRegistry: "Enterprise Contact Master (ECM)",
+    relatedEnterpriseEngine: "ECM · Progressive Contact Creation",
+    sortOrder: 25,
+  },
 ];
 
 /** First-time guided tour — system introduction (Phase 1). */

@@ -237,7 +237,7 @@ export function searchEcmContactsForReportingManager(
 ): EcmContact[] {
   const q = query.trim().toLowerCase();
   return listEcmContacts()
-    .filter((c) => c.id !== excludeContactId && c.status === "active")
+    .filter((c) => c.id !== excludeContactId && c.status !== "archived")
     .filter((c) => {
       if (!q) return getEcmContactAssignedRoles(c).includes("lender_employee");
       return (

@@ -3,20 +3,36 @@ import type { LoanParticipant, LoanParticipantEntityType, ParticipantEntityOptio
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import { ORGANIZATION_REGISTRY } from "@/data/catalyst-one/organization-registry-seed";
 import { MAX_LOAN_PARTICIPANTS } from "@/types/loan-participant";
+import { isEcmContactUsable, listEcmContacts } from "@/lib/enterprise-contact-master";
 
 export function createParticipantId(): string {
   return `lp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** Build searchable entity options from customer seed and organization registry. */
+/** Build searchable entity options from ECM + customer seed and organization registry. */
 export function buildDefaultParticipantEntityOptions(): ParticipantEntityOption[] {
-  const individuals: ParticipantEntityOption[] = CUSTOMER_SEED.map((c) => ({
+  const ecmIndividuals: ParticipantEntityOption[] = listEcmContacts()
+    .filter((c) => isEcmContactUsable(c.status))
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      mobile: c.mobilePrimary?.startsWith("pending-") ? undefined : c.mobilePrimary,
+      email: c.personalEmail || c.officialEmail,
+      entityType: "individual" as const,
+    }));
+
+  const seedIndividuals: ParticipantEntityOption[] = CUSTOMER_SEED.map((c) => ({
     id: c.id,
     name: c.name,
     mobile: c.mobile,
     email: c.email,
     entityType: "individual" as const,
   }));
+
+  const byId = new Map<string, ParticipantEntityOption>();
+  for (const row of [...seedIndividuals, ...ecmIndividuals]) {
+    byId.set(row.id, row);
+  }
 
   const companies: ParticipantEntityOption[] = ORGANIZATION_REGISTRY.map((o) => ({
     id: o.id,
@@ -25,7 +41,7 @@ export function buildDefaultParticipantEntityOptions(): ParticipantEntityOption[
     constitution: o.type.toUpperCase(),
   }));
 
-  return [...individuals, ...companies];
+  return [...byId.values(), ...companies];
 }
 
 export function searchParticipantEntities(

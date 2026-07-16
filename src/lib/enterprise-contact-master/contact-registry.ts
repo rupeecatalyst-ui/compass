@@ -14,6 +14,10 @@ import { computeEcmContactScore } from "./contact-score";
 import { recordEcmAudit } from "./audit-integration";
 import { getEcmPorts } from "./composition";
 import { validateEcmContact } from "./validation-engine";
+import {
+  deriveContactStatusAfterSave,
+  type ProgressiveParticipantKind,
+} from "./progressive-contact";
 
 export function normalizeEcmAssignedRoles(input: {
   roles?: EcmContactRole[];
@@ -63,22 +67,44 @@ export type EcmContactRegisterInput = {
   ownerName?: string;
   ownerId?: string;
   status?: EcmContactStatus;
+  /** Progressive Contact Creation from Loan Journey. */
+  progressiveKind?: ProgressiveParticipantKind;
 };
 
 export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
-  const roleFields = syncRoleFields(normalizeEcmAssignedRoles(input));
-  const validation = validateEcmContact({
-    name: input.name,
-    mobilePrimary: input.mobilePrimary,
-    roles: roleFields.roles,
-    primaryRole: roleFields.primaryRole,
-  });
+  const rolesInput = input.progressiveKind
+    ? { roles: input.roles?.length ? input.roles : (["customer"] as EcmContactRole[]) }
+    : input;
+  const roleFields = syncRoleFields(normalizeEcmAssignedRoles(rolesInput));
+  const mobilePrimary = input.mobilePrimary?.trim() || "";
+  const validation = validateEcmContact(
+    {
+      name: input.name,
+      mobilePrimary,
+      roles: roleFields.roles,
+      primaryRole: roleFields.primaryRole,
+    },
+    { progressiveKind: input.progressiveKind },
+  );
   if (!validation.valid) throw new Error(validation.issues.map((i) => i.message).join("; "));
 
   const now = new Date().toISOString();
+  const status =
+    input.status ??
+    (input.progressiveKind
+      ? deriveContactStatusAfterSave({
+          progressive: true,
+          kind: input.progressiveKind,
+          mobilePrimary,
+          personalEmail: input.personalEmail,
+          pan: input.pan,
+          address: input.address,
+        })
+      : "complete");
+
   const draft: EcmContact = {
     name: input.name.trim(),
-    mobilePrimary: input.mobilePrimary.trim(),
+    mobilePrimary: mobilePrimary || `pending-${crypto.randomUUID().slice(0, 8)}`,
     mobileSecondary: input.mobileSecondary?.trim() || undefined,
     personalEmail: input.personalEmail?.trim() || undefined,
     officialEmail: input.officialEmail?.trim() || undefined,
@@ -94,7 +120,7 @@ export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
     ...roleFields,
     id: crypto.randomUUID(),
     enabled: true,
-    status: input.status ?? "active",
+    status,
     ownerName: input.ownerName,
     ownerId: input.ownerId,
     contactScore: 0,
@@ -112,9 +138,36 @@ export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
     entityType: "contact",
     action: "created",
     actorId: input.createdBy,
-    remarks: `ECM contact ${draft.name}`,
+    remarks:
+      status === "provisional"
+        ? `ECM provisional contact ${draft.name} (progressive create)`
+        : `ECM contact ${draft.name}`,
   });
   return draft;
+}
+
+/**
+ * Progressive Contact Creation — minimum viable contact for Loan Journey.
+ * Primary Applicant: name + mobile. Co-applicant / guarantor / other: name only.
+ */
+export function registerProgressiveLoanContact(input: {
+  name: string;
+  mobilePrimary?: string;
+  kind: ProgressiveParticipantKind;
+  createdBy: string;
+  ownerName?: string;
+  personalEmail?: string;
+}): EcmContact {
+  return registerEcmContact({
+    name: input.name,
+    mobilePrimary: input.mobilePrimary?.trim() || "",
+    personalEmail: input.personalEmail,
+    createdBy: input.createdBy,
+    ownerName: input.ownerName,
+    roles: ["customer"],
+    progressiveKind: input.kind,
+    status: "provisional",
+  });
 }
 
 /**
@@ -127,8 +180,11 @@ export function normalizeEcmMobile(mobile: string): string {
 
 export function findEcmContactByMobile(mobile: string): EcmContact | undefined {
   const digits = normalizeEcmMobile(mobile);
-  if (!digits) return undefined;
-  return listEcmContacts().find((c) => normalizeEcmMobile(c.mobilePrimary) === digits);
+  if (!digits || digits.length < 10) return undefined;
+  return listEcmContacts().find((c) => {
+    if (c.mobilePrimary?.startsWith("pending-")) return false;
+    return normalizeEcmMobile(c.mobilePrimary) === digits;
+  });
 }
 
 export function resolveOrCreateEcmContact(

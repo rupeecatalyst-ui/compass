@@ -20,7 +20,21 @@ import type {
   ChanakyaBriefingCard,
   ChanakyaBriefingDashboardModel,
 } from "@/types/chanakya-briefing-dashboard";
+import { listEcmContacts, listProvisionalContactGaps } from "@/lib/enterprise-contact-master";
 import { pickDailyWisdom } from "./wisdom";
+
+function provisionalContactBriefing(): { count: number; gapSample: string } {
+  const provisional = listEcmContacts().filter((c) => c.status === "provisional");
+  const gapSet = new Set<string>();
+  for (const c of provisional) {
+    for (const g of listProvisionalContactGaps(c)) gapSet.add(g);
+  }
+  const gaps = [...gapSet];
+  return {
+    count: provisional.length,
+    gapSample: gaps.slice(0, 4).join(", ") || "supporting details",
+  };
+}
 
 function timeSalutation(date = new Date()): string {
   const hour = date.getHours();
@@ -59,6 +73,7 @@ export function deriveChanakyaBriefingDashboard(input: {
   const overdue = overdueTaskCount();
   const dueToday = dueTodayTaskCount();
   const wisdom = pickDailyWisdom();
+  const provisionalBrief = provisionalContactBriefing();
 
   const cards: ChanakyaBriefingCard[] = [
     {
@@ -94,10 +109,17 @@ export function deriveChanakyaBriefingDashboard(input: {
     {
       id: "profile_completion",
       title: "Profile Completion",
-      headline: `6 contacts need profile attention, ${firstName}.`,
-      insight: "Borrower and partner profiles are incomplete — loan journeys cannot begin until MIR is satisfied.",
-      reason: "Incomplete ECM profiles are the top blocker before business journeys can open.",
-      actionLabel: "Complete Borrower Profiles",
+      headline:
+        provisionalBrief.count > 0
+          ? `${provisionalBrief.count} provisional contact${provisionalBrief.count === 1 ? "" : "s"} need follow-up, ${firstName}.`
+          : `Keep contact profiles current, ${firstName}.`,
+      insight:
+        provisionalBrief.count > 0
+          ? `Pending: ${provisionalBrief.gapSample}. Loan journeys continue — Chanakya reminds you before these fields matter.`
+          : "Borrower and partner profiles look healthy. Progressive Contact Creation keeps journeys moving when details are still pending.",
+      reason:
+        "Progressive Contact Creation: missing supporting Contact data must never block the Loan Journey — guidance and readiness only.",
+      actionLabel: "Review Provisional Contacts",
       actionHref: ROUTES.CONTACTS,
       priority: 2,
     },

@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export interface EntityMasterOption {
@@ -18,6 +19,14 @@ interface EntityMasterSearchProps {
   options: EntityMasterOption[];
   onSelect: (option: EntityMasterOption) => void;
   className?: string;
+  /**
+   * Progressive Contact Creation — shown when search has no match.
+   * Receives the current query so the create modal can prefill the name.
+   */
+  onCreateNew?: (query: string) => void;
+  createNewLabel?: string;
+  /** Restrict create CTA to individuals (hide for company search). */
+  allowCreateNew?: boolean;
 }
 
 /** UX-03 — Searchable master picker for contacts and companies. */
@@ -28,6 +37,9 @@ export function EntityMasterSearch({
   options,
   onSelect,
   className,
+  onCreateNew,
+  createNewLabel = "Create New Contact",
+  allowCreateNew = true,
 }: EntityMasterSearchProps) {
   const [query, setQuery] = useState("");
   const results = useMemo(() => {
@@ -42,6 +54,8 @@ export function EntityMasterSearch({
       .slice(0, 8);
   }, [options, query]);
   const showList = query.length > 0;
+  const noMatch = showList && results.length === 0;
+  const showCreate = Boolean(onCreateNew) && allowCreateNew && noMatch;
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -52,9 +66,26 @@ export function EntityMasterSearch({
         onChange={(e) => setQuery(e.target.value)}
       />
       {showList && (
-        <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-popover shadow-sm">
+        <div className="max-h-44 overflow-y-auto rounded-md border border-border bg-popover shadow-sm">
           {results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-muted-foreground">No match found.</p>
+            <div className="px-3 py-2">
+              <p className="text-xs text-muted-foreground">No matching Contact found.</p>
+              {showCreate ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="mt-1.5 h-8 w-full justify-start gap-1.5 px-1 text-xs font-semibold text-primary"
+                  onClick={() => {
+                    onCreateNew?.(query.trim());
+                    setQuery("");
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {createNewLabel}
+                </Button>
+              ) : null}
+            </div>
           ) : (
             results.map((option) => (
               <button

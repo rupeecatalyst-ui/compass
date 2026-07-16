@@ -13,7 +13,16 @@ export type EcmContactRole =
   | "builder"
   | "chartered_accountant";
 
-export type EcmContactStatus = "active" | "archived";
+export type EcmContactStatus = "provisional" | "active" | "complete" | "verified" | "archived";
+
+/**
+ * Contact lifecycle (Enterprise UX Constitution — Progressive Contact Creation).
+ * - provisional: minimum info; business may continue
+ * - complete / active: required business information captured (active kept for legacy)
+ * - verified: KYC / verification completed
+ * - archived: not usable
+ */
+export type EcmContactLifecycleLabel = "provisional" | "complete" | "verified" | "archived";
 
 export interface EcmContact {
   id: string;

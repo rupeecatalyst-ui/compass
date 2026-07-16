@@ -6,6 +6,10 @@ import { CHANAKYA_LOAN_JOURNEY_PHASES } from "@/constants/chanakya-guide";
 import { normalizeLenderCaseStage } from "@/constants/lender-pipeline";
 import { buildProposalReadinessReview } from "@/lib/chanakya-phase5-intelligence/proposal-intelligence";
 import {
+  listEcmContacts,
+  listProvisionalContactGaps,
+} from "@/lib/enterprise-contact-master";
+import {
   deriveDocumentCollection,
   deriveDocumentHealth,
   deriveDocumentVerification,
@@ -56,20 +60,36 @@ function leadQualificationPct(input: DerivePhaseReadinessInput): {
   const hasAmount = Boolean((input.file?.requiredAmount || input.file?.loanAmount || 0) > 0);
   const life = Boolean(input.lifeFinalized);
 
+  // Progressive Contact Creation — advisory readiness only (never blocks).
+  const ids = [
+    input.file?.customerId,
+    ...(input.file?.participants ?? []).map((p) => p.entityId),
+  ].filter(Boolean) as string[];
+  const contacts = listEcmContacts().filter((c) => ids.includes(c.id));
+  const provisionalGaps = contacts.reduce(
+    (n, c) => n + (c.status === "provisional" ? listProvisionalContactGaps(c).length : 0),
+    0,
+  );
+
   let score = 0;
   if (hasContact) score += 30;
   if (hasProduct) score += 25;
   if (hasAmount) score += 20;
   if (life) score += 25;
-  else if (hasContact && hasProduct) score += 10; // strategic planning in progress
+  else if (hasContact && hasProduct) score += 10;
+  if (provisionalGaps > 0) score = Math.max(40, score - Math.min(15, provisionalGaps * 2));
 
   const metrics: PhaseReadinessDetail["metrics"] = [
     {
       id: "contact",
       label: "Contact",
-      valueLabel: hasContact ? "Identity captured" : "Contact incomplete",
-      pct: hasContact ? 100 : 0,
-      tone: hasContact ? "success" : "warning",
+      valueLabel: hasContact
+        ? provisionalGaps > 0
+          ? `Linked · ${provisionalGaps} provisional gap(s) — Chanakya will follow up`
+          : "Identity captured"
+        : "Contact incomplete",
+      pct: hasContact ? (provisionalGaps > 0 ? 70 : 100) : 0,
+      tone: hasContact ? (provisionalGaps > 0 ? "warning" : "success") : "warning",
     },
     {
       id: "opportunity",
@@ -89,9 +109,11 @@ function leadQualificationPct(input: DerivePhaseReadinessInput): {
 
   const tip = !hasContact
     ? "Establish a clean Contact record before framing the opportunity."
-    : !life
-      ? "Complete Strategic Workspace planning and finalize LIFE before document-heavy credit work."
-      : "Lead Qualification is complete — protect this foundation as you move into Credit Readiness.";
+    : provisionalGaps > 0
+      ? "Provisional Contacts are usable — Chanakya will remind you to complete Mobile, PAN, Email, and KYC before lender-critical stages."
+      : !life
+        ? "Complete Strategic Workspace planning and finalize LIFE before document-heavy credit work."
+        : "Lead Qualification is complete — protect this foundation as you move into Credit Readiness.";
 
   return { pct: clampPct(score), metrics, tip };
 }
@@ -173,6 +195,7 @@ function loanExecutionPct(file: LoanFile | null | undefined): {
 
   const tasks = file?.tasks ?? [];
   const openTasks = tasks.filter((t) => !t.completed);
+  // ... leave as is
   const taskPct =
     tasks.length === 0 ? (casePct > 20 ? 50 : 0) : clampPct(((tasks.length - openTasks.length) / tasks.length) * 100);
 

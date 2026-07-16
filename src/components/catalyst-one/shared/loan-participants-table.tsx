@@ -17,6 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EntityMasterSearch } from "@/components/catalyst-one/shared/entity-master-search";
+import { ProgressiveContactCreateModal } from "@/components/catalyst-one/contacts/progressive-contact-create-modal";
+import type { ProgressiveParticipantKind } from "@/lib/enterprise-contact-master";
+import type { EcmContact } from "@/types/enterprise-contact-master";
 
 type SortKey = "role" | "name" | "city";
 
@@ -62,6 +65,7 @@ export function LoanParticipantsTable({
   onOpenEntity,
   readOnly,
   className,
+  onContactCreated,
 }: {
   primaryApplicant: {
     id: string;
@@ -78,10 +82,26 @@ export function LoanParticipantsTable({
   onOpenEntity?: (entityId: string, entityType: LoanParticipantEntityType) => void;
   readOnly?: boolean;
   className?: string;
+  /** Called after progressive create so parent can refresh ECM options. */
+  onContactCreated?: (contact: EcmContact) => void;
 }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("role");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForId, setCreateForId] = useState<string | null>(null);
+  const [createPrefill, setCreatePrefill] = useState("");
+  const [createKind, setCreateKind] = useState<ProgressiveParticipantKind>("co_applicant");
+  const [extraOptions, setExtraOptions] = useState<ParticipantEntityOption[]>([]);
+
+  const mergedOptions = useMemo(() => {
+    const byId = new Map<string, ParticipantEntityOption>();
+    for (const o of [...entityOptions, ...extraOptions]) {
+      if (o.entityType === "individual") byId.set(o.id, o);
+    }
+    const companies = entityOptions.filter((o) => o.entityType === "company");
+    return [...byId.values(), ...companies];
+  }, [entityOptions, extraOptions]);
 
   const addRow = (type: LoanParticipantEntityType) => {
     const next: LoanParticipant = {
@@ -100,6 +120,43 @@ export function LoanParticipantsTable({
   const updateRow = (id: string, patch: Partial<LoanParticipant>, note: string) => {
     onChange(participants.map((p) => (p.id === id ? { ...p, ...patch } : p)));
     onTimeline(note);
+  };
+
+  const openProgressiveCreate = (participantId: string, query: string, role?: string) => {
+    setCreateForId(participantId);
+    setCreatePrefill(query);
+    setCreateKind(role === "other" ? "other" : "co_applicant");
+    setCreateOpen(true);
+  };
+
+  const handleProgressiveCreated = (contact: EcmContact) => {
+    const option: ParticipantEntityOption = {
+      id: contact.id,
+      name: contact.name,
+      mobile: contact.mobilePrimary?.startsWith("pending-") ? undefined : contact.mobilePrimary,
+      email: contact.personalEmail || contact.officialEmail,
+      entityType: "individual",
+    };
+    setExtraOptions((prev) => {
+      if (prev.some((p) => p.id === option.id)) return prev;
+      return [...prev, option];
+    });
+    if (createForId) {
+      updateRow(
+        createForId,
+        {
+          entityId: contact.id,
+          name: contact.name,
+          mobile: option.mobile,
+          email: option.email,
+          status: "active",
+        },
+        `Progressive contact created and linked: ${contact.name}`,
+      );
+      setEditingId(null);
+    }
+    setCreateForId(null);
+    onContactCreated?.(contact);
   };
 
   const filtered = useMemo(() => {
@@ -202,18 +259,31 @@ export function LoanParticipantsTable({
               <ParticipantRow
                 key={p.id}
                 participant={p}
-                entityOptions={entityOptions}
+                entityOptions={mergedOptions}
                 isEditing={!readOnly && (editingId === p.id || !p.entityId)}
                 readOnly={readOnly}
                 onEdit={() => setEditingId(p.id)}
                 onDone={() => setEditingId(null)}
                 onUpdate={(patch, note) => updateRow(p.id, patch, note)}
                 onOpenEntity={onOpenEntity}
+                onCreateNewContact={
+                  p.entityType === "individual"
+                    ? (q) => openProgressiveCreate(p.id, q, p.role)
+                    : undefined
+                }
               />
             ))}
           </tbody>
         </table>
       </div>
+
+      <ProgressiveContactCreateModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        initialName={createPrefill}
+        participantKind={createKind}
+        onCreated={handleProgressiveCreated}
+      />
     </div>
   );
 }
@@ -272,6 +342,7 @@ function ParticipantRow({
   onDone,
   onUpdate,
   onOpenEntity,
+  onCreateNewContact,
 }: {
   participant: LoanParticipant;
   entityOptions: ParticipantEntityOption[];
@@ -281,6 +352,7 @@ function ParticipantRow({
   onDone: () => void;
   onUpdate: (patch: Partial<LoanParticipant>, note: string) => void;
   onOpenEntity?: (entityId: string, entityType: LoanParticipantEntityType) => void;
+  onCreateNewContact?: (query: string) => void;
 }) {
   const options = useMemo(() => {
     return searchParticipantEntities("", entityOptions, participant.entityType);
@@ -304,6 +376,8 @@ function ParticipantRow({
             selectedId={participant.entityId}
             selectedLabel={participant.name || selected?.name}
             options={options.map((o) => ({ id: o.id, label: o.name, sublabel: o.mobile ?? o.constitution }))}
+            allowCreateNew={participant.entityType === "individual"}
+            onCreateNew={onCreateNewContact}
             onSelect={(opt) => {
               const option = entityOptions.find((o) => o.id === opt.id && o.entityType === participant.entityType);
               if (!option) return;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,11 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EntityButtonLink } from "@/components/catalyst-one/shared/entity-link";
+import { EntityMasterSearch } from "@/components/catalyst-one/shared/entity-master-search";
+import { ProgressiveContactCreateModal } from "@/components/catalyst-one/contacts/progressive-contact-create-modal";
 import {
   createParticipantId,
   getParticipantRowLabel,
   searchParticipantEntities,
 } from "@/lib/loan-participants";
+import type { EcmContact } from "@/types/enterprise-contact-master";
 import { cn } from "@/lib/utils";
 import {
   MAX_LOAN_PARTICIPANTS,
@@ -33,11 +36,11 @@ export interface LoanParticipantsPanelProps {
   onOpenEntity?: (entityId: string, entityType: LoanParticipantEntityType) => void;
   maxParticipants?: number;
   className?: string;
+  onContactCreated?: (contact: EcmContact) => void;
 }
 
 /**
- * UX-02 — Reusable Loan Participants panel.
- * Future: Customer 360, CAM, Sanction Management, Document Collection, Legal Verification.
+ * UX-02 — Reusable Loan Participants panel + Progressive Contact Creation.
  */
 export function LoanParticipantsPanel({
   participants,
@@ -46,8 +49,21 @@ export function LoanParticipantsPanel({
   onOpenEntity,
   maxParticipants = MAX_LOAN_PARTICIPANTS,
   className,
+  onContactCreated,
 }: LoanParticipantsPanelProps) {
   const canAdd = participants.length < maxParticipants;
+  const [extraOptions, setExtraOptions] = useState<ParticipantEntityOption[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForId, setCreateForId] = useState<string | null>(null);
+  const [createPrefill, setCreatePrefill] = useState("");
+
+  const mergedOptions = useMemo(() => {
+    const byId = new Map<string, ParticipantEntityOption>();
+    for (const o of [...entityOptions, ...extraOptions]) {
+      byId.set(`${o.entityType}:${o.id}`, o);
+    }
+    return [...byId.values()];
+  }, [entityOptions, extraOptions]);
 
   const addParticipant = () => {
     if (!canAdd) return;
@@ -58,6 +74,8 @@ export function LoanParticipantsPanel({
         entityType: "individual",
         entityId: "",
         name: "",
+        role: "co_applicant",
+        status: "active",
       },
     ]);
   };
@@ -68,6 +86,29 @@ export function LoanParticipantsPanel({
 
   const removeParticipant = (id: string) => {
     onChange(participants.filter((p) => p.id !== id));
+  };
+
+  const handleCreated = (contact: EcmContact) => {
+    const option: ParticipantEntityOption = {
+      id: contact.id,
+      name: contact.name,
+      mobile: contact.mobilePrimary?.startsWith("pending-") ? undefined : contact.mobilePrimary,
+      email: contact.personalEmail || contact.officialEmail,
+      entityType: "individual",
+    };
+    setExtraOptions((prev) => (prev.some((p) => p.id === option.id) ? prev : [...prev, option]));
+    if (createForId) {
+      updateParticipant(createForId, {
+        entityId: contact.id,
+        name: contact.name,
+        mobile: option.mobile,
+        email: option.email,
+        role: "co_applicant",
+        status: "active",
+      });
+    }
+    setCreateForId(null);
+    onContactCreated?.(contact);
   };
 
   return (
@@ -82,10 +123,19 @@ export function LoanParticipantsPanel({
             key={participant.id}
             participant={participant}
             label={getParticipantRowLabel(participant, participants)}
-            entityOptions={entityOptions}
+            entityOptions={mergedOptions}
             onChange={(patch) => updateParticipant(participant.id, patch)}
             onRemove={() => removeParticipant(participant.id)}
             onOpenEntity={onOpenEntity}
+            onCreateNew={
+              participant.entityType === "individual"
+                ? (q) => {
+                    setCreateForId(participant.id);
+                    setCreatePrefill(q);
+                    setCreateOpen(true);
+                  }
+                : undefined
+            }
           />
         ))
       )}
@@ -103,9 +153,18 @@ export function LoanParticipantsPanel({
       </Button>
       {!canAdd && (
         <p className="text-[10px] text-muted-foreground">
-          Maximum {maxParticipants} additional participants reached (10 entities including primary applicant).
+          Maximum {maxParticipants} additional participants reached (10 entities including primary
+          applicant).
         </p>
       )}
+
+      <ProgressiveContactCreateModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        initialName={createPrefill}
+        participantKind="co_applicant"
+        onCreated={handleCreated}
+      />
     </div>
   );
 }
@@ -117,6 +176,7 @@ function ParticipantRow({
   onChange,
   onRemove,
   onOpenEntity,
+  onCreateNew,
 }: {
   participant: LoanParticipant;
   label: string;
@@ -124,7 +184,18 @@ function ParticipantRow({
   onChange: (patch: Partial<LoanParticipant>) => void;
   onRemove: () => void;
   onOpenEntity?: (entityId: string, entityType: LoanParticipantEntityType) => void;
+  onCreateNew?: (query: string) => void;
 }) {
+  const options = useMemo(
+    () =>
+      searchParticipantEntities("", entityOptions, participant.entityType).map((o) => ({
+        id: o.id,
+        label: o.name,
+        sublabel: o.mobile ?? o.constitution,
+      })),
+    [entityOptions, participant.entityType],
+  );
+
   return (
     <div className="rounded-lg border border-border/70 bg-muted/10 p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -178,19 +249,29 @@ function ParticipantRow({
           }
           className="sm:col-span-2"
         >
-          <ParticipantEntitySearch
-            entityType={participant.entityType}
-            entityOptions={entityOptions}
+          <EntityMasterSearch
+            placeholder={
+              participant.name ||
+              `Search ${participant.entityType === "company" ? "company" : "contact"}…`
+            }
             selectedId={participant.entityId}
-            onSelect={(option) =>
+            selectedLabel={participant.name || undefined}
+            options={options}
+            allowCreateNew={participant.entityType === "individual"}
+            onCreateNew={onCreateNew}
+            onSelect={(opt) => {
+              const option = entityOptions.find(
+                (o) => o.id === opt.id && o.entityType === participant.entityType,
+              );
+              if (!option) return;
               onChange({
                 entityId: option.id,
                 name: option.name,
                 mobile: option.mobile,
                 email: option.email,
                 constitution: option.constitution,
-              })
-            }
+              });
+            }}
           />
         </ParticipantField>
 
@@ -231,70 +312,6 @@ function ParticipantRow({
           className="mt-3 text-xs"
           onClick={() => onOpenEntity(participant.entityId, participant.entityType)}
         />
-      )}
-    </div>
-  );
-}
-
-function ParticipantEntitySearch({
-  entityType,
-  entityOptions,
-  selectedId,
-  onSelect,
-}: {
-  entityType: LoanParticipantEntityType;
-  entityOptions: ParticipantEntityOption[];
-  selectedId?: string;
-  onSelect: (option: ParticipantEntityOption) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const results = useMemo(
-    () => searchParticipantEntities(query, entityOptions, entityType),
-    [query, entityOptions, entityType],
-  );
-  const selected = entityOptions.find((o) => o.id === selectedId && o.entityType === entityType);
-  const showList = query.length > 0;
-
-  return (
-    <div className="space-y-1.5">
-      <Input
-        className="h-8 text-xs"
-        placeholder={selected?.name ?? `Search ${entityType === "company" ? "company" : "contact"}...`}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      {showList && (
-        <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-popover shadow-sm">
-          {results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-muted-foreground">No match found.</p>
-          ) : (
-            results.map((option) => (
-              <button
-                key={`${option.entityType}-${option.id}`}
-                type="button"
-                onClick={() => {
-                  onSelect(option);
-                  setQuery("");
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-muted/60",
-                  selectedId === option.id && "bg-muted/40",
-                )}
-              >
-                <Check
-                  className={cn(
-                    "h-3.5 w-3.5 shrink-0",
-                    selectedId === option.id ? "opacity-100" : "opacity-0",
-                  )}
-                />
-                <span className="flex-1">{option.name}</span>
-                {option.mobile && (
-                  <span className="text-muted-foreground">{option.mobile}</span>
-                )}
-              </button>
-            ))
-          )}
-        </div>
       )}
     </div>
   );
