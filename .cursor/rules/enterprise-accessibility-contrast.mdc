@@ -1,0 +1,49 @@
+---
+description: Enterprise Accessibility & Contrast Standard — readable interaction states
+alwaysApply: true
+---
+
+# Enterprise Accessibility & Contrast Standard (Frozen)
+
+Applies across Catalyst One, Catalyst Connect, and future platforms.
+
+## Objective
+
+The interface must remain readable under every interaction state.
+
+Whenever an item is hovered, focused, selected, active, pressed, or disabled, there must always be sufficient visual contrast between:
+
+- Background
+- Text
+- Icons
+- Borders
+- Status badges
+
+No interaction may reduce readability.
+
+## Forbidden patterns
+
+- Light text on bright / light backgrounds
+- Dark text on dark backgrounds
+- Hover or focus that changes background without also setting a matching foreground
+- Using bright success / warning / info colors as generic hover fills without a paired foreground token
+- Disabled states that rely only on low opacity of already-low-contrast text
+
+## Required patterns
+
+1. Interactive surfaces must pair background + foreground tokens together (e.g. `bg-accent` with `text-accent-foreground`).
+2. Prefer semantic tokens (`accent`, `muted`, `primary`, `destructive`) over one-off hex pairs for interaction states.
+3. Selection / active feedback must stay readable — visibility alone is not enough.
+4. Status badges keep high-contrast label colors on their own surfaces in every state.
+5. Focus rings remain visible (`ring` / `ring-offset`) without washing out label text.
+6. Disabled: keep structure visible; use muted foreground + moderate opacity, not washed-out light-on-light.
+
+## Token ownership
+
+- `--accent` / `--accent-foreground` = interactive highlight (hover, focus, selected menu items)
+- `--success` / `--warning` / `--info` = status semantics only — not generic hover fills
+- `--primary` / `--primary-foreground` = primary actions
+
+## When changing UI
+
+Review hover, focus, selected, active, pressed, and disabled before shipping. Prefer fixing primitives in `src/components/ui/` so all workspaces inherit contrast.

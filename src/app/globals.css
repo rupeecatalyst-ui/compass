@@ -52,9 +52,11 @@
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #22c55e;
-  --accent-foreground: #052e16;
+  /* Slate-600 — stronger than slate-500 for body secondary text contrast */
+  --muted-foreground: #475569;
+  /* Interactive highlight (hover/focus/selected) — not status green */
+  --accent: #ccfbf1;
+  --accent-foreground: #134e4a;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
@@ -85,8 +87,9 @@
   --secondary-foreground: #fafafa;
   --muted: #27272a;
   --muted-foreground: #a1a1aa;
-  --accent: #22c55e;
-  --accent-foreground: #052e16;
+  /* Interactive highlight — teal surface + light text (WCAG-safe pairing) */
+  --accent: #115e59;
+  --accent-foreground: #f0fdfa;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #27272a;
@@ -120,6 +123,37 @@
 }
 
 @layer utilities {
+  /**
+   * Enterprise Accessibility — interactive surfaces always pair bg + fg.
+   * Use for custom rows/chips that are not built on ui/* primitives.
+   */
+  .state-interactive {
+    color: var(--foreground);
+    transition-property: color, background-color, border-color, opacity;
+    transition-duration: 150ms;
+  }
+
+  .state-interactive:hover,
+  .state-interactive:focus-visible,
+  .state-interactive[data-state="open"],
+  .state-interactive[data-state="checked"],
+  .state-interactive[data-state="on"],
+  .state-interactive[aria-selected="true"],
+  .state-interactive[data-selected="true"],
+  .state-interactive[data-highlighted] {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .state-interactive:disabled,
+  .state-interactive[data-disabled],
+  .state-interactive[aria-disabled="true"] {
+    pointer-events: none;
+    cursor: not-allowed;
+    opacity: 0.6;
+    color: var(--muted-foreground);
+  }
+
   .glass {
     background: var(--glass-bg);
     backdrop-filter: blur(16px);

@@ -155,10 +155,10 @@ export function ActionCenter({
                         onAction(item.id);
                       }}
                     >
-                      <Icon className="h-3.5 w-3.5 shrink-0 text-teal-700 dark:text-teal-300" />
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-teal-700 group-focus:text-accent-foreground dark:text-teal-300" />
                       <span className="min-w-0">
                         <span className="block text-xs font-semibold">{item.label}</span>
-                        <span className="block text-[10px] leading-snug text-muted-foreground">
+                        <span className="block text-[10px] leading-snug text-muted-foreground group-focus:text-accent-foreground/85">
                           {item.available ? item.description : item.reason}
                         </span>
                       </span>

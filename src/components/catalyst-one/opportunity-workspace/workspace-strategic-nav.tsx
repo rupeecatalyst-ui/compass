@@ -31,16 +31,18 @@ export function WorkspaceStrategicNav({
               type="button"
               onClick={() => onSelect(item.id)}
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[12px] font-medium transition-colors",
+                "group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[12px] font-medium transition-colors",
                 selected
-                  ? "bg-teal-500/20 text-teal-100 ring-1 ring-teal-400/40"
-                  : "text-zinc-300 hover:bg-white/5 hover:text-zinc-50",
+                  ? "bg-teal-500/20 text-teal-50 ring-1 ring-teal-400/40"
+                  : "text-zinc-200 hover:bg-white/10 hover:text-white",
               )}
             >
               <span
                 className={cn(
                   "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold tabular-nums",
-                  selected ? "bg-teal-500 text-zinc-950" : "bg-white/10 text-zinc-400",
+                  selected
+                    ? "bg-teal-400 text-zinc-950"
+                    : "bg-white/15 text-zinc-200 group-hover:bg-white/25 group-hover:text-white",
                 )}
               >
                 {index + 1}
