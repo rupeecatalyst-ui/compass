@@ -10,6 +10,7 @@ export {
   archiveEcmContact,
   findEcmContactByMobile,
   getEcmContactAssignedRoles,
+  getEcmContact,
   listEcmContacts,
   normalizeEcmAssignedRoles,
   normalizeEcmMobile,
@@ -22,6 +23,20 @@ export {
   updateEcmContact,
   updateEcmContactEmails,
 } from "./contact-registry";
+export {
+  assertNoEcmContactDuplicate,
+  checkEcmContactDuplicates,
+  findEcmContactByEmail,
+  isEcmDuplicateContactError,
+  normalizeEcmEmail,
+  EcmDuplicateContactError,
+} from "./duplicate-check";
+export type { EcmDuplicateCheckInput, EcmDuplicateMatch, EcmDuplicateMatchField } from "./duplicate-check";
+export {
+  getEcmContactRegistryVersion,
+  notifyEcmContactRegistryChanged,
+  subscribeEcmContactRegistry,
+} from "./contact-change-bus";
 export { normalizePersonName } from "./name-normalize";
 export {
   deriveContactStatusAfterSave,

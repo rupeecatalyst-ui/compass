@@ -1,5 +1,6 @@
-import { DirectoryWorkspace } from "@/components/catalyst-one/directory/directory-workspace";
+import { ContactsWorkspace } from "@/components/catalyst-one/directory/directory-workspace";
 
-export default function DirectoryPage() {
-  return <DirectoryWorkspace />;
+/** Enterprise Contact Registry — single SSOT for people and companies. */
+export default function ContactsPage() {
+  return <ContactsWorkspace />;
 }

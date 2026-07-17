@@ -1,0 +1,39 @@
+---
+description: Roles & Permissions Engine — Catalyst One v1.0 frozen security backbone
+alwaysApply: false
+globs:
+  - src/components/catalyst-one/roles-permissions-engine/**
+  - src/lib/roles-permissions-engine/**
+  - src/types/roles-permissions-engine.ts
+  - src/constants/roles-permissions-engine/**
+  - src/app/(dashboard)/admin/roles-permissions/**
+---
+
+# Roles & Permissions Engine (v1.0 — frozen)
+
+Administration → **Roles & Permissions** (`/admin/roles-permissions`)
+
+Security backbone of Catalyst One. SUPER_ADMIN only (via `/admin` layout).
+
+## Identity model (never mix)
+
+1. User Type — Normal / Hybrid Employee (defaults only; not permissions)
+2. Roles — unlimited custom roles
+3. Permissions — View / Create-Edit / Admin per module (overrides role defaults)
+4. Platform Access — Catalyst One | COMPASS | Both (independent)
+
+## Governance
+
+- Only Super Admin: create / edit / delete / clone roles & templates; grant/revoke Level-1 Role Admin delegation (non-recursive)
+- Sensitive Admin confirmation for critical modules
+- Never remove / deactivate last active Super Administrator
+- User exit (Resigned/Archived) work transfer lives in Enterprise User Management
+- Permanent non-editable security audit trail
+
+## Source of truth
+
+- Types: `src/types/roles-permissions-engine.ts`
+- Constants / seeds: `src/constants/roles-permissions-engine`
+- Store: `src/lib/roles-permissions-engine`
+- UI: `src/components/catalyst-one/roles-permissions-engine`
+- Permission module catalog shared with EUM: `EUM_PERMISSION_MODULES`

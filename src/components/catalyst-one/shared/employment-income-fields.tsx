@@ -15,6 +15,7 @@ import {
   employmentTypeToLabel,
   type EmploymentTypeId,
 } from "@/constants/employment-master";
+import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
 import type { LoanFileBusiness } from "@/types/catalyst-one";
 
 interface EmploymentIncomeFieldsProps {
@@ -24,7 +25,10 @@ interface EmploymentIncomeFieldsProps {
   onBusinessDetailsChange: (patch: Partial<LoanFileBusiness>) => void;
 }
 
-/** UX-02 — Dynamic employment and income fields by employment type. */
+/**
+ * Context-Aware employment + income fields.
+ * Salaried → salary only. Self-employed → turnover / profit / receipts — never both families.
+ */
 export function EmploymentIncomeFields({
   employmentType,
   businessDetails,
@@ -32,9 +36,21 @@ export function EmploymentIncomeFields({
   onBusinessDetailsChange,
 }: EmploymentIncomeFieldsProps) {
   const typeId = normalizeEmploymentType(employmentType);
+  const ctx = getContextAwareVisibility(typeId);
 
   const handleTypeChange = (id: EmploymentTypeId) => {
     onEmploymentTypeChange(employmentTypeToLabel(id));
+    const next = getContextAwareVisibility(id);
+    if (next.isSalariedFamily) {
+      onBusinessDetailsChange({
+        annualTurnover: undefined,
+        annualProfit: undefined,
+        annualGrossReceipts: undefined,
+        annualProfessionalIncome: undefined,
+      });
+    } else if (next.isSelfEmployedFamily) {
+      onBusinessDetailsChange({ monthlySalary: undefined });
+    }
   };
 
   return (
@@ -54,33 +70,34 @@ export function EmploymentIncomeFields({
         </Select>
       </Field>
 
-      {typeId === "salaried" && (
+      {ctx.isVisible("salary") ? (
         <Field label="Monthly Salary (₹)">
           <INRCurrencyInput
             value={businessDetails?.monthlySalary}
             onChange={(v) => onBusinessDetailsChange({ monthlySalary: v })}
           />
         </Field>
-      )}
+      ) : null}
 
-      {typeId === "self_employed" && (
-        <>
-          <Field label="Annual Turnover (₹)">
-            <INRCurrencyInput
-              value={businessDetails?.annualTurnover}
-              onChange={(v) => onBusinessDetailsChange({ annualTurnover: v })}
-            />
-          </Field>
-          <Field label="Annual Profit (₹)">
-            <INRCurrencyInput
-              value={businessDetails?.annualProfit}
-              onChange={(v) => onBusinessDetailsChange({ annualProfit: v })}
-            />
-          </Field>
-        </>
-      )}
+      {ctx.isVisible("business_turnover") ? (
+        <Field label="Annual Turnover (₹)">
+          <INRCurrencyInput
+            value={businessDetails?.annualTurnover}
+            onChange={(v) => onBusinessDetailsChange({ annualTurnover: v })}
+          />
+        </Field>
+      ) : null}
 
-      {typeId === "professional" && (
+      {ctx.isVisible("profit") && typeId === "self-employed-business" ? (
+        <Field label="Annual Profit (₹)">
+          <INRCurrencyInput
+            value={businessDetails?.annualProfit}
+            onChange={(v) => onBusinessDetailsChange({ annualProfit: v })}
+          />
+        </Field>
+      ) : null}
+
+      {ctx.isSelfEmployedFamily && typeId === "self-employed-professional" ? (
         <>
           <Field label="Annual Gross Receipts (₹)">
             <INRCurrencyInput
@@ -95,7 +112,7 @@ export function EmploymentIncomeFields({
             />
           </Field>
         </>
-      )}
+      ) : null}
     </div>
   );
 }

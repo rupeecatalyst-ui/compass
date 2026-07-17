@@ -55,7 +55,7 @@ function LoanPortfolioCard({ file, onOpen }: { file: LoanFile; onOpen: () => voi
       onClick={onOpen}
       className={cn(
         "group text-left rounded-xl border border-border bg-card p-4",
-        "hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5",
+        "hover:border-primary/40 hover:shadow-md",
         "transition-all duration-200 ease-out",
       )}
     >

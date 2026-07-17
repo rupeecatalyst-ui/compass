@@ -19,9 +19,9 @@ export function WorkspaceChanakyaTabGuide({ tab }: { tab: OwStrategicTabId }) {
   const healthInsight = intelligence?.insights?.[0]?.message;
 
   return (
-    <aside className="flex h-full min-h-0 flex-col">
-      <OwGlassPanel className="flex h-full min-h-0 flex-col overflow-hidden !p-0">
-        <div className="flex items-center gap-2.5 border-b border-white/10 px-3 py-3">
+    <aside className="flex flex-col">
+      <OwGlassPanel className="flex flex-col !p-0">
+        <div className="flex items-center gap-2.5 border-b border-white/10 px-3 py-2">
           <ChanakyaAvatar size="sm" />
           <div className="min-w-0">
             <ChanakyaIdentityLabel surface="advisory" />
@@ -29,7 +29,7 @@ export function WorkspaceChanakyaTabGuide({ tab }: { tab: OwStrategicTabId }) {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3 text-xs">
+        <div className="space-y-3 px-3 py-3 text-xs">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-teal-300/80">
               This tab

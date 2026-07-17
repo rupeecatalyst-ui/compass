@@ -1,0 +1,233 @@
+/**
+ * Executive Intelligence — Visual Quality Standard
+ * Software that should feel like it costs millions.
+ */
+
+.ei-canvas {
+  --ei-ink: #0b1220;
+  --ei-ink-soft: #334155;
+  --ei-mist: #f4f7fb;
+  --ei-panel: #ffffff;
+  --ei-teal: #0f766e;
+  --ei-teal-bright: #14b8a6;
+  --ei-gold: #c4a35a;
+  --ei-rose: #e11d48;
+  --ei-depth-1: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.06);
+  --ei-depth-2: 0 2px 4px rgb(15 23 42 / 0.05), 0 16px 40px rgb(15 23 42 / 0.1);
+  --ei-depth-hover: 0 4px 8px rgb(15 23 42 / 0.06), 0 24px 48px rgb(15 23 42 / 0.14);
+  --ei-radius: 1.25rem;
+  --ei-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgb(15 118 110 / 0.07), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgb(196 163 90 / 0.06), transparent 50%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  color: var(--ei-ink);
+}
+
+.dark .ei-canvas {
+  --ei-ink: #f8fafc;
+  --ei-ink-soft: #94a3b8;
+  --ei-mist: #0b1220;
+  --ei-panel: #111827;
+  --ei-depth-1: 0 1px 2px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.35);
+  --ei-depth-2: 0 2px 6px rgb(0 0 0 / 0.4), 0 20px 48px rgb(0 0 0 / 0.45);
+  --ei-depth-hover: 0 8px 24px rgb(0 0 0 / 0.5);
+  background:
+    radial-gradient(ellipse 70% 45% at 15% -5%, rgb(20 184 166 / 0.12), transparent 55%),
+    radial-gradient(ellipse 50% 35% at 95% 5%, rgb(196 163 90 / 0.08), transparent 45%),
+    linear-gradient(180deg, #0b1220 0%, #111827 100%);
+}
+
+.ei-display {
+  font-family: var(--font-ei-display), ui-serif, Georgia, serif;
+  letter-spacing: -0.02em;
+  font-weight: 560;
+}
+
+.ei-eyebrow {
+  font-size: 0.625rem;
+  font-weight: 650;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ei-teal);
+}
+
+.ei-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--ei-radius);
+  border: 1px solid rgb(15 23 42 / 0.06);
+  background: linear-gradient(165deg, rgb(255 255 255 / 0.96), rgb(248 250 252 / 0.92));
+  box-shadow: var(--ei-depth-1);
+  transition:
+    transform 420ms var(--ei-ease),
+    box-shadow 420ms var(--ei-ease),
+    border-color 280ms ease;
+}
+
+.dark .ei-card {
+  border-color: rgb(255 255 255 / 0.07);
+  background: linear-gradient(165deg, rgb(17 24 39 / 0.95), rgb(15 23 42 / 0.9));
+}
+
+.ei-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.7), transparent);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.dark .ei-card::before {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.12), transparent);
+}
+
+.ei-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--ei-depth-hover);
+  border-color: rgb(15 118 110 / 0.22);
+}
+
+.ei-card-body {
+  position: relative;
+  z-index: 1;
+}
+
+.ei-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: calc(var(--ei-radius) + 0.25rem);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background:
+    radial-gradient(ellipse 90% 80% at 0% 0%, rgb(20 184 166 / 0.28), transparent 55%),
+    radial-gradient(ellipse 70% 60% at 100% 20%, rgb(196 163 90 / 0.16), transparent 50%),
+    linear-gradient(145deg, #07111f 0%, #0f1c2e 45%, #0a3d3a 100%);
+  color: #f8fafc;
+  box-shadow: var(--ei-depth-2);
+}
+
+.ei-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -20% -40% 40%;
+  height: 70%;
+  background: radial-gradient(circle, rgb(20 184 166 / 0.2), transparent 65%);
+  pointer-events: none;
+  animation: ei-glow-drift 10s var(--ei-ease) infinite alternate;
+}
+
+@keyframes ei-glow-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-6%, -4%, 0) scale(1.08);
+  }
+}
+
+.ei-pulse {
+  border-radius: 1rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.03));
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
+  transition:
+    transform 350ms var(--ei-ease),
+    background 350ms ease,
+    border-color 350ms ease;
+}
+
+.ei-pulse:hover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: rgb(45 212 191 / 0.45);
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.14), rgb(20 184 166 / 0.08));
+}
+
+.ei-toolbar-btn {
+  height: 1.75rem;
+  border-radius: 999px;
+  border: 1px solid rgb(15 23 42 / 0.08);
+  background: rgb(248 250 252 / 0.85);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    transform 200ms var(--ei-ease);
+}
+
+.ei-toolbar-btn:hover {
+  border-color: rgb(15 118 110 / 0.35);
+  background: rgb(240 253 250);
+  transform: translateY(-1px);
+}
+
+.dark .ei-toolbar-btn {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(15 23 42 / 0.7);
+}
+
+.ei-insight-strip {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(15 118 110 / 0.18);
+  background: linear-gradient(90deg, rgb(240 253 250 / 0.9), rgb(255 255 255 / 0.6));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+
+.dark .ei-insight-strip {
+  background: linear-gradient(90deg, rgb(15 118 110 / 0.15), rgb(15 23 42 / 0.4));
+}
+
+.ei-stagger > * {
+  animation: ei-rise 560ms var(--ei-ease) both;
+}
+
+.ei-stagger > *:nth-child(1) {
+  animation-delay: 40ms;
+}
+.ei-stagger > *:nth-child(2) {
+  animation-delay: 90ms;
+}
+.ei-stagger > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+.ei-stagger > *:nth-child(4) {
+  animation-delay: 190ms;
+}
+.ei-stagger > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+.ei-stagger > *:nth-child(6) {
+  animation-delay: 290ms;
+}
+.ei-stagger > *:nth-child(n + 7) {
+  animation-delay: 340ms;
+}
+
+@keyframes ei-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ei-chart-stage {
+  min-height: 12rem;
+  padding-top: 0.25rem;
+}
+
+.ei-one-insight {
+  max-width: 36rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--ei-ink-soft);
+}

@@ -14,10 +14,13 @@ import { computeEcmContactScore } from "./contact-score";
 import { recordEcmAudit } from "./audit-integration";
 import { getEcmPorts } from "./composition";
 import { validateEcmContact } from "./validation-engine";
+import { assertNoEcmContactDuplicate } from "./duplicate-check";
 import {
   deriveContactStatusAfterSave,
+  isEcmContactUsable,
   type ProgressiveParticipantKind,
 } from "./progressive-contact";
+import { notifyEcmContactRegistryChanged } from "./contact-change-bus";
 
 export function normalizeEcmAssignedRoles(input: {
   roles?: EcmContactRole[];
@@ -88,6 +91,12 @@ export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
   );
   if (!validation.valid) throw new Error(validation.issues.map((i) => i.message).join("; "));
 
+  assertNoEcmContactDuplicate({
+    mobile: mobilePrimary,
+    personalEmail: input.personalEmail,
+    officialEmail: input.officialEmail,
+  });
+
   const now = new Date().toISOString();
   const status =
     input.status ??
@@ -121,6 +130,8 @@ export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
     id: crypto.randomUUID(),
     enabled: true,
     status,
+    platformAccess: "no_access",
+    linkedUserId: null,
     ownerName: input.ownerName,
     ownerId: input.ownerId,
     contactScore: 0,
@@ -143,6 +154,7 @@ export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
         ? `ECM provisional contact ${draft.name} (progressive create)`
         : `ECM contact ${draft.name}`,
   });
+  notifyEcmContactRegistryChanged();
   return draft;
 }
 
@@ -242,6 +254,8 @@ export function updateEcmContact(
       | "enabled"
       | "lastActiveOn"
       | "roleProfiles"
+      | "platformAccess"
+      | "linkedUserId"
     >
   >,
   actorId: string,
@@ -256,6 +270,20 @@ export function updateEcmContact(
         primaryRole: existing.primaryRole,
         additionalRoles: existing.additionalRoles,
       };
+
+  const nextMobile =
+    patch.mobilePrimary !== undefined ? patch.mobilePrimary : existing.mobilePrimary;
+  const nextPersonal =
+    patch.personalEmail !== undefined ? patch.personalEmail || undefined : existing.personalEmail;
+  const nextOfficial =
+    patch.officialEmail !== undefined ? patch.officialEmail || undefined : existing.officialEmail;
+
+  assertNoEcmContactDuplicate({
+    mobile: nextMobile,
+    personalEmail: nextPersonal,
+    officialEmail: nextOfficial,
+    excludeId: contactId,
+  });
 
   const updated: EcmContact = {
     ...existing,
@@ -283,6 +311,7 @@ export function updateEcmContact(
     actorId,
     remarks: "ECM contact updated",
   });
+  notifyEcmContactRegistryChanged();
   return updated;
 }
 
@@ -321,9 +350,16 @@ function ensureContactShape(contact: EcmContact): EcmContact {
     ...contact,
     ...synced,
     status: contact.status ?? (contact.enabled === false ? "archived" : "active"),
+    platformAccess: contact.platformAccess ?? "no_access",
+    linkedUserId: contact.linkedUserId ?? null,
     lastActiveOn: contact.lastActiveOn ?? contact.modifiedOn ?? contact.createdOn,
     contactScore: contact.contactScore ?? computeEcmContactScore({ ...contact, ...synced }),
   };
+}
+
+export function getEcmContact(contactId: string): EcmContact | undefined {
+  const raw = getEcmPorts().contacts.findById(contactId);
+  return raw ? ensureContactShape(raw) : undefined;
 }
 
 /** Client-side query simulating server-side pagination (default: latest 100, newest first). */
@@ -337,7 +373,10 @@ export function queryEcmContacts(query: EcmContactQuery = {}): EcmContactQueryRe
 
   let items = listEcmContacts();
 
-  if (status !== "all") {
+  if (status === "active") {
+    // "Active" = usable in business workflows (not archived). Includes complete / provisional / verified.
+    items = items.filter((c) => isEcmContactUsable(c.status));
+  } else if (status !== "all") {
     items = items.filter((c) => c.status === status);
   }
   if (query.roles?.length) {

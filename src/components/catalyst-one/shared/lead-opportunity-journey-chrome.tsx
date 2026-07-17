@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Save } from "lucide-react";
+import { useMemo } from "react";
 import {
   buildJourneyHref,
   getLeadJourneyModule,
@@ -23,13 +23,23 @@ import {
   leadModuleToNavigatorStageId,
   businessNavIdToNavigatorStageId,
 } from "@/constants/enterprise-business-journey-navigator";
+import type { EnterpriseWorkspaceScrollMode } from "@/constants/enterprise-workspace-ux";
+import { WORKSPACE_CLOSE } from "@/constants/workspace-navigation";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import {
   BusinessJourneyNavigator,
   BusinessTransitionCard,
+  WorkflowProgressControl,
 } from "@/components/catalyst-one/business-journey-navigator";
-import { PhaseReadinessDashboard } from "@/components/catalyst-one/phase-readiness-dashboard";
-import { Button } from "@/components/ui/button";
+import {
+  ChanakyaCompactLive,
+  TransactionInsightsPanel,
+} from "@/components/catalyst-one/shared/transaction-insights-panel";
+import { EnterpriseWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-workspace-shell";
+import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
+import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
+import { useWorkspaceClose } from "@/hooks/use-workspace-close";
+import { derivePhaseReadiness } from "@/lib/enterprise-phase-readiness";
 import { cn } from "@/lib/utils";
 
 export interface JourneyContextChips {
@@ -69,15 +79,34 @@ export interface LeadOpportunityJourneyChromeProps {
   hideBack?: boolean;
   /** Hide Business Journey Navigator strip (rare). */
   hideJourneyNavigator?: boolean;
+  /**
+   * ribbon — permanent navigator strip (default; Loan / Document Center / Setup).
+   * button — compact "Workflow Progress" control (Strategic + Credit Workbench only).
+   */
+  journeyNavigatorMode?: "ribbon" | "button";
   /** Hide Phase Readiness Dashboard (rare). */
   hidePhaseReadiness?: boolean;
   /** LIFE finalized — improves Lead Qualification readiness. */
   lifeFinalized?: boolean;
+  /**
+   * document (default) — natural page scroll.
+   * locked-split — dual-pane desks (Credit Workbench document preview).
+   */
+  scrollMode?: EnterpriseWorkspaceScrollMode;
+  /** Close destination — defaults to Loan Files. Pass null to hide Close. */
+  closeTo?: string | null;
+  onClose?: () => void;
+  hasUnsavedChanges?: boolean;
+  onSaveAndClose?: () => void | boolean | Promise<void | boolean>;
+  /** Case C — toast "All changes saved." when closing clean. */
+  acknowledgeCleanClose?: boolean;
+  /** Collapse navigator / insights after scroll. Default true. */
+  collapseOnScroll?: boolean;
 }
 
 /**
- * Shared Lead / Opportunity journey chrome — Navigator + Workspace Header + Transition Card.
- * Continue / Back preserve transaction context (never dashboards).
+ * Shared Lead / Opportunity journey chrome — Navigator + compact header + Close.
+ * Continues / Back preserve transaction context. Inherits Enterprise Workspace Shell.
  */
 export function LeadOpportunityJourneyChrome({
   moduleId,
@@ -86,7 +115,7 @@ export function LeadOpportunityJourneyChrome({
   identityLine,
   context,
   hideContextChips = false,
-  density = "default",
+  density = "compact",
   headerActions,
   fileId,
   opportunityId,
@@ -98,8 +127,16 @@ export function LeadOpportunityJourneyChrome({
   hideContinue,
   hideBack,
   hideJourneyNavigator,
+  journeyNavigatorMode = "ribbon",
   hidePhaseReadiness,
   lifeFinalized,
+  scrollMode = "document",
+  closeTo = WORKSPACE_CLOSE.LOAN_FILES,
+  onClose,
+  hasUnsavedChanges = false,
+  onSaveAndClose,
+  acknowledgeCleanClose = false,
+  collapseOnScroll = true,
 }: LeadOpportunityJourneyChromeProps) {
   const router = useRouter();
   const mod = getLeadJourneyModule(moduleId);
@@ -111,6 +148,29 @@ export function LeadOpportunityJourneyChrome({
   const prevNav = getPreviousBusinessJourneyNavStep(navId);
   const compact = density === "compact";
   const navigatorStageId = leadModuleToNavigatorStageId(moduleId);
+
+  const handleExit = () => {
+    if (onClose) {
+      onClose();
+      return;
+    }
+    if (closeTo) router.push(closeTo);
+  };
+
+  const showClose = Boolean(onClose || closeTo);
+  const closeApi = useWorkspaceClose({
+    onClose: handleExit,
+    hasUnsavedChanges,
+    onSaveAndClose:
+      onSaveAndClose ??
+      (onSaveDraft
+        ? async () => {
+            await onSaveDraft();
+          }
+        : undefined),
+    acknowledgeCleanClose,
+    enableEscapeKey: showClose,
+  });
 
   const continueLabel = nextNav
     ? getBusinessContinueLabel(nextNav)
@@ -147,9 +207,7 @@ export function LeadOpportunityJourneyChrome({
     if (onSaveDraft) await onSaveDraft();
     rememberContext();
     if (nextNav) {
-      router.push(
-        buildBusinessJourneyHref(nextNav, { fileId, opportunityId }),
-      );
+      router.push(buildBusinessJourneyHref(nextNav, { fileId, opportunityId }));
       return;
     }
     if (!nextModule) return;
@@ -190,98 +248,187 @@ export function LeadOpportunityJourneyChrome({
 
   const displayTitle = title?.trim() || mod.title;
 
-  return (
-    <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-      <div className="sticky top-0 z-20 shrink-0 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
-        {!hideJourneyNavigator ? (
-          <BusinessJourneyNavigator currentStageId={navigatorStageId} />
-        ) : null}
-        {!hidePhaseReadiness && (fileId || opportunityId) ? (
-          <PhaseReadinessDashboard
-            fileId={fileId}
-            lifeFinalized={lifeFinalized}
-            hasContact={Boolean(context?.customer)}
-            hasOpportunity={Boolean(fileId || opportunityId || context?.opportunity)}
-            customerName={context?.customer}
-            productLabel={context?.product}
-          />
-        ) : null}
-        <header>
-          <div
-            className={cn(
-              "flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-4 sm:px-5",
-              compact ? "py-1.5" : "py-2",
-            )}
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p
-                  className={cn(
-                    "shrink-0 text-[9px] font-semibold uppercase tracking-[0.16em]",
-                    stage === "lead"
-                      ? "text-teal-700/90 dark:text-teal-300/90"
-                      : "text-violet-700/90 dark:text-violet-300/90",
-                  )}
-                >
-                  {journeyStageEyebrow(stage)}
-                </p>
-                <h1
-                  className={cn(
-                    "truncate font-semibold tracking-tight text-foreground",
-                    compact ? "text-sm sm:text-base" : "text-base sm:text-lg",
-                  )}
-                >
-                  {displayTitle}
-                </h1>
-              </div>
-              {identityLine ? (
-                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{identityLine}</p>
-              ) : null}
-              {chips.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {chips.map((c) => (
-                    <span
-                      key={c.label}
-                      className="inline-flex max-w-[180px] items-center gap-1 rounded border border-border/50 bg-muted/20 px-1.5 py-px text-[10px]"
-                    >
-                      <span className="font-medium text-muted-foreground">{c.label}</span>
-                      <span className="truncate font-semibold text-foreground">{c.value}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+  const chanakyaLine = useMemo(() => {
+    const snap = derivePhaseReadiness({
+      lifeFinalized,
+      hasContact: Boolean(context?.customer),
+      hasOpportunity: Boolean(fileId || opportunityId || context?.opportunity),
+      customerName: context?.customer,
+      productLabel: context?.product,
+    });
+    return snap.chanakyaMessage || snap.nextBusinessAction;
+  }, [
+    lifeFinalized,
+    context?.customer,
+    context?.product,
+    context?.opportunity,
+    fileId,
+    opportunityId,
+  ]);
 
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              {headerActions}
-              {onSaveDraft && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-7 gap-1 px-2 text-[11px]"
-                  disabled={saving}
-                  onClick={() => void onSaveDraft()}
-                >
-                  <Save className="h-3 w-3" />
-                  Save Draft
-                </Button>
-              )}
-              <BusinessTransitionCard
-                continueLabel={continueLabel}
-                continuePurpose={continuePurpose}
-                onContinue={() => void handleContinue()}
-                backLabel={backLabel}
-                onBack={handleBack}
-                hideContinue={hideContinue}
-                hideBack={hideBack}
-                disabled={saving}
+  /** Prefer a single identity line over repeating chip rows (anti-duplication). */
+  const compactIdentity =
+    identityLine ||
+    [
+      context?.customer,
+      context?.opportunity,
+      context?.product,
+      context?.amount,
+      context?.stage,
+      context?.rm ? `RM ${context.rm}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+  const showChipRow = chips.length > 0 && hideContextChips === false && !compactIdentity;
+  const useWorkflowButton =
+    !hideJourneyNavigator && journeyNavigatorMode === "button";
+  const showRibbonNavigator =
+    !hideJourneyNavigator && journeyNavigatorMode === "ribbon";
+
+  const chrome = (
+    <>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 ease-out",
+          "grid-rows-[1fr]",
+          "group-data-[chrome-collapsed=true]/ews:grid-rows-[0fr]",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          {showRibbonNavigator ? (
+            <BusinessJourneyNavigator
+              currentStageId={navigatorStageId}
+              fileId={fileId}
+              opportunityId={opportunityId}
+            />
+          ) : null}
+          {!hidePhaseReadiness && (fileId || opportunityId) ? (
+            <TransactionInsightsPanel
+              fileId={fileId}
+              lifeFinalized={lifeFinalized}
+              hasContact={Boolean(context?.customer)}
+              hasOpportunity={Boolean(fileId || opportunityId || context?.opportunity)}
+              customerName={context?.customer}
+              productLabel={context?.product}
+            />
+          ) : null}
+        </div>
+      </div>
+      <header>
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 sm:px-5",
+            compact ? "py-1" : "py-1.5",
+          )}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+              <p
+                className={cn(
+                  "shrink-0 text-[9px] font-semibold uppercase tracking-[0.16em]",
+                  stage === "lead"
+                    ? "text-teal-700/90 dark:text-teal-300/90"
+                    : "text-violet-700/90 dark:text-violet-300/90",
+                )}
+              >
+                {journeyStageEyebrow(stage)}
+              </p>
+              <h1 className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base">
+                {displayTitle}
+              </h1>
+              <ChanakyaCompactLive
+                message={chanakyaLine}
+                className="hidden group-data-[chrome-collapsed=true]/ews:hidden md:flex"
               />
             </div>
+            {compactIdentity ? (
+              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{compactIdentity}</p>
+            ) : null}
+            {showChipRow ? (
+              <div className="flex flex-wrap gap-1 pt-1 group-data-[chrome-collapsed=true]/ews:hidden">
+                {chips.map((c) => (
+                  <span
+                    key={c.label}
+                    className="inline-flex max-w-[180px] items-center gap-1 rounded border border-border/50 bg-muted/20 px-1.5 py-px text-[10px]"
+                  >
+                    <span className="font-medium text-muted-foreground">{c.label}</span>
+                    <span className="truncate font-semibold text-foreground">{c.value}</span>
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
-        </header>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
-    </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {useWorkflowButton ? (
+              <WorkflowProgressControl
+                currentStageId={navigatorStageId}
+                fileId={fileId}
+                opportunityId={opportunityId}
+              />
+            ) : null}
+            {headerActions}
+            <BusinessTransitionCard
+              continueLabel={continueLabel}
+              continuePurpose={continuePurpose}
+              onContinue={() => void handleContinue()}
+              backLabel={backLabel}
+              onBack={handleBack}
+              hideContinue={hideContinue}
+              hideBack={hideBack}
+              disabled={saving}
+            />
+            {showClose ? (
+              <WorkspacePrimaryActions
+                mode={onSaveDraft || onSaveAndClose ? "editable" : "readonly"}
+                density="compact"
+                saving={saving || closeApi.saving}
+                onClose={closeApi.requestClose}
+                onSave={
+                  onSaveDraft
+                    ? async () => {
+                        await onSaveDraft();
+                      }
+                    : undefined
+                }
+                onSaveAndExit={
+                  onSaveDraft || onSaveAndClose
+                    ? async () => {
+                        await closeApi.handleSaveAndClose();
+                      }
+                    : undefined
+                }
+              />
+            ) : null}
+          </div>
+        </div>
+      </header>
+    </>
+  );
+
+  return (
+    <>
+      <EnterpriseWorkspaceShell
+        className={className}
+        scrollMode={scrollMode}
+        collapseOnScroll={collapseOnScroll}
+        chrome={chrome}
+        bodyClassName={cn(scrollMode === "locked-split" && "overflow-hidden")}
+      >
+        {children}
+      </EnterpriseWorkspaceShell>
+      {showClose ? (
+        <UnsavedChangesDialog
+          open={closeApi.confirmOpen}
+          onOpenChange={closeApi.setConfirmOpen}
+          onDiscard={closeApi.handleDiscard}
+          onSaveAndClose={
+            onSaveAndClose || onSaveDraft ? closeApi.handleSaveAndClose : undefined
+          }
+          saving={closeApi.saving}
+        />
+      ) : null}
+    </>
   );
 }

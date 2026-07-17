@@ -29,7 +29,7 @@ const actions = [
   { label: "Report", icon: FileText, href: ROUTES.REPORTS },
   { label: "Invoice", icon: Receipt, href: `${ROUTES.ACCOUNTING}?action=invoice` },
   { label: "Follow-up", icon: PhoneCall, href: `${ROUTES.TASKS}?action=followup` },
-  { label: "Loan Board", icon: BarChart3, href: ROUTES.PIPELINE },
+  { label: "CHANAKYA Radar", icon: BarChart3, href: ROUTES.CHANAKYA_RADAR },
 ];
 
 export function QuickActionsGrid() {

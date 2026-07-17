@@ -9,21 +9,24 @@ export const ELW_ORIGIN_LABELS: Record<ElwOriginSurface, string> = {
   lenders: "Lender Master",
   search: "Search",
   contacts: "Contacts",
-  pipeline: "Loan Board",
+  pipeline: "CHANAKYA Radar",
   unknown: "Previous screen",
 };
 
 export const ELW_WORKSPACE_SECTIONS = [
   "Overview",
-  "Performance",
   "Products",
-  "Policy",
-  "Contacts",
-  "Documents",
-  "CHANAKYA Insights",
+  "Product Policy",
+  "Relationship Hierarchy",
 ] as const;
 
 export { ELW_CERTIFICATION_FINDING, ELW_ENTERPRISE_PRINCIPLE, ELW_FRAMEWORK_VERSION, ELW_OFFICIAL_NAME } from "./lifecycle";
+export {
+  ELW_DEFAULT_PRODUCTS,
+  ELW_HIERARCHY_RANKS,
+  ELW_HIERARCHY_STORAGE_KEY,
+  ELW_PRODUCT_POLICY_SECTIONS,
+} from "./hierarchy";
 
 /** Build ELW path with origin memory. */
 export function buildElwWorkspaceHref(

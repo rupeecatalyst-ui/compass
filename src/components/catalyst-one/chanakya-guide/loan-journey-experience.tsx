@@ -388,8 +388,8 @@ function JourneyStageNode({
         type="button"
         onClick={onSelect}
         className={cn(
-          "group relative z-[1] flex flex-col items-center rounded-2xl px-2 py-2 text-center transition-all duration-300",
-          "hover:-translate-y-0.5 hover:bg-background/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "group relative z-[1] flex flex-col items-center rounded-2xl px-2 py-2 text-center transition-colors duration-200",
+          "hover:bg-background/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           isFocus && "bg-background/50",
         )}
       >

@@ -10,6 +10,7 @@ import { LoanWorkbenchLayout } from "@/components/catalyst-one/shared/loan-workb
 import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-workbench-section";
 import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-workspace-command-bar";
 import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
+import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
 import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
@@ -66,7 +67,11 @@ import {
   BusinessJourneyNavigator,
   BusinessTransitionCard,
 } from "@/components/catalyst-one/business-journey-navigator";
-import { PhaseReadinessDashboard } from "@/components/catalyst-one/phase-readiness-dashboard";
+import {
+  ChanakyaCompactLive,
+  TransactionInsightsPanel,
+} from "@/components/catalyst-one/shared/transaction-insights-panel";
+import { derivePhaseReadiness } from "@/lib/enterprise-phase-readiness";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
@@ -132,7 +137,7 @@ function LoanWorkspaceModalContent({
   onUpdate,
   onOpenContact,
   contactOptions = [],
-  defaultTab = "overview",
+  defaultTab = "lenders",
   embedded = false,
 }: LoanWorkspaceModalProps & { file: LoanFile }) {
   const [draft, setDraft] = useState<LoanFile>(() => ({ ...file }));
@@ -169,6 +174,18 @@ function LoanWorkspaceModalContent({
     businessNavIdToNavigatorStageId(loanContinue.navId),
   );
   const navigatorStageId = loanTabToNavigatorStageId(activeTab);
+  const compactChanakyaMessage = useMemo(
+    () =>
+      derivePhaseReadiness({
+        file: draft,
+        lifeFinalized: true,
+        hasContact: true,
+        hasOpportunity: true,
+        customerName: draft.customerName,
+        productLabel: draft.loanProduct,
+      }).chanakyaMessage,
+    [draft],
+  );
   const backLabel =
     activeTab === "lenders"
       ? "Back to Loan Workspace"
@@ -185,10 +202,6 @@ function LoanWorkspaceModalContent({
   const handleJourneyContinue = () => {
     if (loanContinue.navId === "lender_pipeline") {
       setActiveTab("lenders");
-      return;
-    }
-    if (loanContinue.navId === "timeline") {
-      setActiveTab("timeline");
       return;
     }
     router.push(
@@ -231,13 +244,18 @@ function LoanWorkspaceModalContent({
     }
   }, [file, defaultTab, tabFromUrl]);
 
-  const participantEntityOptions = useMemo(
-    () =>
-      contactOptions.length > 0
-        ? mapContactOptionsToParticipantEntities(contactOptions)
-        : buildDefaultParticipantEntityOptions(),
-    [contactOptions],
-  );
+  const registryVersion = useEcmContactRegistryVersion();
+  const participantEntityOptions = useMemo(() => {
+    void registryVersion;
+    const live = buildDefaultParticipantEntityOptions();
+    if (contactOptions.length === 0) return live;
+    const fromProp = mapContactOptionsToParticipantEntities(contactOptions);
+    const byKey = new Map<string, (typeof live)[number]>();
+    for (const row of [...fromProp, ...live]) {
+      byKey.set(`${row.entityType}:${row.id}`, row);
+    }
+    return [...byKey.values()];
+  }, [contactOptions, registryVersion]);
 
   const participants = draft.participants ?? [];
 
@@ -425,7 +443,7 @@ function LoanWorkspaceModalContent({
       onSaveAndExit={handleSaveAndExit}
       onOpenContact={onOpenContact}
       commandBarRef={stickyChromeRef}
-      density="default"
+      density="pipeline"
     />
   ) : null;
 
@@ -435,12 +453,13 @@ function LoanWorkspaceModalContent({
       value={activeTab}
       onValueChange={setActiveTab}
       className={cn(
+        "flex min-h-0 flex-col",
         activeTab === "lenders" || activeTab === "mission-control"
-          ? "px-2 py-2 sm:px-3"
+          ? "min-h-full px-2 py-2 sm:px-3"
           : "px-5 py-6 sm:px-6 lg:px-8 lg:py-8",
       )}
     >
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-2 flex shrink-0 items-center gap-2">
         <TabsList
           className={cn(
             "h-auto bg-muted p-1",
@@ -948,7 +967,7 @@ function LoanWorkspaceModalContent({
             </LoanWorkbenchSection>
           </TabsContent>
 
-          <TabsContent value="lenders" className="mt-0">
+          <TabsContent value="lenders" className="mt-0 min-h-[min(72vh,820px)] flex-1">
             <LenderPipelineBoard
               loan={draft}
               cases={draft.lenders ?? []}
@@ -1037,9 +1056,11 @@ function LoanWorkspaceModalContent({
     <>
       <BusinessJourneyNavigator
         currentStageId={navigatorStageId}
+        fileId={draft.id}
+        opportunityId={opportunityId}
         className="border-b border-border/60 bg-background/95"
       />
-      <PhaseReadinessDashboard
+      <TransactionInsightsPanel
         file={draft}
         lifeFinalized
         hasContact
@@ -1049,6 +1070,7 @@ function LoanWorkspaceModalContent({
       />
       <WorkspaceHeader
         title="Loan Workflow"
+        className="py-1.5"
         headerActions={
           <div className="flex items-center gap-1.5">
             <ChanakyaGuide
@@ -1106,28 +1128,11 @@ function LoanWorkspaceModalContent({
                   </span>
                 ),
                 chanakyaFeed: (
-                  <ChanakyaLenderPipelinePanel loan={draft} cases={draft.lenders ?? []} />
-                ),
-                saveActions: (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 px-3 text-[10px]"
-                      onClick={handleSave}
-                      disabled={saving}
-                    >
-                      {saving ? "Saving..." : "Save"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="h-7 px-3 text-[10px] bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                      onClick={handleSaveAndExit}
-                      disabled={saving}
-                    >
-                      {saving ? "Saving..." : "Save & Exit"}
-                    </Button>
-                  </>
+                  <ChanakyaLenderPipelinePanel
+                    loan={draft}
+                    cases={draft.lenders ?? []}
+                    className="h-7"
+                  />
                 ),
               }
             : undefined
@@ -1135,20 +1140,32 @@ function LoanWorkspaceModalContent({
         infoStrip={
           activeTab !== "lenders" ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-              <span className="text-base font-bold text-foreground sm:text-lg">{draft.customerName}</span>
+              <span className="text-sm font-bold text-foreground sm:text-base">{draft.customerName}</span>
               <span className="font-medium text-foreground/80">{draft.fileNumber}</span>
               <span className="tabular-nums">{formatINR(draft.requiredAmount)}</span>
               <span className="truncate">RM {draft.relationshipManager}</span>
               <span className={cn("rounded border px-1.5 py-0.5 capitalize", LOAN_FILE_PRIORITY_STYLES[draft.priority].className)}>
                 {draft.priority}
               </span>
+              <ChanakyaCompactLive
+                message={compactChanakyaMessage}
+                className="hidden lg:flex"
+              />
             </div>
           ) : undefined
         }
         onClose={closeWorkspace}
         closeApi={closeApi}
         hasUnsavedChanges={hasUnsavedChanges}
-        onSaveAndClose={() => persistDraft({ exitOnSuccess: false })}
+        saving={saving}
+        actionMode="editable"
+        onSave={async () => {
+          await persistDraft({ exitOnSuccess: false });
+        }}
+        onSaveAndClose={async () => {
+          const ok = await persistDraft({ exitOnSuccess: false });
+          return ok !== false;
+        }}
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {commandBar}

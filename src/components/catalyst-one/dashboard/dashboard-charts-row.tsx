@@ -35,7 +35,7 @@ export function DashboardChartsRow() {
   const description = isRevenue
     ? "Commission trend — helps you judge collection health"
     : "Disbursal trend — helps you judge delivery momentum";
-  const href = isRevenue ? `${ROUTES.ACCOUNTING}?tab=revenue` : `${ROUTES.PIPELINE}?stage=closure_wip`;
+  const href = isRevenue ? `${ROUTES.ACCOUNTING}?tab=revenue` : ROUTES.MY_DEALS;
 
   return (
     <DashboardCard

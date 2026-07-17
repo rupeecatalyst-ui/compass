@@ -17,6 +17,7 @@ import {
   saveStatedDraft,
 } from "@/lib/lead-opportunity-journey/stated-draft";
 import { formatINR } from "@/lib/format-currency";
+import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
 import { getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
 import { ROUTES } from "@/constants/routes";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import type { LoanFile } from "@/types/catalyst-one";
 /**
  * Lead Stage — Opportunity Setup (formerly Credit Bench).
  * Capture/reuse profile context. Verification stays in Credit Workbench.
+ * Context-Aware: Financial vs Business sections follow employment family.
  */
 export function CreditBenchWorkspace() {
   const searchParams = useSearchParams();
@@ -57,12 +59,36 @@ export function CreditBenchWorkspace() {
     () => (file ? businessProfileFromLoanFile(file) : null),
     [file],
   );
+  const categoryCtx = useMemo(
+    () => getContextAwareVisibility(file?.employmentType),
+    [file?.employmentType],
+  );
+
+  useEffect(() => {
+    if (section === "financial" && !categoryCtx.isSalariedFamily && categoryCtx.isSelfEmployedFamily) {
+      setSection("business");
+    }
+    if (section === "business" && !categoryCtx.isSelfEmployedFamily && categoryCtx.isSalariedFamily) {
+      setSection("financial");
+    }
+  }, [categoryCtx.isSalariedFamily, categoryCtx.isSelfEmployedFamily, section]);
 
   const persistDraft = async () => {
     if (!file) return;
     setSaving(true);
     try {
-      saveStatedDraft(file.id, stated);
+      const sanitized = categoryCtx.isSalariedFamily
+        ? {
+            ...stated,
+            statedTurnover: undefined,
+            statedBusinessVintage: undefined,
+            statedNatureOfBusiness: undefined,
+          }
+        : categoryCtx.isSelfEmployedFamily
+          ? { ...stated, statedIncomeMonthly: undefined }
+          : stated;
+      saveStatedDraft(file.id, sanitized);
+      setStated(sanitized);
     } finally {
       setSaving(false);
     }
@@ -70,7 +96,7 @@ export function CreditBenchWorkspace() {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+      <div className="flex min-h-[40vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
           <p className="text-xs text-muted-foreground">Loading Opportunity Setup…</p>
@@ -92,8 +118,12 @@ export function CreditBenchWorkspace() {
   const sections = [
     { id: "customer" as const, label: "Customer", icon: UserRound },
     { id: "loan" as const, label: "Loan Details", icon: FileText },
-    { id: "financial" as const, label: "Financial", icon: Wallet },
-    { id: "business" as const, label: "Business Profile", icon: Building2 },
+    ...(categoryCtx.isSalariedFamily || categoryCtx.family === "unknown"
+      ? [{ id: "financial" as const, label: "Financial", icon: Wallet }]
+      : []),
+    ...(categoryCtx.isSelfEmployedFamily || categoryCtx.family === "unknown"
+      ? [{ id: "business" as const, label: "Business Profile", icon: Building2 }]
+      : []),
     { id: "property" as const, label: "Property", icon: Home },
     { id: "eligibility" as const, label: "Eligibility", icon: FileText },
   ];
@@ -105,9 +135,21 @@ export function CreditBenchWorkspace() {
   );
 
   return (
-    <div className="-mx-4 flex h-[calc(100vh-4rem)] flex-col md:-mx-6 lg:-mx-8">
+    <div className="-mx-4 flex min-h-0 flex-col md:-mx-6 lg:-mx-8">
       <LeadOpportunityJourneyChrome
         moduleId="credit_bench"
+        density="compact"
+        hideContextChips
+        title={context.customer || "Opportunity Setup"}
+        identityLine={[
+          context.opportunity,
+          context.product,
+          context.amount,
+          context.stage,
+          context.rm ? `RM ${context.rm}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         context={context}
         fileId={file.id}
         opportunityId={opportunityId}
@@ -128,7 +170,7 @@ export function CreditBenchWorkspace() {
         onSaveDraft={persistDraft}
         saving={saving}
       >
-        <div className="mx-auto grid max-w-6xl gap-4 overflow-y-auto p-4 sm:p-5 lg:grid-cols-[200px_minmax(0,1fr)]">
+        <div className="mx-auto grid max-w-6xl gap-4 p-4 sm:p-5 lg:grid-cols-[200px_minmax(0,1fr)]">
           <aside className="h-fit rounded-2xl border border-border/70 bg-card/80 p-2 shadow-sm backdrop-blur">
             <p className="px-2 py-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Setup

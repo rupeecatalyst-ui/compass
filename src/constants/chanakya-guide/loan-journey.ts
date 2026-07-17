@@ -25,7 +25,7 @@ export const CHANAKYA_LOAN_JOURNEY_PHASES: ChanakyaLoanJourneyPhaseDef[] = [
   {
     id: "loan_execution",
     label: "Loan Execution",
-    description: "Run the loan file across lenders, tasks, timeline, and approval.",
+    description: "Run the loan file across lenders and approval.",
     tone: "green",
   },
   {
@@ -112,30 +112,8 @@ export const CHANAKYA_LOAN_JOURNEY_STAGES: ChanakyaLoanJourneyStageDef[] = [
     matchSections: ["lenders"],
   },
   {
-    id: "tasks",
-    order: 8,
-    phaseId: "loan_execution",
-    name: "Tasks",
-    objective: "Clear follow-ups that protect SLAs and customer experience.",
-    chanakyaMessage:
-      "You are in Loan Execution Tasks. Clear overdue commitments, then return to the loan file to continue.",
-    matchWorkspaceIds: ["tasks"],
-    matchSections: ["tasks"],
-  },
-  {
-    id: "timeline",
-    order: 9,
-    phaseId: "loan_execution",
-    name: "Timeline",
-    objective: "Review chronological activity across the loan journey.",
-    chanakyaMessage:
-      "You are viewing Timeline. Use it to confirm what already happened before the next lender or approval step.",
-    matchWorkspaceIds: ["loan_workspace", "dialogue"],
-    matchSections: ["timeline"],
-  },
-  {
     id: "approval",
-    order: 10,
+    order: 8,
     phaseId: "loan_execution",
     name: "Approval",
     objective: "Secure lender approval before disbursement begins.",
@@ -145,7 +123,7 @@ export const CHANAKYA_LOAN_JOURNEY_STAGES: ChanakyaLoanJourneyStageDef[] = [
   },
   {
     id: "disbursement",
-    order: 11,
+    order: 9,
     phaseId: "post_disbursement",
     name: "Disbursement",
     objective: "Complete fund release carefully and record outcomes.",
@@ -155,7 +133,7 @@ export const CHANAKYA_LOAN_JOURNEY_STAGES: ChanakyaLoanJourneyStageDef[] = [
   },
   {
     id: "accounting",
-    order: 12,
+    order: 10,
     phaseId: "post_disbursement",
     name: "Accounting",
     objective: "Record commercial and financial outcomes of the loan.",
@@ -165,12 +143,37 @@ export const CHANAKYA_LOAN_JOURNEY_STAGES: ChanakyaLoanJourneyStageDef[] = [
   },
   {
     id: "closure",
-    order: 13,
+    order: 11,
     phaseId: "post_disbursement",
     name: "Closure",
     objective: "Close the transaction orderly after obligations are complete.",
     chanakyaMessage:
       "You are at Closure. Confirm all obligations are complete before marking the journey finished.",
     matchSections: ["closure"],
+  },
+  /** Support modules — not workflow stages; excluded from navigator by default. */
+  {
+    id: "tasks",
+    order: 90,
+    phaseId: "loan_execution",
+    name: "Tasks",
+    kind: "support",
+    objective: "Clear follow-ups that protect SLAs and customer experience.",
+    chanakyaMessage:
+      "Tasks are available from any stage. Clear overdue commitments, then return to the loan file to continue.",
+    matchWorkspaceIds: ["tasks"],
+    matchSections: ["tasks"],
+  },
+  {
+    id: "timeline",
+    order: 91,
+    phaseId: "loan_execution",
+    name: "Timeline",
+    kind: "support",
+    objective: "Review chronological activity across the loan journey.",
+    chanakyaMessage:
+      "Timeline belongs to every stage. Use it to confirm what already happened before the next lender or approval step.",
+    matchWorkspaceIds: ["loan_workspace", "dialogue"],
+    matchSections: ["timeline"],
   },
 ];

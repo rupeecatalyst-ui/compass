@@ -23,6 +23,7 @@ import {
   normalizeEcmMobile,
   normalizePersonName,
 } from "@/lib/enterprise-contact-master";
+import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import type { EcmCompany, EcmCompanyRelationRole } from "@/types/enterprise-company-master";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
@@ -97,6 +98,7 @@ export function CompanyWorkspaceModal({
   const [employees, setEmployees] = useState("");
   const [website, setWebsite] = useState("");
   const [linkTick, setLinkTick] = useState(0);
+  const registryVersion = useEcmContactRegistryVersion();
   const [relSearch, setRelSearch] = useState("");
   const [newRelName, setNewRelName] = useState("");
   const [newRelMobile, setNewRelMobile] = useState("");
@@ -153,12 +155,15 @@ export function CompanyWorkspaceModal({
   }, [draftId, linkTick]);
 
   const contactsById = useMemo(() => {
+    void linkTick;
+    void registryVersion;
     const map = new Map<string, EcmContact>();
     for (const c of listEcmContacts()) map.set(c.id, c);
     return map;
-  }, [linkTick]);
+  }, [linkTick, registryVersion]);
 
   const searchHits = useMemo(() => {
+    void registryVersion;
     const q = relSearch.trim().toLowerCase();
     if (!q || q.length < 2) return [];
     return listEcmContacts()
@@ -167,7 +172,7 @@ export function CompanyWorkspaceModal({
         return hay.includes(q);
       })
       .slice(0, 8);
-  }, [relSearch, linkTick]);
+  }, [relSearch, linkTick, registryVersion]);
 
   const readiness = useMemo(
     () => (liveCompany ? deriveEcmCompanyReadiness(liveCompany) : null),
@@ -362,11 +367,13 @@ export function CompanyWorkspaceModal({
             <Button
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-50"
+              size="sm"
+              className="h-8 gap-1.5 px-2 text-xs text-zinc-400 hover:bg-zinc-900 hover:text-zinc-50"
               onClick={closeApi.requestClose}
+              aria-label="Close workspace"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" aria-hidden />
+              Close
             </Button>
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">

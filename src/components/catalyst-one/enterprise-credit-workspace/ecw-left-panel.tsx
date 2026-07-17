@@ -4,8 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getProposalButtonLabel } from "@/lib/chanakya-phase5-intelligence";
-import { formatINR } from "@/lib/format-currency";
-import { getJourneyStageDisplayLabel, buildJourneyHref } from "@/constants/lead-opportunity-journey";
+import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
@@ -16,17 +15,36 @@ import type {
 } from "@/types/enterprise-credit-workspace";
 import { ECW_LEFT_SECTIONS } from "@/types/enterprise-credit-workspace";
 import type { ChanakyaProposalReadinessReview } from "@/types/chanakya-phase5-intelligence";
+import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
+import { useEffect, useMemo } from "react";
 
 function SectionNav({
   active,
   onChange,
+  employmentType,
 }: {
   active: EcwLeftSectionId;
   onChange: (id: EcwLeftSectionId) => void;
+  employmentType?: string;
 }) {
+  const ctx = useMemo(() => getContextAwareVisibility(employmentType), [employmentType]);
+  const sections = useMemo(
+    () =>
+      ECW_LEFT_SECTIONS.filter((s) => {
+        if (s.id === "stated_financial") {
+          return ctx.isSalariedFamily || ctx.family === "unknown";
+        }
+        if (s.id === "stated_business") {
+          return ctx.isSelfEmployedFamily || ctx.family === "unknown";
+        }
+        return true;
+      }),
+    [ctx.family, ctx.isSalariedFamily, ctx.isSelfEmployedFamily],
+  );
+
   return (
     <nav className="flex gap-0.5 overflow-x-auto border-b border-border/50 px-1.5 py-1.5 lg:flex-col lg:overflow-y-auto lg:overflow-x-visible">
-      {ECW_LEFT_SECTIONS.map((s) => (
+      {sections.map((s) => (
         <button
           key={s.id}
           type="button"
@@ -62,7 +80,7 @@ function Field({
 
 export function EcwLeftPanel({
   file,
-  opportunityNumber,
+  opportunityNumber: _opportunityNumber,
   lenderName,
   section,
   onSectionChange,
@@ -81,38 +99,66 @@ export function EcwLeftPanel({
   documents: LoanFileDocument[];
   readiness: ChanakyaProposalReadinessReview;
 }) {
+  const categoryCtx = useMemo(
+    () => getContextAwareVisibility(file.employmentType),
+    [file.employmentType],
+  );
+
+  useEffect(() => {
+    if (section === "stated_financial" && categoryCtx.isSelfEmployedFamily) {
+      onSectionChange("stated_business");
+    }
+    if (section === "stated_business" && categoryCtx.isSalariedFamily) {
+      onSectionChange("stated_financial");
+    }
+  }, [
+    categoryCtx.isSalariedFamily,
+    categoryCtx.isSelfEmployedFamily,
+    onSectionChange,
+    section,
+  ]);
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <div className="flex h-9 shrink-0 items-center border-b border-border/50 px-2.5">
+    <div className="flex flex-col bg-background">
+      <div className="flex h-9 items-center border-b border-border/50 px-2.5">
         <div className="min-w-0">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Verification Form
           </p>
           <p className="truncate text-[10px] text-muted-foreground">
-            Align figures to the document — Business Profile values are reused from Opportunity Setup.
+            Context-aware ·{" "}
+            {categoryCtx.isSalariedFamily
+              ? "salaried fields"
+              : categoryCtx.isSelfEmployedFamily
+                ? "self-employed fields"
+                : "select employment context"}{" "}
+            only
           </p>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        <div className="shrink-0 overflow-x-auto lg:w-[150px] lg:shrink-0 lg:overflow-y-auto lg:overflow-x-visible lg:border-r lg:border-border/50">
-          <SectionNav active={section} onChange={onSectionChange} />
+      <div className="flex flex-col lg:flex-row">
+        <div className="shrink-0 overflow-x-auto lg:w-[150px] lg:shrink-0 lg:border-r lg:border-border/50">
+          <SectionNav
+            active={section}
+            onChange={onSectionChange}
+            employmentType={file.employmentType}
+          />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 py-2">
+        <div className="flex-1 px-2.5 py-2">
           {section === "customer_snapshot" && (
             <div className="space-y-1.5 text-[11px]">
-              <p className="truncate text-xs font-semibold leading-tight">{file.customerName}</p>
+              <p className="text-[10px] text-muted-foreground">
+                Identity lives in the workspace header. Below are verification-only facts.
+              </p>
               <dl className="divide-y divide-border/50 rounded-md border border-border/60 bg-muted/10">
                 {(
                   [
-                    ["Opportunity", opportunityNumber],
-                    ["Product", file.loanProduct],
-                    ["Loan Amount", formatINR(file.requiredAmount || file.loanAmount)],
-                    ["Selected Lender", lenderName],
-                    ["Stage", getJourneyStageDisplayLabel(file.stage)],
                     ["Employment", file.employmentType || "—"],
                     ["City", file.city || "—"],
+                    ["File number", file.fileNumber || "—"],
+                    ["Priority", file.priority || "—"],
                   ] as const
                 ).map(([label, value]) => (
                   <div key={label} className="flex items-baseline justify-between gap-2 px-2 py-1">

@@ -1,0 +1,83 @@
+---
+description: Executive Intelligence visualization rules — business question maps to chart type
+alwaysApply: true
+---
+
+# Executive Intelligence — Visualization Rules
+
+Status: **ENTERPRISE APPROVED**
+
+## Principle
+
+**Never choose charts randomly.**
+
+Select the visualization according to the **business question**.
+
+## Prefer the better visualization
+
+If a more suitable visualization exists than the one initially chosen, **prefer the better visualization**.
+
+- Do **not** optimize for ease of implementation.
+- Optimize for **executive understanding** and **long-term product quality**.
+- A harder chart that communicates faster beats an easy chart that makes executives work.
+
+When upgrading a chart, keep the business-question mapping; improve the *rendering* toward the true form of that visualization (e.g. real funnel geometry, real forecast bands, true geographic encoding).
+
+## Canonical mapping
+
+| Business Question | Visualization |
+|-------------------|---------------|
+| Pipeline | Funnel |
+| Process Flow | Sankey |
+| Revenue Contribution | Waterfall |
+| Product Mix | Treemap |
+| Regional Performance | Geographic Map |
+| Risk Distribution | Radar |
+| Trend | Area + Line |
+| Relationship | Bubble |
+| Correlation | Scatter |
+| Timeline | Timeline Chart |
+| Daily Activity | Calendar Heatmap |
+| Target Achievement | Bullet Chart |
+| Technical Health | Multi Gauge Dashboard |
+| KPIs | Premium Metric Cards |
+| Forecast | Forecast Bands |
+
+## SSOT
+
+`src/constants/executive-intelligence-visualization-rules.ts`
+
+When adding or changing Executive Intelligence visuals, update the SSOT and implement the mapped chart — do not invent alternate defaults.
+
+## Visual Quality Standard
+
+This dashboard should look like software that costs millions of dollars.
+
+- Every card must have **depth**
+- **Smooth animations** and **micro-interactions**
+- Beautiful **spacing**
+- Premium **typography** (display serif for headlines)
+- Executive **color palette** (ink / mist / teal / gold)
+- Charts must **never appear cluttered**
+- Every chart communicates **one business insight** immediately
+
+CSS SSOT: `src/styles/executive-intelligence.css` · canvas: `EiPremiumCanvas`
+
+## Mandatory capabilities (every visualization)
+
+Every visualization must support:
+
+1. Hover Insights  
+2. Drill Down  
+3. Cross Filtering  
+4. Date Comparison  
+5. Fullscreen  
+6. Export  
+7. AI Explanation  
+8. Animation  
+9. Loading Skeleton  
+10. Empty State  
+11. Error State  
+
+Implement via `EiVizShell` / `EiCapableChapter` + `EiVizInteractionProvider`.  
+Capability SSOT: `src/types/executive-intelligence-capabilities.ts` (`EI_VIZ_CAPABILITIES`).

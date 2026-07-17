@@ -46,6 +46,17 @@ export function runEcmFoundationValidation(): { passed: boolean; details: Record
     rejectionChecks += 1;
   }
 
+  try {
+    registerEcmContact({
+      name: "Clone Ravi",
+      mobilePrimary: "9876543210",
+      primaryRole: ECM_CONTACT_ROLES.CUSTOMER,
+      createdBy: "system",
+    });
+  } catch {
+    rejectionChecks += 1;
+  }
+
   const snap = getEcmRegistrySnapshot();
   const passed =
     getEcmFrameworkVersion() === ECM_FRAMEWORK_VERSION &&
@@ -55,7 +66,7 @@ export function runEcmFoundationValidation(): { passed: boolean; details: Record
     listEcmContacts().length === 1 &&
     snap.contacts.length === 1 &&
     snap.auditReferences.length >= 2 &&
-    rejectionChecks >= 2;
+    rejectionChecks >= 3;
 
   return {
     passed,

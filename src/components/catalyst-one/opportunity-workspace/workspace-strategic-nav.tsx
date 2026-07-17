@@ -15,14 +15,14 @@ export function WorkspaceStrategicNav({
   onSelect: (id: OwStrategicTabId) => void;
 }) {
   return (
-    <OwGlassPanel className="flex h-full min-h-0 flex-col !p-0 overflow-hidden">
-      <div className="border-b border-white/10 px-3 py-3">
+    <OwGlassPanel className="flex flex-col !p-0">
+      <div className="border-b border-white/10 px-3 py-2">
         <OwSectionLabel>Strategic Workflow</OwSectionLabel>
-        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+        <p className="mt-0.5 text-[11px] leading-snug text-zinc-400">
           Analyse · Plan · Structure · Qualify
         </p>
       </div>
-      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
+      <nav className="space-y-0.5 p-2">
         {OW_STRATEGIC_NAV.map((item, index) => {
           const selected = active === item.id;
           return (

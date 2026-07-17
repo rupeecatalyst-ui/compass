@@ -35,10 +35,10 @@ export function LoanPipelineWorkflow() {
             </CardDescription>
           </div>
           <Link
-            href={ROUTES.PIPELINE}
+            href={ROUTES.MY_DEALS}
             className="text-xs font-medium text-primary hover:underline shrink-0"
           >
-            View pipeline
+            Open My Deals
           </Link>
         </div>
       </CardHeader>
@@ -56,13 +56,13 @@ export function LoanPipelineWorkflow() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.04 }}
-                    onClick={() => router.push(`${ROUTES.PIPELINE}?stage=${stage.id}`)}
+                    onClick={() => router.push(ROUTES.MY_DEALS)}
                     className="group relative w-[132px] sm:w-[145px] text-left"
                   >
                     <div
                       className={cn(
                         "relative rounded-xl border p-2.5 transition-all duration-200",
-                        "bg-gradient-to-br hover:shadow-md hover:-translate-y-0.5 cursor-pointer",
+                        "bg-gradient-to-br hover:shadow-md cursor-pointer",
                         intensity < 0.3 && "from-primary/10 to-primary/5 border-primary/20",
                         intensity >= 0.3 && intensity < 0.7 && "from-accent/10 to-accent/5 border-accent/20",
                         intensity >= 0.7 && "from-emerald-500/10 to-emerald-500/5 border-emerald-500/20",

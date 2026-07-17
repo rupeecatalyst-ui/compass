@@ -217,4 +217,19 @@
     background-size: 200% 100%;
     animation: bjn-flow 3.2s linear infinite;
   }
+
+  /**
+   * Enterprise UX — stable surfaces.
+   * Hover/focus may change colour or subtle shadow only — never geometry.
+   */
+  .enterprise-stable-surface {
+    transform: none !important;
+  }
+
+  .enterprise-stable-surface:hover,
+  .enterprise-stable-surface:focus,
+  .enterprise-stable-surface:focus-visible,
+  .enterprise-stable-surface:active {
+    transform: none !important;
+  }
 }

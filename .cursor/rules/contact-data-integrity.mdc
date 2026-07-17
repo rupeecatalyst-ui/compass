@@ -1,0 +1,27 @@
+# Contact Data Integrity — live registry after Save
+
+## Principle
+
+After Save, Contact Registry SSOT is the only source of truth. Every list, count, and picker must recompute without page reload or manual refresh.
+
+## Mechanism
+
+1. `registerEcmContact` / `updateEcmContact` persist via ECM ports, then call `notifyEcmContactRegistryChanged()`.
+2. Surfaces subscribe with `useEcmContactRegistryVersion()` (`useSyncExternalStore`).
+3. Query filter `status: "active"` means **usable** (not archived) — includes `complete`, `provisional`, `verified`, and legacy `active`.
+
+## Required consumers
+
+- Contact Registry
+- Directory (Contacts / All counts + search)
+- Loan Create / Loan Workspace pickers
+- Opportunity contact resolution
+- Reporting Manager picker
+- Company link search
+- EUM Grant Access contact list
+
+## Do not
+
+- Snapshot `listEcmContacts()` once and never re-read
+- Filter Directory/Registry to exact status `"active"` only (hides newly created `complete` contacts)
+- Require remount or Refresh button for a new contact to appear

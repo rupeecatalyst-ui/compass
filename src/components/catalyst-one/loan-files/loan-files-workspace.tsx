@@ -1,8 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { LoanFilesProvider, useLoanFiles } from "@/components/catalyst-one/loan-files/loan-files-context";
 import { LoanFilesToolbar } from "@/components/catalyst-one/loan-files/loan-files-toolbar";
@@ -14,6 +13,8 @@ import { TaskBoardView } from "@/components/catalyst-one/loan-files/task-board-v
 import { AiInsightsSidebar } from "@/components/catalyst-one/loan-files/ai-insights-sidebar";
 import { CreateLoanModal } from "@/components/catalyst-one/loan-files/create-loan-modal";
 import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-workspace-modal";
+import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
+import { isEcmContactUsable, listEcmContacts } from "@/lib/enterprise-contact-master";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import {
   getRememberedOpportunityActiveLoan,
@@ -136,17 +137,28 @@ function LoanFilesCreateQuery() {
 function LoanFilesContent() {
   const { view, mounted, selectedFile, selectedFileId, setSelectedFileId } = useLoanFiles();
   const searchParams = useSearchParams();
-  const defaultTab = searchParams.get("tab") || "overview";
-  const contactOptions = useMemo(
-    () =>
-      CUSTOMER_SEED.map((c) => ({
+  const defaultTab = searchParams.get("tab") || "lenders";
+  const registryVersion = useEcmContactRegistryVersion();
+  const contactOptions = useMemo(() => {
+    void registryVersion;
+    const ecm = listEcmContacts()
+      .filter((c) => isEcmContactUsable(c.status))
+      .map((c) => ({
         id: c.id,
         name: c.name,
-        mobile: c.mobile,
-        email: c.email,
-      })),
-    [],
-  );
+        mobile: c.mobilePrimary?.startsWith("pending-") ? "" : c.mobilePrimary || "",
+        email: c.personalEmail || c.officialEmail || "",
+      }));
+    const seed = CUSTOMER_SEED.map((c) => ({
+      id: c.id,
+      name: c.name,
+      mobile: c.mobile,
+      email: c.email,
+    }));
+    const byId = new Map<string, (typeof seed)[number]>();
+    for (const row of [...seed, ...ecm]) byId.set(row.id, row);
+    return [...byId.values()];
+  }, [registryVersion]);
 
   useEffect(() => {
     if (!selectedFile) return;

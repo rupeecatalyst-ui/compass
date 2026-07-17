@@ -12,8 +12,13 @@ import type {
   ChanakyaLoanJourneyStageDef,
 } from "@/types/chanakya-guide";
 
-export function listChanakyaLoanJourneyStages(): ChanakyaLoanJourneyStageDef[] {
-  return [...CHANAKYA_LOAN_JOURNEY_STAGES].sort((a, b) => a.order - b.order);
+export function listChanakyaLoanJourneyStages(options?: {
+  /** When false (default for navigator), exclude Tasks/Timeline support modules. */
+  includeSupport?: boolean;
+}): ChanakyaLoanJourneyStageDef[] {
+  const stages = [...CHANAKYA_LOAN_JOURNEY_STAGES].sort((a, b) => a.order - b.order);
+  if (options?.includeSupport) return stages;
+  return stages.filter((s) => (s.kind ?? "workflow") !== "support");
 }
 
 export function getChanakyaLoanJourneyPhase(
@@ -32,8 +37,11 @@ export function getChanakyaLoanJourneyPhase(
 export function resolveChanakyaLoanJourneyStageIndex(
   context: ChanakyaGuideContext,
 ): number {
-  const section = (context.section ?? context.moduleId)?.trim();
-  const workspaceId = context.workspaceId;
+  const rawSection = (context.section ?? context.moduleId)?.trim();
+  const section =
+    rawSection === "tasks" || rawSection === "timeline" ? "overview" : rawSection;
+  const workspaceId =
+    context.workspaceId === "tasks" ? "loan_workspace" : context.workspaceId;
   const stages = listChanakyaLoanJourneyStages();
 
   if (section) {

@@ -10,6 +10,7 @@ import { RiskIntelligenceSection } from "@/components/catalyst-one/mission-contr
 import { FinancialIntelligenceSection } from "@/components/catalyst-one/mission-control/financial-intelligence-section";
 import { ProcessIntelligenceSection } from "@/components/catalyst-one/mission-control/process-intelligence-section";
 import { ChanakyaBriefingPanel } from "@/components/catalyst-one/mission-control/chanakya-briefing";
+import { SdeOperationsPanel } from "@/components/catalyst-one/system-driven-enterprise";
 import type { LoanFile, LoanLenderExecution } from "@/types/catalyst-one";
 
 /** MC-01 — Mission Control executive command centre (read-only). */
@@ -36,6 +37,8 @@ export function MissionControlWorkspace({
 
       <div className="min-h-0 flex-1 space-y-8 overflow-y-auto overflow-x-hidden pb-6 pr-1 scrollbar-thin">
         <ExecutiveKpiStrip kpis={snapshot.kpis} />
+
+        <SdeOperationsPanel transactionId={loan.id} compact />
 
         <LenderExpress rows={snapshot.expressRows} terminalOutcomes={snapshot.terminalOutcomes} />
 

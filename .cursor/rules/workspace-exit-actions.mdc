@@ -1,0 +1,25 @@
+# Workspace Exit & Action Consistency
+
+Platform-wide UX standard for every full-screen / modal workspace.
+
+## Editable workspaces
+
+Top-right action area (rightmost = Close):
+
+1. **Save**
+2. **Save & Exit**
+3. **Close** (✕)
+
+## Read-only workspaces
+
+1. **Refresh** (where appropriate)
+2. **Close** (✕)
+
+## Rules
+
+- Users must never need the browser Back button to leave a workspace.
+- Close is always visible in the top-right action area.
+- Shared component: `WorkspacePrimaryActions` (`src/components/catalyst-one/shared/workspace-primary-actions.tsx`).
+- Labels: `WORKSPACE_SAVE_LABEL`, `WORKSPACE_SAVE_AND_EXIT_LABEL`, `WORKSPACE_EXIT_LABEL`, `WORKSPACE_REFRESH_LABEL` in `enterprise-workspace-ux.ts`.
+- Wire via `WorkspaceHeader` or `LeadOpportunityJourneyChrome`; do not invent alternate exit chrome.
+- Dirty close uses `UnsavedChangesDialog` with Save & Exit / Discard / Cancel.

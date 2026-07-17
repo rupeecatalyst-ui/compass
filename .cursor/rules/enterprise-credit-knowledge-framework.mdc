@@ -1,0 +1,42 @@
+---
+description: Enterprise Credit Knowledge Framework — master product blueprint (no engines)
+alwaysApply: false
+globs:
+  - src/types/enterprise-credit-knowledge-framework.ts
+  - src/constants/enterprise-credit-knowledge-framework/**
+  - src/lib/enterprise-credit-knowledge-framework/**
+  - src/components/catalyst-one/enterprise-credit-knowledge-framework/**
+  - src/app/(dashboard)/admin/credit-knowledge-framework/**
+---
+
+# Enterprise Credit Knowledge Framework (ECKF)
+
+Status: **ENTERPRISE APPROVED** · Phase 1 foundation
+
+## What it is
+
+Premium enterprise **knowledge portal** for credit underwriting architecture.
+
+## What it is NOT
+
+- Not a calculation engine
+- Not a lender eligibility engine
+- Not a policy simulator
+- Not AI / matching / decisioning
+
+## Hierarchy (frozen)
+
+Master Product → Customer Category → Credit Programs → Lender Variations
+
+Never design lender-first.
+
+## Phase 1
+
+Home Loan only. Future products plug into the same navigator + section framework without redesign.
+
+## Source of truth
+
+- Types: `src/types/enterprise-credit-knowledge-framework.ts`
+- Constants / Home Loan blueprint: `src/constants/enterprise-credit-knowledge-framework`
+- UI: `EckfKnowledgeWorkspace`
+- Route: `/admin/credit-knowledge-framework`

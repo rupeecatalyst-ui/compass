@@ -18,10 +18,12 @@ import {
   shouldAutoSaveUgjStep,
 } from "@/lib/universal-guided-journey";
 import {
-  findEcmContactByMobile,
+  checkEcmContactDuplicates,
+  isEcmDuplicateContactError,
   normalizeEcmMobile,
   normalizePersonName,
   registerEcmContact,
+  type EcmDuplicateMatchField,
 } from "@/lib/enterprise-contact-master";
 import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
@@ -31,12 +33,13 @@ import { useAuthContext } from "@/components/providers/auth-provider";
 import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
 import { UgjShell } from "@/components/catalyst-one/universal-guided-journey";
 import type { ContactCreationIntentResult } from "@/components/catalyst-one/contacts/contact-creation-intent-screen";
+import { PotentialDuplicateContactDialog } from "@/components/catalyst-one/contacts/potential-duplicate-contact-dialog";
 
 interface QuickContactCreationWizardProps {
   open: boolean;
   actorId?: string;
   ownerName?: string;
-  /** Permission to force-create when mobile already exists */
+  /** @deprecated v1.0 — duplicates cannot be forced; prop ignored. */
   canContinueDespiteDuplicate?: boolean;
   /** Prompt 011 — pre-workflow intent (does not redesign the journey). */
   creationIntent?: ContactCreationIntentResult;
@@ -66,13 +69,14 @@ export function QuickContactCreationWizard({
   open,
   actorId = "ui",
   ownerName = "Platform Admin",
-  canContinueDespiteDuplicate = false,
+  canContinueDespiteDuplicate: _canContinueDespiteDuplicate = false,
   creationIntent,
   initialName,
   onOpenChange,
   onCreated,
   onOpenExisting,
 }: QuickContactCreationWizardProps) {
+  void _canContinueDespiteDuplicate;
   const journey = getUgjJourneyDefinition("contact_creation")!;
   const { user } = useAuthContext();
   const firstName = user?.firstName?.trim() || "there";
@@ -85,7 +89,8 @@ export function QuickContactCreationWizard({
   const [email, setEmail] = useState("");
   const [roles, setRoles] = useState<EcmContactRole[]>([]);
   const [duplicate, setDuplicate] = useState<EcmContact | null>(null);
-  const [forceDespiteDuplicate, setForceDespiteDuplicate] = useState(false);
+  const [dupField, setDupField] = useState<EcmDuplicateMatchField | null>(null);
+  const [dupOpen, setDupOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [animKey, setAnimKey] = useState(0);
@@ -121,7 +126,8 @@ export function QuickContactCreationWizard({
     setEmail("");
     setRoles([]);
     setDuplicate(null);
-    setForceDespiteDuplicate(false);
+    setDupField(null);
+    setDupOpen(false);
     setError(null);
     setCreating(false);
     setAnimKey(0);
@@ -183,13 +189,16 @@ export function QuickContactCreationWizard({
       return;
     }
     setMobile(digits);
-    const existing = findEcmContactByMobile(digits);
-    if (existing && !forceDespiteDuplicate) {
-      setDuplicate(existing);
+    const match = checkEcmContactDuplicates({ mobile: digits });
+    if (match) {
+      setDuplicate(match.contact);
+      setDupField(match.matchField);
+      setDupOpen(true);
       setError(null);
       return;
     }
     setDuplicate(null);
+    setDupField(null);
     go("employment");
   };
 
@@ -209,6 +218,19 @@ export function QuickContactCreationWizard({
       return;
     }
     if (skip) setEmail("");
+    else if (email.trim()) {
+      const match = checkEcmContactDuplicates({
+        mobile,
+        email: email.trim(),
+      });
+      if (match) {
+        setDuplicate(match.contact);
+        setDupField(match.matchField);
+        setDupOpen(true);
+        setError(null);
+        return;
+      }
+    }
     go("roles");
   };
 
@@ -279,7 +301,14 @@ export function QuickContactCreationWizard({
       // Conversation complete → transition into Contact Workspace
       onCreated(created);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create contact.");
+      if (isEcmDuplicateContactError(e)) {
+        setDuplicate(e.match);
+        setDupField(e.matchField);
+        setDupOpen(true);
+        setError(null);
+      } else {
+        setError(e instanceof Error ? e.message : "Could not create contact.");
+      }
       setCreating(false);
     }
   };
@@ -317,7 +346,7 @@ export function QuickContactCreationWizard({
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       )}
-      {step === "mobile" && !duplicate && (
+      {step === "mobile" && (
         <Button type="button" size="sm" className="h-8 gap-1.5 rounded-lg px-4" onClick={handleMobileNext}>
           Continue
           <ArrowRight className="h-3.5 w-3.5" />
@@ -382,6 +411,7 @@ export function QuickContactCreationWizard({
   );
 
   return (
+    <>
     <UgjShell
       open={open}
       onOpenChange={onOpenChange}
@@ -427,62 +457,12 @@ export function QuickContactCreationWizard({
             onChange={(e) => {
               setMobile(e.target.value);
               setDuplicate(null);
-              setForceDespiteDuplicate(false);
+              setDupField(null);
             }}
             onKeyDown={(e) => e.key === "Enter" && handleMobileNext()}
             placeholder="10-digit mobile"
             className="h-12 rounded-2xl border-border/70 bg-white/80 text-base shadow-sm dark:bg-zinc-900/60"
           />
-          {duplicate && (
-            <div className="mt-4 space-y-3 rounded-2xl border border-amber-200/80 bg-amber-50/90 p-4 dark:border-amber-900 dark:bg-amber-950/40">
-              <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
-                Hi {firstName}, I found an existing Contact with this Mobile Number.
-              </p>
-              <p className="text-sm text-amber-900/80 dark:text-amber-200/80">
-                {duplicate.name} · {duplicate.mobilePrimary}
-              </p>
-              <p className="text-xs text-amber-900/70 dark:text-amber-200/70">
-                Opening the existing record keeps your journey continuous. Merge if you want to bring new details into that Contact. Continue Anyway only when your business rules allow a second record.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  className="rounded-xl"
-                  onClick={() => {
-                    onOpenChange(false);
-                    onOpenExisting(duplicate);
-                  }}
-                >
-                  Open Existing Contact
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="rounded-xl"
-                  onClick={() => {
-                    onOpenChange(false);
-                    onOpenExisting(duplicate);
-                  }}
-                >
-                  Merge Information
-                </Button>
-                {canContinueDespiteDuplicate && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={() => {
-                      setForceDespiteDuplicate(true);
-                      setDuplicate(null);
-                      go("employment");
-                    }}
-                  >
-                    Continue Anyway
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
         </>
       )}
 
@@ -595,6 +575,18 @@ export function QuickContactCreationWizard({
         </>
       )}
     </UgjShell>
+    <PotentialDuplicateContactDialog
+      open={dupOpen}
+      onOpenChange={setDupOpen}
+      contact={duplicate}
+      matchField={dupField}
+      onOpenExisting={(existing) => {
+        setDupOpen(false);
+        onOpenChange(false);
+        onOpenExisting(existing);
+      }}
+    />
+    </>
   );
 }
 

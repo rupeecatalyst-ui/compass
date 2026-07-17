@@ -1,0 +1,56 @@
+---
+description: System-Driven Enterprise — guide before block, controlled exceptions, SLA→Mission Control
+alwaysApply: true
+globs:
+  - src/types/system-driven-enterprise.ts
+  - src/constants/system-driven-enterprise/**
+  - src/lib/system-driven-enterprise/**
+  - src/components/catalyst-one/system-driven-enterprise/**
+---
+
+# System-Driven Enterprise (v1.0 — frozen)
+
+Status: **ENTERPRISE APPROVED** · Foundational operating principle for Catalyst One.
+
+## Vision
+
+Catalyst One is a **System-Driven Enterprise Platform**.
+
+- The **system** guides operations (workflows, policies, rules, SLAs, intelligence).
+- **Users** execute operations.
+- **Management** supervises operations.
+
+Business processes must not rely on individual memory or manual follow-up alone.
+
+## Core principles
+
+1. Guide before blocking.  
+2. Prevent errors where appropriate.  
+3. Allow controlled exceptions when business continuity requires them.  
+4. Record every exception.  
+5. Measure every deviation.  
+6. Escalate intelligently.  
+7. Maintain complete auditability.
+
+## Controlled exceptions
+
+When policy permits continuing despite gaps, the system **must**:
+
+- Record the exception, responsible user, timestamp, workflow, reason (when applicable)
+- Start relevant SLA monitoring
+- Keep the exception **visible until resolved**
+
+## Hard blocks
+
+Only the **Enterprise Policy Engine** may hard-block. Chanakya / guidance / readiness **never** become the policy. Align with `chanakya-operating-principles.mdc`.
+
+## SLA & monitoring → Mission Control
+
+Continuously surface: SLA breaches, missing mandatory documents, pending approvals, workflow delays, policy deviations, manual overrides, compliance exceptions, incomplete activities.
+
+## Source of truth
+
+- Types: `src/types/system-driven-enterprise.ts`
+- Constants: `src/constants/system-driven-enterprise`
+- Store: `src/lib/system-driven-enterprise`
+- UI feed: `SdeOperationsPanel` (Mission Control surfaces)

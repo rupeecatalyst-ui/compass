@@ -1,9 +1,10 @@
 "use client";
 
-import { X } from "lucide-react";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
+import {
+  WorkspacePrimaryActions,
+} from "@/components/catalyst-one/shared/workspace-primary-actions";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export interface WorkspaceHeaderProps {
@@ -11,7 +12,7 @@ export interface WorkspaceHeaderProps {
   infoStrip?: React.ReactNode;
   /** Prompt 011 — context-preserving nav (e.g. Back To Opportunity Workspace). */
   leadingAction?: React.ReactNode;
-  /** Enterprise Action Center (and other header actions) — before Close. */
+  /** Enterprise Action Center (and other header actions) — before Save/Close. */
   headerActions?: React.ReactNode;
   /** UX-04E — Execution console layout with identity + live feed. */
   executionLayout?: {
@@ -21,13 +22,19 @@ export interface WorkspaceHeaderProps {
     rm: string;
     priorityBadge: React.ReactNode;
     chanakyaFeed: React.ReactNode;
-    saveActions?: React.ReactNode;
   };
   onClose: () => void;
   hasUnsavedChanges?: boolean;
+  onSave?: () => void | Promise<void>;
   onSaveAndClose?: () => void | boolean | Promise<void | boolean>;
+  onRefresh?: () => void | Promise<void>;
+  /** editable (default when onSave provided) | readonly */
+  actionMode?: "editable" | "readonly";
   enableEscapeKey?: boolean;
   closeApi?: ReturnType<typeof useWorkspaceClose>;
+  /** Case C — toast when closing with no unsaved changes. */
+  acknowledgeCleanClose?: boolean;
+  saving?: boolean;
   className?: string;
 }
 
@@ -39,9 +46,14 @@ export function WorkspaceHeader({
   executionLayout,
   onClose,
   hasUnsavedChanges,
+  onSave,
   onSaveAndClose,
+  onRefresh,
+  actionMode,
   enableEscapeKey = true,
   closeApi,
+  acknowledgeCleanClose = false,
+  saving = false,
   className,
 }: WorkspaceHeaderProps) {
   const internalClose = useWorkspaceClose({
@@ -49,8 +61,41 @@ export function WorkspaceHeader({
     hasUnsavedChanges,
     onSaveAndClose,
     enableEscapeKey: closeApi ? false : enableEscapeKey,
+    acknowledgeCleanClose,
   });
   const api = closeApi ?? internalClose;
+  const mode =
+    actionMode ??
+    (onSave || onSaveAndClose ? "editable" : onRefresh ? "readonly" : "readonly");
+
+  const handleSaveAndExit = async () => {
+    if (onSaveAndClose) {
+      await api.handleSaveAndClose();
+      return;
+    }
+    if (onSave) await onSave();
+    onClose();
+  };
+
+  const actions = (
+    <div className="flex shrink-0 items-center gap-1.5">
+      {leadingAction && executionLayout ? leadingAction : null}
+      {headerActions}
+      <WorkspacePrimaryActions
+        mode={mode}
+        onClose={api.requestClose}
+        onSave={mode === "editable" ? onSave : undefined}
+        onSaveAndExit={
+          mode === "editable" && (onSaveAndClose || onSave)
+            ? handleSaveAndExit
+            : undefined
+        }
+        onRefresh={mode === "readonly" ? onRefresh : undefined}
+        saving={saving || api.saving}
+        density="compact"
+      />
+    </div>
+  );
 
   return (
     <>
@@ -65,7 +110,7 @@ export function WorkspaceHeader({
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-2 lg:flex-row lg:items-center">
               <div className="shrink-0 min-w-[200px]">
-                <p className="text-lg font-bold leading-tight tracking-tight text-foreground sm:text-xl">
+                <p className="text-base font-bold leading-tight tracking-tight text-foreground sm:text-lg">
                   {executionLayout.borrowerName}
                 </p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
@@ -80,22 +125,7 @@ export function WorkspaceHeader({
               </div>
               {executionLayout.chanakyaFeed}
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {leadingAction}
-              {headerActions}
-              {executionLayout.saveActions}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                onClick={api.requestClose}
-                aria-label="Close workspace"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden />
-                Close
-              </Button>
-            </div>
+            {actions}
           </div>
         ) : (
           <div className="flex items-center justify-between gap-4">
@@ -106,20 +136,7 @@ export function WorkspaceHeader({
               </div>
               {infoStrip ? <div className="mt-0.5 min-w-0">{infoStrip}</div> : null}
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {headerActions}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                onClick={api.requestClose}
-                aria-label="Close workspace"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden />
-                Close
-              </Button>
-            </div>
+            {actions}
           </div>
         )}
       </header>

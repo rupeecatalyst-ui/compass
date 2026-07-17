@@ -1,12 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
 
-import { Suspense } from "react";
-import { LoanBoardWorkspace } from "@/components/catalyst-one/loan-board/loan-board-workspace";
-
-export default function PipelinePage() {
-  return (
-    <Suspense fallback={null}>
-      <LoanBoardWorkspace />
-    </Suspense>
-  );
+/** Loan Board removed — superseded by CHANAKYA Radar. */
+export default function PipelineRedirectPage() {
+  redirect(ROUTES.CHANAKYA_RADAR);
 }

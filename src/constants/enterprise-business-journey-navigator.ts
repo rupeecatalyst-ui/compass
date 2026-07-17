@@ -9,7 +9,9 @@ import {
 } from "@/constants/chanakya-guide/loan-journey";
 import type { ChanakyaLoanJourneyStageId } from "@/types/chanakya-guide";
 import type { LeadJourneyModuleId } from "@/constants/lead-opportunity-journey";
+import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import type { BusinessJourneyNavId } from "@/constants/enterprise-business-journey-navigation";
+import { ROUTES } from "@/constants/routes";
 
 /** Purpose shown under Continue CTA — why the next step matters. */
 export const BUSINESS_JOURNEY_TRANSITION_PURPOSE: Partial<
@@ -82,10 +84,6 @@ export function businessNavIdToNavigatorStageId(
       return "loan_workspace";
     case "lender_pipeline":
       return "lender_pipeline";
-    case "tasks":
-      return "tasks";
-    case "timeline":
-      return "timeline";
     default:
       return "strategic_workspace";
   }
@@ -99,10 +97,41 @@ export function loanTabToNavigatorStageId(
     case "lenders":
       return "lender_pipeline";
     case "tasks":
-      return "tasks";
     case "timeline":
-      return "timeline";
+      // Support modules — highlight Loan Workspace, not a separate stage card
+      return "loan_workspace";
     default:
       return "loan_workspace";
+  }
+}
+
+/** Build href for stage-card navigation shortcuts (null = not yet navigable). */
+export function buildNavigatorStageHref(
+  stageId: ChanakyaLoanJourneyStageId,
+  context?: { fileId?: string | null; opportunityId?: string | null },
+): string | null {
+  const fileId = context?.fileId ?? null;
+  const opportunityId = context?.opportunityId ?? null;
+  switch (stageId) {
+    case "contact":
+      return ROUTES.CONTACTS;
+    case "opportunity_workspace":
+      return buildJourneyHref(ROUTES.CREDIT_BENCH, { fileId, opportunityId });
+    case "strategic_workspace":
+      return buildJourneyHref(ROUTES.OPPORTUNITY_WORKSPACE, { fileId, opportunityId });
+    case "document_center":
+      return buildJourneyHref(ROUTES.DOCUMENT_CENTER, { fileId, opportunityId });
+    case "credit_workbench":
+      return buildJourneyHref(ROUTES.CREDIT_WORKBENCH, { fileId, opportunityId });
+    case "loan_workspace":
+      return buildJourneyHref(ROUTES.LOAN_FILES, { fileId, opportunityId, tab: "overview" });
+    case "lender_pipeline":
+      return buildJourneyHref(ROUTES.LOAN_FILES, { fileId, opportunityId, tab: "lenders" });
+    case "tasks":
+      return ROUTES.TASKS;
+    case "timeline":
+      return buildJourneyHref(ROUTES.LOAN_FILES, { fileId, opportunityId, tab: "timeline" });
+    default:
+      return null;
   }
 }

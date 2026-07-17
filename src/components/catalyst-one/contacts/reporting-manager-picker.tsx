@@ -8,6 +8,7 @@ import {
   registerEcmContact,
   searchEcmContactsForReportingManager,
 } from "@/lib/enterprise-contact-master";
+import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,12 +38,14 @@ export function ReportingManagerPicker({
   const [newMobile, setNewMobile] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const registryVersion = useEcmContactRegistryVersion();
 
   const results = useMemo(() => {
+    void registryVersion;
     const q = query.trim();
     if (!q) return [];
     return searchEcmContactsForReportingManager(q, excludeContactId);
-  }, [query, excludeContactId]);
+  }, [query, excludeContactId, registryVersion]);
 
   const createBasic = () => {
     setError(null);
@@ -73,9 +76,12 @@ export function ReportingManagerPicker({
     }
   };
 
-  const linked = valueContactId
-    ? listEcmContacts().find((c) => c.id === valueContactId)
-    : undefined;
+  const linked = useMemo(() => {
+    void registryVersion;
+    return valueContactId
+      ? listEcmContacts().find((c) => c.id === valueContactId)
+      : undefined;
+  }, [valueContactId, registryVersion]);
 
   return (
     <div className={cn("space-y-2", className)}>

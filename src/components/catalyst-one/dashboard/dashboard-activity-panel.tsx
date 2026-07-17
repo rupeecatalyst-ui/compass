@@ -44,7 +44,7 @@ function resolveHref(event: ActivityEvent): string {
     case "document":
       return ROUTES.DOCUMENTS;
     case "disbursement":
-      return ROUTES.PIPELINE;
+      return ROUTES.CHANAKYA_RADAR;
     case "task":
       return ROUTES.TASKS;
     default:
@@ -85,7 +85,7 @@ export function DashboardActivityPanel() {
                 >
                   <div
                     className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-transform group-hover:scale-105",
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
                       config.color,
                     )}
                   >

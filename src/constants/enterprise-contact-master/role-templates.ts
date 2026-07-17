@@ -278,7 +278,7 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
       {
         id: "start_loan_journey",
         label: "Start Loan Journey",
-        openLabel: "Open Loan Workspace",
+        openLabel: "Continue Loan Journey",
         description:
           "Opens Loan Journey to capture product, amount, purpose, property and other loan-file data. Never stored on Borrower profile.",
         requiresMirComplete: true,
@@ -558,9 +558,10 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
     businessActions: [
       {
         id: "create_user_account",
-        label: "Start Employee Onboarding",
-        openLabel: "Continue Employee Onboarding",
-        description: "Provision platform access for this employee.",
+        label: "Grant Platform Access",
+        openLabel: "Continue Platform Access",
+        description:
+          "Provision a User Account from this Contact (never create users directly).",
         requiresMirComplete: true,
         enabled: true,
       },
@@ -893,7 +894,11 @@ export function getEcmBusinessJourneyDashAction(
   const roleLabel = getEcmRoleLabel(roleCode);
   const mirComplete = isEcmRoleMirComplete(roleCode, values);
   const profileJourney = Boolean(values[ECM_ACTIVE_JOURNEY_PROFILE_KEY]?.trim());
-  const hasActiveJourney = Boolean(options?.hasActiveJourney || profileJourney);
+  /** Explicit option wins (avoids stale profile journey key when loan state is known). */
+  const hasActiveJourney =
+    options?.hasActiveJourney !== undefined
+      ? Boolean(options.hasActiveJourney)
+      : profileJourney;
   const journeyName = extractBusinessJourneyName(actionable.label);
 
   if (!mirComplete) {

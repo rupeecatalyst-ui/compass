@@ -51,7 +51,7 @@ export function WorkspaceQuickActions() {
             >
               <Icon
                 className={cn(
-                  "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
+                  "h-5 w-5 transition-colors duration-200",
                   active ? "text-teal-300" : "text-zinc-400",
                 )}
               />

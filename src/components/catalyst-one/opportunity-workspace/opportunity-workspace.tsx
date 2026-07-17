@@ -34,6 +34,10 @@ import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contac
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { DocumentCompletionGateDialog } from "@/components/catalyst-one/shared/document-completion-gate-dialog";
 import { OpportunityActionCenter } from "@/components/catalyst-one/action-center";
+import {
+  AnalyzeDealTriggerButton,
+  AnalyzeDealWorkspace,
+} from "@/components/catalyst-one/analyze-deal";
 import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { EcmContact } from "@/types/enterprise-contact-master";
@@ -74,6 +78,7 @@ function OpportunityWorkspaceShell() {
   const [gateIntent, setGateIntent] = useState("finalize LIFE");
   const [gateHasProceed, setGateHasProceed] = useState(false);
   const gateProceedRef = useRef<(() => void) | null>(null);
+  const [analyzeDealOpen, setAnalyzeDealOpen] = useState(false);
 
   useEffect(() => {
     const map: Partial<Record<WorkspaceFocus, OwStrategicTabId>> = {
@@ -188,12 +193,14 @@ function OpportunityWorkspaceShell() {
   }
 
   return (
-    <div className="-mx-4 flex h-[calc(100vh-4rem)] flex-col md:-mx-6 lg:-mx-8">
+    <div className="-mx-4 flex flex-col md:-mx-6 lg:-mx-8">
       <LeadOpportunityJourneyChrome
         moduleId="strategic_workspace"
         stageOverride={lifeFinalized ? "opportunity" : "lead"}
         density="compact"
         hideContextChips
+        journeyNavigatorMode="button"
+        scrollMode="document"
         title={contact?.name ?? "Strategic Workspace"}
         identityLine={identityLine || undefined}
         context={{
@@ -210,6 +217,7 @@ function OpportunityWorkspaceShell() {
         lifeFinalized={lifeFinalized}
         headerActions={
           <div className="flex items-center gap-1.5">
+            <AnalyzeDealTriggerButton onClick={() => setAnalyzeDealOpen(true)} />
             <ChanakyaGuide
               offerTour
               context={{
@@ -246,25 +254,25 @@ function OpportunityWorkspaceShell() {
           /* Planning state already persists via local workspace storage. */
         }}
       >
-        <div className="dark relative flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-3xl border border-white/5 bg-zinc-950/50 p-2 sm:p-3">
-          <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl bg-[radial-gradient(ellipse_at_top,rgba(15,118,110,0.18),transparent_55%)]" />
+        <div className="dark relative flex min-h-[calc(100dvh-7rem)] flex-col gap-1.5 rounded-2xl border border-white/5 bg-zinc-950/50 p-1.5 sm:p-2">
+          <div className="pointer-events-none absolute inset-0 -z-10 rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(15,118,110,0.18),transparent_55%)]" />
 
           <div
             className={cn(
-              "grid min-h-0 flex-1 gap-2",
+              "grid gap-1.5",
               "grid-cols-1 lg:grid-cols-[13.5rem_minmax(0,1fr)_18rem] xl:grid-cols-[14.5rem_minmax(0,1fr)_19rem]",
             )}
           >
-            <div className="min-h-0">
+            <div>
               <WorkspaceStrategicNav active={tab} onSelect={openTab} />
             </div>
 
-            <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <div className="flex h-full min-h-0 flex-col">
-                <div className="shrink-0 border-b border-white/10 px-3 py-1.5">
+            <div className="rounded-2xl border border-white/10 bg-zinc-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+              <div className="flex flex-col">
+                <div className="border-b border-white/10 px-3 py-1.5">
                   <p className="text-xs font-semibold text-zinc-50">{tabLabel(tab)}</p>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+                <div className="p-3 sm:p-4">
                   {tab === "overview" && <WorkspaceOverviewPanel onOpenTab={openTab} />}
                   {tab === "customer" && <WorkspaceContactSummary />}
                   {tab === "requirement" && <WorkspaceRequirementPanel />}
@@ -288,7 +296,7 @@ function OpportunityWorkspaceShell() {
               </div>
             </div>
 
-            <div className="min-h-0">
+            <div>
               <WorkspaceChanakyaTabGuide tab={tab} />
             </div>
           </div>
@@ -307,7 +315,7 @@ function OpportunityWorkspaceShell() {
             open={wizardOpen}
             ownerName={[user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Platform Admin"}
             actorId={user?.id ?? "ui"}
-            canContinueDespiteDuplicate={user?.role === ROLES.SUPER_ADMIN}
+            canContinueDespiteDuplicate={false}
             creationIntent={creationIntent ?? undefined}
             initialName={
               creationIntent?.individualName ??
@@ -346,6 +354,11 @@ function OpportunityWorkspaceShell() {
             onSaved={() => {
               refresh();
             }}
+            onOpenExisting={(existing) => {
+              setEditContact(existing);
+              setEditOpen(true);
+              refresh();
+            }}
           />
         </div>
       </LeadOpportunityJourneyChrome>
@@ -372,6 +385,21 @@ function OpportunityWorkspaceShell() {
                 fn?.();
               }
             : undefined
+        }
+      />
+
+      <AnalyzeDealWorkspace
+        open={analyzeDealOpen}
+        onOpenChange={setAnalyzeDealOpen}
+        opportunityLabel={`${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
+        defaultProductLabel={productLabel}
+        defaultProductId={
+          productLabel?.toLowerCase().includes("lap") ||
+          productLabel?.toLowerCase().includes("against property")
+            ? "lap"
+            : productLabel?.toLowerCase().includes("business")
+              ? "business-loan"
+              : "home-loan"
         }
       />
     </div>

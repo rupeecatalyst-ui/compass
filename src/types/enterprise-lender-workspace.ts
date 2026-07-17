@@ -91,4 +91,73 @@ export interface ElwRegistryEntry {
   contactCount: number;
   productCount: number;
   headquartersCity?: string;
+  /** Landing card enrichment (Phase 1 UI). */
+  productsOffered?: string[];
+  citiesCovered?: string[];
+  relationshipStatus?: ElwRelationshipStatus;
+  lastPolicyUpdate?: string;
+  primaryContactName?: string;
+  logoInitials?: string;
+}
+
+export type ElwRelationshipStatus = "active" | "building" | "onboarding" | "dormant";
+
+/** Fixed enterprise hierarchy ranks — vacant roles remain visible. */
+export type ElwHierarchyRank =
+  | "vice_president"
+  | "national_head"
+  | "regional_head"
+  | "state_head"
+  | "cluster_head"
+  | "relationship_manager";
+
+export interface ElwHierarchyPerson {
+  contactId: string;
+  name: string;
+  designation: string;
+  phone?: string;
+  email?: string;
+  territory?: string;
+  productsHandled?: string[];
+  photoInitials: string;
+  directReportsCount: number;
+}
+
+export interface ElwHierarchyNode {
+  id: string;
+  rank: ElwHierarchyRank;
+  rankLabel: string;
+  levelIndex: number;
+  /** null = vacant position */
+  person: ElwHierarchyPerson | null;
+  parentId: string | null;
+}
+
+export type ElwProductPolicySectionId =
+  | "eligibility"
+  | "credit_programs"
+  | "financial_programs"
+  | "documents"
+  | "property"
+  | "income"
+  | "risk"
+  | "special_conditions"
+  | "version_history";
+
+export interface ElwProductPolicySection {
+  id: ElwProductPolicySectionId;
+  title: string;
+  placeholder: string;
+}
+
+export interface ElwLenderLandingCard {
+  lenderId: string;
+  lenderRef: string;
+  name: string;
+  logoInitials: string;
+  productsOffered: string[];
+  citiesCovered: string[];
+  relationshipStatus: ElwRelationshipStatus;
+  lastPolicyUpdate: string;
+  primaryContactName: string | null;
 }

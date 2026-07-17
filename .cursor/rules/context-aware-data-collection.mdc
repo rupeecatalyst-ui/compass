@@ -1,0 +1,44 @@
+---
+description: Context-Aware Data Collection — never ask irrelevant fields by Customer Category
+alwaysApply: true
+---
+
+# Context-Aware Data Collection (Mandatory)
+
+Status: **ENTERPRISE APPROVED** · Platform-wide UX design principle for Catalyst One v1.0.
+
+## Principle
+
+Catalyst One must **never ask users for irrelevant information**.
+
+Every screen, form, calculator, wizard, and workspace must dynamically adapt based on the selected **Customer Category** (or equivalent Employment Type).
+
+The user should feel that Catalyst One understands the customer before asking questions.
+
+## Families
+
+| Family | Includes | Show | Hide |
+|--------|----------|------|------|
+| **Salaried** | Salaried, NRI (salary-path) | Salary, Employer, Employment Type, Salary Credits, Existing EMIs, CIBIL, Property (when applicable) | Business Turnover, GST, ITR Business Income, Gross Margin, Banking Surrogate, Balance Sheet, P&L, Business Vintage, CMA, Business Banking, SE-only fields |
+| **Self-employed** | Self-Employed Professional, Self-Employed Business | Business Turnover, Vintage, GST, ITR, Banking, Profit, Balance Sheet, Rental Income, Existing EMIs, CIBIL | Employer Name, Salary, Salary Credits, Employer Type, salaried-only fields |
+
+Shared (always when relevant): Existing EMIs, CIBIL, Product, Amount, Property (product-gated).
+
+## Behaviour rules
+
+1. Changing Customer Category **immediately** updates visible fields.
+2. Irrelevant fields **disappear** (do not merely disable).
+3. Previously entered irrelevant values **must not influence calculations** — sanitize / exclude on category change and before any compute.
+4. Prefer **Context-Aware Forms** via `src/lib/context-aware-data-collection` — do not invent per-screen gating vocabularies.
+5. Align category IDs with ECM employment types (`salaried`, `self-employed-professional`, `self-employed-business`).
+
+## Applies to
+
+Contact Creation · Opportunity Workspace · Analyze Deal · Loan File · Customer Profile · Financial Profile · Calculators · COMPASS Customer Journey · all future modules.
+
+## Source of truth
+
+- Types: `src/types/context-aware-data-collection.ts`
+- Constants: `src/constants/context-aware-data-collection`
+- Lib: `src/lib/context-aware-data-collection`
+- Contact role templates remain complementary for ECM MIR fields (`isEcmFieldRelevant`)

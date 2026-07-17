@@ -1,0 +1,23 @@
+# My Deals — Unified Business Work Queue
+
+## Purpose
+
+My Deals is the operational home for RMs and business users.
+
+- **My Deals** = navigation / work queue
+- **Opportunity Workspace** = working area (opened from a selected deal)
+
+## Primary nav
+
+Dashboard → Contacts → **My Deals** → Loan Workspace → Tasks → Documents → Lenders → Accounting → Enterprise Intelligence → Horizon → Administration → Settings
+
+## Architecture
+
+- Vertical tabs (Loans live; MF / Insurance / etc. placeholders)
+- Views: List (default), Kanban; Calendar / Analytics future
+- Rows derived from LoanFile SSOT (`loadLoanFiles`) — no duplicate contact/deal store
+- Double-click / card open → `buildJourneyHref(CREDIT_BENCH, { fileId, opportunityId })`
+
+## Extending
+
+Add a business vertical = new tab in `MY_DEALS_BUSINESS_TABS` + data adapter. No nav redesign.

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { WORKSPACE_CLEAN_CLOSE_TOAST } from "@/constants/enterprise-workspace-ux";
 
 export interface UseWorkspaceCloseOptions {
   onClose: () => void;
@@ -8,6 +10,11 @@ export interface UseWorkspaceCloseOptions {
   onSaveAndClose?: () => void | boolean | Promise<void | boolean>;
   /** Window-level Escape listener — disable when a parent Dialog handles Escape. */
   enableEscapeKey?: boolean;
+  /**
+   * Case C — autosave already completed / no dirty state:
+   * close immediately and show a small confirmation toast.
+   */
+  acknowledgeCleanClose?: boolean;
 }
 
 export interface WorkspaceCloseApi {
@@ -19,12 +26,13 @@ export interface WorkspaceCloseApi {
   saving: boolean;
 }
 
-/** UX-01B — Unified close flow with unsaved-changes guard and optional Escape support. */
+/** UX-01B / Workspace Exit Standard — unified close with unsaved-changes guard. */
 export function useWorkspaceClose({
   onClose,
   hasUnsavedChanges = false,
   onSaveAndClose,
   enableEscapeKey = true,
+  acknowledgeCleanClose = false,
 }: UseWorkspaceCloseOptions): WorkspaceCloseApi {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -34,8 +42,11 @@ export function useWorkspaceClose({
       setConfirmOpen(true);
       return;
     }
+    if (acknowledgeCleanClose) {
+      toast.success(WORKSPACE_CLEAN_CLOSE_TOAST, { duration: 2200 });
+    }
     onClose();
-  }, [hasUnsavedChanges, onClose]);
+  }, [acknowledgeCleanClose, hasUnsavedChanges, onClose]);
 
   const handleDiscard = useCallback(() => {
     setConfirmOpen(false);
@@ -52,6 +63,7 @@ export function useWorkspaceClose({
       const result = await onSaveAndClose();
       if (result === false) return;
       setConfirmOpen(false);
+      toast.success(WORKSPACE_CLEAN_CLOSE_TOAST, { duration: 2200 });
       onClose();
     } finally {
       setSaving(false);

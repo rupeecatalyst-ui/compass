@@ -34,7 +34,7 @@ function defaultReturnTo(
         ? `${ROUTES.CONTACTS}?contact=${encodeURIComponent(ctx.contactId)}`
         : ROUTES.CONTACTS;
     case "pipeline":
-      return ROUTES.PIPELINE;
+      return ROUTES.CHANAKYA_RADAR;
     default:
       return ROUTES.LENDERS;
   }

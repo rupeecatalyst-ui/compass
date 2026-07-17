@@ -21,6 +21,12 @@ export const ANIMATION = {
     collapsed: { width: 64 },
     transition: { type: "spring", stiffness: 380, damping: 32 },
   },
+  /** Enterprise Context Navigation — Column 2 */
+  contextPanel: {
+    expanded: { width: 240 },
+    collapsed: { width: 44 },
+    transition: { type: "spring", stiffness: 380, damping: 34 },
+  },
   cardHover: {
     rest: { scale: 1, y: 0 },
     hover: { scale: 1.01, y: -2 },
@@ -46,6 +52,9 @@ export const ANIMATION = {
 export const STORAGE_KEYS = {
   SIDEBAR_COLLAPSED: "compass:sidebar-collapsed",
   SIDEBAR_EXPANDED: "compass:sidebar-expanded",
+  CONTEXT_PANEL_COLLAPSED: "catalyst:context-panel-collapsed",
+  CONTEXT_PANEL_PINNED: "catalyst:context-panel-pinned",
+  CONTEXT_PANEL_ACTIVE: "catalyst:context-panel-active",
   RECENT_PAGES: "compass:recent-pages",
   FAVORITES: "compass:favorites",
   WORKSPACE: "compass:workspace",

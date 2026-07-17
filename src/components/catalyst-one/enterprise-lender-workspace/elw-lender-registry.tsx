@@ -1,132 +1,137 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Building2, ExternalLink } from "lucide-react";
-import {
-  buildElwWorkspaceHref,
-  ELW_CERTIFICATION_FINDING,
-  ELW_ENTERPRISE_PRINCIPLE,
-  ELW_FRAMEWORK_VERSION,
-} from "@/constants/enterprise-lender-workspace";
-import { listElwRegistryEntries } from "@/lib/enterprise-lender-workspace";
+import { Building2, CalendarClock, MapPin, UserRound } from "lucide-react";
+import { buildElwWorkspaceHref } from "@/constants/enterprise-lender-workspace";
+import { listElwLandingCards } from "@/lib/enterprise-lender-workspace/landing";
+import type { ElwRelationshipStatus } from "@/types/enterprise-lender-workspace";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-function categoryFor(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("housing") || n.includes("hfc")) return "HFC";
-  if (n.includes("nbfc") || n.includes("finance")) return "NBFC";
-  return "Bank";
+function statusLabel(s: ElwRelationshipStatus): string {
+  switch (s) {
+    case "active":
+      return "Active";
+    case "building":
+      return "Building";
+    case "dormant":
+      return "Dormant";
+    default:
+      return "Onboarding";
+  }
 }
 
-function productsLabel(count: number): string {
-  if (count <= 0) return "—";
-  if (count === 1) return "1 product";
-  return `${count} products`;
-}
-
-function relationshipScore(contactCount: number, productCount: number): number {
-  return Math.min(98, 55 + contactCount * 8 + productCount * 5);
+function statusVariant(s: ElwRelationshipStatus): "success" | "info" | "muted" | "warning" {
+  switch (s) {
+    case "active":
+      return "success";
+    case "building":
+      return "info";
+    case "dormant":
+      return "warning";
+    default:
+      return "muted";
+  }
 }
 
 /**
- * Prompt 011 PART 5 — Enterprise Data Grid for Lender Master (100+ lenders ready).
+ * Lender Master — premium enterprise landing cards.
  */
 export function ElwLenderRegistry() {
-  const entries = listElwRegistryEntries();
+  const cards = useMemo(() => listElwLandingCards(), []);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusPill variant="info">{ELW_CERTIFICATION_FINDING}</StatusPill>
-        <StatusPill variant="muted">{ELW_FRAMEWORK_VERSION}</StatusPill>
-      </div>
-      <p className="text-sm text-muted-foreground">{ELW_ENTERPRISE_PRINCIPLE}</p>
+    <div className="space-y-5">
+      <p className="max-w-2xl text-sm text-muted-foreground">
+        Enterprise knowledge center for every lender — open a workspace to explore products, policy
+        placeholders, and relationship hierarchy.
+      </p>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-left text-sm">
-            <thead className="border-b border-border bg-muted/40 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Lender</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Products</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Relationship Score</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry) => {
-                const score = relationshipScore(entry.contactCount, entry.productCount);
-                const href = buildElwWorkspaceHref(entry.lenderId, {
-                  from: "lenders",
-                  returnTo: "/lenders",
-                });
-                const initials = entry.name
-                  .split(" ")
-                  .map((w) => w[0])
-                  .slice(0, 2)
-                  .join("")
-                  .toUpperCase();
-                return (
-                  <tr
-                    key={entry.lenderRef}
-                    className="border-t border-border/70 transition-colors hover:bg-muted/30"
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {cards.map((card) => {
+          const href = buildElwWorkspaceHref(card.lenderId, {
+            from: "lenders",
+            returnTo: "/lenders",
+          });
+          return (
+            <Link
+              key={card.lenderRef}
+              href={href}
+              className={cn(
+                "group flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm",
+                "transition-colors duration-200 hover:border-teal-500/35 hover:shadow-md",
+              )}
+            >
+              <div className="flex items-start gap-3 border-b border-border/60 bg-gradient-to-r from-teal-500/[0.07] via-transparent to-transparent p-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-teal-500/25 bg-teal-500/10 text-sm font-bold text-teal-900 dark:text-teal-100">
+                  {card.logoInitials || <Building2 className="h-5 w-5" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate text-sm font-semibold tracking-tight group-hover:underline">
+                      {card.name}
+                    </h3>
+                    <StatusPill variant={statusVariant(card.relationshipStatus)}>
+                      {statusLabel(card.relationshipStatus)}
+                    </StatusPill>
+                  </div>
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <CalendarClock className="h-3 w-3" />
+                    Last policy update · {card.lastPolicyUpdate}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-1 flex-col gap-3 p-4">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Products offered
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {card.productsOffered.map((p) => (
+                      <span
+                        key={p}
+                        className="rounded-md border border-border/70 bg-muted/30 px-2 py-0.5 text-[11px]"
+                      >
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Cities covered
+                  </p>
+                  <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                    {card.citiesCovered.join(" · ")}
+                  </p>
+                </div>
+
+                <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+                  <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <UserRound className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">
+                      {card.primaryContactName ?? "Primary contact · unassigned"}
+                    </span>
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 shrink-0 text-[11px]"
+                    tabIndex={-1}
                   >
-                    <td className="px-4 py-3">
-                      <Link href={href} className="flex items-center gap-3 group">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-500/25 bg-violet-500/10 text-[10px] font-bold text-violet-800 dark:text-violet-200">
-                          {initials || <Building2 className="h-4 w-4" />}
-                        </span>
-                        <span>
-                          <span className="block font-medium text-foreground group-hover:underline">
-                            {entry.name}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {entry.headquartersCity ?? "Enterprise partner"}
-                          </span>
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{categoryFor(entry.name)}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {productsLabel(entry.productCount)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusPill variant={entry.contactCount > 0 ? "success" : "muted"}>
-                        {entry.contactCount > 0 ? "Active" : "Onboarding"}
-                      </StatusPill>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className={cn(
-                              "h-full rounded-full",
-                              score >= 80 ? "bg-emerald-500" : score >= 65 ? "bg-amber-500" : "bg-slate-400",
-                            )}
-                            style={{ width: `${score}%` }}
-                          />
-                        </div>
-                        <span className="tabular-nums text-xs font-medium">{score}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs">
-                        <Link href={href}>
-                          Open Workspace
-                          <ExternalLink className="h-3 w-3" />
-                        </Link>
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    Open
+                  </Button>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,0 +1,30 @@
+---
+description: Organization Documents Registry — Catalyst One v1.0 corporate document repository
+alwaysApply: false
+globs:
+  - src/components/catalyst-one/organization-documents/**
+  - src/lib/organization-documents/**
+  - src/types/organization-documents.ts
+  - src/constants/organization-documents/**
+  - src/app/(dashboard)/organization/documents/**
+---
+
+# Organization Documents Registry (v1.0 — frozen)
+
+Official corporate document repository under **Administration → Organization → Organization Documents**.
+
+## Principles
+
+- Preserve **original filename** exactly — never rename uploads.
+- Metadata is SSOT; binary content is referenced separately.
+- Documents are **archived**, not permanently deleted by default.
+- Templates category is **fully dynamic** (Super Admin CRUD + reorder).
+- Schema includes future slots: OCR, AI summary, expiry, signatures, approvals, audit, RBAC.
+
+## Source of truth
+
+- Types: `src/types/organization-documents.ts`
+- Categories/types: `src/constants/organization-documents`
+- Store: `src/lib/organization-documents`
+- UI: `src/components/catalyst-one/organization-documents`
+- Route: `/organization/documents`

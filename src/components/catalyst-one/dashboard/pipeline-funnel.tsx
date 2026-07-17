@@ -38,14 +38,14 @@ export function PipelineFunnel() {
 
   const handleStageClick = (stageId: PipelineStage, e: React.MouseEvent) => {
     e.stopPropagation();
-    router.push(`${ROUTES.PIPELINE}?stage=${stageId}`);
+    router.push(ROUTES.MY_DEALS);
   };
 
   return (
     <DashboardCard className="h-full">
       <DashboardCardHeader
         title="Pipeline Funnel"
-        description="Active cases only · click stage to open Loan Board"
+        description="Active cases only · click stage to open My Deals"
       />
       <DashboardCardContent className="pt-0">
         <div className="flex flex-col items-center gap-0.5 py-1">

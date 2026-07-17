@@ -18,9 +18,9 @@ export default function SettingsPage() {
       <PageHeader title="Settings" description="Manage your account and platform preferences" />
 
       <div className="grid gap-6 max-w-2xl">
-        <Card>
+        <Card id="profile">
           <CardHeader>
-            <CardTitle>Profile</CardTitle>
+            <CardTitle>My Profile</CardTitle>
             <CardDescription>Your account information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -39,10 +39,36 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="preferences">
+          <CardHeader>
+            <CardTitle>Preferences</CardTitle>
+            <CardDescription>Personal workspace defaults (expandable over time)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Landing page, language, and notification channel preferences are managed from User
+              Management Access Profile when provisioned, and will surface here for self-service.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card id="notifications">
+          <CardHeader>
+            <CardTitle>Notifications</CardTitle>
+            <CardDescription>How Catalyst One reaches you</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Email, push, and SMS notification controls will consolidate here. Current defaults
+              follow your User Account preferences.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card id="appearance">
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
-            <CardDescription>Customize how COMPASS looks</CardDescription>
+            <CardDescription>Customize how Catalyst One looks</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
@@ -50,7 +76,10 @@ export default function SettingsPage() {
                 <Label>Dark mode</Label>
                 <p className="text-sm text-muted-foreground">Use dark theme across the platform</p>
               </div>
-              <Switch checked={isDark} onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")} />
+              <Switch
+                checked={isDark}
+                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+              />
             </div>
           </CardContent>
         </Card>

@@ -1,0 +1,34 @@
+---
+description: Workspace Information Hierarchy — Workspace First, Information Second
+alwaysApply: true
+---
+
+# Workspace Information Hierarchy — Enterprise UX
+
+Status: **ENTERPRISE APPROVED** · Priority: **CRITICAL**
+
+## Principle
+
+Every workspace exists primarily to **perform work**.
+
+Information should **support** the work — never dominate it.
+
+**Target:** ~80% Work Area · ~20% Information Area
+
+## Layout contract
+
+1. Keep page header compact.
+2. Keep Business Journey Navigator as a single compact horizontal strip.
+3. Do **not** permanently mount large readiness / KPI / advisory widgets above the primary work area.
+4. Place Overall Readiness, Stage Readiness, KPI cards, detailed progress, and extended Chanakya advisory inside a collapsible **Transaction Insights** panel (collapsed by default; minimal height when closed).
+5. Primary work surface (e.g. Lender Pipeline) sits immediately below compact chrome and occupies most of the viewport — users begin working without scrolling for information.
+
+## Chanakya
+
+Chanakya stays visible in **compact** mode (one-line Live strip). Detailed guidance only when the user expands Transaction Insights or opens Chanakya Guide.
+
+## Across Catalyst One
+
+Workspace First. Information Second.  
+Never sacrifice operational workspace for dashboards or informational widgets.  
+Dashboards support execution — they do not replace it.

@@ -188,7 +188,7 @@ export function TaskEngineWorkspace() {
     fileId: txFileId,
     opportunityId: txOpportunityId,
   });
-  const timelineContinueHref = buildBusinessJourneyHref(getBusinessJourneyNavStep("timeline"), {
+  const loanContinueHref = buildBusinessJourneyHref(getBusinessJourneyNavStep("loan_workspace"), {
     fileId: txFileId,
     opportunityId: txOpportunityId,
   });
@@ -240,7 +240,9 @@ export function TaskEngineWorkspace() {
       {txFileId ? (
         <>
           <BusinessJourneyNavigator
-            currentStageId="tasks"
+            currentStageId="loan_workspace"
+            fileId={txFileId}
+            opportunityId={txOpportunityId}
             className="-mx-4 border-b border-border/60 bg-background/95 md:-mx-6 lg:-mx-8"
           />
           <PhaseReadinessDashboard
@@ -258,9 +260,9 @@ export function TaskEngineWorkspace() {
           <div className="flex flex-wrap items-center gap-2">
             {txFileId ? (
               <BusinessTransitionCard
-                continueLabel={getBusinessContinueLabel(getBusinessJourneyNavStep("timeline"))}
-                continuePurpose={getBusinessJourneyTransitionPurpose("timeline")}
-                onContinue={() => router.push(timelineContinueHref)}
+                continueLabel={getBusinessContinueLabel(getBusinessJourneyNavStep("loan_workspace"))}
+                continuePurpose={getBusinessJourneyTransitionPurpose("loan_workspace")}
+                onContinue={() => router.push(loanContinueHref)}
                 backLabel={getBusinessBackLabel(getBusinessJourneyNavStep("lender_pipeline"))}
                 onBack={() => router.push(lenderBackHref)}
               />

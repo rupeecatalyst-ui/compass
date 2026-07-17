@@ -1,0 +1,48 @@
+---
+description: Enterprise Workspace UX — optimization, scroll, exit standard (platform-wide)
+alwaysApply: true
+---
+
+# Catalyst One — Enterprise Workspace UX Standard
+
+Status: **ENTERPRISE APPROVED** · Priority: **CRITICAL** · Scope: **ALL workspaces**
+
+Do **not** implement screen-by-screen one-offs. Extend shared shell/chrome so every module inherits behaviour.
+
+## Targets
+
+- Chrome (nav + workflow + contextual header) ≤ **~20–25%** of viewport
+- Primary work area ≥ **~75–80%**
+- Think desktop ERP — maximise working area; minimise empty space and repeated facts
+
+## Shared primitives (use these)
+
+| Primitive | Path |
+|---|---|
+| `EnterpriseWorkspaceShell` | `src/components/catalyst-one/shared/enterprise-workspace-shell.tsx` |
+| `LeadOpportunityJourneyChrome` | `src/components/catalyst-one/shared/lead-opportunity-journey-chrome.tsx` |
+| `WorkspaceHeader` + `useWorkspaceClose` | shared header + close API |
+| `UnsavedChangesDialog` | Save & Close · Discard · Cancel |
+| Constants | `src/constants/enterprise-workspace-ux.ts` |
+
+## Mandatory rules
+
+1. **Natural page scrolling** — default `scrollMode="document"`. Do not lock route shells with `h-[calc(100vh-4rem)] overflow-hidden` unless a true split desk needs `scrollMode="locked-split"` (rare). Browser/`main` must scroll. **Credit Workbench & Strategic Workspace** must use document scroll; only document preview panes may use min-height + internal overflow.
+2. **Workflow ribbon** — Loan Workspace keeps the permanent Business Journey Navigator. **Strategic Workspace** and **Credit Workbench** use `journeyNavigatorMode="button"` (`Workflow Progress ▼` → expandable panel). Do not apply the button pattern to Loan Workspace.
+3. **Collapse chrome on scroll** — secondary chrome collapses; keep compact identity + primary actions + **Close**.
+4. **No information repetition** — facts already in the header must not be re-carded in Overview / snapshot panels. One business fact once.
+5. **Header content** — essential context only (borrower, file/opportunity, product, amount, stage, health, RM) + primary actions.
+6. **✕ Close** — every major workspace, upper-right. Wire via `useWorkspaceClose` / chrome `closeTo`.
+7. **Close behaviour**
+   - Clean → close immediately (optional toast when `acknowledgeCleanClose`)
+   - Dirty → Unsaved Changes: **Save & Close** / **Discard** / **Cancel**
+   - After save-and-close → toast **All changes saved.**
+8. **Keep** Action Center, Chanakya Guide, Transaction Insights, Save, Save & Exit, Navigation — only densify layout.
+9. **Future workspaces** must compose `EnterpriseWorkspaceShell` or journey chrome — never invent a third chrome family.
+
+## Anti-patterns
+
+- Fixed-height content traps that stop page scroll
+- Duplicate borrower/loan cards under an identity header
+- Marketing-style vertical whitespace
+- Missing Close on enterprise desks

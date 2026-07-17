@@ -30,6 +30,18 @@ export function HorizonWorkspace() {
   const [selection, setSelection] = useState<HorizonSelection | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [dialog, setDialog] = useState<{ title: string; description: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const reload = () => {
+    setRefreshing(true);
+    void createHorizonWorkspaceProvider()
+      .getWorkspaceModel()
+      .then((page) => {
+        setModel(page);
+        setMode(page.mode);
+      })
+      .finally(() => setRefreshing(false));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +86,13 @@ export function HorizonWorkspace() {
 
   return (
     <div className="space-y-4 md:space-y-5" aria-label="Horizon Strategic Planning Workspace">
-      <HorizonHeader mode={mode} modes={model.modes} onModeChange={setMode} />
+      <HorizonHeader
+        mode={mode}
+        modes={model.modes}
+        onModeChange={setMode}
+        onRefresh={reload}
+        refreshing={refreshing}
+      />
       <PortfolioOverview portfolio={model.portfolio} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">

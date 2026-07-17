@@ -32,18 +32,18 @@ Do automatically — do not wait to be asked:
 2. Build
 3. Fix build / TypeScript / lint errors
 4. Smoke test
-5. Commit
-6. Push to GitHub
-7. Deploy to Vercel (certification project / production target unless user directs otherwise)
-8. Verify deployed app
-9. Share latest deployment URL
-10. Deliver Certification Report (below)
+5. Deploy to Vercel (certification project / production target unless user directs otherwise)
+6. Verify deployed app
+7. Share latest deployment URL
+8. Deliver Certification Report (below)
 
-Use single-line `git commit -m "..."` on Windows PowerShell (no heredoc).
+**GitHub:** Do **not** commit or push after every implementation. Accumulate certified work and commit at end of day or a major milestone (see `github-vercel-deployment-policy.mdc`). Only commit/push when the user asks, or at an explicit end-of-day / milestone request.
 
 ## 4. Definition of Done
 
-Not complete until: implementation done, GitHub updated, Vercel deployed, live verified, URL shared, Certification Report delivered.
+Not complete until: implementation done, build passed, Vercel deployed, live verified, URL shared, Certification Report delivered.
+
+GitHub milestone commit is **not** required for per-implementation Done.
 
 ## 5. Required report format (end every completed implementation)
 
@@ -60,7 +60,8 @@ Not complete until: implementation done, GitHub updated, Vercel deployed, live v
 
 ### Git
 - Branch: <branch>
-- Commit SHA: `<sha>`
+- Commit Status: ⏸️ Pending end-of-day / milestone commit (or ✅ `<sha>` if a milestone was requested)
+- Working tree: clean / uncommitted certified work present
 
 ### Deployment
 - Deployment Status: ✅ / ❌
@@ -83,3 +84,7 @@ Authentication: ✅ Unchanged
 ## 6. Claims
 
 Do not mark a module “Certified” unless the user explicitly certifies it. Use Ready / Partially Ready / Requires Further Development.
+
+## 7. Infra / manual steps
+
+If the work needs a database migration, schema change, environment variable update, or any manual deployment step, **call it out explicitly before completing the task** (and include it under Implementation Summary → Pending or a dedicated “Manual steps required” bullet). Never imply the task is fully live if ops action is still required.

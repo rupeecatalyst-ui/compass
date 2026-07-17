@@ -1,0 +1,64 @@
+---
+description: GitHub & Vercel deployment policy — Vercel continuous, GitHub milestones
+alwaysApply: true
+---
+
+# Catalyst One — GitHub & Vercel Deployment Policy
+
+Status: **ENTERPRISE APPROVED**
+
+## Enterprise principle
+
+| Surface | Role |
+|---------|------|
+| **Vercel** | Continuous review & certification environment |
+| **GitHub** | Clean certified development history (milestones) |
+
+## After every approved implementation
+
+Do automatically (do not wait to be asked):
+
+1. Verify implementation
+2. Build successfully (must compile; fix TypeScript / critical lint / runtime blockers)
+3. Deploy immediately to Vercel (certification / production target unless user directs otherwise)
+4. Verify the deployed app
+5. Share the latest Vercel URL
+6. Deliver the Business & Functional Certification Report
+
+**Do NOT** create a GitHub commit after every implementation or every prompt.  
+**Do NOT** push multiple small commits throughout the day.
+
+## GitHub cadence
+
+- Keep implementing approved changes locally.
+- Keep deploying each approved implementation to Vercel.
+- Accumulate certified work through the day.
+- At **end of working day** or after a **major certified milestone** (or when the user explicitly asks), create **one logical commit** (or a small number of logical commits) summarizing certified work, then push.
+
+Example milestone messages:
+
+- `feat: Loan Journey Certification`
+- `feat: Chanakya Guide Foundation`
+- `feat: Credit Workbench Certification`
+- `fix: Enterprise Workspace UX Improvements`
+
+## Build validation (before every Vercel deploy)
+
+- Project must compile successfully
+- Build must pass
+- No critical runtime errors
+
+## Manual / infra prerequisites (mandatory disclosure)
+
+If any implementation requires **any** of the following, **explicitly mention it before completing the task** (do not bury it only in a report footer):
+
+- Database migration
+- Schema change
+- Environment variable update
+- Any other manual deployment step (secrets, DNS, feature flags, seed scripts, CLI one-offs, etc.)
+
+State what is required, why, and what the user (or ops) must do. Prefer surfacing this as soon as it becomes clear — and again in the final summary if still applicable.
+
+## Overrides
+
+Follow this workflow unless the user explicitly instructs otherwise (e.g. “commit now”, “push now”).

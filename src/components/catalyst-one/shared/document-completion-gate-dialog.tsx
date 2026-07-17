@@ -13,11 +13,14 @@ import {
 } from "@/components/ui/dialog";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { ROUTES } from "@/constants/routes";
+import { recordControlledException } from "@/lib/system-driven-enterprise";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import type { DocumentCompletionScore } from "@/lib/document-completion/score";
 
 /**
- * Non-blocking document readiness advisory (Chanakya Operating Principles).
+ * Non-blocking document readiness advisory (Chanakya + System-Driven Enterprise).
  * Warns and mentors — never prevents Continue / workspace navigation.
+ * Continue-anyway records a controlled exception (visible until resolved).
  * Only Enterprise Policy Engine may hard-restrict actions.
  */
 export function DocumentCompletionGateDialog({
@@ -38,6 +41,7 @@ export function DocumentCompletionGateDialog({
   intentLabel?: string;
   onProceedAnyway?: () => void;
 }) {
+  const { user } = useAuthContext();
   const href = buildJourneyHref(ROUTES.DOCUMENT_CENTER, { fileId, opportunityId });
   const reasons = score?.blockReasons ?? [];
   const missing = score?.criticalMissing ?? [];
@@ -52,7 +56,7 @@ export function DocumentCompletionGateDialog({
           </DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
             Chanakya recommends completing mandatory documents before you {intentLabel}. This is
-            guidance only — your workflow is not blocked.
+            guidance only — your workflow is not blocked. Continuing records a controlled exception.
           </DialogDescription>
         </DialogHeader>
 
@@ -110,6 +114,29 @@ export function DocumentCompletionGateDialog({
                 size="sm"
                 className="gap-1.5"
                 onClick={() => {
+                  try {
+                    recordControlledException({
+                      title: "Continue with incomplete document pack",
+                      category: "documents",
+                      responsibleUserId: user?.id ?? "unknown",
+                      responsibleUserName:
+                        [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+                        user?.email ||
+                        "User",
+                      reason:
+                        missing.length > 0
+                          ? `Missing: ${missing.slice(0, 5).join(", ")}`
+                          : reasons[0] ?? "Continued despite incomplete documents",
+                      workflowId: "wf_loan_origination",
+                      workflowLabel: "Loan Origination",
+                      transactionId: fileId ?? opportunityId ?? null,
+                      transactionLabel: fileId ?? opportunityId ?? null,
+                      slaMonitoring: true,
+                      guidanceLevel: "warn",
+                    });
+                  } catch {
+                    /* non-blocking — exception recording must never stop workflow */
+                  }
                   onOpenChange(false);
                   onProceedAnyway();
                 }}

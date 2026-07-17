@@ -1,18 +1,27 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Orbit } from "lucide-react";
 import type { Mode, ModeId } from "../types";
 import { ModeSwitcher } from "./ModeSwitcher";
+import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
+import { ROUTES } from "@/constants/routes";
 
 export function HorizonHeader({
   mode,
   modes,
   onModeChange,
+  onRefresh,
+  refreshing,
 }: {
   mode: ModeId;
   modes: readonly Mode[];
   onModeChange: (mode: ModeId) => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }) {
+  const router = useRouter();
+
   return (
     <header className="relative overflow-hidden rounded-2xl border border-zinc-800/90 bg-zinc-950">
       <div
@@ -40,7 +49,16 @@ export function HorizonHeader({
             hiring, products, technology, campaigns, and organizational improvements.
           </p>
         </div>
-        <ModeSwitcher mode={mode} modes={modes} onChange={onModeChange} />
+        <div className="flex flex-col items-end gap-3">
+          <WorkspacePrimaryActions
+            mode="readonly"
+            onClose={() => router.push(ROUTES.DASHBOARD)}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            className="[&_button]:border-zinc-700 [&_button]:text-zinc-200 [&_button:hover]:bg-zinc-800 [&_button:hover]:text-zinc-50"
+          />
+          <ModeSwitcher mode={mode} modes={modes} onChange={onModeChange} />
+        </div>
       </div>
       <div className="relative h-px w-full bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
     </header>

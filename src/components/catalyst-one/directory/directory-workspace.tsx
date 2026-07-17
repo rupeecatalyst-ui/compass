@@ -11,19 +11,24 @@ import {
 import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
 import { QuickContactCreationWizard } from "@/components/catalyst-one/contacts/quick-contact-creation-wizard";
 import { CompanyWorkspaceModal } from "@/components/catalyst-one/companies/company-workspace-modal";
+import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-role-chips";
 import { PageHeader } from "@/components/design-system/page-header";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants/routes";
-import { getEcmMasterLabel } from "@/constants/enterprise-contact-master";
-import { ECM_COMPANY_RELATION_ROLE_LABELS } from "@/constants/enterprise-company-master";
+import {
+  getEcmMasterLabel,
+  listContactRegistryFilters,
+  type ContactRegistryFilterDef,
+} from "@/constants/enterprise-contact-master";
 import {
   listEcmContacts,
   queryEcmContacts,
   registerEcmContact,
 } from "@/lib/enterprise-contact-master";
+import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import {
   listEcmCompanies,
   queryEcmCompanies,
@@ -34,9 +39,7 @@ import type { EcmContact } from "@/types/enterprise-contact-master";
 import type { DirectoryListRow } from "@/types/enterprise-company-master";
 import { cn } from "@/lib/utils";
 
-type DirectoryTab = "all" | "contacts" | "companies";
-
-function seedDirectoryContactsIfEmpty() {
+function seedContactsIfEmpty() {
   if (listEcmContacts().length > 0) return;
   const seeds = [
     { name: "Rahul Kapoor", mobilePrimary: "9811100099", roles: ["customer" as const] },
@@ -71,12 +74,14 @@ function formatDate(value?: string) {
   }
 }
 
-function DirectoryInner() {
+function ContactsRegistryInner() {
   const { user } = useAuthContext();
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<DirectoryTab>("all");
+  const filters = useMemo(() => listContactRegistryFilters(), []);
+  const [filterId, setFilterId] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [tick, setTick] = useState(0);
+  const registryVersion = useEcmContactRegistryVersion();
 
   const [intentOpen, setIntentOpen] = useState(false);
   const [creationIntent, setCreationIntent] = useState<ContactCreationIntentResult | null>(null);
@@ -92,10 +97,12 @@ function DirectoryInner() {
   const [workspaceContact, setWorkspaceContact] = useState<EcmContact | null>(null);
 
   const refresh = useCallback(() => setTick((t) => t + 1), []);
+  const activeFilter: ContactRegistryFilterDef =
+    filters.find((f) => f.id === filterId) ?? filters[0]!;
 
   useEffect(() => {
     seedEcmCompaniesIfEmpty();
-    seedDirectoryContactsIfEmpty();
+    seedContactsIfEmpty();
     refresh();
   }, [refresh]);
 
@@ -121,78 +128,80 @@ function DirectoryInner() {
     }
   }, [searchParams]);
 
-  const contactRows = useMemo(() => {
+  const allContacts = useMemo(() => {
     void tick;
+    void registryVersion;
     return queryEcmContacts({
       search,
       status: "active",
       page: 1,
-      pageSize: 100,
+      pageSize: 200,
       sortBy: "modifiedOn",
       sortDir: "desc",
     }).items;
-  }, [search, tick]);
+  }, [search, tick, registryVersion]);
 
   const companyRows = useMemo(() => {
     void tick;
-    return queryEcmCompanies({ search, status: "active", page: 1, pageSize: 100 }).items;
+    return queryEcmCompanies({ search, status: "active", page: 1, pageSize: 200 }).items;
   }, [search, tick]);
 
-  const directoryRows = useMemo((): DirectoryListRow[] => {
-    if (tab === "contacts") {
-      return contactRows.map((c) => ({
-        id: c.id,
-        kind: "contact",
-        name: c.name,
-        subtitle: c.mobilePrimary,
-        status: c.status,
-        ownerName: c.ownerName,
-        score: c.contactScore,
-        modifiedOn: c.modifiedOn,
-      }));
+  const contactRows = useMemo(() => {
+    if (activeFilter.kind === "role" && activeFilter.role) {
+      return allContacts.filter((c) => c.roles.includes(activeFilter.role!));
     }
-    if (tab === "companies") {
-      return companyRows.map((c) => ({
-        id: c.id,
-        kind: "company",
-        name: c.companyName,
-        subtitle:
-          (c.industry ? getEcmMasterLabel("industry", c.industry) : null) ||
-          c.pan ||
-          "Company",
-        status: c.status,
-        ownerName: c.ownerName,
-        score: c.companyScore,
-        modifiedOn: c.modifiedOn,
-      }));
+    return allContacts;
+  }, [allContacts, activeFilter]);
+
+  const registryRows = useMemo((): DirectoryListRow[] => {
+    const toContactRow = (c: EcmContact): DirectoryListRow => ({
+      id: c.id,
+      kind: "contact",
+      name: c.name,
+      subtitle: c.mobilePrimary,
+      status: c.status,
+      ownerName: c.ownerName,
+      score: c.contactScore,
+      modifiedOn: c.modifiedOn,
+    });
+    const toCompanyRow = (c: EcmCompany): DirectoryListRow => ({
+      id: c.id,
+      kind: "company",
+      name: c.companyName,
+      subtitle:
+        (c.industry ? getEcmMasterLabel("industry", c.industry) : null) ||
+        c.pan ||
+        "Company",
+      status: c.status,
+      ownerName: c.ownerName,
+      score: c.companyScore,
+      modifiedOn: c.modifiedOn,
+    });
+
+    if (activeFilter.kind === "companies") {
+      return companyRows.map(toCompanyRow);
     }
-    const mixed: DirectoryListRow[] = [
-      ...contactRows.map((c) => ({
-        id: c.id,
-        kind: "contact" as const,
-        name: c.name,
-        subtitle: c.mobilePrimary,
-        status: c.status,
-        ownerName: c.ownerName,
-        score: c.contactScore,
-        modifiedOn: c.modifiedOn,
-      })),
-      ...companyRows.map((c) => ({
-        id: c.id,
-        kind: "company" as const,
-        name: c.companyName,
-        subtitle:
-          (c.industry ? getEcmMasterLabel("industry", c.industry) : null) ||
-          c.pan ||
-          "Company",
-        status: c.status,
-        ownerName: c.ownerName,
-        score: c.companyScore,
-        modifiedOn: c.modifiedOn,
-      })),
-    ];
-    return mixed.sort((a, b) => b.modifiedOn.localeCompare(a.modifiedOn));
-  }, [tab, contactRows, companyRows]);
+    if (activeFilter.kind === "individuals" || activeFilter.kind === "role") {
+      return contactRows.map(toContactRow);
+    }
+    return [...contactRows.map(toContactRow), ...companyRows.map(toCompanyRow)].sort((a, b) =>
+      b.modifiedOn.localeCompare(a.modifiedOn),
+    );
+  }, [activeFilter.kind, contactRows, companyRows]);
+
+  const filterCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: allContacts.length + companyRows.length,
+      individuals: allContacts.length,
+      companies: companyRows.length,
+    };
+    for (const f of filters) {
+      if (f.kind === "role" && f.role) {
+        counts[f.id] = allContacts.filter((c) => c.roles.includes(f.role!)).length;
+      }
+    }
+    return counts;
+  }, [filters, allContacts, companyRows]);
 
   const openCreate = () => {
     setCreationIntent(null);
@@ -226,7 +235,6 @@ function DirectoryInner() {
       return;
     }
 
-    // Individual or Individual + Company → existing contact workflow
     setWizardOpen(true);
   };
 
@@ -247,17 +255,16 @@ function DirectoryInner() {
     setCreationIntent(null);
   };
 
-  const tabs: { id: DirectoryTab; label: string; count: number }[] = [
-    { id: "all", label: "All", count: contactRows.length + companyRows.length },
-    { id: "contacts", label: "Contacts", count: contactRows.length },
-    { id: "companies", label: "Companies", count: companyRows.length },
-  ];
+  const contactById = useMemo(() => {
+    const map = new Map(allContacts.map((c) => [c.id, c]));
+    return map;
+  }, [allContacts]);
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Directory"
-        description="Enterprise entry point for Individuals and Companies — capture once, reuse everywhere."
+        title="Contacts"
+        description="Enterprise Contact Registry — every person and company, once. Roles open workspace tabs."
         actions={
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={openCreate} className="h-10 gap-2 rounded-xl px-4 shadow-sm">
@@ -267,13 +274,7 @@ function DirectoryInner() {
             <Button asChild variant="outline" className="h-10 gap-2 rounded-xl px-4">
               <Link href={`${ROUTES.LOAN_FILES}?create=1`}>
                 <Plus className="h-4 w-4" />
-                Add Loan
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-10 gap-2 rounded-xl px-4">
-              <Link href={`${ROUTES.CONTACTS}?create=1&intent=investor`}>
-                <Plus className="h-4 w-4" />
-                Add Investment
+                Start Loan Journey
               </Link>
             </Button>
           </div>
@@ -281,21 +282,21 @@ function DirectoryInner() {
       />
 
       <div className="flex flex-wrap gap-2">
-        {tabs.map((t) => (
+        {filters.map((f) => (
           <button
-            key={t.id}
+            key={f.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => setFilterId(f.id)}
             className={cn(
               "inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors",
-              tab === t.id
-                ? "border-violet-500/40 bg-violet-500/10 text-violet-800 dark:text-violet-200"
-                : "border-border bg-card text-muted-foreground hover:text-foreground",
+              filterId === f.id
+                ? "border-teal-500/40 bg-teal-500/10 text-teal-900 dark:text-teal-100"
+                : "border-border bg-card text-muted-foreground hover:bg-muted/40 hover:text-foreground",
             )}
           >
-            {t.label}
+            {f.label}
             <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] tabular-nums">
-              {t.count}
+              {filterCounts[f.id] ?? 0}
             </span>
           </button>
         ))}
@@ -305,7 +306,7 @@ function DirectoryInner() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="h-10 rounded-xl border-border/70 bg-background pl-9"
-          placeholder="Search Directory — individuals and companies…"
+          placeholder="Search Contacts — name, mobile, email, company…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -313,11 +314,12 @@ function DirectoryInner() {
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[780px] text-left text-sm">
+          <table className="w-full min-w-[860px] text-left text-sm">
             <thead className="border-b border-border bg-muted/40 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Roles</th>
                 <th className="px-4 py-3 font-medium">Details</th>
                 <th className="px-4 py-3 font-medium">Owner</th>
                 <th className="px-4 py-3 font-medium">Status</th>
@@ -326,48 +328,66 @@ function DirectoryInner() {
               </tr>
             </thead>
             <tbody>
-              {directoryRows.map((row) => (
-                <tr
-                  key={`${row.kind}-${row.id}`}
-                  className="cursor-pointer border-t border-border/70 transition-colors hover:bg-muted/30"
-                  onClick={() => {
-                    if (row.kind === "contact") {
-                      const c = contactRows.find((x) => x.id === row.id);
-                      if (c) openContact(c);
-                    } else {
-                      const c = companyRows.find((x) => x.id === row.id);
-                      if (c) openCompany(c);
-                    }
-                  }}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-500/5">
-                        {row.kind === "company" ? (
-                          <Building2 className="h-3.5 w-3.5 text-violet-600" />
-                        ) : (
-                          <User className="h-3.5 w-3.5 text-violet-600" />
-                        )}
-                      </span>
-                      <span className="font-medium">{row.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 capitalize text-muted-foreground">{row.kind}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{row.subtitle}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{row.ownerName ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    <StatusPill variant={row.status === "active" ? "success" : "muted"}>
-                      {row.status}
-                    </StatusPill>
-                  </td>
-                  <td className="px-4 py-3 tabular-nums">{row.score}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatDate(row.modifiedOn)}</td>
-                </tr>
-              ))}
-              {directoryRows.length === 0 && (
+              {registryRows.map((row) => {
+                const contact = row.kind === "contact" ? contactById.get(row.id) : undefined;
+                return (
+                  <tr
+                    key={`${row.kind}-${row.id}`}
+                    className="cursor-pointer border-t border-border/70 transition-colors hover:bg-muted/30"
+                    onClick={() => {
+                      if (row.kind === "contact") {
+                        const c = allContacts.find((x) => x.id === row.id);
+                        if (c) openContact(c);
+                      } else {
+                        const c = companyRows.find((x) => x.id === row.id);
+                        if (c) openCompany(c);
+                      }
+                    }}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-teal-500/20 bg-teal-500/5">
+                          {row.kind === "company" ? (
+                            <Building2 className="h-3.5 w-3.5 text-teal-700" />
+                          ) : (
+                            <User className="h-3.5 w-3.5 text-teal-700" />
+                          )}
+                        </span>
+                        <span className="font-medium">{row.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 capitalize text-muted-foreground">
+                      {row.kind === "company" ? "Company" : "Individual"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {contact ? (
+                        <ContactRoleChips roles={contact.roles} className="max-w-[220px]" />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.subtitle}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.ownerName ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <StatusPill
+                        variant={
+                          row.status === "active" || row.status === "complete" || row.status === "verified"
+                            ? "success"
+                            : "muted"
+                        }
+                      >
+                        {row.status}
+                      </StatusPill>
+                    </td>
+                    <td className="px-4 py-3 tabular-nums">{row.score}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatDate(row.modifiedOn)}</td>
+                  </tr>
+                );
+              })}
+              {registryRows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    No Directory records match this search.
+                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    No Contacts match this filter or search.
                   </td>
                 </tr>
               )}
@@ -377,8 +397,7 @@ function DirectoryInner() {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Contact Registry = Individuals only · Company Registry = Companies only · Relationships connect
-        them ({Object.keys(ECM_COMPANY_RELATION_ROLE_LABELS).length} relation roles).
+        One registry · One Contact Workspace · Roles determine tabs — not the menu.
       </p>
 
       <ContactCreationIntentScreen
@@ -432,19 +451,27 @@ function DirectoryInner() {
         initialTab="dashboard"
         onOpenChange={setWorkspaceOpen}
         onSaved={() => refresh()}
+        onOpenExisting={(existing) => {
+          openContact(existing);
+          refresh();
+        }}
       />
     </div>
   );
 }
 
 /**
- * Prompt 012 — Directory (Individuals + Companies).
- * Does not redesign Contact Workspace; enhances the entry experience.
+ * Enterprise Contact Registry — single SSOT for people and companies.
+ * @deprecated Alias — use ContactsWorkspace
  */
 export function DirectoryWorkspace() {
+  return <ContactsWorkspace />;
+}
+
+export function ContactsWorkspace() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading Directory…</div>}>
-      <DirectoryInner />
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading Contacts…</div>}>
+      <ContactsRegistryInner />
     </Suspense>
   );
 }

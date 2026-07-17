@@ -1,0 +1,27 @@
+---
+description: Contact Registry duplicate prevention — mobile + email only (v1.0)
+alwaysApply: false
+globs:
+  - src/lib/enterprise-contact-master/duplicate-check.ts
+  - src/lib/enterprise-contact-master/contact-registry.ts
+  - src/components/catalyst-one/contacts/**
+---
+
+# Duplicate Contact Prevention (v1.0 — mandatory)
+
+## Rules
+
+Only these fields detect duplicates:
+
+1. Mobile Number (normalized digits)
+2. Email Address (personal or official, case-insensitive)
+
+Do **not** use name, PAN, Aadhaar, GST, company, or any other field.
+
+## Behaviour
+
+On Save / Save & Continue / Save & Exit: if a match exists, show **Potential Duplicate Contact** dialog with Open Existing / Cancel. Never create a second contact. No Continue Anyway in v1.0.
+
+## Service
+
+`checkEcmContactDuplicates` / `assertNoEcmContactDuplicate` in `duplicate-check.ts` — future rules extend this service without redesigning UI.

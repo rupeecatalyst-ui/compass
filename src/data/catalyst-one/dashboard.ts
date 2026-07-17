@@ -31,7 +31,7 @@ export const executiveKpis: ExecutiveKpi[] = [
     trend: { direction: "up", label: "+12% vs last month" },
     icon: "pipeline",
     accent: "primary",
-    href: `${ROUTES.PIPELINE}?view=pipeline`,
+    href: `${ROUTES.MY_DEALS}?view=pipeline`,
   },
   {
     id: "sanctioned",
@@ -44,7 +44,7 @@ export const executiveKpis: ExecutiveKpi[] = [
     trend: { direction: "up", label: "+16% vs last month" },
     icon: "sanctioned",
     accent: "accent",
-    href: `${ROUTES.PIPELINE}?stage=final_approved`,
+    href: `${ROUTES.MY_DEALS}?stage=final_approved`,
   },
   {
     id: "disbursed",
@@ -57,7 +57,7 @@ export const executiveKpis: ExecutiveKpi[] = [
     trend: { direction: "up", label: "+22% vs last month" },
     icon: "disbursed",
     accent: "accent",
-    href: `${ROUTES.PIPELINE}?stage=closure_wip`,
+    href: `${ROUTES.MY_DEALS}?stage=closure_wip`,
   },
   {
     id: "expected_revenue",
@@ -117,7 +117,7 @@ export const focusTiles: FocusTile[] = [
     label: "Files Pending Disbursement",
     count: 11,
     urgency: "critical",
-    href: `${ROUTES.PIPELINE}?stage=closure_wip`,
+    href: `${ROUTES.MY_DEALS}?stage=closure_wip`,
   },
   {
     id: "credit_queries",
@@ -131,7 +131,7 @@ export const focusTiles: FocusTile[] = [
     label: "Expected Disbursement Today",
     count: 6,
     urgency: "critical",
-    href: `${ROUTES.PIPELINE}?filter=today_disbursement`,
+    href: `${ROUTES.MY_DEALS}?filter=today_disbursement`,
   },
   {
     id: "compliance_due",
@@ -154,7 +154,7 @@ export const dashboardTasks: DashboardTaskItem[] = [
   { id: "t2", title: "Collect ITR — Patel Manufacturing", type: "document", time: "Yesterday", href: `${ROUTES.DOCUMENTS}?file=patel`, bucket: "overdue" },
   { id: "t3", title: "RM meeting — HDFC rate revision", type: "meeting", time: "10:30 AM", href: `${ROUTES.TASKS}?id=t2`, bucket: "today" },
   { id: "t4", title: "Credit query — income variance", type: "credit", time: "3:30 PM", href: `${ROUTES.LOAN_FILES}?filter=credit`, bucket: "today" },
-  { id: "t5", title: "Disbursement follow-up — ICICI BL", type: "disbursement", time: "5:00 PM", href: `${ROUTES.PIPELINE}?stage=disbursement`, bucket: "today" },
+  { id: "t5", title: "Disbursement follow-up — ICICI BL", type: "disbursement", time: "5:00 PM", href: `${ROUTES.MY_DEALS}?stage=disbursement`, bucket: "today" },
   { id: "t6", title: "Site visit — Mehta Traders", type: "call", time: "Tomorrow", href: `${ROUTES.TASKS}?id=t6`, bucket: "upcoming" },
 ];
 
@@ -268,7 +268,7 @@ export const todaysWork: TodaysWorkItem[] = [
     count: 6,
     description: "Files scheduled for disbursement today across 4 lenders",
     priority: "high",
-    href: "/pipeline",
+    href: "/my-deals",
   },
   {
     id: "sanctions",
@@ -276,7 +276,7 @@ export const todaysWork: TodaysWorkItem[] = [
     count: 11,
     description: "Expected sanction decisions in the next 48 hours",
     priority: "medium",
-    href: "/pipeline",
+    href: "/my-deals",
   },
 ];
 

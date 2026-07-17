@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   Bell,
@@ -11,18 +12,24 @@ import {
 } from "lucide-react";
 import type { MissionControlEnvironment } from "../shared/constants";
 import { cn } from "../shared/cn";
+import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
+import { ROUTES } from "@/constants/routes";
 
 export function McEnterpriseHeader({
   environment = "development",
   currentModule,
   workspaceTitle,
   breadcrumbs = [],
+  onRefresh,
 }: {
   environment?: MissionControlEnvironment;
   currentModule: string;
   workspaceTitle: string;
   breadcrumbs?: Array<{ label: string; href?: string }>;
+  onRefresh?: () => void;
 }) {
+  const router = useRouter();
+
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-zinc-800 bg-zinc-950 px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -78,6 +85,13 @@ export function McEnterpriseHeader({
         <IconButton label="Emergency Controls">
           <ShieldAlert className="h-4 w-4 text-amber-400" />
         </IconButton>
+        <WorkspacePrimaryActions
+          mode="readonly"
+          onClose={() => router.push(ROUTES.DASHBOARD)}
+          onRefresh={onRefresh}
+          density="compact"
+          className="ml-1 [&_button]:border-zinc-700 [&_button]:text-zinc-300 [&_button:hover]:bg-zinc-900 [&_button:hover]:text-zinc-50"
+        />
       </div>
     </header>
   );

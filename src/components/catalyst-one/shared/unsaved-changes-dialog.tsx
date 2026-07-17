@@ -1,5 +1,6 @@
 "use client";
 
+import { WORKSPACE_UNSAVED } from "@/constants/enterprise-workspace-ux";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,8 +20,8 @@ export interface UnsavedChangesDialogProps {
 }
 
 /**
- * Prompt 019 / UX-01B — Enterprise unsaved-changes confirmation.
- * Never silently discard entered information.
+ * Workspace Exit Standard — never silently discard entered information.
+ * Actions: Save & Close · Discard · Cancel
  */
 export function UnsavedChangesDialog({
   open,
@@ -33,11 +34,8 @@ export function UnsavedChangesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md [&>button]:hidden">
         <DialogHeader>
-          <DialogTitle>You have unsaved changes</DialogTitle>
-          <DialogDescription>
-            Closing now will discard information entered in this workspace. Choose how you want to
-            proceed.
-          </DialogDescription>
+          <DialogTitle>{WORKSPACE_UNSAVED.title}</DialogTitle>
+          <DialogDescription>{WORKSPACE_UNSAVED.description}</DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
           {onSaveAndClose && (
@@ -48,7 +46,7 @@ export function UnsavedChangesDialog({
               onClick={() => void onSaveAndClose()}
               disabled={saving}
             >
-              {saving ? "Saving…" : "Save & Exit"}
+              {saving ? "Saving…" : WORKSPACE_UNSAVED.saveAndClose}
             </Button>
           )}
           <Button
@@ -59,7 +57,7 @@ export function UnsavedChangesDialog({
             onClick={onDiscard}
             disabled={saving}
           >
-            Discard Changes
+            {WORKSPACE_UNSAVED.discard}
           </Button>
           <Button
             type="button"
@@ -69,7 +67,7 @@ export function UnsavedChangesDialog({
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
-            Continue Editing
+            {WORKSPACE_UNSAVED.cancel}
           </Button>
         </DialogFooter>
       </DialogContent>

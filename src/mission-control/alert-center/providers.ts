@@ -9,11 +9,60 @@ import type {
   AlertSummary,
   AlertCenterModel,
   EnterpriseAlert,
+  AlertCategory,
+  AlertSeverity,
 } from "./types";
+import { listSdeEvents } from "@/lib/system-driven-enterprise";
 
 export interface EnterpriseAlertProvider {
   listAlerts(filter?: AlertFilter): Promise<readonly EnterpriseAlert[]>;
   getAlert(id: string): Promise<EnterpriseAlert | undefined>;
+}
+
+/** Map System-Driven Enterprise events into Alert Center (Mission Control feed). */
+function sdeEventsAsAlerts(): EnterpriseAlert[] {
+  try {
+    return listSdeEvents({ missionControlOnly: true, limit: 15 }).map((ev) => {
+      const category: AlertCategory =
+        ev.category === "compliance"
+          ? "compliance"
+          : ev.category === "workflow" || ev.category === "sla" || ev.category === "approvals"
+            ? "workflow"
+            : ev.severity === "critical"
+              ? "critical"
+              : "warning";
+      const severity: AlertSeverity =
+        ev.severity === "critical"
+          ? "critical"
+          : ev.severity === "high"
+            ? "high"
+            : ev.severity === "medium"
+              ? "medium"
+              : ev.severity === "low"
+                ? "low"
+                : "info";
+      return {
+        id: `sde-${ev.id}`,
+        title: ev.title,
+        summary: ev.summary,
+        description: `${ev.summary}${ev.recommendedAction ? ` Recommended: ${ev.recommendedAction}` : ""}`,
+        category,
+        severity,
+        sourceModule: "System-Driven Enterprise",
+        generatedAt: ev.at,
+        status: "open",
+        acknowledged: false,
+        recommendedAction: ev.recommendedAction ?? "Review in Mission Control.",
+        viewDetails: {
+          label: "View Details",
+          href: "/mission-control/alert-center",
+        },
+        dismissAction: { label: "Dismiss" },
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 /** @deprecated Prefer EnterpriseAlertProvider */
@@ -264,13 +313,14 @@ function matchesFilter(alert: EnterpriseAlert, filter: AlertFilter): boolean {
 }
 
 export function createEnterpriseAlertProvider(): EnterpriseAlertProvider {
-  const store = mockAlerts();
   return {
     async listAlerts(filter) {
+      const store = [...sdeEventsAsAlerts(), ...mockAlerts()];
       if (!filter) return store;
       return store.filter((a) => matchesFilter(a, filter));
     },
     async getAlert(id) {
+      const store = [...sdeEventsAsAlerts(), ...mockAlerts()];
       return store.find((a) => a.id === id);
     },
   };

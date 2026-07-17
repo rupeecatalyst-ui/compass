@@ -23,6 +23,7 @@ import {
   transitionEoleOpportunityLifecycle,
 } from "@/lib/enterprise-opportunity-lifecycle-engine";
 import { listEcmContacts, registerEcmContact } from "@/lib/enterprise-contact-master";
+import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
 import {
   completeEteTask,
@@ -262,6 +263,7 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
   const [contactId, setContactId] = useState("");
   const [focus, setFocus] = useState<WorkspaceFocus>("overview");
   const [refreshKey, setRefreshKey] = useState(0);
+  const registryVersion = useEcmContactRegistryVersion();
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
   const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set());
   const [verifiedDocs, setVerifiedDocs] = useState<Set<string>>(new Set());
@@ -292,8 +294,7 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
   const contact = useMemo(() => {
     if (!contactId) return null;
     return listEcmContacts().find((c) => c.id === contactId) ?? null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contactId, refreshKey]);
+  }, [contactId, refreshKey, registryVersion]);
 
   const progressRatio = useMemo(() => {
     const ewoeProgress =

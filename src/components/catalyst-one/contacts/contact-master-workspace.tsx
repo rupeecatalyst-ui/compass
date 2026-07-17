@@ -1,6 +1,12 @@
 "use client";
 
+/**
+ * Contact Master / Registry — aliases the unified Contacts Party Registry.
+ * There is one SSOT screen: ContactsWorkspace at /contacts.
+ */
 export {
-  ContactMasterWorkspace,
-  ContactRegistryWorkspace,
-} from "@/components/catalyst-one/contacts/contact-registry-workspace";
+  ContactsWorkspace as ContactMasterWorkspace,
+  ContactsWorkspace as ContactRegistryWorkspace,
+  DirectoryWorkspace,
+  ContactsWorkspace,
+} from "@/components/catalyst-one/directory/directory-workspace";

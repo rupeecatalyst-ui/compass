@@ -16,9 +16,7 @@ export type BusinessJourneyNavId =
   | "document_center"
   | "credit_workbench"
   | "loan_workspace"
-  | "lender_pipeline"
-  | "tasks"
-  | "timeline";
+  | "lender_pipeline";
 
 export interface BusinessJourneyNavStep {
   id: BusinessJourneyNavId;
@@ -32,8 +30,7 @@ export interface BusinessJourneyNavStep {
 
 /**
  * Certified business progression for primary CTA navigation.
- * Contact / Approval / Disbursement / Accounting / Closure remain journey-map stages;
- * these are the live navigable workspace hops.
+ * Tasks / Timeline are support modules — not workflow stages.
  */
 export const BUSINESS_JOURNEY_NAV_SPINE: BusinessJourneyNavStep[] = [
   {
@@ -72,18 +69,6 @@ export const BUSINESS_JOURNEY_NAV_SPINE: BusinessJourneyNavStep[] = [
     label: "Lender Pipeline",
     href: ROUTES.LOAN_FILES,
     tab: "lenders",
-    leadModuleId: "loan_workspace",
-  },
-  {
-    id: "tasks",
-    label: "Tasks",
-    href: ROUTES.TASKS,
-  },
-  {
-    id: "timeline",
-    label: "Timeline",
-    href: ROUTES.LOAN_FILES,
-    tab: "timeline",
     leadModuleId: "loan_workspace",
   },
 ];
@@ -152,9 +137,9 @@ export function buildBusinessJourneyHref(
 
 /**
  * Loan Workspace intelligent continue:
- * - overview / other → Lender Pipeline
- * - lenders with no active cases → still Lender Pipeline (execution)
- * - lenders with cases → Continue Execution stays on pipeline; next hop Tasks when requested
+ * overview / other → Lender Pipeline
+ * lenders → stay on execution path (Lender Pipeline)
+ * Tasks / Timeline are support modules — not Continue spine hops.
  */
 export function resolveLoanWorkspaceContinue(input: {
   activeTab: string;
@@ -162,17 +147,11 @@ export function resolveLoanWorkspaceContinue(input: {
 }): { navId: BusinessJourneyNavId; label: string } {
   if (input.activeTab === "lenders") {
     return {
-      navId: "tasks",
+      navId: "lender_pipeline",
       label: input.hasActiveLenderCases
         ? "Continue Execution"
-        : "Continue to Tasks",
+        : "Open Lender Pipeline",
     };
-  }
-  if (input.activeTab === "tasks") {
-    return { navId: "timeline", label: "Continue to Timeline" };
-  }
-  if (input.activeTab === "timeline") {
-    return { navId: "lender_pipeline", label: "Open Lender Pipeline" };
   }
   return { navId: "lender_pipeline", label: "Open Lender Pipeline" };
 }

@@ -1,10 +1,5 @@
-import { ModulePlaceholder } from "@/components/catalyst-one/module-placeholder";
+import { ExecutiveIntelligenceWorkspace } from "@/components/catalyst-one/executive-intelligence";
 
 export default function ReportsPage() {
-  return (
-    <ModulePlaceholder
-      title="Reports"
-      description="Business intelligence, performance dashboards, and exportable analytics."
-    />
-  );
+  return <ExecutiveIntelligenceWorkspace />;
 }

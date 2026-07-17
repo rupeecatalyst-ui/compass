@@ -1,66 +1,108 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSidebarExpanded } from "@/hooks/use-sidebar-expanded";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { NavItem } from "@/config/navigation";
-import { ROUTES } from "@/constants/routes";
+import {
+  isContextDomain,
+  isNavHrefActive,
+  type NavItem,
+} from "@/config/navigation";
+import { useSidebarContext } from "@/components/providers/sidebar-provider";
 import {
   clearActiveOpportunityContext,
   isTransactionContextRoute,
 } from "@/lib/lead-opportunity-journey/active-context";
 
-function isNavActive(pathname: string, href: string): boolean {
-  const hrefPath = href.split("?")[0]!;
-  if (pathname === hrefPath) return true;
-  if (
-    hrefPath === "/dashboard" ||
-    hrefPath === "/organization" ||
-    hrefPath === ROUTES.ADMIN_CREDIT_RISK_ENGINE ||
-    hrefPath === ROUTES.ADMIN_ARCHITECTURE ||
-    hrefPath === ROUTES.ADMIN_WORKFLOW_ENGINE ||
-    hrefPath === ROUTES.ADMIN_PRODUCT_LIBRARY ||
-    hrefPath === ROUTES.ADMIN_ENTERPRISE_ASSETS ||
-    hrefPath === ROUTES.ADMIN_FOUNDATION_LIBRARIES ||
-    hrefPath === ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY
-  ) {
-    return false;
-  }
-  return pathname.startsWith(hrefPath);
-}
-
-function onMainNavClick(href: string) {
+function onMainNavClick(href: string, onNavigate?: () => void) {
+  if (!href || href === "#") return;
   if (isTransactionContextRoute(href.split("?")[0] ?? href)) {
     clearActiveOpportunityContext();
   }
+  onNavigate?.();
 }
 
 interface SidebarNavItemProps {
   item: NavItem;
   collapsed: boolean;
+  /** Called when a navigable link is activated (e.g. close mobile sheet). */
+  onNavigate?: () => void;
 }
 
-export function SidebarNavItem({ item, collapsed }: SidebarNavItemProps) {
+/**
+ * Column 1 primary nav item.
+ * Context domains open Column 2 — they never expand the primary sidebar.
+ */
+export function SidebarNavItem({ item, collapsed, onNavigate }: SidebarNavItemProps) {
   const pathname = usePathname();
-  const { isExpanded, toggle } = useSidebarExpanded();
-  const hasChildren = Boolean(item.children?.length && item.expandableKey);
-  const expanded = item.expandableKey ? isExpanded(item.expandableKey) : false;
+  const router = useRouter();
+  const {
+    activeContextKey,
+    openContextDomain,
+    clearContextDomain,
+    setContextPanelCollapsed,
+  } = useSidebarContext();
+
+  const isDomain = isContextDomain(item);
+  const childActive =
+    item.children?.some((child) => isNavHrefActive(pathname, child.href)) ?? false;
+  const contextSelected = Boolean(
+    isDomain && item.expandableKey && activeContextKey === item.expandableKey,
+  );
   const active =
-    isNavActive(pathname, item.href) ||
-    item.children?.some((child) => isNavActive(pathname, child.href));
+    (!isDomain && isNavHrefActive(pathname, item.href)) || childActive || contextSelected;
 
   const Icon = item.icon;
 
+  const activateContextDomain = () => {
+    if (!item.expandableKey) return;
+    openContextDomain(item.expandableKey);
+    setContextPanelCollapsed(false);
+    const first = item.children?.[0];
+    if (first && !childActive) {
+      onMainNavClick(first.href, onNavigate);
+      router.push(first.href);
+    } else {
+      onNavigate?.();
+    }
+  };
+
   if (collapsed) {
+    if (isDomain) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={activateContextDomain}
+              className={cn(
+                "flex w-full items-center justify-center rounded-lg px-0 py-2 text-sm font-medium transition-all",
+                active
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+              )}
+              aria-label={item.title}
+              aria-current={active ? "page" : undefined}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{item.title}</TooltipContent>
+        </Tooltip>
+      );
+    }
+
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           <Link
             href={item.href}
-            onClick={() => onMainNavClick(item.href)}
+            onClick={() => {
+              clearContextDomain();
+              onMainNavClick(item.href, onNavigate);
+            }}
             className={cn(
               "flex items-center justify-center rounded-lg px-0 py-2 text-sm font-medium transition-all",
               active
@@ -76,73 +118,54 @@ export function SidebarNavItem({ item, collapsed }: SidebarNavItemProps) {
     );
   }
 
-  if (!hasChildren) {
+  if (isDomain) {
     return (
-      <Link
-        href={item.href}
-        onClick={() => onMainNavClick(item.href)}
+      <button
+        type="button"
+        onClick={activateContextDomain}
         className={cn(
-          "flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-all",
+          "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-all",
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
         )}
+        aria-pressed={contextSelected}
+        aria-label={`${item.title} — open context navigation`}
       >
         <Icon className="h-4 w-4 shrink-0" />
-        <span className="flex-1">{item.title}</span>
-        {item.badge && (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{item.badge}</span>
-        )}
-      </Link>
+        <span className="flex-1 text-left truncate">{item.title}</span>
+        <PanelRight
+          className={cn(
+            "h-3.5 w-3.5 shrink-0",
+            contextSelected ? "text-primary" : "text-muted-foreground",
+          )}
+          aria-hidden
+        />
+      </button>
     );
   }
 
   return (
-    <div>
-      <div className="flex items-center gap-0.5">
-        <Link
-          href={item.href}
-          onClick={() => onMainNavClick(item.href)}
-          className={cn(
-            "flex flex-1 items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-all min-w-0",
-            active
-              ? "bg-sidebar-accent/80 text-sidebar-accent-foreground"
-              : "text-sidebar-foreground hover:bg-sidebar-accent/50",
-          )}
-        >
-          <Icon className="h-4 w-4 shrink-0" />
-          <span className="flex-1 truncate">{item.title}</span>
-          {item.badge && (
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{item.badge}</span>
-          )}
-        </Link>
-        <button
-          type="button"
-          onClick={() => item.expandableKey && toggle(item.expandableKey)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-          aria-label={`Toggle ${item.title} menu`}
-        >
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
-        </button>
-      </div>
-      {expanded && item.children && (
-        <div className="ml-4 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-2">
-          {item.children.map((child) => (
-            <Link
-              key={child.href}
-              href={child.href}
-              className={cn(
-                "block rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
-                isNavActive(pathname, child.href)
-                  ? "text-sidebar-accent-foreground bg-sidebar-accent/60"
-                  : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/30",
-              )}
-            >
-              {child.title}
-            </Link>
-          ))}
-        </div>
+    <Link
+      href={item.href}
+      onClick={() => {
+        clearContextDomain();
+        onMainNavClick(item.href, onNavigate);
+      }}
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-all",
+        active
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
       )}
-    </div>
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="flex-1">{item.title}</span>
+      {item.badge && (
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+          {item.badge}
+        </span>
+      )}
+    </Link>
   );
 }

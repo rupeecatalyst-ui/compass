@@ -8,17 +8,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow hover:bg-primary/90 active:bg-primary/85 active:scale-[0.98]",
+        default: "bg-primary text-primary-foreground shadow hover:bg-primary/90 active:bg-primary/85",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 active:bg-destructive/85 active:scale-[0.98]",
+          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 active:bg-destructive/85",
         outline:
-          "border border-input bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground active:bg-accent/90 active:text-accent-foreground active:scale-[0.98]",
+          "border border-input bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground active:bg-accent/90 active:text-accent-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 active:bg-secondary/70 active:scale-[0.98]",
+          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 active:bg-secondary/70",
         ghost: "text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent/90 active:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        accent: "bg-accent text-accent-foreground shadow hover:bg-accent/90 active:bg-accent/80 active:scale-[0.98]",
-        glass: "glass text-foreground hover:bg-accent/40 hover:text-accent-foreground active:scale-[0.98]",
+        accent: "bg-accent text-accent-foreground shadow hover:bg-accent/90 active:bg-accent/80",
+        glass: "glass text-foreground hover:bg-accent/40 hover:text-accent-foreground",
       },
       size: {
         default: "h-10 px-4 py-2",

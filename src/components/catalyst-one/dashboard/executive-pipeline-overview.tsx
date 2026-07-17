@@ -26,7 +26,7 @@ export function ExecutivePipelineOverview() {
   return (
     <DashboardCard
       className="cursor-pointer transition-colors hover:border-slate-700"
-      onClick={() => router.push(ROUTES.PIPELINE)}
+      onClick={() => router.push(ROUTES.CHANAKYA_RADAR)}
     >
       <DashboardCardHeader
         title="Pipeline"

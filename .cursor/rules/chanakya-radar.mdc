@@ -1,0 +1,18 @@
+---
+description: CHANAKYA Radar — Deal Health board rules (not workflow)
+globs:
+  - src/components/catalyst-one/chanakya-radar/**
+  - src/lib/chanakya-radar/**
+  - src/constants/chanakya-radar.ts
+  - src/app/(dashboard)/chanakya-radar/**
+---
+
+# CHANAKYA Radar
+
+- AI Deal Health Board — **not** a workflow or lender-stage board.
+- Kanban **only** — no List / Table / Calendar.
+- Columns fixed: On Track · Needs Attention · At Risk · Dormant · On Hold · Completed.
+- Cards are **never** draggable; only CHANAKYA classification moves health.
+- Column panes: fixed height + independent vertical scroll (no “+N More”).
+- Cards show borrower, OPP#, product, amount, up to 3 active lenders + stage, CHANAKYA Says / Why? / Recommends / Confidence.
+- Never show Rejected / Lost / Cancelled / Withdrawn / Closed lenders on cards.

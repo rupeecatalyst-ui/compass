@@ -121,24 +121,24 @@ export function ChanakyaLenderPipelinePanel({
   return (
     <div
       className={cn(
-        "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-emerald-600/25",
-        "bg-gradient-to-r from-emerald-500/8 via-background/80 to-emerald-500/5 px-3 shadow-sm",
+        "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md border border-emerald-600/25",
+        "bg-gradient-to-r from-emerald-500/8 via-background/80 to-emerald-500/5 px-2.5 shadow-sm",
         className,
       )}
     >
-      <Brain className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-300" />
-      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+      <Brain className="h-3 w-3 shrink-0 text-emerald-700 dark:text-emerald-300" />
+      <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
         Chanakya Live
       </span>
-      <Sparkles className="h-3 w-3 shrink-0 text-emerald-600/60" />
-      <div className="relative h-5 min-w-0 flex-1 overflow-hidden">
+      <Sparkles className="h-2.5 w-2.5 shrink-0 text-emerald-600/60" />
+      <div className="relative h-4 min-w-0 flex-1 overflow-hidden">
         <div
           className="transition-transform duration-700 ease-in-out"
-          style={{ transform: `translateY(-${index * 20}px)` }}
+          style={{ transform: `translateY(-${index * 16}px)` }}
         >
           {messages.map((msg, i) => (
-            <p key={`${msg}-${i}`} className="h-5 truncate text-xs text-foreground/90">
-              • {msg}
+            <p key={`${msg}-${i}`} className="h-4 truncate text-[11px] text-foreground/90">
+              {msg}
             </p>
           ))}
         </div>

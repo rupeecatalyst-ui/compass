@@ -1,0 +1,23 @@
+# Enterprise Contact Registry — Party SSOT
+
+## Principle
+
+There is **one** Contacts module (`/contacts`). There is **no** Directory module.
+
+Contacts is the Enterprise Party Registry for every person and company.
+
+## Filters (not menus)
+
+All · Individuals · Companies · role filters from Role Master.
+
+Adding a future role = Role Master entry + automatic filter. No navigation redesign.
+
+## Workspace
+
+One Contact → multiple Roles → one Contact Workspace (tabs from roles).
+
+Companies open Company Workspace from the same registry.
+
+## Data integrity
+
+After Save: registry change bus notifies all consumers. No stale lists. No duplicate contact stores.

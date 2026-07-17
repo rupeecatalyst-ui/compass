@@ -26,7 +26,7 @@ const typeConfig: Record<
   loan: { icon: Workflow, color: "bg-primary/10 text-primary border-primary/20", href: ROUTES.LOAN_FILES },
   customer: { icon: UserPlus, color: "bg-info/10 text-info border-info/20", href: ROUTES.CUSTOMERS },
   document: { icon: FileText, color: "bg-warning/10 text-warning border-warning/20", href: ROUTES.DOCUMENTS },
-  disbursement: { icon: Banknote, color: "bg-accent/10 text-accent border-accent/20", href: ROUTES.PIPELINE },
+  disbursement: { icon: Banknote, color: "bg-accent/10 text-accent border-accent/20", href: ROUTES.MY_DEALS },
   task: { icon: ListTodo, color: "bg-muted text-muted-foreground border-border", href: ROUTES.TASKS },
   system: { icon: Bot, color: "bg-primary/10 text-primary border-primary/20", href: ROUTES.DASHBOARD },
 };
@@ -69,7 +69,7 @@ export function ActivityTimeline() {
                   )}
                   <div
                     className={cn(
-                      "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-transform group-hover:scale-105",
+                      "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border",
                       config.color,
                     )}
                   >

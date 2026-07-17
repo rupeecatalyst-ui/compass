@@ -6,7 +6,7 @@ const CHANAKYA_WISDOM: { quote: string; actionHint: string; href: string; label:
   {
     quote: "Before you stretch for new revenue, clear the files already waiting at your desk.",
     actionHint: "Start with disbursements pending today — momentum compounds.",
-    href: "/pipeline?stage=closure_wip",
+    href: "/my-deals",
     label: "Review Disbursements",
   },
   {
@@ -24,7 +24,7 @@ const CHANAKYA_WISDOM: { quote: string; actionHint: string; href: string; label:
   {
     quote: "The best operators do not chase every file — they protect the ones closest to revenue.",
     actionHint: "Two sanctions are ready but disbursement has not started.",
-    href: "/pipeline?stage=final_approved",
+    href: "/my-deals",
     label: "Push Sanctions Forward",
   },
   {

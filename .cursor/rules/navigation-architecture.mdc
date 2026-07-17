@@ -1,0 +1,49 @@
+---
+description: Enterprise Context Navigation — Architecture Freeze (CHANAKYA Radar)
+alwaysApply: true
+globs:
+  - src/config/navigation.ts
+  - src/components/layout/**
+  - src/layouts/dashboard-layout.tsx
+  - src/components/providers/sidebar-provider.tsx
+---
+
+# Enterprise Context Navigation Standard (Architecture Freeze)
+
+## Three-column model
+
+1. **Column 1 — Primary Navigation** (frozen order — do not change without approval):
+   Dashboard · CHANAKYA Radar · Contacts · My Deals · Loan Workspace · Investments · Tasks · Documents · Lenders · Accounting · Mission Control · Horizon · Administration · Settings.
+   Fixed height — **never** expand child menus inline.
+2. **Column 2 — Context Navigation Panel**: children of Administration / Settings only.
+3. **Column 3 — Workspace**: selected screen.
+
+## Module responsibilities (one each)
+
+| Module | Responsibility |
+|--------|----------------|
+| Dashboard | KPIs |
+| CHANAKYA Radar | AI prioritisation / deal health (Kanban only; no drag) |
+| My Deals | User work queue (Kanban / List / Table) |
+| Loan Workspace | Execution (benches retained) |
+| Lender Pipeline | Workflow (inside deal) |
+
+## Contacts (Enterprise Party Registry)
+
+- One Contacts module (`/contacts`). No separate Directory.
+- Source of truth: ECM Contact Registry.
+
+## Loan Board
+
+- **Removed.** `/pipeline` redirects to CHANAKYA Radar.
+- Do not reintroduce Loan Board in primary nav.
+
+## Administration
+
+- Configuration only.
+- **Never** park operational workspaces under Administration.
+
+## Behaviour
+
+- Context domain parents open Column 2.
+- Source of truth: `src/config/navigation.ts`.

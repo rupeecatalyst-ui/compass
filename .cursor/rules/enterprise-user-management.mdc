@@ -1,0 +1,37 @@
+---
+description: Enterprise IAM — Directory Contact SSOT; User Accounts via Platform Access only
+alwaysApply: false
+globs:
+  - src/components/catalyst-one/enterprise-user-management/**
+  - src/lib/enterprise-user-management/**
+  - src/types/enterprise-user-management.ts
+  - src/constants/enterprise-user-management/**
+  - src/app/(dashboard)/admin/users/**
+  - src/types/enterprise-contact-master.ts
+---
+
+# Identity & Access Management (v1.0 — architecture revision)
+
+## Principles
+
+1. **Directory Contact** is the enterprise identity SSOT — every person exists as a Contact first  
+2. **Never** create User Accounts directly — only via **Grant Platform Access** on a Contact  
+3. Identity ≠ User Account ≠ Roles ≠ Permissions ≠ Platform Access  
+4. Unlimited roles (responsibility); Effective Permission Set alone enforces access  
+5. Formula: Roles → Role Permissions → Templates → User Overrides → Effective Set → Platform Access  
+6. Login Status: Pending Invitation | Active | Suspended | Archived  
+7. Platform Access on Contact: No Access | Catalyst One | COMPASS | Both (default No Access)  
+8. Exit: deactivate login, retain Contact, transfer work, keep audit — never delete identity  
+9. Super Admin last-active protections remain  
+
+## Flow
+
+Directory Contact → Grant Platform Access → User Account → Assign Roles → Effective Permissions
+
+## Source of truth
+
+- ECM Contact: `src/types/enterprise-contact-master.ts` (`platformAccess`, `linkedUserId`)  
+- User Account: `src/types/enterprise-user-management.ts`  
+- Effective engine: `src/lib/enterprise-user-management/effective-permissions.ts`  
+- Grant/revoke: `src/lib/enterprise-user-management/iam-lifecycle.ts`  
+- UI: Administration → Users; Directory employee action → Grant Access  

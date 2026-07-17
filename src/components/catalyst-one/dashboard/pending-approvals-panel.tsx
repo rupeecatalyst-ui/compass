@@ -30,7 +30,7 @@ export function PendingApprovalsPanel() {
         description="High-priority decisions waiting"
         action={
           <Link
-            href={`${ROUTES.PIPELINE}?stage=credit_wip`}
+            href={ROUTES.MY_DEALS}
             className="text-[10px] font-medium text-teal-400 hover:underline"
           >
             View all

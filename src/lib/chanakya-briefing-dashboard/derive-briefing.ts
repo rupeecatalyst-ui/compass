@@ -153,7 +153,7 @@ export function deriveChanakyaBriefingDashboard(input: {
       insight: `${pipelineKpi?.subValue ?? "148 active files"} · revenue trend ${pipelineKpi?.trend?.label ?? "+12% vs last month"}.`,
       reason: "Portfolio health is within normal bands, but disbursement and credit queues need same-day action.",
       actionLabel: "View Business Pipeline",
-      actionHref: ROUTES.PIPELINE,
+      actionHref: ROUTES.CHANAKYA_RADAR,
       priority: 3,
     },
     {

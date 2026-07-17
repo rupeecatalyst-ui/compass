@@ -16,6 +16,7 @@ import { LoanOriginationSection } from "@/components/catalyst-one/shared/loan-or
 import { LoanParticipantsPanel } from "@/components/catalyst-one/shared/loan-participants-panel";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
+import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { LOAN_JOURNEY_SOURCES } from "@/constants/loan-journey-sources";
 import {
   getProductsForLendingType,
@@ -41,6 +42,7 @@ import {
   isEcmContactUsable,
   listEcmContacts,
 } from "@/lib/enterprise-contact-master";
+import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,7 +80,10 @@ const schema = z.object({
   transactionType: z.enum(["fresh", "balance_transfer"]),
   customerType: z.string().min(1),
   loanProduct: z.string().min(1),
-  requiredAmount: z.coerce.number().min(100000),
+  requiredAmount: z.number({
+    required_error: "Required loan amount is required",
+    invalid_type_error: "Enter Required Loan Amount",
+  }).min(100000, "Minimum loan amount is ₹1,00,000"),
   monthlyIncome: z.coerce.number().min(1, "Monthly Income is required for loan assessment"),
   priority: z.enum(["urgent", "high", "medium", "low"]),
   loginDate: z.string().min(1),
@@ -162,6 +167,7 @@ export function LoanCreateFormDialog({
   const [sourceContactOrganisation, setSourceContactOrganisation] = useState<string>();
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
   const [contactOptionsTick, setContactOptionsTick] = useState(0);
+  const registryVersion = useEcmContactRegistryVersion();
   const [primaryCreateOpen, setPrimaryCreateOpen] = useState(false);
   const [primaryCreatePrefill, setPrimaryCreatePrefill] = useState("");
 
@@ -178,7 +184,7 @@ export function LoanCreateFormDialog({
       transactionType: "fresh",
       customerType: "Individual",
       loanProduct: getProductsForLendingType("secured")[0] ?? "",
-      requiredAmount: 45_00_000,
+      requiredAmount: undefined as unknown as number,
       monthlyIncome: undefined as unknown as number,
       priority: "medium",
       loginDate: today,
@@ -224,9 +230,12 @@ export function LoanCreateFormDialog({
     const byId = new Map<string, (typeof seed)[number]>();
     for (const row of [...seed, ...ecm]) byId.set(row.id, row);
     return [...byId.values()];
-  }, [contactOptionsTick]);
+  }, [contactOptionsTick, registryVersion]);
 
-  const sourceContactOptions = useMemo(() => listSourceContactOptions(source), [source]);
+  const sourceContactOptions = useMemo(
+    () => listSourceContactOptions(source),
+    [source, contactOptionsTick, registryVersion],
+  );
   const hideSourceContact = source === "Direct";
 
   const companyOptions = useMemo(() => {
@@ -363,7 +372,7 @@ export function LoanCreateFormDialog({
       transactionType: "fresh",
       customerType: "Individual",
       loanProduct: getProductsForLendingType("secured")[0] ?? "",
-      requiredAmount: 45_00_000,
+      requiredAmount: undefined as unknown as number,
       monthlyIncome: undefined as unknown as number,
       priority: "medium",
       loginDate: today,
@@ -453,7 +462,18 @@ export function LoanCreateFormDialog({
         internalNotes: `Customer Type: ${values.customerType}`,
         businessDetails: {
           ...synced.businessDetails,
-          monthlySalary: values.monthlyIncome,
+          ...(getContextAwareVisibility(values.employmentType).isSelfEmployedFamily
+            ? {
+                monthlySalary: undefined,
+                annualTurnover: values.monthlyIncome,
+              }
+            : {
+                monthlySalary: values.monthlyIncome,
+                annualTurnover: undefined,
+                annualProfit: undefined,
+                annualGrossReceipts: undefined,
+                annualProfessionalIncome: undefined,
+              }),
         },
         ...(values.transactionType === "balance_transfer"
           ? {
@@ -770,19 +790,28 @@ export function LoanCreateFormDialog({
                     </FormField>
 
                     <FormField
-                      label="Required Amount (₹) *"
+                      label="Required Loan Amount (₹) *"
                       error={form.formState.errors.requiredAmount?.message}
                     >
                       <INRCurrencyInput
                         value={form.watch("requiredAmount")}
+                        placeholder="Enter Required Loan Amount"
                         onChange={(v) =>
-                          form.setValue("requiredAmount", v ?? 0, { shouldDirty: true })
+                          form.setValue(
+                            "requiredAmount",
+                            (v ?? undefined) as number,
+                            { shouldDirty: true, shouldValidate: true },
+                          )
                         }
                       />
                     </FormField>
 
                     <FormField
-                      label="Monthly Income (₹) *"
+                      label={
+                        getContextAwareVisibility(form.watch("employmentType")).isSelfEmployedFamily
+                          ? "Annual Turnover (₹) *"
+                          : "Monthly Income (₹) *"
+                      }
                       error={form.formState.errors.monthlyIncome?.message}
                     >
                       <INRCurrencyInput
@@ -792,7 +821,9 @@ export function LoanCreateFormDialog({
                         }
                       />
                       <p className="mt-1 text-[10px] text-muted-foreground">
-                        Credit parameter — captured in Loan Journey, not Borrower Profile.
+                        {getContextAwareVisibility(form.watch("employmentType")).isSelfEmployedFamily
+                          ? "Context-aware · self-employed income metric (not salary)."
+                          : "Context-aware · salaried income metric for loan assessment."}
                       </p>
                     </FormField>
 

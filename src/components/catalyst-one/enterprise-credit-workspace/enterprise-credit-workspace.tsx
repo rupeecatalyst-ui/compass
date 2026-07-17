@@ -57,6 +57,8 @@ export function EnterpriseCreditWorkspace() {
   const [toast, setToast] = useState<string | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [savedOnce, setSavedOnce] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -127,7 +129,7 @@ export function EnterpriseCreditWorkspace() {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+      <div className="flex min-h-[40vh] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
       </div>
     );
@@ -162,9 +164,24 @@ export function EnterpriseCreditWorkspace() {
   });
 
   return (
-    <div className="-mx-4 flex h-[calc(100vh-4rem)] flex-col overflow-hidden bg-background md:-mx-6 lg:-mx-8">
+    <div className="-mx-4 flex flex-col bg-background md:-mx-6 lg:-mx-8">
       <LeadOpportunityJourneyChrome
         moduleId="credit_workbench"
+        scrollMode="document"
+        journeyNavigatorMode="button"
+        density="compact"
+        hideContextChips
+        title={file.customerName}
+        identityLine={[
+          opportunityNumber,
+          file.loanProduct,
+          formatINR(file.requiredAmount || file.loanAmount),
+          stageLabel,
+          file.relationshipManager ? `RM ${file.relationshipManager}` : null,
+          lender.enabled ? lender.lenderName : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         context={{
           opportunity: opportunityNumber,
           customer: file.customerName,
@@ -176,6 +193,8 @@ export function EnterpriseCreditWorkspace() {
         }}
         fileId={file.id}
         opportunityId={opportunityId}
+        hasUnsavedChanges={dirty}
+        acknowledgeCleanClose={!dirty && savedOnce}
         headerActions={
           <ChanakyaGuide
             offerTour={false}
@@ -188,10 +207,12 @@ export function EnterpriseCreditWorkspace() {
         }
         onSaveDraft={async () => {
           saveStatedDraft(file.id, stated);
+          setDirty(false);
+          setSavedOnce(true);
           showToast("Verification draft saved for Opportunity Setup continuity.");
         }}
       >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex flex-col">
           <EcwChanakyaLiveBanner
             readiness={readiness}
             missingLabels={missingLabels}
@@ -199,12 +220,12 @@ export function EnterpriseCreditWorkspace() {
           />
 
           {toast && (
-            <div className="shrink-0 border-b border-teal-500/20 bg-teal-500/10 px-3 py-1 text-[11px] text-teal-950 dark:text-teal-100 sm:px-4">
+            <div className="border-b border-teal-500/20 bg-teal-500/10 px-3 py-1 text-[11px] text-teal-950 dark:text-teal-100 sm:px-4">
               {toast}
             </div>
           )}
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 bg-muted/15 px-3 py-2 sm:px-4">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-muted/15 px-3 py-1 sm:px-4">
             <Button
               type="button"
               size="sm"
@@ -233,8 +254,9 @@ export function EnterpriseCreditWorkspace() {
             </span>
           </div>
 
-          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(240px,28%)_minmax(0,1fr)]">
-            <div className="flex min-h-0 flex-col overflow-hidden border-r border-border/50">
+          {/* Natural page scroll: form grows with content; only document preview is height-bound. */}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(240px,28%)_minmax(0,1fr)]">
+            <div className="border-b border-border/50 lg:border-b-0 lg:border-r">
               <EcwLeftPanel
                 file={file}
                 opportunityNumber={opportunityNumber}
@@ -242,12 +264,15 @@ export function EnterpriseCreditWorkspace() {
                 section={section}
                 onSectionChange={setSection}
                 stated={stated}
-                onStatedChange={(patch) => setStated((prev) => ({ ...prev, ...patch }))}
+                onStatedChange={(patch) => {
+                  setStated((prev) => ({ ...prev, ...patch }));
+                  setDirty(true);
+                }}
                 documents={file.documents ?? []}
                 readiness={readiness}
               />
             </div>
-            <div className="flex min-h-0 flex-col overflow-hidden">
+            <div className="min-h-[min(70vh,720px)] lg:min-h-[calc(100dvh-9rem)]">
               <EcwDocumentCentre
                 documents={viewerDocs}
                 selectedId={selectedDocId}

@@ -16,6 +16,12 @@ export type EcmContactRole =
 export type EcmContactStatus = "provisional" | "active" | "complete" | "verified" | "archived";
 
 /**
+ * Platform access is independent of Contact identity and business roles.
+ * Default: no_access. Granting access creates a linked User Account (never the reverse).
+ */
+export type EcmPlatformAccess = "no_access" | "catalyst_one" | "compass" | "both";
+
+/**
  * Contact lifecycle (Enterprise UX Constitution — Progressive Contact Creation).
  * - provisional: minimum info; business may continue
  * - complete / active: required business information captured (active kept for legacy)
@@ -49,6 +55,13 @@ export interface EcmContact {
   roles: EcmContactRole[];
   enabled: boolean;
   status: EcmContactStatus;
+  /**
+   * Platform Access (independent of identity). Default no_access.
+   * Changing from no_access provisions a linked User Account.
+   */
+  platformAccess: EcmPlatformAccess;
+  /** Linked authentication object — at most one User Account per Contact */
+  linkedUserId: string | null;
   /** Relationship Manager / Owner display name */
   ownerName?: string;
   ownerId?: string;

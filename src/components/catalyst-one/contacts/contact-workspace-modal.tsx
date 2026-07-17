@@ -11,7 +11,9 @@ import {
   Circle,
   Pencil,
   Plus,
+  Save,
   Sparkles,
+  X,
 } from "lucide-react";
 import {
   getEcmMasterLabel,
@@ -46,10 +48,12 @@ import {
   getEcmBankerOrgPlacement,
   getEcmBankerReportingManagerId,
   getEcmContactAssignedRoles,
+  isEcmDuplicateContactError,
   listEcmContacts,
   registerEcmContact,
   setBankerReportingManager,
   updateEcmContact,
+  type EcmDuplicateMatchField,
 } from "@/lib/enterprise-contact-master";
 import type { EcmWorkspaceTab } from "@/lib/enterprise-contact-master";
 import { createLoanFileFromInput } from "@/lib/loan-files-utils";
@@ -62,6 +66,7 @@ import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-rol
 import { ChanakyaJourneyGuidanceCard } from "@/components/catalyst-one/contacts/chanakya-journey-guidance-card";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
 import { ReportingManagerPicker } from "@/components/catalyst-one/contacts/reporting-manager-picker";
+import { PotentialDuplicateContactDialog } from "@/components/catalyst-one/contacts/potential-duplicate-contact-dialog";
 import {
   LoanCreateFormDialog,
   type LoanCreateSubmitMeta,
@@ -85,6 +90,8 @@ interface ContactWorkspaceModalProps {
   initialTab?: string;
   onOpenChange: (open: boolean) => void;
   onSaved: (contact: EcmContact) => void;
+  /** When a duplicate is found — open the existing registry contact instead of creating. */
+  onOpenExisting?: (contact: EcmContact) => void;
 }
 
 function formatTs(value?: string) {
@@ -218,6 +225,7 @@ export function ContactWorkspaceModal({
   initialTab = "identity",
   onOpenChange,
   onSaved,
+  onOpenExisting,
 }: ContactWorkspaceModalProps) {
   const router = useRouter();
   const { user } = useAuthContext();
@@ -246,6 +254,9 @@ export function ContactWorkspaceModal({
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(initialTab);
   const [saving, setSaving] = useState(false);
+  const [dupOpen, setDupOpen] = useState(false);
+  const [dupContact, setDupContact] = useState<EcmContact | null>(null);
+  const [dupField, setDupField] = useState<EcmDuplicateMatchField | null>(null);
   const [showIdentityAdditional, setShowIdentityAdditional] = useState(false);
   const [showRoleAdditional, setShowRoleAdditional] = useState(false);
   const [loanDialogOpen, setLoanDialogOpen] = useState(false);
@@ -443,7 +454,18 @@ export function ContactWorkspaceModal({
         if (thenNext) goNext();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "I couldn't save this contact just now. Please try again.");
+      if (isEcmDuplicateContactError(e)) {
+        setDupContact(e.match);
+        setDupField(e.matchField);
+        setDupOpen(true);
+        setError(null);
+      } else {
+        setError(
+          e instanceof Error
+            ? e.message
+            : "I couldn't save this contact just now. Please try again.",
+        );
+      }
     } finally {
       setSaving(false);
     }
@@ -628,6 +650,11 @@ export function ContactWorkspaceModal({
       setLoanDialogOpen(true);
       return;
     }
+    if (actionId === "create_user_account" && active) {
+      onOpenChange(false);
+      router.push(`${ROUTES.ADMIN_USERS}?grantContact=${encodeURIComponent(active.id)}`);
+      return;
+    }
     const navigateTo = opts?.mode === "open" ? opts.openHref ?? href : href;
     if (navigateTo) {
       onOpenChange(false);
@@ -639,7 +666,6 @@ export function ContactWorkspaceModal({
       create_referral: "Partner onboarding continues — next commercial / referral steps open from this role.",
       add_project: "Builder project workspace is ready — project details belong to the Project Journey.",
       link_lender: "Opening lender relationship management…",
-      create_user_account: "Employee onboarding continues from System Administration with this Contact SSOT.",
       manage_ca_engagement: "CA engagement continues from this Contact identity.",
     };
     setActionNotice(messages[actionId] ?? "Next business step recorded.");
@@ -1341,13 +1367,12 @@ export function ContactWorkspaceModal({
       >
         <DialogContent
           className={cn(
-            "flex max-h-[90vh] w-[min(1100px,94vw)] max-w-[1100px] flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-100 sm:rounded-2xl",
+            "flex max-h-[90vh] w-[min(1100px,94vw)] max-w-[1100px] flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-100 sm:rounded-2xl [&>button]:hidden",
           )}
         >
           {!awaitingFirstSave && active ? (
             <>
-              {/* ~20% Executive Summary — compact essentials only */}
-              <div className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-4 py-2 pr-12">
+              <div className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-4 py-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -1429,6 +1454,44 @@ export function ContactWorkspaceModal({
                     >
                       <Plus className="h-3 w-3" />
                       Add Role
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 px-2 text-xs"
+                      disabled={saving}
+                      onClick={() => {
+                        if (currentStep?.kind === "role" && currentStep.roleCode) {
+                          saveRoleStep(currentStep.roleCode, false);
+                          return;
+                        }
+                        saveIdentity(false);
+                      }}
+                    >
+                      <Save className="h-3 w-3" />
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 gap-1 rounded-md bg-teal-700 px-2 text-xs text-white hover:bg-teal-600"
+                      disabled={saving}
+                      onClick={() => void closeApi.handleSaveAndClose()}
+                    >
+                      <Save className="h-3 w-3" />
+                      Save & Exit
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 gap-1 px-2 text-xs text-zinc-400 hover:text-zinc-100"
+                      onClick={closeApi.requestClose}
+                      aria-label="Close workspace"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden />
+                      Close
                     </Button>
                   </div>
                 </div>
@@ -1706,7 +1769,11 @@ export function ContactWorkspaceModal({
         <LoanCreateFormDialog
           open={loanDialogOpen}
           onOpenChange={setLoanDialogOpen}
-          title="Start Loan Journey"
+          title={
+            active && findActiveLoanForContact(active)
+              ? "Continue Loan Journey"
+              : "Start Loan Journey"
+          }
           description="Loan File owns product, amount, purpose, property and co-applicants. Contact and Borrower profile are prefilled — do not re-enter person data."
           prefillCustomer={buildLoanPrefill(active)}
           onSubmit={handleLoanCreated}
@@ -1719,6 +1786,22 @@ export function ContactWorkspaceModal({
         onDiscard={closeApi.handleDiscard}
         onSaveAndClose={closeApi.handleSaveAndClose}
         saving={closeApi.saving}
+      />
+
+      <PotentialDuplicateContactDialog
+        open={dupOpen}
+        onOpenChange={setDupOpen}
+        contact={dupContact}
+        matchField={dupField}
+        onOpenExisting={(existing) => {
+          setDupOpen(false);
+          onOpenChange(false);
+          if (onOpenExisting) {
+            onOpenExisting(existing);
+            return;
+          }
+          onSaved(existing);
+        }}
       />
     </>
   );

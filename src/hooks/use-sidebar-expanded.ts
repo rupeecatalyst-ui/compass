@@ -4,10 +4,11 @@ import { useSidebarContext } from "@/components/providers/sidebar-provider";
 
 /** Global sidebar nav-group expansion — shared via SidebarProvider (UX-02). */
 export function useSidebarExpanded() {
-  const { isGroupExpanded, toggleGroup } = useSidebarContext();
+  const { isGroupExpanded, toggleGroup, ensureGroupExpanded } = useSidebarContext();
 
   return {
     isExpanded: isGroupExpanded,
     toggle: toggleGroup,
+    ensureExpanded: ensureGroupExpanded,
   };
 }

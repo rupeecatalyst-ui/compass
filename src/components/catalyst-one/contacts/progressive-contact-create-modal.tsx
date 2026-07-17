@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, UserPlus } from "lucide-react";
 import {
+  isEcmDuplicateContactError,
   progressiveRequiresMobile,
   registerProgressiveLoanContact,
   toEcmContactLifecycleLabel,
+  type EcmDuplicateMatchField,
   type ProgressiveParticipantKind,
 } from "@/lib/enterprise-contact-master";
 import type { EcmContact } from "@/types/enterprise-contact-master";
@@ -21,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { PotentialDuplicateContactDialog } from "@/components/catalyst-one/contacts/potential-duplicate-contact-dialog";
 
 export interface ProgressiveContactCreateModalProps {
   open: boolean;
@@ -29,6 +32,7 @@ export interface ProgressiveContactCreateModalProps {
   initialName?: string;
   participantKind: ProgressiveParticipantKind;
   onCreated: (contact: EcmContact) => void;
+  onOpenExisting?: (contact: EcmContact) => void;
 }
 
 function kindLabel(kind: ProgressiveParticipantKind): string {
@@ -55,12 +59,16 @@ export function ProgressiveContactCreateModal({
   initialName = "",
   participantKind,
   onCreated,
+  onOpenExisting,
 }: ProgressiveContactCreateModalProps) {
   const { user } = useAuthContext();
   const [name, setName] = useState(initialName);
   const [mobile, setMobile] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dupOpen, setDupOpen] = useState(false);
+  const [dupContact, setDupContact] = useState<EcmContact | null>(null);
+  const [dupField, setDupField] = useState<EcmDuplicateMatchField | null>(null);
   const needMobile = progressiveRequiresMobile(participantKind);
 
   useEffect(() => {
@@ -69,6 +77,8 @@ export function ProgressiveContactCreateModal({
       setMobile("");
       setError(null);
       setSaving(false);
+      setDupOpen(false);
+      setDupContact(null);
     }
   }, [open, initialName]);
 
@@ -97,13 +107,21 @@ export function ProgressiveContactCreateModal({
       onCreated(contact);
       onOpenChange(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create contact.");
+      if (isEcmDuplicateContactError(e)) {
+        setDupContact(e.match);
+        setDupField(e.matchField);
+        setDupOpen(true);
+        setError(null);
+      } else {
+        setError(e instanceof Error ? e.message : "Could not create contact.");
+      }
     } finally {
       setSaving(false);
     }
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -170,5 +188,19 @@ export function ProgressiveContactCreateModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <PotentialDuplicateContactDialog
+      open={dupOpen}
+      onOpenChange={setDupOpen}
+      contact={dupContact}
+      matchField={dupField}
+      onOpenExisting={(existing) => {
+        setDupOpen(false);
+        onOpenChange(false);
+        if (onOpenExisting) onOpenExisting(existing);
+        else onCreated(existing);
+      }}
+    />
+    </>
   );
 }

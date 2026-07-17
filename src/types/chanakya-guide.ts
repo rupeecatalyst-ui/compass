@@ -125,6 +125,11 @@ export interface ChanakyaLoanJourneyStageDef {
   objective: string;
   /** Mentor message when this stage is focused. */
   chanakyaMessage: string;
+  /**
+   * workflow = business stage progression · support = Tasks/Timeline (not stage cards).
+   * Defaults to workflow when omitted.
+   */
+  kind?: "workflow" | "support";
   /** Maps Guide workspace / section context to this stage. */
   matchWorkspaceIds?: ChanakyaGuideWorkspaceId[];
   matchSections?: string[];

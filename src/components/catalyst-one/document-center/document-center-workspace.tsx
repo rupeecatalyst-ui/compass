@@ -86,6 +86,8 @@ export function DocumentCenterWorkspace() {
   const [loading, setLoading] = useState(true);
   const [receipts, setReceipts] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [savedOnce, setSavedOnce] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -152,13 +154,15 @@ export function DocumentCenterWorkspace() {
     const next = { ...receipts, [typeRef]: true };
     setReceipts(next);
     saveReceipts(file.id, next);
+    setDirty(false);
+    setSavedOnce(true);
     setToast(`${typeRef.replace(/^doc:/, "")} marked received`);
     window.setTimeout(() => setToast(null), 2500);
   };
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+      <div className="flex min-h-[40vh] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
       </div>
     );
@@ -175,12 +179,26 @@ export function DocumentCenterWorkspace() {
   }
 
   return (
-    <div className="-mx-4 flex h-[calc(100vh-4rem)] flex-col md:-mx-6 lg:-mx-8">
+    <div className="-mx-4 flex min-h-0 flex-col md:-mx-6 lg:-mx-8">
       <LeadOpportunityJourneyChrome
         moduleId="document_center"
+        density="compact"
+        hideContextChips
+        title={context.customer || "Document Center"}
+        identityLine={[
+          context.opportunity,
+          context.product,
+          context.amount,
+          context.stage,
+          context.rm ? `RM ${context.rm}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         context={context}
         fileId={file.id}
         opportunityId={opportunityId}
+        hasUnsavedChanges={dirty}
+        acknowledgeCleanClose={!dirty && savedOnce}
         headerActions={
           <ChanakyaGuide
             offerTour={false}
@@ -195,6 +213,8 @@ export function DocumentCenterWorkspace() {
         }
         onSaveDraft={async () => {
           if (file) saveReceipts(file.id, receipts);
+          setDirty(false);
+          setSavedOnce(true);
         }}
       >
         <div className="space-y-4 p-4 sm:p-5">

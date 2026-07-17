@@ -93,18 +93,23 @@ export function AppSidebar({ onSearchClick }: AppSidebarProps) {
           </div>
         )}
 
-        {/* Certification navigation: Business Operations → System → Enterprise */}
         {visibleNavigation.map((group, index) => (
           <div key={group.title} className="mb-4">
             {!collapsed && index > 0 && <Separator className="mb-4" />}
-            {!collapsed && (
+            {!collapsed && !group.hideTitle && (
               <p className="mb-2 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {group.title}
               </p>
             )}
-            {group.items.map((item) => (
-              <SidebarNavItem key={item.href + item.title} item={item} collapsed={collapsed} />
-            ))}
+            <div className="space-y-0.5">
+              {group.items.map((item) => (
+                <SidebarNavItem
+                  key={`${item.expandableKey ?? item.href}-${item.title}`}
+                  item={item}
+                  collapsed={collapsed}
+                />
+              ))}
+            </div>
           </div>
         ))}
 
