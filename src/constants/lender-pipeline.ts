@@ -1,8 +1,9 @@
 import type { LenderCaseStage, LenderLostReason, LenderProbability } from "@/types/catalyst-one";
 
-/** UX-04D — Frozen enterprise lender pipeline stages. */
+/** UX-04D / CO-SPRINT-089 — Frozen enterprise lender pipeline stages. */
 export const LENDER_CASE_STAGES: { id: LenderCaseStage; label: string; color: string }[] = [
-  { id: "prelogin", label: "Prelogin", color: "#94A3B8" },
+  { id: "identified", label: "Identified", color: "#6366F1" },
+  { id: "prelogin", label: "Pre Login", color: "#94A3B8" },
   { id: "logged_in_wip", label: "Logged In – WIP", color: "#3B82F6" },
   { id: "soft_approved", label: "Soft Approved", color: "#8B5CF6" },
   { id: "final_approved", label: "Final Approved", color: "#10B981" },
@@ -42,6 +43,7 @@ export const LENDER_PROBABILITY_LABELS: Record<LenderProbability, string> = {
 
 const LEGACY_STAGE_MAP: Record<string, LenderCaseStage> = {
   raw_lead: "prelogin",
+  pre_login: "prelogin",
   login: "logged_in_wip",
   credit: "logged_in_wip",
   bank_query: "logged_in_wip",
@@ -57,6 +59,11 @@ export function normalizeLenderCaseStage(stage?: string): LenderCaseStage {
     return stage as LenderCaseStage;
   }
   return LEGACY_STAGE_MAP[stage] ?? "prelogin";
+}
+
+/** Stages that have not entered login execution yet. */
+export function isPreExecutionStage(stage?: string): boolean {
+  return normalizeLenderCaseStage(stage) === "identified";
 }
 
 export function getProbabilityStyle(p?: LenderProbability): { className: string } {

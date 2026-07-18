@@ -21,6 +21,7 @@ import type { LenderCaseStage, LoanFile, LoanLenderExecution } from "@/types/cat
 
 /** Main-line progression followed by branch terminals (hold / lost). */
 const RACE_STAGE_ORDER: LenderCaseStage[] = [
+  "identified",
   "prelogin",
   "logged_in_wip",
   "soft_approved",
@@ -31,7 +32,7 @@ const RACE_STAGE_ORDER: LenderCaseStage[] = [
   "lost",
 ];
 
-const MAIN_LINE_COUNT = 6;
+const MAIN_LINE_COUNT = 7;
 
 const PROB_RANK: Record<string, number> = {
   very_high: 6,

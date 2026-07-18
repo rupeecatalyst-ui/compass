@@ -31,6 +31,7 @@ export interface DerivePhaseReadinessInput {
 }
 
 const EXECUTION_STAGE_SCORE: Record<LenderCaseStage, number> = {
+  identified: 8,
   prelogin: 15,
   logged_in_wip: 35,
   soft_approved: 55,

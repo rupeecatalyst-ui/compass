@@ -148,6 +148,7 @@ export interface MissionControlSnapshot {
 }
 
 const ETA_BY_STAGE: Record<LenderCaseStage, number> = {
+  identified: 28,
   prelogin: 21,
   logged_in_wip: 14,
   soft_approved: 10,

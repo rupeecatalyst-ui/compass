@@ -262,6 +262,7 @@ export type LenderProbability =
 
 /** UX-04D — Frozen enterprise lender pipeline stages (master). */
 export type LenderCaseStage =
+  | "identified"
   | "prelogin"
   | "logged_in_wip"
   | "soft_approved"
@@ -296,6 +297,18 @@ export interface LoanLenderExecution {
   caseSubStage?: string;
   /** UX-04D — Per-case expected loan amount. */
   expectedLoanAmount?: number;
+  /** Product label carried from Strategic / LIFE shortlist. */
+  product?: string;
+  /** Expected ROI % from strategic analysis (if available). */
+  expectedRoi?: number;
+  /** Special notes from Strategic Workspace. */
+  specialNotes?: string;
+  /** Stable lender ref for duplicate protection (e.g. lender:hdfc). */
+  lenderRef?: string;
+  /** True when case originated from Strategic Workspace shortlist. */
+  fromStrategic?: boolean;
+  /** Opportunity that shortlisted this lender. */
+  opportunityId?: string;
   /** UX-04 — Probability and primary lender signals. */
   probability?: LenderProbability;
   isPrimary?: boolean;

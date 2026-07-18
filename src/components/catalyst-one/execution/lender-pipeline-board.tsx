@@ -39,11 +39,12 @@ import {
   LENDER_CASE_STAGE_LABELS,
   LENDER_LOST_REASONS,
   LENDER_PROBABILITY_LABELS,
-  getProbabilityStyle,
+  isPreExecutionStage,
   normalizeLenderCaseStage,
 } from "@/constants/lender-pipeline";
+import { buildElwWorkspaceHref, normalizeLenderId } from "@/constants/enterprise-lender-workspace";
+import { ROUTES } from "@/constants/routes";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
-import { formatINR } from "@/lib/format-currency";
 import type {
   LenderCaseStage,
   LenderLostReason,
@@ -53,6 +54,8 @@ import type {
   LoanLenderExecution,
 } from "@/types/catalyst-one";
 import { loanLenders } from "@/data/catalyst-one/loan-files";
+import Link from "next/link";
+import { toast } from "sonner";
 
 function nowIso() {
   return new Date().toISOString();
@@ -60,20 +63,6 @@ function nowIso() {
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function formatLastUpdated(iso?: string): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
-  const ts = d.getTime();
-  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
-  if (ts >= startOfToday) return `Today · ${time}`;
-  if (ts >= startOfYesterday) return `Yesterday · ${time}`;
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) + ` · ${time}`;
 }
 
 type WorkflowCase = LoanLenderExecution & { targetStage: LenderCaseStage };
@@ -124,7 +113,7 @@ export function LenderPipelineBoard({
   }>({
     lender: loanLenders[0] ?? "HDFC Bank",
     expectedLoanAmount: loan.requiredAmount,
-    caseStage: "prelogin" as LenderCaseStage,
+    caseStage: "identified" as LenderCaseStage,
     caseSubStage: "",
   });
 
@@ -262,7 +251,7 @@ export function LenderPipelineBoard({
     setAddForm({
       lender: remaining[0] ?? "",
       expectedLoanAmount: loan.requiredAmount,
-      caseStage: "prelogin",
+      caseStage: "identified",
       caseSubStage: "",
     });
   };
@@ -285,6 +274,28 @@ export function LenderPipelineBoard({
     const lender = cases.find((c) => c.id === id);
     onChange(cases.filter((c) => c.id !== id));
     onTimeline(`Lender case removed: ${lender?.lender ?? id}`);
+  };
+
+  const startLogin = (id: string) => {
+    const c = cases.find((x) => x.id === id);
+    if (!c || !isPreExecutionStage(c.caseStage)) return;
+    applyMove(id, "prelogin");
+    toast.success(`${c.lender} moved to Pre Login — execution started.`);
+  };
+
+  const reorderIdentified = (id: string, direction: "up" | "down") => {
+    const identified = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "identified");
+    const others = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) !== "identified");
+    const idx = identified.findIndex((c) => c.id === id);
+    if (idx < 0) return;
+    const swapWith = direction === "up" ? idx - 1 : idx + 1;
+    if (swapWith < 0 || swapWith >= identified.length) return;
+    const nextIdentified = [...identified];
+    const tmp = nextIdentified[idx]!;
+    nextIdentified[idx] = nextIdentified[swapWith]!;
+    nextIdentified[swapWith] = tmp;
+    onChange([...nextIdentified, ...others]);
+    onTimeline(`Identified order updated: ${tmp.lender}`);
   };
 
   const confirmDisbursement = () => {
@@ -374,6 +385,9 @@ export function LenderPipelineBoard({
                         onSetPrimary={() => setPrimary(c.id)}
                         onRemove={() => removeCase(c.id)}
                         onProbabilityChange={(p) => updateProbability(c.id, p)}
+                        onStartLogin={() => startLogin(c.id)}
+                        onReorderUp={() => reorderIdentified(c.id, "up")}
+                        onReorderDown={() => reorderIdentified(c.id, "down")}
                       />
                     ))}
                     {colCases.length === 0 && (
@@ -657,6 +671,9 @@ function LenderCaseKanbanCard({
   onSetPrimary,
   onRemove,
   onProbabilityChange,
+  onStartLogin,
+  onReorderUp,
+  onReorderDown,
 }: {
   loan: LoanFile;
   stageLabel: string;
@@ -667,12 +684,30 @@ function LenderCaseKanbanCard({
   onSetPrimary: () => void;
   onRemove: () => void;
   onProbabilityChange: (p: LenderProbability) => void;
+  onStartLogin: () => void;
+  onReorderUp: () => void;
+  onReorderDown: () => void;
 }) {
   const rm = caseExecution.relationshipManager ?? loan.relationshipManager;
-  const sub = caseExecution.caseSubStage;
-  const lastUpdated = formatLastUpdated(caseExecution.updatedAt);
-  const priority = loan.priority;
-  const expected = caseExecution.expectedLoanAmount ?? loan.requiredAmount;
+  const stage = normalizeLenderCaseStage(caseExecution.caseStage);
+  const identified = stage === "identified";
+  const product = caseExecution.product ?? loan.loanProduct;
+  const createdBy = caseExecution.createdBy ?? "—";
+  const createdDate = caseExecution.createdAt
+    ? new Date(caseExecution.createdAt).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+  const elwHref = buildElwWorkspaceHref(
+    normalizeLenderId(caseExecution.lenderRef ?? caseExecution.lender),
+    {
+      from: "loan_files",
+      loanFileId: loan.id,
+      returnTo: ROUTES.LOAN_FILES,
+    },
+  );
 
   return (
     <div
@@ -691,26 +726,10 @@ function LenderCaseKanbanCard({
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <LenderLogo lender={caseExecution.lender} size="lg" className="rounded-md shrink-0" />
           <div className="min-w-0">
-            <p className="text-[13px] font-bold leading-tight truncate text-foreground">{caseExecution.lender}</p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-0.5">
-              <Badge
-                variant="outline"
-                className={cn("h-3.5 px-1 text-[8px] border", getProbabilityStyle(probability).className)}
-              >
-                {LENDER_PROBABILITY_LABELS[probability]}
-              </Badge>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "h-3.5 px-1 text-[8px] border",
-                  caseExecution.isPrimary
-                    ? "border-emerald-600/25 bg-emerald-600/10 text-emerald-800 dark:text-emerald-200"
-                    : "border-border bg-muted/20 text-muted-foreground",
-                )}
-              >
-                {caseExecution.isPrimary ? "Primary" : "Secondary"}
-              </Badge>
-            </div>
+            <p className="text-[13px] font-bold leading-tight truncate text-foreground">
+              {caseExecution.lender}
+            </p>
+            <p className="text-[9px] text-muted-foreground truncate">{product}</p>
           </div>
         </div>
 
@@ -727,24 +746,50 @@ function LenderCaseKanbanCard({
               <MoreHorizontal className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={(e) => (e.preventDefault(), onSetPrimary())}>Set Primary</DropdownMenuItem>
+          <DropdownMenuContent align="end" className="w-48">
+            {identified ? (
+              <>
+                <DropdownMenuItem onClick={(e) => (e.preventDefault(), onStartLogin())}>
+                  Start Login
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={elwHref}>Open Lender</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => (e.preventDefault(), onReorderUp())}>
+                  Reorder · Up
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => (e.preventDefault(), onReorderDown())}>
+                  Reorder · Down
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+            <DropdownMenuItem onClick={(e) => (e.preventDefault(), onSetPrimary())}>
+              Set Primary
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <div className="px-2 py-1.5">
               <p className="text-[10px] uppercase text-muted-foreground mb-1">Success Probability</p>
               <Select value={probability} onValueChange={(v) => onProbabilityChange(v as LenderProbability)}>
-                <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-7 text-[10px]">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {(
                     ["very_high", "high", "medium", "low", "very_low", "rejected", "withdrawn"] as LenderProbability[]
                   ).map((p) => (
-                    <SelectItem key={p} value={p} className="text-xs">{LENDER_PROBABILITY_LABELS[p]}</SelectItem>
+                    <SelectItem key={p} value={p} className="text-xs">
+                      {LENDER_PROBABILITY_LABELS[p]}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive" onClick={(e) => (e.preventDefault(), onRemove())}>
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={(e) => (e.preventDefault(), onRemove())}
+            >
               Remove
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -759,24 +804,46 @@ function LenderCaseKanbanCard({
         >
           {stageLabel}
         </Badge>
-        {sub ? (
-          <Badge variant="outline" className="h-3.5 px-1 text-[8px] border border-border text-muted-foreground">
-            {sub}
+        {caseExecution.isPrimary ? (
+          <Badge
+            variant="outline"
+            className="h-3.5 px-1 text-[8px] border border-emerald-600/25 bg-emerald-600/10 text-emerald-800"
+          >
+            Primary
           </Badge>
         ) : null}
         <Badge
           variant="outline"
-          className={cn("h-3.5 px-1 text-[8px] capitalize border", LOAN_FILE_PRIORITY_STYLES[priority].className)}
+          className={cn("h-3.5 px-1 text-[8px] capitalize border", LOAN_FILE_PRIORITY_STYLES[loan.priority].className)}
         >
-          {priority}
+          {loan.priority}
         </Badge>
       </div>
 
       <div className="mt-1 space-y-0 text-[9px] text-muted-foreground leading-snug">
-        <p className="tabular-nums">{formatINR(expected)}</p>
+        {caseExecution.expectedRoi != null ? (
+          <p>Expected ROI {caseExecution.expectedRoi}%</p>
+        ) : null}
+        {caseExecution.specialNotes ? (
+          <p className="line-clamp-2 text-foreground/80">{caseExecution.specialNotes}</p>
+        ) : null}
         <p className="truncate">RM {rm}</p>
-        <p>{lastUpdated}</p>
+        <p>
+          Created by {createdBy} · {createdDate}
+        </p>
+        <p className="font-medium text-foreground/85">Status · {stageLabel}</p>
       </div>
+
+      {identified ? (
+        <div className="mt-1.5 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button type="button" size="sm" className="h-6 px-1.5 text-[9px]" onClick={onStartLogin}>
+            Start Login
+          </Button>
+          <Button type="button" size="sm" variant="outline" className="h-6 px-1.5 text-[9px]" asChild>
+            <Link href={elwHref}>Open Lender</Link>
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

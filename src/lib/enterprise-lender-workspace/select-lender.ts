@@ -4,9 +4,14 @@ import {
   placeholderSetLifeDraft,
   type PlaceholderLifeInstitution,
 } from "@/components/catalyst-one/opportunity-workspace/providers/workspace-placeholder-provider";
+import { loadLoanFiles } from "@/lib/loan-files-storage";
+import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
 import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
+import {
+  syncShortlistToIdentified,
+  upsertStrategicShortlistItem,
+} from "@/lib/strategic-lender-pipeline";
 import type { ElwLenderProfile, ElwOriginContext } from "@/types/enterprise-lender-workspace";
-import type { LoanLenderExecution } from "@/types/catalyst-one";
 
 export interface ElwSelectLenderResult {
   ok: boolean;
@@ -17,6 +22,7 @@ export interface ElwSelectLenderResult {
 /**
  * Persist Select Lender into the originating workflow, then caller navigates to returnTo.
  * Never redirects to Dashboard or Lender Master unless that was the true origin.
+ * CO-SPRINT-089 — loan/life paths upsert IDENTIFIED without duplicating.
  */
 export function applyElwSelectLender(
   profile: ElwLenderProfile,
@@ -55,6 +61,17 @@ export function applyElwSelectLender(
       });
       placeholderSaveLifeSelection(origin.opportunityId);
     }
+    upsertStrategicShortlistItem(origin.opportunityId, {
+      lenderRef: profile.lenderRef,
+      lenderName: profile.name,
+      product: profile.products[0]?.label,
+      productRefs: institution.productRefs,
+      successProbability: profile.metrics.successProbability,
+      specialNotes: "Selected from Enterprise Lender Workspace",
+      branchName: primary?.branchName ?? profile.branchNames[0],
+      executorName: primary?.name,
+      createdBy: "RM",
+    });
     return {
       ok: true,
       returnTo: origin.returnTo,
@@ -63,28 +80,59 @@ export function applyElwSelectLender(
   }
 
   if ((origin.from === "loan_files" || origin.from === "life") && origin.loanFileId) {
-    const now = new Date().toISOString();
-    const lenderCase: LoanLenderExecution = {
-      id: `elw-${profile.lenderId}-${Date.now()}`,
-      lender: profile.name,
-      branch: primary?.branchName ?? profile.branchNames[0] ?? "",
-      relationshipManager: primary?.name ?? "",
-      status: "active",
-      caseStage: "prelogin",
-      isPrimary: true,
-      createdAt: now,
-      updatedAt: now,
-    };
-    const updated = updateLoanFileInStorage(origin.loanFileId, {
-      lenders: [lenderCase],
-      lender: profile.name,
+    const files = loadLoanFiles() ?? getInitialLoanFiles();
+    const file = files.find((f) => f.id === origin.loanFileId);
+    const existing = file?.lenders?.find(
+      (c) => c.lender.toLowerCase() === profile.name.toLowerCase() || c.lenderRef === profile.lenderRef,
+    );
+    if (existing) {
+      return {
+        ok: true,
+        returnTo: origin.returnTo,
+        message: `${profile.name} already on pipeline — opening existing case (no duplicate).`,
+      };
+    }
+
+    const opportunityId = origin.opportunityId ?? `loan:${origin.loanFileId}`;
+    const shortlist = upsertStrategicShortlistItem(opportunityId, {
+      lenderRef: profile.lenderRef,
+      lenderName: profile.name,
+      product: profile.products[0]?.label,
+      productRefs: profile.products.map((p) => p.productRef),
+      successProbability: profile.metrics.successProbability,
+      branchName: primary?.branchName ?? profile.branchNames[0],
+      executorName: primary?.name,
+      specialNotes: "Selected from Enterprise Lender Workspace",
+      createdBy: "RM",
     });
+    const sync = syncShortlistToIdentified(origin.loanFileId, opportunityId, shortlist);
+    if (!sync.ok) {
+      // Fallback single upsert if sync failed to load file
+      const now = new Date().toISOString();
+      updateLoanFileInStorage(origin.loanFileId, {
+        lenders: [
+          {
+            id: `elw-${profile.lenderId}-${Date.now()}`,
+            lender: profile.name,
+            lenderRef: profile.lenderRef,
+            branch: primary?.branchName ?? profile.branchNames[0] ?? "",
+            relationshipManager: primary?.name ?? "",
+            status: "active",
+            caseStage: "identified",
+            isPrimary: !(file?.lenders?.length),
+            fromStrategic: true,
+            createdAt: now,
+            updatedAt: now,
+          },
+          ...(file?.lenders ?? []),
+        ],
+        lender: profile.name,
+      });
+    }
     return {
-      ok: Boolean(updated),
+      ok: true,
       returnTo: origin.returnTo,
-      message: updated
-        ? `${profile.name} linked — returning to your loan workflow.`
-        : "Could not update the Loan File. Returning to origin.",
+      message: sync.message || `${profile.name} linked to Identified.`,
     };
   }
 

@@ -15,6 +15,7 @@ import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/lo
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
+import { LenderPipelineActionNav } from "@/components/catalyst-one/action-center/lender-pipeline-action-nav";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
@@ -1045,6 +1046,15 @@ function LoanWorkspaceModalContent({
           </TabsContent>
 
           <TabsContent value="lenders" className="mt-0 min-h-[min(72vh,820px)] flex-1">
+            <div className="mb-2">
+              <LenderPipelineActionNav
+                cases={draft.lenders ?? []}
+                onNavigate={() => {
+                  /* already on lenders tab — board columns are visible */
+                  setActiveTab("lenders");
+                }}
+              />
+            </div>
             <LenderPipelineBoard
               loan={draft}
               cases={draft.lenders ?? []}
@@ -1173,6 +1183,13 @@ function LoanWorkspaceModalContent({
                 })
               }
             />
+            {activeTab === "lenders" ? (
+              <LenderPipelineActionNav
+                cases={draft.lenders ?? []}
+                onNavigate={() => setActiveTab("lenders")}
+                className="hidden xl:flex"
+              />
+            ) : null}
             <BusinessTransitionCard
               continueLabel={loanContinue.label}
               continuePurpose={continuePurpose}

@@ -93,8 +93,9 @@ export function LifeLenderWorkspace() {
         branch: row.branchName,
         relationshipManager: row.executiveName,
         status: "active",
-        caseStage: "prelogin",
+        caseStage: "identified",
         isPrimary: true,
+        fromStrategic: true,
         createdAt: now,
         updatedAt: now,
       };
