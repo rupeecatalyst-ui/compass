@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, FolderOpen } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bell, FolderOpen, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,12 +16,11 @@ import { ROUTES } from "@/constants/routes";
 import { recordControlledException } from "@/lib/system-driven-enterprise";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { DocumentCompletionScore } from "@/lib/document-completion/score";
+import type { EdieChecklistItem } from "@/types/edie-certified-rules";
 
 /**
- * Non-blocking document readiness advisory (Chanakya + System-Driven Enterprise).
- * Warns and mentors — never prevents Continue / workspace navigation.
- * Continue-anyway records a controlled exception (visible until resolved).
- * Only Enterprise Policy Engine may hard-restrict actions.
+ * Non-blocking CHANAKYA document readiness advisory.
+ * Workflow is never stopped — Remind Me Later / Continue anyway always available.
  */
 export function DocumentCompletionGateDialog({
   open,
@@ -30,8 +29,8 @@ export function DocumentCompletionGateDialog({
   fileId,
   opportunityId,
   intentLabel = "continue",
-  /** When set, primary CTA proceeds with the original business action. */
   onProceedAnyway,
+  criticalItems,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,11 +39,20 @@ export function DocumentCompletionGateDialog({
   opportunityId?: string | null;
   intentLabel?: string;
   onProceedAnyway?: () => void;
+  /** EDIE critical pending items for smart navigation. */
+  criticalItems?: EdieChecklistItem[];
 }) {
   const { user } = useAuthContext();
-  const href = buildJourneyHref(ROUTES.DOCUMENT_CENTER, { fileId, opportunityId });
+  const firstCritical = criticalItems?.[0] ?? null;
+  const focusHref = buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
+    fileId,
+    opportunityId,
+    focus: firstCritical?.typeRef,
+    section: firstCritical?.moduleId,
+  });
+  const centerHref = buildJourneyHref(ROUTES.DOCUMENT_CENTER, { fileId, opportunityId });
   const reasons = score?.blockReasons ?? [];
-  const missing = score?.criticalMissing ?? [];
+  const missing = score?.criticalMissing ?? criticalItems?.map((c) => c.label) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -55,27 +63,29 @@ export function DocumentCompletionGateDialog({
             Document Readiness Advisory
           </DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
-            Chanakya recommends completing mandatory documents before you {intentLabel}. This is
-            guidance only — your workflow is not blocked. Continuing records a controlled exception.
+            Before this file proceeds further, the following critical documents are pending. This is
+            guidance only — your workflow is not blocked.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-3 text-xs">
           {reasons.length > 0 ? (
             <ul className="space-y-1.5">
-              {reasons.map((r) => (
+              {reasons.slice(0, 3).map((r) => (
                 <li key={r} className="leading-snug text-foreground">
                   {r}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-muted-foreground">Document readiness could be stronger.</p>
+            <p className="text-muted-foreground">
+              Chanakya recommends completing critical documents before you {intentLabel}.
+            </p>
           )}
           {missing.length > 0 && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Critical missing
+                Critical pending
               </p>
               <ul className="mt-1 flex flex-wrap gap-1.5">
                 {missing.map((m) => (
@@ -97,21 +107,37 @@ export function DocumentCompletionGateDialog({
           )}
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-          <Button asChild type="button" variant="outline" size="sm" className="gap-1.5">
-            <Link href={href} onClick={() => onOpenChange(false)}>
-              <FolderOpen className="h-3.5 w-3.5" />
-              Open Document Center
-            </Link>
-          </Button>
-          <div className="flex gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-              Close
+        <DialogFooter className="flex-col gap-2 sm:items-stretch">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button asChild type="button" size="sm" className="gap-1.5 sm:flex-1">
+              <Link href={focusHref} onClick={() => onOpenChange(false)}>
+                <Upload className="h-3.5 w-3.5" />
+                Upload Now
+              </Link>
+            </Button>
+            <Button asChild type="button" variant="outline" size="sm" className="gap-1.5 sm:flex-1">
+              <Link href={focusHref} onClick={() => onOpenChange(false)}>
+                <FolderOpen className="h-3.5 w-3.5" />
+                Take Me To Document
+              </Link>
+            </Button>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => onOpenChange(false)}
+            >
+              <Bell className="h-3.5 w-3.5" />
+              Remind Me Later
             </Button>
             {onProceedAnyway ? (
               <Button
                 type="button"
                 size="sm"
+                variant="secondary"
                 className="gap-1.5"
                 onClick={() => {
                   try {
@@ -135,7 +161,7 @@ export function DocumentCompletionGateDialog({
                       guidanceLevel: "warn",
                     });
                   } catch {
-                    /* non-blocking — exception recording must never stop workflow */
+                    /* non-blocking */
                   }
                   onOpenChange(false);
                   onProceedAnyway();
@@ -144,7 +170,13 @@ export function DocumentCompletionGateDialog({
                 Continue anyway
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
-            ) : null}
+            ) : (
+              <Button asChild type="button" variant="ghost" size="sm">
+                <Link href={centerHref} onClick={() => onOpenChange(false)}>
+                  Open Document Center
+                </Link>
+              </Button>
+            )}
           </div>
         </DialogFooter>
       </DialogContent>

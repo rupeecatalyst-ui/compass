@@ -32,6 +32,9 @@ import { QuickContactCreationWizard } from "@/components/catalyst-one/contacts/q
 import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { DocumentCompletionGateDialog } from "@/components/catalyst-one/shared/document-completion-gate-dialog";
+import { evaluateDocumentCompletionForLoanFile } from "@/lib/document-completion/evaluate-for-loan";
+import { listEdieCriticalPending } from "@/lib/edie-certified";
+import type { EdieChecklistItem } from "@/types/edie-certified-rules";
 import { OpportunityActionCenter } from "@/components/catalyst-one/action-center";
 import {
   AnalyzeDealTriggerButton,
@@ -41,7 +44,6 @@ import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/lo
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { ROLES } from "@/constants/roles";
-import { evaluateDocumentCompletionForLoanFile } from "@/lib/document-completion/evaluate-for-loan";
 import {
   buildOpportunityLoanWorkspaceHref,
   resolveLoansForOpportunity,
@@ -78,7 +80,8 @@ function OpportunityWorkspaceShell() {
   const [editContact, setEditContact] = useState<EcmContact | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [gateScore, setGateScore] = useState<DocumentCompletionScore | null>(null);
-  const [gateIntent, setGateIntent] = useState("finalize LIFE");
+  const [gateCritical, setGateCritical] = useState<EdieChecklistItem[]>([]);
+  const [gateIntent, setGateIntent] = useState("continue");
   const [gateHasProceed, setGateHasProceed] = useState(false);
   const gateProceedRef = useRef<(() => void) | null>(null);
   const [analyzeDealOpen, setAnalyzeDealOpen] = useState(false);
@@ -218,6 +221,7 @@ function OpportunityWorkspaceShell() {
     gateProceedRef.current = onProceed ?? null;
     setGateHasProceed(Boolean(onProceed));
     setGateScore(score);
+    setGateCritical(activeLoan ? listEdieCriticalPending(activeLoan) : []);
     setGateIntent(intentLabel);
     setGateOpen(true);
     // Non-blocking: caller may still proceed; advisory offers Continue anyway when deferred.
@@ -420,6 +424,7 @@ function OpportunityWorkspaceShell() {
         fileId={activeLoan?.id}
         opportunityId={opportunityId}
         intentLabel={gateIntent}
+        criticalItems={gateCritical}
         onProceedAnyway={
           gateHasProceed
             ? () => {

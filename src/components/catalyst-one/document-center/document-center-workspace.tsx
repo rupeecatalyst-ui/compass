@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Bell,
@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Upload,
 } from "lucide-react";
-import { DocumentsWorkspace } from "@/components/catalyst-one/documents/documents-workspace";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
 import {
@@ -18,79 +17,41 @@ import {
   loadLeadJourneyLoanFile,
 } from "@/lib/lead-opportunity-journey/load-context";
 import {
-  listEdieDocumentRules,
-  registerEdieDocumentRule,
-  resolveEdieDocumentRulesForContext,
-} from "@/lib/enterprise-document-intelligence-engine";
-import { resolveApplicableWeights, computeDocumentCompletionScore } from "@/lib/document-completion/score";
+  loadAddressProofSelection,
+  loadEdieReceipts,
+  resolveEdieChecklistForLoanFile,
+  saveAddressProofSelection,
+  saveEdieReceipts,
+  seedEdieCertifiedRulesIfNeeded,
+} from "@/lib/edie-certified";
+import { computeDocumentCompletionScore } from "@/lib/document-completion/score";
+import { EDIE_ADDRESS_PROOF_GROUP } from "@/constants/edie-certified/document-catalog";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
 import type { LoanFile } from "@/types/catalyst-one";
-
-const RECEIPT_KEY = "catalyst.document-center.receipts";
-
-function seedDocumentRulesIfEmpty() {
-  if (listEdieDocumentRules().length > 0) return;
-  registerEdieDocumentRule({
-    ruleCode: "EDIE-HL-SAL-001",
-    ruleName: "Home loan salaried KYC pack",
-    productRef: "product:home-loan",
-    employmentType: "salaried",
-    constitution: "individual",
-    customerCategory: "standard",
-    loanStage: "origination",
-    documentTypeRefs: ["doc:pan", "doc:aadhaar", "doc:salary-slip", "doc:bank-statement", "doc:property-papers"],
-    uploadMethod: "both",
-    enabled: true,
-    createdBy: "system",
-  });
-  registerEdieDocumentRule({
-    ruleCode: "EDIE-HL-SE-001",
-    ruleName: "Home loan self-employed pack",
-    productRef: "product:home-loan",
-    employmentType: "self_employed",
-    constitution: "individual",
-    customerCategory: "standard",
-    loanStage: "origination",
-    documentTypeRefs: ["doc:pan", "doc:itr", "doc:bank-statement", "doc:gst", "doc:property-papers"],
-    uploadMethod: "individual",
-    enabled: true,
-    createdBy: "system",
-  });
-}
-
-function loadReceipts(fileId: string): Record<string, boolean> {
-  try {
-    const raw = localStorage.getItem(`${RECEIPT_KEY}:${fileId}`);
-    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveReceipts(fileId: string, map: Record<string, boolean>) {
-  localStorage.setItem(`${RECEIPT_KEY}:${fileId}`, JSON.stringify(map));
-}
+import type { EdieChecklistItem } from "@/types/edie-certified-rules";
 
 /**
- * Lead Stage — Document Center.
- * Collect documents via EDIE rules. Verification stays in Credit Workbench.
+ * Document Center — Document Readiness Dashboard driven entirely by EDIE.
  */
 export function DocumentCenterWorkspace() {
   const searchParams = useSearchParams();
   const fileParam = searchParams.get("file");
   const opportunityId = searchParams.get("opportunityId");
+  const focusRef = searchParams.get("focus");
+  const sectionParam = searchParams.get("section");
   const [file, setFile] = useState<LoanFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [receipts, setReceipts] = useState<Record<string, boolean>>({});
+  const [addressChoice, setAddressChoice] = useState<string | undefined>();
   const [toast, setToast] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedOnce, setSavedOnce] = useState(false);
-
+  const focusEl = useRef<HTMLLIElement | null>(null);
   const entryParam = searchParams.get("entry");
 
   useEffect(() => {
-    seedDocumentRulesIfEmpty();
+    seedEdieCertifiedRulesIfNeeded();
     const next = loadLeadJourneyLoanFile(fileParam, opportunityId, {
       dashboardEntry: entryParam === "dashboard",
     });
@@ -102,56 +63,42 @@ export function DocumentCenterWorkspace() {
       }
       return next;
     });
-    if (identityChanged && next) setReceipts(loadReceipts(next.id));
+    if (identityChanged && next) {
+      setReceipts(loadEdieReceipts(next.id));
+      setAddressChoice(loadAddressProofSelection(next.id));
+    }
     setLoading(false);
   }, [fileParam, opportunityId, entryParam]);
 
-  const employmentKey = useMemo(() => {
-    const e = (file?.employmentType || "salaried").toLowerCase();
-    if (e.includes("self")) return "self_employed";
-    return "salaried";
-  }, [file?.employmentType]);
+  useEffect(() => {
+    if (!focusRef || !focusEl.current) return;
+    focusEl.current.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusRef, file?.id, receipts]);
 
-  const typeRefs = useMemo(() => {
-    seedDocumentRulesIfEmpty();
-    const rules = resolveEdieDocumentRulesForContext({
-      productRef: file?.loanProduct?.toLowerCase().includes("lap")
-        ? "product:lap"
-        : "product:home-loan",
-      employmentType: employmentKey,
-      constitution: "individual",
-      customerCategory: "standard",
-      loanStage: "origination",
+  const checklist = useMemo(() => {
+    if (!file) return null;
+    return resolveEdieChecklistForLoanFile(file, {
+      receipts,
+      addressProofSelection: addressChoice,
     });
-    return [...new Set(rules.flatMap((r) => r.documentTypeRefs))];
-  }, [file?.loanProduct, employmentKey]);
+  }, [file, receipts, addressChoice]);
 
   const score = useMemo(() => {
-    const weights = resolveApplicableWeights({
-      documentTypeRefs: typeRefs,
-      employmentType: employmentKey,
+    if (!checklist) return computeDocumentCompletionScore({ items: [] });
+    const scoringItems = checklist.items.filter(
+      (i) => i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP || !i.optional,
+    );
+    return computeDocumentCompletionScore({
+      items: scoringItems.map((i) => ({
+        typeRef: i.typeRef,
+        label: i.label,
+        weight: i.weight,
+        mandatory: i.mandatory,
+        critical: i.critical,
+        complete: i.complete,
+      })),
     });
-    const items = weights.map((w) => ({
-      typeRef: w.typeRef,
-      label: w.label,
-      weight: w.weight,
-      mandatory: w.mandatory,
-      critical: w.critical,
-      complete: Boolean(receipts[w.typeRef]),
-    }));
-    // Also treat loan-file documents as received for back-compat
-    if (file?.documents?.length) {
-      for (const d of file.documents) {
-        const name = d.name.toLowerCase();
-        for (const item of items) {
-          if (!item.complete && name.includes(item.label.toLowerCase().split(" ")[0]!)) {
-            item.complete = d.status === "received" || d.status === "verified" || d.status === "pending";
-          }
-        }
-      }
-    }
-    return computeDocumentCompletionScore({ items });
-  }, [typeRefs, employmentKey, receipts, file?.documents]);
+  }, [checklist]);
 
   const context = useMemo(() => journeyContextFromLoanFile(file), [file]);
 
@@ -159,11 +106,18 @@ export function DocumentCenterWorkspace() {
     if (!file) return;
     const next = { ...receipts, [typeRef]: true };
     setReceipts(next);
-    saveReceipts(file.id, next);
+    saveEdieReceipts(file.id, next);
     setDirty(false);
     setSavedOnce(true);
-    setToast(`${typeRef.replace(/^doc:/, "")} marked received`);
+    setToast(`${typeRef.replace(/^doc:/, "").replace(/-/g, " ")} marked received`);
     window.setTimeout(() => setToast(null), 2500);
+  };
+
+  const onAddressSelect = (typeRef: string) => {
+    if (!file) return;
+    setAddressChoice(typeRef);
+    saveAddressProofSelection(file.id, typeRef);
+    setDirty(true);
   };
 
   if (loading) {
@@ -174,7 +128,7 @@ export function DocumentCenterWorkspace() {
     );
   }
 
-  if (!file) {
+  if (!file || !checklist) {
     return (
       <OpportunityContextPicker
         targetHref={ROUTES.DOCUMENT_CENTER}
@@ -206,7 +160,8 @@ export function DocumentCenterWorkspace() {
         hasUnsavedChanges={dirty}
         acknowledgeCleanClose={!dirty && savedOnce}
         onSaveDraft={async () => {
-          if (file) saveReceipts(file.id, receipts);
+          saveEdieReceipts(file.id, receipts);
+          if (addressChoice) saveAddressProofSelection(file.id, addressChoice);
           setDirty(false);
           setSavedOnce(true);
         }}
@@ -219,15 +174,26 @@ export function DocumentCenterWorkspace() {
           )}
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <ScoreTile label="Completion" value={`${score.overallPct}%`} accent />
-            <ScoreTile label="Mandatory" value={`${score.mandatoryPct}%`} />
-            <ScoreTile label="Conditional" value={`${score.conditionalPct}%`} />
+            <ScoreTile label="Required" value={String(checklist.counts.mandatory + checklist.counts.required)} />
+            <ScoreTile label="Received" value={String(checklist.counts.received)} accent />
+            <ScoreTile label="Pending" value={String(checklist.counts.pending)} />
             <ScoreTile
-              label="Critical Missing"
-              value={score.criticalMissing.length ? score.criticalMissing.join(", ") : "None"}
-              warn={score.criticalMissing.length > 0}
+              label="Critical Now"
+              value={
+                checklist.counts.criticalPending
+                  ? String(checklist.counts.criticalPending)
+                  : "None"
+              }
+              warn={checklist.counts.criticalPending > 0}
             />
           </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            EDIE · {checklist.productRef.replace("product:", "")} · {checklist.customerCategory.replace("_", " ")} ·{" "}
+            {checklist.transactionType.replace("_", " ")} · stage {checklist.workflowStage.replace(/_/g, " ")}
+            {" · "}
+            Completion {score.overallPct}%
+          </p>
 
           <div className="flex flex-wrap gap-2">
             {[
@@ -257,82 +223,156 @@ export function DocumentCenterWorkspace() {
             })}
           </div>
 
-          <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold">Dynamic checklist</h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Generated from EDIE rules for this product and employment — collection only.
-                </p>
-              </div>
-              <span className="text-[10px] tabular-nums text-muted-foreground">
-                {score.uploadedCount}/{score.totalCount} collected
-              </span>
-            </div>
-            <ul className="mt-3 divide-y divide-border/50 rounded-xl border border-border/50">
-              {resolveApplicableWeights({
-                documentTypeRefs: typeRefs,
-                employmentType: employmentKey,
-              }).map((w) => {
-                const done = Boolean(receipts[w.typeRef]);
-                return (
-                  <li
-                    key={w.typeRef}
-                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-xs"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-semibold text-foreground">{w.label}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Weight {w.weight}
-                        {w.mandatory ? " · Mandatory" : " · Conditional"}
-                        {w.critical ? " · Critical" : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[9px] font-semibold",
-                          done
-                            ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
-                            : "bg-amber-500/15 text-amber-900 dark:text-amber-200",
-                        )}
-                      >
-                        {done ? "Received" : "Pending"}
-                      </span>
-                      {!done && (
-                        <button
-                          type="button"
-                          className="rounded-md border border-border/60 px-2 py-1 text-[10px] font-medium hover:bg-muted/50"
-                          onClick={() => markReceived(w.typeRef)}
-                        >
-                          Mark received
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-              {typeRefs.length === 0 && (
-                <li className="px-3 py-6 text-center text-xs text-muted-foreground">
-                  No documents on checklist for this context yet. Adjust product or employment context
-                  below.
-                </li>
-              )}
-            </ul>
-          </section>
+          {checklist.modules.map((mod) => {
+            const sectionFocus = sectionParam === mod.id;
+            return (
+              <section
+                key={mod.id}
+                id={`edie-section-${mod.id}`}
+                className={cn(
+                  "rounded-2xl border border-border/70 bg-card p-4 shadow-sm",
+                  sectionFocus && "ring-2 ring-teal-500/40",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-semibold">{mod.label}</h2>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {mod.id === "address_proof"
+                        ? "Select one address proof — upload once."
+                        : mod.id === "financial" && checklist.customerCategory !== "salaried"
+                          ? "Upload all financial papers into one folder."
+                          : mod.id === "property"
+                            ? "Activated after Soft Approval — multiple files allowed."
+                            : "Generated by EDIE certified rules."}
+                    </p>
+                  </div>
+                  <span className="text-[10px] tabular-nums text-muted-foreground">
+                    {mod.items.filter((i) => i.complete || (i.choiceGroupId && i.optional)).length}/
+                    {mod.items.filter((i) => !i.optional || !i.choiceGroupId).length}
+                  </span>
+                </div>
 
-          <section className="rounded-2xl border border-border/70 bg-muted/10 p-4">
-            <h2 className="text-sm font-semibold">EDIE rule intelligence</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Context-aware document rules power this checklist. Upload simulations log to Dialogue Center.
-            </p>
-            <div className="mt-4">
-              <DocumentsWorkspace />
-            </div>
-          </section>
+                {mod.id === "address_proof" ? (
+                  <div className="mt-3 space-y-2">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Address proof type
+                    </label>
+                    <select
+                      className="h-8 w-full max-w-sm rounded-md border border-border bg-background px-2 text-xs"
+                      value={
+                        addressChoice ||
+                        mod.items.find((i) => !i.optional)?.typeRef ||
+                        "doc:address-electricity"
+                      }
+                      onChange={(e) => onAddressSelect(e.target.value)}
+                    >
+                      {mod.items.map((i) => (
+                        <option key={i.typeRef} value={i.typeRef}>
+                          {i.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ul className="divide-y divide-border/50 rounded-xl border border-border/50">
+                      {mod.items
+                        .filter((i) => !i.optional)
+                        .map((item) => (
+                          <ChecklistRow
+                            key={item.typeRef}
+                            item={item}
+                            focused={focusRef === item.typeRef}
+                            rowRef={focusRef === item.typeRef ? focusEl : undefined}
+                            onMark={() => markReceived(item.typeRef)}
+                          />
+                        ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <ul className="mt-3 divide-y divide-border/50 rounded-xl border border-border/50">
+                    {mod.items
+                      .filter((i) => !i.optional || i.moduleId === "customer_kyc" || i.moduleId === "banking")
+                      .map((item) => (
+                        <ChecklistRow
+                          key={item.typeRef}
+                          item={item}
+                          focused={focusRef === item.typeRef}
+                          rowRef={focusRef === item.typeRef ? focusEl : undefined}
+                          onMark={() => markReceived(item.folderId ?? item.typeRef)}
+                        />
+                      ))}
+                  </ul>
+                )}
+              </section>
+            );
+          })}
         </div>
       </LeadOpportunityJourneyChrome>
     </div>
+  );
+}
+
+function ChecklistRow({
+  item,
+  focused,
+  rowRef,
+  onMark,
+}: {
+  item: EdieChecklistItem;
+  focused?: boolean;
+  rowRef?: React.RefObject<HTMLLIElement | null>;
+  onMark: () => void;
+}) {
+  return (
+    <li
+      ref={rowRef}
+      id={`edie-doc-${item.typeRef}`}
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-xs transition-colors",
+        focused && "bg-teal-500/10 ring-1 ring-inset ring-teal-500/35",
+      )}
+    >
+      <div className="min-w-0">
+        <p className="font-semibold text-foreground">
+          {item.uploadMode === "folder" ? `📁 ${item.folderLabel || item.label}` : item.label}
+          {item.optional ? (
+            <span className="ml-1.5 text-[9px] font-medium text-muted-foreground">Optional</span>
+          ) : null}
+        </p>
+        <p className="text-[10px] text-muted-foreground">
+          {item.severity === "critical"
+            ? "Critical"
+            : item.mandatory
+              ? "Mandatory"
+              : "Required"}
+          {item.uploadMode === "folder" ? " · Folder upload (unlimited files)" : ""}
+          {item.criticalFromStage ? ` · Critical from ${item.criticalFromStage.replace(/_/g, " ")}` : ""}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[9px] font-semibold",
+            item.complete
+              ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
+              : item.critical
+                ? "bg-rose-500/15 text-rose-800 dark:text-rose-200"
+                : "bg-amber-500/15 text-amber-900 dark:text-amber-200",
+          )}
+        >
+          {item.complete ? "Received" : item.critical ? "Critical · Pending" : "Pending"}
+        </span>
+        {!item.complete && (
+          <button
+            type="button"
+            className="rounded-md border border-border/60 px-2 py-1 text-[10px] font-medium hover:bg-muted/50"
+            onClick={onMark}
+            autoFocus={focused}
+          >
+            {item.uploadMode === "folder" ? "Upload to folder" : "Mark received"}
+          </button>
+        )}
+      </div>
+    </li>
   );
 }
 

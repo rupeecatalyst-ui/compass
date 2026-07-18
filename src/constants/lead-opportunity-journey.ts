@@ -96,6 +96,10 @@ export function buildJourneyHref(
     opportunityId?: string | null;
     /** Loan Workspace tab deep link (overview | lenders | timeline | …). */
     tab?: string | null;
+    /** EDIE smart navigation — document typeRef. */
+    focus?: string | null;
+    /** EDIE module section id. */
+    section?: string | null;
   },
 ): string {
   const active =
@@ -103,12 +107,16 @@ export function buildJourneyHref(
   const fileId = context?.fileId ?? active?.fileId ?? null;
   const opportunityId = context?.opportunityId ?? active?.opportunityId ?? null;
   const tab = context?.tab ?? null;
+  const focus = context?.focus ?? null;
+  const section = context?.section ?? null;
 
   const url = new URL(baseHref, "https://local.invalid");
   url.searchParams.delete(DASHBOARD_ENTRY_PARAM);
   if (fileId) url.searchParams.set("file", fileId);
   if (opportunityId) url.searchParams.set("opportunityId", opportunityId);
   if (tab) url.searchParams.set("tab", tab);
+  if (focus) url.searchParams.set("focus", focus);
+  if (section) url.searchParams.set("section", section);
   const q = url.searchParams.toString();
   return q ? `${url.pathname}?${q}` : url.pathname;
 }

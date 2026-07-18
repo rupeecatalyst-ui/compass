@@ -3,12 +3,11 @@
  */
 
 import { evaluateDocumentCompletionForLoanFile } from "@/lib/document-completion/evaluate-for-loan";
+import { seedEdieCertifiedRulesIfNeeded } from "@/lib/edie-certified";
 import {
   resolveApplicableWeights,
 } from "@/lib/document-completion/score";
 import {
-  listEdieDocumentRules,
-  registerEdieDocumentRule,
   resolveEdieDocumentRulesForContext,
 } from "@/lib/enterprise-document-intelligence-engine";
 import type { DocumentCheckStatus, LoanFile, LoanFileDocument } from "@/types/catalyst-one";
@@ -19,26 +18,7 @@ import type {
 } from "@/types/enterprise-phase-readiness";
 
 function seedDocumentRulesIfEmpty() {
-  if (listEdieDocumentRules().length > 0) return;
-  registerEdieDocumentRule({
-    ruleCode: "EDIE-HL-SAL-001",
-    ruleName: "Home loan salaried KYC pack",
-    productRef: "product:home-loan",
-    employmentType: "salaried",
-    constitution: "individual",
-    customerCategory: "standard",
-    loanStage: "origination",
-    documentTypeRefs: [
-      "doc:pan",
-      "doc:aadhaar",
-      "doc:salary-slip",
-      "doc:bank-statement",
-      "doc:property-papers",
-    ],
-    uploadMethod: "both",
-    enabled: true,
-    createdBy: "system",
-  });
+  seedEdieCertifiedRulesIfNeeded();
 }
 
 function healthBucket(status: DocumentCheckStatus): keyof Omit<

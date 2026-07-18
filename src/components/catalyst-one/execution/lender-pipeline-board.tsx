@@ -29,6 +29,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EdieComplianceSummaryDialog } from "@/components/catalyst-one/shared/edie-compliance-summary-dialog";
+import { evaluateEdieComplianceGate } from "@/lib/edie-certified";
+import type { EdieComplianceGateResult } from "@/types/edie-certified-rules";
 import { cn } from "@/lib/utils";
 import {
   LENDER_CASE_STAGES,
@@ -110,6 +113,8 @@ export function LenderPipelineBoard({
   const [disbursementCase, setDisbursementCase] = useState<WorkflowCase | null>(null);
   const [lostCase, setLostCase] = useState<WorkflowCase | null>(null);
   const [holdCase, setHoldCase] = useState<WorkflowCase | null>(null);
+  const [complianceOpen, setComplianceOpen] = useState(false);
+  const [complianceResult, setComplianceResult] = useState<EdieComplianceGateResult | null>(null);
 
   const [addForm, setAddForm] = useState<{
     lender: string;
@@ -284,6 +289,15 @@ export function LenderPipelineBoard({
 
   const confirmDisbursement = () => {
     if (!disbursementCase) return;
+    // Disbursed → Invoicing: mandatory EDIE compliance gate only when invoice is raised.
+    if (disbursementForm.invoiceRaised) {
+      const gate = evaluateEdieComplianceGate(loan);
+      if (!gate.allowed) {
+        setComplianceResult(gate);
+        setComplianceOpen(true);
+        return;
+      }
+    }
     applyMove(disbursementCase.id, "disbursed", {
       disbursementDate: disbursementForm.disbursementDate,
       disbursedAmount: disbursementForm.disbursedAmount,
@@ -612,6 +626,14 @@ export function LenderPipelineBoard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EdieComplianceSummaryDialog
+        open={complianceOpen}
+        onOpenChange={setComplianceOpen}
+        result={complianceResult}
+        fileId={loan.id}
+        opportunityId={undefined}
+      />
     </div>
   );
 }
