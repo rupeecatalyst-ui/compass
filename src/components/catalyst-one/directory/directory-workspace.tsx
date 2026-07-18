@@ -17,6 +17,7 @@ import { StatusPill } from "@/components/design-system/status-pill";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { ROUTES } from "@/constants/routes";
 import {
   getEcmMasterLabel,
@@ -27,6 +28,7 @@ import {
   listEcmContacts,
   queryEcmContacts,
   registerEcmContact,
+  updateEcmContact,
 } from "@/lib/enterprise-contact-master";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import {
@@ -42,19 +44,22 @@ import { cn } from "@/lib/utils";
 function seedContactsIfEmpty() {
   if (listEcmContacts().length > 0) return;
   const seeds = [
-    { name: "Rahul Kapoor", mobilePrimary: "9811100099", roles: ["customer" as const] },
-    { name: "Suresh Patel", mobilePrimary: "9811100001", roles: ["customer" as const] },
-    { name: "Priya Nair", mobilePrimary: "9811100002", roles: ["employee" as const] },
+    { name: "Rahul Kapoor", mobilePrimary: "9811100099", roles: ["customer" as const], strategic: true },
+    { name: "Suresh Patel", mobilePrimary: "9811100001", roles: ["customer" as const], strategic: false },
+    { name: "Priya Nair", mobilePrimary: "9811100002", roles: ["employee" as const], strategic: true },
   ];
   for (const s of seeds) {
     try {
-      registerEcmContact({
+      const created = registerEcmContact({
         name: s.name,
         mobilePrimary: s.mobilePrimary,
         roles: [...s.roles],
         ownerName: "Platform Admin",
         createdBy: "system",
       });
+      if (s.strategic) {
+        updateEcmContact(created.id, { strategicContact: true }, "system");
+      }
     } catch {
       /* duplicate mobile */
     }
@@ -272,6 +277,9 @@ function ContactsRegistryInner() {
               Add Contact
             </Button>
             <Button asChild variant="outline" className="h-10 gap-2 rounded-xl px-4">
+              <Link href={ROUTES.CONTACT_STRATEGY}>Contact Strategy</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-10 gap-2 rounded-xl px-4">
               <Link href={`${ROUTES.LOAN_FILES}?create=1`}>
                 <Plus className="h-4 w-4" />
                 Start Loan Journey
@@ -314,7 +322,7 @@ function ContactsRegistryInner() {
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table className="w-full min-w-[960px] text-left text-sm">
             <thead className="border-b border-border bg-muted/40 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
@@ -323,6 +331,7 @@ function ContactsRegistryInner() {
                 <th className="px-4 py-3 font-medium">Details</th>
                 <th className="px-4 py-3 font-medium">Owner</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Strategic Contact</th>
                 <th className="px-4 py-3 font-medium">Score</th>
                 <th className="px-4 py-3 font-medium">Modified</th>
               </tr>
@@ -379,6 +388,30 @@ function ContactsRegistryInner() {
                         {row.status}
                       </StatusPill>
                     </td>
+                    <td
+                      className="px-4 py-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {contact ? (
+                        <Switch
+                          checked={Boolean(contact.strategicContact)}
+                          onCheckedChange={(checked) => {
+                            try {
+                              updateEcmContact(
+                                contact.id,
+                                { strategicContact: Boolean(checked) },
+                                "ui",
+                              );
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                          aria-label={`Strategic contact ${contact.name}`}
+                        />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 tabular-nums">{row.score}</td>
                     <td className="px-4 py-3 text-muted-foreground">{formatDate(row.modifiedOn)}</td>
                   </tr>
@@ -386,7 +419,7 @@ function ContactsRegistryInner() {
               })}
               {registryRows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     No Contacts match this filter or search.
                   </td>
                 </tr>

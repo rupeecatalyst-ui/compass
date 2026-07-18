@@ -137,6 +137,7 @@ export const primaryDomainNavigation: NavGroup = {
     { title: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
     { title: "CHANAKYA Radar", href: ROUTES.CHANAKYA_RADAR, icon: Radar },
     { title: "Contacts", href: ROUTES.CONTACTS, icon: Contact },
+    { title: "Contact Strategy", href: ROUTES.CONTACT_STRATEGY, icon: Network },
     { title: "My Deals", href: ROUTES.MY_DEALS, icon: Briefcase },
     {
       title: "Loan Workspace",

@@ -69,6 +69,11 @@ export interface EcmContact {
   contactScore: number;
   /** Latest business interaction timestamp (enterprise activity) */
   lastActiveOn: string;
+  /**
+   * Strategic Contact — eligible for Contact Strategy Workspace.
+   * Independent of roles; mark/unmark from Contact Registry only.
+   */
+  strategicContact?: boolean;
   /** Role-specific profile fields — never duplicates Identity */
   roleProfiles?: Partial<Record<EcmContactRole, Record<string, string>>>;
   createdBy: string;

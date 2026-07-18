@@ -256,6 +256,7 @@ export function updateEcmContact(
       | "roleProfiles"
       | "platformAccess"
       | "linkedUserId"
+      | "strategicContact"
     >
   >,
   actorId: string,
@@ -354,6 +355,7 @@ function ensureContactShape(contact: EcmContact): EcmContact {
     linkedUserId: contact.linkedUserId ?? null,
     lastActiveOn: contact.lastActiveOn ?? contact.modifiedOn ?? contact.createdOn,
     contactScore: contact.contactScore ?? computeEcmContactScore({ ...contact, ...synced }),
+    strategicContact: Boolean(contact.strategicContact),
   };
 }
 
