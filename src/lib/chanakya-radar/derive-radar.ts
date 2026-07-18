@@ -24,8 +24,15 @@ export interface ChanakyaRadarLenderChip {
 }
 
 export interface ChanakyaWaitingOn {
-  label: string;
+  /** "Pending From" | "Waiting For" — who owns the blocker. */
+  preamble: string;
+  /** Party name (customer, CA firm, lender, RM, Legal, Ops). */
+  party: string;
+  /** Concrete pending work item the RM must chase. */
+  pendingItem: string;
   emoji: string;
+  /** Alias of `party` — kept for callers that still read `label`. */
+  label: string;
 }
 
 export interface ChanakyaNextWorkspace {
@@ -51,12 +58,17 @@ export interface ChanakyaRadarCard {
   /** Intelligent empty-state when no active lenders. */
   lendersInsight: string;
   chanakyaSays: string;
+  /** One-line executive insight for dense Radar cards. */
+  executiveInsight: string;
   why: string[];
   recommends: string[];
   expectedOutcome: string;
   nextWorkspace: ChanakyaNextWorkspace;
   waitingOn: ChanakyaWaitingOn;
   lastActivityLabel: string;
+  /** Idle days since last meaningful activity. */
+  daysSinceActivity: number;
+  daysSinceActivityLabel: string;
   momentum: ChanakyaMomentumId;
   momentumLabel: string;
   aiPriority: ChanakyaAiPriority;
@@ -188,6 +200,74 @@ export function resolveActiveWorkspace(file: LoanFile): ChanakyaActiveWorkspaceI
   return "credit_bench";
 }
 
+function firstPendingDocument(file: LoanFile) {
+  return (file.documents ?? []).find(
+    (d) => d.status === "pending" || d.status === "requested" || d.status === "rejected",
+  );
+}
+
+function firstOpenTaskTitle(file: LoanFile): string | undefined {
+  const task = (file.tasks ?? []).find((t) => !t.completed && t.status !== "completed");
+  return task?.title?.trim() || undefined;
+}
+
+function resolvePendingItem(
+  file: LoanFile,
+  partyKind:
+    | "lender"
+    | "legal"
+    | "operations"
+    | "ca"
+    | "customer"
+    | "credit"
+    | "rm",
+): string {
+  const pendingDoc = firstPendingDocument(file);
+  if (pendingDoc?.name?.trim()) return pendingDoc.name.trim();
+
+  const taskTitle = firstOpenTaskTitle(file);
+  if (taskTitle) return taskTitle;
+
+  const lead = leadLender(file);
+  switch (partyKind) {
+    case "ca":
+      return "Last 2 Years Financial Statements";
+    case "customer":
+      return pendingDocCount(file) > 0 ? "Outstanding document upload" : "Customer follow-up response";
+    case "lender":
+      return lead?.holdReason?.trim()
+        ? `Clear hold — ${lead.holdReason.trim()}`
+        : lead?.caseStage === "soft_approved"
+          ? "Respond to lender query"
+          : "Lender processing update";
+    case "legal":
+      return "Legal / title paperwork clearance";
+    case "operations":
+      return "Disbursement / payout checklist";
+    case "credit":
+      return "Credit underwriting action";
+    case "rm":
+      return listActiveRadarLenders(file).length === 0
+        ? "Lender selection & structuring"
+        : "RM follow-up cadence";
+    default:
+      return "Next execution step";
+  }
+}
+
+function waitingOnResult(
+  preamble: string,
+  party: string,
+  emoji: string,
+  pendingItem: string,
+): ChanakyaWaitingOn {
+  return { preamble, party, pendingItem, emoji, label: party };
+}
+
+/**
+ * Resolve who is blocking the file and what is pending.
+ * Party selection rules unchanged; pending item is derived for RM clarity.
+ */
 function resolveWaitingOn(file: LoanFile, idleDays: number): ChanakyaWaitingOn {
   const lead = leadLender(file);
   const pendingDocs = pendingDocCount(file);
@@ -196,44 +276,98 @@ function resolveWaitingOn(file: LoanFile, idleDays: number): ChanakyaWaitingOn {
       /gst/i.test(d.name) &&
       (d.status === "pending" || d.status === "requested" || d.status === "rejected"),
   );
+  const caParty = file.sourceContactName?.trim() || "Chartered Accountant";
 
   if (hasHoldLender(file) && lead) {
-    return { emoji: "🏦", label: lead.lender };
+    return waitingOnResult(
+      "Pending From",
+      lead.lender,
+      "🏦",
+      resolvePendingItem(file, "lender"),
+    );
   }
 
   if (file.stage === "closure_wip" || lead?.caseStage === "closure_wip") {
-    return { emoji: "📄", label: "Legal Team" };
+    return waitingOnResult(
+      "Pending From",
+      "Legal Team",
+      "📄",
+      resolvePendingItem(file, "legal"),
+    );
   }
 
   if (file.stage === "final_approved" || lead?.caseStage === "final_approved") {
-    return { emoji: "⚙️", label: "Operations" };
+    return waitingOnResult(
+      "Pending From",
+      "Operations",
+      "⚙️",
+      resolvePendingItem(file, "operations"),
+    );
   }
 
   if (gstPending) {
-    return { emoji: "📊", label: "Chartered Accountant" };
+    return waitingOnResult(
+      "Pending From",
+      caParty,
+      "📊",
+      resolvePendingItem(file, "ca"),
+    );
   }
 
   if (pendingDocs > 0 && idleDays >= 3) {
-    return { emoji: "👤", label: "Customer" };
+    return waitingOnResult(
+      "Waiting For",
+      "Customer",
+      "👤",
+      resolvePendingItem(file, "customer"),
+    );
   }
 
   if (lead?.caseStage === "soft_approved" || lead?.caseStage === "logged_in_wip") {
-    return { emoji: "🏦", label: lead.lender };
+    return waitingOnResult(
+      "Pending From",
+      lead.lender,
+      "🏦",
+      resolvePendingItem(file, "lender"),
+    );
   }
 
   if (file.stage === "credit_wip" || file.stage === "logged_in") {
-    return { emoji: "🏦", label: lead?.lender ?? "Credit Officer" };
+    return waitingOnResult(
+      "Pending From",
+      lead?.lender ?? "Credit Officer",
+      "🏦",
+      resolvePendingItem(file, lead ? "lender" : "credit"),
+    );
   }
 
   if (file.stage === "raw_lead" || file.stage === "pre_login") {
-    return { emoji: "👤", label: "Relationship Manager" };
+    return waitingOnResult(
+      "Waiting For",
+      file.relationshipManager?.trim() || "Relationship Manager",
+      "👤",
+      resolvePendingItem(file, "rm"),
+    );
   }
 
   if (idleDays >= 5) {
-    return { emoji: "👤", label: "Customer" };
+    return waitingOnResult(
+      "Waiting For",
+      "Customer",
+      "👤",
+      resolvePendingItem(file, "customer"),
+    );
   }
 
-  return { emoji: "👤", label: file.relationshipManager || "Relationship Manager" };
+  const rm = file.relationshipManager?.trim() || "Relationship Manager";
+  return waitingOnResult("Waiting For", rm, "👤", resolvePendingItem(file, "rm"));
+}
+
+/** One short executive line — detailed narrative stays in Opportunity Workspace. */
+function toExecutiveInsight(chanakyaSays: string): string {
+  const first = (chanakyaSays.split(/(?<=[.!?])\s+/)[0] ?? chanakyaSays).trim();
+  if (first.length <= 110) return first;
+  return `${first.slice(0, 107).trimEnd()}…`;
 }
 
 function resolveMomentum(
@@ -464,6 +598,8 @@ export function mapLoanFileToRadarCard(file: LoanFile): ChanakyaRadarCard {
         ? "Lender selection pending — open Strategic Bench"
         : "Awaiting first active lender login";
 
+  const activityDays = Math.min(idleDays, 999) === 999 ? ageingDays : idleDays;
+
   return {
     id: file.id,
     health: classified.health,
@@ -477,12 +613,16 @@ export function mapLoanFileToRadarCard(file: LoanFile): ChanakyaRadarCard {
     extraActiveLenders: Math.max(0, active.length - 3),
     lendersInsight,
     chanakyaSays: classified.chanakyaSays,
+    executiveInsight: toExecutiveInsight(classified.chanakyaSays),
     why: classified.why.slice(0, 5),
     recommends: classified.recommends.slice(0, 3),
     expectedOutcome: classified.expectedOutcome,
     nextWorkspace: workspaceMeta(workspaceId),
     waitingOn: resolveWaitingOn(file, idleDays),
-    lastActivityLabel: formatLastActivity(Math.min(idleDays, 999) === 999 ? ageingDays : idleDays),
+    lastActivityLabel: formatLastActivity(activityDays),
+    daysSinceActivity: activityDays,
+    daysSinceActivityLabel:
+      activityDays <= 0 ? "0 days idle" : activityDays === 1 ? "1 day idle" : `${activityDays} days idle`,
     momentum,
     momentumLabel,
     aiPriority: resolveAiPriority(file, classified.health, idleDays, soft),
