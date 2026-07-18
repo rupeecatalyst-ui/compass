@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronDown, ChevronRight, Compass, Sparkles } from "lucide-react";
 import { ContextWorkspaceShell } from "@/components/catalyst-one/action-center/context-workspace-shell";
+import { ChanakyaMark } from "@/components/layout/chanakya-mark";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -96,12 +97,12 @@ function GuideEntryCard({ entry }: { entry: ChanakyaGuideEntry }) {
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   return (
-    <article className="rounded-xl border border-border/70 bg-card/80 p-3.5 shadow-sm">
+    <article className="rounded-xl border border-border/80 bg-card p-3.5 shadow-md">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="text-sm font-semibold tracking-tight text-foreground">
           {entry.guidanceTitle}
         </h3>
-        <span className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
           {entry.section}
         </span>
       </div>
@@ -112,7 +113,7 @@ function GuideEntryCard({ entry }: { entry: ChanakyaGuideEntry }) {
       </dl>
       <button
         type="button"
-        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-800 hover:underline dark:text-violet-200"
+        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-teal-800 hover:underline dark:text-teal-200"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
@@ -120,13 +121,13 @@ function GuideEntryCard({ entry }: { entry: ChanakyaGuideEntry }) {
         Learn More
       </button>
       {open ? (
-        <div className="mt-2 space-y-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-2.5 py-2 text-[11px] leading-relaxed text-foreground/85">
+        <div className="mt-2 space-y-2 overflow-hidden rounded-lg border border-border/70 bg-muted px-2.5 py-2 text-[11px] leading-relaxed text-foreground/85">
           <p>{entry.detailedGuidance}</p>
           {related.length > 0 ? (
-            <dl className="space-y-1.5 border-t border-violet-500/15 pt-2">
+            <dl className="space-y-1.5 border-t border-border/60 pt-2">
               {related.map((r) => (
                 <div key={r.label}>
-                  <dt className="text-[9px] font-semibold uppercase tracking-wide text-violet-800/80 dark:text-violet-200/80">
+                  <dt className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
                     {r.label}
                   </dt>
                   <dd className="text-foreground/80">{r.value}</dd>
@@ -187,8 +188,10 @@ function ChanakyaGuidePanel({
       title={title}
       description={description}
       entityLabel={context.transactionLabel ?? meta?.workspaceLabel}
-      eyebrow={overlayOnly ? "💜 CHANAKYA" : "Context Workspace"}
+      eyebrow={overlayOnly ? "CHANAKYA" : "Context Workspace"}
+      eyebrowLeading={overlayOnly ? <ChanakyaMark status="normal" size="xs" /> : undefined}
       allowOutsideClose={overlayOnly}
+      premiumOverlay={overlayOnly}
       className={
         overlayOnly
           ? "w-[min(100vw,28rem)] sm:max-w-md md:max-w-md"
@@ -200,7 +203,7 @@ function ChanakyaGuidePanel({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 flex-1 gap-1.5 text-xs"
+            className="h-8 flex-1 gap-1.5 bg-background text-xs"
             onClick={onOpenTour}
           >
             <BookOpen className="h-3.5 w-3.5" />

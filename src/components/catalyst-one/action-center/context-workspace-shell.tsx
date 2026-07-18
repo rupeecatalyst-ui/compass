@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Premium slide-over Context Workspace — temporary workspace, not a CRM popup.
- * Parent business context remains visible underneath.
+ * Use `premiumOverlay` for Global CHANAKYA: opaque panel + strong backdrop, no bleed-through.
  */
 export function ContextWorkspaceShell({
   open,
@@ -26,7 +26,9 @@ export function ContextWorkspaceShell({
   onAskChanakya,
   className,
   eyebrow = "Context Workspace",
+  eyebrowLeading,
   allowOutsideClose = false,
+  premiumOverlay = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,24 +40,45 @@ export function ContextWorkspaceShell({
   onAskChanakya?: () => void;
   className?: string;
   eyebrow?: string;
+  /** Optional mark / icon before the eyebrow label. */
+  eyebrowLeading?: React.ReactNode;
   allowOutsideClose?: boolean;
+  /** Fully opaque drawer + elevated backdrop (Global CHANAKYA). */
+  premiumOverlay?: boolean;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
         allowOutsideClose={allowOutsideClose}
+        overlayClassName={
+          premiumOverlay
+            ? "z-[90] bg-zinc-950/55 backdrop-blur-[2px]"
+            : undefined
+        }
         className={cn(
-          "flex w-full flex-col gap-0 border-l border-border/60 bg-background p-0 shadow-2xl",
-          "z-[80] sm:max-w-xl md:max-w-2xl",
+          "flex w-full flex-col gap-0 border-l border-border/60 p-0 shadow-2xl",
+          premiumOverlay
+            ? "z-[91] bg-background sm:max-w-md md:max-w-md"
+            : "z-[80] bg-background sm:max-w-xl md:max-w-2xl",
           "data-[state=open]:duration-400",
           className,
         )}
       >
-        <SheetHeader className="shrink-0 space-y-1 border-b border-border/60 bg-gradient-to-r from-background via-background to-teal-500/5 px-5 py-4 pr-12 text-left">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700/90 dark:text-teal-300/90">
-            {eyebrow}
-            {entityLabel ? ` · ${entityLabel}` : ""}
+        <SheetHeader
+          className={cn(
+            "shrink-0 space-y-1 border-b border-border/60 px-5 py-4 pr-12 text-left",
+            premiumOverlay
+              ? "bg-background"
+              : "bg-gradient-to-r from-background via-background to-teal-500/5",
+          )}
+        >
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700/90 dark:text-teal-300/90">
+            {eyebrowLeading}
+            <span>
+              {eyebrow}
+              {entityLabel ? ` · ${entityLabel}` : ""}
+            </span>
           </p>
           <SheetTitle className="text-lg font-semibold tracking-tight text-foreground">
             {title}
@@ -67,15 +90,27 @@ export function ContextWorkspaceShell({
           ) : null}
         </SheetHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto px-5 py-4",
+            premiumOverlay && "bg-background",
+          )}
+        >
+          {children}
+        </div>
 
-        <div className="shrink-0 space-y-2 border-t border-border/60 bg-muted/20 px-5 py-3">
+        <div
+          className={cn(
+            "shrink-0 space-y-2 border-t border-border/60 px-5 py-3",
+            premiumOverlay ? "bg-muted" : "bg-muted/20",
+          )}
+        >
           {onAskChanakya ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 w-full gap-1.5 border-violet-500/30 bg-violet-500/5 text-xs text-violet-900 hover:bg-violet-500/10 dark:text-violet-100"
+              className="h-8 w-full gap-1.5 border-violet-500/30 bg-background text-xs text-violet-900 hover:bg-violet-500/10 dark:text-violet-100"
               onClick={onAskChanakya}
             >
               <Sparkles className="h-3.5 w-3.5" />
@@ -98,4 +133,3 @@ export function ContextWorkspaceShell({
     </Sheet>
   );
 }
-

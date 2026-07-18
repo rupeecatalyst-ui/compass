@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { ChanakyaGuidePanel, ChanakyaTourDialog } from "@/components/catalyst-one/chanakya-guide";
+import { ChanakyaMark } from "@/components/layout/chanakya-mark";
 import { useGlobalChanakya } from "@/components/layout/global-chanakya-provider";
 import { Button } from "@/components/ui/button";
 import { resolveGlobalChanakyaAssistant } from "@/lib/chanakya-assistant/resolve-context";
@@ -15,7 +16,7 @@ import type { ChanakyaTourState } from "@/types/chanakya-guide";
 import { cn } from "@/lib/utils";
 
 /**
- * Permanent global header control — 💜 CHANAKYA
+ * Permanent global header control — CHANAKYA identity mark + label.
  * Opens the platform AI drawer without resizing the workspace.
  */
 export function GlobalChanakyaButton({
@@ -33,14 +34,14 @@ export function GlobalChanakyaButton({
       variant="ghost"
       size={density === "compact" ? "sm" : "sm"}
       className={cn(
-        "gap-1.5 font-semibold text-violet-800 hover:bg-violet-500/10 hover:text-violet-950 dark:text-violet-200 dark:hover:text-violet-50",
+        "gap-1.5 font-semibold text-foreground hover:bg-emerald-500/10 hover:text-emerald-950 dark:hover:text-emerald-50",
         density === "compact" ? "h-8 px-2 text-[11px]" : "h-9 px-2.5 text-xs",
         className,
       )}
       onClick={openAssistant}
       aria-label="Open CHANAKYA assistant"
     >
-      <span aria-hidden>💜</span>
+      <ChanakyaMark status="normal" size={density === "compact" ? "xs" : "sm"} />
       CHANAKYA
     </Button>
   );
@@ -112,11 +113,11 @@ export function GlobalChanakyaMcButton({ className }: { className?: string }) {
       aria-label="Open CHANAKYA assistant"
       onClick={openAssistant}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border border-violet-500/35 bg-violet-500/10 px-2 py-1.5 text-[11px] font-semibold text-violet-100 transition-colors hover:bg-violet-500/20",
+        "inline-flex items-center gap-1.5 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-1.5 text-[11px] font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/20",
         className,
       )}
     >
-      <span aria-hidden>💜</span>
+      <ChanakyaMark status="normal" size="xs" className="border-emerald-400/50 bg-emerald-500/20 text-emerald-100" />
       CHANAKYA
     </button>
   );

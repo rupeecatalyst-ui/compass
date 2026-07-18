@@ -165,9 +165,9 @@ export function ChanakyaLoanJourneyExperience({
 
         <div
           key={`msg-${transitionKey}`}
-          className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300 rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-500/10 via-background to-transparent p-4"
+          className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300 rounded-2xl border border-border/80 bg-card p-4 shadow-md"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-800 dark:text-violet-200">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-800 dark:text-teal-200">
             Chanakya · Mentor
           </p>
           <p className="mt-2 text-sm leading-relaxed text-foreground/95">
@@ -177,7 +177,7 @@ export function ChanakyaLoanJourneyExperience({
 
         <div
           key={`here-${transitionKey}`}
-          className="animate-in fade-in-0 duration-300 rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm"
+          className="animate-in fade-in-0 duration-300 rounded-2xl border border-border/80 bg-card p-4 shadow-md"
         >
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             You are here
@@ -219,7 +219,7 @@ export function ChanakyaLoanJourneyExperience({
       </div>
 
       {/* Position strip */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-[11px]">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-muted px-3 py-2 text-[11px]">
         {stages.map((s, i) => {
           const done = i < transactionIndex;
           const isCurrent = i === transactionIndex;
