@@ -10,7 +10,13 @@ export const WORKSPACE_CHROME_BUDGET_MAX = 0.25;
 export const WORKSPACE_WORK_AREA_MIN = 0.75;
 
 /** Scroll past this many pixels before sticky chrome collapses. */
-export const WORKSPACE_CHROME_COLLAPSE_THRESHOLD_PX = 12;
+export const WORKSPACE_CHROME_COLLAPSE_THRESHOLD_PX = 72;
+
+/**
+ * Scroll must return below this before chrome expands again.
+ * Must be well below COLLAPSE to prevent sticky-height ↔ scroll-anchor oscillation.
+ */
+export const WORKSPACE_CHROME_EXPAND_THRESHOLD_PX = 20;
 
 /**
  * document — page/main scrolls naturally (default for primary workspaces).

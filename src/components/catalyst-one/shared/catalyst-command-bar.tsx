@@ -59,7 +59,7 @@ export function WorkspaceCommandBarLayout({
 export function attachCommandBarScrollState(
   commandBarEl: HTMLDivElement | null,
   scrollTop: number,
-  threshold = 2,
+  threshold = 24,
 ) {
   if (!commandBarEl) return;
   const next = scrollTop > threshold ? "true" : "false";

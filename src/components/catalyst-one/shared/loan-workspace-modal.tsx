@@ -457,7 +457,7 @@ function LoanWorkspaceModalContent({
 
   const workbench = (
     <Tabs
-      key={`${draft.id}-${defaultTab}`}
+      key={draft.id}
       value={activeTab}
       onValueChange={setActiveTab}
       className={cn(

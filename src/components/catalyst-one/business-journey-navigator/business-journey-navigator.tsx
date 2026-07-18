@@ -125,13 +125,29 @@ export function BusinessJourneyNavigator({
     stages.findIndex((s) => s.id === currentStageId),
   );
   const currentRef = useRef<HTMLButtonElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Horizontal-only scroll. Never use Element.scrollIntoView inside sticky /
+   * dialog / nested overflow parents — it scrolls vertical ancestors and
+   * produces workspace viewport jump across all execution desks.
+   */
   useEffect(() => {
-    currentRef.current?.scrollIntoView({
-      behavior: "smooth",
-      inline: "center",
-      block: "nearest",
-    });
+    const scroller = scrollerRef.current;
+    const target = currentRef.current;
+    if (!scroller || !target) return;
+
+    const scrollerRect = scroller.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const delta =
+      targetRect.left +
+      targetRect.width / 2 -
+      (scrollerRect.left + scrollerRect.width / 2);
+    const nextLeft = scroller.scrollLeft + delta;
+    const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    const clamped = Math.max(0, Math.min(maxLeft, nextLeft));
+    if (Math.abs(scroller.scrollLeft - clamped) < 1) return;
+    scroller.scrollTo({ left: clamped, behavior: "smooth" });
   }, [currentStageId]);
 
   const phaseBands = CHANAKYA_LOAN_JOURNEY_PHASES.map((phase) => ({
@@ -153,7 +169,7 @@ export function BusinessJourneyNavigator({
       role="navigation"
       aria-label="Business Journey Navigator"
     >
-      <div className="overflow-x-auto px-3 py-1.5 sm:px-5 scrollbar-thin">
+      <div ref={scrollerRef} className="overflow-x-auto px-3 py-1.5 sm:px-5 scrollbar-thin">
         <div className="flex min-w-max items-stretch gap-0">
           {phaseBands.map((band, bandIdx) => {
             const tone = PHASE_TONE[band.phase.tone];

@@ -1,15 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { WORKSPACE_CHROME_COLLAPSE_THRESHOLD_PX } from "@/constants/enterprise-workspace-ux";
+import {
+  WORKSPACE_CHROME_COLLAPSE_THRESHOLD_PX,
+  WORKSPACE_CHROME_EXPAND_THRESHOLD_PX,
+} from "@/constants/enterprise-workspace-ux";
 
 /**
  * Collapses sticky workspace chrome after the user scrolls the nearest scroll parent.
- * Returns a sentinel ref to place at the top of the workspace and the collapsed flag.
+ *
+ * Uses hysteresis (collapse vs expand thresholds) so sticky height changes cannot
+ * oscillate with browser scroll-anchoring — the root cause of workspace “shake”.
  */
 export function useWorkspaceChromeCollapse(
   enabled = true,
-  thresholdPx = WORKSPACE_CHROME_COLLAPSE_THRESHOLD_PX,
+  collapseThresholdPx = WORKSPACE_CHROME_COLLAPSE_THRESHOLD_PX,
+  expandThresholdPx = WORKSPACE_CHROME_EXPAND_THRESHOLD_PX,
 ) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -27,14 +33,20 @@ export function useWorkspaceChromeCollapse(
     if (!scrollParent) return;
 
     const onScroll = () => {
-      const next = scrollParent.scrollTop > thresholdPx;
-      setCollapsed((prev) => (prev === next ? prev : next));
+      const top = scrollParent.scrollTop;
+      setCollapsed((prev) => {
+        if (prev) {
+          // Stay collapsed until clearly back near the top (hysteresis).
+          return top > expandThresholdPx;
+        }
+        return top > collapseThresholdPx;
+      });
     };
 
     onScroll();
     scrollParent.addEventListener("scroll", onScroll, { passive: true });
     return () => scrollParent.removeEventListener("scroll", onScroll);
-  }, [enabled, thresholdPx]);
+  }, [enabled, collapseThresholdPx, expandThresholdPx]);
 
   return { sentinelRef, collapsed };
 }

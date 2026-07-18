@@ -232,4 +232,14 @@
   .enterprise-stable-surface:active {
     transform: none !important;
   }
+
+  /**
+   * Enterprise Workspace Shell — prevent scroll-anchoring oscillation when
+   * sticky chrome height changes (save / upload / refresh / tab switch).
+   */
+  .enterprise-workspace-shell,
+  .enterprise-workspace-shell [data-workspace-chrome],
+  .enterprise-workspace-shell [data-workspace-body] {
+    overflow-anchor: none;
+  }
 }

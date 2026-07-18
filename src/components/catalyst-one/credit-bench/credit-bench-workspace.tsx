@@ -10,7 +10,6 @@ import {
   journeyContextFromLoanFile,
   loadLeadJourneyLoanFile,
 } from "@/lib/lead-opportunity-journey/load-context";
-import { isDashboardNavEntry } from "@/lib/lead-opportunity-journey/active-context";
 import {
   businessProfileFromLoanFile,
   resolveStatedDraftForFile,
@@ -43,16 +42,26 @@ export function CreditBenchWorkspace() {
     "customer" | "loan" | "financial" | "business" | "property" | "eligibility"
   >("customer");
 
+  const entryParam = searchParams.get("entry");
+
   useEffect(() => {
-    setLoading(true);
     const next = loadLeadJourneyLoanFile(fileParam, opportunityId, {
-      dashboardEntry: isDashboardNavEntry(searchParams),
+      dashboardEntry: entryParam === "dashboard",
     });
-    setFile(next);
-    if (next) setStated(resolveStatedDraftForFile(next));
-    else setStated({});
+    let identityChanged = true;
+    setFile((prev) => {
+      if (prev?.id && next?.id && prev.id === next.id) {
+        identityChanged = false;
+        return prev;
+      }
+      return next;
+    });
+    if (identityChanged) {
+      if (next) setStated(resolveStatedDraftForFile(next));
+      else setStated({});
+    }
     setLoading(false);
-  }, [fileParam, opportunityId, searchParams]);
+  }, [fileParam, opportunityId, entryParam]);
 
   const context = useMemo(() => journeyContextFromLoanFile(file), [file]);
   const profile = useMemo(

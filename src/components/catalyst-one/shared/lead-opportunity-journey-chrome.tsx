@@ -295,7 +295,8 @@ export function LeadOpportunityJourneyChrome({
     <>
       <div
         className={cn(
-          "grid transition-[grid-template-rows] duration-200 ease-out",
+          /* Instant collapse — animated height on sticky chrome causes viewport shake. */
+          "grid",
           "grid-rows-[1fr]",
           "group-data-[chrome-collapsed=true]/ews:grid-rows-[0fr]",
         )}
