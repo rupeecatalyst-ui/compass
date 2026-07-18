@@ -314,12 +314,6 @@ export const favoritePages = [
   { title: "Contacts", href: ROUTES.CONTACTS },
 ];
 
-export const pinnedPages = [
-  { title: "CHANAKYA Radar", href: ROUTES.CHANAKYA_RADAR, icon: Radar },
-  { title: "My Deals", href: ROUTES.MY_DEALS, icon: Briefcase },
-  { title: "Contacts", href: ROUTES.CONTACTS, icon: Contact },
-];
-
 export const workspaces = [
   { id: "rc", name: "Rupee Catalyst", slug: "rupee-catalyst" },
   { id: "demo", name: "Demo Workspace", slug: "demo" },

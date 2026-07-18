@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -12,7 +11,7 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { allNavigationGroups, recentPages, favoritePages, pinnedPages } from "@/config/navigation";
+import { allNavigationGroups, recentPages, favoritePages } from "@/config/navigation";
 import { filterNavigationByRole } from "@/lib/navigation-utils";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { CatalystBranding } from "@/components/catalyst-one/catalyst-branding";
@@ -30,7 +29,6 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ onSearchClick }: AppSidebarProps) {
-  const pathname = usePathname();
   const { collapsed, toggle } = useSidebar();
   const { user } = useAuthContext();
   const visibleNavigation = filterNavigationByRole(allNavigationGroups, user?.role);
@@ -81,18 +79,6 @@ export function AppSidebar({ onSearchClick }: AppSidebarProps) {
       </div>
 
       <ScrollArea className="flex-1 px-3">
-        {/* Pinned */}
-        {!collapsed && pinnedPages.length > 0 && (
-          <div className="mb-4">
-            <p className="mb-2 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Pinned
-            </p>
-            {pinnedPages.map((page) => (
-              <NavLink key={page.href} href={page.href} icon={page.icon} label={page.title} active={pathname === page.href} collapsed={collapsed} />
-            ))}
-          </div>
-        )}
-
         {visibleNavigation.map((group, index) => (
           <div key={group.title} className="mb-4">
             {!collapsed && index > 0 && <Separator className="mb-4" />}
@@ -165,49 +151,4 @@ export function AppSidebar({ onSearchClick }: AppSidebarProps) {
       </div>
     </motion.aside>
   );
-}
-
-interface NavLinkProps {
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  badge?: string;
-  active: boolean;
-  collapsed: boolean;
-}
-
-function NavLink({ href, icon: Icon, label, badge, active, collapsed }: NavLinkProps) {
-  const content = (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-all",
-        active
-          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-          : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-        collapsed && "justify-center px-0",
-      )}
-    >
-      <Icon className="h-4 w-4 shrink-0" />
-      {!collapsed && (
-        <>
-          <span className="flex-1">{label}</span>
-          {badge && (
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{badge}</span>
-          )}
-        </>
-      )}
-    </Link>
-  );
-
-  if (collapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{content}</TooltipTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return content;
 }
