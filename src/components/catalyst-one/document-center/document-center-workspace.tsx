@@ -1,17 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Bell,
   Download,
+  Eye,
   FolderUp,
+  History,
   Mail,
   MessageSquare,
+  MoreHorizontal,
+  Replace,
   Upload,
 } from "lucide-react";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
+import {
+  DocumentReadinessCard,
+  type DocumentKpiFilter,
+} from "@/components/catalyst-one/document-center/document-readiness-card";
+import { DocumentReadinessDrawer } from "@/components/catalyst-one/document-center/document-readiness-drawer";
+import { DocumentViewerOverlay } from "@/components/catalyst-one/document-center/document-viewer-overlay";
+import { DocumentVersionHistoryDrawer } from "@/components/catalyst-one/document-center/document-version-history-drawer";
 import {
   journeyContextFromLoanFile,
   loadLeadJourneyLoanFile,
@@ -25,30 +36,59 @@ import {
   seedEdieCertifiedRulesIfNeeded,
 } from "@/lib/edie-certified";
 import { computeDocumentCompletionScore } from "@/lib/document-completion/score";
+import {
+  appendDocumentVersion,
+  loadDocumentVersions,
+  reasonForDocument,
+  type DocumentCenterVersion,
+} from "@/lib/document-center/versions";
 import { EDIE_ADDRESS_PROOF_GROUP } from "@/constants/edie-certified/document-catalog";
 import { ROUTES } from "@/constants/routes";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 import type { LoanFile } from "@/types/catalyst-one";
 import type { EdieChecklistItem } from "@/types/edie-certified-rules";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /**
- * Document Center — Document Readiness Dashboard driven entirely by EDIE.
+ * Enterprise Document Center — workspace UX over EDIE (rules unchanged).
  */
 export function DocumentCenterWorkspace() {
+  const { user } = useAuthContext();
   const searchParams = useSearchParams();
   const fileParam = searchParams.get("file");
   const opportunityId = searchParams.get("opportunityId");
-  const focusRef = searchParams.get("focus");
+  const focusParam = searchParams.get("focus");
   const sectionParam = searchParams.get("section");
+  const entryParam = searchParams.get("entry");
+
   const [file, setFile] = useState<LoanFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [receipts, setReceipts] = useState<Record<string, boolean>>({});
   const [addressChoice, setAddressChoice] = useState<string | undefined>();
+  const [versionsMap, setVersionsMap] = useState<Record<string, DocumentCenterVersion[]>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedOnce, setSavedOnce] = useState(false);
+
+  const [kpiFilter, setKpiFilter] = useState<DocumentKpiFilter>("all");
+  const [readinessOpen, setReadinessOpen] = useState(false);
+  const [viewerTypeRef, setViewerTypeRef] = useState<string | null>(null);
+  const [historyTypeRef, setHistoryTypeRef] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [localFocus, setLocalFocus] = useState<string | null>(focusParam);
+
   const focusEl = useRef<HTMLLIElement | null>(null);
-  const entryParam = searchParams.get("entry");
+  const scrollRoot = useRef<HTMLDivElement | null>(null);
+  const scrollPos = useRef(0);
+
+  const uploaderName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "Relationship Manager";
 
   useEffect(() => {
     seedEdieCertifiedRulesIfNeeded();
@@ -66,14 +106,19 @@ export function DocumentCenterWorkspace() {
     if (identityChanged && next) {
       setReceipts(loadEdieReceipts(next.id));
       setAddressChoice(loadAddressProofSelection(next.id));
+      setVersionsMap(loadDocumentVersions(next.id));
     }
     setLoading(false);
   }, [fileParam, opportunityId, entryParam]);
 
   useEffect(() => {
-    if (!focusRef || !focusEl.current) return;
+    setLocalFocus(focusParam);
+  }, [focusParam]);
+
+  useEffect(() => {
+    if (!localFocus || !focusEl.current) return;
     focusEl.current.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [focusRef, file?.id, receipts]);
+  }, [localFocus, file?.id, receipts, kpiFilter]);
 
   const checklist = useMemo(() => {
     if (!file) return null;
@@ -102,15 +147,63 @@ export function DocumentCenterWorkspace() {
 
   const context = useMemo(() => journeyContextFromLoanFile(file), [file]);
 
-  const markReceived = (typeRef: string) => {
+  const flatItems = useMemo(() => {
+    if (!checklist) return [] as EdieChecklistItem[];
+    return checklist.modules.flatMap((m) => {
+      if (m.id === "address_proof") {
+        const selected =
+          addressChoice ||
+          m.items.find((x) => !x.optional)?.typeRef ||
+          m.items[0]?.typeRef;
+        return m.items.filter((i) => i.typeRef === selected);
+      }
+      return m.items.filter(
+        (i) => !i.optional || i.moduleId === "customer_kyc" || i.moduleId === "banking",
+      );
+    });
+  }, [checklist, addressChoice]);
+
+  const filteredTypeRefs = useMemo(() => {
+    if (kpiFilter === "all" || kpiFilter === "readiness") return null;
+    const set = new Set<string>();
+    for (const i of flatItems) {
+      if (kpiFilter === "uploaded" && i.complete) set.add(i.typeRef);
+      if (kpiFilter === "pending" && !i.complete) set.add(i.typeRef);
+      if (kpiFilter === "critical" && i.critical && !i.complete) set.add(i.typeRef);
+      if (kpiFilter === "optional" && i.optional) set.add(i.typeRef);
+    }
+    return set;
+  }, [flatItems, kpiFilter]);
+
+  const preserveScroll = useCallback(() => {
+    scrollPos.current = scrollRoot.current?.scrollTop ?? window.scrollY;
+  }, []);
+
+  const restoreScroll = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (scrollRoot.current) scrollRoot.current.scrollTop = scrollPos.current;
+      else window.scrollTo({ top: scrollPos.current });
+    });
+  }, []);
+
+  const flash = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 2200);
+  };
+
+  const uploadDocument = (typeRef: string, label?: string) => {
     if (!file) return;
-    const next = { ...receipts, [typeRef]: true };
+    preserveScroll();
+    const key = typeRef;
+    const next = { ...receipts, [key]: true };
     setReceipts(next);
     saveEdieReceipts(file.id, next);
+    const list = appendDocumentVersion(file.id, key, uploaderName);
+    setVersionsMap((prev) => ({ ...prev, [key]: list }));
     setDirty(false);
     setSavedOnce(true);
-    setToast(`${typeRef.replace(/^doc:/, "").replace(/-/g, " ")} marked received`);
-    window.setTimeout(() => setToast(null), 2500);
+    flash(`${(label || key).replace(/^doc:/, "").replace(/-/g, " ")} uploaded`);
+    restoreScroll();
   };
 
   const onAddressSelect = (typeRef: string) => {
@@ -119,6 +212,26 @@ export function DocumentCenterWorkspace() {
     saveAddressProofSelection(file.id, typeRef);
     setDirty(true);
   };
+
+  const takeMeThere = (item: EdieChecklistItem) => {
+    setReadinessOpen(false);
+    setExpanded((e) => ({ ...e, [item.moduleId]: true }));
+    setLocalFocus(item.typeRef);
+    setKpiFilter("all");
+  };
+
+  const openViewer = (typeRef: string) => {
+    preserveScroll();
+    setViewerTypeRef(typeRef);
+  };
+
+  const closeViewer = () => {
+    setViewerTypeRef(null);
+    restoreScroll();
+  };
+
+  const viewerItem = flatItems.find((i) => i.typeRef === viewerTypeRef) ?? null;
+  const historyItem = flatItems.find((i) => i.typeRef === historyTypeRef) ?? null;
 
   if (loading) {
     return (
@@ -166,34 +279,45 @@ export function DocumentCenterWorkspace() {
           setSavedOnce(true);
         }}
       >
-        <div className="space-y-4 p-4 sm:p-5">
-          {toast && (
+        <div ref={scrollRoot} className="space-y-4 p-4 sm:p-5">
+          {toast ? (
             <div className="rounded-lg border border-teal-500/25 bg-teal-500/10 px-3 py-2 text-xs text-teal-950 dark:text-teal-100">
               {toast}
             </div>
-          )}
+          ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <ScoreTile label="Required" value={String(checklist.counts.mandatory + checklist.counts.required)} />
-            <ScoreTile label="Received" value={String(checklist.counts.received)} accent />
-            <ScoreTile label="Pending" value={String(checklist.counts.pending)} />
-            <ScoreTile
-              label="Critical Now"
-              value={
-                checklist.counts.criticalPending
-                  ? String(checklist.counts.criticalPending)
-                  : "None"
-              }
-              warn={checklist.counts.criticalPending > 0}
-            />
-          </div>
+          <DocumentReadinessCard
+            checklist={checklist}
+            score={score}
+            activeFilter={kpiFilter}
+            onOpenReadiness={() => {
+              setKpiFilter("readiness");
+              setReadinessOpen(true);
+            }}
+            onKpiClick={(f) => {
+              setKpiFilter(f);
+              if (f === "readiness") setReadinessOpen(true);
+              else setReadinessOpen(true);
+            }}
+          />
 
           <p className="text-[11px] text-muted-foreground">
-            EDIE · {checklist.productRef.replace("product:", "")} · {checklist.productFamily.replace("_", " ")} ·{" "}
-            {checklist.customerCategory.replace("_", " ")} · {checklist.transactionType.replace("_", " ")} · stage{" "}
+            EDIE · {checklist.productRef.replace("product:", "")} ·{" "}
+            {checklist.productFamily.replace("_", " ")} · stage{" "}
             {checklist.workflowStage.replace(/_/g, " ")}
-            {" · "}
-            Completion {score.overallPct}%
+            {kpiFilter !== "all" && kpiFilter !== "readiness" ? (
+              <>
+                {" · "}
+                Filter{" "}
+                <button
+                  type="button"
+                  className="font-medium text-teal-800 underline-offset-2 hover:underline dark:text-teal-200"
+                  onClick={() => setKpiFilter("all")}
+                >
+                  {kpiFilter} · Clear
+                </button>
+              </>
+            ) : null}
           </p>
 
           <div className="flex flex-wrap gap-2">
@@ -211,11 +335,8 @@ export function DocumentCenterWorkspace() {
                 <button
                   key={a.label}
                   type="button"
-                  onClick={() => {
-                    setToast(`${a.label} ready — collection channel recorded for this file.`);
-                    window.setTimeout(() => setToast(null), 2500);
-                  }}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-card px-2.5 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/50"
+                  onClick={() => flash(`${a.label} ready — stays in this workspace.`)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-card px-2.5 text-[11px] font-medium shadow-sm transition-colors hover:bg-muted/50"
                 >
                   <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                   {a.label}
@@ -225,111 +346,167 @@ export function DocumentCenterWorkspace() {
           </div>
 
           {checklist.modules.map((mod) => {
-            const sectionFocus = sectionParam === mod.id;
+            const isOpen = expanded[mod.id] ?? true;
+            const sectionFocus = sectionParam === mod.id || localFocus?.startsWith("doc:");
+            let rows =
+              mod.id === "address_proof"
+                ? (() => {
+                    const selected =
+                      addressChoice ||
+                      mod.items.find((x) => !x.optional)?.typeRef ||
+                      mod.items[0]?.typeRef;
+                    return mod.items.filter((i) => i.typeRef === selected);
+                  })()
+                : mod.items.filter(
+                    (i) => !i.optional || i.moduleId === "customer_kyc" || i.moduleId === "banking",
+                  );
+            if (filteredTypeRefs) {
+              rows = rows.filter((i) => filteredTypeRefs.has(i.typeRef));
+            }
+            if (filteredTypeRefs && rows.length === 0) return null;
+
             return (
               <section
                 key={mod.id}
                 id={`edie-section-${mod.id}`}
                 className={cn(
                   "rounded-2xl border border-border/70 bg-card p-4 shadow-sm",
-                  sectionFocus && "ring-2 ring-teal-500/40",
+                  sectionParam === mod.id && "ring-2 ring-teal-500/40",
                 )}
               >
-                <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 text-left"
+                  onClick={() => setExpanded((e) => ({ ...e, [mod.id]: !isOpen }))}
+                >
                   <div>
                     <h2 className="text-sm font-semibold">{mod.label}</h2>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
                       {mod.id === "address_proof"
                         ? "Select one address proof — upload once."
                         : mod.id === "financial" && checklist.customerCategory !== "salaried"
-                          ? "Upload all financial papers into one folder."
+                          ? "Unlimited files in Financial Documents Folder."
                           : mod.id === "property"
-                            ? "Activated after Soft Approval — multiple files allowed."
-                            : "Generated by EDIE certified rules."}
+                            ? "Activated after Soft Approval — unlimited files."
+                            : "Generated by EDIE — actions stay in this workspace."}
                     </p>
                   </div>
                   <span className="text-[10px] tabular-nums text-muted-foreground">
-                    {mod.items.filter((i) => i.complete || (i.choiceGroupId && i.optional)).length}/
-                    {mod.items.filter((i) => !i.optional || !i.choiceGroupId).length}
+                    {isOpen ? "Collapse" : "Expand"}
                   </span>
-                </div>
+                </button>
 
-                {mod.id === "address_proof" ? (
-                  <div className="mt-3 space-y-2">
-                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Address proof type
-                      {checklist.productFamily === "asset_security" ? " (optional)" : ""}
-                    </label>
-                    <select
-                      className="h-8 w-full max-w-sm rounded-md border border-border bg-background px-2 text-xs"
-                      value={
-                        addressChoice ||
-                        mod.items.find((i) => !i.optional)?.typeRef ||
-                        mod.items[0]?.typeRef ||
-                        "doc:address-electricity"
-                      }
-                      onChange={(e) => onAddressSelect(e.target.value)}
-                    >
-                      {mod.items.map((i) => (
-                        <option key={i.typeRef} value={i.typeRef}>
-                          {i.label}
-                        </option>
-                      ))}
-                    </select>
-                    <ul className="divide-y divide-border/50 rounded-xl border border-border/50">
-                      {mod.items
-                        .filter((i) => {
-                          const selected =
+                {isOpen ? (
+                  <>
+                    {mod.id === "address_proof" ? (
+                      <div className="mt-3">
+                        <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Address proof type
+                          {checklist.productFamily === "asset_security" ? " (optional)" : ""}
+                        </label>
+                        <select
+                          className="mt-1 h-8 w-full max-w-sm rounded-md border border-border bg-background px-2 text-xs"
+                          value={
                             addressChoice ||
-                            mod.items.find((x) => !x.optional)?.typeRef ||
-                            mod.items[0]?.typeRef;
-                          return i.typeRef === selected;
-                        })
-                        .map((item) => (
-                          <ChecklistRow
-                            key={item.typeRef}
-                            item={item}
-                            focused={focusRef === item.typeRef}
-                            rowRef={focusRef === item.typeRef ? focusEl : undefined}
-                            onMark={() => markReceived(item.typeRef)}
-                          />
-                        ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <ul className="mt-3 divide-y divide-border/50 rounded-xl border border-border/50">
-                    {mod.items
-                      .filter((i) => !i.optional || i.moduleId === "customer_kyc" || i.moduleId === "banking")
-                      .map((item) => (
-                        <ChecklistRow
+                            mod.items.find((i) => !i.optional)?.typeRef ||
+                            mod.items[0]?.typeRef ||
+                            "doc:address-electricity"
+                          }
+                          onChange={(e) => onAddressSelect(e.target.value)}
+                        >
+                          {mod.items.map((i) => (
+                            <option key={i.typeRef} value={i.typeRef}>
+                              {i.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+
+                    <ul className="mt-3 divide-y divide-border/50 rounded-xl border border-border/50">
+                      {rows.map((item) => (
+                        <DocumentActionRow
                           key={item.typeRef}
                           item={item}
-                          focused={focusRef === item.typeRef}
-                          rowRef={focusRef === item.typeRef ? focusEl : undefined}
-                          onMark={() => markReceived(item.folderId ?? item.typeRef)}
+                          focused={localFocus === item.typeRef}
+                          rowRef={localFocus === item.typeRef ? focusEl : undefined}
+                          hasVersions={(versionsMap[item.typeRef] ?? []).length > 0}
+                          onView={() => openViewer(item.typeRef)}
+                          onUpload={() => uploadDocument(item.folderId ?? item.typeRef, item.label)}
+                          onReplace={() => uploadDocument(item.folderId ?? item.typeRef, item.label)}
+                          onHistory={() => setHistoryTypeRef(item.typeRef)}
                         />
                       ))}
-                  </ul>
-                )}
+                      {rows.length === 0 ? (
+                        <li className="px-3 py-6 text-center text-xs text-muted-foreground">
+                          No documents in this filter for {mod.label}.
+                        </li>
+                      ) : null}
+                    </ul>
+                  </>
+                ) : null}
+                {sectionFocus ? null : null}
               </section>
             );
           })}
         </div>
       </LeadOpportunityJourneyChrome>
+
+      <DocumentReadinessDrawer
+        open={readinessOpen}
+        onOpenChange={setReadinessOpen}
+        checklist={checklist}
+        filter={kpiFilter}
+        onUpload={(item) => {
+          uploadDocument(item.folderId ?? item.typeRef, item.label);
+          setReadinessOpen(false);
+        }}
+        onTakeMeThere={takeMeThere}
+      />
+
+      <DocumentViewerOverlay
+        open={Boolean(viewerItem)}
+        onClose={closeViewer}
+        item={viewerItem}
+        versions={viewerItem ? versionsMap[viewerItem.typeRef] ?? [] : []}
+        allItems={flatItems}
+        workflowStage={checklist.workflowStage}
+        onNavigate={(typeRef) => setViewerTypeRef(typeRef)}
+        onReplace={(item) => uploadDocument(item.folderId ?? item.typeRef, item.label)}
+        onShowHistory={(item) => setHistoryTypeRef(item.typeRef)}
+      />
+
+      <DocumentVersionHistoryDrawer
+        open={Boolean(historyItem)}
+        onOpenChange={(o) => !o && setHistoryTypeRef(null)}
+        label={historyItem?.label ?? "Document"}
+        versions={historyItem ? versionsMap[historyItem.typeRef] ?? [] : []}
+        onViewVersion={() => {
+          if (historyItem) openViewer(historyItem.typeRef);
+        }}
+      />
     </div>
   );
 }
 
-function ChecklistRow({
+function DocumentActionRow({
   item,
   focused,
   rowRef,
-  onMark,
+  hasVersions,
+  onView,
+  onUpload,
+  onReplace,
+  onHistory,
 }: {
   item: EdieChecklistItem;
   focused?: boolean;
   rowRef?: React.RefObject<HTMLLIElement | null>;
-  onMark: () => void;
+  hasVersions: boolean;
+  onView: () => void;
+  onUpload: () => void;
+  onReplace: () => void;
+  onHistory: () => void;
 }) {
   return (
     <li
@@ -340,7 +517,7 @@ function ChecklistRow({
         focused && "bg-teal-500/10 ring-1 ring-inset ring-teal-500/35",
       )}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="font-semibold text-foreground">
           {item.uploadMode === "folder" ? `📁 ${item.folderLabel || item.label}` : item.label}
           {item.optional ? (
@@ -348,16 +525,13 @@ function ChecklistRow({
           ) : null}
         </p>
         <p className="text-[10px] text-muted-foreground">
-          {item.severity === "critical"
-            ? "Critical"
-            : item.mandatory
-              ? "Mandatory"
-              : "Required"}
-          {item.uploadMode === "folder" ? " · Folder upload (unlimited files)" : ""}
-          {item.criticalFromStage ? ` · Critical from ${item.criticalFromStage.replace(/_/g, " ")}` : ""}
+          {item.critical ? "Critical" : item.mandatory ? "Mandatory" : "Required"}
+          {" · "}
+          {reasonForDocument(item)}
         </p>
       </div>
-      <div className="flex items-center gap-2">
+
+      <div className="flex flex-wrap items-center gap-1">
         <span
           className={cn(
             "rounded-full px-2 py-0.5 text-[9px] font-semibold",
@@ -368,47 +542,72 @@ function ChecklistRow({
                 : "bg-amber-500/15 text-amber-900 dark:text-amber-200",
           )}
         >
-          {item.complete ? "Received" : item.critical ? "Critical · Pending" : "Pending"}
+          {item.complete ? "Received" : item.critical ? "Critical" : "Pending"}
         </span>
-        {!item.complete && (
-          <button
-            type="button"
-            className="rounded-md border border-border/60 px-2 py-1 text-[10px] font-medium hover:bg-muted/50"
-            onClick={onMark}
-            autoFocus={focused}
-          >
-            {item.uploadMode === "folder" ? "Upload to folder" : "Mark received"}
-          </button>
-        )}
+
+        <RowAction label="View" onClick={onView} icon={<Eye className="h-3 w-3" />} />
+        <RowAction
+          label={item.complete ? "Replace" : "Upload"}
+          onClick={item.complete ? onReplace : onUpload}
+          icon={
+            item.complete ? <Replace className="h-3 w-3" /> : <Upload className="h-3 w-3" />
+          }
+          primary={!item.complete}
+          autoFocus={focused && !item.complete}
+        />
+        <RowAction label="History" onClick={onHistory} icon={<History className="h-3 w-3" />} />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50"
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="text-xs">
+            <DropdownMenuItem onClick={onView}>View</DropdownMenuItem>
+            <DropdownMenuItem onClick={onUpload}>Upload</DropdownMenuItem>
+            <DropdownMenuItem onClick={onReplace}>Replace</DropdownMenuItem>
+            <DropdownMenuItem onClick={onHistory}>
+              History {hasVersions ? "" : "(empty)"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </li>
   );
 }
 
-function ScoreTile({
+function RowAction({
   label,
-  value,
-  accent,
-  warn,
+  onClick,
+  icon,
+  primary,
+  autoFocus,
 }: {
   label: string;
-  value: string;
-  accent?: boolean;
-  warn?: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  primary?: boolean;
+  autoFocus?: boolean;
 }) {
   return (
-    <div
+    <button
+      type="button"
+      autoFocus={autoFocus}
+      onClick={onClick}
       className={cn(
-        "rounded-2xl border px-3 py-3 shadow-sm",
-        accent
-          ? "border-teal-500/30 bg-teal-500/10"
-          : warn
-            ? "border-amber-500/30 bg-amber-500/10"
-            : "border-border/70 bg-card",
+        "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-medium transition-colors",
+        primary
+          ? "border-teal-500/35 bg-teal-500/10 text-teal-900 hover:bg-teal-500/15 dark:text-teal-100"
+          : "border-border/60 text-foreground hover:bg-muted/50",
       )}
     >
-      <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-foreground">{value}</p>
-    </div>
+      {icon}
+      {label}
+    </button>
   );
 }
