@@ -64,10 +64,10 @@ function Field({
   emphasize?: boolean;
 }) {
   return (
-    <div>
+    <div className="rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
       <dt
         className={cn(
-          "text-[9px] font-semibold uppercase tracking-[0.14em]",
+          "text-[9px] font-semibold uppercase tracking-[0.12em]",
           emphasize ? "text-teal-700 dark:text-teal-300" : "text-muted-foreground",
         )}
       >
@@ -75,8 +75,8 @@ function Field({
       </dt>
       <dd
         className={cn(
-          "mt-0.5 text-foreground/90",
-          emphasize && "font-medium text-foreground",
+          "mt-0.5 text-[11px] leading-snug text-foreground",
+          emphasize && "font-semibold",
         )}
       >
         {value}
@@ -97,34 +97,34 @@ function GuideEntryCard({ entry }: { entry: ChanakyaGuideEntry }) {
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   return (
-    <article className="rounded-xl border border-border/80 bg-card p-3.5 shadow-md">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold tracking-tight text-foreground">
+    <article className="rounded-lg border border-border/70 bg-card p-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-[12px] font-semibold leading-snug text-foreground">
           {entry.guidanceTitle}
         </h3>
-        <span className="rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="shrink-0 rounded border border-border/60 bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
           {entry.section}
         </span>
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-foreground/95">{entry.mentorMessage}</p>
-      <dl className="mt-2.5 space-y-2 text-xs leading-relaxed">
+      <p className="mt-1.5 text-[11px] leading-snug text-foreground/90">{entry.mentorMessage}</p>
+      <dl className="mt-1.5 grid gap-1.5">
         <Field label="Best practice" value={entry.bestPractice} />
         <Field label="Recommended next step" value={entry.recommendedNextStep} emphasize />
       </dl>
       <button
         type="button"
-        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-teal-800 hover:underline dark:text-teal-200"
+        className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-teal-800 hover:underline dark:text-teal-200"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         Learn More
       </button>
       {open ? (
-        <div className="mt-2 space-y-2 overflow-hidden rounded-lg border border-border/70 bg-muted px-2.5 py-2 text-[11px] leading-relaxed text-foreground/85">
+        <div className="mt-1.5 space-y-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 text-[11px] leading-snug text-foreground/85">
           <p>{entry.detailedGuidance}</p>
           {related.length > 0 ? (
-            <dl className="space-y-1.5 border-t border-border/60 pt-2">
+            <dl className="space-y-1 border-t border-border/50 pt-1.5">
               {related.map((r) => (
                 <div key={r.label}>
                   <dt className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -178,8 +178,8 @@ function ChanakyaGuidePanel({
   const [tipsOpen, setTipsOpen] = useState(false);
   const title = advisorTitle ?? "CHANAKYA";
   const description = overlayOnly
-    ? "Enterprise AI assistant — context-aware guidance for the page you are on."
-    : "Enterprise Loan Journey — understand where you are and what comes next.";
+    ? "Context-aware guidance for this page."
+    : "Enterprise Loan Journey — where you are and what comes next.";
 
   return (
     <ContextWorkspaceShell
@@ -194,7 +194,7 @@ function ChanakyaGuidePanel({
       premiumOverlay={overlayOnly}
       className={
         overlayOnly
-          ? "w-[min(100vw,28rem)] sm:max-w-md md:max-w-md"
+          ? "w-[min(100vw,26rem)] sm:max-w-[26rem] md:max-w-[26rem]"
           : "w-[min(96vw,1280px)] sm:max-w-[min(96vw,1280px)] md:max-w-[min(96vw,1280px)]"
       }
       footer={
@@ -203,7 +203,7 @@ function ChanakyaGuidePanel({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 flex-1 gap-1.5 bg-background text-xs"
+            className="h-7 flex-1 gap-1.5 bg-background text-[11px]"
             onClick={onOpenTour}
           >
             <BookOpen className="h-3.5 w-3.5" />
@@ -212,7 +212,7 @@ function ChanakyaGuidePanel({
           <Button
             type="button"
             size="sm"
-            className="h-8 flex-1 text-xs"
+            className="h-7 flex-1 text-[11px]"
             onClick={() => onOpenChange(false)}
           >
             Close
@@ -220,26 +220,26 @@ function ChanakyaGuidePanel({
         </div>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-3">
         <ChanakyaLoanJourneyExperience context={resolvedContext} />
 
         {entries.length > 0 ? (
-          <div className="border-t border-border/50 pt-3">
+          <div className="border-t border-border/50 pt-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-800 hover:underline dark:text-violet-200"
+              className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-800 hover:underline dark:text-violet-200"
               onClick={() => setTipsOpen((v) => !v)}
               aria-expanded={tipsOpen}
             >
               {tipsOpen ? (
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="h-3 w-3" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-3 w-3" />
               )}
-              Workspace tips from Guide Repository
+              Workspace tips
             </button>
             {tipsOpen ? (
-              <div className="mt-3 space-y-3">
+              <div className="mt-2 space-y-2">
                 {entries.map((entry) => (
                   <GuideEntryCard key={entry.id} entry={entry} />
                 ))}

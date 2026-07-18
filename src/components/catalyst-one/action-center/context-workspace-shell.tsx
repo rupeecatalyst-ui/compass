@@ -67,10 +67,10 @@ export function ContextWorkspaceShell({
       >
         <SheetHeader
           className={cn(
-            "shrink-0 space-y-1 border-b border-border/60 px-5 py-4 pr-12 text-left",
+            "shrink-0 space-y-0.5 border-b border-border/60 pr-12 text-left",
             premiumOverlay
-              ? "bg-background"
-              : "bg-gradient-to-r from-background via-background to-teal-500/5",
+              ? "bg-background px-4 py-3"
+              : "bg-gradient-to-r from-background via-background to-teal-500/5 px-5 py-4",
           )}
         >
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700/90 dark:text-teal-300/90">
@@ -80,11 +80,21 @@ export function ContextWorkspaceShell({
               {entityLabel ? ` · ${entityLabel}` : ""}
             </span>
           </p>
-          <SheetTitle className="text-lg font-semibold tracking-tight text-foreground">
+          <SheetTitle
+            className={cn(
+              "font-semibold tracking-tight text-foreground",
+              premiumOverlay ? "text-base" : "text-lg",
+            )}
+          >
             {title}
           </SheetTitle>
           {description ? (
-            <SheetDescription className="text-xs leading-relaxed text-muted-foreground">
+            <SheetDescription
+              className={cn(
+                "text-muted-foreground",
+                premiumOverlay ? "text-[11px] leading-snug" : "text-xs leading-relaxed",
+              )}
+            >
               {description}
             </SheetDescription>
           ) : null}
@@ -92,8 +102,8 @@ export function ContextWorkspaceShell({
 
         <div
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto px-5 py-4",
-            premiumOverlay && "bg-background",
+            "min-h-0 flex-1 overflow-y-auto",
+            premiumOverlay ? "bg-background px-4 py-3" : "px-5 py-4",
           )}
         >
           {children}
@@ -101,8 +111,8 @@ export function ContextWorkspaceShell({
 
         <div
           className={cn(
-            "shrink-0 space-y-2 border-t border-border/60 px-5 py-3",
-            premiumOverlay ? "bg-muted" : "bg-muted/20",
+            "shrink-0 space-y-2 border-t border-border/60",
+            premiumOverlay ? "bg-muted px-4 py-2.5" : "bg-muted/20 px-5 py-3",
           )}
         >
           {onAskChanakya ? (

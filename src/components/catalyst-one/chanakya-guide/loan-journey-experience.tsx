@@ -8,6 +8,8 @@ import {
   Building2,
   Calculator,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   ClipboardList,
   Contact,
   FileCheck2,
@@ -54,61 +56,75 @@ const STAGE_ICONS: Record<ChanakyaLoanJourneyStageId, LucideIcon> = {
 
 const PHASE_TONE: Record<
   ChanakyaLoanJourneyPhaseDef["tone"],
-  {
-    band: string;
-    heading: string;
-    desc: string;
-    node: string;
-    nodeCurrent: string;
-    connector: string;
-    glow: string;
-  }
+  { band: string; heading: string; node: string; nodeCurrent: string }
 > = {
   blue: {
-    band: "border-blue-500/25 bg-blue-500/[0.07]",
+    band: "border-blue-500/20 bg-blue-500/[0.06]",
     heading: "text-blue-800 dark:text-blue-200",
-    desc: "text-blue-900/70 dark:text-blue-100/70",
     node: "border-blue-400/40 bg-blue-500/10 text-blue-800 dark:text-blue-100",
-    nodeCurrent:
-      "border-blue-400 bg-blue-500 text-white shadow-[0_0_24px_rgba(59,130,246,0.45)]",
-    connector: "from-blue-400/20 via-blue-500/70 to-blue-400/20",
-    glow: "bg-blue-400/30",
+    nodeCurrent: "border-blue-400 bg-blue-500 text-white",
   },
   purple: {
-    band: "border-violet-500/25 bg-violet-500/[0.07]",
+    band: "border-violet-500/20 bg-violet-500/[0.06]",
     heading: "text-violet-800 dark:text-violet-200",
-    desc: "text-violet-900/70 dark:text-violet-100/70",
     node: "border-violet-400/40 bg-violet-500/10 text-violet-800 dark:text-violet-100",
-    nodeCurrent:
-      "border-violet-400 bg-violet-600 text-white shadow-[0_0_24px_rgba(139,92,246,0.45)]",
-    connector: "from-violet-400/20 via-violet-500/70 to-violet-400/20",
-    glow: "bg-violet-400/30",
+    nodeCurrent: "border-violet-400 bg-violet-600 text-white",
   },
   green: {
-    band: "border-emerald-500/25 bg-emerald-500/[0.07]",
+    band: "border-emerald-500/20 bg-emerald-500/[0.06]",
     heading: "text-emerald-800 dark:text-emerald-200",
-    desc: "text-emerald-900/70 dark:text-emerald-100/70",
     node: "border-emerald-400/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-100",
-    nodeCurrent:
-      "border-emerald-400 bg-emerald-600 text-white shadow-[0_0_24px_rgba(16,185,129,0.45)]",
-    connector: "from-emerald-400/20 via-emerald-500/70 to-emerald-400/20",
-    glow: "bg-emerald-400/30",
+    nodeCurrent: "border-emerald-400 bg-emerald-600 text-white",
   },
   orange: {
-    band: "border-orange-500/25 bg-orange-500/[0.07]",
+    band: "border-orange-500/20 bg-orange-500/[0.06]",
     heading: "text-orange-800 dark:text-orange-200",
-    desc: "text-orange-900/70 dark:text-orange-100/70",
     node: "border-orange-400/40 bg-orange-500/10 text-orange-800 dark:text-orange-100",
-    nodeCurrent:
-      "border-orange-400 bg-orange-500 text-white shadow-[0_0_24px_rgba(249,115,22,0.45)]",
-    connector: "from-orange-400/20 via-orange-500/70 to-orange-400/20",
-    glow: "bg-orange-400/30",
+    nodeCurrent: "border-orange-400 bg-orange-500 text-white",
   },
 };
 
+function InfoCard({
+  label,
+  value,
+  emphasize,
+}: {
+  label: string;
+  value: string;
+  emphasize?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-2.5 py-2",
+        emphasize
+          ? "border-teal-500/30 bg-teal-500/[0.07]"
+          : "border-border/70 bg-card",
+      )}
+    >
+      <p
+        className={cn(
+          "text-[9px] font-semibold uppercase tracking-[0.12em]",
+          emphasize ? "text-teal-700 dark:text-teal-300" : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-1 text-[12px] leading-snug text-foreground",
+          emphasize ? "font-semibold" : "font-medium",
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
 /**
- * Certified Chanakya Guide — full-width Enterprise Loan Journey map.
- * Layout and stage order are frozen for Enterprise Certification.
+ * CHANAKYA drawer journey surface — presentation-only refinement (CO-SPRINT-097).
+ * Stage resolution, navigation, and guidance strings are unchanged.
  */
 export function ChanakyaLoanJourneyExperience({
   context,
@@ -120,7 +136,7 @@ export function ChanakyaLoanJourneyExperience({
     [context],
   );
   const [focusIndex, setFocusIndex] = useState(detectedIndex);
-  const [transitionKey, setTransitionKey] = useState(0);
+  const [journeyOpen, setJourneyOpen] = useState(false);
 
   useEffect(() => {
     setFocusIndex(detectedIndex);
@@ -136,297 +152,151 @@ export function ChanakyaLoanJourneyExperience({
   const goTo = (index: number) => {
     if (index < 0 || index >= stages.length) return;
     setFocusIndex(index);
-    setTransitionKey((k) => k + 1);
   };
 
   return (
-    <div className="space-y-5">
-      {/* Chanakya mentor + YOU ARE HERE */}
-      <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,1fr)_minmax(240px,300px)] lg:items-start">
-        <div className="flex flex-col items-center gap-2 lg:items-start">
-          <div className="relative">
-            <span
-              aria-hidden
-              className="absolute -inset-3 animate-pulse rounded-full bg-violet-500/20 blur-md"
-            />
-            <span
-              aria-hidden
-              className="absolute -inset-1 animate-[pulse_3.5s_ease-in-out_infinite] rounded-full border border-violet-400/40"
-            />
-            <ChanakyaAvatar
-              size="xl"
-              animate
-              priority
-              className="!h-[132px] !w-[132px] border-2 border-violet-400/50 shadow-[0_0_28px_rgba(139,92,246,0.35)]"
-            />
-          </div>
-          <ChanakyaIdentityLabel surface="advisory" className="text-center lg:text-left" />
-        </div>
-
-        <div
-          key={`msg-${transitionKey}`}
-          className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300 rounded-2xl border border-border/80 bg-card p-4 shadow-md"
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-800 dark:text-teal-200">
-            Chanakya · Mentor
+    <div className="space-y-3">
+      {/* Compact identity row */}
+      <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/20 px-2.5 py-2">
+        <ChanakyaAvatar size="sm" animate={false} priority className="!h-10 !w-10 shadow-sm" />
+        <div className="min-w-0 flex-1">
+          <ChanakyaIdentityLabel surface="advisory" />
+          <p className="truncate text-[12px] font-semibold text-foreground">
+            {phase.label} · Stage {focusIndex + 1}/{stages.length}
           </p>
-          <p className="mt-2 text-sm leading-relaxed text-foreground/95">
-            {current.chanakyaMessage}
-          </p>
-        </div>
-
-        <div
-          key={`here-${transitionKey}`}
-          className="animate-in fade-in-0 duration-300 rounded-2xl border border-border/80 bg-card p-4 shadow-md"
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            You are here
-          </p>
-          <p className={cn("mt-1.5 text-sm font-semibold", PHASE_TONE[phase.tone].heading)}>
-            {phase.label}
-          </p>
-          <dl className="mt-3 space-y-2 text-xs">
-            <div>
-              <dt className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Current
-              </dt>
-              <dd className="mt-0.5 font-semibold text-foreground">{current.name}</dd>
-            </div>
-            <div>
-              <dt className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Next
-              </dt>
-              <dd className="mt-0.5 font-medium text-foreground/90">
-                {next?.name ?? "Journey complete"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[9px] font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
-                Objective
-              </dt>
-              <dd className="mt-0.5 leading-relaxed text-foreground/90">{current.objective}</dd>
-            </div>
-            {next ? (
-              <div>
-                <dt className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Next objective
-                </dt>
-                <dd className="mt-0.5 leading-relaxed text-foreground/80">{next.objective}</dd>
-              </div>
-            ) : null}
-          </dl>
         </div>
       </div>
 
-      {/* Position strip */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-muted px-3 py-2 text-[11px]">
+      {/* Executive info cards — scannable, no paragraphs */}
+      <div className="grid grid-cols-1 gap-1.5">
+        <InfoCard label="Current Workspace" value={current.name} />
+        <InfoCard label="Current Objective" value={current.objective} />
+        <InfoCard label="Next Step" value={next?.name ?? "Journey complete"} />
+        <InfoCard label="Today's Focus" value={current.chanakyaMessage} />
+        <InfoCard
+          label="Recommended Action"
+          value={next?.objective ?? "Review closure and confirm obligations are complete."}
+          emphasize
+        />
+      </div>
+
+      {/* Compact position strip */}
+      <div className="flex flex-wrap gap-x-2 gap-y-1 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5 text-[10px]">
         {stages.map((s, i) => {
           const done = i < transactionIndex;
           const isCurrent = i === transactionIndex;
           const isNext = i === transactionIndex + 1;
           return (
-            <span key={s.id} className="inline-flex items-center gap-1.5">
-              {i > 0 ? <span className="text-muted-foreground/50">·</span> : null}
+            <span key={s.id} className="inline-flex items-center gap-1">
+              {i > 0 ? <span className="text-muted-foreground/40">·</span> : null}
               {done ? (
-                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
-                  <CheckCircle2 className="h-3 w-3" />
+                <span className="inline-flex items-center gap-0.5 text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="h-2.5 w-2.5" />
                   {s.name}
                 </span>
               ) : isCurrent ? (
-                <span className="font-semibold text-foreground">● {s.name} (Current)</span>
+                <span className="font-semibold text-foreground">{s.name}</span>
               ) : isNext ? (
-                <span className="font-medium text-teal-800 dark:text-teal-200">
-                  → {s.name} (Next)
-                </span>
+                <span className="text-teal-800 dark:text-teal-200">→ {s.name}</span>
               ) : (
-                <span className="text-muted-foreground/70">{s.name}</span>
+                <span className="text-muted-foreground/60">{s.name}</span>
               )}
             </span>
           );
         })}
       </div>
 
-      {/* Full-width journey by phase */}
-      <div className="space-y-4">
-        {CHANAKYA_LOAN_JOURNEY_PHASES.map((p) => {
-          const phaseStages = stages.filter((s) => s.phaseId === p.id);
-          const tone = PHASE_TONE[p.tone];
-          return (
-            <section
-              key={p.id}
-              className={cn("rounded-2xl border px-3 py-3 sm:px-4 sm:py-4", tone.band)}
-            >
-              <div className="mb-3">
-                <h3
-                  className={cn(
-                    "text-sm font-semibold tracking-tight sm:text-base",
-                    tone.heading,
-                  )}
-                >
-                  {p.label}
-                </h3>
-                <p className={cn("mt-0.5 text-[11px] leading-relaxed sm:text-xs", tone.desc)}>
-                  {p.description}
-                </p>
-              </div>
-
-              <div className="flex w-full items-stretch gap-0 overflow-x-auto pb-1 scrollbar-thin">
-                {phaseStages.map((stage, idx) => {
-                  const globalIndex = stages.findIndex((s) => s.id === stage.id);
-                  return (
-                    <JourneyStageNode
-                      key={stage.id}
-                      stage={stage}
-                      tone={tone}
-                      phaseTone={p.tone}
-                      isFirst={idx === 0}
-                      isLast={idx === phaseStages.length - 1}
-                      status={
-                        globalIndex < transactionIndex
-                          ? "completed"
-                          : globalIndex === transactionIndex
-                            ? "current"
-                            : globalIndex === focusIndex
-                              ? "focused"
-                              : "future"
-                      }
-                      isFocus={globalIndex === focusIndex}
-                      onSelect={() => goTo(globalIndex)}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+      {/* Journey map — collapsed by default to minimize scroll */}
+      <div className="rounded-lg border border-border/70">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left"
+          onClick={() => setJourneyOpen((v) => !v)}
+          aria-expanded={journeyOpen}
+        >
+          <span className="text-[11px] font-semibold text-foreground">Journey map</span>
+          {journeyOpen ? (
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+        </button>
+        {journeyOpen ? (
+          <div className="space-y-2 border-t border-border/60 px-2 pb-2.5 pt-2">
+            {CHANAKYA_LOAN_JOURNEY_PHASES.map((p) => {
+              const phaseStages = stages.filter((s) => s.phaseId === p.id);
+              const tone = PHASE_TONE[p.tone];
+              return (
+                <section key={p.id} className={cn("rounded-md border px-2 py-1.5", tone.band)}>
+                  <p className={cn("text-[10px] font-semibold", tone.heading)}>{p.label}</p>
+                  <div className="mt-1.5 flex gap-1 overflow-x-auto pb-0.5">
+                    {phaseStages.map((stage) => {
+                      const globalIndex = stages.findIndex((s) => s.id === stage.id);
+                      const Icon = STAGE_ICONS[stage.id] ?? BookOpen;
+                      const isCurrent = globalIndex === transactionIndex;
+                      const isCompleted = globalIndex < transactionIndex;
+                      const isFocus = globalIndex === focusIndex;
+                      return (
+                        <button
+                          key={stage.id}
+                          type="button"
+                          onClick={() => goTo(globalIndex)}
+                          className={cn(
+                            "flex min-w-[72px] flex-col items-center rounded-md px-1 py-1 transition-colors",
+                            isFocus && "bg-background/70",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex h-8 w-8 items-center justify-center rounded-full border",
+                              isCurrent || (isFocus && !isCompleted)
+                                ? tone.nodeCurrent
+                                : tone.node,
+                            )}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="mt-1 max-w-[68px] truncate text-[9px] font-medium text-foreground">
+                            {stage.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
 
       {/* Prev / Next */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
+      <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-2">
         <Button
           type="button"
           size="sm"
           variant="outline"
-          className="h-9 gap-1.5 text-xs"
+          className="h-7 gap-1 px-2 text-[11px]"
           disabled={!previous}
           onClick={() => goTo(focusIndex - 1)}
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ArrowLeft className="h-3 w-3" />
           Previous
         </Button>
-        <p className="text-[10px] text-muted-foreground">
-          Exploring stage {focusIndex + 1} of {stages.length} · Transaction at{" "}
-          {stages[transactionIndex]?.name}
+        <p className="text-[10px] tabular-nums text-muted-foreground">
+          {focusIndex + 1}/{stages.length}
         </p>
         <Button
           type="button"
           size="sm"
-          className="h-9 gap-1.5 text-xs"
+          className="h-7 gap-1 px-2 text-[11px]"
           disabled={!next && focusIndex >= stages.length - 1}
           onClick={() => goTo(focusIndex + 1)}
         >
           Next
-          <ArrowRight className="h-3.5 w-3.5" />
+          <ArrowRight className="h-3 w-3" />
         </Button>
       </div>
-    </div>
-  );
-}
-
-function JourneyStageNode({
-  stage,
-  tone,
-  isFirst,
-  isLast,
-  status,
-  isFocus,
-  onSelect,
-}: {
-  stage: ChanakyaLoanJourneyStageDef;
-  tone: (typeof PHASE_TONE)[ChanakyaLoanJourneyPhaseDef["tone"]];
-  phaseTone: ChanakyaLoanJourneyPhaseDef["tone"];
-  isFirst: boolean;
-  isLast: boolean;
-  status: "completed" | "current" | "focused" | "future";
-  isFocus: boolean;
-  onSelect: () => void;
-}) {
-  const Icon = STAGE_ICONS[stage.id] ?? BookOpen;
-  const isCurrent = status === "current";
-  const isCompleted = status === "completed";
-  const isFuture = status === "future";
-
-  return (
-    <div
-      className={cn(
-        "relative flex min-w-[140px] flex-1 flex-col items-center px-1 sm:min-w-[160px]",
-        isFuture && !isFocus && "opacity-55",
-      )}
-    >
-      {!isFirst ? (
-        <div
-          aria-hidden
-          className={cn(
-            "absolute left-0 top-[2.15rem] h-[2px] w-1/2 -translate-x-0 bg-gradient-to-r",
-            tone.connector,
-            "animate-[pulse_2.8s_ease-in-out_infinite]",
-          )}
-        />
-      ) : null}
-      {!isLast ? (
-        <div
-          aria-hidden
-          className={cn(
-            "absolute right-0 top-[2.15rem] h-[2px] w-1/2 bg-gradient-to-r",
-            tone.connector,
-            "animate-[pulse_2.8s_ease-in-out_infinite]",
-          )}
-        />
-      ) : null}
-
-      <button
-        type="button"
-        onClick={onSelect}
-        className={cn(
-          "group relative z-[1] flex flex-col items-center rounded-2xl px-2 py-2 text-center transition-colors duration-200",
-          "hover:bg-background/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          isFocus && "bg-background/50",
-        )}
-      >
-        <span
-          className={cn(
-            "relative flex h-14 w-14 items-center justify-center rounded-full border-2 transition-all duration-300 sm:h-16 sm:w-16",
-            isCurrent || (isFocus && !isCompleted)
-              ? tone.nodeCurrent
-              : isCompleted
-                ? cn(tone.node, "ring-2 ring-emerald-400/40")
-                : tone.node,
-            isCurrent && "animate-[pulse_2.2s_ease-in-out_infinite]",
-            isCompleted && "shadow-[0_0_16px_rgba(16,185,129,0.25)]",
-            status === "focused" && !isCurrent && "ring-2 ring-teal-400/50",
-          )}
-        >
-          {(isCurrent || isCompleted) && (
-            <span
-              aria-hidden
-              className={cn(
-                "absolute inset-0 rounded-full blur-md",
-                isCompleted ? "bg-emerald-400/25" : tone.glow,
-              )}
-            />
-          )}
-          <Icon className="relative h-6 w-6 sm:h-7 sm:w-7" />
-        </span>
-        <span className="mt-2 text-[10px] font-semibold tabular-nums text-muted-foreground">
-          {stage.order}
-        </span>
-        <span className="mt-0.5 text-xs font-semibold tracking-tight text-foreground sm:text-sm">
-          {stage.name}
-        </span>
-        <span className="mt-1 line-clamp-2 max-w-[11rem] text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
-          {stage.objective}
-        </span>
-      </button>
     </div>
   );
 }
