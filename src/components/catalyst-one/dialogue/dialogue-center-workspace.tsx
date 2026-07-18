@@ -6,7 +6,6 @@ import { appendEdcTimelineEntry, listEdcTimeline } from "@/lib/enterprise-dialog
 import type { EdcEventType, EdcTimelineEntry } from "@/types/enterprise-dialogue-center";
 import { EnterpriseEngagementCard, type EnterpriseCardTone } from "@/components/catalyst-one/shared/enterprise-engagement-card";
 import { PageHeader } from "@/components/design-system/page-header";
-import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -71,12 +70,6 @@ export function DialogueCenterWorkspace({ contextId = "opp-demo-001" }: Dialogue
       <PageHeader
         title="Enterprise Dialogue Center"
         description="Unified operational timeline — latest activity first. Complete audit trail."
-        actions={
-          <ChanakyaGuide
-            offerTour={false}
-            context={{ platform: "catalyst_one", workspaceId: "dialogue" }}
-          />
-        }
       />
 
       <div className="space-y-3">

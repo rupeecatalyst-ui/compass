@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/dialog";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
-import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { loadLeadJourneyLoanFile } from "@/lib/lead-opportunity-journey/load-context";
 import { isDashboardNavEntry } from "@/lib/lead-opportunity-journey/active-context";
 import {
@@ -195,16 +194,6 @@ export function EnterpriseCreditWorkspace() {
         opportunityId={opportunityId}
         hasUnsavedChanges={dirty}
         acknowledgeCleanClose={!dirty && savedOnce}
-        headerActions={
-          <ChanakyaGuide
-            offerTour={false}
-            context={{
-              platform: "catalyst_one",
-              workspaceId: "credit_workbench",
-              transactionLabel: `${file.customerName} · ${opportunityNumber}`,
-            }}
-          />
-        }
         onSaveDraft={async () => {
           saveStatedDraft(file.id, stated);
           setDirty(false);

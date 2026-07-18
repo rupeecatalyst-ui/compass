@@ -25,6 +25,8 @@ export function ContextWorkspaceShell({
   footer,
   onAskChanakya,
   className,
+  eyebrow = "Context Workspace",
+  allowOutsideClose = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,12 +37,14 @@ export function ContextWorkspaceShell({
   footer?: React.ReactNode;
   onAskChanakya?: () => void;
   className?: string;
+  eyebrow?: string;
+  allowOutsideClose?: boolean;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        allowOutsideClose={false}
+        allowOutsideClose={allowOutsideClose}
         className={cn(
           "flex w-full flex-col gap-0 border-l border-border/60 bg-background p-0 shadow-2xl",
           "z-[80] sm:max-w-xl md:max-w-2xl",
@@ -50,7 +54,7 @@ export function ContextWorkspaceShell({
       >
         <SheetHeader className="shrink-0 space-y-1 border-b border-border/60 bg-gradient-to-r from-background via-background to-teal-500/5 px-5 py-4 pr-12 text-left">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700/90 dark:text-teal-300/90">
-            Context Workspace
+            {eyebrow}
             {entityLabel ? ` · ${entityLabel}` : ""}
           </p>
           <SheetTitle className="text-lg font-semibold tracking-tight text-foreground">

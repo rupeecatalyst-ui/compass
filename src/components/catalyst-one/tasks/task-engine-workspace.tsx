@@ -28,7 +28,6 @@ import {
 } from "@/components/catalyst-one/business-journey-navigator";
 import { PhaseReadinessDashboard } from "@/components/catalyst-one/phase-readiness-dashboard";
 import { PageHeader } from "@/components/design-system/page-header";
-import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -267,10 +266,6 @@ export function TaskEngineWorkspace() {
                 onBack={() => router.push(lenderBackHref)}
               />
             ) : null}
-            <ChanakyaGuide
-              offerTour={false}
-              context={{ platform: "catalyst_one", workspaceId: "tasks" }}
-            />
             <Button type="button" className="h-10 gap-2 rounded-xl" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" />
               Create Task

@@ -13,6 +13,7 @@ import {
 import type { MissionControlEnvironment } from "../shared/constants";
 import { cn } from "../shared/cn";
 import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
+import { GlobalChanakyaMcButton } from "@/components/layout/global-chanakya-assistant";
 import { ROUTES } from "@/constants/routes";
 
 export function McEnterpriseHeader({
@@ -69,7 +70,7 @@ export function McEnterpriseHeader({
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-1">
-        <HeaderChip label="CHANAKYA" />
+        <GlobalChanakyaMcButton />
         <IconButton label="Notifications">
           <Bell className="h-4 w-4" />
         </IconButton>
@@ -94,14 +95,6 @@ export function McEnterpriseHeader({
         />
       </div>
     </header>
-  );
-}
-
-function HeaderChip({ label }: { label: string }) {
-  return (
-    <span className="hidden rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-violet-200 xl:inline">
-      {label}
-    </span>
   );
 }
 

@@ -13,7 +13,6 @@ import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-w
 import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
-import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
@@ -1110,16 +1109,6 @@ function LoanWorkspaceModalContent({
         className="py-1.5"
         headerActions={
           <div className="flex items-center gap-1.5">
-            <ChanakyaGuide
-              offerTour={false}
-              context={{
-                platform: "catalyst_one",
-                workspaceId: activeTab === "lenders" ? "lender_pipeline" : "loan_workspace",
-                section: activeTab,
-                moduleId: activeTab,
-                transactionLabel: `${draft.customerName} · ${draft.fileNumber}`,
-              }}
-            />
             <LoanActionCenter
               loan={draft}
               onDocumentsChange={(documents) => patch({ documents })}

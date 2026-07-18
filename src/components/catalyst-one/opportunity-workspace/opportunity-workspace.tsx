@@ -22,7 +22,6 @@ import {
 } from "./workspace-planning-panels";
 import { WorkspaceDeviationMitigantPanel } from "./workspace-deviation-mitigant-panel";
 import { WorkspaceNotesPanel } from "./workspace-notes-panel";
-import { WorkspaceChanakyaTabGuide } from "./workspace-chanakya-tab-guide";
 import { WorkspaceStrategicNav } from "./workspace-strategic-nav";
 import type { OwStrategicTabId } from "./strategic-tabs";
 import {
@@ -38,7 +37,6 @@ import {
   AnalyzeDealTriggerButton,
   AnalyzeDealWorkspace,
 } from "@/components/catalyst-one/analyze-deal";
-import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { ROLES } from "@/constants/roles";
@@ -218,16 +216,6 @@ function OpportunityWorkspaceShell() {
         headerActions={
           <div className="flex items-center gap-1.5">
             <AnalyzeDealTriggerButton onClick={() => setAnalyzeDealOpen(true)} />
-            <ChanakyaGuide
-              offerTour
-              context={{
-                platform: "catalyst_one",
-                workspaceId: "strategic_workspace",
-                section: tab,
-                moduleId: tab,
-                transactionLabel: `${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`,
-              }}
-            />
             <OpportunityActionCenter
               entityId={opportunityId}
               entityLabel={`${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
@@ -260,7 +248,7 @@ function OpportunityWorkspaceShell() {
           <div
             className={cn(
               "grid gap-1.5",
-              "grid-cols-1 lg:grid-cols-[13.5rem_minmax(0,1fr)_18rem] xl:grid-cols-[14.5rem_minmax(0,1fr)_19rem]",
+              "grid-cols-1 lg:grid-cols-[13.5rem_minmax(0,1fr)] xl:grid-cols-[14.5rem_minmax(0,1fr)]",
             )}
           >
             <div>
@@ -294,10 +282,6 @@ function OpportunityWorkspaceShell() {
                   {tab === "workflow" && <WorkspaceWorkflowPanel />}
                 </div>
               </div>
-            </div>
-
-            <div>
-              <WorkspaceChanakyaTabGuide tab={tab} />
             </div>
           </div>
 

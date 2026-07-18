@@ -153,11 +153,17 @@ function ChanakyaGuidePanel({
   onOpenChange,
   context,
   onOpenTour,
+  advisorTitle,
+  overlayOnly = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   context: ChanakyaGuideContext;
   onOpenTour: () => void;
+  /** Global assistant role label (Strategic Advisor, Credit Advisor, …). */
+  advisorTitle?: string;
+  /** Platform drawer — overlay only, never resize the workspace. */
+  overlayOnly?: boolean;
 }) {
   const resolvedContext = useMemo(() => normalizeGuideContext(context), [context]);
   const meta = useMemo(
@@ -169,15 +175,25 @@ function ChanakyaGuidePanel({
     [resolvedContext],
   );
   const [tipsOpen, setTipsOpen] = useState(false);
+  const title = advisorTitle ?? "CHANAKYA";
+  const description = overlayOnly
+    ? "Enterprise AI assistant — context-aware guidance for the page you are on."
+    : "Enterprise Loan Journey — understand where you are and what comes next.";
 
   return (
     <ContextWorkspaceShell
       open={open}
       onOpenChange={onOpenChange}
-      title="Chanakya Guide"
-      description="Enterprise Loan Journey — understand where you are and what comes next."
+      title={title}
+      description={description}
       entityLabel={context.transactionLabel ?? meta?.workspaceLabel}
-      className="w-[min(96vw,1280px)] sm:max-w-[min(96vw,1280px)] md:max-w-[min(96vw,1280px)]"
+      eyebrow={overlayOnly ? "💜 CHANAKYA" : "Context Workspace"}
+      allowOutsideClose={overlayOnly}
+      className={
+        overlayOnly
+          ? "w-[min(100vw,28rem)] sm:max-w-md md:max-w-md"
+          : "w-[min(96vw,1280px)] sm:max-w-[min(96vw,1280px)] md:max-w-[min(96vw,1280px)]"
+      }
       footer={
         <div className="flex flex-wrap gap-2">
           <Button
@@ -196,7 +212,7 @@ function ChanakyaGuidePanel({
             className="h-8 flex-1 text-xs"
             onClick={() => onOpenChange(false)}
           >
-            Close guide
+            Close
           </Button>
         </div>
       }
