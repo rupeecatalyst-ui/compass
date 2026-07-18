@@ -2,6 +2,8 @@
  * CHANAKYA Radar — Deal Health board (not workflow stages).
  */
 
+import { ROUTES } from "@/constants/routes";
+
 export const CHANAKYA_RADAR_OFFICIAL_NAME = "CHANAKYA Radar";
 
 export const CHANAKYA_RADAR_STATUS_LINE =
@@ -15,11 +17,46 @@ export type ChanakyaDealHealthId =
   | "on_hold"
   | "completed";
 
+/** Active Workspace — CHANAKYA routes the click here (Sprint 2). */
+export type ChanakyaActiveWorkspaceId =
+  | "strategic_bench"
+  | "credit_bench"
+  | "loan_workspace";
+
+export type ChanakyaMomentumId = "improving" | "stable" | "declining";
+
+export type ChanakyaAiPriority = "high" | "medium" | "low";
+
+export const CHANAKYA_RADAR_WORKSPACES: Record<
+  ChanakyaActiveWorkspaceId,
+  { label: string; emoji: string; href: string; toneClass: string }
+> = {
+  strategic_bench: {
+    label: "Strategic Bench",
+    emoji: "🟣",
+    href: ROUTES.OPPORTUNITY_WORKSPACE,
+    toneClass: "border-violet-500/30 bg-violet-500/10 text-violet-900 dark:text-violet-100",
+  },
+  credit_bench: {
+    label: "Credit Bench",
+    emoji: "🔵",
+    href: ROUTES.CREDIT_BENCH,
+    toneClass: "border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-100",
+  },
+  loan_workspace: {
+    label: "Loan Workspace",
+    emoji: "🟢",
+    href: ROUTES.LOAN_FILES,
+    toneClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100",
+  },
+};
 export interface ChanakyaRadarColumnDef {
   id: ChanakyaDealHealthId;
   label: string;
   emoji: string;
+  /** Deal Health solid colour — used for count pill background. */
   tone: string;
+  /** Subtle header wash (icon + title area). */
   headerClass: string;
 }
 
@@ -29,42 +66,42 @@ export const CHANAKYA_RADAR_COLUMNS: ChanakyaRadarColumnDef[] = [
     label: "On Track",
     emoji: "🟢",
     tone: "#22C55E",
-    headerClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100",
+    headerClass: "bg-emerald-500/[0.08] text-emerald-950 dark:text-emerald-50",
   },
   {
     id: "needs_attention",
     label: "Needs Attention",
     emoji: "🟡",
-    tone: "#EAB308",
-    headerClass: "border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100",
+    tone: "#F59E0B",
+    headerClass: "bg-amber-500/[0.08] text-amber-950 dark:text-amber-50",
   },
   {
     id: "at_risk",
     label: "At Risk",
     emoji: "🔴",
     tone: "#EF4444",
-    headerClass: "border-rose-500/30 bg-rose-500/10 text-rose-950 dark:text-rose-100",
+    headerClass: "bg-rose-500/[0.08] text-rose-950 dark:text-rose-50",
   },
   {
     id: "dormant",
     label: "Dormant",
     emoji: "😴",
-    tone: "#64748B",
-    headerClass: "border-slate-500/30 bg-slate-500/10 text-slate-900 dark:text-slate-100",
+    tone: "#8B5CF6",
+    headerClass: "bg-violet-500/[0.08] text-violet-950 dark:text-violet-50",
   },
   {
     id: "on_hold",
     label: "On Hold",
     emoji: "⏸",
-    tone: "#F59E0B",
-    headerClass: "border-orange-500/30 bg-orange-500/10 text-orange-950 dark:text-orange-100",
+    tone: "#64748B",
+    headerClass: "bg-slate-500/[0.08] text-slate-900 dark:text-slate-50",
   },
   {
     id: "completed",
     label: "Completed",
     emoji: "✅",
-    tone: "#0F766E",
-    headerClass: "border-teal-500/30 bg-teal-500/10 text-teal-950 dark:text-teal-100",
+    tone: "#059669",
+    headerClass: "bg-emerald-600/[0.08] text-emerald-950 dark:text-emerald-50",
   },
 ];
 

@@ -25,6 +25,7 @@ import {
 } from "@/constants/enterprise-business-journey-navigator";
 import type { EnterpriseWorkspaceScrollMode } from "@/constants/enterprise-workspace-ux";
 import { WORKSPACE_CLOSE } from "@/constants/workspace-navigation";
+import { readMyDealsReturnState, rememberMyDealsReturnState } from "@/lib/my-deals/view-state";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import {
   BusinessJourneyNavigator,
@@ -131,7 +132,7 @@ export function LeadOpportunityJourneyChrome({
   hidePhaseReadiness,
   lifeFinalized,
   scrollMode = "document",
-  closeTo = WORKSPACE_CLOSE.LOAN_FILES,
+  closeTo = WORKSPACE_CLOSE.MY_DEALS,
   onClose,
   hasUnsavedChanges = false,
   onSaveAndClose,
@@ -150,6 +151,10 @@ export function LeadOpportunityJourneyChrome({
   const navigatorStageId = leadModuleToNavigatorStageId(moduleId);
 
   const handleExit = () => {
+    if (closeTo === WORKSPACE_CLOSE.MY_DEALS) {
+      const existing = readMyDealsReturnState();
+      rememberMyDealsReturnState(existing ?? { view: "kanban", filterId: "my_deals" });
+    }
     if (onClose) {
       onClose();
       return;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
 import {
@@ -16,6 +17,7 @@ import { ChanakyaGuide } from "@/components/catalyst-one/chanakya-guide";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
+import { LoanStructureCard } from "@/components/catalyst-one/shared/loan-structure-card";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
 import { MissionControlWorkspace } from "@/components/catalyst-one/mission-control/mission-control-workspace";
 import { ChanakyaLenderPipelinePanel } from "@/components/catalyst-one/shared/chanakya-lender-pipeline-panel";
@@ -91,7 +93,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import type { PropertyType } from "@/constants/loan-stage-master";
 import type { OccupancyMasterEntry } from "@/constants/occupancy-master";
@@ -102,6 +103,7 @@ import type {
   LoanFilePriority,
   TransactionType,
 } from "@/types/catalyst-one";
+import { rememberMyDealsReturnState, readMyDealsReturnState } from "@/lib/my-deals/view-state";
 
 export interface ContactOption {
   id: string;
@@ -158,6 +160,7 @@ function LoanWorkspaceModalContent({
   }));
   const stickyChromeRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const [focusParticipantId, setFocusParticipantId] = useState<string | null>(null);
   const opportunityId =
     searchParams.get("opportunityId") ?? getActiveOpportunityContext()?.opportunityId ?? null;
   const journeyCtx = { fileId: draft.id, opportunityId };
@@ -367,7 +370,12 @@ function LoanWorkspaceModalContent({
       setSavedSnapshot(updated);
       setNotes(updated.internalNotes);
       onUpdate?.(file.id, updated);
-      if (exitOnSuccess) onOpenChange(false);
+      if (exitOnSuccess) {
+        const existing = readMyDealsReturnState();
+        rememberMyDealsReturnState(existing ?? { view: "kanban", filterId: "my_deals" });
+        onOpenChange(false);
+        router.push(ROUTES.MY_DEALS);
+      }
       return true;
     } catch (error) {
       if (isBusinessCompletionRequiredError(error)) {
@@ -674,9 +682,37 @@ function LoanWorkspaceModalContent({
             </LoanWorkbenchSection>
 
             <LoanWorkbenchSection
-              title="Loan Participants"
-              description="Master/reference participants (search and auto-populate; no manual re-entry)."
+              title="Participant Details"
+              description="Edit contacts, income, employment, documents and KYC from the Loan Structure map."
             >
+              <LoanStructureCard
+                file={draft}
+                participants={participants}
+                readOnly={overviewUi.participants.mode === "view"}
+                onSelectPrimary={() => {
+                  setOverviewUi((s) => ({
+                    ...s,
+                    participants: { collapsed: false, mode: "edit" },
+                  }));
+                  setFocusParticipantId(null);
+                  if (onOpenContact && draft.customerId) onOpenContact(draft.customerId);
+                }}
+                onSelectParticipant={(participantId) => {
+                  setOverviewUi((s) => ({
+                    ...s,
+                    participants: { collapsed: false, mode: "edit" },
+                  }));
+                  setFocusParticipantId(participantId);
+                }}
+                onPrimaryOwnershipChange={(ownership) => patch(ownership)}
+                onParticipantOwnershipChange={(participantId, ownershipPatch) => {
+                  handleParticipantsChange(
+                    participants.map((p) =>
+                      p.id === participantId ? { ...p, ...ownershipPatch } : p,
+                    ),
+                  );
+                }}
+              />
               <OverviewCardChrome
                 mode={overviewUi.participants.mode}
                 collapsed={overviewUi.participants.collapsed}
@@ -699,6 +735,7 @@ function LoanWorkspaceModalContent({
                 entityOptions={participantEntityOptions}
                 onChange={handleParticipantsChange}
                 readOnly={overviewUi.participants.mode === "view"}
+                focusParticipantId={focusParticipantId}
                 onTimeline={(note) =>
                   patch({
                     timeline: [

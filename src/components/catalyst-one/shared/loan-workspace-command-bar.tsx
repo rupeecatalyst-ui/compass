@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
+import { WORKSPACE_SAVE_AND_EXIT_LABEL } from "@/constants/enterprise-workspace-ux";
 import { cn } from "@/lib/utils";
 import type { LoanFile } from "@/types/catalyst-one";
 
@@ -60,7 +61,7 @@ export function LoanWorkspaceCommandBar({
           onClick={onSaveAndExit}
           disabled={saving}
         >
-          {saving ? "Saving..." : "Save & Exit"}
+          {saving ? "Saving..." : WORKSPACE_SAVE_AND_EXIT_LABEL}
         </Button>
       </div>
     );
@@ -100,7 +101,7 @@ export function LoanWorkspaceCommandBar({
             onClick={onSaveAndExit}
             disabled={saving}
           >
-            {saving ? "Saving..." : "Save & Exit"}
+            {saving ? "Saving..." : WORKSPACE_SAVE_AND_EXIT_LABEL}
           </Button>
         </div>
       </div>
@@ -158,7 +159,7 @@ export function LoanWorkspaceCommandBar({
                 onClick={onSaveAndExit}
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Save & Exit"}
+                {saving ? "Saving..." : WORKSPACE_SAVE_AND_EXIT_LABEL}
               </Button>
             </CommandBarActionGroup>
             <CommandBarActionsExtension />

@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Plus, Search, Pencil, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { LoanParticipant, LoanParticipantEntityType } from "@/types/loan-participant";
+import type { LoanParticipant, LoanParticipantEntityType, LoanParticipantRole } from "@/types/loan-participant";
+import { LOAN_PARTICIPANT_ROLE_LABELS } from "@/types/loan-participant";
 import type { ParticipantEntityOption } from "@/types/loan-participant";
 import { searchParticipantEntities, createParticipantId } from "@/lib/loan-participants";
 import { Badge } from "@/components/ui/badge";
@@ -26,21 +27,16 @@ type SortKey = "role" | "name" | "city";
 const ROLE_ORDER: Record<string, number> = {
   primary_applicant: 0,
   co_applicant: 1,
-  company: 2,
-  other: 3,
+  guarantor: 2,
+  company: 3,
+  other: 4,
 };
 
 function roleLabel(role?: string): string {
-  switch (role) {
-    case "primary_applicant":
-      return "Primary";
-    case "co_applicant":
-      return "Co-Applicant";
-    case "company":
-      return "Company";
-    default:
-      return "Participant";
+  if (role && role in LOAN_PARTICIPANT_ROLE_LABELS) {
+    return LOAN_PARTICIPANT_ROLE_LABELS[role as LoanParticipantRole];
   }
+  return "Participant";
 }
 
 function roleStyle(role?: string): string {
@@ -48,9 +44,11 @@ function roleStyle(role?: string): string {
     case "primary_applicant":
       return "bg-emerald-600/10 text-emerald-800 border-emerald-600/25 dark:text-emerald-200";
     case "co_applicant":
+      return "bg-amber-500/10 text-amber-900 border-amber-500/25 dark:text-amber-100";
+    case "guarantor":
       return "bg-blue-600/10 text-blue-800 border-blue-600/25 dark:text-blue-200";
     case "company":
-      return "bg-violet-600/10 text-violet-800 border-violet-600/25 dark:text-violet-200";
+      return "bg-slate-500/10 text-slate-800 border-slate-500/25 dark:text-slate-200";
     default:
       return "bg-muted/30 text-muted-foreground border-border";
   }
@@ -66,6 +64,7 @@ export function LoanParticipantsTable({
   readOnly,
   className,
   onContactCreated,
+  focusParticipantId,
 }: {
   primaryApplicant: {
     id: string;
@@ -84,6 +83,8 @@ export function LoanParticipantsTable({
   className?: string;
   /** Called after progressive create so parent can refresh ECM options. */
   onContactCreated?: (contact: EcmContact) => void;
+  /** When set from Loan Structure card click, open that row for editing. */
+  focusParticipantId?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("role");
@@ -93,6 +94,10 @@ export function LoanParticipantsTable({
   const [createPrefill, setCreatePrefill] = useState("");
   const [createKind, setCreateKind] = useState<ProgressiveParticipantKind>("co_applicant");
   const [extraOptions, setExtraOptions] = useState<ParticipantEntityOption[]>([]);
+
+  useEffect(() => {
+    if (focusParticipantId) setEditingId(focusParticipantId);
+  }, [focusParticipantId]);
 
   const mergedOptions = useMemo(() => {
     const byId = new Map<string, ParticipantEntityOption>();
@@ -125,7 +130,7 @@ export function LoanParticipantsTable({
   const openProgressiveCreate = (participantId: string, query: string, role?: string) => {
     setCreateForId(participantId);
     setCreatePrefill(query);
-    setCreateKind(role === "other" ? "other" : "co_applicant");
+    setCreateKind(role === "guarantor" ? "guarantor" : role === "other" ? "other" : "co_applicant");
     setCreateOpen(true);
   };
 
@@ -365,9 +370,36 @@ function ParticipantRow({
   return (
     <tr className="border-b border-border/60 hover:bg-muted/20">
       <Td>
-        <Badge variant="outline" className={cn("h-5 text-[10px] border", roleStyle(participant.role))}>
-          {roleLabel(participant.role)}
-        </Badge>
+        {isEditing && participant.entityType === "individual" ? (
+          <Select
+            value={participant.role === "guarantor" || participant.role === "other" ? participant.role : "co_applicant"}
+            onValueChange={(v) =>
+              onUpdate(
+                { role: v as LoanParticipantRole },
+                `Participant role updated: ${participant.name || participant.id}`,
+              )
+            }
+          >
+            <SelectTrigger className="h-7 w-[120px] text-[10px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="co_applicant" className="text-xs">
+                Co-Borrower
+              </SelectItem>
+              <SelectItem value="guarantor" className="text-xs">
+                Guarantor
+              </SelectItem>
+              <SelectItem value="other" className="text-xs">
+                Other
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <Badge variant="outline" className={cn("h-5 text-[10px] border", roleStyle(participant.role))}>
+            {roleLabel(participant.role)}
+          </Badge>
+        )}
       </Td>
       <Td className="min-w-[240px]">
         {isEditing ? (

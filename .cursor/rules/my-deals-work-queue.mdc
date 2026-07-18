@@ -4,19 +4,20 @@
 
 My Deals is the operational home for RMs and business users.
 
-- **My Deals** = navigation / work queue
+- **My Deals** = navigation / work queue (execution)
 - **Opportunity Workspace** = working area (opened from a selected deal)
+- **Calendar / Planner** = future Tasks module — do **not** add Calendar to My Deals
 
 ## Primary nav
 
-Dashboard → Contacts → **My Deals** → Loan Workspace → Tasks → Documents → Lenders → Accounting → Enterprise Intelligence → Horizon → Administration → Settings
+See Architecture Freeze in `navigation-architecture.mdc` (CHANAKYA Radar after Dashboard).
 
 ## Architecture
 
 - Vertical tabs (Loans live; MF / Insurance / etc. placeholders)
-- Views: List (default), Kanban; Calendar / Analytics future
+- Views only: **Kanban | List | Table** (data presentation modes)
 - Rows derived from LoanFile SSOT (`loadLoanFiles`) — no duplicate contact/deal store
-- Double-click / card open → `buildJourneyHref(CREDIT_BENCH, { fileId, opportunityId })`
+- Open deal → Active Workspace / Opportunity path with `fileId` + `opportunityId`
 
 ## Extending
 

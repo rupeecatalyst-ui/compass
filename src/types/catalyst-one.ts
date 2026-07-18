@@ -570,6 +570,12 @@ export interface LoanFile {
   /** CRC-10.3 — Occupancy master id (Decision Engine: property acceptance, LTV, eligibility). */
   occupancyId?: string;
   approxPropertyValue?: number;
+  /**
+   * Primary borrower collateral ownership (not a separate participant type).
+   * Additional owners use LoanParticipant.isPropertyOwner.
+   */
+  primaryPropertyOwner?: boolean;
+  primaryOwnershipPercentage?: number;
   businessDetails?: LoanFileBusiness;
   coApplicant?: string;
   coApplicantId?: string;

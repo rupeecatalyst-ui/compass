@@ -2,7 +2,12 @@
 
 export type LoanParticipantEntityType = "individual" | "company";
 
-export type LoanParticipantRole = "primary_applicant" | "co_applicant" | "company" | "other";
+export type LoanParticipantRole =
+  | "primary_applicant"
+  | "co_applicant"
+  | "guarantor"
+  | "company"
+  | "other";
 
 export type LoanParticipantStatus = "active" | "inactive";
 
@@ -21,6 +26,13 @@ export interface LoanParticipant {
   status?: LoanParticipantStatus;
   /** Company-only — constitution from registry/contact profile when available. */
   constitution?: string;
+  /**
+   * Collateral ownership flag — not a separate participant type.
+   * When true, ownershipPercentage should be captured.
+   */
+  isPropertyOwner?: boolean;
+  /** 1–100 when isPropertyOwner is true. */
+  ownershipPercentage?: number;
 }
 
 export interface ParticipantEntityOption {
@@ -33,3 +45,11 @@ export interface ParticipantEntityOption {
 }
 
 export const MAX_LOAN_PARTICIPANTS = 9;
+
+export const LOAN_PARTICIPANT_ROLE_LABELS: Record<LoanParticipantRole, string> = {
+  primary_applicant: "Borrower",
+  co_applicant: "Co-Borrower",
+  guarantor: "Guarantor",
+  company: "Company",
+  other: "Participant",
+};

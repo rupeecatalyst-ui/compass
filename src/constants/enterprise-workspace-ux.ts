@@ -21,7 +21,7 @@ export type EnterpriseWorkspaceScrollMode = "document" | "locked-split";
 
 export const WORKSPACE_EXIT_LABEL = "Close";
 export const WORKSPACE_SAVE_LABEL = "Save";
-export const WORKSPACE_SAVE_AND_EXIT_LABEL = "Save & Exit";
+export const WORKSPACE_SAVE_AND_EXIT_LABEL = "Save & Return to My Deals";
 export const WORKSPACE_REFRESH_LABEL = "Refresh";
 
 export const WORKSPACE_UNSAVED = {

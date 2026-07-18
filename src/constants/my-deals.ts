@@ -19,11 +19,11 @@ export const MY_DEALS_BUSINESS_TABS = [
 
 export type MyDealsBusinessTabId = (typeof MY_DEALS_BUSINESS_TABS)[number]["id"];
 
+/** Data presentation modes only — Calendar belongs to Tasks / Planner (future). */
 export const MY_DEALS_VIEWS = [
-  { id: "kanban", label: "Kanban View", available: true },
-  { id: "list", label: "List View", available: true },
-  { id: "table", label: "Table View", available: true },
-  { id: "calendar", label: "Calendar View", available: false },
+  { id: "kanban", label: "Kanban" },
+  { id: "list", label: "List" },
+  { id: "table", label: "Table" },
 ] as const;
 
 export type MyDealsViewId = (typeof MY_DEALS_VIEWS)[number]["id"];

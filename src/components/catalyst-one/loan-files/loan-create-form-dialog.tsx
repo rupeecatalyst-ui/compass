@@ -42,7 +42,7 @@ import {
   isEcmContactUsable,
   listEcmContacts,
 } from "@/lib/enterprise-contact-master";
-import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
+import { getContextAwareVisibility, resolveContextCustomerCategory } from "@/lib/context-aware-data-collection";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
 import {
@@ -807,11 +807,15 @@ export function LoanCreateFormDialog({
                     </FormField>
 
                     <FormField
-                      label={
-                        getContextAwareVisibility(form.watch("employmentType")).isSelfEmployedFamily
-                          ? "Annual Turnover (₹) *"
-                          : "Monthly Income (₹) *"
-                      }
+                      label={(() => {
+                        const emp = form.watch("employmentType");
+                        const ctx = getContextAwareVisibility(emp);
+                        const cat = resolveContextCustomerCategory(emp);
+                        if (ctx.isSalariedFamily) return "Monthly Salary (₹) *";
+                        if (cat === "self_employed_professional") return "Annual Gross Receipts (₹) *";
+                        if (ctx.isSelfEmployedFamily) return "Annual Turnover (₹) *";
+                        return "Monthly Salary (₹) *";
+                      })()}
                       error={form.formState.errors.monthlyIncome?.message}
                     >
                       <INRCurrencyInput
@@ -821,9 +825,21 @@ export function LoanCreateFormDialog({
                         }
                       />
                       <p className="mt-1 text-[10px] text-muted-foreground">
-                        {getContextAwareVisibility(form.watch("employmentType")).isSelfEmployedFamily
-                          ? "Context-aware · self-employed income metric (not salary)."
-                          : "Context-aware · salaried income metric for loan assessment."}
+                        {(() => {
+                          const emp = form.watch("employmentType");
+                          const ctx = getContextAwareVisibility(emp);
+                          const cat = resolveContextCustomerCategory(emp);
+                          if (ctx.isSalariedFamily) {
+                            return "Context-aware · salaried monthly salary for loan assessment.";
+                          }
+                          if (cat === "self_employed_professional") {
+                            return "Context-aware · professional annual gross receipts (not salary).";
+                          }
+                          if (ctx.isSelfEmployedFamily) {
+                            return "Context-aware · business annual turnover (not salary).";
+                          }
+                          return "Context-aware income metric for loan assessment.";
+                        })()}
                       </p>
                     </FormField>
 

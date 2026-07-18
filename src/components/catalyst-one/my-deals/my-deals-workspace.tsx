@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
-  Calendar,
   Columns3,
   LayoutList,
   Search,
@@ -37,6 +36,7 @@ import {
   resolveCurrentRmName,
   type MyDealRow,
 } from "@/lib/my-deals";
+import { readMyDealsReturnState, rememberMyDealsReturnState } from "@/lib/my-deals/view-state";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { cn } from "@/lib/utils";
 
@@ -62,10 +62,23 @@ export function MyDealsWorkspace() {
   const { user } = useAuthContext();
   const registryVersion = useEcmContactRegistryVersion();
   const [businessTab, setBusinessTab] = useState<MyDealsBusinessTabId>("loans");
-  const [view, setView] = useState<MyDealsViewId>("kanban");
-  const [filterId, setFilterId] = useState<MyDealsFilterId>("my_deals");
-  const [search, setSearch] = useState("");
+  const [view, setView] = useState<MyDealsViewId>(() => {
+    const saved = typeof window !== "undefined" ? readMyDealsReturnState() : null;
+    return saved?.view ?? "kanban";
+  });
+  const [filterId, setFilterId] = useState<MyDealsFilterId>(() => {
+    const saved = typeof window !== "undefined" ? readMyDealsReturnState() : null;
+    return saved?.filterId ?? "my_deals";
+  });
+  const [search, setSearch] = useState(() => {
+    const saved = typeof window !== "undefined" ? readMyDealsReturnState() : null;
+    return saved?.search ?? "";
+  });
   const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    rememberMyDealsReturnState({ view, filterId, search, businessTab });
+  }, [view, filterId, search, businessTab]);
 
   const currentRm = resolveCurrentRmName(user);
 
@@ -139,32 +152,33 @@ export function MyDealsWorkspace() {
         </div>
       ) : (
         <>
-          {/* Views + search */}
+          {/* Views + search — Kanban | List | Table only */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-1.5">
+            <div
+              className="inline-flex h-8 items-stretch overflow-hidden rounded-lg border border-border bg-muted/30 p-0.5"
+              role="group"
+              aria-label="My Deals view"
+            >
               {MY_DEALS_VIEWS.map((v) => {
                 const Icon =
-                  v.id === "list"
-                    ? LayoutList
-                    : v.id === "kanban"
-                      ? Columns3
-                      : v.id === "table"
-                        ? Table2
-                        : Calendar;
+                  v.id === "kanban" ? Columns3 : v.id === "list" ? LayoutList : Table2;
+                const active = view === v.id;
                 return (
-                  <Button
+                  <button
                     key={v.id}
                     type="button"
-                    size="sm"
-                    variant={view === v.id ? "default" : "outline"}
-                    className="h-8 gap-1.5"
-                    disabled={!v.available}
-                    onClick={() => v.available && setView(v.id)}
-                    title={v.available ? v.label : `${v.label} — coming soon`}
+                    onClick={() => setView(v.id)}
+                    aria-pressed={active}
+                    className={cn(
+                      "inline-flex min-w-[5.5rem] flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-[12px] font-medium transition-colors",
+                      active
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
                   >
-                    <Icon className="h-3.5 w-3.5" />
-                    {v.label.replace(" View", "")}
-                  </Button>
+                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {v.label}
+                  </button>
                 );
               })}
             </div>
