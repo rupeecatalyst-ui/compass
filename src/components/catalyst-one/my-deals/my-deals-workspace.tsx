@@ -9,7 +9,6 @@ import {
   Search,
   Table2,
 } from "lucide-react";
-import { PageHeader } from "@/components/design-system/page-header";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -101,107 +100,112 @@ export function MyDealsWorkspace() {
 
   const liveTab = MY_DEALS_BUSINESS_TABS.find((t) => t.id === businessTab);
 
-  return (
-    <div className="space-y-5">
-      <PageHeader
-        title={MY_DEALS_OFFICIAL_NAME}
-        description="Your enterprise work queue — open a deal and continue where you left off."
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5"
-            onClick={() => setTick((t) => t + 1)}
-          >
-            Refresh
-          </Button>
-        }
-      />
-
-      {/* Business vertical tabs */}
-      <div className="flex flex-wrap gap-1.5 border-b border-border/70 pb-2">
-        {MY_DEALS_BUSINESS_TABS.map((tab) => (
+  const viewSwitcher = (
+    <div
+      className="inline-flex h-8 items-stretch overflow-hidden rounded-lg border border-border bg-muted/30 p-0.5"
+      role="group"
+      aria-label="My Deals view"
+    >
+      {MY_DEALS_VIEWS.map((v) => {
+        const Icon = v.id === "kanban" ? Columns3 : v.id === "list" ? LayoutList : Table2;
+        const active = view === v.id;
+        return (
           <button
-            key={tab.id}
+            key={v.id}
             type="button"
-            onClick={() => setBusinessTab(tab.id)}
+            onClick={() => setView(v.id)}
+            aria-pressed={active}
             className={cn(
-              "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-              businessTab === tab.id
-                ? "bg-teal-600 text-white"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-              !tab.live && businessTab !== tab.id && "opacity-70",
+              "inline-flex min-w-[4.75rem] items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-medium transition-colors",
+              active
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {tab.label}
-            {!tab.live ? (
-              <span className="ml-1.5 text-[9px] uppercase tracking-wide opacity-80">Soon</span>
-            ) : null}
+            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {v.label}
           </button>
-        ))}
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div className="flex h-[calc(100dvh-4.5rem)] flex-col gap-2 overflow-hidden">
+      {/* Row 1 — Title + Refresh */}
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold tracking-tight">{MY_DEALS_OFFICIAL_NAME}</h1>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 px-3 text-xs"
+          onClick={() => setTick((t) => t + 1)}
+        >
+          Refresh
+        </Button>
       </div>
 
-      {!liveTab?.live ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
-          <Briefcase className="mx-auto h-8 w-8 text-muted-foreground/60" />
-          <p className="mt-3 text-sm font-medium text-foreground">{liveTab?.label}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            This business vertical will appear here without redesigning My Deals.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Views + search — Kanban | List | Table only */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div
-              className="inline-flex h-8 items-stretch overflow-hidden rounded-lg border border-border bg-muted/30 p-0.5"
-              role="group"
-              aria-label="My Deals view"
+      {/* Row 2 — Product tabs + Search + View switcher */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 pb-1.5">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+          {MY_DEALS_BUSINESS_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setBusinessTab(tab.id)}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors",
+                businessTab === tab.id
+                  ? "bg-teal-600 text-white"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                !tab.live && businessTab !== tab.id && "opacity-70",
+              )}
             >
-              {MY_DEALS_VIEWS.map((v) => {
-                const Icon =
-                  v.id === "kanban" ? Columns3 : v.id === "list" ? LayoutList : Table2;
-                const active = view === v.id;
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => setView(v.id)}
-                    aria-pressed={active}
-                    className={cn(
-                      "inline-flex min-w-[5.5rem] flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-[12px] font-medium transition-colors",
-                      active
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    {v.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              {tab.label}
+              {!tab.live ? (
+                <span className="ml-1 text-[8px] uppercase tracking-wide opacity-80">Soon</span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+        {liveTab?.live ? (
+          <>
+            <div className="relative w-full min-w-[160px] sm:w-[220px] sm:flex-none">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                className="h-9 rounded-lg pl-9 text-sm"
-                placeholder="Search customer, OPP#, loan#, company, mobile…"
+                className="h-8 rounded-md pl-8 text-xs"
+                placeholder="Search customer, OPP#, loan#…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-          </div>
+            {viewSwitcher}
+          </>
+        ) : null}
+      </div>
 
-          {/* Filters */}
-          <div className="flex flex-wrap gap-1.5">
+      {!liveTab?.live ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6">
+          <div className="text-center">
+            <Briefcase className="mx-auto h-8 w-8 text-muted-foreground/60" />
+            <p className="mt-3 text-sm font-medium text-foreground">{liveTab?.label}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              This business vertical will appear here without redesigning My Deals.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Row 3 — Filter chips */}
+          <div className="flex shrink-0 flex-wrap gap-1">
             {MY_DEALS_FILTERS.map((f) => (
               <button
                 key={f.id}
                 type="button"
                 onClick={() => setFilterId(f.id)}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                  "rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors",
                   filterId === f.id
                     ? "border-teal-500/40 bg-teal-500/10 text-teal-900 dark:text-teal-100"
                     : "border-border bg-card text-muted-foreground hover:text-foreground",
@@ -212,22 +216,29 @@ export function MyDealsWorkspace() {
             ))}
           </div>
 
-          <p className="text-[11px] text-muted-foreground">
-            Showing <span className="font-semibold text-foreground">{rows.length}</span> deals
-            {filterId === "my_deals" ? ` for ${currentRm}` : ""} · Double-click a row to open
-            Opportunity Workspace
+          <p className="shrink-0 text-[10px] leading-none text-muted-foreground">
+            <span className="font-semibold tabular-nums text-foreground">{rows.length}</span> Deals
+            {" · "}
+            Double-click a card to open Loan Workspace
           </p>
 
-          {view === "list" ? (
-            <MyDealsListView rows={rows} onOpen={(row) => openOpportunityWorkspace(router, row)} />
-          ) : view === "table" ? (
-            <MyDealsTableView rows={rows} onOpen={(row) => openOpportunityWorkspace(router, row)} />
-          ) : (
-            <MyDealsKanbanView
-              groups={kanban}
-              onOpen={(row) => openOpportunityWorkspace(router, row)}
-            />
-          )}
+          <div
+            className={cn(
+              "min-h-0 flex-1",
+              view === "kanban" ? "overflow-hidden" : "overflow-auto",
+            )}
+          >
+            {view === "list" ? (
+              <MyDealsListView rows={rows} onOpen={(row) => openOpportunityWorkspace(router, row)} />
+            ) : view === "table" ? (
+              <MyDealsTableView rows={rows} onOpen={(row) => openOpportunityWorkspace(router, row)} />
+            ) : (
+              <MyDealsKanbanView
+                groups={kanban}
+                onOpen={(row) => openOpportunityWorkspace(router, row)}
+              />
+            )}
+          </div>
         </>
       )}
     </div>
@@ -401,51 +412,51 @@ function MyDealsKanbanView({
   onOpen: (row: MyDealRow) => void;
 }) {
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2">
+    <div className="flex h-full min-h-0 gap-2.5 overflow-x-auto">
       {MY_DEALS_KANBAN_COLUMNS.map((col) => {
         const items = groups[col.id] ?? [];
         return (
           <div
             key={col.id}
-            className="flex w-[240px] shrink-0 flex-col rounded-xl border border-border/70 bg-muted/20"
+            className="flex h-full w-[232px] shrink-0 flex-col rounded-lg border border-border/70 bg-muted/20"
           >
-            <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
-              <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-2.5 py-1.5">
+              <div className="flex items-center gap-1.5">
                 <span
-                  className="h-2 w-2 rounded-full"
+                  className="h-1.5 w-1.5 rounded-full"
                   style={{ backgroundColor: col.tone }}
                   aria-hidden
                 />
-                <p className="text-xs font-semibold tracking-tight">{col.label}</p>
+                <p className="text-[11px] font-semibold tracking-tight">{col.label}</p>
               </div>
               <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] tabular-nums">
                 {items.length}
               </span>
             </div>
-            <div className="flex max-h-[min(70vh,560px)] flex-col gap-2 overflow-y-auto p-2">
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-1.5">
               {items.map((row) => (
                 <button
                   key={row.id}
                   type="button"
                   onDoubleClick={() => onOpen(row)}
                   onClick={() => onOpen(row)}
-                  className="rounded-lg border border-border/70 bg-card p-2.5 text-left shadow-sm transition-colors hover:border-teal-500/30 hover:bg-teal-500/[0.03]"
+                  className="rounded-md border border-border/70 bg-card p-2 text-left shadow-sm transition-colors hover:border-teal-500/30 hover:bg-teal-500/[0.03]"
                 >
                   <p className="text-[10px] font-semibold tabular-nums text-teal-800 dark:text-teal-200">
                     {row.opportunityNumber}
                   </p>
-                  <p className="mt-0.5 truncate text-sm font-medium">{row.borrower}</p>
-                  <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                  <p className="mt-0.5 truncate text-[13px] font-medium leading-snug">{row.borrower}</p>
+                  <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                     {row.product} · {row.loanAmountLabel}
                   </p>
-                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-                    <span>{row.assignedRm}</span>
-                    <span className="tabular-nums">{row.ageingDays}d</span>
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                    <span className="truncate">{row.assignedRm}</span>
+                    <span className="shrink-0 tabular-nums">{row.ageingDays}d</span>
                   </div>
                 </button>
               ))}
               {items.length === 0 ? (
-                <p className="px-1 py-6 text-center text-[11px] text-muted-foreground">
+                <p className="px-1 py-4 text-center text-[11px] text-muted-foreground">
                   {col.stages.length === 0 ? "Future column" : "No deals"}
                 </p>
               ) : null}

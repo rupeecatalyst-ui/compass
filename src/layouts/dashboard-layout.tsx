@@ -32,6 +32,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     pathname.startsWith("/admin/enterprise-assets") ||
     pathname === "/dashboard" ||
     pathname === "/chanakya-radar" ||
+    pathname === "/my-deals" ||
     pathname === "/pipeline" ||
     pathname === "/customers";
 
@@ -48,6 +49,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               "flex-1 overflow-y-auto scrollbar-thin",
               pathname.startsWith("/loan-files") && "overflow-hidden",
               pathname.startsWith("/chanakya-radar") && "overflow-hidden",
+              pathname === "/my-deals" && "overflow-hidden",
               pathname.startsWith("/admin/credit-risk-engine") && "overflow-hidden",
             )}
           >
@@ -68,6 +70,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 isFullWidth &&
                   (pathname === "/dashboard" ||
                     pathname === "/chanakya-radar" ||
+                    pathname === "/my-deals" ||
                     pathname === "/pipeline" ||
                     pathname === "/customers") &&
                   "max-w-none",
