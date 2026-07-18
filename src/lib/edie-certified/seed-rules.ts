@@ -6,29 +6,25 @@ import {
   listEdieDocumentRules,
   registerEdieDocumentRule,
 } from "@/lib/enterprise-document-intelligence-engine";
-import type { EdieCustomerCategory, EdieProductRef } from "@/types/edie-certified-rules";
+import { EDIE_PHASE1_PRODUCTS } from "@/constants/edie-certified/product-families";
+import type { EdieCustomerCategory } from "@/types/edie-certified-rules";
 import { resolveEdieCertifiedChecklist } from "./resolve-checklist";
-
-const PRODUCTS: EdieProductRef[] = [
-  "product:home-loan",
-  "product:home-loan-bt",
-  "product:lap",
-  "product:unsecured-business-loan",
-  "product:personal-loan",
-];
 
 const CATEGORIES: EdieCustomerCategory[] = ["salaried", "self_employed", "company"];
 
+const SEED_VERSION = "EDIE-CERT-V2";
+
 /**
- * Ensure EDIE registry has certified product × category rules.
- * Idempotent — skips if certified seed marker present.
+ * Ensure EDIE registry has certified product × category rules for all Phase 1 products.
+ * Idempotent — skips when V2 seed marker is present.
  */
 export function seedEdieCertifiedRulesIfNeeded() {
   const existing = listEdieDocumentRules();
-  if (existing.some((r) => r.ruleCode.startsWith("EDIE-CERT-"))) return;
+  if (existing.some((r) => r.ruleCode.startsWith(SEED_VERSION))) return;
 
-  for (const productRef of PRODUCTS) {
+  for (const productRef of EDIE_PHASE1_PRODUCTS) {
     for (const customerCategory of CATEGORIES) {
+      // Asset/security packs are category-agnostic; still seed once per category for registry completeness
       const checklist = resolveEdieCertifiedChecklist({
         productRef,
         customerCategory,
@@ -45,7 +41,7 @@ export function seedEdieCertifiedRulesIfNeeded() {
         ),
       ];
       registerEdieDocumentRule({
-        ruleCode: `EDIE-CERT-${productRef.replace("product:", "").toUpperCase()}-${customerCategory.toUpperCase()}`,
+        ruleCode: `${SEED_VERSION}-${productRef.replace("product:", "").toUpperCase()}-${customerCategory.toUpperCase()}`,
         ruleName: `Certified ${productRef} · ${customerCategory}`,
         productRef,
         employmentType: customerCategory === "company" ? "company" : customerCategory,

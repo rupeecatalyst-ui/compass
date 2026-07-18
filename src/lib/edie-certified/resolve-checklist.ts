@@ -6,6 +6,7 @@ import {
   applyStageSeverity,
   groupItemsByModule,
   moduleAddressProof,
+  moduleAssetSecurityMinimal,
   moduleBanking,
   moduleBusinessConstitution,
   moduleCustomerKyc,
@@ -14,6 +15,7 @@ import {
   moduleProperty,
 } from "@/constants/edie-certified/modules";
 import { EDIE_ADDRESS_PROOF_GROUP } from "@/constants/edie-certified/document-catalog";
+import { resolveEdieProductFamily } from "@/constants/edie-certified/product-families";
 import type { LoanFile } from "@/types/catalyst-one";
 import type {
   EdieChecklistItem,
@@ -83,6 +85,29 @@ function markComplete(
   });
 }
 
+function composeCreditAssessmentItems(input: EdieResolveInput): EdieChecklistItem[] {
+  const {
+    productRef,
+    customerCategory,
+    transactionType,
+    workflowStage,
+    constitution,
+    addressProofSelection,
+  } = input;
+
+  return [
+    ...moduleCustomerKyc(),
+    ...moduleAddressProof(addressProofSelection),
+    ...(customerCategory === "self_employed" || customerCategory === "company"
+      ? moduleBusinessConstitution(constitution)
+      : []),
+    ...moduleFinancial(customerCategory),
+    ...moduleBanking(),
+    ...moduleProperty(productRef, workflowStage),
+    ...moduleExistingLoan(transactionType, productRef),
+  ];
+}
+
 /**
  * Resolve dynamic checklist from certified modules — never hardcoded in UI.
  */
@@ -97,40 +122,35 @@ export function resolveEdieCertifiedChecklist(input: EdieResolveInput): EdieReso
     addressProofSelection,
   } = input;
 
-  let items: EdieChecklistItem[] = [
-    ...moduleCustomerKyc(),
-    ...moduleAddressProof(addressProofSelection),
-    ...(customerCategory === "self_employed" || customerCategory === "company"
-      ? moduleBusinessConstitution(constitution)
-      : []),
-    ...moduleFinancial(customerCategory),
-    ...moduleBanking(),
-    ...moduleProperty(productRef, workflowStage),
-    ...moduleExistingLoan(transactionType, productRef),
-  ];
+  const productFamily = resolveEdieProductFamily(productRef);
+
+  let items: EdieChecklistItem[] =
+    productFamily === "asset_security"
+      ? moduleAssetSecurityMinimal(addressProofSelection)
+      : composeCreditAssessmentItems(input);
 
   items = items.map((i) => applyStageSeverity(i, workflowStage));
 
-  // Address proof: only the selected choice counts as mandatory; hide others as optional choices in UI
-  const selectedAddress =
-    addressProofSelection ||
-    items.find((i) => i.choiceGroupId === EDIE_ADDRESS_PROOF_GROUP && !i.optional)?.typeRef;
+  if (productFamily === "credit_assessment") {
+    const selectedAddress =
+      addressProofSelection ||
+      items.find((i) => i.choiceGroupId === EDIE_ADDRESS_PROOF_GROUP && !i.optional)?.typeRef;
 
-  items = items.map((i) => {
-    if (i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP) return i;
-    const isSelected = i.typeRef === selectedAddress;
-    return {
-      ...i,
-      optional: !isSelected,
-      mandatory: isSelected,
-      severity: isSelected ? (i.critical ? "critical" : "mandatory") : "required",
-      critical: isSelected ? i.critical : false,
-    };
-  });
+    items = items.map((i) => {
+      if (i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP) return i;
+      const isSelected = i.typeRef === selectedAddress;
+      return {
+        ...i,
+        optional: !isSelected,
+        mandatory: isSelected,
+        severity: isSelected ? (i.critical ? "critical" : "mandatory") : "required",
+        critical: isSelected ? i.critical : false,
+      };
+    });
+  }
 
   items = markComplete(items, receipts);
 
-  // For scoring, collapse address choices to the selected one only (others don't inflate pending)
   const scoringItems = items.filter(
     (i) => i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP || !i.optional,
   );
@@ -141,6 +161,7 @@ export function resolveEdieCertifiedChecklist(input: EdieResolveInput): EdieReso
 
   return {
     productRef,
+    productFamily,
     customerCategory,
     transactionType,
     workflowStage,
@@ -175,7 +196,6 @@ export function resolveEdieChecklistForLoanFile(
   const addressProofSelection =
     options?.addressProofSelection ?? loadAddressProofSelection(file.id);
 
-  // Merge loan-file document completeness into receipts for folder matches
   const merged = { ...receipts };
   for (const d of file.documents ?? []) {
     const n = d.name.toLowerCase();
@@ -184,6 +204,7 @@ export function resolveEdieChecklistForLoanFile(
       (d.status === "received" || d.status === "verified" || d.status === "pending")
     ) {
       merged["doc:financial-folder"] = true;
+      merged["doc:itr-optional"] = true;
     }
     if (
       (n.includes("property") || n.includes("sale deed") || n.includes("title")) &&

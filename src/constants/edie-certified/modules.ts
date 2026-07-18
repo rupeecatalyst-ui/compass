@@ -8,6 +8,7 @@ import {
   EDIE_CATALOG,
   EDIE_MODULE_LABELS,
 } from "@/constants/edie-certified/document-catalog";
+import { EDIE_PROPERTY_PRODUCTS } from "@/constants/edie-certified/product-families";
 import type {
   EdieChecklistItem,
   EdieCustomerCategory,
@@ -150,7 +151,12 @@ export function moduleBusinessConstitution(constitution?: string): EdieChecklist
 
 export function moduleFinancial(category: EdieCustomerCategory): EdieChecklistItem[] {
   if (category === "salaried") {
-    return [itemFromCatalog("doc:salary-slip"), itemFromCatalog("doc:form-16")];
+    return [
+      itemFromCatalog("doc:salary-slip", {
+        criticalFromStage: "before_lender_login",
+      }),
+      itemFromCatalog("doc:form-16"),
+    ];
   }
   // Self employed / company — single folder, not individual ITR/GST/BS
   return [
@@ -159,6 +165,7 @@ export function moduleFinancial(category: EdieCustomerCategory): EdieChecklistIt
       folderId: "folder:financial",
       folderLabel: "Financial Documents Folder",
       severity: "mandatory",
+      criticalFromStage: "before_lender_login",
     }),
   ];
 }
@@ -170,16 +177,12 @@ export function moduleBanking(): EdieChecklistItem[] {
   ];
 }
 
-/** Property folder — only secured products; active after soft approval. */
+/** Property folder — only Home Loan / HL-BT / LAP; active after soft approval. */
 export function moduleProperty(
   productRef: EdieProductRef,
   stage: EdieWorkflowStage,
 ): EdieChecklistItem[] {
-  const secured =
-    productRef === "product:home-loan" ||
-    productRef === "product:home-loan-bt" ||
-    productRef === "product:lap";
-  if (!secured) return [];
+  if (!EDIE_PROPERTY_PRODUCTS.has(productRef)) return [];
   if (!stageReached(stage, "soft_approval")) return [];
   return [
     itemFromCatalog("doc:property-folder", {
@@ -189,6 +192,28 @@ export function moduleProperty(
       severity: "mandatory",
       criticalFromStage: "soft_approval",
     }),
+  ];
+}
+
+/**
+ * Family 2 — Asset / Security based (LAS, Gold).
+ * Minimal pack: PAN, Aadhaar, Primary Bank; optional ITR + Address Proof.
+ * No Financial Folder, Property Folder, or Business Constitution.
+ */
+export function moduleAssetSecurityMinimal(selectedAddress?: string): EdieChecklistItem[] {
+  return [
+    itemFromCatalog("doc:pan"),
+    itemFromCatalog("doc:aadhaar"),
+    itemFromCatalog("doc:bank-statement"),
+    itemFromCatalog("doc:itr-optional"),
+    ...moduleAddressProof(selectedAddress).map((i) => ({
+      ...i,
+      // Address is optional for asset/security products
+      optional: true,
+      mandatory: false,
+      severity: "required" as const,
+      critical: false,
+    })),
   ];
 }
 

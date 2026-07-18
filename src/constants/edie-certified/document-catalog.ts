@@ -182,6 +182,15 @@ export const EDIE_CATALOG: Record<string, EdieCatalogDocument> = {
     defaultSeverity: "mandatory",
     weight: 20,
   },
+  /** Optional single ITR for asset/security products (not the financial folder). */
+  "doc:itr-optional": {
+    typeRef: "doc:itr-optional",
+    label: "ITR",
+    moduleId: "financial",
+    defaultSeverity: "required",
+    optional: true,
+    weight: 8,
+  },
 
   // E. Banking
   "doc:bank-statement": {

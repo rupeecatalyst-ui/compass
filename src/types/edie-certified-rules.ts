@@ -7,8 +7,14 @@ export type EdieProductRef =
   | "product:home-loan"
   | "product:home-loan-bt"
   | "product:lap"
+  | "product:personal-loan"
+  | "product:education-loan"
+  | "product:car-loan"
   | "product:unsecured-business-loan"
-  | "product:personal-loan";
+  | "product:loan-against-securities"
+  | "product:gold-loan";
+
+export type EdieProductFamily = "credit_assessment" | "asset_security";
 
 export type EdieCustomerCategory = "salaried" | "self_employed" | "company";
 
@@ -78,6 +84,7 @@ export interface EdieChecklistModule {
 
 export interface EdieResolvedChecklist {
   productRef: EdieProductRef;
+  productFamily: EdieProductFamily;
   customerCategory: EdieCustomerCategory;
   transactionType: EdieTransactionType;
   workflowStage: EdieWorkflowStage;

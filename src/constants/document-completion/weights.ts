@@ -64,6 +64,13 @@ export const DOCUMENT_COMPLETION_WEIGHTS: DocumentCompletionWeightConfig[] = [
   { typeRef: "doc:bt-loan-statement", label: "Loan Statement", weight: 12, mandatory: true, critical: true },
   { typeRef: "doc:bt-foreclosure", label: "Foreclosure Letter", weight: 12, mandatory: true, critical: true },
   { typeRef: "doc:bt-rtr", label: "Repayment Track Record", weight: 10, mandatory: true, critical: true },
+  {
+    typeRef: "doc:itr-optional",
+    label: "ITR",
+    weight: 8,
+    mandatory: false,
+    critical: false,
+  },
   // Legacy aliases kept for older receipts / demo files
   { typeRef: "doc:itr", label: "ITR", weight: 16, mandatory: true, critical: true, hideForEmployment: ["salaried"] },
   { typeRef: "doc:gst", label: "GST Returns", weight: 12, mandatory: false, critical: false, hideForEmployment: ["salaried"] },

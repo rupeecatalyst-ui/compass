@@ -189,8 +189,9 @@ export function DocumentCenterWorkspace() {
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            EDIE · {checklist.productRef.replace("product:", "")} · {checklist.customerCategory.replace("_", " ")} ·{" "}
-            {checklist.transactionType.replace("_", " ")} · stage {checklist.workflowStage.replace(/_/g, " ")}
+            EDIE · {checklist.productRef.replace("product:", "")} · {checklist.productFamily.replace("_", " ")} ·{" "}
+            {checklist.customerCategory.replace("_", " ")} · {checklist.transactionType.replace("_", " ")} · stage{" "}
+            {checklist.workflowStage.replace(/_/g, " ")}
             {" · "}
             Completion {score.overallPct}%
           </p>
@@ -257,12 +258,14 @@ export function DocumentCenterWorkspace() {
                   <div className="mt-3 space-y-2">
                     <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Address proof type
+                      {checklist.productFamily === "asset_security" ? " (optional)" : ""}
                     </label>
                     <select
                       className="h-8 w-full max-w-sm rounded-md border border-border bg-background px-2 text-xs"
                       value={
                         addressChoice ||
                         mod.items.find((i) => !i.optional)?.typeRef ||
+                        mod.items[0]?.typeRef ||
                         "doc:address-electricity"
                       }
                       onChange={(e) => onAddressSelect(e.target.value)}
@@ -275,7 +278,13 @@ export function DocumentCenterWorkspace() {
                     </select>
                     <ul className="divide-y divide-border/50 rounded-xl border border-border/50">
                       {mod.items
-                        .filter((i) => !i.optional)
+                        .filter((i) => {
+                          const selected =
+                            addressChoice ||
+                            mod.items.find((x) => !x.optional)?.typeRef ||
+                            mod.items[0]?.typeRef;
+                          return i.typeRef === selected;
+                        })
                         .map((item) => (
                           <ChecklistRow
                             key={item.typeRef}

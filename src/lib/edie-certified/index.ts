@@ -1,3 +1,5 @@
+export { EDIE_PHASE1_PRODUCTS, EDIE_PRODUCT_FAMILY, resolveEdieProductFamily } from "@/constants/edie-certified/product-families";
+
 export {
   resolveEdieCertifiedChecklist,
   resolveEdieChecklistForLoanFile,
@@ -18,3 +20,4 @@ export {
 } from "./resolve-context";
 
 export { seedEdieCertifiedRulesIfNeeded } from "./seed-rules";
+

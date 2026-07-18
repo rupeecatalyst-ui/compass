@@ -1,5 +1,6 @@
 /**
  * Map loan file → EDIE resolve context (product, category, transaction, stage).
+ * Working Capital & Construction Funding are intentionally excluded from Phase 1.
  */
 
 import type { LoanFile } from "@/types/catalyst-one";
@@ -11,12 +12,31 @@ import type {
 } from "@/types/edie-certified-rules";
 
 export function resolveEdieProductRef(loanProduct?: string): EdieProductRef {
-  const p = (loanProduct || "").toLowerCase();
-  if (p.includes("balance transfer") || (p.includes("home") && p.includes("bt"))) {
+  const p = (loanProduct || "").toLowerCase().trim();
+
+  // Explicitly excluded from Phase 1 — fall through to nearest credit pack only if mislabeled
+  if (p.includes("working capital") || p.includes("construction funding") || p.includes("construction finance")) {
+    return "product:home-loan";
+  }
+
+  if (p.includes("balance transfer") || (p.includes("home") && (p.includes("bt") || p.includes("balance")))) {
     return "product:home-loan-bt";
   }
   if (p.includes("lap") || p.includes("loan against property") || p.includes("against property")) {
     return "product:lap";
+  }
+  if (
+    p.includes("loan against securities") ||
+    p.includes("against securities") ||
+    p.includes("las") ||
+    p.includes("securities")
+  ) {
+    return "product:loan-against-securities";
+  }
+  if (p.includes("gold")) return "product:gold-loan";
+  if (p.includes("education") || p.includes("student")) return "product:education-loan";
+  if (p.includes("car") || p.includes("auto loan") || p.includes("vehicle")) {
+    return "product:car-loan";
   }
   if (p.includes("personal")) return "product:personal-loan";
   if (
@@ -24,13 +44,11 @@ export function resolveEdieProductRef(loanProduct?: string): EdieProductRef {
     p.includes("unsecured business") ||
     (p.includes("business") && p.includes("unsecured")) ||
     p === "business loan (unsecured)" ||
-    p.includes("business loan")
+    (p.includes("business loan") && !p.includes("against property") && !p.includes("lap"))
   ) {
-    // Secured business products would mention property/working capital elsewhere
-    if (!p.includes("against property") && !p.includes("lap")) {
-      return "product:unsecured-business-loan";
-    }
+    return "product:unsecured-business-loan";
   }
+  if (p.includes("home")) return "product:home-loan";
   return "product:home-loan";
 }
 
@@ -59,7 +77,7 @@ export function resolveEdieTransactionType(
 ): EdieTransactionType {
   if (file.transactionType === "balance_transfer") return "balance_transfer";
   const p = (file.loanProduct || "").toLowerCase();
-  if (p.includes("balance transfer") || (p.includes("bt") && p.includes("home"))) {
+  if (p.includes("balance transfer") || (p.includes("home") && p.includes("bt"))) {
     return "balance_transfer";
   }
   return "fresh";
