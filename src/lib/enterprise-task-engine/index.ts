@@ -19,3 +19,19 @@ export {
   reopenEteTask,
 } from "./task-registry";
 export { validateEteTask } from "./validation-engine";
+export {
+  TASK_TIMELINE_COLUMNS,
+  TASK_COMMITMENT_OPTIONS,
+  TASK_POSTPONE_REASONS,
+  columnForTask,
+  dueDateForColumn,
+  isPostponeMove,
+  enrichTaskDefaults,
+  resolveTaskCategory,
+  taskTitle,
+  assigneeLabel,
+  pushTaskNotification,
+  loadTaskNotifications,
+  type TaskTimelineColumnId,
+  type TaskPostponeNotification,
+} from "./task-workspace";

@@ -5,7 +5,34 @@
 
 export type EteTaskType = "independent" | "opportunity";
 
+/** UX category — Workflow (loan-linked) vs General (org work). */
+export type EteTaskCategory = "workflow" | "general";
+
 export type EteTaskColour = "blue" | "orange" | "red";
+
+export type EteTaskPriority = "high" | "medium" | "low";
+
+export type EteCommitmentLevel = "very_high" | "high" | "moderate" | "low" | "very_low";
+
+export type EtePostponeReason =
+  | "waiting_customer"
+  | "waiting_lender"
+  | "document_pending"
+  | "internal_dependency"
+  | "third_party"
+  | "priority_changed"
+  | "other";
+
+export type EteGrossStage =
+  | "Contact"
+  | "Opportunity Workspace"
+  | "Document Center"
+  | "Credit Workbench"
+  | "Loan Workspace"
+  | "Lender Pipeline"
+  | "Approval"
+  | "Disbursement"
+  | "Accounting";
 
 export type EtePredefinedDescription =
   | "Call Customer"
@@ -44,6 +71,21 @@ export interface EteTask {
   createdOn: string;
   modifiedBy: string;
   modifiedOn: string;
+  /** Enterprise Task Workspace extensions (optional — backward compatible). */
+  category?: EteTaskCategory;
+  priority?: EteTaskPriority;
+  borrowerName?: string;
+  loanProduct?: string;
+  lenderName?: string;
+  department?: string;
+  assignedByRef?: string;
+  grossStage?: EteGrossStage;
+  fileId?: string;
+  commitmentLevel?: EteCommitmentLevel;
+  postponeReason?: EtePostponeReason;
+  postponeComment?: string;
+  checklist?: { id: string; label: string; done: boolean }[];
+  comments?: { id: string; author: string; body: string; at: string }[];
 }
 
 export type EteValidationSeverity = "error" | "warning";

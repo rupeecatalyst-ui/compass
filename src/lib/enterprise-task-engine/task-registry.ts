@@ -137,7 +137,27 @@ export function escalateEteTask(taskId: string, actorId: string): EteTask {
 /** Placeholder registry patch — in-memory only; no workflow rules. */
 export function patchEteTask(
   taskId: string,
-  patch: Partial<Pick<EteTask, "assigneeRef" | "dueOn" | "predefinedDescription" | "description">>,
+  patch: Partial<
+    Pick<
+      EteTask,
+      | "assigneeRef"
+      | "dueOn"
+      | "predefinedDescription"
+      | "description"
+      | "priority"
+      | "commitmentLevel"
+      | "postponeReason"
+      | "postponeComment"
+      | "checklist"
+      | "comments"
+      | "borrowerName"
+      | "loanProduct"
+      | "lenderName"
+      | "department"
+      | "grossStage"
+      | "category"
+    >
+  >,
   actorId: string,
 ): EteTask {
   const existing = getEtePorts().tasks.findById(taskId);
