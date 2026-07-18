@@ -7,8 +7,15 @@ import { buildMinimalLenderPipelineInsight } from "@/lib/strategic-lender-pipeli
 import type { LoanFile, LoanLenderExecution } from "@/types/catalyst-one";
 
 /** CO-SPRINT-089 — Minimal CHANAKYA guidance for Lender Pipeline. */
-export function buildLenderPipelineFeedMessages(_loan: LoanFile, cases: LoanLenderExecution[]): string[] {
-  return buildMinimalLenderPipelineInsight(cases);
+export function buildLenderPipelineFeedMessages(
+  loan: LoanFile,
+  cases: LoanLenderExecution[],
+): string[] {
+  const opportunityId =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("opportunityId") ?? undefined
+      : undefined;
+  return buildMinimalLenderPipelineInsight(cases, opportunityId ?? undefined);
 }
 
 /** UX-04E — Horizontal Chanakya live feed (presentation layer, rule-based). */

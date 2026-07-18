@@ -14,9 +14,12 @@ import {
   selectLifeLenderExecutors,
 } from "@/lib/enterprise-life-engine";
 import {
+  getStrategicAnalysis,
   getStrategicShortlist,
+  identifyLenderFromAnalysis,
   removeStrategicShortlistItem,
   syncShortlistToIdentified,
+  upsertStrategicAnalysis,
   upsertStrategicShortlistItem,
 } from "@/lib/strategic-lender-pipeline";
 import {
@@ -215,6 +218,9 @@ export function WorkspaceLifePanel({
   const [shortlist, setShortlist] = useState(() =>
     opportunityId ? getStrategicShortlist(opportunityId) : [],
   );
+  const [analysis, setAnalysis] = useState(() =>
+    opportunityId ? getStrategicAnalysis(opportunityId) : [],
+  );
   const [, bump] = useState(0);
 
   useEffect(() => {
@@ -224,9 +230,11 @@ export function WorkspaceLifePanel({
   useEffect(() => {
     if (!opportunityId) {
       setShortlist([]);
+      setAnalysis([]);
       return;
     }
     setShortlist(getStrategicShortlist(opportunityId));
+    setAnalysis(getStrategicAnalysis(opportunityId));
   }, [opportunityId, refreshKey]);
 
   /** CF-LIFE-010 — hydrate selection after returning from Enterprise Lender Workspace. */
@@ -339,6 +347,25 @@ export function WorkspaceLifePanel({
       })
       .sort((a, b) => (b.successProbability ?? 0) - (a.successProbability ?? 0));
   }, [results, lifeState?.search]);
+
+  /** Strategic memory — persist analysed institutions for the full loan lifecycle. */
+  useEffect(() => {
+    if (!opportunityId || institutions.length === 0) return;
+    const saved = upsertStrategicAnalysis(
+      opportunityId,
+      institutions.map((inst, index) => ({
+        lenderRef: inst.lenderRef,
+        lenderName: inst.lenderName,
+        product: productLabel || productDisplayLabel(inst.productRefs[0] ?? OPPORTUNITY_PRODUCT_REF),
+        productRefs: inst.productRefs,
+        successProbability: inst.successProbability,
+        specialNotes: inst.recommended ? "Recommended by LIFE" : undefined,
+        strategicRank: index + 1,
+        createdBy: "RM",
+      })),
+    );
+    setAnalysis(saved);
+  }, [opportunityId, institutions, productLabel]);
 
   const contactsForInstitution = useMemo(() => {
     const lenderRef = lifeState?.institution?.lenderRef;
@@ -484,7 +511,9 @@ export function WorkspaceLifePanel({
     // Live sync into IDENTIFIED when a loan file is already linked
     const loans = resolveLoansForOpportunity(opportunityId, contact);
     if (loans[0]) {
-      const sync = syncShortlistToIdentified(loans[0].id, opportunityId, nextShortlist);
+      const sync = syncShortlistToIdentified(loans[0].id, opportunityId, nextShortlist, "RM", {
+        pruneMissing: false,
+      });
       rememberOpportunityActiveLoan(opportunityId, loans[0].id);
       if (sync.ok) toast.success(sync.message);
     }
@@ -543,9 +572,25 @@ export function WorkspaceLifePanel({
     setShortlist(next);
     const loans = resolveLoansForOpportunity(opportunityId, contact);
     if (loans[0]) {
-      syncShortlistToIdentified(loans[0].id, opportunityId, next);
+      syncShortlistToIdentified(loans[0].id, opportunityId, next, "RM", {
+        pruneMissing: exists,
+      });
       rememberOpportunityActiveLoan(opportunityId, loans[0].id);
     }
+  };
+
+  const identifyAlternate = (lenderRef: string) => {
+    if (!opportunityId) return;
+    const loans = resolveLoansForOpportunity(opportunityId, contact);
+    if (!loans[0]) {
+      toast.message("Open Loan Workspace to link this opportunity, then identify the lender.");
+      return;
+    }
+    const sync = identifyLenderFromAnalysis(loans[0].id, opportunityId, lenderRef);
+    setShortlist(getStrategicShortlist(opportunityId));
+    setAnalysis(getStrategicAnalysis(opportunityId));
+    rememberOpportunityActiveLoan(opportunityId, loans[0].id);
+    toast.success(sync.message);
   };
 
   const moveToExecution = () => {
@@ -584,7 +629,9 @@ export function WorkspaceLifePanel({
       );
       return;
     }
-    const sync = syncShortlistToIdentified(loan.id, opportunityId, items);
+    const sync = syncShortlistToIdentified(loan.id, opportunityId, items, "RM", {
+      pruneMissing: false,
+    });
     rememberOpportunityActiveLoan(opportunityId, loan.id);
     toast.success(sync.message);
     appendEdcTimelineEntry({
@@ -700,36 +747,77 @@ export function WorkspaceLifePanel({
         </div>
       )}
 
-      {/* Shortlist strip */}
-      {shortlist.length > 0 && (
+      {/* Strategic memory — analysed lenders remain available after execution begins */}
+      {(analysis.length > 0 || shortlist.length > 0) && (
         <div className="mb-3 rounded-xl border border-indigo-500/25 bg-indigo-500/5 p-3">
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
-            Strategic shortlist · {shortlist.length}
+            Strategic memory · {analysis.length || shortlist.length} analysed
           </p>
-          <ul className="mb-2 space-y-1 text-[11px]">
-            {shortlist.map((s) => (
-              <li key={s.lenderRef} className="flex items-center justify-between gap-2">
-                <span>
-                  {s.lenderName}
-                  {s.product ? ` · ${s.product}` : ""}
-                </span>
-                <button
-                  type="button"
-                  className="text-[10px] text-muted-foreground underline-offset-2 hover:underline"
-                  onClick={() => {
-                    if (!opportunityId) return;
-                    const next = removeStrategicShortlistItem(opportunityId, s.lenderRef);
-                    setShortlist(next);
-                    const loans = resolveLoansForOpportunity(opportunityId, contact);
-                    if (loans[0]) syncShortlistToIdentified(loans[0].id, opportunityId, next);
-                  }}
+          <ul className="mb-2 space-y-1.5 text-[11px]">
+            {(analysis.length > 0 ? analysis : shortlist).map((s) => {
+              const loans = opportunityId
+                ? resolveLoansForOpportunity(opportunityId, contact)
+                : [];
+              const onPipeline = loans[0]?.lenders?.some(
+                (c) =>
+                  c.lenderRef === s.lenderRef ||
+                  c.lender.toLowerCase() === s.lenderName.toLowerCase(),
+              );
+              const inShortlist = shortlist.some((x) => x.lenderRef === s.lenderRef);
+              return (
+                <li
+                  key={s.lenderRef}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/40 bg-background/50 px-2 py-1.5"
                 >
-                  Remove
-                </button>
-              </li>
-            ))}
+                  <span className="min-w-0">
+                    <span className="font-medium">
+                      {s.strategicRank != null ? `#${s.strategicRank} ` : ""}
+                      {s.lenderName}
+                    </span>
+                    {s.product ? (
+                      <span className="text-muted-foreground"> · {s.product}</span>
+                    ) : null}
+                    <span className="ml-1 text-[10px] text-muted-foreground">
+                      {onPipeline ? "· In pipeline" : inShortlist ? "· Shortlisted" : "· Alternate"}
+                    </span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {!onPipeline ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-6 text-[10px]"
+                        onClick={() => identifyAlternate(s.lenderRef)}
+                      >
+                        Identify
+                      </Button>
+                    ) : null}
+                    {inShortlist && !onPipeline ? (
+                      <button
+                        type="button"
+                        className="text-[10px] text-muted-foreground underline-offset-2 hover:underline"
+                        onClick={() => {
+                          if (!opportunityId) return;
+                          const next = removeStrategicShortlistItem(opportunityId, s.lenderRef);
+                          setShortlist(next);
+                          const linked = resolveLoansForOpportunity(opportunityId, contact);
+                          if (linked[0]) {
+                            syncShortlistToIdentified(linked[0].id, opportunityId, next, "RM", {
+                              pruneMissing: true,
+                            });
+                          }
+                        }}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
-          {!assigned && (
+          {!assigned && shortlist.length > 0 && (
             <Button size="sm" className="h-7 text-xs" onClick={moveToExecution}>
               Move to Execution
             </Button>

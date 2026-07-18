@@ -534,7 +534,7 @@ function LoanWorkspaceModalContent({
           }}
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Add Lender Case
+          {(draft.lenders ?? []).length > 0 ? "Identify Additional Lender" : "Identify Lender"}
         </Button>
       </div>
 

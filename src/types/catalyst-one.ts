@@ -303,6 +303,30 @@ export interface LoanLenderExecution {
   expectedRoi?: number;
   /** Special notes from Strategic Workspace. */
   specialNotes?: string;
+  /** Strategic recommendation rank (1 = strongest). */
+  strategicRank?: number;
+  /** Reason for recommendation from Strategic Workspace. */
+  reasonForRecommendation?: string;
+  /** Composite strategic score 0–100. */
+  strategicScore?: number;
+  /** FOIR assessment label from strategy. */
+  foirAssessment?: string;
+  /** CIBIL assessment label from strategy. */
+  cibilAssessment?: string;
+  /** Income fit label from strategy. */
+  incomeFit?: string;
+  /** Policy fit label from strategy. */
+  policyFit?: string;
+  /** Expected turnaround (e.g. "7–10 days"). */
+  expectedTurnaround?: string;
+  /** Recommendation notes from strategy. */
+  recommendationNotes?: string;
+  /** Concise CHANAKYA recommendation for this lender. */
+  chanakyaRecommendation?: string;
+  /** Who identified this lender for execution. */
+  identifiedBy?: string;
+  /** When the lender entered IDENTIFIED. */
+  identifiedAt?: string;
   /** Stable lender ref for duplicate protection (e.g. lender:hdfc). */
   lenderRef?: string;
   /** True when case originated from Strategic Workspace shortlist. */

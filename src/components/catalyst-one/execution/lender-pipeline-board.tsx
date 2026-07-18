@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EdieComplianceSummaryDialog } from "@/components/catalyst-one/shared/edie-compliance-summary-dialog";
+import { LenderStrategyDrawer } from "@/components/catalyst-one/execution/lender-strategy-drawer";
 import { evaluateEdieComplianceGate } from "@/lib/edie-certified";
 import type { EdieComplianceGateResult } from "@/types/edie-certified-rules";
 import { cn } from "@/lib/utils";
@@ -42,9 +43,6 @@ import {
   isPreExecutionStage,
   normalizeLenderCaseStage,
 } from "@/constants/lender-pipeline";
-import { buildElwWorkspaceHref, normalizeLenderId } from "@/constants/enterprise-lender-workspace";
-import { ROUTES } from "@/constants/routes";
-import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import type {
   LenderCaseStage,
   LenderLostReason,
@@ -54,7 +52,6 @@ import type {
   LoanLenderExecution,
 } from "@/types/catalyst-one";
 import { loanLenders } from "@/data/catalyst-one/loan-files";
-import Link from "next/link";
 import { toast } from "sonner";
 
 function nowIso() {
@@ -104,6 +101,7 @@ export function LenderPipelineBoard({
   const [holdCase, setHoldCase] = useState<WorkflowCase | null>(null);
   const [complianceOpen, setComplianceOpen] = useState(false);
   const [complianceResult, setComplianceResult] = useState<EdieComplianceGateResult | null>(null);
+  const [strategyCase, setStrategyCase] = useState<LoanLenderExecution | null>(null);
 
   const [addForm, setAddForm] = useState<{
     lender: string;
@@ -231,19 +229,24 @@ export function LenderPipelineBoard({
       id: newId("lcase"),
       lender: addForm.lender,
       status: "active",
-      caseStage: addForm.caseStage,
+      caseStage: "identified",
       caseSubStage: addForm.caseSubStage || undefined,
       expectedLoanAmount: addForm.expectedLoanAmount,
+      product: loan.loanProduct,
       probability: "medium",
       isPrimary: cases.length === 0,
       relationshipManager: loan.relationshipManager,
+      identifiedBy: updatedBy,
+      identifiedAt: ts,
+      reasonForRecommendation: "Identified additionally from Lender Pipeline",
+      strategicRank: cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "identified").length + 1,
       createdBy: updatedBy,
       updatedBy,
       createdAt: ts,
       updatedAt: ts,
     };
     onChange([next, ...cases]);
-    onTimeline(`Lender case created: ${addForm.lender}`);
+    onTimeline(`Lender identified: ${addForm.lender}`);
     setAddDialogOpen(false);
     const remaining = loanLenders.filter(
       (l) => l !== addForm.lender && !assignedLenders.has(l),
@@ -386,6 +389,7 @@ export function LenderPipelineBoard({
                         onRemove={() => removeCase(c.id)}
                         onProbabilityChange={(p) => updateProbability(c.id, p)}
                         onStartLogin={() => startLogin(c.id)}
+                        onViewStrategy={() => setStrategyCase(c)}
                         onReorderUp={() => reorderIdentified(c.id, "up")}
                         onReorderDown={() => reorderIdentified(c.id, "down")}
                       />
@@ -417,11 +421,13 @@ export function LenderPipelineBoard({
         )}
       </div>
 
-      {/* Add Lender Case */}
+      {/* Identify Additional Lender */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-sm">Add Lender Case</DialogTitle>
+            <DialogTitle className="text-sm">
+              {cases.length > 0 ? "Identify Additional Lender" : "Identify Lender"}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div>
@@ -435,7 +441,7 @@ export function LenderPipelineBoard({
                 <SelectContent>
                   {availableLenders.length === 0 ? (
                     <SelectItem value="__none" disabled className="text-xs">
-                      All lenders already assigned
+                      All lenders already identified
                     </SelectItem>
                   ) : (
                     availableLenders.map((l) => (
@@ -446,7 +452,7 @@ export function LenderPipelineBoard({
               </Select>
               {availableLenders.length === 0 && (
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  Each lender may appear once on this opportunity. Remove a case to restore it here.
+                  Each lender may appear once. Prefer Strategic Workspace for analysis-backed identification.
                 </p>
               )}
             </div>
@@ -490,11 +496,20 @@ export function LenderPipelineBoard({
               onClick={submitAddCase}
               disabled={!addForm.lender || availableLenders.length === 0}
             >
-              Add Case
+              Identify Lender
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LenderStrategyDrawer
+        open={Boolean(strategyCase)}
+        onOpenChange={(open) => {
+          if (!open) setStrategyCase(null);
+        }}
+        caseExecution={strategyCase}
+        productFallback={loan.loanProduct}
+      />
 
       {/* Disbursement workflow */}
       <Dialog open={Boolean(disbursementCase)} onOpenChange={(o) => !o && setDisbursementCase(null)}>
@@ -672,6 +687,7 @@ function LenderCaseKanbanCard({
   onRemove,
   onProbabilityChange,
   onStartLogin,
+  onViewStrategy,
   onReorderUp,
   onReorderDown,
 }: {
@@ -685,29 +701,21 @@ function LenderCaseKanbanCard({
   onRemove: () => void;
   onProbabilityChange: (p: LenderProbability) => void;
   onStartLogin: () => void;
+  onViewStrategy: () => void;
   onReorderUp: () => void;
   onReorderDown: () => void;
 }) {
-  const rm = caseExecution.relationshipManager ?? loan.relationshipManager;
   const stage = normalizeLenderCaseStage(caseExecution.caseStage);
   const identified = stage === "identified";
   const product = caseExecution.product ?? loan.loanProduct;
-  const createdBy = caseExecution.createdBy ?? "—";
-  const createdDate = caseExecution.createdAt
-    ? new Date(caseExecution.createdAt).toLocaleDateString("en-IN", {
+  const identifiedBy = caseExecution.identifiedBy ?? caseExecution.createdBy ?? "—";
+  const identifiedDate = (caseExecution.identifiedAt ?? caseExecution.createdAt)
+    ? new Date(caseExecution.identifiedAt ?? caseExecution.createdAt).toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "short",
         year: "numeric",
       })
     : "—";
-  const elwHref = buildElwWorkspaceHref(
-    normalizeLenderId(caseExecution.lenderRef ?? caseExecution.lender),
-    {
-      from: "loan_files",
-      loanFileId: loan.id,
-      returnTo: ROUTES.LOAN_FILES,
-    },
-  );
 
   return (
     <div
@@ -752,8 +760,8 @@ function LenderCaseKanbanCard({
                 <DropdownMenuItem onClick={(e) => (e.preventDefault(), onStartLogin())}>
                   Start Login
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={elwHref}>Open Lender</Link>
+                <DropdownMenuItem onClick={(e) => (e.preventDefault(), onViewStrategy())}>
+                  View Strategy
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={(e) => (e.preventDefault(), onReorderUp())}>
                   Reorder · Up
@@ -763,7 +771,14 @@ function LenderCaseKanbanCard({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
-            ) : null}
+            ) : (
+              <>
+                <DropdownMenuItem onClick={(e) => (e.preventDefault(), onViewStrategy())}>
+                  View Strategy
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem onClick={(e) => (e.preventDefault(), onSetPrimary())}>
               Set Primary
             </DropdownMenuItem>
@@ -804,34 +819,25 @@ function LenderCaseKanbanCard({
         >
           {stageLabel}
         </Badge>
-        {caseExecution.isPrimary ? (
-          <Badge
-            variant="outline"
-            className="h-3.5 px-1 text-[8px] border border-emerald-600/25 bg-emerald-600/10 text-emerald-800"
-          >
-            Primary
+        {caseExecution.strategicRank != null ? (
+          <Badge variant="outline" className="h-3.5 px-1 text-[8px] border border-indigo-500/30 text-indigo-700">
+            Rank #{caseExecution.strategicRank}
           </Badge>
         ) : null}
-        <Badge
-          variant="outline"
-          className={cn("h-3.5 px-1 text-[8px] capitalize border", LOAN_FILE_PRIORITY_STYLES[loan.priority].className)}
-        >
-          {loan.priority}
-        </Badge>
       </div>
 
       <div className="mt-1 space-y-0 text-[9px] text-muted-foreground leading-snug">
         {caseExecution.expectedRoi != null ? (
           <p>Expected ROI {caseExecution.expectedRoi}%</p>
         ) : null}
-        {caseExecution.specialNotes ? (
+        {caseExecution.reasonForRecommendation ? (
+          <p className="line-clamp-2 text-foreground/80">{caseExecution.reasonForRecommendation}</p>
+        ) : caseExecution.specialNotes ? (
           <p className="line-clamp-2 text-foreground/80">{caseExecution.specialNotes}</p>
         ) : null}
-        <p className="truncate">RM {rm}</p>
         <p>
-          Created by {createdBy} · {createdDate}
+          Identified by {identifiedBy} · {identifiedDate}
         </p>
-        <p className="font-medium text-foreground/85">Status · {stageLabel}</p>
       </div>
 
       {identified ? (
@@ -839,11 +845,38 @@ function LenderCaseKanbanCard({
           <Button type="button" size="sm" className="h-6 px-1.5 text-[9px]" onClick={onStartLogin}>
             Start Login
           </Button>
-          <Button type="button" size="sm" variant="outline" className="h-6 px-1.5 text-[9px]" asChild>
-            <Link href={elwHref}>Open Lender</Link>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 px-1.5 text-[9px]"
+            onClick={onViewStrategy}
+          >
+            View Strategy
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 px-1.5 text-[9px] text-destructive"
+            onClick={onRemove}
+          >
+            Remove
           </Button>
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 px-1.5 text-[9px]"
+            onClick={onViewStrategy}
+          >
+            View Strategy
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
