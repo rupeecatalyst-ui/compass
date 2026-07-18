@@ -1,25 +1,41 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Radar, Sparkles } from "lucide-react";
-import { PageHeader } from "@/components/design-system/page-header";
+import { LayoutGrid, Columns3, Radar, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   CHANAKYA_RADAR_COLUMNS,
+  CHANAKYA_RADAR_FILTER_ALL,
+  CHANAKYA_RADAR_MATRIX_CARDS,
   CHANAKYA_RADAR_OFFICIAL_NAME,
   CHANAKYA_RADAR_STATUS_LINE,
+  CHANAKYA_RADAR_VIEWS,
   CHANAKYA_RADAR_WORKSPACES,
   type ChanakyaDealHealthId,
+  type ChanakyaRadarMatrixHealthId,
+  type ChanakyaRadarViewId,
 } from "@/constants/chanakya-radar";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { loadLoanFiles } from "@/lib/loan-files-storage";
 import {
+  DEFAULT_CHANAKYA_RADAR_FILTERS,
+  filterChanakyaRadarCards,
   groupRadarCardsByHealth,
   listChanakyaRadarCards,
-  summarizeRadarHealth,
+  listChanakyaRadarFilterOptions,
+  readChanakyaRadarViewState,
+  rememberChanakyaRadarViewState,
   type ChanakyaRadarCard,
+  type ChanakyaRadarFilters,
 } from "@/lib/chanakya-radar";
 import { cn } from "@/lib/utils";
 
@@ -44,110 +60,344 @@ function openActiveWorkspace(
 }
 
 /**
- * CHANAKYA Radar — AI Deal Health Board (Sprint 2).
- * Kanban only. Cards are never draggable. Classification is CHANAKYA-owned.
+ * CHANAKYA Radar — Dual View Framework.
+ * One shared filtered dataset drives Matrix (executive) and Kanban (operational).
  */
 export function ChanakyaRadarWorkspace() {
   const router = useRouter();
   const [tick, setTick] = useState(0);
+  const [view, setView] = useState<ChanakyaRadarViewId>("matrix");
+  const [filters, setFilters] = useState<ChanakyaRadarFilters>(DEFAULT_CHANAKYA_RADAR_FILTERS);
+  const [healthFocus, setHealthFocus] = useState<ChanakyaDealHealthId | null>(null);
+  const columnRefs = useRef<Partial<Record<ChanakyaDealHealthId, HTMLElement | null>>>({});
+  const kanbanScrollerRef = useRef<HTMLDivElement | null>(null);
+  const hydrated = useRef(false);
 
-  const cards = useMemo(() => {
+  useEffect(() => {
+    const saved = readChanakyaRadarViewState();
+    if (saved) {
+      setView(saved.view);
+      setFilters(saved.filters);
+    }
+    hydrated.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    rememberChanakyaRadarViewState({ view, filters });
+  }, [view, filters]);
+
+  /** Single source of truth — scored once, then filtered for both views. */
+  const allCards = useMemo(() => {
     void tick;
     return listChanakyaRadarCards(loadLoanFiles());
   }, [tick]);
 
+  const filterOptions = useMemo(() => listChanakyaRadarFilterOptions(allCards), [allCards]);
+
+  const cards = useMemo(
+    () => filterChanakyaRadarCards(allCards, filters),
+    [allCards, filters],
+  );
+
   const groups = useMemo(() => groupRadarCardsByHealth(cards), [cards]);
-  const summary = useMemo(() => summarizeRadarHealth(cards), [cards]);
+
+  useEffect(() => {
+    if (view !== "kanban" || !healthFocus) return;
+    const scroller = kanbanScrollerRef.current;
+    const target = columnRefs.current[healthFocus];
+    if (!scroller || !target) return;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const delta =
+      targetRect.left + targetRect.width / 2 - (scrollerRect.left + scrollerRect.width / 2);
+    const nextLeft = scroller.scrollLeft + delta;
+    const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    scroller.scrollTo({ left: Math.max(0, Math.min(maxLeft, nextLeft)), behavior: "smooth" });
+  }, [view, healthFocus, cards]);
+
+  const openMatrixDetails = (health: ChanakyaRadarMatrixHealthId) => {
+    setHealthFocus(health);
+    setView("kanban");
+  };
+
+  const patchFilter = <K extends keyof ChanakyaRadarFilters>(key: K, value: ChanakyaRadarFilters[K]) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setHealthFocus(null);
+  };
 
   return (
-    <div className="flex h-[calc(100dvh-4.5rem)] flex-col gap-4 overflow-hidden">
-      <div className="shrink-0 space-y-3">
-        <PageHeader
-          title={CHANAKYA_RADAR_OFFICIAL_NAME}
-          description={CHANAKYA_RADAR_STATUS_LINE}
-          actions={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1.5"
-              onClick={() => setTick((t) => t + 1)}
-            >
-              <Radar className="h-3.5 w-3.5" />
-              Refresh intelligence
-            </Button>
-          }
-        />
-
-        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          {summary.map((s) => (
-            <div
-              key={s.id}
-              className="rounded-xl border border-border/70 bg-card px-3 py-2.5 shadow-sm"
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                {s.label}
-              </p>
-              <p
-                className="mt-1 text-2xl font-semibold tabular-nums tracking-tight"
-                style={{ color: s.tone }}
-              >
-                {s.count}
-              </p>
-            </div>
-          ))}
+    <div className="flex h-[calc(100dvh-4.5rem)] flex-col gap-2 overflow-hidden">
+      <div className="shrink-0 space-y-2">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{CHANAKYA_RADAR_OFFICIAL_NAME}</h1>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{CHANAKYA_RADAR_STATUS_LINE}</p>
         </div>
+
+        {/* View switcher + global filters — one toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="inline-flex h-8 items-stretch overflow-hidden rounded-lg border border-border bg-muted/30 p-0.5"
+            role="group"
+            aria-label="CHANAKYA Radar view"
+          >
+            {CHANAKYA_RADAR_VIEWS.map((v) => {
+              const Icon = v.id === "matrix" ? LayoutGrid : Columns3;
+              const active = view === v.id;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setView(v.id)}
+                  aria-pressed={active}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-colors",
+                    active
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {v.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <FilterSelect
+            label="Relationship Manager"
+            value={filters.relationshipManager}
+            allLabel="All Users"
+            options={filterOptions.relationshipManagers}
+            onChange={(v) => patchFilter("relationshipManager", v)}
+          />
+          <FilterSelect
+            label="Product"
+            value={filters.product}
+            allLabel="All Products"
+            options={filterOptions.products}
+            onChange={(v) => patchFilter("product", v)}
+          />
+          <FilterSelect
+            label="Source"
+            value={filters.source}
+            allLabel="All Sources"
+            options={filterOptions.sources}
+            onChange={(v) => patchFilter("source", v)}
+          />
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="ml-auto h-8 gap-1.5 text-xs"
+            onClick={() => setTick((t) => t + 1)}
+          >
+            <Radar className="h-3.5 w-3.5" />
+            Refresh Intelligence
+          </Button>
+        </div>
+
+        <p className="text-[10px] text-muted-foreground">
+          <span className="font-semibold tabular-nums text-foreground">{cards.length}</span> deals
+          in current filter
+          {healthFocus ? (
+            <>
+              {" · "}
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {CHANAKYA_RADAR_COLUMNS.find((c) => c.id === healthFocus)?.label}
+              </span>
+              <button
+                type="button"
+                className="ml-1.5 text-teal-700 underline-offset-2 hover:underline dark:text-teal-300"
+                onClick={() => setHealthFocus(null)}
+              >
+                Clear focus
+              </button>
+            </>
+          ) : null}
+        </p>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-1">
-        {CHANAKYA_RADAR_COLUMNS.map((col) => {
-          const items = groups[col.id] ?? [];
+      {view === "matrix" ? (
+        <MatrixView groups={groups} onViewDetails={openMatrixDetails} />
+      ) : (
+        <KanbanView
+          groups={groups}
+          healthFocus={healthFocus}
+          columnRefs={columnRefs}
+          scrollerRef={kanbanScrollerRef}
+          onOpen={(card) => openActiveWorkspace(router, card)}
+        />
+      )}
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  allLabel,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  allLabel: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-8 w-[min(100%,160px)] text-[11px]" aria-label={label}>
+        <SelectValue placeholder={allLabel} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={CHANAKYA_RADAR_FILTER_ALL} className="text-xs">
+          {allLabel}
+        </SelectItem>
+        {options.map((opt) => (
+          <SelectItem key={opt} value={opt} className="text-xs">
+            {opt}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function MatrixView({
+  groups,
+  onViewDetails,
+}: {
+  groups: Record<ChanakyaDealHealthId, ChanakyaRadarCard[]>;
+  onViewDetails: (health: ChanakyaRadarMatrixHealthId) => void;
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-auto p-0.5 scrollbar-thin">
+      <div className="grid h-full min-h-[420px] grid-cols-1 gap-3 sm:grid-cols-2 sm:grid-rows-2">
+        {CHANAKYA_RADAR_MATRIX_CARDS.map((card) => {
+          const count = groups[card.id]?.length ?? 0;
           return (
             <section
-              key={col.id}
-              className="flex h-full w-[300px] shrink-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-muted/15"
-              aria-label={`${col.label} deals`}
+              key={card.id}
+              className={cn(
+                "flex flex-col justify-between rounded-xl border p-5 shadow-sm",
+                card.surfaceClass,
+              )}
+              aria-label={`${card.label}: ${count} deals`}
             >
-              <header
-                className={cn(
-                  "flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3",
-                  col.headerClass,
-                )}
-              >
-                <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold tracking-tight">
-                  <span className="shrink-0 text-sm leading-none" aria-hidden>
-                    {col.emoji}
-                  </span>
-                  <span className="truncate">{col.label}</span>
-                </p>
-                <span
-                  className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-2 text-[11px] font-bold tabular-nums leading-none text-white"
-                  style={{ backgroundColor: col.tone }}
-                  aria-label={`${items.length} deals`}
-                >
-                  {items.length}
-                </span>
-              </header>
-
-              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2 pt-2 scrollbar-thin">
-                {items.map((card) => (
-                  <RadarCard
-                    key={card.id}
-                    card={card}
-                    health={col.id}
-                    onOpen={() => openActiveWorkspace(router, card)}
-                  />
-                ))}
-                {items.length === 0 ? (
-                  <p className="px-2 py-10 text-center text-[11px] text-muted-foreground">
-                    No deals in this health state
+              <div>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="flex items-center gap-2 text-base font-semibold tracking-tight">
+                    <span aria-hidden>{card.emoji}</span>
+                    {card.label}
                   </p>
-                ) : null}
+                  <span
+                    className="inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2.5 text-sm font-bold tabular-nums text-white"
+                    style={{ backgroundColor: card.tone }}
+                  >
+                    {count}
+                  </span>
+                </div>
+                <p className="mt-3 max-w-md text-[13px] leading-relaxed text-muted-foreground">
+                  {card.description}
+                </p>
+              </div>
+              <div className="mt-6 flex items-center justify-between gap-3">
+                <p className="text-[11px] text-muted-foreground">
+                  {count === 0
+                    ? "No deals in this health state for the current filter."
+                    : `${count} transaction${count === 1 ? "" : "s"} match the current filter.`}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 shrink-0 text-xs"
+                  onClick={() => onViewDetails(card.id)}
+                >
+                  View Details
+                </Button>
               </div>
             </section>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function KanbanView({
+  groups,
+  healthFocus,
+  columnRefs,
+  scrollerRef,
+  onOpen,
+}: {
+  groups: Record<ChanakyaDealHealthId, ChanakyaRadarCard[]>;
+  healthFocus: ChanakyaDealHealthId | null;
+  columnRefs: React.MutableRefObject<Partial<Record<ChanakyaDealHealthId, HTMLElement | null>>>;
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
+  onOpen: (card: ChanakyaRadarCard) => void;
+}) {
+  const columns = healthFocus
+    ? CHANAKYA_RADAR_COLUMNS.filter((c) => c.id === healthFocus)
+    : CHANAKYA_RADAR_COLUMNS;
+
+  return (
+    <div ref={scrollerRef} className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-1">
+      {columns.map((col) => {
+        const items = groups[col.id] ?? [];
+        return (
+          <section
+            key={col.id}
+            ref={(el) => {
+              columnRefs.current[col.id] = el;
+            }}
+            className="flex h-full w-[300px] shrink-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-muted/15"
+            aria-label={`${col.label} deals`}
+          >
+            <header
+              className={cn(
+                "flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3",
+                col.headerClass,
+              )}
+            >
+              <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold tracking-tight">
+                <span className="shrink-0 text-sm leading-none" aria-hidden>
+                  {col.emoji}
+                </span>
+                <span className="truncate">{col.label}</span>
+              </p>
+              <span
+                className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-2 text-[11px] font-bold tabular-nums leading-none text-white"
+                style={{ backgroundColor: col.tone }}
+                aria-label={`${items.length} deals`}
+              >
+                {items.length}
+              </span>
+            </header>
+
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2 scrollbar-thin">
+              {items.map((card) => (
+                <RadarCard
+                  key={card.id}
+                  card={card}
+                  health={col.id}
+                  onOpen={() => onOpen(card)}
+                />
+              ))}
+              {items.length === 0 ? (
+                <p className="px-2 py-10 text-center text-[11px] text-muted-foreground">
+                  No deals in this health state
+                </p>
+              ) : null}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -199,7 +449,6 @@ function RadarCard({
       aria-grabbed={false}
       title={`Open ${card.nextWorkspace.label}`}
     >
-      {/* Identity */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold tracking-tight">{card.borrower}</p>
@@ -231,7 +480,6 @@ function RadarCard({
         <span className="text-muted-foreground">Last · {card.lastActivityLabel}</span>
       </div>
 
-      {/* Waiting On */}
       <div className="mt-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5">
         <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           Waiting On
@@ -244,7 +492,6 @@ function RadarCard({
         </p>
       </div>
 
-      {/* Next Workspace */}
       <div
         className={cn("mt-2 rounded-md border px-2 py-1.5", workspaceTone)}
         onClick={(e) => {
@@ -264,7 +511,6 @@ function RadarCard({
         </p>
       </div>
 
-      {/* Active lenders */}
       {card.activeLenders.length > 0 ? (
         <ul className="mt-2 space-y-1">
           {card.activeLenders.map((l) => (
@@ -288,7 +534,6 @@ function RadarCard({
         </p>
       )}
 
-      {/* CHANAKYA Says */}
       <div className="mt-2.5 rounded-md border border-violet-500/20 bg-violet-500/[0.06] px-2 py-1.5">
         <p className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-violet-800 dark:text-violet-200">
           <Sparkles className="h-3 w-3" aria-hidden />

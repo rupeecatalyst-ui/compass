@@ -1,5 +1,6 @@
 /**
- * CHANAKYA Radar — Deal Health board (not workflow stages).
+ * CHANAKYA Radar — Dual View Framework (CO-SPRINT-082).
+ * Matrix (executive) + Kanban (operational) share one filtered dataset.
  */
 
 import { ROUTES } from "@/constants/routes";
@@ -16,6 +17,17 @@ export type ChanakyaDealHealthId =
   | "dormant"
   | "on_hold"
   | "completed";
+
+/** Dual view — Matrix (executive) | Kanban (operational). */
+export type ChanakyaRadarViewId = "matrix" | "kanban";
+
+export const CHANAKYA_RADAR_VIEWS: { id: ChanakyaRadarViewId; label: string }[] = [
+  { id: "matrix", label: "Matrix View" },
+  { id: "kanban", label: "Kanban View" },
+];
+
+/** Sentinel for “All …” filter options. */
+export const CHANAKYA_RADAR_FILTER_ALL = "all";
 
 /** Active Workspace — CHANAKYA routes the click here (Sprint 2). */
 export type ChanakyaActiveWorkspaceId =
@@ -50,6 +62,7 @@ export const CHANAKYA_RADAR_WORKSPACES: Record<
     toneClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100",
   },
 };
+
 export interface ChanakyaRadarColumnDef {
   id: ChanakyaDealHealthId;
   label: string;
@@ -105,12 +118,58 @@ export const CHANAKYA_RADAR_COLUMNS: ChanakyaRadarColumnDef[] = [
   },
 ];
 
-/** Lender case stages that must never appear on Radar cards. */
-export const CHANAKYA_RADAR_EXCLUDED_LENDER_STAGES = new Set([
-  "lost",
-]);
+/** Executive Matrix — four primary health cards (layout order). */
+export type ChanakyaRadarMatrixHealthId =
+  | "on_track"
+  | "needs_attention"
+  | "dormant"
+  | "at_risk";
 
-export const CHANAKYA_RADAR_EXCLUDED_PROBABILITIES = new Set([
-  "rejected",
-  "withdrawn",
-]);
+export interface ChanakyaRadarMatrixCardDef {
+  id: ChanakyaRadarMatrixHealthId;
+  label: string;
+  emoji: string;
+  tone: string;
+  description: string;
+  surfaceClass: string;
+}
+
+export const CHANAKYA_RADAR_MATRIX_CARDS: ChanakyaRadarMatrixCardDef[] = [
+  {
+    id: "on_track",
+    label: "On Track",
+    emoji: "🟢",
+    tone: "#22C55E",
+    description: "Deals progressing within expected cadence and lender path.",
+    surfaceClass: "border-emerald-500/35 bg-emerald-500/[0.06]",
+  },
+  {
+    id: "needs_attention",
+    label: "Needs Attention",
+    emoji: "🟡",
+    tone: "#F59E0B",
+    description: "Idle gaps or soft blockers that need an RM touch this week.",
+    surfaceClass: "border-amber-500/35 bg-amber-500/[0.06]",
+  },
+  {
+    id: "dormant",
+    label: "Dormant",
+    emoji: "🟣",
+    tone: "#8B5CF6",
+    description: "No meaningful movement — revive or re-qualify the opportunity.",
+    surfaceClass: "border-violet-500/35 bg-violet-500/[0.06]",
+  },
+  {
+    id: "at_risk",
+    label: "At Risk",
+    emoji: "🔴",
+    tone: "#EF4444",
+    description: "High risk of slippage — intervene before the deal stalls.",
+    surfaceClass: "border-rose-500/35 bg-rose-500/[0.06]",
+  },
+];
+
+/** Lender case stages that must never appear on Radar cards. */
+export const CHANAKYA_RADAR_EXCLUDED_LENDER_STAGES = new Set(["lost"]);
+
+export const CHANAKYA_RADAR_EXCLUDED_PROBABILITIES = new Set(["rejected", "withdrawn"]);

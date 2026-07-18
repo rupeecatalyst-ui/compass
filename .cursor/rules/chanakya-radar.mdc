@@ -1,5 +1,5 @@
 ---
-description: CHANAKYA Radar — Deal Health board + smart navigation (Sprint 2)
+description: CHANAKYA Radar — Dual View Framework (Matrix + Kanban)
 globs:
   - src/components/catalyst-one/chanakya-radar/**
   - src/lib/chanakya-radar/**
@@ -10,9 +10,11 @@ globs:
 # CHANAKYA Radar
 
 - AI Deal Health Board — **not** a workflow or lender-stage board.
-- Kanban **only** — no List / Table / Calendar; cards **never** draggable.
-- Columns fixed: On Track · Needs Attention · At Risk · Dormant · On Hold · Completed.
+- Dual view: **Matrix** (executive) · **Kanban** (operational) — one shared filtered dataset.
+- Cards **never** draggable.
+- Kanban columns fixed: On Track · Needs Attention · At Risk · Dormant · On Hold · Completed.
+- Matrix cards: On Track · Needs Attention · Dormant · At Risk (View Details → Kanban focus).
+- Global filters (RM · Product · Source) refresh Matrix counts, Kanban columns, and recommendations together.
 - Card click opens the **Active Workspace** (Strategic Bench / Credit Bench / Loan Workspace) — CHANAKYA decides.
-- Cards answer in ≤5s: what deal, why concern, who blocking, what next, where to work, expected outcome.
-- Show: Next Workspace, Waiting On, Last Activity, Active lenders (max 3), CHANAKYA Says, Why?, Recommends (max 3), Expected Outcome, Momentum, Priority, Ageing; Confidence at bottom.
+- Never change scoring / health classification when adding views or filters.
 - Never show Rejected / Lost / Cancelled / Withdrawn / Closed lenders.

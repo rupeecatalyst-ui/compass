@@ -43,6 +43,9 @@ export interface ChanakyaRadarCard {
   opportunityNumber: string;
   product: string;
   loanAmountLabel: string;
+  /** Shared filter dimensions — sourced from loan file, not re-scored. */
+  relationshipManager: string;
+  source: string;
   activeLenders: ChanakyaRadarLenderChip[];
   extraActiveLenders: number;
   /** Intelligent empty-state when no active lenders. */
@@ -468,6 +471,8 @@ export function mapLoanFileToRadarCard(file: LoanFile): ChanakyaRadarCard {
     opportunityNumber: opportunityNumberForFile(file),
     product: file.loanProduct,
     loanAmountLabel: formatINR(file.requiredAmount || file.loanAmount || 0),
+    relationshipManager: file.relationshipManager?.trim() || "Unassigned",
+    source: file.source?.trim() || file.sourceContactName?.trim() || "Unknown",
     activeLenders: chips,
     extraActiveLenders: Math.max(0, active.length - 3),
     lendersInsight,
