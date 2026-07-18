@@ -226,7 +226,6 @@ export function TaskEngineWorkspace() {
   const [tasks, setTasks] = useState<EteTask[]>([]);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [kpiColumn, setKpiColumn] = useState<TaskTimelineColumnId | null>(null);
   const [dragOverCol, setDragOverCol] = useState<TaskTimelineColumnId | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -288,7 +287,6 @@ export function TaskEngineWorkspace() {
       if (filters.dateFrom && t.dueOn && new Date(t.dueOn) < new Date(filters.dateFrom)) return false;
       if (filters.dateTo && t.dueOn && new Date(t.dueOn) > new Date(`${filters.dateTo}T23:59:59`))
         return false;
-      if (kpiColumn && columnForTask(t) !== kpiColumn) return false;
       if (!q) return true;
       const hay = [
         taskTitle(enriched),
@@ -304,18 +302,7 @@ export function TaskEngineWorkspace() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [tasks, search, filters, kpiColumn]);
-
-  const kpiCounts = useMemo(() => {
-    const counts = Object.fromEntries(TASK_TIMELINE_COLUMNS.map((c) => [c.id, 0])) as Record<
-      TaskTimelineColumnId,
-      number
-    >;
-    for (const t of tasks.filter((x) => x.enabled)) {
-      counts[columnForTask(t)] += 1;
-    }
-    return counts;
-  }, [tasks]);
+  }, [tasks, search, filters]);
 
   const grouped = useMemo(() => {
     const map = Object.fromEntries(TASK_TIMELINE_COLUMNS.map((c) => [c.id, [] as EteTask[]])) as Record<
@@ -519,32 +506,6 @@ export function TaskEngineWorkspace() {
         </ul>
       </div>
 
-      {/* Task KPIs */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-        {TASK_TIMELINE_COLUMNS.map((col) => {
-          const active = kpiColumn === col.id;
-          return (
-            <button
-              key={col.id}
-              type="button"
-              onClick={() => setKpiColumn((prev) => (prev === col.id ? null : col.id))}
-              className={cn(
-                "rounded-xl border px-2.5 py-2 text-left transition-colors",
-                active
-                  ? "border-primary bg-primary/10"
-                  : "border-border/70 bg-card hover:border-primary/40",
-                col.id === "past_due" && kpiCounts[col.id] > 0 && !active && "border-rose-400/50",
-              )}
-            >
-              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {col.label}
-              </p>
-              <p className="mt-0.5 text-lg font-semibold tabular-nums">{kpiCounts[col.id]}</p>
-            </button>
-          );
-        })}
-      </div>
-
       {/* Search + filters */}
       <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card p-3">
         <div className="relative">
@@ -660,12 +621,14 @@ export function TaskEngineWorkspace() {
             </div>
           </div>
         </div>
-        {(kpiColumn || search || filters.category !== FILTER_ALL) && (
+        {(search ||
+          filters.category !== FILTER_ALL ||
+          filters.assignee !== FILTER_ALL ||
+          filters.status !== FILTER_ALL) && (
           <button
             type="button"
             className="self-start text-[11px] text-muted-foreground underline-offset-2 hover:underline"
             onClick={() => {
-              setKpiColumn(null);
               setSearch("");
               setFilters(DEFAULT_FILTERS);
             }}
