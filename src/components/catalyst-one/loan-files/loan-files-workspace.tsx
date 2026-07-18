@@ -8,14 +8,18 @@ import { LoanFilesToolbar } from "@/components/catalyst-one/loan-files/loan-file
 import { KanbanView } from "@/components/catalyst-one/loan-files/kanban-view";
 import { LoanFilesListView } from "@/components/catalyst-one/loan-files/loan-files-list-view";
 import { LoanFilesTimelineView } from "@/components/catalyst-one/loan-files/loan-files-timeline-view";
-import { LoanFilesAnalyticsView } from "@/components/catalyst-one/loan-files/loan-files-analytics-view";
 import { TaskBoardView } from "@/components/catalyst-one/loan-files/task-board-view";
-import { AiInsightsSidebar } from "@/components/catalyst-one/loan-files/ai-insights-sidebar";
 import { CreateLoanModal } from "@/components/catalyst-one/loan-files/create-loan-modal";
+import { LoanWorkspaceNavigator } from "@/components/catalyst-one/loan-files/loan-workspace-navigator";
 import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-workspace-modal";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { isEcmContactUsable, listEcmContacts } from "@/lib/enterprise-contact-master";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
+import {
+  LOAN_WORKSPACE_BROWSE_PARAM,
+  LOAN_WORKSPACE_SURFACE_HUB,
+  LOAN_WORKSPACE_SURFACE_PARAM,
+} from "@/constants/loan-workspace-navigator";
 import {
   getRememberedOpportunityActiveLoan,
   rememberOpportunityActiveLoan,
@@ -65,13 +69,44 @@ function LoanFilesQuerySync() {
   const { setSelectedFileId, setCustomerFilterId, files } = useLoanFiles();
 
   useEffect(() => {
-    const browseAll = searchParams.get("browse") === "1";
+    const browseAll = searchParams.get(LOAN_WORKSPACE_BROWSE_PARAM) === "1";
+    const surfaceHub = searchParams.get(LOAN_WORKSPACE_SURFACE_PARAM) === LOAN_WORKSPACE_SURFACE_HUB;
     const dashboardEntry = isDashboardNavEntry(searchParams);
     const fileId = searchParams.get("file");
     const opportunityId = searchParams.get("opportunityId");
 
     if (dashboardEntry && !fileId && !opportunityId) {
       clearActiveOpportunityContext();
+      setSelectedFileId(null);
+      setCustomerFilterId(searchParams.get("customer"));
+      return;
+    }
+
+    /** Hub surface: preserve context for bench cards; do not auto-open execution modal. */
+    if (surfaceHub) {
+      if (fileId) {
+        const hit = files.find((f) => f.id === fileId);
+        setActiveOpportunityContext({
+          fileId,
+          opportunityId: opportunityId ?? undefined,
+          customerName: hit?.customerName,
+          product: hit?.loanProduct,
+          label: hit ? opportunityNumberForFile(hit) : opportunityId ?? undefined,
+        });
+        if (opportunityId) rememberOpportunityActiveLoan(opportunityId, fileId);
+      } else if (opportunityId) {
+        const active = getActiveOpportunityContext();
+        if (active?.opportunityId !== opportunityId) {
+          setActiveOpportunityContext({
+            fileId: active?.fileId ?? "",
+            opportunityId,
+            customerName: active?.customerName,
+            product: active?.product,
+            label: opportunityId,
+          });
+        }
+      }
+      setSelectedFileId(null);
       setCustomerFilterId(searchParams.get("customer"));
       return;
     }
@@ -138,6 +173,13 @@ function LoanFilesContent() {
   const { view, mounted, selectedFile, selectedFileId, setSelectedFileId } = useLoanFiles();
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get("tab") || "lenders";
+  const browseAll = searchParams.get(LOAN_WORKSPACE_BROWSE_PARAM) === "1";
+  const surfaceHub = searchParams.get(LOAN_WORKSPACE_SURFACE_PARAM) === LOAN_WORKSPACE_SURFACE_HUB;
+  const dashboardEntry = isDashboardNavEntry(searchParams);
+  const hasExecutionTarget = Boolean(searchParams.get("file") || selectedFileId);
+  /** Architecture: Loan Workspace landing is a bench navigator, not analytics. */
+  const showNavigator =
+    !browseAll && (surfaceHub || dashboardEntry || !hasExecutionTarget);
   const registryVersion = useEcmContactRegistryVersion();
   const contactOptions = useMemo(() => {
     void registryVersion;
@@ -180,6 +222,18 @@ function LoanFilesContent() {
     );
   }
 
+  if (showNavigator) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-4rem)] -mx-4 md:-mx-6 lg:-mx-8">
+        <LoanFilesKeyboard />
+        <LoanFilesQuerySync />
+        <LoanFilesCreateQuery />
+        <LoanWorkspaceNavigator />
+        <CreateLoanModal />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] -mx-4 md:-mx-6 lg:-mx-8">
       <LoanFilesKeyboard />
@@ -202,12 +256,10 @@ function LoanFilesContent() {
               {view === "kanban" && <KanbanView />}
               {view === "list" && <LoanFilesListView />}
               {view === "timeline" && <LoanFilesTimelineView />}
-              {view === "analytics" && <LoanFilesAnalyticsView />}
               {view === "tasks" && <TaskBoardView />}
             </motion.div>
           </AnimatePresence>
         </div>
-        <AiInsightsSidebar />
       </div>
 
       <LoanWorkspaceModal

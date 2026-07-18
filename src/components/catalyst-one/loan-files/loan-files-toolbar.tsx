@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  BarChart3,
   CheckSquare,
   Download,
   Filter,
@@ -27,11 +26,11 @@ import { cn } from "@/lib/utils";
 import type { LoanFileView } from "@/types/catalyst-one";
 import { useToast } from "@/hooks/use-toast";
 
+/** Operational views only — Analytics relocated to Operations Intelligence. */
 const views: { id: LoanFileView; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "kanban", label: "Kanban", icon: LayoutGrid },
   { id: "list", label: "List", icon: List },
   { id: "timeline", label: "Timeline", icon: GanttChart },
-  { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "tasks", label: "Tasks", icon: CheckSquare },
 ];
 
@@ -62,14 +61,16 @@ export function LoanFilesToolbar() {
     }
   };
 
+  const operationalView = view === "analytics" ? "kanban" : view;
+
   return (
     <div className="space-y-4 border-b border-border/60 pb-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-1">
           <CatalystBranding variant="compact" />
-          <h1 className="text-xl font-semibold tracking-tight">Loan Files</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Loan Workspace</h1>
           <p className="text-sm text-muted-foreground">
-            {filteredFiles.length} files · Loan Operations Workspace
+            {filteredFiles.length} files · Execution book
           </p>
         </div>
         <Button size="sm" className="self-start shrink-0" onClick={() => setCreateOpen(true)}>
@@ -120,13 +121,14 @@ export function LoanFilesToolbar() {
             <span className="hidden sm:inline">Refresh</span>
           </Button>
 
-          <div className="flex items-center rounded-lg border bg-muted/30 p-0.5">
+          <div className="flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5">
             {views.map((v) => (
               <Button
                 key={v.id}
-                variant={view === v.id ? "secondary" : "ghost"}
+                type="button"
+                variant={operationalView === v.id ? "secondary" : "ghost"}
                 size="sm"
-                className={cn("h-8 px-2.5 gap-1.5", view === v.id && "shadow-sm")}
+                className={cn("h-8 px-2.5 gap-1.5", operationalView === v.id && "shadow-sm")}
                 onClick={() => setView(v.id)}
               >
                 <v.icon className="h-3.5 w-3.5" />

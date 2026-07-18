@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Activity,
+  BarChart3,
   Bell,
   Bot,
   Boxes,
@@ -31,6 +32,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Search,
   Shield,
   Activity,
+  BarChart3,
   Bot,
   SlidersHorizontal,
   Terminal,

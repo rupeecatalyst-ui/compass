@@ -102,6 +102,21 @@ const MODULES: MissionControlFeatureModule[] = [
     description: "Enterprise Observability Center — platform and engine health workspace",
   },
   {
+    id: "mc-operations-intelligence",
+    displayName: "Operations Intelligence",
+    route: "/mission-control/operations-intelligence",
+    icon: "BarChart3",
+    permissions: [
+      { id: "mc.operations.view", resource: "mission-control.operations-intelligence", action: "view" },
+    ],
+    featureFlag: "enabled",
+    version: "0.1.0",
+    status: "scaffold",
+    dependencies: [],
+    description:
+      "Operations Intelligence — Funnel, Treemap, Radar, and AI Insights (relocated from Loan Workspace)",
+  },
+  {
     id: "mc-ai-control-tower",
     displayName: "AI Control Tower",
     route: "/mission-control/ai-control-tower",

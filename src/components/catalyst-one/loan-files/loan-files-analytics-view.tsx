@@ -25,10 +25,10 @@ export function LoanFilesAnalyticsView() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-300/90">
             Visualization rules
           </p>
-          <h2 className="mt-1 text-xl font-semibold tracking-tight">Book intelligence</h2>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight">Operations Intelligence</h2>
           <p className="mt-1 max-w-xl text-[12px] text-slate-300">
-            Pipeline → Funnel · Product Mix → Treemap · Risk → Radar. Full rule set on Executive
-            Intelligence.
+            Pipeline → Funnel · Product Mix → Treemap · Risk → Radar. Hosted under Mission Control →
+            Operations Intelligence. Full rule set on Executive Intelligence.
           </p>
         </div>
         <Button asChild size="sm" variant="secondary" className="h-8 gap-1.5 text-xs">

@@ -26,6 +26,10 @@ import {
 import { ROUTES } from "@/constants/routes";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
+import {
+  LOAN_WORKSPACE_SURFACE_HUB,
+  LOAN_WORKSPACE_SURFACE_PARAM,
+} from "@/constants/loan-workspace-navigator";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { loadLoanFiles } from "@/lib/loan-files-storage";
 import {
@@ -39,6 +43,7 @@ import { readMyDealsReturnState, rememberMyDealsReturnState } from "@/lib/my-dea
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { cn } from "@/lib/utils";
 
+/** My Deals → Loan Workspace hub → select bench (approved architecture). */
 function openOpportunityWorkspace(router: ReturnType<typeof useRouter>, row: MyDealRow) {
   const opportunityId = row.opportunityNumber;
   setActiveOpportunityContext({
@@ -48,12 +53,13 @@ function openOpportunityWorkspace(router: ReturnType<typeof useRouter>, row: MyD
     product: row.product,
     label: row.opportunityNumber,
   });
-  router.push(
-    buildJourneyHref(ROUTES.CREDIT_BENCH, {
-      fileId: row.id,
-      opportunityId,
-    }),
-  );
+  const base = buildJourneyHref(ROUTES.LOAN_FILES, {
+    fileId: row.id,
+    opportunityId,
+  });
+  const url = new URL(base, "https://local.invalid");
+  url.searchParams.set(LOAN_WORKSPACE_SURFACE_PARAM, LOAN_WORKSPACE_SURFACE_HUB);
+  router.push(`${url.pathname}?${url.searchParams.toString()}`);
 }
 
 export function MyDealsWorkspace() {

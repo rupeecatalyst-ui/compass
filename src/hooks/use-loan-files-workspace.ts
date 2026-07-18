@@ -41,9 +41,11 @@ const defaultFilters: LoanFileFilters = {
 function loadView(): LoanFileView {
   if (typeof window === "undefined") return "kanban";
   const stored = localStorage.getItem(STORAGE_KEYS.LOAN_FILES_VIEW);
-  if (stored === "list" || stored === "kanban" || stored === "timeline" || stored === "analytics" || stored === "tasks") {
+  if (stored === "list" || stored === "kanban" || stored === "timeline" || stored === "tasks") {
     return stored;
   }
+  /** Analytics relocated to Mission Control → Operations Intelligence. */
+  if (stored === "analytics") return "kanban";
   return "kanban";
 }
 

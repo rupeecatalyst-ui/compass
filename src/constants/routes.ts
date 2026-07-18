@@ -32,6 +32,8 @@ export const ROUTES = {
   MISSION_CONTROL_ALERT_CENTER: "/mission-control/alert-center",
   MISSION_CONTROL_SITUATION_ROOM: "/mission-control/situation-room",
   MISSION_CONTROL_EXECUTIVE_BRIEFING: "/mission-control/executive-briefing",
+  /** Relocated from Loan Workspace — Funnel / Treemap / AI Insights. */
+  MISSION_CONTROL_OPERATIONS_INTELLIGENCE: "/mission-control/operations-intelligence",
   HORIZON: "/horizon",
   COMMUNICATION: "/communication",
   ACCOUNTING: "/accounting",
