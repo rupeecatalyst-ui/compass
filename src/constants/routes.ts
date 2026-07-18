@@ -35,6 +35,8 @@ export const ROUTES = {
   MISSION_CONTROL_EXECUTIVE_BRIEFING: "/mission-control/executive-briefing",
   /** Relocated from Loan Workspace — Funnel / Treemap / AI Insights. */
   MISSION_CONTROL_OPERATIONS_INTELLIGENCE: "/mission-control/operations-intelligence",
+  /** CO-SPRINT-095 — Executive Relationship Heat Map */
+  MISSION_CONTROL_RELATIONSHIP_HEAT_MAP: "/mission-control/relationship-heat-map",
   HORIZON: "/horizon",
   COMMUNICATION: "/communication",
   ACCOUNTING: "/accounting",

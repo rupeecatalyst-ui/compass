@@ -1,0 +1,1 @@
+export { RelationshipHeatMap } from "./RelationshipHeatMap";

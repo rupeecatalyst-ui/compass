@@ -117,6 +117,21 @@ const MODULES: MissionControlFeatureModule[] = [
       "Operations Intelligence — Funnel, Treemap, Radar, and AI Insights (relocated from Loan Workspace)",
   },
   {
+    id: "mc-relationship-heat-map",
+    displayName: "Relationship Heat Map",
+    route: "/mission-control/relationship-heat-map",
+    icon: "Grid2x2",
+    permissions: [
+      { id: "mc.relationship-heat.view", resource: "mission-control.relationship-heat-map", action: "view" },
+    ],
+    featureFlag: "enabled",
+    version: "0.1.0",
+    status: "scaffold",
+    dependencies: [],
+    description:
+      "Relationship Heat Map — executive engagement landscape (treemap by relationship score)",
+  },
+  {
     id: "mc-ai-control-tower",
     displayName: "AI Control Tower",
     route: "/mission-control/ai-control-tower",
