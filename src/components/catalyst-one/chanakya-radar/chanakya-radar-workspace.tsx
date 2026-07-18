@@ -256,7 +256,11 @@ export function ChanakyaRadarWorkspace() {
       </div>
 
       {view === "matrix" ? (
-        <MatrixView groups={groups} onViewDetails={openMatrixDetails} />
+        <MatrixView
+          groups={groups}
+          onViewQueue={openMatrixDetails}
+          onOpen={(card) => openActiveWorkspace(router, card)}
+        />
       ) : (
         <KanbanView
           groups={groups}
@@ -301,65 +305,179 @@ function FilterSelect({
   );
 }
 
+const MATRIX_VISIBLE = 3;
+
+const MATRIX_CARD_TONE: Record<
+  ChanakyaRadarMatrixHealthId,
+  { card: string; insight: string; hover: string }
+> = {
+  on_track: {
+    card: "border-emerald-500/25 bg-zinc-950/90 text-zinc-50 shadow-[0_1px_0_rgba(255,255,255,0.04)]",
+    insight: "text-emerald-300/95",
+    hover: "hover:border-emerald-400/50 hover:bg-zinc-900",
+  },
+  needs_attention: {
+    card: "border-amber-500/25 bg-zinc-950/90 text-zinc-50 shadow-[0_1px_0_rgba(255,255,255,0.04)]",
+    insight: "text-amber-300/95",
+    hover: "hover:border-amber-400/50 hover:bg-zinc-900",
+  },
+  dormant: {
+    card: "border-violet-500/25 bg-zinc-950/90 text-zinc-50 shadow-[0_1px_0_rgba(255,255,255,0.04)]",
+    insight: "text-violet-300/95",
+    hover: "hover:border-violet-400/50 hover:bg-zinc-900",
+  },
+  at_risk: {
+    card: "border-rose-500/25 bg-zinc-950/90 text-zinc-50 shadow-[0_1px_0_rgba(255,255,255,0.04)]",
+    insight: "text-rose-300/95",
+    hover: "hover:border-rose-400/50 hover:bg-zinc-900",
+  },
+};
+
+/** Presentation-only ranking for Matrix Top 3 — does not alter classification. */
+function rankMatrixCards(cards: ChanakyaRadarCard[]): ChanakyaRadarCard[] {
+  const priorityRank: Record<ChanakyaRadarCard["aiPriority"], number> = {
+    high: 0,
+    medium: 1,
+    low: 2,
+  };
+  const momentumRank: Record<ChanakyaRadarCard["momentum"], number> = {
+    declining: 0,
+    stable: 1,
+    improving: 2,
+  };
+  return [...cards].sort((a, b) => {
+    const byPriority = priorityRank[a.aiPriority] - priorityRank[b.aiPriority];
+    if (byPriority !== 0) return byPriority;
+    const byMomentum = momentumRank[a.momentum] - momentumRank[b.momentum];
+    if (byMomentum !== 0) return byMomentum;
+    return b.daysSinceActivity - a.daysSinceActivity;
+  });
+}
+
 function MatrixView({
   groups,
-  onViewDetails,
+  onViewQueue,
+  onOpen,
 }: {
   groups: Record<ChanakyaDealHealthId, ChanakyaRadarCard[]>;
-  onViewDetails: (health: ChanakyaRadarMatrixHealthId) => void;
+  onViewQueue: (health: ChanakyaRadarMatrixHealthId) => void;
+  onOpen: (card: ChanakyaRadarCard) => void;
 }) {
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-0.5 scrollbar-thin">
-      <div className="grid h-full min-h-[420px] grid-cols-1 gap-3 sm:grid-cols-2 sm:grid-rows-2">
-        {CHANAKYA_RADAR_MATRIX_CARDS.map((card) => {
-          const count = groups[card.id]?.length ?? 0;
+    <div className="min-h-0 flex-1 overflow-hidden p-0.5">
+      <div className="grid h-full min-h-0 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:grid-rows-2">
+        {CHANAKYA_RADAR_MATRIX_CARDS.map((quadrant) => {
+          const all = rankMatrixCards(groups[quadrant.id] ?? []);
+          const visible = all.slice(0, MATRIX_VISIBLE);
+          const more = Math.max(0, all.length - visible.length);
+          const tone = MATRIX_CARD_TONE[quadrant.id];
+
           return (
             <section
-              key={card.id}
+              key={quadrant.id}
               className={cn(
-                "flex flex-col justify-between rounded-xl border p-5 shadow-sm",
-                card.surfaceClass,
+                "flex min-h-0 flex-col overflow-hidden rounded-xl border shadow-sm",
+                quadrant.surfaceClass,
               )}
-              aria-label={`${card.label}: ${count} deals`}
+              aria-label={`${quadrant.label}: ${all.length} deals`}
             >
-              <div>
-                <div className="flex items-start justify-between gap-3">
-                  <p className="flex items-center gap-2 text-base font-semibold tracking-tight">
-                    <span aria-hidden>{card.emoji}</span>
-                    {card.label}
+              <header className="flex shrink-0 items-center justify-between gap-2 border-b border-black/5 px-3 py-2.5 dark:border-white/10">
+                <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold tracking-tight">
+                  <span aria-hidden>{quadrant.emoji}</span>
+                  <span className="truncate">{quadrant.label}</span>
+                </p>
+                <span
+                  className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-2 text-[11px] font-bold tabular-nums text-white"
+                  style={{ backgroundColor: quadrant.tone }}
+                >
+                  {all.length}
+                </span>
+              </header>
+
+              <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-2.5 py-2 scrollbar-thin">
+                {visible.map((deal) => (
+                  <MatrixBorrowerCard
+                    key={deal.id}
+                    card={deal}
+                    tone={tone}
+                    onOpen={() => onOpen(deal)}
+                  />
+                ))}
+                {all.length === 0 ? (
+                  <p className="px-1 py-8 text-center text-[11px] text-muted-foreground">
+                    No deals in this quadrant for the current filter.
                   </p>
-                  <span
-                    className="inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2.5 text-sm font-bold tabular-nums text-white"
-                    style={{ backgroundColor: card.tone }}
+                ) : null}
+                {more > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => onViewQueue(quadrant.id)}
+                    className="w-full rounded-lg border border-dashed border-border/70 bg-background/40 px-2.5 py-2 text-left text-[11px] font-semibold text-foreground/80 transition-colors hover:border-foreground/25 hover:bg-background/70 hover:text-foreground"
                   >
-                    {count}
-                  </span>
-                </div>
-                <p className="mt-3 max-w-md text-[13px] leading-relaxed text-muted-foreground">
-                  {card.description}
-                </p>
+                    + {more} More Opportunit{more === 1 ? "y" : "ies"}
+                  </button>
+                ) : null}
               </div>
-              <div className="mt-6 flex items-center justify-between gap-3">
-                <p className="text-[11px] text-muted-foreground">
-                  {count === 0
-                    ? "No deals in this health state for the current filter."
-                    : `${count} transaction${count === 1 ? "" : "s"} match the current filter.`}
-                </p>
+
+              <footer className="flex shrink-0 items-center justify-end border-t border-black/5 px-2.5 py-2 dark:border-white/10">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-8 shrink-0 text-xs"
-                  onClick={() => onViewDetails(card.id)}
+                  className="h-7 shrink-0 bg-background/70 text-[11px]"
+                  onClick={() => onViewQueue(quadrant.id)}
                 >
-                  View Details
+                  View Queue
                 </Button>
-              </div>
+              </footer>
             </section>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function MatrixBorrowerCard({
+  card,
+  tone,
+  onOpen,
+}: {
+  card: ChanakyaRadarCard;
+  tone: (typeof MATRIX_CARD_TONE)[ChanakyaRadarMatrixHealthId];
+  onOpen: () => void;
+}) {
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className={cn(
+        "cursor-pointer rounded-lg border px-2.5 py-2 text-left transition-colors",
+        tone.card,
+        tone.hover,
+      )}
+      title={`Open ${card.borrower}`}
+    >
+      <p className="truncate text-[12px] font-semibold leading-tight tracking-tight">
+        {card.borrower}
+      </p>
+      <p className="mt-0.5 truncate text-[10px] text-zinc-400">
+        <span className="font-semibold tabular-nums text-zinc-200">{card.loanAmountLabel}</span>
+        {" · "}
+        {card.product}
+      </p>
+      <p className={cn("mt-1.5 line-clamp-2 text-[10px] leading-snug", tone.insight)}>
+        <span className="mr-1 font-semibold text-zinc-300">⚡ CHANAKYA:</span>
+        {card.executiveInsight}
+      </p>
+    </article>
   );
 }
 
