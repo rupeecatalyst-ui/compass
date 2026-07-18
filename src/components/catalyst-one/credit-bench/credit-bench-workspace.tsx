@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Building2, FileText, Home, UserRound, Wallet } from "lucide-react";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
+import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
 import {
   journeyContextFromLoanFile,
   loadLeadJourneyLoanFile,
@@ -16,7 +17,8 @@ import {
 } from "@/lib/lead-opportunity-journey/stated-draft";
 import { formatINR } from "@/lib/format-currency";
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
-import { getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
+import { buildJourneyHref, getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
+import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { ROUTES } from "@/constants/routes";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +32,7 @@ import type { LoanFile } from "@/types/catalyst-one";
  * Context-Aware: Financial vs Business sections follow employment family.
  */
 export function CreditBenchWorkspace() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const fileParam = searchParams.get("file");
   const opportunityId = searchParams.get("opportunityId");
@@ -102,6 +105,61 @@ export function CreditBenchWorkspace() {
     }
   };
 
+  const handleLoanStructureNavigate = (target: LoanStructureNavTarget) => {
+    if (!file) return;
+    const toLoan = (tab?: string) =>
+      router.push(
+        buildJourneyHref(ROUTES.LOAN_FILES, {
+          fileId: file.id,
+          opportunityId: opportunityId ?? undefined,
+          tab,
+        }),
+      );
+    const toDocs = () =>
+      router.push(
+        buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
+          fileId: file.id,
+          opportunityId: opportunityId ?? undefined,
+        }),
+      );
+
+    switch (target.type) {
+      case "borrower":
+      case "borrower_section":
+        setSection("customer");
+        break;
+      case "co_applicant":
+      case "guarantor":
+        setSection("customer");
+        break;
+      case "property":
+        setSection("property");
+        break;
+      case "income":
+        setSection(categoryCtx.isSelfEmployedFamily ? "business" : "financial");
+        break;
+      case "banking":
+        setSection("financial");
+        break;
+      case "lender":
+        toLoan("lenders");
+        break;
+      case "documents":
+        toDocs();
+        break;
+      case "timeline":
+        toLoan("timeline");
+        break;
+      case "add":
+        if (target.entity === "lender") toLoan("lenders");
+        else if (target.entity === "property") setSection("property");
+        else setSection("customer");
+        break;
+      default:
+        break;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -161,6 +219,13 @@ export function CreditBenchWorkspace() {
         context={context}
         fileId={file.id}
         opportunityId={opportunityId}
+        headerActions={
+          <LoanStructureCommandControl
+            file={file}
+            participants={file.participants ?? []}
+            onNavigate={handleLoanStructureNavigate}
+          />
+        }
         onSaveDraft={persistDraft}
         saving={saving}
       >

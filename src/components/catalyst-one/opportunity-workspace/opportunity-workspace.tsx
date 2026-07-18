@@ -37,6 +37,7 @@ import {
   AnalyzeDealTriggerButton,
   AnalyzeDealWorkspace,
 } from "@/components/catalyst-one/analyze-deal";
+import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { ROLES } from "@/constants/roles";
@@ -46,7 +47,11 @@ import {
   resolveLoansForOpportunity,
 } from "@/lib/opportunity-loan-continuity";
 import type { DocumentCompletionScore } from "@/lib/document-completion/score";
-import { getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
+import {
+  buildJourneyHref,
+  getJourneyStageDisplayLabel,
+} from "@/constants/lead-opportunity-journey";
+import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { ROUTES } from "@/constants/routes";
 
 function OpportunityWorkspaceShell() {
@@ -147,6 +152,56 @@ function OpportunityWorkspaceShell() {
     if (mapped) setFocus(mapped);
   };
 
+  const handleLoanStructureNavigate = (target: LoanStructureNavTarget) => {
+    const loanNav = (tab?: string) => {
+      if (!activeLoan) {
+        router.push(loanHref);
+        return;
+      }
+      router.push(
+        buildJourneyHref(ROUTES.LOAN_FILES, {
+          fileId: activeLoan.id,
+          opportunityId: opportunityId ?? opportunity?.id,
+          tab,
+        }),
+      );
+    };
+
+    switch (target.type) {
+      case "borrower":
+      case "borrower_section":
+        openTab("customer");
+        break;
+      case "co_applicant":
+      case "guarantor":
+        openTab("relationships");
+        break;
+      case "property":
+        openTab("requirement");
+        break;
+      case "income":
+      case "banking":
+        openTab("requirement");
+        break;
+      case "lender":
+        loanNav("lenders");
+        break;
+      case "documents":
+        openTab("documents");
+        break;
+      case "timeline":
+        openTab("workflow");
+        break;
+      case "add":
+        if (target.entity === "lender") loanNav("lenders");
+        else if (target.entity === "property") openTab("requirement");
+        else openTab("relationships");
+        break;
+      default:
+        break;
+    }
+  };
+
   /**
    * Chanakya Operating Principles — never block workflow.
    * Shows a readiness advisory when documents are incomplete; always allows proceed.
@@ -215,6 +270,11 @@ function OpportunityWorkspaceShell() {
         lifeFinalized={lifeFinalized}
         headerActions={
           <div className="flex items-center gap-1.5">
+            <LoanStructureCommandControl
+              file={activeLoan}
+              participants={activeLoan?.participants ?? []}
+              onNavigate={handleLoanStructureNavigate}
+            />
             <AnalyzeDealTriggerButton onClick={() => setAnalyzeDealOpen(true)} />
             <OpportunityActionCenter
               entityId={opportunityId}

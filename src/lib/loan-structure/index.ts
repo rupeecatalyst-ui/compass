@@ -208,3 +208,12 @@ export function listPropertyOwners(nodes: LoanStructureNode[]): { name: string; 
 export function totalParticipantCount(file: LoanFile, participants: LoanParticipant[]): number {
   return 1 + participants.filter((p) => p.status !== "inactive").length;
 }
+
+export {
+  buildLoanStructureNavigationTree,
+  buildLoanStructureSummary,
+  filterLoanStructureTree,
+  type LoanStructureNavTarget,
+  type LoanStructureSummary,
+  type LoanStructureTreeNode,
+} from "./navigation-tree";

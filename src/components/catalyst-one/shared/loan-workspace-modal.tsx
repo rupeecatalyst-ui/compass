@@ -11,6 +11,8 @@ import { LoanWorkbenchLayout } from "@/components/catalyst-one/shared/loan-workb
 import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-workbench-section";
 import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-workspace-command-bar";
 import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
+import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
+import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
@@ -260,6 +262,45 @@ function LoanWorkspaceModalContent({
   }, [contactOptions, registryVersion]);
 
   const participants = draft.participants ?? [];
+
+  const handleLoanStructureNavigate = (target: LoanStructureNavTarget) => {
+    switch (target.type) {
+      case "borrower":
+      case "borrower_section":
+      case "co_applicant":
+      case "guarantor":
+      case "property":
+      case "income":
+      case "banking":
+        setActiveTab("overview");
+        setOverviewUi((s) => ({
+          ...s,
+          participants: { ...s.participants, collapsed: false, mode: "view" },
+        }));
+        break;
+      case "lender":
+        setActiveTab("lenders");
+        break;
+      case "documents":
+        setActiveTab("overview");
+        break;
+      case "timeline":
+        setActiveTab("timeline");
+        break;
+      case "add":
+        if (target.entity === "lender") setActiveTab("lenders");
+        else {
+          setActiveTab("overview");
+          setOverviewUi((s) => ({
+            ...s,
+            participants: { ...s.participants, collapsed: false, mode: "edit" },
+          }));
+        }
+        break;
+      default:
+        break;
+    }
+  };
 
   const lastUpdatedAt = useMemo(() => {
     const ts = draft.timeline?.[0]?.timestamp || draft.createdAt || draft.loginDate || draft.expectedDisbursement;
@@ -1109,6 +1150,11 @@ function LoanWorkspaceModalContent({
         className="py-1.5"
         headerActions={
           <div className="flex items-center gap-1.5">
+            <LoanStructureCommandControl
+              file={draft}
+              participants={participants}
+              onNavigate={handleLoanStructureNavigate}
+            />
             <LoanActionCenter
               loan={draft}
               onDocumentsChange={(documents) => patch({ documents })}
