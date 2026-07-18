@@ -18,6 +18,9 @@ import { useEnterpriseGridPreferences } from "./use-enterprise-grid-preferences"
 
 export type EnterpriseGridSortDirection = "asc" | "desc";
 
+/** Enterprise Table Standard — dense spreadsheet listing vs default card-adjacent spacing. */
+export type EnterpriseGridDensity = "default" | "compact";
+
 interface EnterpriseDataGridProps<T> {
   storageKey: string;
   columns: EnterpriseGridColumnDef<T>[];
@@ -37,6 +40,11 @@ interface EnterpriseDataGridProps<T> {
   sortDirection?: EnterpriseGridSortDirection;
   onSort?: (columnId: string) => void;
   maxHeightClassName?: string;
+  /**
+   * `compact` = Enterprise Table Standard (Excel-like operational listing).
+   * Prefer for directory / comparison pages; use default for softer surfaces.
+   */
+  density?: EnterpriseGridDensity;
 }
 
 export function EnterpriseDataGrid<T>({
@@ -54,8 +62,16 @@ export function EnterpriseDataGrid<T>({
   sortColumnId,
   sortDirection = "asc",
   onSort,
-  maxHeightClassName = "max-h-[min(70vh,720px)]",
+  maxHeightClassName,
+  density = "default",
 }: EnterpriseDataGridProps<T>) {
+  const compact = density === "compact";
+  const scrollMax =
+    maxHeightClassName ??
+    (compact ? "max-h-[min(78vh,900px)]" : "max-h-[min(70vh,720px)]");
+  const cellPad = compact ? "px-2 py-1" : "px-3 py-2.5";
+  const headPad = compact ? "px-2 py-1.5" : "px-3 py-2.5";
+  const bodyText = compact ? "text-[12px] leading-4" : "text-[13px]";
   const {
     activeView,
     visibleColumns,
@@ -75,16 +91,26 @@ export function EnterpriseDataGrid<T>({
   );
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+    <div className={cn(compact ? "space-y-1.5" : "space-y-3", className)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p
+          className={cn(
+            "font-medium uppercase tracking-[0.12em] text-muted-foreground",
+            compact ? "text-[10px]" : "text-xs tracking-[0.14em]",
+          )}
+        >
           {toolbarLabel}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {toolbarActions}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="sm" className="h-8 gap-2 rounded-lg">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn("gap-1.5", compact ? "h-7 rounded-md text-[11px]" : "h-8 rounded-lg")}
+              >
                 <Columns3 className="h-3.5 w-3.5" />
                 Columns
               </Button>
@@ -136,13 +162,26 @@ export function EnterpriseDataGrid<T>({
 
       <div
         className={cn(
-          "overflow-auto rounded-xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]",
-          maxHeightClassName,
+          "overflow-auto border bg-card",
+          compact
+            ? "rounded-sm border-slate-300 dark:border-zinc-700"
+            : "rounded-xl border-border/80 shadow-sm shadow-black/[0.02]",
+          scrollMax,
         )}
       >
-        <table className="w-full min-w-[1280px] border-collapse text-sm">
+        <table
+          className={cn(
+            "w-full min-w-[1280px] border-collapse",
+            compact ? "text-[12px]" : "text-sm",
+          )}
+        >
           <thead className="sticky top-0 z-20">
-            <tr className="border-b border-border bg-slate-50/95 backdrop-blur dark:bg-zinc-900/95">
+            <tr
+              className={cn(
+                "border-b bg-slate-100 dark:bg-zinc-900",
+                compact ? "border-slate-300 dark:border-zinc-700" : "border-border bg-slate-50/95 backdrop-blur dark:bg-zinc-900/95",
+              )}
+            >
               {visibleColumns.map((col) => {
                 const sortable = Boolean(col.sortable && onSort);
                 const active = sortColumnId === col.id;
@@ -150,9 +189,15 @@ export function EnterpriseDataGrid<T>({
                   <th
                     key={col.id}
                     className={cn(
-                      "relative px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
+                      "relative text-left font-semibold uppercase text-muted-foreground",
+                      headPad,
+                      compact
+                        ? "border-r border-slate-200 text-[10px] tracking-[0.04em] last:border-r-0 dark:border-zinc-800"
+                        : "text-[11px] tracking-[0.08em]",
                       frozenIds.has(col.id) &&
-                        "sticky left-0 z-30 bg-slate-50/95 backdrop-blur dark:bg-zinc-900/95",
+                        (compact
+                          ? "sticky left-0 z-30 bg-slate-100 dark:bg-zinc-900"
+                          : "sticky left-0 z-30 bg-slate-50/95 backdrop-blur dark:bg-zinc-900/95"),
                       col.align === "center" && "text-center",
                       col.align === "right" && "text-right",
                     )}
@@ -231,12 +276,22 @@ export function EnterpriseDataGrid<T>({
                   <tr
                     key={key}
                     className={cn(
-                      "border-b border-border/50 transition-colors duration-150",
-                      index % 2 === 1 && "bg-slate-50/60 dark:bg-white/[0.02]",
+                      "transition-colors duration-75",
+                      compact
+                        ? "border-b border-slate-200 dark:border-zinc-800"
+                        : "border-b border-border/50",
+                      index % 2 === 1 &&
+                        (compact
+                          ? "bg-slate-50/80 dark:bg-white/[0.025]"
+                          : "bg-slate-50/60 dark:bg-white/[0.02]"),
                       onRowClick && "cursor-pointer",
-                      "hover:bg-teal-50/70 dark:hover:bg-teal-950/30",
+                      compact
+                        ? "hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                        : "hover:bg-teal-50/70 dark:hover:bg-teal-950/30",
                       highlighted &&
-                        "bg-teal-50/90 ring-1 ring-inset ring-primary/20 dark:bg-teal-950/40",
+                        (compact
+                          ? "bg-sky-50 ring-1 ring-inset ring-sky-300/60 dark:bg-sky-950/50"
+                          : "bg-teal-50/90 ring-1 ring-inset ring-primary/20 dark:bg-teal-950/40"),
                     )}
                     onClick={() => onRowClick?.(row)}
                   >
@@ -244,11 +299,19 @@ export function EnterpriseDataGrid<T>({
                       <td
                         key={col.id}
                         className={cn(
-                          "px-3 py-2.5 align-middle text-[13px] text-foreground",
+                          "align-middle text-foreground",
+                          cellPad,
+                          bodyText,
+                          compact &&
+                            "border-r border-slate-100 last:border-r-0 dark:border-zinc-800/80",
                           frozenIds.has(col.id) &&
                             cn(
                               "sticky left-0 z-[1]",
-                              index % 2 === 1 ? "bg-slate-50 dark:bg-zinc-950" : "bg-card",
+                              index % 2 === 1
+                                ? compact
+                                  ? "bg-slate-50 dark:bg-zinc-950"
+                                  : "bg-slate-50 dark:bg-zinc-950"
+                                : "bg-card",
                             ),
                           col.align === "center" && "text-center",
                           col.align === "right" && "text-right",
