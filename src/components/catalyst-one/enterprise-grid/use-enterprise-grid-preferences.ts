@@ -116,6 +116,18 @@ export function useEnterpriseGridPreferences<T>(
     persist({ activeViewId: "default", views: [defaultView] });
   }, [defaultView, persist]);
 
+  const toggleFreezeColumn = useCallback(
+    (columnId: string) => {
+      const frozen = new Set(activeView.frozenColumnIds);
+      if (frozen.has(columnId)) frozen.delete(columnId);
+      else frozen.add(columnId);
+      const view = { ...activeView, frozenColumnIds: [...frozen] };
+      const views = prefs.views.map((v) => (v.id === view.id ? view : v));
+      persist({ ...prefs, views });
+    },
+    [activeView, prefs, persist],
+  );
+
   const savePersonalView = useCallback(
     (name: string) => {
       const id = `personal-${Date.now()}`;
@@ -138,6 +150,7 @@ export function useEnterpriseGridPreferences<T>(
     activeView,
     visibleColumns,
     toggleColumn,
+    toggleFreezeColumn,
     moveColumn,
     setColumnWidth,
     resetToDefault,
