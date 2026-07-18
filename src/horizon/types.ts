@@ -1,6 +1,10 @@
 /**
  * Horizon — Strategic Planning Workspace contracts.
  * Independent of Mission Control. Not operational LOS. Not classic PM.
+ *
+ * Frozen hierarchy (CO-SPRINT-091):
+ * Initiative → Workstream → Milestone → Activity
+ * No additional hierarchy levels.
  */
 
 export type Health = "on_track" | "at_risk" | "blocked" | "completed" | "unknown";
@@ -27,7 +31,7 @@ export interface Mode {
 
 export type HorizonNodeKind = "initiative" | "workstream" | "milestone" | "activity";
 
-/** Recursive hierarchy node — unlimited nesting (compact tree view) */
+/** Compact tree node — presentation only (frozen 4-level hierarchy). */
 export interface HierarchyNodeModel {
   id: string;
   kind: HorizonNodeKind;
@@ -47,7 +51,7 @@ export interface Activity {
   status: Status;
   dueDate?: string;
   completion: number;
-  /** Unlimited nesting */
+  /** @deprecated Nesting beyond Activity is not part of the frozen hierarchy. */
   activities?: Activity[];
 }
 
@@ -59,7 +63,7 @@ export interface Milestone {
   status: Status;
   progress: number;
   activities: Activity[];
-  /** Nested milestones when needed */
+  /** @deprecated Nesting beyond Milestone → Activity is frozen out. */
   milestones?: Milestone[];
 }
 
@@ -72,7 +76,7 @@ export interface Workstream {
   milestoneCount: number;
   status: Status;
   milestones: Milestone[];
-  /** Unlimited nesting */
+  /** @deprecated Nesting beyond Workstream → Milestone is frozen out. */
   workstreams?: Workstream[];
 }
 

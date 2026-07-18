@@ -2,34 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { CommandShellLoading } from "@/components/design-system/command-shell-loading";
-import {
-  DetailSlideOver,
-  HorizonHeader,
-  ParkingLot,
-  PlaceholderActionDialog,
-  PortfolioOverview,
-  QuickNotes,
-  RecentProgress,
-  TodaysFocus,
-  UpcomingMilestones,
-  WaitingOn,
-} from "./components";
-import type { HierarchyActionId } from "./components/HierarchyActionsMenu";
-import { InitiativesWorkspace } from "./initiative-workspace";
+import { HorizonHeader, HorizonInitiativeBoard } from "./components";
 import { createHorizonWorkspaceProvider } from "./providers";
-import type { HorizonSelection, HorizonWorkspaceModel, ModeId } from "./types";
+import type { HorizonWorkspaceModel, ModeId } from "./types";
 
 /**
- * Horizon — single-screen Strategic Planning Workspace.
- * Independent of Mission Control and operational dashboards.
- * All interaction stays on /horizon (expand, inline edit, slide-over, modal, menus).
+ * CO-SPRINT-091 — Horizon Workspace foundation.
+ * Single-screen strategic planning · Initiative → Workstream → Milestone → Activity.
+ * No AI advice, chat, notifications, analytics, Gantt, or automation.
  */
 export function HorizonWorkspace() {
   const [model, setModel] = useState<HorizonWorkspaceModel | null>(null);
   const [mode, setMode] = useState<ModeId>("strategic");
-  const [selection, setSelection] = useState<HorizonSelection | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [dialog, setDialog] = useState<{ title: string; description: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const reload = () => {
@@ -57,29 +41,6 @@ export function HorizonWorkspace() {
     };
   }, []);
 
-  const openDetail = (next: HorizonSelection) => {
-    setSelection(next);
-    setDetailOpen(true);
-  };
-
-  const handleAction = (action: HierarchyActionId, next: HorizonSelection) => {
-    if (action === "open_detail") {
-      openDetail(next);
-      return;
-    }
-    const labels: Record<HierarchyActionId, string> = {
-      open_detail: "Open detail",
-      add_child: "Add child",
-      park: "Send to parking lot",
-      mark_waiting: "Mark waiting on",
-      placeholder: "Action",
-    };
-    setDialog({
-      title: `${labels[action]} · ${next.title}`,
-      description: `Placeholder action for ${next.kind} “${next.title}”. No persistence in this sprint.`,
-    });
-  };
-
   if (!model) {
     return <CommandShellLoading label="Preparing Horizon…" />;
   }
@@ -93,66 +54,28 @@ export function HorizonWorkspace() {
         onRefresh={reload}
         refreshing={refreshing}
       />
-      <PortfolioOverview portfolio={model.portfolio} />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <InitiativesWorkspace
-          className="rounded-2xl border border-zinc-800/90 bg-zinc-950/50 p-4 md:p-5"
-          initiatives={model.initiatives}
-          onSelect={openDetail}
-          onAction={handleAction}
-        />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          <TodaysFocus
-            items={model.todayFocus}
-            onSelect={(item) =>
-              openDetail({
-                id: item.id,
-                kind: item.kind,
-                title: item.title,
-                subtitle: item.initiativeTitle,
-              })
-            }
-          />
-          <UpcomingMilestones
-            items={model.upcomingMilestones}
-            onSelect={(item) =>
-              openDetail({
-                id: item.id,
-                kind: "milestone",
-                title: item.title,
-                subtitle: item.initiativeTitle,
-              })
-            }
-          />
-          <WaitingOn items={model.waitingOn} />
-          <ParkingLot items={model.parkingLot} />
+      <section className="space-y-2">
+        <div className="flex flex-wrap items-end justify-between gap-2 px-0.5">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-100">Initiatives</h2>
+            <p className="text-[11px] text-zinc-500">
+              {mode === "strategic"
+                ? "Strategic Mode · portfolio view with concise hierarchy"
+                : "Operational Mode · activity detail when expanded"}
+            </p>
+          </div>
+          <p className="text-[11px] tabular-nums text-zinc-500">
+            {model.initiatives.length} initiative{model.initiatives.length === 1 ? "" : "s"}
+          </p>
         </div>
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <RecentProgress entries={model.recentProgress} />
-        <QuickNotes notes={model.notes} />
-      </div>
-
-      <DetailSlideOver
-        selection={selection}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-      />
-
-      <PlaceholderActionDialog
-        open={Boolean(dialog)}
-        onOpenChange={(open) => {
-          if (!open) setDialog(null);
-        }}
-        title={dialog?.title ?? ""}
-        description={dialog?.description ?? ""}
-      />
-
-      <p className="text-center text-[10px] uppercase tracking-[0.2em] text-zinc-700">
-        Horizon · {mode} mode · single screen · placeholder providers
-      </p>
+        <HorizonInitiativeBoard
+          initiatives={model.initiatives}
+          mode={mode}
+          asOf={model.portfolio.asOf}
+        />
+      </section>
     </div>
   );
 }

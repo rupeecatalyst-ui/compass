@@ -37,22 +37,22 @@ src/app/(horizon)/horizon/      # Next.js route + layout
 
 ## Hierarchy
 
-Initiative → Workstream → Milestone → Activity (unlimited nesting)
+Initiative → Workstream → Milestone → Activity (frozen — no additional levels)
 
 ## Modes
 
-Operational · Strategic — `Mode` UI switcher only (permissions later)
+Operational · Strategic — header switcher (UI only)
 
-## Providers (placeholders)
+## CHANAKYA
 
-Portfolio · Initiative · Workstream · Milestone · Activity · Today · Waiting · ParkingLot · Notes
+Factual status only on expanded initiative cards: Last Updated · Current Status · Next Milestone · Delay Information. No advice or recommendations.
 
 ## Architecture summary
 
 - Independent module beside Mission Control (separate shell / route group)
-- One intelligent workspace layout; responsive grid
-- Reuses Enterprise Engagement Card + shared Sheet / Dialog / Dropdown primitives
-- No AI, CHANAKYA, chat, Supabase, notifications, analytics, Gantt, or business logic
+- Single-screen initiative card board; expand inline for hierarchy
+- Placeholder providers only
+- No AI recommendations, chat, notifications, analytics, Gantt, database, or automation
 
 ## Future TODOs
 
