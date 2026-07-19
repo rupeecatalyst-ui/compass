@@ -1,5 +1,5 @@
 ---
-description: CHANAKYA Radar — operational intelligence dashboard + Kanban
+description: CHANAKYA Radar — Mission Control hero Radar + Kanban
 globs:
   - src/components/catalyst-one/chanakya-radar/**
   - src/lib/chanakya-radar/**
@@ -8,17 +8,17 @@ globs:
   - src/app/(mission-control)/mission-control/page.tsx
 ---
 
-- Mission Control cockpit: **Radar View** (default) · **Kanban View** tabs; state (scope, KPI focus, selection) preserved across tabs.
-- Zone 1 left Operational Snapshot · Zone 2 hero Radar · Zone 3 Opportunity Preview **slide-over** (collapsed by default; never permanently shrinks Radar).
-- Radar blip hover = tooltip; **single click** = open Preview drawer; **double click** = Opportunity Workspace.
-- KPI click → expand collapsible opportunity list (one at a time; independently scrollable).
-- Radar dots use collision-safe placement — never overlap.
-- Quadrant labels **outside** the dial; Kanban is primary only in Kanban View (not stacked under Radar).
-- Follow Enterprise UX, Layout Integrity, Data Integrity, and Metric SSOT standards.
-- **Real-time:** `subscribeLoanFilesUpdated` + 60s poll / `storage` fallback.
-- Never change Operational Vector / health scoring when adjusting layout chrome.
-- Never show Rejected / Lost / Cancelled / Withdrawn / Closed lenders on Radar cards.
-- Prefer Active Workspace / Opportunity Workspace from Kanban cards and Preview actions.
-- Matrix screen is **retired**. Do not restore Matrix.
-- Four quadrants: **On Track** (N) · **Follow-up Required** (E) · **At Risk** (S) · **Needs Attention** (W).
-- Kanban cards **never** draggable.
+# CHANAKYA Radar
+
+- Mission Control (CO-SPRINT-104): first screen = live CHANAKYA feed + **hero Radar only**. KPIs / snapshot sit **below the fold**.
+- Tabs: **Radar View** (default) · **Kanban View**; scope / focus / selection preserved.
+- Opportunity Preview = right **slide-over** (click outside closes); never permanently shrinks Radar.
+- Blip colour = operational status; **distance from centre = stage ageing**; **✓ tick = worked today** (resets next calendar day via activity date).
+- Live feed is operational guidance only — does **not** open CHANAKYA AI (use existing AI button).
+- Page must always **naturally scroll** (Radar + Kanban). No fixed-height lock / clipped content.
+- KPI click expands opportunity list below snapshot; quadrant click focuses + scrolls to snapshot.
+- Collision-safe blip placement. Quadrant labels outside dial.
+- Metric SSOT / Vector / Health scoring — never reimplemented in UI.
+- Real-time: `subscribeLoanFilesUpdated` + 60s / `storage` fallback.
+- Matrix retired. Kanban cards never draggable.
+- Four quadrants: On Track (N) · Follow-up Required (E) · At Risk (S) · Needs Attention (W).

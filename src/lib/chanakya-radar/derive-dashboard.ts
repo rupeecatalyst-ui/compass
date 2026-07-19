@@ -37,6 +37,8 @@ export interface ChanakyaRadarDealRow {
   lastActivityLabel: string;
   idleDays: number;
   daysInStage: number;
+  /** True when meaningful activity recorded today (presentation — daily action tick). */
+  workedToday: boolean;
   pendingDocs: number;
   openTasks: number;
   priority: string;
@@ -210,6 +212,7 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
     lastActivityLabel: formatWhen(last),
     idleDays: idle,
     daysInStage: file.daysInStage ?? idle,
+    workedToday: isActivityToday(last),
     pendingDocs: pendingDocCount(file),
     openTasks: openTaskCount(file),
     priority: file.priority,
