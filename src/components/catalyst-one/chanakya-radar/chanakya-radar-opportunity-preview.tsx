@@ -22,19 +22,22 @@ import { cn } from "@/lib/utils";
 export interface RadarOpportunityPreviewModel {
   card: ChanakyaRadarCard;
   file: LoanFile;
+  /** Portfolio Operational Health Score (shared vector engine). */
+  portfolioHealthScore?: number;
 }
 
 interface ChanakyaRadarOpportunityPreviewProps {
-  preview: RadarOpportunityPreviewModel | null;
+  preview: RadarOpportunityPreviewModel;
   onClear: () => void;
   onOpenWorkspace: () => void;
   onOpenTimeline: () => void;
   onAddFollowUp: () => void;
   onCallCustomer: () => void;
   onViewDocuments: () => void;
+  /** Drawer chrome — hide outer border/animation when hosted in Sheet. */
+  variant?: "panel" | "drawer";
 }
 
-/** Soft Enterprise Alert tones — Opportunity Insight focal point (CO-PRIORITY-001). */
 const INSIGHT_ALERT_STYLES: Record<
   ChanakyaOperationalQuadrantId,
   { box: string; badge: string; muted: string; action: string }
@@ -98,18 +101,13 @@ function OpportunityInsightAlert({
   const why = card.why[0]?.trim();
   const action =
     card.recommends[0]?.trim() ||
-    (card.nextWorkspace.label
-      ? `Open ${card.nextWorkspace.label}`
-      : undefined);
+    (card.nextWorkspace.label ? `Open ${card.nextWorkspace.label}` : undefined);
 
   return (
     <div
       role="status"
       aria-label={`Opportunity insight · ${statusLabel}`}
-      className={cn(
-        "rounded-lg border px-3.5 py-3.5 shadow-sm",
-        styles.box,
-      )}
+      className={cn("rounded-lg border px-3 py-3 shadow-sm", styles.box)}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span
@@ -124,11 +122,11 @@ function OpportunityInsightAlert({
           Opportunity Insight
         </span>
       </div>
-      <p className="mt-2.5 text-[13px] font-medium leading-relaxed text-foreground md:text-[14px]">
+      <p className="mt-2 text-[13px] font-medium leading-relaxed text-foreground">
         {card.executiveInsight}
       </p>
       {why ? (
-        <p className={cn("mt-2.5 text-[11px] leading-snug", styles.muted)}>
+        <p className={cn("mt-2 text-[11px] leading-snug", styles.muted)}>
           <span className="font-semibold uppercase tracking-wide">Why · </span>
           {why}
         </p>
@@ -144,8 +142,7 @@ function OpportunityInsightAlert({
 }
 
 /**
- * CO-SPRINT-100C — Right-side Opportunity Preview Panel (Radar selection).
- * Reuses Kanban card design language; does not open workspace on select.
+ * CO-SPRINT-103 — Opportunity Preview (slide-over drawer content).
  */
 export function ChanakyaRadarOpportunityPreview({
   preview,
@@ -155,39 +152,28 @@ export function ChanakyaRadarOpportunityPreview({
   onAddFollowUp,
   onCallCustomer,
   onViewDocuments,
+  variant = "drawer",
 }: ChanakyaRadarOpportunityPreviewProps) {
-  if (!preview) {
-    return (
-      <aside className="flex min-h-[200px] flex-col rounded-lg border border-dashed border-zinc-700 bg-zinc-950/40 p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Opportunity Preview
-        </p>
-        <div className="flex flex-1 items-center justify-center px-4 py-10 text-center">
-          <p className="max-w-[220px] text-[13px] text-muted-foreground">
-            Select an opportunity from the Radar to view details.
-          </p>
-        </div>
-      </aside>
-    );
-  }
-
-  const { card, file } = preview;
+  const { card, file, portfolioHealthScore } = preview;
   const stageLabel = STAGE_LABELS[file.stage] ?? String(file.stage).replace(/_/g, " ");
   const subStage = getSubStatusLabel(file.stage, file.stageSubStatus) || "—";
-  const lender =
-    card.activeLenders[0]?.lender || file.lender?.trim() || "—";
+  const lender = card.activeLenders[0]?.lender || file.lender?.trim() || "—";
   const openTasks = (file.tasks ?? []).filter(
     (t) => !t.completed && t.status !== "completed",
   );
-  const upcoming = openTasks
-    .filter((t) => t.dueDate)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
-  const riskFlags = [
-    ...(file.isDelayed || file.status === "delayed" ? ["Delayed"] : []),
-    ...(file.isUrgent || file.priority === "urgent" ? ["Urgent"] : []),
-    ...(file.status === "at_risk" ? ["At risk"] : []),
-    ...card.why.slice(0, 3),
-  ].filter(Boolean);
+  const pendingDocs = (file.documents ?? []).filter(
+    (d) => d.status === "pending" || d.status === "requested" || d.status === "rejected",
+  );
+  const quadrant =
+    mapHealthToQuadrant(card.health, file) ?? ("needs_attention" as ChanakyaOperationalQuadrantId);
+  const riskLabel = quadrantLabel(quadrant);
+  const nextAction =
+    card.recommends[0]?.trim() ||
+    `${card.nextWorkspace.emoji} ${card.nextWorkspace.label}`;
+  const healthDisplay =
+    portfolioHealthScore != null
+      ? `${portfolioHealthScore}/100`
+      : `${card.confidence}% conf.`;
 
   const priorityClass =
     LOAN_FILE_PRIORITY_STYLES[file.priority]?.className ??
@@ -196,16 +182,16 @@ export function ChanakyaRadarOpportunityPreview({
   return (
     <aside
       className={cn(
-        "flex w-full flex-col rounded-lg border border-border/70 bg-card shadow-sm",
-        "animate-in fade-in-0 slide-in-from-right-4 duration-300",
+        "flex h-full min-h-0 w-full flex-col bg-card",
+        variant === "panel" && "rounded-lg border border-border/70 shadow-sm",
       )}
     >
-      <header className="flex items-start justify-between gap-2 border-b border-border/60 px-3 py-2.5">
+      <header className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-4 py-3 pr-12">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Opportunity Preview
           </p>
-          <p className="mt-1 break-words text-[14px] font-semibold tracking-tight">
+          <p className="mt-1 break-words text-[15px] font-semibold tracking-tight">
             {card.borrower}
           </p>
           <p className="mt-0.5 break-all text-[11px] tabular-nums text-muted-foreground">
@@ -221,86 +207,48 @@ export function ChanakyaRadarOpportunityPreview({
           >
             {file.priority}
           </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={onClear}
-            aria-label="Clear selection"
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
+          {variant === "panel" ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={onClear}
+              aria-label="Clear selection"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
         </div>
       </header>
 
-      {/* Natural height — no nested scroll / no clip; page scrolls */}
-      <div className="space-y-3 p-3">
-        {/* Focal Enterprise Alert — Opportunity Insight (status-coloured) */}
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         <OpportunityInsightAlert card={card} file={file} />
 
-        {/* Kanban-style summary strip */}
-        <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2">
-          <p className="text-[11px] font-semibold tabular-nums text-foreground/90">
-            {card.loanAmountLabel}
-          </p>
-          <p className="mt-0.5 break-words text-[10px] text-muted-foreground">{card.product}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px]">
-            <span className="tabular-nums text-muted-foreground">
-              {card.daysSinceActivityLabel}
-            </span>
-            <span className="text-border">·</span>
-            <span className="font-medium text-muted-foreground">{card.momentumLabel}</span>
-          </div>
-          <div className="mt-1.5 rounded border border-border/60 bg-muted/25 px-1.5 py-1">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-              {card.waitingOn.preamble}
-            </p>
-            <p className="break-words text-[11px] font-semibold leading-tight">
-              <span className="mr-1" aria-hidden>
-                {card.waitingOn.emoji}
-              </span>
-              {card.waitingOn.party}
-            </p>
-            <p className="mt-0.5 break-words text-[10px] text-muted-foreground">
-              Pending Item · {card.waitingOn.pendingItem}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          <Field label="Borrower Name" value={card.borrower} />
-          <Field label="Loan Product" value={card.product} />
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Borrower" value={card.borrower} />
           <Field label="Loan Amount" value={card.loanAmountLabel} />
-          <Field label="Current Stage" value={stageLabel} />
-          <Field label="Current Sub Stage" value={subStage} />
-          <Field label="Assigned RM" value={card.relationshipManager} />
+          <Field label="Product" value={card.product} />
+          <Field label="Stage" value={stageLabel} />
+          <Field label="Sub-stage" value={subStage} />
+          <Field label="RM" value={card.relationshipManager} />
           <Field label="Lender" value={lender} />
           <Field label="Priority" value={file.priority} />
+          <Field label="Health Score" value={healthDisplay} />
+          <Field label="Risk Indicator" value={riskLabel} />
           <Field label="Last Activity" value={card.lastActivityLabel} />
-          <Field
-            label="Days in Current Stage"
-            value={`${file.daysInStage ?? 0} days`}
-          />
-          <Field
-            label="Expected Revenue"
-            value={formatINR(file.expectedRevenue ?? 0)}
-          />
-          <Field
-            label="Current Status"
-            value={String(file.status ?? "—").replace(/_/g, " ")}
-          />
+          <Field label="Expected Revenue" value={formatINR(file.expectedRevenue ?? 0)} />
         </div>
 
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            Outstanding Tasks
+            Pending Tasks
           </p>
           {openTasks.length === 0 ? (
             <p className="mt-1 text-[12px] text-muted-foreground">None</p>
           ) : (
             <ul className="mt-1 space-y-1">
-              {openTasks.slice(0, 4).map((t) => (
+              {openTasks.slice(0, 5).map((t) => (
                 <li
                   key={t.id}
                   className="break-words rounded border border-border/50 bg-muted/20 px-2 py-1 text-[11px]"
@@ -308,46 +256,51 @@ export function ChanakyaRadarOpportunityPreview({
                   {t.title}
                 </li>
               ))}
-              {openTasks.length > 4 ? (
+              {openTasks.length > 5 ? (
                 <li className="text-[10px] text-muted-foreground">
-                  +{openTasks.length - 4} more
+                  +{openTasks.length - 5} more
                 </li>
               ) : null}
             </ul>
           )}
         </div>
 
-        <Field
-          label="Upcoming Follow-up"
-          value={
-            upcoming
-              ? `${upcoming.title} · ${new Date(upcoming.dueDate).toLocaleDateString("en-IN")}`
-              : "—"
-          }
-        />
-
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            Risk Flags
+            Pending Documents
           </p>
-          {riskFlags.length === 0 ? (
+          {pendingDocs.length === 0 ? (
             <p className="mt-1 text-[12px] text-muted-foreground">None</p>
           ) : (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {riskFlags.map((flag) => (
-                <span
-                  key={flag}
-                  className="rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 text-[10px] text-rose-200"
+            <ul className="mt-1 space-y-1">
+              {pendingDocs.slice(0, 5).map((d) => (
+                <li
+                  key={d.id}
+                  className="break-words rounded border border-border/50 bg-muted/20 px-2 py-1 text-[11px]"
                 >
-                  {flag}
-                </span>
+                  {d.name || d.category || d.id}
+                </li>
               ))}
-            </div>
+              {pendingDocs.length > 5 ? (
+                <li className="text-[10px] text-muted-foreground">
+                  +{pendingDocs.length - 5} more
+                </li>
+              ) : null}
+            </ul>
           )}
+        </div>
+
+        <div className="rounded-md border border-emerald-500/25 bg-emerald-500/8 px-3 py-2.5">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-emerald-300/80">
+            Next Recommended Action
+          </p>
+          <p className="mt-1 break-words text-[13px] font-medium leading-snug text-foreground">
+            {nextAction}
+          </p>
         </div>
       </div>
 
-      <footer className="space-y-1.5 border-t border-border/60 bg-muted/15 p-2.5">
+      <footer className="shrink-0 space-y-1.5 border-t border-border/60 bg-muted/15 p-3">
         <Button
           type="button"
           size="sm"
@@ -366,7 +319,7 @@ export function ChanakyaRadarOpportunityPreview({
             onClick={onOpenTimeline}
           >
             <History className="h-3.5 w-3.5" />
-            Open Timeline
+            Timeline
           </Button>
           <Button
             type="button"
@@ -376,7 +329,7 @@ export function ChanakyaRadarOpportunityPreview({
             onClick={onAddFollowUp}
           >
             <CalendarPlus className="h-3.5 w-3.5" />
-            Add Follow-up
+            Follow-up
           </Button>
           <Button
             type="button"
@@ -386,7 +339,7 @@ export function ChanakyaRadarOpportunityPreview({
             onClick={onCallCustomer}
           >
             <Phone className="h-3.5 w-3.5" />
-            Call Customer
+            Call
           </Button>
           <Button
             type="button"
@@ -396,7 +349,7 @@ export function ChanakyaRadarOpportunityPreview({
             onClick={onViewDocuments}
           >
             <FileText className="h-3.5 w-3.5" />
-            View Documents
+            Documents
           </Button>
         </div>
       </footer>

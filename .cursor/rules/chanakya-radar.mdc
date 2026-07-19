@@ -10,15 +10,15 @@ globs:
 
 # CHANAKYA Radar
 
-- Mission Control default landing — operational intelligence dashboard + Operational Kanban below.
+- Mission Control cockpit (CO-SPRINT-103): **Zone 1** left Operational Snapshot · **Zone 2** hero Radar (~60–65%) · **Zone 3** Opportunity Preview **slide-over** (collapsed by default).
 - AI Deal Health / operational quadrants — **not** a lender-stage workflow board.
 - Four quadrants: **On Track** (N) · **Follow-up Required** (E) · **At Risk** (S) · **Needs Attention** (W).
 - Matrix screen is **retired**. Do not restore Matrix.
-- Kanban remains the operational workspace; cards **never** draggable.
-- Radar blip hover = tooltip; blip click = Opportunity Preview Panel (right) — do not navigate away.
-- Quadrant / KPI click → scroll to Kanban filtered to that category.
+- Kanban remains below the cockpit as secondary work queue; cards **never** draggable.
+- Radar blip hover = tooltip; **single click** = open Preview drawer; **double click** = Opportunity Workspace.
+- KPI click → expand collapsible opportunity list under snapshot (toggle to collapse); Radar stays visible.
 - Quadrant labels **outside** the dial; never overlap or touch the visualization; radar resizes dynamically.
-- Follow **Enterprise Design & UX Standard v1.0** (`enterprise-screen-ux-standard.mdc`): above-the-fold table/Kanban start, balanced layout, scrollable page, labels outside dial, dynamic radar resize.
+- Follow **Enterprise Design & UX Standard v1.0** (`enterprise-screen-ux-standard.mdc`): Radar is the hero; clarity over complexity; scrollable page.
 - Follow **Data Integrity & Analytics Standard v1.0** (`data-integrity-analytics-standard.mdc`): metrics from LoanFile SSOT, same-session refresh on data change, documented formulas, no demo-as-truth in production.
 - Follow **Enterprise Metric Single Implementation** (`enterprise-metric-single-implementation.mdc`): Health Score, Operational Vector, quadrant logic, and related KPIs live in one shared derive path — never reimplemented in UI or AI.
 - **Real-time:** subscribe to `compass:loan-files-updated` (`subscribeLoanFilesUpdated`) so Radar / KPIs / vector / tables recompute immediately on LoanFile changes; keep 60s poll + `storage` as fallback only.

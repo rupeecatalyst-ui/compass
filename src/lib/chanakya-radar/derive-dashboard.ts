@@ -36,6 +36,7 @@ export interface ChanakyaRadarDealRow {
   lastActivity: string;
   lastActivityLabel: string;
   idleDays: number;
+  daysInStage: number;
   pendingDocs: number;
   openTasks: number;
   priority: string;
@@ -208,6 +209,7 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
     lastActivity: last,
     lastActivityLabel: formatWhen(last),
     idleDays: idle,
+    daysInStage: file.daysInStage ?? idle,
     pendingDocs: pendingDocCount(file),
     openTasks: openTaskCount(file),
     priority: file.priority,

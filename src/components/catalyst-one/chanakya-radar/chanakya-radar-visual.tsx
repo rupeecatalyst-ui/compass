@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CHANAKYA_RADAR_QUADRANTS,
   type ChanakyaOperationalQuadrantId,
@@ -14,9 +14,9 @@ interface ChanakyaRadarVisualProps {
   rows: ChanakyaRadarDealRow[];
   activeQuadrant: ChanakyaOperationalQuadrantId | null;
   onQuadrantClick: (id: ChanakyaOperationalQuadrantId) => void;
-  /** CO-SPRINT-100C — selected opportunity blip */
   selectedRowId?: string | null;
   onBlipClick?: (row: ChanakyaRadarDealRow) => void;
+  onBlipDoubleClick?: (row: ChanakyaRadarDealRow) => void;
   hoverSummary: {
     healthScore: number;
     direction: string;
@@ -33,18 +33,19 @@ function blipPosition(
 ): { x: number; y: number } {
   const bearing =
     CHANAKYA_RADAR_QUADRANTS.find((q) => q.id === quadrant)?.bearingDeg ?? 0;
-  const spread = ((index % 5) - 2) * 8;
-  const ring = 28 + (index % 4) * 12 + (total > 8 ? 4 : 0);
+  const cols = Math.max(4, Math.ceil(Math.sqrt(Math.max(total, 1))));
+  const ring = 26 + (Math.floor(index / cols) % 8) * 7 + (index % 3);
+  const spread = ((index % cols) - (cols - 1) / 2) * Math.min(10, 48 / cols);
   const rad = ((bearing + spread - 90) * Math.PI) / 180;
   return {
-    x: 100 + ring * Math.cos(rad),
-    y: 100 + ring * Math.sin(rad),
+    x: 100 + Math.min(82, ring) * Math.cos(rad),
+    y: 100 + Math.min(82, ring) * Math.sin(rad),
   };
 }
 
 /**
- * CO-SPRINT-100 / 100A / 100C — Live operational radar (signature visual).
- * Quadrant labels sit outside the outermost circle with equal spacing.
+ * CO-SPRINT-103 — Hero Operational Radar (Mission Control centrepiece).
+ * Quadrant labels outside dial; supports dense portfolios.
  */
 export function ChanakyaRadarVisual({
   vector,
@@ -53,6 +54,7 @@ export function ChanakyaRadarVisual({
   onQuadrantClick,
   selectedRowId = null,
   onBlipClick,
+  onBlipDoubleClick,
   hoverSummary,
 }: ChanakyaRadarVisualProps) {
   const [displayBearing, setDisplayBearing] = useState(vector.bearingDeg);
@@ -62,6 +64,7 @@ export function ChanakyaRadarVisual({
     x: number;
     y: number;
   } | null>(null);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let frame = 0;
@@ -82,6 +85,12 @@ export function ChanakyaRadarVisual({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- animate only when vector bearing changes
   }, [vector.bearingDeg]);
 
+  useEffect(() => {
+    return () => {
+      if (clickTimer.current) clearTimeout(clickTimer.current);
+    };
+  }, []);
+
   const blips = useMemo(() => {
     const byQ: Record<ChanakyaOperationalQuadrantId, ChanakyaRadarDealRow[]> = {
       on_track: [],
@@ -91,9 +100,9 @@ export function ChanakyaRadarVisual({
     };
     for (const r of rows) byQ[r.quadrant].push(r);
     return CHANAKYA_RADAR_QUADRANTS.flatMap((q) =>
-      byQ[q.id].slice(0, 12).map((row, i) => {
+      byQ[q.id].map((row, i) => {
         const pos = blipPosition(q.id, i, byQ[q.id].length);
-        return { row, color: q.tone, ...pos, q: q.id };
+        return { row, color: q.tone, ...pos, q: q.id, dense: byQ[q.id].length > 24 };
       }),
     );
   }, [rows]);
@@ -102,32 +111,27 @@ export function ChanakyaRadarVisual({
   const nx = 100 + 62 * Math.cos(needleRad);
   const ny = 100 + 62 * Math.sin(needleRad);
 
-  /** Outside-circle labels — equal offset, identical type; never touch the dial. */
   const quadrantLabelClass =
-    "pointer-events-none max-w-[7.5rem] text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.14em]";
+    "pointer-events-none max-w-[8rem] text-center text-[11px] font-semibold uppercase leading-tight tracking-[0.14em]";
 
   return (
-    <div className="mx-auto w-full max-w-[min(100%,560px)]">
-      {/* Fluid dial + outside labels; container grows — never clip footer/labels */}
+    <div className="mx-auto w-full max-w-[min(100%,720px)]">
       <div
-        className="grid w-full grid-cols-[minmax(5.5rem,auto)_minmax(0,1fr)_minmax(5.5rem,auto)] grid-rows-[auto_auto_auto] items-center justify-items-center gap-x-5 gap-y-5"
+        className="grid w-full grid-cols-[minmax(5.75rem,auto)_minmax(0,1fr)_minmax(5.75rem,auto)] grid-rows-[auto_auto_auto] items-center justify-items-center gap-x-5 gap-y-5"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* North — outside outermost circle */}
         <p className={cn(quadrantLabelClass, "col-start-2 row-start-1 text-emerald-400")}>
           On Track
         </p>
 
-        {/* West */}
         <p className={cn(quadrantLabelClass, "col-start-1 row-start-2 text-orange-400")}>
           Needs
           <br />
           Attention
         </p>
 
-        {/* Dial — fluid size; labels never inside visualization */}
-        <div className="relative col-start-2 row-start-2 aspect-square w-full min-w-0 max-w-[min(100%,420px)]">
+        <div className="relative col-start-2 row-start-2 aspect-square w-full min-w-0 max-w-[min(100%,560px)]">
           <svg viewBox="0 0 200 200" className="h-full w-full drop-shadow-lg">
             <defs>
               <radialGradient id="radar-glow" cx="50%" cy="50%" r="50%">
@@ -222,26 +226,37 @@ export function ChanakyaRadarVisual({
             <circle cx={nx} cy={ny} r="3.2" fill="#34D399" />
 
             {blips.map((b) => {
-              const selected = selectedRowId === b.row.id;
+              const selected = selectedRowId === b.row.id || selectedRowId === b.row.fileId;
               const dimmed = Boolean(activeQuadrant && activeQuadrant !== b.q);
+              const r = selected ? 4.4 : b.dense ? 1.6 : 2.3;
               return (
                 <g
                   key={b.row.id}
                   className="cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onBlipClick?.(b.row);
+                    if (clickTimer.current) clearTimeout(clickTimer.current);
+                    clickTimer.current = setTimeout(() => {
+                      onBlipClick?.(b.row);
+                      clickTimer.current = null;
+                    }, 220);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    if (clickTimer.current) clearTimeout(clickTimer.current);
+                    clickTimer.current = null;
+                    onBlipDoubleClick?.(b.row);
                   }}
                   onMouseEnter={() => setBlipHover({ row: b.row, x: b.x, y: b.y })}
                   onMouseLeave={() => setBlipHover(null)}
                 >
-                  <circle cx={b.x} cy={b.y} r={8} fill="transparent" />
+                  <circle cx={b.x} cy={b.y} r={9} fill="transparent" />
                   <circle
                     cx={b.x}
                     cy={b.y}
-                    r={selected ? 4.2 : dimmed ? 1.4 : 2.4}
+                    r={r}
                     fill={b.color}
-                    opacity={dimmed && !selected ? 0.25 : 0.95}
+                    opacity={dimmed && !selected ? 0.22 : 0.95}
                     stroke={selected ? "#fff" : "transparent"}
                     strokeWidth={selected ? 1.2 : 0}
                     className={selected ? undefined : "animate-pulse"}
@@ -280,27 +295,50 @@ export function ChanakyaRadarVisual({
 
           {blipHover ? (
             <div
-              className="pointer-events-none absolute z-20 w-[180px] -translate-x-1/2 -translate-y-[110%] rounded-md border border-border/80 bg-zinc-950/95 px-2.5 py-1.5 text-left shadow-xl backdrop-blur"
+              className="pointer-events-none absolute z-20 w-[200px] -translate-x-1/2 -translate-y-[112%] rounded-md border border-border/80 bg-zinc-950/95 px-2.5 py-2 text-left shadow-xl backdrop-blur"
               style={{
                 left: `${(blipHover.x / 200) * 100}%`,
                 top: `${(blipHover.y / 200) * 100}%`,
               }}
             >
               <p className="truncate text-[11px] font-semibold">{blipHover.row.borrower}</p>
-              <p className="truncate text-[10px] tabular-nums text-emerald-300">
-                {blipHover.row.loanAmountLabel}
-              </p>
-              <p className="truncate text-[10px] text-muted-foreground">
-                {blipHover.row.quadrantLabel} · {blipHover.row.product}
-              </p>
+              <dl className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+                <div className="flex justify-between gap-2">
+                  <dt>Product</dt>
+                  <dd className="truncate font-medium text-foreground/90">
+                    {blipHover.row.product}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt>Stage</dt>
+                  <dd className="truncate font-medium text-foreground/90">
+                    {blipHover.row.stageLabel}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt>RM</dt>
+                  <dd className="truncate font-medium text-foreground/90">
+                    {blipHover.row.assignedRm}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt>Days in stage</dt>
+                  <dd className="tabular-nums font-medium text-foreground/90">
+                    {blipHover.row.daysInStage}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt>Health</dt>
+                  <dd className="font-medium text-emerald-300">{blipHover.row.quadrantLabel}</dd>
+                </div>
+              </dl>
             </div>
           ) : null}
 
-          {/* Hover sits above the dial so it never covers the centre Health Score */}
           {hovered && !blipHover && (
             <div className="pointer-events-none absolute left-1/2 top-0 z-10 w-[min(100%,220px)] -translate-x-1/2 -translate-y-[calc(100%+0.5rem)] rounded-md border border-border/80 bg-zinc-950/95 px-3 py-2 text-left shadow-xl backdrop-blur">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Operational hover
+                Portfolio pulse
               </p>
               <dl className="mt-1 space-y-0.5 text-[11px]">
                 <div className="flex justify-between gap-2">
@@ -320,10 +358,6 @@ export function ChanakyaRadarVisual({
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Dominant</dt>
-                  <dd className="font-medium">{hoverSummary.dominantCategory}</dd>
-                </div>
-                <div className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">Active files</dt>
                   <dd className="tabular-nums font-medium">
                     {hoverSummary.totalActive}
@@ -334,14 +368,12 @@ export function ChanakyaRadarVisual({
           )}
         </div>
 
-        {/* East */}
         <p className={cn(quadrantLabelClass, "col-start-3 row-start-2 text-amber-400")}>
           Follow-up
           <br />
           Required
         </p>
 
-        {/* South — reserved row; never shares space with status footer */}
         <p className={cn(quadrantLabelClass, "col-start-2 row-start-3 text-rose-400")}>
           At Risk
         </p>
