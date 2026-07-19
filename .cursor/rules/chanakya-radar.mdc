@@ -20,6 +20,7 @@ globs:
 - Quadrant labels **outside** the dial; never overlap or touch the visualization; radar resizes dynamically.
 - Follow **Enterprise Design & UX Standard v1.0** (`enterprise-screen-ux-standard.mdc`): above-the-fold table/Kanban start, balanced layout, scrollable page, labels outside dial, dynamic radar resize.
 - Follow **Data Integrity & Analytics Standard v1.0** (`data-integrity-analytics-standard.mdc`): metrics from LoanFile SSOT, same-session refresh on data change, documented formulas, no demo-as-truth in production.
+- Follow **Enterprise Metric Single Implementation** (`enterprise-metric-single-implementation.mdc`): Health Score, Operational Vector, quadrant logic, and related KPIs live in one shared derive path — never reimplemented in UI or AI.
 - **Real-time:** subscribe to `compass:loan-files-updated` (`subscribeLoanFilesUpdated`) so Radar / KPIs / vector / tables recompute immediately on LoanFile changes; keep 60s poll + `storage` as fallback only.
 - Follow **Layout Integrity & Content Safety** (`layout-integrity-content-safety.mdc`): no overlaps/clipping; radar labels never touch dial; tooltips must not cover persistent scores/KPIs.
 - Prefer Active Workspace / Opportunity Workspace from Kanban cards and Preview actions.

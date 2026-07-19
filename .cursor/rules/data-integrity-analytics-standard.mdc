@@ -137,6 +137,8 @@ Changes to configurable rules should be auditable, recording at minimum:
 - Business logic must exist **only once**
 - Avoid duplicate implementations across screens
 
+**Canonical rule:** see `enterprise-metric-single-implementation.mdc` — every enterprise metric has exactly one shared calculation; screens, reports, dashboards, APIs, and AI modules must consume it. No formula duplication.
+
 ---
 
 ## Decision First
@@ -172,7 +174,7 @@ Before marking a dashboard / metric / insight complete:
 - [ ] Same-session data changes refresh the view
 - [ ] Formula documented (no opaque magic numbers without rationale)
 - [ ] No production demo-as-truth presentation
-- [ ] Logic not duplicated elsewhere (or consolidated)
+- [ ] Logic not duplicated elsewhere (or consolidated) — see Single Implementation Standard
 - [ ] Explainability path considered for decision-critical scores
 - [ ] Configurable / auditable path noted when admin rules apply
 
@@ -182,6 +184,7 @@ If any required item fails for a production surface, it is **not** production-re
 
 ## Relationship to other rules
 
+- Complements `enterprise-metric-single-implementation.mdc` (exactly one formula per metric)
 - Complements `enterprise-screen-ux-standard.mdc` (layout / usability)
 - Complements `enterprise-workspace-ux.mdc` (workspace chrome)
 - Complements `chanakya-radar.mdc` and module-specific derive engines

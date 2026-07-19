@@ -1,0 +1,25 @@
+---
+description: Catalyst One Development Charter — reuse, modularity, masters, validation
+alwaysApply: true
+---
+
+# Catalyst One Development Charter
+
+Before implementing any feature:
+
+1. **Reuse** existing components wherever possible.
+2. **Do not duplicate** business logic — extend shared libs / SSOT helpers. Every enterprise metric has **exactly one** implementation (`enterprise-metric-single-implementation.mdc`).
+3. **Maintain enterprise UI consistency** with the established design system and spacing.
+4. Keep all components **modular and reusable**.
+5. **Never hardcode** business values that belong in masters or configuration.
+6. **Preserve backward compatibility** unless explicitly instructed otherwise.
+7. **Follow** existing design language and spacing (no one-off visual systems).
+8. Ensure **accessibility** and **responsive** behaviour.
+9. **Optimize for performance** (avoid unnecessary re-renders, heavy lists without virtualisation when needed).
+10. **Do not leave TODOs** or placeholder implementations in production code.
+11. **Validate** TypeScript, ESLint, and Production Build before completion.
+12. If a **better architecture** is discovered during implementation, **explain it in the Implementation Report before changing it**.
+
+## Mandatory completion
+
+After implementation, deliver the full **Implementation Report** (summary, components created/modified, DB/API/routes, business logic, UX, performance, compatibility, validation, Git, testing checklist, final status, recommendations) plus the Business & Functional Certification Report when in the certification environment.

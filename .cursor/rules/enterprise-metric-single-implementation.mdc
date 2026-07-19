@@ -1,0 +1,111 @@
+---
+description: Enterprise Metric Single Implementation — one formula, one shared calculation everywhere
+alwaysApply: true
+---
+
+# Catalyst One — Enterprise Metric Single Implementation Standard
+
+**Status:** FOUNDATION STANDARD  
+**This is a permanent architectural standard.**
+
+It applies to every screen, report, dashboard, API, AI module, chart, score, KPI, and operational insight throughout Catalyst One.
+
+---
+
+## Primary Principle
+
+**Every enterprise metric must have exactly one implementation.**
+
+All consumers must use the same shared calculation.
+
+No business formula should ever be duplicated across the application.
+
+---
+
+## Scope
+
+This standard covers every calculated business value, including but not limited to:
+
+- Operational Health Score
+- Financial Health Score
+- Radar Direction / Operational Vector
+- Quadrant classification and counts
+- Risk / priority scores
+- Conversion ratios
+- Pipeline velocity / average processing time
+- Productivity / performance scores
+- Revenue / commission forecasts
+- SLA breach / aging metrics
+- Any KPI, counter, or derived insight shown to management
+
+---
+
+## Single Implementation Rule
+
+For each named metric:
+
+1. **One** derive / engine / formula module owns the calculation
+2. Screens, reports, dashboards, APIs, and AI modules **import and call** that module
+3. UI components **must not** re-implement the formula inline
+4. Parallel “compatible” copies of the same formula are **forbidden**
+5. If two surfaces show the same metric name, they **must** call the same function with the same inputs
+
+Prefer shared paths such as:
+
+- `src/lib/**/derive-*.ts`
+- `src/lib/**/*-engine*.ts`
+- Domain constants that feed a single calculator
+
+Never copy formula bodies into React components, route handlers, or prompt/AI helpers.
+
+---
+
+## Forbidden Patterns
+
+- Recalculating the same score in a dashboard **and** again in a table / tooltip / export
+- Slightly different thresholds or weightings for the “same” metric on different screens
+- Hardcoded percentages / magic numbers that diverge from the shared engine
+- AI or briefing text inventing a metric value instead of calling the shared calculator
+- API responses recomputing a metric already owned by a lib module, unless the API **is** that module’s sole entry point
+
+---
+
+## When Adding or Changing a Metric
+
+1. Search for existing implementations of the metric (name, aliases, related scores)
+2. If one exists — **extend or fix that implementation**; do not create a second
+3. If none exists — create **one** shared module, document the formula, then wire all consumers
+4. If consumers currently diverge — **consolidate** before shipping the change
+5. Update module rules / docs so the canonical path is obvious
+
+---
+
+## Consistency Guarantee
+
+Given the same enterprise data inputs, the same metric **must** always produce the same result — regardless of which screen, report, API, or AI surface requested it.
+
+Any discrepancy between surfaces is a **defect**.
+
+---
+
+## Relationship to other standards
+
+- Strengthens `data-integrity-analytics-standard.mdc` (accuracy, SSOT, explainability)
+- Aligns with `catalyst-one-development-charter.mdc` (do not duplicate business logic)
+- Complements module engines (e.g. `chanakya-radar.mdc` Operational Vector / Health Score)
+
+When speed of delivery conflicts with single implementation, **consolidate first** — never ship a second formula to “move faster.”
+
+---
+
+## Definition of Done (metric / analytics change)
+
+Before marking complete:
+
+- [ ] Canonical calculator identified or created (exactly one)
+- [ ] All new/changed consumers call that calculator
+- [ ] No duplicated formula left in UI, API, or AI paths touched by the change
+- [ ] Formula documented at the canonical site
+- [ ] Same inputs → same outputs verified across at least two consumers when multiple exist
+
+If a second implementation remains, the work is **not** production-ready.
