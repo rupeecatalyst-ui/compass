@@ -1,475 +1,161 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Briefcase,
-  Columns3,
-  LayoutList,
-  Search,
-  Table2,
-} from "lucide-react";
-import { StatusPill } from "@/components/design-system/status-pill";
+import { Briefcase } from "lucide-react";
+import { DealRegistryTable } from "@/components/catalyst-one/my-deals/deal-registry-table";
 import { useAuthContext } from "@/components/providers/auth-provider";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   MY_DEALS_BUSINESS_TABS,
-  MY_DEALS_FILTERS,
-  MY_DEALS_KANBAN_COLUMNS,
   MY_DEALS_OFFICIAL_NAME,
-  MY_DEALS_VIEWS,
   type MyDealsBusinessTabId,
-  type MyDealsFilterId,
-  type MyDealsViewId,
 } from "@/constants/my-deals";
 import { ROUTES } from "@/constants/routes";
-import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
-import {
-  LOAN_WORKSPACE_SURFACE_HUB,
-  LOAN_WORKSPACE_SURFACE_PARAM,
-} from "@/constants/loan-workspace-navigator";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { loadLoanFiles } from "@/lib/loan-files-storage";
-import {
-  filterMyDealRows,
-  groupDealsByKanbanColumn,
-  listMyDealRows,
-  resolveCurrentRmName,
-  type MyDealRow,
-} from "@/lib/my-deals";
+import { listDealRegistryRows } from "@/lib/my-deals/deal-registry";
+import { resolveCurrentRmName } from "@/lib/my-deals";
 import { readMyDealsReturnState, rememberMyDealsReturnState } from "@/lib/my-deals/view-state";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
+import type { DealRegistryFilters, DealRegistryRow } from "@/types/deal-registry";
 import { cn } from "@/lib/utils";
 
-/** My Deals → Loan Workspace hub → select bench (approved architecture). */
-function openOpportunityWorkspace(router: ReturnType<typeof useRouter>, row: MyDealRow) {
-  const opportunityId = row.opportunityNumber;
+/** CO-SPRINT-098 — Row opens Opportunity Workspace (existing Strategic Workspace). */
+function openOpportunityWorkspace(
+  router: ReturnType<typeof useRouter>,
+  row: DealRegistryRow,
+) {
   setActiveOpportunityContext({
     fileId: row.id,
-    opportunityId,
-    customerName: row.borrower,
+    opportunityId: row.opportunityNumber,
+    customerName: row.borrowerName,
     product: row.product,
     label: row.opportunityNumber,
   });
-  const base = buildJourneyHref(ROUTES.LOAN_FILES, {
-    fileId: row.id,
-    opportunityId,
-  });
-  const url = new URL(base, "https://local.invalid");
-  url.searchParams.set(LOAN_WORKSPACE_SURFACE_PARAM, LOAN_WORKSPACE_SURFACE_HUB);
-  router.push(`${url.pathname}?${url.searchParams.toString()}`);
+  router.push(
+    buildJourneyHref(ROUTES.OPPORTUNITY_WORKSPACE, {
+      fileId: row.id,
+      opportunityId: row.opportunityNumber,
+    }),
+  );
 }
 
+/**
+ * CO-SPRINT-098 — Enterprise Deal Registry (My Deals landing).
+ * Compact header + business verticals + dense enterprise table.
+ */
 export function MyDealsWorkspace() {
   const router = useRouter();
   const { user } = useAuthContext();
   const registryVersion = useEcmContactRegistryVersion();
   const [businessTab, setBusinessTab] = useState<MyDealsBusinessTabId>("loans");
-  const [view, setView] = useState<MyDealsViewId>(() => {
-    const saved = typeof window !== "undefined" ? readMyDealsReturnState() : null;
-    return saved?.view ?? "kanban";
-  });
-  const [filterId, setFilterId] = useState<MyDealsFilterId>(() => {
-    const saved = typeof window !== "undefined" ? readMyDealsReturnState() : null;
-    return saved?.filterId ?? "my_deals";
-  });
-  const [search, setSearch] = useState(() => {
-    const saved = typeof window !== "undefined" ? readMyDealsReturnState() : null;
-    return saved?.search ?? "";
-  });
   const [tick, setTick] = useState(0);
+  const [registryFilters, setRegistryFilters] = useState<DealRegistryFilters | null>(null);
+
+  const saved = typeof window !== "undefined" ? readMyDealsReturnState() : null;
+  const initialScope: DealRegistryFilters["scope"] =
+    saved?.filterId === "my_deals" ? "my_deals" : "my_team";
+  const initialSearch = saved?.search ?? "";
 
   useEffect(() => {
-    rememberMyDealsReturnState({ view, filterId, search, businessTab });
-  }, [view, filterId, search, businessTab]);
+    const filterId =
+      registryFilters?.scope === "my_deals"
+        ? "my_deals"
+        : registryFilters?.scope === "all"
+          ? "my_team"
+          : "my_team";
+    rememberMyDealsReturnState({
+      view: "table",
+      filterId,
+      search: registryFilters?.search ?? initialSearch,
+      businessTab,
+    });
+  }, [businessTab, registryFilters, initialSearch]);
+
+  useEffect(() => {
+    const onStorage = () => setTick((t) => t + 1);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const currentRm = resolveCurrentRmName(user);
 
   const allRows = useMemo(() => {
     void tick;
     void registryVersion;
-    return listMyDealRows(loadLoanFiles());
+    return listDealRegistryRows(loadLoanFiles());
   }, [tick, registryVersion]);
 
-  const rows = useMemo(
-    () =>
-      filterMyDealRows(allRows, filterId, {
-        currentRm,
-        search,
-      }),
-    [allRows, filterId, currentRm, search],
-  );
-
-  const kanban = useMemo(() => groupDealsByKanbanColumn(rows), [rows]);
-
-  const liveTab = MY_DEALS_BUSINESS_TABS.find((t) => t.id === businessTab);
-
-  const viewSwitcher = (
-    <div
-      className="inline-flex h-8 items-stretch overflow-hidden rounded-lg border border-border bg-muted/30 p-0.5"
-      role="group"
-      aria-label="My Deals view"
-    >
-      {MY_DEALS_VIEWS.map((v) => {
-        const Icon = v.id === "kanban" ? Columns3 : v.id === "list" ? LayoutList : Table2;
-        const active = view === v.id;
-        return (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => setView(v.id)}
-            aria-pressed={active}
-            className={cn(
-              "inline-flex min-w-[4.75rem] items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-medium transition-colors",
-              active
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {v.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+  const handleFiltersChanged = useCallback((filters: DealRegistryFilters) => {
+    setRegistryFilters(filters);
+  }, []);
 
   return (
-    <div className="flex h-[calc(100dvh-4.5rem)] flex-col gap-2 overflow-hidden">
-      {/* Row 1 — Title + Refresh */}
-      <div className="flex shrink-0 items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">{MY_DEALS_OFFICIAL_NAME}</h1>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8 gap-1.5 px-3 text-xs"
-          onClick={() => setTick((t) => t + 1)}
-        >
-          Refresh
-        </Button>
-      </div>
-
-      {/* Row 2 — Product tabs + Search + View switcher */}
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 pb-1.5">
-        <div className="flex min-w-0 flex-1 flex-wrap gap-1">
-          {MY_DEALS_BUSINESS_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setBusinessTab(tab.id)}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors",
-                businessTab === tab.id
-                  ? "bg-teal-600 text-white"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                !tab.live && businessTab !== tab.id && "opacity-70",
-              )}
-            >
-              {tab.label}
-              {!tab.live ? (
-                <span className="ml-1 text-[8px] uppercase tracking-wide opacity-80">Soon</span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-        {liveTab?.live ? (
-          <>
-            <div className="relative w-full min-w-[160px] sm:w-[220px] sm:flex-none">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="h-8 rounded-md pl-8 text-xs"
-                placeholder="Search customer, OPP#, loan#…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            {viewSwitcher}
-          </>
-        ) : null}
-      </div>
-
-      {!liveTab?.live ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6">
-          <div className="text-center">
-            <Briefcase className="mx-auto h-8 w-8 text-muted-foreground/60" />
-            <p className="mt-3 text-sm font-medium text-foreground">{liveTab?.label}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              This business vertical will appear here without redesigning My Deals.
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col gap-2 overflow-hidden p-3 md:p-4">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Briefcase className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0">
+            <h1 className="text-base font-semibold tracking-tight md:text-lg">
+              {MY_DEALS_OFFICIAL_NAME}
+            </h1>
+            <p className="text-[11px] text-muted-foreground">
+              Enterprise Deal Registry · locate, compare, and open loan opportunities
             </p>
           </div>
         </div>
-      ) : (
-        <>
-          {/* Row 3 — Filter chips */}
-          <div className="flex shrink-0 flex-wrap gap-1">
-            {MY_DEALS_FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilterId(f.id)}
-                className={cn(
-                  "rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors",
-                  filterId === f.id
-                    ? "border-teal-500/40 bg-teal-500/10 text-teal-900 dark:text-teal-100"
-                    : "border-border bg-card text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+        <p className="text-[11px] tabular-nums text-muted-foreground">
+          {allRows.length} deals in pipeline
+        </p>
+      </header>
 
-          <p className="shrink-0 text-[10px] leading-none text-muted-foreground">
-            <span className="font-semibold tabular-nums text-foreground">{rows.length}</span> Deals
-            {" · "}
-            Double-click a card to open Loan Workspace
-          </p>
-
-          <div
+      <div className="flex shrink-0 flex-wrap gap-1 border-b border-border pb-1.5">
+        {MY_DEALS_BUSINESS_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setBusinessTab(tab.id)}
             className={cn(
-              "min-h-0 flex-1",
-              view === "kanban" ? "overflow-hidden" : "overflow-auto",
+              "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+              businessTab === tab.id
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              !tab.live && "opacity-70",
             )}
           >
-            {view === "list" ? (
-              <MyDealsListView rows={rows} onOpen={(row) => openOpportunityWorkspace(router, row)} />
-            ) : view === "table" ? (
-              <MyDealsTableView rows={rows} onOpen={(row) => openOpportunityWorkspace(router, row)} />
-            ) : (
-              <MyDealsKanbanView
-                groups={kanban}
-                onOpen={(row) => openOpportunityWorkspace(router, row)}
-              />
-            )}
+            {tab.label}
+            {!tab.live ? (
+              <span className="ml-1 text-[9px] uppercase tracking-wide opacity-80">Soon</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {businessTab === "loans" ? (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <DealRegistryTable
+            rows={allRows}
+            currentRm={currentRm}
+            initialScope={initialScope}
+            initialSearch={initialSearch}
+            onFiltersChanged={handleFiltersChanged}
+            onOpenDeal={(row) => openOpportunityWorkspace(router, row)}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
+          <div>
+            <p className="text-sm font-medium">
+              {MY_DEALS_BUSINESS_TABS.find((t) => t.id === businessTab)?.label} registry
+            </p>
+            <p className="mt-1 max-w-sm text-[12px] text-muted-foreground">
+              This business vertical will use the same Enterprise Deal Registry pattern when
+              enabled. Loans is live today.
+            </p>
           </div>
-        </>
+        </div>
       )}
-    </div>
-  );
-}
-
-function MyDealsListView({
-  rows,
-  onOpen,
-}: {
-  rows: MyDealRow[];
-  onOpen: (row: MyDealRow) => void;
-}) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1100px] text-left text-sm">
-          <thead className="border-b border-border bg-muted/40 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2.5 font-medium">Opportunity #</th>
-              <th className="px-3 py-2.5 font-medium">Borrower</th>
-              <th className="px-3 py-2.5 font-medium">Product</th>
-              <th className="px-3 py-2.5 font-medium">Loan Amount</th>
-              <th className="px-3 py-2.5 font-medium">Stage</th>
-              <th className="px-3 py-2.5 font-medium">Sub Stage</th>
-              <th className="px-3 py-2.5 font-medium">Assigned RM</th>
-              <th className="px-3 py-2.5 font-medium">Priority</th>
-              <th className="px-3 py-2.5 font-medium">Last Activity</th>
-              <th className="px-3 py-2.5 font-medium">Next Follow-up</th>
-              <th className="px-3 py-2.5 font-medium">Ageing</th>
-              <th className="px-3 py-2.5 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="cursor-pointer border-t border-border/70 transition-colors hover:bg-muted/30"
-                onDoubleClick={() => onOpen(row)}
-                title="Double-click to open Opportunity Workspace"
-              >
-                <td className="px-3 py-2.5 font-medium tabular-nums text-teal-800 dark:text-teal-200">
-                  {row.opportunityNumber}
-                </td>
-                <td className="px-3 py-2.5">
-                  <div className="font-medium">{row.borrower}</div>
-                  {row.customerMobile ? (
-                    <div className="text-[10px] text-muted-foreground">{row.customerMobile}</div>
-                  ) : null}
-                </td>
-                <td className="px-3 py-2.5 text-muted-foreground">{row.product}</td>
-                <td className="px-3 py-2.5 tabular-nums">{row.loanAmountLabel}</td>
-                <td className="px-3 py-2.5">{row.stageLabel}</td>
-                <td className="px-3 py-2.5 text-muted-foreground">{row.subStage}</td>
-                <td className="px-3 py-2.5">{row.assignedRm}</td>
-                <td className="px-3 py-2.5">
-                  <span
-                    className={cn(
-                      "rounded border px-1.5 py-0.5 text-[10px] capitalize",
-                      LOAN_FILE_PRIORITY_STYLES[row.priority]?.className,
-                    )}
-                  >
-                    {row.priority}
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 text-muted-foreground">{row.lastActivityLabel}</td>
-                <td className="px-3 py-2.5 text-muted-foreground">{row.nextFollowUp}</td>
-                <td className="px-3 py-2.5 tabular-nums">{row.ageingDays}d</td>
-                <td className="px-3 py-2.5">
-                  <StatusPill
-                    variant={
-                      row.status === "on_track"
-                        ? "success"
-                        : row.status === "delayed" || row.status === "at_risk"
-                          ? "warning"
-                          : "muted"
-                    }
-                  >
-                    {row.statusLabel}
-                  </StatusPill>
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={12} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                  No deals match this filter. Try My Team or clear search.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-/** Dense operational grid — same fields as List, tighter density for power users. */
-function MyDealsTableView({
-  rows,
-  onOpen,
-}: {
-  rows: MyDealRow[];
-  onOpen: (row: MyDealRow) => void;
-}) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[960px] text-left text-[12px]">
-          <thead className="sticky top-0 border-b border-border bg-muted/50 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
-            <tr>
-              <th className="px-2 py-2 font-medium">OPP#</th>
-              <th className="px-2 py-2 font-medium">Borrower</th>
-              <th className="px-2 py-2 font-medium">Product</th>
-              <th className="px-2 py-2 font-medium">Amount</th>
-              <th className="px-2 py-2 font-medium">Stage</th>
-              <th className="px-2 py-2 font-medium">RM</th>
-              <th className="px-2 py-2 font-medium">Priority</th>
-              <th className="px-2 py-2 font-medium">Age</th>
-              <th className="px-2 py-2 font-medium">Status</th>
-              <th className="px-2 py-2 font-medium">Next</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr
-                key={row.id}
-                className={cn(
-                  "cursor-pointer border-t border-border/60 transition-colors hover:bg-teal-500/[0.04]",
-                  i % 2 === 1 && "bg-muted/15",
-                )}
-                onDoubleClick={() => onOpen(row)}
-                onClick={() => onOpen(row)}
-                title="Open Opportunity Workspace"
-              >
-                <td className="px-2 py-1.5 font-semibold tabular-nums text-teal-800 dark:text-teal-200">
-                  {row.opportunityNumber}
-                </td>
-                <td className="max-w-[160px] truncate px-2 py-1.5 font-medium">{row.borrower}</td>
-                <td className="max-w-[120px] truncate px-2 py-1.5 text-muted-foreground">{row.product}</td>
-                <td className="px-2 py-1.5 tabular-nums">{row.loanAmountLabel}</td>
-                <td className="px-2 py-1.5">{row.stageLabel}</td>
-                <td className="max-w-[100px] truncate px-2 py-1.5">{row.assignedRm}</td>
-                <td className="px-2 py-1.5 capitalize">{row.priority}</td>
-                <td className="px-2 py-1.5 tabular-nums">{row.ageingDays}d</td>
-                <td className="px-2 py-1.5">{row.statusLabel}</td>
-                <td className="max-w-[120px] truncate px-2 py-1.5 text-muted-foreground">
-                  {row.nextFollowUp}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={10} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                  No deals match this filter.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function MyDealsKanbanView({
-  groups,
-  onOpen,
-}: {
-  groups: Record<string, MyDealRow[]>;
-  onOpen: (row: MyDealRow) => void;
-}) {
-  return (
-    <div className="flex h-full min-h-0 gap-2.5 overflow-x-auto">
-      {MY_DEALS_KANBAN_COLUMNS.map((col) => {
-        const items = groups[col.id] ?? [];
-        return (
-          <div
-            key={col.id}
-            className="flex h-full w-[232px] shrink-0 flex-col rounded-lg border border-border/70 bg-muted/20"
-          >
-            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-2.5 py-1.5">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: col.tone }}
-                  aria-hidden
-                />
-                <p className="text-[11px] font-semibold tracking-tight">{col.label}</p>
-              </div>
-              <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] tabular-nums">
-                {items.length}
-              </span>
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-1.5">
-              {items.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  onDoubleClick={() => onOpen(row)}
-                  onClick={() => onOpen(row)}
-                  className="rounded-md border border-border/70 bg-card p-2 text-left shadow-sm transition-colors hover:border-teal-500/30 hover:bg-teal-500/[0.03]"
-                >
-                  <p className="text-[10px] font-semibold tabular-nums text-teal-800 dark:text-teal-200">
-                    {row.opportunityNumber}
-                  </p>
-                  <p className="mt-0.5 truncate text-[13px] font-medium leading-snug">{row.borrower}</p>
-                  <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                    {row.product} · {row.loanAmountLabel}
-                  </p>
-                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-                    <span className="truncate">{row.assignedRm}</span>
-                    <span className="shrink-0 tabular-nums">{row.ageingDays}d</span>
-                  </div>
-                </button>
-              ))}
-              {items.length === 0 ? (
-                <p className="px-1 py-4 text-center text-[11px] text-muted-foreground">
-                  {col.stages.length === 0 ? "Future column" : "No deals"}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
