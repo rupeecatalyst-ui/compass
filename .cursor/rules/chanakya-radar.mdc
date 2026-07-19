@@ -8,21 +8,17 @@ globs:
   - src/app/(mission-control)/mission-control/page.tsx
 ---
 
-# CHANAKYA Radar
-
-- Mission Control cockpit (CO-SPRINT-103): **Zone 1** left Operational Snapshot · **Zone 2** hero Radar (~60–65%) · **Zone 3** Opportunity Preview **slide-over** (collapsed by default).
-- AI Deal Health / operational quadrants — **not** a lender-stage workflow board.
-- Four quadrants: **On Track** (N) · **Follow-up Required** (E) · **At Risk** (S) · **Needs Attention** (W).
-- Matrix screen is **retired**. Do not restore Matrix.
-- Kanban remains below the cockpit as secondary work queue; cards **never** draggable.
+- Mission Control cockpit: **Radar View** (default) · **Kanban View** tabs; state (scope, KPI focus, selection) preserved across tabs.
+- Zone 1 left Operational Snapshot · Zone 2 hero Radar · Zone 3 Opportunity Preview **slide-over** (collapsed by default; never permanently shrinks Radar).
 - Radar blip hover = tooltip; **single click** = open Preview drawer; **double click** = Opportunity Workspace.
-- KPI click → expand collapsible opportunity list under snapshot (toggle to collapse); Radar stays visible.
-- Quadrant labels **outside** the dial; never overlap or touch the visualization; radar resizes dynamically.
-- Follow **Enterprise Design & UX Standard v1.0** (`enterprise-screen-ux-standard.mdc`): Radar is the hero; clarity over complexity; scrollable page.
-- Follow **Data Integrity & Analytics Standard v1.0** (`data-integrity-analytics-standard.mdc`): metrics from LoanFile SSOT, same-session refresh on data change, documented formulas, no demo-as-truth in production.
-- Follow **Enterprise Metric Single Implementation** (`enterprise-metric-single-implementation.mdc`): Health Score, Operational Vector, quadrant logic, and related KPIs live in one shared derive path — never reimplemented in UI or AI.
-- **Real-time:** subscribe to `compass:loan-files-updated` (`subscribeLoanFilesUpdated`) so Radar / KPIs / vector / tables recompute immediately on LoanFile changes; keep 60s poll + `storage` as fallback only.
-- Follow **Layout Integrity & Content Safety** (`layout-integrity-content-safety.mdc`): no overlaps/clipping; radar labels never touch dial; tooltips must not cover persistent scores/KPIs.
-- Prefer Active Workspace / Opportunity Workspace from Kanban cards and Preview actions.
+- KPI click → expand collapsible opportunity list (one at a time; independently scrollable).
+- Radar dots use collision-safe placement — never overlap.
+- Quadrant labels **outside** the dial; Kanban is primary only in Kanban View (not stacked under Radar).
+- Follow Enterprise UX, Layout Integrity, Data Integrity, and Metric SSOT standards.
+- **Real-time:** `subscribeLoanFilesUpdated` + 60s poll / `storage` fallback.
 - Never change Operational Vector / health scoring when adjusting layout chrome.
 - Never show Rejected / Lost / Cancelled / Withdrawn / Closed lenders on Radar cards.
+- Prefer Active Workspace / Opportunity Workspace from Kanban cards and Preview actions.
+- Matrix screen is **retired**. Do not restore Matrix.
+- Four quadrants: **On Track** (N) · **Follow-up Required** (E) · **At Risk** (S) · **Needs Attention** (W).
+- Kanban cards **never** draggable.

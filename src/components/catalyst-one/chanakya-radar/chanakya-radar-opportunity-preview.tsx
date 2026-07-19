@@ -36,6 +36,8 @@ interface ChanakyaRadarOpportunityPreviewProps {
   onViewDocuments: () => void;
   /** Drawer chrome — hide outer border/animation when hosted in Sheet. */
   variant?: "panel" | "drawer";
+  /** Optional position in expanded KPI list (e.g. 1 of 39). */
+  listPosition?: { index: number; total: number };
 }
 
 const INSIGHT_ALERT_STYLES: Record<
@@ -153,6 +155,7 @@ export function ChanakyaRadarOpportunityPreview({
   onCallCustomer,
   onViewDocuments,
   variant = "drawer",
+  listPosition,
 }: ChanakyaRadarOpportunityPreviewProps) {
   const { card, file, portfolioHealthScore } = preview;
   const stageLabel = STAGE_LABELS[file.stage] ?? String(file.stage).replace(/_/g, " ");
@@ -188,9 +191,16 @@ export function ChanakyaRadarOpportunityPreview({
     >
       <header className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-4 py-3 pr-12">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Opportunity Preview
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Opportunity Preview
+            </p>
+            {listPosition ? (
+              <span className="text-[10px] tabular-nums text-muted-foreground">
+                {listPosition.index} of {listPosition.total}
+              </span>
+            ) : null}
+          </div>
           <p className="mt-1 break-words text-[15px] font-semibold tracking-tight">
             {card.borrower}
           </p>
@@ -304,11 +314,11 @@ export function ChanakyaRadarOpportunityPreview({
         <Button
           type="button"
           size="sm"
-          className="h-8 w-full gap-1.5 text-[12px]"
+          className="h-9 w-full gap-1.5 bg-violet-600 text-[12px] hover:bg-violet-500"
           onClick={onOpenWorkspace}
         >
           <ExternalLink className="h-3.5 w-3.5" />
-          Open Opportunity Workspace
+          Open Full Workspace
         </Button>
         <div className="grid grid-cols-2 gap-1.5">
           <Button
