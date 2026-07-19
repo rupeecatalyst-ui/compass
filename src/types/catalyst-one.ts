@@ -627,6 +627,11 @@ export interface LoanFile {
   topUpRequested?: number;
   /** UX-02 — Manual top-up flag for balance transfer cases */
   topUpRequired?: boolean;
+  /**
+   * CO-SPRINT-101 — Approximate CIBIL Score band (shared master).
+   * Persisted for eligibility, lender matching, SARATHI, and risk engines.
+   */
+  approxCibilScore?: import("@/types/cibil-score-master").ApproxCibilScoreBand;
   /** UX-02 — Unified loan participants (max 9 additional entities) */
   participants?: import("@/types/loan-participant").LoanParticipant[];
   /** RC Revenue / Accounting only — not a loan stage. */
@@ -675,6 +680,8 @@ export interface CreateLoanFileInput {
   btInstitutionId?: string;
   btInstitutionName?: string;
   btAmount?: number;
+  /** CO-SPRINT-101 — mandatory on create; "not_known" is a valid selection. */
+  approxCibilScore: import("@/types/cibil-score-master").ApproxCibilScoreBand;
 }
 
 export type LoanFileSortField = keyof Pick<

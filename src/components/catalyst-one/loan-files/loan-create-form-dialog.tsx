@@ -63,6 +63,11 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import {
+  APPROX_CIBIL_SCORE_ENUM,
+  type ApproxCibilScoreBand,
+} from "@/constants/cibil-score-master";
+import { ApproxCibilScoreField } from "@/components/catalyst-one/shared/approx-cibil-score-field";
 import type { CreateLoanFileInput, LendingType, TransactionType } from "@/types/catalyst-one";
 import type { LoanParticipant } from "@/types/loan-participant";
 
@@ -85,6 +90,10 @@ const schema = z.object({
     invalid_type_error: "Enter Required Loan Amount",
   }).min(100000, "Minimum loan amount is ₹1,00,000"),
   monthlyIncome: z.coerce.number().min(1, "Monthly Income is required for loan assessment"),
+  approxCibilScore: z.enum(APPROX_CIBIL_SCORE_ENUM, {
+    required_error: "Approximate CIBIL Score is required",
+    invalid_type_error: "Select Approximate CIBIL Score",
+  }),
   priority: z.enum(["urgent", "high", "medium", "low"]),
   loginDate: z.string().min(1),
   expectedLoginDate: z.string().min(1),
@@ -186,6 +195,7 @@ export function LoanCreateFormDialog({
       loanProduct: getProductsForLendingType("secured")[0] ?? "",
       requiredAmount: undefined as unknown as number,
       monthlyIncome: undefined as unknown as number,
+      approxCibilScore: undefined as unknown as ApproxCibilScoreBand,
       priority: "medium",
       loginDate: today,
       expectedLoginDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
@@ -374,6 +384,7 @@ export function LoanCreateFormDialog({
       loanProduct: getProductsForLendingType("secured")[0] ?? "",
       requiredAmount: undefined as unknown as number,
       monthlyIncome: undefined as unknown as number,
+      approxCibilScore: undefined as unknown as ApproxCibilScoreBand,
       priority: "medium",
       loginDate: today,
       expectedLoginDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
@@ -454,6 +465,7 @@ export function LoanCreateFormDialog({
         loanProduct: values.loanProduct,
         loanAmount: values.requiredAmount,
         requiredAmount: values.requiredAmount,
+        approxCibilScore: values.approxCibilScore,
         lender: loanLenders[0] ?? "HDFC Bank",
         relationshipManager: values.relationshipManager,
         priority: values.priority,
@@ -842,6 +854,17 @@ export function LoanCreateFormDialog({
                         })()}
                       </p>
                     </FormField>
+
+                    <ApproxCibilScoreField
+                      value={form.watch("approxCibilScore")}
+                      onChange={(v) =>
+                        form.setValue("approxCibilScore", v, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                      error={form.formState.errors.approxCibilScore?.message}
+                    />
 
                     <FormField label="Priority">
                       <Select

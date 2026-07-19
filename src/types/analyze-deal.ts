@@ -3,13 +3,7 @@
  * No eligibility, income, or credit engines — mock recommendations only.
  */
 
-export type AnalyzeDealCibilBand =
-  | "below_600"
-  | "601_650"
-  | "651_700"
-  | "701_750"
-  | "751_800"
-  | "800_plus";
+export type AnalyzeDealCibilBand = import("@/types/cibil-score-master").ApproxCibilScoreBand;
 
 export type AnalyzeDealCustomerCategory =
   | "salaried"

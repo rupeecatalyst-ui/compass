@@ -1,22 +1,18 @@
 import type {
-  AnalyzeDealCibilBand,
   AnalyzeDealCustomerCategory,
   AnalyzeDealInputs,
 } from "@/types/analyze-deal";
+import {
+  APPROX_CIBIL_SCORE_OPTIONS,
+  shouldRevealLowScoreQuestions as sharedShouldRevealLowScoreQuestions,
+  type ApproxCibilScoreBand,
+} from "@/constants/cibil-score-master";
 import { CONTEXT_CUSTOMER_CATEGORY_OPTIONS } from "@/constants/context-aware-data-collection";
 
-export const ANALYZE_DEAL_CIBIL_OPTIONS: ReadonlyArray<{
-  value: AnalyzeDealCibilBand;
-  label: string;
-  revealLowScoreQuestions: boolean;
-}> = [
-  { value: "below_600", label: "Below 600", revealLowScoreQuestions: true },
-  { value: "601_650", label: "601–650", revealLowScoreQuestions: true },
-  { value: "651_700", label: "651–700", revealLowScoreQuestions: true },
-  { value: "701_750", label: "701–750", revealLowScoreQuestions: false },
-  { value: "751_800", label: "751–800", revealLowScoreQuestions: false },
-  { value: "800_plus", label: "800+", revealLowScoreQuestions: false },
-];
+/** @deprecated Prefer APPROX_CIBIL_SCORE_OPTIONS — kept as Analyze Deal alias. */
+export const ANALYZE_DEAL_CIBIL_OPTIONS = APPROX_CIBIL_SCORE_OPTIONS;
+
+export type { ApproxCibilScoreBand as AnalyzeDealCibilBand };
 
 export const ANALYZE_DEAL_CUSTOMER_CATEGORIES: ReadonlyArray<{
   value: AnalyzeDealCustomerCategory;
@@ -92,9 +88,10 @@ export function createEmptyAnalyzeDealInputs(defaults?: {
   };
 }
 
-export function shouldRevealLowScoreQuestions(band: AnalyzeDealCibilBand | ""): boolean {
-  if (!band) return false;
-  return ANALYZE_DEAL_CIBIL_OPTIONS.find((o) => o.value === band)?.revealLowScoreQuestions ?? false;
+export function shouldRevealLowScoreQuestions(
+  band: ApproxCibilScoreBand | "",
+): boolean {
+  return sharedShouldRevealLowScoreQuestions(band);
 }
 
 export function isPropertyFieldApplicable(productId: string): boolean {

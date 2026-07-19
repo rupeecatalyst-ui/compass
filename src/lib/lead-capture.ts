@@ -13,6 +13,11 @@ export interface LeadInput {
   message?: string;
   source_page?: string;
   assessment?: Record<string, unknown>;
+  /**
+   * CO-SPRINT-101 — Approximate CIBIL Score (shared master values).
+   * Wealth Partner Application and Catalyst One use identical bands.
+   */
+  approx_cibil_score?: import("@/types/cibil-score-master").ApproxCibilScoreBand;
 }
 
 function getUtm() {

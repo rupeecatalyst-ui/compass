@@ -207,6 +207,7 @@ export function createLoanFileFromInput(
     occupancyId: input.occupancyId,
     approxPropertyValue: input.approxPropertyValue,
     businessDetails: input.businessDetails,
+    approxCibilScore: input.approxCibilScore,
     btInstitutionId:
       transactionType === "balance_transfer" ? input.btInstitutionId : undefined,
     btInstitutionName:

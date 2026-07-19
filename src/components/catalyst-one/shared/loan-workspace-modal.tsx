@@ -17,6 +17,8 @@ import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-v
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
 import { LenderPipelineActionNav } from "@/components/catalyst-one/action-center/lender-pipeline-action-nav";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
+import { ApproxCibilScoreField } from "@/components/catalyst-one/shared/approx-cibil-score-field";
+import { getApproxCibilScoreLabel } from "@/constants/cibil-score-master";
 import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
 import { LoanStructureCard } from "@/components/catalyst-one/shared/loan-structure-card";
@@ -590,6 +592,10 @@ function LoanWorkspaceModalContent({
                         value={(participants.some((p) => p.entityType === "company") || Boolean(draft.businessDetails?.companyName)) ? "Business" : "Individual"}
                       />
                       <SummaryItem label="Required Amount" value={formatINR(draft.requiredAmount)} accent />
+                      <SummaryItem
+                        label="Approximate CIBIL Score"
+                        value={getApproxCibilScoreLabel(draft.approxCibilScore)}
+                      />
                       <SummaryItem label="Priority" value={draft.priority?.toUpperCase?.() ?? draft.priority} />
                       <SummaryItem label="RM" value={draft.relationshipManager || "—"} />
                       <SummaryItem
@@ -691,6 +697,11 @@ function LoanWorkspaceModalContent({
                       <Field label="Required Amount (₹)">
                         <INRCurrencyInput value={draft.requiredAmount} onChange={(v) => patch({ requiredAmount: v ?? 0 })} />
                       </Field>
+                      <ApproxCibilScoreField
+                        value={draft.approxCibilScore}
+                        onChange={(v) => patch({ approxCibilScore: v })}
+                        required
+                      />
                       <Field label="Priority">
                         <Select value={draft.priority} onValueChange={(v) => patch({ priority: v as LoanFilePriority })}>
                           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
