@@ -6,6 +6,7 @@ import {
   EnterpriseDataGrid,
   type EnterpriseGridColumnDef,
 } from "@/components/catalyst-one/enterprise-grid";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -85,6 +86,7 @@ export function ContactRegistryTable({
   onOpenContact,
   onRegistryChanged,
 }: ContactRegistryTableProps) {
+  const { user } = useAuthContext();
   const [filters, setFilters] = useState<ContactRegistryFilters>(EMPTY_CONTACT_REGISTRY_FILTERS);
   const [sortField, setSortField] = useState<ContactRegistrySortField>("lastModifiedAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -615,7 +617,8 @@ export function ContactRegistryTable({
       </div>
 
       <EnterpriseDataGrid
-        storageKey="catalyst.ecm.contact-registry.v1"
+        storageKey="catalyst.ecm.contact-registry.v2"
+        userId={user?.id}
         density="compact"
         columns={columns}
         rows={pageRows}

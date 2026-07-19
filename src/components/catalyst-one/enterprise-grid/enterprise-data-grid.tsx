@@ -1,7 +1,15 @@
 "use client";
 
 import { type ReactNode, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Pin } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Columns3,
+  GripVertical,
+  Pin,
+  RotateCcw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { EnterpriseGridColumnDef } from "./types";
+import { buildEnterpriseGridStorageKey } from "./storage-key";
 import { useEnterpriseGridPreferences } from "./use-enterprise-grid-preferences";
 
 export type EnterpriseGridSortDirection = "asc" | "desc";
@@ -23,6 +32,11 @@ export type EnterpriseGridDensity = "default" | "compact";
 
 interface EnterpriseDataGridProps<T> {
   storageKey: string;
+  /**
+   * Authenticated user id — scopes saved column layout per user.
+   * Anonymous / missing → shared "anonymous" bucket for the browser.
+   */
+  userId?: string | null;
   columns: EnterpriseGridColumnDef<T>[];
   rows: T[];
   rowKey: (row: T) => string;
@@ -49,6 +63,7 @@ interface EnterpriseDataGridProps<T> {
 
 export function EnterpriseDataGrid<T>({
   storageKey,
+  userId,
   columns,
   rows,
   rowKey,
@@ -66,6 +81,10 @@ export function EnterpriseDataGrid<T>({
   density = "default",
 }: EnterpriseDataGridProps<T>) {
   const compact = density === "compact";
+  const scopedKey = useMemo(
+    () => buildEnterpriseGridStorageKey(storageKey, userId),
+    [storageKey, userId],
+  );
   const scrollMax =
     maxHeightClassName ??
     (compact ? "max-h-[min(78vh,900px)]" : "max-h-[min(70vh,720px)]");
@@ -78,12 +97,15 @@ export function EnterpriseDataGrid<T>({
     toggleColumn,
     toggleFreezeColumn,
     resetToDefault,
+    reorderColumn,
     prefs,
     setActiveViewId,
     setColumnWidth,
-  } = useEnterpriseGridPreferences(storageKey, columns);
+  } = useEnterpriseGridPreferences(scopedKey, columns);
 
   const [resizing, setResizing] = useState<string | null>(null);
+  const [draggingCol, setDraggingCol] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   const frozenIds = useMemo(
     () => new Set(activeView.frozenColumnIds),
@@ -103,6 +125,17 @@ export function EnterpriseDataGrid<T>({
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
           {toolbarActions}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn("gap-1.5", compact ? "h-7 rounded-md text-[11px]" : "h-8 rounded-lg")}
+            onClick={resetToDefault}
+            title="Restore default column layout"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset Columns
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -154,7 +187,10 @@ export function EnterpriseDataGrid<T>({
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={resetToDefault}>Reset to default view</DropdownMenuItem>
+              <DropdownMenuItem onClick={resetToDefault}>
+                <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                Reset Columns
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -179,15 +215,47 @@ export function EnterpriseDataGrid<T>({
             <tr
               className={cn(
                 "border-b bg-slate-100 dark:bg-zinc-900",
-                compact ? "border-slate-300 dark:border-zinc-700" : "border-border bg-slate-50/95 backdrop-blur dark:bg-zinc-900/95",
+                compact
+                  ? "border-slate-300 dark:border-zinc-700"
+                  : "border-border bg-slate-50/95 backdrop-blur dark:bg-zinc-900/95",
               )}
             >
               {visibleColumns.map((col) => {
                 const sortable = Boolean(col.sortable && onSort);
                 const active = sortColumnId === col.id;
+                const isDragOver = dragOverCol === col.id && draggingCol !== col.id;
                 return (
                   <th
                     key={col.id}
+                    draggable={resizing !== col.id}
+                    onDragStart={(e) => {
+                      if (resizing) {
+                        e.preventDefault();
+                        return;
+                      }
+                      setDraggingCol(col.id);
+                      e.dataTransfer.setData("text/plain", col.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (dragOverCol !== col.id) setDragOverCol(col.id);
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverCol === col.id) setDragOverCol(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const sourceId = e.dataTransfer.getData("text/plain") || draggingCol;
+                      if (sourceId) reorderColumn(sourceId, col.id);
+                      setDraggingCol(null);
+                      setDragOverCol(null);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingCol(null);
+                      setDragOverCol(null);
+                    }}
                     className={cn(
                       "relative text-left font-semibold uppercase text-muted-foreground",
                       headPad,
@@ -200,32 +268,47 @@ export function EnterpriseDataGrid<T>({
                           : "sticky left-0 z-30 bg-slate-50/95 backdrop-blur dark:bg-zinc-900/95"),
                       col.align === "center" && "text-center",
                       col.align === "right" && "text-right",
+                      draggingCol === col.id && "opacity-50",
+                      isDragOver && "bg-sky-100/80 dark:bg-sky-950/50",
                     )}
                     style={{
                       width: activeView.columnWidths[col.id] ?? col.defaultWidth ?? 140,
                       minWidth: col.minWidth ?? 80,
                     }}
                   >
-                    {sortable ? (
-                      <button
-                        type="button"
-                        className="inline-flex max-w-full items-center gap-1 hover:text-foreground"
-                        onClick={() => onSort?.(col.id)}
+                    <div className="flex min-w-0 items-center gap-1">
+                      <span
+                        className="inline-flex shrink-0 cursor-grab text-muted-foreground/70 active:cursor-grabbing"
+                        title="Drag to reorder"
+                        aria-label={`Reorder ${col.label}`}
                       >
-                        <span className="truncate">{col.label}</span>
-                        {active ? (
-                          sortDirection === "asc" ? (
-                            <ArrowUp className="h-3 w-3 shrink-0" />
+                        <GripVertical className="h-3.5 w-3.5" />
+                      </span>
+                      {sortable ? (
+                        <button
+                          type="button"
+                          className="inline-flex min-w-0 max-w-full items-center gap-1 hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSort?.(col.id);
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          <span className="truncate">{col.label}</span>
+                          {active ? (
+                            sortDirection === "asc" ? (
+                              <ArrowUp className="h-3 w-3 shrink-0" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3 shrink-0" />
+                            )
                           ) : (
-                            <ArrowDown className="h-3 w-3 shrink-0" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="h-3 w-3 shrink-0 opacity-40" />
-                        )}
-                      </button>
-                    ) : (
-                      <span className="truncate">{col.label}</span>
-                    )}
+                            <ArrowUpDown className="h-3 w-3 shrink-0 opacity-40" />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="truncate">{col.label}</span>
+                      )}
+                    </div>
                     <span
                       className={cn(
                         "absolute right-0 top-0 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/35",
@@ -233,6 +316,7 @@ export function EnterpriseDataGrid<T>({
                       )}
                       onMouseDown={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         setResizing(col.id);
                         const startX = e.clientX;
                         const startW =
@@ -251,6 +335,7 @@ export function EnterpriseDataGrid<T>({
                         window.addEventListener("mousemove", onMove);
                         window.addEventListener("mouseup", onUp);
                       }}
+                      draggable={false}
                     />
                   </th>
                 );
@@ -308,9 +393,7 @@ export function EnterpriseDataGrid<T>({
                             cn(
                               "sticky left-0 z-[1]",
                               index % 2 === 1
-                                ? compact
-                                  ? "bg-slate-50 dark:bg-zinc-950"
-                                  : "bg-slate-50 dark:bg-zinc-950"
+                                ? "bg-slate-50 dark:bg-zinc-950"
                                 : "bg-card",
                             ),
                           col.align === "center" && "text-center",
@@ -331,6 +414,9 @@ export function EnterpriseDataGrid<T>({
           </tbody>
         </table>
       </div>
+      <p className="text-[10px] text-muted-foreground">
+        Drag column headers to reorder · layout saved for this user
+      </p>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import {
   EnterpriseDataGrid,
   type EnterpriseGridColumnDef,
 } from "@/components/catalyst-one/enterprise-grid";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -65,6 +66,7 @@ function ScoreCell({ value }: { value: number }) {
  * Dense spreadsheet listing for operational comparison; no decorative cards.
  */
 export function ElwLenderRegistry() {
+  const { user } = useAuthContext();
   const router = useRouter();
   const [productId, setProductId] = useState(ELW_DIRECTORY_DEFAULT_PRODUCT_ID);
   const [filters, setFilters] = useState<LenderDirectoryFilters>(EMPTY_LENDER_DIRECTORY_FILTERS);
@@ -435,7 +437,8 @@ export function ElwLenderRegistry() {
       </div>
 
       <EnterpriseDataGrid
-        storageKey="catalyst.elw.lender-directory.v2"
+        storageKey="catalyst.elw.lender-directory.v3"
+        userId={user?.id}
         density="compact"
         columns={columns}
         rows={pageRows}
