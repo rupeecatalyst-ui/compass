@@ -8,6 +8,7 @@ import { UserMenu } from "@/components/layout/user-menu";
 import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import { GlobalChanakyaButton } from "@/components/layout/global-chanakya-assistant";
+import { ChanakyaRadarViewSwitcher } from "@/components/catalyst-one/chanakya-radar/chanakya-radar-view-switcher";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +61,8 @@ export function AppTopbar({ onSearchClick }: AppTopbarProps) {
             <NotificationsPanel />
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <ChanakyaRadarViewSwitcher variant="dashboard" />
 
         <GlobalChanakyaButton />
 

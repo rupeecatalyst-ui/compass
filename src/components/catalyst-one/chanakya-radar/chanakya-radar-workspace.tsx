@@ -66,12 +66,16 @@ import {
   resolveRadarActorName,
 } from "@/lib/chanakya-radar/portfolio-scope";
 import { rememberChanakyaRadarViewState } from "@/lib/chanakya-radar/view-state";
+import {
+  getChanakyaRadarWorkspaceTab,
+  subscribeChanakyaRadarWorkspaceTab,
+  type ChanakyaRadarWorkspaceTab,
+} from "@/lib/chanakya-radar/workspace-tab";
 import type { LoanFile } from "@/types/catalyst-one";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
-type WorkspaceTab = "radar" | "kanban";
-
+type WorkspaceTab = ChanakyaRadarWorkspaceTab;
 type SnapshotKpiId =
   | "total"
   | "on_track"
@@ -153,14 +157,20 @@ export function ChanakyaRadarWorkspace() {
   const [scope, setScope] = useState<ChanakyaRadarScopeId>(() =>
     defaultRadarScope(user?.role),
   );
-  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("radar");
-  const [radarFocus, setRadarFocus] = useState<ChanakyaOperationalQuadrantId | null>(null);
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>(() =>
+    typeof window !== "undefined" ? getChanakyaRadarWorkspaceTab() : "radar",
+  );  const [radarFocus, setRadarFocus] = useState<ChanakyaOperationalQuadrantId | null>(null);
   const [expandedKpi, setExpandedKpi] = useState<SnapshotKpiId | null>(null);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const snapshotRef = useRef<HTMLElement | null>(null);
   const columnRefs = useRef<
     Partial<Record<ChanakyaOperationalQuadrantId, HTMLElement | null>>
   >({});
+
+  useEffect(() => {
+    setWorkspaceTab(getChanakyaRadarWorkspaceTab());
+    return subscribeChanakyaRadarWorkspaceTab(setWorkspaceTab);
+  }, []);
 
   useEffect(() => {
     setScope((prev) => (canUseRadarScope(prev, user?.role) ? prev : defaultRadarScope(user?.role)));
@@ -429,43 +439,6 @@ export function ChanakyaRadarWorkspace() {
             </Button>
           </div>
         </header>
-
-        <div
-          className="flex w-fit gap-1 rounded-lg border border-zinc-700 bg-zinc-900/60 p-1"
-          role="tablist"
-          aria-label="Workspace view"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={workspaceTab === "radar"}
-            onClick={() => setWorkspaceTab("radar")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-[12px] font-semibold transition-colors",
-              workspaceTab === "radar"
-                ? "bg-violet-600 text-white shadow-sm"
-                : "text-muted-foreground hover:bg-zinc-800 hover:text-foreground",
-            )}
-          >
-            <Radar className="h-3.5 w-3.5" />
-            Radar View
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={workspaceTab === "kanban"}
-            onClick={() => setWorkspaceTab("kanban")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-[12px] font-semibold transition-colors",
-              workspaceTab === "kanban"
-                ? "bg-violet-600 text-white shadow-sm"
-                : "text-muted-foreground hover:bg-zinc-800 hover:text-foreground",
-            )}
-          >
-            <Columns3 className="h-3.5 w-3.5" />
-            Kanban View
-          </button>
-        </div>
 
         {workspaceTab === "radar" ? (
           <>

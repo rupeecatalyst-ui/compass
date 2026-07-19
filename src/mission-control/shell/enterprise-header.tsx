@@ -13,6 +13,7 @@ import {
 import type { MissionControlEnvironment } from "../shared/constants";
 import { cn } from "../shared/cn";
 import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
+import { ChanakyaRadarViewSwitcher } from "@/components/catalyst-one/chanakya-radar/chanakya-radar-view-switcher";
 import { GlobalChanakyaMcButton } from "@/components/layout/global-chanakya-assistant";
 import { ROUTES } from "@/constants/routes";
 
@@ -69,11 +70,12 @@ export function McEnterpriseHeader({
         )}
       </div>
 
-      <div className="flex flex-1 items-center justify-end gap-1">
-        <GlobalChanakyaMcButton />
+      <div className="flex flex-1 items-center justify-end gap-1.5">
         <IconButton label="Notifications">
           <Bell className="h-4 w-4" />
         </IconButton>
+        <ChanakyaRadarViewSwitcher variant="mission-control" />
+        <GlobalChanakyaMcButton />
         <IconButton label="System Health">
           <Activity className="h-4 w-4" />
         </IconButton>
