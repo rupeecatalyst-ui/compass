@@ -21,7 +21,7 @@ export function ChanakyaRadarActionTable({ rows, onOpen }: ChanakyaRadarActionTa
   }
 
   return (
-    <div className="max-h-[min(32vh,320px)] overflow-auto border border-zinc-700 bg-zinc-950/40">
+    <div className="max-h-[min(42vh,380px)] overflow-auto border border-zinc-700 bg-zinc-950/40">
       <table className="w-full min-w-[720px] border-collapse text-left text-[12px] leading-4">
         <thead className="sticky top-0 z-10 bg-zinc-900">
           <tr className="border-b border-zinc-700 text-[10px] uppercase tracking-wide text-muted-foreground">

@@ -71,7 +71,7 @@ export function ChanakyaRadarKanban({
   return (
     <div
       className={cn(
-        "grid min-h-[min(70vh,720px)] gap-2",
+        "grid min-h-[min(56vh,640px)] gap-2",
         columns.length === 1
           ? "grid-cols-1"
           : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4",

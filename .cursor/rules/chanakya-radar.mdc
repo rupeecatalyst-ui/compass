@@ -1,20 +1,24 @@
 ---
-description: CHANAKYA Radar — Dual View Framework (Matrix + Kanban)
+description: CHANAKYA Radar — operational intelligence dashboard + Kanban
 globs:
   - src/components/catalyst-one/chanakya-radar/**
   - src/lib/chanakya-radar/**
   - src/constants/chanakya-radar.ts
   - src/app/(dashboard)/chanakya-radar/**
+  - src/app/(mission-control)/mission-control/page.tsx
 ---
 
 # CHANAKYA Radar
 
-- AI Deal Health Board — **not** a workflow or lender-stage board.
-- Dual view: **Matrix** (executive) · **Kanban** (operational) — one shared filtered dataset.
-- Cards **never** draggable.
-- Kanban columns fixed: On Track · Needs Attention · At Risk · Dormant · On Hold · Completed.
-- Matrix cards: On Track · Needs Attention · Dormant · At Risk (View Details → Kanban focus).
-- Global filters (RM · Product · Source) refresh Matrix counts, Kanban columns, and recommendations together.
-- Card click opens the **Active Workspace** (Strategic Bench / Credit Bench / Loan Workspace) — CHANAKYA decides.
-- Never change scoring / health classification when adding views or filters.
-- Never show Rejected / Lost / Cancelled / Withdrawn / Closed lenders.
+- Mission Control default landing — operational intelligence dashboard + Operational Kanban below.
+- AI Deal Health / operational quadrants — **not** a lender-stage workflow board.
+- Four quadrants: **On Track** (N) · **Follow-up Required** (E) · **At Risk** (S) · **Needs Attention** (W).
+- Matrix screen is **retired**. Do not restore Matrix.
+- Kanban remains the operational workspace; cards **never** draggable.
+- Radar blip hover = tooltip; blip click = Opportunity Preview Panel (right) — do not navigate away.
+- Quadrant / KPI click → scroll to Kanban filtered to that category.
+- Quadrant labels **outside** the dial; never overlap or touch the visualization; radar resizes dynamically.
+- Follow Enterprise Screen UX Standard (balanced layout, scrollable page, tables not buried).
+- Prefer Active Workspace / Opportunity Workspace from Kanban cards and Preview actions.
+- Never change Operational Vector / health scoring when adjusting layout chrome.
+- Never show Rejected / Lost / Cancelled / Withdrawn / Closed lenders on Radar cards.

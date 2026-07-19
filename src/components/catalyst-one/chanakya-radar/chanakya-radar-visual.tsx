@@ -102,14 +102,14 @@ export function ChanakyaRadarVisual({
   const nx = 100 + 62 * Math.cos(needleRad);
   const ny = 100 + 62 * Math.sin(needleRad);
 
-  /** Outside-circle labels — equal offset, identical type treatment. */
+  /** Outside-circle labels — equal offset, identical type; never touch the dial. */
   const quadrantLabelClass =
     "pointer-events-none max-w-[7.5rem] text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.14em]";
 
   return (
-    <div className="mx-auto w-full max-w-[460px]">
+    <div className="mx-auto w-full max-w-[min(100%,560px)]">
       <div
-        className="grid grid-cols-[minmax(4.75rem,auto)_minmax(0,1fr)_minmax(4.75rem,auto)] grid-rows-[auto_minmax(0,1fr)_auto] items-center justify-items-center gap-x-3 gap-y-2.5"
+        className="grid w-full grid-cols-[minmax(5rem,auto)_minmax(0,1fr)_minmax(5rem,auto)] grid-rows-[auto_minmax(0,1fr)_auto] items-center justify-items-center gap-x-4 gap-y-3"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -125,8 +125,8 @@ export function ChanakyaRadarVisual({
           Attention
         </p>
 
-        {/* Dial — labels never drawn inside visualization */}
-        <div className="relative col-start-2 row-start-2 aspect-square w-full min-w-0 max-w-[360px]">
+        {/* Dial — fluid size; labels never inside visualization */}
+        <div className="relative col-start-2 row-start-2 aspect-square w-full min-w-0">
           <svg viewBox="0 0 200 200" className="h-full w-full drop-shadow-lg">
             <defs>
               <radialGradient id="radar-glow" cx="50%" cy="50%" r="50%">

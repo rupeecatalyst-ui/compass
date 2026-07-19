@@ -1,0 +1,65 @@
+---
+description: Catalyst One Enterprise UX Standard — workflow-first layouts for all screens
+alwaysApply: true
+---
+
+# Catalyst One — Enterprise UX Standard
+
+Applies to **all present and future screens**.
+
+Optimise for **user workflow**, information visibility, and operational efficiency — not decorative component placement.
+
+## Screen layout
+
+- Design responsively; use available space efficiently.
+- Avoid unnecessary vertical stacking.
+- Keep the most important operational information visible without excessive scrolling.
+
+## Responsive behaviour
+
+Layouts must adapt to laptop, desktop, and large monitors.
+
+Avoid fixed heights whenever possible. Prefer fluid/`min`/`max` constraints over locked viewport traps.
+
+## Data tables
+
+Important operational tables should remain visible within the primary viewport whenever practical.
+
+Do **not** push tables below multiple large widgets. If vertical space is constrained, **reorganize the layout** rather than hiding critical data.
+
+## Filters
+
+Use compact enterprise filter chips. Avoid oversized buttons. Reduce padding while maintaining readability.
+
+## Visual balance
+
+Charts, cards, tables, and filters must appear visually balanced. No single element should dominate the page unnecessarily.
+
+## CHANAKYA Radar (when touching Radar)
+
+- Allow the radar component to **resize dynamically**.
+- Quadrant labels must remain **outside** the radar.
+- Labels must never overlap or touch the visualization.
+
+## Scrolling
+
+Every page must remain scrollable when content exceeds the viewport.
+
+Never create layouts where content becomes inaccessible (clipped, overflow-hidden traps without an alternate scroll path).
+
+## Completion checklist
+
+Before considering any screen complete, validate:
+
+- No clipped content
+- No inaccessible tables
+- No overlapping labels
+- Balanced spacing
+- Responsive layout
+- Comfortable reading
+
+## Relationship to other rules
+
+- Complements `enterprise-workspace-ux.mdc` (workspace chrome, Close, document scroll).
+- Complements `enterprise-accessibility-contrast.mdc` (contrast).
+- When both apply, satisfy workspace chrome **and** this screen-layout standard.
