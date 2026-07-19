@@ -300,12 +300,13 @@ export function ChanakyaRadarWorkspace() {
           })}
         </div>
 
-        <div className="grid min-h-0 gap-3 xl:grid-cols-[minmax(300px,0.95fr)_minmax(320px,1.05fr)] xl:items-stretch">
-          <section className="flex min-h-0 flex-col rounded-lg border border-zinc-700 bg-zinc-950/60 p-2.5 md:p-3">
-            <p className="mb-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <div className="grid gap-3 xl:grid-cols-[minmax(300px,0.95fr)_minmax(320px,1.05fr)] xl:items-start">
+          <section className="flex flex-col rounded-lg border border-zinc-700 bg-zinc-950/60 p-2.5 md:p-3">
+            <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Operational Radar
             </p>
-            <div className="mx-auto w-full min-h-0 max-h-[min(48vh,440px)] flex-1 xl:max-h-[min(52vh,520px)]">
+            {/* No max-height — dial + labels + status grow; page scrolls */}
+            <div className="mx-auto w-full">
               <ChanakyaRadarVisual
                 vector={model.vector}
                 rows={model.rows}
@@ -316,24 +317,54 @@ export function ChanakyaRadarWorkspace() {
                 hoverSummary={model.hoverSummary}
               />
             </div>
-            <div className="mt-2 shrink-0 rounded-md border border-zinc-700/80 bg-zinc-900/30 px-2.5 py-1.5 text-[11px] md:text-[12px]">
-              <span className="text-muted-foreground">Direction </span>
-              <span className="font-medium text-emerald-300">{model.vector.direction}</span>
-              <span className="mx-2 text-zinc-600">·</span>
-              <span className="text-muted-foreground">Health </span>
-              <span className="font-medium tabular-nums">{model.vector.healthScore}/100</span>
-              <span className="mx-2 text-zinc-600">·</span>
-              <span className="text-muted-foreground">Concern </span>
-              <span className="font-medium text-amber-300">
-                {
-                  CHANAKYA_RADAR_QUADRANTS.find((q) => q.id === model.vector.largestConcern)
-                    ?.label
-                }
-              </span>
+            {/* Status footer — stacked rows, never overlaps At Risk or dial */}
+            <div className="mt-4 grid gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/30 px-3 py-2.5 sm:grid-cols-2">
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Direction
+                </p>
+                <p className="text-[12px] font-medium leading-snug text-emerald-300 md:text-[13px]">
+                  {model.vector.direction}
+                </p>
+              </div>
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Health Score
+                </p>
+                <p className="text-[12px] font-medium tabular-nums leading-snug md:text-[13px]">
+                  {model.vector.healthScore}/100
+                </p>
+              </div>
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Largest Concern
+                </p>
+                <p className="text-[12px] font-medium leading-snug text-amber-300 md:text-[13px]">
+                  {
+                    CHANAKYA_RADAR_QUADRANTS.find((q) => q.id === model.vector.largestConcern)
+                      ?.label
+                  }
+                </p>
+              </div>
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Trend
+                </p>
+                <p
+                  className={cn(
+                    "text-[12px] font-medium leading-snug md:text-[13px]",
+                    model.vector.trend === "Improving" && "text-emerald-400",
+                    model.vector.trend === "Declining" && "text-rose-400",
+                    model.vector.trend === "Stable" && "text-muted-foreground",
+                  )}
+                >
+                  {model.vector.trend}
+                </p>
+              </div>
             </div>
           </section>
 
-          <div className="min-h-[280px] xl:min-h-0">
+          <div className="min-w-0">
             <ChanakyaRadarOpportunityPreview
               preview={selectedPreview}
               onClear={() => setSelectedFileId(null)}

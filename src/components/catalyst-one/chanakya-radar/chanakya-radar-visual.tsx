@@ -108,8 +108,9 @@ export function ChanakyaRadarVisual({
 
   return (
     <div className="mx-auto w-full max-w-[min(100%,560px)]">
+      {/* Fluid dial + outside labels; container grows — never clip footer/labels */}
       <div
-        className="grid w-full grid-cols-[minmax(5rem,auto)_minmax(0,1fr)_minmax(5rem,auto)] grid-rows-[auto_minmax(0,1fr)_auto] items-center justify-items-center gap-x-4 gap-y-3"
+        className="grid w-full grid-cols-[minmax(5.5rem,auto)_minmax(0,1fr)_minmax(5.5rem,auto)] grid-rows-[auto_auto_auto] items-center justify-items-center gap-x-4 gap-y-4"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -126,7 +127,7 @@ export function ChanakyaRadarVisual({
         </p>
 
         {/* Dial — fluid size; labels never inside visualization */}
-        <div className="relative col-start-2 row-start-2 aspect-square w-full min-w-0">
+        <div className="relative col-start-2 row-start-2 aspect-square w-full min-w-0 max-w-[min(100%,420px)]">
           <svg viewBox="0 0 200 200" className="h-full w-full drop-shadow-lg">
             <defs>
               <radialGradient id="radar-glow" cx="50%" cy="50%" r="50%">
@@ -295,8 +296,9 @@ export function ChanakyaRadarVisual({
             </div>
           ) : null}
 
+          {/* Hover sits above the dial so it never covers the centre Health Score */}
           {hovered && !blipHover && (
-            <div className="absolute left-1/2 top-[42%] z-10 w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border/80 bg-zinc-950/95 px-3 py-2 text-left shadow-xl backdrop-blur">
+            <div className="pointer-events-none absolute left-1/2 top-0 z-10 w-[min(100%,220px)] -translate-x-1/2 -translate-y-[calc(100%+0.5rem)] rounded-md border border-border/80 bg-zinc-950/95 px-3 py-2 text-left shadow-xl backdrop-blur">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Operational hover
               </p>
@@ -339,23 +341,9 @@ export function ChanakyaRadarVisual({
           Required
         </p>
 
-        {/* South */}
+        {/* South — reserved row; never shares space with status footer */}
         <p className={cn(quadrantLabelClass, "col-start-2 row-start-3 text-rose-400")}>
           At Risk
-        </p>
-      </div>
-
-      <div className="mt-2 space-y-0.5 text-center">
-        <p className="text-xs font-medium text-foreground">{vector.direction}</p>
-        <p
-          className={cn(
-            "text-[11px]",
-            vector.trend === "Improving" && "text-emerald-400",
-            vector.trend === "Declining" && "text-rose-400",
-            vector.trend === "Stable" && "text-muted-foreground",
-          )}
-        >
-          Trend · {vector.trend}
         </p>
       </div>
     </div>

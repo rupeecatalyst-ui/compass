@@ -46,7 +46,7 @@ function Field({
       <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-0.5 truncate text-[12px] font-medium text-foreground">{value}</p>
+      <p className="mt-0.5 break-words text-[12px] font-medium text-foreground">{value}</p>
     </div>
   );
 }
@@ -66,11 +66,11 @@ export function ChanakyaRadarOpportunityPreview({
 }: ChanakyaRadarOpportunityPreviewProps) {
   if (!preview) {
     return (
-      <aside className="flex h-full min-h-[320px] flex-col rounded-lg border border-dashed border-zinc-700 bg-zinc-950/40 p-4">
+      <aside className="flex min-h-[200px] flex-col rounded-lg border border-dashed border-zinc-700 bg-zinc-950/40 p-4">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Opportunity Preview
         </p>
-        <div className="flex flex-1 items-center justify-center px-4 text-center">
+        <div className="flex flex-1 items-center justify-center px-4 py-10 text-center">
           <p className="max-w-[220px] text-[13px] text-muted-foreground">
             Select an opportunity from the Radar to view details.
           </p>
@@ -104,26 +104,26 @@ export function ChanakyaRadarOpportunityPreview({
   return (
     <aside
       className={cn(
-        "flex h-full min-h-[320px] flex-col overflow-hidden rounded-lg border border-border/70 bg-card shadow-sm",
+        "flex w-full flex-col rounded-lg border border-border/70 bg-card shadow-sm",
         "animate-in fade-in-0 slide-in-from-right-4 duration-300",
       )}
     >
-      <header className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-3 py-2.5">
+      <header className="flex items-start justify-between gap-2 border-b border-border/60 px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Opportunity Preview
           </p>
-          <p className="mt-1 truncate text-[14px] font-semibold tracking-tight">
+          <p className="mt-1 break-words text-[14px] font-semibold tracking-tight">
             {card.borrower}
           </p>
-          <p className="mt-0.5 truncate text-[11px] tabular-nums text-muted-foreground">
+          <p className="mt-0.5 break-all text-[11px] tabular-nums text-muted-foreground">
             {card.opportunityNumber}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           <span
             className={cn(
-              "shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+              "rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
               priorityClass,
             )}
           >
@@ -142,13 +142,14 @@ export function ChanakyaRadarOpportunityPreview({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      {/* Natural height — no nested scroll / no clip; page scrolls */}
+      <div className="space-y-3 p-3">
         {/* Kanban-style summary strip */}
         <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2">
           <p className="text-[11px] font-semibold tabular-nums text-foreground/90">
             {card.loanAmountLabel}
           </p>
-          <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{card.product}</p>
+          <p className="mt-0.5 break-words text-[10px] text-muted-foreground">{card.product}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px]">
             <span className="tabular-nums text-muted-foreground">
               {card.daysSinceActivityLabel}
@@ -160,17 +161,17 @@ export function ChanakyaRadarOpportunityPreview({
             <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               {card.waitingOn.preamble}
             </p>
-            <p className="truncate text-[11px] font-semibold leading-tight">
+            <p className="break-words text-[11px] font-semibold leading-tight">
               <span className="mr-1" aria-hidden>
                 {card.waitingOn.emoji}
               </span>
               {card.waitingOn.party}
             </p>
-            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+            <p className="mt-0.5 break-words text-[10px] text-muted-foreground">
               Pending Item · {card.waitingOn.pendingItem}
             </p>
           </div>
-          <p className="mt-1.5 line-clamp-2 text-[10px] leading-snug text-foreground/75">
+          <p className="mt-1.5 text-[10px] leading-snug text-foreground/75">
             {card.executiveInsight}
           </p>
         </div>
@@ -210,7 +211,7 @@ export function ChanakyaRadarOpportunityPreview({
               {openTasks.slice(0, 4).map((t) => (
                 <li
                   key={t.id}
-                  className="truncate rounded border border-border/50 bg-muted/20 px-2 py-1 text-[11px]"
+                  className="break-words rounded border border-border/50 bg-muted/20 px-2 py-1 text-[11px]"
                 >
                   {t.title}
                 </li>
@@ -254,7 +255,7 @@ export function ChanakyaRadarOpportunityPreview({
         </div>
       </div>
 
-      <footer className="shrink-0 space-y-1.5 border-t border-border/60 bg-muted/15 p-2.5">
+      <footer className="space-y-1.5 border-t border-border/60 bg-muted/15 p-2.5">
         <Button
           type="button"
           size="sm"
