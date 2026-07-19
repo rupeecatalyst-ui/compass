@@ -19,12 +19,14 @@ export function MissionControlShell({ children }: { children: React.ReactNode })
   const feature = useMemo(() => getMissionControlFeatureByRoute(pathname), [pathname]);
   const gateway = useMemo(() => createMissionControlSecurityGateway(), []);
 
-  const isLanding =
-    pathname === "/mission-control" || pathname === "/mission-control/executive-briefing";
+  const isRadarLanding = pathname === "/mission-control";
+  const isBriefing = pathname === "/mission-control/executive-briefing";
   const currentModule = feature?.displayName ?? "Mission Control";
-  const workspaceTitle = isLanding
-    ? "CHANAKYA Executive Briefing"
-    : (feature?.displayName ?? "Command Center");
+  const workspaceTitle = isRadarLanding
+    ? "CHANAKYA Radar"
+    : isBriefing
+      ? "CHANAKYA Executive Briefing"
+      : (feature?.displayName ?? "Command Center");
 
   return (
     <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100">
@@ -33,15 +35,20 @@ export function MissionControlShell({ children }: { children: React.ReactNode })
         currentModule={currentModule}
         workspaceTitle={workspaceTitle}
         breadcrumbs={
-          isLanding
+          isRadarLanding
             ? [
                 { label: "Mission Control", href: "/mission-control" },
-                { label: "CHANAKYA" },
+                { label: "Radar" },
               ]
-            : [
-                { label: "Mission Control", href: "/mission-control" },
-                { label: currentModule },
-              ]
+            : isBriefing
+              ? [
+                  { label: "Mission Control", href: "/mission-control" },
+                  { label: "CHANAKYA" },
+                ]
+              : [
+                  { label: "Mission Control", href: "/mission-control" },
+                  { label: currentModule },
+                ]
         }
       />
       <div className="flex min-h-0 flex-1">

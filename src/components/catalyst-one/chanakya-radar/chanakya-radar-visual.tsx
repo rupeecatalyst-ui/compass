@@ -400,26 +400,23 @@ export function ChanakyaRadarVisual({
         </p>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
         {[
           { label: "On Track", tone: "#22C55E" },
           { label: "Needs Attention", tone: "#FB923C" },
           { label: "At Risk", tone: "#EF4444" },
-          { label: "Follow-up / Dormant", tone: "#F59E0B" },
-          { label: "✓ Worked today", tone: "#34D399" },
+          { label: "Follow-up", tone: "#F59E0B" },
+          { label: "✓ Today", tone: "#34D399" },
         ].map((item) => (
           <div
             key={item.label}
-            className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+            className="flex items-center gap-1 text-[9px] text-muted-foreground"
           >
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.tone }} />
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.tone }} />
             {item.label}
           </div>
         ))}
       </div>
-      <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-        Colour = status · Distance from centre = stage ageing · Tick = worked today
-      </p>
     </div>
   );
 }

@@ -10,15 +10,26 @@ globs:
 
 # CHANAKYA Radar
 
-- Mission Control (CO-SPRINT-104): first screen = live CHANAKYA feed + **hero Radar only**. KPIs / snapshot sit **below the fold**.
-- **Radar | Kanban** switcher lives in the **global header** (beside Notifications, before CHANAKYA AI) — not in page content.
+## First-screen principle (mandatory)
+
+Every pixel on the first visible screen must help answer:
+
+> **What should I work on right now?**
+
+If an element does not directly contribute, **relocate below the fold**, **move to the global header**, or **remove** it.
+
+First screen keeps: compact CHANAKYA ticker · hero Radar (blips / ticks / labels) · scope · Opportunity Preview drawer on demand.
+
+Below the fold: KPIs, Direction / Trend / Concern, intelligence cards, legend explanation.
+
+## Architecture
+
+- **Radar | Kanban** switcher lives in the **global header** (beside Notifications, before CHANAKYA AI).
 - Tabs preserve scope / KPI focus / selection via shared workspace-tab store.
 - Opportunity Preview = right **slide-over** (click outside closes); never permanently shrinks Radar.
-- Blip colour = operational status; **distance from centre = stage ageing**; **✓ tick = worked today** (resets next calendar day via activity date).
-- Live feed is operational guidance only — does **not** open CHANAKYA AI (use existing AI button).
-- Page must always **naturally scroll** (Radar + Kanban). No fixed-height lock / clipped content.
-- KPI click expands opportunity list below snapshot; quadrant click focuses + scrolls to snapshot.
-- Collision-safe blip placement. Quadrant labels outside dial.
+- Blip colour = operational status; **distance from centre = stage ageing**; **✓ tick = worked today**.
+- Live feed is operational guidance only — does **not** open CHANAKYA AI.
+- Page must always **naturally scroll**. No fixed-height lock / clipped content.
 - Metric SSOT / Vector / Health scoring — never reimplemented in UI.
 - Real-time: `subscribeLoanFilesUpdated` + 60s / `storage` fallback.
 - Matrix retired. Kanban cards never draggable.
