@@ -1,0 +1,188 @@
+---
+description: Data Integrity & Analytics Standard v1.0 — every metric from real enterprise data
+alwaysApply: true
+---
+
+# Catalyst One — Data Integrity & Analytics Standard v1.0
+
+**Status:** FOUNDATION STANDARD  
+**This is a permanent architectural standard.**
+
+It applies to every dashboard, chart, report, score, metric, AI recommendation, and operational insight throughout Catalyst One.
+
+---
+
+## Objective
+
+Catalyst One is an **Enterprise Decision Support System**.
+
+Management will rely on the platform for operational, financial, and strategic decisions.
+
+Therefore:
+
+- Every number displayed must represent **actual business data**
+- No visualisation should exist purely for demonstration
+
+---
+
+## Source of Truth
+
+Every report, dashboard, KPI, chart, score, and counter must derive its values from the **enterprise data model**.
+
+- No independent calculations disconnected from SSOT
+- No duplicate business logic
+- No disconnected datasets
+
+Prefer shared derive / engine modules over per-screen ad-hoc math.
+
+---
+
+## Real-Time Principle
+
+All operational dashboards must reflect the **current business state**.
+
+When business data changes, affected metrics must **automatically refresh**.
+
+Examples:
+
+- Stage / sub-stage changes
+- Opportunity creation / closure
+- Disbursal
+- Customer updates
+- Task / follow-up completion
+- Assignment changes
+
+**Implementation expectation:** subscribe to the module’s SSOT update channel (e.g. `subscribeLoanFilesUpdated` / equivalent), not only initial mount or cross-tab `storage` alone. Polling is a fallback, not a substitute for same-session refresh.
+
+---
+
+## No Mock Business Data
+
+- Mock or seeded data may only be used during **development**
+- Production dashboards must **never** display demo values as if they were live business results
+- Users must never make decisions using artificial data
+
+When seed data is unavoidable for empty environments, label it clearly as demo / seed — never present it as production truth.
+
+---
+
+## Every Calculation Requires Business Logic
+
+Every displayed metric must have a **documented calculation**.
+
+Examples:
+
+- Operational Health Score
+- Financial Health Score
+- Radar Direction / Operational Vector
+- Risk Score
+- Conversion Ratio
+- Pipeline Velocity
+- Average Processing Time
+- Productivity Score
+- Revenue Forecast
+
+Every metric must have a clearly defined formula (code comments + constants / admin config where applicable).
+
+---
+
+## Configurable Business Rules
+
+Business rules must not be hardcoded where practical.
+
+Calculations should be configurable through the **Administration Console** so authorised administrators can refine logic without application code changes.
+
+Examples:
+
+- Risk / Health Score weightages
+- Priority rules
+- SLA thresholds
+- Escalation rules
+- Performance scoring
+- Eligibility thresholds
+
+---
+
+## Explainability
+
+Every metric should be explainable.
+
+Where appropriate, users should understand:
+
+- How was this calculated?
+- Which records contributed?
+- Which business rules were applied?
+- Why did this score change?
+
+No black-box calculations for decision-critical metrics.
+
+---
+
+## Auditability
+
+Business calculations should be traceable.
+
+Changes to configurable rules should be auditable, recording at minimum:
+
+- Who changed the rule
+- When it changed
+- Previous value
+- New value
+
+---
+
+## Consistency
+
+- The same metric must always produce the same result from the same data
+- Business logic must exist **only once**
+- Avoid duplicate implementations across screens
+
+---
+
+## Decision First
+
+Every chart should answer a **business question**.
+
+If a chart does not help users make a better decision, it should not exist.
+
+---
+
+## Final Principle
+
+Catalyst One is not a reporting system.
+
+It is an **Enterprise Decision Intelligence Platform**.
+
+Every visualisation must be:
+
+- Accurate
+- Traceable
+- Explainable
+- Based on real business data
+
+Business decisions should be made with complete confidence in the information presented.
+
+---
+
+## Definition of Done (analytics surfaces)
+
+Before marking a dashboard / metric / insight complete:
+
+- [ ] Values derive from enterprise SSOT
+- [ ] Same-session data changes refresh the view
+- [ ] Formula documented (no opaque magic numbers without rationale)
+- [ ] No production demo-as-truth presentation
+- [ ] Logic not duplicated elsewhere (or consolidated)
+- [ ] Explainability path considered for decision-critical scores
+- [ ] Configurable / auditable path noted when admin rules apply
+
+If any required item fails for a production surface, it is **not** production-ready.
+
+---
+
+## Relationship to other rules
+
+- Complements `enterprise-screen-ux-standard.mdc` (layout / usability)
+- Complements `enterprise-workspace-ux.mdc` (workspace chrome)
+- Complements `chanakya-radar.mdc` and module-specific derive engines
+- When UX and data integrity conflict on what to show, **never sacrifice accuracy for decoration**
