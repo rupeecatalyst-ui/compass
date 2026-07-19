@@ -43,8 +43,8 @@ function blipPosition(
 }
 
 /**
- * CO-SPRINT-100 / 100A — Live operational radar (signature visual).
- * Four quadrant labels permanently visible; direction/trend sit below the dial.
+ * CO-SPRINT-100 / 100A / 100C — Live operational radar (signature visual).
+ * Quadrant labels sit outside the outermost circle with equal spacing.
  */
 export function ChanakyaRadarVisual({
   vector,
@@ -102,238 +102,250 @@ export function ChanakyaRadarVisual({
   const nx = 100 + 62 * Math.cos(needleRad);
   const ny = 100 + 62 * Math.sin(needleRad);
 
+  /** Outside-circle labels — equal offset, identical type treatment. */
+  const quadrantLabelClass =
+    "pointer-events-none max-w-[7.5rem] text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.14em]";
+
   return (
-    <div className="mx-auto w-full max-w-[420px]">
+    <div className="mx-auto w-full max-w-[460px]">
       <div
-        className="relative mx-auto aspect-square w-full px-2 py-5 sm:px-3 sm:py-6"
+        className="grid grid-cols-[minmax(4.75rem,auto)_minmax(0,1fr)_minmax(4.75rem,auto)] grid-rows-[auto_minmax(0,1fr)_auto] items-center justify-items-center gap-x-3 gap-y-2.5"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <svg viewBox="0 0 200 200" className="h-full w-full drop-shadow-lg">
-          <defs>
-            <radialGradient id="radar-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="rgba(34,197,94,0.18)" />
-              <stop offset="55%" stopColor="rgba(15,23,42,0.2)" />
-              <stop offset="100%" stopColor="rgba(15,23,42,0)" />
-            </radialGradient>
-            <linearGradient id="sweep-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="rgba(52,211,153,0)" />
-              <stop offset="100%" stopColor="rgba(52,211,153,0.35)" />
-            </linearGradient>
-          </defs>
-
-          <circle cx="100" cy="100" r="92" fill="url(#radar-glow)" />
-          <circle
-            cx="100"
-            cy="100"
-            r="88"
-            fill="rgba(9,12,20,0.92)"
-            stroke="rgba(148,163,184,0.25)"
-            strokeWidth="1"
-          />
-          {[22, 44, 66, 84].map((r) => (
-            <circle
-              key={r}
-              cx="100"
-              cy="100"
-              r={r}
-              fill="none"
-              stroke="rgba(148,163,184,0.12)"
-              strokeWidth="0.6"
-            />
-          ))}
-          <line
-            x1="100"
-            y1="12"
-            x2="100"
-            y2="188"
-            stroke="rgba(148,163,184,0.12)"
-            strokeWidth="0.6"
-          />
-          <line
-            x1="12"
-            y1="100"
-            x2="188"
-            y2="100"
-            stroke="rgba(148,163,184,0.12)"
-            strokeWidth="0.6"
-          />
-
-          {CHANAKYA_RADAR_QUADRANTS.map((q) => {
-            const start = ((q.bearingDeg - 45 - 90) * Math.PI) / 180;
-            const end = ((q.bearingDeg + 45 - 90) * Math.PI) / 180;
-            const x1 = 100 + 88 * Math.cos(start);
-            const y1 = 100 + 88 * Math.sin(start);
-            const x2 = 100 + 88 * Math.cos(end);
-            const y2 = 100 + 88 * Math.sin(end);
-            const active = activeQuadrant === q.id;
-            return (
-              <path
-                key={q.id}
-                d={`M100,100 L${x1},${y1} A88,88 0 0 1 ${x2},${y2} Z`}
-                fill={active ? `${q.tone}22` : `${q.tone}08`}
-                stroke={active ? q.tone : "transparent"}
-                strokeWidth={active ? 1.2 : 0}
-                className="cursor-pointer transition-opacity"
-                onClick={() => onQuadrantClick(q.id)}
-              />
-            );
-          })}
-
-          <g
-            className="origin-center animate-[spin_4.5s_linear_infinite]"
-            style={{ transformOrigin: "100px 100px" }}
-          >
-            <path
-              d="M100,100 L100,16 A84,84 0 0 1 168,52 Z"
-              fill="url(#sweep-grad)"
-              opacity="0.85"
-            />
-          </g>
-
-          <line
-            x1="100"
-            y1="100"
-            x2={nx}
-            y2={ny}
-            stroke="#34D399"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-          />
-          <circle cx={nx} cy={ny} r="3.2" fill="#34D399" />
-
-          {blips.map((b) => {
-            const selected = selectedRowId === b.row.id;
-            const dimmed = Boolean(activeQuadrant && activeQuadrant !== b.q);
-            return (
-              <g
-                key={b.row.id}
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onBlipClick?.(b.row);
-                }}
-                onMouseEnter={() => setBlipHover({ row: b.row, x: b.x, y: b.y })}
-                onMouseLeave={() => setBlipHover(null)}
-              >
-                {/* Hit target */}
-                <circle cx={b.x} cy={b.y} r={8} fill="transparent" />
-                <circle
-                  cx={b.x}
-                  cy={b.y}
-                  r={selected ? 4.2 : dimmed ? 1.4 : 2.4}
-                  fill={b.color}
-                  opacity={dimmed && !selected ? 0.25 : 0.95}
-                  stroke={selected ? "#fff" : "transparent"}
-                  strokeWidth={selected ? 1.2 : 0}
-                  className={selected ? undefined : "animate-pulse"}
-                />
-              </g>
-            );
-          })}
-
-          <circle
-            cx="100"
-            cy="100"
-            r="28"
-            fill="rgba(9,12,20,0.95)"
-            stroke="rgba(52,211,153,0.45)"
-            strokeWidth="1.2"
-          />
-          <text
-            x="100"
-            y="96"
-            textAnchor="middle"
-            className="fill-emerald-300"
-            style={{ fontSize: "14px", fontWeight: 700 }}
-          >
-            {vector.healthScore}
-          </text>
-          <text
-            x="100"
-            y="108"
-            textAnchor="middle"
-            className="fill-slate-400"
-            style={{ fontSize: "6px", letterSpacing: "0.08em" }}
-          >
-            / 100
-          </text>
-        </svg>
-
-        {/* Permanently visible quadrant labels */}
-        <span className="pointer-events-none absolute left-1/2 top-0 z-[1] -translate-x-1/2 whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-400 sm:text-[10px]">
+        {/* North — outside outermost circle */}
+        <p className={cn(quadrantLabelClass, "col-start-2 row-start-1 text-emerald-400")}>
           On Track
-        </span>
-        <span className="pointer-events-none absolute bottom-0 left-1/2 z-[1] -translate-x-1/2 whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.12em] text-rose-400 sm:text-[10px]">
-          At Risk
-        </span>
-        <span className="pointer-events-none absolute left-0 top-1/2 z-[1] -translate-y-1/2 text-left text-[8px] font-bold uppercase leading-tight tracking-wide text-amber-400 sm:text-[9px]">
+        </p>
+
+        {/* West */}
+        <p className={cn(quadrantLabelClass, "col-start-1 row-start-2 text-amber-400")}>
           Needs
           <br />
           Attention
-        </span>
-        <span className="pointer-events-none absolute right-0 top-1/2 z-[1] -translate-y-1/2 text-right text-[8px] font-bold uppercase leading-tight tracking-wide text-sky-400 sm:text-[9px]">
+        </p>
+
+        {/* Dial — labels never drawn inside visualization */}
+        <div className="relative col-start-2 row-start-2 aspect-square w-full min-w-0 max-w-[360px]">
+          <svg viewBox="0 0 200 200" className="h-full w-full drop-shadow-lg">
+            <defs>
+              <radialGradient id="radar-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="rgba(34,197,94,0.18)" />
+                <stop offset="55%" stopColor="rgba(15,23,42,0.2)" />
+                <stop offset="100%" stopColor="rgba(15,23,42,0)" />
+              </radialGradient>
+              <linearGradient id="sweep-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(52,211,153,0)" />
+                <stop offset="100%" stopColor="rgba(52,211,153,0.35)" />
+              </linearGradient>
+            </defs>
+
+            <circle cx="100" cy="100" r="92" fill="url(#radar-glow)" />
+            <circle
+              cx="100"
+              cy="100"
+              r="88"
+              fill="rgba(9,12,20,0.92)"
+              stroke="rgba(148,163,184,0.25)"
+              strokeWidth="1"
+            />
+            {[22, 44, 66, 84].map((r) => (
+              <circle
+                key={r}
+                cx="100"
+                cy="100"
+                r={r}
+                fill="none"
+                stroke="rgba(148,163,184,0.12)"
+                strokeWidth="0.6"
+              />
+            ))}
+            <line
+              x1="100"
+              y1="12"
+              x2="100"
+              y2="188"
+              stroke="rgba(148,163,184,0.12)"
+              strokeWidth="0.6"
+            />
+            <line
+              x1="12"
+              y1="100"
+              x2="188"
+              y2="100"
+              stroke="rgba(148,163,184,0.12)"
+              strokeWidth="0.6"
+            />
+
+            {CHANAKYA_RADAR_QUADRANTS.map((q) => {
+              const start = ((q.bearingDeg - 45 - 90) * Math.PI) / 180;
+              const end = ((q.bearingDeg + 45 - 90) * Math.PI) / 180;
+              const x1 = 100 + 88 * Math.cos(start);
+              const y1 = 100 + 88 * Math.sin(start);
+              const x2 = 100 + 88 * Math.cos(end);
+              const y2 = 100 + 88 * Math.sin(end);
+              const active = activeQuadrant === q.id;
+              return (
+                <path
+                  key={q.id}
+                  d={`M100,100 L${x1},${y1} A88,88 0 0 1 ${x2},${y2} Z`}
+                  fill={active ? `${q.tone}22` : `${q.tone}08`}
+                  stroke={active ? q.tone : "transparent"}
+                  strokeWidth={active ? 1.2 : 0}
+                  className="cursor-pointer transition-opacity"
+                  onClick={() => onQuadrantClick(q.id)}
+                />
+              );
+            })}
+
+            <g
+              className="origin-center animate-[spin_4.5s_linear_infinite]"
+              style={{ transformOrigin: "100px 100px" }}
+            >
+              <path
+                d="M100,100 L100,16 A84,84 0 0 1 168,52 Z"
+                fill="url(#sweep-grad)"
+                opacity="0.85"
+              />
+            </g>
+
+            <line
+              x1="100"
+              y1="100"
+              x2={nx}
+              y2={ny}
+              stroke="#34D399"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            />
+            <circle cx={nx} cy={ny} r="3.2" fill="#34D399" />
+
+            {blips.map((b) => {
+              const selected = selectedRowId === b.row.id;
+              const dimmed = Boolean(activeQuadrant && activeQuadrant !== b.q);
+              return (
+                <g
+                  key={b.row.id}
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBlipClick?.(b.row);
+                  }}
+                  onMouseEnter={() => setBlipHover({ row: b.row, x: b.x, y: b.y })}
+                  onMouseLeave={() => setBlipHover(null)}
+                >
+                  <circle cx={b.x} cy={b.y} r={8} fill="transparent" />
+                  <circle
+                    cx={b.x}
+                    cy={b.y}
+                    r={selected ? 4.2 : dimmed ? 1.4 : 2.4}
+                    fill={b.color}
+                    opacity={dimmed && !selected ? 0.25 : 0.95}
+                    stroke={selected ? "#fff" : "transparent"}
+                    strokeWidth={selected ? 1.2 : 0}
+                    className={selected ? undefined : "animate-pulse"}
+                  />
+                </g>
+              );
+            })}
+
+            <circle
+              cx="100"
+              cy="100"
+              r="28"
+              fill="rgba(9,12,20,0.95)"
+              stroke="rgba(52,211,153,0.45)"
+              strokeWidth="1.2"
+            />
+            <text
+              x="100"
+              y="96"
+              textAnchor="middle"
+              className="fill-emerald-300"
+              style={{ fontSize: "14px", fontWeight: 700 }}
+            >
+              {vector.healthScore}
+            </text>
+            <text
+              x="100"
+              y="108"
+              textAnchor="middle"
+              className="fill-slate-400"
+              style={{ fontSize: "6px", letterSpacing: "0.08em" }}
+            >
+              / 100
+            </text>
+          </svg>
+
+          {blipHover ? (
+            <div
+              className="pointer-events-none absolute z-20 w-[180px] -translate-x-1/2 -translate-y-[110%] rounded-md border border-border/80 bg-zinc-950/95 px-2.5 py-1.5 text-left shadow-xl backdrop-blur"
+              style={{
+                left: `${(blipHover.x / 200) * 100}%`,
+                top: `${(blipHover.y / 200) * 100}%`,
+              }}
+            >
+              <p className="truncate text-[11px] font-semibold">{blipHover.row.borrower}</p>
+              <p className="truncate text-[10px] tabular-nums text-emerald-300">
+                {blipHover.row.loanAmountLabel}
+              </p>
+              <p className="truncate text-[10px] text-muted-foreground">
+                {blipHover.row.quadrantLabel} · {blipHover.row.product}
+              </p>
+            </div>
+          ) : null}
+
+          {hovered && !blipHover && (
+            <div className="absolute left-1/2 top-[42%] z-10 w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border/80 bg-zinc-950/95 px-3 py-2 text-left shadow-xl backdrop-blur">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Operational hover
+              </p>
+              <dl className="mt-1 space-y-0.5 text-[11px]">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted-foreground">Health</dt>
+                  <dd className="tabular-nums font-medium">
+                    {hoverSummary.healthScore}/100
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted-foreground">Direction</dt>
+                  <dd className="font-medium">{hoverSummary.direction}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted-foreground">Largest concern</dt>
+                  <dd className="font-medium text-amber-300">
+                    {hoverSummary.largestConcern}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted-foreground">Dominant</dt>
+                  <dd className="font-medium">{hoverSummary.dominantCategory}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-muted-foreground">Active files</dt>
+                  <dd className="tabular-nums font-medium">
+                    {hoverSummary.totalActive}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          )}
+        </div>
+
+        {/* East */}
+        <p className={cn(quadrantLabelClass, "col-start-3 row-start-2 text-sky-400")}>
           Follow-up
           <br />
           Required
-        </span>
+        </p>
 
-        {blipHover ? (
-          <div
-            className="pointer-events-none absolute z-20 w-[180px] -translate-x-1/2 -translate-y-[110%] rounded-md border border-border/80 bg-zinc-950/95 px-2.5 py-1.5 text-left shadow-xl backdrop-blur"
-            style={{
-              left: `${(blipHover.x / 200) * 100}%`,
-              top: `${(blipHover.y / 200) * 100}%`,
-            }}
-          >
-            <p className="truncate text-[11px] font-semibold">{blipHover.row.borrower}</p>
-            <p className="truncate text-[10px] tabular-nums text-emerald-300">
-              {blipHover.row.loanAmountLabel}
-            </p>
-            <p className="truncate text-[10px] text-muted-foreground">
-              {blipHover.row.quadrantLabel} · {blipHover.row.product}
-            </p>
-          </div>
-        ) : null}
-
-        {hovered && !blipHover && (
-          <div className="absolute left-1/2 top-[42%] z-10 w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border/80 bg-zinc-950/95 px-3 py-2 text-left shadow-xl backdrop-blur">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Operational hover
-            </p>
-            <dl className="mt-1 space-y-0.5 text-[11px]">
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Health</dt>
-                <dd className="tabular-nums font-medium">
-                  {hoverSummary.healthScore}/100
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Direction</dt>
-                <dd className="font-medium">{hoverSummary.direction}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Largest concern</dt>
-                <dd className="font-medium text-amber-300">
-                  {hoverSummary.largestConcern}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Dominant</dt>
-                <dd className="font-medium">{hoverSummary.dominantCategory}</dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Active files</dt>
-                <dd className="tabular-nums font-medium">
-                  {hoverSummary.totalActive}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        )}
+        {/* South */}
+        <p className={cn(quadrantLabelClass, "col-start-2 row-start-3 text-rose-400")}>
+          At Risk
+        </p>
       </div>
 
-      <div className="mt-1 space-y-0.5 text-center">
+      <div className="mt-2 space-y-0.5 text-center">
         <p className="text-xs font-medium text-foreground">{vector.direction}</p>
         <p
           className={cn(
