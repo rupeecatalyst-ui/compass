@@ -8,7 +8,7 @@ alwaysApply: true
 Before implementing any feature:
 
 1. **Reuse** existing components wherever possible.
-2. **Do not duplicate** business logic — extend shared libs / SSOT helpers. Every enterprise metric has **exactly one** implementation (`enterprise-metric-single-implementation.mdc`).
+2. **Do not duplicate** business logic — extend shared libs / SSOT helpers. **Permanent:** every enterprise metric has exactly one implementation (`enterprise-metric-single-implementation.mdc`); Mission Control, CHANAKYA, SARATHI, APIs, and AI must consume it.
 3. **Maintain enterprise UI consistency** with the established design system and spacing.
 4. Keep all components **modular and reusable**.
 5. **Never hardcode** business values that belong in masters or configuration.

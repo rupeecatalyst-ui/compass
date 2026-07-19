@@ -1,42 +1,62 @@
 ---
-description: Enterprise Metric Single Implementation — one formula, one shared calculation everywhere
+description: Permanent SSOT for business metrics — exactly one shared calculation platform-wide
 alwaysApply: true
 ---
 
-# Catalyst One — Enterprise Metric Single Implementation Standard
+# Catalyst One — Single Source of Truth for Business Metrics
 
-**Status:** FOUNDATION STANDARD  
-**This is a permanent architectural standard.**
-
-It applies to every screen, report, dashboard, API, AI module, chart, score, KPI, and operational insight throughout Catalyst One.
+**Status:** PERMANENT ENGINEERING STANDARD · FOUNDATION  
+**Effective:** Immediately  
+**This is not a feature.** It is a foundational architectural principle for all current and future Catalyst One development.
 
 ---
 
 ## Primary Principle
 
-**Every enterprise metric must have exactly one implementation.**
+**Every enterprise metric must have exactly one implementation within Catalyst One.**
 
-All consumers must use the same shared calculation.
+All screens, dashboards, reports, APIs, Mission Control, CHANAKYA, SARATHI, and all future AI modules **must consume the same shared business calculation**.
 
-No business formula should ever be duplicated across the application.
+Business logic must **never** be duplicated across modules.
+
+If a business rule or calculation changes, it must be updated **only once** in the shared implementation — and every dependent module must automatically reflect the change.
+
+**Single Source of Truth (SSOT) for business metrics is mandatory across the entire platform.**
 
 ---
 
-## Scope
+## Applies To
 
-This standard covers every calculated business value, including but not limited to:
+Every surface that displays, computes, or narrates a metric, including:
+
+- Screens and workspaces
+- Dashboards and Mission Control
+- Reports and exports
+- APIs and services
+- CHANAKYA (Radar, Briefing, Guide, and related intelligence)
+- SARATHI and partner / channel intelligence
+- All current and future AI modules and insights
+
+---
+
+## Covered Metrics
+
+This principle applies to all current and future business metrics, including but not limited to:
 
 - Operational Health Score
 - Financial Health Score
-- Radar Direction / Operational Vector
-- Quadrant classification and counts
-- Risk / priority scores
-- Conversion ratios
-- Pipeline velocity / average processing time
-- Productivity / performance scores
-- Revenue / commission forecasts
-- SLA breach / aging metrics
-- Any KPI, counter, or derived insight shown to management
+- Opportunity Score
+- Customer Score
+- Partner Score
+- Risk Scores
+- KPIs
+- Ratios
+- Trends
+- Forecasts
+- Executive Metrics
+- AI Insights
+- Radar Direction / Operational Vector / quadrant counts
+- Any future enterprise metric introduced into Catalyst One
 
 ---
 
@@ -44,11 +64,11 @@ This standard covers every calculated business value, including but not limited 
 
 For each named metric:
 
-1. **One** derive / engine / formula module owns the calculation
-2. Screens, reports, dashboards, APIs, and AI modules **import and call** that module
-3. UI components **must not** re-implement the formula inline
-4. Parallel “compatible” copies of the same formula are **forbidden**
-5. If two surfaces show the same metric name, they **must** call the same function with the same inputs
+1. **Exactly one** derive / engine / formula module owns the calculation
+2. Every consumer **imports and calls** that module — never copies the formula
+3. UI, APIs, Mission Control, CHANAKYA, SARATHI, and AI paths **must not** re-implement the formula inline
+4. Parallel or “compatible” copies of the same formula are **forbidden**
+5. The same metric name on two surfaces **must** call the same function with the same inputs
 
 Prefer shared paths such as:
 
@@ -56,33 +76,45 @@ Prefer shared paths such as:
 - `src/lib/**/*-engine*.ts`
 - Domain constants that feed a single calculator
 
-Never copy formula bodies into React components, route handlers, or prompt/AI helpers.
+Never embed divergent formula bodies in React components, route handlers, prompt builders, or AI helpers.
+
+---
+
+## Change-Once Guarantee
+
+When a business rule or formula changes:
+
+1. Update **only** the canonical shared implementation
+2. Do not patch individual screens or modules to “catch up”
+3. All dependents must pick up the change through the shared import
+4. If a consumer still has a local copy, **delete it** and wire to SSOT before shipping
 
 ---
 
 ## Forbidden Patterns
 
-- Recalculating the same score in a dashboard **and** again in a table / tooltip / export
-- Slightly different thresholds or weightings for the “same” metric on different screens
+- Recalculating the same score in a dashboard **and** again in a table, tooltip, export, or AI summary
+- Slightly different thresholds or weightings for the “same” metric across modules
 - Hardcoded percentages / magic numbers that diverge from the shared engine
 - AI or briefing text inventing a metric value instead of calling the shared calculator
+- Mission Control, CHANAKYA, or SARATHI maintaining a private formula for a platform metric
 - API responses recomputing a metric already owned by a lib module, unless the API **is** that module’s sole entry point
 
 ---
 
 ## When Adding or Changing a Metric
 
-1. Search for existing implementations of the metric (name, aliases, related scores)
+1. Search for existing implementations (name, aliases, related scores)
 2. If one exists — **extend or fix that implementation**; do not create a second
 3. If none exists — create **one** shared module, document the formula, then wire all consumers
-4. If consumers currently diverge — **consolidate** before shipping the change
-5. Update module rules / docs so the canonical path is obvious
+4. If consumers currently diverge — **consolidate** before shipping
+5. Document the canonical path in module rules so ownership is obvious
 
 ---
 
 ## Consistency Guarantee
 
-Given the same enterprise data inputs, the same metric **must** always produce the same result — regardless of which screen, report, API, or AI surface requested it.
+Given the same enterprise data inputs, the same metric **must** always produce the same result — regardless of which screen, dashboard, report, API, Mission Control view, CHANAKYA surface, SARATHI module, or AI insight requested it.
 
 Any discrepancy between surfaces is a **defect**.
 
@@ -90,11 +122,11 @@ Any discrepancy between surfaces is a **defect**.
 
 ## Relationship to other standards
 
-- Strengthens `data-integrity-analytics-standard.mdc` (accuracy, SSOT, explainability)
+- Strengthens `data-integrity-analytics-standard.mdc` (accuracy, explainability, real-time refresh)
 - Aligns with `catalyst-one-development-charter.mdc` (do not duplicate business logic)
-- Complements module engines (e.g. `chanakya-radar.mdc` Operational Vector / Health Score)
+- Complements module engines (e.g. `chanakya-radar.mdc`)
 
-When speed of delivery conflicts with single implementation, **consolidate first** — never ship a second formula to “move faster.”
+When delivery speed conflicts with single implementation, **consolidate first** — never ship a second formula to move faster.
 
 ---
 
@@ -104,8 +136,8 @@ Before marking complete:
 
 - [ ] Canonical calculator identified or created (exactly one)
 - [ ] All new/changed consumers call that calculator
-- [ ] No duplicated formula left in UI, API, or AI paths touched by the change
+- [ ] No duplicated formula left in UI, API, Mission Control, CHANAKYA, SARATHI, or AI paths touched by the change
 - [ ] Formula documented at the canonical site
-- [ ] Same inputs → same outputs verified across at least two consumers when multiple exist
+- [ ] Same inputs → same outputs across consumers when multiple exist
 
 If a second implementation remains, the work is **not** production-ready.

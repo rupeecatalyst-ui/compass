@@ -137,7 +137,7 @@ Changes to configurable rules should be auditable, recording at minimum:
 - Business logic must exist **only once**
 - Avoid duplicate implementations across screens
 
-**Canonical rule:** see `enterprise-metric-single-implementation.mdc` — every enterprise metric has exactly one shared calculation; screens, reports, dashboards, APIs, and AI modules must consume it. No formula duplication.
+**Canonical rule:** see `enterprise-metric-single-implementation.mdc` — permanent SSOT for business metrics. Exactly one shared calculation platform-wide (Mission Control, CHANAKYA, SARATHI, APIs, AI). Change once; all dependents reflect automatically. No formula duplication.
 
 ---
 
