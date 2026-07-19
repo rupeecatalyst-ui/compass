@@ -14,6 +14,9 @@ interface ChanakyaRadarVisualProps {
   rows: ChanakyaRadarDealRow[];
   activeQuadrant: ChanakyaOperationalQuadrantId | null;
   onQuadrantClick: (id: ChanakyaOperationalQuadrantId) => void;
+  /** CO-SPRINT-100C — selected opportunity blip */
+  selectedRowId?: string | null;
+  onBlipClick?: (row: ChanakyaRadarDealRow) => void;
   hoverSummary: {
     healthScore: number;
     direction: string;
@@ -48,10 +51,17 @@ export function ChanakyaRadarVisual({
   rows,
   activeQuadrant,
   onQuadrantClick,
+  selectedRowId = null,
+  onBlipClick,
   hoverSummary,
 }: ChanakyaRadarVisualProps) {
   const [displayBearing, setDisplayBearing] = useState(vector.bearingDeg);
   const [hovered, setHovered] = useState(false);
+  const [blipHover, setBlipHover] = useState<{
+    row: ChanakyaRadarDealRow;
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     let frame = 0;
@@ -192,17 +202,35 @@ export function ChanakyaRadarVisual({
           />
           <circle cx={nx} cy={ny} r="3.2" fill="#34D399" />
 
-          {blips.map((b) => (
-            <circle
-              key={b.row.id}
-              cx={b.x}
-              cy={b.y}
-              r={activeQuadrant && activeQuadrant !== b.q ? 1.4 : 2.4}
-              fill={b.color}
-              opacity={activeQuadrant && activeQuadrant !== b.q ? 0.25 : 0.9}
-              className="animate-pulse"
-            />
-          ))}
+          {blips.map((b) => {
+            const selected = selectedRowId === b.row.id;
+            const dimmed = Boolean(activeQuadrant && activeQuadrant !== b.q);
+            return (
+              <g
+                key={b.row.id}
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBlipClick?.(b.row);
+                }}
+                onMouseEnter={() => setBlipHover({ row: b.row, x: b.x, y: b.y })}
+                onMouseLeave={() => setBlipHover(null)}
+              >
+                {/* Hit target */}
+                <circle cx={b.x} cy={b.y} r={8} fill="transparent" />
+                <circle
+                  cx={b.x}
+                  cy={b.y}
+                  r={selected ? 4.2 : dimmed ? 1.4 : 2.4}
+                  fill={b.color}
+                  opacity={dimmed && !selected ? 0.25 : 0.95}
+                  stroke={selected ? "#fff" : "transparent"}
+                  strokeWidth={selected ? 1.2 : 0}
+                  className={selected ? undefined : "animate-pulse"}
+                />
+              </g>
+            );
+          })}
 
           <circle
             cx="100"
@@ -250,7 +278,25 @@ export function ChanakyaRadarVisual({
           Required
         </span>
 
-        {hovered && (
+        {blipHover ? (
+          <div
+            className="pointer-events-none absolute z-20 w-[180px] -translate-x-1/2 -translate-y-[110%] rounded-md border border-border/80 bg-zinc-950/95 px-2.5 py-1.5 text-left shadow-xl backdrop-blur"
+            style={{
+              left: `${(blipHover.x / 200) * 100}%`,
+              top: `${(blipHover.y / 200) * 100}%`,
+            }}
+          >
+            <p className="truncate text-[11px] font-semibold">{blipHover.row.borrower}</p>
+            <p className="truncate text-[10px] tabular-nums text-emerald-300">
+              {blipHover.row.loanAmountLabel}
+            </p>
+            <p className="truncate text-[10px] text-muted-foreground">
+              {blipHover.row.quadrantLabel} · {blipHover.row.product}
+            </p>
+          </div>
+        ) : null}
+
+        {hovered && !blipHover && (
           <div className="absolute left-1/2 top-[42%] z-10 w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border/80 bg-zinc-950/95 px-3 py-2 text-left shadow-xl backdrop-blur">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Operational hover
