@@ -14,6 +14,8 @@ import { STAGE_LABELS, getSubStatusLabel } from "@/constants/loan-stage-master";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { formatINR } from "@/lib/format-currency";
 import type { ChanakyaRadarCard } from "@/lib/chanakya-radar";
+import { mapHealthToQuadrant, quadrantLabel } from "@/lib/chanakya-radar";
+import type { ChanakyaOperationalQuadrantId } from "@/constants/chanakya-radar";
 import type { LoanFile } from "@/types/catalyst-one";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +34,37 @@ interface ChanakyaRadarOpportunityPreviewProps {
   onViewDocuments: () => void;
 }
 
+/** Soft Enterprise Alert tones — Opportunity Insight focal point (CO-PRIORITY-001). */
+const INSIGHT_ALERT_STYLES: Record<
+  ChanakyaOperationalQuadrantId,
+  { box: string; badge: string; muted: string; action: string }
+> = {
+  at_risk: {
+    box: "border-rose-500/40 bg-rose-500/12",
+    badge: "border-rose-500/45 bg-rose-500/20 text-rose-100",
+    muted: "text-rose-100/75",
+    action: "text-rose-50",
+  },
+  follow_up_required: {
+    box: "border-amber-500/40 bg-amber-500/12",
+    badge: "border-amber-500/45 bg-amber-500/20 text-amber-100",
+    muted: "text-amber-100/75",
+    action: "text-amber-50",
+  },
+  needs_attention: {
+    box: "border-orange-500/40 bg-orange-500/12",
+    badge: "border-orange-500/45 bg-orange-500/20 text-orange-100",
+    muted: "text-orange-100/75",
+    action: "text-orange-50",
+  },
+  on_track: {
+    box: "border-emerald-500/40 bg-emerald-500/12",
+    badge: "border-emerald-500/45 bg-emerald-500/20 text-emerald-100",
+    muted: "text-emerald-100/75",
+    action: "text-emerald-50",
+  },
+};
+
 function Field({
   label,
   value,
@@ -47,6 +80,65 @@ function Field({
         {label}
       </p>
       <p className="mt-0.5 break-words text-[12px] font-medium text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function OpportunityInsightAlert({
+  card,
+  file,
+}: {
+  card: ChanakyaRadarCard;
+  file: LoanFile;
+}) {
+  const quadrant =
+    mapHealthToQuadrant(card.health, file) ?? ("needs_attention" as ChanakyaOperationalQuadrantId);
+  const styles = INSIGHT_ALERT_STYLES[quadrant];
+  const statusLabel = quadrantLabel(quadrant);
+  const why = card.why[0]?.trim();
+  const action =
+    card.recommends[0]?.trim() ||
+    (card.nextWorkspace.label
+      ? `Open ${card.nextWorkspace.label}`
+      : undefined);
+
+  return (
+    <div
+      role="status"
+      aria-label={`Opportunity insight · ${statusLabel}`}
+      className={cn(
+        "rounded-lg border px-3.5 py-3.5 shadow-sm",
+        styles.box,
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={cn(
+            "rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]",
+            styles.badge,
+          )}
+        >
+          {statusLabel}
+        </span>
+        <span className={cn("text-[9px] font-semibold uppercase tracking-[0.12em]", styles.muted)}>
+          Opportunity Insight
+        </span>
+      </div>
+      <p className="mt-2.5 text-[13px] font-medium leading-relaxed text-foreground md:text-[14px]">
+        {card.executiveInsight}
+      </p>
+      {why ? (
+        <p className={cn("mt-2.5 text-[11px] leading-snug", styles.muted)}>
+          <span className="font-semibold uppercase tracking-wide">Why · </span>
+          {why}
+        </p>
+      ) : null}
+      {action ? (
+        <p className={cn("mt-1.5 text-[12px] font-semibold leading-snug", styles.action)}>
+          <span className="font-semibold uppercase tracking-wide opacity-80">Action · </span>
+          {action}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -144,6 +236,9 @@ export function ChanakyaRadarOpportunityPreview({
 
       {/* Natural height — no nested scroll / no clip; page scrolls */}
       <div className="space-y-3 p-3">
+        {/* Focal Enterprise Alert — Opportunity Insight (status-coloured) */}
+        <OpportunityInsightAlert card={card} file={file} />
+
         {/* Kanban-style summary strip */}
         <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2">
           <p className="text-[11px] font-semibold tabular-nums text-foreground/90">
@@ -171,9 +266,6 @@ export function ChanakyaRadarOpportunityPreview({
               Pending Item · {card.waitingOn.pendingItem}
             </p>
           </div>
-          <p className="mt-1.5 text-[10px] leading-snug text-foreground/75">
-            {card.executiveInsight}
-          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">

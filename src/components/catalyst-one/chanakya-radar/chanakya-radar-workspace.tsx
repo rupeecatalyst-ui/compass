@@ -318,8 +318,8 @@ export function ChanakyaRadarWorkspace() {
               />
             </div>
             {/* Status footer — stacked rows, never overlaps At Risk or dial */}
-            <div className="mt-4 grid gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/30 px-3 py-2.5 sm:grid-cols-2">
-              <div className="min-w-0 space-y-0.5">
+            <div className="mt-5 grid gap-3 rounded-md border border-zinc-700/80 bg-zinc-900/30 px-3.5 py-3 sm:grid-cols-2">
+              <div className="min-w-0 space-y-1">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   Direction
                 </p>
@@ -327,7 +327,7 @@ export function ChanakyaRadarWorkspace() {
                   {model.vector.direction}
                 </p>
               </div>
-              <div className="min-w-0 space-y-0.5">
+              <div className="min-w-0 space-y-1">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   Health Score
                 </p>
@@ -335,7 +335,7 @@ export function ChanakyaRadarWorkspace() {
                   {model.vector.healthScore}/100
                 </p>
               </div>
-              <div className="min-w-0 space-y-0.5">
+              <div className="min-w-0 space-y-1">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   Largest Concern
                 </p>
@@ -346,7 +346,7 @@ export function ChanakyaRadarWorkspace() {
                   }
                 </p>
               </div>
-              <div className="min-w-0 space-y-0.5">
+              <div className="min-w-0 space-y-1">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   Trend
                 </p>

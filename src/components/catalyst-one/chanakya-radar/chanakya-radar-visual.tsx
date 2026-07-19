@@ -110,7 +110,7 @@ export function ChanakyaRadarVisual({
     <div className="mx-auto w-full max-w-[min(100%,560px)]">
       {/* Fluid dial + outside labels; container grows — never clip footer/labels */}
       <div
-        className="grid w-full grid-cols-[minmax(5.5rem,auto)_minmax(0,1fr)_minmax(5.5rem,auto)] grid-rows-[auto_auto_auto] items-center justify-items-center gap-x-4 gap-y-4"
+        className="grid w-full grid-cols-[minmax(5.5rem,auto)_minmax(0,1fr)_minmax(5.5rem,auto)] grid-rows-[auto_auto_auto] items-center justify-items-center gap-x-5 gap-y-5"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -120,7 +120,7 @@ export function ChanakyaRadarVisual({
         </p>
 
         {/* West */}
-        <p className={cn(quadrantLabelClass, "col-start-1 row-start-2 text-amber-400")}>
+        <p className={cn(quadrantLabelClass, "col-start-1 row-start-2 text-orange-400")}>
           Needs
           <br />
           Attention
@@ -335,7 +335,7 @@ export function ChanakyaRadarVisual({
         </div>
 
         {/* East */}
-        <p className={cn(quadrantLabelClass, "col-start-3 row-start-2 text-sky-400")}>
+        <p className={cn(quadrantLabelClass, "col-start-3 row-start-2 text-amber-400")}>
           Follow-up
           <br />
           Required
