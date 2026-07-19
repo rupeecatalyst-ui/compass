@@ -35,6 +35,7 @@ import { ROUTES } from "@/constants/routes";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { loadLoanFiles } from "@/lib/loan-files-storage";
+import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
 import {
   buildChanakyaRadarDashboard,
   filterRowsByActionTab,
@@ -130,11 +131,16 @@ export function ChanakyaRadarWorkspace() {
   }, [scope]);
 
   useEffect(() => {
-    const onStorage = () => setTick((t) => t + 1);
-    window.addEventListener("storage", onStorage);
-    const id = window.setInterval(() => setTick((t) => t + 1), 60_000);
+    const bump = () => setTick((t) => t + 1);
+    /** Primary: same-session LoanFile create/update/delete via saveLoanFiles. */
+    const unsubscribe = subscribeLoanFilesUpdated(bump);
+    /** Cross-tab fallback when another window mutates localStorage. */
+    window.addEventListener("storage", bump);
+    /** Resilience: periodic recompute if an event was missed. */
+    const id = window.setInterval(bump, 60_000);
     return () => {
-      window.removeEventListener("storage", onStorage);
+      unsubscribe();
+      window.removeEventListener("storage", bump);
       window.clearInterval(id);
     };
   }, []);
