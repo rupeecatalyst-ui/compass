@@ -377,8 +377,8 @@ export function ChanakyaRadarWorkspace() {
   const drawerOpen = Boolean(selectedPreview);
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden bg-zinc-950/20">
-      <div className="flex w-full flex-col gap-3 p-3 md:gap-4 md:p-4">
+    <div className="w-full bg-zinc-950/20">
+      <div className="flex w-full flex-col gap-2.5 pb-6 md:gap-3">
         {/* Minimal header */}
         <header className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -469,14 +469,14 @@ export function ChanakyaRadarWorkspace() {
 
         {workspaceTab === "radar" ? (
           <>
-            {/* First screen — feed + hero Radar only */}
-            <section className="flex flex-col gap-3">
+            {/* First screen — compact ticker + hero Radar */}
+            <section className="flex flex-col gap-2.5">
               <ChanakyaRadarIntelligenceFeed
                 rows={model.rows}
                 intelligence={model.intelligence}
               />
 
-              <div className="rounded-xl border border-zinc-700/90 bg-zinc-950/80 p-3 md:p-5 lg:p-6">
+              <div className="rounded-xl border border-zinc-700/90 bg-zinc-950/80 p-2.5 md:p-4 lg:p-5">
                 <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                     Operational Radar · {model.activeCount} opportunities

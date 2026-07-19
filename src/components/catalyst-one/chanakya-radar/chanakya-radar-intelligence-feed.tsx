@@ -78,7 +78,7 @@ function buildFeedItems(
     });
   }
 
-  for (const intel of intelligence.slice(0, 4)) {
+  for (const intel of intelligence.slice(0, 3)) {
     items.push({
       id: `intel-${intel.id}`,
       text: `${intel.label}: ${intel.value}`,
@@ -94,12 +94,12 @@ function buildFeedItems(
     });
   }
 
+  // Duplicate for seamless horizontal marquee
   return [...items, ...items.map((i) => ({ ...i, id: `${i.id}-loop` }))];
 }
 
 /**
- * CO-SPRINT-104 — Live scrolling CHANAKYA operational intelligence feed.
- * Guidance only — does not open the AI conversation.
+ * Compact centre ticker — minimal vertical footprint so Radar stays hero.
  */
 export function ChanakyaRadarIntelligenceFeed({
   rows,
@@ -113,13 +113,13 @@ export function ChanakyaRadarIntelligenceFeed({
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (document.getElementById("chanakya-feed-keyframes")) return;
+    if (document.getElementById("chanakya-ticker-keyframes")) return;
     const style = document.createElement("style");
-    style.id = "chanakya-feed-keyframes";
+    style.id = "chanakya-ticker-keyframes";
     style.textContent = `
-      @keyframes chanakya-feed-scroll {
-        0% { transform: translateY(0); }
-        100% { transform: translateY(-50%); }
+      @keyframes chanakya-ticker-scroll {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
       }
     `;
     document.head.appendChild(style);
@@ -127,32 +127,29 @@ export function ChanakyaRadarIntelligenceFeed({
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border border-violet-500/25 bg-gradient-to-r from-violet-950/40 via-zinc-950/80 to-zinc-950/60"
+      className="mx-auto flex w-full max-w-3xl items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/40 px-3 py-1.5 shadow-sm shadow-violet-950/20"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      aria-label="CHANAKYA operational intelligence feed"
+      aria-label="CHANAKYA operational intelligence ticker"
     >
-      <div className="flex items-center gap-2 border-b border-violet-500/20 px-3 py-1.5">
-        <Sparkles className="h-3.5 w-3.5 text-violet-300" />
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-200/90">
-          CHANAKYA · Live Operational Feed
-        </p>
-        <span className="ml-auto text-[9px] text-muted-foreground">Hover to pause</span>
-      </div>
-      <div className="relative h-[4.25rem] overflow-hidden">
+      <Sparkles className="h-3.5 w-3.5 shrink-0 text-violet-300" />
+      <span className="hidden shrink-0 text-[9px] font-bold uppercase tracking-[0.14em] text-violet-200/90 sm:inline">
+        CHANAKYA
+      </span>
+      <div className="relative min-w-0 flex-1 overflow-hidden">
         <div
-          className={cn("flex flex-col gap-2 px-3 py-2")}
+          className="flex w-max items-center gap-6 whitespace-nowrap"
           style={
             paused
               ? undefined
-              : { animation: "chanakya-feed-scroll 28s linear infinite" }
+              : { animation: "chanakya-ticker-scroll 40s linear infinite" }
           }
         >
           {items.map((item) => (
-            <p
+            <span
               key={item.id}
               className={cn(
-                "text-[13px] font-medium leading-snug md:text-[14px]",
+                "text-[12px] font-medium md:text-[13px]",
                 item.tone === "danger" && "text-rose-300",
                 item.tone === "warning" && "text-amber-300",
                 item.tone === "success" && "text-emerald-300",
@@ -160,12 +157,15 @@ export function ChanakyaRadarIntelligenceFeed({
                 item.tone === "default" && "text-foreground/90",
               )}
             >
+              <span className="mr-2 text-zinc-600" aria-hidden>
+                ·
+              </span>
               {item.text}
-            </p>
+            </span>
           ))}
         </div>
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-zinc-950/90 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-zinc-950/90 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-violet-950/80 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-violet-950/80 to-transparent" />
       </div>
     </div>
   );

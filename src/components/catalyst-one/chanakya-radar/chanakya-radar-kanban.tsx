@@ -71,7 +71,7 @@ export function ChanakyaRadarKanban({
   return (
     <div
       className={cn(
-        "grid min-h-[min(48vh,520px)] gap-2 auto-rows-fr",
+        "grid gap-2",
         columns.length === 1
           ? "grid-cols-1"
           : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4",
@@ -87,7 +87,7 @@ export function ChanakyaRadarKanban({
               columnRefs.current[col.id as ChanakyaOperationalQuadrantId] = el;
             }}
             className={cn(
-              "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border bg-muted/20",
+              "flex min-w-0 flex-col rounded-lg border bg-muted/20",
               focused
                 ? "border-teal-500/50 ring-1 ring-teal-500/30"
                 : "border-border/70",
@@ -115,7 +115,7 @@ export function ChanakyaRadarKanban({
               </span>
             </header>
 
-            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain p-1.5">
+            <div className="space-y-1.5 p-1.5">
               {items.map((card) => (
                 <RadarOpportunityCard
                   key={card.id}

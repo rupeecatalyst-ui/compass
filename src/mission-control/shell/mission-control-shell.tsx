@@ -50,7 +50,7 @@ export function MissionControlShell({ children }: { children: React.ReactNode })
           onToggle={() => setCollapsed((c) => !c)}
           activeHref={pathname}
         />
-        <main className="min-w-0 flex-1 overflow-y-auto bg-zinc-900/40">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain bg-zinc-900/40">
           <McSecurityGateway
             gateway={gateway}
             context={{
@@ -64,7 +64,7 @@ export function MissionControlShell({ children }: { children: React.ReactNode })
               emergencyLock: false,
             }}
           >
-            <div className="mx-auto max-w-[1600px] p-4 md:p-6">{children}</div>
+            <div className="mx-auto w-full max-w-[1600px] p-3 md:p-5">{children}</div>
           </McSecurityGateway>
         </main>
       </div>

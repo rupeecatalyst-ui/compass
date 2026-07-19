@@ -46,9 +46,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <AppTopbar onSearchClick={() => setOpen(true)} />
           <main
             className={cn(
-              "flex-1 overflow-y-auto scrollbar-thin",
+              "min-h-0 flex-1 overflow-y-auto scrollbar-thin",
               pathname.startsWith("/loan-files") && "overflow-hidden",
-              pathname.startsWith("/chanakya-radar") && "overflow-hidden",
               pathname === "/my-deals" && "overflow-hidden",
               pathname.startsWith("/admin/credit-risk-engine") && "overflow-hidden",
             )}
