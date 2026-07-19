@@ -200,5 +200,7 @@ Catalyst One is an Enterprise Operating System. **Productivity always takes prio
 - Complements `enterprise-accessibility-contrast.mdc` (contrast).
 - Complements `chanakya-radar.mdc` (Radar module specifics).
 - Complements `data-integrity-analytics-standard.mdc` (metric accuracy, SSOT, real-time refresh).
+- Complements `layout-integrity-content-safety.mdc` (no overlaps, adaptive height, tooltip safety).
 - When rules overlap, satisfy **this foundation standard** and the more specific module rule.
 - When layout conflicts with data integrity, never present inaccurate or demo-as-truth metrics to satisfy spacing.
+- When layout conflicts with fitting everything above the fold, **never overlap or clip** — expand and scroll instead.

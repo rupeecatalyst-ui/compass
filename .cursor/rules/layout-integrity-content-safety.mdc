@@ -1,0 +1,103 @@
+---
+description: Layout Integrity & Content Safety — no overlaps, adaptive space, readable always
+alwaysApply: true
+---
+
+# Catalyst One — Layout Integrity & Content Safety Standard
+
+**Status:** PERMANENT DESIGN RULE  
+**This is not a feature.** It applies to every screen, widget, chart, tooltip, and future layout work.
+
+---
+
+## Primary Principle
+
+**Business information is sacred.**
+
+Under no circumstance should any text, card, chart, tooltip, button, or widget overlap another element.
+
+If additional space is required, the **layout must adapt**.
+
+Never force content into insufficient space.
+
+---
+
+## No Overlapping Rule
+
+The application must never allow:
+
+- Text over text
+- Cards over charts
+- Tooltips covering fixed / persistent information
+- Buttons covering data
+- Labels touching charts
+- Tables clipping into widgets
+- Components extending beyond their containers
+
+These are **layout defects**.
+
+---
+
+## Adaptive Layout
+
+When content grows, the layout must automatically:
+
+- Increase container height
+- Push subsequent sections downward
+- Maintain spacing
+- Preserve readability
+
+The page should expand naturally. Prefer fluid growth over absolute stacking that causes collisions.
+
+---
+
+## Scrolling
+
+If the page becomes taller, the page must remain **fully scrollable**.
+
+Never compress content simply to fit within the viewport.
+
+**Readability is always more important than reducing page height.**
+
+Avoid nested scroll traps that hide overflow without a clear scroll affordance.
+
+---
+
+## Tooltips
+
+Hover cards must never obscure persistent information.
+
+Tooltips should intelligently reposition when insufficient space exists (flip / shift / collision avoidance). Prefer portals with collision detection over fixed absolute offsets that can land on KPIs, scores, or labels.
+
+---
+
+## Charts
+
+- Charts should dynamically resize whenever necessary
+- Labels should always remain **outside** the chart boundary
+- Maintain comfortable spacing around every chart
+- Never place HTML/SVG labels on top of the plot area when they can sit in a reserved margin or outer frame
+
+---
+
+## Validation (blocking)
+
+A screen is **NOT production-ready** if:
+
+- Any content overlaps
+- Any information is clipped
+- Any text becomes unreadable
+- Any widget obscures another widget
+
+These are **blocking issues** and must be resolved before the screen is considered complete.
+
+---
+
+## Relationship to other rules
+
+- Complements `enterprise-screen-ux-standard.mdc` (hierarchy, above-the-fold, usability)
+- Complements `data-integrity-analytics-standard.mdc` (accuracy of numbers)
+- Complements `enterprise-accessibility-contrast.mdc` (contrast / readability)
+- Complements `chanakya-radar.mdc` (Radar labels outside dial)
+
+When space is tight: **adapt and scroll** — never overlap or clip sacred business information.
