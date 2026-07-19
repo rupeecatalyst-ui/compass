@@ -6,16 +6,17 @@ import type { MissionControlFeatureModule, FeatureRegistryPort } from "./types";
 
 const MODULES: MissionControlFeatureModule[] = [
   {
-    id: "mc-executive-briefing",
-    displayName: "Executive Briefing",
+    id: "mc-chanakya-radar",
+    displayName: "CHANAKYA Radar",
     route: "/mission-control",
-    icon: "Briefcase",
-    permissions: [{ id: "mc.briefing.view", resource: "mission-control.briefing", action: "view" }],
+    icon: "Radar",
+    permissions: [{ id: "mc.radar.view", resource: "mission-control.radar", action: "view" }],
     featureFlag: "enabled",
-    version: "0.1.0",
+    version: "1.0.0",
     status: "scaffold",
     dependencies: [],
-    description: "CHANAKYA Executive Briefing — Mission Control landing",
+    description:
+      "CHANAKYA Radar — certified operational intelligence dashboard (Mission Control landing)",
   },
   {
     id: "mc-dashboard",
@@ -26,11 +27,11 @@ const MODULES: MissionControlFeatureModule[] = [
     featureFlag: "preview",
     version: "0.1.0",
     status: "planned",
-    dependencies: ["mc-executive-briefing"],
+    dependencies: ["mc-chanakya-radar"],
     description: "Command center overview (future)",
   },
   {
-    id: "mc-executive-briefing-alias",
+    id: "mc-executive-briefing",
     displayName: "Executive Briefing",
     route: "/mission-control/executive-briefing",
     icon: "Briefcase",
@@ -39,7 +40,7 @@ const MODULES: MissionControlFeatureModule[] = [
     version: "0.1.0",
     status: "scaffold",
     dependencies: [],
-    description: "Alias route for Executive Briefing",
+    description: "CHANAKYA Executive Briefing",
   },
   {
     id: "mc-situation-room",

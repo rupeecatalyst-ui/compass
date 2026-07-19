@@ -1,4 +1,4 @@
-/** Persist CHANAKYA Radar view + filters (last selection). */
+/** Persist CHANAKYA Radar scope preferences (CO-SPRINT-100). */
 
 import type { ChanakyaRadarViewId } from "@/constants/chanakya-radar";
 import {
@@ -16,7 +16,14 @@ export interface ChanakyaRadarViewState {
 export function rememberChanakyaRadarViewState(state: ChanakyaRadarViewState): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...state,
+        // Matrix retired — always persist as dashboard
+        view: "dashboard",
+      }),
+    );
   } catch {
     /* ignore quota */
   }
@@ -28,10 +35,8 @@ export function readChanakyaRadarViewState(): ChanakyaRadarViewState | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ChanakyaRadarViewState>;
-    const view = parsed.view === "matrix" || parsed.view === "kanban" ? parsed.view : null;
-    if (!view) return null;
     return {
-      view,
+      view: "dashboard",
       filters: {
         ...DEFAULT_CHANAKYA_RADAR_FILTERS,
         ...(parsed.filters ?? {}),

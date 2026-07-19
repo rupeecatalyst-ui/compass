@@ -25,3 +25,30 @@ export {
   rememberChanakyaRadarViewState,
   type ChanakyaRadarViewState,
 } from "./view-state";
+
+export {
+  bearingToCompassDirection,
+  computeOperationalVector,
+  quadrantLabel,
+  type OperationalVectorInput,
+  type OperationalVectorResult,
+} from "./operational-vector";
+
+export {
+  defaultRadarScope,
+  filterFilesByRadarScope,
+  resolveRadarActorName,
+  resolveTeamRmNames,
+} from "./portfolio-scope";
+
+export {
+  buildChanakyaRadarDashboard,
+  filterRowsByActionTab,
+  filterRowsByQuadrant,
+  mapHealthToQuadrant,
+  mapLoanFileToRadarDealRow,
+  type ChanakyaRadarDealRow,
+  type ChanakyaRadarDashboardModel,
+  type ChanakyaRadarIntelligenceItem,
+  type ChanakyaRadarKpiCard,
+} from "./derive-dashboard";
