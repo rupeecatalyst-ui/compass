@@ -1,65 +1,202 @@
 ---
-description: Catalyst One Enterprise UX Standard — workflow-first layouts for all screens
+description: Enterprise Design & UX Standard v1.0 — foundation for every Catalyst One screen
 alwaysApply: true
 ---
 
-# Catalyst One — Enterprise UX Standard
+# Catalyst One — Enterprise Design & UX Standard v1.0
 
-Applies to **all present and future screens**.
+**Status:** FOUNDATION STANDARD  
+**This is not a feature.** It is a permanent design standard for every screen, dashboard, module, workspace, and future development in Catalyst One.
 
-Optimise for **user workflow**, information visibility, and operational efficiency — not decorative component placement.
+All future implementations **must** comply.
 
-## Screen layout
+---
 
-- Design responsively; use available space efficiently.
-- Avoid unnecessary vertical stacking.
-- Keep the most important operational information visible without excessive scrolling.
+## Objective
 
-## Responsive behaviour
+Catalyst One is an **Enterprise Operating System**.
 
-Layouts must adapt to laptop, desktop, and large monitors.
+Every screen must prioritise:
 
-Avoid fixed heights whenever possible. Prefer fluid/`min`/`max` constraints over locked viewport traps.
+- Usability
+- Productivity
+- Operational efficiency
+- Readability
+- Performance
+- Enterprise-grade appearance
 
-## Data tables
+Never optimise for fitting components. Always optimise for **user workflow**.
 
-Important operational tables should remain visible within the primary viewport whenever practical.
+---
 
-Do **not** push tables below multiple large widgets. If vertical space is constrained, **reorganize the layout** rather than hiding critical data.
+## The Five Second Rule
+
+A first-time user should understand the purpose of the page within **five seconds**.
+
+The primary action and operational information should be immediately obvious.
+
+---
+
+## Business First Principle
+
+Business data is always more important than decoration.
+
+Dashboards exist to help users **make decisions**, not merely display charts.
+
+Always prioritise operational visibility over visual effects.
+
+---
+
+## Information Hierarchy
+
+Every operational page should follow this priority:
+
+1. Operational Summary
+2. Operational Intelligence
+3. Business Actions
+4. Business Data (Kanban / Tables / Lists)
+
+Business data should remain visible whenever practical.
+
+---
+
+## Viewport Rule
+
+Design primarily for:
+
+- 14-inch laptop
+- 15.6-inch laptop
+- Desktop monitor
+
+Important operational information should remain visible without unnecessary scrolling.
+
+---
+
+## Above the Fold Rule
+
+Whenever practical, the user should immediately see:
+
+- Dashboard
+- Radar / Charts
+- **And** at least the beginning of the operational table or Kanban
+
+Operational data must not disappear below the viewport because of oversized components.
+
+---
+
+## Responsive Layout
+
+- Use available screen space intelligently
+- Avoid excessive vertical stacking
+- Avoid large unused whitespace
+- Allow components to resize dynamically
+- Avoid fixed heights whenever possible
+
+---
 
 ## Filters
 
-Use compact enterprise filter chips. Avoid oversized buttons. Reduce padding while maintaining readability.
+- Use compact enterprise filter chips
+- Avoid oversized buttons
+- Reduce unnecessary padding
+- Keep filters on a single compact row whenever practical
 
-## Visual balance
+---
 
-Charts, cards, tables, and filters must appear visually balanced. No single element should dominate the page unnecessarily.
+## Tables
 
-## CHANAKYA Radar (when touching Radar)
+Operational tables are **primary business tools**.
 
-- Allow the radar component to **resize dynamically**.
-- Quadrant labels must remain **outside** the radar.
-- Labels must never overlap or touch the visualization.
+Never sacrifice table visibility for decorative widgets.
+
+If space is limited, **reorganise the layout** instead of pushing the table downward.
+
+---
+
+## Charts
+
+- Charts may resize dynamically
+- Labels must never overlap charts
+- Maintain comfortable spacing
+- Increase chart size if required to preserve readability
+
+---
+
+## CHANAKYA Radar
+
+The Radar is a live operational intelligence component.
+
+- Quadrant labels must remain **outside** the radar boundary
+- Labels must never overlap the radar
+- Radar should automatically resize if necessary
+- Hover interactions should remain unobstructed
+
+---
+
+## Cards
+
+- Consistent spacing
+- Avoid oversized cards and excessive padding
+- Display meaningful information only
+
+---
 
 ## Scrolling
 
-Every page must remain scrollable when content exceeds the viewport.
+- Every page must remain scrollable when content exceeds the viewport
+- No operational information may become inaccessible
+- Avoid nested scrolling unless absolutely necessary
 
-Never create layouts where content becomes inaccessible (clipped, overflow-hidden traps without an alternate scroll path).
+---
 
-## Completion checklist
+## Consistency
 
-Before considering any screen complete, validate:
+Maintain consistent spacing, padding, alignment, typography, button heights, corner radius, animation behaviour, and colour usage throughout Catalyst One.
 
+---
+
+## Performance
+
+No visual enhancement should reduce responsiveness.
+
+Every new feature should:
+
+- Support lazy loading where applicable
+- Minimise unnecessary rendering
+- Avoid unnecessary database / storage calls
+- Maintain fast dashboard performance
+
+---
+
+## UX Validation (Definition of Done)
+
+Before marking any screen complete, confirm:
+
+- No overlapping elements
 - No clipped content
-- No inaccessible tables
-- No overlapping labels
-- Balanced spacing
-- Responsive layout
-- Comfortable reading
+- Proper page scrolling
+- Business data remains visible
+- Charts are readable
+- Tables are accessible
+- Responsive across common screen sizes
+- Visual balance maintained
+- Enterprise appearance maintained
+
+If **any** answer is NO, the implementation is **not** production-ready.
+
+---
+
+## Final Principle
+
+When visual design conflicts with business usability, **always choose business usability**.
+
+Catalyst One is an Enterprise Operating System. **Productivity always takes priority over decoration.**
+
+---
 
 ## Relationship to other rules
 
 - Complements `enterprise-workspace-ux.mdc` (workspace chrome, Close, document scroll).
 - Complements `enterprise-accessibility-contrast.mdc` (contrast).
-- When both apply, satisfy workspace chrome **and** this screen-layout standard.
+- Complements `chanakya-radar.mdc` (Radar module specifics).
+- When rules overlap, satisfy **this foundation standard** and the more specific module rule.

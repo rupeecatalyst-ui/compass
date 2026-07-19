@@ -7,6 +7,8 @@ alwaysApply: true
 
 Status: **ENTERPRISE APPROVED** · Priority: **CRITICAL** · Scope: **ALL workspaces**
 
+Screen layout, hierarchy, tables, charts, and the Five Second Rule are governed by **Enterprise Design & UX Standard v1.0** (`enterprise-screen-ux-standard.mdc`). This rule covers **workspace chrome** (shell, journey ribbon, Close, unsaved changes).
+
 Do **not** implement screen-by-screen one-offs. Extend shared shell/chrome so every module inherits behaviour.
 
 ## Targets
