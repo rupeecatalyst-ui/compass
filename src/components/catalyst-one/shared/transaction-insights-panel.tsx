@@ -121,7 +121,10 @@ export function TransactionInsightsPanel({
   );
 }
 
-/** One-line Chanakya Live — never dominates vertical space. */
+/**
+ * One-line Chanakya Live — never dominates vertical space.
+ * Parent owns width (e.g. fixed 18rem grid track). Message truncates inside the card only.
+ */
 export function ChanakyaCompactLive({
   message,
   className,
@@ -132,16 +135,17 @@ export function ChanakyaCompactLive({
   return (
     <div
       className={cn(
-        "flex h-7 min-w-0 max-w-xl items-center gap-2 rounded-md border border-emerald-600/20",
+        "flex h-7 min-w-0 max-w-xl items-center gap-2 overflow-hidden rounded-md border border-emerald-600/20",
         "bg-emerald-500/5 px-2.5",
         className,
       )}
       title={message}
+      data-chanakya-compact-live=""
     >
       <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
         Chanakya Live
       </span>
-      <p className="min-w-0 truncate text-[11px] text-foreground/90">{message}</p>
+      <p className="min-w-0 flex-1 truncate text-[11px] text-foreground/90">{message}</p>
     </div>
   );
 }

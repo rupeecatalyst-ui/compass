@@ -322,51 +322,79 @@ export function LeadOpportunityJourneyChrome({
         </div>
       </div>
       <header>
+        {/*
+          Dedicated regions — title never shares a flex line with CHANAKYA.
+          Row 1 (md+): identity (minmax 0) | CHANAKYA (fixed 18rem)
+          Row 2: workflow + actions (full width) — stable under zoom / display scaling
+        */}
         <div
           className={cn(
-            "flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 sm:px-5",
-            compact ? "py-1" : "py-1.5",
+            "grid gap-x-4 gap-y-2 px-4 sm:px-5",
+            "grid-cols-1",
+            "md:grid-cols-[minmax(0,1fr)_minmax(0,18rem)]",
+            "md:items-start",
+            compact ? "py-1.5" : "py-2",
           )}
         >
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-              <p
-                className={cn(
-                  "shrink-0 text-[9px] font-semibold uppercase tracking-[0.16em]",
-                  stage === "lead"
-                    ? "text-teal-700/90 dark:text-teal-300/90"
-                    : "text-violet-700/90 dark:text-violet-300/90",
-                )}
-              >
-                {journeyStageEyebrow(stage)}
-              </p>
-              <h1 className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-base">
-                {displayTitle}
-              </h1>
-              <ChanakyaCompactLive
-                message={chanakyaLine}
-                className="hidden group-data-[chrome-collapsed=true]/ews:hidden md:flex"
-              />
-            </div>
+          {/* Region: Opportunity Stage → Customer / Opportunity Name */}
+          <div className="min-w-0 md:col-start-1 md:row-start-1">
+            <p
+              className={cn(
+                "min-w-0 truncate text-[9px] font-semibold uppercase tracking-[0.16em]",
+                stage === "lead"
+                  ? "text-teal-700/90 dark:text-teal-300/90"
+                  : "text-violet-700/90 dark:text-violet-300/90",
+              )}
+              title={journeyStageEyebrow(stage)}
+            >
+              {journeyStageEyebrow(stage)}
+            </p>
+            <h1
+              className="mt-0.5 min-w-0 break-words text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg [overflow-wrap:anywhere] line-clamp-2"
+              title={displayTitle}
+            >
+              {displayTitle}
+            </h1>
             {compactIdentity ? (
-              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{compactIdentity}</p>
+              <p className="mt-0.5 min-w-0 truncate text-[10px] leading-snug text-muted-foreground">
+                {compactIdentity}
+              </p>
             ) : null}
             {showChipRow ? (
               <div className="flex flex-wrap gap-1 pt-1 group-data-[chrome-collapsed=true]/ews:hidden">
                 {chips.map((c) => (
                   <span
                     key={c.label}
-                    className="inline-flex max-w-[180px] items-center gap-1 rounded border border-border/50 bg-muted/20 px-1.5 py-px text-[10px]"
+                    className="inline-flex max-w-[min(100%,12rem)] items-center gap-1 rounded border border-border/50 bg-muted/20 px-1.5 py-px text-[10px]"
                   >
-                    <span className="font-medium text-muted-foreground">{c.label}</span>
-                    <span className="truncate font-semibold text-foreground">{c.value}</span>
+                    <span className="shrink-0 font-medium text-muted-foreground">{c.label}</span>
+                    <span className="min-w-0 truncate font-semibold text-foreground">{c.value}</span>
                   </span>
                 ))}
               </div>
             ) : null}
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          {/* Region: CHANAKYA — capped width; overflow clipped inside the card only */}
+          <div
+            className={cn(
+              "hidden min-w-0 w-full max-w-[18rem] justify-self-end md:col-start-2 md:row-start-1 md:block",
+              "group-data-[chrome-collapsed=true]/ews:hidden",
+            )}
+          >
+            <ChanakyaCompactLive
+              message={chanakyaLine}
+              className="h-auto min-h-7 w-full max-w-none overflow-hidden"
+            />
+          </div>
+
+          {/* Region: Workflow + primary actions — always below identity/CHANAKYA */}
+          <div
+            className={cn(
+              "flex min-w-0 flex-wrap items-center justify-end gap-1.5",
+              "md:col-span-2",
+            )}
+          >
             {useWorkflowButton ? (
               <WorkflowProgressControl
                 currentStageId={navigatorStageId}
