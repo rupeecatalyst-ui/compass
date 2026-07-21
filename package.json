@@ -7,7 +7,7 @@
     "dev:web": "next dev",
     "dev:api": "tsx watch server/index.ts",
     "clean": "rimraf .next .turbo",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "build:api": "tsc -p tsconfig.server.json",
     "start": "next start",
     "start:api": "node dist/server/index.js",
@@ -17,7 +17,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -82,6 +83,7 @@
     "postcss": "^8.5.4",
     "prettier": "^3.7.3",
     "prisma": "^6.8.2",
+    "puppeteer": "^25.3.0",
     "rimraf": "^6.1.3",
     "tailwindcss": "^4.2.1",
     "tsx": "^4.19.4",

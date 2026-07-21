@@ -1,0 +1,72 @@
+# Enterprise Soft Delete & Recovery Framework (CO-SPRINT-119)
+
+Status: **ENTERPRISE APPROVED** · Priority: **HIGH** · Classification: Enterprise Foundation
+
+## Principle
+
+Catalyst One must **never** permanently delete business records during normal operations.
+
+Default delete = **soft delete** → hide from operational screens → Enterprise Recovery Center.
+
+## Layers
+
+| Layer | Path |
+|-------|------|
+| Types | `src/types/enterprise-soft-delete.ts` |
+| Constants | `src/constants/enterprise-soft-delete/` |
+| Permissions | `src/lib/enterprise-soft-delete/permissions.ts` |
+| Client API | `src/lib/enterprise-soft-delete/index.ts` |
+| Service | `server/services/soft-delete/soft-delete.service.ts` |
+| Adapters | `server/services/soft-delete/adapters/` |
+| Ledger | `server/repositories/soft-delete/ledger.repository.ts` |
+| API | `/api/admin/recovery` |
+| UI | `/admin/enterprise-recovery-center` |
+| Confirm dialogs | `src/components/enterprise/soft-delete/` |
+
+## Soft-delete fields (entity)
+
+Reusable pattern on Prisma entities:
+
+- `isDeleted` · `deletedAt` · `deletedBy` · `deletionReason` (optional)
+
+Operational queries **must** exclude `isDeleted: true` unless Recovery explicitly requests deleted rows.
+
+## Role matrix
+
+| Role | Soft Delete | Restore | Permanent Delete |
+|------|-------------|---------|------------------|
+| Normal / Analyst / Viewer | If business rules allow (matrix: Manager+) | No | No |
+| Manager | Yes | Yes (scope later) | No |
+| Admin | Yes | Yes | No |
+| SUPER_ADMIN | Yes | Yes | Yes (type `DELETE`) |
+
+## Live adapters (Phase 1)
+
+- Contacts · Companies (Prisma ECM)
+
+## Stub adapters (ready for future modules)
+
+Opportunities · Loan Files · Documents · Tasks · Notes · Workflow Instances — Recovery tabs exist; delete/restore activate when those modules persist via Prisma.
+
+## Retention
+
+Default **90 days** before permanent purge eligibility (`SOFT_DELETE_DEFAULT_RETENTION_DAYS`). Configurable from Administration in a future sprint.
+
+## Audit
+
+Every soft delete / restore / permanent delete writes `EnterpriseSoftDeleteAudit` (user, datetime, entity, action, reason).
+
+## Rules for future modules
+
+1. Do **not** invent module-local delete logic.
+2. Implement a `SoftDeleteModuleAdapter` and register it in `softDeleteService`.
+3. Add soft-delete columns (or equivalent) and exclude deleted rows from operational queries/search.
+4. Wire record action menus to `SoftDeleteConfirmDialog` + `softDeleteApi`.
+5. Permanent delete only via Recovery Center for SUPER_ADMIN.
+
+## Anti-patterns
+
+- Hard delete from operational screens
+- Showing deleted rows in registry / search / Kanban
+- Skipping audit on delete / restore / purge
+- Module-specific recycle bins instead of Enterprise Recovery Center

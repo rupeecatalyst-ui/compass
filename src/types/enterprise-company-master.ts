@@ -57,6 +57,8 @@ export interface EcmCompany {
   ownerName?: string;
   ownerId?: string;
   companyScore: number;
+  archivedBy?: string;
+  archivedOn?: string;
   createdBy: string;
   createdOn: string;
   modifiedBy: string;

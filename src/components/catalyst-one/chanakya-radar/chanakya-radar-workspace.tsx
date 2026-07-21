@@ -16,9 +16,9 @@ import {
   ChanakyaRadarKanban,
   groupRadarCardsForKanban,
 } from "@/components/catalyst-one/chanakya-radar/chanakya-radar-kanban";
-import { ChanakyaRadarIntelligenceFeed } from "@/components/catalyst-one/chanakya-radar/chanakya-radar-intelligence-feed";
 import { ChanakyaRadarOpportunityPreview } from "@/components/catalyst-one/chanakya-radar/chanakya-radar-opportunity-preview";
 import { ChanakyaRadarVisual } from "@/components/catalyst-one/chanakya-radar/chanakya-radar-visual";
+import { OperationalMovementDemoPanel } from "@/components/catalyst-one/chanakya-radar/operational-movement-demo-panel";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -144,8 +144,9 @@ function filterRowsForSnapshot(
 }
 
 /**
- * CO-SPRINT-104 — Mission Control refinement.
- * First screen: feed + hero Radar only. KPIs below the fold. Natural scroll.
+ * CO-SPRINT-105 — Mission Control layout optimization.
+ * First viewport: Radar header (title + scope + vector strip) + hero Radar.
+ * Live Intelligence / view switcher live in the global header.
  */
 export function ChanakyaRadarWorkspace() {
   const router = useRouter();
@@ -156,7 +157,8 @@ export function ChanakyaRadarWorkspace() {
   );
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>(() =>
     typeof window !== "undefined" ? getChanakyaRadarWorkspaceTab() : "radar",
-  );  const [radarFocus, setRadarFocus] = useState<ChanakyaOperationalQuadrantId | null>(null);
+  );
+  const [radarFocus, setRadarFocus] = useState<ChanakyaOperationalQuadrantId | null>(null);
   const [expandedKpi, setExpandedKpi] = useState<SnapshotKpiId | null>(null);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const snapshotRef = useRef<HTMLElement | null>(null);
@@ -383,48 +385,94 @@ export function ChanakyaRadarWorkspace() {
 
   const drawerOpen = Boolean(selectedPreview);
 
+  const concernLabel =
+    CHANAKYA_RADAR_QUADRANTS.find((q) => q.id === model.vector.largestConcern)?.label ??
+    "—";
+
+  const scopeSelect = (
+    <Select value={scope} onValueChange={(v) => setScope(v as ChanakyaRadarScopeId)}>
+      <SelectTrigger
+        className="h-7 w-[140px] shrink-0 rounded-md border-zinc-700 bg-zinc-900/90 text-[11px]"
+        aria-label="Portfolio scope"
+      >
+        <SelectValue placeholder="Scope" />
+      </SelectTrigger>
+      <SelectContent>
+        {CHANAKYA_RADAR_SCOPES.map((s) => (
+          <SelectItem
+            key={s.id}
+            value={s.id}
+            disabled={!canUseRadarScope(s.id, user?.role)}
+          >
+            {s.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <div className="w-full bg-zinc-950/20">
-      <div className="flex w-full flex-col gap-2 pb-6 md:gap-2.5">
+      <div className="flex w-full flex-col gap-1.5 pb-6 md:gap-2">
         {workspaceTab === "radar" ? (
           <>
             {/*
-              First screen — only what answers: "What should I work on right now?"
-              Title / analytics / KPIs live in header or below the fold.
+              First viewport — Mission Control only.
+              Global Header → Radar Header → Radar → (scroll) analytics
             */}
-            <section className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <ChanakyaRadarIntelligenceFeed
-                    rows={model.rows}
-                    intelligence={model.intelligence}
-                  />
+            <section className="rounded-xl border border-zinc-700/90 bg-zinc-950/80">
+              <header className="flex flex-col gap-1 border-b border-zinc-800/90 px-3 py-2 md:px-3.5 md:py-2">
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <h1 className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-zinc-50 md:text-sm">
+                    Operational Radar
+                    <span className="mx-1.5 font-normal text-zinc-600">·</span>
+                    <span className="tabular-nums text-zinc-300">
+                      {model.activeCount} Opportunit
+                      {model.activeCount === 1 ? "y" : "ies"}
+                    </span>
+                  </h1>
+                  {scopeSelect}
                 </div>
-                <Select
-                  value={scope}
-                  onValueChange={(v) => setScope(v as ChanakyaRadarScopeId)}
-                >
-                  <SelectTrigger
-                    className="h-8 w-[130px] shrink-0 rounded-full border-zinc-700 bg-zinc-900/80 text-[11px]"
-                    aria-label="Portfolio scope"
-                  >
-                    <SelectValue placeholder="Scope" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CHANAKYA_RADAR_SCOPES.map((s) => (
-                      <SelectItem
-                        key={s.id}
-                        value={s.id}
-                        disabled={!canUseRadarScope(s.id, user?.role)}
-                      >
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-zinc-500">
+                  <span>
+                    Operational Vector:{" "}
+                    <span className="font-medium text-emerald-300">
+                      {model.vector.direction}
+                    </span>
+                  </span>
+                  <span className="hidden text-zinc-700 sm:inline" aria-hidden>
+                    |
+                  </span>
+                  <span>
+                    Concern:{" "}
+                    <span className="font-medium text-amber-300">{concernLabel}</span>
+                  </span>
+                  <span className="hidden text-zinc-700 sm:inline" aria-hidden>
+                    |
+                  </span>
+                  <span>
+                    Trend:{" "}
+                    <span
+                      className={cn(
+                        "font-medium",
+                        model.vector.trend === "Improving" && "text-emerald-400",
+                        model.vector.trend === "Declining" && "text-rose-400",
+                        model.vector.trend === "Stable" && "text-zinc-200",
+                      )}
+                    >
+                      {model.vector.trend}
+                    </span>
+                  </span>
+                </p>
+              </header>
 
-              <div className="rounded-xl border border-zinc-700/90 bg-zinc-950/80 p-2 md:p-3 lg:p-4">
+              {process.env.NODE_ENV === "development" ? (
+                <div className="border-b border-zinc-800/80 px-3 py-2 md:px-3.5">
+                  <OperationalMovementDemoPanel />
+                </div>
+              ) : null}
+
+              <div className="px-1.5 py-1.5 md:px-2.5 md:py-2">
                 <ChanakyaRadarVisual
                   vector={model.vector}
                   rows={model.rows}
@@ -441,56 +489,14 @@ export function ChanakyaRadarWorkspace() {
             {/* Below the fold — portfolio analytics & snapshot */}
             <section
               ref={snapshotRef}
-              className="mt-3 space-y-3 border-t border-zinc-800 pt-4"
+              className="mt-2 space-y-3 border-t border-zinc-800 pt-3"
             >
-              <div className="flex flex-wrap items-end justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-semibold tracking-tight">Operational Snapshot</h2>
-                  <p className="text-[11px] text-muted-foreground">
-                    Portfolio detail · click a KPI to list opportunities
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-3 text-[11px]">
-                  <span className="text-muted-foreground">
-                    Direction{" "}
-                    <span className="font-medium text-emerald-300">
-                      {model.vector.direction}
-                    </span>
-                  </span>
-                  <span className="text-muted-foreground">
-                    Concern{" "}
-                    <span className="font-medium text-amber-300">
-                      {
-                        CHANAKYA_RADAR_QUADRANTS.find(
-                          (q) => q.id === model.vector.largestConcern,
-                        )?.label
-                      }
-                    </span>
-                  </span>
-                  <span className="text-muted-foreground">
-                    Trend{" "}
-                    <span
-                      className={cn(
-                        "font-medium",
-                        model.vector.trend === "Improving" && "text-emerald-400",
-                        model.vector.trend === "Declining" && "text-rose-400",
-                        model.vector.trend === "Stable" && "text-foreground",
-                      )}
-                    >
-                      {model.vector.trend}
-                    </span>
-                  </span>
-                  <span className="text-muted-foreground">
-                    Book{" "}
-                    <span className="font-medium tabular-nums text-foreground">
-                      {model.activeCount}
-                    </span>
-                  </span>
-                </div>
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight">Operational Snapshot</h2>
+                <p className="text-[11px] text-muted-foreground">
+                  Portfolio detail · click a KPI to list opportunities
+                </p>
               </div>
-              <p className="text-[10px] text-muted-foreground">
-                Colour = status · Distance from centre = stage ageing · Tick = worked today
-              </p>
 
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
                 {snapshotKpis.map((kpi) => {
@@ -621,28 +627,7 @@ export function ChanakyaRadarWorkspace() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Select
-                  value={scope}
-                  onValueChange={(v) => setScope(v as ChanakyaRadarScopeId)}
-                >
-                  <SelectTrigger
-                    className="h-8 w-[130px] rounded-md border-zinc-700 bg-zinc-900/80 text-[11px]"
-                    aria-label="Portfolio scope"
-                  >
-                    <SelectValue placeholder="Scope" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CHANAKYA_RADAR_SCOPES.map((s) => (
-                      <SelectItem
-                        key={s.id}
-                        value={s.id}
-                        disabled={!canUseRadarScope(s.id, user?.role)}
-                      >
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {scopeSelect}
                 {radarFocus ? (
                   <div className="flex items-center gap-2 text-[11px]">
                     <span className="text-muted-foreground">

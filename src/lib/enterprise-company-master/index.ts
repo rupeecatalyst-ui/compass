@@ -9,8 +9,12 @@ export {
   listEcmCompanies,
   queryEcmCompanies,
   registerEcmCompany,
+  replaceAllCompanyLinks,
+  replaceAllEcmCompanies,
   resetEcmCompanyRegistry,
   seedEcmCompaniesIfEmpty,
   unlinkCompanyContact,
   updateEcmCompany,
+  upsertCompanyLinkLocal,
+  upsertEcmCompanyLocal,
 } from "./company-registry";

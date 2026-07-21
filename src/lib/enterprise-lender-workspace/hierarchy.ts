@@ -7,6 +7,7 @@ import {
   ELW_HIERARCHY_RANKS,
   ELW_HIERARCHY_STORAGE_KEY,
 } from "@/constants/enterprise-lender-workspace";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import type {
   ElwHierarchyNode,
   ElwHierarchyPerson,
@@ -43,6 +44,7 @@ function initials(name: string): string {
 
 /** Demo seed — some ranks filled, some vacant (always show all levels). */
 function seedForLender(lenderId: string): Partial<Record<ElwHierarchyRank, ElwHierarchyPerson>> {
+  if (!isDemoSeedEnabled()) return {};
   const base: Partial<Record<ElwHierarchyRank, ElwHierarchyPerson>> = {
     vice_president: {
       contactId: `${lenderId}-vp`,

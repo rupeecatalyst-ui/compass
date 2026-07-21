@@ -8,6 +8,7 @@ import { EnterpriseEngagementCard, type EnterpriseCardTone } from "@/components/
 import { PageHeader } from "@/components/design-system/page-header";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 
 const EVENT_TONE: Record<EdcEventType, EnterpriseCardTone> = {
   stage_change: "emerald",
@@ -23,6 +24,7 @@ const EVENT_TONE: Record<EdcEventType, EnterpriseCardTone> = {
 };
 
 function seedDialogueIfEmpty() {
+  if (!isDemoSeedEnabled()) return;
   if (listEdcTimeline().length > 0) return;
   const ctx = { type: "opportunity" as const, id: "opp-demo-001" };
   const samples: Array<{ eventType: EdcEventType; title: string; description: string }> = [

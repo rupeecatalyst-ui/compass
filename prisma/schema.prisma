@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// =============================================================================
+// Auth (Pilot Phase 1 — live)
+// =============================================================================
+
 enum Role {
   SUPER_ADMIN
   ADMIN
@@ -16,19 +20,33 @@ enum Role {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String         @map("password_hash")
-  firstName     String         @map("first_name")
-  lastName      String         @map("last_name")
-  avatarUrl     String?        @map("avatar_url")
-  role          Role           @default(VIEWER)
-  isActive      Boolean        @default(true) @map("is_active")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  refreshTokens RefreshToken[]
-  resetTokens   PasswordResetToken[]
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  passwordHash       String         @map("password_hash")
+  firstName          String         @map("first_name")
+  lastName           String         @map("last_name")
+  employeeId         String?        @unique @map("employee_id")
+  mobile             String?        @map("mobile")
+  department         String?        @map("department")
+  avatarUrl          String?        @map("avatar_url")
+  role               Role           @default(VIEWER)
+  isActive           Boolean        @default(true) @map("is_active")
+  mustChangePassword Boolean        @default(false) @map("must_change_password")
+  createdById        String?        @map("created_by_id")
+  reportingManagerId String?        @map("reporting_manager_id")
+  eumUserId          String?        @unique @map("eum_user_id")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+  refreshTokens      RefreshToken[]
+  resetTokens        PasswordResetToken[]
+  createdBy          User?          @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers       User[]         @relation("UserCreatedBy")
+  reportingManager   User?          @relation("UserReportsTo", fields: [reportingManagerId], references: [id], onDelete: SetNull)
+  directReports      User[]         @relation("UserReportsTo")
+  ecmContacts        EcmContact[]   @relation("EcmContactLinkedUser")
 
+  @@index([reportingManagerId])
+  @@index([createdById])
   @@map("users")
 }
 
@@ -55,4 +73,517 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+// =============================================================================
+// CO-SPRINT-117 — Phase 1B Enterprise Persistence
+// Foundation + ECM (individuals) + Company Registry (legal entities)
+// Approved: Single org · REST · Supabase Storage (docs CO-SPRINT-121)
+// Excluded: EOLE (Phase 2A) · Loan files hybrid JSONB (CO-SPRINT-118+)
+// =============================================================================
+
+enum EcmContactRole {
+  customer
+  employee
+  lender_employee
+  partner
+  investor
+  builder
+  chartered_accountant
+}
+
+enum EcmContactStatus {
+  provisional
+  active
+  complete
+  verified
+  archived
+}
+
+enum EcmPlatformAccess {
+  no_access
+  catalyst_one
+  compass
+  both
+}
+
+enum EcmContactRelationshipType {
+  reports_to
+  managed_by
+  assistant_to
+  legal_representative
+  refers_to
+}
+
+enum EcmContactRelationshipStatus {
+  active
+  inactive
+}
+
+enum EcmAuditEntityType {
+  contact
+  contact_relationship
+}
+
+enum EcmCompanyStatus {
+  active
+  archived
+}
+
+enum EcmCompanyRelationRole {
+  director
+  promoter
+  partner
+  authorized_signatory
+  cfo
+  company_secretary
+  proprietor
+  shareholder
+  other
+}
+
+enum EcmCompanyLinkStatus {
+  active
+  inactive
+}
+
+/// Single organization pilot — slug `rupee-catalyst` (see ENTERPRISE_PERSISTENCE_ORG_SLUG).
+model Organization {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  contacts           EcmContact[]
+  relationships      EcmContactRelationship[]
+  auditRefs          EcmContactAuditReference[]
+  companies          EcmCompany[]
+  companyLinks       EcmCompanyContactLink[]
+  softDeleteRecords  EnterpriseSoftDeleteRecord[]
+  softDeleteAudits   EnterpriseSoftDeleteAudit[]
+  registryAuditEntries      EnterpriseRegistryAuditEntry[]
+  registryAttachments       EnterpriseRegistryAttachment[]
+  registryImportBatches     EnterpriseRegistryImportBatch[]
+  referenceMasters          EnterpriseReferenceMaster[]
+
+  @@map("organizations")
+}
+
+/// Enterprise Contact Registry — individuals (Directory Registry entity kind: contact).
+model EcmContact {
+  id               String            @id @default(cuid())
+  organizationId   String            @map("organization_id")
+  name             String
+  mobilePrimary    String            @map("mobile_primary")
+  mobileSecondary  String?           @map("mobile_secondary")
+  personalEmail    String?           @map("personal_email")
+  officialEmail    String?           @map("official_email")
+  city             String?
+  state            String?
+  country          String?           @default("IN")
+  address          String?           @db.Text
+  pan              String?
+  aadhaar          String?
+  dateOfBirth      String?           @map("date_of_birth")
+  employmentType   String?           @map("employment_type")
+  primaryRole      EcmContactRole    @map("primary_role")
+  roles            EcmContactRole[]
+  additionalRoles  EcmContactRole[]  @map("additional_roles")
+  roleProfiles     Json?             @map("role_profiles")
+  enabled          Boolean           @default(true)
+  status           EcmContactStatus  @default(provisional)
+  platformAccess   EcmPlatformAccess @default(no_access) @map("platform_access")
+  linkedUserId     String?           @map("linked_user_id")
+  ownerName        String?           @map("owner_name")
+  ownerId          String?           @map("owner_id")
+  contactScore     Int               @default(0) @map("contact_score")
+  lastActiveAt     DateTime          @default(now()) @map("last_active_at")
+  strategicContact Boolean           @default(false) @map("strategic_contact")
+  archivedBy       String?           @map("archived_by")
+  archivedAt       DateTime?         @map("archived_at")
+  /// CO-SPRINT-119 — Enterprise Soft Delete (operational hide + Recovery Center).
+  isDeleted        Boolean           @default(false) @map("is_deleted")
+  deletedAt        DateTime?         @map("deleted_at")
+  deletedBy        String?           @map("deleted_by")
+  deletionReason   String?           @map("deletion_reason") @db.Text
+  createdBy        String            @map("created_by")
+  modifiedBy       String            @map("modified_by")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  linkedUser        User?                    @relation("EcmContactLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
+  relationshipsFrom EcmContactRelationship[] @relation("EcmRelationshipFrom")
+  relationshipsTo   EcmContactRelationship[] @relation("EcmRelationshipTo")
+  companyLinks      EcmCompanyContactLink[]
+  auditReferences   EcmContactAuditReference[]
+
+  @@unique([organizationId, mobilePrimary], map: "ecm_contacts_org_mobile_key")
+  @@index([organizationId, status])
+  @@index([organizationId, isDeleted])
+  @@index([organizationId, updatedAt(sort: Desc)])
+  @@index([organizationId, lastActiveAt(sort: Desc)])
+  @@index([organizationId, contactScore(sort: Desc)])
+  @@index([organizationId, primaryRole])
+  @@index([linkedUserId])
+  @@map("ecm_contacts")
+}
+
+model EcmContactRelationship {
+  id               String                       @id @default(cuid())
+  organizationId   String                       @map("organization_id")
+  fromContactId    String                       @map("from_contact_id")
+  toContactId      String                       @map("to_contact_id")
+  relationshipType EcmContactRelationshipType   @map("relationship_type")
+  contextRole      EcmContactRole?              @map("context_role")
+  meta             Json?
+  status           EcmContactRelationshipStatus @default(active)
+  createdBy        String                       @map("created_by")
+  modifiedBy       String                       @map("modified_by")
+  createdAt        DateTime                     @default(now()) @map("created_at")
+  updatedAt        DateTime                     @updatedAt @map("updated_at")
+
+  organization    Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  fromContact     EcmContact                 @relation("EcmRelationshipFrom", fields: [fromContactId], references: [id], onDelete: Cascade)
+  toContact       EcmContact                 @relation("EcmRelationshipTo", fields: [toContactId], references: [id], onDelete: Cascade)
+  auditReferences EcmContactAuditReference[]
+
+  @@index([organizationId, fromContactId])
+  @@index([organizationId, toContactId])
+  @@index([organizationId, relationshipType])
+  @@map("ecm_contact_relationships")
+}
+
+model EcmContactAuditReference {
+  id              String             @id @default(cuid())
+  organizationId  String             @map("organization_id")
+  entityId        String             @map("entity_id")
+  entityType      EcmAuditEntityType @map("entity_type")
+  eafAuditEntryId String             @map("eaf_audit_entry_id")
+  recordedAt      DateTime           @map("recorded_at")
+  contactId       String?            @map("contact_id")
+  relationshipId  String?            @map("relationship_id")
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contact      EcmContact?             @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  relationship EcmContactRelationship? @relation(fields: [relationshipId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, entityId])
+  @@index([organizationId, recordedAt(sort: Desc)])
+  @@map("ecm_contact_audit_references")
+}
+
+/// Company Registry — legal entities (Directory Registry entity kind: company).
+model EcmCompany {
+  id                   String           @id @default(cuid())
+  organizationId       String           @map("organization_id")
+  companyName          String           @map("company_name")
+  constitution         String?
+  cin                  String?
+  pan                  String?
+  gst                  String?
+  dateOfIncorporation  String?          @map("date_of_incorporation")
+  registeredAddress    String?          @map("registered_address") @db.Text
+  industry             String?
+  natureOfBusiness     String?          @map("nature_of_business")
+  yearsInBusiness      String?          @map("years_in_business")
+  annualTurnover       String?          @map("annual_turnover")
+  approximateNetProfit String?          @map("approximate_net_profit")
+  employeeStrength     String?          @map("employee_strength")
+  website              String?
+  status               EcmCompanyStatus @default(active)
+  enabled              Boolean          @default(true)
+  ownerName            String?          @map("owner_name")
+  ownerId              String?          @map("owner_id")
+  companyScore         Int              @default(0) @map("company_score")
+  archivedBy           String?          @map("archived_by")
+  archivedAt           DateTime?        @map("archived_at")
+  /// CO-SPRINT-119 — Enterprise Soft Delete (operational hide + Recovery Center).
+  isDeleted            Boolean          @default(false) @map("is_deleted")
+  deletedAt            DateTime?        @map("deleted_at")
+  deletedBy            String?          @map("deleted_by")
+  deletionReason       String?          @map("deletion_reason") @db.Text
+  createdBy            String           @map("created_by")
+  modifiedBy           String           @map("modified_by")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contactLinks EcmCompanyContactLink[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, isDeleted])
+  @@index([organizationId, updatedAt(sort: Desc)])
+  @@map("ecm_companies")
+}
+
+// =============================================================================
+// CO-SPRINT-119 — Enterprise Soft Delete & Recovery Framework
+// Cross-module recovery ledger + immutable soft-delete audit trail.
+// =============================================================================
+
+enum SoftDeleteLifecycleStatus {
+  deleted
+  restored
+  purged
+}
+
+enum SoftDeleteAuditAction {
+  soft_deleted
+  restored
+  permanently_deleted
+}
+
+/// Recovery Center registry — one active deleted row per (org, module, entity).
+model EnterpriseSoftDeleteRecord {
+  id                    String                    @id @default(cuid())
+  organizationId        String                    @map("organization_id")
+  module                String
+  entityId              String                    @map("entity_id")
+  entityLabel           String                    @map("entity_label")
+  ownerName             String?                   @map("owner_name")
+  originalOwner         String?                   @map("original_owner")
+  deletedBy             String                    @map("deleted_by")
+  deletedByName         String?                   @map("deleted_by_name")
+  deletedAt             DateTime                  @map("deleted_at")
+  deletionReason        String?                   @map("deletion_reason") @db.Text
+  status                SoftDeleteLifecycleStatus @default(deleted)
+  restoredAt            DateTime?                 @map("restored_at")
+  restoredBy            String?                   @map("restored_by")
+  permanentlyDeletedAt  DateTime?                 @map("permanently_deleted_at")
+  permanentlyDeletedBy  String?                   @map("permanently_deleted_by")
+  purgeEligibleAt       DateTime?                 @map("purge_eligible_at")
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, module, entityId], map: "esd_org_module_entity_key")
+  @@index([organizationId, status, deletedAt(sort: Desc)])
+  @@index([organizationId, module, status])
+  @@map("enterprise_soft_delete_records")
+}
+
+model EnterpriseSoftDeleteAudit {
+  id             String                @id @default(cuid())
+  organizationId String                @map("organization_id")
+  module         String
+  entityId       String                @map("entity_id")
+  entityLabel    String                @map("entity_label")
+  action         SoftDeleteAuditAction
+  actorUserId    String                @map("actor_user_id")
+  actorName      String?               @map("actor_name")
+  reason         String?               @db.Text
+  at             DateTime              @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, at(sort: Desc)])
+  @@index([organizationId, module, entityId])
+  @@map("enterprise_soft_delete_audits")
+}
+
+model EcmCompanyContactLink {
+  id             String                 @id @default(cuid())
+  organizationId String                 @map("organization_id")
+  companyId      String                 @map("company_id")
+  contactId      String                 @map("contact_id")
+  relationRole   EcmCompanyRelationRole @map("relation_role")
+  status         EcmCompanyLinkStatus   @default(active)
+  createdBy      String                 @map("created_by")
+  modifiedBy     String                 @map("modified_by")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  company      EcmCompany   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact      EcmContact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, contactId, relationRole], map: "ecm_company_contact_role_key")
+  @@index([organizationId, companyId])
+  @@index([organizationId, contactId])
+  @@map("ecm_company_contact_links")
+}
+
+// =============================================================================
+// CO-ARCH-001-I1 — Tier 0 Enterprise Registry Metadata (Infrastructure)
+// Shared audit, attachment, and import-batch infrastructure for Tier 1–2 registries.
+// No product/UI changes. ECM and operational entities unchanged in I1.
+// =============================================================================
+
+enum RegistryStatus {
+  draft
+  active
+  inactive
+  archived
+}
+
+enum RegistryApprovalStatus {
+  none
+  pending
+  approved
+  rejected
+}
+
+enum EnterpriseRegistryModule {
+  reference_master
+  product
+  lender
+  document
+}
+
+enum RegistryImportBatchStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum RegistryAuditAction {
+  created
+  updated
+  activated
+  deactivated
+  soft_deleted
+  restored
+  imported
+  published
+  deprecated
+  archived
+}
+
+/// Immutable audit trail for enterprise registry configuration changes (all tiers).
+model EnterpriseRegistryAuditEntry {
+  id             String                   @id @default(cuid())
+  organizationId String                   @map("organization_id")
+  registryModule EnterpriseRegistryModule @map("registry_module")
+  entityId       String                   @map("entity_id")
+  entityCode     String?                  @map("entity_code")
+  action         RegistryAuditAction
+  previousValue  Json?                    @map("previous_value")
+  newValue       Json?                    @map("new_value")
+  actorUserId    String                   @map("actor_user_id")
+  actorName      String?                  @map("actor_name")
+  reason         String?                  @db.Text
+  at             DateTime                 @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, at(sort: Desc)])
+  @@index([organizationId, registryModule, entityId], map: "eraudit_org_module_entity_idx")
+  @@index([organizationId, registryModule, at(sort: Desc)], map: "eraudit_org_module_at_idx")
+  @@map("enterprise_registry_audit_entries")
+}
+
+/// File attachments for registry entities (Supabase Storage key reference).
+model EnterpriseRegistryAttachment {
+  id             String                   @id @default(cuid())
+  organizationId String                   @map("organization_id")
+  registryModule EnterpriseRegistryModule @map("registry_module")
+  entityId       String                   @map("entity_id")
+  fileName       String                   @map("file_name")
+  storageKey     String                   @map("storage_key")
+  mimeType       String?                  @map("mime_type")
+  byteSize       Int?                     @map("byte_size")
+  uploadedBy     String                   @map("uploaded_by")
+  uploadedAt     DateTime                 @default(now()) @map("uploaded_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, registryModule, entityId], map: "erattach_org_module_entity_idx")
+  @@index([organizationId, uploadedAt(sort: Desc)], map: "erattach_org_uploaded_at_idx")
+  @@map("enterprise_registry_attachments")
+}
+
+/// CSV / bulk import batch tracking for registry maintenance.
+model EnterpriseRegistryImportBatch {
+  id             String                    @id @default(cuid())
+  organizationId String                    @map("organization_id")
+  registryModule EnterpriseRegistryModule  @map("registry_module")
+  fileName       String?                   @map("file_name")
+  status         RegistryImportBatchStatus @default(pending)
+  rowCount       Int                       @default(0) @map("row_count")
+  successCount   Int                       @default(0) @map("success_count")
+  errorCount     Int                       @default(0) @map("error_count")
+  errorSummary   Json?                     @map("error_summary")
+  importedBy     String                    @map("imported_by")
+  startedAt      DateTime?                 @map("started_at")
+  completedAt    DateTime?                 @map("completed_at")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  updatedAt      DateTime                  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, registryModule, status], map: "erimport_org_module_status_idx")
+  @@index([organizationId, createdAt(sort: Desc)], map: "erimport_org_created_at_idx")
+  @@map("enterprise_registry_import_batches")
+}
+
+// =============================================================================
+// CO-ARCH-001-I2 — Tier 1 Enterprise Reference Master (Infrastructure)
+// Single-table domain-keyed lookup framework. CRUD via /api/reference-masters only.
+// No UI / ECM / picker port changes in I2.
+// =============================================================================
+
+enum ReferenceMasterDomain {
+  country
+  state
+  city
+  industry
+  nature_of_business
+  constitution
+  employment_type
+  occupation
+  loan_purpose
+  property_type
+  occupancy
+  department
+  designation
+  channel_type
+  partner_category
+  resident_status
+  risk_appetite
+  investment_horizon
+  specialization
+}
+
+model EnterpriseReferenceMaster {
+  id             String                  @id @default(cuid())
+  organizationId String                  @map("organization_id")
+  domain         ReferenceMasterDomain
+  code           String
+  label          String
+  description    String?                 @db.Text
+  parentId       String?                 @map("parent_id")
+  sortOrder      Int                     @default(0) @map("sort_order")
+  meta           Json?
+  status         RegistryStatus          @default(draft)
+  enabled        Boolean                 @default(true)
+  versionNumber  Int                     @default(1) @map("version_number")
+  effectiveFrom  DateTime?               @map("effective_from")
+  effectiveUntil DateTime?               @map("effective_until")
+  notes          String?                 @db.Text
+  isDeleted      Boolean                 @default(false) @map("is_deleted")
+  deletedAt      DateTime?               @map("deleted_at")
+  deletedBy      String?                 @map("deleted_by")
+  deletionReason String?                 @map("deletion_reason") @db.Text
+  approvalStatus RegistryApprovalStatus  @default(none) @map("approval_status")
+  approvedBy     String?                 @map("approved_by")
+  approvedAt     DateTime?               @map("approved_at")
+  createdBy      String                  @map("created_by")
+  modifiedBy     String                  @map("modified_by")
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  organization Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  parent       EnterpriseReferenceMaster?    @relation("RefMasterHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children     EnterpriseReferenceMaster[]   @relation("RefMasterHierarchy")
+
+  @@unique([organizationId, domain, code], map: "erm_org_domain_code_key")
+  @@index([organizationId, domain, status, enabled], map: "erm_org_domain_status_enabled_idx")
+  @@index([organizationId, domain, parentId], map: "erm_org_domain_parent_idx")
+  @@index([organizationId, domain, isDeleted], map: "erm_org_domain_deleted_idx")
+  @@map("enterprise_reference_masters")
 }

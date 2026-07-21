@@ -72,6 +72,9 @@ Authentication: ✅ Unchanged
 (or new credentials + reason if changed with approval)
 
 ### Implementation Summary
+- Changed: <what changed>
+- Files modified: <paths>
+- Architectural decisions: <bullets or None>
 - Completed: <bullets>
 - Partially Completed: <bullets or None>
 - Pending: <bullets or None>

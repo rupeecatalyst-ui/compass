@@ -71,7 +71,15 @@ export function MissionControlShell({ children }: { children: React.ReactNode })
               emergencyLock: false,
             }}
           >
-            <div className="mx-auto w-full max-w-[1600px] p-3 md:p-5">{children}</div>
+            <div
+              className={
+                isRadarLanding
+                  ? "mx-auto w-full max-w-[1600px] px-2 py-1.5 md:px-3 md:py-2"
+                  : "mx-auto w-full max-w-[1600px] p-3 md:p-5"
+              }
+            >
+              {children}
+            </div>
           </McSecurityGateway>
         </main>
       </div>

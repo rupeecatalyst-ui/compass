@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 import {
@@ -44,6 +45,7 @@ const FILTERS: DialogueFilter[] = ["all", "tasks", "documents", "workflow", "com
 const CATEGORIES = Object.keys(DIALOGUE_CATEGORY_LABELS) as PlaceholderDialogueCategory[];
 
 function seedDialogueIfEmpty(opportunityId: string) {
+  if (!isDemoSeedEnabled()) return;
   const existing = listEdcTimeline().filter((e) => e.contextRef.id === opportunityId);
   if (existing.length > 0) return;
 

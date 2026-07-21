@@ -58,9 +58,15 @@ import {
   initializeEwoeDefaultDefinitions,
   startEwoeWorkflowInstance,
 } from "@/lib/enterprise-workflow-orchestration-engine";
+import { resolveEcwSelectedLender } from "@/lib/enterprise-credit-workspace";
+import { formatINR } from "@/lib/format-currency";
+import { loadLoanFiles } from "@/lib/loan-files-storage";
+import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
 import type { EoleOpportunity } from "@/types/enterprise-opportunity-lifecycle-engine";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import type { OpportunityIntelligenceSnapshot } from "@/types/enterprise-opportunity-intelligence";
+import type { LoanFile } from "@/types/catalyst-one";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 
 export type WorkspaceFocus =
   | "overview"
@@ -100,6 +106,9 @@ export interface SelectedLenderSummary {
 }
 
 export interface OpportunityWorkspaceState {
+  /** True after initial in-memory bootstrap attempt (demo seed or empty). */
+  workspaceReady: boolean;
+  leadCaseFile: LoanFile | null;
   opportunityId: string;
   contactId: string;
   opportunity: EoleOpportunity | null;
@@ -133,12 +142,19 @@ export interface OpportunityWorkspaceState {
   lastPlaceholderStatus: string | null;
 }
 
+interface OpportunityWorkspaceProviderProps {
+  children: ReactNode;
+  fileId?: string | null;
+  opportunityId?: string | null;
+}
+
 const OpportunityWorkspaceContext = createContext<OpportunityWorkspaceState | null>(null);
 
 const DEMO_OPPORTUNITY_CODE = "OPP-WS-001";
 const DEMO_CONTACT_MOBILE = "+91-9876543210";
 
 function seedDocumentRulesIfEmpty() {
+  if (!isDemoSeedEnabled()) return;
   if (listEdieDocumentRules().length > 0) return;
   registerEdieDocumentRule({
     ruleCode: "EDIE-HL-SAL-PROC-001",
@@ -168,6 +184,11 @@ function ensureWorkspaceSeed(): { opportunityId: string; contactId: string } {
   initializeEoleStages();
   initializeEoleSubStages();
   initializeEoleAgingPolicies();
+
+  if (!isDemoSeedEnabled()) {
+    return { opportunityId: "", contactId: "" };
+  }
+
   seedDocumentRulesIfEmpty();
 
   let contact = listEcmContacts().find((c) => c.mobilePrimary === DEMO_CONTACT_MOBILE);
@@ -258,11 +279,18 @@ function resolveRequiredDocs(): string[] {
   return [...refs];
 }
 
-export function OpportunityWorkspaceProvider({ children }: { children: ReactNode }) {
+export function OpportunityWorkspaceProvider({
+  children,
+  fileId,
+  opportunityId: initialOpportunityId,
+}: OpportunityWorkspaceProviderProps) {
+  const [workspaceReady, setWorkspaceReady] = useState(false);
   const [opportunityId, setOpportunityId] = useState("");
   const [contactId, setContactId] = useState("");
+  const [leadCaseFileId, setLeadCaseFileId] = useState("");
   const [focus, setFocus] = useState<WorkspaceFocus>("overview");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [loanFilesVersion, setLoanFilesVersion] = useState(0);
   const registryVersion = useEcmContactRegistryVersion();
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
   const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set());
@@ -271,19 +299,54 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
   const [selectedLender, setSelectedLender] = useState<SelectedLenderSummary | null>(null);
   const previousIntelRef = useRef<PreviousIntelligenceState>({});
 
+  useEffect(() => subscribeLoanFilesUpdated(() => setLoanFilesVersion((v) => v + 1)), []);
+
   useEffect(() => {
+    if (fileId) {
+      setLeadCaseFileId(fileId);
+      setOpportunityId(initialOpportunityId ?? "");
+      const leadCase = loadLoanFiles().find((f) => f.id === fileId) ?? null;
+      setContactId(leadCase?.customerId ?? "");
+      if (leadCase) {
+        const lender = resolveEcwSelectedLender(leadCase);
+        setSelectedLender(
+          lender.enabled
+            ? {
+                lenderName: lender.lenderName,
+                executorName: lender.contactName,
+                reportingManagerName: leadCase.relationshipManager,
+              }
+            : null,
+        );
+      } else {
+        setSelectedLender(null);
+      }
+      setWorkspaceReady(true);
+      return;
+    }
+
     const seeded = ensureWorkspaceSeed();
-    setOpportunityId(seeded.opportunityId);
+    setOpportunityId(initialOpportunityId ?? seeded.opportunityId);
     setContactId(seeded.contactId);
-    initializeEwoeDefaultDefinitions("workspace");
-    startEwoeWorkflowInstance({
-      opportunityId: seeded.opportunityId,
-      stageCode: "processing",
-      actorId: "workspace",
-    });
-  }, []);
+    setLeadCaseFileId("");
+    if (seeded.opportunityId) {
+      initializeEwoeDefaultDefinitions("workspace");
+      startEwoeWorkflowInstance({
+        opportunityId: seeded.opportunityId,
+        stageCode: "processing",
+        actorId: "workspace",
+      });
+    }
+    setWorkspaceReady(true);
+  }, [fileId, initialOpportunityId]);
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  const leadCaseFile = useMemo(() => {
+    if (!leadCaseFileId) return null;
+    void loanFilesVersion;
+    return loadLoanFiles().find((f) => f.id === leadCaseFileId && !f.archived) ?? null;
+  }, [leadCaseFileId, loanFilesVersion, refreshKey]);
 
   const opportunity = useMemo(() => {
     if (!opportunityId) return null;
@@ -292,11 +355,15 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
   }, [opportunityId, refreshKey]);
 
   const contact = useMemo(() => {
-    if (!contactId) return null;
-    return listEcmContacts().find((c) => c.id === contactId) ?? null;
-  }, [contactId, refreshKey, registryVersion]);
+    const resolvedContactId = contactId || leadCaseFile?.customerId || "";
+    if (!resolvedContactId) return null;
+    return listEcmContacts().find((c) => c.id === resolvedContactId) ?? null;
+  }, [contactId, leadCaseFile?.customerId, refreshKey, registryVersion]);
 
   const progressRatio = useMemo(() => {
+    if (!opportunityId && leadCaseFile) {
+      return Math.max(0.11, Math.min(1, (leadCaseFile.progress || 11) / 100));
+    }
     const ewoeProgress =
       opportunityId && getEwoeIntelligenceProgress(opportunityId);
     if (typeof ewoeProgress === "number") return ewoeProgress;
@@ -313,9 +380,15 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
     const idx = stageOrder.indexOf(opportunity?.stageCode ?? "intake");
     return Math.max(0.15, (idx + 1) / stageOrder.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opportunity?.stageCode, opportunityId, refreshKey]);
+  }, [leadCaseFile, opportunity?.stageCode, opportunityId, refreshKey]);
 
   const taskMetrics = useMemo(() => {
+    if (!opportunityId && leadCaseFile) {
+      const tasks = leadCaseFile.tasks ?? [];
+      const overdue = tasks.filter((t) => !t.completed && new Date(t.dueDate).getTime() < Date.now()).length;
+      const completed = tasks.filter((t) => t.completed).length;
+      return { overdue, open: Math.max(0, tasks.length - overdue - completed), completed };
+    }
     if (!opportunityId) return { overdue: 0, open: 0, completed: 0 };
     const now = Date.now();
     const tasks = listEteTasks().filter((t) => t.opportunityRef === opportunityId);
@@ -336,11 +409,38 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
     }
     return { overdue, open, completed };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opportunityId, refreshKey, completedTaskIds]);
+  }, [leadCaseFile, opportunityId, refreshKey, completedTaskIds]);
 
   const requiredDocs = useMemo(() => resolveRequiredDocs(), []);
 
   const documentStats: DocumentWorkspaceStats = useMemo(() => {
+    if (!opportunityId && leadCaseFile) {
+      const requiredDocs = (leadCaseFile.documents ?? []).map((d) => d.name);
+      const uploaded = new Set(
+        (leadCaseFile.documents ?? [])
+          .filter((d) => d.status !== "pending")
+          .map((d) => d.name),
+      );
+      const verified = new Set(
+        (leadCaseFile.documents ?? [])
+          .filter((d) => d.status === "verified")
+          .map((d) => d.name),
+      );
+      const pendingDocs = requiredDocs.filter((d) => !uploaded.has(d) && !verified.has(d));
+      const completionPct =
+        requiredDocs.length === 0 ? 0 : Math.round((verified.size / requiredDocs.length) * 100);
+      return {
+        requiredCount: requiredDocs.length,
+        uploadedCount: uploaded.size,
+        verifiedCount: verified.size,
+        pendingCount: pendingDocs.length,
+        completionPct,
+        requiredDocs,
+        uploaded,
+        verified,
+        pendingDocs,
+      };
+    }
     const pendingDocs = requiredDocs.filter((d) => !uploadedDocs.has(d) && !verifiedDocs.has(d));
     const completionPct =
       requiredDocs.length === 0
@@ -357,7 +457,7 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
       verified: verifiedDocs,
       pendingDocs,
     };
-  }, [requiredDocs, uploadedDocs, verifiedDocs]);
+  }, [leadCaseFile, opportunityId, requiredDocs, uploadedDocs, verifiedDocs]);
 
   const chanakyaAdvisory = useMemo(() => {
     if (!opportunityId) return null;
@@ -434,12 +534,30 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
     selectedLender,
   ]);
 
+  useEffect(() => {
+    if (opportunityId || !leadCaseFile) return;
+    const lender = resolveEcwSelectedLender(leadCaseFile);
+    setSelectedLender(
+      lender.enabled
+        ? {
+            lenderName: lender.lenderName,
+            executorName: lender.contactName,
+            reportingManagerName: leadCaseFile.relationshipManager,
+          }
+        : null,
+    );
+  }, [leadCaseFile, opportunityId]);
+
   const productLabel = useMemo(() => {
+    if (!opportunityId && leadCaseFile) return leadCaseFile.loanProduct;
     const ref = opportunity?.productRef ?? "product:home-loan";
     return ref.replace(/^product:/, "").replace(/-/g, " ");
-  }, [opportunity?.productRef]);
+  }, [leadCaseFile, opportunity?.productRef, opportunityId]);
 
   const loanAmountLabel = useMemo(() => {
+    if (!opportunityId && leadCaseFile) {
+      return formatINR(leadCaseFile.requiredAmount || leadCaseFile.loanAmount);
+    }
     if (!opportunityId) return "—";
     const reqs = getEolePorts().financialRequirements.listByOpportunity(opportunityId);
     const amount = reqs[0]?.amount;
@@ -450,7 +568,7 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
       maximumFractionDigits: 0,
     }).format(amount);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opportunityId, refreshKey]);
+  }, [leadCaseFile, opportunityId, refreshKey]);
 
   const changeStage = useCallback(
     (action: string, stageCode?: string) => {
@@ -635,14 +753,18 @@ export function OpportunityWorkspaceProvider({ children }: { children: ReactNode
 
   const lastPlaceholderStatus = opportunityId
     ? getWorkspacePlaceholderStatus(opportunityId)
-    : null;
+    : leadCaseFile
+      ? "Lead Case context loaded from persisted Loan File."
+      : null;
 
   const value: OpportunityWorkspaceState = {
+    workspaceReady,
+    leadCaseFile,
     opportunityId,
     contactId,
     opportunity,
     contact,
-    stageCode: opportunity?.stageCode ?? "intake",
+    stageCode: opportunity?.stageCode ?? leadCaseFile?.stage ?? "raw_lead",
     progressRatio,
     overdueTaskCount: taskMetrics.overdue,
     openTaskCount: taskMetrics.open,

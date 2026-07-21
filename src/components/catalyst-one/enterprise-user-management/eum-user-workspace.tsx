@@ -44,6 +44,7 @@ import {
   updateEnterpriseUser,
   type PermissionLevelKey,
 } from "@/lib/enterprise-user-management";
+import { activateEnterpriseUserWithLogin } from "@/lib/enterprise-user-management/provision-auth-user";
 import { listRpeRoles, listRpeTemplates } from "@/lib/roles-permissions-engine";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -265,16 +266,21 @@ function LifecycleActions({
           size="sm"
           className="h-8 gap-1 text-xs"
           onClick={() => {
-            try {
-              setUserLoginStatus(user.id, "active", actor);
-              if (!user.license.allocated) {
-                allocateEnterpriseLicense(user.id, "Producer", actor);
-              }
-              toast.success("User activated");
-              onChanged();
-            } catch (e) {
-              toast.error(e instanceof Error ? e.message : "Activation failed");
-            }
+            void activateEnterpriseUserWithLogin(user.id, actor)
+              .then((creds) => {
+                if (creds.temporaryPassword) {
+                  toast.success("User activated — temporary password generated", {
+                    description: `${creds.email} · ${creds.temporaryPassword} (share securely; first login requires change)`,
+                    duration: 20000,
+                  });
+                } else {
+                  toast.success("User activated");
+                }
+                onChanged();
+              })
+              .catch((e) => {
+                toast.error(e instanceof Error ? e.message : "Activation failed");
+              });
           }}
         >
           <BadgeCheck className="h-3.5 w-3.5" />

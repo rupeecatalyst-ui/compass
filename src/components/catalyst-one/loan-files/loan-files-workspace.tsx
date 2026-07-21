@@ -12,9 +12,8 @@ import { TaskBoardView } from "@/components/catalyst-one/loan-files/task-board-v
 import { CreateLoanModal } from "@/components/catalyst-one/loan-files/create-loan-modal";
 import { LoanWorkspaceNavigator } from "@/components/catalyst-one/loan-files/loan-workspace-navigator";
 import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-workspace-modal";
-import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
-import { isEcmContactUsable, listEcmContacts } from "@/lib/enterprise-contact-master";
-import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
+import { useLoanJourneyEcm } from "@/hooks/use-loan-journey-ecm";
+import { buildLoanJourneyContactOptions } from "@/lib/loan-journey/ecm-registry-options";
 import {
   LOAN_WORKSPACE_BROWSE_PARAM,
   LOAN_WORKSPACE_SURFACE_HUB,
@@ -180,26 +179,15 @@ function LoanFilesContent() {
   /** Architecture: Loan Workspace landing is a bench navigator, not analytics. */
   const showNavigator =
     !browseAll && (surfaceHub || dashboardEntry || !hasExecutionTarget);
-  const registryVersion = useEcmContactRegistryVersion();
+  const { registryVersion } = useLoanJourneyEcm({ hydrateOnMount: true });
   const contactOptions = useMemo(() => {
     void registryVersion;
-    const ecm = listEcmContacts()
-      .filter((c) => isEcmContactUsable(c.status))
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        mobile: c.mobilePrimary?.startsWith("pending-") ? "" : c.mobilePrimary || "",
-        email: c.personalEmail || c.officialEmail || "",
-      }));
-    const seed = CUSTOMER_SEED.map((c) => ({
+    return buildLoanJourneyContactOptions().map((c) => ({
       id: c.id,
-      name: c.name,
-      mobile: c.mobile,
-      email: c.email,
+      name: c.label,
+      mobile: c.mobile || "",
+      email: c.email || "",
     }));
-    const byId = new Map<string, (typeof seed)[number]>();
-    for (const row of [...seed, ...ecm]) byId.set(row.id, row);
-    return [...byId.values()];
   }, [registryVersion]);
 
   useEffect(() => {

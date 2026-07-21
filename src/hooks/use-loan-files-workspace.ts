@@ -148,9 +148,12 @@ export function useLoanFilesWorkspace() {
 
   const addFile = useCallback(
     (input: CreateLoanFileInput) => {
-      persistFiles((prev) => [...prev, createLoanFileFromInput(input, prev)]);
+      const created = createLoanFileFromInput(input, files);
+      persistFiles((prev) => [...prev, created]);
+      setSelectedFileId(created.id);
+      return created;
     },
-    [persistFiles],
+    [files, persistFiles],
   );
 
   const updateFile = useCallback(

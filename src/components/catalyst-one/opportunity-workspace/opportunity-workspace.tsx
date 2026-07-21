@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   OpportunityWorkspaceProvider,
@@ -43,7 +43,6 @@ import {
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { EcmContact } from "@/types/enterprise-contact-master";
-import { ROLES } from "@/constants/roles";
 import {
   buildOpportunityLoanWorkspaceHref,
   resolveLoansForOpportunity,
@@ -55,11 +54,15 @@ import {
 } from "@/constants/lead-opportunity-journey";
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { ROUTES } from "@/constants/routes";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 function OpportunityWorkspaceShell() {
   const { user } = useAuthContext();
   const router = useRouter();
   const {
+    workspaceReady,
+    leadCaseFile,
     opportunityId,
     opportunity,
     contact,
@@ -101,12 +104,15 @@ function OpportunityWorkspaceShell() {
   }, [focus]);
 
   const activeLoan = useMemo(() => {
-    if (!opportunityId) return null;
+    if (!opportunityId) return leadCaseFile;
     const loans = resolveLoansForOpportunity(opportunityId, contact);
     return loans[0] ?? null;
-  }, [opportunityId, contact]);
+  }, [leadCaseFile, opportunityId, contact]);
 
   const loanHref = useMemo(() => {
+    if (!opportunity?.id && activeLoan) {
+      return buildJourneyHref(ROUTES.LOAN_FILES, { fileId: activeLoan.id });
+    }
     if (!opportunity?.id) return ROUTES.LOAN_FILES;
     return buildOpportunityLoanWorkspaceHref({
       opportunityId: opportunity.id,
@@ -118,7 +124,7 @@ function OpportunityWorkspaceShell() {
           }
         : null,
     });
-  }, [opportunity?.id, contact]);
+  }, [activeLoan, opportunity?.id, contact]);
 
   const creditHref = useMemo(() => {
     const params = new URLSearchParams();
@@ -241,10 +247,33 @@ function OpportunityWorkspaceShell() {
     .filter(Boolean)
     .join(" · ");
 
-  if (!opportunityId) {
+  if (!workspaceReady) {
     return (
       <div className="rounded-2xl border border-white/10 bg-zinc-900/50 p-8 text-center text-sm text-muted-foreground backdrop-blur-xl">
         Loading opportunity workspace…
+      </div>
+    );
+  }
+
+  if (!opportunityId && !activeLoan) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/50 p-8 text-center backdrop-blur-xl">
+        <p className="text-base font-medium text-foreground">No Lead Case to open</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Create a loan file and open Strategic Workspace from that Lead Case, or pick a persisted
+          Lead Case from the selector.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <Button asChild size="sm">
+            <Link href={ROUTES.CONTACTS}>Go to Contacts</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href={ROUTES.MY_DEALS}>My Deals</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href={`${ROUTES.LOAN_FILES}?entry=dashboard`}>Loan Workspace</Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -475,8 +504,12 @@ function tabLabel(tab: OwStrategicTabId): string {
 }
 
 export function OpportunityWorkspace() {
+  const searchParams = useSearchParams();
   return (
-    <OpportunityWorkspaceProvider>
+    <OpportunityWorkspaceProvider
+      fileId={searchParams.get("file")}
+      opportunityId={searchParams.get("opportunityId")}
+    >
       <OpportunityWorkspaceShell />
     </OpportunityWorkspaceProvider>
   );

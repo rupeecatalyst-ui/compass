@@ -4,6 +4,7 @@
  */
 
 import type { ChanakyaDayMemory, ChanakyaMemoryEvent, ChanakyaMemoryEventKind } from "@/types/chanakya-phase5-intelligence";
+import { runDemoSeedIfEnabledWithResult } from "@/lib/demo-seed";
 
 const STORAGE_KEY = "c1:chanakya-phase5:day-memory";
 
@@ -71,10 +72,11 @@ export function getChanakyaDayMemory(businessDay?: string): ChanakyaDayMemory {
 
 export function seedDemoChanakyaDayMemory(businessDay?: string): ChanakyaDayMemory {
   const day = businessDay ?? businessDayKey();
-  const existing = listChanakyaMemoryEvents(day);
-  if (existing.length > 0) return getChanakyaDayMemory(day);
+  return runDemoSeedIfEnabledWithResult(() => {
+    const existing = listChanakyaMemoryEvents(day);
+    if (existing.length > 0) return getChanakyaDayMemory(day);
 
-  const samples: Array<{
+    const samples: Array<{
     kind: ChanakyaMemoryEventKind;
     summary: string;
     context: Record<string, string>;
@@ -132,14 +134,15 @@ export function seedDemoChanakyaDayMemory(businessDay?: string): ChanakyaDayMemo
     },
   ];
 
-  for (const sample of samples) {
-    observeChanakyaMemoryEvent({
-      ...sample,
-      businessDay: day,
-      actorId: "chanakya",
-    });
-  }
-  return getChanakyaDayMemory(day);
+    for (const sample of samples) {
+      observeChanakyaMemoryEvent({
+        ...sample,
+        businessDay: day,
+        actorId: "chanakya",
+      });
+    }
+    return getChanakyaDayMemory(day);
+  }, getChanakyaDayMemory(day));
 }
 
 export function clearChanakyaDayMemory(businessDay?: string): void {

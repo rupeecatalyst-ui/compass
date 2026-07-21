@@ -105,6 +105,13 @@ export interface BusinessJourneyNavigatorProps {
   opportunityId?: string | null;
   /** When false, stage cards are indicators only. */
   enableStageNavigation?: boolean;
+  /**
+   * CO-SPRINT-106 — hide phase labels and “Current” helper captions.
+   * Cards communicate via icon, title, and status colour only.
+   */
+  hideHelperCaptions?: boolean;
+  /** Compact card size for Workspace Header band. */
+  density?: "default" | "compact";
 }
 
 /**
@@ -117,6 +124,8 @@ export function BusinessJourneyNavigator({
   fileId,
   opportunityId,
   enableStageNavigation = true,
+  hideHelperCaptions = false,
+  density = "default",
 }: BusinessJourneyNavigatorProps) {
   const router = useRouter();
   const stages = listChanakyaLoanJourneyStages();
@@ -169,7 +178,13 @@ export function BusinessJourneyNavigator({
       role="navigation"
       aria-label="Business Journey Navigator"
     >
-      <div ref={scrollerRef} className="overflow-x-auto px-3 py-1.5 sm:px-5 scrollbar-thin">
+      <div
+        ref={scrollerRef}
+        className={cn(
+          "overflow-x-auto scrollbar-thin sm:px-5",
+          density === "compact" ? "px-3 py-1" : "px-3 py-1.5",
+        )}
+      >
         <div className="flex min-w-max items-stretch gap-0">
           {phaseBands.map((band, bandIdx) => {
             const tone = PHASE_TONE[band.phase.tone];
@@ -181,15 +196,17 @@ export function BusinessJourneyNavigator({
                     aria-hidden
                   />
                 ) : null}
-                <div className="flex flex-col gap-1.5">
-                  <p
-                    className={cn(
-                      "px-1 text-[8px] font-semibold uppercase tracking-[0.14em]",
-                      tone.label,
-                    )}
-                  >
-                    {band.phase.label}
-                  </p>
+                <div className={cn("flex flex-col", hideHelperCaptions ? "gap-0" : "gap-1.5")}>
+                  {!hideHelperCaptions ? (
+                    <p
+                      className={cn(
+                        "px-1 text-[8px] font-semibold uppercase tracking-[0.14em]",
+                        tone.label,
+                      )}
+                    >
+                      {band.phase.label}
+                    </p>
+                  ) : null}
                   <div className="flex items-center">
                     {band.stages.map((stage, i) => {
                       const globalIdx = stages.findIndex((s) => s.id === stage.id);
@@ -222,8 +239,11 @@ export function BusinessJourneyNavigator({
                             disabled={!clickable}
                             onClick={() => onStageActivate(stage.id, status)}
                             className={cn(
-                              "enterprise-stable-surface group flex h-[4.75rem] w-[4.75rem] flex-col items-center justify-start gap-1 rounded-xl border px-1.5 py-1.5 sm:h-[5rem] sm:w-[5.25rem]",
+                              "enterprise-stable-surface group flex flex-col items-center justify-center gap-0.5 rounded-xl border px-1.5",
                               "transition-colors duration-150",
+                              density === "compact"
+                                ? "h-[3.35rem] w-[3.6rem] py-1 sm:h-[3.5rem] sm:w-[3.85rem]"
+                                : "h-[4.75rem] w-[4.75rem] justify-start py-1.5 sm:h-[5rem] sm:w-[5.25rem]",
                               status === "completed" && tone.completed,
                               status === "current" && cn(tone.current, "bjn-pulse"),
                               status === "upcoming" && tone.upcoming,
@@ -232,40 +252,57 @@ export function BusinessJourneyNavigator({
                               !clickable && "cursor-default",
                             )}
                             aria-current={status === "current" ? "step" : undefined}
-                            title={
-                              clickable
-                                ? status === "completed"
-                                  ? `Open ${stage.name}`
-                                  : `${stage.name} (Current)`
-                                : status === "upcoming"
-                                  ? `${stage.name} — upcoming`
-                                  : stage.name
+                            aria-label={
+                              status === "current"
+                                ? `${stage.name} (current)`
+                                : status === "completed"
+                                  ? `${stage.name} (completed)`
+                                  : `${stage.name} (upcoming)`
                             }
+                            title={stage.name}
                           >
-                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/10 text-[9px] font-bold tabular-nums dark:bg-white/15">
-                              {status === "completed" ? (
-                                <Check className="h-3 w-3" strokeWidth={2.5} />
-                              ) : (
-                                globalIdx + 1
-                              )}
-                            </span>
-                            <Icon className="h-3.5 w-3.5 shrink-0 opacity-90" />
-                            <span className="line-clamp-2 min-h-[1.6rem] text-center text-[9px] font-semibold leading-tight tracking-tight">
-                              {stage.name}
-                            </span>
+                            {density === "default" ? (
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/10 text-[9px] font-bold tabular-nums dark:bg-white/15">
+                                {status === "completed" ? (
+                                  <Check className="h-3 w-3" strokeWidth={2.5} />
+                                ) : (
+                                  globalIdx + 1
+                                )}
+                              </span>
+                            ) : status === "completed" ? (
+                              <Check className="h-3 w-3 shrink-0 opacity-90" strokeWidth={2.5} />
+                            ) : (
+                              <Icon className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                            )}
+                            {density === "default" ? (
+                              <Icon className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                            ) : null}
                             <span
                               className={cn(
-                                "h-2.5 text-[7px] font-medium uppercase tracking-wider opacity-90",
-                                status !== "current" && "invisible",
+                                "text-center font-semibold leading-tight tracking-tight",
+                                density === "compact"
+                                  ? "line-clamp-2 text-[8px]"
+                                  : "line-clamp-2 min-h-[1.6rem] text-[9px]",
                               )}
                             >
-                              Current
+                              {stage.name}
                             </span>
+                            {!hideHelperCaptions && density === "default" ? (
+                              <span
+                                className={cn(
+                                  "h-2.5 text-[7px] font-medium uppercase tracking-wider opacity-90",
+                                  status !== "current" && "invisible",
+                                )}
+                              >
+                                Current
+                              </span>
+                            ) : null}
                           </button>
                           {!isLastOverall && !isLastInBand ? (
                             <div
                               className={cn(
-                                "bjn-connector mx-0.5 h-[2px] w-4 shrink-0 rounded-full bg-gradient-to-r sm:w-5",
+                                "bjn-connector mx-0.5 h-[2px] shrink-0 rounded-full bg-gradient-to-r",
+                                density === "compact" ? "w-2.5 sm:w-3" : "w-4 sm:w-5",
                                 globalIdx < focusIndex
                                   ? connectorTone.connectorDone
                                   : connectorTone.connector,
@@ -276,7 +313,8 @@ export function BusinessJourneyNavigator({
                           {!isLastOverall && isLastInBand ? (
                             <div
                               className={cn(
-                                "bjn-connector mx-1 h-[2px] w-3 shrink-0 rounded-full bg-gradient-to-r sm:w-4",
+                                "bjn-connector mx-1 h-[2px] shrink-0 rounded-full bg-gradient-to-r",
+                                density === "compact" ? "w-2 sm:w-3" : "w-3 sm:w-4",
                                 globalIdx < focusIndex
                                   ? connectorTone.connectorDone
                                   : connectorTone.connector,

@@ -92,8 +92,8 @@ const settingsChildren: NavSubItem[] = [
   { title: "Appearance", href: `${ROUTES.SETTINGS}#appearance` },
 ];
 
-/** Organization sub-pages under Administration */
-const organizationChildren: NavSubItem[] = [
+/** Organization sub-pages — retained for command palette / legacy consumers */
+export const organizationChildren: NavSubItem[] = [
   { title: "Organization", href: ROUTES.ORGANIZATION },
   { title: "Company Profile", href: ROUTES.ORGANIZATION_COMPANY_PROFILE },
   { title: "Directors", href: ROUTES.ORGANIZATION_DIRECTORS },
@@ -104,8 +104,12 @@ const organizationChildren: NavSubItem[] = [
   { title: "Company Seal", href: ROUTES.ORGANIZATION_COMPANY_SEAL },
 ];
 
-/** Configuration-only Administration children. */
-const administrationChildren: NavSubItem[] = [
+/**
+ * Flat Administration module list for command palette.
+ * CO-SPRINT-111: primary nav no longer expands these — use Administration Console.
+ */
+export const administrationChildren: NavSubItem[] = [
+  { title: "Administration Console", href: ROUTES.ADMIN },
   ...organizationChildren,
   { title: "Users", href: ROUTES.ADMIN_USERS, separatorBefore: true },
   { title: "Roles & Permissions", href: ROUTES.ADMIN_ROLES_PERMISSIONS },
@@ -123,12 +127,11 @@ const administrationChildren: NavSubItem[] = [
   { title: "ECG", href: ROUTES.ADMIN_ECG },
   { title: "System Modes", href: ROUTES.ADMIN_SYSTEM_MODES },
 ];
-
 /**
  * Primary domain navigation — Column 1 (Architecture Freeze).
  * Dashboard · CHANAKYA Radar · Contacts · My Deals · Loan Workspace · Investments ·
  * Tasks · Documents · Lenders · Accounting · Mission Control · Horizon · Administration · Settings
- * Administration is configuration only. Do not change structure without approval.
+ * CO-SPRINT-111: Administration is a single entry → Administration Console (not an expandable tree).
  */
 export const primaryDomainNavigation: NavGroup = {
   title: "Catalyst One",
@@ -157,12 +160,9 @@ export const primaryDomainNavigation: NavGroup = {
     { title: "Horizon", href: ROUTES.HORIZON, icon: Orbit },
     {
       title: "Administration",
-      href: "#",
+      href: ROUTES.ADMIN,
       icon: Shield,
-      folder: true,
-      expandableKey: "administration",
       roles: [ROLES.SUPER_ADMIN],
-      children: administrationChildren,
     },
     {
       title: "Settings",
@@ -218,6 +218,15 @@ export function isNavHrefActive(pathname: string, href: string, hash = ""): bool
     return pathname === hrefPath && (hash === `#${hashPart}` || hash === hashPart);
   }
   if (pathname === hrefPath) return true;
+  /** Administration Console owns all /admin/* and /organization/* configuration surfaces. */
+  if (hrefPath === ROUTES.ADMIN) {
+    return (
+      pathname === ROUTES.ADMIN ||
+      pathname.startsWith("/admin/") ||
+      pathname === ROUTES.ORGANIZATION ||
+      pathname.startsWith("/organization/")
+    );
+  }
   if (
     hrefPath === "/dashboard" ||
     hrefPath === "/organization" ||
@@ -279,6 +288,7 @@ export const adminConsoleNavigation: NavGroup = {
   title: "Admin Console",
   roles: [ROLES.SUPER_ADMIN],
   items: [
+    { title: "Administration Console", href: ROUTES.ADMIN, icon: Shield },
     { title: "Users", href: ROUTES.ADMIN_USERS, icon: Users },
     { title: "Roles & Permissions", href: ROUTES.ADMIN_ROLES_PERMISSIONS, icon: Shield },
     { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY, icon: Package },

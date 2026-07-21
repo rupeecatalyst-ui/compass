@@ -14,6 +14,12 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  canPreviewDocument,
+  createBlobObjectUrl,
+  downloadDocumentFromRegistry,
+  getDocumentRegistryRecord,
+} from "@/lib/document-registry";
 import { reasonForDocument } from "@/lib/document-center/versions";
 import type { DocumentCenterVersion } from "@/lib/document-center/versions";
 import { cn } from "@/lib/utils";
@@ -43,6 +49,7 @@ export function DocumentViewerOverlay({
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [viewVersionId, setViewVersionId] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -51,6 +58,29 @@ export function DocumentViewerOverlay({
     const current = versions.find((v) => v.isCurrent) ?? versions[versions.length - 1];
     setViewVersionId(current?.id ?? null);
   }, [open, item?.typeRef, versions]);
+
+  const version = versions.find((v) => v.id === viewVersionId) ?? versions[versions.length - 1];
+
+  useEffect(() => {
+    if (!open || !version) {
+      setPreviewUrl(null);
+      return;
+    }
+    let revoked: string | null = null;
+    let cancelled = false;
+    void createBlobObjectUrl(version.blobId).then((url) => {
+      if (cancelled) {
+        if (url) URL.revokeObjectURL(url);
+        return;
+      }
+      revoked = url;
+      setPreviewUrl(url);
+    });
+    return () => {
+      cancelled = true;
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [open, version?.blobId, version?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +97,6 @@ export function DocumentViewerOverlay({
   );
   const prev = index > 0 ? allItems[index - 1] : null;
   const next = index >= 0 && index < allItems.length - 1 ? allItems[index + 1] : null;
-  const version = versions.find((v) => v.id === viewVersionId) ?? versions[versions.length - 1];
 
   const insight = useMemo(() => {
     if (!item) return "";
@@ -79,6 +108,18 @@ export function DocumentViewerOverlay({
     }
     return reasonForDocument(item);
   }, [item]);
+
+  const showPreview =
+    version &&
+    previewUrl &&
+    canPreviewDocument(version.mimeType, version.fileName);
+
+  const onDownload = async () => {
+    if (!version?.registryRecordId) return;
+    const record = getDocumentRegistryRecord(version.registryRecordId);
+    if (!record) return;
+    await downloadDocumentFromRegistry(record, version.id);
+  };
 
   if (!open || !item) return null;
 
@@ -97,7 +138,7 @@ export function DocumentViewerOverlay({
               <p className="text-[10px] text-muted-foreground">
                 {version
                   ? `Version ${version.version} · ${version.fileName}`
-                  : "No file uploaded yet — preview placeholder"}
+                  : "No file uploaded yet"}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1">
@@ -117,7 +158,7 @@ export function DocumentViewerOverlay({
               <IconBtn label="Next" disabled={!next} onClick={() => next && onNavigate(next.typeRef)}>
                 <ChevronRight className="h-3.5 w-3.5" />
               </IconBtn>
-              <IconBtn label="Download" onClick={() => undefined}>
+              <IconBtn label="Download" disabled={!version} onClick={() => void onDownload()}>
                 <Download className="h-3.5 w-3.5" />
               </IconBtn>
               <IconBtn label="Print" onClick={() => window.print()}>
@@ -156,16 +197,29 @@ export function DocumentViewerOverlay({
                 transformOrigin: "center top",
               }}
             >
-              {version ? (
+              {showPreview && version?.previewKind === "pdf" ? (
+                <iframe
+                  title={version.fileName}
+                  src={previewUrl}
+                  className="h-[70vh] w-full rounded-lg"
+                />
+              ) : showPreview && version?.previewKind === "image" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewUrl}
+                  alt={version.fileName}
+                  className="max-h-[70vh] max-w-full object-contain p-4"
+                />
+              ) : version ? (
                 <div className="space-y-3 p-8 text-center">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {version.previewKind.toUpperCase()} Preview
+                    {version.previewKind.toUpperCase()} · Preview unavailable in browser
                   </p>
                   <p className="text-lg font-semibold text-foreground">{version.fileName}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Simulated enterprise preview — {version.fileSizeLabel}
-                  </p>
-                  <div className="mx-auto mt-4 h-64 w-48 rounded border border-dashed border-border/70 bg-muted/30" />
+                  <p className="text-sm text-muted-foreground">{version.fileSizeLabel}</p>
+                  <Button type="button" size="sm" className="mt-2" onClick={() => void onDownload()}>
+                    Download file
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-2 p-10 text-center">
@@ -212,7 +266,7 @@ export function DocumentViewerOverlay({
               <InfoRow label="Applicable Stage" value={workflowStage.replace(/_/g, " ")} />
               <InfoRow label="Verification" value={item.complete ? "Received" : "Pending"} />
               <InfoRow label="File Size" value={version?.fileSizeLabel ?? "—"} />
-              <InfoRow label="Document Type" value={version?.mimeHint.toUpperCase() ?? "PDF"} />
+              <InfoRow label="Document Type" value={version?.mimeHint.toUpperCase() ?? "—"} />
             </dl>
           </div>
 

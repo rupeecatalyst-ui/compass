@@ -8,8 +8,20 @@ export interface User {
   avatarUrl?: string | null;
   role: Role;
   isActive: boolean;
+  employeeId?: string | null;
+  mobile?: string | null;
+  department?: string | null;
+  mustChangePassword?: boolean;
+  reportingManagerId?: string | null;
+  eumUserId?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 }
 
 export interface AuthTokens {

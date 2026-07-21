@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/design-system/page-header";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 
 const CONTEXT = "opp-demo-001";
 
@@ -23,6 +24,7 @@ const PRESETS = [
 ];
 
 function seedRecommendationsIfEmpty() {
+  if (!isDemoSeedEnabled()) return;
   if (listOpportunityRecommendations(CONTEXT).length > 0) return;
   const messages = [
     "Follow up on pending KYC documents this afternoon.",

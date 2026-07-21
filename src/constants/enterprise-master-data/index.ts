@@ -1,0 +1,16 @@
+export {
+  CO_ARCH_001_PROGRAM_ID,
+  CO_ARCH_001_I1_PHASE_ID,
+  ENTERPRISE_MASTER_DATA_TIERS,
+  ENTERPRISE_REGISTRY_MODULES,
+  ENTERPRISE_REGISTRY_DEFAULT_STATUS,
+  ENTERPRISE_REGISTRY_DEFAULT_ENABLED,
+  ENTERPRISE_REGISTRY_INITIAL_VERSION,
+  REFERENCE_MASTER_DOMAINS,
+} from "./tier0-metadata";
+
+export type {
+  EnterpriseMasterDataTier,
+  EnterpriseRegistryModuleCode,
+  ReferenceMasterDomainCode,
+} from "./tier0-metadata";

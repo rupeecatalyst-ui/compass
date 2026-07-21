@@ -1,11 +1,18 @@
 /**
  * CO-SPRINT-094 — Contact Registry row projection for Enterprise Table Standard.
+ * CO-SPRINT-117 prep — unified Directory Registry (individuals + companies).
  */
 
 import type { EcmContact, EcmContactRole, EcmContactStatus } from "@/types/enterprise-contact-master";
+import type { EcmCompany } from "@/types/enterprise-company-master";
+
+export type DirectoryEntityKind = "contact" | "company";
+
+export type DirectoryEntityFilter = "all" | "individuals" | "companies";
 
 export interface ContactRegistryRow {
   id: string;
+  entityKind: DirectoryEntityKind;
   contactId: string;
   name: string;
   contactType: string;
@@ -22,7 +29,7 @@ export interface ContactRegistryRow {
   lastInteractionAt: string;
   dateCreated: string;
   dateCreatedAt: string;
-  status: EcmContactStatus;
+  status: string;
   companyName: string;
   source: string;
   panStatus: string;
@@ -33,8 +40,10 @@ export interface ContactRegistryRow {
   loanRequirement: string;
   productInterest: string;
   customerStage: string;
-  /** Underlying contact for workspace open / strategic toggle */
-  contact: EcmContact;
+  /** Individual contact — present when entityKind === "contact" */
+  contact?: EcmContact;
+  /** Legal entity — present when entityKind === "company" */
+  company?: EcmCompany;
 }
 
 export const CONTACT_REGISTRY_PAGE_SIZES = [20, 50, 100] as const;
@@ -65,6 +74,8 @@ export type ContactRegistrySortField =
 
 export interface ContactRegistryFilters {
   search: string;
+  /** All · Individuals · Companies — primary directory strip */
+  entityFilter: DirectoryEntityFilter;
   contactType: "all" | EcmContactRole;
   city: string;
   state: string;
@@ -83,6 +94,7 @@ export interface ContactRegistryFilters {
 
 export const EMPTY_CONTACT_REGISTRY_FILTERS: ContactRegistryFilters = {
   search: "",
+  entityFilter: "all",
   contactType: "all",
   city: "all",
   state: "all",

@@ -61,6 +61,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { TaskCommitmentDialog } from "@/components/catalyst-one/tasks/task-commitment-dialog";
 import { TaskDetailDrawer } from "@/components/catalyst-one/tasks/task-detail-drawer";
 import { ChanakyaMark } from "@/components/layout/chanakya-mark";
@@ -98,6 +99,7 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 function seedEnterpriseTasksIfEmpty() {
+  if (!isDemoSeedEnabled()) return;
   if (listEteTasks().length > 0) return;
   const now = Date.now();
   const iso = (offsetMs: number) => new Date(now + offsetMs).toISOString();

@@ -2,6 +2,7 @@ import { apiRequest } from "@/lib/api-client";
 import { unwrapResponse } from "@/lib/response-handler";
 import type {
   AuthSession,
+  ChangePasswordPayload,
   ForgotPasswordPayload,
   LoginCredentials,
   ResetPasswordPayload,
@@ -50,6 +51,15 @@ export const authService = {
     const response = await apiRequest<User>({
       method: "GET",
       url: "/api/auth/me",
+    });
+    return unwrapResponse(response);
+  },
+
+  async changePassword(payload: ChangePasswordPayload): Promise<{ user: User; message: string }> {
+    const response = await apiRequest<{ user: User; message: string }>({
+      method: "POST",
+      url: "/api/auth/change-password",
+      data: payload,
     });
     return unwrapResponse(response);
   },

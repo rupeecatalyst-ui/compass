@@ -8,6 +8,7 @@ import { UserMenu } from "@/components/layout/user-menu";
 import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
 import { GlobalChanakyaButton } from "@/components/layout/global-chanakya-assistant";
+import { ChanakyaLiveIntelligenceBar } from "@/components/enterprise/chanakya-live-intelligence";
 import { ChanakyaRadarViewSwitcher } from "@/components/catalyst-one/chanakya-radar/chanakya-radar-view-switcher";
 import {
   DropdownMenu,
@@ -19,42 +20,46 @@ interface AppTopbarProps {
   onSearchClick?: () => void;
 }
 
+/**
+ * EUX-007 enterprise header layout:
+ * Logo/Workspace · Page controls · Live Intelligence · Notifications · Switchers · CHANAKYA AI · Profile
+ */
 export function AppTopbar({ onSearchClick }: AppTopbarProps) {
   const { toggleTheme, isDark, mounted } = useTheme();
   const { openMobile } = useSidebar();
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-background/80 backdrop-blur-xl px-4 lg:px-6">
-      <Button variant="ghost" size="icon" className="md:hidden" onClick={openMobile}>
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-background/80 px-3 backdrop-blur-xl sm:gap-3 sm:px-4 lg:px-6">
+      {/* Logo / Workspace */}
+      <Button variant="ghost" size="icon" className="shrink-0 md:hidden" onClick={openMobile}>
         <Menu className="h-5 w-5" />
       </Button>
-
-      <WorkspaceSwitcher />
-
-      <div className="flex-1 max-w-md hidden sm:block">
-        <Button
-          variant="outline"
-          className="w-full justify-start gap-2 text-muted-foreground h-9"
-          onClick={onSearchClick}
-        >
-          <Search className="h-4 w-4" />
-          <span className="text-sm">Search anything...</span>
-          <kbd className="pointer-events-none ml-auto hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
-            ⌘K
-          </kbd>
-        </Button>
+      <div className="shrink-0">
+        <WorkspaceSwitcher />
       </div>
 
-      <div className="flex items-center gap-1 ml-auto">
-        <Button variant="ghost" size="icon" className="sm:hidden" onClick={onSearchClick}>
-          <Search className="h-4 w-4" />
-        </Button>
+      {/* Page controls — compact search (⌘K); does not take ticker space */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hidden shrink-0 sm:inline-flex"
+        onClick={onSearchClick}
+        title="Search (⌘K)"
+        aria-label="Open search"
+      >
+        <Search className="h-4 w-4" />
+      </Button>
 
+      {/* CHANAKYA Live Intelligence Bar — flex fills remaining width */}
+      <ChanakyaLiveIntelligenceBar appearance="dashboard" />
+
+      {/* Actions — never wrap; preserved at all breakpoints */}
+      <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative shrink-0">
               <Bell className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent" />
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80 p-0">
@@ -64,9 +69,9 @@ export function AppTopbar({ onSearchClick }: AppTopbarProps) {
 
         <ChanakyaRadarViewSwitcher variant="dashboard" />
 
-        <GlobalChanakyaButton />
+        <GlobalChanakyaButton density="compact" />
 
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
+        <Button variant="ghost" size="icon" className="shrink-0" onClick={toggleTheme}>
           {mounted && (isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />)}
         </Button>
 

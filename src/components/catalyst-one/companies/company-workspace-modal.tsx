@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Building2, Plus, Search, X } from "lucide-react";
+import { ArrowRight, Building2, Plus, Search, Trash2, X } from "lucide-react";
 import {
   ECM_COMPANY_RELATION_ROLE_LABELS,
   ECM_COMPANY_RELATION_ROLES,
@@ -12,23 +12,33 @@ import { ROUTES } from "@/constants/routes";
 import {
   deriveEcmCompanyReadiness,
   getEcmCompany,
-  linkCompanyContact,
   listCompanyLinks,
-  registerEcmCompany,
-  updateEcmCompany,
 } from "@/lib/enterprise-company-master";
 import {
-  listEcmContacts,
-  registerEcmContact,
+  listOperationalEcmContacts,
+  searchOperationalContacts,
+  findOperationalEcmContactById,
+} from "@/lib/enterprise-registry";
+import {
   normalizeEcmMobile,
   normalizePersonName,
 } from "@/lib/enterprise-contact-master";
-import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
+import { useEnterpriseRegistry } from "@/hooks/use-enterprise-registry";
+import {
+  persistLinkCompanyContact,
+  persistRegisterEcmCompany,
+  persistRegisterEcmContact,
+  persistUpdateEcmCompany,
+} from "@/lib/enterprise-persistence";
 import type { EcmCompany, EcmCompanyRelationRole } from "@/types/enterprise-company-master";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
+import { SoftDeleteConfirmDialog } from "@/components/enterprise/soft-delete/soft-delete-dialogs";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
+import { canSoftDelete, softDeleteApi } from "@/lib/enterprise-soft-delete";
+import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,6 +61,26 @@ import { toast } from "sonner";
 
 type CompanyTab = "identity" | "business" | "relationships" | "readiness";
 
+const COMPANY_TABS: { id: CompanyTab; label: string }[] = [
+  { id: "identity", label: "Company Identity" },
+  { id: "business", label: "Business Profile" },
+  { id: "relationships", label: "Relationship" },
+  { id: "readiness", label: "Business Readiness" },
+];
+
+type CompanyFieldErrors = Partial<
+  Record<
+    | "companyName"
+    | "constitution"
+    | "industry"
+    | "nature"
+    | "years"
+    | "turnover"
+    | "_form",
+    string
+  >
+>;
+
 export interface CompanyWorkspaceModalProps {
   open: boolean;
   mode: "create" | "edit";
@@ -63,6 +93,10 @@ export interface CompanyWorkspaceModalProps {
   linkRelationRole?: EcmCompanyRelationRole;
   onOpenChange: (open: boolean) => void;
   onSaved: (company: EcmCompany) => void;
+  /** Fired after final step — wizard should close and registry refresh. */
+  onCompleted?: (company: EcmCompany) => void;
+  /** CO-SPRINT-119 — called after soft delete succeeds. */
+  onDeleted?: (companyId: string) => void;
 }
 
 /**
@@ -80,9 +114,21 @@ export function CompanyWorkspaceModal({
   linkRelationRole = "director",
   onOpenChange,
   onSaved,
+  onCompleted,
+  onDeleted,
 }: CompanyWorkspaceModalProps) {
+  const { user } = useAuthContext();
   const [tab, setTab] = useState<CompanyTab>("identity");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const allowDelete =
+    mode === "edit" &&
+    Boolean(company) &&
+    canSoftDelete(user?.role ?? "VIEWER") &&
+    isEnterprisePersistencePrisma();
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<CompanyFieldErrors>({});
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [constitution, setConstitution] = useState("");
   const [cin, setCin] = useState("");
@@ -98,51 +144,80 @@ export function CompanyWorkspaceModal({
   const [employees, setEmployees] = useState("");
   const [website, setWebsite] = useState("");
   const [linkTick, setLinkTick] = useState(0);
-  const registryVersion = useEcmContactRegistryVersion();
+  const { registryVersion } = useEnterpriseRegistry({
+    hydrateOnMount: true,
+    refreshOnOpen: true,
+    open,
+  });
   const [relSearch, setRelSearch] = useState("");
   const [newRelName, setNewRelName] = useState("");
   const [newRelMobile, setNewRelMobile] = useState("");
   const [newRelRole, setNewRelRole] = useState<EcmCompanyRelationRole>("director");
   const [busy, setBusy] = useState(false);
   const baselineRef = useRef("");
+  const wasOpenRef = useRef(false);
+
+  const hydrateFromCompany = (source: EcmCompany) => {
+    setDraftId(source.id);
+    setCompanyName(source.companyName);
+    setConstitution(source.constitution ?? "");
+    setCin(source.cin ?? "");
+    setPan(source.pan ?? "");
+    setGst(source.gst ?? "");
+    setDoi(source.dateOfIncorporation ?? "");
+    setAddress(source.registeredAddress ?? "");
+    setIndustry(source.industry ?? "");
+    setNature(source.natureOfBusiness ?? "");
+    setYears(source.yearsInBusiness ?? "");
+    setTurnover(source.annualTurnover ?? "");
+    setProfit(source.approximateNetProfit ?? "");
+    setEmployees(source.employeeStrength ?? "");
+    setWebsite(source.website ?? "");
+    baselineRef.current = source.companyName;
+  };
+
+  const resetBlankForm = (name?: string) => {
+    setDraftId(null);
+    setCompanyName(name?.trim() || "");
+    setConstitution("");
+    setCin("");
+    setPan("");
+    setGst("");
+    setDoi("");
+    setAddress("");
+    setIndustry("");
+    setNature("");
+    setYears("");
+    setTurnover("");
+    setProfit("");
+    setEmployees("");
+    setWebsite("");
+    baselineRef.current = name?.trim() || "";
+  };
 
   useEffect(() => {
-    if (!open) return;
-    setTab("identity");
-    if (company) {
+    if (!open) {
+      wasOpenRef.current = false;
+      return;
+    }
+
+    const justOpened = !wasOpenRef.current;
+    wasOpenRef.current = true;
+
+    if (justOpened) {
+      setTab("identity");
+      setFieldErrors({});
+      setValidationMessage(null);
+      if (company) {
+        hydrateFromCompany(company);
+      } else {
+        resetBlankForm(initialCompanyName);
+      }
+      return;
+    }
+
+    if (company?.id && company.id !== draftId) {
       setDraftId(company.id);
-      setCompanyName(company.companyName);
-      setConstitution(company.constitution ?? "");
-      setCin(company.cin ?? "");
-      setPan(company.pan ?? "");
-      setGst(company.gst ?? "");
-      setDoi(company.dateOfIncorporation ?? "");
-      setAddress(company.registeredAddress ?? "");
-      setIndustry(company.industry ?? "");
-      setNature(company.natureOfBusiness ?? "");
-      setYears(company.yearsInBusiness ?? "");
-      setTurnover(company.annualTurnover ?? "");
-      setProfit(company.approximateNetProfit ?? "");
-      setEmployees(company.employeeStrength ?? "");
-      setWebsite(company.website ?? "");
-      baselineRef.current = company.companyName;
-    } else {
-      setDraftId(null);
-      setCompanyName(initialCompanyName?.trim() || "");
-      setConstitution("");
-      setCin("");
-      setPan("");
-      setGst("");
-      setDoi("");
-      setAddress("");
-      setIndustry("");
-      setNature("");
-      setYears("");
-      setTurnover("");
-      setProfit("");
-      setEmployees("");
-      setWebsite("");
-      baselineRef.current = initialCompanyName?.trim() || "";
     }
   }, [open, company, initialCompanyName]);
 
@@ -158,7 +233,7 @@ export function CompanyWorkspaceModal({
     void linkTick;
     void registryVersion;
     const map = new Map<string, EcmContact>();
-    for (const c of listEcmContacts()) map.set(c.id, c);
+    for (const c of listOperationalEcmContacts()) map.set(c.id, c);
     return map;
   }, [linkTick, registryVersion]);
 
@@ -166,11 +241,9 @@ export function CompanyWorkspaceModal({
     void registryVersion;
     const q = relSearch.trim().toLowerCase();
     if (!q || q.length < 2) return [];
-    return listEcmContacts()
-      .filter((c) => {
-        const hay = `${c.name} ${c.mobilePrimary} ${c.personalEmail ?? ""}`.toLowerCase();
-        return hay.includes(q);
-      })
+    return searchOperationalContacts(relSearch)
+      .map((hit) => findOperationalEcmContactById(hit.id))
+      .filter((c): c is EcmContact => Boolean(c))
       .slice(0, 8);
   }, [relSearch, linkTick, registryVersion]);
 
@@ -179,15 +252,50 @@ export function CompanyWorkspaceModal({
     [liveCompany, linkTick],
   );
 
-  const persistIdentity = () => {
+  const tabIndex = COMPANY_TABS.findIndex((t) => t.id === tab);
+  const nextTab = tabIndex >= 0 ? COMPANY_TABS[tabIndex + 1]?.id : undefined;
+
+  const goToTab = (next: CompanyTab) => {
+    setValidationMessage(null);
+    setFieldErrors({});
+    setTab(next);
+  };
+
+  const validateIdentity = (): CompanyFieldErrors => {
+    const errors: CompanyFieldErrors = {};
     if (!companyName.trim()) {
-      toast.message("Company Name is required.");
+      errors.companyName = "Company Name is required.";
+    }
+    return errors;
+  };
+
+  const validateBusiness = (): CompanyFieldErrors => {
+    const errors: CompanyFieldErrors = {};
+    if (!industry.trim()) errors.industry = "Industry is required.";
+    if (!nature.trim()) errors.nature = "Nature of Business is required.";
+    if (!years.trim()) errors.years = "Years in Business is required.";
+    if (!turnover.trim()) errors.turnover = "Annual Turnover is required.";
+    return errors;
+  };
+
+  const applyValidationErrors = (errors: CompanyFieldErrors, headline: string): boolean => {
+    if (Object.keys(errors).length === 0) return true;
+    setFieldErrors(errors);
+    setValidationMessage(headline);
+    toast.message(headline);
+    return false;
+  };
+
+  const persistIdentity = async (): Promise<EcmCompany | null> => {
+    const errors = validateIdentity();
+    if (!applyValidationErrors(errors, "Complete the required Company Identity fields.")) {
       return null;
     }
+
     setBusy(true);
     try {
       if (!draftId) {
-        const created = registerEcmCompany({
+        const created = await persistRegisterEcmCompany({
           companyName,
           constitution,
           cin,
@@ -200,7 +308,7 @@ export function CompanyWorkspaceModal({
         });
         setDraftId(created.id);
         if (linkContactId) {
-          linkCompanyContact({
+          await persistLinkCompanyContact({
             companyId: created.id,
             contactId: linkContactId,
             relationRole: linkRelationRole,
@@ -212,7 +320,7 @@ export function CompanyWorkspaceModal({
         toast.success("Company identity saved.");
         return created;
       }
-      const updated = updateEcmCompany(
+      const updated = await persistUpdateEcmCompany(
         draftId,
         {
           companyName,
@@ -226,26 +334,34 @@ export function CompanyWorkspaceModal({
         actorId,
       );
       onSaved(updated);
-      toast.success("Company identity updated.");
+      toast.success("Company identity saved.");
       return updated;
     } catch (e) {
-      toast.message(e instanceof Error ? e.message : "Could not save company.");
+      const message = e instanceof Error ? e.message : "Could not save company.";
+      setValidationMessage(message);
+      toast.message(message);
       return null;
     } finally {
       setBusy(false);
     }
   };
 
-  const persistBusiness = () => {
+  const persistBusiness = async (): Promise<EcmCompany | null> => {
+    const errors = validateBusiness();
+    if (!applyValidationErrors(errors, "Complete the required Business Profile fields.")) {
+      return null;
+    }
+
     let targetId = draftId;
     if (!targetId) {
-      const created = persistIdentity();
-      if (!created) return;
+      const created = await persistIdentity();
+      if (!created) return null;
       targetId = created.id;
     }
+
     setBusy(true);
     try {
-      const updated = updateEcmCompany(
+      const updated = await persistUpdateEcmCompany(
         targetId,
         {
           industry,
@@ -260,11 +376,61 @@ export function CompanyWorkspaceModal({
       );
       onSaved(updated);
       toast.success("Business profile saved.");
+      return updated;
     } catch (e) {
-      toast.message(e instanceof Error ? e.message : "Could not save business profile.");
+      const message = e instanceof Error ? e.message : "Could not save business profile.";
+      setValidationMessage(message);
+      toast.message(message);
+      return null;
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleSaveAndContinue = () => {
+    void (async () => {
+      if (tab === "identity") {
+        const saved = await persistIdentity();
+        if (saved && nextTab) goToTab(nextTab);
+        return;
+      }
+      if (tab === "business") {
+        const saved = await persistBusiness();
+        if (saved && nextTab) goToTab(nextTab);
+        return;
+      }
+      if (tab === "relationships") {
+        if (!draftId) {
+          const message = "Save Company Identity before continuing.";
+          setValidationMessage(message);
+          toast.message(message);
+          return;
+        }
+        if (nextTab) goToTab(nextTab);
+      }
+    })();
+  };
+
+  const handleCompleteSetup = () => {
+    void (async () => {
+      const saved = await persistBusiness();
+      if (!saved) {
+        if (!draftId || Object.keys(validateIdentity()).length > 0) {
+          goToTab("identity");
+        } else {
+          goToTab("business");
+        }
+        return;
+      }
+
+      toast.success("Company profile setup complete.");
+      if (onCompleted) {
+        onCompleted(saved);
+      } else {
+        onSaved(saved);
+        onOpenChange(false);
+      }
+    })();
   };
 
   const linkExisting = (contactId: string) => {
@@ -272,15 +438,21 @@ export function CompanyWorkspaceModal({
       toast.message("Save Company Identity first.");
       return;
     }
-    linkCompanyContact({
-      companyId: draftId,
-      contactId,
-      relationRole: newRelRole,
-      createdBy: actorId,
-    });
-    setRelSearch("");
-    setLinkTick((n) => n + 1);
-    toast.success("Relationship linked — contact stored once.");
+    void (async () => {
+      try {
+        await persistLinkCompanyContact({
+          companyId: draftId,
+          contactId,
+          relationRole: newRelRole,
+          createdBy: actorId,
+        });
+        setRelSearch("");
+        setLinkTick((n) => n + 1);
+        toast.success("Relationship linked — contact stored once.");
+      } catch (e) {
+        toast.message(e instanceof Error ? e.message : "Could not link contact.");
+      }
+    })();
   };
 
   const createAndLink = () => {
@@ -294,35 +466,42 @@ export function CompanyWorkspaceModal({
       toast.message("Enter individual name and a valid mobile to create the contact.");
       return;
     }
-    try {
-      const contact = registerEcmContact({
-        name,
-        mobilePrimary: mobile,
-        roles: ["customer"],
-        ownerName,
-        createdBy: actorId,
-      });
-      linkCompanyContact({
-        companyId: draftId,
-        contactId: contact.id,
-        relationRole: newRelRole,
-        createdBy: actorId,
-      });
-      setNewRelName("");
-      setNewRelMobile("");
-      setLinkTick((n) => n + 1);
-      toast.success("Individual Contact created and linked.");
-    } catch (e) {
-      toast.message(e instanceof Error ? e.message : "Could not create contact.");
-    }
+    void (async () => {
+      try {
+        const contact = await persistRegisterEcmContact({
+          name,
+          mobilePrimary: mobile,
+          roles: ["customer"],
+          ownerName,
+          createdBy: actorId,
+        });
+        await persistLinkCompanyContact({
+          companyId: draftId,
+          contactId: contact.id,
+          relationRole: newRelRole,
+          createdBy: actorId,
+        });
+        setNewRelName("");
+        setNewRelMobile("");
+        setLinkTick((n) => n + 1);
+        toast.success("Individual Contact created and linked.");
+      } catch (e) {
+        toast.message(e instanceof Error ? e.message : "Could not create contact.");
+      }
+    })();
   };
 
-  const tabs: { id: CompanyTab; label: string }[] = [
-    { id: "identity", label: "Company Identity" },
-    { id: "business", label: "Business Profile" },
-    { id: "relationships", label: "Relationships" },
-    { id: "readiness", label: "Business Readiness" },
-  ];
+  const tabs = COMPANY_TABS;
+
+  const validationBanner =
+    validationMessage ? (
+      <p
+        role="alert"
+        className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
+      >
+        {validationMessage}
+      </p>
+    ) : null;
 
   const hasUnsavedChanges =
     open &&
@@ -333,8 +512,8 @@ export function CompanyWorkspaceModal({
     onClose: () => onOpenChange(false),
     hasUnsavedChanges,
     enableEscapeKey: false,
-    onSaveAndClose: () => {
-      const saved = persistIdentity();
+    onSaveAndClose: async () => {
+      const saved = await persistIdentity();
       return Boolean(saved);
     },
   });
@@ -364,17 +543,31 @@ export function CompanyWorkspaceModal({
                 </DialogDescription>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 px-2 text-xs text-zinc-400 hover:bg-zinc-900 hover:text-zinc-50"
-              onClick={closeApi.requestClose}
-              aria-label="Close workspace"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden />
-              Close
-            </Button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {allowDelete ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 border-red-900/60 bg-red-950/40 px-2 text-xs text-red-200 hover:bg-red-950/70"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  Delete
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2 text-xs text-zinc-400 hover:bg-zinc-900 hover:text-zinc-50"
+                onClick={closeApi.requestClose}
+                aria-label="Close workspace"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+                Close
+              </Button>
+            </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {tabs.map((t) => (
@@ -398,14 +591,24 @@ export function CompanyWorkspaceModal({
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {tab === "identity" && (
             <div className="space-y-4">
+              {validationBanner}
               <p className="text-xs text-zinc-400">
                 Company Name was captured on the entry screen — do not re-enter a Business Name.
               </p>
-              <Field label="Company Name">
+              <Field label="Company Name" required error={fieldErrors.companyName}>
                 <Input
                   value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="border-zinc-700 bg-zinc-900"
+                  onChange={(e) => {
+                    setCompanyName(e.target.value);
+                    if (fieldErrors.companyName) {
+                      setFieldErrors((prev) => ({ ...prev, companyName: undefined }));
+                    }
+                  }}
+                  aria-invalid={Boolean(fieldErrors.companyName)}
+                  className={cn(
+                    "border-zinc-700 bg-zinc-900",
+                    fieldErrors.companyName && "border-amber-500 ring-1 ring-amber-500/50",
+                  )}
                 />
               </Field>
               <Field label="Constitution">
@@ -446,10 +649,7 @@ export function CompanyWorkspaceModal({
                 type="button"
                 disabled={busy}
                 className="rounded-xl bg-violet-600 hover:bg-violet-500"
-                onClick={() => {
-                  const saved = persistIdentity();
-                  if (saved) setTab("business");
-                }}
+                onClick={handleSaveAndContinue}
               >
                 Save & Continue
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
@@ -459,29 +659,66 @@ export function CompanyWorkspaceModal({
 
           {tab === "business" && (
             <div className="space-y-4">
-              <Field label="Industry">
+              {validationBanner}
+              <Field label="Industry" required error={fieldErrors.industry}>
                 <EcmMasterSelect
                   domain="industry"
                   value={industry}
-                  onChange={(id) => setIndustry(id)}
+                  onChange={(id) => {
+                    setIndustry(id);
+                    if (fieldErrors.industry) {
+                      setFieldErrors((prev) => ({ ...prev, industry: undefined }));
+                    }
+                  }}
                   placeholder="Select industry…"
                 />
               </Field>
-              <Field label="Nature of Business">
+              <Field label="Nature of Business" required error={fieldErrors.nature}>
                 <EcmMasterSelect
                   domain="nature_of_business"
                   value={nature}
-                  onChange={(id) => setNature(id)}
+                  onChange={(id) => {
+                    setNature(id);
+                    if (fieldErrors.nature) {
+                      setFieldErrors((prev) => ({ ...prev, nature: undefined }));
+                    }
+                  }}
                   placeholder="Search nature of business…"
                   searchPlaceholder="Search nature of business…"
                 />
               </Field>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Years in Business">
-                  <Input value={years} onChange={(e) => setYears(e.target.value)} className="border-zinc-700 bg-zinc-900" />
+                <Field label="Years in Business" required error={fieldErrors.years}>
+                  <Input
+                    value={years}
+                    onChange={(e) => {
+                      setYears(e.target.value);
+                      if (fieldErrors.years) {
+                        setFieldErrors((prev) => ({ ...prev, years: undefined }));
+                      }
+                    }}
+                    aria-invalid={Boolean(fieldErrors.years)}
+                    className={cn(
+                      "border-zinc-700 bg-zinc-900",
+                      fieldErrors.years && "border-amber-500 ring-1 ring-amber-500/50",
+                    )}
+                  />
                 </Field>
-                <Field label="Annual Turnover">
-                  <Input value={turnover} onChange={(e) => setTurnover(e.target.value)} className="border-zinc-700 bg-zinc-900" />
+                <Field label="Annual Turnover" required error={fieldErrors.turnover}>
+                  <Input
+                    value={turnover}
+                    onChange={(e) => {
+                      setTurnover(e.target.value);
+                      if (fieldErrors.turnover) {
+                        setFieldErrors((prev) => ({ ...prev, turnover: undefined }));
+                      }
+                    }}
+                    aria-invalid={Boolean(fieldErrors.turnover)}
+                    className={cn(
+                      "border-zinc-700 bg-zinc-900",
+                      fieldErrors.turnover && "border-amber-500 ring-1 ring-amber-500/50",
+                    )}
+                  />
                 </Field>
                 <Field label="Approximate Net Profit (Optional)">
                   <Input value={profit} onChange={(e) => setProfit(e.target.value)} className="border-zinc-700 bg-zinc-900" />
@@ -497,10 +734,7 @@ export function CompanyWorkspaceModal({
                 type="button"
                 disabled={busy}
                 className="rounded-xl bg-violet-600 hover:bg-violet-500"
-                onClick={() => {
-                  persistBusiness();
-                  setTab("relationships");
-                }}
+                onClick={handleSaveAndContinue}
               >
                 Save & Continue
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
@@ -510,6 +744,7 @@ export function CompanyWorkspaceModal({
 
           {tab === "relationships" && (
             <div className="space-y-5">
+              {validationBanner}
               <p className="text-xs text-zinc-400">
                 People are always Individual Contacts. Company stores only the relationship link — never
                 duplicate contacts.
@@ -609,10 +844,11 @@ export function CompanyWorkspaceModal({
 
               <Button
                 type="button"
+                disabled={busy}
                 className="rounded-xl bg-violet-600 hover:bg-violet-500"
-                onClick={() => setTab("readiness")}
+                onClick={handleSaveAndContinue}
               >
-                Continue to Readiness
+                Save & Continue
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </Button>
             </div>
@@ -620,6 +856,7 @@ export function CompanyWorkspaceModal({
 
           {tab === "readiness" && readiness && liveCompany && (
             <div className="space-y-4">
+              {validationBanner}
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                   Company Completion
@@ -675,6 +912,15 @@ export function CompanyWorkspaceModal({
                 Industry: {industry ? getEcmMasterLabel("industry", industry) : "—"} · Nature:{" "}
                 {nature ? getEcmMasterLabel("nature_of_business", nature) : "—"}
               </p>
+              <Button
+                type="button"
+                disabled={busy}
+                className="rounded-xl bg-violet-600 hover:bg-violet-500"
+                onClick={handleCompleteSetup}
+              >
+                Complete Company Profile
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
             </div>
           )}
 
@@ -691,15 +937,53 @@ export function CompanyWorkspaceModal({
       onSaveAndClose={closeApi.handleSaveAndClose}
       saving={closeApi.saving || busy}
     />
+    <SoftDeleteConfirmDialog
+      open={deleteOpen}
+      onOpenChange={setDeleteOpen}
+      recordLabel={company?.companyName || companyName || "Company"}
+      busy={deleting}
+      onConfirm={async (reason) => {
+        if (!company) return;
+        setDeleting(true);
+        try {
+          await softDeleteApi.softDelete({
+            module: "companies",
+            entityId: company.id,
+            reason,
+          });
+          setDeleteOpen(false);
+          onOpenChange(false);
+          onDeleted?.(company.id);
+        } catch (err) {
+          window.alert(err instanceof Error ? err.message : "Delete failed");
+        } finally {
+          setDeleting(false);
+        }
+      }}
+    />
     </>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  required,
+  error,
+}: {
+  label: string;
+  children: React.ReactNode;
+  required?: boolean;
+  error?: string;
+}) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-zinc-300">{label}</Label>
+      <Label className="text-zinc-300">
+        {label}
+        {required ? <span className="text-amber-400"> *</span> : null}
+      </Label>
       {children}
+      {error ? <p className="text-xs text-amber-400">{error}</p> : null}
     </div>
   );
 }

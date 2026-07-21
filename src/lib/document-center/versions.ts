@@ -1,10 +1,15 @@
 /**
- * Document Center version history — local UX store (does not change EDIE rules).
+ * Document Center version history — bridges to CO-SPRINT-114 document registry.
  */
+
+import { formatDocumentFileSize } from "@/constants/document-registry";
+import { inferMimeHint, listDocumentsForLoanFile } from "@/lib/document-registry";
+import type { DocumentRegistryRecord } from "@/types/document-registry";
 
 export interface DocumentCenterVersion {
   id: string;
   typeRef: string;
+  registryRecordId: string;
   version: number;
   uploadedBy: string;
   uploadedAt: string;
@@ -12,56 +17,45 @@ export interface DocumentCenterVersion {
   fileSizeLabel: string;
   mimeHint: "pdf" | "image" | "office" | "unknown";
   isCurrent: boolean;
-  /** Simulated preview data URL or placeholder key. */
   previewKind: "pdf" | "image" | "office" | "unknown";
+  mimeType: string;
+  blobId: string;
 }
 
-const KEY = "catalyst.document-center.versions";
+export function registryRecordToVersions(record: DocumentRegistryRecord): DocumentCenterVersion[] {
+  return record.versions.map((v) => {
+    const mimeHint = inferMimeHint(v.mimeType, v.originalFilename);
+    return {
+      id: v.id,
+      typeRef: record.typeRef,
+      registryRecordId: record.id,
+      version: v.version,
+      uploadedBy: v.uploadedBy,
+      uploadedAt: v.uploadedAt,
+      fileName: v.displayName || v.originalFilename,
+      fileSizeLabel: formatDocumentFileSize(v.fileSizeBytes),
+      mimeHint,
+      isCurrent: v.isCurrent,
+      previewKind: mimeHint,
+      mimeType: v.mimeType,
+      blobId: v.blobId,
+    };
+  });
+}
 
 export function loadDocumentVersions(
   fileId: string,
 ): Record<string, DocumentCenterVersion[]> {
   if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(`${KEY}:${fileId}`);
-    return raw ? (JSON.parse(raw) as Record<string, DocumentCenterVersion[]>) : {};
-  } catch {
-    return {};
+
+  const map: Record<string, DocumentCenterVersion[]> = {};
+  for (const record of listDocumentsForLoanFile(fileId)) {
+    const list = registryRecordToVersions(record);
+    const key = record.typeRef;
+    const existing = map[key] ?? [];
+    map[key] = [...existing, ...list].sort((a, b) => a.version - b.version);
   }
-}
-
-export function saveDocumentVersions(
-  fileId: string,
-  map: Record<string, DocumentCenterVersion[]>,
-) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(`${KEY}:${fileId}`, JSON.stringify(map));
-}
-
-export function appendDocumentVersion(
-  fileId: string,
-  typeRef: string,
-  uploadedBy: string,
-  fileName?: string,
-): DocumentCenterVersion[] {
-  const all = loadDocumentVersions(fileId);
-  const existing = (all[typeRef] ?? []).map((v) => ({ ...v, isCurrent: false }));
-  const nextVersion: DocumentCenterVersion = {
-    id: `ver-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    typeRef,
-    version: existing.length + 1,
-    uploadedBy: uploadedBy || "Relationship Manager",
-    uploadedAt: new Date().toISOString(),
-    fileName: fileName || `${typeRef.replace(/^doc:/, "")}-v${existing.length + 1}.pdf`,
-    fileSizeLabel: `${(180 + existing.length * 12).toFixed(0)} KB`,
-    mimeHint: "pdf",
-    isCurrent: true,
-    previewKind: "pdf",
-  };
-  const list = [...existing, nextVersion];
-  all[typeRef] = list;
-  saveDocumentVersions(fileId, all);
-  return list;
+  return map;
 }
 
 export function reasonForDocument(item: {

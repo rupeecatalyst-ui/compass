@@ -4,6 +4,7 @@
  */
 
 import { LIFE_ACTIVE_STATUS, LIFE_CONTACT_ROLES } from "@/constants/enterprise-life-engine";
+import { runDemoSeedIfEnabledWithResult } from "@/lib/demo-seed";
 import {
   getLifeRegistrySnapshot,
 } from "./registry-snapshot";
@@ -13,11 +14,12 @@ import {
 } from "./contact-registry";
 
 export function seedLifeContactsIfEmpty(): number {
-  if (getLifeRegistrySnapshot().contacts.length > 0) {
-    return getLifeRegistrySnapshot().contacts.length;
-  }
+  return runDemoSeedIfEnabledWithResult(() => {
+    if (getLifeRegistrySnapshot().contacts.length > 0) {
+      return getLifeRegistrySnapshot().contacts.length;
+    }
 
-  const hdfc = registerLifeLenderContact({
+    const hdfc = registerLifeLenderContact({
     contactCode: "LIFE-HDFC-EXE-001",
     contactName: "Rahul Shah",
     mobile: "9876500001",
@@ -35,7 +37,7 @@ export function seedLifeContactsIfEmpty(): number {
     reportingManagerRef: "employee:mgr-hdfc-01",
     reportingManagerName: "Anil Mehta",
     reportingHierarchy: ["Rahul Shah", "Anil Mehta", "West Zonal Head"],
-    createdBy: "system",
+    createdBy: "demo-seed",
   });
   registerLifeRecommendationHint({
     contactId: hdfc.id,
@@ -63,7 +65,7 @@ export function seedLifeContactsIfEmpty(): number {
     reportingManagerRef: "employee:mgr-icici-01",
     reportingManagerName: "Sneha Kapoor",
     reportingHierarchy: ["Neha Gupta", "Sneha Kapoor", "Regional Credit Head"],
-    createdBy: "system",
+    createdBy: "demo-seed",
   });
   registerLifeRecommendationHint({
     contactId: icici.id,
@@ -91,7 +93,7 @@ export function seedLifeContactsIfEmpty(): number {
     reportingManagerRef: "employee:mgr-axis-01",
     reportingManagerName: "Kavita Nair",
     reportingHierarchy: ["Amit Jain", "Kavita Nair"],
-    createdBy: "system",
+    createdBy: "demo-seed",
   });
   registerLifeRecommendationHint({
     contactId: axis.id,
@@ -120,7 +122,7 @@ export function seedLifeContactsIfEmpty(): number {
     reportingManagerRef: "employee:mgr-hdfc-01",
     reportingManagerName: "Anil Mehta",
     reportingHierarchy: ["Priya Sharma", "Anil Mehta", "West Zonal Head"],
-    createdBy: "system",
+    createdBy: "demo-seed",
   });
 
   registerLifeLenderContact({
@@ -141,7 +143,7 @@ export function seedLifeContactsIfEmpty(): number {
     reportingManagerRef: "employee:mgr-icici-01",
     reportingManagerName: "Sneha Kapoor",
     reportingHierarchy: ["Rahul Verma", "Sneha Kapoor", "Regional Credit Head"],
-    createdBy: "system",
+    createdBy: "demo-seed",
   });
 
   // Credit contact without executor — must not appear in recommendations
@@ -161,8 +163,9 @@ export function seedLifeContactsIfEmpty(): number {
     lenderExecutor: false,
     activeStatus: LIFE_ACTIVE_STATUS.ACTIVE,
     reportingHierarchy: ["Amit Credit Desk", "Credit Manager"],
-    createdBy: "system",
+    createdBy: "demo-seed",
   });
 
-  return getLifeRegistrySnapshot().contacts.length;
+    return getLifeRegistrySnapshot().contacts.length;
+  }, getLifeRegistrySnapshot().contacts.length);
 }

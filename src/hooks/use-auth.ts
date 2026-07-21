@@ -59,7 +59,7 @@ export function useAuth() {
         isLoading: false,
         isAuthenticated: true,
       });
-      router.push(ROUTES.CONTACTS);
+      router.push(session.user.mustChangePassword ? ROUTES.CHANGE_PASSWORD : ROUTES.CONTACTS);
       return session;
     },
     [router],

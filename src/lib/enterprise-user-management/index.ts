@@ -39,3 +39,8 @@ export {
   syncUserPlatformAccess,
   type GrantablePlatformAccess,
 } from "./iam-lifecycle";
+export {
+  provisionAuthUserForEnterpriseUser,
+  activateEnterpriseUserWithLogin,
+  getAuthUserIdForContact,
+} from "./provision-auth-user";

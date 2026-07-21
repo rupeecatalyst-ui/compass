@@ -45,6 +45,7 @@
     "src/app/api/**/*.ts",
     "server/config/**/*.ts",
     "server/lib/**/*.ts",
+    "server/repositories/**/*.ts",
     "server/services/**/*.ts",
     "server/utils/**/*.ts",
     "server/validators/**/*.ts",

@@ -2,6 +2,8 @@
 
 import { useLoanFiles } from "@/components/catalyst-one/loan-files/loan-files-context";
 import { LoanCreateFormDialog } from "@/components/catalyst-one/loan-files/loan-create-form-dialog";
+import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
+import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
 import { useToast } from "@/hooks/use-toast";
 
 export function CreateLoanModal() {
@@ -13,7 +15,14 @@ export function CreateLoanModal() {
       open={createOpen}
       onOpenChange={setCreateOpen}
       onSubmit={(input) => {
-        addFile(input);
+        const created = addFile(input);
+        setActiveOpportunityContext({
+          fileId: created.id,
+          opportunityId: undefined,
+          customerName: created.customerName,
+          product: created.loanProduct,
+          label: opportunityNumberForFile(created),
+        });
         success("Loan file created", `${input.customerName} added to Raw Lead.`);
       }}
       title="New Loan File"

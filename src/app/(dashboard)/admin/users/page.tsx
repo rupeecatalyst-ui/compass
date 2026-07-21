@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 import { CatalystBranding } from "@/components/catalyst-one/catalyst-branding";
-import { EnterpriseUserList } from "@/components/catalyst-one/enterprise-user-management";
+import { PrismaUserAdminWorkspace } from "@/components/catalyst-one/enterprise-user-management/prisma-user-admin-workspace";
 import { PageHeader } from "@/components/design-system/page-header";
 import { StatusPill } from "@/components/design-system/status-pill";
 
 /**
- * Catalyst One v1.0 — User Management (Enterprise IAM)
- * Administration → Users
- * User Accounts are provisioned only from Directory Contacts via Platform Access.
+ * CO-SPRINT-118 — User Management MVP
+ * Prisma / Supabase SSOT (users table). Temporary password forces change on login.
  */
 export default function AdminUsersPage() {
   return (
@@ -19,11 +18,11 @@ export default function AdminUsersPage() {
         </div>
         <PageHeader
           title="Users"
-          description="User Accounts are authentication objects linked to Directory Contacts. Use Grant Platform Access — never create users directly. Work with Roles and Access Profile; overrides are Advanced."
+          description="Create and manage login accounts persisted in PostgreSQL. New and reset passwords are temporary — users must change them before using Catalyst One."
         />
       </div>
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading users…</p>}>
-        <EnterpriseUserList />
+        <PrismaUserAdminWorkspace />
       </Suspense>
     </div>
   );

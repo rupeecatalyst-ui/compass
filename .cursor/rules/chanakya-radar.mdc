@@ -6,31 +6,87 @@ globs:
   - src/constants/chanakya-radar.ts
   - src/app/(dashboard)/chanakya-radar/**
   - src/app/(mission-control)/mission-control/page.tsx
+  - src/mission-control/shell/**
 ---
 
-# CHANAKYA Radar
+# CHANAKYA Radar (CO-SPRINT-105)
 
-## First-screen principle (mandatory)
+## First-viewport principle (mandatory)
 
 Every pixel on the first visible screen must help answer:
 
 > **What should I work on right now?**
 
-If an element does not directly contribute, **relocate below the fold**, **move to the global header**, or **remove** it.
+Anything else moves to the global header, inside the Radar container, or below the fold.
 
-First screen keeps: compact CHANAKYA ticker · hero Radar (blips / ticks / labels) · scope · Opportunity Preview drawer on demand.
+## Page hierarchy
 
-Below the fold: KPIs, Direction / Trend / Concern, intelligence cards, legend explanation.
+1. Global header (EUX-007)
+2. Radar header (title · count · scope · Direction/Concern/Trend)
+3. Radar visual
+4. Scrollable analytics / KPIs
+
+No separate ticker row. No dedicated Team/scope row outside the Radar.
+
+## Global header (Mission Control)
+
+`Rupee Catalyst` · `ChanakyaLiveIntelligenceBar` · Notifications · Radar|Kanban · CHANAKYA AI · User Profile
+
+No search field. No extra controls below the header.
+
+## Radar container
+
+- Row 1: `Operational Radar · N Opportunities` + scope select (top-right)
+- Row 2: `Direction | Concern | Trend`
+- Visual begins immediately below that header
 
 ## Architecture
 
-- **Radar | Kanban** switcher lives in the **global header** (beside Notifications, before CHANAKYA AI).
-- Tabs preserve scope / KPI focus / selection via shared workspace-tab store.
-- Opportunity Preview = right **slide-over** (click outside closes); never permanently shrinks Radar.
-- Blip colour = operational status; **distance from centre = stage ageing**; **✓ tick = worked today**.
-- Live feed is operational guidance only — does **not** open CHANAKYA AI.
-- Page must always **naturally scroll**. No fixed-height lock / clipped content.
-- Metric SSOT / Vector / Health scoring — never reimplemented in UI.
-- Real-time: `subscribeLoanFilesUpdated` + 60s / `storage` fallback.
-- Matrix retired. Kanban cards never draggable.
-- Four quadrants: On Track (N) · Follow-up Required (E) · At Risk (S) · Needs Attention (W).
+- Opportunity Preview = right slide-over; never permanently shrinks Radar
+## CO-SPRINT-108 — Daily Work Completion Indicator
+
+- **Business Status** = dot colour (quadrant). Independent of daily work.
+- **Daily Work ✓** = meaningful Operational Work on the **current business day** only.
+- Config: `CHANAKYA_RADAR_MEANINGFUL_WORK_ACTIVITIES` + `CHANAKYA_RADAR_NON_OPERATIONAL_ACTIVITY_PATTERNS`.
+- SSOT: `hasMeaningfulWorkToday` / `recordChanakyaRadarOperationalWork` in `daily-work.ts`.
+- Opening or viewing a file must **never** set ✓.
+- New business day automatically clears ✓ (day-keyed marks; status/stage/ageing unchanged).
+
+- **Ring model** (`CHANAKYA_RADAR_AGEING_RINGS`): distance from centre = stage ageing (config thresholds, not hardcoded UI).
+- Placement: `placeChanakyaRadarBlips` — angular spacing + collision avoid within ring; small radial jitter; no continuous arcs.
+- **Operational Vector** (green needle): living management-attention bearing (`attentionWeight`); not decorative.
+- **Operational Vector — BUSINESS CERTIFIED** (logic · math · behaviour · production readiness). Approved for production. No refactor required for current release.
+- **Future platform hardening (scheduled separately):** evolve to a visualization-independent contract — Enterprise Attention Score · Highest Attention Quadrant · Confidence — with Radar as a presentation adapter only. Coupling to 0°/90°/180°/270° is acceptable now; not a certification blocker.
+- Quadrant fills/borders are context only — dots are primary.
+- No redundant colour legends under the Radar.
+- Ticker is passive; detail via CHANAKYA AI only
+- Page must naturally scroll
+- Metric SSOT / Vector / Health — never reimplemented in UI
+- Real-time: `subscribeLoanFilesUpdated` + 60s / `storage` fallback
+- Matrix retired; Kanban cards never draggable
+- Quadrants: On Track (N) · Follow-up Required (E) · At Risk (S) · Needs Attention (W)
+
+## CO-SPRINT-113 — Operational Movement Feeds
+
+Mission Control has three complementary dimensions:
+
+1. **Radar** — current portfolio position
+2. **Movement Feeds** — recent operational state transitions (borrower + colour only)
+3. **Operational Vector** — management focus
+
+Rules:
+
+- Feeds sit in whitespace around the dial (Top/Left/Right/Bottom). Never overlap or shrink the Radar.
+- Content: borrower name + colour transition only (no amounts, dates, stages, lenders).
+- Event-driven via `syncOperationalMovements` — first observation baselines; empty feeds are valid.
+- Animate bottom → top once, then consume (no historical replay loop).
+- Desktop/tablet: show feeds. Mobile: hide feeds.
+- SSOT: `src/lib/chanakya-radar/operational-movement.ts` · UI: `operational-movement-feed.tsx`
+
+## CO-SPRINT-113A — Developer Demonstration Mode
+
+- **BUSINESS CERTIFIED** — approved for development/certification use.
+- Dev-only panel (`OperationalMovementDemoPanel`) injects sample movements for certification / UX demos.
+- Gated by `NODE_ENV === "development"` — never visible or injectable in production builds.
+- Does **not** mutate loan files; production feeds still come only from real quadrant transitions.
+- Uses the existing Operational Movement pipeline (not a parallel implementation).

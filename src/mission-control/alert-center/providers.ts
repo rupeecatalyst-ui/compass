@@ -13,6 +13,7 @@ import type {
   AlertSeverity,
 } from "./types";
 import { listSdeEvents } from "@/lib/system-driven-enterprise";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 
 export interface EnterpriseAlertProvider {
   listAlerts(filter?: AlertFilter): Promise<readonly EnterpriseAlert[]>;
@@ -315,12 +316,14 @@ function matchesFilter(alert: EnterpriseAlert, filter: AlertFilter): boolean {
 export function createEnterpriseAlertProvider(): EnterpriseAlertProvider {
   return {
     async listAlerts(filter) {
-      const store = [...sdeEventsAsAlerts(), ...mockAlerts()];
+      const mock = isDemoSeedEnabled() ? mockAlerts() : [];
+      const store = [...sdeEventsAsAlerts(), ...mock];
       if (!filter) return store;
       return store.filter((a) => matchesFilter(a, filter));
     },
     async getAlert(id) {
-      const store = [...sdeEventsAsAlerts(), ...mockAlerts()];
+      const mock = isDemoSeedEnabled() ? mockAlerts() : [];
+      const store = [...sdeEventsAsAlerts(), ...mock];
       return store.find((a) => a.id === id);
     },
   };
@@ -332,7 +335,7 @@ export const createAlertProvider = createEnterpriseAlertProvider;
 export function createAlertSummaryProvider(): AlertSummaryProvider {
   return {
     async getSummary(alerts) {
-      const rows = alerts ?? mockAlerts();
+      const rows = alerts ?? (isDemoSeedEnabled() ? mockAlerts() : []);
       const open = rows.filter(
         (a) => a.status === "open" || a.status === "acknowledged" || a.status === "investigating",
       );
@@ -379,7 +382,7 @@ export function createAlertSummaryProvider(): AlertSummaryProvider {
 export function createAlertStatisticsProvider(): AlertStatisticsProvider {
   return {
     async getStatistics(alerts) {
-      const rows = alerts ?? mockAlerts();
+      const rows = alerts ?? (isDemoSeedEnabled() ? mockAlerts() : []);
       const severities = ["critical", "high", "medium", "low", "info"] as const;
       const statuses = ["open", "acknowledged", "investigating", "resolved", "dismissed"] as const;
 

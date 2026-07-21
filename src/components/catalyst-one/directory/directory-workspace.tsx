@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import {
   ContactCreationIntentScreen,
   type ContactCreationIntentResult,
@@ -19,46 +19,26 @@ import { ROUTES } from "@/constants/routes";
 import {
   listEcmContacts,
   queryEcmContacts,
-  registerEcmContact,
-  updateEcmContact,
 } from "@/lib/enterprise-contact-master";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import {
   listEcmCompanies,
   seedEcmCompaniesIfEmpty,
 } from "@/lib/enterprise-company-master";
+import { seedEcmContactsDemoIfEmpty } from "@/lib/demo-seed";
+import {
+  hydrateEcmFromPrisma,
+  isEnterprisePersistencePrisma,
+} from "@/lib/enterprise-persistence";
 import type { EcmCompany } from "@/types/enterprise-company-master";
 import type { EcmContact } from "@/types/enterprise-contact-master";
-
-function seedContactsIfEmpty() {
-  if (listEcmContacts().length > 0) return;
-  const seeds = [
-    { name: "Rahul Kapoor", mobilePrimary: "9811100099", roles: ["customer" as const], strategic: true },
-    { name: "Suresh Patel", mobilePrimary: "9811100001", roles: ["customer" as const], strategic: false },
-    { name: "Priya Nair", mobilePrimary: "9811100002", roles: ["employee" as const], strategic: true },
-  ];
-  for (const s of seeds) {
-    try {
-      const created = registerEcmContact({
-        name: s.name,
-        mobilePrimary: s.mobilePrimary,
-        roles: [...s.roles],
-        ownerName: "Platform Admin",
-        createdBy: "system",
-      });
-      if (s.strategic) {
-        updateEcmContact(created.id, { strategicContact: true }, "system");
-      }
-    } catch {
-      /* duplicate mobile */
-    }
-  }
-}
 
 function ContactsRegistryInner() {
   const { user } = useAuthContext();
   const searchParams = useSearchParams();
   const [tick, setTick] = useState(0);
+  const [hydrating, setHydrating] = useState(false);
+  const [hydrateError, setHydrateError] = useState<string | null>(null);
   const registryVersion = useEcmContactRegistryVersion();
 
   const [intentOpen, setIntentOpen] = useState(false);
@@ -69,6 +49,7 @@ function ContactsRegistryInner() {
   const [activeCompany, setActiveCompany] = useState<EcmCompany | null>(null);
   const [companyInitialName, setCompanyInitialName] = useState<string | undefined>();
   const [linkContactId, setLinkContactId] = useState<string | undefined>();
+  const [registryHighlight, setRegistryHighlight] = useState<string | undefined>();
 
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<"create" | "edit">("edit");
@@ -77,9 +58,48 @@ function ContactsRegistryInner() {
   const refresh = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
-    seedEcmCompaniesIfEmpty();
-    seedContactsIfEmpty();
-    refresh();
+    let cancelled = false;
+    async function boot() {
+      if (isEnterprisePersistencePrisma()) {
+        setHydrating(true);
+        setHydrateError(null);
+        try {
+          await hydrateEcmFromPrisma();
+          if (!cancelled) refresh();
+        } catch (err) {
+          if (!cancelled) {
+            setHydrateError(err instanceof Error ? err.message : "Failed to load registry from database");
+          }
+        } finally {
+          if (!cancelled) setHydrating(false);
+        }
+      } else {
+        seedEcmCompaniesIfEmpty();
+        seedEcmContactsDemoIfEmpty();
+        refresh();
+      }
+    }
+    void boot();
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh]);
+
+  const reloadFromDatabase = useCallback(async () => {
+    if (!isEnterprisePersistencePrisma()) {
+      refresh();
+      return;
+    }
+    setHydrating(true);
+    setHydrateError(null);
+    try {
+      await hydrateEcmFromPrisma();
+      refresh();
+    } catch (err) {
+      setHydrateError(err instanceof Error ? err.message : "Reload failed");
+    } finally {
+      setHydrating(false);
+    }
   }, [refresh]);
 
   useEffect(() => {
@@ -115,6 +135,11 @@ function ContactsRegistryInner() {
     }).items.filter((c) => c.status !== "archived");
   }, [tick, registryVersion]);
 
+  const companies = useMemo(() => {
+    void tick;
+    return listEcmCompanies().filter((c) => c.status !== "archived");
+  }, [tick]);
+
   const openCreate = () => {
     setCreationIntent(null);
     setIntentOpen(true);
@@ -124,6 +149,14 @@ function ContactsRegistryInner() {
     setWorkspaceContact(contact);
     setWorkspaceMode("edit");
     setWorkspaceOpen(true);
+  };
+
+  const openCompany = (company: EcmCompany) => {
+    setActiveCompany(company);
+    setCompanyMode("edit");
+    setCompanyInitialName(undefined);
+    setLinkContactId(undefined);
+    setCompanyOpen(true);
   };
 
   const onIntentContinue = (result: ContactCreationIntentResult) => {
@@ -163,9 +196,21 @@ function ContactsRegistryInner() {
     <div className="space-y-3">
       <PageHeader
         title="Contacts"
-        description="Enterprise Contact Registry — locate, compare, and manage contacts in a dense operational table."
+        description="Directory Registry — locate individuals and companies in one operational table."
         actions={
           <div className="flex flex-wrap gap-1.5">
+            {isEnterprisePersistencePrisma() ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 gap-1.5 rounded-md px-3 text-xs"
+                disabled={hydrating}
+                onClick={() => void reloadFromDatabase()}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${hydrating ? "animate-spin" : ""}`} />
+                {hydrating ? "Loading…" : "Reload"}
+              </Button>
+            ) : null}
             <Button type="button" onClick={openCreate} className="h-8 gap-1.5 rounded-md px-3 text-xs">
               <Plus className="h-3.5 w-3.5" />
               Add Contact
@@ -183,10 +228,26 @@ function ContactsRegistryInner() {
         }
       />
 
+      {hydrateError ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {hydrateError}
+        </div>
+      ) : null}
+
+      {isEnterprisePersistencePrisma() ? (
+        <p className="text-xs text-muted-foreground">
+          Enterprise Contact Registry — PostgreSQL (Supabase) is the source of truth. Demo seeds disabled.
+        </p>
+      ) : null}
+
       <ContactRegistryTable
         contacts={contacts}
+        companies={companies}
         onOpenContact={openContact}
+        onOpenCompany={openCompany}
         onRegistryChanged={refresh}
+        highlightSearch={registryHighlight}
+        onHighlightApplied={() => setRegistryHighlight(undefined)}
       />
 
       <ContactCreationIntentScreen
@@ -230,6 +291,23 @@ function ContactsRegistryInner() {
           setCompanyMode("edit");
           refresh();
         }}
+        onCompleted={(company) => {
+          setCompanyOpen(false);
+          setActiveCompany(null);
+          setCompanyInitialName(undefined);
+          setLinkContactId(undefined);
+          setRegistryHighlight(company.companyName);
+          refresh();
+        }}
+        onDeleted={async () => {
+          setCompanyOpen(false);
+          setActiveCompany(null);
+          if (isEnterprisePersistencePrisma()) {
+            await reloadFromDatabase();
+          } else {
+            refresh();
+          }
+        }}
       />
 
       <ContactWorkspaceModal
@@ -243,6 +321,15 @@ function ContactsRegistryInner() {
         onOpenExisting={(existing) => {
           openContact(existing);
           refresh();
+        }}
+        onDeleted={async () => {
+          setWorkspaceOpen(false);
+          setWorkspaceContact(null);
+          if (isEnterprisePersistencePrisma()) {
+            await reloadFromDatabase();
+          } else {
+            refresh();
+          }
         }}
       />
     </div>

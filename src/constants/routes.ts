@@ -3,6 +3,7 @@ export const ROUTES = {
   LOGIN: "/login",
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password",
+  CHANGE_PASSWORD: "/change-password",
   DASHBOARD: "/dashboard",
   CUSTOMERS: "/customers",
   MY_DEALS: "/my-deals",
@@ -52,6 +53,8 @@ export const ROUTES = {
   ORGANIZATION_BANK_ACCOUNTS: "/organization/bank-accounts",
   ORGANIZATION_DIGITAL_SIGNATURES: "/organization/digital-signatures",
   ORGANIZATION_COMPANY_SEAL: "/organization/company-seal",
+  /** CO-SPRINT-111 — Administration Console hub (Enterprise Configuration Console). */
+  ADMIN: "/admin",
   ADMIN_ECG: "/admin/ecg",
   ADMIN_SYSTEM_MODES: "/admin/system-modes",
   ADMIN_USERS: "/admin/users",
@@ -99,6 +102,8 @@ export const ROUTES = {
   ADMIN_ENTERPRISE_ASSETS_LIFECYCLE: "/admin/enterprise-assets/lifecycle",
   ADMIN_ENTERPRISE_ASSETS_AUDIT: "/admin/enterprise-assets/audit",
   ADMIN_ENTERPRISE_DECISION_LEDGER: "/admin/enterprise-decision-ledger",
+  /** CO-SPRINT-119 — Soft-deleted business records recovery. */
+  ADMIN_ENTERPRISE_RECOVERY_CENTER: "/admin/enterprise-recovery-center",
   ADMIN_FOUNDATION_LIBRARIES: "/admin/foundation-libraries",
   ADMIN_FOUNDATION_LIBRARIES_REGISTRY: "/admin/foundation-libraries/registry",
   ADMIN_FOUNDATION_LIBRARIES_ENTRIES: "/admin/foundation-libraries/entries",
@@ -119,7 +124,11 @@ export const AUTH_ROUTES = [
   ROUTES.RESET_PASSWORD,
 ] as const;
 
+/** Accessible while authenticated — first-login password change gate */
+export const PASSWORD_GATE_ROUTES = [ROUTES.CHANGE_PASSWORD] as const;
+
 export const PROTECTED_ROUTES = [
+  ROUTES.CHANGE_PASSWORD,
   ROUTES.DASHBOARD,
   ROUTES.CUSTOMERS,
   ROUTES.MY_DEALS,
@@ -149,6 +158,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.SETTINGS,
   ROUTES.DESIGN_SYSTEM,
   ROUTES.ORGANIZATION,
+  ROUTES.ADMIN,
   ROUTES.ORGANIZATION_COMPANY_PROFILE,
   ROUTES.ORGANIZATION_DIRECTORS,
   ROUTES.ORGANIZATION_CORPORATE_REPOSITORY,
@@ -202,6 +212,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_ENTERPRISE_ASSETS_LIFECYCLE,
   ROUTES.ADMIN_ENTERPRISE_ASSETS_AUDIT,
   ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER,
+  ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_REGISTRY,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_ENTRIES,

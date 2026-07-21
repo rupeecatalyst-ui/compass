@@ -3,12 +3,11 @@
 import { useMemo, useState } from "react";
 import { Check, Plus, Search, UserRound, X } from "lucide-react";
 import {
-  listEcmContacts,
   normalizePersonName,
   registerEcmContact,
-  searchEcmContactsForReportingManager,
 } from "@/lib/enterprise-contact-master";
-import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
+import { useEnterpriseRegistry } from "@/hooks/use-enterprise-registry";
+import { findOperationalEcmContactById, searchOperationalContacts } from "@/lib/enterprise-registry";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,13 +37,17 @@ export function ReportingManagerPicker({
   const [newMobile, setNewMobile] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const registryVersion = useEcmContactRegistryVersion();
+  const { registryVersion } = useEnterpriseRegistry({ hydrateOnMount: true });
 
   const results = useMemo(() => {
     void registryVersion;
     const q = query.trim();
     if (!q) return [];
-    return searchEcmContactsForReportingManager(q, excludeContactId);
+    return searchOperationalContacts(q, { roles: ["lender_employee"] })
+      .filter((c) => c.id !== excludeContactId)
+      .slice(0, 12)
+      .map((c) => findOperationalEcmContactById(c.id))
+      .filter((c): c is EcmContact => Boolean(c));
   }, [query, excludeContactId, registryVersion]);
 
   const createBasic = () => {
@@ -78,9 +81,7 @@ export function ReportingManagerPicker({
 
   const linked = useMemo(() => {
     void registryVersion;
-    return valueContactId
-      ? listEcmContacts().find((c) => c.id === valueContactId)
-      : undefined;
+    return valueContactId ? findOperationalEcmContactById(valueContactId) : undefined;
   }, [valueContactId, registryVersion]);
 
   return (

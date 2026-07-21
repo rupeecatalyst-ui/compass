@@ -1,12 +1,24 @@
 import { STORAGE_KEYS } from "@/constants/animations";
 import { buildInitialCustomerProfiles } from "@/data/catalyst-one/customer-360-seed";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import type { CustomerProfile } from "@/types/catalyst-one";
 
 export function getInitialCustomers(): CustomerProfile[] {
+  if (!isDemoSeedEnabled()) return [];
   return buildInitialCustomerProfiles();
 }
 
 export function loadCustomers(): CustomerProfile[] {
+  if (!isDemoSeedEnabled()) {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(STORAGE_KEYS.CUSTOMERS_DATA);
+      } catch {
+        /* ignore */
+      }
+    }
+    return [];
+  }
   if (typeof window === "undefined") return getInitialCustomers();
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CUSTOMERS_DATA);
@@ -21,5 +33,9 @@ export function loadCustomers(): CustomerProfile[] {
 
 export function saveCustomers(customers: CustomerProfile[]): void {
   if (typeof window === "undefined") return;
+  if (!isDemoSeedEnabled() && customers.length === 0) {
+    localStorage.removeItem(STORAGE_KEYS.CUSTOMERS_DATA);
+    return;
+  }
   localStorage.setItem(STORAGE_KEYS.CUSTOMERS_DATA, JSON.stringify(customers));
 }

@@ -1,15 +1,20 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { DevelopmentOnlyDemoBanner } from "@/components/catalyst-one/shared/development-only-demo-banner";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { ContextNavigationPanel } from "@/components/layout/context-navigation-panel";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { useCommandPalette } from "@/hooks/use-command-palette";
 import { pageVariants } from "@/lib/animations";
+import { purgeClientDemoBusinessDataIfNeeded } from "@/lib/demo-seed";
+import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
+import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
 import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
@@ -23,8 +28,22 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { open, setOpen } = useCommandPalette();
   const pathname = usePathname();
+
+  useEffect(() => {
+    purgeClientDemoBusinessDataIfNeeded();
+  }, []);
+
+  // CO-HOTFIX-006 — warm Enterprise Registry session cache from PostgreSQL for all workspaces.
+  useEffect(() => {
+    if (isEnterprisePersistencePrisma()) {
+      void ensureEnterpriseRegistryHydrated();
+    }
+  }, []);
+
   const isFullWidth =
     pathname.startsWith("/loan-files") ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/console") ||
     pathname.startsWith("/admin/credit-risk-engine") ||
     pathname.startsWith("/admin/architecture") ||
     pathname.startsWith("/admin/workflow-engine") ||
@@ -44,6 +63,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <MobileNav />
         <div className="flex flex-1 flex-col overflow-hidden min-w-0">
           <AppTopbar onSearchClick={() => setOpen(true)} />
+          <DevelopmentOnlyDemoBanner />
           <main
             className={cn(
               "min-h-0 flex-1 overflow-y-auto scrollbar-thin",

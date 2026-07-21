@@ -21,6 +21,11 @@ import {
   type DocumentKpiFilter,
 } from "@/components/catalyst-one/document-center/document-readiness-card";
 import { DocumentReadinessDrawer } from "@/components/catalyst-one/document-center/document-readiness-drawer";
+import { DocumentRegistryPanel } from "@/components/catalyst-one/document-center/document-registry-panel";
+import {
+  DocumentUploadProgressBar,
+  DocumentUploadZone,
+} from "@/components/catalyst-one/document-center/document-upload-zone";
 import { DocumentViewerOverlay } from "@/components/catalyst-one/document-center/document-viewer-overlay";
 import { DocumentVersionHistoryDrawer } from "@/components/catalyst-one/document-center/document-version-history-drawer";
 import {
@@ -37,12 +42,22 @@ import {
 } from "@/lib/edie-certified";
 import { computeDocumentCompletionScore } from "@/lib/document-completion/score";
 import {
-  appendDocumentVersion,
   loadDocumentVersions,
   reasonForDocument,
   type DocumentCenterVersion,
 } from "@/lib/document-center/versions";
+import {
+  buildEntityLinksFromLoanFile,
+  canUploadDocuments,
+  downloadDocumentFromRegistry,
+  listDocumentsForLoanFile,
+  replaceDocumentInRegistry,
+  subscribeDocumentRegistryUpdated,
+  uploadDocumentToRegistry,
+} from "@/lib/document-registry";
+import type { DocumentRegistryRecord, DocumentUploadProgress } from "@/types/document-registry";
 import { EDIE_ADDRESS_PROOF_GROUP } from "@/constants/edie-certified/document-catalog";
+import { DOCUMENT_REGISTRY_ACCEPT } from "@/constants/document-registry";
 import { ROUTES } from "@/constants/routes";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
@@ -82,10 +97,19 @@ export function DocumentCenterWorkspace() {
   const [historyTypeRef, setHistoryTypeRef] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [localFocus, setLocalFocus] = useState<string | null>(focusParam);
+  const [registryTick, setRegistryTick] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<DocumentUploadProgress | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState<{
+    typeRef: string;
+    label: string;
+    replaceRecordId?: string;
+  } | null>(null);
 
   const focusEl = useRef<HTMLLIElement | null>(null);
   const scrollRoot = useRef<HTMLDivElement | null>(null);
   const scrollPos = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const uploaderName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "Relationship Manager";
@@ -119,6 +143,36 @@ export function DocumentCenterWorkspace() {
     if (!localFocus || !focusEl.current) return;
     focusEl.current.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [localFocus, file?.id, receipts, kpiFilter]);
+
+  const refreshRegistry = useCallback(() => {
+    if (!file) return;
+    setVersionsMap(loadDocumentVersions(file.id));
+    const records = listDocumentsForLoanFile(file.id);
+    const next: Record<string, boolean> = { ...loadEdieReceipts(file.id) };
+    for (const r of records) {
+      if (r.status === "active") next[r.typeRef] = true;
+    }
+    for (const key of Object.keys(next)) {
+      if (!records.some((r) => r.typeRef === key && r.status === "active")) {
+        delete next[key];
+      }
+    }
+    setReceipts(next);
+    saveEdieReceipts(file.id, next);
+    setRegistryTick((t) => t + 1);
+  }, [file]);
+
+  useEffect(() => {
+    return subscribeDocumentRegistryUpdated(() => {
+      refreshRegistry();
+    });
+  }, [refreshRegistry]);
+
+  const registryRecords = useMemo(() => {
+    if (!file) return [];
+    return listDocumentsForLoanFile(file.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file?.id, registryTick]);
 
   const checklist = useMemo(() => {
     if (!file) return null;
@@ -191,19 +245,111 @@ export function DocumentCenterWorkspace() {
     window.setTimeout(() => setToast(null), 2200);
   };
 
+  const markReceipt = useCallback(
+    (typeRef: string, folderId?: string) => {
+      if (!file) return;
+      const next = { ...receipts, [typeRef]: true };
+      if (folderId) next[folderId] = true;
+      setReceipts(next);
+      saveEdieReceipts(file.id, next);
+    },
+    [file, receipts],
+  );
+
+  const processUpload = useCallback(
+    async (
+      uploadFile: File,
+      typeRef: string,
+      label: string,
+      replaceRecordId?: string,
+    ) => {
+      if (!file || !canUploadDocuments(user)) {
+        flash("Upload not permitted for your role.");
+        return;
+      }
+      preserveScroll();
+      setUploadBusy(true);
+      setUploadProgress({ phase: "reading", percent: 5, message: `Uploading ${uploadFile.name}…` });
+
+      try {
+        const links = buildEntityLinksFromLoanFile(file);
+        let result: DocumentRegistryRecord;
+        if (replaceRecordId) {
+          const replaced = await replaceDocumentInRegistry(
+            replaceRecordId,
+            uploadFile,
+            uploaderName,
+            setUploadProgress,
+          );
+          if (!replaced) throw new Error("Upload failed");
+          result = replaced;
+        } else {
+          const uploaded = await uploadDocumentToRegistry(
+            {
+              file: uploadFile,
+              typeRef,
+              categoryLabel: label,
+              uploadedBy: uploaderName,
+              uploadedByUserId: user?.id,
+              links,
+            },
+            setUploadProgress,
+          );
+          result = uploaded.record;
+        }
+
+        markReceipt(typeRef);
+        refreshRegistry();
+        setDirty(false);
+        setSavedOnce(true);
+        flash(
+          replaceRecordId || (result.version > 1)
+            ? `${label} replaced — version ${result.version}`
+            : `${label} uploaded successfully`,
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Upload failed";
+        setUploadProgress({ phase: "error", percent: 0, message: msg });
+        flash(msg);
+      } finally {
+        setUploadBusy(false);
+        window.setTimeout(() => setUploadProgress(null), 2400);
+        restoreScroll();
+      }
+    },
+    [file, user, uploaderName, markReceipt, refreshRegistry, preserveScroll, restoreScroll],
+  );
+
+  const promptUpload = (typeRef: string, label: string, replaceRecordId?: string) => {
+    setPendingUpload({ typeRef, label, replaceRecordId });
+    window.setTimeout(() => fileInputRef.current?.click(), 0);
+  };
+
+  const onFileInputChange = async (files: FileList | null) => {
+    const uploadFile = files?.[0];
+    if (!uploadFile || !pendingUpload) return;
+    await processUpload(
+      uploadFile,
+      pendingUpload.typeRef,
+      pendingUpload.label,
+      pendingUpload.replaceRecordId,
+    );
+    setPendingUpload(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const onBulkFiles = async (files: File[]) => {
+    if (!file || files.length === 0) return;
+    const pending = flatItems.filter((i) => !i.complete);
+    const targets = pending.length > 0 ? pending : flatItems;
+    for (let i = 0; i < files.length; i++) {
+      const item = targets[i % targets.length]!;
+      await processUpload(files[i]!, item.folderId ?? item.typeRef, item.label);
+    }
+  };
+
   const uploadDocument = (typeRef: string, label?: string) => {
-    if (!file) return;
-    preserveScroll();
-    const key = typeRef;
-    const next = { ...receipts, [key]: true };
-    setReceipts(next);
-    saveEdieReceipts(file.id, next);
-    const list = appendDocumentVersion(file.id, key, uploaderName);
-    setVersionsMap((prev) => ({ ...prev, [key]: list }));
-    setDirty(false);
-    setSavedOnce(true);
-    flash(`${(label || key).replace(/^doc:/, "").replace(/-/g, " ")} uploaded`);
-    restoreScroll();
+    promptUpload(typeRef, label ?? typeRef.replace(/^doc:/, ""));
   };
 
   const onAddressSelect = (typeRef: string) => {
@@ -280,10 +426,25 @@ export function DocumentCenterWorkspace() {
         }}
       >
         <div ref={scrollRoot} className="space-y-4 p-4 sm:p-5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept={DOCUMENT_REGISTRY_ACCEPT}
+            onChange={(e) => void onFileInputChange(e.target.files)}
+          />
+
           {toast ? (
             <div className="rounded-lg border border-teal-500/25 bg-teal-500/10 px-3 py-2 text-xs text-teal-950 dark:text-teal-100">
               {toast}
             </div>
+          ) : null}
+
+          {uploadProgress ? (
+            <DocumentUploadProgressBar
+              percent={uploadProgress.percent}
+              message={uploadProgress.message}
+            />
           ) : null}
 
           <DocumentReadinessCard
@@ -322,20 +483,46 @@ export function DocumentCenterWorkspace() {
 
           <div className="flex flex-wrap gap-2">
             {[
-              { label: "Upload", icon: Upload },
-              { label: "Bulk Upload", icon: FolderUp },
-              { label: "WhatsApp Import", icon: MessageSquare },
-              { label: "Email Import", icon: Mail },
-              { label: "Request Documents", icon: Bell },
-              { label: "Send Reminder", icon: Bell },
-              { label: "Download", icon: Download },
+              {
+                label: "Upload",
+                icon: Upload,
+                action: () => {
+                  const target = flatItems.find((i) => !i.complete) ?? flatItems[0];
+                  if (!target) {
+                    flash("No checklist items available.");
+                    return;
+                  }
+                  promptUpload(target.folderId ?? target.typeRef, target.label);
+                },
+              },
+              { label: "Bulk Upload", icon: FolderUp, action: null },
+              { label: "WhatsApp Import", icon: MessageSquare, action: null },
+              { label: "Email Import", icon: Mail, action: null },
+              { label: "Request Documents", icon: Bell, action: null },
+              { label: "Send Reminder", icon: Bell, action: null },
+              {
+                label: "Download",
+                icon: Download,
+                action: () => {
+                  const active = registryRecords.filter((r) => r.status === "active");
+                  if (!active.length) {
+                    flash("No documents to download.");
+                    return;
+                  }
+                  void Promise.all(
+                    active.map((r) => downloadDocumentFromRegistry(r).catch(() => undefined)),
+                  ).then(() => flash(`Download started for ${active.length} file(s).`));
+                },
+              },
             ].map((a) => {
               const Icon = a.icon;
               return (
                 <button
                   key={a.label}
                   type="button"
-                  onClick={() => flash(`${a.label} ready — stays in this workspace.`)}
+                  onClick={() =>
+                    a.action ? a.action() : flash(`${a.label} ready — stays in this workspace.`)
+                  }
                   className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-card px-2.5 text-[11px] font-medium shadow-sm transition-colors hover:bg-muted/50"
                 >
                   <Icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -344,6 +531,13 @@ export function DocumentCenterWorkspace() {
               );
             })}
           </div>
+
+          <DocumentUploadZone
+            compact
+            disabled={uploadBusy}
+            onFiles={(files) => void onBulkFiles(files)}
+            label="Drop files to bulk-upload against pending checklist items"
+          />
 
           {checklist.modules.map((mod) => {
             const isOpen = expanded[mod.id] ?? true;
@@ -449,6 +643,17 @@ export function DocumentCenterWorkspace() {
               </section>
             );
           })}
+
+          <DocumentRegistryPanel
+            file={file}
+            records={registryRecords}
+            customerLabel={context.customer ?? file.customerName}
+            onPreview={(record) => openViewer(record.typeRef)}
+            onReplace={(record) =>
+              promptUpload(record.typeRef, record.categoryLabel, record.id)
+            }
+            onRefresh={refreshRegistry}
+          />
         </div>
       </LeadOpportunityJourneyChrome>
 

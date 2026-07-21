@@ -11,6 +11,7 @@ import {
   nextEmployeeId,
 } from "@/constants/enterprise-user-management";
 import { EUM_SEED_USERS } from "@/data/catalyst-one/enterprise-user-management/seed";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { getRpeRole } from "@/lib/roles-permissions-engine";
 import type {
   EnterpriseLoginStatus,
@@ -39,6 +40,9 @@ interface EumSnapshot {
 }
 
 function empty(): EumSnapshot {
+  if (!isDemoSeedEnabled()) {
+    return { schemaVersion: 2, users: [] };
+  }
   return { schemaVersion: 2, users: structuredClone(EUM_SEED_USERS).map(normalizeUser) };
 }
 
@@ -113,6 +117,14 @@ export function normalizeUser(raw: EnterpriseManagedUser): EnterpriseManagedUser
 
 function read(): EumSnapshot {
   if (typeof window === "undefined") return empty();
+  if (!isDemoSeedEnabled()) {
+    try {
+      localStorage.removeItem(EUM_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    return empty();
+  }
   try {
     const raw = localStorage.getItem(EUM_STORAGE_KEY);
     if (!raw) return empty();

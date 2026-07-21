@@ -21,8 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listEcmContacts } from "@/lib/enterprise-contact-master";
-import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
+import { listOperationalEcmContacts } from "@/lib/enterprise-registry";
+import { useEnterpriseRegistry } from "@/hooks/use-enterprise-registry";
 import {
   CONTACT_STRATEGY_ACTIVITY_OPTIONS,
   CONTACT_STRATEGY_VISIBLE_DAYS,
@@ -45,7 +45,7 @@ function daysRemaining(expiresAt: string): number {
  * Left: available strategic contacts · Right: active relationship actions (30 days).
  */
 export function ContactStrategyWorkspace() {
-  const registryVersion = useEcmContactRegistryVersion();
+  const { registryVersion } = useEnterpriseRegistry({ hydrateOnMount: true });
   const [tick, setTick] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [pending, setPending] = useState<EcmContact | null>(null);
@@ -61,7 +61,7 @@ export function ContactStrategyWorkspace() {
 
   const strategicAvailable = useMemo(() => {
     const busy = listContactIdsWithActiveActions();
-    return listEcmContacts().filter(
+    return listOperationalEcmContacts().filter(
       (c) => c.strategicContact && c.enabled && c.status !== "archived" && !busy.has(c.id),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps

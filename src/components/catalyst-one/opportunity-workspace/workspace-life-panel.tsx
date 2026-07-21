@@ -53,12 +53,14 @@ import {
   type PlaceholderLifeInstitution,
 } from "./providers/workspace-placeholder-provider";
 import { cn } from "@/lib/utils";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 
 /** Opportunity-owned selection defaults — hidden engine inputs (not shown in UI). */
 const OPPORTUNITY_CITY = "Pune";
 const OPPORTUNITY_PRODUCT_REF = "product:home-loan";
 
 function seedLifeContactsIfEmpty() {
+  if (!isDemoSeedEnabled()) return;
   if (getLifeRegistrySnapshot().contacts.length > 0) return;
 
   const seeds = [

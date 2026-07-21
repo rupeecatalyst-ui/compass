@@ -15,6 +15,7 @@ import {
   buildChanakyaDailyReflectionPackage,
   getProposalButtonLabel,
 } from "@/lib/chanakya-phase5-intelligence";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { ChanakyaAvatar, ChanakyaIdentityLabel } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { Button } from "@/components/ui/button";
@@ -65,17 +66,19 @@ export function ChanakyaPhase5OverviewDashboard() {
           <StatusPill variant={validation.valid ? "success" : "error"}>
             Foundation {validation.valid ? "valid" : "issues"}
           </StatusPill>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs"
-            onClick={() => {
-              seedDemoChanakyaDayMemory();
-              setDemoSeeded(true);
-            }}
-          >
-            Seed demo day memory
-          </Button>
+          {isDemoSeedEnabled() ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => {
+                seedDemoChanakyaDayMemory();
+                setDemoSeeded(true);
+              }}
+            >
+              Seed demo day memory
+            </Button>
+          ) : null}
         </div>
       </div>
 

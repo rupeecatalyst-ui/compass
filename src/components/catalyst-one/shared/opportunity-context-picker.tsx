@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BriefcaseBusiness, Search } from "lucide-react";
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
@@ -10,6 +10,7 @@ import { getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journe
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
+import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { LoanFile } from "@/types/catalyst-one";
@@ -35,7 +36,14 @@ export function OpportunityContextPicker({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const files = useMemo(() => listPickerFiles(), []);
+  const [filesVersion, setFilesVersion] = useState(0);
+
+  useEffect(() => subscribeLoanFilesUpdated(() => setFilesVersion((v) => v + 1)), []);
+
+  const files = useMemo(() => {
+    void filesVersion;
+    return listPickerFiles();
+  }, [filesVersion]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -131,4 +139,4 @@ export function OpportunityContextPicker({
     </div>
   );
 }
-
+

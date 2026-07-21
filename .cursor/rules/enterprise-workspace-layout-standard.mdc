@@ -1,0 +1,37 @@
+---
+description: CO-SPRINT-106 Enterprise Workspace Layout Standard — layered chrome for complex desks
+alwaysApply: true
+---
+
+# Enterprise Workspace Layout Standard (CO-SPRINT-106)
+
+Permanent layout contract for complex execution desks (Loan Workspace first; reuse elsewhere).
+
+## Layers (one responsibility each)
+
+1. **Global Application Header** (Catalyst One) — Logo · Live Intelligence · Notifications · Profile · global controls. No workspace-specific controls.
+2. **Workspace Header** — Customer / Loan ID / Amount / Structure · Save · Save & Return · Close · Journey cards (icon + title + status colour only).
+3. **Workspace Intelligence Ribbon** (CO-SPRINT-110 / CO-SPRINT-112) — full-width CHANAKYA ticker for the **open entity only** (Layer 2). Never enterprise-wide signals (those belong in the Global Header). **No** Pipeline bucket counts (those live on Kanban).
+4. **Workspace Navigation** — tabs once (Overview · Lender Pipeline · Mission Control · Documents · Tasks · Timeline).
+5. **Workspace Content** — the working area only (Kanban communicates workflow status).
+
+Pipeline Identified / Awaiting Login / Approvals counts must appear **once** — on the Kanban — never in the Intelligence Ribbon.
+
+## Shared primitives
+
+- `EnterpriseWorkspaceLayout` / `EnterpriseWorkspaceHeaderBand` / `EnterpriseWorkflowStatusBand` → `src/components/enterprise/workspace-layout/`
+- Constants → `src/constants/enterprise-workspace-layout.ts`
+
+## Mandatory
+
+- No helper captions under Journey cards (“Current”, “Go to…”, “Open…”).
+- No duplicate Pipeline summaries.
+- No overlapping Action Center / identity / CHANAKYA / Pipeline chips.
+- No second Save strip.
+- First screen answers: Who? Where in workflow? What needs attention? What next? — then work.
+
+## Anti-patterns
+
+- Mixing unrelated controls in one row
+- Floating chrome that obscures content
+- Page-specific header stacks that ignore this layer model

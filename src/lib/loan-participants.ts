@@ -1,47 +1,16 @@
 import type { LoanFile } from "@/types/catalyst-one";
 import type { LoanParticipant, LoanParticipantEntityType, ParticipantEntityOption } from "@/types/loan-participant";
-import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
-import { ORGANIZATION_REGISTRY } from "@/data/catalyst-one/organization-registry-seed";
 import { MAX_LOAN_PARTICIPANTS } from "@/types/loan-participant";
-import { isEcmContactUsable, listEcmContacts } from "@/lib/enterprise-contact-master";
+import { buildParticipantEntityOptions } from "@/lib/enterprise-registry/entity-search";
+import { searchParticipantEntities as searchEntities } from "@/lib/loan-journey/search-participant-entities";
 
 export function createParticipantId(): string {
   return `lp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** Build searchable entity options from ECM + customer seed and organization registry. */
+/** Build searchable entity options from Enterprise Contact Registry (demo gated). */
 export function buildDefaultParticipantEntityOptions(): ParticipantEntityOption[] {
-  const ecmIndividuals: ParticipantEntityOption[] = listEcmContacts()
-    .filter((c) => isEcmContactUsable(c.status))
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      mobile: c.mobilePrimary?.startsWith("pending-") ? undefined : c.mobilePrimary,
-      email: c.personalEmail || c.officialEmail,
-      entityType: "individual" as const,
-    }));
-
-  const seedIndividuals: ParticipantEntityOption[] = CUSTOMER_SEED.map((c) => ({
-    id: c.id,
-    name: c.name,
-    mobile: c.mobile,
-    email: c.email,
-    entityType: "individual" as const,
-  }));
-
-  const byId = new Map<string, ParticipantEntityOption>();
-  for (const row of [...seedIndividuals, ...ecmIndividuals]) {
-    byId.set(row.id, row);
-  }
-
-  const companies: ParticipantEntityOption[] = ORGANIZATION_REGISTRY.map((o) => ({
-    id: o.id,
-    name: o.name,
-    entityType: "company" as const,
-    constitution: o.type.toUpperCase(),
-  }));
-
-  return [...byId.values(), ...companies];
+  return buildParticipantEntityOptions();
 }
 
 export function searchParticipantEntities(
@@ -49,16 +18,7 @@ export function searchParticipantEntities(
   options: ParticipantEntityOption[],
   entityType?: LoanParticipantEntityType,
 ): ParticipantEntityOption[] {
-  const q = query.trim().toLowerCase();
-  return options.filter((option) => {
-    if (entityType && option.entityType !== entityType) return false;
-    if (!q) return true;
-    return (
-      option.name.toLowerCase().includes(q) ||
-      option.mobile?.toLowerCase().includes(q) ||
-      option.email?.toLowerCase().includes(q)
-    );
-  });
+  return searchEntities(query, options, entityType);
 }
 
 export function getParticipantRowLabel(
@@ -165,12 +125,7 @@ export function mapContactOptionsToParticipantEntities(
     email: c.email,
     entityType: "individual" as const,
   }));
-  const companyOptions = ORGANIZATION_REGISTRY.map((o) => ({
-    id: o.id,
-    name: o.name,
-    entityType: "company" as const,
-    constitution: o.type.toUpperCase(),
-  }));
+  const companyOptions = buildParticipantEntityOptions().filter((o) => o.entityType === "company");
   const seen = new Set<string>();
   return [...fromContacts, ...companyOptions].filter((o) => {
     const key = `${o.entityType}:${o.id}`;

@@ -1,8 +1,11 @@
 export {
   buildContactRegistryRows,
+  buildDirectoryRegistryRows,
   exportContactRegistryCsv,
   filterContactRegistryRows,
   sortContactRegistryRows,
+  toCompanyRegistryRow,
+  toContactRegistryRow,
   uniqueAssignedRms,
   uniqueContactCities,
   uniqueContactStates,

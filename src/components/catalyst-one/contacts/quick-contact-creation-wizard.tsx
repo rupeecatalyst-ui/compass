@@ -22,9 +22,9 @@ import {
   isEcmDuplicateContactError,
   normalizeEcmMobile,
   normalizePersonName,
-  registerEcmContact,
   type EcmDuplicateMatchField,
 } from "@/lib/enterprise-contact-master";
+import { persistRegisterEcmContact } from "@/lib/enterprise-persistence";
 import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -247,6 +247,7 @@ export function QuickContactCreationWizard({
   const handleCreate = () => {
     setCreating(true);
     setError(null);
+    void (async () => {
     try {
       const normalizedName = normalizePersonName(name);
       const digits = normalizeEcmMobile(mobile);
@@ -268,7 +269,7 @@ export function QuickContactCreationWizard({
             }
           : null;
 
-      const created = registerEcmContact({
+      const created = await persistRegisterEcmContact({
         name: normalizedName,
         mobilePrimary: digits,
         personalEmail: email.trim() || undefined,
@@ -311,6 +312,7 @@ export function QuickContactCreationWizard({
       }
       setCreating(false);
     }
+    })();
   };
 
   const footerActions = (

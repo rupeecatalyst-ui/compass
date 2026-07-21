@@ -22,10 +22,15 @@ Do **not** implement screen-by-screen one-offs. Extend shared shell/chrome so ev
 | Primitive | Path |
 |---|---|
 | `EnterpriseWorkspaceShell` | `src/components/catalyst-one/shared/enterprise-workspace-shell.tsx` |
+| `EnterpriseWorkspaceLayout` (CO-SPRINT-106 layers) | `src/components/enterprise/workspace-layout/` |
+| `WorkspaceIntelligenceRibbon` (CO-SPRINT-110) | full-width file-scoped CHANAKYA ticker — no pipeline bucket counts |
 | `LeadOpportunityJourneyChrome` | `src/components/catalyst-one/shared/lead-opportunity-journey-chrome.tsx` |
 | `WorkspaceHeader` + `useWorkspaceClose` | shared header + close API |
 | `UnsavedChangesDialog` | Save & Close · Discard · Cancel |
-| Constants | `src/constants/enterprise-workspace-ux.ts` |
+| Constants | `src/constants/enterprise-workspace-ux.ts`, `enterprise-workspace-layout.ts` |
+
+Complex desks (Loan Workspace) must compose **CO-SPRINT-106 layers** via `EnterpriseWorkspaceLayout` — see `enterprise-workspace-layout-standard.mdc`.
+
 
 ## Mandatory rules
 

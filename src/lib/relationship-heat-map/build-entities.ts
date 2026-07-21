@@ -8,6 +8,7 @@ import {
   RELATIONSHIP_ENTITY_TYPE_LABELS,
 } from "@/constants/relationship-heat-map";
 import { listEcmContacts } from "@/lib/enterprise-contact-master";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { listEoleOpportunitiesByCustomer } from "@/lib/enterprise-opportunity-lifecycle-engine";
 import {
   createPlaceholderEngagementScoreEngine,
@@ -161,7 +162,11 @@ export function buildRelationshipHeatMapEntities(): RelationshipHeatMapEntity[] 
     });
   }
 
-  // Always blend framework demos for wealth / sparse cohorts so executives see a full landscape.
+  // Demo tiles only in local development — never on production/prisma.
+  if (!isDemoSeedEnabled()) {
+    return fromContacts;
+  }
+
   const demos = frameworkDemoEntities();
   const hasWealth = fromContacts.some((e) => e.entityType === "wealth_partner");
   const merged = [

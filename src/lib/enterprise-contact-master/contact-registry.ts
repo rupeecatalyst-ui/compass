@@ -109,7 +109,7 @@ export function registerEcmContact(input: EcmContactRegisterInput): EcmContact {
           pan: input.pan,
           address: input.address,
         })
-      : "complete");
+      : "provisional");
 
   const draft: EcmContact = {
     name: input.name.trim(),
@@ -257,6 +257,8 @@ export function updateEcmContact(
       | "platformAccess"
       | "linkedUserId"
       | "strategicContact"
+      | "archivedBy"
+      | "archivedOn"
     >
   >,
   actorId: string,
@@ -331,7 +333,17 @@ export function touchEcmContactActivity(contactId: string, actorId = "system"): 
 }
 
 export function archiveEcmContact(contactId: string, actorId: string): EcmContact {
-  return updateEcmContact(contactId, { status: "archived", enabled: false }, actorId);
+  const now = new Date().toISOString();
+  return updateEcmContact(
+    contactId,
+    {
+      status: "archived",
+      enabled: false,
+      archivedBy: actorId,
+      archivedOn: now,
+    },
+    actorId,
+  );
 }
 
 export function listEcmContacts(): EcmContact[] {

@@ -20,19 +20,18 @@ import {
 } from "@/constants/enterprise-user-management";
 import { ROUTES } from "@/constants/routes";
 import {
-  allocateEnterpriseLicense,
   exportEnterpriseUsersCsv,
   filterEnterpriseUsers,
   grantPlatformAccessFromContact,
   listEnterpriseUsers,
   setEnterpriseUserRoles,
   setEnterpriseUserTemplates,
-  setUserLoginStatus,
   sortEnterpriseUsers,
   type GrantablePlatformAccess,
 } from "@/lib/enterprise-user-management";
-import { listEcmContacts } from "@/lib/enterprise-contact-master";
-import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
+import { activateEnterpriseUserWithLogin } from "@/lib/enterprise-user-management/provision-auth-user";
+import { listOperationalEcmContacts } from "@/lib/enterprise-registry";
+import { useEnterpriseRegistry } from "@/hooks/use-enterprise-registry";
 import { listRpeRoles, listRpeTemplates } from "@/lib/roles-permissions-engine";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -470,10 +469,14 @@ function GrantPlatformAccessDialog({
   onGranted: (userId: string) => void;
   actor: { id: string; name: string };
 }) {
-  const registryVersion = useEcmContactRegistryVersion();
+  const { registryVersion } = useEnterpriseRegistry({
+    hydrateOnMount: true,
+    refreshOnOpen: true,
+    open,
+  });
   const contacts = useMemo(() => {
     void registryVersion;
-    return listEcmContacts();
+    return listOperationalEcmContacts();
   }, [open, registryVersion]);
   const eligible = contacts.filter(
     (c) =>
@@ -526,19 +529,23 @@ function GrantPlatformAccessDialog({
     return created;
   };
 
-  const finish = () => {
+  const finish = async () => {
     if (!userId) throw new Error("User Account not created");
     if (roleIds.length) setEnterpriseUserRoles(userId, roleIds, actor);
     setEnterpriseUserTemplates(userId, templateIds, actor);
     if (activateNow) {
-      setUserLoginStatus(userId, "active", actor);
-      allocateEnterpriseLicense(userId, "Producer", actor);
+      const creds = await activateEnterpriseUserWithLogin(userId, actor);
+      if (creds.temporaryPassword) {
+        toast.success("User activated — temporary password generated", {
+          description: `${creds.email} · ${creds.temporaryPassword} (share securely; first login requires change)`,
+          duration: 20000,
+        });
+      } else {
+        toast.success("User activated with Roles and Access Profile");
+      }
+    } else {
+      toast.success("User Account created (Pending Invitation)");
     }
-    toast.success(
-      activateNow
-        ? "User activated with Roles and Access Profile"
-        : "User Account created (Pending Invitation)",
-    );
     onGranted(userId);
   };
 
@@ -566,7 +573,9 @@ function GrantPlatformAccessDialog({
         setStep(4);
         return;
       }
-      finish();
+      void finish().catch((e) => {
+        toast.error(e instanceof Error ? e.message : "Step failed");
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Step failed");
     }

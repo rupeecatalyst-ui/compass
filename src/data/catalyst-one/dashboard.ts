@@ -1,4 +1,5 @@
 import { ROUTES } from "@/constants/routes";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import type {
   ActivityEvent,
   DashboardLoanFileRow,
@@ -19,7 +20,21 @@ import type {
   TrendPoint,
 } from "@/types/catalyst-one";
 
-export const executiveKpis: ExecutiveKpi[] = [
+function demoOnly<T>(rows: T[]): T[] {
+  return isDemoSeedEnabled() ? rows : [];
+}
+
+function demoOnlyRecord<T extends Record<string, unknown>>(value: T): T {
+  if (isDemoSeedEnabled()) return value;
+  const empty = {} as T;
+  for (const key of Object.keys(value) as (keyof T)[]) {
+    const v = value[key];
+    empty[key] = (Array.isArray(v) ? [] : v) as T[keyof T];
+  }
+  return empty;
+}
+
+export const executiveKpis: ExecutiveKpi[] = demoOnly([
   {
     id: "total_pipeline",
     label: "Total Pipeline",
@@ -98,10 +113,10 @@ export const executiveKpis: ExecutiveKpi[] = [
     accent: "info",
     href: `${ROUTES.TASKS}?filter=due`,
   },
-];
+]);
 
 /** Executive pipeline — 7 stages for Command Centre */
-export const executivePipelineStages: ExecutivePipelineStage[] = [
+export const executivePipelineStages: ExecutivePipelineStage[] = demoOnly([
   { id: "raw_lead", label: "Raw Lead", count: 42, value: 8_40_00_000, color: "#64748B" },
   { id: "pre_login", label: "Pre Login", count: 28, value: 6_20_00_000, color: "#475569" },
   { id: "logged_in", label: "Logged In", count: 35, value: 9_10_00_000, color: "#3B82F6" },
@@ -109,9 +124,9 @@ export const executivePipelineStages: ExecutivePipelineStage[] = [
   { id: "soft_approved", label: "Soft Approved", count: 18, value: 4_50_00_000, color: "#8B5CF6" },
   { id: "final_approved", label: "Final Approved", count: 14, value: 3_90_00_000, color: "#A855F7" },
   { id: "disbursed_executive", label: "Won", count: 20, value: 4_40_00_000, color: "#22C55E" },
-];
+]);
 
-export const focusTiles: FocusTile[] = [
+export const focusTiles: FocusTile[] = demoOnly([
   {
     id: "disbursement_pending",
     label: "Files Pending Disbursement",
@@ -147,18 +162,18 @@ export const focusTiles: FocusTile[] = [
     urgency: "medium",
     href: `${ROUTES.TASKS}?filter=followups`,
   },
-];
+]);
 
-export const dashboardTasks: DashboardTaskItem[] = [
+export const dashboardTasks: DashboardTaskItem[] = demoOnly([
   { id: "t1", title: "Call — Sharma Industries disbursement", type: "call", time: "Yesterday", href: `${ROUTES.TASKS}?id=t1`, bucket: "overdue" },
   { id: "t2", title: "Collect ITR — Patel Manufacturing", type: "document", time: "Yesterday", href: `${ROUTES.DOCUMENTS}?file=patel`, bucket: "overdue" },
   { id: "t3", title: "RM meeting — HDFC rate revision", type: "meeting", time: "10:30 AM", href: `${ROUTES.TASKS}?id=t2`, bucket: "today" },
   { id: "t4", title: "Credit query — income variance", type: "credit", time: "3:30 PM", href: `${ROUTES.LOAN_FILES}?filter=credit`, bucket: "today" },
   { id: "t5", title: "Disbursement follow-up — ICICI BL", type: "disbursement", time: "5:00 PM", href: `${ROUTES.MY_DEALS}?stage=disbursement`, bucket: "today" },
   { id: "t6", title: "Site visit — Mehta Traders", type: "call", time: "Tomorrow", href: `${ROUTES.TASKS}?id=t6`, bucket: "upcoming" },
-];
+]);
 
-export const pipelineFunnelStages: PipelineFunnelStage[] = [
+export const pipelineFunnelStages: PipelineFunnelStage[] = demoOnly([
   { id: "raw_lead", label: "Raw Lead", count: 42, value: 8_40_00_000, color: "#64748B", conversion: 100 },
   { id: "pre_login", label: "Pre Login", count: 28, value: 6_20_00_000, color: "#475569", conversion: 67 },
   { id: "logged_in", label: "Logged In", count: 35, value: 9_10_00_000, color: "#3B82F6", conversion: 83 },
@@ -166,29 +181,29 @@ export const pipelineFunnelStages: PipelineFunnelStage[] = [
   { id: "soft_approved", label: "Soft Approved", count: 18, value: 4_50_00_000, color: "#8B5CF6", conversion: 82 },
   { id: "final_approved", label: "Final Approved", count: 14, value: 3_90_00_000, color: "#A855F7", conversion: 78 },
   { id: "disbursed_executive", label: "Disbursed", count: 20, value: 4_40_00_000, color: "#14B8A6", conversion: 71 },
-];
+]);
 
-export const pendingApprovals: PendingApproval[] = [
+export const pendingApprovals: PendingApproval[] = demoOnly([
   { id: "pa1", customerName: "Sharma Industries", product: "Business Loan", loanAmount: 1_20_00_000, stage: "Credit WIP", stageVariant: "warning", ageing: "2h", fileId: "lf-pa1" },
   { id: "pa2", customerName: "Kumar Properties", product: "LAP", loanAmount: 82_00_000, stage: "Soft Approval", stageVariant: "accent", ageing: "1d", fileId: "lf-pa2" },
   { id: "pa3", customerName: "Mehta Traders", product: "Working Capital", loanAmount: 68_00_000, stage: "Final Approval", stageVariant: "info", ageing: "3h", fileId: "lf-pa3" },
   { id: "pa4", customerName: "Reddy Exports", product: "Business Loan", loanAmount: 95_00_000, stage: "Credit WIP", stageVariant: "warning", ageing: "5h", fileId: "lf-pa4" },
-];
+]);
 
-export const rmPerformanceRows: RmPerformanceRow[] = [
+export const rmPerformanceRows: RmPerformanceRow[] = demoOnly([
   { id: "rm1", name: "Amit Sharma", initials: "AS", activeFiles: 28, sanctions: 12, disbursements: 8, conversion: 68 },
   { id: "rm2", name: "Priya Mehta", initials: "PM", activeFiles: 24, sanctions: 10, disbursements: 7, conversion: 72 },
   { id: "rm3", name: "Rahul Verma", initials: "RV", activeFiles: 22, sanctions: 9, disbursements: 6, conversion: 64 },
   { id: "rm4", name: "Neha Patel", initials: "NP", activeFiles: 19, sanctions: 8, disbursements: 5, conversion: 61 },
-];
+]);
 
-export const demoLoanFileRows: DashboardLoanFileRow[] = [
+export const demoLoanFileRows: DashboardLoanFileRow[] = demoOnly([
   { id: "na-1", fileId: "lf-001", customerName: "Vikram Singh", source: "Website", product: "Home Loan", loanAmount: 75_00_000, assignedRm: "Amit Sharma", currentStage: "Raw Lead", createdAt: new Date(Date.now() - 6 * 3600_000).toISOString(), ageing: "6h", priority: "medium" },
   { id: "na-2", fileId: "lf-002", customerName: "Sneha Kapoor", source: "Referral", product: "Business Loan", loanAmount: 1_20_00_000, assignedRm: "Priya Mehta", currentStage: "Pre Login", createdAt: new Date(Date.now() - 18 * 3600_000).toISOString(), ageing: "18h", priority: "high" },
   { id: "na-3", fileId: "lf-003", customerName: "Arjun Pillai", source: "Partner", product: "Loan Against Property", loanAmount: 95_00_000, assignedRm: "Rahul Verma", currentStage: "Logged In", createdAt: new Date(Date.now() - 32 * 3600_000).toISOString(), ageing: "1d", priority: "high" },
   { id: "na-4", fileId: "lf-004", customerName: "Meera Joshi", source: "Digital Campaign", product: "Personal Loan", loanAmount: 12_00_000, assignedRm: "Neha Patel", currentStage: "Credit WIP", createdAt: new Date(Date.now() - 48 * 3600_000).toISOString(), ageing: "2d", priority: "urgent" },
   { id: "na-5", fileId: "lf-005", customerName: "Deepak Rao", source: "RM Outreach", product: "Working Capital", loanAmount: 68_00_000, assignedRm: "Sanjay Gupta", currentStage: "Raw Lead", createdAt: new Date(Date.now() - 60 * 3600_000).toISOString(), ageing: "2d", priority: "medium" },
-];
+]);
 
 function buildLeadArrivalTrend(count: number, base: number, variance: number): LeadArrivalPoint[] {
   const points: LeadArrivalPoint[] = [];
@@ -205,9 +220,9 @@ function buildLeadArrivalTrend(count: number, base: number, variance: number): L
   return points;
 }
 
-export const leadArrivalTrendData: LeadArrivalPoint[] = buildLeadArrivalTrend(30, 28, 8);
+export const leadArrivalTrendData: LeadArrivalPoint[] = demoOnly(buildLeadArrivalTrend(30, 28, 8));
 
-export const targetProgressByScope: Record<TargetScope, TargetProgressData[]> = {
+export const targetProgressByScope: Record<TargetScope, TargetProgressData[]> = demoOnlyRecord({
   relationship_manager: [
     { id: "monthly", label: "Monthly Target", target: 2.5, achieved: 1.8, projected: 2.2, unit: "currency_cr" },
     { id: "quarterly", label: "Quarterly Target", target: 7.5, achieved: 5.2, projected: 6.8, unit: "currency_cr" },
@@ -223,10 +238,10 @@ export const targetProgressByScope: Record<TargetScope, TargetProgressData[]> = 
     { id: "quarterly", label: "Quarterly Target", target: 52, achieved: 38.6, projected: 46, unit: "currency_cr" },
     { id: "yearly", label: "Yearly Target", target: 210, achieved: 86.2, projected: 168, unit: "currency_cr" },
   ],
-};
+});
 
 /** Full 9-stage pipeline data (legacy / loan-pipeline-workflow) */
-export const pipelineStages = [
+export const pipelineStages = demoOnly([
   { id: "raw_lead" as const, label: "Raw Lead", count: 42, value: 8_40_00_000 },
   { id: "pre_login" as const, label: "Pre Login", count: 28, value: 6_20_00_000 },
   { id: "logged_in" as const, label: "Logged In", count: 35, value: 9_10_00_000 },
@@ -235,9 +250,9 @@ export const pipelineStages = [
   { id: "final_approved" as const, label: "Final Approved", count: 14, value: 3_90_00_000 },
   { id: "closure_wip" as const, label: "Closure WIP", count: 11, value: 2_80_00_000 },
   { id: "won" as const, label: "Won", count: 7, value: 98_00_000 },
-];
+]);
 
-export const todaysWork: TodaysWorkItem[] = [
+export const todaysWork: TodaysWorkItem[] = demoOnly([
   {
     id: "followups",
     title: "Pending Follow-ups",
@@ -278,9 +293,9 @@ export const todaysWork: TodaysWorkItem[] = [
     priority: "medium",
     href: "/my-deals",
   },
-];
+]);
 
-export const activityTimeline: ActivityEvent[] = [
+export const activityTimeline: ActivityEvent[] = demoOnly([
   {
     id: "1",
     title: "Disbursement completed",
@@ -339,7 +354,7 @@ export const activityTimeline: ActivityEvent[] = [
     type: "system",
     actor: "COMPASS",
   },
-];
+]);
 
 const LEAD_SOURCES = ["Website", "Referral", "RM Outreach", "Partner", "Walk-in", "Digital Campaign"] as const;
 
@@ -350,7 +365,7 @@ export function deriveLeadSource(seed: string): string {
 }
 
 /** Demo new arrivals — always includes recent entries for dashboard preview */
-export const demoNewArrivals: NewArrivalRow[] = [
+export const demoNewArrivals: NewArrivalRow[] = demoOnly([
   {
     id: "na-1",
     fileId: "lf-001",
@@ -406,7 +421,7 @@ export const demoNewArrivals: NewArrivalRow[] = [
     currentStage: "Raw Lead",
     createdAt: new Date(Date.now() - 60 * 3600_000).toISOString(),
   },
-];
+]);
 
 function buildLoginTrend(count: number, base: number, variance: number): LoginTrendPoint[] {
   const points: LoginTrendPoint[] = [];
@@ -424,7 +439,8 @@ function buildLoginTrend(count: number, base: number, variance: number): LoginTr
   return points;
 }
 
-export const loginTrendData: Record<"week" | "month" | "quarter" | "year", LoginTrendPoint[]> = {
+export const loginTrendData: Record<"week" | "month" | "quarter" | "year", LoginTrendPoint[]> =
+  demoOnlyRecord({
   week: buildLoginTrend(7, 42, 12),
   month: buildLoginTrend(30, 38, 10),
   quarter: buildLoginTrend(12, 820, 90).map((p, i) => ({
@@ -436,7 +452,7 @@ export const loginTrendData: Record<"week" | "month" | "quarter" | "year", Login
     logins: 920 + i * 45 + Math.round(Math.sin(i) * 80),
     date: new Date(2026, i, 15).toISOString(),
   })),
-};
+});
 
 function buildTrend(base: number, count: number, variance: number): TrendPoint[] {
   const points: TrendPoint[] = [];
@@ -453,17 +469,21 @@ function buildTrend(base: number, count: number, variance: number): TrendPoint[]
   return points;
 }
 
-export const revenueTrendData: TrendPoint[] = buildTrend(6.2, 14, 1.8).map((p) => ({
-  ...p,
-  value: Math.round(p.value * 10) / 10,
-}));
+export const revenueTrendData: TrendPoint[] = demoOnly(
+  buildTrend(6.2, 14, 1.8).map((p) => ({
+    ...p,
+    value: Math.round(p.value * 10) / 10,
+  })),
+);
 
-export const disbursementTrendData: TrendPoint[] = buildTrend(0.8, 14, 0.4).map((p) => ({
-  ...p,
-  value: Math.round(p.value * 10) / 10,
-}));
+export const disbursementTrendData: TrendPoint[] = demoOnly(
+  buildTrend(0.8, 14, 0.4).map((p) => ({
+    ...p,
+    value: Math.round(p.value * 10) / 10,
+  })),
+);
 
-export const targetGaugeByScope: Record<TargetScope, TargetGaugeData[]> = {
+export const targetGaugeByScope: Record<TargetScope, TargetGaugeData[]> = demoOnlyRecord({
   relationship_manager: [
     { id: "monthly", label: "Monthly Target", target: 2.5, achieved: 1.8, unit: "currency_cr" },
     { id: "quarterly", label: "Quarterly Target", target: 7.5, achieved: 5.2, unit: "currency_cr" },
@@ -479,7 +499,7 @@ export const targetGaugeByScope: Record<TargetScope, TargetGaugeData[]> = {
     { id: "quarterly", label: "Quarterly Target", target: 52, achieved: 38.6, unit: "currency_cr" },
     { id: "yearly", label: "Yearly Target", target: 210, achieved: 86.2, unit: "currency_cr" },
   ],
-};
+});
 
 export const TARGET_SCOPE_LABELS: Record<TargetScope, string> = {
   relationship_manager: "Relationship Manager · Own Target",

@@ -46,6 +46,12 @@ function formatUser(user: {
   isActive: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
+  employeeId?: string | null;
+  mobile?: string | null;
+  department?: string | null;
+  mustChangePassword?: boolean;
+  reportingManagerId?: string | null;
+  eumUserId?: string | null;
 }) {
   return {
     id: user.id,
@@ -55,6 +61,12 @@ function formatUser(user: {
     avatarUrl: user.avatarUrl,
     role: user.role,
     isActive: user.isActive,
+    employeeId: user.employeeId ?? null,
+    mobile: user.mobile ?? null,
+    department: user.department ?? null,
+    mustChangePassword: Boolean(user.mustChangePassword),
+    reportingManagerId: user.reportingManagerId ?? null,
+    eumUserId: user.eumUserId ?? null,
     createdAt: new Date(user.createdAt).toISOString(),
     updatedAt: new Date(user.updatedAt).toISOString(),
   };
@@ -188,5 +200,29 @@ export const authService = {
     ]);
 
     return { message: "Password has been reset successfully." };
+  },
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    if (!isDatabaseAvailable()) {
+      throw Object.assign(new Error("Database not configured"), { statusCode: 503, code: "SERVICE_UNAVAILABLE" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.isActive) {
+      throw Object.assign(new Error("User not found"), { statusCode: 404, code: "NOT_FOUND" });
+    }
+
+    const valid = await comparePassword(currentPassword, user.passwordHash);
+    if (!valid) {
+      throw Object.assign(new Error("Current password is incorrect"), { statusCode: 400, code: "INVALID_PASSWORD" });
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, mustChangePassword: false },
+    });
+
+    return { user: formatUser(updated), message: "Password updated successfully." };
   },
 };

@@ -4,6 +4,7 @@ import { Bell } from "lucide-react";
 import { EmptyState } from "@/components/design-system/empty-state";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { formatRelativeTime } from "@/lib/utils";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import type { Notification } from "@/types/navigation";
 
 const mockNotifications: Notification[] = [
@@ -26,7 +27,7 @@ const mockNotifications: Notification[] = [
 ];
 
 export function NotificationsPanel() {
-  const notifications = mockNotifications;
+  const notifications = isDemoSeedEnabled() ? mockNotifications : [];
 
   if (notifications.length === 0) {
     return (

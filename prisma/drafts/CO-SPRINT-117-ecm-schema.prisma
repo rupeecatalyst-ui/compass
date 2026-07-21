@@ -1,0 +1,81 @@
+// =============================================================================
+// CO-SPRINT-117 — Phase 1B Enterprise Persistence
+// =============================================================================
+//
+// Status:     APPROVED — merged into prisma/schema.prisma
+// Migration:  prisma/migrations/20260720180000_co_sprint_117_ecm_foundation/
+//             (FOR SQL REVIEW — not applied until signed off)
+//
+// Phase 1B decisions (FINAL):
+//   • Object Storage:     Supabase Storage (CO-SPRINT-121 — not in this migration)
+//   • Loan File Schema:   Hybrid Relational + JSONB v1 (CO-SPRINT-118+ — not here)
+//   • EOLE Scope:         Phase 2A only — excluded from CO-SPRINT-117
+//   • Organization:       Single organization (rupee-catalyst)
+//   • API Style:          REST route handlers
+//   • Directory Registry: Unified UI; EcmContact + EcmCompany remain separate entities
+//   • Demo Seeds:         Disabled when ENTERPRISE_PERSISTENCE_MODE=prisma or Pilot/Prod
+//
+// Architecture (frozen):
+//   UI → API → Service → Repository → Prisma → PostgreSQL
+//
+// Apply sequence (after SQL review approval):
+//   1. npx prisma migrate deploy
+//   2. npx prisma db seed          (pilot org + auth admin only — no demo business data)
+//   3. Set ENTERPRISE_PERSISTENCE_MODE=prisma on Pilot Vercel
+//   4. Wire repository ports + REST APIs (CO-SPRINT-117 implementation)
+//
+// Certification gates (must pass before CO-SPRINT-118):
+//   • Business Certification   — contact/company CRUD, progressive create, Directory Registry
+//   • Technical Certification  — build, API auth, ports wired, no UI→Prisma
+//   • Data Integrity           — duplicate mobile/email, FK integrity, audit trail
+//   • Performance              — registry query < 500ms p95 @ 5k contacts
+//
+// =============================================================================
+// This file is a reference mirror of the applied schema section in schema.prisma.
+// Do not run migrate against this file directly.
+// =============================================================================
+
+// See prisma/schema.prisma — CO-SPRINT-117 section for the canonical datamodel.
+
+// =============================================================================
+// DESIGN NOTES
+// =============================================================================
+//
+// 1. Single organization
+//    Pilot seeds one row: slug = "rupee-catalyst", name = "Rupee Catalyst".
+//    organizationId required on all ECM rows for future multi-tenant without redesign.
+//
+// 2. Timestamps
+//    Domain types use createdOn/modifiedOn (ISO strings). Repository maps ↔ createdAt/updatedAt.
+//    lastActiveOn ↔ lastActiveAt.
+//
+// 3. Mobile uniqueness
+//    @@unique([organizationId, mobilePrimary]) — includes progressive pending-* placeholders.
+//    Service layer generates unique pending mobile values per create.
+//
+// 4. Company name uniqueness
+//    Case-insensitive: migration index ecm_companies_org_name_ci_key on lower(company_name)
+//    WHERE enabled = true. Service layer findEcmCompanyByName aligns with this.
+//
+// 5. Soft archive
+//    Contacts: status = archived + enabled = false
+//    Companies: status = archived + enabled = false
+//    No hard DELETE in Phase 1B.
+//
+// 6. JSONB fields
+//    roleProfiles, relationship meta — flexible MIR without column explosion.
+//
+// 7. Non-destructive migration
+//    All new tables. Existing users / refresh_tokens / password_reset_tokens untouched.
+//
+// 8. Directory Registry filters (UI — separate domain entities)
+//    All · Individuals · Companies · Business Roles
+//    Individual row → Contact Workspace · Company row → Company Workspace
+//
+// 9. Supabase Storage
+//    Not in this migration. Document tables arrive CO-SPRINT-121.
+//
+// 10. EOLE
+//     Not in this migration. Phase 2A only for Pilot.
+//
+// =============================================================================

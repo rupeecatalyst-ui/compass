@@ -3,9 +3,10 @@
  */
 
 import { getEcmRoleLabel } from "@/constants/enterprise-contact-master";
-import { getEcmCompany, listContactCompanyLinks } from "@/lib/enterprise-company-master";
+import { getEcmCompany, listCompanyLinks, listContactCompanyLinks } from "@/lib/enterprise-company-master";
 import { listEoleOpportunitiesByCustomer } from "@/lib/enterprise-opportunity-lifecycle-engine";
 import type { EcmContact } from "@/types/enterprise-contact-master";
+import type { EcmCompany } from "@/types/enterprise-company-master";
 import type {
   ContactRegistryFilters,
   ContactRegistryRow,
@@ -58,6 +59,7 @@ export function toContactRegistryRow(contact: EcmContact): ContactRegistryRow {
   const email = contact.officialEmail || contact.personalEmail || "—";
   return {
     id: contact.id,
+    entityKind: "contact",
     contactId: contact.id.slice(0, 8).toUpperCase(),
     name: contact.name,
     contactType: getEcmRoleLabel(contact.primaryRole ?? contact.roles[0] ?? "customer"),
@@ -89,8 +91,56 @@ export function toContactRegistryRow(contact: EcmContact): ContactRegistryRow {
   };
 }
 
+export function toCompanyRegistryRow(company: EcmCompany): ContactRegistryRow {
+  const linkCount = listCompanyLinks(company.id).length;
+  return {
+    id: company.id,
+    entityKind: "company",
+    contactId: company.id.slice(0, 8).toUpperCase(),
+    name: company.companyName,
+    contactType: "Company",
+    contactTypeRole: "customer",
+    mobile: "—",
+    email: "—",
+    city: "—",
+    state: "—",
+    assignedRm: company.ownerName?.trim() || "—",
+    activeOpportunities: 0,
+    contactScore: company.companyScore,
+    strategicContact: false,
+    lastInteraction: "—",
+    lastInteractionAt: "",
+    dateCreated: formatDate(company.createdOn),
+    dateCreatedAt: company.createdOn || "",
+    status: company.status,
+    companyName: company.companyName,
+    source: "—",
+    panStatus: company.pan?.trim() ? "Captured" : "Pending",
+    aadhaarStatus: "—",
+    lastModified: formatDate(company.modifiedOn),
+    lastModifiedAt: company.modifiedOn || "",
+    tags: linkCount > 0 ? `${linkCount} linked contact${linkCount === 1 ? "" : "s"}` : "No relationships",
+    loanRequirement: "—",
+    productInterest: company.industry ? company.industry : "—",
+    customerStage: "—",
+    company,
+  };
+}
+
 export function buildContactRegistryRows(contacts: EcmContact[]): ContactRegistryRow[] {
   return contacts.map(toContactRegistryRow);
+}
+
+/** Unified Directory Registry — individuals + legal entities, sorted by modifiedOn desc. */
+export function buildDirectoryRegistryRows(
+  contacts: EcmContact[],
+  companies: EcmCompany[],
+): ContactRegistryRow[] {
+  const rows = [
+    ...contacts.map(toContactRegistryRow),
+    ...companies.map(toCompanyRegistryRow),
+  ];
+  return rows.sort((a, b) => b.lastModifiedAt.localeCompare(a.lastModifiedAt));
 }
 
 export function filterContactRegistryRows(
@@ -112,6 +162,9 @@ export function filterContactRegistryRows(
     : null;
 
   return rows.filter((row) => {
+    if (filters.entityFilter === "individuals" && row.entityKind !== "contact") return false;
+    if (filters.entityFilter === "companies" && row.entityKind !== "company") return false;
+
     if (q) {
       const hay = [
         row.name,
@@ -122,19 +175,49 @@ export function filterContactRegistryRows(
         row.assignedRm,
         row.companyName,
         row.contactType,
-        row.contact.id,
+        row.entityKind === "contact" ? row.contact?.id : row.company?.id,
+        row.tags,
       ]
         .join(" ")
         .toLowerCase();
       if (!hay.includes(q)) return false;
     }
-    if (filters.contactType !== "all" && row.contactTypeRole !== filters.contactType) return false;
+    if (
+      filters.contactType !== "all" &&
+      row.entityKind === "company"
+    ) {
+      return false;
+    }
+    if (
+      filters.contactType !== "all" &&
+      row.entityKind === "contact" &&
+      row.contactTypeRole !== filters.contactType
+    ) {
+      return false;
+    }
     if (filters.city !== "all" && row.city !== filters.city) return false;
     if (filters.state !== "all" && row.state !== filters.state) return false;
     if (filters.assignedRm !== "all" && row.assignedRm !== filters.assignedRm) return false;
     if (filters.status !== "all" && row.status !== filters.status) return false;
     if (filters.strategic === "yes" && !row.strategicContact) return false;
     if (filters.strategic === "no" && row.strategicContact) return false;
+    if (row.entityKind === "company") {
+      if (filters.strategic !== "all") return false;
+      if (filters.status !== "all" && row.status !== filters.status) return false;
+      if (colMobile) return false;
+      if (scoreMin != null && !Number.isNaN(scoreMin) && row.contactScore < scoreMin) return false;
+      if (scoreMax != null && !Number.isNaN(scoreMax) && row.contactScore > scoreMax) return false;
+      if (colName && !row.name.toLowerCase().includes(colName)) return false;
+      if (createdFrom != null && !Number.isNaN(createdFrom)) {
+        const t = new Date(row.dateCreatedAt).getTime();
+        if (Number.isNaN(t) || t < createdFrom) return false;
+      }
+      if (createdTo != null && !Number.isNaN(createdTo)) {
+        const t = new Date(row.dateCreatedAt).getTime();
+        if (Number.isNaN(t) || t > createdTo + 86400000 - 1) return false;
+      }
+      return true;
+    }
     if (scoreMin != null && !Number.isNaN(scoreMin) && row.contactScore < scoreMin) return false;
     if (scoreMax != null && !Number.isNaN(scoreMax) && row.contactScore > scoreMax) return false;
     if (colName && !row.name.toLowerCase().includes(colName)) return false;
@@ -216,7 +299,7 @@ export function exportContactRegistryCsv(rows: ContactRegistryRow[]): string {
   ];
   const lines = rows.map((r) =>
     [
-      r.contact.id,
+      r.entityKind === "contact" ? r.contact?.id ?? r.id : r.company?.id ?? r.id,
       r.name,
       r.contactType,
       r.mobile,

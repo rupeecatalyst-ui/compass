@@ -12,8 +12,10 @@ import {
   validateLoanFile,
 } from "@/lib/loan-validation";
 import { throwLoanBusinessCompletionIfNeeded } from "@/lib/business-completion";
+import { syncDailyWorkFromTimelineEvent } from "@/lib/chanakya-radar/daily-work";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { buildElwWorkspaceHref } from "@/constants/enterprise-lender-workspace";
 import { listElwRegistryEntries } from "@/lib/enterprise-lender-workspace";
 import type { CustomerLoanStats, LoanFile } from "@/types/catalyst-one";
@@ -83,18 +85,20 @@ export function searchGlobal(query: string, files?: LoanFile[]): GlobalSearchRes
       }
     });
 
-  CUSTOMER_SEED.forEach((c) => {
-    const haystack = [c.name, c.mobile, c.email, c.city, c.state].join(" ").toLowerCase();
-    if (haystack.includes(q)) {
-      results.push({
-        id: c.id,
-        type: "customer",
-        title: c.name,
-        subtitle: `${c.city} · ${c.mobile}`,
-        href: `/customers?customer=${c.id}`,
-      });
-    }
-  });
+  if (isDemoSeedEnabled()) {
+    CUSTOMER_SEED.forEach((c) => {
+      const haystack = [c.name, c.mobile, c.email, c.city, c.state].join(" ").toLowerCase();
+      if (haystack.includes(q)) {
+        results.push({
+          id: c.id,
+          type: "customer",
+          title: c.name,
+          subtitle: `${c.city} · ${c.mobile}`,
+          href: `/customers?customer=${c.id}`,
+        });
+      }
+    });
+  }
 
   // CF-LIFE-010 — lender institution hits open Enterprise Lender Workspace
   for (const entry of listElwRegistryEntries()) {
@@ -309,6 +313,13 @@ export function updateLoanFileInStorage(
   const next = [...files];
   next[index] = merged;
   saveLoanFiles(next);
+
+  // CO-SPRINT-108 — Daily Work marks from new meaningful timeline events only
+  const prevIds = new Set((existing.timeline ?? []).map((e) => e.id));
+  for (const ev of merged.timeline ?? []) {
+    if (!prevIds.has(ev.id)) syncDailyWorkFromTimelineEvent(merged.id, ev);
+  }
+
   return merged;
 }
 

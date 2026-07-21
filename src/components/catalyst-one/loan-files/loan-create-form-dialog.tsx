@@ -11,12 +11,13 @@ import {
   EntityMasterSearch,
   type EntityMasterOption,
 } from "@/components/catalyst-one/shared/entity-master-search";
+import { LiveEntityMasterSearch } from "@/components/catalyst-one/shared/live-entity-master-search";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { LoanOriginationSection } from "@/components/catalyst-one/shared/loan-origination-section";
 import { LoanParticipantsPanel } from "@/components/catalyst-one/shared/loan-participants-panel";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
-import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
+import { useLoanJourneyEcm } from "@/hooks/use-loan-journey-ecm";
 import { LOAN_JOURNEY_SOURCES } from "@/constants/loan-journey-sources";
 import {
   getProductsForLendingType,
@@ -25,9 +26,9 @@ import {
   TRANSACTION_TYPES,
 } from "@/constants/loan-pipeline";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { loanLenders, loanManagers } from "@/data/catalyst-one/loan-files";
 import {
-  buildDefaultParticipantEntityOptions,
   mapContactOptionsToParticipantEntities,
   syncParticipantLegacyFields,
 } from "@/lib/loan-participants";
@@ -36,12 +37,13 @@ import {
   listSourceContactOptions,
 } from "@/lib/loan-journey/source-contact-filter";
 import { resolveAssociatedCompanyFromBorrowerProfile } from "@/lib/loan-journey/reuse-borrower-company";
+import {
+  buildLoanJourneyCompanyOptions,
+  buildLoanJourneyContactOptions,
+  findLoanJourneyContactById,
+} from "@/lib/loan-journey/ecm-registry-options";
 import { ProgressiveContactCreateModal } from "@/components/catalyst-one/contacts/progressive-contact-create-modal";
 import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
-import {
-  isEcmContactUsable,
-  listEcmContacts,
-} from "@/lib/enterprise-contact-master";
 import { getContextAwareVisibility, resolveContextCustomerCategory } from "@/lib/context-aware-data-collection";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
@@ -175,8 +177,10 @@ export function LoanCreateFormDialog({
   const [sourceContactRole, setSourceContactRole] = useState<string>();
   const [sourceContactOrganisation, setSourceContactOrganisation] = useState<string>();
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
-  const [contactOptionsTick, setContactOptionsTick] = useState(0);
-  const registryVersion = useEcmContactRegistryVersion();
+  const { registryVersion, refresh: refreshEcm } = useLoanJourneyEcm({
+    refreshOnOpen: true,
+    open,
+  });
   const [primaryCreateOpen, setPrimaryCreateOpen] = useState(false);
   const [primaryCreatePrefill, setPrimaryCreatePrefill] = useState("");
 
@@ -215,43 +219,19 @@ export function LoanCreateFormDialog({
   const showExistingLoan = transactionType === "balance_transfer";
 
   const contactOptions = useMemo(() => {
-    const ecm = listEcmContacts()
-      .filter((c) => isEcmContactUsable(c.status))
-      .map((c) => ({
-        id: c.id,
-        label: c.name,
-        sublabel: c.mobilePrimary?.startsWith("pending-") ? "Provisional" : c.mobilePrimary,
-        mobile: c.mobilePrimary?.startsWith("pending-") ? "" : c.mobilePrimary,
-        email: c.personalEmail || c.officialEmail || "",
-        city: c.city || "",
-        state: c.state || "",
-        employmentType: c.employmentType || "Salaried",
-      }));
-    const seed = CUSTOMER_SEED.map((c) => ({
-      id: c.id,
-      label: c.name,
-      sublabel: c.mobile,
-      mobile: c.mobile,
-      email: c.email,
-      city: c.city,
-      state: c.state,
-      employmentType: c.employmentType,
-    }));
-    const byId = new Map<string, (typeof seed)[number]>();
-    for (const row of [...seed, ...ecm]) byId.set(row.id, row);
-    return [...byId.values()];
-  }, [contactOptionsTick, registryVersion]);
+    void registryVersion;
+    return buildLoanJourneyContactOptions();
+  }, [registryVersion]);
 
   const sourceContactOptions = useMemo(
     () => listSourceContactOptions(source),
-    [source, contactOptionsTick, registryVersion],
+    [source, registryVersion],
   );
   const hideSourceContact = source === "Direct";
 
   const companyOptions = useMemo(() => {
-    const base = buildDefaultParticipantEntityOptions()
-      .filter((o) => o.entityType === "company")
-      .map((o) => ({ id: o.id, label: o.name, sublabel: o.constitution }));
+    void registryVersion;
+    const base = buildLoanJourneyCompanyOptions();
     if (
       associatedCompanyId &&
       associatedCompanyName &&
@@ -267,7 +247,7 @@ export function LoanCreateFormDialog({
       ];
     }
     return base;
-  }, [associatedCompanyId, associatedCompanyName, companyFromProfile]);
+  }, [associatedCompanyId, associatedCompanyName, companyFromProfile, registryVersion]);
 
   const participantEntityOptions = useMemo(
     () =>
@@ -279,7 +259,7 @@ export function LoanCreateFormDialog({
           email: c.email,
         })),
       ),
-    [contactOptions],
+    [contactOptions, registryVersion],
   );
 
   const applyAssociatedCompanyFromProfile = (employerName?: string, businessName?: string) => {
@@ -296,7 +276,7 @@ export function LoanCreateFormDialog({
   };
 
   const selectPrimaryApplicant = (option: EntityMasterOption) => {
-    const ecm = listEcmContacts().find((x) => x.id === option.id);
+    const ecm = findLoanJourneyContactById(option.id);
     if (ecm) {
       const profile = ecm.roleProfiles?.customer ?? {};
       form.setValue("customerId", ecm.id, { shouldDirty: true });
@@ -322,18 +302,20 @@ export function LoanCreateFormDialog({
       return;
     }
 
-    const c = CUSTOMER_SEED.find((x) => x.id === option.id);
-    if (!c) return;
-    form.setValue("customerId", c.id, { shouldDirty: true });
-    form.setValue("customerName", c.name, { shouldDirty: true });
-    form.setValue("customerMobile", c.mobile, { shouldDirty: true });
-    form.setValue("customerEmail", c.email, { shouldDirty: true });
-    form.setValue("city", c.city, { shouldDirty: true });
-    form.setValue("state", c.state, { shouldDirty: true });
-    form.setValue("employmentType", c.employmentType, { shouldDirty: true });
-    if (/pvt|ltd|llp|industries/i.test(c.name)) {
+    if (!isDemoSeedEnabled()) return;
+
+    const seed = CUSTOMER_SEED.find((x) => x.id === option.id);
+    if (!seed) return;
+    form.setValue("customerId", seed.id, { shouldDirty: true });
+    form.setValue("customerName", seed.name, { shouldDirty: true });
+    form.setValue("customerMobile", seed.mobile, { shouldDirty: true });
+    form.setValue("customerEmail", seed.email, { shouldDirty: true });
+    form.setValue("city", seed.city, { shouldDirty: true });
+    form.setValue("state", seed.state, { shouldDirty: true });
+    form.setValue("employmentType", seed.employmentType, { shouldDirty: true });
+    if (/pvt|ltd|llp|industries/i.test(seed.name)) {
       form.setValue("customerType", "Corporate", { shouldDirty: true });
-      applyAssociatedCompanyFromProfile(c.name, undefined);
+      applyAssociatedCompanyFromProfile(seed.name, undefined);
     } else {
       setAssociatedCompanyId(undefined);
       setAssociatedCompanyName(undefined);
@@ -342,7 +324,7 @@ export function LoanCreateFormDialog({
   };
 
   const applyProgressivePrimary = (contact: EcmContact) => {
-    setContactOptionsTick((t) => t + 1);
+    void refreshEcm(true);
     selectPrimaryApplicant({
       id: contact.id,
       label: contact.name,
@@ -568,11 +550,13 @@ export function LoanCreateFormDialog({
                 >
                   <div className="space-y-4">
                     <FormField label="Primary Applicant *" error={form.formState.errors.customerId?.message}>
-                      <EntityMasterSearch
+                      <LiveEntityMasterSearch
+                        kind="contact"
+                        warmOnMount={open}
                         placeholder="Search contact…"
                         selectedId={form.watch("customerId")}
                         selectedLabel={form.watch("customerName") || undefined}
-                        options={contactOptions}
+                        fallbackOptions={contactOptions}
                         onSelect={selectPrimaryApplicant}
                         onCreateNew={(q) => {
                           setPrimaryCreatePrefill(q);
@@ -595,12 +579,15 @@ export function LoanCreateFormDialog({
                           : "Associated Company (Optional)"
                       }
                     >
-                      <EntityMasterSearch
+                      <LiveEntityMasterSearch
+                        kind="company"
+                        warmOnMount={open}
                         placeholder="Search company…"
                         selectedId={associatedCompanyId}
                         selectedLabel={associatedCompanyName}
-                        options={companyOptions}
+                        fallbackOptions={companyOptions}
                         onSelect={selectAssociatedCompany}
+                        allowCreateNew={false}
                       />
                       {companyFromProfile && (
                         <p className="mt-1 text-[10px] text-muted-foreground">
@@ -618,7 +605,7 @@ export function LoanCreateFormDialog({
                         entityOptions={participantEntityOptions}
                         onChange={setParticipants}
                         maxParticipants={9}
-                        onContactCreated={() => setContactOptionsTick((t) => t + 1)}
+                        onContactCreated={() => void refreshEcm(true)}
                       />
                     </div>
                   </div>

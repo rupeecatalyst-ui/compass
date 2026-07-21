@@ -7,6 +7,12 @@ import type {
   EcmCompanyRegisterInput,
   EcmCompanyRelationRole,
 } from "@/types/enterprise-company-master";
+import { runDemoSeedIfEnabled } from "@/lib/demo-seed";
+import {
+  formatCompanyDisplayName,
+  normalizeCompanyNameKey,
+} from "@/lib/enterprise-company-master/name-normalize";
+import { notifyEcmContactRegistryChanged } from "@/lib/enterprise-contact-master/contact-change-bus";
 
 const companies = new Map<string, EcmCompany>();
 const links = new Map<string, EcmCompanyContactLink>();
@@ -28,7 +34,7 @@ function computeCompanyScore(company: EcmCompany, linkCount: number): number {
 }
 
 export function listEcmCompanies(): EcmCompany[] {
-  return [...companies.values()].filter((c) => c.enabled);
+  return [...companies.values()].filter((c) => c.enabled !== false);
 }
 
 export function getEcmCompany(id: string): EcmCompany | undefined {
@@ -36,13 +42,15 @@ export function getEcmCompany(id: string): EcmCompany | undefined {
 }
 
 export function findEcmCompanyByName(name: string): EcmCompany | undefined {
-  const key = name.trim().toLowerCase();
+  const key = normalizeCompanyNameKey(name);
   if (!key) return undefined;
-  return listEcmCompanies().find((c) => c.companyName.trim().toLowerCase() === key);
+  return listEcmCompanies().find(
+    (c) => normalizeCompanyNameKey(c.companyName) === key,
+  );
 }
 
 export function registerEcmCompany(input: EcmCompanyRegisterInput): EcmCompany {
-  const name = input.companyName.trim();
+  const name = formatCompanyDisplayName(input.companyName);
   if (!name) throw new Error("Company Name is required.");
 
   const existing = findEcmCompanyByName(name);
@@ -77,6 +85,7 @@ export function registerEcmCompany(input: EcmCompanyRegisterInput): EcmCompany {
   };
   draft.companyScore = computeCompanyScore(draft, 0);
   companies.set(draft.id, draft);
+  notifyEcmContactRegistryChanged();
   return draft;
 }
 
@@ -130,6 +139,7 @@ export function updateEcmCompany(
   };
   next.companyScore = computeCompanyScore(next, listCompanyLinks(id).length);
   companies.set(id, next);
+  notifyEcmContactRegistryChanged();
   return next;
 }
 
@@ -140,9 +150,12 @@ export function archiveEcmCompany(id: string, actorId: string): void {
     ...current,
     status: "archived",
     enabled: false,
+    archivedBy: actorId,
+    archivedOn: nowIso(),
     modifiedBy: actorId,
     modifiedOn: nowIso(),
   });
+  notifyEcmContactRegistryChanged();
 }
 
 export function queryEcmCompanies(query: EcmCompanyQuery = {}): EcmCompanyQueryResult {
@@ -276,34 +289,59 @@ export function deriveEcmCompanyReadiness(company: EcmCompany): EcmCompanyReadin
 }
 
 export function seedEcmCompaniesIfEmpty(): void {
-  if (companies.size > 0) return;
-  const peak = registerEcmCompany({
-    companyName: "Peakprofits Capital Services Pvt Ltd",
-    constitution: "private_limited",
-    industry: "bfsi",
-    natureOfBusiness: "services",
-    yearsInBusiness: "8",
-    annualTurnover: "12 Cr",
-    pan: "AABCP1234F",
-    gst: "27AABCP1234F1Z5",
-    registeredAddress: "Bandra Kurla Complex, Mumbai",
-    ownerName: "Platform Admin",
-    createdBy: "system",
+  runDemoSeedIfEnabled(() => {
+    if (companies.size > 0) return;
+    const peak = registerEcmCompany({
+      companyName: "ABC Pvt Ltd",
+      constitution: "private_limited",
+      industry: "bfsi",
+      natureOfBusiness: "services",
+      yearsInBusiness: "8",
+      annualTurnover: "12 Cr",
+      pan: "AABCP1234F",
+      gst: "27AABCP1234F1Z5",
+      registeredAddress: "Bandra Kurla Complex, Mumbai",
+      ownerName: "Platform Admin",
+      createdBy: "demo-seed",
+    });
+    registerEcmCompany({
+      companyName: "XYZ LLP",
+      constitution: "llp",
+      industry: "real-estate",
+      natureOfBusiness: "real-estate-dev",
+      yearsInBusiness: "12",
+      annualTurnover: "85 Cr",
+      ownerName: "Platform Admin",
+      createdBy: "demo-seed",
+    });
+    void peak;
   });
-  registerEcmCompany({
-    companyName: "Acme Homes Pvt Ltd",
-    constitution: "private_limited",
-    industry: "real-estate",
-    natureOfBusiness: "real-estate-dev",
-    yearsInBusiness: "12",
-    annualTurnover: "85 Cr",
-    ownerName: "Platform Admin",
-    createdBy: "system",
-  });
-  void peak;
 }
 
 export function resetEcmCompanyRegistry(): void {
   companies.clear();
   links.clear();
+}
+
+/** Hydrate in-memory company cache from PostgreSQL (prisma mode UI). */
+export function replaceAllEcmCompanies(next: EcmCompany[]): void {
+  companies.clear();
+  for (const c of next) companies.set(c.id, c);
+  notifyEcmContactRegistryChanged();
+}
+
+export function replaceAllCompanyLinks(next: EcmCompanyContactLink[]): void {
+  links.clear();
+  for (const l of next) links.set(l.id, l);
+  notifyEcmContactRegistryChanged();
+}
+
+export function upsertEcmCompanyLocal(company: EcmCompany): void {
+  companies.set(company.id, company);
+  notifyEcmContactRegistryChanged();
+}
+
+export function upsertCompanyLinkLocal(link: EcmCompanyContactLink): void {
+  links.set(link.id, link);
+  notifyEcmContactRegistryChanged();
 }

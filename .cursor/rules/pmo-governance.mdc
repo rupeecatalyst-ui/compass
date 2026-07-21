@@ -1,0 +1,91 @@
+# PMO Governance — Work Classification & Implementation Freeze
+
+**Status:** APPROVED · PERMANENT  
+**Priority:** CRITICAL  
+**Effective:** 2026-07-21  
+**SSOT:** `docs/pmo/`
+
+---
+
+## Implementation Freeze (ACTIVE)
+
+**No new implementation work** shall begin until the PMO foundation is approved by ESC.
+
+### Allowed during freeze
+
+| Classification | Examples |
+|----------------|----------|
+| `DOC` | PMO standards, registers, workflows, ADR drafts |
+| `CERT` | Audits, production verification (Quality Office scope) |
+| `BUG` | Critical blockers with Quality/CERT scope (e.g. CO-BLOCKER-*) |
+| Register updates | Risk, Issue, Decision, Change entries |
+
+### Blocked during freeze (requires ESC exception)
+
+| Classification | Examples |
+|----------------|----------|
+| `INFRA` | CO-ARCH-001-I1+ (until freeze lifted) |
+| `DEV` | New CO-SPRINT features, port swaps |
+| `ENH` | Product improvements, UX redesign |
+
+**First work after freeze lift:** `CO-ARCH-001-I1` + `I2` under Infrastructure Office (INFRA classification).
+
+---
+
+## Mandatory Classification (every request)
+
+Before any implementation, agents and developers MUST:
+
+1. **Classify** the work per PMO-004 (`ARCH`, `INFRA`, `DEV`, `BUG`, `CERT`, `DOC`, `REL`, `RISK`, `ENH`)
+2. **Assign** a Program ID (e.g. `CO-ARCH-001-I2`, `CO-SPRINT-120`)
+3. **Register** in `docs/pmo/registers/program-backlog-register.md` (or propose new program)
+4. **Confirm** owning governance office
+5. **Confirm** target stage gate
+6. **Confirm** `Product redesign?` = **No** for all `INFRA` work
+
+If classification is unclear, **stop and ask** — do not implement.
+
+---
+
+## CO-ARCH-001 Rules (Infrastructure Program)
+
+CO-ARCH-001 is an **infrastructure program**, not product redesign:
+
+| Allowed | Forbidden |
+|---------|-----------|
+| Prisma schema, migrations | Workspace layout redesign |
+| CRUD APIs, client ports | New business journeys |
+| Seed/backfill scripts | Chanakya / Radar changes |
+| Thin admin maintenance | Feature additions |
+| Picker port swap (data source only) | Picker UX redesign |
+
+---
+
+## Certification Independence
+
+- Quality Office (`CERT`) certifies; implementers do not self-certify
+- Production verification required for business certification — not local-only proof
+- See PMO-008 and `business-functional-certification-report.mdc`
+
+---
+
+## Governance References
+
+| Document | Path |
+|----------|------|
+| PMO Hub | `docs/pmo/README.md` |
+| Work Classification | `docs/pmo/standards/PMO-004-work-classification-standard.md` |
+| Stage Gates | `docs/pmo/workflows/stage-gates.md` |
+| Program Backlog | `docs/pmo/registers/program-backlog-register.md` |
+
+---
+
+## Agent Behaviour
+
+When receiving an implementation request:
+
+1. Check freeze status (this rule)
+2. Classify and cite Program ID in Implementation Report
+3. If `INFRA`, verify no product redesign in scope
+4. If blocked, inform user and reference pending ESC decision (DEC-PENDING-001)
+5. Update relevant registers when completing governance or certified work

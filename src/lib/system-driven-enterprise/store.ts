@@ -8,6 +8,7 @@ import {
   SDE_PRINCIPLES_VERSION,
   SDE_STORAGE_KEY,
 } from "@/constants/system-driven-enterprise";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import type {
   SdeAssistanceHint,
   SdeControlledException,
@@ -147,12 +148,31 @@ function seed(): SdeSnapshot {
   };
 }
 
+function emptySnapshot(): SdeSnapshot {
+  return {
+    schemaVersion: 1,
+    principlesVersion: SDE_PRINCIPLES_VERSION,
+    exceptions: [],
+    events: [],
+    assistance: [],
+  };
+}
+
 function empty(): SdeSnapshot {
+  if (!isDemoSeedEnabled()) return emptySnapshot();
   return seed();
 }
 
 function read(): SdeSnapshot {
   if (typeof window === "undefined") return empty();
+  if (!isDemoSeedEnabled()) {
+    try {
+      localStorage.removeItem(SDE_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    return emptySnapshot();
+  }
   try {
     const raw = localStorage.getItem(SDE_STORAGE_KEY);
     if (!raw) return empty();

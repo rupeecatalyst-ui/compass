@@ -1,0 +1,46 @@
+---
+description: EUX-007 CHANAKYA Live Intelligence Header — permanent enterprise UX standard
+alwaysApply: true
+---
+
+# EUX-007 — CHANAKYA Live Intelligence Header (PERMANENT)
+
+Enterprise UX Standard. Applies to every Catalyst One workspace where CHANAKYA provides operational intelligence.
+
+## Single component
+
+- UI: `ChanakyaLiveIntelligenceBar` in `src/components/enterprise/chanakya-live-intelligence/`
+- Messages: `src/lib/chanakya-live-intelligence/` (`resolveChanakyaLiveIntelligenceWorkspace` + `buildChanakyaLiveIntelligenceMessages`)
+- Do **not** create page-specific ticker implementations
+- Do **not** add a second header row for intelligence
+
+## Header order
+
+`[ Logo / Workspace ] [ Page Controls ] [ Live Intelligence Bar ] [ Notifications ] [ Workspace Switchers ] [ CHANAKYA AI ] [ User Profile ]`
+
+The Live Intelligence Bar fills remaining horizontal space (`flex-1 min-w-0`).
+
+## Interaction
+
+- Ticker is **passive** (no click-through on messages)
+- Detail / Q&A / workflows open only via the **CHANAKYA AI** button
+- Messages must be **contextual** to the current workspace route
+
+## Layout integrity
+
+- Never overlap, wrap the action cluster, or hide Notifications / AI / Profile
+- Under pressure: compress ticker → scroll/truncate messages → preserve actions
+- Mobile: compact CHANAKYA indicator; full feed via CHANAKYA AI
+- Zero layout shift; single-line ticker
+
+## Metrics
+
+Reuse existing SSOT derive engines (e.g. Radar dashboard). Do not invent parallel KPI formulas for ticker copy.
+
+## Separation from Workspace Intelligence (CO-SPRINT-112)
+
+This header bar is **Layer 1 — Enterprise Intelligence** (organization-wide).
+
+Do **not** reuse this component inside a Loan / Contact / Opportunity workspace ribbon.
+Entity-scoped operational messages belong in `WorkspaceIntelligenceRibbon` (Layer 2) only.
+See `.cursor/rules/workspace-intelligence-scope.mdc`.

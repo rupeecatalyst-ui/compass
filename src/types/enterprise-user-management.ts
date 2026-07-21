@@ -169,6 +169,8 @@ export interface EnterpriseManagedUser {
   license: EnterpriseUserLicense;
   /** Frozen certification admin — cannot remove license / archive without safeguard */
   isSystemProtected: boolean;
+  /** Linked Prisma auth user id after pilot provisioning */
+  authUserId?: string | null;
   audit: EnterpriseUserAuditEvent[];
 }
 

@@ -39,6 +39,152 @@ export const CHANAKYA_RADAR_SCOPES: {
   { id: "entire_organization", label: "Entire Organization", minRoleLevel: 60 },
 ];
 
+/**
+ * CO-SPRINT-107 — Stage-ageing ring model (Enterprise Configuration).
+ * Farther from centre = longer unresolved in current stage.
+ * Thresholds are configuration — never hardcode in placement UI.
+ */
+export interface ChanakyaRadarAgeingRingDef {
+  id: string;
+  label: string;
+  /** Inclusive lower bound (days in stage / idle). */
+  minDays: number;
+  /** Inclusive upper bound; omit for open-ended outer ring. */
+  maxDays?: number;
+}
+
+export const CHANAKYA_RADAR_AGEING_RINGS: ChanakyaRadarAgeingRingDef[] = [
+  { id: "ring_1", label: "Very Recent", minDays: 0, maxDays: 3 },
+  { id: "ring_2", label: "Emerging", minDays: 4, maxDays: 7 },
+  { id: "ring_3", label: "Elevated", minDays: 8, maxDays: 15 },
+  { id: "ring_4", label: "Extended", minDays: 16, maxDays: 30 },
+  { id: "ring_5", label: "Critical Ageing", minDays: 31 },
+];
+
+/** Geometry + collision policy for Radar blip placement (Enterprise Configuration). */
+export const CHANAKYA_RADAR_PLACEMENT = {
+  centerX: 100,
+  centerY: 100,
+  /** Usable radius band for opportunity dots (SVG viewBox units). */
+  innerRadius: 36,
+  outerRadius: 84,
+  /** Half-width of each quadrant wedge used for angular layout (degrees). */
+  wedgeHalfDeg: 38,
+  /** Controlled radial jitter within a ring (± fraction of ring band width). */
+  radialJitterFraction: 0.045,
+  /** Minimum Euclidean distance between dots (scales slightly with density). */
+  minDistanceBase: 5.2,
+  minDistanceDense: 3.6,
+  denseCountThreshold: 40,
+  /** Angular step when resolving collisions (degrees). */
+  collisionAngleStepDeg: 2.4,
+  maxCollisionAttempts: 48,
+} as const;
+
+export function resolveChanakyaRadarAgeingRingIndex(days: number): number {
+  const d = Math.max(0, Math.floor(days));
+  const rings = CHANAKYA_RADAR_AGEING_RINGS;
+  for (let i = 0; i < rings.length; i += 1) {
+    const ring = rings[i]!;
+    const max = ring.maxDays;
+    if (max == null) {
+      if (d >= ring.minDays) return i;
+      continue;
+    }
+    if (d >= ring.minDays && d <= max) return i;
+  }
+  return rings.length - 1;
+}
+
+/**
+ * CO-SPRINT-108 — Activities that qualify as Meaningful / Operational Work.
+ * Enterprise Configuration — do not hardcode in UI. Toggle `enabled` or edit patterns.
+ */
+export interface ChanakyaRadarMeaningfulWorkActivityDef {
+  id: string;
+  label: string;
+  enabled: boolean;
+  /** Case-insensitive substrings matched against timeline title + description. */
+  matchPatterns: string[];
+}
+
+export const CHANAKYA_RADAR_MEANINGFUL_WORK_ACTIVITIES: ChanakyaRadarMeaningfulWorkActivityDef[] =
+  [
+    {
+      id: "call_completed",
+      label: "Call completed",
+      enabled: true,
+      matchPatterns: ["call completed", "call —", "phone call", "outbound call"],
+    },
+    {
+      id: "customer_meeting",
+      label: "Customer meeting logged",
+      enabled: true,
+      matchPatterns: ["meeting", "customer visit", "site visit"],
+    },
+    {
+      id: "note_added",
+      label: "Note added",
+      enabled: true,
+      matchPatterns: ["note added", "internal note", "rm note", "timeline note"],
+    },
+    {
+      id: "follow_up_completed",
+      label: "Follow-up completed",
+      enabled: true,
+      matchPatterns: ["follow-up", "follow up", "followup"],
+    },
+    {
+      id: "document_uploaded",
+      label: "Document uploaded",
+      enabled: true,
+      matchPatterns: ["document", "upload", "checklist"],
+    },
+    {
+      id: "workflow_stage_updated",
+      label: "Workflow stage updated",
+      enabled: true,
+      matchPatterns: ["stage", "workflow", "status change", "moved to"],
+    },
+    {
+      id: "task_completed",
+      label: "Task completed",
+      enabled: true,
+      matchPatterns: ["task activity", "task completed", "task closed"],
+    },
+    {
+      id: "communication_sent",
+      label: "Customer communication sent",
+      enabled: true,
+      matchPatterns: ["email sent", "whatsapp sent", "sms sent"],
+    },
+    {
+      id: "lender_pipeline_updated",
+      label: "Lender pipeline updated",
+      enabled: true,
+      matchPatterns: ["lender pipeline", "lender case", "pipeline"],
+    },
+    {
+      id: "operational_work",
+      label: "Tagged operational work",
+      enabled: true,
+      matchPatterns: ["operational work", "[operational_work]"],
+    },
+  ];
+
+/**
+ * Patterns that must NEVER create the Daily Work ✓ (view / navigate only).
+ */
+export const CHANAKYA_RADAR_NON_OPERATIONAL_ACTIVITY_PATTERNS: string[] = [
+  "opened",
+  "viewed",
+  "accessed",
+  "preview",
+  "navigated",
+  "loaded workspace",
+  "selected opportunity",
+];
+
 export function canUseRadarScope(scope: ChanakyaRadarScopeId, role?: Role | string | null): boolean {
   const def = CHANAKYA_RADAR_SCOPES.find((s) => s.id === scope);
   if (!def) return false;

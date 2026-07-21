@@ -2,13 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
+import { useEnterpriseCompanies } from "@/hooks/use-enterprise-registry";
 import {
-  ORGANIZATION_REGISTRY,
-  searchOrganizationRegistry,
-  type OrganizationRegistryEntry,
-} from "@/data/catalyst-one/organization-registry-seed";
+  findOperationalCompanyById,
+  searchOperationalCompanies,
+} from "@/lib/enterprise-registry";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+
+/** BT institution / lending organization — ECM company SSOT. */
+export interface OrganizationRegistryEntry {
+  id: string;
+  name: string;
+  type: string;
+}
 
 interface OrganizationRegistrySelectProps {
   value?: string;
@@ -17,7 +24,7 @@ interface OrganizationRegistrySelectProps {
   className?: string;
 }
 
-/** CRC-019 — Searchable BT institution picker (Organization Registry). */
+/** Searchable institution picker — Enterprise Company Registry (CO-HOTFIX-006). */
 export function OrganizationRegistrySelect({
   value,
   onSelect,
@@ -25,9 +32,27 @@ export function OrganizationRegistrySelect({
   className,
 }: OrganizationRegistrySelectProps) {
   const [query, setQuery] = useState("");
+  const { registryVersion } = useEnterpriseCompanies({ hydrateOnMount: true });
 
-  const selected = ORGANIZATION_REGISTRY.find((o) => o.id === value);
-  const results = useMemo(() => searchOrganizationRegistry(query), [query]);
+  const selected = useMemo(() => {
+    void registryVersion;
+    const row = value ? findOperationalCompanyById(value) : undefined;
+    if (!row) return undefined;
+    return {
+      id: row.id,
+      name: row.companyName,
+      type: row.constitution?.toUpperCase() ?? "COMPANY",
+    };
+  }, [value, registryVersion]);
+
+  const results = useMemo(() => {
+    void registryVersion;
+    return searchOperationalCompanies(query).map((c) => ({
+      id: c.id,
+      name: c.label,
+      type: c.constitution ?? "COMPANY",
+    }));
+  }, [query, registryVersion]);
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -75,4 +100,24 @@ export function OrganizationRegistrySelect({
       )}
     </div>
   );
+}
+
+/** @deprecated Use searchOperationalCompanies from enterprise-registry */
+export function searchOrganizationRegistry(query: string): OrganizationRegistryEntry[] {
+  return searchOperationalCompanies(query).map((c) => ({
+    id: c.id,
+    name: c.label,
+    type: c.constitution ?? "COMPANY",
+  }));
+}
+
+/** @deprecated Use findOperationalCompanyById from enterprise-registry */
+export function getOrganizationById(id: string): OrganizationRegistryEntry | undefined {
+  const row = findOperationalCompanyById(id);
+  if (!row) return undefined;
+  return {
+    id: row.id,
+    name: row.companyName,
+    type: row.constitution?.toUpperCase() ?? "COMPANY",
+  };
 }

@@ -13,6 +13,7 @@ import {
   Plus,
   Save,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -49,12 +50,12 @@ import {
   getEcmBankerReportingManagerId,
   getEcmContactAssignedRoles,
   isEcmDuplicateContactError,
-  listEcmContacts,
   registerEcmContact,
   setBankerReportingManager,
   updateEcmContact,
   type EcmDuplicateMatchField,
 } from "@/lib/enterprise-contact-master";
+import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import type { EcmWorkspaceTab } from "@/lib/enterprise-contact-master";
 import { createLoanFileFromInput } from "@/lib/loan-files-utils";
 import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
@@ -78,6 +79,9 @@ import { Label } from "@/components/ui/label";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
+import { SoftDeleteConfirmDialog } from "@/components/enterprise/soft-delete/soft-delete-dialogs";
+import { canSoftDelete, softDeleteApi } from "@/lib/enterprise-soft-delete";
+import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
 import { cn } from "@/lib/utils";
 
 export type ContactWorkspaceMode = "create" | "edit";
@@ -92,6 +96,8 @@ interface ContactWorkspaceModalProps {
   onSaved: (contact: EcmContact) => void;
   /** When a duplicate is found — open the existing registry contact instead of creating. */
   onOpenExisting?: (contact: EcmContact) => void;
+  /** CO-SPRINT-119 — called after soft delete succeeds. */
+  onDeleted?: (contactId: string) => void;
 }
 
 function formatTs(value?: string) {
@@ -226,6 +232,7 @@ export function ContactWorkspaceModal({
   onOpenChange,
   onSaved,
   onOpenExisting,
+  onDeleted,
 }: ContactWorkspaceModalProps) {
   const router = useRouter();
   const { user } = useAuthContext();
@@ -233,6 +240,12 @@ export function ContactWorkspaceModal({
   const [draftSaved, setDraftSaved] = useState<EcmContact | null>(null);
   const active = draftSaved ?? contact;
   const awaitingFirstSave = !active;
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const allowDelete =
+    Boolean(active) &&
+    canSoftDelete(user?.role ?? "VIEWER") &&
+    isEnterprisePersistencePrisma();
 
   const [name, setName] = useState("");
   const [mobilePrimary, setMobilePrimary] = useState("");
@@ -569,7 +582,7 @@ export function ContactWorkspaceModal({
       if (active?.id) {
         const managerId = getEcmBankerReportingManagerId(active.id);
         if (managerId && next.reportingManagerContactId !== managerId) {
-          const manager = listEcmContacts().find((c) => c.id === managerId);
+          const manager = findOperationalEcmContactById(managerId);
           next.reportingManagerContactId = managerId;
           next.reportingManagerName = manager?.name ?? next.reportingManagerName ?? "";
           changed = true;
@@ -1441,8 +1454,20 @@ export function ContactWorkspaceModal({
                       }}
                     >
                       <Pencil className="h-3 w-3" />
-                      Edit Contact
+                      Edit
                     </Button>
+                    {allowDelete ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 rounded-md border-red-900/60 bg-red-950/40 px-2 text-xs text-red-200 hover:bg-red-950/70"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       size="sm"
@@ -1801,6 +1826,31 @@ export function ContactWorkspaceModal({
             return;
           }
           onSaved(existing);
+        }}
+      />
+
+      <SoftDeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        recordLabel={active?.name ?? "Contact"}
+        busy={deleting}
+        onConfirm={async (reason) => {
+          if (!active) return;
+          setDeleting(true);
+          try {
+            await softDeleteApi.softDelete({
+              module: "contacts",
+              entityId: active.id,
+              reason,
+            });
+            setDeleteOpen(false);
+            onOpenChange(false);
+            onDeleted?.(active.id);
+          } catch (err) {
+            window.alert(err instanceof Error ? err.message : "Delete failed");
+          } finally {
+            setDeleting(false);
+          }
         }}
       />
     </>

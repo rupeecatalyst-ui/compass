@@ -1,0 +1,43 @@
+---
+description: CO-SPRINT-112 Workspace Intelligence Scope — entity-only Layer 2 intelligence standard
+alwaysApply: true
+---
+
+# Workspace Intelligence Scope (CO-SPRINT-112) — PERMANENT
+
+Enterprise Intelligence Standard. Two independent layers — never mix scopes.
+
+## Layer 1 — Enterprise Intelligence
+
+- **Location:** Global Header (`ChanakyaLiveIntelligenceBar`)
+- **Scope:** Entire organization
+- **Purpose:** “What is happening across my business?”
+- **SSOT:** `src/lib/chanakya-live-intelligence/`
+
+## Layer 2 — Workspace Intelligence
+
+- **Location:** Workspace Intelligence Ribbon
+- **Scope:** Current business entity only (open loan / customer / workflow)
+- **Purpose:** “What do I need to know about THIS entity right now?”
+- **SSOT:** `src/lib/loan-workspace/workspace-intelligence.ts`
+- **UI:** `WorkspaceIntelligenceRibbon` in `src/components/enterprise/workspace-layout/`
+- **Types:** `src/types/workspace-intelligence.ts`
+
+## Hard rules (Workspace Ribbon)
+
+1. Derive messages **only** from the open entity (e.g. the current `LoanFile`).
+2. **Never** show another customer’s events, org-wide SLA counts, team productivity, or other loan-file messages.
+3. Messages are **event-driven** — no filler to keep the ticker moving.
+4. If no meaningful event exists, show **one** entity-scoped operational recommendation.
+5. Priority rotation: Critical (×3) → Action (×2) → Informational (×1).
+6. Ticker is **read-only**. Detail / Q&A opens only via **CHANAKYA AI** for the current workspace.
+
+## Allowed examples (entity-scoped)
+
+Customer documents pending · Lender follow-up · Approval received/rejected · Login delayed · Callback pending · Policy impact for this loan · Recommended next action · Documents uploaded · SLA status · Credit observations · CHANAKYA recommendations for this entity
+
+## Forbidden in Workspace Ribbon
+
+Another customer’s updates · Team productivity · Enterprise-wide SLA summary · Organization-wide opportunity counts · Messages from other loan files
+
+Those belong **only** in Layer 1 (Global Header).

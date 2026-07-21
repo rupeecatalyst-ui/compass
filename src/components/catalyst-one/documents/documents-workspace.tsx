@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/design-system/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 
 const CONTEXT_DEFAULT = {
   product: "product:home-loan",
@@ -23,6 +24,7 @@ const CONTEXT_DEFAULT = {
 };
 
 function seedDocumentRulesIfEmpty() {
+  if (!isDemoSeedEnabled()) return;
   if (listEdieDocumentRules().length > 0) return;
 
   registerEdieDocumentRule({

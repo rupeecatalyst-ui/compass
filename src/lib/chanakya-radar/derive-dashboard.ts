@@ -19,6 +19,7 @@ import {
   quadrantLabel,
   type OperationalVectorResult,
 } from "./operational-vector";
+import { hasMeaningfulWorkToday } from "./daily-work";
 
 export interface ChanakyaRadarDealRow {
   id: string;
@@ -37,7 +38,7 @@ export interface ChanakyaRadarDealRow {
   lastActivityLabel: string;
   idleDays: number;
   daysInStage: number;
-  /** True when meaningful activity recorded today (presentation — daily action tick). */
+  /** CO-SPRINT-108 — Daily Work ✓ (meaningful Operational Work today). Independent of Business Status. */
   workedToday: boolean;
   pendingDocs: number;
   openTasks: number;
@@ -178,6 +179,37 @@ function dealWeight(file: LoanFile, quadrant: ChanakyaOperationalQuadrantId): nu
   return Math.max(0.2, sizeFactor * quadrantBoost * (1 + pressure));
 }
 
+/**
+ * CO-SPRINT-107 — Management-attention weight for Operational Vector bearing.
+ * Emphasises ageing, SLA pressure, pending actions, value, and urgency;
+ * dampens work completed today and On Track files.
+ */
+function attentionImpactWeight(
+  file: LoanFile,
+  quadrant: ChanakyaOperationalQuadrantId,
+  daysInStage: number,
+  workedToday: boolean,
+): number {
+  const base = dealWeight(file, quadrant);
+  const days = Math.max(daysInStage, daysSince(lastActivityIso(file)), 0);
+  const slaBoost = days >= 31 ? 2.1 : days >= 16 ? 1.7 : days >= 8 ? 1.35 : days >= 4 ? 1.15 : 1;
+  const actionBoost =
+    1 +
+    (pendingDocCount(file) > 0 ? 0.25 : 0) +
+    (openTaskCount(file) > 0 ? 0.25 : 0) +
+    (file.isDelayed ? 0.35 : 0);
+  const quadrantPull =
+    quadrant === "at_risk"
+      ? 2.4
+      : quadrant === "needs_attention"
+        ? 1.9
+        : quadrant === "follow_up_required"
+          ? 1.55
+          : 0.12;
+  const workedDamp = workedToday ? 0.45 : 1;
+  return Math.max(0.05, base * slaBoost * actionBoost * quadrantPull * workedDamp);
+}
+
 function momentumOf(file: LoanFile): "improving" | "stable" | "declining" {
   const idle = daysSince(lastActivityIso(file));
   if (isActivityToday(lastActivityIso(file)) || idle <= 1) return "improving";
@@ -212,7 +244,7 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
     lastActivityLabel: formatWhen(last),
     idleDays: idle,
     daysInStage: file.daysInStage ?? idle,
-    workedToday: isActivityToday(last),
+    workedToday: hasMeaningfulWorkToday(file),
     pendingDocs: pendingDocCount(file),
     openTasks: openTaskCount(file),
     priority: file.priority,
@@ -232,6 +264,12 @@ export function buildChanakyaRadarDashboard(files: LoanFile[]): ChanakyaRadarDas
     return {
       quadrant: row.quadrant,
       weight: dealWeight(file, row.quadrant),
+      attentionWeight: attentionImpactWeight(
+        file,
+        row.quadrant,
+        row.daysInStage,
+        row.workedToday,
+      ),
       momentum: momentumOf(file),
     };
   });
@@ -241,7 +279,7 @@ export function buildChanakyaRadarDashboard(files: LoanFile[]): ChanakyaRadarDas
 
   const kpis: ChanakyaRadarKpiCard[] = CHANAKYA_RADAR_QUADRANTS.map((q) => {
     const inQ = rows.filter((r) => r.quadrant === q.id);
-    const movedToday = inQ.filter((r) => isActivityToday(r.lastActivity)).length;
+    const movedToday = inQ.filter((r) => r.workedToday).length;
     // Net daily movement: activity today minus stalled (idle ≥ 5) share as negative signal
     const stalled = inQ.filter((r) => r.idleDays >= 5).length;
     const dailyMovement = movedToday - Math.min(stalled, movedToday + 2);
@@ -255,7 +293,7 @@ export function buildChanakyaRadarDashboard(files: LoanFile[]): ChanakyaRadarDas
     };
   });
 
-  const movedTodayCount = files.filter((f) => isActivityToday(lastActivityIso(f))).length;
+  const movedTodayCount = rows.filter((r) => r.workedToday).length;
   const approvalsPending = rows.filter(
     (r) =>
       r.stageLabel.includes("soft approved") ||

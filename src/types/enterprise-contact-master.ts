@@ -74,6 +74,9 @@ export interface EcmContact {
    * Independent of roles; mark/unmark from Contact Registry only.
    */
   strategicContact?: boolean;
+  /** Set when status transitions to archived (soft delete). */
+  archivedBy?: string;
+  archivedOn?: string;
   /** Role-specific profile fields — never duplicates Identity */
   roleProfiles?: Partial<Record<EcmContactRole, Record<string, string>>>;
   createdBy: string;

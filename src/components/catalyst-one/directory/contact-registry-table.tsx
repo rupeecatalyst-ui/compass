@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, X } from "lucide-react";
 import {
   EnterpriseDataGrid,
@@ -18,9 +18,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getEcmRoleLabel, ECM_ROLE_MASTER } from "@/constants/enterprise-contact-master";
+import { listContactRegistryFilters } from "@/constants/enterprise-contact-master/registry-filters";
 import { updateEcmContact } from "@/lib/enterprise-contact-master";
 import {
-  buildContactRegistryRows,
+  buildDirectoryRegistryRows,
   exportContactRegistryCsv,
   filterContactRegistryRows,
   sortContactRegistryRows,
@@ -29,6 +30,7 @@ import {
   uniqueContactStates,
 } from "@/lib/enterprise-contact-registry";
 import { downloadCsv } from "@/lib/loan-files-utils";
+import type { EcmCompany } from "@/types/enterprise-company-master";
 import type { EcmContact, EcmContactStatus } from "@/types/enterprise-contact-master";
 import {
   CONTACT_REGISTRY_PAGE_SIZES,
@@ -36,6 +38,7 @@ import {
   type ContactRegistryFilters,
   type ContactRegistryRow,
   type ContactRegistrySortField,
+  type DirectoryEntityFilter,
 } from "@/types/enterprise-contact-registry";
 import { cn } from "@/lib/utils";
 
@@ -74,8 +77,13 @@ const STATUS_OPTIONS: EcmContactStatus[] = [
 
 interface ContactRegistryTableProps {
   contacts: EcmContact[];
+  companies: EcmCompany[];
   onOpenContact: (contact: EcmContact) => void;
+  onOpenCompany: (company: EcmCompany) => void;
   onRegistryChanged?: () => void;
+  /** After company setup — filter registry to surface linked contacts. */
+  highlightSearch?: string;
+  onHighlightApplied?: () => void;
 }
 
 /**
@@ -83,8 +91,12 @@ interface ContactRegistryTableProps {
  */
 export function ContactRegistryTable({
   contacts,
+  companies,
   onOpenContact,
+  onOpenCompany,
   onRegistryChanged,
+  highlightSearch,
+  onHighlightApplied,
 }: ContactRegistryTableProps) {
   const { user } = useAuthContext();
   const [filters, setFilters] = useState<ContactRegistryFilters>(EMPTY_CONTACT_REGISTRY_FILTERS);
@@ -93,7 +105,30 @@ export function ContactRegistryTable({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof CONTACT_REGISTRY_PAGE_SIZES)[number]>(20);
 
-  const allRows = useMemo(() => buildContactRegistryRows(contacts), [contacts]);
+  useEffect(() => {
+    const term = highlightSearch?.trim();
+    if (!term) return;
+    setFilters((f) => ({ ...f, search: term }));
+    setSortField("lastModifiedAt");
+    setSortDir("desc");
+    setPage(1);
+    onHighlightApplied?.();
+  }, [highlightSearch, onHighlightApplied]);
+
+  const allRows = useMemo(
+    () => buildDirectoryRegistryRows(contacts, companies),
+    [contacts, companies],
+  );
+
+  const entityFilters = useMemo(
+    () => listContactRegistryFilters().filter((f) => f.kind !== "role"),
+    [],
+  );
+
+  const roleFilters = useMemo(
+    () => listContactRegistryFilters().filter((f) => f.kind === "role"),
+    [],
+  );
 
   const cities = useMemo(() => uniqueContactCities(allRows), [allRows]);
   const states = useMemo(() => uniqueContactStates(allRows), [allRows]);
@@ -149,16 +184,25 @@ export function ContactRegistryTable({
             {row.contactId}
           </span>
         ),
-        exportValue: (row) => row.contact.id,
+        exportValue: (row) => row.contact?.id ?? row.company?.id ?? row.id,
       },
       {
         id: "name",
-        label: "Contact Name",
+        label: "Name",
         frozen: true,
         sortable: true,
         defaultOrder: 2,
         defaultWidth: 150,
-        render: (row) => <span className="font-medium">{row.name}</span>,
+        render: (row) => (
+          <span className="font-medium">
+            {row.name}
+            {row.entityKind === "company" ? (
+              <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                Company
+              </span>
+            ) : null}
+          </span>
+        ),
         exportValue: (row) => row.name,
       },
       {
@@ -242,18 +286,22 @@ export function ContactRegistryTable({
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            <Switch
-              checked={row.strategicContact}
-              onCheckedChange={(checked) => {
-                try {
-                  updateEcmContact(row.contact.id, { strategicContact: Boolean(checked) }, "ui");
-                  onRegistryChanged?.();
-                } catch {
-                  /* ignore */
-                }
-              }}
-              aria-label={`Strategic contact ${row.name}`}
-            />
+            {row.entityKind === "contact" && row.contact ? (
+              <Switch
+                checked={row.strategicContact}
+                onCheckedChange={(checked) => {
+                  try {
+                    updateEcmContact(row.contact!.id, { strategicContact: Boolean(checked) }, "ui");
+                    onRegistryChanged?.();
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                aria-label={`Strategic contact ${row.name}`}
+              />
+            ) : (
+              <span className="text-[11px] text-muted-foreground">—</span>
+            )}
           </div>
         ),
         exportValue: (row) => (row.strategicContact ? "Yes" : "No"),
@@ -409,6 +457,7 @@ export function ContactRegistryTable({
 
   const hasFilters =
     filters.search ||
+    filters.entityFilter !== "all" ||
     filters.contactType !== "all" ||
     filters.city !== "all" ||
     filters.state !== "all" ||
@@ -436,16 +485,82 @@ export function ContactRegistryTable({
     [],
   );
 
+  const entityLabel =
+    filters.entityFilter === "all"
+      ? "entries"
+      : filters.entityFilter === "individuals"
+        ? "individuals"
+        : "companies";
+
   return (
     <div className="space-y-2">
       <div className="space-y-1.5 border border-slate-300 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-card">
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold tracking-tight text-foreground">
+            Directory Registry
+          </span>
+          <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-slate-200 bg-slate-50/80 p-0.5 dark:border-zinc-700 dark:bg-zinc-900/40">
+            {entityFilters.map((filter) => {
+              const active = filters.entityFilter === filter.id;
+              return (
+                <Button
+                  key={filter.id}
+                  type="button"
+                  variant={active ? "secondary" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "h-7 rounded-sm px-2.5 text-[11px] font-medium",
+                    active && "shadow-sm",
+                  )}
+                  onClick={() =>
+                    patchFilters({
+                      entityFilter: filter.id as DirectoryEntityFilter,
+                      contactType: "all",
+                    })
+                  }
+                >
+                  {filter.label}
+                </Button>
+              );
+            })}
+          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Business Roles
+          </span>
+          <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-slate-200 bg-slate-50/80 p-0.5 dark:border-zinc-700 dark:bg-zinc-900/40">
+            {roleFilters.map((filter) => {
+              const active =
+                filters.contactType === filter.role && filters.entityFilter !== "companies";
+              return (
+                <Button
+                  key={filter.id}
+                  type="button"
+                  variant={active ? "secondary" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "h-7 rounded-sm px-2.5 text-[11px] font-medium",
+                    active && "shadow-sm",
+                  )}
+                  onClick={() =>
+                    patchFilters({
+                      entityFilter: "individuals",
+                      contactType: filter.role ?? "all",
+                    })
+                  }
+                >
+                  {filter.label}
+                </Button>
+              );
+            })}
+          </div>
           <Input
             value={filters.search}
             onChange={(e) => patchFilters({ search: e.target.value })}
-            placeholder="Global search…"
-            className="h-7 w-[180px] rounded-sm text-[11px]"
+            placeholder="Search…"
+            className="h-7 w-[200px] rounded-sm text-[11px]"
           />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
           <Input
             value={filters.columnName}
             onChange={(e) => patchFilters({ columnName: e.target.value })}
@@ -623,12 +738,18 @@ export function ContactRegistryTable({
         columns={columns}
         rows={pageRows}
         rowKey={(row) => row.id}
-        emptyMessage="No contacts match the current filters."
-        toolbarLabel={`Contact Registry · ${filteredSorted.length} contacts`}
+        emptyMessage="No entries match the current filters."
+        toolbarLabel={`Directory Registry · ${filteredSorted.length} ${entityLabel}`}
         sortColumnId={sortColumnId}
         sortDirection={sortDir}
         onSort={handleSort}
-        onRowClick={(row) => onOpenContact(row.contact)}
+        onRowClick={(row) => {
+          if (row.entityKind === "company" && row.company) {
+            onOpenCompany(row.company);
+            return;
+          }
+          if (row.contact) onOpenContact(row.contact);
+        }}
         maxHeightClassName="max-h-[min(72vh,860px)]"
         toolbarActions={
           <Button
@@ -652,7 +773,7 @@ export function ContactRegistryTable({
       <div className="flex flex-wrap items-center justify-between gap-2 border border-slate-300 bg-slate-50/80 px-2.5 py-1.5 dark:border-zinc-700 dark:bg-zinc-900/40">
         <p className="text-[11px] tabular-nums text-muted-foreground">
           {filteredSorted.length === 0
-            ? "0 contacts"
+            ? `0 ${entityLabel}`
             : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filteredSorted.length)} of ${filteredSorted.length}`}
         </p>
         <div className="flex flex-wrap items-center gap-2">

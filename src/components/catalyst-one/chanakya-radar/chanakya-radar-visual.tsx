@@ -2,11 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  CHANAKYA_RADAR_PLACEMENT,
   CHANAKYA_RADAR_QUADRANTS,
   type ChanakyaOperationalQuadrantId,
 } from "@/constants/chanakya-radar";
 import type { ChanakyaRadarDealRow } from "@/lib/chanakya-radar/derive-dashboard";
 import type { OperationalVectorResult } from "@/lib/chanakya-radar/operational-vector";
+import {
+  chanakyaRadarRingGuideRadii,
+  placeChanakyaRadarBlips,
+} from "@/lib/chanakya-radar/place-blips";
+import {
+  OperationalMovementFeed,
+  useOperationalMovements,
+} from "@/components/catalyst-one/chanakya-radar/operational-movement-feed";
 import { cn } from "@/lib/utils";
 
 interface ChanakyaRadarVisualProps {
@@ -26,94 +35,13 @@ interface ChanakyaRadarVisualProps {
   };
 }
 
-const CX = 100;
-const CY = 100;
-const INNER_R = 34;
-const OUTER_R = 86;
+const CX = CHANAKYA_RADAR_PLACEMENT.centerX;
+const CY = CHANAKYA_RADAR_PLACEMENT.centerY;
 
 /**
- * Distance from centre = operational ageing within status.
- * Colour (quadrant) = business status. On Track stays closer.
- */
-function ageingRadius(row: ChanakyaRadarDealRow): number {
-  const days = Math.max(row.daysInStage, row.idleDays, 0);
-  let t = Math.min(1, days / 28);
-  if (row.quadrant === "on_track") t = Math.min(t * 0.55, 0.42);
-  if (row.quadrant === "needs_attention") t = Math.max(0.12, Math.min(t, 0.92));
-  if (row.quadrant === "follow_up_required") t = Math.max(0.18, Math.min(t, 0.95));
-  if (row.quadrant === "at_risk") t = Math.max(0.2, Math.min(t, 1));
-  return INNER_R + 4 + t * (OUTER_R - INNER_R - 6);
-}
-
-/** Place blips: radius by ageing, angle in quadrant wedge, collision avoid. */
-function placeBlips(
-  rows: ChanakyaRadarDealRow[],
-): { row: ChanakyaRadarDealRow; x: number; y: number; color: string; q: ChanakyaOperationalQuadrantId }[] {
-  const byQ: Record<ChanakyaOperationalQuadrantId, ChanakyaRadarDealRow[]> = {
-    on_track: [],
-    needs_attention: [],
-    follow_up_required: [],
-    at_risk: [],
-  };
-  for (const r of rows) byQ[r.quadrant].push(r);
-
-  const placed: { x: number; y: number }[] = [];
-  const result: {
-    row: ChanakyaRadarDealRow;
-    x: number;
-    y: number;
-    color: string;
-    q: ChanakyaOperationalQuadrantId;
-  }[] = [];
-
-  const minDistFor = (n: number) => (n > 50 ? 3.0 : n > 25 ? 3.8 : 4.8);
-
-  const tooClose = (x: number, y: number, minDist: number) =>
-    placed.some((p) => {
-      const dx = p.x - x;
-      const dy = p.y - y;
-      return dx * dx + dy * dy < minDist * minDist;
-    });
-
-  for (const q of CHANAKYA_RADAR_QUADRANTS) {
-    const list = [...byQ[q.id]].sort(
-      (a, b) =>
-        Math.max(a.daysInStage, a.idleDays) - Math.max(b.daysInStage, b.idleDays),
-    );
-    const halfWedge = 36;
-    const bearing = q.bearingDeg;
-    const minDist = minDistFor(list.length);
-
-    list.forEach((row, i) => {
-      const targetR = ageingRadius(row);
-      const baseT = list.length <= 1 ? 0.5 : i / (list.length - 1);
-      let deg = bearing - halfWedge + baseT * halfWedge * 2;
-      let r = targetR;
-      let x = CX + r * Math.cos(((deg - 90) * Math.PI) / 180);
-      let y = CY + r * Math.sin(((deg - 90) * Math.PI) / 180);
-
-      let attempts = 0;
-      while (tooClose(x, y, minDist) && attempts < 36) {
-        deg += attempts % 2 === 0 ? 2.2 : -2.2;
-        if (Math.abs(deg - bearing) > halfWedge) {
-          r = Math.min(OUTER_R, r + minDist * 0.35);
-          deg = bearing - halfWedge + ((baseT + attempts * 0.07) % 1) * halfWedge * 2;
-        }
-        x = CX + r * Math.cos(((deg - 90) * Math.PI) / 180);
-        y = CY + r * Math.sin(((deg - 90) * Math.PI) / 180);
-        attempts += 1;
-      }
-
-      placed.push({ x, y });
-      result.push({ row, x, y, color: q.tone, q: q.id });
-    });
-  }
-
-  return result;
-}
-
-/**
- * CO-SPRINT-104 — Hero Radar: ageing radius, collision avoidance, worked-today tick.
+ * CO-SPRINT-107 / 113 — Operational Radar visualization.
+ * Colour = status · Ring = stage ageing · Vector = management focus.
+ * Movement Feeds = recent operational transitions (outside dial, desktop+tablet).
  */
 export function ChanakyaRadarVisual({
   vector,
@@ -131,6 +59,7 @@ export function ChanakyaRadarVisual({
     y: number;
   } | null>(null);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const movements = useOperationalMovements(rows);
 
   useEffect(() => {
     let frame = 0;
@@ -157,39 +86,73 @@ export function ChanakyaRadarVisual({
     };
   }, []);
 
-  const blips = useMemo(() => placeBlips(rows), [rows]);
+  const blips = useMemo(() => placeChanakyaRadarBlips(rows), [rows]);
+  const ringGuides = useMemo(() => chanakyaRadarRingGuideRadii(), []);
 
+  const needleLen = 62;
   const needleRad = ((displayBearing - 90) * Math.PI) / 180;
-  const nx = CX + 64 * Math.cos(needleRad);
-  const ny = CY + 64 * Math.sin(needleRad);
+  const nx = CX + needleLen * Math.cos(needleRad);
+  const ny = CY + needleLen * Math.sin(needleRad);
 
   const quadrantLabelClass =
     "pointer-events-none max-w-[9rem] text-center text-[11px] font-semibold uppercase leading-tight tracking-[0.16em] md:text-[12px]";
 
+  /**
+   * Dial size is viewport-locked (not % of side columns) so Movement Feeds
+   * never shrink the Radar. Side columns are fixed width on md+.
+   */
+  const dialSizeClass =
+    "size-[min(100%,min(calc(100vh-11rem),820px))] md:size-[min(calc(100vw-16rem),min(calc(100vh-11rem),820px))]";
+
   return (
-    <div className="mx-auto w-full max-w-[min(100%,880px)]">
-      <div className="grid w-full grid-cols-[minmax(5rem,auto)_minmax(0,1fr)_minmax(5rem,auto)] grid-rows-[auto_auto_auto] items-center justify-items-center gap-x-3 gap-y-3 md:gap-x-5 md:gap-y-4">
-        <p className={cn(quadrantLabelClass, "col-start-2 row-start-1 text-emerald-400")}>
-          On Track
-        </p>
+    <div className="mx-auto flex w-full max-w-[min(100%,960px)] justify-center">
+      <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[auto_auto_auto] items-center justify-items-center gap-x-1 gap-y-1.5 md:grid-cols-[6.5rem_auto_6.5rem] md:gap-x-3 md:gap-y-2">
+        {/* Top — On Track; feed overlays gap (does not push dial down) */}
+        <div className="relative col-start-2 row-start-1 flex flex-col items-center">
+          <p className={cn(quadrantLabelClass, "text-emerald-400")}>On Track</p>
+          <div className="pointer-events-none absolute left-1/2 top-full z-[5] hidden -translate-x-1/2 md:block">
+            <OperationalMovementFeed destination="on_track" events={movements} />
+          </div>
+        </div>
 
-        <p className={cn(quadrantLabelClass, "col-start-1 row-start-2 text-orange-400")}>
-          Needs
-          <br />
-          Attention
-        </p>
+        {/* Left — Needs Attention */}
+        <div className="col-start-1 row-start-2 flex max-w-[4.5rem] flex-col items-center justify-center gap-1.5 self-center md:max-w-none md:gap-2">
+          <p className={cn(quadrantLabelClass, "text-orange-400")}>
+            Needs
+            <br />
+            Attention
+          </p>
+          <OperationalMovementFeed
+            destination="needs_attention"
+            events={movements}
+            compact
+            className="hidden md:block"
+          />
+        </div>
 
-        <div className="relative col-start-2 row-start-2 aspect-square w-full min-w-0 max-w-[min(100%,720px)]">
-          <svg viewBox="0 0 200 200" className="h-full w-full drop-shadow-xl">
+        {/* Dial — hero; size not driven by feed column width */}
+        <div
+          className={cn(
+            "relative col-start-2 row-start-2 mx-auto aspect-square max-w-full",
+            dialSizeClass,
+          )}
+        >
+          <svg
+            viewBox="0 0 200 200"
+            className="h-full w-full drop-shadow-xl"
+            role="img"
+            aria-label={vector.vectorPurpose}
+          >
+            <title>{vector.vectorPurpose}</title>
             <defs>
               <radialGradient id="radar-glow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="rgba(34,197,94,0.22)" />
-                <stop offset="55%" stopColor="rgba(15,23,42,0.25)" />
+                <stop offset="0%" stopColor="rgba(34,197,94,0.14)" />
+                <stop offset="55%" stopColor="rgba(15,23,42,0.2)" />
                 <stop offset="100%" stopColor="rgba(15,23,42,0)" />
               </radialGradient>
               <linearGradient id="sweep-grad" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="rgba(52,211,153,0)" />
-                <stop offset="100%" stopColor="rgba(52,211,153,0.4)" />
+                <stop offset="100%" stopColor="rgba(52,211,153,0.22)" />
               </linearGradient>
             </defs>
 
@@ -199,35 +162,38 @@ export function ChanakyaRadarVisual({
               cy={CY}
               r="88"
               fill="rgba(9,12,20,0.94)"
-              stroke="rgba(148,163,184,0.28)"
-              strokeWidth="1"
+              stroke="rgba(148,163,184,0.16)"
+              strokeWidth="0.7"
             />
-            {[22, 44, 66, 84].map((r) => (
+
+            {ringGuides.map((r) => (
               <circle
                 key={r}
                 cx={CX}
                 cy={CY}
                 r={r}
                 fill="none"
-                stroke="rgba(148,163,184,0.14)"
-                strokeWidth="0.6"
+                stroke="rgba(148,163,184,0.1)"
+                strokeWidth="0.55"
+                strokeDasharray="1.2 2.4"
               />
             ))}
+
             <line
               x1={CX}
               y1="12"
               x2={CX}
               y2="188"
-              stroke="rgba(148,163,184,0.14)"
-              strokeWidth="0.6"
+              stroke="rgba(148,163,184,0.1)"
+              strokeWidth="0.5"
             />
             <line
               x1="12"
               y1={CY}
               x2="188"
               y2={CY}
-              stroke="rgba(148,163,184,0.14)"
-              strokeWidth="0.6"
+              stroke="rgba(148,163,184,0.1)"
+              strokeWidth="0.5"
             />
 
             {CHANAKYA_RADAR_QUADRANTS.map((q) => {
@@ -242,9 +208,9 @@ export function ChanakyaRadarVisual({
                 <path
                   key={q.id}
                   d={`M${CX},${CY} L${x1},${y1} A88,88 0 0 1 ${x2},${y2} Z`}
-                  fill={active ? `${q.tone}28` : `${q.tone}0A`}
-                  stroke={active ? q.tone : "transparent"}
-                  strokeWidth={active ? 1.3 : 0}
+                  fill={active ? `${q.tone}14` : `${q.tone}05`}
+                  stroke={active ? `${q.tone}66` : `${q.tone}18`}
+                  strokeWidth={active ? 0.9 : 0.45}
                   className="cursor-pointer transition-opacity"
                   onClick={() => onQuadrantClick(q.id)}
                 />
@@ -258,26 +224,38 @@ export function ChanakyaRadarVisual({
               <path
                 d="M100,100 L100,16 A84,84 0 0 1 168,52 Z"
                 fill="url(#sweep-grad)"
-                opacity="0.85"
+                opacity="0.7"
               />
             </g>
 
-            <line
-              x1={CX}
-              y1={CY}
-              x2={nx}
-              y2={ny}
-              stroke="#34D399"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-            />
-            <circle cx={nx} cy={ny} r="3.2" fill="#34D399" />
+            <g aria-label="Operational Vector">
+              <line
+                x1={CX}
+                y1={CY}
+                x2={nx}
+                y2={ny}
+                stroke="#34D399"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                opacity="0.95"
+              />
+              <circle cx={nx} cy={ny} r="3.4" fill="#34D399" />
+              <circle
+                cx={nx}
+                cy={ny}
+                r="5.2"
+                fill="none"
+                stroke="#34D399"
+                strokeWidth="0.7"
+                opacity="0.45"
+              />
+            </g>
 
             {blips.map((b) => {
               const selected =
                 selectedRowId === b.row.id || selectedRowId === b.row.fileId;
               const dimmed = Boolean(activeQuadrant && activeQuadrant !== b.q);
-              const r = selected ? 4.4 : blips.length > 80 ? 1.8 : 2.5;
+              const r = selected ? 4.2 : blips.length > 80 ? 1.9 : 2.55;
               return (
                 <g
                   key={b.row.id}
@@ -305,13 +283,15 @@ export function ChanakyaRadarVisual({
                     cy={b.y}
                     r={r}
                     fill={b.color}
-                    opacity={dimmed && !selected ? 0.2 : 0.95}
-                    stroke={selected ? "#fff" : "transparent"}
-                    strokeWidth={selected ? 1.2 : 0}
+                    opacity={dimmed && !selected ? 0.22 : 0.96}
+                    stroke={selected ? "#fff" : "rgba(15,23,42,0.55)"}
+                    strokeWidth={selected ? 1.15 : 0.35}
                   />
-                  {/* Daily action tick — worked today; resets next calendar day via lastActivity */}
                   {b.row.workedToday ? (
-                    <g transform={`translate(${b.x + 3.2}, ${b.y - 4.2})`}>
+                    <g
+                      transform={`translate(${b.x + 3.2}, ${b.y - 4.2})`}
+                      aria-label="Meaningful work completed today"
+                    >
                       <circle r="3.1" fill="#0f172a" stroke="#34D399" strokeWidth="0.6" />
                       <path
                         d="M-1.2,0.1 L-0.3,1.1 L1.4,-1.1"
@@ -332,8 +312,8 @@ export function ChanakyaRadarVisual({
               cy={CY}
               r="30"
               fill="rgba(9,12,20,0.97)"
-              stroke="rgba(52,211,153,0.5)"
-              strokeWidth="1.3"
+              stroke="rgba(52,211,153,0.4)"
+              strokeWidth="1.1"
             />
             <text
               x={CX}
@@ -376,46 +356,41 @@ export function ChanakyaRadarVisual({
                 <dd className="text-right font-medium tabular-nums">
                   {blipHover.row.daysInStage}d
                 </dd>
-                <dt className="text-muted-foreground">Health</dt>
+                <dt className="text-muted-foreground">Status</dt>
                 <dd className="text-right font-medium text-emerald-300">
                   {blipHover.row.quadrantLabel}
                 </dd>
-                <dt className="text-muted-foreground">Today</dt>
+                <dt className="text-muted-foreground">Daily work</dt>
                 <dd className="text-right font-medium">
-                  {blipHover.row.workedToday ? "Worked ✓" : "Pending"}
+                  {blipHover.row.workedToday ? "✓ Worked today" : "Not yet today"}
                 </dd>
               </dl>
             </div>
           ) : null}
         </div>
 
-        <p className={cn(quadrantLabelClass, "col-start-3 row-start-2 text-amber-400")}>
-          Follow-up
-          <br />
-          Required
-        </p>
+        {/* Right — Follow-up Required */}
+        <div className="col-start-3 row-start-2 flex max-w-[4.5rem] flex-col items-center justify-center gap-1.5 self-center md:max-w-none md:gap-2">
+          <p className={cn(quadrantLabelClass, "text-sky-400")}>
+            Follow-up
+            <br />
+            Required
+          </p>
+          <OperationalMovementFeed
+            destination="follow_up_required"
+            events={movements}
+            compact
+            className="hidden md:block"
+          />
+        </div>
 
-        <p className={cn(quadrantLabelClass, "col-start-2 row-start-3 text-rose-400")}>
-          At Risk
-        </p>
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-        {[
-          { label: "On Track", tone: "#22C55E" },
-          { label: "Needs Attention", tone: "#FB923C" },
-          { label: "At Risk", tone: "#EF4444" },
-          { label: "Follow-up", tone: "#F59E0B" },
-          { label: "✓ Today", tone: "#34D399" },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="flex items-center gap-1 text-[9px] text-muted-foreground"
-          >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.tone }} />
-            {item.label}
+        {/* Bottom — At Risk; feed overlays gap above label */}
+        <div className="relative col-start-2 row-start-3 flex flex-col items-center">
+          <div className="pointer-events-none absolute bottom-full left-1/2 z-[5] mb-0.5 hidden -translate-x-1/2 md:block">
+            <OperationalMovementFeed destination="at_risk" events={movements} />
           </div>
-        ))}
+          <p className={cn(quadrantLabelClass, "text-rose-400")}>At Risk</p>
+        </div>
       </div>
     </div>
   );

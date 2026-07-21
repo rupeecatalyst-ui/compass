@@ -4,18 +4,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
-import {
-  attachCommandBarScrollState,
-} from "@/components/catalyst-one/shared/catalyst-command-bar";
 import { LoanWorkbenchLayout } from "@/components/catalyst-one/shared/loan-workbench-layout";
 import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-workbench-section";
-import { LoanWorkspaceCommandBar } from "@/components/catalyst-one/shared/loan-workspace-command-bar";
-import { WorkspaceHeader } from "@/components/catalyst-one/shared/workspace-header";
+import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
+import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
-import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
+import { useLoanJourneyEcm } from "@/hooks/use-loan-journey-ecm";
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
-import { LenderPipelineActionNav } from "@/components/catalyst-one/action-center/lender-pipeline-action-nav";
+import {
+  EnterpriseWorkspaceLayout,
+  EnterpriseWorkspaceHeaderBand,
+  EnterpriseWorkflowStatusBand,
+  WorkspaceIntelligenceRibbon,
+} from "@/components/enterprise/workspace-layout";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { ApproxCibilScoreField } from "@/components/catalyst-one/shared/approx-cibil-score-field";
 import { getApproxCibilScoreLabel } from "@/constants/cibil-score-master";
@@ -24,7 +26,6 @@ import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-par
 import { LoanStructureCard } from "@/components/catalyst-one/shared/loan-structure-card";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
 import { MissionControlWorkspace } from "@/components/catalyst-one/mission-control/mission-control-workspace";
-import { ChanakyaLenderPipelinePanel } from "@/components/catalyst-one/shared/chanakya-lender-pipeline-panel";
 import { ChanakyaClosedLoopCoachingCard } from "@/components/catalyst-one/shared/chanakya-closed-loop-coaching-card";
 import { DocumentsWorkspace } from "@/components/catalyst-one/execution/documents-workspace";
 import { TasksWorkspace } from "@/components/catalyst-one/execution/tasks-workspace";
@@ -43,10 +44,8 @@ import {
 } from "@/constants/loan-pipeline";
 import { loanManagers } from "@/data/catalyst-one/loan-files";
 import { isOccupancyApplicableToProduct, isOccupancyFieldVisible, getOccupancyLabel } from "@/constants/occupancy-master";
-import { LENDER_CASE_STAGE_LABELS, normalizeLenderCaseStage } from "@/constants/lender-pipeline";
 import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { ROUTES } from "@/constants/routes";
-import { buildElwWorkspaceHref } from "@/constants/enterprise-lender-workspace";
 import { runWithFeedback } from "@/lib/action-feedback";
 import { isBusinessCompletionRequiredError } from "@/lib/business-completion";
 import type {
@@ -64,8 +63,6 @@ import {
   resolveLoanWorkspaceContinue,
 } from "@/constants/enterprise-business-journey-navigation";
 import {
-  getBusinessJourneyTransitionPurpose,
-  businessNavIdToNavigatorStageId,
   loanTabToNavigatorStageId,
 } from "@/constants/enterprise-business-journey-navigator";
 import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
@@ -73,11 +70,6 @@ import {
   BusinessJourneyNavigator,
   BusinessTransitionCard,
 } from "@/components/catalyst-one/business-journey-navigator";
-import {
-  ChanakyaCompactLive,
-  TransactionInsightsPanel,
-} from "@/components/catalyst-one/shared/transaction-insights-panel";
-import { derivePhaseReadiness } from "@/lib/enterprise-phase-readiness";
 import { formatINR } from "@/lib/format-currency";
 import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
@@ -160,9 +152,7 @@ function LoanWorkspaceModalContent({
     propertyInfo: { collapsed: false, mode: "view" as "view" | "edit" },
     participants: { collapsed: false, mode: "view" as "view" | "edit" },
     source: { collapsed: false, mode: "view" as "view" | "edit" },
-    lenderSummary: { collapsed: false, mode: "view" as "view" | "edit" },
   }));
-  const stickyChromeRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [focusParticipantId, setFocusParticipantId] = useState<string | null>(null);
   const opportunityId =
@@ -177,22 +167,7 @@ function LoanWorkspaceModalContent({
     activeTab,
     hasActiveLenderCases,
   });
-  const continuePurpose = getBusinessJourneyTransitionPurpose(
-    businessNavIdToNavigatorStageId(loanContinue.navId),
-  );
   const navigatorStageId = loanTabToNavigatorStageId(activeTab);
-  const compactChanakyaMessage = useMemo(
-    () =>
-      derivePhaseReadiness({
-        file: draft,
-        lifeFinalized: true,
-        hasContact: true,
-        hasOpportunity: true,
-        customerName: draft.customerName,
-        productLabel: draft.loanProduct,
-      }).chanakyaMessage,
-    [draft],
-  );
   const backLabel =
     activeTab === "lenders"
       ? "Back to Loan Workspace"
@@ -246,12 +221,11 @@ function LoanWorkspaceModalContent({
         propertyInfo: { collapsed: false, mode: "view" },
         participants: { collapsed: false, mode: "view" },
         source: { collapsed: false, mode: "view" },
-        lenderSummary: { collapsed: false, mode: "view" },
       });
     }
   }, [file, defaultTab, tabFromUrl]);
 
-  const registryVersion = useEcmContactRegistryVersion();
+  const { registryVersion } = useLoanJourneyEcm({ hydrateOnMount: true, refreshOnOpen: true, open });
   const participantEntityOptions = useMemo(() => {
     void registryVersion;
     const live = buildDefaultParticipantEntityOptions();
@@ -463,10 +437,6 @@ function LoanWorkspaceModalContent({
     enableEscapeKey: false,
   });
 
-  const handleContentScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    attachCommandBarScrollState(stickyChromeRef.current, e.currentTarget.scrollTop);
-  };
-
   const setOverviewCardMode = (key: keyof typeof overviewUi, mode: "view" | "edit") => {
     setOverviewUi((s) => ({ ...s, [key]: { ...s[key], mode } }));
   };
@@ -486,23 +456,8 @@ function LoanWorkspaceModalContent({
     if (ok) setOverviewCardMode(key, "view");
   };
 
-  const commandBar = activeTab !== "lenders" ? (
-    <LoanWorkspaceCommandBar
-      draft={draft}
-      saving={saving}
-      onSave={handleSave}
-      onSaveAndExit={handleSaveAndExit}
-      onOpenContact={onOpenContact}
-      commandBarRef={stickyChromeRef}
-      density="pipeline"
-    />
-  ) : null;
-
   const workbench = (
-    <Tabs
-      key={draft.id}
-      value={activeTab}
-      onValueChange={setActiveTab}
+    <div
       className={cn(
         "flex min-h-0 flex-col",
         activeTab === "lenders" || activeTab === "mission-control"
@@ -510,36 +465,6 @@ function LoanWorkspaceModalContent({
           : "px-5 py-6 sm:px-6 lg:px-8 lg:py-8",
       )}
     >
-      <div className="mb-2 flex shrink-0 items-center gap-2">
-        <TabsList
-          className={cn(
-            "h-auto bg-muted p-1",
-            activeTab === "lenders" || activeTab === "mission-control"
-              ? "grid flex-1 grid-cols-6"
-              : "grid w-full grid-cols-6",
-          )}
-        >
-          <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
-          <TabsTrigger value="lenders" className="text-xs">Lender Pipeline</TabsTrigger>
-          <TabsTrigger value="mission-control" className="text-xs">Mission Control</TabsTrigger>
-          <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
-          <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
-          <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
-        </TabsList>
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 shrink-0 text-xs"
-          onClick={() => {
-            setActiveTab("lenders");
-            setLenderAddOpen(true);
-          }}
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          {(draft.lenders ?? []).length > 0 ? "Identify Additional Lender" : "Identify Lender"}
-        </Button>
-      </div>
-
           <TabsContent value="overview" className="mt-0 space-y-8">
             <ChanakyaClosedLoopCoachingCard
               loan={draft}
@@ -904,168 +829,22 @@ function LoanWorkspaceModalContent({
               </LoanWorkbenchSection>
             )}
 
-            <LoanWorkbenchSection
-              title="Lender Pipeline Summary"
-              description="Executive summary (not the Kanban)."
-            >
-              <OverviewCardChrome
-                mode={overviewUi.lenderSummary.mode}
-                collapsed={overviewUi.lenderSummary.collapsed}
-                onCollapse={() => toggleOverviewCardCollapsed("lenderSummary")}
-                onEdit={() => setOverviewCardMode("lenderSummary", "edit")}
-                onCancel={() => cancelEdits("lenderSummary")}
-                onSave={() => void saveEdits("lenderSummary", "Lender pipeline updated.")}
-              />
-              {!overviewUi.lenderSummary.collapsed && (
-                <>
-                  {(() => {
-                    const cases = draft.lenders ?? [];
-                    const active = cases.filter((c) => c.status !== "closed");
-                    const primary = active.find((c) => c.isPrimary) ?? cases.find((c) => c.isPrimary);
-                    const highestProb =
-                      [...active]
-                        .filter((c) => c.probability && c.probability !== "rejected" && c.probability !== "withdrawn")
-                        .sort((a, b) => String(a.probability).localeCompare(String(b.probability)))[0] ?? null;
-                    const finalApproved = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "final_approved").length;
-                    const closureWip = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "closure_wip").length;
-                    const lost = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "lost").length;
-                    const onHold = cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "hold").length;
-
-                    return (
-                      <>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          <SummaryItem label="Primary Lender" value={primary?.lender ?? "—"} accent={Boolean(primary)} />
-                          <SummaryItem label="Highest Probability" value={highestProb?.probability ?? "—"} />
-                          <SummaryItem label="Active Lenders" value={active.length} accent={active.length > 0} />
-                          <SummaryItem label="Final Approved" value={finalApproved} />
-                          <SummaryItem label="Closure WIP" value={closureWip} />
-                          <SummaryItem label="Lost" value={lost} />
-                          <SummaryItem label="On Hold" value={onHold} />
-                        </div>
-
-                        <div className="mt-4 flex items-center justify-between gap-2">
-                          <p className="text-xs text-muted-foreground">Top 3 active lenders</p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => setActiveTab("lenders")}
-                          >
-                            More…
-                          </Button>
-                        </div>
-
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {active.slice(0, 3).map((c) => (
-                            <SummaryItem
-                              key={c.id}
-                              label={c.isPrimary ? "Primary Lender" : "Active Lender"}
-                              value={`${c.lender}${c.caseStage ? ` · ${LENDER_CASE_STAGE_LABELS[normalizeLenderCaseStage(c.caseStage)]}` : ""}`}
-                              accent={Boolean(c.isPrimary)}
-                            />
-                          ))}
-                          {active.length === 0 && (
-                            <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4 text-center sm:col-span-2 lg:col-span-3">
-                              <p className="text-xs text-muted-foreground">
-                                No lender linked yet. Recommend executives from case context — no
-                                manual engine filters.
-                              </p>
-                              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="h-8 rounded-lg text-xs"
-                                  onClick={() => {
-                                    void persistDraft({
-                                      successMessage: "Loan saved. Opening lender recommendations…",
-                                    }).then((ok) => {
-                                      if (ok) {
-                                        router.push(
-                                          `${ROUTES.LENDERS}?loanFileId=${encodeURIComponent(draft.id)}`,
-                                        );
-                                      }
-                                    });
-                                  }}
-                                >
-                                  Link to Lender
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 rounded-lg text-xs"
-                                  onClick={() => {
-                                    void persistDraft({
-                                      successMessage: "Opening Enterprise Lender Workspace…",
-                                    }).then((ok) => {
-                                      if (ok) {
-                                        const primaryName = (
-                                          draft.lenders?.find((l) => l.isPrimary)?.lender ??
-                                          draft.lender ??
-                                          "hdfc"
-                                        ).toLowerCase();
-                                        const id = primaryName.includes("icici")
-                                          ? "icici"
-                                          : primaryName.includes("axis")
-                                            ? "axis"
-                                            : primaryName.includes("sbi") ||
-                                                primaryName.includes("state bank")
-                                              ? "sbi"
-                                              : primaryName.includes("hdfc")
-                                                ? "hdfc"
-                                                : "hdfc";
-                                        router.push(
-                                          buildElwWorkspaceHref(id, {
-                                            from: "loan_files",
-                                            loanFileId: draft.id,
-                                            returnTo: `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(draft.id)}`,
-                                            selectionMode: true,
-                                          }),
-                                        );
-                                      }
-                                    });
-                                  }}
-                                >
-                                  Open Lender Workspace
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 rounded-lg text-xs"
-                                  onClick={() => setActiveTab("lenders")}
-                                >
-                                  Open Lender Pipeline
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-                          <span>Audit: Updated By {updatedBy}</span>
-                          <span>•</span>
-                          <span>Updated Date {lastUpdatedAt ? lastUpdatedAt.toLocaleString("en-IN") : "—"}</span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </>
-              )}
-            </LoanWorkbenchSection>
+            <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 px-4 py-3">
+              <p className="text-[11px] text-muted-foreground">
+                Pipeline status lives in the Workflow Status Bar above. Use Lender Pipeline for execution.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                className="mt-2 h-8 text-xs"
+                onClick={() => setActiveTab("lenders")}
+              >
+                Open Lender Pipeline
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="lenders" className="mt-0 min-h-[min(72vh,820px)] flex-1">
-            <div className="mb-2">
-              <LenderPipelineActionNav
-                cases={draft.lenders ?? []}
-                onNavigate={() => {
-                  /* already on lenders tab — board columns are visible */
-                  setActiveTab("lenders");
-                }}
-              />
-            </div>
             <LenderPipelineBoard
               loan={draft}
               cases={draft.lenders ?? []}
@@ -1147,77 +926,31 @@ function LoanWorkspaceModalContent({
               <FileTimeline events={draft.timeline} />
             </LoanWorkbenchSection>
           </TabsContent>
-        </Tabs>
+    </div>
   );
 
   const body = (
-    <>
-      <BusinessJourneyNavigator
-        currentStageId={navigatorStageId}
-        fileId={draft.id}
-        opportunityId={opportunityId}
-        className="border-b border-border/60 bg-background/95"
-      />
-      <TransactionInsightsPanel
-        file={draft}
-        lifeFinalized
-        hasContact
-        hasOpportunity
-        customerName={draft.customerName}
-        productLabel={draft.loanProduct}
-      />
-      <WorkspaceHeader
-        title="Loan Workflow"
-        className="py-1.5"
-        headerActions={
-          <div className="flex items-center gap-1.5">
-            <LoanStructureCommandControl
-              file={draft}
-              participants={participants}
-              onNavigate={handleLoanStructureNavigate}
-            />
-            <LoanActionCenter
-              loan={draft}
-              onDocumentsChange={(documents) => patch({ documents })}
-              onTimelineNote={(title, description) =>
-                patch({
-                  timeline: [
-                    {
-                      id: `tl-${Date.now()}`,
-                      title,
-                      description,
-                      timestamp: new Date().toISOString(),
-                      completed: true,
-                    },
-                    ...draft.timeline,
-                  ],
-                })
-              }
-            />
-            {activeTab === "lenders" ? (
-              <LenderPipelineActionNav
-                cases={draft.lenders ?? []}
-                onNavigate={() => setActiveTab("lenders")}
-                className="hidden xl:flex"
-              />
-            ) : null}
-            <BusinessTransitionCard
-              continueLabel={loanContinue.label}
-              continuePurpose={continuePurpose}
-              onContinue={handleJourneyContinue}
-              backLabel={backLabel}
-              onBack={handleJourneyBack}
-            />
-          </div>
-        }
-        executionLayout={
-          activeTab === "lenders"
-            ? {
-                borrowerName: draft.customerName,
-                fileNumber: draft.fileNumber,
-                requiredAmount: formatINR(draft.requiredAmount),
-                rm: draft.relationshipManager,
-                priorityBadge: (
+    <Tabs
+      key={draft.id}
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <EnterpriseWorkspaceLayout
+        workspaceHeader={
+          <EnterpriseWorkspaceHeaderBand
+            identity={
+              <div className="min-w-0">
+                <p className="truncate text-base font-bold leading-tight tracking-tight text-foreground sm:text-lg">
+                  {draft.customerName}
+                </p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                  <span className="font-medium text-foreground/80">{draft.fileNumber}</span>
+                  <span aria-hidden>·</span>
+                  <span className="tabular-nums">{formatINR(draft.requiredAmount)}</span>
+                  <span aria-hidden>·</span>
+                  <span>RM {draft.relationshipManager}</span>
+                  <span aria-hidden>·</span>
                   <span
                     className={cn(
                       "rounded border px-1.5 py-0.5 capitalize",
@@ -1226,55 +959,105 @@ function LoanWorkspaceModalContent({
                   >
                     {draft.priority}
                   </span>
-                ),
-                chanakyaFeed: (
-                  <ChanakyaLenderPipelinePanel
-                    loan={draft}
-                    cases={draft.lenders ?? []}
-                    className="h-7"
-                  />
-                ),
-              }
-            : undefined
-        }
-        infoStrip={
-          activeTab !== "lenders" ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-              <span className="text-sm font-bold text-foreground sm:text-base">{draft.customerName}</span>
-              <span className="font-medium text-foreground/80">{draft.fileNumber}</span>
-              <span className="tabular-nums">{formatINR(draft.requiredAmount)}</span>
-              <span className="truncate">RM {draft.relationshipManager}</span>
-              <span className={cn("rounded border px-1.5 py-0.5 capitalize", LOAN_FILE_PRIORITY_STYLES[draft.priority].className)}>
-                {draft.priority}
-              </span>
-              <ChanakyaCompactLive
-                message={compactChanakyaMessage}
-                className="hidden lg:flex"
+                </div>
+              </div>
+            }
+            actions={
+              <>
+                <LoanStructureCommandControl
+                  file={draft}
+                  participants={participants}
+                  onNavigate={handleLoanStructureNavigate}
+                />
+                <LoanActionCenter
+                  loan={draft}
+                  onDocumentsChange={(documents) => patch({ documents })}
+                  onTimelineNote={(title, description) =>
+                    patch({
+                      timeline: [
+                        {
+                          id: `tl-${Date.now()}`,
+                          title,
+                          description,
+                          timestamp: new Date().toISOString(),
+                          completed: true,
+                        },
+                        ...draft.timeline,
+                      ],
+                    })
+                  }
+                />
+                <BusinessTransitionCard
+                  continueLabel={loanContinue.label}
+                  onContinue={handleJourneyContinue}
+                  backLabel={backLabel}
+                  onBack={handleJourneyBack}
+                />
+                <WorkspacePrimaryActions
+                  mode="editable"
+                  onClose={closeApi.requestClose}
+                  onSave={async () => {
+                    await handleSave();
+                  }}
+                  onSaveAndExit={async () => {
+                    await handleSaveAndExit();
+                  }}
+                  saving={saving || closeApi.saving}
+                  density="compact"
+                />
+              </>
+            }
+            journey={
+              <BusinessJourneyNavigator
+                currentStageId={navigatorStageId}
+                fileId={draft.id}
+                opportunityId={opportunityId}
+                hideHelperCaptions
+                density="compact"
               />
-            </div>
-          ) : undefined
+            }
+          />
         }
-        onClose={closeWorkspace}
-        closeApi={closeApi}
-        hasUnsavedChanges={hasUnsavedChanges}
-        saving={saving}
-        actionMode="editable"
-        onSave={async () => {
-          await persistDraft({ exitOnSuccess: false });
-        }}
-        onSaveAndClose={async () => {
-          const ok = await persistDraft({ exitOnSuccess: false });
-          return ok !== false;
-        }}
+        workflowStatus={
+          <EnterpriseWorkflowStatusBand>
+            <WorkspaceIntelligenceRibbon loan={draft} />
+          </EnterpriseWorkflowStatusBand>
+        }
+        navigation={
+          <div className="flex items-center gap-2 border-b border-border/60 bg-background px-3 py-1.5 sm:px-4">
+            <TabsList className="grid h-auto flex-1 grid-cols-6 bg-muted p-1">
+              <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+              <TabsTrigger value="lenders" className="text-xs">Lender Pipeline</TabsTrigger>
+              <TabsTrigger value="mission-control" className="text-xs">Mission Control</TabsTrigger>
+              <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
+              <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
+              <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
+            </TabsList>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 shrink-0 text-xs"
+              onClick={() => {
+                setActiveTab("lenders");
+                setLenderAddOpen(true);
+              }}
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              {(draft.lenders ?? []).length > 0 ? "Identify Additional Lender" : "Identify Lender"}
+            </Button>
+          </div>
+        }
+      >
+        <LoanWorkbenchLayout workbench={workbench} />
+      </EnterpriseWorkspaceLayout>
+      <UnsavedChangesDialog
+        open={closeApi.confirmOpen}
+        onOpenChange={closeApi.setConfirmOpen}
+        onDiscard={closeApi.handleDiscard}
+        onSaveAndClose={closeApi.handleSaveAndClose}
+        saving={closeApi.saving}
       />
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {commandBar}
-        <LoanWorkbenchLayout
-          workbench={workbench}
-          onWorkbenchScroll={handleContentScroll}
-        />
-      </div>
-    </>
+    </Tabs>
   );
 
   if (embedded) {

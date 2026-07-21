@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { ROUTES } from "@/constants/routes";
@@ -17,6 +17,7 @@ interface AuthGuardProps {
 export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
   const { user, isLoading, isAuthenticated } = useAuthContext();
   const router = useRouter();
+  const pathname = usePathname();
 
   const isAuthorized =
     isAuthenticated && (!user || canAccessRoute(user, allowedRoles));
@@ -31,10 +32,20 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
       return;
     }
 
+    if (user?.mustChangePassword && pathname !== ROUTES.CHANGE_PASSWORD) {
+      router.replace(ROUTES.CHANGE_PASSWORD);
+      return;
+    }
+
+    if (user && !user.mustChangePassword && pathname === ROUTES.CHANGE_PASSWORD) {
+      router.replace(ROUTES.DASHBOARD);
+      return;
+    }
+
     if (user && !canAccessRoute(user, allowedRoles)) {
       router.replace(ROUTES.CONTACTS);
     }
-  }, [isLoading, isAuthenticated, user, allowedRoles, router]);
+  }, [isLoading, isAuthenticated, user, allowedRoles, router, pathname]);
 
   // Keep dashboard visible when session is already authenticated; only block while
   // the initial session check runs and the user is not yet signed in.

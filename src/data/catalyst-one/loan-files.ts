@@ -1,10 +1,12 @@
 import { generateLoanFiles, defaultSavedViews, LOAN_LENDERS, LOAN_MANAGERS, LOAN_PRODUCTS, loanFilePriorityOptions, loanFileStatusOptions } from "@/data/catalyst-one/generate-loan-files";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { normalizeLoanFile } from "@/lib/loan-validation";
 import type { LoanFile } from "@/types/catalyst-one";
 
 let cachedInitialLoanFiles: LoanFile[] | null = null;
 
 export function getInitialLoanFiles(): LoanFile[] {
+  if (!isDemoSeedEnabled()) return [];
   if (!cachedInitialLoanFiles) {
     cachedInitialLoanFiles = generateLoanFiles(100).map((f) => normalizeLoanFile(f));
   }

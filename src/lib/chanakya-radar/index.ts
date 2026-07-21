@@ -35,6 +35,21 @@ export {
 } from "./operational-vector";
 
 export {
+  chanakyaRadarRingGuideRadii,
+  placeChanakyaRadarBlips,
+  type ChanakyaRadarBlipPlacement,
+} from "./place-blips";
+
+export {
+  chanakyaRadarBusinessDayKey,
+  hasMeaningfulWorkToday,
+  matchMeaningfulWorkActivity,
+  recordChanakyaRadarOperationalWork,
+  syncDailyWorkFromTimelineEvent,
+  type ChanakyaRadarDailyWorkMark,
+} from "./daily-work";
+
+export {
   defaultRadarScope,
   filterFilesByRadarScope,
   resolveRadarActorName,
@@ -52,3 +67,16 @@ export {
   type ChanakyaRadarIntelligenceItem,
   type ChanakyaRadarKpiCard,
 } from "./derive-dashboard";
+
+export {
+  markOperationalMovementConsumed,
+  movementsForDestination,
+  operationalQuadrantTone,
+  readActiveOperationalMovements,
+  syncOperationalMovements,
+  injectDemoOperationalMovements,
+  clearDemoOperationalMovements,
+  isOperationalMovementDemoEnabled,
+  OPERATIONAL_MOVEMENT_DEMO_SAMPLES,
+  type OperationalMovementEvent,
+} from "./operational-movement";

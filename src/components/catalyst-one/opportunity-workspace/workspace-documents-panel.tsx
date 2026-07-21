@@ -26,8 +26,10 @@ import {
   placeholderTriggerMockDownload,
   type PlaceholderDocCategory,
 } from "./providers/workspace-placeholder-provider";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 
 function seedDocumentRulesIfEmpty() {
+  if (!isDemoSeedEnabled()) return;
   if (listEdieDocumentRules().length > 0) return;
 
   registerEdieDocumentRule({
