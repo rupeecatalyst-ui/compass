@@ -57,12 +57,14 @@ export type OpportunityDocumentReadinessState =
 
 export type DocumentRequestCommKind =
   | "lod_generated"
+  | "lod_regenerated"
   | "email_sent"
   | "whatsapp_sent"
   | "reminder_sent"
   | "customer_uploaded"
   | "verification_completed"
-  | "link_regenerated";
+  | "link_regenerated"
+  | "upload_link_generated";
 
 export interface DocumentRequestLodItem {
   typeRef: string;
@@ -114,10 +116,30 @@ export interface DocumentRequestUploadSession {
   active: boolean;
 }
 
+export interface DocumentRequestLodVersionSnapshot {
+  /** Immutable snapshot id */
+  id: string;
+  versionNumber: number;
+  generatedAt: string;
+  generatedBy: string;
+  borrowerTypeLabel: string;
+  productLabel: string;
+  constitutionLabel: string;
+  /** Fingerprint of the three LOD dimensions */
+  dimensionKey: string;
+  documentCount: number;
+  /** Frozen typeRefs at generation time (audit only — not live status) */
+  typeRefs: string[];
+  active: boolean;
+}
+
 export interface DocumentRequestWorkspaceState {
   opportunityId: string;
   lodGeneratedAt?: string;
   lodItems: DocumentRequestItemState[];
+  /** Immutable LOD version history — never overwrite prior versions */
+  lodVersions?: DocumentRequestLodVersionSnapshot[];
+  activeLodVersionId?: string;
   uploadSession?: DocumentRequestUploadSession;
   communications: DocumentRequestCommEvent[];
   /** Secure portal access / activity audit (token-scoped). */

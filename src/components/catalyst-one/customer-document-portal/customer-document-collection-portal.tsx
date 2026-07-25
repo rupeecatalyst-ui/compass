@@ -33,6 +33,7 @@ import {
   canPreviewDocument,
   createBlobObjectUrl,
   getDocumentRegistryRecord,
+  subscribeDocumentRegistryUpdated,
 } from "@/lib/document-registry";
 import type {
   DocumentRequestItemState,
@@ -144,7 +145,12 @@ export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
 
   useEffect(() => {
     reload({ audit: true });
-    return subscribeDocumentRequestsUpdated(() => reload({ audit: false }));
+    const unsubDr = subscribeDocumentRequestsUpdated(() => reload({ audit: false }));
+    const unsubReg = subscribeDocumentRegistryUpdated(() => reload({ audit: false }));
+    return () => {
+      unsubDr();
+      unsubReg();
+    };
   }, [reload]);
 
   useEffect(() => {
@@ -182,6 +188,21 @@ export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
     mode: "upload" | "replace",
   ) => {
     if (!file || !session) return;
+    if (mode === "replace") {
+      const ok = window.confirm(
+        `Replace ${item.label}? The previous file remains in version history inside the Enterprise Document Repository.`,
+      );
+      if (!ok) return;
+    }
+    if (
+      mode === "upload" &&
+      (item.status === "uploaded" ||
+        item.status === "under_verification" ||
+        item.status === "verified")
+    ) {
+      setFlash("This document is already uploaded. Use Replace to submit a new version.");
+      return;
+    }
     setBusyRef(item.typeRef);
     setFlash(null);
     const result = await ingestCustomerPortalDocument({
@@ -198,7 +219,7 @@ export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
           ? `${item.label} replaced successfully.`
           : `${item.label} uploaded successfully.`,
       );
-      reload();
+      reload({ audit: false });
     }
     setBusyRef(null);
   };

@@ -126,6 +126,7 @@ export async function ingestCustomerPortalDocument(input: {
       item.typeRef,
       uploaded.record.id,
       session.customerName || "Customer",
+      session.opportunityReference,
     );
 
     notifyStakeholders({

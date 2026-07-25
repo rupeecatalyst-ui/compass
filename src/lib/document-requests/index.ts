@@ -21,10 +21,17 @@ export {
   runCustomerPortalVirusScan,
 } from "./virus-scan-hook";
 export {
+  buildLodDimensionKey,
+  hasLodDimensionDrift,
+  mergeLodItemsWithPrior,
+  nextLodVersionNumber,
+} from "./lod-versioning";
+export {
   subscribeDocumentRequestsUpdated,
   getDocumentRequestState,
   refreshDocumentRequestFromRegistry,
   generateAndPersistLod,
+  getActiveLodVersion,
   createOrRegenerateUploadSession,
   resolveUploadSessionByToken,
   recordPortalOpened,

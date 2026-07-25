@@ -6,10 +6,11 @@
  * Uploads always land in Enterprise Document Registry SSOT.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Copy,
   Link2,
+  Loader2,
   Mail,
   MessageCircle,
   RefreshCw,
@@ -24,13 +25,16 @@ import {
   DOCUMENT_REQUEST_EMAIL_SUBJECT,
 } from "@/constants/document-requests";
 import { queueOutboxMessage } from "@/lib/enterprise-action-center";
+import { subscribeDocumentRegistryUpdated } from "@/lib/document-registry";
 import {
   buildCustomerUploadPortalPath,
   createOrRegenerateUploadSession,
   deriveOpportunityDocumentReadiness,
   evaluateDocumentRequestLodReadiness,
   generateAndPersistLod,
+  getActiveLodVersion,
   getDocumentRequestState,
+  hasLodDimensionDrift,
   recordDocumentRequestCommunication,
   refreshDocumentRequestFromRegistry,
   subscribeDocumentRequestsUpdated,
@@ -74,6 +78,8 @@ function commLabel(kind: DocumentRequestCommEvent["kind"]): string {
   switch (kind) {
     case "lod_generated":
       return "LOD Generated";
+    case "lod_regenerated":
+      return "Regenerated LOD";
     case "email_sent":
       return "Email Sent";
     case "whatsapp_sent":
@@ -81,11 +87,13 @@ function commLabel(kind: DocumentRequestCommEvent["kind"]): string {
     case "reminder_sent":
       return "Reminder Sent";
     case "customer_uploaded":
-      return "Customer Uploaded";
+      return "Customer Uploaded Document";
     case "verification_completed":
       return "Verification Completed";
     case "link_regenerated":
       return "Upload Link Regenerated";
+    case "upload_link_generated":
+      return "Upload Link Generated";
     default:
       return kind;
   }
@@ -160,6 +168,8 @@ export function WorkspaceDocumentRequestsPanel() {
   const [state, setState] = useState<DocumentRequestWorkspaceState>(() =>
     opportunityId ? getDocumentRequestState(opportunityId) : getDocumentRequestState(""),
   );
+  const [busy, setBusy] = useState(false);
+  const autoRegenKeyRef = useRef<string>("");
 
   const reload = useCallback(() => {
     if (!opportunityId) return;
@@ -168,8 +178,98 @@ export function WorkspaceDocumentRequestsPanel() {
 
   useEffect(() => {
     reload();
-    return subscribeDocumentRequestsUpdated(reload);
+    const unsubDr = subscribeDocumentRequestsUpdated(reload);
+    const unsubReg = subscribeDocumentRegistryUpdated(reload);
+    return () => {
+      unsubDr();
+      unsubReg();
+    };
   }, [reload]);
+
+  const activeVersion = useMemo(() => getActiveLodVersion(state), [state]);
+  const dimensionDrift = useMemo(
+    () =>
+      hasLodDimensionDrift(activeVersion, {
+        borrowerTypeLabel,
+        productLabel: productLabel || "—",
+        constitutionLabel: constitution || "—",
+      }),
+    [activeVersion, borrowerTypeLabel, productLabel, constitution],
+  );
+
+  const runGenerateLod = useCallback(
+    (reason: "manual" | "dimension_change") => {
+      if (!opportunityId || !lodGate.canGenerate) return;
+      setBusy(true);
+      try {
+        const next = generateAndPersistLod({
+          opportunityId,
+          productLabel: productLabel || "",
+          employmentType,
+          constitution,
+          transactionType:
+            leadCaseFile?.transactionType === "balance_transfer"
+              ? "balance_transfer"
+              : "fresh",
+          runtimeFile: leadCaseFile,
+          actor,
+          opportunityReference: oppRef,
+        });
+        if (!state.uploadSession?.token) {
+          createOrRegenerateUploadSession({
+            opportunityId,
+            opportunityReference: oppRef,
+            customerName: customerName === "—" ? "Customer" : customerName,
+            loanProduct: productLabel || "Loan",
+            borrowerTypeLabel,
+            constitutionLabel: constitution || "—",
+            rmName,
+            actor,
+            regenerate: false,
+          });
+        }
+        setState(getDocumentRequestState(opportunityId));
+        toast.success(
+          reason === "dimension_change"
+            ? `LOD auto-regenerated (v${next.lodVersions?.[0]?.versionNumber ?? "—"}) — uploaded documents kept linked`
+            : `LOD ${next.lodVersions && next.lodVersions.length > 1 ? "regenerated" : "generated"} — ${next.lodItems.length} documents`,
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [
+      opportunityId,
+      lodGate.canGenerate,
+      productLabel,
+      employmentType,
+      constitution,
+      leadCaseFile,
+      actor,
+      oppRef,
+      state.uploadSession?.token,
+      customerName,
+      borrowerTypeLabel,
+      rmName,
+    ],
+  );
+
+  useEffect(() => {
+    if (!opportunityId || !lodGate.canGenerate || !activeVersion || !dimensionDrift) return;
+    const key = `${opportunityId}|${borrowerTypeLabel}|${productLabel}|${constitution}`;
+    if (autoRegenKeyRef.current === key) return;
+    autoRegenKeyRef.current = key;
+    runGenerateLod("dimension_change");
+  }, [
+    opportunityId,
+    lodGate.canGenerate,
+    activeVersion,
+    dimensionDrift,
+    borrowerTypeLabel,
+    productLabel,
+    constitution,
+    runGenerateLod,
+  ]);
 
   const readiness = useMemo(
     () => deriveOpportunityDocumentReadiness(state.lodItems),
@@ -182,7 +282,8 @@ export function WorkspaceDocumentRequestsPanel() {
     (i) =>
       i.status === "pending" ||
       i.status === "requested" ||
-      i.status === "rejected",
+      i.status === "rejected" ||
+      i.status === "re_upload_required",
   );
 
   const absoluteUploadUrl = (token: string) => {
@@ -206,23 +307,7 @@ export function WorkspaceDocumentRequestsPanel() {
     });
   };
 
-  const onGenerateLod = () => {
-    if (!opportunityId || !lodGate.canGenerate) return;
-    const next = generateAndPersistLod({
-      opportunityId,
-      productLabel: productLabel || "",
-      employmentType,
-      constitution,
-      transactionType: leadCaseFile?.transactionType === "balance_transfer"
-        ? "balance_transfer"
-        : "fresh",
-      runtimeFile: leadCaseFile,
-      actor,
-    });
-    ensureUploadSession(false);
-    setState(getDocumentRequestState(opportunityId));
-    toast.success(`LOD generated — ${next.lodItems.length} documents`);
-  };
+  const onGenerateLod = () => runGenerateLod("manual");
 
   const onCopyLink = async () => {
     let session = state.uploadSession;
@@ -300,6 +385,7 @@ export function WorkspaceDocumentRequestsPanel() {
       asReminder ? "reminder_sent" : "email_sent",
       actor,
       email,
+      oppRef,
     );
     reload();
     toast.success(asReminder ? "Reminder queued in Enterprise Outbox" : "Email queued in Enterprise Outbox");
@@ -342,6 +428,7 @@ export function WorkspaceDocumentRequestsPanel() {
       asReminder ? "reminder_sent" : "whatsapp_sent",
       actor,
       mobile,
+      oppRef,
     );
     reload();
     toast.success(asReminder ? "WhatsApp reminder queued" : "WhatsApp message queued");
@@ -383,15 +470,24 @@ export function WorkspaceDocumentRequestsPanel() {
         </div>
       )}
 
+      {dimensionDrift && activeVersion && (
+        <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-3 py-3 text-[11px] text-sky-50">
+          Borrower Type, Product, or Business Constitution changed since LOD v
+          {activeVersion.versionNumber}. Regenerating checklist — previously uploaded documents stay
+          linked; only newly required items become Pending.
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           size="sm"
-          className="h-8 text-xs"
-          disabled={!lodGate.canGenerate || !opportunityId}
+          className="h-8 gap-1.5 text-xs"
+          disabled={!lodGate.canGenerate || !opportunityId || busy}
           onClick={onGenerateLod}
         >
-          Generate LOD
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {state.lodItems.length ? "Regenerate LOD" : "Generate LOD"}
         </Button>
         <Button
           type="button"
@@ -441,6 +537,17 @@ export function WorkspaceDocumentRequestsPanel() {
 
       <OwGlassPanel>
         <OwSectionLabel>LOD Summary</OwSectionLabel>
+        {activeVersion && (
+          <p className="mt-2 text-[11px] text-zinc-400">
+            Active LOD v{activeVersion.versionNumber} · {formatDate(activeVersion.generatedAt)} ·{" "}
+            {activeVersion.generatedBy} · {activeVersion.documentCount} documents
+          </p>
+        )}
+        {!state.lodItems.length && (
+          <p className="mt-3 text-xs text-zinc-500">
+            No LOD yet. Complete mandatory Opportunity fields, then generate the List of Documents.
+          </p>
+        )}
         <div className="mt-3 flex flex-wrap gap-2">
           <OwKpiCard label="Total" value={String(readiness.total)} />
           <OwKpiCard label="Uploaded" value={String(readiness.uploaded)} tone="info" />
@@ -477,6 +584,38 @@ export function WorkspaceDocumentRequestsPanel() {
         <LodCategoryCard title="Critical Documents" items={criticalItems} empty="No critical documents in LOD yet." />
         <LodCategoryCard title="Journey Documents" items={journeyItems} empty="No journey documents in LOD yet." />
       </div>
+
+      <OwGlassPanel>
+        <OwSectionLabel>LOD Version History</OwSectionLabel>
+        {(state.lodVersions ?? []).length === 0 ? (
+          <p className="mt-3 text-xs text-zinc-500">No LOD versions yet — generate to create v1.</p>
+        ) : (
+          <ul className="mt-3 max-h-44 space-y-2 overflow-y-auto">
+            {(state.lodVersions ?? []).map((v) => (
+              <li
+                key={v.id}
+                className={cn(
+                  "rounded-lg border px-2.5 py-2 text-[11px]",
+                  v.active
+                    ? "border-teal-500/35 bg-teal-500/10"
+                    : "border-white/8 bg-zinc-950/40",
+                )}
+              >
+                <p className="font-medium text-zinc-100">
+                  v{v.versionNumber}
+                  {v.active ? " · Current Active Version" : ""} · {v.documentCount} documents
+                </p>
+                <p className="mt-0.5 text-zinc-500">
+                  {formatDate(v.generatedAt)} · {v.generatedBy}
+                </p>
+                <p className="mt-0.5 text-zinc-500">
+                  {v.borrowerTypeLabel} · {v.productLabel} · {v.constitutionLabel}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </OwGlassPanel>
 
       <OwGlassPanel>
         <OwPanelHeader title="Pending Items" description="Request, remind, and track customer submissions." />

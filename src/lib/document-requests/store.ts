@@ -13,13 +13,20 @@ import {
 } from "@/constants/document-requests";
 import { listDocumentsForOpportunityRuntime } from "@/lib/document-registry";
 import { generateOpportunityLod } from "@/lib/document-requests/generate-lod";
+import {
+  buildLodDimensionKey,
+  mergeLodItemsWithPrior,
+  nextLodVersionNumber,
+} from "@/lib/document-requests/lod-versioning";
 import { appendUploadSessionAudit } from "@/lib/document-requests/session-audit";
+import { appendDocumentRequestTimeline } from "@/lib/document-requests/timeline";
 import type { LoanFile } from "@/types/catalyst-one";
 import type {
   DocumentRequestCommEvent,
   DocumentRequestCommKind,
   DocumentRequestItemState,
   DocumentRequestItemStatus,
+  DocumentRequestLodVersionSnapshot,
   DocumentRequestUploadSession,
   DocumentRequestWorkspaceState,
 } from "@/types/document-requests";
@@ -57,6 +64,7 @@ function emptyState(opportunityId: string): DocumentRequestWorkspaceState {
   return {
     opportunityId,
     lodItems: [],
+    lodVersions: [],
     communications: [],
     updatedAt: new Date().toISOString(),
   };
@@ -65,7 +73,15 @@ function emptyState(opportunityId: string): DocumentRequestWorkspaceState {
 export function getDocumentRequestState(opportunityId: string): DocumentRequestWorkspaceState {
   const id = opportunityId.trim();
   if (!id) return emptyState("");
-  return readStore()[id] ?? emptyState(id);
+  const existing = readStore()[id];
+  if (!existing) return emptyState(id);
+  return {
+    ...emptyState(id),
+    ...existing,
+    lodVersions: existing.lodVersions ?? [],
+    communications: existing.communications ?? [],
+    lodItems: existing.lodItems ?? [],
+  };
 }
 
 function saveState(state: DocumentRequestWorkspaceState): DocumentRequestWorkspaceState {
@@ -84,6 +100,7 @@ function appendComm(
   kind: DocumentRequestCommKind,
   actor: string,
   detail?: string,
+  opportunityReference?: string,
 ): DocumentRequestWorkspaceState {
   const event: DocumentRequestCommEvent = {
     id: newId("drc"),
@@ -92,9 +109,16 @@ function appendComm(
     actor,
     detail,
   };
+  appendDocumentRequestTimeline({
+    opportunityId: state.opportunityId,
+    kind,
+    actor,
+    detail,
+    opportunityReference,
+  });
   return {
     ...state,
-    communications: [event, ...state.communications].slice(0, 100),
+    communications: [event, ...(state.communications ?? [])].slice(0, 120),
   };
 }
 
@@ -102,7 +126,7 @@ function syncStatusesFromRegistry(
   opportunityId: string,
   runtimeKey: string | null | undefined,
   items: DocumentRequestItemState[],
-): DocumentRequestItemState[] {
+): { items: DocumentRequestItemState[]; newlyVerified: DocumentRequestItemState[] } {
   const records = listDocumentsForOpportunityRuntime(
     runtimeKey?.trim() || opportunityId,
     opportunityId,
@@ -116,7 +140,8 @@ function syncStatusesFromRegistry(
     }
   }
 
-  return items.map((item) => {
+  const newlyVerified: DocumentRequestItemState[] = [];
+  const nextItems = items.map((item) => {
     const rec = byType.get(item.typeRef);
     if (!rec) {
       if (item.status === "rejected") {
@@ -129,13 +154,19 @@ function syncStatusesFromRegistry(
     else if (item.status === "rejected" || item.status === "re_upload_required") {
       status = "re_upload_required";
     }
-    return {
+    const synced: DocumentRequestItemState = {
       ...item,
       status,
       uploadedAt: rec.uploadedAt,
       registryRecordId: rec.id,
     };
+    if (status === "verified" && item.status !== "verified") {
+      newlyVerified.push(synced);
+    }
+    return synced;
   });
+
+  return { items: nextItems, newlyVerified };
 }
 
 export function refreshDocumentRequestFromRegistry(
@@ -144,11 +175,31 @@ export function refreshDocumentRequestFromRegistry(
 ): DocumentRequestWorkspaceState {
   const current = getDocumentRequestState(opportunityId);
   if (current.lodItems.length === 0) return current;
-  const lodItems = syncStatusesFromRegistry(opportunityId, runtimeKey, current.lodItems);
+  const { items: lodItems, newlyVerified } = syncStatusesFromRegistry(
+    opportunityId,
+    runtimeKey,
+    current.lodItems,
+  );
+
+  const unchanged =
+    newlyVerified.length === 0 &&
+    lodItems.length === current.lodItems.length &&
+    lodItems.every((item, idx) => {
+      const prev = current.lodItems[idx];
+      return (
+        prev &&
+        prev.typeRef === item.typeRef &&
+        prev.status === item.status &&
+        prev.registryRecordId === item.registryRecordId &&
+        prev.uploadedAt === item.uploadedAt
+      );
+    });
+  if (unchanged) return current;
+
+  let next = { ...current, lodItems };
   const uploaded = lodItems.filter(
     (i) => i.status === "uploaded" || i.status === "verified" || i.status === "under_verification",
   );
-  let next = { ...current, lodItems };
   if (uploaded.length > 0) {
     const latest = uploaded
       .map((i) => i.uploadedAt)
@@ -157,7 +208,29 @@ export function refreshDocumentRequestFromRegistry(
       .at(-1);
     if (latest) next.lastCustomerActivityAt = latest;
   }
+  if (newlyVerified.length > 0) {
+    next.lastVerificationAt = new Date().toISOString();
+    for (const item of newlyVerified) {
+      next = appendComm(next, "verification_completed", "System", item.label);
+    }
+  }
   return saveState(next);
+}
+
+function formatBorrowerLabel(
+  employmentType?: string | null,
+  borrowerCategory?: string | null,
+): string {
+  if (borrowerCategory === "salaried") return "Salaried";
+  if (borrowerCategory === "self_employed") return "Self-employed";
+  if (borrowerCategory === "company") return "Company";
+  const e = (employmentType || "").toLowerCase();
+  if (e.includes("self") || e.includes("business") || e.includes("professional")) {
+    return "Self-employed";
+  }
+  if (e.includes("company") || e.includes("corporate")) return "Company";
+  if (e) return "Salaried";
+  return "—";
 }
 
 export function generateAndPersistLod(input: {
@@ -169,30 +242,79 @@ export function generateAndPersistLod(input: {
   transactionType?: "fresh" | "balance_transfer" | null;
   runtimeFile?: LoanFile | null;
   actor: string;
+  opportunityReference?: string;
 }): DocumentRequestWorkspaceState {
   const lod = generateOpportunityLod(input);
   const now = new Date().toISOString();
   const current = getDocumentRequestState(input.opportunityId);
-  const lodItems: DocumentRequestItemState[] = lod.map((item) => ({
-    ...item,
-    status: "pending",
-    requestedOn: now,
-    reminderStatus: "none",
-  }));
+  const priorVersions = current.lodVersions ?? [];
+  const isRegen = priorVersions.length > 0 || current.lodItems.length > 0;
+
+  const merged = mergeLodItemsWithPrior(lod, current.lodItems, now);
+  const { items: synced } = syncStatusesFromRegistry(
+    input.opportunityId,
+    input.runtimeFile?.id,
+    merged,
+  );
+
+  const deduped: DocumentRequestItemState[] = [];
+  const seen = new Set<string>();
+  for (const item of synced) {
+    if (seen.has(item.typeRef)) continue;
+    seen.add(item.typeRef);
+    deduped.push(item);
+  }
+
+  const borrowerTypeLabel = formatBorrowerLabel(input.employmentType, input.borrowerCategory);
+  const constitutionLabel = (input.constitution || "").trim() || "—";
+  const productLabel = input.productLabel || "—";
+  const versionNumber = nextLodVersionNumber(priorVersions);
+  const snapshot: DocumentRequestLodVersionSnapshot = {
+    id: newId("lodv"),
+    versionNumber,
+    generatedAt: now,
+    generatedBy: input.actor,
+    borrowerTypeLabel,
+    productLabel,
+    constitutionLabel,
+    dimensionKey: buildLodDimensionKey({
+      borrowerTypeLabel,
+      productLabel,
+      constitutionLabel,
+    }),
+    documentCount: deduped.length,
+    typeRefs: deduped.map((i) => i.typeRef),
+    active: true,
+  };
+
+  const lodVersions = [snapshot, ...priorVersions.map((v) => ({ ...v, active: false }))];
+
   let next: DocumentRequestWorkspaceState = {
     ...current,
     opportunityId: input.opportunityId,
     lodGeneratedAt: now,
-    lodItems,
+    lodItems: deduped,
+    lodVersions,
+    activeLodVersionId: snapshot.id,
   };
-  next = appendComm(next, "lod_generated", input.actor, `${lodItems.length} documents`);
-  const synced = syncStatusesFromRegistry(
-    input.opportunityId,
-    input.runtimeFile?.id,
-    next.lodItems,
+  next = appendComm(
+    next,
+    isRegen ? "lod_regenerated" : "lod_generated",
+    input.actor,
+    `v${versionNumber} · ${deduped.length} documents · ${borrowerTypeLabel} · ${productLabel}`,
+    input.opportunityReference,
   );
-  next = { ...next, lodItems: synced };
   return saveState(next);
+}
+
+export function getActiveLodVersion(
+  state: DocumentRequestWorkspaceState,
+): DocumentRequestLodVersionSnapshot | undefined {
+  const versions = state.lodVersions ?? [];
+  if (state.activeLodVersionId) {
+    return versions.find((v) => v.id === state.activeLodVersionId) ?? versions[0];
+  }
+  return versions.find((v) => v.active) ?? versions[0];
 }
 
 export function createOrRegenerateUploadSession(input: {
@@ -247,9 +369,13 @@ export function createOrRegenerateUploadSession(input: {
         : i,
     ),
   };
-  if (input.regenerate) {
-    next = appendComm(next, "link_regenerated", input.actor, "Upload link regenerated");
-  }
+  next = appendComm(
+    next,
+    input.regenerate ? "link_regenerated" : "upload_link_generated",
+    input.actor,
+    input.regenerate ? "Upload link regenerated" : "Secure upload session created",
+    input.opportunityReference,
+  );
   next = { ...next, updatedAt: new Date().toISOString() };
   store[input.opportunityId] = next;
   store[`token:${session.token}`] = next;
@@ -336,7 +462,6 @@ export function resolveUploadSessionByToken(
   };
 }
 
-/** Record portal open once per page load (after successful resolve). */
 export function recordPortalOpened(token: string, opportunityId: string): void {
   appendUploadSessionAudit({
     token,
@@ -350,9 +475,10 @@ export function recordDocumentRequestCommunication(
   kind: Extract<DocumentRequestCommKind, "email_sent" | "whatsapp_sent" | "reminder_sent">,
   actor: string,
   detail?: string,
+  opportunityReference?: string,
 ): DocumentRequestWorkspaceState {
   let next = getDocumentRequestState(opportunityId);
-  next = appendComm(next, kind, actor, detail);
+  next = appendComm(next, kind, actor, detail, opportunityReference);
   if (kind === "reminder_sent") {
     const now = new Date().toISOString();
     next = {
@@ -383,15 +509,16 @@ export function markItemRemarks(
   });
 }
 
-/** After a customer portal upload lands in Document Registry. */
 export function recordCustomerPortalUpload(
   opportunityId: string,
   typeRef: string,
   registryRecordId: string,
   actor = "Customer",
+  opportunityReference?: string,
 ): DocumentRequestWorkspaceState {
   const now = new Date().toISOString();
   let next = getDocumentRequestState(opportunityId);
+  const label = next.lodItems.find((i) => i.typeRef === typeRef)?.label || typeRef;
   next = {
     ...next,
     lastCustomerActivityAt: now,
@@ -406,7 +533,7 @@ export function recordCustomerPortalUpload(
         : i,
     ),
   };
-  next = appendComm(next, "customer_uploaded", actor, typeRef);
+  next = appendComm(next, "customer_uploaded", actor, label, opportunityReference);
   return saveState(next);
 }
 
