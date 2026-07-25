@@ -5,12 +5,15 @@
  */
 
 import {
+  CUSTOMER_PORTAL_DEFAULT_APPLICATION_STATUS,
+  CUSTOMER_PORTAL_DEFAULT_STAGE,
   DOCUMENT_REQUEST_LINK_EXPIRY_DAYS,
   DOCUMENT_REQUESTS_STORAGE_KEY,
   DOCUMENT_REQUESTS_UPDATED_EVENT,
 } from "@/constants/document-requests";
 import { listDocumentsForOpportunityRuntime } from "@/lib/document-registry";
 import { generateOpportunityLod } from "@/lib/document-requests/generate-lod";
+import { appendUploadSessionAudit } from "@/lib/document-requests/session-audit";
 import type { LoanFile } from "@/types/catalyst-one";
 import type {
   DocumentRequestCommEvent,
@@ -115,10 +118,17 @@ function syncStatusesFromRegistry(
 
   return items.map((item) => {
     const rec = byType.get(item.typeRef);
-    if (!rec) return item;
-    let status: DocumentRequestItemStatus = "uploaded";
+    if (!rec) {
+      if (item.status === "rejected") {
+        return { ...item, status: "re_upload_required" as const };
+      }
+      return item;
+    }
+    let status: DocumentRequestItemStatus = "under_verification";
     if (rec.verifiedAt) status = "verified";
-    else if (item.status === "under_verification") status = "under_verification";
+    else if (item.status === "rejected" || item.status === "re_upload_required") {
+      status = "re_upload_required";
+    }
     return {
       ...item,
       status,
@@ -200,7 +210,7 @@ export function createOrRegenerateUploadSession(input: {
   const now = Date.now();
   const expires = new Date(now + DOCUMENT_REQUEST_LINK_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
   const session: DocumentRequestUploadSession = {
-    token: newId("uptok"),
+    token: newSecureUploadToken(),
     opportunityId: input.opportunityId,
     opportunityReference: input.opportunityReference,
     customerName: input.customerName,
@@ -208,6 +218,8 @@ export function createOrRegenerateUploadSession(input: {
     borrowerTypeLabel: input.borrowerTypeLabel,
     constitutionLabel: input.constitutionLabel,
     rmName: input.rmName,
+    applicationStatus: CUSTOMER_PORTAL_DEFAULT_APPLICATION_STATUS,
+    currentStage: CUSTOMER_PORTAL_DEFAULT_STAGE,
     createdAt: new Date(now).toISOString(),
     expiresAt: expires.toISOString(),
     regeneratedAt: input.regenerate ? new Date(now).toISOString() : undefined,
@@ -247,22 +259,90 @@ export function createOrRegenerateUploadSession(input: {
 
 export function resolveUploadSessionByToken(
   token: string,
+  options?: { audit?: boolean },
 ): DocumentRequestWorkspaceState | null {
+  const audit = options?.audit !== false;
   const t = token.trim();
-  if (!t) return null;
+  if (!t) {
+    if (audit) {
+      appendUploadSessionAudit({
+        token: t || "empty",
+        opportunityId: "",
+        action: "token_rejected",
+        detail: "Empty token",
+      });
+    }
+    return null;
+  }
   const store = readStore();
   const byToken = store[`token:${t}`];
-  if (!byToken?.uploadSession) return null;
+  if (!byToken?.uploadSession) {
+    if (audit) {
+      appendUploadSessionAudit({
+        token: t,
+        opportunityId: "",
+        action: "token_rejected",
+        detail: "Unknown token",
+      });
+    }
+    return null;
+  }
   const session = byToken.uploadSession;
-  if (!session.active) return null;
-  if (new Date(session.expiresAt).getTime() < Date.now()) return null;
-  if (session.token !== t) return null;
-  // Prefer live opportunity state
+  if (!session.active) {
+    if (audit) {
+      appendUploadSessionAudit({
+        token: t,
+        opportunityId: session.opportunityId,
+        action: "token_rejected",
+        detail: "Inactive session",
+      });
+    }
+    return null;
+  }
+  if (new Date(session.expiresAt).getTime() < Date.now()) {
+    if (audit) {
+      appendUploadSessionAudit({
+        token: t,
+        opportunityId: session.opportunityId,
+        action: "token_rejected",
+        detail: "Expired session",
+      });
+    }
+    return null;
+  }
+  if (session.token !== t) {
+    if (audit) {
+      appendUploadSessionAudit({
+        token: t,
+        opportunityId: session.opportunityId,
+        action: "token_rejected",
+        detail: "Token mismatch",
+      });
+    }
+    return null;
+  }
   const live = store[session.opportunityId] ?? byToken;
+  if (audit) {
+    appendUploadSessionAudit({
+      token: t,
+      opportunityId: session.opportunityId,
+      action: "token_validated",
+      detail: session.opportunityReference,
+    });
+  }
   return {
     ...live,
     uploadSession: live.uploadSession?.token === t ? live.uploadSession : session,
   };
+}
+
+/** Record portal open once per page load (after successful resolve). */
+export function recordPortalOpened(token: string, opportunityId: string): void {
+  appendUploadSessionAudit({
+    token,
+    opportunityId,
+    action: "portal_opened",
+  });
 }
 
 export function recordDocumentRequestCommunication(
@@ -319,7 +399,7 @@ export function recordCustomerPortalUpload(
       i.typeRef === typeRef
         ? {
             ...i,
-            status: "uploaded" as const,
+            status: "under_verification" as const,
             uploadedAt: now,
             registryRecordId,
           }
@@ -328,4 +408,13 @@ export function recordCustomerPortalUpload(
   };
   next = appendComm(next, "customer_uploaded", actor, typeRef);
   return saveState(next);
+}
+
+export function newSecureUploadToken(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    return `uptok_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  }
+  return newId("uptok");
 }

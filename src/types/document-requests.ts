@@ -18,7 +18,36 @@ export type DocumentRequestItemStatus =
   | "uploaded"
   | "under_verification"
   | "verified"
-  | "rejected";
+  | "rejected"
+  | "re_upload_required";
+
+/** Customer-facing portal progress band (CO-DOC-002). */
+export type CustomerPortalProgressBand =
+  | "ready"
+  | "in_progress"
+  | "pending_documents"
+  | "awaiting_verification";
+
+export type DocumentRequestSessionAuditAction =
+  | "portal_opened"
+  | "token_validated"
+  | "token_rejected"
+  | "upload_started"
+  | "upload_completed"
+  | "upload_failed"
+  | "preview_opened"
+  | "replace_started"
+  | "saarthi_query";
+
+export interface DocumentRequestSessionAuditEvent {
+  id: string;
+  token: string;
+  opportunityId: string;
+  action: DocumentRequestSessionAuditAction;
+  at: string;
+  detail?: string;
+  userAgent?: string;
+}
 
 export type OpportunityDocumentReadinessState =
   | "ready_for_lender_submission"
@@ -73,6 +102,12 @@ export interface DocumentRequestUploadSession {
   borrowerTypeLabel: string;
   constitutionLabel: string;
   rmName?: string;
+  /** Customer-facing application status label (never internal IDs). */
+  applicationStatus?: string;
+  /** Customer-facing stage label (e.g. Document Collection). */
+  currentStage?: string;
+  /** Optional ops assignee for notifications. */
+  operationsUserName?: string;
   createdAt: string;
   expiresAt: string;
   regeneratedAt?: string;
@@ -85,8 +120,17 @@ export interface DocumentRequestWorkspaceState {
   lodItems: DocumentRequestItemState[];
   uploadSession?: DocumentRequestUploadSession;
   communications: DocumentRequestCommEvent[];
+  /** Secure portal access / activity audit (token-scoped). */
+  sessionAudit?: DocumentRequestSessionAuditEvent[];
   lastCustomerActivityAt?: string;
+  lastVerificationAt?: string;
   updatedAt: string;
+}
+
+export interface CustomerPortalProgressSnapshot extends OpportunityDocumentReadinessSnapshot {
+  band: CustomerPortalProgressBand;
+  bandLabel: string;
+  applicationStatusLabel: string;
 }
 
 export interface DocumentRequestLodReadinessGap {

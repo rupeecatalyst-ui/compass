@@ -8,6 +8,16 @@ export const DOCUMENT_REQUESTS_UPDATED_EVENT = "catalyst:document-requests-updat
 /** Default upload-link expiry (days). */
 export const DOCUMENT_REQUEST_LINK_EXPIRY_DAYS = 14;
 
+/** Portal session audit storage (extends Document Requests — not a document DB). */
+export const DOCUMENT_REQUEST_SESSION_AUDIT_KEY =
+  "catalyst.opportunity.document-requests.session-audit.v1";
+
+export const CUSTOMER_PORTAL_ACCEPT =
+  ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.zip,application/pdf,image/jpeg,image/png";
+
+export const CUSTOMER_PORTAL_DEFAULT_STAGE = "Document Collection";
+export const CUSTOMER_PORTAL_DEFAULT_APPLICATION_STATUS = "Documents Requested";
+
 export const DOCUMENT_REQUEST_EMAIL_SUBJECT =
   "Documents Required for Your {{Loan Product}} Application";
 
