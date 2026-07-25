@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Contact Registry — After BAT-016</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
+    .shell { height: 900px; display: flex; flex-direction: column; border: 1px solid #cbd5e1; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #e2e8f0; background: #fff; }
+    .header h1 { margin: 0; font-size: 15px; }
+    .header p { margin: 2px 0 0; font-size: 11px; color: #64748b; }
+    .btn { height: 28px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; font-size: 11px; }
+    .btn-primary { background: #0f766e; color: #fff; border-color: #0f766e; }
+    .actions { display: flex; gap: 6px; }
+    .chrome { margin: 8px 10px 0; border: 1px solid #cbd5e1; background: #fff; flex-shrink: 0; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px 6px; border-bottom: 1px solid #e2e8f0; }
+    .tab { height: 24px; padding: 0 8px; border-radius: 4px; border: none; background: transparent; font-size: 11px; color: #64748b; }
+    .tab.active { background: #0f766e; color: #fff; font-weight: 600; }
+    .smart { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 6px; }
+    input, select { height: 28px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0 8px; }
+    .count { margin-left: auto; font-size: 11px; color: #64748b; }
+    .grid { margin: 6px 10px; flex: 1; min-height: 0; border: 1px solid #cbd5e1; background: #fff; display: flex; flex-direction: column; overflow: hidden; }
+    .grid-toolbar { height: 28px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; font-size: 10px; color: #64748b; }
+    .grid-body { flex: 1; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+    th { background: #f8fafc; font-size: 10px; color: #64748b; position: sticky; top: 0; }
+    .pager { margin: 0 10px 8px; height: 32px; border: 1px solid #cbd5e1; background: #f8fafc; display: flex; align-items: center; padding: 0 8px; font-size: 11px; flex-shrink: 0; }
+    .badge { position: absolute; top: 8px; right: 12px; background: #047857; color: #fff; font-size: 11px; padding: 4px 8px; border-radius: 4px; }
+    .wrap { position: relative; }
+    .hint { position: absolute; left: 16px; bottom: 48px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: 11px; padding: 6px 10px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="badge">AFTER — ~75%+ grid · smart filters</div>
+    <div class="shell">
+      <div class="header">
+        <div>
+          <h1>Contacts</h1>
+          <p>Enterprise Contact Registry — individuals and companies.</p>
+        </div>
+        <div class="actions">
+          <button class="btn">Reload</button>
+          <button class="btn btn-primary">Add Contact</button>
+          <button class="btn">Contact Strategy</button>
+        </div>
+      </div>
+      <div class="chrome">
+        <div class="tabs">
+          <button class="tab active">All</button>
+          <button class="tab">Individuals</button>
+          <button class="tab">Companies</button>
+          <button class="tab">Borrowers</button>
+          <button class="tab">Investors</button>
+          <button class="tab">Builders</button>
+          <button class="tab">Chartered Accountants</button>
+          <button class="tab">Employees</button>
+          <button class="tab">Lender Contacts</button>
+          <button class="tab">Partners</button>
+        </div>
+        <div class="smart">
+          <input placeholder="Search name, mobile, email…" style="width:220px" />
+          <select><option>All Types</option></select>
+          <select><option>All RMs</option></select>
+          <select><option>All Status</option></select>
+          <button class="btn">More Filters ▾</button>
+          <span class="count">12 of 12</span>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="grid-toolbar">
+          <span>Contact Registry · 12 entries</span>
+          <span>Export to Excel · Columns · Reset Columns</span>
+        </div>
+        <div class="grid-body">
+          <table>
+            <thead><tr><th>Contact ID</th><th>Name</th><th>Type</th><th>Mobile</th><th>City</th><th>RM</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>C-001</td><td>Priya Sharma</td><td>Borrower</td><td>98xxxx</td><td>Pune</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-002</td><td>Amit Patel</td><td>Borrower</td><td>97xxxx</td><td>Mumbai</td><td>RM B</td><td>active</td></tr>
+              <tr><td>C-003</td><td>Neha Joshi</td><td>Partner</td><td>96xxxx</td><td>Nashik</td><td>RM A</td><td>verified</td></tr>
+              <tr><td>C-004</td><td>Rahul Mehta</td><td>Investor</td><td>95xxxx</td><td>Pune</td><td>RM C</td><td>active</td></tr>
+              <tr><td>C-005</td><td>BuildCo Pvt</td><td>Company</td><td>—</td><td>Pune</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-006</td><td>Sneha Kulkarni</td><td>CA</td><td>94xxxx</td><td>Nagpur</td><td>RM B</td><td>complete</td></tr>
+              <tr><td>C-007</td><td>Vikram Desai</td><td>Employee</td><td>93xxxx</td><td>Pune</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-008</td><td>HDFC Contact</td><td>Lender</td><td>92xxxx</td><td>Mumbai</td><td>RM C</td><td>active</td></tr>
+              <tr><td>C-009</td><td>Ananya Rao</td><td>Borrower</td><td>91xxxx</td><td>Pune</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-010</td><td>Karan Shah</td><td>Builder</td><td>90xxxx</td><td>Surat</td><td>RM B</td><td>active</td></tr>
+              <tr><td>C-011</td><td>Meera Iyer</td><td>Partner</td><td>89xxxx</td><td>Chennai</td><td>RM C</td><td>provisional</td></tr>
+              <tr><td>C-012</td><td>Rohan Gupta</td><td>Borrower</td><td>88xxxx</td><td>Delhi</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-013</td><td>Isha Nair</td><td>Investor</td><td>87xxxx</td><td>Bengaluru</td><td>RM B</td><td>verified</td></tr>
+              <tr><td>C-014</td><td>Dev Builders</td><td>Company</td><td>—</td><td>Pune</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-015</td><td>Pooja Verma</td><td>CA</td><td>86xxxx</td><td>Indore</td><td>RM C</td><td>active</td></tr>
+              <tr><td>C-016</td><td>Arjun Singh</td><td>Employee</td><td>85xxxx</td><td>Pune</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-017</td><td>SBI Desk</td><td>Lender</td><td>84xxxx</td><td>Mumbai</td><td>RM B</td><td>active</td></tr>
+              <tr><td>C-018</td><td>Nisha Kapoor</td><td>Borrower</td><td>83xxxx</td><td>Jaipur</td><td>RM C</td><td>complete</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="pager">1–18 of 18 · Rows 50 · Previous / Next</div>
+      <div class="hint">Grid receives most of the viewport · advanced filters collapsed</div>
+    </div>
+  </div>
+</body>
+</html>

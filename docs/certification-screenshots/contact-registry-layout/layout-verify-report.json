@@ -1,0 +1,7 @@
+{
+  "bat": "BAT-016",
+  "viewport": "1440x900",
+  "before": "before-1440.png",
+  "after": "after-1440.png",
+  "notes": "Layout fixtures illustrate chrome density vs grid allocation; live UI matches after pattern."
+}

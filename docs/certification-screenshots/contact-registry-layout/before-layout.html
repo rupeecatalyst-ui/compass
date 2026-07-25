@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Contact Registry — Before BAT-016</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
+    .shell { height: 900px; display: flex; flex-direction: column; border: 1px solid #cbd5e1; }
+    .page-header { padding: 16px 20px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    .page-header h1 { margin: 0; font-size: 24px; }
+    .page-header p { margin: 6px 0 0; font-size: 14px; color: #64748b; }
+    .actions { margin-top: 12px; display: flex; gap: 8px; }
+    .btn { height: 32px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; font-size: 12px; }
+    .btn-primary { background: #0f766e; color: #fff; border-color: #0f766e; }
+    .filters { margin: 12px; padding: 10px; border: 1px solid #cbd5e1; background: #fff; }
+    .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
+    .chip { height: 28px; padding: 0 10px; border-radius: 4px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 11px; }
+    .chip.active { background: #e2e8f0; font-weight: 600; }
+    .label { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; }
+    input, select { height: 28px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0 8px; }
+    .grid { margin: 0 12px; flex: 1; border: 1px solid #cbd5e1; background: #fff; overflow: hidden; display: flex; flex-direction: column; }
+    .grid-toolbar { height: 36px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: #64748b; }
+    .grid-body { flex: 1; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border-bottom: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
+    th { background: #f8fafc; font-size: 11px; color: #64748b; }
+    .pager { margin: 8px 12px 12px; height: 36px; border: 1px solid #cbd5e1; background: #f8fafc; display: flex; align-items: center; padding: 0 10px; font-size: 11px; }
+    .badge { position: absolute; top: 8px; right: 12px; background: #b45309; color: #fff; font-size: 11px; padding: 4px 8px; border-radius: 4px; }
+    .wrap { position: relative; }
+    .note { margin: 8px 12px; font-size: 12px; color: #b45309; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="badge">BEFORE — multi-row filters dominate chrome</div>
+    <div class="shell">
+      <div class="page-header">
+        <h1>Contacts</h1>
+        <p>Directory Registry — locate individuals and companies in one operational table.</p>
+        <div class="actions">
+          <button class="btn">Reload</button>
+          <button class="btn btn-primary">Add Contact</button>
+          <button class="btn">Contact Strategy</button>
+        </div>
+      </div>
+      <p class="note">Enterprise Contact Registry — PostgreSQL is the source of truth…</p>
+      <div class="filters">
+        <div class="row">
+          <strong style="font-size:11px">Directory Registry</strong>
+          <span class="chip active">All</span><span class="chip">Individuals</span><span class="chip">Companies</span>
+          <span class="label">Business Roles</span>
+          <span class="chip">Borrowers</span><span class="chip">Investors</span><span class="chip">Builders</span>
+          <span class="chip">CAs</span><span class="chip">Employees</span><span class="chip">Lender Contacts</span><span class="chip">Partners</span>
+          <input placeholder="Search…" style="width:200px" />
+        </div>
+        <div class="row">
+          <input placeholder="Column: Name" style="width:120px" />
+          <input placeholder="Column: Mobile" style="width:120px" />
+          <select><option>Contact Type</option></select>
+          <select><option>State</option></select>
+          <select><option>City</option></select>
+          <select><option>Assigned RM</option></select>
+          <select><option>Status</option></select>
+          <select><option>Strategic</option></select>
+        </div>
+        <div class="row">
+          <span class="label">Created</span>
+          <input type="date" /><span>–</span><input type="date" />
+          <span class="label">Last interaction</span>
+          <input type="date" /><span>–</span><input type="date" />
+          <span class="label">Score</span>
+          <input placeholder="Min" style="width:56px" /><span>–</span><input placeholder="Max" style="width:56px" />
+        </div>
+      </div>
+      <div class="grid">
+        <div class="grid-toolbar">Directory Registry · 12 entries · Export · Columns · Reset Columns</div>
+        <div class="grid-body">
+          <table>
+            <thead><tr><th>Contact ID</th><th>Name</th><th>Type</th><th>Mobile</th><th>City</th><th>RM</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>C-001</td><td>Priya Sharma</td><td>Borrower</td><td>98xxxx</td><td>Pune</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-002</td><td>Amit Patel</td><td>Borrower</td><td>97xxxx</td><td>Mumbai</td><td>RM B</td><td>active</td></tr>
+              <tr><td>C-003</td><td>Neha Joshi</td><td>Partner</td><td>96xxxx</td><td>Nashik</td><td>RM A</td><td>verified</td></tr>
+              <tr><td>C-004</td><td>Rahul Mehta</td><td>Investor</td><td>95xxxx</td><td>Pune</td><td>RM C</td><td>active</td></tr>
+              <tr><td>C-005</td><td>BuildCo Pvt</td><td>Company</td><td>—</td><td>Pune</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-006</td><td>Sneha Kulkarni</td><td>CA</td><td>94xxxx</td><td>Nagpur</td><td>RM B</td><td>complete</td></tr>
+              <tr><td>C-007</td><td>Vikram Desai</td><td>Employee</td><td>93xxxx</td><td>Pune</td><td>RM A</td><td>active</td></tr>
+              <tr><td>C-008</td><td>HDFC Contact</td><td>Lender</td><td>92xxxx</td><td>Mumbai</td><td>RM C</td><td>active</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="pager">1–8 of 12 · Rows 20 · Previous / Next</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -12,7 +12,6 @@ import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contac
 import { QuickContactCreationWizard } from "@/components/catalyst-one/contacts/quick-contact-creation-wizard";
 import { CompanyWorkspaceModal } from "@/components/catalyst-one/companies/company-workspace-modal";
 import { ContactRegistryTable } from "@/components/catalyst-one/directory/contact-registry-table";
-import { PageHeader } from "@/components/design-system/page-header";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
@@ -130,7 +129,7 @@ function ContactsRegistryInner() {
     return queryEcmContacts({
       page: 1,
       pageSize: 500,
-      sortBy: "modifiedOn",
+      sortBy: "createdOn",
       sortDir: "desc",
     }).items.filter((c) => c.status !== "archived");
   }, [tick, registryVersion]);
@@ -193,62 +192,64 @@ function ContactsRegistryInner() {
   };
 
   return (
-    <div className="space-y-3">
-      <PageHeader
-        title="Contacts"
-        description="Directory Registry — locate individuals and companies in one operational table."
-        actions={
-          <div className="flex flex-wrap gap-1.5">
-            {isEnterprisePersistencePrisma() ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 gap-1.5 rounded-md px-3 text-xs"
-                disabled={hydrating}
-                onClick={() => void reloadFromDatabase()}
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${hydrating ? "animate-spin" : ""}`} />
-                {hydrating ? "Loading…" : "Reload"}
-              </Button>
-            ) : null}
-            <Button type="button" onClick={openCreate} className="h-8 gap-1.5 rounded-md px-3 text-xs">
-              <Plus className="h-3.5 w-3.5" />
-              Add Contact
+    <div
+      className="flex h-[calc(100vh-3.5rem)] flex-col gap-0 overflow-hidden"
+      data-sprint="BAT-016"
+      data-surface="contacts-workspace"
+    >
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border/70 px-2.5 py-1.5 md:px-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-sm font-semibold tracking-tight md:text-[15px]">
+            Contacts
+          </h1>
+          <p className="hidden text-[11px] text-muted-foreground sm:block">
+            Enterprise Contact Registry — individuals and companies.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {isEnterprisePersistencePrisma() ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-7 gap-1 px-2 text-[11px]"
+              disabled={hydrating}
+              onClick={() => void reloadFromDatabase()}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${hydrating ? "animate-spin" : ""}`} />
+              {hydrating ? "Loading…" : "Reload"}
             </Button>
-            <Button asChild variant="outline" className="h-8 rounded-md px-3 text-xs">
-              <Link href={ROUTES.CONTACT_STRATEGY}>Contact Strategy</Link>
-            </Button>
-            <Button asChild variant="outline" className="h-8 gap-1.5 rounded-md px-3 text-xs">
-              <Link href={`${ROUTES.LOAN_FILES}?create=1`}>
-                <Plus className="h-3.5 w-3.5" />
-                Start Loan Journey
-              </Link>
-            </Button>
-          </div>
-        }
-      />
+          ) : null}
+          <Button
+            type="button"
+            onClick={openCreate}
+            className="h-7 gap-1 px-2.5 text-[11px]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Contact
+          </Button>
+          <Button asChild variant="outline" className="h-7 rounded-md px-2.5 text-[11px]">
+            <Link href={ROUTES.CONTACT_STRATEGY}>Contact Strategy</Link>
+          </Button>
+        </div>
+      </header>
 
       {hydrateError ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <div className="shrink-0 border-b border-destructive/40 bg-destructive/5 px-3 py-1.5 text-[11px] text-destructive">
           {hydrateError}
         </div>
       ) : null}
 
-      {isEnterprisePersistencePrisma() ? (
-        <p className="text-xs text-muted-foreground">
-          Enterprise Contact Registry — PostgreSQL (Supabase) is the source of truth. Demo seeds disabled.
-        </p>
-      ) : null}
-
-      <ContactRegistryTable
-        contacts={contacts}
-        companies={companies}
-        onOpenContact={openContact}
-        onOpenCompany={openCompany}
-        onRegistryChanged={refresh}
-        highlightSearch={registryHighlight}
-        onHighlightApplied={() => setRegistryHighlight(undefined)}
-      />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2.5 py-1.5 md:px-3 md:py-2">
+        <ContactRegistryTable
+          contacts={contacts}
+          companies={companies}
+          onOpenContact={openContact}
+          onOpenCompany={openCompany}
+          onRegistryChanged={refresh}
+          highlightSearch={registryHighlight}
+          onHighlightApplied={() => setRegistryHighlight(undefined)}
+        />
+      </div>
 
       <ContactCreationIntentScreen
         open={intentOpen}
@@ -315,7 +316,7 @@ function ContactsRegistryInner() {
         mode={workspaceMode}
         contact={workspaceContact}
         actorId={user?.id ?? "ui"}
-        initialTab="dashboard"
+        initialTab="overview"
         onOpenChange={setWorkspaceOpen}
         onSaved={() => refresh()}
         onOpenExisting={(existing) => {

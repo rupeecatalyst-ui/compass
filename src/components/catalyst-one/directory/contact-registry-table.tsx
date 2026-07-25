@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ChevronDown, Download, X } from "lucide-react";
 import {
   EnterpriseDataGrid,
   type EnterpriseGridColumnDef,
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { getEcmRoleLabel, ECM_ROLE_MASTER } from "@/constants/enterprise-contact-master";
 import { listContactRegistryFilters } from "@/constants/enterprise-contact-master/registry-filters";
+import { NEW_ARRIVALS_QUERY } from "@/constants/user-home-dashboard/new-arrivals";
 import { updateEcmContact } from "@/lib/enterprise-contact-master";
 import {
   buildDirectoryRegistryRows,
@@ -31,7 +33,7 @@ import {
 } from "@/lib/enterprise-contact-registry";
 import { downloadCsv } from "@/lib/loan-files-utils";
 import type { EcmCompany } from "@/types/enterprise-company-master";
-import type { EcmContact, EcmContactStatus } from "@/types/enterprise-contact-master";
+import type { EcmContact, EcmContactRole, EcmContactStatus } from "@/types/enterprise-contact-master";
 import {
   CONTACT_REGISTRY_PAGE_SIZES,
   EMPTY_CONTACT_REGISTRY_FILTERS,
@@ -75,6 +77,23 @@ const STATUS_OPTIONS: EcmContactStatus[] = [
   "archived",
 ];
 
+const ECM_CONTACT_ROLES = new Set<string>(
+  ECM_ROLE_MASTER.map((r) => r.code),
+);
+
+function filtersFromSearchParams(params: URLSearchParams): Partial<ContactRegistryFilters> {
+  const patch: Partial<ContactRegistryFilters> = {};
+  const contactType = params.get(NEW_ARRIVALS_QUERY.contactType)?.trim();
+  if (contactType && ECM_CONTACT_ROLES.has(contactType)) {
+    patch.contactType = contactType as EcmContactRole;
+  }
+  const from = params.get(NEW_ARRIVALS_QUERY.dateCreatedFrom)?.trim();
+  const to = params.get(NEW_ARRIVALS_QUERY.dateCreatedTo)?.trim();
+  if (from) patch.dateCreatedFrom = from;
+  if (to) patch.dateCreatedTo = to;
+  return patch;
+}
+
 interface ContactRegistryTableProps {
   contacts: EcmContact[];
   companies: EcmCompany[];
@@ -99,11 +118,26 @@ export function ContactRegistryTable({
   onHighlightApplied,
 }: ContactRegistryTableProps) {
   const { user } = useAuthContext();
-  const [filters, setFilters] = useState<ContactRegistryFilters>(EMPTY_CONTACT_REGISTRY_FILTERS);
-  const [sortField, setSortField] = useState<ContactRegistrySortField>("lastModifiedAt");
+  const searchParams = useSearchParams();
+  const [filters, setFilters] = useState<ContactRegistryFilters>(() => ({
+    ...EMPTY_CONTACT_REGISTRY_FILTERS,
+    ...filtersFromSearchParams(searchParams),
+  }));
+  const [sortField, setSortField] = useState<ContactRegistrySortField>("dateCreatedAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<(typeof CONTACT_REGISTRY_PAGE_SIZES)[number]>(20);
+  const [pageSize, setPageSize] = useState<(typeof CONTACT_REGISTRY_PAGE_SIZES)[number]>(50);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+
+  // CO-SPRINT-119 — hydrate registry filters from New Arrivals (and similar) drill-down URLs
+  useEffect(() => {
+    const patch = filtersFromSearchParams(searchParams);
+    if (Object.keys(patch).length === 0) return;
+    setFilters((f) => ({ ...f, ...patch }));
+    setSortField("dateCreatedAt");
+    setSortDir("desc");
+    setPage(1);
+  }, [searchParams]);
 
   useEffect(() => {
     const term = highlightSearch?.trim();
@@ -473,8 +507,21 @@ export function ContactRegistryTable({
     filters.columnName ||
     filters.columnMobile;
 
+  const hasAdvancedFilters =
+    filters.city !== "all" ||
+    filters.state !== "all" ||
+    filters.strategic !== "all" ||
+    Boolean(filters.dateCreatedFrom) ||
+    Boolean(filters.dateCreatedTo) ||
+    Boolean(filters.lastInteractionFrom) ||
+    Boolean(filters.lastInteractionTo) ||
+    Boolean(filters.scoreMin) ||
+    Boolean(filters.scoreMax) ||
+    Boolean(filters.columnName) ||
+    Boolean(filters.columnMobile);
+
   const sortColumnId =
-    Object.entries(SORT_MAP).find(([, f]) => f === sortField)?.[0] ?? "lastModified";
+    Object.entries(SORT_MAP).find(([, f]) => f === sortField)?.[0] ?? "dateCreated";
 
   const roleOptions = useMemo(
     () =>
@@ -485,6 +532,18 @@ export function ContactRegistryTable({
     [],
   );
 
+  const registryTabs = useMemo(
+    () => [...entityFilters, ...roleFilters],
+    [entityFilters, roleFilters],
+  );
+
+  const isTabActive = (filter: (typeof registryTabs)[number]) => {
+    if (filter.kind === "role") {
+      return filters.contactType === filter.role && filters.entityFilter !== "companies";
+    }
+    return filters.entityFilter === filter.id && filters.contactType === "all";
+  };
+
   const entityLabel =
     filters.entityFilter === "all"
       ? "entries"
@@ -492,86 +551,63 @@ export function ContactRegistryTable({
         ? "individuals"
         : "companies";
 
+  const selectClass = "h-7 w-[118px] rounded-sm text-[11px]";
+  const controlH = "h-7 rounded-sm text-[11px]";
+
+  const resetFilters = () => {
+    setFilters(EMPTY_CONTACT_REGISTRY_FILTERS);
+    setPage(1);
+  };
+
   return (
-    <div className="space-y-2">
-      <div className="space-y-1.5 border border-slate-300 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-card">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold tracking-tight text-foreground">
-            Directory Registry
-          </span>
-          <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-slate-200 bg-slate-50/80 p-0.5 dark:border-zinc-700 dark:bg-zinc-900/40">
-            {entityFilters.map((filter) => {
-              const active = filters.entityFilter === filter.id;
-              return (
-                <Button
-                  key={filter.id}
-                  type="button"
-                  variant={active ? "secondary" : "ghost"}
-                  size="sm"
-                  className={cn(
-                    "h-7 rounded-sm px-2.5 text-[11px] font-medium",
-                    active && "shadow-sm",
-                  )}
-                  onClick={() =>
-                    patchFilters({
-                      entityFilter: filter.id as DirectoryEntityFilter,
-                      contactType: "all",
-                    })
-                  }
-                >
-                  {filter.label}
-                </Button>
-              );
-            })}
-          </div>
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Business Roles
-          </span>
-          <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-slate-200 bg-slate-50/80 p-0.5 dark:border-zinc-700 dark:bg-zinc-900/40">
-            {roleFilters.map((filter) => {
-              const active =
-                filters.contactType === filter.role && filters.entityFilter !== "companies";
-              return (
-                <Button
-                  key={filter.id}
-                  type="button"
-                  variant={active ? "secondary" : "ghost"}
-                  size="sm"
-                  className={cn(
-                    "h-7 rounded-sm px-2.5 text-[11px] font-medium",
-                    active && "shadow-sm",
-                  )}
-                  onClick={() =>
+    <div
+      className="flex min-h-0 flex-1 flex-col gap-1.5"
+      data-sprint="BAT-016"
+      data-surface="contact-registry"
+    >
+      <div className="shrink-0 border border-slate-300 bg-white dark:border-zinc-700 dark:bg-card">
+        {/* Registry role / entity tabs — single compact strip */}
+        <div className="flex flex-wrap items-center gap-0.5 border-b border-border/70 px-1.5 py-1">
+          {registryTabs.map((filter) => {
+            const active = isTabActive(filter);
+            return (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => {
+                  if (filter.kind === "role") {
                     patchFilters({
                       entityFilter: "individuals",
                       contactType: filter.role ?? "all",
-                    })
+                    });
+                    return;
                   }
-                >
-                  {filter.label}
-                </Button>
-              );
-            })}
-          </div>
+                  patchFilters({
+                    entityFilter: filter.id as DirectoryEntityFilter,
+                    contactType: "all",
+                  });
+                }}
+                className={cn(
+                  "rounded px-2 py-0.5 text-[11px] font-medium transition-colors",
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Smart default filters */}
+        <div className="flex flex-wrap items-center gap-1.5 px-1.5 py-1">
           <Input
             value={filters.search}
             onChange={(e) => patchFilters({ search: e.target.value })}
-            placeholder="Search…"
-            className="h-7 w-[200px] rounded-sm text-[11px]"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Input
-            value={filters.columnName}
-            onChange={(e) => patchFilters({ columnName: e.target.value })}
-            placeholder="Column: Name"
-            className="h-7 w-[120px] rounded-sm text-[11px]"
-          />
-          <Input
-            value={filters.columnMobile}
-            onChange={(e) => patchFilters({ columnMobile: e.target.value })}
-            placeholder="Column: Mobile"
-            className="h-7 w-[120px] rounded-sm text-[11px]"
+            placeholder="Search name, mobile, email…"
+            className={cn(controlH, "w-[min(100%,14rem)] min-w-[10rem] flex-1 sm:flex-none")}
+            aria-label="Search contacts"
           />
           <Select
             value={filters.contactType}
@@ -579,7 +615,7 @@ export function ContactRegistryTable({
               patchFilters({ contactType: v as ContactRegistryFilters["contactType"] })
             }
           >
-            <SelectTrigger className="h-7 w-[130px] rounded-sm text-[11px]">
+            <SelectTrigger className={cn(selectClass, "w-[130px]")} aria-label="Contact Type">
               <SelectValue placeholder="Contact Type" />
             </SelectTrigger>
             <SelectContent>
@@ -591,35 +627,12 @@ export function ContactRegistryTable({
               ))}
             </SelectContent>
           </Select>
-          <Select value={filters.state} onValueChange={(v) => patchFilters({ state: v, city: "all" })}>
-            <SelectTrigger className="h-7 w-[120px] rounded-sm text-[11px]">
-              <SelectValue placeholder="State" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All States</SelectItem>
-              {states.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.city} onValueChange={(v) => patchFilters({ city: v })}>
-            <SelectTrigger className="h-7 w-[120px] rounded-sm text-[11px]">
-              <SelectValue placeholder="City" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Cities</SelectItem>
-              {cities.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.assignedRm} onValueChange={(v) => patchFilters({ assignedRm: v })}>
-            <SelectTrigger className="h-7 w-[140px] rounded-sm text-[11px]">
-              <SelectValue placeholder="Assigned RM" />
+          <Select
+            value={filters.assignedRm}
+            onValueChange={(v) => patchFilters({ assignedRm: v })}
+          >
+            <SelectTrigger className={cn(selectClass, "w-[130px]")} aria-label="Relationship Manager">
+              <SelectValue placeholder="RM" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All RMs</SelectItem>
@@ -634,7 +647,7 @@ export function ContactRegistryTable({
             value={filters.status}
             onValueChange={(v) => patchFilters({ status: v as ContactRegistryFilters["status"] })}
           >
-            <SelectTrigger className="h-7 w-[120px] rounded-sm text-[11px]">
+            <SelectTrigger className={selectClass} aria-label="Status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -646,100 +659,177 @@ export function ContactRegistryTable({
               ))}
             </SelectContent>
           </Select>
-          <Select
-            value={filters.strategic}
-            onValueChange={(v) =>
-              patchFilters({ strategic: v as ContactRegistryFilters["strategic"] })
-            }
+          <Button
+            type="button"
+            variant={moreFiltersOpen || hasAdvancedFilters ? "secondary" : "outline"}
+            size="sm"
+            className="h-7 gap-1 px-2 text-[11px]"
+            onClick={() => setMoreFiltersOpen((o) => !o)}
+            aria-expanded={moreFiltersOpen}
+            aria-controls="contact-registry-more-filters"
           >
-            <SelectTrigger className="h-7 w-[140px] rounded-sm text-[11px]">
-              <SelectValue placeholder="Strategic" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Strategic: All</SelectItem>
-              <SelectItem value="yes">Strategic: Yes</SelectItem>
-              <SelectItem value="no">Strategic: No</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Created
-          </span>
-          <Input
-            type="date"
-            value={filters.dateCreatedFrom}
-            onChange={(e) => patchFilters({ dateCreatedFrom: e.target.value })}
-            className="h-7 w-[128px] rounded-sm text-[11px]"
-          />
-          <span className="text-[11px] text-muted-foreground">–</span>
-          <Input
-            type="date"
-            value={filters.dateCreatedTo}
-            onChange={(e) => patchFilters({ dateCreatedTo: e.target.value })}
-            className="h-7 w-[128px] rounded-sm text-[11px]"
-          />
-          <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Last interaction
-          </span>
-          <Input
-            type="date"
-            value={filters.lastInteractionFrom}
-            onChange={(e) => patchFilters({ lastInteractionFrom: e.target.value })}
-            className="h-7 w-[128px] rounded-sm text-[11px]"
-          />
-          <span className="text-[11px] text-muted-foreground">–</span>
-          <Input
-            type="date"
-            value={filters.lastInteractionTo}
-            onChange={(e) => patchFilters({ lastInteractionTo: e.target.value })}
-            className="h-7 w-[128px] rounded-sm text-[11px]"
-          />
-          <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Score
-          </span>
-          <Input
-            value={filters.scoreMin}
-            onChange={(e) => patchFilters({ scoreMin: e.target.value })}
-            placeholder="Min"
-            className="h-7 w-[56px] rounded-sm text-[11px]"
-            inputMode="numeric"
-          />
-          <span className="text-[11px] text-muted-foreground">–</span>
-          <Input
-            value={filters.scoreMax}
-            onChange={(e) => patchFilters({ scoreMax: e.target.value })}
-            placeholder="Max"
-            className="h-7 w-[56px] rounded-sm text-[11px]"
-            inputMode="numeric"
-          />
-          {hasFilters && (
+            More Filters
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 transition-transform",
+                moreFiltersOpen && "rotate-180",
+              )}
+              aria-hidden
+            />
+            {hasAdvancedFilters ? (
+              <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+            ) : null}
+          </Button>
+          {hasFilters ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className="h-7 px-2 text-[11px]"
-              onClick={() => {
-                setFilters(EMPTY_CONTACT_REGISTRY_FILTERS);
-                setPage(1);
-              }}
+              onClick={resetFilters}
             >
               <X className="mr-1 h-3 w-3" />
-              Clear
+              Reset
             </Button>
-          )}
+          ) : null}
+          <p className="ml-auto text-[11px] tabular-nums text-muted-foreground">
+            {filteredSorted.length} of {allRows.length}
+          </p>
         </div>
+
+        {moreFiltersOpen ? (
+          <div
+            id="contact-registry-more-filters"
+            className="space-y-1.5 border-t border-dashed border-border/80 bg-muted/20 px-1.5 py-1.5"
+          >
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Input
+                value={filters.columnName}
+                onChange={(e) => patchFilters({ columnName: e.target.value })}
+                placeholder="Column: Name"
+                className={cn(controlH, "w-[120px]")}
+              />
+              <Input
+                value={filters.columnMobile}
+                onChange={(e) => patchFilters({ columnMobile: e.target.value })}
+                placeholder="Column: Mobile"
+                className={cn(controlH, "w-[120px]")}
+              />
+              <Select
+                value={filters.state}
+                onValueChange={(v) => patchFilters({ state: v, city: "all" })}
+              >
+                <SelectTrigger className={cn(selectClass, "w-[110px]")}>
+                  <SelectValue placeholder="State" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All States</SelectItem>
+                  {states.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filters.city} onValueChange={(v) => patchFilters({ city: v })}>
+                <SelectTrigger className={cn(selectClass, "w-[110px]")}>
+                  <SelectValue placeholder="City" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cities</SelectItem>
+                  {cities.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.strategic}
+                onValueChange={(v) =>
+                  patchFilters({ strategic: v as ContactRegistryFilters["strategic"] })
+                }
+              >
+                <SelectTrigger className={cn(selectClass, "w-[140px]")}>
+                  <SelectValue placeholder="Strategic" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Strategic: All</SelectItem>
+                  <SelectItem value="yes">Strategic: Yes</SelectItem>
+                  <SelectItem value="no">Strategic: No</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Created
+              </span>
+              <Input
+                type="date"
+                value={filters.dateCreatedFrom}
+                onChange={(e) => patchFilters({ dateCreatedFrom: e.target.value })}
+                className={cn(controlH, "w-[118px]")}
+                aria-label="Created from"
+              />
+              <span className="text-[11px] text-muted-foreground">–</span>
+              <Input
+                type="date"
+                value={filters.dateCreatedTo}
+                onChange={(e) => patchFilters({ dateCreatedTo: e.target.value })}
+                className={cn(controlH, "w-[118px]")}
+                aria-label="Created to"
+              />
+              <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Last interaction
+              </span>
+              <Input
+                type="date"
+                value={filters.lastInteractionFrom}
+                onChange={(e) => patchFilters({ lastInteractionFrom: e.target.value })}
+                className={cn(controlH, "w-[118px]")}
+                aria-label="Last interaction from"
+              />
+              <span className="text-[11px] text-muted-foreground">–</span>
+              <Input
+                type="date"
+                value={filters.lastInteractionTo}
+                onChange={(e) => patchFilters({ lastInteractionTo: e.target.value })}
+                className={cn(controlH, "w-[118px]")}
+                aria-label="Last interaction to"
+              />
+              <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Score
+              </span>
+              <Input
+                value={filters.scoreMin}
+                onChange={(e) => patchFilters({ scoreMin: e.target.value })}
+                placeholder="Min"
+                className={cn(controlH, "w-[56px]")}
+                inputMode="numeric"
+              />
+              <span className="text-[11px] text-muted-foreground">–</span>
+              <Input
+                value={filters.scoreMax}
+                onChange={(e) => patchFilters({ scoreMax: e.target.value })}
+                placeholder="Max"
+                className={cn(controlH, "w-[56px]")}
+                inputMode="numeric"
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <EnterpriseDataGrid
-        storageKey="catalyst.ecm.contact-registry.v2"
+        className="min-h-0 flex-1"
+        storageKey="catalyst.ecm.contact-registry.v3"
         userId={user?.id}
-        density="compact"
+        density="dense"
         columns={columns}
         rows={pageRows}
         rowKey={(row) => row.id}
         emptyMessage="No entries match the current filters."
-        toolbarLabel={`Directory Registry · ${filteredSorted.length} ${entityLabel}`}
+        toolbarLabel={`Contact Registry · ${filteredSorted.length} ${entityLabel}`}
         sortColumnId={sortColumnId}
         sortDirection={sortDir}
         onSort={handleSort}
@@ -750,13 +840,13 @@ export function ContactRegistryTable({
           }
           if (row.contact) onOpenContact(row.contact);
         }}
-        maxHeightClassName="max-h-[min(72vh,860px)]"
+        maxHeightClassName="h-full max-h-none min-h-0 flex-1"
         toolbarActions={
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="h-7 gap-1.5 rounded-md text-[11px]"
+            className="h-6 gap-1.5 rounded-md px-2 text-[10px]"
             onClick={() => {
               downloadCsv(
                 exportContactRegistryCsv(filteredSorted),
@@ -770,7 +860,7 @@ export function ContactRegistryTable({
         }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border border-slate-300 bg-slate-50/80 px-2.5 py-1.5 dark:border-zinc-700 dark:bg-zinc-900/40">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border border-slate-300 bg-slate-50/80 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900/40">
         <p className="text-[11px] tabular-nums text-muted-foreground">
           {filteredSorted.length === 0
             ? `0 ${entityLabel}`
