@@ -26,6 +26,7 @@ export type EnterpriseOpportunityApiRecord = {
   priority?: string | null;
   primaryOwnerUserId?: string | null;
   relationshipManagerName?: string | null;
+  relationshipManagerUserId?: string | null;
   requestedAmount?: number | null;
   /** ADR-018 — Product + Required Amount present. */
   requirementCaptured?: boolean;
@@ -129,6 +130,8 @@ export type OpportunityUpdateBody = {
   currencyCode?: string;
   rowVersion?: number;
   lendingExtension?: Record<string, unknown> | null;
+  primaryOwnerUserId?: string | null;
+  relationshipManagerUserId?: string | null;
   allowActiveDuplicateOverride?: boolean;
   overrideReason?: string;
 };

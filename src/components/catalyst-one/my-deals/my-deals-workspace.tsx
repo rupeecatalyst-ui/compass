@@ -19,7 +19,14 @@ import { listDealRegistryRows } from "@/lib/my-deals/deal-registry";
 import { loadMyDealsDealRegistryRows } from "@/lib/enterprise-deal/deal-registry-port";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { getRememberedDeal } from "@/lib/enterprise-deal/dual-write-store";
+import { mapEnterpriseDealToDealRegistryRow } from "@/lib/enterprise-deal/map-deal-to-registry-row";
 import { queueMyDealsShadowRead } from "@/lib/enterprise-deal/shadow-read";
+import {
+  buildAssignmentPatch,
+  formatAssignedUsersLabel,
+  writeAssignedUsersIntoExtension,
+  type AssignedUserRef,
+} from "@/lib/assigned-users";
 import { resolveCurrentRmName } from "@/lib/my-deals";
 import { readMyDealsReturnState, rememberMyDealsReturnState } from "@/lib/my-deals/view-state";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
@@ -193,6 +200,57 @@ export function MyDealsWorkspace() {
     [readSource, refresh],
   );
 
+  const handleAssignUsers = useCallback(
+    async (row: DealRegistryRow, users: AssignedUserRef[]) => {
+      const enterpriseId = await resolveEnterpriseDealId(row);
+      if (!enterpriseId) {
+        const message =
+          "Missing: Enterprise Deal id. Reason: deal is not linked to Deal Registry. Action: open the deal once, then retry assignment.";
+        toast.error(message);
+        throw new Error(message);
+      }
+      if (typeof row.rowVersion !== "number") {
+        const message =
+          "Missing: Deal row version. Reason: registry row is incomplete. Action: refresh My Deals, then retry.";
+        toast.error(message);
+        throw new Error(message);
+      }
+      const patch = buildAssignmentPatch(users);
+      const lendingExtension = writeAssignedUsersIntoExtension(
+        row.lendingExtension,
+        users,
+      );
+      try {
+        const updated = await enterpriseDealApiClient.updateDeal(enterpriseId, {
+          rowVersion: row.rowVersion,
+          lendingExtension,
+          primaryOwnerUserId: patch.primaryOwnerUserId,
+          relationshipManagerUserId: patch.relationshipManagerUserId,
+          relationshipManagerName: patch.relationshipManagerName,
+        });
+        const mapped = mapEnterpriseDealToDealRegistryRow(updated);
+        setPortRows((prev) =>
+          (prev ?? []).map((r) =>
+            r.id === row.id || r.enterpriseDealId === enterpriseId
+              ? {
+                  ...mapped,
+                  assignedUsers: users,
+                  assignedRm: formatAssignedUsersLabel(users),
+                }
+              : r,
+          ),
+        );
+        toast.success("Assigned users updated.");
+        refresh();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to update assigned users";
+        toast.error(message);
+        throw err;
+      }
+    },
+    [refresh],
+  );
+
   return (
     <div
       className="flex h-[calc(100vh-3.5rem)] flex-col gap-0 overflow-hidden"
@@ -272,6 +330,7 @@ export function MyDealsWorkspace() {
               onOpenDeal={(row) => openOpportunityWorkspace(router, row)}
               onEditDeal={(row) => openOpportunityWorkspace(router, row)}
               onDeleteDeal={handleDeleteDeal}
+              onAssignUsers={handleAssignUsers}
             />
           </div>
         ) : (

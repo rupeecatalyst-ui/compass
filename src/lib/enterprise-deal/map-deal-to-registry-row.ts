@@ -4,6 +4,7 @@
  */
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { formatINR } from "@/lib/format-currency";
+import { coalesceAssignedUsers, formatAssignedUsersLabel } from "@/lib/assigned-users";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import type { DealRegistryRow } from "@/types/deal-registry";
 import type { LoanFilePriority, LoanFileStatus, PipelineStage } from "@/types/catalyst-one";
@@ -61,6 +62,12 @@ export function mapEnterpriseDealToDealRegistryRow(
   const last = deal.updatedAt || deal.createdAt || "";
   const stage = (deal.grossStage || "raw_lead") as PipelineStage;
   const rowId = deal.legacyLoanFileId || deal.id;
+  const assignedUsers = coalesceAssignedUsers({
+    lendingExtension: deal.lendingExtension,
+    primaryOwnerUserId: deal.primaryOwnerUserId,
+    relationshipManagerUserId: deal.relationshipManagerUserId,
+    relationshipManagerName: deal.relationshipManagerName,
+  });
 
   return {
     id: rowId,
@@ -76,7 +83,13 @@ export function mapEnterpriseDealToDealRegistryRow(
     product: deal.productLabel || "—",
     loanAmount: amount,
     loanAmountLabel: formatINR(amount),
-    assignedRm: deal.relationshipManagerName || "—",
+    assignedRm: formatAssignedUsersLabel(assignedUsers),
+    assignedUsers,
+    rowVersion: deal.rowVersion,
+    lendingExtension:
+      deal.lendingExtension && typeof deal.lendingExtension === "object"
+        ? (deal.lendingExtension as Record<string, unknown>)
+        : null,
     grossStage: stage,
     grossStageLabel: STAGE_LABELS[stage] ?? deal.grossStage,
     subStage: deal.subStage || "—",

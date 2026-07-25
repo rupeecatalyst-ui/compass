@@ -24,6 +24,12 @@ import {
   notifyOpportunitiesUpdated,
   subscribeOpportunitiesUpdated,
 } from "@/lib/enterprise-opportunity/opportunity-data-sync";
+import {
+  buildAssignmentPatch,
+  formatAssignedUsersLabel,
+  writeAssignedUsersIntoExtension,
+  type AssignedUserRef,
+} from "@/lib/assigned-users";
 import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
 import type { OpportunityRegistryRow } from "@/types/opportunity-registry";
 import { cn } from "@/lib/utils";
@@ -125,6 +131,48 @@ export function MyOpportunitiesWorkspace() {
     }
   }, [refresh]);
 
+  const handleAssignUsers = useCallback(
+    async (row: OpportunityRegistryRow, users: AssignedUserRef[]) => {
+      const patch = buildAssignmentPatch(users);
+      const lendingExtension = writeAssignedUsersIntoExtension(
+        row.lendingExtension,
+        users,
+      );
+      try {
+        const updated = await enterpriseOpportunityApiClient.updateOpportunity(row.id, {
+          lendingExtension,
+          primaryOwnerUserId: patch.primaryOwnerUserId,
+          relationshipManagerUserId: patch.relationshipManagerUserId,
+          relationshipManagerName: patch.relationshipManagerName,
+          rowVersion: row.rowVersion,
+        });
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === row.id
+              ? {
+                  ...mapEnterpriseOpportunityToRegistryRow(updated),
+                  assignedUsers: users,
+                  owner: formatAssignedUsersLabel(users),
+                }
+              : r,
+          ),
+        );
+        toast.success("Assigned users updated.");
+        refresh();
+      } catch (err) {
+        const message =
+          err instanceof OpportunityApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Failed to update assigned users";
+        toast.error(message);
+        throw err;
+      }
+    },
+    [refresh],
+  );
+
   return (
     <div
       className="flex h-[calc(100vh-3.5rem)] flex-col gap-0 overflow-hidden"
@@ -174,6 +222,7 @@ export function MyOpportunitiesWorkspace() {
           onOpenOpportunity={(row) => openOpportunityWorkspace(router, row)}
           onEditOpportunity={(row) => editOpportunityWorkspace(router, row)}
           onDeleteOpportunity={handleDeleteOpportunity}
+          onAssignUsers={handleAssignUsers}
           onRefresh={() => {
             notifyOpportunitiesUpdated();
             refresh();

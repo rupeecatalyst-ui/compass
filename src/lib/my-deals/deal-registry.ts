@@ -69,6 +69,16 @@ export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
   const roi = file.finalRoi ?? file.interestRate ?? 0;
   const docsPending = (file.documents ?? []).filter((d) => d.status !== "verified").length;
   const tasksPending = (file.tasks ?? []).filter((t) => !t.completed).length;
+  const assignedUsers = file.relationshipManager?.trim()
+    ? [
+        {
+          id: file.enterpriseDealId
+            ? `rm:${file.enterpriseDealId}`
+            : `rm:${file.id}`,
+          name: file.relationshipManager.trim(),
+        },
+      ]
+    : [];
 
   return {
     id: file.id,
@@ -82,6 +92,9 @@ export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
     loanAmount: amount,
     loanAmountLabel: formatINR(amount),
     assignedRm: file.relationshipManager || "—",
+    assignedUsers,
+    rowVersion: file.enterpriseDealRowVersion,
+    lendingExtension: null,
     grossStage: file.stage,
     grossStageLabel: STAGE_LABELS[file.stage] ?? file.stage,
     subStage: getSubStatusLabel(file.stage, file.stageSubStatus) || "—",

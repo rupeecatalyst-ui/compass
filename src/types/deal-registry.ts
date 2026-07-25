@@ -2,6 +2,7 @@
  * CO-SPRINT-098 — Deal Registry row + filter types.
  */
 
+import type { AssignedUserRef } from "@/types/assigned-users";
 import type { LoanFilePriority, LoanFileStatus, PipelineStage } from "@/types/catalyst-one";
 
 export interface DealRegistryRow {
@@ -16,7 +17,11 @@ export interface DealRegistryRow {
   product: string;
   loanAmount: number;
   loanAmountLabel: string;
+  /** @deprecated Prefer assignedUsers — kept for filter/sort compatibility. */
   assignedRm: string;
+  assignedUsers: AssignedUserRef[];
+  rowVersion?: number;
+  lendingExtension?: Record<string, unknown> | null;
   grossStage: PipelineStage;
   grossStageLabel: string;
   subStage: string;

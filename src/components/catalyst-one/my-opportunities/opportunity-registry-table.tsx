@@ -7,7 +7,10 @@ import {
   type EnterpriseGridColumnDef,
 } from "@/components/catalyst-one/enterprise-grid";
 import { RegistryRowActionsMenu } from "@/components/catalyst-one/shared/registry-row-actions-menu";
+import { AssignedUsersCell } from "@/components/catalyst-one/shared/assigned-users-cell";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { canManageRegistryAssignments } from "@/lib/assigned-users";
+import type { AssignedUserRef } from "@/types/assigned-users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,6 +40,7 @@ const SORT_MAP: Record<string, OpportunityRegistrySortField> = {
   customerName: "customerName",
   product: "product",
   opportunityStage: "opportunityStageLabel",
+  assignedUsers: "owner",
   owner: "owner",
   createdAt: "createdAt",
   updatedAt: "updatedAt",
@@ -49,6 +53,7 @@ interface OpportunityRegistryTableProps {
   onOpenOpportunity: (row: OpportunityRegistryRow) => void;
   onEditOpportunity: (row: OpportunityRegistryRow) => void;
   onDeleteOpportunity: (row: OpportunityRegistryRow) => void | Promise<void>;
+  onAssignUsers: (row: OpportunityRegistryRow, users: AssignedUserRef[]) => void | Promise<void>;
   onRefresh: () => void;
 }
 
@@ -62,9 +67,11 @@ export function OpportunityRegistryTable({
   onOpenOpportunity,
   onEditOpportunity,
   onDeleteOpportunity,
+  onAssignUsers,
   onRefresh,
 }: OpportunityRegistryTableProps) {
   const { user } = useAuthContext();
+  const canAssign = canManageRegistryAssignments(user?.role);
   const [filters, setFilters] = useState<OpportunityRegistryFilters>(
     EMPTY_OPPORTUNITY_REGISTRY_FILTERS,
   );
@@ -165,13 +172,20 @@ export function OpportunityRegistryTable({
         exportValue: (row) => row.opportunityStageLabel,
       },
       {
-        id: "owner",
-        label: "Opportunity Owner",
+        id: "assignedUsers",
+        label: "Assigned Users",
         sortable: true,
         defaultOrder: 5,
-        defaultWidth: 140,
-        render: (row) => row.owner,
-        exportValue: (row) => row.owner,
+        defaultWidth: 160,
+        render: (row) => (
+          <AssignedUsersCell
+            users={row.assignedUsers ?? []}
+            canEdit={canAssign}
+            onSave={(next) => onAssignUsers(row, next)}
+          />
+        ),
+        exportValue: (row) =>
+          (row.assignedUsers ?? []).map((u) => u.name).join("; ") || row.owner,
       },
       {
         id: "createdAt",
@@ -234,7 +248,7 @@ export function OpportunityRegistryTable({
         exportValue: () => "",
       },
     ],
-    [onDeleteOpportunity, onEditOpportunity, onOpenOpportunity],
+    [canAssign, onAssignUsers, onDeleteOpportunity, onEditOpportunity, onOpenOpportunity],
   );
 
   const hasActiveFilters =
@@ -332,7 +346,7 @@ export function OpportunityRegistryTable({
 
       <EnterpriseDataGrid
         className="min-h-0 flex-1"
-        storageKey="catalyst.my-opportunities.registry.v2"
+        storageKey="catalyst.my-opportunities.registry.v3"
         userId={user?.id}
         density="dense"
         columns={columns}

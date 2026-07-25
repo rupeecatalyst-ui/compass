@@ -31,6 +31,9 @@ export type EnterpriseDealApiRecord = {
   approvedAmount?: number | null;
   fulfilledAmount?: number | null;
   relationshipManagerName?: string | null;
+  primaryOwnerUserId?: string | null;
+  relationshipManagerUserId?: string | null;
+  lendingExtension?: unknown;
   primaryCounterpartyName?: string | null;
   invoicePartyType?: string | null;
   invoicePartySpecify?: string | null;

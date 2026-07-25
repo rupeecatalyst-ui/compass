@@ -7,8 +7,11 @@ import {
   type EnterpriseGridColumnDef,
 } from "@/components/catalyst-one/enterprise-grid";
 import { RegistryRowActionsMenu } from "@/components/catalyst-one/shared/registry-row-actions-menu";
+import { AssignedUsersCell } from "@/components/catalyst-one/shared/assigned-users-cell";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { canManageRegistryAssignments } from "@/lib/assigned-users";
+import type { AssignedUserRef } from "@/types/assigned-users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,6 +49,7 @@ const SORT_MAP: Record<string, DealRegistrySortField> = {
   borrowerName: "borrowerName",
   product: "product",
   loanAmount: "loanAmount",
+  assignedUsers: "assignedRm",
   assignedRm: "assignedRm",
   grossStage: "grossStageLabel",
   subStage: "subStage",
@@ -80,6 +84,7 @@ interface DealRegistryTableProps {
   onOpenDeal: (row: DealRegistryRow) => void;
   onEditDeal: (row: DealRegistryRow) => void;
   onDeleteDeal: (row: DealRegistryRow) => void | Promise<void>;
+  onAssignUsers: (row: DealRegistryRow, users: AssignedUserRef[]) => void | Promise<void>;
   initialScope?: DealRegistryFilters["scope"];
   initialSearch?: string;
   onFiltersChanged?: (filters: DealRegistryFilters) => void;
@@ -95,11 +100,13 @@ export function DealRegistryTable({
   onOpenDeal,
   onEditDeal,
   onDeleteDeal,
+  onAssignUsers,
   initialScope = "my_team",
   initialSearch = "",
   onFiltersChanged,
 }: DealRegistryTableProps) {
   const { user } = useAuthContext();
+  const canAssign = canManageRegistryAssignments(user?.role);
   const [filters, setFilters] = useState<DealRegistryFilters>(() => ({
     ...EMPTY_DEAL_REGISTRY_FILTERS,
     scope: initialScope,
@@ -246,13 +253,20 @@ export function DealRegistryTable({
         exportValue: (row) => String(row.loanAmount),
       },
       {
-        id: "assignedRm",
-        label: "Assigned RM",
+        id: "assignedUsers",
+        label: "Assigned Users",
         sortable: true,
         defaultOrder: 6,
-        defaultWidth: 120,
-        render: (row) => row.assignedRm,
-        exportValue: (row) => row.assignedRm,
+        defaultWidth: 160,
+        render: (row) => (
+          <AssignedUsersCell
+            users={row.assignedUsers ?? []}
+            canEdit={canAssign}
+            onSave={(next) => onAssignUsers(row, next)}
+          />
+        ),
+        exportValue: (row) =>
+          (row.assignedUsers ?? []).map((u) => u.name).join("; ") || row.assignedRm,
       },
       {
         id: "grossStage",
@@ -546,7 +560,7 @@ export function DealRegistryTable({
         exportValue: () => "",
       },
     ],
-    [onDeleteDeal, onEditDeal, onOpenDeal],
+    [canAssign, onAssignUsers, onDeleteDeal, onEditDeal, onOpenDeal],
   );
 
 
@@ -700,11 +714,11 @@ export function DealRegistryTable({
                 value={filters.assignedRm}
                 onValueChange={(v) => patchFilters({ assignedRm: v })}
               >
-                <SelectTrigger className={cn(selectClass, "w-[130px]")} aria-label="Owner">
-                  <SelectValue placeholder="Owner" />
+                <SelectTrigger className={cn(selectClass, "w-[130px]")} aria-label="Assigned Users">
+                  <SelectValue placeholder="Assigned Users" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All RMs</SelectItem>
+                  <SelectItem value="all">All assignees</SelectItem>
                   {rms.map((r) => (
                     <SelectItem key={r} value={r}>
                       {r}
@@ -961,7 +975,7 @@ export function DealRegistryTable({
 
       <EnterpriseDataGrid
         className="min-h-0 flex-1"
-        storageKey="catalyst.my-deals.registry.v2"
+        storageKey="catalyst.my-deals.registry.v3"
         userId={user?.id}
         density="dense"
         columns={columns}
