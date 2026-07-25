@@ -109,6 +109,7 @@ export function CreditBenchWorkspace() {
     const next = await loadOpportunityJourneyRuntime(fileParam, opportunityId, {
       dashboardEntry,
     });
+    // Always apply latest runtime so Chanakya inline saves refresh gaps live.
     setFile(next);
     if (next) setStated(resolveStatedDraftForFile(next));
   }, [fileParam, opportunityId, dashboardEntry]);
@@ -773,9 +774,18 @@ export function CreditBenchWorkspace() {
               <ChanakyaOpportunityRecommendationPanel
                 file={file}
                 stated={stated}
-                onNavigateSection={(target) => {
-                  setSection(target === "chanakya" ? "loan" : target);
-                }}
+                opportunityId={resolveOppId}
+                onStatedChange={(patch) =>
+                  setStated((prev) => {
+                    const next = { ...prev, ...patch };
+                    saveStatedDraft(file.id, next);
+                    return next;
+                  })
+                }
+                onFileChange={(patch) =>
+                  setFile((prev) => (prev ? { ...prev, ...patch } : prev))
+                }
+                onAfterPersist={reloadRuntime}
               />
             )}
           </div>
