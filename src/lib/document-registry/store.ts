@@ -4,7 +4,8 @@
  */
 
 import { DOCUMENT_REGISTRY_STORAGE_KEY, DOCUMENT_REGISTRY_UPDATED_EVENT } from "@/constants/document-registry";
-import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
+import { updateDeal } from "@/lib/enterprise-deal/deal-data-access";
+import { isOpportunityRuntimeCase } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import type {
   DocumentEntityLinks,
   DocumentRegistryFilters,
@@ -65,10 +66,26 @@ export function getDocumentRegistryRecord(id: string): DocumentRegistryRecord | 
 }
 
 export function listDocumentsForLoanFile(loanFileId: string): DocumentRegistryRecord[] {
+  return listDocumentsForOpportunityRuntime(loanFileId);
+}
+
+/**
+ * FS-01 — list documents by Opportunity runtime key and/or Deal attachment id.
+ * Matches opportunityId OR loanFileId so Opportunity-only cases work without LoanFile.
+ */
+export function listDocumentsForOpportunityRuntime(
+  runtimeKey: string,
+  opportunityId?: string | null,
+): DocumentRegistryRecord[] {
+  const key = runtimeKey.trim();
+  const oppId = opportunityId?.trim() || key;
   return readSnapshot()
-    .records.filter(
-      (r) => r.links.loanFileId === loanFileId && r.status !== "deleted",
-    )
+    .records.filter((r) => {
+      if (r.status === "deleted") return false;
+      if (r.links.loanFileId === key) return true;
+      if (r.links.opportunityId === key || r.links.opportunityId === oppId) return true;
+      return false;
+    })
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
@@ -114,15 +131,40 @@ function findDuplicateRecord(
   records: DocumentRegistryRecord[],
   typeRef: string,
   fileName: string,
-  loanFileId?: string,
+  links?: Pick<
+    DocumentEntityLinks,
+    "loanFileId" | "opportunityId" | "participantId" | "documentScope" | "contactId"
+  >,
 ): DocumentRegistryRecord | undefined {
-  return records.find(
-    (r) =>
-      r.typeRef === typeRef &&
-      r.originalFilename === fileName &&
-      r.links.loanFileId === loanFileId &&
-      r.status === "active",
-  );
+  const wantScope = links?.documentScope ?? "applicant";
+  const wantParticipant = links?.participantId?.trim() || "";
+  const wantContact = links?.contactId?.trim() || "";
+
+  return records.find((r) => {
+    if (r.typeRef !== typeRef || r.originalFilename !== fileName || r.status !== "active") {
+      return false;
+    }
+
+    // BAT #22 — ownership must match (do not merge Co-Applicant A into B).
+    const haveScope = r.links.documentScope ?? "applicant";
+    if (haveScope !== wantScope) return false;
+    if (wantScope === "applicant") {
+      const haveParticipant = r.links.participantId?.trim() || "";
+      if (wantParticipant && haveParticipant && wantParticipant !== haveParticipant) {
+        return false;
+      }
+      if (wantContact && r.links.contactId?.trim() && wantContact !== r.links.contactId.trim()) {
+        return false;
+      }
+    }
+
+    if (links?.loanFileId && r.links.loanFileId === links.loanFileId) return true;
+    if (links?.opportunityId && r.links.opportunityId === links.opportunityId) return true;
+    if (!links?.loanFileId && !links?.opportunityId) {
+      return r.links.loanFileId === undefined;
+    }
+    return false;
+  });
 }
 
 function syncLoanFileDocument(
@@ -131,8 +173,9 @@ function syncLoanFileDocument(
   categoryLabel: string,
   uploadedBy: string,
 ): void {
-  if (!links.loanFileId) return;
-  const file = updateLoanFileInStorage(links.loanFileId, {}, undefined);
+  // FS-01 — never dual-write Deal when Opportunity is the only runtime authority.
+  if (!links.loanFileId || links.loanFileId === links.opportunityId) return;
+  const file = updateDeal(links.loanFileId, {}, undefined, "documents");
   if (!file) return;
 
   const now = new Date().toISOString();
@@ -157,18 +200,19 @@ function syncLoanFileDocument(
       ? existing.map((d, i) => (i === idx ? { ...d, ...docEntry } : d))
       : [docEntry, ...existing];
 
-  updateLoanFileInStorage(
+  updateDeal(
     links.loanFileId,
     { documents },
     `Document received: ${label}`,
+    "documents",
   );
 }
 
 function removeLoanFileDocumentLink(loanFileId: string, label: string): void {
   const labelWord = label.toLowerCase().split(" ")[0] ?? label.toLowerCase();
-  const current = updateLoanFileInStorage(loanFileId, {});
+  const current = updateDeal(loanFileId, {}, undefined, "documents");
   if (!current) return;
-  updateLoanFileInStorage(
+  updateDeal(
     loanFileId,
     {
       documents: (current.documents ?? []).map((d) =>
@@ -178,6 +222,7 @@ function removeLoanFileDocumentLink(loanFileId: string, label: string): void {
       ),
     },
     `Document removed: ${label}`,
+    "documents",
   );
 }
 
@@ -216,7 +261,13 @@ export async function uploadDocumentToRegistry(
         snap.records,
         input.typeRef,
         input.file.name,
-        input.links.loanFileId,
+        {
+          loanFileId: input.links.loanFileId,
+          opportunityId: input.links.opportunityId,
+          participantId: input.links.participantId,
+          documentScope: input.links.documentScope,
+          contactId: input.links.contactId,
+        },
       );
 
   const blobId = await persistBlob(input.file, onProgress);
@@ -396,16 +447,42 @@ export async function getDocumentPreviewUrl(
   return createBlobObjectUrl(version.blobId);
 }
 
-export function buildEntityLinksFromLoanFile(file: {
-  id: string;
-  customerId?: string;
-  opportunityId?: string;
-  customerName?: string;
-}): DocumentEntityLinks {
+export function buildEntityLinksFromLoanFile(
+  file: {
+    id: string;
+    customerId?: string;
+    opportunityId?: string;
+    customerName?: string;
+    enterpriseOpportunityId?: string;
+  },
+  scope?: {
+    participantId?: string | null;
+    documentScope?: "applicant" | "shared";
+    /**
+     * BAT #22 — owning Contact / Company registry id for the selected Document Owner.
+     * Shared Opportunity docs remain Opportunity-owned (no owner entity stamp).
+     */
+    ownerEntityId?: string | null;
+  },
+): DocumentEntityLinks {
+  const documentScope = scope?.documentScope ?? "applicant";
+  const opportunityId =
+    file.enterpriseOpportunityId || file.opportunityId || undefined;
+  const opportunityRuntime = isOpportunityRuntimeCase(file as never);
+  const ownerEntityId = scope?.ownerEntityId?.trim() || undefined;
   return {
-    loanFileId: file.id,
+    // Compatibility: only stamp real Deal/LoanFile ids — never Opportunity UUID as LoanFile.
+    loanFileId: opportunityRuntime ? undefined : file.id,
     customerId: file.customerId,
-    opportunityId: file.opportunityId,
-    contactId: file.customerId,
+    opportunityId: opportunityId || (opportunityRuntime ? file.id : undefined),
+    // Owner profile SSOT: selected participant entity (Contact/Company), else primary customer.
+    contactId:
+      documentScope === "shared"
+        ? undefined
+        : ownerEntityId || file.customerId,
+    documentScope,
+    ...(documentScope === "applicant" && scope?.participantId
+      ? { participantId: scope.participantId }
+      : {}),
   };
 }

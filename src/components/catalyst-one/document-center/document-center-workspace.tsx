@@ -1,91 +1,121 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Bell,
-  Download,
   Eye,
+  FilePlus2,
   FolderUp,
-  History,
-  Mail,
-  MessageSquare,
-  MoreHorizontal,
+  Plus,
   Replace,
   Upload,
 } from "lucide-react";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
-import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
+import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
+import { OpportunityBoundStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-bound-stage";
+import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import {
-  DocumentReadinessCard,
+  getActiveOpportunityContext,
+} from "@/lib/lead-opportunity-journey/active-context";
+import { useRequirementCapturedGate } from "@/lib/loan-journey/use-requirement-captured-gate";
+import {
   type DocumentKpiFilter,
 } from "@/components/catalyst-one/document-center/document-readiness-card";
 import { DocumentReadinessDrawer } from "@/components/catalyst-one/document-center/document-readiness-drawer";
 import { DocumentRegistryPanel } from "@/components/catalyst-one/document-center/document-registry-panel";
-import {
-  DocumentUploadProgressBar,
-  DocumentUploadZone,
-} from "@/components/catalyst-one/document-center/document-upload-zone";
+import { DocumentUploadProgressBar } from "@/components/catalyst-one/document-center/document-upload-zone";
 import { DocumentViewerOverlay } from "@/components/catalyst-one/document-center/document-viewer-overlay";
 import { DocumentVersionHistoryDrawer } from "@/components/catalyst-one/document-center/document-version-history-drawer";
+import { DocumentAttachmentsDrawer } from "@/components/catalyst-one/document-center/document-attachments-drawer";
 import {
   journeyContextFromLoanFile,
-  loadLeadJourneyLoanFile,
+  loadOpportunityJourneyRuntime,
 } from "@/lib/lead-opportunity-journey/load-context";
 import {
   loadAddressProofSelection,
   loadEdieReceipts,
+  loadIdentityProofSelection,
   resolveEdieChecklistForLoanFile,
   saveAddressProofSelection,
+  saveChoiceGroupSelection,
   saveEdieReceipts,
+  saveIdentityProofSelection,
   seedEdieCertifiedRulesIfNeeded,
 } from "@/lib/edie-certified";
-import { computeDocumentCompletionScore } from "@/lib/document-completion/score";
+import {
+  computeCategoryReadiness,
+  deriveDocumentCategoryRows,
+  type DocumentCategoryRow,
+} from "@/lib/document-center/derive-category-rows";
 import {
   loadDocumentVersions,
-  reasonForDocument,
   type DocumentCenterVersion,
 } from "@/lib/document-center/versions";
+import { classifyUploadsAgainstChecklist } from "@/lib/document-center/classify-upload";
+import {
+  createOtherDocumentEntry,
+  loadOtherDocumentEntries,
+  saveOtherDocumentEntries,
+  type OtherDocumentEntry,
+} from "@/lib/document-center/other-documents";
 import {
   buildEntityLinksFromLoanFile,
   canUploadDocuments,
-  downloadDocumentFromRegistry,
+  listDocumentsByTypeRef,
   listDocumentsForLoanFile,
   replaceDocumentInRegistry,
   subscribeDocumentRegistryUpdated,
   uploadDocumentToRegistry,
 } from "@/lib/document-registry";
 import type { DocumentRegistryRecord, DocumentUploadProgress } from "@/types/document-registry";
-import { EDIE_ADDRESS_PROOF_GROUP } from "@/constants/edie-certified/document-catalog";
+import {
+  EDIE_ADDRESS_PROOF_GROUP,
+  EDIE_IDENTITY_PROOF_GROUP,
+} from "@/constants/edie-certified/document-catalog";
 import { DOCUMENT_REGISTRY_ACCEPT } from "@/constants/document-registry";
+import {
+  DOCUMENT_CENTER_SHARED_SCOPE_KEY,
+  buildDocumentCenterScopeOptions,
+  documentCenterActiveOwner,
+  parseParticipantScopeKey,
+  resolveDocumentScopeForModule,
+  resolveDocumentScopeForTypeRef,
+  type DocumentCenterScopeKey,
+} from "@/constants/opportunity-document-center";
 import { ROUTES } from "@/constants/routes";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { LoanFile } from "@/types/catalyst-one";
 import type { EdieChecklistItem } from "@/types/edie-certified-rules";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DocumentCenterParticipantSelector } from "@/components/catalyst-one/document-center/document-center-participant-selector";
+import { resolveLoanParticipants } from "@/lib/loan-participants";
 
 /**
- * Enterprise Document Center — workspace UX over EDIE (rules unchanged).
+ * Enterprise Document Center — category-first UX over EDIE modules.
  */
 export function DocumentCenterWorkspace() {
   const { user } = useAuthContext();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const fileParam = searchParams.get("file");
   const opportunityId = searchParams.get("opportunityId");
   const focusParam = searchParams.get("focus");
   const sectionParam = searchParams.get("section");
   const entryParam = searchParams.get("entry");
+  const dashboardEntry = entryParam === "dashboard";
+  const hasUrlContext = Boolean(fileParam || opportunityId);
+  const requirementGate = useRequirementCapturedGate(
+    dashboardEntry ? null : opportunityId,
+  );
 
   const [file, setFile] = useState<LoanFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [receipts, setReceipts] = useState<Record<string, boolean>>({});
   const [addressChoice, setAddressChoice] = useState<string | undefined>();
+  const [identityChoice, setIdentityChoice] = useState<string | undefined>();
+  const [categoryFocus, setCategoryFocus] = useState<Record<string, string>>({});
   const [versionsMap, setVersionsMap] = useState<Record<string, DocumentCenterVersion[]>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -100,40 +130,114 @@ export function DocumentCenterWorkspace() {
   const [registryTick, setRegistryTick] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<DocumentUploadProgress | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [documentOwnerScope, setDocumentOwnerScope] =
+    useState<DocumentCenterScopeKey>(DOCUMENT_CENTER_SHARED_SCOPE_KEY);
   const [pendingUpload, setPendingUpload] = useState<{
     typeRef: string;
     label: string;
     replaceRecordId?: string;
+    /** single = first/replace one; add = allow multiple additional files */
+    mode?: "single" | "add";
   } | null>(null);
+  const [attachmentsTypeRef, setAttachmentsTypeRef] = useState<string | null>(null);
+  const [attachmentsLabel, setAttachmentsLabel] = useState("");
+  const [otherDocs, setOtherDocs] = useState<OtherDocumentEntry[]>([]);
 
-  const focusEl = useRef<HTMLLIElement | null>(null);
+  const focusEl = useRef<HTMLTableRowElement | null>(null);
   const scrollRoot = useRef<HTMLDivElement | null>(null);
   const scrollPos = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const multiFileInputRef = useRef<HTMLInputElement | null>(null);
+  const bulkFilesInputRef = useRef<HTMLInputElement | null>(null);
 
   const uploaderName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "Relationship Manager";
 
+  const participants = useMemo(
+    () => (file ? resolveLoanParticipants(file) : []),
+    [file],
+  );
+
   useEffect(() => {
-    seedEdieCertifiedRulesIfNeeded();
-    const next = loadLeadJourneyLoanFile(fileParam, opportunityId, {
-      dashboardEntry: entryParam === "dashboard",
-    });
-    let identityChanged = true;
-    setFile((prev) => {
-      if (prev?.id && next?.id && prev.id === next.id) {
-        identityChanged = false;
-        return prev;
-      }
-      return next;
-    });
-    if (identityChanged && next) {
-      setReceipts(loadEdieReceipts(next.id));
-      setAddressChoice(loadAddressProofSelection(next.id));
-      setVersionsMap(loadDocumentVersions(next.id));
+    const opts = buildDocumentCenterScopeOptions(participants);
+    if (!opts.some((o) => o.key === documentOwnerScope)) {
+      setDocumentOwnerScope(opts[0]?.key ?? DOCUMENT_CENTER_SHARED_SCOPE_KEY);
     }
-    setLoading(false);
+  }, [participants, documentOwnerScope]);
+
+  const recordMatchesOwnerScope = useCallback(
+    (record: DocumentRegistryRecord) => {
+      const docScope =
+        record.links.documentScope ??
+        resolveDocumentScopeForTypeRef(record.typeRef);
+      const participantId = record.links.participantId?.trim();
+      if (documentOwnerScope === DOCUMENT_CENTER_SHARED_SCOPE_KEY) {
+        return docScope === "shared";
+      }
+      if (docScope === "shared") return false;
+      const selected = parseParticipantScopeKey(documentOwnerScope);
+      if (!selected) return true;
+      if (!participantId) {
+        const primary = participants.find((p) => p.role === "primary_applicant");
+        return (
+          selected === "primary" ||
+          selected === primary?.id ||
+          documentOwnerScope.endsWith(":primary")
+        );
+      }
+      return participantId === selected;
+    },
+    [documentOwnerScope, participants],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    seedEdieCertifiedRulesIfNeeded();
+    setLoading(true);
+    void loadOpportunityJourneyRuntime(fileParam, opportunityId, {
+      dashboardEntry: entryParam === "dashboard",
+    }).then((next) => {
+      if (cancelled) return;
+      let identityChanged = true;
+      setFile((prev) => {
+        if (prev?.id && next?.id && prev.id === next.id) {
+          identityChanged = false;
+          return prev;
+        }
+        return next;
+      });
+      if (identityChanged && next) {
+        setReceipts(loadEdieReceipts(next.id));
+        setAddressChoice(loadAddressProofSelection(next.id));
+        setIdentityChoice(loadIdentityProofSelection(next.id));
+        setCategoryFocus({});
+        setVersionsMap(loadDocumentVersions(next.id));
+        setOtherDocs(loadOtherDocumentEntries(next.id));
+        const opts = buildDocumentCenterScopeOptions(
+          resolveLoanParticipants(next),
+        );
+        setDocumentOwnerScope(opts[0]?.key ?? DOCUMENT_CENTER_SHARED_SCOPE_KEY);
+      }
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [fileParam, opportunityId, entryParam]);
+
+  useEffect(() => {
+    if (dashboardEntry || hasUrlContext || file) return;
+    const active = getActiveOpportunityContext();
+    if (active?.fileId || active?.opportunityId) {
+      router.replace(
+        buildCanonicalJourneyStageHref("documents", {
+          fileId: active.fileId ?? null,
+          opportunityId: active.opportunityId ?? null,
+        }),
+      );
+    }
+  }, [dashboardEntry, hasUrlContext, file, router]);
 
   useEffect(() => {
     setLocalFocus(focusParam);
@@ -170,52 +274,63 @@ export function DocumentCenterWorkspace() {
 
   const registryRecords = useMemo(() => {
     if (!file) return [];
-    return listDocumentsForLoanFile(file.id);
+    return listDocumentsForLoanFile(file.id).filter(recordMatchesOwnerScope);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file?.id, registryTick]);
+  }, [file?.id, registryTick, recordMatchesOwnerScope]);
 
   const checklist = useMemo(() => {
     if (!file) return null;
     return resolveEdieChecklistForLoanFile(file, {
       receipts,
       addressProofSelection: addressChoice,
+      identityProofSelection: identityChoice,
     });
-  }, [file, receipts, addressChoice]);
+  }, [file, receipts, addressChoice, identityChoice]);
 
-  const score = useMemo(() => {
-    if (!checklist) return computeDocumentCompletionScore({ items: [] });
-    const scoringItems = checklist.items.filter(
-      (i) => i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP || !i.optional,
-    );
-    return computeDocumentCompletionScore({
-      items: scoringItems.map((i) => ({
-        typeRef: i.typeRef,
-        label: i.label,
-        weight: i.weight,
-        mandatory: i.mandatory,
-        critical: i.critical,
-        complete: i.complete,
-      })),
+  const attachmentCountFor = useCallback(
+    (typeRef: string) =>
+      listDocumentsByTypeRef(file?.id ?? "", typeRef)
+        .filter((r) => r.status === "active")
+        .filter(recordMatchesOwnerScope).length,
+    [file?.id, registryTick, recordMatchesOwnerScope],
+  );
+
+  const categoryRows = useMemo(() => {
+    if (!checklist) return [] as DocumentCategoryRow[];
+    const rows = deriveDocumentCategoryRows(checklist, {
+      focusByKey: {
+        ...categoryFocus,
+        ...(addressChoice ? { [EDIE_ADDRESS_PROOF_GROUP]: addressChoice } : {}),
+        ...(identityChoice ? { [EDIE_IDENTITY_PROOF_GROUP]: identityChoice } : {}),
+      },
+      fileCountByType: attachmentCountFor,
     });
-  }, [checklist]);
+    const wantShared = documentOwnerScope === DOCUMENT_CENTER_SHARED_SCOPE_KEY;
+    return rows.filter((row) => {
+      const scope = resolveDocumentScopeForModule(row.moduleId);
+      return wantShared ? scope === "shared" : scope === "applicant";
+    });
+  }, [
+    checklist,
+    categoryFocus,
+    addressChoice,
+    identityChoice,
+    attachmentCountFor,
+    documentOwnerScope,
+  ]);
+
+  const categoryReadiness = useMemo(
+    () => computeCategoryReadiness(categoryRows),
+    [categoryRows],
+  );
 
   const context = useMemo(() => journeyContextFromLoanFile(file), [file]);
 
+  /** Flat scoring / classify candidates from EDIE (selected choice variants only). */
   const flatItems = useMemo(() => {
     if (!checklist) return [] as EdieChecklistItem[];
-    return checklist.modules.flatMap((m) => {
-      if (m.id === "address_proof") {
-        const selected =
-          addressChoice ||
-          m.items.find((x) => !x.optional)?.typeRef ||
-          m.items[0]?.typeRef;
-        return m.items.filter((i) => i.typeRef === selected);
-      }
-      return m.items.filter(
-        (i) => !i.optional || i.moduleId === "customer_kyc" || i.moduleId === "banking",
-      );
-    });
-  }, [checklist, addressChoice]);
+    return checklist.items.filter((i) => !i.choiceGroupId || !i.optional);
+  }, [checklist]);
 
   const filteredTypeRefs = useMemo(() => {
     if (kpiFilter === "all" || kpiFilter === "readiness") return null;
@@ -272,7 +387,21 @@ export function DocumentCenterWorkspace() {
       setUploadProgress({ phase: "reading", percent: 5, message: `Uploading ${uploadFile.name}…` });
 
       try {
-        const links = buildEntityLinksFromLoanFile(file);
+        const isShared = documentOwnerScope === DOCUMENT_CENTER_SHARED_SCOPE_KEY;
+        const participantId = isShared
+          ? null
+          : parseParticipantScopeKey(documentOwnerScope);
+        const ownerParticipant = participantId
+          ? participants.find((p) => p.id === participantId)
+          : undefined;
+        const links = buildEntityLinksFromLoanFile(file, {
+          documentScope: isShared ? "shared" : "applicant",
+          participantId,
+          // BAT #22 — stamp Contact / Company registry id for the selected owner.
+          ownerEntityId: isShared
+            ? null
+            : ownerParticipant?.entityId?.trim() || file.customerId || null,
+        });
         let result: DocumentRegistryRecord;
         if (replaceRecordId) {
           const replaced = await replaceDocumentInRegistry(
@@ -317,45 +446,122 @@ export function DocumentCenterWorkspace() {
         restoreScroll();
       }
     },
-    [file, user, uploaderName, markReceipt, refreshRegistry, preserveScroll, restoreScroll],
+    [file, user, uploaderName, markReceipt, refreshRegistry, preserveScroll, restoreScroll, documentOwnerScope, participants],
   );
 
-  const promptUpload = (typeRef: string, label: string, replaceRecordId?: string) => {
-    setPendingUpload({ typeRef, label, replaceRecordId });
-    window.setTimeout(() => fileInputRef.current?.click(), 0);
+  const promptUpload = (
+    typeRef: string,
+    label: string,
+    replaceRecordId?: string,
+    mode: "single" | "add" = "single",
+  ) => {
+    setPendingUpload({ typeRef, label, replaceRecordId, mode });
+    window.setTimeout(() => {
+      if (mode === "add") multiFileInputRef.current?.click();
+      else fileInputRef.current?.click();
+    }, 0);
   };
 
   const onFileInputChange = async (files: FileList | null) => {
-    const uploadFile = files?.[0];
-    if (!uploadFile || !pendingUpload) return;
-    await processUpload(
-      uploadFile,
-      pendingUpload.typeRef,
-      pendingUpload.label,
-      pendingUpload.replaceRecordId,
-    );
+    if (!files?.length || !pendingUpload) return;
+    const list = Array.from(files);
+    const target = pendingUpload;
+    for (let i = 0; i < list.length; i++) {
+      await processUpload(
+        list[i]!,
+        target.typeRef,
+        target.label,
+        i === 0 ? target.replaceRecordId : undefined,
+      );
+    }
     setPendingUpload(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (multiFileInputRef.current) multiFileInputRef.current.value = "";
+  };
+
+  const onFolderInputChange = async (files: FileList | null) => {
+    if (!files?.length || !file || !checklist) return;
+    const list = Array.from(files).filter((f) => f.size > 0);
+    if (!list.length) {
+      flash("No files found in the selected folder.");
+      return;
+    }
+
+    const classified = classifyUploadsAgainstChecklist(list, flatItems);
+    let mapped = 0;
+    let otherCount = 0;
+    const nextOther = [...otherDocs];
+
+    for (const item of classified) {
+      if (item.isOther) {
+        const entry = createOtherDocumentEntry(item.label);
+        nextOther.push(entry);
+        await processUpload(item.file, entry.typeRef, entry.name);
+        otherCount += 1;
+      } else {
+        await processUpload(item.file, item.typeRef, item.label);
+        mapped += 1;
+      }
+    }
+
+    setOtherDocs(nextOther);
+    saveOtherDocumentEntries(file.id, nextOther);
+    flash(
+      `Folder upload complete — ${mapped} mapped to checklist, ${otherCount} placed in Other Documents.`,
+    );
+    if (folderInputRef.current) folderInputRef.current.value = "";
   };
 
   const onBulkFiles = async (files: File[]) => {
-    if (!file || files.length === 0) return;
-    const pending = flatItems.filter((i) => !i.complete);
-    const targets = pending.length > 0 ? pending : flatItems;
-    for (let i = 0; i < files.length; i++) {
-      const item = targets[i % targets.length]!;
-      await processUpload(files[i]!, item.folderId ?? item.typeRef, item.label);
+    if (!file || files.length === 0 || !checklist) return;
+    const classified = classifyUploadsAgainstChecklist(files, flatItems);
+    const nextOther = [...otherDocs];
+    for (const item of classified) {
+      if (item.isOther) {
+        const entry = createOtherDocumentEntry(item.label);
+        nextOther.push(entry);
+        await processUpload(item.file, entry.typeRef, entry.name);
+      } else {
+        await processUpload(item.file, item.typeRef, item.label);
+      }
     }
+    setOtherDocs(nextOther);
+    saveOtherDocumentEntries(file.id, nextOther);
   };
 
   const uploadDocument = (typeRef: string, label?: string) => {
-    promptUpload(typeRef, label ?? typeRef.replace(/^doc:/, ""));
+    promptUpload(typeRef, label ?? typeRef.replace(/^doc:/, ""), undefined, "single");
   };
 
-  const onAddressSelect = (typeRef: string) => {
+  const addDocuments = (typeRef: string, label: string) => {
+    promptUpload(typeRef, label, undefined, "add");
+  };
+
+  const openAttachments = (typeRef: string, label: string) => {
+    setAttachmentsTypeRef(typeRef);
+    setAttachmentsLabel(label);
+  };
+
+  const addOtherDocumentRow = () => {
     if (!file) return;
-    setAddressChoice(typeRef);
-    saveAddressProofSelection(file.id, typeRef);
+    const entry = createOtherDocumentEntry("");
+    const next = [...otherDocs, entry];
+    setOtherDocs(next);
+    saveOtherDocumentEntries(file.id, next);
+  };
+
+  const onCategoryTypeSelect = (row: DocumentCategoryRow, typeRef: string) => {
+    if (!file) return;
+    setCategoryFocus((prev) => ({ ...prev, [row.key]: typeRef, [row.moduleId]: typeRef }));
+    if (row.choiceGroupId === EDIE_ADDRESS_PROOF_GROUP) {
+      setAddressChoice(typeRef);
+      saveAddressProofSelection(file.id, typeRef);
+    } else if (row.choiceGroupId === EDIE_IDENTITY_PROOF_GROUP) {
+      setIdentityChoice(typeRef);
+      saveIdentityProofSelection(file.id, typeRef);
+    } else if (row.choiceGroupId) {
+      saveChoiceGroupSelection(file.id, row.choiceGroupId, typeRef);
+    }
     setDirty(true);
   };
 
@@ -376,8 +582,39 @@ export function DocumentCenterWorkspace() {
     restoreScroll();
   };
 
-  const viewerItem = flatItems.find((i) => i.typeRef === viewerTypeRef) ?? null;
+  const viewerItem = useMemo((): EdieChecklistItem | null => {
+    if (!viewerTypeRef) return null;
+    const fromChecklist =
+      flatItems.find(
+        (i) => i.typeRef === viewerTypeRef || i.folderId === viewerTypeRef,
+      ) ?? null;
+    if (fromChecklist) return fromChecklist;
+    const other = otherDocs.find((o) => o.typeRef === viewerTypeRef);
+    if (!other) return null;
+    return {
+      typeRef: other.typeRef,
+      label: other.name,
+      moduleId: "customer_kyc",
+      moduleLabel: "Other Documents",
+      severity: "required",
+      mandatory: false,
+      critical: false,
+      optional: true,
+      uploadMode: "individual",
+      weight: 0,
+      complete: attachmentCountFor(other.typeRef) > 0,
+    };
+  }, [viewerTypeRef, flatItems, otherDocs, registryTick, file?.id]);
+
   const historyItem = flatItems.find((i) => i.typeRef === historyTypeRef) ?? null;
+
+  if (requirementGate.status === "loading" || requirementGate.status === "redirecting") {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -388,13 +625,7 @@ export function DocumentCenterWorkspace() {
   }
 
   if (!file || !checklist) {
-    return (
-      <OpportunityContextPicker
-        targetHref={ROUTES.DOCUMENT_CENTER}
-        title="Select an opportunity for Document Center"
-        description="Document collection needs an active case. Choose one below or continue from Opportunity Setup."
-      />
-    );
+    return <OpportunityBoundStage stage="document_center" />;
   }
 
   return (
@@ -403,14 +634,10 @@ export function DocumentCenterWorkspace() {
         moduleId="document_center"
         density="compact"
         hideContextChips
+        hidePhaseReadiness
+        opportunityWorkspaceStage="document_center"
         title={context.customer || "Document Center"}
-        identityLine={[
-          context.opportunity,
-          context.product,
-          context.amount,
-          context.stage,
-          context.rm ? `RM ${context.rm}` : null,
-        ]
+        identityLine={[context.opportunity, context.product, context.amount]
           .filter(Boolean)
           .join(" · ")}
         context={context}
@@ -418,20 +645,57 @@ export function DocumentCenterWorkspace() {
         opportunityId={opportunityId}
         hasUnsavedChanges={dirty}
         acknowledgeCleanClose={!dirty && savedOnce}
+        headerActions={
+          <LoanStructureCommandControl
+            file={file}
+            participants={file.participants ?? []}
+            onNavigate={() => {}}
+          />
+        }
         onSaveDraft={async () => {
           saveEdieReceipts(file.id, receipts);
           if (addressChoice) saveAddressProofSelection(file.id, addressChoice);
+          if (identityChoice) saveIdentityProofSelection(file.id, identityChoice);
           setDirty(false);
           setSavedOnce(true);
         }}
+        saveSuccessMessage="Document Center saved successfully."
       >
-        <div ref={scrollRoot} className="space-y-4 p-4 sm:p-5">
+        <div ref={scrollRoot} className="space-y-3 p-3 sm:p-4">
           <input
             ref={fileInputRef}
             type="file"
             className="hidden"
             accept={DOCUMENT_REGISTRY_ACCEPT}
             onChange={(e) => void onFileInputChange(e.target.files)}
+          />
+          <input
+            ref={multiFileInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            accept={DOCUMENT_REGISTRY_ACCEPT}
+            onChange={(e) => void onFileInputChange(e.target.files)}
+          />
+          <input
+            ref={bulkFilesInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            accept={DOCUMENT_REGISTRY_ACCEPT}
+            onChange={(e) => {
+              const list = e.target.files ? Array.from(e.target.files) : [];
+              void onBulkFiles(list);
+              if (bulkFilesInputRef.current) bulkFilesInputRef.current.value = "";
+            }}
+          />
+          <input
+            ref={folderInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+            onChange={(e) => void onFolderInputChange(e.target.files)}
           />
 
           {toast ? (
@@ -447,202 +711,318 @@ export function DocumentCenterWorkspace() {
             />
           ) : null}
 
-          <DocumentReadinessCard
-            checklist={checklist}
-            score={score}
-            activeFilter={kpiFilter}
-            onOpenReadiness={() => {
-              setKpiFilter("readiness");
-              setReadinessOpen(true);
-            }}
-            onKpiClick={(f) => {
-              setKpiFilter(f);
-              if (f === "readiness") setReadinessOpen(true);
-              else setReadinessOpen(true);
-            }}
+          <DocumentCenterParticipantSelector
+            participants={participants}
+            value={documentOwnerScope}
+            onChange={setDocumentOwnerScope}
           />
 
-          <p className="text-[11px] text-muted-foreground">
-            EDIE · {checklist.productRef.replace("product:", "")} ·{" "}
-            {checklist.productFamily.replace("_", " ")} · stage{" "}
-            {checklist.workflowStage.replace(/_/g, " ")}
-            {kpiFilter !== "all" && kpiFilter !== "readiness" ? (
-              <>
-                {" · "}
-                Filter{" "}
-                <button
-                  type="button"
-                  className="font-medium text-teal-800 underline-offset-2 hover:underline dark:text-teal-200"
-                  onClick={() => setKpiFilter("all")}
+          {(() => {
+            const owner = documentCenterActiveOwner(documentOwnerScope, participants);
+            return (
+              <div
+                className={cn(
+                  "rounded-xl border px-3.5 py-3 shadow-sm",
+                  owner.isShared
+                    ? "border-violet-500/30 bg-violet-500/5"
+                    : "border-teal-500/30 bg-teal-500/5",
+                )}
+                data-surface="document-center-active-owner"
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Currently Uploading For
+                </p>
+                <p
+                  className={cn(
+                    "mt-1 text-sm font-semibold",
+                    owner.isShared
+                      ? "text-violet-900 dark:text-violet-200"
+                      : "text-teal-900 dark:text-teal-200",
+                  )}
                 >
-                  {kpiFilter} · Clear
-                </button>
-              </>
-            ) : null}
-          </p>
+                  {owner.roleLabel}
+                </p>
+                <p className="mt-0.5 text-xs text-foreground">{owner.name}</p>
+              </div>
+            );
+          })()}
 
-          <div className="flex flex-wrap gap-2">
-            {[
-              {
-                label: "Upload",
-                icon: Upload,
-                action: () => {
-                  const target = flatItems.find((i) => !i.complete) ?? flatItems[0];
-                  if (!target) {
-                    flash("No checklist items available.");
-                    return;
-                  }
-                  promptUpload(target.folderId ?? target.typeRef, target.label);
-                },
-              },
-              { label: "Bulk Upload", icon: FolderUp, action: null },
-              { label: "WhatsApp Import", icon: MessageSquare, action: null },
-              { label: "Email Import", icon: Mail, action: null },
-              { label: "Request Documents", icon: Bell, action: null },
-              { label: "Send Reminder", icon: Bell, action: null },
-              {
-                label: "Download",
-                icon: Download,
-                action: () => {
-                  const active = registryRecords.filter((r) => r.status === "active");
-                  if (!active.length) {
-                    flash("No documents to download.");
-                    return;
-                  }
-                  void Promise.all(
-                    active.map((r) => downloadDocumentFromRegistry(r).catch(() => undefined)),
-                  ).then(() => flash(`Download started for ${active.length} file(s).`));
-                },
-              },
-            ].map((a) => {
-              const Icon = a.icon;
-              return (
+          <DocumentReadinessBar
+            percent={categoryReadiness.overallPct}
+            categories={categoryReadiness.categories}
+            onOpenDetails={() => setReadinessOpen(true)}
+          />
+
+          <div
+            data-dc-layout="enterprise-v2"
+            className="space-y-3 rounded-xl border border-border/70 bg-card p-3 shadow-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-teal-700 dark:text-teal-300">
+                  Enterprise Document Repository
+                </p>
+                <p className="text-sm font-semibold tracking-tight">
+                  Business document categories
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {categoryReadiness.completeCount}/{categoryReadiness.totalCount} categories
+                  complete · select acceptable proof per category
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  key={a.label}
                   type="button"
-                  onClick={() =>
-                    a.action ? a.action() : flash(`${a.label} ready — stays in this workspace.`)
-                  }
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-card px-2.5 text-[11px] font-medium shadow-sm transition-colors hover:bg-muted/50"
+                  data-dc-action="upload-files"
+                  onClick={() => bulkFilesInputRef.current?.click()}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-teal-600/40 bg-gradient-to-r from-teal-700 to-cyan-700 px-3 text-[12px] font-semibold text-white shadow-sm"
                 >
-                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                  {a.label}
+                  <Upload className="h-3.5 w-3.5" />
+                  + Upload Files
                 </button>
-              );
-            })}
+                <button
+                  type="button"
+                  data-dc-action="upload-folder"
+                  onClick={() => folderInputRef.current?.click()}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-[12px] font-semibold shadow-sm hover:bg-muted/50"
+                >
+                  <FolderUp className="h-3.5 w-3.5" />
+                  + Upload Folder
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-border/60">
+              <table className="w-full min-w-[780px] border-collapse text-left text-xs">
+                <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2.5 font-semibold">Category</th>
+                    <th className="px-3 py-2.5 font-semibold">Selected Document</th>
+                    <th className="px-3 py-2.5 font-semibold">Status</th>
+                    <th className="px-3 py-2.5 font-semibold">Files</th>
+                    <th className="px-3 py-2.5 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {categoryRows.map((row) => {
+                    const item = row.activeItem;
+                    const storageRef = item.folderId ?? item.typeRef;
+                    const count = attachmentCountFor(storageRef);
+                    const hasFiles = count > 0 || item.complete;
+                    const statusLabel =
+                      row.status === "complete"
+                        ? "Complete"
+                        : row.status === "partial"
+                          ? "Partial"
+                          : "Pending";
+                    return (
+                      <tr
+                        key={row.key}
+                        id={`edie-cat-${row.key}`}
+                        ref={
+                          localFocus === item.typeRef || localFocus === row.key
+                            ? focusEl
+                            : undefined
+                        }
+                        className={cn(
+                          "bg-card hover:bg-muted/20",
+                          (localFocus === item.typeRef || localFocus === row.key) &&
+                            "bg-teal-500/10",
+                        )}
+                      >
+                        <td className="px-3 py-2.5">
+                          <p className="font-semibold text-foreground">{row.label}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {row.fulfillment === "choice_one"
+                              ? "One acceptable document"
+                              : row.fulfillment === "folder"
+                                ? "Folder upload"
+                                : row.requiredItems.length > 1
+                                  ? `${row.requiredItems.length} required documents`
+                                  : "Required document"}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <select
+                            className="h-8 w-full min-w-[11rem] max-w-[16rem] rounded-md border border-border bg-background px-2 text-xs"
+                            value={row.selectedTypeRef}
+                            onChange={(e) => onCategoryTypeSelect(row, e.target.value)}
+                            aria-label={`${row.label} document type`}
+                          >
+                            {row.options.map((opt) => (
+                              <option key={opt.typeRef} value={opt.typeRef}>
+                                {opt.folderLabel || opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[9px] font-semibold",
+                              row.status === "complete"
+                                ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
+                                : row.status === "partial"
+                                  ? "bg-amber-500/15 text-amber-900 dark:text-amber-200"
+                                  : "bg-rose-500/15 text-rose-800 dark:text-rose-200",
+                            )}
+                          >
+                            {statusLabel}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 tabular-nums font-medium text-foreground">
+                          {count}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex flex-wrap justify-end gap-1">
+                            {!hasFiles ? (
+                              <RowAction
+                                label="Upload"
+                                onClick={() =>
+                                  uploadDocument(storageRef, item.folderLabel || item.label)
+                                }
+                                icon={<Upload className="h-3 w-3" />}
+                                primary
+                              />
+                            ) : (
+                              <>
+                                <RowAction
+                                  label="Add"
+                                  onClick={() =>
+                                    addDocuments(storageRef, item.folderLabel || item.label)
+                                  }
+                                  icon={<FilePlus2 className="h-3 w-3" />}
+                                />
+                                <RowAction
+                                  label="View"
+                                  onClick={() =>
+                                    openAttachments(
+                                      storageRef,
+                                      item.folderLabel || item.label,
+                                    )
+                                  }
+                                  icon={<Eye className="h-3 w-3" />}
+                                />
+                                <RowAction
+                                  label="Replace"
+                                  onClick={() => {
+                                    const records = listDocumentsByTypeRef(
+                                      file.id,
+                                      storageRef,
+                                    ).filter((r) => r.status === "active");
+                                    if (records.length <= 1) {
+                                      promptUpload(
+                                        storageRef,
+                                        item.folderLabel || item.label,
+                                        records[0]?.id,
+                                        "single",
+                                      );
+                                      return;
+                                    }
+                                    openAttachments(
+                                      storageRef,
+                                      item.folderLabel || item.label,
+                                    );
+                                  }}
+                                  icon={<Replace className="h-3 w-3" />}
+                                />
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <DocumentUploadZone
-            compact
-            disabled={uploadBusy}
-            onFiles={(files) => void onBulkFiles(files)}
-            label="Drop files to bulk-upload against pending checklist items"
-          />
+          <section
+            data-dc-section="other-documents"
+            className="rounded-xl border border-border/70 bg-card p-3 shadow-sm"
+          >
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold">Other Documents</h2>
+                <p className="text-[11px] text-muted-foreground">
+                  Custom supporting documents — unlimited. Checklist unchanged.
+                </p>
+              </div>
+              <Button type="button" size="sm" className="h-8" onClick={addOtherDocumentRow}>
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Add row
+              </Button>
+            </div>
 
-          {checklist.modules.map((mod) => {
-            const isOpen = expanded[mod.id] ?? true;
-            const sectionFocus = sectionParam === mod.id || localFocus?.startsWith("doc:");
-            let rows =
-              mod.id === "address_proof"
-                ? (() => {
-                    const selected =
-                      addressChoice ||
-                      mod.items.find((x) => !x.optional)?.typeRef ||
-                      mod.items[0]?.typeRef;
-                    return mod.items.filter((i) => i.typeRef === selected);
-                  })()
-                : mod.items.filter(
-                    (i) => !i.optional || i.moduleId === "customer_kyc" || i.moduleId === "banking",
-                  );
-            if (filteredTypeRefs) {
-              rows = rows.filter((i) => filteredTypeRefs.has(i.typeRef));
-            }
-            if (filteredTypeRefs && rows.length === 0) return null;
-
-            return (
-              <section
-                key={mod.id}
-                id={`edie-section-${mod.id}`}
-                className={cn(
-                  "rounded-2xl border border-border/70 bg-card p-4 shadow-sm",
-                  sectionParam === mod.id && "ring-2 ring-teal-500/40",
-                )}
-              >
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between gap-2 text-left"
-                  onClick={() => setExpanded((e) => ({ ...e, [mod.id]: !isOpen }))}
-                >
-                  <div>
-                    <h2 className="text-sm font-semibold">{mod.label}</h2>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {mod.id === "address_proof"
-                        ? "Select one address proof — upload once."
-                        : mod.id === "financial" && checklist.customerCategory !== "salaried"
-                          ? "Unlimited files in Financial Documents Folder."
-                          : mod.id === "property"
-                            ? "Activated after Soft Approval — unlimited files."
-                            : "Generated by EDIE — actions stay in this workspace."}
-                    </p>
-                  </div>
-                  <span className="text-[10px] tabular-nums text-muted-foreground">
-                    {isOpen ? "Collapse" : "Expand"}
-                  </span>
-                </button>
-
-                {isOpen ? (
-                  <>
-                    {mod.id === "address_proof" ? (
-                      <div className="mt-3">
-                        <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Address proof type
-                          {checklist.productFamily === "asset_security" ? " (optional)" : ""}
-                        </label>
-                        <select
-                          className="mt-1 h-8 w-full max-w-sm rounded-md border border-border bg-background px-2 text-xs"
-                          value={
-                            addressChoice ||
-                            mod.items.find((i) => !i.optional)?.typeRef ||
-                            mod.items[0]?.typeRef ||
-                            "doc:address-electricity"
-                          }
-                          onChange={(e) => onAddressSelect(e.target.value)}
-                        >
-                          {mod.items.map((i) => (
-                            <option key={i.typeRef} value={i.typeRef}>
-                              {i.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : null}
-
-                    <ul className="mt-3 divide-y divide-border/50 rounded-xl border border-border/50">
-                      {rows.map((item) => (
-                        <DocumentActionRow
-                          key={item.typeRef}
-                          item={item}
-                          focused={localFocus === item.typeRef}
-                          rowRef={localFocus === item.typeRef ? focusEl : undefined}
-                          hasVersions={(versionsMap[item.typeRef] ?? []).length > 0}
-                          onView={() => openViewer(item.typeRef)}
-                          onUpload={() => uploadDocument(item.folderId ?? item.typeRef, item.label)}
-                          onReplace={() => uploadDocument(item.folderId ?? item.typeRef, item.label)}
-                          onHistory={() => setHistoryTypeRef(item.typeRef)}
-                        />
-                      ))}
-                      {rows.length === 0 ? (
-                        <li className="px-3 py-6 text-center text-xs text-muted-foreground">
-                          No documents in this filter for {mod.label}.
-                        </li>
-                      ) : null}
-                    </ul>
-                  </>
-                ) : null}
-                {sectionFocus ? null : null}
-              </section>
-            );
-          })}
+            <div className="overflow-x-auto rounded-lg border border-border/60">
+              <table className="w-full min-w-[520px] border-collapse text-left text-xs">
+                <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-semibold">Document Name</th>
+                    <th className="px-3 py-2 font-semibold text-right">Upload</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {otherDocs.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={2}
+                        className="px-3 py-6 text-center text-muted-foreground"
+                      >
+                        No custom documents yet. Add a row and name it (e.g. Builder Letter).
+                      </td>
+                    </tr>
+                  ) : (
+                    otherDocs.map((entry) => {
+                      const count = attachmentCountFor(entry.typeRef);
+                      return (
+                        <tr key={entry.id} className="hover:bg-muted/20">
+                          <td className="px-3 py-2">
+                            <Input
+                              className="h-8 text-xs"
+                              value={entry.name}
+                              placeholder="e.g. CA Declaration"
+                              onChange={(e) => {
+                                const name = e.target.value;
+                                setOtherDocs((prev) => {
+                                  const next = prev.map((row) =>
+                                    row.id === entry.id ? { ...row, name } : row,
+                                  );
+                                  saveOtherDocumentEntries(file.id, next);
+                                  return next;
+                                });
+                              }}
+                            />
+                            {count > 0 ? (
+                              <p className="mt-1 text-[10px] text-muted-foreground">
+                                {count} file{count === 1 ? "" : "s"} attached
+                              </p>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex justify-end">
+                              <RowAction
+                                label="Upload"
+                                onClick={() =>
+                                  uploadDocument(
+                                    entry.typeRef,
+                                    entry.name.trim() || "Supporting Document",
+                                  )
+                                }
+                                icon={<Upload className="h-3 w-3" />}
+                                primary={count === 0}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           <DocumentRegistryPanel
             file={file}
@@ -690,99 +1070,112 @@ export function DocumentCenterWorkspace() {
           if (historyItem) openViewer(historyItem.typeRef);
         }}
       />
+
+      <DocumentAttachmentsDrawer
+        open={Boolean(attachmentsTypeRef)}
+        onClose={() => setAttachmentsTypeRef(null)}
+        categoryLabel={attachmentsLabel}
+        records={
+          attachmentsTypeRef && file
+            ? listDocumentsByTypeRef(file.id, attachmentsTypeRef).filter(
+                recordMatchesOwnerScope,
+              )
+            : []
+        }
+        onReplace={(record) => {
+          promptUpload(record.typeRef, record.categoryLabel, record.id, "single");
+        }}
+        onPreview={(record) => {
+          setAttachmentsTypeRef(null);
+          openViewer(record.typeRef);
+        }}
+      />
     </div>
   );
 }
 
-function DocumentActionRow({
-  item,
-  focused,
-  rowRef,
-  hasVersions,
-  onView,
-  onUpload,
-  onReplace,
-  onHistory,
+function readinessBarTone(percent: number): {
+  track: string;
+  fill: string;
+  label: string;
+} {
+  if (percent <= 30) {
+    return {
+      track: "bg-rose-500/15",
+      fill: "bg-rose-500",
+      label: "text-rose-800 dark:text-rose-200",
+    };
+  }
+  if (percent <= 60) {
+    return {
+      track: "bg-orange-500/15",
+      fill: "bg-orange-500",
+      label: "text-orange-900 dark:text-orange-200",
+    };
+  }
+  if (percent <= 80) {
+    return {
+      track: "bg-amber-500/15",
+      fill: "bg-amber-400",
+      label: "text-amber-950 dark:text-amber-100",
+    };
+  }
+  return {
+    track: "bg-emerald-500/15",
+    fill: "bg-emerald-500",
+    label: "text-emerald-900 dark:text-emerald-200",
+  };
+}
+
+function DocumentReadinessBar({
+  percent,
+  categories,
+  onOpenDetails,
 }: {
-  item: EdieChecklistItem;
-  focused?: boolean;
-  rowRef?: React.RefObject<HTMLLIElement | null>;
-  hasVersions: boolean;
-  onView: () => void;
-  onUpload: () => void;
-  onReplace: () => void;
-  onHistory: () => void;
+  percent: number;
+  categories?: Array<{ label: string; status: "complete" | "partial" | "pending" }>;
+  onOpenDetails: () => void;
 }) {
+  const tone = readinessBarTone(percent);
   return (
-    <li
-      ref={rowRef}
-      id={`edie-doc-${item.typeRef}`}
-      className={cn(
-        "flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-xs transition-colors",
-        focused && "bg-teal-500/10 ring-1 ring-inset ring-teal-500/35",
-      )}
+    <button
+      type="button"
+      onClick={onOpenDetails}
+      className="flex w-full flex-col gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-2 text-left shadow-sm hover:bg-muted/20"
+      aria-label={`Document readiness ${percent} percent`}
     >
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-foreground">
-          {item.uploadMode === "folder" ? `📁 ${item.folderLabel || item.label}` : item.label}
-          {item.optional ? (
-            <span className="ml-1.5 text-[9px] font-medium text-muted-foreground">Optional</span>
-          ) : null}
-        </p>
-        <p className="text-[10px] text-muted-foreground">
-          {item.critical ? "Critical" : item.mandatory ? "Mandatory" : "Required"}
-          {" · "}
-          {reasonForDocument(item)}
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1">
-        <span
-          className={cn(
-            "rounded-full px-2 py-0.5 text-[9px] font-semibold",
-            item.complete
-              ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
-              : item.critical
-                ? "bg-rose-500/15 text-rose-800 dark:text-rose-200"
-                : "bg-amber-500/15 text-amber-900 dark:text-amber-200",
-          )}
-        >
-          {item.complete ? "Received" : item.critical ? "Critical" : "Pending"}
+      <span className="flex w-full items-center gap-3">
+        <span className={cn("shrink-0 text-[11px] font-semibold tabular-nums", tone.label)}>
+          Readiness {percent}%
         </span>
-
-        <RowAction label="View" onClick={onView} icon={<Eye className="h-3 w-3" />} />
-        <RowAction
-          label={item.complete ? "Replace" : "Upload"}
-          onClick={item.complete ? onReplace : onUpload}
-          icon={
-            item.complete ? <Replace className="h-3 w-3" /> : <Upload className="h-3 w-3" />
-          }
-          primary={!item.complete}
-          autoFocus={focused && !item.complete}
-        />
-        <RowAction label="History" onClick={onHistory} icon={<History className="h-3 w-3" />} />
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50"
-              aria-label="More actions"
+        <span className={cn("h-2 min-w-0 flex-1 overflow-hidden rounded-full", tone.track)}>
+          <span
+            className={cn("block h-full rounded-full transition-[width] duration-300", tone.fill)}
+            style={{ width: `${Math.max(0, Math.min(100, percent))}%` }}
+          />
+        </span>
+      </span>
+      {categories && categories.length > 0 ? (
+        <span className="flex flex-wrap gap-1">
+          {categories.map((c) => (
+            <span
+              key={c.label}
+              className={cn(
+                "rounded px-1.5 py-0.5 text-[9px] font-medium",
+                c.status === "complete"
+                  ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
+                  : c.status === "partial"
+                    ? "bg-amber-500/15 text-amber-900 dark:text-amber-200"
+                    : "bg-muted text-muted-foreground",
+              )}
             >
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="text-xs">
-            <DropdownMenuItem onClick={onView}>View</DropdownMenuItem>
-            <DropdownMenuItem onClick={onUpload}>Upload</DropdownMenuItem>
-            <DropdownMenuItem onClick={onReplace}>Replace</DropdownMenuItem>
-            <DropdownMenuItem onClick={onHistory}>
-              History {hasVersions ? "" : "(empty)"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </li>
+              {c.label}
+              {c.status === "complete" ? " ✓" : c.status === "partial" ? " ·" : ""}
+            </span>
+          ))}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
