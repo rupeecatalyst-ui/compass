@@ -770,7 +770,13 @@ export function CreditBenchWorkspace() {
             )}
 
             {section === "chanakya" && (
-              <ChanakyaOpportunityRecommendationPanel file={file} stated={stated} />
+              <ChanakyaOpportunityRecommendationPanel
+                file={file}
+                stated={stated}
+                onNavigateSection={(target) => {
+                  setSection(target === "chanakya" ? "loan" : target);
+                }}
+              />
             )}
           </div>
         </div>
