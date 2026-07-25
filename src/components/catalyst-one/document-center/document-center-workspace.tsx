@@ -2,14 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Eye,
-  FilePlus2,
-  FolderUp,
-  Plus,
-  Replace,
-  Upload,
-} from "lucide-react";
+import { FolderUp, Upload } from "lucide-react";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
 import { OpportunityBoundStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-bound-stage";
@@ -23,6 +16,8 @@ import {
 } from "@/components/catalyst-one/document-center/document-readiness-card";
 import { DocumentReadinessDrawer } from "@/components/catalyst-one/document-center/document-readiness-drawer";
 import { DocumentRegistryPanel } from "@/components/catalyst-one/document-center/document-registry-panel";
+import { DocumentCategoriesTable } from "@/components/catalyst-one/document-center/document-categories-table";
+import { DocumentOtherDocumentsTable } from "@/components/catalyst-one/document-center/document-other-documents-table";
 import { DocumentUploadProgressBar } from "@/components/catalyst-one/document-center/document-upload-zone";
 import { DocumentViewerOverlay } from "@/components/catalyst-one/document-center/document-viewer-overlay";
 import { DocumentVersionHistoryDrawer } from "@/components/catalyst-one/document-center/document-version-history-drawer";
@@ -85,7 +80,6 @@ import {
 import { ROUTES } from "@/constants/routes";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { LoanFile } from "@/types/catalyst-one";
 import type { EdieChecklistItem } from "@/types/edie-certified-rules";
@@ -143,7 +137,6 @@ export function DocumentCenterWorkspace() {
   const [attachmentsLabel, setAttachmentsLabel] = useState("");
   const [otherDocs, setOtherDocs] = useState<OtherDocumentEntry[]>([]);
 
-  const focusEl = useRef<HTMLTableRowElement | null>(null);
   const scrollRoot = useRef<HTMLDivElement | null>(null);
   const scrollPos = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -244,8 +237,11 @@ export function DocumentCenterWorkspace() {
   }, [focusParam]);
 
   useEffect(() => {
-    if (!localFocus || !focusEl.current) return;
-    focusEl.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!localFocus) return;
+    const el =
+      document.getElementById(`edie-cat-${localFocus}`) ??
+      document.getElementById(`edie-item-${localFocus}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [localFocus, file?.id, receipts, kpiFilter]);
 
   const refreshRegistry = useCallback(() => {
@@ -792,237 +788,39 @@ export function DocumentCenterWorkspace() {
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-border/60">
-              <table className="w-full min-w-[780px] border-collapse text-left text-xs">
-                <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2.5 font-semibold">Category</th>
-                    <th className="px-3 py-2.5 font-semibold">Selected Document</th>
-                    <th className="px-3 py-2.5 font-semibold">Status</th>
-                    <th className="px-3 py-2.5 font-semibold">Files</th>
-                    <th className="px-3 py-2.5 font-semibold text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {categoryRows.map((row) => {
-                    const item = row.activeItem;
-                    const storageRef = item.folderId ?? item.typeRef;
-                    const count = attachmentCountFor(storageRef);
-                    const hasFiles = count > 0 || item.complete;
-                    const statusLabel =
-                      row.status === "complete"
-                        ? "Complete"
-                        : row.status === "partial"
-                          ? "Partial"
-                          : "Pending";
-                    return (
-                      <tr
-                        key={row.key}
-                        id={`edie-cat-${row.key}`}
-                        ref={
-                          localFocus === item.typeRef || localFocus === row.key
-                            ? focusEl
-                            : undefined
-                        }
-                        className={cn(
-                          "bg-card hover:bg-muted/20",
-                          (localFocus === item.typeRef || localFocus === row.key) &&
-                            "bg-teal-500/10",
-                        )}
-                      >
-                        <td className="px-3 py-2.5">
-                          <p className="font-semibold text-foreground">{row.label}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {row.fulfillment === "choice_one"
-                              ? "One acceptable document"
-                              : row.fulfillment === "folder"
-                                ? "Folder upload"
-                                : row.requiredItems.length > 1
-                                  ? `${row.requiredItems.length} required documents`
-                                  : "Required document"}
-                          </p>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <select
-                            className="h-8 w-full min-w-[11rem] max-w-[16rem] rounded-md border border-border bg-background px-2 text-xs"
-                            value={row.selectedTypeRef}
-                            onChange={(e) => onCategoryTypeSelect(row, e.target.value)}
-                            aria-label={`${row.label} document type`}
-                          >
-                            {row.options.map((opt) => (
-                              <option key={opt.typeRef} value={opt.typeRef}>
-                                {opt.folderLabel || opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-[9px] font-semibold",
-                              row.status === "complete"
-                                ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
-                                : row.status === "partial"
-                                  ? "bg-amber-500/15 text-amber-900 dark:text-amber-200"
-                                  : "bg-rose-500/15 text-rose-800 dark:text-rose-200",
-                            )}
-                          >
-                            {statusLabel}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums font-medium text-foreground">
-                          {count}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex flex-wrap justify-end gap-1">
-                            {!hasFiles ? (
-                              <RowAction
-                                label="Upload"
-                                onClick={() =>
-                                  uploadDocument(storageRef, item.folderLabel || item.label)
-                                }
-                                icon={<Upload className="h-3 w-3" />}
-                                primary
-                              />
-                            ) : (
-                              <>
-                                <RowAction
-                                  label="Add"
-                                  onClick={() =>
-                                    addDocuments(storageRef, item.folderLabel || item.label)
-                                  }
-                                  icon={<FilePlus2 className="h-3 w-3" />}
-                                />
-                                <RowAction
-                                  label="View"
-                                  onClick={() =>
-                                    openAttachments(
-                                      storageRef,
-                                      item.folderLabel || item.label,
-                                    )
-                                  }
-                                  icon={<Eye className="h-3 w-3" />}
-                                />
-                                <RowAction
-                                  label="Replace"
-                                  onClick={() => {
-                                    const records = listDocumentsByTypeRef(
-                                      file.id,
-                                      storageRef,
-                                    ).filter((r) => r.status === "active");
-                                    if (records.length <= 1) {
-                                      promptUpload(
-                                        storageRef,
-                                        item.folderLabel || item.label,
-                                        records[0]?.id,
-                                        "single",
-                                      );
-                                      return;
-                                    }
-                                    openAttachments(
-                                      storageRef,
-                                      item.folderLabel || item.label,
-                                    );
-                                  }}
-                                  icon={<Replace className="h-3 w-3" />}
-                                />
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <DocumentCategoriesTable
+              rows={categoryRows}
+              fileId={file.id}
+              highlightedKey={
+                categoryRows.find(
+                  (r) =>
+                    localFocus === r.key ||
+                    localFocus === r.activeItem.typeRef ||
+                    localFocus === r.selectedTypeRef,
+                )?.key ?? localFocus
+              }
+              attachmentCountFor={attachmentCountFor}
+              onCategoryTypeSelect={onCategoryTypeSelect}
+              onUpload={(storageRef, label) => uploadDocument(storageRef, label)}
+              onAdd={(storageRef, label) => addDocuments(storageRef, label)}
+              onView={(storageRef, label) => openAttachments(storageRef, label)}
+              onReplaceSingle={(storageRef, label, recordId) =>
+                promptUpload(storageRef, label, recordId || undefined, "single")
+              }
+              onOpenAttachments={(storageRef, label) =>
+                openAttachments(storageRef, label)
+              }
+            />
           </div>
 
-          <section
-            data-dc-section="other-documents"
-            className="rounded-xl border border-border/70 bg-card p-3 shadow-sm"
-          >
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-semibold">Other Documents</h2>
-                <p className="text-[11px] text-muted-foreground">
-                  Custom supporting documents — unlimited. Checklist unchanged.
-                </p>
-              </div>
-              <Button type="button" size="sm" className="h-8" onClick={addOtherDocumentRow}>
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                Add row
-              </Button>
-            </div>
-
-            <div className="overflow-x-auto rounded-lg border border-border/60">
-              <table className="w-full min-w-[520px] border-collapse text-left text-xs">
-                <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Document Name</th>
-                    <th className="px-3 py-2 font-semibold text-right">Upload</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {otherDocs.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={2}
-                        className="px-3 py-6 text-center text-muted-foreground"
-                      >
-                        No custom documents yet. Add a row and name it (e.g. Builder Letter).
-                      </td>
-                    </tr>
-                  ) : (
-                    otherDocs.map((entry) => {
-                      const count = attachmentCountFor(entry.typeRef);
-                      return (
-                        <tr key={entry.id} className="hover:bg-muted/20">
-                          <td className="px-3 py-2">
-                            <Input
-                              className="h-8 text-xs"
-                              value={entry.name}
-                              placeholder="e.g. CA Declaration"
-                              onChange={(e) => {
-                                const name = e.target.value;
-                                setOtherDocs((prev) => {
-                                  const next = prev.map((row) =>
-                                    row.id === entry.id ? { ...row, name } : row,
-                                  );
-                                  saveOtherDocumentEntries(file.id, next);
-                                  return next;
-                                });
-                              }}
-                            />
-                            {count > 0 ? (
-                              <p className="mt-1 text-[10px] text-muted-foreground">
-                                {count} file{count === 1 ? "" : "s"} attached
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex justify-end">
-                              <RowAction
-                                label="Upload"
-                                onClick={() =>
-                                  uploadDocument(
-                                    entry.typeRef,
-                                    entry.name.trim() || "Supporting Document",
-                                  )
-                                }
-                                icon={<Upload className="h-3 w-3" />}
-                                primary={count === 0}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          <DocumentOtherDocumentsTable
+            fileId={file.id}
+            entries={otherDocs}
+            setEntries={setOtherDocs}
+            attachmentCountFor={attachmentCountFor}
+            onUpload={(typeRef, name) => uploadDocument(typeRef, name)}
+            onAddRow={addOtherDocumentRow}
+          />
 
           <DocumentRegistryPanel
             file={file}
@@ -1175,37 +973,6 @@ function DocumentReadinessBar({
           ))}
         </span>
       ) : null}
-    </button>
-  );
-}
-
-function RowAction({
-  label,
-  onClick,
-  icon,
-  primary,
-  autoFocus,
-}: {
-  label: string;
-  onClick: () => void;
-  icon: React.ReactNode;
-  primary?: boolean;
-  autoFocus?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      autoFocus={autoFocus}
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-medium transition-colors",
-        primary
-          ? "border-teal-500/35 bg-teal-500/10 text-teal-900 hover:bg-teal-500/15 dark:text-teal-100"
-          : "border-border/60 text-foreground hover:bg-muted/50",
-      )}
-    >
-      {icon}
-      {label}
     </button>
   );
 }

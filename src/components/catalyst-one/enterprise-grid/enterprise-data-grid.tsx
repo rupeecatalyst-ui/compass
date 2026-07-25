@@ -27,8 +27,11 @@ import { useEnterpriseGridPreferences } from "./use-enterprise-grid-preferences"
 
 export type EnterpriseGridSortDirection = "asc" | "desc";
 
-/** Enterprise Table Standard — dense spreadsheet listing vs default card-adjacent spacing. */
-export type EnterpriseGridDensity = "default" | "compact";
+/**
+ * Enterprise Table Standard —
+ * `default` soft · `compact` operational · `dense` CRM listing (max rows / viewport).
+ */
+export type EnterpriseGridDensity = "default" | "compact" | "dense";
 
 interface EnterpriseDataGridProps<T> {
   storageKey: string;
@@ -55,7 +58,14 @@ interface EnterpriseDataGridProps<T> {
   onSort?: (columnId: string) => void;
   maxHeightClassName?: string;
   /**
+   * Table min-width class (Enterprise Table Standard).
+   * Default matches Opportunity / Deal registries (`min-w-[1280px]`).
+   * Narrower operational tables (e.g. Document Center checklists) may override.
+   */
+  tableMinWidthClassName?: string;
+  /**
    * `compact` = Enterprise Table Standard (Excel-like operational listing).
+   * `dense` = CRM work-queue density (My Deals) — tighter rows, more records visible.
    * Prefer for directory / comparison pages; use default for softer surfaces.
    */
   density?: EnterpriseGridDensity;
@@ -78,19 +88,29 @@ export function EnterpriseDataGrid<T>({
   sortDirection = "asc",
   onSort,
   maxHeightClassName,
+  tableMinWidthClassName = "min-w-[1280px]",
   density = "default",
 }: EnterpriseDataGridProps<T>) {
-  const compact = density === "compact";
+  const compact = density === "compact" || density === "dense";
+  const dense = density === "dense";
   const scopedKey = useMemo(
     () => buildEnterpriseGridStorageKey(storageKey, userId),
     [storageKey, userId],
   );
   const scrollMax =
     maxHeightClassName ??
-    (compact ? "max-h-[min(78vh,900px)]" : "max-h-[min(70vh,720px)]");
-  const cellPad = compact ? "px-2 py-1" : "px-3 py-2.5";
-  const headPad = compact ? "px-2 py-1.5" : "px-3 py-2.5";
-  const bodyText = compact ? "text-[12px] leading-4" : "text-[13px]";
+    (dense
+      ? "max-h-[min(82vh,960px)]"
+      : compact
+        ? "max-h-[min(78vh,900px)]"
+        : "max-h-[min(70vh,720px)]");
+  const cellPad = dense ? "px-2 py-0.5" : compact ? "px-2 py-1" : "px-3 py-2.5";
+  const headPad = dense ? "px-2 py-1" : compact ? "px-2 py-1.5" : "px-3 py-2.5";
+  const bodyText = dense
+    ? "text-[11px] leading-[1.15rem]"
+    : compact
+      ? "text-[12px] leading-4"
+      : "text-[13px]";
   const {
     activeView,
     visibleColumns,
@@ -113,12 +133,18 @@ export function EnterpriseDataGrid<T>({
   );
 
   return (
-    <div className={cn(compact ? "space-y-1.5" : "space-y-3", className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div
+      className={cn(
+        "flex min-h-0 flex-col",
+        dense ? "gap-1" : compact ? "gap-1.5" : "gap-3",
+        className,
+      )}
+    >
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-1.5">
         <p
           className={cn(
             "font-medium uppercase tracking-[0.12em] text-muted-foreground",
-            compact ? "text-[10px]" : "text-xs tracking-[0.14em]",
+            dense || compact ? "text-[10px]" : "text-xs tracking-[0.14em]",
           )}
         >
           {toolbarLabel}
@@ -129,7 +155,10 @@ export function EnterpriseDataGrid<T>({
             type="button"
             variant="outline"
             size="sm"
-            className={cn("gap-1.5", compact ? "h-7 rounded-md text-[11px]" : "h-8 rounded-lg")}
+            className={cn(
+              "gap-1.5",
+              dense ? "h-6 rounded-md px-2 text-[10px]" : compact ? "h-7 rounded-md text-[11px]" : "h-8 rounded-lg",
+            )}
             onClick={resetToDefault}
             title="Restore default column layout"
           >
@@ -142,7 +171,10 @@ export function EnterpriseDataGrid<T>({
                 type="button"
                 variant="outline"
                 size="sm"
-                className={cn("gap-1.5", compact ? "h-7 rounded-md text-[11px]" : "h-8 rounded-lg")}
+                className={cn(
+                  "gap-1.5",
+                  dense ? "h-6 rounded-md px-2 text-[10px]" : compact ? "h-7 rounded-md text-[11px]" : "h-8 rounded-lg",
+                )}
               >
                 <Columns3 className="h-3.5 w-3.5" />
                 Columns
@@ -198,7 +230,7 @@ export function EnterpriseDataGrid<T>({
 
       <div
         className={cn(
-          "overflow-auto border bg-card",
+          "min-h-0 overflow-auto border bg-card",
           compact
             ? "rounded-sm border-slate-300 dark:border-zinc-700"
             : "rounded-xl border-border/80 shadow-sm shadow-black/[0.02]",
@@ -207,8 +239,9 @@ export function EnterpriseDataGrid<T>({
       >
         <table
           className={cn(
-            "w-full min-w-[1280px] border-collapse",
-            compact ? "text-[12px]" : "text-sm",
+            "w-full border-collapse",
+            tableMinWidthClassName,
+            dense ? "text-[11px]" : compact ? "text-[12px]" : "text-sm",
           )}
         >
           <thead className="sticky top-0 z-20">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Download,
   Eye,
@@ -22,6 +22,10 @@ import {
   renameDocumentInRegistry,
 } from "@/lib/document-registry";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import {
+  EnterpriseDataGrid,
+  type EnterpriseGridColumnDef,
+} from "@/components/catalyst-one/enterprise-grid";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,14 +42,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import type { DocumentRegistryRecord } from "@/types/document-registry";
 import type { LoanFile } from "@/types/catalyst-one";
 
@@ -59,6 +55,10 @@ function formatDate(iso: string) {
   });
 }
 
+/**
+ * BAT #24 — Enterprise Document Registry table.
+ * Reuses Opportunity Registry column-width SSOT (`EnterpriseDataGrid`).
+ */
 export function DocumentRegistryPanel({
   file,
   records,
@@ -91,18 +91,21 @@ export function DocumentRegistryPanel({
     [records, query],
   );
 
-  const onDownload = async (record: DocumentRegistryRecord) => {
-    if (!canDownloadDocuments(user)) {
-      toast.error("Download not permitted for your role.");
-      return;
-    }
-    try {
-      await downloadDocumentFromRegistry(record);
-      toast.success(`Downloaded ${record.displayName}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Download failed");
-    }
-  };
+  const onDownload = useCallback(
+    async (record: DocumentRegistryRecord) => {
+      if (!canDownloadDocuments(user)) {
+        toast.error("Download not permitted for your role.");
+        return;
+      }
+      try {
+        await downloadDocumentFromRegistry(record);
+        toast.success(`Downloaded ${record.displayName}`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Download failed");
+      }
+    },
+    [user],
+  );
 
   const submitRename = () => {
     if (!renameTarget || !canRenameDocuments(user)) return;
@@ -122,6 +125,167 @@ export function DocumentRegistryPanel({
     onRefresh();
   };
 
+  const relatedLabel = `${customerLabel || file.customerName}${
+    file.id ? ` · ${file.id}` : ""
+  }`;
+
+  const columns = useMemo<EnterpriseGridColumnDef<DocumentRegistryRecord>[]>(
+    () => [
+      {
+        id: "fileName",
+        label: "File Name",
+        frozen: true,
+        defaultOrder: 1,
+        defaultWidth: 220,
+        minWidth: 140,
+        render: (row) => (
+          <span className="block truncate font-medium" title={row.displayName}>
+            {row.displayName}
+          </span>
+        ),
+        exportValue: (row) => row.displayName,
+      },
+      {
+        id: "category",
+        label: "Category",
+        defaultOrder: 2,
+        defaultWidth: 140,
+        minWidth: 100,
+        render: (row) => (
+          <span className="block truncate" title={row.categoryLabel}>
+            {row.categoryLabel}
+          </span>
+        ),
+        exportValue: (row) => row.categoryLabel,
+      },
+      {
+        id: "uploadedBy",
+        label: "Uploaded By",
+        defaultOrder: 3,
+        defaultWidth: 120,
+        minWidth: 90,
+        render: (row) => row.uploadedBy,
+        exportValue: (row) => row.uploadedBy,
+      },
+      {
+        id: "uploadedAt",
+        label: "Upload Date",
+        defaultOrder: 4,
+        defaultWidth: 150,
+        minWidth: 120,
+        render: (row) => (
+          <span className="whitespace-nowrap tabular-nums text-muted-foreground">
+            {formatDate(row.uploadedAt)}
+          </span>
+        ),
+        exportValue: (row) => formatDate(row.uploadedAt),
+      },
+      {
+        id: "size",
+        label: "Size",
+        defaultOrder: 5,
+        defaultWidth: 80,
+        minWidth: 64,
+        align: "right",
+        render: (row) => (
+          <span className="tabular-nums">
+            {formatDocumentFileSize(row.fileSizeBytes)}
+          </span>
+        ),
+        exportValue: (row) => formatDocumentFileSize(row.fileSizeBytes),
+      },
+      {
+        id: "related",
+        label: "Related",
+        defaultOrder: 6,
+        defaultWidth: 160,
+        minWidth: 110,
+        render: () => (
+          <span className="block truncate text-muted-foreground" title={relatedLabel}>
+            {relatedLabel}
+          </span>
+        ),
+        exportValue: () => relatedLabel,
+      },
+      {
+        id: "status",
+        label: "Status",
+        defaultOrder: 7,
+        defaultWidth: 88,
+        minWidth: 72,
+        render: (row) => (
+          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-800 dark:text-emerald-200">
+            {row.status === "active" ? "Active" : row.status}
+          </span>
+        ),
+        exportValue: (row) => (row.status === "active" ? "Active" : row.status),
+      },
+      {
+        id: "actions",
+        label: "Actions",
+        defaultOrder: 999,
+        defaultWidth: 72,
+        minWidth: 64,
+        align: "right",
+        render: (row) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="text-xs">
+              <DropdownMenuItem onClick={() => onPreview(row)}>
+                <Eye className="mr-2 h-3 w-3" />
+                Preview
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void onDownload(row)}>
+                <Download className="mr-2 h-3 w-3" />
+                Download
+              </DropdownMenuItem>
+              {canReplaceDocuments(user) ? (
+                <DropdownMenuItem onClick={() => onReplace(row)}>
+                  <Replace className="mr-2 h-3 w-3" />
+                  Replace
+                </DropdownMenuItem>
+              ) : null}
+              {canRenameDocuments(user) ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setRenameTarget(row);
+                    setRenameValue(row.displayName);
+                  }}
+                >
+                  <Pencil className="mr-2 h-3 w-3" />
+                  Rename
+                </DropdownMenuItem>
+              ) : null}
+              {canDeleteDocuments(user) ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setDeleteTarget(row)}
+                  >
+                    <Trash2 className="mr-2 h-3 w-3" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+        exportValue: () => "",
+      },
+    ],
+    [onDownload, onPreview, onReplace, relatedLabel, user],
+  );
+
   return (
     <section className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -139,102 +303,20 @@ export function DocumentRegistryPanel({
         />
       </div>
 
-      {filtered.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-border/60 px-4 py-8 text-center text-xs text-muted-foreground">
-          No documents uploaded yet. Use Upload on a checklist item or the drop zone above.
-        </p>
-      ) : (
-        <div className="mt-3 overflow-x-auto rounded-xl border border-border/50">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-[10px]">File Name</TableHead>
-                <TableHead className="text-[10px]">Category</TableHead>
-                <TableHead className="text-[10px]">Uploaded By</TableHead>
-                <TableHead className="text-[10px]">Upload Date</TableHead>
-                <TableHead className="text-[10px]">Size</TableHead>
-                <TableHead className="text-[10px]">Related</TableHead>
-                <TableHead className="text-[10px]">Status</TableHead>
-                <TableHead className="text-[10px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell className="max-w-[180px] truncate text-xs font-medium">
-                    {record.displayName}
-                  </TableCell>
-                  <TableCell className="text-[11px]">{record.categoryLabel}</TableCell>
-                  <TableCell className="text-[11px]">{record.uploadedBy}</TableCell>
-                  <TableCell className="whitespace-nowrap text-[11px]">
-                    {formatDate(record.uploadedAt)}
-                  </TableCell>
-                  <TableCell className="text-[11px] tabular-nums">
-                    {formatDocumentFileSize(record.fileSizeBytes)}
-                  </TableCell>
-                  <TableCell className="max-w-[140px] truncate text-[11px] text-muted-foreground">
-                    {customerLabel || file.customerName}
-                    {file.id ? ` · ${file.id}` : ""}
-                  </TableCell>
-                  <TableCell>
-                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-800 dark:text-emerald-200">
-                      {record.status === "active" ? "Active" : record.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="text-xs">
-                        <DropdownMenuItem onClick={() => onPreview(record)}>
-                          <Eye className="mr-2 h-3 w-3" />
-                          Preview
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => void onDownload(record)}>
-                          <Download className="mr-2 h-3 w-3" />
-                          Download
-                        </DropdownMenuItem>
-                        {canReplaceDocuments(user) ? (
-                          <DropdownMenuItem onClick={() => onReplace(record)}>
-                            <Replace className="mr-2 h-3 w-3" />
-                            Replace
-                          </DropdownMenuItem>
-                        ) : null}
-                        {canRenameDocuments(user) ? (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setRenameTarget(record);
-                              setRenameValue(record.displayName);
-                            }}
-                          >
-                            <Pencil className="mr-2 h-3 w-3" />
-                            Rename
-                          </DropdownMenuItem>
-                        ) : null}
-                        {canDeleteDocuments(user) ? (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setDeleteTarget(record)}
-                            >
-                              <Trash2 className="mr-2 h-3 w-3" />
-                              Delete
-                            </DropdownMenuItem>
-                          </>
-                        ) : null}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <div className="mt-3">
+        <EnterpriseDataGrid
+          storageKey="catalyst.document-center.registry.v1"
+          userId={user?.id}
+          density="dense"
+          columns={columns}
+          rows={filtered}
+          rowKey={(row) => row.id}
+          emptyMessage="No documents uploaded yet. Use Upload on a checklist item or the drop zone above."
+          toolbarLabel={`Document Registry · ${filtered.length}`}
+          tableMinWidthClassName="min-w-[960px]"
+          maxHeightClassName="max-h-[min(52vh,28rem)]"
+        />
+      </div>
 
       <Dialog open={Boolean(renameTarget)} onOpenChange={(o) => !o && setRenameTarget(null)}>
         <DialogContent className="sm:max-w-md">
