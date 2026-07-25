@@ -1,11 +1,12 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
-import { Download, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, Download, Filter, FilterX, X } from "lucide-react";
 import {
   EnterpriseDataGrid,
   type EnterpriseGridColumnDef,
 } from "@/components/catalyst-one/enterprise-grid";
+import { RegistryRowActionsMenu } from "@/components/catalyst-one/shared/registry-row-actions-menu";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,10 @@ import {
   sortDealRegistryRows,
   uniqueDealValues,
 } from "@/lib/my-deals/deal-registry";
+import {
+  readMyDealsUiPrefs,
+  rememberMyDealsUiPrefs,
+} from "@/lib/my-deals/view-state";
 import { downloadCsv } from "@/lib/loan-files-utils";
 import {
   DEAL_REGISTRY_PAGE_SIZES,
@@ -37,6 +42,7 @@ import { cn } from "@/lib/utils";
 
 const SORT_MAP: Record<string, DealRegistrySortField> = {
   dealId: "dealId",
+  opportunityNumber: "opportunityNumber",
   borrowerName: "borrowerName",
   product: "product",
   loanAmount: "loanAmount",
@@ -72,18 +78,23 @@ interface DealRegistryTableProps {
   rows: DealRegistryRow[];
   currentRm: string;
   onOpenDeal: (row: DealRegistryRow) => void;
+  onEditDeal: (row: DealRegistryRow) => void;
+  onDeleteDeal: (row: DealRegistryRow) => void | Promise<void>;
   initialScope?: DealRegistryFilters["scope"];
   initialSearch?: string;
   onFiltersChanged?: (filters: DealRegistryFilters) => void;
 }
 
 /**
- * CO-SPRINT-098 â€” Enterprise Deal Registry (My Deals) â€” Enterprise Table Standard.
+ * CO-SPRINT-098 — Enterprise Deal Registry (My Deals) — Enterprise Table Standard.
+ * CO-SPRINT-120 — Compact filter toolbar + dense grid (UX only).
  */
 export function DealRegistryTable({
   rows: allRows,
   currentRm,
   onOpenDeal,
+  onEditDeal,
+  onDeleteDeal,
   initialScope = "my_team",
   initialSearch = "",
   onFiltersChanged,
@@ -94,10 +105,28 @@ export function DealRegistryTable({
     scope: initialScope,
     search: initialSearch,
   }));
-  const [sortField, setSortField] = useState<DealRegistrySortField>("lastActivity");
+  const [sortField, setSortField] = useState<DealRegistrySortField>("dateCreated");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<(typeof DEAL_REGISTRY_PAGE_SIZES)[number]>(20);
+  const [pageSize, setPageSize] = useState<(typeof DEAL_REGISTRY_PAGE_SIZES)[number]>(50);
+  const [filtersVisible, setFiltersVisible] = useState(true);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    const prefs = readMyDealsUiPrefs();
+    setFiltersVisible(prefs.filtersVisible);
+    setMoreFiltersOpen(prefs.moreFiltersOpen);
+  }, []);
+
+  const setFiltersVisiblePref = (visible: boolean) => {
+    setFiltersVisible(visible);
+    rememberMyDealsUiPrefs({ filtersVisible: visible });
+  };
+
+  const setMoreFiltersOpenPref = (open: boolean) => {
+    setMoreFiltersOpen(open);
+    rememberMyDealsUiPrefs({ moreFiltersOpen: open });
+  };
 
   const products = useMemo(() => uniqueDealValues(allRows, "product"), [allRows]);
   const rms = useMemo(() => uniqueDealValues(allRows, "assignedRm"), [allRows]);
@@ -170,11 +199,25 @@ export function DealRegistryTable({
         exportValue: (row) => row.dealId,
       },
       {
+        id: "opportunityNumber",
+        label: "Opportunity",
+        frozen: true,
+        sortable: true,
+        defaultOrder: 2,
+        defaultWidth: 120,
+        render: (row) => (
+          <span className="font-mono text-[11px] tabular-nums text-teal-800 dark:text-teal-300">
+            {row.opportunityNumber}
+          </span>
+        ),
+        exportValue: (row) => row.opportunityNumber,
+      },
+      {
         id: "borrowerName",
         label: "Borrower Name",
         frozen: true,
         sortable: true,
-        defaultOrder: 2,
+        defaultOrder: 3,
         defaultWidth: 150,
         render: (row) => <span className="font-medium">{row.borrowerName}</span>,
         exportValue: (row) => row.borrowerName,
@@ -183,7 +226,7 @@ export function DealRegistryTable({
         id: "product",
         label: "Product",
         sortable: true,
-        defaultOrder: 3,
+        defaultOrder: 4,
         defaultWidth: 110,
         render: (row) => row.product,
         exportValue: (row) => row.product,
@@ -192,7 +235,7 @@ export function DealRegistryTable({
         id: "loanAmount",
         label: "Loan Amount",
         sortable: true,
-        defaultOrder: 4,
+        defaultOrder: 5,
         defaultWidth: 110,
         align: "right",
         render: (row) => (
@@ -206,7 +249,7 @@ export function DealRegistryTable({
         id: "assignedRm",
         label: "Assigned RM",
         sortable: true,
-        defaultOrder: 5,
+        defaultOrder: 6,
         defaultWidth: 120,
         render: (row) => row.assignedRm,
         exportValue: (row) => row.assignedRm,
@@ -215,7 +258,7 @@ export function DealRegistryTable({
         id: "grossStage",
         label: "Gross Stage",
         sortable: true,
-        defaultOrder: 6,
+        defaultOrder: 7,
         defaultWidth: 120,
         render: (row) => row.grossStageLabel,
         exportValue: (row) => row.grossStageLabel,
@@ -224,7 +267,7 @@ export function DealRegistryTable({
         id: "subStage",
         label: "Sub Stage",
         sortable: true,
-        defaultOrder: 7,
+        defaultOrder: 8,
         defaultWidth: 120,
         render: (row) => (
           <span className="truncate text-muted-foreground">{row.subStage}</span>
@@ -235,7 +278,7 @@ export function DealRegistryTable({
         id: "selectedLender",
         label: "Selected Lender",
         sortable: true,
-        defaultOrder: 8,
+        defaultOrder: 9,
         defaultWidth: 130,
         render: (row) => (
           <span className="font-medium text-amber-700 dark:text-amber-400">
@@ -248,7 +291,7 @@ export function DealRegistryTable({
         id: "expectedRevenue",
         label: "Expected Revenue",
         sortable: true,
-        defaultOrder: 9,
+        defaultOrder: 10,
         defaultWidth: 120,
         align: "right",
         render: (row) => (
@@ -260,7 +303,7 @@ export function DealRegistryTable({
         id: "priority",
         label: "Priority",
         sortable: true,
-        defaultOrder: 10,
+        defaultOrder: 11,
         defaultWidth: 88,
         render: (row) => (
           <StatusPill
@@ -278,7 +321,7 @@ export function DealRegistryTable({
         id: "lastActivity",
         label: "Last Activity",
         sortable: true,
-        defaultOrder: 11,
+        defaultOrder: 12,
         defaultWidth: 120,
         render: (row) => (
           <span className="tabular-nums text-muted-foreground">{row.lastActivityLabel}</span>
@@ -287,10 +330,10 @@ export function DealRegistryTable({
       },
       {
         id: "dateCreated",
-        label: "Date Created",
+        label: "Created Date & Time",
         sortable: true,
-        defaultOrder: 12,
-        defaultWidth: 100,
+        defaultOrder: 13,
+        defaultWidth: 160,
         render: (row) => (
           <span className="tabular-nums text-muted-foreground">{row.dateCreatedLabel}</span>
         ),
@@ -482,9 +525,30 @@ export function DealRegistryTable({
         ),
         exportValue: (row) => row.riskIndicator,
       },
+      {
+        id: "actions",
+        label: "Actions",
+        sortable: false,
+        defaultOrder: 999,
+        defaultWidth: 72,
+        align: "right",
+        render: (row) => (
+          <RegistryRowActionsMenu
+            entityKind="Deal"
+            recordLabel={row.dealId}
+            onOpen={() => onOpenDeal(row)}
+            onEdit={() => onEditDeal(row)}
+            onDelete={() => onDeleteDeal(row)}
+            deleteDisabled={!row.enterpriseDealId && !row.id}
+            deleteDisabledReason="Deal identity unavailable for delete."
+          />
+        ),
+        exportValue: () => "",
+      },
     ],
-    [],
+    [onDeleteDeal, onEditDeal, onOpenDeal],
   );
+
 
   const hasFilters =
     Boolean(filters.search) ||
@@ -511,310 +575,411 @@ export function DealRegistryTable({
     Boolean(filters.columnDealId) ||
     filters.scope !== "my_team";
 
-  const sortColumnId =
-    Object.entries(SORT_MAP).find(([, f]) => f === sortField)?.[0] ?? "lastActivity";
+  const hasAdvancedFilters =
+    filters.subStage !== "all" ||
+    filters.lender !== "all" ||
+    filters.branch !== "all" ||
+    filters.city !== "all" ||
+    filters.state !== "all" ||
+    filters.priority !== "all" ||
+    filters.source !== "all" ||
+    Boolean(filters.amountMin) ||
+    Boolean(filters.amountMax) ||
+    Boolean(filters.revenueMin) ||
+    Boolean(filters.revenueMax) ||
+    Boolean(filters.dateCreatedFrom) ||
+    Boolean(filters.dateCreatedTo) ||
+    Boolean(filters.lastUpdatedFrom) ||
+    Boolean(filters.lastUpdatedTo) ||
+    Boolean(filters.columnBorrower) ||
+    Boolean(filters.columnDealId);
 
-  const selectClass = "h-7 w-[128px] rounded-sm text-[11px]";
+  const sortColumnId =
+    Object.entries(SORT_MAP).find(([, f]) => f === sortField)?.[0] ?? "dateCreated";
+
+  const selectClass = "h-7 w-[118px] rounded-sm text-[11px]";
+  const controlH = "h-7 rounded-sm text-[11px]";
+
+  const resetFilters = () => {
+    const next = { ...EMPTY_DEAL_REGISTRY_FILTERS };
+    setFilters(next);
+    onFiltersChanged?.(next);
+    setPage(1);
+  };
 
   return (
-    <div className="space-y-2">
-      <div className="space-y-1.5 border border-slate-300 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-card">
-        <div className="flex flex-wrap gap-1.5">
-          <Select
-            value={filters.scope}
-            onValueChange={(v) =>
-              patchFilters({ scope: v as DealRegistryFilters["scope"] })
-            }
+    <div className="flex min-h-0 flex-1 flex-col gap-1.5" data-sprint="CO-SPRINT-120">
+      <div className="shrink-0 border border-slate-300 bg-white dark:border-zinc-700 dark:bg-card">
+        <div className="flex flex-wrap items-center gap-1.5 px-1.5 py-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 px-2 text-[11px]"
+            onClick={() => setFiltersVisiblePref(!filtersVisible)}
+            aria-expanded={filtersVisible}
+            aria-controls="my-deals-filter-toolbar"
           >
-            <SelectTrigger className={cn(selectClass, "w-[120px]")}>
-              <SelectValue placeholder="Scope" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="my_deals">My Deals</SelectItem>
-              <SelectItem value="my_team">My Team</SelectItem>
-              <SelectItem value="all">All Deals</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            value={filters.search}
-            onChange={(e) => patchFilters({ search: e.target.value })}
-            placeholder="Global searchâ€¦"
-            className="h-7 w-[180px] rounded-sm text-[11px]"
-          />
-          <Input
-            value={filters.columnDealId}
-            onChange={(e) => patchFilters({ columnDealId: e.target.value })}
-            placeholder="Column: Deal ID"
-            className="h-7 w-[120px] rounded-sm text-[11px]"
-          />
-          <Input
-            value={filters.columnBorrower}
-            onChange={(e) => patchFilters({ columnBorrower: e.target.value })}
-            placeholder="Column: Borrower"
-            className="h-7 w-[130px] rounded-sm text-[11px]"
-          />
-          <Select value={filters.product} onValueChange={(v) => patchFilters({ product: v })}>
-            <SelectTrigger className={selectClass}>
-              <SelectValue placeholder="Product" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Products</SelectItem>
-              {products.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={filters.grossStage}
-            onValueChange={(v) => patchFilters({ grossStage: v, subStage: "all" })}
-          >
-            <SelectTrigger className={selectClass}>
-              <SelectValue placeholder="Gross Stage" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stages</SelectItem>
-              {PIPELINE_STAGES.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.subStage} onValueChange={(v) => patchFilters({ subStage: v })}>
-            <SelectTrigger className={selectClass}>
-              <SelectValue placeholder="Sub Stage" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sub Stages</SelectItem>
-              {subStages.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={filters.assignedRm}
-            onValueChange={(v) => patchFilters({ assignedRm: v })}
-          >
-            <SelectTrigger className={cn(selectClass, "w-[140px]")}>
-              <SelectValue placeholder="Assigned RM" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All RMs</SelectItem>
-              {rms.map((r) => (
-                <SelectItem key={r} value={r}>
-                  {r}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.lender} onValueChange={(v) => patchFilters({ lender: v })}>
-            <SelectTrigger className={selectClass}>
-              <SelectValue placeholder="Lender" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Lenders</SelectItem>
-              {lenders.map((l) => (
-                <SelectItem key={l} value={l}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.branch} onValueChange={(v) => patchFilters({ branch: v })}>
-            <SelectTrigger className={selectClass}>
-              <SelectValue placeholder="Branch" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {branches.map((b) => (
-                <SelectItem key={b} value={b}>
-                  {b}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={filters.state}
-            onValueChange={(v) => patchFilters({ state: v, city: "all" })}
-          >
-            <SelectTrigger className={cn(selectClass, "w-[120px]")}>
-              <SelectValue placeholder="State" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All States</SelectItem>
-              {states.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.city} onValueChange={(v) => patchFilters({ city: v })}>
-            <SelectTrigger className={cn(selectClass, "w-[120px]")}>
-              <SelectValue placeholder="City" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Cities</SelectItem>
-              {cities.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.priority} onValueChange={(v) => patchFilters({ priority: v })}>
-            <SelectTrigger className={cn(selectClass, "w-[110px]")}>
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              {PRIORITY_OPTIONS.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.status} onValueChange={(v) => patchFilters({ status: v })}>
-            <SelectTrigger className={cn(selectClass, "w-[120px]")}>
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              {statuses.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s.replace(/_/g, " ")}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.source} onValueChange={(v) => patchFilters({ source: v })}>
-            <SelectTrigger className={selectClass}>
-              <SelectValue placeholder="Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              {sources.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {filtersVisible ? (
+              <FilterX className="h-3.5 w-3.5" aria-hidden />
+            ) : (
+              <Filter className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {filtersVisible ? "Hide Filters" : "Show Filters"}
+          </Button>
+          {hasFilters ? (
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+              Filtered
+            </span>
+          ) : null}
+          {!filtersVisible ? (
+            <p className="text-[11px] text-muted-foreground">
+              Filters hidden — more rows visible in the deal grid.
+            </p>
+          ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Loan amt
-          </span>
-          <Input
-            value={filters.amountMin}
-            onChange={(e) => patchFilters({ amountMin: e.target.value })}
-            placeholder="Min"
-            className="h-7 w-[72px] rounded-sm text-[11px]"
-            inputMode="numeric"
-          />
-          <span className="text-[11px] text-muted-foreground">â€“</span>
-          <Input
-            value={filters.amountMax}
-            onChange={(e) => patchFilters({ amountMax: e.target.value })}
-            placeholder="Max"
-            className="h-7 w-[72px] rounded-sm text-[11px]"
-            inputMode="numeric"
-          />
-          <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Revenue
-          </span>
-          <Input
-            value={filters.revenueMin}
-            onChange={(e) => patchFilters({ revenueMin: e.target.value })}
-            placeholder="Min"
-            className="h-7 w-[72px] rounded-sm text-[11px]"
-            inputMode="numeric"
-          />
-          <span className="text-[11px] text-muted-foreground">â€“</span>
-          <Input
-            value={filters.revenueMax}
-            onChange={(e) => patchFilters({ revenueMax: e.target.value })}
-            placeholder="Max"
-            className="h-7 w-[72px] rounded-sm text-[11px]"
-            inputMode="numeric"
-          />
-          <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Created
-          </span>
-          <Input
-            type="date"
-            value={filters.dateCreatedFrom}
-            onChange={(e) => patchFilters({ dateCreatedFrom: e.target.value })}
-            className="h-7 w-[128px] rounded-sm text-[11px]"
-          />
-          <span className="text-[11px] text-muted-foreground">â€“</span>
-          <Input
-            type="date"
-            value={filters.dateCreatedTo}
-            onChange={(e) => patchFilters({ dateCreatedTo: e.target.value })}
-            className="h-7 w-[128px] rounded-sm text-[11px]"
-          />
-          <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Updated
-          </span>
-          <Input
-            type="date"
-            value={filters.lastUpdatedFrom}
-            onChange={(e) => patchFilters({ lastUpdatedFrom: e.target.value })}
-            className="h-7 w-[128px] rounded-sm text-[11px]"
-          />
-          <span className="text-[11px] text-muted-foreground">â€“</span>
-          <Input
-            type="date"
-            value={filters.lastUpdatedTo}
-            onChange={(e) => patchFilters({ lastUpdatedTo: e.target.value })}
-            className="h-7 w-[128px] rounded-sm text-[11px]"
-          />
-          {hasFilters && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-[11px]"
-              onClick={() => {
-                const next = { ...EMPTY_DEAL_REGISTRY_FILTERS };
-                setFilters(next);
-                onFiltersChanged?.(next);
-                setPage(1);
-              }}
-            >
-              <X className="mr-1 h-3 w-3" />
-              Reset Filters
-            </Button>
-          )}
-        </div>
+
+        {filtersVisible ? (
+          <div
+            id="my-deals-filter-toolbar"
+            className="space-y-1 border-t border-border/70 px-1.5 pb-1.5 pt-1"
+          >
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Select
+                value={filters.scope}
+                onValueChange={(v) =>
+                  patchFilters({ scope: v as DealRegistryFilters["scope"] })
+                }
+              >
+                <SelectTrigger className={cn(selectClass, "w-[110px]")} aria-label="Scope">
+                  <SelectValue placeholder="Scope" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="my_deals">My Deals</SelectItem>
+                  <SelectItem value="my_team">My Team</SelectItem>
+                  <SelectItem value="all">All Deals</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                value={filters.search}
+                onChange={(e) => patchFilters({ search: e.target.value })}
+                placeholder="Search…"
+                className={cn(controlH, "w-[min(100%,12rem)] min-w-[9rem] flex-1 sm:flex-none")}
+                aria-label="Search deals"
+              />
+              <Select
+                value={filters.grossStage}
+                onValueChange={(v) => patchFilters({ grossStage: v, subStage: "all" })}
+              >
+                <SelectTrigger className={selectClass} aria-label="Stage">
+                  <SelectValue placeholder="Stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Stages</SelectItem>
+                  {PIPELINE_STAGES.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filters.product} onValueChange={(v) => patchFilters({ product: v })}>
+                <SelectTrigger className={selectClass} aria-label="Product">
+                  <SelectValue placeholder="Product" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Products</SelectItem>
+                  {products.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.assignedRm}
+                onValueChange={(v) => patchFilters({ assignedRm: v })}
+              >
+                <SelectTrigger className={cn(selectClass, "w-[130px]")} aria-label="Owner">
+                  <SelectValue placeholder="Owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All RMs</SelectItem>
+                  {rms.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filters.status} onValueChange={(v) => patchFilters({ status: v })}>
+                <SelectTrigger className={selectClass} aria-label="Status">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  {statuses.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s.replace(/_/g, " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant={moreFiltersOpen || hasAdvancedFilters ? "secondary" : "outline"}
+                size="sm"
+                className="h-7 gap-1 px-2 text-[11px]"
+                onClick={() => setMoreFiltersOpenPref(!moreFiltersOpen)}
+                aria-expanded={moreFiltersOpen}
+                aria-controls="my-deals-more-filters"
+              >
+                More Filters
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform",
+                    moreFiltersOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+                {hasAdvancedFilters ? (
+                  <span className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+                ) : null}
+              </Button>
+              {hasFilters ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={resetFilters}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Reset
+                </Button>
+              ) : null}
+            </div>
+
+            {moreFiltersOpen ? (
+              <div
+                id="my-deals-more-filters"
+                className="space-y-1.5 rounded-sm border border-dashed border-border/80 bg-muted/20 p-1.5"
+              >
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Input
+                    value={filters.columnDealId}
+                    onChange={(e) => patchFilters({ columnDealId: e.target.value })}
+                    placeholder="Deal ID"
+                    className={cn(controlH, "w-[110px]")}
+                  />
+                  <Input
+                    value={filters.columnBorrower}
+                    onChange={(e) => patchFilters({ columnBorrower: e.target.value })}
+                    placeholder="Borrower"
+                    className={cn(controlH, "w-[120px]")}
+                  />
+                  <Select
+                    value={filters.subStage}
+                    onValueChange={(v) => patchFilters({ subStage: v })}
+                  >
+                    <SelectTrigger className={selectClass}>
+                      <SelectValue placeholder="Sub Stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sub Stages</SelectItem>
+                      {subStages.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filters.lender} onValueChange={(v) => patchFilters({ lender: v })}>
+                    <SelectTrigger className={selectClass}>
+                      <SelectValue placeholder="Lender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Lenders</SelectItem>
+                      {lenders.map((l) => (
+                        <SelectItem key={l} value={l}>
+                          {l}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filters.branch} onValueChange={(v) => patchFilters({ branch: v })}>
+                    <SelectTrigger className={selectClass}>
+                      <SelectValue placeholder="Branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Branches</SelectItem>
+                      {branches.map((b) => (
+                        <SelectItem key={b} value={b}>
+                          {b}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={filters.state}
+                    onValueChange={(v) => patchFilters({ state: v, city: "all" })}
+                  >
+                    <SelectTrigger className={cn(selectClass, "w-[110px]")}>
+                      <SelectValue placeholder="State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All States</SelectItem>
+                      {states.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filters.city} onValueChange={(v) => patchFilters({ city: v })}>
+                    <SelectTrigger className={cn(selectClass, "w-[110px]")}>
+                      <SelectValue placeholder="City" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Cities</SelectItem>
+                      {cities.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={filters.priority}
+                    onValueChange={(v) => patchFilters({ priority: v })}
+                  >
+                    <SelectTrigger className={cn(selectClass, "w-[100px]")}>
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priority</SelectItem>
+                      {PRIORITY_OPTIONS.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filters.source} onValueChange={(v) => patchFilters({ source: v })}>
+                    <SelectTrigger className={selectClass}>
+                      <SelectValue placeholder="Source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sources</SelectItem>
+                      {sources.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Loan amt
+                  </span>
+                  <Input
+                    value={filters.amountMin}
+                    onChange={(e) => patchFilters({ amountMin: e.target.value })}
+                    placeholder="Min"
+                    className={cn(controlH, "w-[68px]")}
+                    inputMode="numeric"
+                  />
+                  <span className="text-[11px] text-muted-foreground">–</span>
+                  <Input
+                    value={filters.amountMax}
+                    onChange={(e) => patchFilters({ amountMax: e.target.value })}
+                    placeholder="Max"
+                    className={cn(controlH, "w-[68px]")}
+                    inputMode="numeric"
+                  />
+                  <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Revenue
+                  </span>
+                  <Input
+                    value={filters.revenueMin}
+                    onChange={(e) => patchFilters({ revenueMin: e.target.value })}
+                    placeholder="Min"
+                    className={cn(controlH, "w-[68px]")}
+                    inputMode="numeric"
+                  />
+                  <span className="text-[11px] text-muted-foreground">–</span>
+                  <Input
+                    value={filters.revenueMax}
+                    onChange={(e) => patchFilters({ revenueMax: e.target.value })}
+                    placeholder="Max"
+                    className={cn(controlH, "w-[68px]")}
+                    inputMode="numeric"
+                  />
+                  <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Created
+                  </span>
+                  <Input
+                    type="date"
+                    value={filters.dateCreatedFrom}
+                    onChange={(e) => patchFilters({ dateCreatedFrom: e.target.value })}
+                    className={cn(controlH, "w-[118px]")}
+                    aria-label="Created from"
+                  />
+                  <span className="text-[11px] text-muted-foreground">–</span>
+                  <Input
+                    type="date"
+                    value={filters.dateCreatedTo}
+                    onChange={(e) => patchFilters({ dateCreatedTo: e.target.value })}
+                    className={cn(controlH, "w-[118px]")}
+                    aria-label="Created to"
+                  />
+                  <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Updated
+                  </span>
+                  <Input
+                    type="date"
+                    value={filters.lastUpdatedFrom}
+                    onChange={(e) => patchFilters({ lastUpdatedFrom: e.target.value })}
+                    className={cn(controlH, "w-[118px]")}
+                    aria-label="Updated from"
+                  />
+                  <span className="text-[11px] text-muted-foreground">–</span>
+                  <Input
+                    type="date"
+                    value={filters.lastUpdatedTo}
+                    onChange={(e) => patchFilters({ lastUpdatedTo: e.target.value })}
+                    className={cn(controlH, "w-[118px]")}
+                    aria-label="Updated to"
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <EnterpriseDataGrid
-        storageKey="catalyst.my-deals.registry.v1"
+        className="min-h-0 flex-1"
+        storageKey="catalyst.my-deals.registry.v2"
         userId={user?.id}
-        density="compact"
+        density="dense"
         columns={columns}
         rows={pageRows}
         rowKey={(row) => row.id}
         emptyMessage="No deals match the current filters."
-        toolbarLabel={`Deal Registry Â· ${filteredSorted.length} deals`}
+        toolbarLabel={`Deal Registry · ${filteredSorted.length} deals`}
         sortColumnId={sortColumnId}
         sortDirection={sortDir}
         onSort={handleSort}
         onRowClick={onOpenDeal}
-        maxHeightClassName="max-h-[min(78vh,900px)]"
+        maxHeightClassName="h-full max-h-none min-h-0 flex-1"
         toolbarActions={
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="h-7 gap-1.5 rounded-md text-[11px]"
+            className="h-6 gap-1.5 rounded-md px-2 text-[10px]"
             onClick={() => {
               downloadCsv(
                 exportDealRegistryCsv(filteredSorted),
@@ -828,11 +993,11 @@ export function DealRegistryTable({
         }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border border-slate-300 bg-slate-50/80 px-2.5 py-1.5 dark:border-zinc-700 dark:bg-zinc-900/40">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border border-slate-300 bg-slate-50/80 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900/40">
         <p className="text-[11px] tabular-nums text-muted-foreground">
           {filteredSorted.length === 0
             ? "0 deals"
-            : `${(safePage - 1) * pageSize + 1}â€“${Math.min(safePage * pageSize, filteredSorted.length)} of ${filteredSorted.length}`}
+            : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filteredSorted.length)} of ${filteredSorted.length}`}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">

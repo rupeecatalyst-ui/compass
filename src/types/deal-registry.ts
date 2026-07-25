@@ -6,6 +6,8 @@ import type { LoanFilePriority, LoanFileStatus, PipelineStage } from "@/types/ca
 
 export interface DealRegistryRow {
   id: string;
+  /** Enterprise Deal UUID when SSOT is Deal Registry (required for API delete). */
+  enterpriseDealId?: string;
   dealId: string;
   opportunityNumber: string;
   fileNumber: string;
@@ -54,6 +56,7 @@ export const DEAL_REGISTRY_PAGE_SIZES = [20, 50, 100] as const;
 
 export type DealRegistrySortField =
   | "dealId"
+  | "opportunityNumber"
   | "borrowerName"
   | "product"
   | "loanAmount"

@@ -23,15 +23,23 @@ function formatWhen(iso: string): string {
   }
 }
 
+/** Enterprise list timestamp — e.g. 05 Jul 2026, 10:42 AM */
 function formatWhenTime(iso: string): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString("en-IN", {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const datePart = d.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
+      year: "numeric",
+    });
+    const timePart = d.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
+    return `${datePart}, ${timePart}`;
   } catch {
     return iso;
   }
@@ -54,7 +62,9 @@ function selectedLender(file: LoanFile): string {
 
 export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
   const last = lastActivityIso(file);
-  const dealId = opportunityNumberForFile(file);
+  const opportunityNumber =
+    file.opportunityNumber?.trim() || opportunityNumberForFile(file);
+  const dealId = file.dealNumber?.trim() || opportunityNumber;
   const amount = file.requiredAmount || file.loanAmount || 0;
   const roi = file.finalRoi ?? file.interestRate ?? 0;
   const docsPending = (file.documents ?? []).filter((d) => d.status !== "verified").length;
@@ -62,8 +72,9 @@ export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
 
   return {
     id: file.id,
+    enterpriseDealId: file.enterpriseDealId?.trim() || undefined,
     dealId,
-    opportunityNumber: dealId,
+    opportunityNumber,
     fileNumber: file.fileNumber,
     borrowerName: file.customerName,
     contactNumber: file.customerMobile || "—",
@@ -81,7 +92,7 @@ export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
     lastActivity: last,
     lastActivityLabel: formatWhenTime(last),
     dateCreated: file.createdAt || file.loginDate || "",
-    dateCreatedLabel: formatWhen(file.createdAt || file.loginDate || ""),
+    dateCreatedLabel: formatWhenTime(file.createdAt || file.loginDate || ""),
     lastModified: last,
     lastModifiedLabel: formatWhen(last),
     status: file.status,
@@ -138,6 +149,7 @@ export function filterDealRegistryRows(
       const hay = [
         row.borrowerName,
         row.dealId,
+        row.opportunityNumber,
         row.fileNumber,
         row.product,
         row.assignedRm,
@@ -220,6 +232,7 @@ export function uniqueDealValues(
 export function exportDealRegistryCsv(rows: DealRegistryRow[]): string {
   const headers = [
     "Deal ID",
+    "Opportunity",
     "Borrower Name",
     "Product",
     "Loan Amount",
@@ -230,7 +243,7 @@ export function exportDealRegistryCsv(rows: DealRegistryRow[]): string {
     "Expected Revenue",
     "Priority",
     "Last Activity",
-    "Date Created",
+    "Created Date & Time",
     "Status",
     "Contact Number",
     "City",
@@ -247,6 +260,7 @@ export function exportDealRegistryCsv(rows: DealRegistryRow[]): string {
   const lines = rows.map((r) =>
     [
       r.dealId,
+      r.opportunityNumber,
       r.borrowerName,
       r.product,
       r.loanAmount,
