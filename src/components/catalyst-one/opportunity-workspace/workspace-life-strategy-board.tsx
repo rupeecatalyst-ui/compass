@@ -17,13 +17,13 @@ import {
   getStrategicShortlist,
   normalizeLenderKey,
   removeStrategicShortlistItem,
+  runMoveToDealTransition,
   syncShortlistToIdentified,
   upsertStrategicAnalysis,
   upsertStrategicShortlistItem,
   type StrategicLenderSelectedBy,
   type StrategicLenderShortlistItem,
 } from "@/lib/strategic-lender-pipeline";
-import { navigateToCanonicalJourneyStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-workspace-stage-rail";
 import { listPublishedLenderOptionsAsync } from "@/lib/enterprise-lender-registry/published-directory";
 import { cn } from "@/lib/utils";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
@@ -324,14 +324,25 @@ export function WorkspaceLifeStrategyBoard() {
   };
 
   const handleMoveToDeal = () => {
-    // UX consistency — same navigation as Canonical Journey Header "Pipeline" stage.
-    navigateToCanonicalJourneyStage(router, "lender_pipeline", {
-      fileId: leadCaseFile?.id,
-      opportunityId,
-      customerName: contact?.name,
-      product: productLabel,
-      label: opportunityNumber || opportunityId,
-    });
+    if (!opportunityId) {
+      toast.error(
+        "Missing: Opportunity. Reason: no active Opportunity Context. Action: reopen from My Opportunities.",
+      );
+      return;
+    }
+    void runMoveToDealTransition(
+      {
+        opportunityId,
+        contact,
+        customerName: contact?.name,
+        customerMobile: contact?.mobilePrimary,
+        customerId: contact?.id,
+        loanProduct: productLabel,
+        loanAmount: leadCaseFile?.requiredAmount || leadCaseFile?.loanAmount,
+        relationshipManager: contact?.ownerName,
+      },
+      (href) => router.push(href),
+    );
   };
 
   const removeFromQueue = async (item: StrategicLenderShortlistItem) => {

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LoanFilesProvider, useLoanFiles } from "@/components/catalyst-one/loan-files/loan-files-context";
 import { LoanFilesToolbar } from "@/components/catalyst-one/loan-files/loan-files-toolbar";
 import { KanbanView } from "@/components/catalyst-one/loan-files/kanban-view";
@@ -10,7 +10,6 @@ import { LoanFilesListView } from "@/components/catalyst-one/loan-files/loan-fil
 import { LoanFilesTimelineView } from "@/components/catalyst-one/loan-files/loan-files-timeline-view";
 import { TaskBoardView } from "@/components/catalyst-one/loan-files/task-board-view";
 import { CreateLoanModal } from "@/components/catalyst-one/loan-files/create-loan-modal";
-import { LoanWorkspaceNavigator } from "@/components/catalyst-one/loan-files/loan-workspace-navigator";
 import { LoanWorkspaceModal } from "@/components/catalyst-one/shared/loan-workspace-modal";
 import { useLoanJourneyEcm } from "@/hooks/use-loan-journey-ecm";
 import { buildLoanJourneyContactOptions } from "@/lib/loan-journey/ecm-registry-options";
@@ -31,6 +30,11 @@ import {
   setActiveOpportunityContext,
 } from "@/lib/lead-opportunity-journey/active-context";
 import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
+import { WorkspaceExitNav } from "@/components/enterprise/navigation";
+import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
+import { ROUTES } from "@/constants/routes";
+import { buildLoanJourneyHref } from "@/lib/loan-journey/adr-018-routing";
+import { loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
 
 function LoanFilesKeyboard() {
   const { setCreateOpen, setSelectedFileId, selectedFileId, searchInputRef } = useLoanFiles();
@@ -169,6 +173,7 @@ function LoanFilesCreateQuery() {
 }
 
 function LoanFilesContent() {
+  const router = useRouter();
   const { view, mounted, selectedFile, selectedFileId, setSelectedFileId } = useLoanFiles();
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get("tab") || "lenders";
@@ -176,7 +181,7 @@ function LoanFilesContent() {
   const surfaceHub = searchParams.get(LOAN_WORKSPACE_SURFACE_PARAM) === LOAN_WORKSPACE_SURFACE_HUB;
   const dashboardEntry = isDashboardNavEntry(searchParams);
   const hasExecutionTarget = Boolean(searchParams.get("file") || selectedFileId);
-  /** Architecture: Loan Workspace landing is a bench navigator, not analytics. */
+  /** Architecture: Hub orchestration moved to /loan-journey (ADR-018 Wave 3). */
   const showNavigator =
     !browseAll && (surfaceHub || dashboardEntry || !hasExecutionTarget);
   const { registryVersion } = useLoanJourneyEcm({ hydrateOnMount: true });
@@ -202,6 +207,18 @@ function LoanFilesContent() {
     });
   }, [selectedFile]);
 
+  // Compat: Hub-on-loan-files → canonical Execution Hub (preserve opportunityId).
+  useEffect(() => {
+    if (!mounted || !showNavigator) return;
+    const opportunityId =
+      searchParams.get("opportunityId")?.trim() ||
+      getActiveOpportunityContext()?.opportunityId ||
+      null;
+    router.replace(
+      opportunityId ? buildLoanJourneyHref(opportunityId) : ROUTES.LOAN_JOURNEY,
+    );
+  }, [mounted, showNavigator, router, searchParams]);
+
   if (!mounted) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
@@ -212,18 +229,59 @@ function LoanFilesContent() {
 
   if (showNavigator) {
     return (
-      <div className="flex flex-col h-[calc(100vh-4rem)] -mx-4 md:-mx-6 lg:-mx-8">
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
+        Opening Loan Journey…
+      </div>
+    );
+  }
+
+  // BAT #26 — Deal deep-link (Move to Deal / journey Pipeline) opens Deal Workspace
+  // directly. Portfolio Kanban remains available only via My Deals / dashboard entry.
+  if (hasExecutionTarget) {
+    const fileId = searchParams.get("file") || selectedFileId;
+    const dealFile =
+      selectedFile ??
+      (fileId
+        ? loadDealsSync("loan_workspace").files.find((f) => f.id === fileId) ?? null
+        : null);
+
+    if (!dealFile) {
+      return (
+        <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      );
+    }
+    return (
+      <div className="flex h-[calc(100vh-4rem)] flex-col -mx-4 md:-mx-6 lg:-mx-8">
         <LoanFilesKeyboard />
         <LoanFilesQuerySync />
-        <LoanFilesCreateQuery />
-        <LoanWorkspaceNavigator />
-        <CreateLoanModal />
+        <LoanWorkspaceModal
+          file={dealFile}
+          open
+          embedded
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedFileId(null);
+              router.push(ROUTES.MY_DEALS);
+            }
+          }}
+          contactOptions={contactOptions}
+          defaultTab={defaultTab}
+        />
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] -mx-4 md:-mx-6 lg:-mx-8">
+      <WorkspaceExitNav
+        breadcrumbs={buildSimpleWorkspaceBreadcrumbs("Loan Workspace", {
+          title: "My Deals",
+          href: ROUTES.MY_DEALS,
+        })}
+        className="shrink-0"
+      />
       <LoanFilesKeyboard />
       <LoanFilesQuerySync />
       <LoanFilesCreateQuery />

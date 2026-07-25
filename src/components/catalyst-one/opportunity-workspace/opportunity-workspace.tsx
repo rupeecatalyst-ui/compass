@@ -10,20 +10,24 @@ import {
 } from "./opportunity-workspace-context";
 import { WorkspaceContactSummary } from "./workspace-contact-summary";
 import { WorkspaceDocumentsPanel } from "./workspace-documents-panel";
-import { WorkspaceLifePanel } from "./workspace-life-panel";
+import { WorkspaceLifeStrategyBoard } from "./workspace-life-strategy-board";
 import { WorkspaceTasksPanel } from "./workspace-tasks-panel";
 import { WorkspaceWorkflowPanel } from "./workspace-workflow-panel";
 import { WorkspaceOverviewPanel } from "./workspace-overview-panel";
 import {
-  WorkspaceCompetitionPanel,
   WorkspaceProductPanel,
   WorkspaceRelationshipsPanel,
   WorkspaceRequirementPanel,
 } from "./workspace-planning-panels";
+import {
+  StrategicCompetitionEntryPrompt,
+  WorkspaceCompetitionPanel,
+} from "./workspace-competition-panel";
 import { WorkspaceDeviationMitigantPanel } from "./workspace-deviation-mitigant-panel";
 import { WorkspaceNotesPanel } from "./workspace-notes-panel";
-import { WorkspaceStrategicNav } from "./workspace-strategic-nav";
+import { WorkspaceStrategicTabs } from "./workspace-strategic-tabs";
 import type { OwStrategicTabId } from "./strategic-tabs";
+import { getStrategicCompetition } from "@/lib/strategic-competition";
 import {
   ContactCreationIntentScreen,
   type ContactCreationIntentResult,
@@ -53,9 +57,16 @@ import {
   getJourneyStageDisplayLabel,
 } from "@/constants/lead-opportunity-journey";
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
+import { syncParticipantLegacyFields } from "@/lib/loan-participants";
+import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
+import { isOpportunityRuntimeCase } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
+import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opportunity-api-client";
+import { runMoveToDealTransition } from "@/lib/strategic-lender-pipeline";
+import { toast } from "sonner";
 import { ROUTES } from "@/constants/routes";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { updateDeal } from "@/lib/enterprise-deal/deal-data-access";
 
 function OpportunityWorkspaceShell() {
   const { user } = useAuthContext();
@@ -64,6 +75,7 @@ function OpportunityWorkspaceShell() {
     workspaceReady,
     leadCaseFile,
     opportunityId,
+    opportunityNumber,
     opportunity,
     contact,
     productLabel,
@@ -88,6 +100,13 @@ function OpportunityWorkspaceShell() {
   const [gateHasProceed, setGateHasProceed] = useState(false);
   const gateProceedRef = useRef<(() => void) | null>(null);
   const [analyzeDealOpen, setAnalyzeDealOpen] = useState(false);
+  const [competitionPromptOpen, setCompetitionPromptOpen] = useState(false);
+
+  useEffect(() => {
+    if (!opportunityId) return;
+    const state = getStrategicCompetition(opportunityId);
+    if (state.answer == null) setCompetitionPromptOpen(true);
+  }, [opportunityId]);
 
   useEffect(() => {
     const map: Partial<Record<WorkspaceFocus, OwStrategicTabId>> = {
@@ -104,9 +123,11 @@ function OpportunityWorkspaceShell() {
   }, [focus]);
 
   const activeLoan = useMemo(() => {
+    // FS-01 — Opportunity projection (leadCaseFile) is runtime authority.
+    // Linked Deal/LoanFile is optional compatibility overlay only.
     if (!opportunityId) return leadCaseFile;
     const loans = resolveLoansForOpportunity(opportunityId, contact);
-    return loans[0] ?? null;
+    return loans[0] ?? leadCaseFile;
   }, [leadCaseFile, opportunityId, contact]);
 
   const loanHref = useMemo(() => {
@@ -237,15 +258,46 @@ function OpportunityWorkspaceShell() {
   const firstName = user?.firstName?.trim() || "there";
   const lifeFinalized = Boolean(selectedLender);
   const stageLabel = getJourneyStageDisplayLabel(stageCode);
+  const strategicStatus = lifeFinalized
+    ? "LIFE Assigned"
+    : selectedLender
+      ? "In Strategy"
+      : "Planning";
+  /** Compact Opportunity Header — single information row. */
   const identityLine = [
-    opportunity?.opportunityCode,
-    productLabel,
-    stageLabel,
-    selectedLender?.lenderName,
-    contact?.ownerName ? `RM ${contact.ownerName}` : null,
+    contact?.name ? `Customer ${contact.name}` : null,
+    opportunityNumber || opportunity?.opportunityCode || opportunityId
+      ? `Opportunity ${opportunityNumber || opportunity?.opportunityCode || opportunityId}`
+      : null,
+    productLabel ? `Product ${productLabel}` : null,
+    loanAmountLabel ? `Amount ${loanAmountLabel}` : null,
+    strategicStatus ? `Stage ${strategicStatus}` : null,
+    contact?.ownerName ? `Owner ${contact.ownerName}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
+
+  const handleMoveToDeal = () => {
+    if (!opportunityId) {
+      toast.error(
+        "Missing: Opportunity. Reason: no active Opportunity Context. Action: reopen from My Opportunities.",
+      );
+      return;
+    }
+    void runMoveToDealTransition(
+      {
+        opportunityId,
+        contact,
+        customerName: contact?.name,
+        customerMobile: contact?.mobilePrimary,
+        customerId: contact?.id,
+        loanProduct: productLabel,
+        loanAmount: activeLoan?.requiredAmount || activeLoan?.loanAmount,
+        relationshipManager: contact?.ownerName,
+      },
+      (href) => router.push(href),
+    );
+  };
 
   if (!workspaceReady) {
     return (
@@ -285,29 +337,26 @@ function OpportunityWorkspaceShell() {
         stageOverride={lifeFinalized ? "opportunity" : "lead"}
         density="compact"
         hideContextChips
-        journeyNavigatorMode="button"
+        hidePhaseReadiness
+        opportunityWorkspaceStage="strategy_workbench"
         scrollMode="document"
-        title={contact?.name ?? "Strategic Workspace"}
+        title={contact?.name ?? "LIFE"}
         identityLine={identityLine || undefined}
         context={{
-          opportunity: opportunity?.opportunityCode,
+          opportunity: opportunityNumber || opportunity?.opportunityCode || opportunityId,
           customer: contact?.name,
           product: productLabel,
           amount: loanAmountLabel,
-          life: selectedLender?.lenderName,
-          stage: stageLabel,
+          stage: strategicStatus,
           rm: contact?.ownerName,
         }}
         fileId={activeLoan?.id}
         opportunityId={opportunityId}
         lifeFinalized={lifeFinalized}
+        continueLabelOverride="Move to Deal"
+        onContinueOverride={handleMoveToDeal}
         headerActions={
-          <div className="flex items-center gap-1.5">
-            <LoanStructureCommandControl
-              file={activeLoan}
-              participants={activeLoan?.participants ?? []}
-              onNavigate={handleLoanStructureNavigate}
-            />
+          <div className="flex flex-wrap items-center justify-end gap-1">
             <AnalyzeDealTriggerButton onClick={() => setAnalyzeDealOpen(true)} />
             <OpportunityActionCenter
               entityId={opportunityId}
@@ -329,52 +378,91 @@ function OpportunityWorkspaceShell() {
               }}
               onUploadDocuments={() => openTab("documents")}
             />
+            <LoanStructureCommandControl
+              file={activeLoan}
+              participants={activeLoan?.participants ?? []}
+              onNavigate={handleLoanStructureNavigate}
+              onOpenContact={(contactId) => {
+                const found = contact?.id === contactId ? contact : null;
+                if (found) {
+                  setEditContact(found);
+                  setEditOpen(true);
+                }
+              }}
+              onParticipantsChange={(next) => {
+                if (!activeLoan) return;
+                const synced = syncParticipantLegacyFields(next, activeLoan.businessDetails);
+                // FS-01 — do not write LoanFile storage for Opportunity runtime cases.
+                if (isOpportunityRuntimeCase(activeLoan)) {
+                  refresh();
+                  return;
+                }
+                const all = loadLoanFiles().map((f) =>
+                  f.id === activeLoan.id ? { ...f, ...synced } : f,
+                );
+                saveLoanFiles(all);
+                refresh();
+              }}
+            />
           </div>
         }
         onSaveDraft={async () => {
-          /* Planning state already persists via local workspace storage. */
+          // FS-01 — Opportunity Registry is authority; Deal touch only when real LoanFile linked.
+          if (leadCaseFile && !isOpportunityRuntimeCase(leadCaseFile)) {
+            const updated = updateDeal(
+              leadCaseFile.id,
+              {
+                internalNotes: leadCaseFile.internalNotes,
+              },
+              undefined,
+              "opportunity_workspace",
+            );
+            if (!updated) {
+              throw new Error("Unable to save Deal. Please try again.");
+            }
+            return;
+          }
+          if (opportunityId) {
+            // Verify Opportunity Registry reachability / refresh cache for reload consistency.
+            await enterpriseOpportunityApiClient.getOpportunity(opportunityId);
+            refresh();
+          }
         }}
+        saveSuccessMessage="Opportunity saved successfully."
       >
         <div className="dark relative flex min-h-[calc(100dvh-7rem)] flex-col gap-1.5 rounded-2xl border border-white/5 bg-zinc-950/50 p-1.5 sm:p-2">
           <div className="pointer-events-none absolute inset-0 -z-10 rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(15,118,110,0.18),transparent_55%)]" />
 
-          <div
-            className={cn(
-              "grid gap-1.5",
-              "grid-cols-1 lg:grid-cols-[13.5rem_minmax(0,1fr)] xl:grid-cols-[14.5rem_minmax(0,1fr)]",
-            )}
-          >
-            <div>
-              <WorkspaceStrategicNav active={tab} onSelect={openTab} />
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-zinc-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <div className="flex flex-col">
-                <div className="border-b border-white/10 px-3 py-1.5">
-                  <p className="text-xs font-semibold text-zinc-50">{tabLabel(tab)}</p>
-                </div>
-                <div className="p-3 sm:p-4">
-                  {tab === "overview" && <WorkspaceOverviewPanel onOpenTab={openTab} />}
-                  {tab === "customer" && <WorkspaceContactSummary />}
-                  {tab === "requirement" && <WorkspaceRequirementPanel />}
-                  {tab === "product" && <WorkspaceProductPanel />}
-                  {tab === "relationships" && <WorkspaceRelationshipsPanel />}
-                  {tab === "competition" && <WorkspaceCompetitionPanel />}
-                  {tab === "deviation_mitigant" && <WorkspaceDeviationMitigantPanel />}
-                  {tab === "funding_strategy" && (
-                    <WorkspaceLifePanel
-                      onBeforeAssign={() => {
-                        adviseDocumentReadiness("finalize LIFE");
-                        return true;
-                      }}
-                    />
-                  )}
-                  {tab === "notes" && <WorkspaceNotesPanel />}
-                  {tab === "documents" && <WorkspaceDocumentsPanel />}
-                  {tab === "tasks" && <WorkspaceTasksPanel />}
-                  {tab === "workflow" && <WorkspaceWorkflowPanel />}
-                </div>
-              </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+            <WorkspaceStrategicTabs active={tab} onSelect={openTab} />
+            <div
+              className={cn(
+                "min-h-0 flex-1",
+                tab === "funding_strategy" ? "p-2.5 sm:p-3" : "p-3 sm:p-4",
+              )}
+            >
+              {tab === "overview" && <WorkspaceOverviewPanel onOpenTab={openTab} />}
+              {tab === "customer" && (
+                <WorkspaceContactSummary
+                  onEditContact={() => {
+                    if (!contact) return;
+                    setEditContact(contact);
+                    setEditOpen(true);
+                  }}
+                />
+              )}
+              {tab === "requirement" && <WorkspaceRequirementPanel />}
+              {tab === "product" && <WorkspaceProductPanel />}
+              {tab === "relationships" && (
+                <WorkspaceRelationshipsPanel onAddRelationship={() => setIntentOpen(true)} />
+              )}
+              {tab === "competition" && <WorkspaceCompetitionPanel />}
+              {tab === "deviation_mitigant" && <WorkspaceDeviationMitigantPanel />}
+              {tab === "funding_strategy" && <WorkspaceLifeStrategyBoard />}
+              {tab === "notes" && <WorkspaceNotesPanel />}
+              {tab === "documents" && <WorkspaceDocumentsPanel />}
+              {tab === "tasks" && <WorkspaceTasksPanel />}
+              {tab === "workflow" && <WorkspaceWorkflowPanel />}
             </div>
           </div>
 
@@ -437,6 +525,12 @@ function OpportunityWorkspaceShell() {
               refresh();
             }}
           />
+
+          <StrategicCompetitionEntryPrompt
+            open={competitionPromptOpen}
+            onClose={() => setCompetitionPromptOpen(false)}
+            onGoToCompetition={() => openTab("competition")}
+          />
         </div>
       </LeadOpportunityJourneyChrome>
 
@@ -482,25 +576,6 @@ function OpportunityWorkspaceShell() {
       />
     </div>
   );
-}
-
-function tabLabel(tab: OwStrategicTabId): string {
-  switch (tab) {
-    case "customer":
-      return "Customer Profile";
-    case "product":
-      return "Product Interest";
-    case "funding_strategy":
-      return "LIFE";
-    case "deviation_mitigant":
-      return "Deviation & Mitigant";
-    case "notes":
-      return "Notes";
-    case "competition":
-      return "Competition";
-    default:
-      return tab.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  }
 }
 
 export function OpportunityWorkspace() {
