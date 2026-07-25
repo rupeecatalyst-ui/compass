@@ -29,21 +29,14 @@ export interface LeadJourneyModule {
   title: string;
 }
 
-/** Official Lead → Opportunity spine — certified business order (frozen). */
+/** Official Lead → Opportunity spine — aligned to Opportunity Workspace stages + Loan. */
 export const LEAD_OPPORTUNITY_JOURNEY: LeadJourneyModule[] = [
   {
     id: "credit_bench",
     stage: "lead",
-    label: "Opportunity Workspace",
+    label: "Opportunity Creation",
     href: ROUTES.CREDIT_BENCH,
-    title: "Opportunity Setup",
-  },
-  {
-    id: "strategic_workspace",
-    stage: "lead",
-    label: "Strategic Workspace",
-    href: ROUTES.OPPORTUNITY_WORKSPACE,
-    title: "Strategic Workspace",
+    title: "Opportunity Creation",
   },
   {
     id: "document_center",
@@ -58,6 +51,13 @@ export const LEAD_OPPORTUNITY_JOURNEY: LeadJourneyModule[] = [
     label: "Credit Workbench",
     href: ROUTES.CREDIT_WORKBENCH,
     title: "Credit Workbench",
+  },
+  {
+    id: "strategic_workspace",
+    stage: "lead",
+    label: "Strategy Workbench",
+    href: ROUTES.OPPORTUNITY_WORKSPACE,
+    title: "Strategy Workbench",
   },
   {
     id: "loan_workspace",
@@ -123,10 +123,10 @@ export function buildJourneyHref(
 
 /**
  * Presentation-only stage label for Lead/Opportunity UI.
- * Engine id `raw_lead` displays as Identified — do not rename engine ids.
+ * Engine id `raw_lead` displays as Planning (BAT #18) — do not rename engine ids.
  */
 export function getJourneyStageDisplayLabel(stage: PipelineStage | string): string {
-  if (stage === "raw_lead") return "Identified";
+  if (stage === "raw_lead") return "Planning";
   return STAGE_LABELS[stage as PipelineStage] ?? String(stage).replace(/_/g, " ");
 }
 

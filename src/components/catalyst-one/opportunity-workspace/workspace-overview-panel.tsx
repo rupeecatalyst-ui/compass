@@ -1,11 +1,10 @@
 "use client";
 
-import { OwGlassPanel, OwPanelHeader, OwSectionLabel } from "./workspace-design";
-import { WorkspaceCompassCentrepiece } from "./workspace-compass-centrepiece";
-import { WorkspaceKpiStrip } from "./workspace-kpi-strip";
+import { OwGlassPanel, OwSectionLabel } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 import type { OwStrategicTabId } from "./strategic-tabs";
 import { Button } from "@/components/ui/button";
+import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 
 export function WorkspaceOverviewPanel({
   onOpenTab,
@@ -20,35 +19,37 @@ export function WorkspaceOverviewPanel({
       <OwGlassPanel>
         <OwSectionLabel>Strategic Overview</OwSectionLabel>
         <p className="mt-1 max-w-2xl text-sm text-zinc-300">
-          Plan and qualify this opportunity before execution. Move through Customer → Requirement → Product →
-          LIFE with CHANAKYA on the right.
+          How should this opportunity be structured for maximum probability of success? Analyse,
+          qualify, design the financing strategy, and prepare the execution plan — then select
+          lenders in Lender Strategy (LIFE).
         </p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Customer" value={contact?.name ?? "—"} />
           <Stat label="Product" value={productLabel} />
           <Stat label="Requirement" value={loanAmountLabel} />
-          <Stat label="LIFE" value={selectedLender?.lenderName ?? "Not selected"} />
+          <Stat label="Execution Queue" value={selectedLender?.lenderName ?? "Not selected"} />
         </div>
         <p className="mt-3 text-[11px] text-zinc-400">
-          Current planning stage · <span className="capitalize text-zinc-200">{stageCode.replace(/_/g, " ")}</span>
+          Strategic status ·{" "}
+          <span className="capitalize text-zinc-200">
+            {displayOpportunityRequirementStageLabel(stageCode)}
+          </span>
         </p>
       </OwGlassPanel>
 
-      <WorkspaceCompassCentrepiece />
-      <WorkspaceKpiStrip />
-
       <OwGlassPanel>
-        <OwPanelHeader
-          title="Continue planning"
-          description="Jump to the next strategic surface — only one workspace pane is active at a time."
-        />
+        <p className="text-xs font-semibold text-zinc-100">Continue planning</p>
+        <p className="mt-0.5 text-[11px] text-zinc-400">
+          Jump to a dedicated workspace — Overview content is hidden when another tab is active.
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {(
             [
-              ["customer", "Customer"],
+              ["customer", "Customer Profile"],
               ["requirement", "Requirement"],
-              ["funding_strategy", "LIFE"],
-              ["deviation_mitigant", "Deviation & Mitigant"],
+              ["product", "Solution Design"],
+              ["funding_strategy", "Lender Strategy (LIFE)"],
+              ["competition", "Competition"],
               ["notes", "Notes"],
             ] as const
           ).map(([id, label]) => (
@@ -56,8 +57,12 @@ export function WorkspaceOverviewPanel({
               key={id}
               type="button"
               size="sm"
-              variant="secondary"
-              className="h-8 text-xs"
+              variant={id === "funding_strategy" ? "default" : "secondary"}
+              className={
+                id === "funding_strategy"
+                  ? "h-8 bg-amber-600 text-xs text-white hover:bg-amber-500"
+                  : "h-8 text-xs"
+              }
               onClick={() => onOpenTab(id)}
             >
               {label}

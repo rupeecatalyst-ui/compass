@@ -3,6 +3,7 @@
  */
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { coalesceAssignedUsers, formatAssignedUsersLabel } from "@/lib/assigned-users";
+import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import type { OpportunityRegistryRow } from "@/types/opportunity-registry";
 
 /** Enterprise list timestamp — e.g. 05 Jul 2026, 10:42 AM */
@@ -44,6 +45,10 @@ export function mapEnterpriseOpportunityToRegistryRow(
     relationshipManagerName: opp.relationshipManagerName,
   });
   const owner = formatAssignedUsersLabel(assignedUsers);
+  const opportunityStageLabel =
+    stage === "—"
+      ? "—"
+      : displayOpportunityRequirementStageLabel(stage);
 
   return {
     id: opp.id,
@@ -52,7 +57,7 @@ export function mapEnterpriseOpportunityToRegistryRow(
     customerName: opp.primaryContactName?.trim() || "—",
     product: opp.productLabel?.trim() || humanize(opp.productFamily) || "—",
     opportunityStage: stage,
-    opportunityStageLabel: humanize(stage),
+    opportunityStageLabel,
     owner,
     assignedUsers,
     rowVersion: opp.rowVersion,

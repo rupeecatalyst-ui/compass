@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { advanceEwoeWorkflowStage } from "@/lib/enterprise-workflow-orchestration-engine";
+import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 import {
@@ -134,14 +135,16 @@ export function WorkspaceStagePanel() {
     <OwGlassPanel>
       <OwPanelHeader
         title="Change Stage"
-        badge={stageCode.replace(/_/g, " ")}
+        badge={displayOpportunityRequirementStageLabel(stageCode)}
         description="EOLE lifecycle + EWOE orchestration (Dialogue + validations)"
       />
 
       <div className="mb-3 grid gap-2 rounded-xl border border-white/10 bg-zinc-950/40 p-3 text-xs">
         <div className="flex justify-between gap-2">
           <span className="text-muted-foreground">Current stage</span>
-          <span className="font-medium capitalize">{stageCode.replace(/_/g, " ")}</span>
+          <span className="font-medium capitalize">
+            {displayOpportunityRequirementStageLabel(stageCode)}
+          </span>
         </div>
         <div className="flex justify-between gap-2">
           <span className="text-muted-foreground">Selected lender</span>

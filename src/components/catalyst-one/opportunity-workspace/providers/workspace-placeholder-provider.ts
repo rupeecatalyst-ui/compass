@@ -3,6 +3,8 @@
  * In-memory only — no APIs, database, AI, or business rules.
  */
 
+import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+
 export type PlaceholderDocCategory = "kyc" | "income" | "property" | "other";
 export type PlaceholderTaskPriority = "low" | "medium" | "high";
 export type PlaceholderTaskStatus = "open" | "completed" | "overdue";
@@ -895,7 +897,9 @@ export function deriveChanakyaAdvisory(input: {
   }
 
   if (input.stageCode === "lender_review" || input.stageCode === "approved") {
-    reactions.push(`Stage is ${input.stageCode.replace(/_/g, " ")} — advisory updated.`);
+    reactions.push(
+      `Stage is ${displayOpportunityRequirementStageLabel(input.stageCode)} — advisory updated.`,
+    );
   }
 
   if (input.lastAction?.toLowerCase().includes("upload")) {

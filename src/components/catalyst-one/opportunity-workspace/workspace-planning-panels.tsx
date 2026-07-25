@@ -1,231 +1,159 @@
 "use client";
 
-import { Mail, Phone, UserRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { EntityLink } from "@/components/catalyst-one/shared/entity-link";
-import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { EnterpriseRelationshipWorkspace } from "@/components/catalyst-one/enterprise-relationship-workspace/enterprise-relationship-workspace";
+import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { OwGlassPanel } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 import { WorkspaceStagePanel } from "./workspace-stage-panel";
+import { StrategicTabToolbar } from "./strategic-tab-toolbar";
 
-/** Presentation-only requirement / qualification view. */
+/** Requirement tab — inline edit for planning fields. */
 export function WorkspaceRequirementPanel() {
   const { loanAmountLabel, productLabel, stageCode, opportunity } = useOpportunityWorkspace();
+  const [editing, setEditing] = useState(false);
+  const [purpose, setPurpose] = useState("");
+  const [notes, setNotes] = useState("");
 
   return (
     <div className="space-y-4">
+      <StrategicTabToolbar
+        title="Requirement"
+        description="Qualify the ask — planning context, not a loan application form."
+        editing={editing}
+        onEditToggle={() => setEditing((v) => !v)}
+      />
       <OwGlassPanel>
-        <OwPanelHeader
-          title="Funding Requirement"
-          description="Qualify the ask — this is planning context, not a loan application form."
-        />
-        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        <dl className="grid gap-3 sm:grid-cols-2">
           <Fact label="Stated Loan Amount" value={loanAmountLabel} />
           <Fact label="Product Path" value={productLabel} />
           <Fact label="Opportunity" value={opportunity?.opportunityCode ?? "—"} />
-          <Fact label="Planning Stage" value={stageCode.replace(/_/g, " ")} />
+          <Fact
+            label="Planning Stage"
+            value={displayOpportunityRequirementStageLabel(stageCode)}
+          />
         </dl>
-        <p className="mt-4 text-xs leading-relaxed text-zinc-400">
-          Clarify purpose and quantum with the customer before locking LIFE. Stage controls below remain
-          Catalyst One’s workflow truth.
-        </p>
+        {editing ? (
+          <div className="mt-4 space-y-2">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+              Funding purpose
+              <Input
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                placeholder="e.g. Purchase · Construction · BT"
+                className="mt-1 h-9 border-white/10 bg-zinc-950/50 text-sm"
+              />
+            </label>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+              Qualification notes
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Urgency, quantum rationale, customer constraints…"
+                className="mt-1 min-h-[80px] w-full resize-y rounded-md border border-white/10 bg-zinc-950/50 px-3 py-2 text-sm text-zinc-100"
+              />
+            </label>
+          </div>
+        ) : (
+          <p className="mt-4 text-xs leading-relaxed text-zinc-400">
+            {purpose || notes
+              ? [purpose, notes].filter(Boolean).join(" · ")
+              : "Click Edit to capture purpose and qualification notes without leaving Strategic Workspace."}
+          </p>
+        )}
       </OwGlassPanel>
       <WorkspaceStagePanel />
     </div>
   );
 }
 
+/** Solution Design (product) tab. */
 export function WorkspaceProductPanel() {
   const { productLabel, loanAmountLabel, opportunity } = useOpportunityWorkspace();
+  const [editing, setEditing] = useState(false);
+  const [structureNote, setStructureNote] = useState("");
 
   return (
-    <OwGlassPanel>
-      <OwPanelHeader
-        title="Product"
-        badge="Planning"
-        description="Product framing for this opportunity."
+    <div className="space-y-3">
+      <StrategicTabToolbar
+        title="Solution Design"
+        description="Product framing and financing structure for this opportunity."
+        editing={editing}
+        onEditToggle={() => setEditing((v) => !v)}
       />
-      <dl className="mt-3 space-y-3 text-sm">
-        <Fact label="Selected Product" value={productLabel} />
-        <Fact label="Aligned Requirement" value={loanAmountLabel} />
-        <Fact label="Opportunity Code" value={opportunity?.opportunityCode ?? "—"} />
-        <Fact label="Product Ref" value={opportunity?.productRef ?? "—"} />
-      </dl>
-      <p className="mt-4 text-xs text-zinc-400">
-        Keep product selection stable once lender conversations begin. Execution product changes belong in Loan Workspace.
-      </p>
-    </OwGlassPanel>
+      <OwGlassPanel>
+        <dl className="space-y-3 text-sm">
+          <Fact label="Selected Product" value={productLabel} />
+          <Fact label="Aligned Requirement" value={loanAmountLabel} />
+          <Fact label="Opportunity Code" value={opportunity?.opportunityCode ?? "—"} />
+          <Fact label="Product Ref" value={opportunity?.productRef ?? "—"} />
+        </dl>
+        {editing ? (
+          <label className="mt-4 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+            Structure notes
+            <textarea
+              value={structureNote}
+              onChange={(e) => setStructureNote(e.target.value)}
+              placeholder="Tenure, BT vs Fresh, co-lending notes…"
+              className="mt-1 min-h-[80px] w-full resize-y rounded-md border border-white/10 bg-zinc-950/50 px-3 py-2 text-sm text-zinc-100"
+            />
+          </label>
+        ) : (
+          <p className="mt-4 text-xs text-zinc-400">
+            {structureNote ||
+              "Click Edit to refine solution design notes. Execution product changes belong in Loan Workspace."}
+          </p>
+        )}
+      </OwGlassPanel>
+    </div>
   );
 }
 
-export function WorkspaceRelationshipsPanel() {
-  const { contact, selectedLender, opportunityId } = useOpportunityWorkspace();
+export function WorkspaceRelationshipsPanel({
+  onAddRelationship,
+}: {
+  onAddRelationship?: () => void;
+}) {
+  const { contact } = useOpportunityWorkspace();
+  const [editing, setEditing] = useState(false);
 
-  const rows: Array<{
-    id: string;
-    name: string;
-    org: string;
-    mobile: string;
-    email: string;
-    role: string;
-    linkType?: "customer" | "lender";
-    linkId?: string;
-  }> = [];
-
-  if (contact) {
-    rows.push({
-      id: contact.id,
-      name: contact.name,
-      org:
-        contact.roleProfiles?.customer?.companyName ||
-        contact.roleProfiles?.partner?.companyName ||
-        contact.city ||
-        "—",
-      mobile: contact.mobilePrimary ?? "—",
-      email: contact.officialEmail || contact.personalEmail || "—",
-      role: "Customer / Promoter",
-      linkType: "customer",
-      linkId: contact.id,
-    });
+  if (!contact) {
+    return (
+      <div className="space-y-3">
+        <StrategicTabToolbar
+          title="Relationships"
+          description="Enterprise Relationship Workspace — business relationships for this opportunity."
+        />
+        <OwGlassPanel>
+          <p className="text-sm text-zinc-400">
+            Link a primary contact to open the Enterprise Relationship Workspace. This tab does not
+            duplicate Loan Structure.
+          </p>
+        </OwGlassPanel>
+      </div>
+    );
   }
 
-  if (selectedLender) {
-    rows.push({
-      id: `lender-${selectedLender.lenderName}`,
-      name: selectedLender.executorName || "—",
-      org: selectedLender.lenderName,
-      mobile: "—",
-      email: "—",
-      role: "Lender contact",
-      linkType: "lender",
-      linkId: selectedLender.lenderName,
-    });
-  }
-
   return (
-    <OwGlassPanel>
-      <OwPanelHeader
-        title="Relationship Directory"
-        badge="Planning"
-        description="People and institutions on this opportunity — no new CRM; navigate via existing links."
+    <div className="space-y-3">
+      <StrategicTabToolbar
+        title="Relationships"
+        description="Enterprise Relationship Workspace — graph of business relationships (not Loan Structure)."
+        editing={editing}
+        onEditToggle={() => setEditing((v) => !v)}
+        editLabel="Edit"
       />
-      <div className="mt-3 overflow-x-auto rounded-xl border border-white/10">
-        <table className="w-full min-w-[640px] text-left text-xs">
-          <thead className="border-b border-white/10 bg-zinc-950/60 text-[10px] uppercase tracking-wide text-zinc-400">
-            <tr>
-              <th className="px-3 py-2 font-semibold">Name</th>
-              <th className="px-3 py-2 font-semibold">Organisation</th>
-              <th className="px-3 py-2 font-semibold">Mobile</th>
-              <th className="px-3 py-2 font-semibold">Email</th>
-              <th className="px-3 py-2 font-semibold">Role</th>
-              <th className="px-3 py-2 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-zinc-500">
-                  No relationships linked yet. Add a contact from the header to populate this directory.
-                </td>
-              </tr>
-            )}
-            {rows.map((r) => (
-              <tr key={r.id} className="border-b border-white/5 last:border-0">
-                <td className="px-3 py-2.5 font-medium text-zinc-50">{r.name}</td>
-                <td className="px-3 py-2.5 text-zinc-300">{r.org}</td>
-                <td className="px-3 py-2.5 text-zinc-300">{r.mobile}</td>
-                <td className="px-3 py-2.5 text-zinc-300">{r.email}</td>
-                <td className="px-3 py-2.5 text-zinc-400">{r.role}</td>
-                <td className="px-3 py-2.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {r.linkType && r.linkId && (
-                      <EntityLink
-                        type={r.linkType}
-                        id={r.linkId}
-                        label="Open"
-                        className="text-[11px] text-teal-300"
-                      />
-                    )}
-                    {r.mobile !== "—" && (
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-zinc-400"
-                        asChild
-                      >
-                        <a href={`tel:${r.mobile}`} aria-label="Call">
-                          <Phone className="h-3.5 w-3.5" />
-                        </a>
-                      </Button>
-                    )}
-                    {r.email !== "—" && (
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-zinc-400"
-                        asChild
-                      >
-                        <a href={`mailto:${r.email}`} aria-label="Email">
-                          <Mail className="h-3.5 w-3.5" />
-                        </a>
-                      </Button>
-                    )}
-                    {!r.linkType && (
-                      <UserRound className="h-3.5 w-3.5 text-zinc-500" />
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-3 text-[10px] text-zinc-500">
-        Opportunity · {opportunityId.slice(0, 12)}…
-        {!selectedLender && " · Assign LIFE contact to add the lender row."}
-      </p>
-    </OwGlassPanel>
+      <EnterpriseRelationshipWorkspace
+        contact={contact}
+        onAddRelationship={editing ? onAddRelationship : undefined}
+      />
+    </div>
   );
 }
 
-/** Presentation-only competition / parallel-channel view. */
-export function WorkspaceCompetitionPanel() {
-  const { selectedLender, productLabel } = useOpportunityWorkspace();
-
-  return (
-    <OwGlassPanel>
-      <OwPanelHeader
-        title="Competition"
-        badge="Planning"
-        description="Capture competing offers or parallel channels for strategic clarity."
-      />
-      <div className="mt-3 space-y-3 text-sm">
-        <div className="rounded-xl border border-dashed border-white/15 bg-zinc-950/35 px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-            Current preferred path
-          </p>
-          <p className="mt-1 font-semibold text-zinc-50">
-            {selectedLender?.lenderName ?? "No lender selected yet"} · {productLabel}
-          </p>
-        </div>
-        <p className="text-xs leading-relaxed text-zinc-400">
-          Record competing banks, existing banking limits, or customer-spoken alternatives as planning notes.
-          This surface does not change lender assignment — use LIFE for institution selection. Competition
-          Intelligence capture remains Phase 2.
-        </p>
-        <ul className="space-y-2 text-xs text-zinc-300">
-          <li className="rounded-lg border border-white/10 bg-zinc-950/40 px-2.5 py-2">
-            Competing offer / channel · Not captured
-          </li>
-          <li className="rounded-lg border border-white/10 bg-zinc-950/40 px-2.5 py-2">
-            Customer preference signal · Pending discussion note
-          </li>
-        </ul>
-      </div>
-    </OwGlassPanel>
-  );
-}
+/** Competition panel lives in workspace-competition-panel.tsx */
+export { WorkspaceCompetitionPanel } from "./workspace-competition-panel";
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (

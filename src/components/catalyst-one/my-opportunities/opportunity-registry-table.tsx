@@ -25,6 +25,7 @@ import {
   sortOpportunityRegistryRows,
   uniqueOpportunityValues,
 } from "@/lib/my-opportunities/opportunity-registry";
+import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import {
   EMPTY_OPPORTUNITY_REGISTRY_FILTERS,
   OPPORTUNITY_REGISTRY_PAGE_SIZES,
@@ -320,7 +321,7 @@ export function OpportunityRegistryTable({
               <SelectItem value="all">All stages</SelectItem>
               {stages.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {s.replace(/_/g, " ")}
+                  {displayOpportunityRequirementStageLabel(s)}
                 </SelectItem>
               ))}
             </SelectContent>
