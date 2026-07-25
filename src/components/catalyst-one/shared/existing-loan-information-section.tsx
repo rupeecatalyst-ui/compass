@@ -1,6 +1,6 @@
 "use client";
 
-import { OrganizationRegistrySelect } from "@/components/catalyst-one/shared/organization-registry-select";
+import { EnterpriseLenderRegistrySelect } from "@/components/catalyst-one/shared/enterprise-lender-registry-select";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,10 @@ export interface ExistingLoanInformationSectionProps {
 /**
  * Dynamic Transaction Type — Existing Loan Information.
  * Revealed only when Transaction Type = Balance Transfer.
- * Captures Current Lending Institution + Outstanding Loan Amount only.
+ * Captures Existing Lender (Enterprise Lender Registry) + Outstanding Loan Amount.
+ *
+ * BAT #14 — Existing Lender is full-width at the top of the card so the
+ * autocomplete can open downward with adequate space (no overflow clip).
  */
 export function ExistingLoanInformationSection({
   visible,
@@ -44,11 +47,15 @@ export function ExistingLoanInformationSection({
       )}
       aria-hidden={!visible}
     >
-      <div className="overflow-hidden">
+      {/*
+        When expanded, overflow must be visible so the lender autocomplete
+        is not clipped by the accordion shell (BAT #14).
+      */}
+      <div className={cn(visible ? "min-h-0 overflow-visible" : "overflow-hidden")}>
         <div
           className={cn(
-            "mt-3 space-y-3 rounded-lg border border-border/80 bg-muted/20 p-3 transition-opacity duration-300",
-            visible ? "opacity-100" : "opacity-0 pointer-events-none",
+            "relative z-20 mt-3 space-y-4 rounded-lg border border-border/80 bg-muted/20 p-3.5 transition-opacity duration-300 sm:p-4",
+            visible ? "opacity-100" : "pointer-events-none opacity-0",
           )}
         >
           <div>
@@ -56,7 +63,7 @@ export function ExistingLoanInformationSection({
               Existing Loan Information
             </h4>
             <p className="mt-0.5 text-[10px] text-muted-foreground">
-              Required for Balance Transfer — only these fields at this stage.
+              Required for Balance Transfer — search and select the current lending institution.
             </p>
           </div>
 
@@ -64,7 +71,7 @@ export function ExistingLoanInformationSection({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Current Lending Institution
+                  Existing Lender
                 </p>
                 <p className="mt-0.5 text-xs font-medium">{institutionName || "—"}</p>
               </div>
@@ -84,19 +91,30 @@ export function ExistingLoanInformationSection({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-[11px]">Current Lending Institution *</Label>
-                <OrganizationRegistrySelect
+            <div className="space-y-4">
+              {/* Primary: full-width lender search at top — best dropdown affordance */}
+              <div className="relative z-30 space-y-1.5">
+                <Label className="text-[11px]">Existing Lender *</Label>
+                <EnterpriseLenderRegistrySelect
                   value={institutionId}
-                  placeholder="Search lending institution…"
-                  onSelect={(org) => onInstitutionChange(org.id, org.name)}
+                  selectedName={institutionName}
+                  onSelect={(lender) => onInstitutionChange(lender.id, lender.name)}
+                  placeholder="Search existing lender…"
+                  className="w-full"
+                  inputClassName="h-9 text-sm"
+                  listMaxHeightClassName="max-h-56"
                 />
                 {institutionError ? (
                   <p className="text-[11px] text-destructive">{institutionError}</p>
-                ) : null}
+                ) : (
+                  <p className="text-[10px] text-muted-foreground">
+                    Type to filter active lenders from the Enterprise Lender Registry.
+                  </p>
+                )}
               </div>
-              <div className="space-y-1.5">
+
+              {/* Secondary: amount below — leaves vertical room for the open list */}
+              <div className="max-w-md space-y-1.5">
                 <Label className="text-[11px]">Outstanding Loan Amount *</Label>
                 <INRCurrencyInput
                   value={outstandingAmount}
