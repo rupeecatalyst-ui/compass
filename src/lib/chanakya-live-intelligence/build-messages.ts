@@ -3,10 +3,10 @@ import {
   type ChanakyaRadarDealRow,
   type ChanakyaRadarIntelligenceItem,
 } from "@/lib/chanakya-radar/derive-dashboard";
+import { loadRadarDealFilesSync } from "@/lib/chanakya-radar/radar-deal-source";
 import { listEcmContacts } from "@/lib/enterprise-contact-master";
 import { listEteTasks } from "@/lib/enterprise-task-engine/task-registry";
 import { columnForTask } from "@/lib/enterprise-task-engine/task-workspace";
-import { loadLoanFiles } from "@/lib/loan-files-storage";
 import type {
   ChanakyaLiveIntelligenceMessage,
   ChanakyaLiveIntelligenceWorkspace,
@@ -308,7 +308,7 @@ export function buildChanakyaLiveIntelligenceMessages(
     if (workspace === "contacts") return buildContactsLiveMessages();
     if (workspace === "tasks") return buildTasksLiveMessages();
 
-    const model = buildChanakyaRadarDashboard(loadLoanFiles());
+    const model = buildChanakyaRadarDashboard(loadRadarDealFilesSync().files);
     const { rows, intelligence } = model;
 
     switch (workspace) {

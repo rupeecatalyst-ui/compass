@@ -45,8 +45,6 @@ import {
 import { ROUTES } from "@/constants/routes";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
-import { loadLoanFiles } from "@/lib/loan-files-storage";
-import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
 import {
   buildChanakyaRadarDashboard,
   type ChanakyaRadarDealRow,
@@ -62,6 +60,11 @@ import {
   filterFilesByRadarScope,
   resolveRadarActorName,
 } from "@/lib/chanakya-radar/portfolio-scope";
+import {
+  hydrateRadarDealFiles,
+  loadRadarDealFilesSync,
+  subscribeRadarDealSource,
+} from "@/lib/chanakya-radar/radar-deal-source";
 import { rememberChanakyaRadarViewState } from "@/lib/chanakya-radar/view-state";
 import {
   getChanakyaRadarWorkspaceTab,
@@ -86,17 +89,18 @@ function openOpportunityWorkspace(
   router: ReturnType<typeof useRouter>,
   row: ChanakyaRadarDealRow,
 ) {
+  const opportunityId = row.opportunityNumber || row.dealId;
   setActiveOpportunityContext({
     fileId: row.fileId,
-    opportunityId: row.dealId,
+    opportunityId,
     customerName: row.borrower,
     product: row.product,
-    label: row.dealId,
+    label: opportunityId,
   });
   router.push(
     buildJourneyHref(ROUTES.OPPORTUNITY_WORKSPACE, {
       fileId: row.fileId,
-      opportunityId: row.dealId,
+      opportunityId,
     }),
   );
 }
@@ -188,7 +192,7 @@ export function ChanakyaRadarWorkspace() {
 
   useEffect(() => {
     const bump = () => setTick((t) => t + 1);
-    const unsubscribe = subscribeLoanFilesUpdated(bump);
+    const unsubscribe = subscribeRadarDealSource(bump);
     window.addEventListener("storage", bump);
     const id = window.setInterval(bump, 60_000);
     return () => {
@@ -200,13 +204,28 @@ export function ChanakyaRadarWorkspace() {
 
   const actorRm = resolveRadarActorName(user);
 
+  /** Deal Registry SSOT — hydrated async; sync cache for first paint / Live Intelligence. */
+  const [dealBook, setDealBook] = useState<LoanFile[]>(() =>
+    typeof window !== "undefined" ? loadRadarDealFilesSync().files : [],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void hydrateRadarDealFiles().then((result) => {
+      if (cancelled) return;
+      setDealBook(result.files);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tick]);
+
   const scopedFiles = useMemo(() => {
-    void tick;
-    return filterFilesByRadarScope(loadLoanFiles(), scope, {
+    return filterFilesByRadarScope(dealBook, scope, {
       actorRm,
       role: user?.role,
     });
-  }, [tick, scope, actorRm, user?.role]);
+  }, [dealBook, scope, actorRm, user?.role]);
 
   const model = useMemo(() => buildChanakyaRadarDashboard(scopedFiles), [scopedFiles]);
 
@@ -226,7 +245,11 @@ export function ChanakyaRadarWorkspace() {
 
   const selectedPreview = useMemo(() => {
     if (!selectedFileId) return null;
-    const file = scopedFiles.find((f) => f.id === selectedFileId);
+    const file = scopedFiles.find(
+      (f) =>
+        f.id === selectedFileId ||
+        f.enterpriseDealId === selectedFileId,
+    );
     if (!file) return null;
     return {
       card: mapLoanFileToRadarCard(file),

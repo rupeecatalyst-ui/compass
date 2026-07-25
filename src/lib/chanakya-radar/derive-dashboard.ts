@@ -22,9 +22,18 @@ import {
 import { hasMeaningfulWorkToday } from "./daily-work";
 
 export interface ChanakyaRadarDealRow {
+  /** Stable Radar identity — prefer Enterprise Deal UUID (one blip per Deal). */
   id: string;
+  /** Legacy LoanFile / workspace bridge id. */
   fileId: string;
+  /** Enterprise Deal Registry UUID when available (multi-Deal identity). */
+  enterpriseDealId?: string;
+  /** Customer / Contact id — same customer may own multiple Deal rows. */
+  customerId?: string;
+  /** Display Deal ref (DEAL-… preferred; OPP-… legacy fallback). */
   dealId: string;
+  /** Parent Opportunity ref when known (not the Radar SSOT). */
+  opportunityNumber?: string;
   borrower: string;
   product: string;
   loanAmount: number;
@@ -226,11 +235,19 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
   const idle = daysSince(last);
   const amount = file.requiredAmount || file.loanAmount || 0;
   const lead = listActiveRadarLenders(file).find((l) => l.isPrimary) ?? listActiveRadarLenders(file)[0];
+  const enterpriseDealId = file.enterpriseDealId?.trim() || undefined;
+  const opportunityNumber =
+    file.opportunityNumber?.trim() || opportunityNumberForFile(file);
+  const dealDisplay =
+    file.dealNumber?.trim() || opportunityNumber;
 
   return {
-    id: file.id,
+    id: enterpriseDealId || file.id,
     fileId: file.id,
-    dealId: opportunityNumberForFile(file),
+    enterpriseDealId,
+    customerId: file.customerId?.trim() || undefined,
+    dealId: dealDisplay,
+    opportunityNumber,
     borrower: file.customerName,
     product: file.loanProduct || "—",
     loanAmount: amount,

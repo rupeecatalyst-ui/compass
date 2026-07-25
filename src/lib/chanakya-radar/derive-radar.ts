@@ -48,6 +48,12 @@ export interface ChanakyaRadarCard {
   health: ChanakyaDealHealthId;
   borrower: string;
   opportunityNumber: string;
+  /** Enterprise Deal Registry UUID when available (multi-Deal identity). */
+  enterpriseDealId?: string;
+  /** Customer / Contact id — same customer may own multiple Deal cards. */
+  customerId?: string;
+  /** Display Deal number when distinct from Opportunity ref. */
+  dealNumber?: string;
   product: string;
   loanAmountLabel: string;
   /** Shared filter dimensions — sourced from loan file, not re-scored. */
@@ -599,12 +605,19 @@ export function mapLoanFileToRadarCard(file: LoanFile): ChanakyaRadarCard {
         : "Awaiting first active lender login";
 
   const activityDays = Math.min(idleDays, 999) === 999 ? ageingDays : idleDays;
+  const enterpriseDealId = file.enterpriseDealId?.trim() || undefined;
+  const opportunityNumber =
+    file.opportunityNumber?.trim() || opportunityNumberForFile(file);
+  const dealNumber = file.dealNumber?.trim() || undefined;
 
   return {
-    id: file.id,
+    id: enterpriseDealId || file.id,
     health: classified.health,
     borrower: file.customerName,
-    opportunityNumber: opportunityNumberForFile(file),
+    opportunityNumber,
+    enterpriseDealId,
+    customerId: file.customerId?.trim() || undefined,
+    dealNumber,
     product: file.loanProduct,
     loanAmountLabel: formatINR(file.requiredAmount || file.loanAmount || 0),
     relationshipManager: file.relationshipManager?.trim() || "Unassigned",

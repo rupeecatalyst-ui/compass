@@ -69,6 +69,14 @@ export {
 } from "./derive-dashboard";
 
 export {
+  CHANAKYA_RADAR_DEAL_CONSUMER,
+  hydrateRadarDealFiles,
+  listActiveRadarDealFiles,
+  loadRadarDealFilesSync,
+  subscribeRadarDealSource,
+} from "./radar-deal-source";
+
+export {
   markOperationalMovementConsumed,
   movementsForDestination,
   operationalQuadrantTone,
