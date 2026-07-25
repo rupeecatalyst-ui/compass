@@ -2,14 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { FileTimeline } from "@/components/catalyst-one/loan-files/file-timeline";
 import { LoanWorkbenchLayout } from "@/components/catalyst-one/shared/loan-workbench-layout";
 import { LoanWorkbenchSection } from "@/components/catalyst-one/shared/loan-workbench-section";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
 import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
+import { IntelligentPayeeCaptureHost } from "@/components/catalyst-one/shared/intelligent-payee-capture";
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
+import { syncLoanStructureRelationships } from "@/lib/loan-structure";
 import { useLoanJourneyEcm } from "@/hooks/use-loan-journey-ecm";
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
 import {
@@ -18,16 +20,26 @@ import {
   EnterpriseWorkflowStatusBand,
   WorkspaceIntelligenceRibbon,
 } from "@/components/enterprise/workspace-layout";
+import { WorkspaceExitNav } from "@/components/enterprise/navigation";
+import { buildJourneyBreadcrumbs } from "@/constants/enterprise-exit-navigation";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { ApproxCibilScoreField } from "@/components/catalyst-one/shared/approx-cibil-score-field";
 import { getApproxCibilScoreLabel } from "@/constants/cibil-score-master";
 import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
+import { InvoicePartyField } from "@/components/catalyst-one/shared/commercial-payee-field";
+import { EditDealDialog } from "@/components/catalyst-one/shared/edit-deal-dialog";
+import {
+  formatInvoicePartyDisplay,
+  isInvoicePartyLocked,
+  requiresInvoiceParty,
+} from "@/lib/loan-commercial-payee";
 import { LoanParticipantsTable } from "@/components/catalyst-one/shared/loan-participants-table";
 import { LoanStructureCard } from "@/components/catalyst-one/shared/loan-structure-card";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
 import { MissionControlWorkspace } from "@/components/catalyst-one/mission-control/mission-control-workspace";
 import { ChanakyaClosedLoopCoachingCard } from "@/components/catalyst-one/shared/chanakya-closed-loop-coaching-card";
-import { DocumentsWorkspace } from "@/components/catalyst-one/execution/documents-workspace";
+import { DealDocumentsProjection } from "@/components/catalyst-one/deal-workspace/deal-documents-projection";
+import { resolveLenderDocumentsKey } from "@/constants/lender-pipeline-documents";
 import { TasksWorkspace } from "@/components/catalyst-one/execution/tasks-workspace";
 import {
   buildDefaultParticipantEntityOptions,
@@ -44,7 +56,6 @@ import {
 } from "@/constants/loan-pipeline";
 import { loanManagers } from "@/data/catalyst-one/loan-files";
 import { isOccupancyApplicableToProduct, isOccupancyFieldVisible, getOccupancyLabel } from "@/constants/occupancy-master";
-import { LOAN_FILE_PRIORITY_STYLES } from "@/constants/loan-status";
 import { ROUTES } from "@/constants/routes";
 import { runWithFeedback } from "@/lib/action-feedback";
 import { isBusinessCompletionRequiredError } from "@/lib/business-completion";
@@ -56,22 +67,14 @@ import { BusinessCompletionDialog } from "@/components/catalyst-one/shared/busin
 import { PropertyInformationCard } from "@/components/catalyst-one/shared/property-information-card";
 import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
 import { rememberOpportunityActiveLoan } from "@/lib/opportunity-loan-continuity";
-import {
-  buildBusinessJourneyHref,
-  getBusinessBackLabel,
-  getBusinessJourneyNavStep,
-  resolveLoanWorkspaceContinue,
-} from "@/constants/enterprise-business-journey-navigation";
-import {
-  loanTabToNavigatorStageId,
-} from "@/constants/enterprise-business-journey-navigator";
 import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import {
-  BusinessJourneyNavigator,
-  BusinessTransitionCard,
-} from "@/components/catalyst-one/business-journey-navigator";
+  CanonicalJourneyHeader,
+} from "@/components/catalyst-one/opportunity-workspace/opportunity-workspace-stage-rail";
+import type { CanonicalJourneyStageId } from "@/constants/canonical-journey-header";
 import { formatINR } from "@/lib/format-currency";
-import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
+import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
+import { updateDeal } from "@/lib/enterprise-deal/deal-data-access";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import {
@@ -146,6 +149,12 @@ function LoanWorkspaceModalContent({
   const initialTab = tabFromUrl || defaultTab;
   const [activeTab, setActiveTab] = useState(initialTab);
   const [lenderAddOpen, setLenderAddOpen] = useState(false);
+  const [editDealOpen, setEditDealOpen] = useState(false);
+  /** BAT #23 — Documents tab lender deep-link from Lender Pipeline. */
+  const [documentsLenderKey, setDocumentsLenderKey] = useState<string | null>(null);
+  const [documentsPanelMode, setDocumentsPanelMode] = useState<"customer" | "lender">(
+    "customer",
+  );
   const [savedSnapshot, setSavedSnapshot] = useState<LoanFile>(() => ({ ...file }));
   const [overviewUi, setOverviewUi] = useState(() => ({
     loanDetails: { collapsed: false, mode: "view" as "view" | "edit" },
@@ -157,39 +166,25 @@ function LoanWorkspaceModalContent({
   const [focusParticipantId, setFocusParticipantId] = useState<string | null>(null);
   const opportunityId =
     searchParams.get("opportunityId") ?? getActiveOpportunityContext()?.opportunityId ?? null;
-  const journeyCtx = { fileId: draft.id, opportunityId };
-  const backToCreditHref = buildBusinessJourneyHref(
-    getBusinessJourneyNavStep("credit_workbench"),
-    journeyCtx,
-  );
-  const hasActiveLenderCases = (draft.lenders ?? []).length > 0;
-  const loanContinue = resolveLoanWorkspaceContinue({
-    activeTab,
-    hasActiveLenderCases,
-  });
-  const navigatorStageId = loanTabToNavigatorStageId(activeTab);
-  const backLabel =
-    activeTab === "lenders"
-      ? "Back to Loan Workspace"
-      : activeTab === "timeline" || activeTab === "tasks"
-        ? "Back to Lender Pipeline"
-        : getBusinessBackLabel(getBusinessJourneyNavStep("credit_workbench"));
-  const handleJourneyBack = () => {
-    if (activeTab === "lenders" || activeTab === "timeline" || activeTab === "tasks") {
-      setActiveTab(activeTab === "lenders" ? "overview" : "lenders");
-      return;
-    }
-    router.push(backToCreditHref);
-  };
-  const handleJourneyContinue = () => {
-    if (loanContinue.navId === "lender_pipeline") {
-      setActiveTab("lenders");
-      return;
-    }
-    router.push(
-      buildBusinessJourneyHref(getBusinessJourneyNavStep(loanContinue.navId), journeyCtx),
-    );
-  };
+  const canonicalStage: CanonicalJourneyStageId =
+    activeTab === "overview" ? "disbursed" : "lender_pipeline";
+  const opportunityLabel =
+    draft.opportunityNumber?.trim() || opportunityNumberForFile(draft);
+  const dealLabel = draft.dealNumber?.trim() || null;
+  const lenderLabel =
+    draft.lenders?.find((l) => l.isPrimary)?.lender ||
+    draft.lenders?.[0]?.lender ||
+    draft.lender ||
+    null;
+  const identityLine = [
+    dealLabel ? `Deal ${dealLabel}` : null,
+    `Opportunity ${opportunityId || opportunityLabel}`,
+    lenderLabel ? `Lender ${lenderLabel}` : null,
+    draft.loanProduct,
+    formatINR(draft.requiredAmount || draft.loanAmount),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const [completionOpen, setCompletionOpen] = useState(false);
   const [completionRequest, setCompletionRequest] = useState<BusinessCompletionRequest | null>(
     null,
@@ -290,6 +285,9 @@ function LoanWorkspaceModalContent({
   const handleParticipantsChange = (next: LoanParticipant[]) => {
     const synced = syncParticipantLegacyFields(next, draft.businessDetails);
     patch(synced);
+    if (draft) {
+      syncLoanStructureRelationships({ ...draft, ...synced }, synced.participants);
+    }
   };
 
   const hasUnsavedChanges = useMemo(
@@ -375,11 +373,11 @@ function LoanWorkspaceModalContent({
       const updated = await runWithFeedback(
         loadingLabel,
         async () =>
-          updateLoanFileInStorage(file.id, {
+          updateDeal(file.id, {
             ...buildPersistPayload(),
             ...extraPatch,
             ...workflowPatch,
-          }),
+          }, undefined, "loan_workspace"),
         { successMessage },
       );
       if (!updated) return false;
@@ -529,6 +527,13 @@ function LoanWorkspaceModalContent({
                       />
                       <SummaryItem label="Login Date" value={new Date(draft.loginDate).toLocaleDateString("en-IN")} />
                       <SummaryItem label="Expected Login" value={new Date(draft.expectedLoginDate).toLocaleDateString("en-IN")} />
+                      <SummaryItem
+                        label="Invoice Party"
+                        value={formatInvoicePartyDisplay(draft)}
+                        accent={Boolean(
+                          draft.invoicePartyId ?? draft.commissionAccountingPayeeId,
+                        )}
+                      />
                       <SummaryItem label="Expected Disbursement" value={new Date(draft.expectedDisbursement).toLocaleDateString("en-IN")} />
                       <SummaryItem label="Last Updated" value={lastUpdatedAt ? lastUpdatedAt.toLocaleString("en-IN") : "—"} />
                     </div>
@@ -647,6 +652,67 @@ function LoanWorkspaceModalContent({
                           </SelectContent>
                         </Select>
                       </Field>
+                      <InvoicePartyField
+                        className="sm:col-span-2 lg:col-span-1"
+                        invoicePartyId={draft.invoicePartyId ?? draft.commissionAccountingPayeeId}
+                        invoicePartyLabel={
+                          draft.invoicePartyLabel ??
+                          draft.commissionAccountingPayeeLabel ??
+                          draft.commercialPayeeSpecify
+                        }
+                        required={requiresInvoiceParty(draft.stage)}
+                        readOnly={isInvoicePartyLocked(draft.stage, {
+                          allowAuthorizedEdit: true,
+                        })}
+                        error={
+                          requiresInvoiceParty(draft.stage) &&
+                          !(draft.invoicePartyId ?? draft.commissionAccountingPayeeId)
+                            ? "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding."
+                            : null
+                        }
+                        onChange={(next) =>
+                          patch({
+                            commercialPayee: next.commercialPayee,
+                            commercialPayeeSpecify: next.commercialPayeeSpecify,
+                            invoicePartyId:
+                              next.invoicePartyId === null
+                                ? undefined
+                                : next.invoicePartyId ??
+                                  next.commissionAccountingPayeeId ??
+                                  draft.invoicePartyId,
+                            invoicePartyLabel:
+                              next.invoicePartyLabel === null
+                                ? undefined
+                                : next.invoicePartyLabel ??
+                                  next.commissionAccountingPayeeLabel ??
+                                  draft.invoicePartyLabel,
+                            invoicePartyContactId:
+                              next.invoicePartyContactId === null
+                                ? undefined
+                                : next.invoicePartyContactId ??
+                                  next.commissionPayeeContactId ??
+                                  draft.invoicePartyContactId,
+                            commissionAccountingPayeeId:
+                              next.invoicePartyId === null
+                                ? undefined
+                                : next.invoicePartyId ??
+                                  next.commissionAccountingPayeeId ??
+                                  draft.commissionAccountingPayeeId,
+                            commissionAccountingPayeeLabel:
+                              next.invoicePartyLabel === null
+                                ? undefined
+                                : next.invoicePartyLabel ??
+                                  next.commissionAccountingPayeeLabel ??
+                                  draft.commissionAccountingPayeeLabel,
+                            commissionPayeeContactId:
+                              next.invoicePartyContactId === null
+                                ? undefined
+                                : next.invoicePartyContactId ??
+                                  next.commissionPayeeContactId ??
+                                  draft.commissionPayeeContactId,
+                          })
+                        }
+                      />
                     </div>
                   )}
                   <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
@@ -844,7 +910,7 @@ function LoanWorkspaceModalContent({
             </div>
           </TabsContent>
 
-          <TabsContent value="lenders" className="mt-0 min-h-[min(72vh,820px)] flex-1">
+          <TabsContent value="lenders" className="mt-0 min-h-[min(78vh,900px)] flex-1">
             <LenderPipelineBoard
               loan={draft}
               cases={draft.lenders ?? []}
@@ -852,6 +918,12 @@ function LoanWorkspaceModalContent({
               addOpen={lenderAddOpen}
               onAddOpenChange={setLenderAddOpen}
               onChange={(next) => patch({ lenders: next })}
+              onCommercialPayeeChange={(next) => patch(next)}
+              onOpenLenderDocuments={(c) => {
+                setDocumentsLenderKey(resolveLenderDocumentsKey(c));
+                setDocumentsPanelMode("lender");
+                setActiveTab("documents");
+              }}
               onTimeline={(note) =>
                 patch({
                   timeline: [
@@ -874,25 +946,15 @@ function LoanWorkspaceModalContent({
           </TabsContent>
 
           <TabsContent value="documents" className="mt-0">
-            <LoanWorkbenchSection title="Documents" description="Checklist and collection status for this loan file.">
-              <DocumentsWorkspace
-                documents={draft.documents}
-                updatedBy={draft.relationshipManager}
-                onChange={(next) => patch({ documents: next })}
-                onTimeline={(note) =>
-                  patch({
-                    timeline: [
-                      {
-                        id: `tl-doc-${Date.now()}`,
-                        title: "Document Activity",
-                        description: note,
-                        timestamp: new Date().toISOString(),
-                        completed: true,
-                      },
-                      ...draft.timeline,
-                    ],
-                  })
-                }
+            <LoanWorkbenchSection
+              title="Documents"
+              description="Document Review & Lender Documents — same registry as Opportunity Document Center."
+            >
+              <DealDocumentsProjection
+                file={draft}
+                opportunityId={draft.enterpriseOpportunityId || null}
+                initialMode={documentsPanelMode}
+                initialLenderId={documentsLenderKey}
               />
             </LoanWorkbenchSection>
           </TabsContent>
@@ -938,28 +1000,17 @@ function LoanWorkspaceModalContent({
     >
       <EnterpriseWorkspaceLayout
         workspaceHeader={
-          <EnterpriseWorkspaceHeaderBand
+          <>
+            <WorkspaceExitNav
+              breadcrumbs={buildJourneyBreadcrumbs("loan_workspace")}
+            />
+            <EnterpriseWorkspaceHeaderBand
             identity={
               <div className="min-w-0">
-                <p className="truncate text-base font-bold leading-tight tracking-tight text-foreground sm:text-lg">
+                <p className="truncate text-sm font-semibold leading-tight tracking-tight text-foreground sm:text-base">
                   {draft.customerName}
                 </p>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-                  <span className="font-medium text-foreground/80">{draft.fileNumber}</span>
-                  <span aria-hidden>·</span>
-                  <span className="tabular-nums">{formatINR(draft.requiredAmount)}</span>
-                  <span aria-hidden>·</span>
-                  <span>RM {draft.relationshipManager}</span>
-                  <span aria-hidden>·</span>
-                  <span
-                    className={cn(
-                      "rounded border px-1.5 py-0.5 capitalize",
-                      LOAN_FILE_PRIORITY_STYLES[draft.priority].className,
-                    )}
-                  >
-                    {draft.priority}
-                  </span>
-                </div>
+                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{identityLine}</p>
               </div>
             }
             actions={
@@ -968,7 +1019,20 @@ function LoanWorkspaceModalContent({
                   file={draft}
                   participants={participants}
                   onNavigate={handleLoanStructureNavigate}
+                  onOpenContact={onOpenContact}
+                  onParticipantsChange={handleParticipantsChange}
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 text-xs"
+                  onClick={() => setEditDealOpen(true)}
+                  title="Edit Deal — lender, program, amount, Invoice Party"
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden />
+                  Edit Deal
+                </Button>
                 <LoanActionCenter
                   loan={draft}
                   onDocumentsChange={(documents) => patch({ documents })}
@@ -987,19 +1051,13 @@ function LoanWorkspaceModalContent({
                     })
                   }
                 />
-                <BusinessTransitionCard
-                  continueLabel={loanContinue.label}
-                  onContinue={handleJourneyContinue}
-                  backLabel={backLabel}
-                  onBack={handleJourneyBack}
-                />
                 <WorkspacePrimaryActions
                   mode="editable"
                   onClose={closeApi.requestClose}
                   onSave={async () => {
                     await handleSave();
                   }}
-                  onSaveAndExit={async () => {
+                  onMyDeals={async () => {
                     await handleSaveAndExit();
                   }}
                   saving={saving || closeApi.saving}
@@ -1008,15 +1066,17 @@ function LoanWorkspaceModalContent({
               </>
             }
             journey={
-              <BusinessJourneyNavigator
-                currentStageId={navigatorStageId}
+              <CanonicalJourneyHeader
+                currentStage={canonicalStage}
                 fileId={draft.id}
                 opportunityId={opportunityId}
-                hideHelperCaptions
-                density="compact"
+                customerName={draft.customerName}
+                product={draft.loanProduct}
+                label={opportunityLabel}
               />
             }
           />
+          </>
         }
         workflowStatus={
           <EnterpriseWorkflowStatusBand>
@@ -1024,25 +1084,37 @@ function LoanWorkspaceModalContent({
           </EnterpriseWorkflowStatusBand>
         }
         navigation={
-          <div className="flex items-center gap-2 border-b border-border/60 bg-background px-3 py-1.5 sm:px-4">
-            <TabsList className="grid h-auto flex-1 grid-cols-6 bg-muted p-1">
-              <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
-              <TabsTrigger value="lenders" className="text-xs">Lender Pipeline</TabsTrigger>
-              <TabsTrigger value="mission-control" className="text-xs">Mission Control</TabsTrigger>
-              <TabsTrigger value="documents" className="text-xs">Documents</TabsTrigger>
-              <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
-              <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
+          <div className="flex items-center gap-2 border-b border-border/60 bg-background px-3 py-1 sm:px-4">
+            <TabsList className="grid h-auto flex-1 grid-cols-6 bg-muted/80 p-0.5">
+              <TabsTrigger value="overview" className="h-7 text-[11px]">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="lenders" className="h-7 text-[11px]">
+                Lender Pipeline
+              </TabsTrigger>
+              <TabsTrigger value="mission-control" className="h-7 text-[11px]">
+                Mission Control
+              </TabsTrigger>
+              <TabsTrigger value="documents" className="h-7 text-[11px]">
+                Documents
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="h-7 text-[11px]">
+                Tasks
+              </TabsTrigger>
+              <TabsTrigger value="timeline" className="h-7 text-[11px]">
+                Timeline
+              </TabsTrigger>
             </TabsList>
             <Button
               type="button"
               size="sm"
-              className="h-8 shrink-0 text-xs"
+              className="h-7 shrink-0 text-[11px]"
               onClick={() => {
                 setActiveTab("lenders");
                 setLenderAddOpen(true);
               }}
             >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              <Plus className="mr-1 h-3 w-3" />
               {(draft.lenders ?? []).length > 0 ? "Identify Additional Lender" : "Identify Lender"}
             </Button>
           </div>
@@ -1056,6 +1128,36 @@ function LoanWorkspaceModalContent({
         onDiscard={closeApi.handleDiscard}
         onSaveAndClose={closeApi.handleSaveAndClose}
         saving={closeApi.saving}
+      />
+      <IntelligentPayeeCaptureHost
+        file={draft}
+        onUpdateFile={(payeePatch) => {
+          patch(payeePatch);
+        }}
+      />
+      <EditDealDialog
+        open={editDealOpen}
+        onOpenChange={setEditDealOpen}
+        draft={draft}
+        onSaved={async ({ patch: dealPatch, auditHint }) => {
+          const nextTimeline = auditHint
+            ? [
+                {
+                  id: `tl-${Date.now()}`,
+                  title: "Deal edited",
+                  description: auditHint,
+                  timestamp: new Date().toISOString(),
+                  completed: true,
+                },
+                ...draft.timeline,
+              ]
+            : draft.timeline;
+          if (dealPatch.internalNotes != null) setNotes(dealPatch.internalNotes);
+          await persistDraft({
+            workflowPatch: { ...dealPatch, timeline: nextTimeline },
+            successMessage: "Deal changes saved.",
+          });
+        }}
       />
     </Tabs>
   );
@@ -1080,6 +1182,8 @@ function LoanWorkspaceModalContent({
             btAmount: draft.btAmount,
             finalLoanAmount: draft.finalLoanAmount,
             transactionType: draft.transactionType,
+            commercialPayee: draft.commercialPayee,
+            commercialPayeeSpecify: draft.commercialPayeeSpecify,
           }}
           saving={saving}
           onOpenChange={(open) => {
@@ -1120,6 +1224,8 @@ function LoanWorkspaceModalContent({
           btAmount: draft.btAmount,
           finalLoanAmount: draft.finalLoanAmount,
           transactionType: draft.transactionType,
+          commercialPayee: draft.commercialPayee,
+          commercialPayeeSpecify: draft.commercialPayeeSpecify,
         }}
         saving={saving}
         onOpenChange={(open) => {
@@ -1161,6 +1267,51 @@ function businessCompletionValuesToLoanPatch(
     values.finalLoanAmount !== ""
   ) {
     patch.finalLoanAmount = Number(values.finalLoanAmount);
+  }
+  if (values.commercialPayee !== undefined && values.commercialPayee !== null && values.commercialPayee !== "") {
+    patch.commercialPayee = values.commercialPayee as LoanFile["commercialPayee"];
+  }
+  if (values.commercialPayeeSpecify !== undefined) {
+    patch.commercialPayeeSpecify =
+      values.commercialPayeeSpecify === "" || values.commercialPayeeSpecify === null
+        ? undefined
+        : String(values.commercialPayeeSpecify);
+  }
+  if (values.commissionPayeeContactId !== undefined) {
+    patch.commissionPayeeContactId =
+      values.commissionPayeeContactId === "" || values.commissionPayeeContactId === null
+        ? undefined
+        : String(values.commissionPayeeContactId);
+  }
+  if (values.commissionAccountingPayeeId !== undefined) {
+    patch.commissionAccountingPayeeId =
+      values.commissionAccountingPayeeId === "" ||
+      values.commissionAccountingPayeeId === null
+        ? undefined
+        : String(values.commissionAccountingPayeeId);
+    patch.invoicePartyId = patch.commissionAccountingPayeeId;
+  }
+  if (values.invoicePartyId !== undefined) {
+    patch.invoicePartyId =
+      values.invoicePartyId === "" || values.invoicePartyId === null
+        ? undefined
+        : String(values.invoicePartyId);
+    patch.commissionAccountingPayeeId = patch.invoicePartyId;
+  }
+  if (values.commissionAccountingPayeeLabel !== undefined) {
+    patch.commissionAccountingPayeeLabel =
+      values.commissionAccountingPayeeLabel === "" ||
+      values.commissionAccountingPayeeLabel === null
+        ? undefined
+        : String(values.commissionAccountingPayeeLabel);
+    patch.invoicePartyLabel = patch.commissionAccountingPayeeLabel;
+  }
+  if (values.invoicePartyLabel !== undefined) {
+    patch.invoicePartyLabel =
+      values.invoicePartyLabel === "" || values.invoicePartyLabel === null
+        ? undefined
+        : String(values.invoicePartyLabel);
+    patch.commissionAccountingPayeeLabel = patch.invoicePartyLabel;
   }
   return patch;
 }

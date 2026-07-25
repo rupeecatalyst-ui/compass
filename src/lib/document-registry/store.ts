@@ -133,19 +133,25 @@ function findDuplicateRecord(
   fileName: string,
   links?: Pick<
     DocumentEntityLinks,
-    "loanFileId" | "opportunityId" | "participantId" | "documentScope" | "contactId"
+    | "loanFileId"
+    | "opportunityId"
+    | "participantId"
+    | "documentScope"
+    | "contactId"
+    | "lenderId"
   >,
 ): DocumentRegistryRecord | undefined {
   const wantScope = links?.documentScope ?? "applicant";
   const wantParticipant = links?.participantId?.trim() || "";
   const wantContact = links?.contactId?.trim() || "";
+  const wantLender = links?.lenderId?.trim() || "";
 
   return records.find((r) => {
     if (r.typeRef !== typeRef || r.originalFilename !== fileName || r.status !== "active") {
       return false;
     }
 
-    // BAT #22 — ownership must match (do not merge Co-Applicant A into B).
+    // BAT #22 / #23 — ownership must match (participant or lender).
     const haveScope = r.links.documentScope ?? "applicant";
     if (haveScope !== wantScope) return false;
     if (wantScope === "applicant") {
@@ -156,6 +162,10 @@ function findDuplicateRecord(
       if (wantContact && r.links.contactId?.trim() && wantContact !== r.links.contactId.trim()) {
         return false;
       }
+    }
+    if (wantScope === "lender") {
+      const haveLender = r.links.lenderId?.trim() || "";
+      if (wantLender && haveLender && wantLender !== haveLender) return false;
     }
 
     if (links?.loanFileId && r.links.loanFileId === links.loanFileId) return true;
@@ -267,6 +277,7 @@ export async function uploadDocumentToRegistry(
           participantId: input.links.participantId,
           documentScope: input.links.documentScope,
           contactId: input.links.contactId,
+          lenderId: input.links.lenderId,
         },
       );
 
@@ -390,6 +401,27 @@ export function renameDocumentInRegistry(
   return snap.records[idx]!;
 }
 
+/** BAT #23 — RM verifies a customer (or lender) document without changing binary content. */
+export function markDocumentVerified(
+  recordId: string,
+  verifiedBy: string,
+): DocumentRegistryRecord | null {
+  const snap = readSnapshot();
+  const idx = snap.records.findIndex((r) => r.id === recordId);
+  if (idx < 0) return null;
+  const current = snap.records[idx]!;
+  if (current.status !== "active") return null;
+  const now = new Date().toISOString();
+  snap.records[idx] = {
+    ...current,
+    verifiedAt: now,
+    verifiedBy: verifiedBy.trim() || "RM",
+    updatedAt: now,
+  };
+  writeSnapshot(snap);
+  return snap.records[idx]!;
+}
+
 export async function deleteDocumentFromRegistry(recordId: string): Promise<boolean> {
   const snap = readSnapshot();
   const idx = snap.records.findIndex((r) => r.id === recordId);
@@ -454,15 +486,18 @@ export function buildEntityLinksFromLoanFile(
     opportunityId?: string;
     customerName?: string;
     enterpriseOpportunityId?: string;
+    enterpriseDealId?: string;
   },
   scope?: {
     participantId?: string | null;
-    documentScope?: "applicant" | "shared";
+    documentScope?: "applicant" | "shared" | "lender";
     /**
      * BAT #22 — owning Contact / Company registry id for the selected Document Owner.
      * Shared Opportunity docs remain Opportunity-owned (no owner entity stamp).
      */
     ownerEntityId?: string | null;
+    /** BAT #23 — selected lender registry id for Lender Documents. */
+    lenderId?: string | null;
   },
 ): DocumentEntityLinks {
   const documentScope = scope?.documentScope ?? "applicant";
@@ -470,6 +505,8 @@ export function buildEntityLinksFromLoanFile(
     file.enterpriseOpportunityId || file.opportunityId || undefined;
   const opportunityRuntime = isOpportunityRuntimeCase(file as never);
   const ownerEntityId = scope?.ownerEntityId?.trim() || undefined;
+  const lenderId = scope?.lenderId?.trim() || undefined;
+
   return {
     // Compatibility: only stamp real Deal/LoanFile ids — never Opportunity UUID as LoanFile.
     loanFileId: opportunityRuntime ? undefined : file.id,
@@ -477,12 +514,13 @@ export function buildEntityLinksFromLoanFile(
     opportunityId: opportunityId || (opportunityRuntime ? file.id : undefined),
     // Owner profile SSOT: selected participant entity (Contact/Company), else primary customer.
     contactId:
-      documentScope === "shared"
+      documentScope === "shared" || documentScope === "lender"
         ? undefined
         : ownerEntityId || file.customerId,
     documentScope,
     ...(documentScope === "applicant" && scope?.participantId
       ? { participantId: scope.participantId }
       : {}),
+    ...(documentScope === "lender" && lenderId ? { lenderId } : {}),
   };
 }

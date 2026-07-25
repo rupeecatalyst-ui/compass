@@ -161,4 +161,4 @@ export function buildDocumentCenterScopeOptions(
 }
 
 export const DEAL_DOCUMENTS_EDIT_BLOCK_MESSAGE =
-  "Documents can only be edited from the Opportunity Document Center.";
+  "Customer documents open in View Mode. Full collection and ownership edits remain in the Opportunity Document Center. Lender-specific uploads use the Lender Documents panel.";

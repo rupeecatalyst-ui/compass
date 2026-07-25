@@ -30,9 +30,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EdieComplianceSummaryDialog } from "@/components/catalyst-one/shared/edie-compliance-summary-dialog";
+import { ChanakyaLenderLoginProbeDialog } from "@/components/catalyst-one/execution/chanakya-lender-login-probe-dialog";
 import { LenderStrategyDrawer } from "@/components/catalyst-one/execution/lender-strategy-drawer";
 import { evaluateEdieComplianceGate } from "@/lib/edie-certified";
 import type { EdieComplianceGateResult } from "@/types/edie-certified-rules";
+import {
+  buildLenderLoginProbePatch,
+  isLenderLoginProbeComplete,
+  type LenderLoginProbeValues,
+} from "@/lib/lender-pipeline/login-probe";
+import type { LoanCommercialPayeeType } from "@/constants/loan-commercial-payee";
+import {
+  INVOICE_PARTY_REQUIRED_MESSAGE,
+  invoicePartyRequiredToProgressTo,
+  isInvoicePartyAssigned,
+} from "@/lib/loan-commercial-payee";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   LENDER_CASE_STAGES,
@@ -51,8 +64,10 @@ import type {
   LoanFile,
   LoanLenderExecution,
 } from "@/types/catalyst-one";
-import { loanLenders } from "@/data/catalyst-one/loan-files";
-import { toast } from "sonner";
+import { EnterpriseLenderSearch } from "@/components/catalyst-one/shared/enterprise-lender-search";
+import { rememberDealLender } from "@/lib/deal-workspace/recent-deal-lenders";
+import type { EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
+import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
 function nowIso() {
   return new Date().toISOString();
@@ -72,14 +87,22 @@ export function LenderPipelineBoard({
   onTimeline,
   addOpen,
   onAddOpenChange,
+  onOpenLenderDocuments,
 }: {
   loan: LoanFile;
   cases: LoanLenderExecution[];
   updatedBy: string;
   onChange: (next: LoanLenderExecution[]) => void;
+  /** @deprecated CO-SPRINT-098 — Payee is collected per lender card via CHANAKYA probe. Kept for call-site compat. */
+  onCommercialPayeeChange?: (next: {
+    commercialPayee?: LoanCommercialPayeeType;
+    commercialPayeeSpecify?: string;
+  }) => void;
   onTimeline: (note: string) => void;
   addOpen?: boolean;
   onAddOpenChange?: (open: boolean) => void;
+  /** BAT #23 — open Deal Documents → Lender Documents for this lender. */
+  onOpenLenderDocuments?: (caseExecution: LoanLenderExecution) => void;
 }) {
   const [dragOverStage, setDragOverStage] = useState<LenderCaseStage | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -87,18 +110,27 @@ export function LenderPipelineBoard({
   const addDialogOpen = addOpen ?? addOpenInternal;
   const setAddDialogOpen = onAddOpenChange ?? setAddOpenInternal;
 
+  const assignedRegistryIds = useMemo(
+    () =>
+      new Set(
+        cases.map((c) => c.lenderRegistryId).filter((id): id is string => Boolean(id)),
+      ),
+    [cases],
+  );
   const assignedLenders = useMemo(
     () => new Set(cases.map((c) => c.lender).filter(Boolean)),
     [cases],
   );
-  const availableLenders = useMemo(
-    () => loanLenders.filter((l) => !assignedLenders.has(l)),
-    [assignedLenders],
+
+  const [pendingLender, setPendingLender] = useState<EnterpriseLenderRecord | null>(null);
+  const [pendingProgram, setPendingProgram] = useState<EnterpriseLenderProgramRecord | null>(
+    null,
   );
 
   const [disbursementCase, setDisbursementCase] = useState<WorkflowCase | null>(null);
   const [lostCase, setLostCase] = useState<WorkflowCase | null>(null);
   const [holdCase, setHoldCase] = useState<WorkflowCase | null>(null);
+  const [loginProbeCase, setLoginProbeCase] = useState<WorkflowCase | null>(null);
   const [complianceOpen, setComplianceOpen] = useState(false);
   const [complianceResult, setComplianceResult] = useState<EdieComplianceGateResult | null>(null);
   const [strategyCase, setStrategyCase] = useState<LoanLenderExecution | null>(null);
@@ -109,7 +141,7 @@ export function LenderPipelineBoard({
     caseStage: LenderCaseStage;
     caseSubStage: string;
   }>({
-    lender: loanLenders[0] ?? "HDFC Bank",
+    lender: "",
     expectedLoanAmount: loan.requiredAmount,
     caseStage: "identified" as LenderCaseStage,
     caseSubStage: "",
@@ -131,15 +163,14 @@ export function LenderPipelineBoard({
 
   useEffect(() => {
     if (!addDialogOpen) return;
-    setAddForm((f) => {
-      const currentOk = availableLenders.includes(f.lender as (typeof availableLenders)[number]);
-      return {
-        ...f,
-        lender: currentOk ? f.lender : (availableLenders[0] ?? ""),
-        expectedLoanAmount: f.expectedLoanAmount || loan.requiredAmount,
-      };
-    });
-  }, [addDialogOpen, availableLenders, loan.requiredAmount]);
+    setPendingLender(null);
+    setPendingProgram(null);
+    setAddForm((f) => ({
+      ...f,
+      lender: "",
+      expectedLoanAmount: f.expectedLoanAmount || loan.requiredAmount,
+    }));
+  }, [addDialogOpen, loan.requiredAmount]);
 
   const casesByStage = useMemo(() => {
     const map = new Map<LenderCaseStage, LoanLenderExecution[]>();
@@ -219,40 +250,91 @@ export function LenderPipelineBoard({
       return;
     }
 
+    /** CO-SPRINT-098 — Identified/Pre Login → Logged In: CHANAKYA probe (lender-card scoped). */
+    if (stage === "logged_in_wip" && !isLenderLoginProbeComplete(c)) {
+      setLoginProbeCase({ ...c, targetStage: stage });
+      setDragOverStage(null);
+      setDraggingId(null);
+      return;
+    }
+
+    /** CO-ARCH-003 Phase 2B S1 — Invoice Party required beyond configured stage. */
+    if (invoicePartyRequiredToProgressTo(stage) && !isInvoicePartyAssigned(loan)) {
+      toast.error(INVOICE_PARTY_REQUIRED_MESSAGE);
+      setDragOverStage(null);
+      setDraggingId(null);
+      return;
+    }
+
     applyMove(caseId, stage);
   };
 
   const submitAddCase = () => {
-    if (!addForm.lender || assignedLenders.has(addForm.lender)) return;
+    if (!pendingLender) {
+      toast.error("Select a Lender from the Enterprise Lender Registry.");
+      return;
+    }
+    if (!pendingProgram) {
+      toast.error("Select a Lender Program belonging to the chosen Lender.");
+      return;
+    }
+    const displayName = pendingLender.displayName || pendingLender.label;
+    if (assignedLenders.has(displayName) || assignedRegistryIds.has(pendingLender.id)) {
+      toast.error("This lender is already identified on the Deal.");
+      return;
+    }
     const ts = nowIso();
     const next: LoanLenderExecution = {
       id: newId("lcase"),
-      lender: addForm.lender,
+      lender: displayName,
+      lenderRef: `lender:${pendingLender.code}`,
+      lenderCode: pendingLender.code,
+      lenderLegalName: pendingLender.legalName ?? undefined,
+      lenderDisplayName: displayName,
+      lenderClassification: pendingLender.classification ?? undefined,
+      lenderInstitutionCategory: pendingLender.institutionCategory ?? undefined,
+      lenderWebsite: pendingLender.website ?? undefined,
+      lenderCustomerCarePhone: pendingLender.customerCarePhone ?? undefined,
+      lenderCustomerCareEmail: pendingLender.customerCareEmail ?? undefined,
+      lenderHeadquarters: pendingLender.headquartersLabel ?? undefined,
+      lenderRegistryId: pendingLender.id,
+      lenderProgramId: pendingProgram.id,
+      lenderProgramLabel: pendingProgram.label,
       status: "active",
       caseStage: "identified",
       caseSubStage: addForm.caseSubStage || undefined,
       expectedLoanAmount: addForm.expectedLoanAmount,
       product: loan.loanProduct,
+      expectedRoi: pendingProgram.roiPercent ?? undefined,
       probability: "medium",
       isPrimary: cases.length === 0,
       relationshipManager: loan.relationshipManager,
       identifiedBy: updatedBy,
       identifiedAt: ts,
-      reasonForRecommendation: "Identified additionally from Lender Pipeline",
-      strategicRank: cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "identified").length + 1,
+      reasonForRecommendation: "Identified from Enterprise Lender Registry",
+      strategicRank:
+        cases.filter((c) => normalizeLenderCaseStage(c.caseStage) === "identified").length + 1,
       createdBy: updatedBy,
       updatedBy,
       createdAt: ts,
       updatedAt: ts,
     };
+    rememberDealLender({
+      id: pendingLender.id,
+      displayName,
+      code: pendingLender.code,
+    });
     onChange([next, ...cases]);
-    onTimeline(`Lender identified: ${addForm.lender}`);
-    setAddDialogOpen(false);
-    const remaining = loanLenders.filter(
-      (l) => l !== addForm.lender && !assignedLenders.has(l),
+    onTimeline(
+      `Lender identified: ${next.lender} · Program ${pendingProgram.label}${
+        next.lenderCode ? ` (${next.lenderCode})` : ""
+      }`,
     );
+    setAddDialogOpen(false);
+    setPendingLender(null);
+    setPendingProgram(null);
     setAddForm({
-      lender: remaining[0] ?? "",
+      lender: "",
       expectedLoanAmount: loan.requiredAmount,
       caseStage: "identified",
       caseSubStage: "",
@@ -340,8 +422,14 @@ export function LenderPipelineBoard({
     setHoldCase(null);
   };
 
+  const confirmLoginProbe = (values: LenderLoginProbeValues) => {
+    if (!loginProbeCase) return;
+    applyMove(loginProbeCase.id, loginProbeCase.targetStage, buildLenderLoginProbePatch(values));
+    setLoginProbeCase(null);
+  };
+
   return (
-    <div className="min-h-0">
+    <div className="min-h-0 space-y-3">
       <div className="h-[calc(100vh-210px)] min-h-[560px] overflow-x-auto overflow-y-hidden scrollbar-thin">
         <div className="flex h-full w-full min-w-max gap-1 pb-1">
           {LENDER_CASE_STAGES.map((col) => {
@@ -390,6 +478,11 @@ export function LenderPipelineBoard({
                         onProbabilityChange={(p) => updateProbability(c.id, p)}
                         onStartLogin={() => startLogin(c.id)}
                         onViewStrategy={() => setStrategyCase(c)}
+                        onOpenDocuments={
+                          onOpenLenderDocuments
+                            ? () => onOpenLenderDocuments(c)
+                            : undefined
+                        }
                         onReorderUp={() => reorderIdentified(c.id, "up")}
                         onReorderDown={() => reorderIdentified(c.id, "down")}
                       />
@@ -421,41 +514,32 @@ export function LenderPipelineBoard({
         )}
       </div>
 
-      {/* Identify Additional Lender */}
+      {/* Identify Additional Lender — enterprise search + program (Phase 2B Sprint 2) */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-sm">
               {cases.length > 0 ? "Identify Additional Lender" : "Identify Lender"}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
-            <div>
-              <Label className="text-[10px] uppercase text-muted-foreground">Lender</Label>
-              <Select
-                value={addForm.lender}
-                onValueChange={(v) => setAddForm((f) => ({ ...f, lender: v }))}
-                disabled={availableLenders.length === 0}
-              >
-                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Select lender" /></SelectTrigger>
-                <SelectContent>
-                  {availableLenders.length === 0 ? (
-                    <SelectItem value="__none" disabled className="text-xs">
-                      All lenders already identified
-                    </SelectItem>
-                  ) : (
-                    availableLenders.map((l) => (
-                      <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              {availableLenders.length === 0 && (
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  Each lender may appear once. Prefer Strategic Workspace for analysis-backed identification.
-                </p>
-              )}
-            </div>
+            <EnterpriseLenderSearch
+              productCode={loan.productCode}
+              productLabel={loan.loanProduct}
+              loanProduct={loan.loanProduct}
+              excludeLenderIds={[...assignedRegistryIds]}
+              selectedLenderId={pendingLender?.id}
+              selectedProgramId={pendingProgram?.id}
+              onSelect={({ lender, program }) => {
+                setPendingLender(lender);
+                setPendingProgram(program ?? null);
+                setAddForm((f) => ({
+                  ...f,
+                  lender: lender.displayName || lender.label,
+                }));
+              }}
+              requireProgram
+            />
             <div>
               <Label className="text-[10px] uppercase text-muted-foreground">Expected Loan Amount</Label>
               <INRCurrencyInput
@@ -489,12 +573,14 @@ export function LenderPipelineBoard({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setAddDialogOpen(false)}>
+              Cancel
+            </Button>
             <Button
               type="button"
               size="sm"
               onClick={submitAddCase}
-              disabled={!addForm.lender || availableLenders.length === 0}
+              disabled={!pendingLender || !pendingProgram}
             >
               Identify Lender
             </Button>
@@ -509,6 +595,16 @@ export function LenderPipelineBoard({
         }}
         caseExecution={strategyCase}
         productFallback={loan.loanProduct}
+      />
+
+      <ChanakyaLenderLoginProbeDialog
+        open={Boolean(loginProbeCase)}
+        caseExecution={loginProbeCase}
+        customerName={loan.customerName}
+        onOpenChange={(open) => {
+          if (!open) setLoginProbeCase(null);
+        }}
+        onComplete={confirmLoginProbe}
       />
 
       {/* Disbursement workflow */}
@@ -688,6 +784,7 @@ function LenderCaseKanbanCard({
   onProbabilityChange,
   onStartLogin,
   onViewStrategy,
+  onOpenDocuments,
   onReorderUp,
   onReorderDown,
 }: {
@@ -702,6 +799,7 @@ function LenderCaseKanbanCard({
   onProbabilityChange: (p: LenderProbability) => void;
   onStartLogin: () => void;
   onViewStrategy: () => void;
+  onOpenDocuments?: () => void;
   onReorderUp: () => void;
   onReorderDown: () => void;
 }) {
@@ -763,6 +861,11 @@ function LenderCaseKanbanCard({
                 <DropdownMenuItem onClick={(e) => (e.preventDefault(), onViewStrategy())}>
                   View Strategy
                 </DropdownMenuItem>
+                {onOpenDocuments ? (
+                  <DropdownMenuItem onClick={(e) => (e.preventDefault(), onOpenDocuments())}>
+                    Documents
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem onClick={(e) => (e.preventDefault(), onReorderUp())}>
                   Reorder · Up
                 </DropdownMenuItem>
@@ -776,6 +879,11 @@ function LenderCaseKanbanCard({
                 <DropdownMenuItem onClick={(e) => (e.preventDefault(), onViewStrategy())}>
                   View Strategy
                 </DropdownMenuItem>
+                {onOpenDocuments ? (
+                  <DropdownMenuItem onClick={(e) => (e.preventDefault(), onOpenDocuments())}>
+                    Documents
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuSeparator />
               </>
             )}
@@ -854,6 +962,17 @@ function LenderCaseKanbanCard({
           >
             View Strategy
           </Button>
+          {onOpenDocuments ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-6 px-1.5 text-[9px]"
+              onClick={onOpenDocuments}
+            >
+              Documents
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
@@ -865,7 +984,7 @@ function LenderCaseKanbanCard({
           </Button>
         </div>
       ) : (
-        <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-1.5 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
           <Button
             type="button"
             size="sm"
@@ -875,6 +994,17 @@ function LenderCaseKanbanCard({
           >
             View Strategy
           </Button>
+          {onOpenDocuments ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-6 px-1.5 text-[9px]"
+              onClick={onOpenDocuments}
+            >
+              Documents
+            </Button>
+          ) : null}
         </div>
       )}
     </div>

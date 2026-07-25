@@ -11,6 +11,13 @@ export interface DocumentEntityLinks {
   contactId?: string;
   opportunityId?: string;
   lenderId?: string;
+  /**
+   * CO-ARCH — Applicant Documents: LoanParticipant.id.
+   * Omitted / empty for Shared Opportunity Documents.
+   */
+  participantId?: string;
+  /** CO-ARCH — applicant | shared | lender (BAT #23) */
+  documentScope?: "applicant" | "shared" | "lender";
 }
 
 export interface DocumentRegistryVersion {
@@ -44,6 +51,9 @@ export interface DocumentRegistryRecord {
   version: number;
   fileSizeBytes: number;
   mimeType: string;
+  /** BAT #23 — RM review stamp on Deal / Lender Documents (View Mode). */
+  verifiedAt?: string;
+  verifiedBy?: string;
 }
 
 export interface DocumentRegistryFilters {
