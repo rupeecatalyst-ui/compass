@@ -35,6 +35,7 @@ import {
   type OpportunityRegistrySortField,
 } from "@/types/opportunity-registry";
 import { cn } from "@/lib/utils";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 
 const SORT_MAP: Record<string, OpportunityRegistrySortField> = {
   opportunityNumber: "opportunityNumber",
@@ -364,6 +365,12 @@ export function OpportunityRegistryTable({
         onSort={handleSort}
         onRowClick={onOpenOpportunity}
         maxHeightClassName="h-full max-h-none min-h-0 flex-1"
+        toolbarActions={
+          <CreateTaskActionButton
+            allowEntityPicker
+            className="h-6 gap-1.5 rounded-md px-2 text-[10px]"
+          />
+        }
       />
 
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">

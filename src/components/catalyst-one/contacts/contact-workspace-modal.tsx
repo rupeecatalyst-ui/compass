@@ -9,11 +9,13 @@ import {
   CheckCircle2,
   ChevronDown,
   Circle,
+  MoreHorizontal,
   Pencil,
   Plus,
   Save,
   Sparkles,
   Trash2,
+  UserRound,
   X,
 } from "lucide-react";
 import {
@@ -57,34 +59,79 @@ import {
 } from "@/lib/enterprise-contact-master";
 import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import type { EcmWorkspaceTab } from "@/lib/enterprise-contact-master";
-import { createLoanFileFromInput } from "@/lib/loan-files-utils";
-import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
+import { loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
 import { isLoanCompleted } from "@/lib/customer-utils";
 import { ROUTES } from "@/constants/routes";
+import { buildOpportunityWorkspaceStageHref } from "@/constants/opportunity-workspace-stages";
 import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
-import type { CreateLoanFileInput, LoanFile } from "@/types/catalyst-one";
+import type { LoanFile } from "@/types/catalyst-one";
+import { toast } from "sonner";
+import {
+  startOpportunityFromContact,
+  openExistingOpportunityWorkspace,
+  assertContactReadyForLoanJourney,
+} from "@/lib/enterprise-opportunity/start-opportunity-from-contact";
+import { ActiveOpportunityConflictDialog } from "@/components/catalyst-one/contacts/active-opportunity-conflict-dialog";
+import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-role-chips";
 import { ChanakyaJourneyGuidanceCard } from "@/components/catalyst-one/contacts/chanakya-journey-guidance-card";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
 import { ReportingManagerPicker } from "@/components/catalyst-one/contacts/reporting-manager-picker";
 import { PotentialDuplicateContactDialog } from "@/components/catalyst-one/contacts/potential-duplicate-contact-dialog";
-import {
-  LoanCreateFormDialog,
-  type LoanCreateSubmitMeta,
-} from "@/components/catalyst-one/loan-files/loan-create-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
-import { useAuthContext } from "@/components/providers/auth-provider";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import { SoftDeleteConfirmDialog } from "@/components/enterprise/soft-delete/soft-delete-dialogs";
+import { EnterpriseRelationshipWorkspace } from "@/components/catalyst-one/enterprise-relationship-workspace";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
+import { listContactCompanyLinks, getEcmCompany } from "@/lib/enterprise-company-master";
+import { ECM_COMPANY_RELATION_ROLE_LABELS } from "@/constants/enterprise-company-master";
 import { canSoftDelete, softDeleteApi } from "@/lib/enterprise-soft-delete";
 import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
 import { cn } from "@/lib/utils";
 
 export type ContactWorkspaceMode = "create" | "edit";
+
+function ContactEntityWorkspaceShell({
+  title,
+  description,
+  actionLabel,
+  onAction,
+  children,
+}: {
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-50">{title}</h3>
+          <p className="mt-0.5 text-[11px] text-zinc-500">{description}</p>
+        </div>
+        {actionLabel && onAction ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 rounded-md bg-teal-700 px-2.5 text-xs hover:bg-teal-600"
+            onClick={onAction}
+          >
+            {actionLabel}
+          </Button>
+        ) : null}
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
 
 interface ContactWorkspaceModalProps {
   open: boolean;
@@ -118,6 +165,32 @@ function formatTs(value?: string) {
 function masterDisplay(domain: Parameters<typeof getEcmMasterLabel>[0], id?: string) {
   if (!id) return "—";
   return getEcmMasterLabel(domain, id) || id;
+}
+
+/** Resolve stored city/state to ECM master ids (id or label → id). */
+function resolveEcmMasterValue(
+  domain: "city" | "state",
+  raw?: string | null,
+): string {
+  const value = raw?.trim() ?? "";
+  if (!value) return "";
+  const byId = getEcmMasterOption(domain, value);
+  if (byId) return byId.id;
+  const byLabel = listEcmMasterOptions(domain).find(
+    (o) => o.label.toLowerCase() === value.toLowerCase(),
+  );
+  return byLabel?.id ?? value;
+}
+
+function resolveContactCityState(source: {
+  city?: string | null;
+  state?: string | null;
+}): { city: string; state: string } {
+  const city = resolveEcmMasterValue("city", source.city);
+  const cityOpt = city ? getEcmMasterOption("city", city) : undefined;
+  const state =
+    cityOpt?.parentId ?? resolveEcmMasterValue("state", source.state);
+  return { city, state };
 }
 
 function serializeContactDraft(input: {
@@ -228,7 +301,7 @@ export function ContactWorkspaceModal({
   mode,
   contact,
   actorId = "ui",
-  initialTab = "identity",
+  initialTab = "overview",
   onOpenChange,
   onSaved,
   onOpenExisting,
@@ -236,6 +309,7 @@ export function ContactWorkspaceModal({
 }: ContactWorkspaceModalProps) {
   const router = useRouter();
   const { user } = useAuthContext();
+  const { success: toastSuccess, error: toastError } = useToast();
   const advisorFirstName = user?.firstName?.trim() || "there";
   const [draftSaved, setDraftSaved] = useState<EcmContact | null>(null);
   const active = draftSaved ?? contact;
@@ -272,7 +346,12 @@ export function ContactWorkspaceModal({
   const [dupField, setDupField] = useState<EcmDuplicateMatchField | null>(null);
   const [showIdentityAdditional, setShowIdentityAdditional] = useState(false);
   const [showRoleAdditional, setShowRoleAdditional] = useState(false);
-  const [loanDialogOpen, setLoanDialogOpen] = useState(false);
+  const [startingJourney, setStartingJourney] = useState(false);
+  const [activeOppConflict, setActiveOppConflict] = useState<{
+    message: string;
+    productLabel: string;
+    existing: EnterpriseOpportunityApiRecord;
+  } | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [showAddRole, setShowAddRole] = useState(false);
   const wasOpenRef = useRef(false);
@@ -302,8 +381,9 @@ export function ContactWorkspaceModal({
     setMobileSecondary(source.mobileSecondary ?? "");
     setPersonalEmail(source.personalEmail ?? "");
     setOfficialEmail(source.officialEmail ?? "");
-    setCity(source.city ?? "");
-    setState(source.state ?? "");
+    const geo = resolveContactCityState(source);
+    setCity(geo.city);
+    setState(geo.state);
     setCountry(source.country ?? "IN");
     setAddress(source.address ?? "");
     setPan(source.pan ?? "");
@@ -318,8 +398,8 @@ export function ContactWorkspaceModal({
       mobileSecondary: source.mobileSecondary ?? "",
       personalEmail: source.personalEmail ?? "",
       officialEmail: source.officialEmail ?? "",
-      city: source.city ?? "",
-      state: source.state ?? "",
+      city: geo.city,
+      state: geo.state,
       country: source.country ?? "IN",
       address: source.address ?? "",
       pan: source.pan ?? "",
@@ -362,7 +442,7 @@ export function ContactWorkspaceModal({
       resetBlankCreate();
       setError(null);
       setTab("identity");
-      setLoanDialogOpen(false);
+      setStartingJourney(false);
       return;
     }
 
@@ -373,7 +453,7 @@ export function ContactWorkspaceModal({
       if (contact) {
         hydrateFromContact(contact);
         setCompletedSteps(new Set(["identity"]));
-        setTab(initialTab || "dashboard");
+        setTab(initialTab === "dashboard" ? "overview" : initialTab || "overview");
       } else {
         resetBlankCreate();
         setTab("identity");
@@ -444,6 +524,7 @@ export function ContactWorkspaceModal({
         hydrateFromContact(created);
         markComplete("identity");
         onSaved(created);
+        toast.success("Contact saved successfully.");
         if (thenNext) {
           const tabs = buildEcmWorkspaceTabs(created.roles);
           const firstRole = tabs.find((t) => t.kind === "role");
@@ -464,6 +545,7 @@ export function ContactWorkspaceModal({
         hydrateFromContact(updated);
         onSaved(updated);
         markComplete("identity");
+        toast.success("Contact saved successfully.");
         if (thenNext) goNext();
       }
     } catch (e) {
@@ -473,11 +555,12 @@ export function ContactWorkspaceModal({
         setDupOpen(true);
         setError(null);
       } else {
-        setError(
+        const message =
           e instanceof Error
             ? e.message
-            : "I couldn't save this contact just now. Please try again.",
-        );
+            : "I couldn't save this contact just now. Please try again.";
+        setError(message);
+        toast.error(message);
       }
     } finally {
       setSaving(false);
@@ -506,9 +589,15 @@ export function ContactWorkspaceModal({
       onSaved(updated);
       const def = getEcmRoleDefinition(roleCode);
       if (def) markComplete(def.workspaceTabId);
+      toast.success("Contact saved successfully.");
       if (thenNext) goNext();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "I couldn't save these role details just now. Please try again.");
+      const message =
+        e instanceof Error
+          ? e.message
+          : "I couldn't save these role details just now. Please try again.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -616,33 +705,72 @@ export function ContactWorkspaceModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once when stepping into a role
   }, [currentStep?.id, active?.id]);
 
-  const buildLoanPrefill = (source: EcmContact) => {
-    const profile = source.roleProfiles?.customer ?? {};
-    const employmentLabel =
-      getEcmMasterLabel("employment_type", profile.employmentType || source.employmentType) ||
-      profile.employmentType ||
-      source.employmentType ||
-      "Salaried";
-    const cityLabel =
-      getEcmMasterLabel("city", source.city) || source.city || "Mumbai";
-    const stateLabel =
-      getEcmMasterLabel("state", source.state) ||
-      getEcmMasterOption("city", source.city)?.meta?.state ||
-      source.state ||
-      "Maharashtra";
+  const canOverrideActiveOpportunity = true;
 
-    return {
-      id: source.id,
-      name: source.name,
-      mobile: source.mobilePrimary,
-      email: source.personalEmail || source.officialEmail || `${source.mobilePrimary}@contact.local`,
-      city: cityLabel,
-      state: stateLabel,
-      employmentType: employmentLabel,
-      relationshipManager: source.ownerName || undefined,
-      employerName: profile.employerName || undefined,
-      businessName: profile.businessName || undefined,
-    };
+  const completeStartLoanJourney = (
+    opportunity: EnterpriseOpportunityApiRecord,
+    workspaceHref: string,
+    created: boolean,
+  ) => {
+    markRoleJourneyStarted("customer", opportunity.id);
+    toastSuccess(
+      created ? "Draft Opportunity created" : "Opening Loan Journey",
+      `${opportunity.opportunityNumber} · opening Execution Hub`,
+    );
+    setActiveOppConflict(null);
+    onOpenChange(false);
+    router.push(workspaceHref);
+  };
+
+  const handleStartLoanJourney = async (opts?: { forceCreate?: boolean }) => {
+    if (!active || startingJourney) return;
+    setStartingJourney(true);
+    setActionNotice(null);
+    try {
+      // ADR-018 Wave 3 — always create Draft (identity only); land on /loan-journey.
+      // Active Contact+Product uniqueness applies from Requirement Captured onward.
+      const result = await startOpportunityFromContact(active, {
+        allowActiveDuplicateOverride: Boolean(opts?.forceCreate),
+        overrideReason: opts?.forceCreate
+          ? `Explicit override from Contact Workspace by ${user?.email || user?.id || "user"}`
+          : undefined,
+      });
+      completeStartLoanJourney(result.opportunity, result.workspaceHref, result.created);
+    } catch (err) {
+      const conflict = (
+        err as Error & {
+          code?: string;
+          conflict?: {
+            message: string;
+            productLabel: string;
+            existing: EnterpriseOpportunityApiRecord;
+          };
+        }
+      ).conflict;
+      if (conflict?.existing) {
+        setActiveOppConflict(conflict);
+        return;
+      }
+      const message =
+        err instanceof Error ? err.message : "Opportunity could not be created.";
+      toastError("Could not start loan journey", message);
+    } finally {
+      setStartingJourney(false);
+    }
+  };
+
+  const handleOpenExistingActiveOpportunity = () => {
+    if (!activeOppConflict) return;
+    const result = openExistingOpportunityWorkspace(activeOppConflict.existing);
+    completeStartLoanJourney(result.opportunity, result.workspaceHref, false);
+  };
+
+  const handleOverrideCreateOpportunity = async () => {
+    const confirmed = window.confirm(
+      "Create another active Opportunity for the same Contact and Product?\n\nThis is an exceptional override. Prefer Open Existing Opportunity whenever possible.",
+    );
+    if (!confirmed) return;
+    await handleStartLoanJourney({ forceCreate: true });
   };
 
   const handleBusinessAction = (
@@ -654,13 +782,18 @@ export function ContactWorkspaceModal({
     if (actionId === "start_loan_journey") {
       if (opts?.mode === "open") {
         onOpenChange(false);
-        const target = opts.loanFileId
-          ? `${ROUTES.LOAN_FILES}?file=${opts.loanFileId}`
-          : opts.openHref ?? href ?? ROUTES.LOAN_FILES;
+        // Prefer Opportunity Workspace when continuing an existing journey.
+        const target = opts.openHref?.includes("opportunities")
+          ? opts.loanFileId
+            ? `${ROUTES.OPPORTUNITY_WORKSPACE}?file=${opts.loanFileId}`
+            : opts.openHref
+          : opts.loanFileId
+            ? `${ROUTES.LOAN_FILES}?file=${opts.loanFileId}`
+            : opts.openHref ?? href ?? ROUTES.OPPORTUNITY_WORKSPACE;
         router.push(target);
         return;
       }
-      setLoanDialogOpen(true);
+      void handleStartLoanJourney();
       return;
     }
     if (actionId === "create_user_account" && active) {
@@ -699,16 +832,6 @@ export function ContactWorkspaceModal({
     } catch {
       /* journey ref is best-effort continuity marker */
     }
-  };
-
-  const handleLoanCreated = (input: CreateLoanFileInput, _meta?: LoanCreateSubmitMeta) => {
-    const existing = loadLoanFiles();
-    const created = createLoanFileFromInput(input, existing);
-    saveLoanFiles([...existing, created]);
-    if (active) markRoleJourneyStarted("customer", created.id);
-    setLoanDialogOpen(false);
-    onOpenChange(false);
-    router.push(`${ROUTES.LOAN_FILES}?file=${created.id}`);
   };
 
   const footerActions = (opts: {
@@ -859,7 +982,7 @@ export function ContactWorkspaceModal({
               className="h-8 gap-1.5 rounded-lg border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
               onClick={() => {
                 setShowRoleAdditional(false);
-                setTab("dashboard");
+                setTab("overview");
               }}
             >
               <ArrowLeft className="h-3.5 w-3.5" />
@@ -1008,19 +1131,35 @@ export function ContactWorkspaceModal({
             </div>
           )}
 
-          {mirComplete && actions.length > 0 && (
+          {(mirComplete ||
+            actions.some((a) => a.id === "start_loan_journey" && a.enabled)) &&
+            actions.length > 0 && (
             <SectionCard
               title="Next business action"
               description="Continue into the relevant journey — no dead ends."
             >
               <div className="flex flex-wrap gap-2">
-                {actions.map((action) => (
+                {actions.map((action) => {
+                  const loanReady =
+                    action.id !== "start_loan_journey" ||
+                    (active
+                      ? assertContactReadyForLoanJourney(active).ready
+                      : false);
+                  const blockedByMir =
+                    action.requiresMirComplete && !mirComplete;
+                  const blockedByLoanMin =
+                    action.id === "start_loan_journey" && !loanReady;
+                  return (
                   <Button
                     key={action.id}
                     type="button"
                     size="sm"
                     className="h-8 gap-1.5 rounded-lg"
-                    disabled={action.requiresMirComplete && !mirComplete}
+                    disabled={
+                      blockedByMir ||
+                      blockedByLoanMin ||
+                      (action.id === "start_loan_journey" && startingJourney)
+                    }
                     onClick={() => {
                       saveRoleStep(step.roleCode!, false);
                       handleBusinessAction(action.id, action.href);
@@ -1029,7 +1168,8 @@ export function ContactWorkspaceModal({
                     <Sparkles className="h-3.5 w-3.5" />
                     {action.label}
                   </Button>
-                ))}
+                  );
+                })}
               </div>
               {actions[0]?.description && (
                 <p className="mt-2 text-xs text-muted-foreground">{actions[0].description}</p>
@@ -1049,7 +1189,7 @@ export function ContactWorkspaceModal({
             size="sm"
             variant="ghost"
             className="h-8 gap-1.5 text-zinc-300"
-            onClick={() => setTab("dashboard")}
+            onClick={() => setTab("overview")}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Back
@@ -1061,7 +1201,7 @@ export function ContactWorkspaceModal({
             disabled={saving}
             onClick={() => {
               saveRoleStep(step.roleCode!, false);
-              setTab("dashboard");
+              setTab("overview");
             }}
           >
             <Check className="h-3.5 w-3.5" />
@@ -1084,7 +1224,7 @@ export function ContactWorkspaceModal({
 
   const findActiveLoanForContact = (contact: EcmContact): LoanFile | undefined => {
     const digits = contact.mobilePrimary.replace(/\D/g, "");
-    return loadLoanFiles().find((f) => {
+    return loadDealsSync("loan_workspace").files.find((f) => {
       if (f.archived || isLoanCompleted(f)) return false;
       if (f.customerId === contact.id) return true;
       const mobile = (f.customerMobile ?? "").replace(/\D/g, "");
@@ -1104,13 +1244,32 @@ export function ContactWorkspaceModal({
     if (!active) return;
     const values = roleProfiles[roleCode] ?? {};
     const activeLoan = roleCode === "customer" ? findActiveLoanForContact(active) : undefined;
+    const profileJourney = Boolean(values[ECM_ACTIVE_JOURNEY_PROFILE_KEY]?.trim());
     const journey = getEcmBusinessJourneyDashAction(roleCode, values, {
-      hasActiveJourney: Boolean(activeLoan),
+      hasActiveJourney: Boolean(activeLoan) || profileJourney,
+      loanJourneyReady: assertContactReadyForLoanJourney(active).ready,
     });
     if (!journey || journey.mode === "guide") return;
 
     if (journey.mode === "start" && journey.actionId !== "start_loan_journey") {
       markRoleJourneyStarted(roleCode, `started-${Date.now()}`);
+    }
+
+    if (
+      journey.mode === "open" &&
+      journey.actionId === "start_loan_journey" &&
+      profileJourney &&
+      !activeLoan
+    ) {
+      const opportunityRef = values[ECM_ACTIVE_JOURNEY_PROFILE_KEY]!.trim();
+      onOpenChange(false);
+      router.push(
+        buildOpportunityWorkspaceStageHref("opportunity_creation", {
+          opportunityId: opportunityRef,
+          fileId: null,
+        }),
+      );
+      return;
     }
 
     handleBusinessAction(journey.actionId, journey.href, {
@@ -1236,26 +1395,32 @@ export function ContactWorkspaceModal({
               />
             </div>
             <div className="space-y-2">
-              <Label>State</Label>
-              <EcmMasterSelect
-                domain="state"
-                value={state}
-                parentId={country || undefined}
-                onChange={(id) => setState(id)}
-                placeholder="Select state"
-              />
-            </div>
-            <div className="space-y-2">
               <Label>City</Label>
               <EcmMasterSelect
                 domain="city"
                 value={city}
-                parentId={state || undefined}
                 onChange={(id, option) => {
                   setCity(id);
-                  if (option?.parentId) setState(option.parentId);
+                  if (option?.parentId) {
+                    setState(option.parentId);
+                  } else {
+                    const resolved = getEcmMasterOption("city", id);
+                    if (resolved?.parentId) setState(resolved.parentId);
+                  }
                 }}
-                placeholder="Select city"
+                placeholder="Search and select city"
+                searchPlaceholder="Search city…"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>State</Label>
+              <Input
+                readOnly
+                tabIndex={-1}
+                value={state ? masterDisplay("state", state) : ""}
+                placeholder="Populated from city"
+                className="h-10 rounded-xl bg-muted/40"
+                aria-readonly="true"
               />
             </div>
             <div className="space-y-2">
@@ -1380,69 +1545,97 @@ export function ContactWorkspaceModal({
       >
         <DialogContent
           className={cn(
-            "flex max-h-[90vh] w-[min(1100px,94vw)] max-w-[1100px] flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-100 sm:rounded-2xl [&>button]:hidden",
+            "flex max-h-[92vh] w-[min(1280px,96vw)] max-w-[1280px] flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-100 sm:rounded-2xl [&>button]:hidden",
           )}
         >
           {!awaitingFirstSave && active ? (
             <>
-              <div className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-4 py-2">
+              <div className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-4 py-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <DialogTitle className="truncate text-base font-semibold tracking-tight text-zinc-50">
-                        {active.name}
-                      </DialogTitle>
-                      <div className="min-w-[120px] max-w-[200px] flex-1">
-                        <div className="mb-0.5 flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Readiness</span>
-                          <span className="font-semibold text-teal-300">{readinessPct}%</span>
-                        </div>
-                        <div className="h-1 overflow-hidden rounded-full bg-zinc-800">
-                          <div
-                            className="h-full rounded-full bg-teal-500 transition-all"
-                            style={{ width: `${readinessPct}%` }}
-                          />
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-teal-800/60 bg-teal-950/50 text-teal-200"
+                      aria-hidden
+                    >
+                      <UserRound className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <DialogTitle className="truncate text-base font-semibold tracking-tight text-zinc-50">
+                          {active.name}
+                        </DialogTitle>
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-medium",
+                            active.status === "active"
+                              ? "border-teal-800 bg-teal-950/60 text-teal-300"
+                              : "border-zinc-700 bg-zinc-900 text-zinc-400",
+                          )}
+                        >
+                          {active.status === "active" ? "Active" : "Archived"}
+                        </span>
+                        <div className="min-w-[100px] max-w-[160px] flex-1">
+                          <div className="mb-0.5 flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>Readiness</span>
+                            <span className="font-semibold text-teal-300">{readinessPct}%</span>
+                          </div>
+                          <div className="h-1 overflow-hidden rounded-full bg-zinc-800">
+                            <div
+                              className="h-full rounded-full bg-teal-500 transition-all"
+                              style={{ width: `${readinessPct}%` }}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <DialogDescription className="sr-only">
-                      Contact Workspace executive dashboard
-                    </DialogDescription>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-zinc-400">
-                      <span>
-                        <span className="text-zinc-500">ID </span>
-                        <span className="font-mono text-zinc-300">{active.id.slice(0, 8)}…</span>
-                      </span>
-                      <span>
-                        <span className="text-zinc-500">Mobile </span>
-                        <span className="text-zinc-200">{active.mobilePrimary}</span>
-                      </span>
-                      <span className="truncate max-w-[180px]">
-                        <span className="text-zinc-500">Email </span>
-                        <span className="text-zinc-200">
-                          {active.personalEmail || active.officialEmail || "—"}
+                      <DialogDescription className="sr-only">
+                        Contact Workspace — Enterprise Relationship Workspace
+                      </DialogDescription>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-zinc-400">
+                        <span>
+                          <span className="text-zinc-500">ID </span>
+                          <span className="font-mono text-zinc-300">{active.id.slice(0, 8)}…</span>
                         </span>
-                      </span>
-                      <span>
-                        <span className="text-zinc-500">Emp </span>
-                        <span className="text-zinc-200">
-                          {masterDisplay("employment_type", active.employmentType)}
+                        <span>
+                          <span className="text-zinc-500">Mobile </span>
+                          <span className="text-zinc-200">{active.mobilePrimary}</span>
                         </span>
-                      </span>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-medium",
-                          active.status === "active"
-                            ? "border-teal-800 bg-teal-950/60 text-teal-300"
-                            : "border-zinc-700 bg-zinc-900 text-zinc-400",
-                        )}
-                      >
-                        {active.status === "active" ? "Active" : "Archived"}
-                      </span>
+                        <span className="truncate max-w-[180px]">
+                          <span className="text-zinc-500">Email </span>
+                          <span className="text-zinc-200">
+                            {active.personalEmail || active.officialEmail || "—"}
+                          </span>
+                        </span>
+                        <span>
+                          <span className="text-zinc-500">DOB </span>
+                          <span className="text-zinc-200">{active.dateOfBirth || "—"}</span>
+                        </span>
+                        <span className="truncate max-w-[160px]">
+                          <span className="text-zinc-500">Location </span>
+                          <span className="text-zinc-200">
+                            {[active.city, active.state].filter(Boolean).join(", ") || "—"}
+                          </span>
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
+                    <CreateTaskActionButton
+                      className="h-7 rounded-md border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:bg-zinc-800"
+                      context={{
+                        contactId: active.id,
+                        borrowerName: active.name,
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 gap-1 rounded-md bg-teal-600 px-2 text-xs text-white hover:bg-teal-500"
+                      onClick={() => setTab("relationships")}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add Relationship
+                    </Button>
                     <Button
                       type="button"
                       size="sm"
@@ -1455,6 +1648,16 @@ export function ContactWorkspaceModal({
                     >
                       <Pencil className="h-3 w-3" />
                       Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 border-zinc-700 bg-zinc-900 px-2 text-xs"
+                      aria-label="More actions"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                      More
                     </Button>
                     {allowDelete ? (
                       <Button
@@ -1471,9 +1674,9 @@ export function ContactWorkspaceModal({
                     <Button
                       type="button"
                       size="sm"
-                      className="h-7 gap-1 rounded-md bg-teal-600 px-2 text-xs text-white hover:bg-teal-500"
+                      className="h-7 gap-1 rounded-md bg-zinc-800 px-2 text-xs text-zinc-100 hover:bg-zinc-700"
                       onClick={() => {
-                        setTab("dashboard");
+                        setTab("overview");
                         setShowAddRole((v) => !v);
                       }}
                     >
@@ -1483,8 +1686,7 @@ export function ContactWorkspaceModal({
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
-                      className="h-7 gap-1 px-2 text-xs"
+                      className="h-7 gap-1 rounded-md bg-teal-700 px-2 text-xs text-white hover:bg-teal-600"
                       disabled={saving}
                       onClick={() => {
                         if (currentStep?.kind === "role" && currentStep.roleCode) {
@@ -1495,7 +1697,7 @@ export function ContactWorkspaceModal({
                       }}
                     >
                       <Save className="h-3 w-3" />
-                      Save
+                      {saving ? "Saving…" : "Save"}
                     </Button>
                     <Button
                       type="button"
@@ -1520,12 +1722,36 @@ export function ContactWorkspaceModal({
                     </Button>
                   </div>
                 </div>
+
+                <nav
+                  className="mt-2.5 flex gap-1 overflow-x-auto pb-0.5"
+                  aria-label="Contact workspace tabs"
+                >
+                  {workspaceTabs.map((t) => {
+                    const activeTab = tab === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => goToStep(t.id)}
+                        className={cn(
+                          "shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-medium transition",
+                          activeTab
+                            ? "border-teal-600 bg-teal-950/50 text-teal-200"
+                            : "border-transparent text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-200",
+                        )}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </nav>
               </div>
 
-              {/* ~80% Role Workspace */}
+              {/* Primary workspace */}
               <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-950">
                 <div className="space-y-2 px-4 py-3">
-                  {tab === "dashboard" && (
+                  {tab === "overview" && (
                     <>
                       {showAddRole && (
                         <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2.5">
@@ -1589,10 +1815,20 @@ export function ContactWorkspaceModal({
                                     roleCode === "customer" && active
                                       ? findActiveLoanForContact(active)
                                       : undefined;
+                                  const profileJourney = Boolean(
+                                    values[ECM_ACTIVE_JOURNEY_PROFILE_KEY]?.trim(),
+                                  );
+                                  const loanJourneyReady = active
+                                    ? assertContactReadyForLoanJourney(active).ready
+                                    : false;
                                   const journeyAction = getEcmBusinessJourneyDashAction(
                                     roleCode,
                                     values,
-                                    { hasActiveJourney: Boolean(activeLoan) },
+                                    {
+                                      hasActiveJourney:
+                                        Boolean(activeLoan) || profileJourney,
+                                      loanJourneyReady,
+                                    },
                                   );
                                   const roleLabel = getEcmRoleLabel(roleCode);
                                   return (
@@ -1667,6 +1903,7 @@ export function ContactWorkspaceModal({
                                             onStartOrOpenJourney={() =>
                                               handleBusinessJourneyAction(roleCode)
                                             }
+                                            busy={startingJourney}
                                           />
                                         ) : (
                                           <ChanakyaJourneyGuidanceCard
@@ -1678,6 +1915,7 @@ export function ContactWorkspaceModal({
                                             onStartOrOpenJourney={() =>
                                               handleBusinessJourneyAction(roleCode)
                                             }
+                                            busy={startingJourney}
                                           />
                                         )}
                                       </td>
@@ -1717,7 +1955,7 @@ export function ContactWorkspaceModal({
                           size="sm"
                           variant="ghost"
                           className="h-7 text-zinc-300"
-                          onClick={() => setTab("dashboard")}
+                          onClick={() => setTab("overview")}
                         >
                           <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
                           Dashboard
@@ -1739,7 +1977,7 @@ export function ContactWorkspaceModal({
                           disabled={saving}
                           onClick={() => {
                             saveIdentity(false);
-                            setTab("dashboard");
+                            setTab("overview");
                           }}
                         >
                           Save & Continue
@@ -1749,12 +1987,139 @@ export function ContactWorkspaceModal({
                           size="sm"
                           variant="outline"
                           className="h-8 rounded-lg border-zinc-700"
-                          onClick={() => setTab("dashboard")}
+                          onClick={() => setTab("overview")}
                         >
                           Cancel
                         </Button>
                       </div>
                     </div>
+                  )}
+
+                  {tab === "relationships" && active && (
+                    <EnterpriseRelationshipWorkspace
+                      contact={active}
+                      onAddRelationship={() => setTab("companies")}
+                    />
+                  )}
+
+                  {tab === "companies" && active && (
+                    <ContactEntityWorkspaceShell
+                      title="Companies"
+                      description="Companies linked to this contact via the Company Registry."
+                      actionLabel="Open Directory"
+                      onAction={() => router.push(ROUTES.CONTACTS)}
+                    >
+                      {listContactCompanyLinks(active.id).length === 0 ? (
+                        <p className="text-sm text-zinc-500">No company links yet.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {listContactCompanyLinks(active.id).map((link) => {
+                            const company = getEcmCompany(link.companyId);
+                            return (
+                              <li
+                                key={link.id}
+                                className="flex items-center justify-between rounded-lg border border-zinc-800 px-3 py-2"
+                              >
+                                <div>
+                                  <p className="text-sm font-medium text-zinc-100">
+                                    {company?.companyName ?? "Company"}
+                                  </p>
+                                  <p className="text-[11px] text-zinc-500">
+                                    {ECM_COMPANY_RELATION_ROLE_LABELS[link.relationRole] ??
+                                      link.relationRole}
+                                  </p>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </ContactEntityWorkspaceShell>
+                  )}
+
+                  {tab === "opportunities" && (
+                    <ContactEntityWorkspaceShell
+                      title="Opportunities"
+                      description="Opportunity Workspace for journeys linked to this contact."
+                      actionLabel="Open Opportunities"
+                      onAction={() => router.push(ROUTES.OPPORTUNITY_WORKSPACE)}
+                    >
+                      <p className="text-sm text-zinc-500">
+                        Continue from Relationships or Role Dashboard into Opportunity Workspace —
+                        context is preserved from this contact.
+                      </p>
+                    </ContactEntityWorkspaceShell>
+                  )}
+
+                  {tab === "loans" && active && (
+                    <ContactEntityWorkspaceShell
+                      title="Loans"
+                      description="Loan files linked to this contact."
+                      actionLabel="Open Loan Files"
+                      onAction={() => router.push(ROUTES.LOAN_FILES)}
+                    >
+                      {findActiveLoanForContact(active) ? (
+                        <p className="text-sm text-zinc-200">
+                          Active loan found · continue execution from Loan Workspace.
+                        </p>
+                      ) : (
+                        <p className="text-sm text-zinc-500">No active loan files for this contact.</p>
+                      )}
+                    </ContactEntityWorkspaceShell>
+                  )}
+
+                  {tab === "investments" && (
+                    <ContactEntityWorkspaceShell
+                      title="Investments"
+                      description="Investment relationships for this contact."
+                      actionLabel="Open Investments"
+                      onAction={() => router.push(ROUTES.INVESTMENTS)}
+                    >
+                      <p className="text-sm text-zinc-500">
+                        Investment product line workspace — linked via Relationships when available.
+                      </p>
+                    </ContactEntityWorkspaceShell>
+                  )}
+
+                  {tab === "documents" && (
+                    <ContactEntityWorkspaceShell
+                      title="Documents"
+                      description="Document Center for this contact’s journeys."
+                      actionLabel="Open Document Center"
+                      onAction={() => router.push(ROUTES.DOCUMENT_CENTER)}
+                    >
+                      <p className="text-sm text-zinc-500">
+                        Open Document Center from an active loan or opportunity for full checklist
+                        execution.
+                      </p>
+                    </ContactEntityWorkspaceShell>
+                  )}
+
+                  {tab === "communication" && (
+                    <ContactEntityWorkspaceShell
+                      title="Communication"
+                      description="Communication Hub for this contact."
+                      actionLabel="Open Communication"
+                      onAction={() => router.push(ROUTES.COMMUNICATION)}
+                    >
+                      <p className="text-sm text-zinc-500">
+                        Relationship-aware communication templates filter by recipient and journey
+                        context.
+                      </p>
+                    </ContactEntityWorkspaceShell>
+                  )}
+
+                  {tab === "timeline" && (
+                    <ContactEntityWorkspaceShell
+                      title="Timeline"
+                      description="Dialogue and activity timeline for this contact."
+                      actionLabel="Open Timeline"
+                      onAction={() => router.push(ROUTES.DIALOGUE)}
+                    >
+                      <p className="text-sm text-zinc-500">
+                        Timeline entries accumulate from relationships, loans, and communications.
+                      </p>
+                    </ContactEntityWorkspaceShell>
                   )}
 
                   {currentStep?.kind === "role" && renderRolePanel(currentStep)}
@@ -1790,21 +2155,6 @@ export function ContactWorkspaceModal({
         </DialogContent>
       </Dialog>
 
-      {active && (
-        <LoanCreateFormDialog
-          open={loanDialogOpen}
-          onOpenChange={setLoanDialogOpen}
-          title={
-            active && findActiveLoanForContact(active)
-              ? "Continue Loan Journey"
-              : "Start Loan Journey"
-          }
-          description="Loan File owns product, amount, purpose, property and co-applicants. Contact and Borrower profile are prefilled — do not re-enter person data."
-          prefillCustomer={buildLoanPrefill(active)}
-          onSubmit={handleLoanCreated}
-        />
-      )}
-
       <UnsavedChangesDialog
         open={closeApi.confirmOpen}
         onOpenChange={closeApi.setConfirmOpen}
@@ -1827,6 +2177,27 @@ export function ContactWorkspaceModal({
           }
           onSaved(existing);
         }}
+      />
+
+      <ActiveOpportunityConflictDialog
+        open={Boolean(activeOppConflict)}
+        productLabel={activeOppConflict?.productLabel ?? "Home Loan"}
+        existing={
+          activeOppConflict?.existing ??
+          ({
+            id: "",
+            opportunityNumber: "",
+            primaryContactId: "",
+            productFamily: "lending",
+            requirementStage: "raw_lead",
+          } satisfies EnterpriseOpportunityApiRecord)
+        }
+        message={activeOppConflict?.message ?? ""}
+        canOverride={canOverrideActiveOpportunity}
+        busy={startingJourney}
+        onOpenExisting={handleOpenExistingActiveOpportunity}
+        onOverride={() => void handleOverrideCreateOpportunity()}
+        onCancel={() => setActiveOppConflict(null)}
       />
 
       <SoftDeleteConfirmDialog

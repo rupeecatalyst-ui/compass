@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FolderUp, Upload } from "lucide-react";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import { OpportunityBoundStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-bound-stage";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import {
@@ -642,11 +643,24 @@ export function DocumentCenterWorkspace() {
         hasUnsavedChanges={dirty}
         acknowledgeCleanClose={!dirty && savedOnce}
         headerActions={
-          <LoanStructureCommandControl
-            file={file}
-            participants={file.participants ?? []}
-            onNavigate={() => {}}
-          />
+          <div className="flex flex-wrap items-center justify-end gap-1">
+            <CreateTaskActionButton
+              context={{
+                dealId: file.enterpriseDealId ?? file.id,
+                fileId: file.id,
+                opportunityId: opportunityId ?? file.enterpriseOpportunityId ?? null,
+                contactId: file.sourceContactId ?? null,
+                borrowerName: file.customerName,
+                loanProduct: file.loanProduct,
+                lenderName: file.lender || null,
+              }}
+            />
+            <LoanStructureCommandControl
+              file={file}
+              participants={file.participants ?? []}
+              onNavigate={() => {}}
+            />
+          </div>
         }
         onSaveDraft={async () => {
           saveEdieReceipts(file.id, receipts);

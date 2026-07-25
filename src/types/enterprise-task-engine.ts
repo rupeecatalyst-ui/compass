@@ -10,7 +10,7 @@ export type EteTaskCategory = "workflow" | "general";
 
 export type EteTaskColour = "blue" | "orange" | "red";
 
-export type EteTaskPriority = "high" | "medium" | "low";
+export type EteTaskPriority = "critical" | "high" | "medium" | "low";
 
 export type EteCommitmentLevel = "very_high" | "high" | "moderate" | "low" | "very_low";
 
@@ -81,6 +81,13 @@ export interface EteTask {
   assignedByRef?: string;
   grossStage?: EteGrossStage;
   fileId?: string;
+  /** BAT #27 — optional Contact / Deal links (enterprise object graph). */
+  contactId?: string;
+  dealId?: string;
+  /** Optional reminder timestamp (ISO). */
+  reminderAt?: string;
+  /** Chanakya Enterprise Execution Supervisor monitoring until Complete. */
+  chanakyaMonitoring?: boolean;
   commitmentLevel?: EteCommitmentLevel;
   postponeReason?: EtePostponeReason;
   postponeComment?: string;

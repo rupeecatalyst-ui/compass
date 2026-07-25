@@ -3,6 +3,10 @@
  */
 
 import type { EteTask, EteTaskCategory } from "@/types/enterprise-task-engine";
+import {
+  getEnterpriseUser,
+  listEnterpriseUsers,
+} from "@/lib/enterprise-user-management";
 
 export type TaskTimelineColumnId =
   | "past_due"
@@ -62,12 +66,27 @@ export function taskTitle(task: EteTask): string {
 }
 
 export function assigneeLabel(ref: string): string {
+  if (!ref?.trim()) return "Unassigned";
+  if (ref === "system" || ref === "ui") return "System";
+
+  const bare = ref.replace(/^user:/, "").replace(/^employee:/, "");
+  const byId = getEnterpriseUser(bare) ?? getEnterpriseUser(ref);
+  if (byId?.fullName?.trim()) return byId.fullName.trim();
+  const hit = listEnterpriseUsers().find(
+    (u) =>
+      u.id === bare ||
+      u.id === ref ||
+      u.employeeId === bare ||
+      `user:${u.id}` === ref ||
+      `employee:${u.employeeId}` === ref,
+  );
+  if (hit?.fullName?.trim()) return hit.fullName.trim();
+
   if (ref.includes("rm")) return "Rahul Sharma";
   if (ref.includes("ops")) return "Ops Desk";
   if (ref.includes("mgr")) return "Anil Mehta";
   if (ref.includes("hr")) return "HR Desk";
-  if (ref === "system" || ref === "ui") return "System";
-  return ref.replace(/^employee:/, "") || "Unassigned";
+  return bare || "Unassigned";
 }
 
 export function columnForTask(task: EteTask): TaskTimelineColumnId {

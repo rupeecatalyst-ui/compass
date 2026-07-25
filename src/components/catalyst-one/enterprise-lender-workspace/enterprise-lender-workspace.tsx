@@ -19,6 +19,9 @@ import { StatusPill } from "@/components/design-system/status-pill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
+import { WorkspaceExitNav } from "@/components/enterprise/navigation";
+import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
 import {
   applyElwSelectLender,
   deriveElwLenderProfile,
@@ -139,6 +142,15 @@ export function EnterpriseLenderWorkspace({
         presentation === "page" ? "mx-auto max-w-6xl p-4 sm:p-6" : "p-4 sm:p-5",
       )}
     >
+      {presentation === "page" ? (
+        <WorkspaceExitNav
+          breadcrumbs={buildSimpleWorkspaceBreadcrumbs(profile.name, {
+            title: "Lenders",
+            href: ROUTES.LENDERS,
+          })}
+          className="-mx-4 sm:-mx-6"
+        />
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <button
@@ -170,6 +182,7 @@ export function EnterpriseLenderWorkspace({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <CreateTaskActionButton allowEntityPicker />
           {presentation === "page" && origin.selectionMode ? (
             <Button
               type="button"

@@ -14,6 +14,7 @@ import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { syncLoanStructureRelationships } from "@/lib/loan-structure";
 import { useLoanJourneyEcm } from "@/hooks/use-loan-journey-ecm";
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import {
   EnterpriseWorkspaceLayout,
   EnterpriseWorkspaceHeaderBand,
@@ -1015,6 +1016,17 @@ function LoanWorkspaceModalContent({
             }
             actions={
               <>
+                <CreateTaskActionButton
+                  context={{
+                    dealId: draft.enterpriseDealId ?? draft.id,
+                    fileId: draft.id,
+                    opportunityId: opportunityId ?? draft.enterpriseOpportunityId ?? null,
+                    contactId: draft.sourceContactId ?? null,
+                    borrowerName: draft.customerName,
+                    loanProduct: draft.loanProduct,
+                    lenderName: draft.lender || null,
+                  }}
+                />
                 <LoanStructureCommandControl
                   file={draft}
                   participants={participants}

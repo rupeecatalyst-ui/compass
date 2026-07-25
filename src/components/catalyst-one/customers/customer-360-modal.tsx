@@ -35,10 +35,13 @@ import {
   getCustomerLoanFiles,
   mergeCustomerTimeline,
 } from "@/lib/customer-utils";
-import { createLoanFileFromInput } from "@/lib/loan-files-utils";
 import { syncParticipantLegacyFields } from "@/lib/loan-participants";
-import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
+import {
+  createDealAsync,
+  updateDeal,
+} from "@/lib/enterprise-deal/deal-data-access";
 import { saveCustomerWorkspaceContext } from "@/lib/workspace-context";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -169,6 +172,7 @@ function Customer360ModalContent({
   isMasterAdmin,
 }: Customer360ModalContentProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { error } = useToast();
   const [loanCreateOpen, setLoanCreateOpen] = useState(false);
   const [newNote, setNewNote] = useState("");
   const [portfolioFilter, setPortfolioFilter] = useState<"all" | "active" | "closed">("all");
@@ -308,58 +312,56 @@ function Customer360ModalContent({
     setOpsRefreshKey((k) => k + 1);
   };
 
-  const handleAddTaskPlaceholder = () => {
-    updateCustomer(customer.id, {
-      timeline: [
-        {
-          id: `tl-task-${Date.now()}`,
-          title: "Task created (placeholder)",
-          description: "Follow-up task registered from Customer 360 header",
-          timestamp: new Date().toISOString(),
-          type: "task",
-          actor: customer.relationshipManager,
-        },
-        ...customer.timeline,
-      ],
-    });
-    setWorkspaceTab("tasks");
-    setOpsRefreshKey((k) => k + 1);
-    feedback.taskAssigned();
-  };
-
-  const handleLoanCreated = (input: Parameters<typeof createLoanFileFromInput>[0], meta?: LoanCreateSubmitMeta) => {
-    const existing = loadLoanFiles();
-    const base = createLoanFileFromInput(input, existing);
-    const synced = syncParticipantLegacyFields(meta?.participants ?? [], base.businessDetails);
-    const file: LoanFile = {
-      ...base,
-      ...synced,
-      source: meta?.source ?? base.source,
-      sourceContactId: meta?.sourceContactId,
-      sourceContactName: meta?.sourceContactName,
-    };
-    saveLoanFiles([file, ...existing]);
-    updateCustomer(customer.id, {
-      timeline: [
-        {
-          id: `tl-loan-${file.id}`,
-          title: "Loan file created",
-          description: `${file.fileNumber} · ${file.loanProduct}`,
-          timestamp: new Date().toISOString(),
-          type: "stage_move",
-          actor: customer.relationshipManager,
-          loanFileId: file.id,
-        },
-        ...customer.timeline,
-      ],
-    });
-    setLoanCreateOpen(false);
-    refreshLoanFiles();
-    feedback.loanCreated(file.fileNumber);
-    if (meta?.proceedToDocuments) {
-      openLoanWorkspace(file.id, "documents");
-    } else {
-      setWorkspaceTab("portfolio");
+  const handleLoanCreated = async (
+    input: Parameters<typeof createDealAsync>[0],
+    meta?: LoanCreateSubmitMeta,
+  ) => {
+    try {
+      const result = await createDealAsync(input, "customer_360");
+      let file: LoanFile = result.file;
+      if (meta?.participants?.length || meta?.source || meta?.sourceContactId) {
+        const synced = syncParticipantLegacyFields(meta.participants ?? [], file.businessDetails);
+        const updated = updateDeal(
+          file.id,
+          {
+            ...synced,
+            source: meta.source ?? file.source,
+            sourceContactId: meta.sourceContactId,
+            sourceContactName: meta.sourceContactName,
+          },
+          undefined,
+          "customer_360",
+        );
+        if (updated) file = updated;
+      }
+      updateCustomer(customer.id, {
+        timeline: [
+          {
+            id: `tl-loan-${file.id}`,
+            title: "Loan file created",
+            description: file.dealNumber
+              ? `${file.dealNumber} · ${file.loanProduct}`
+              : `${file.fileNumber} · ${file.loanProduct}`,
+            timestamp: new Date().toISOString(),
+            type: "stage_move",
+            actor: customer.relationshipManager,
+            loanFileId: file.id,
+          },
+          ...customer.timeline,
+        ],
+      });
+      setLoanCreateOpen(false);
+      refreshLoanFiles();
+      feedback.loanCreated(file.dealNumber || file.fileNumber);
+      if (meta?.proceedToDocuments) {
+        openLoanWorkspace(file.id, "documents");
+      } else {
+        setWorkspaceTab("portfolio");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Deal could not be saved.";
+      error("Could not create loan file", message);
+      throw err;
     }
   };
 
@@ -397,7 +399,6 @@ function Customer360ModalContent({
           <CustomerWorkspaceStickyHeader
             customer={customer}
             onAddLoan={() => setLoanCreateOpen(true)}
-            onAddTask={handleAddTaskPlaceholder}
             onUploadDocument={handleUploadDocument}
           />
 

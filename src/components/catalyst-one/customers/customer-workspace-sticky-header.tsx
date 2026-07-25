@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Calendar,
   FilePlus,
   Mail,
   MessageCircle,
@@ -10,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { CustomerHealthBadge } from "@/components/catalyst-one/customers/customer-health-badge";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,6 @@ import type { CustomerProfile } from "@/types/catalyst-one";
 interface CustomerWorkspaceStickyHeaderProps {
   customer: CustomerProfile;
   onAddLoan: () => void;
-  onAddTask: () => void;
   onUploadDocument: () => void;
 }
 
@@ -40,7 +39,6 @@ const RISK_STYLES: Record<NonNullable<CustomerProfile["riskRating"]>, string> = 
 export function CustomerWorkspaceStickyHeader({
   customer,
   onAddLoan,
-  onAddTask,
   onUploadDocument,
 }: CustomerWorkspaceStickyHeaderProps) {
   const whatsapp = customer.mobile.replace(/\D/g, "").slice(-10);
@@ -113,10 +111,12 @@ export function CustomerWorkspaceStickyHeader({
           <FilePlus className="h-3.5 w-3.5 mr-1" />
           Add Loan
         </Button>
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onAddTask}>
-          <Calendar className="h-3.5 w-3.5 mr-1" />
-          Add Task
-        </Button>
+        <CreateTaskActionButton
+          context={{
+            contactId: customer.id,
+            borrowerName: customer.name,
+          }}
+        />
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onUploadDocument}>
           <Upload className="h-3.5 w-3.5 mr-1" />
           Upload Document

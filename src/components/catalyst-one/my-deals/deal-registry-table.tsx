@@ -34,6 +34,7 @@ import {
   rememberMyDealsUiPrefs,
 } from "@/lib/my-deals/view-state";
 import { downloadCsv } from "@/lib/loan-files-utils";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import {
   DEAL_REGISTRY_PAGE_SIZES,
   EMPTY_DEAL_REGISTRY_FILTERS,
@@ -989,21 +990,27 @@ export function DealRegistryTable({
         onRowClick={onOpenDeal}
         maxHeightClassName="h-full max-h-none min-h-0 flex-1"
         toolbarActions={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 gap-1.5 rounded-md px-2 text-[10px]"
-            onClick={() => {
-              downloadCsv(
-                exportDealRegistryCsv(filteredSorted),
-                `deal-registry-${new Date().toISOString().slice(0, 10)}.csv`,
-              );
-            }}
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export to Excel
-          </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <CreateTaskActionButton
+              allowEntityPicker
+              className="h-6 gap-1.5 rounded-md px-2 text-[10px]"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-6 gap-1.5 rounded-md px-2 text-[10px]"
+              onClick={() => {
+                downloadCsv(
+                  exportDealRegistryCsv(filteredSorted),
+                  `deal-registry-${new Date().toISOString().slice(0, 10)}.csv`,
+                );
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export to Excel
+            </Button>
+          </div>
         }
       />
 

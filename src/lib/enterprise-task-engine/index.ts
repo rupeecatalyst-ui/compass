@@ -18,6 +18,10 @@ export {
   registerEteTask,
   reopenEteTask,
 } from "./task-registry";
+export {
+  registerChanakyaTaskMonitoring,
+  listChanakyaMonitoredTasks,
+} from "./chanakya-task-monitoring";
 export { validateEteTask } from "./validation-engine";
 export {
   TASK_TIMELINE_COLUMNS,

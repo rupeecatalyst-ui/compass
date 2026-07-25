@@ -55,6 +55,7 @@ export function registerEteTask(
     coOwnerRefs: input.coOwnerRefs ?? [],
     escalated: false,
     colourStatus: deriveEteTaskColour(input.dueOn),
+    chanakyaMonitoring: input.chanakyaMonitoring ?? true,
     id: crypto.randomUUID(),
     enabled: true,
     createdOn: now,
@@ -180,6 +181,7 @@ export function completeEteTask(taskId: string, actorId: string): EteTask {
   const updated: EteTask = {
     ...existing,
     enabled: false,
+    chanakyaMonitoring: false,
     modifiedBy: actorId,
     modifiedOn: new Date().toISOString(),
   };
@@ -206,6 +208,7 @@ export function reopenEteTask(taskId: string, actorId: string): EteTask {
   const updated: EteTask = {
     ...existing,
     enabled: true,
+    chanakyaMonitoring: true,
     colourStatus: deriveEteTaskColour(existing.dueOn),
     modifiedBy: actorId,
     modifiedOn: new Date().toISOString(),

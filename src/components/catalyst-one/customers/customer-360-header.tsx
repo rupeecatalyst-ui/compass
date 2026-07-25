@@ -2,7 +2,6 @@
 
 import { format } from "date-fns";
 import {
-  Calendar,
   FilePlus,
   Mail,
   MessageCircle,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { CustomerHealthBadge } from "@/components/catalyst-one/customers/customer-health-badge";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,6 @@ interface Customer360HeaderProps {
   customer: CustomerProfile;
   metrics: Customer360Metrics;
   onAddLoan: () => void;
-  onAddTask: () => void;
   onUploadDocument: () => void;
 }
 
@@ -31,7 +30,6 @@ export function Customer360Header({
   customer,
   metrics,
   onAddLoan,
-  onAddTask,
   onUploadDocument,
 }: Customer360HeaderProps) {
   const whatsapp = customer.mobile.replace(/\D/g, "").slice(-10);
@@ -95,10 +93,12 @@ export function Customer360Header({
           <FilePlus className="h-3.5 w-3.5 mr-1" />
           Add Loan
         </Button>
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onAddTask}>
-          <Calendar className="h-3.5 w-3.5 mr-1" />
-          Add Task
-        </Button>
+        <CreateTaskActionButton
+          context={{
+            contactId: customer.id,
+            borrowerName: customer.name,
+          }}
+        />
         <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onUploadDocument}>
           <Upload className="h-3.5 w-3.5 mr-1" />
           Upload Document

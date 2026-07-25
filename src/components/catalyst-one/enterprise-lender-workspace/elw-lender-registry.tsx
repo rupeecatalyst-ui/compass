@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Download, X } from "lucide-react";
+import { ROUTES } from "@/constants/routes";
 import {
   ELW_DIRECTORY_DEFAULT_PRODUCT_ID,
   ELW_DIRECTORY_PAGE_SIZES,
@@ -13,14 +15,23 @@ import {
   EMPTY_LENDER_DIRECTORY_FILTERS,
   exportLenderProgramsCsv,
   filterLenderPrograms,
-  listLenderProgramsForProduct,
   sortLenderPrograms,
   uniqueCities,
   uniqueStates,
   type LenderDirectoryFilters,
   type LenderDirectorySortField,
 } from "@/lib/enterprise-lender-directory";
+import {
+  buildPublishedDirectoryRows,
+  mapDirectoryProductIdToRegistryCode,
+} from "@/lib/enterprise-lender-registry/map-to-directory";
+import { countLendersSupportingDirectoryProduct } from "@/lib/enterprise-lender-registry/program-architecture";
+import {
+  lenderRegistryClient,
+  subscribeLenderRegistryUpdated,
+} from "@/lib/enterprise-lender-registry";
 import { downloadCsv } from "@/lib/loan-files-utils";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import type { ElwLenderProgramRow } from "@/types/enterprise-lender-directory";
 import {
   EnterpriseDataGrid,
@@ -63,7 +74,7 @@ function ScoreCell({ value }: { value: number }) {
 
 /**
  * Enterprise Lender Directory — Enterprise Table Standard.
- * Dense spreadsheet listing for operational comparison; no decorative cards.
+ * Read-only comparison of published Enterprise Lender Registry programs.
  */
 export function ElwLenderRegistry() {
   const { user } = useAuthContext();
@@ -73,8 +84,52 @@ export function ElwLenderRegistry() {
   const [sort, setSort] = useState<SortState>({ field: "default", direction: "asc" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof ELW_DIRECTORY_PAGE_SIZES)[number]>(20);
+  const [productPrograms, setProductPrograms] = useState<ElwLenderProgramRow[]>([]);
+  const [supportedLenderCount, setSupportedLenderCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  const productPrograms = useMemo(() => listLenderProgramsForProduct(productId), [productId]);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const productCode = mapDirectoryProductIdToRegistryCode(productId);
+        const [programsResult, lendersResult] = await Promise.all([
+          lenderRegistryClient.queryPrograms({
+            publishedOnly: true,
+            productCode,
+            pageSize: 500,
+          }),
+          lenderRegistryClient.queryLenders({
+            status: "active",
+            enabled: true,
+            pageSize: 500,
+          }),
+        ]);
+        if (cancelled) return;
+        setSupportedLenderCount(
+          countLendersSupportingDirectoryProduct(lendersResult.items, productId),
+        );
+        setProductPrograms(
+          buildPublishedDirectoryRows(programsResult.items, lendersResult.items, productId),
+        );
+      } catch {
+        if (!cancelled) setProductPrograms([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, reloadToken]);
+
+  useEffect(
+    () => subscribeLenderRegistryUpdated(() => setReloadToken((n) => n + 1)),
+    [],
+  );
 
   const states = useMemo(() => uniqueStates(productPrograms), [productPrograms]);
   const cities = useMemo(
@@ -252,6 +307,58 @@ export function ElwLenderRegistry() {
 
   return (
     <div className="space-y-2">
+      <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        Read-only comparison of{" "}
+        <span className="font-medium text-foreground">published commercial programs</span> only.
+        Supported Products are capability — they never appear here until a program is published.{" "}
+        <Link
+          href={ROUTES.ADMIN_LENDER_REGISTRY}
+          className="font-medium text-primary underline-offset-2 hover:underline"
+        >
+          Administration → Masters → Lender Registry
+        </Link>
+        .{loading ? " Loading…" : null}
+      </div>
+
+      {!loading && productPrograms.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <p className="text-base font-semibold text-foreground">
+            {activeProduct?.label ?? "Product"}
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Supported Lenders
+              </p>
+              <p className="text-2xl font-semibold tabular-nums">{supportedLenderCount}</p>
+              <p className="text-[11px] text-muted-foreground">
+                Lenders in the Enterprise Lender Registry that list this product as a capability.
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Published Programs
+              </p>
+              <p className="text-2xl font-semibold tabular-nums">0</p>
+              <p className="text-[11px] text-muted-foreground">
+                Commercial offerings configured and published by Rupee Catalyst.
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-foreground">
+            No commercial programs have been configured yet.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Supported lenders already exist in the Enterprise Lender Registry. To compare lenders,
+            create and publish at least one Product Program.
+          </p>
+          <div className="mt-4">
+            <Button type="button" size="sm" asChild>
+              <Link href={ROUTES.ADMIN_LENDER_REGISTRY}>Configure Product Programs</Link>
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {/* Product Selection Bar — navigation strip (not decorative cards) */}
       <div className="border border-slate-300 bg-slate-50/80 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-900/50">
         <div className="flex flex-wrap items-center gap-1">
@@ -279,6 +386,8 @@ export function ElwLenderRegistry() {
         </div>
       </div>
 
+      {productPrograms.length > 0 ? (
+        <>
       {/* Compact filter toolbar */}
       <div className="space-y-1.5 border border-slate-300 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-card">
         <div className="flex flex-wrap gap-1.5">
@@ -443,8 +552,8 @@ export function ElwLenderRegistry() {
         columns={columns}
         rows={pageRows}
         rowKey={(row) => row.id}
-        emptyMessage={`No lender programs for ${activeProduct?.label ?? "this product"}.`}
-        toolbarLabel={`${activeProduct?.label ?? "Programs"} · ${filteredSorted.length} programs`}
+        emptyMessage={`No published commercial programs for ${activeProduct?.label ?? "this product"}.`}
+        toolbarLabel={`${activeProduct?.label ?? "Programs"} · ${filteredSorted.length} published program${filteredSorted.length === 1 ? "" : "s"}`}
         sortColumnId={sort.field === "default" ? "roi" : Object.entries(SCORE_FIELD).find(([, f]) => f === sort.field)?.[0]}
         sortDirection={sort.field === "default" ? "asc" : sort.direction}
         onSort={handleSort}
@@ -461,6 +570,10 @@ export function ElwLenderRegistry() {
             <p className="hidden text-[10px] text-muted-foreground xl:block">
               Sort: ROI ↑ · Lender Score ↓ · Contact Score ↓
             </p>
+            <CreateTaskActionButton
+              allowEntityPicker
+              className="h-7 gap-1.5 rounded-md text-[11px]"
+            />
             <Button
               type="button"
               variant="outline"
@@ -536,6 +649,8 @@ export function ElwLenderRegistry() {
           </div>
         </div>
       </div>
+        </>
+      ) : null}
     </div>
   );
 }

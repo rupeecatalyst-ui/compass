@@ -45,6 +45,7 @@ import {
   AnalyzeDealWorkspace,
 } from "@/components/catalyst-one/analyze-deal";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import {
@@ -357,6 +358,17 @@ function OpportunityWorkspaceShell() {
         onContinueOverride={handleMoveToDeal}
         headerActions={
           <div className="flex flex-wrap items-center justify-end gap-1">
+            <CreateTaskActionButton
+              context={{
+                opportunityId: opportunityId ?? opportunity?.id ?? null,
+                contactId: contact?.id ?? null,
+                fileId: activeLoan?.id ?? null,
+                dealId: activeLoan?.enterpriseDealId ?? null,
+                borrowerName: contact?.name ?? activeLoan?.customerName ?? null,
+                loanProduct: productLabel || activeLoan?.loanProduct || null,
+                lenderName: activeLoan?.lender || null,
+              }}
+            />
             <AnalyzeDealTriggerButton onClick={() => setAnalyzeDealOpen(true)} />
             <OpportunityActionCenter
               entityId={opportunityId}

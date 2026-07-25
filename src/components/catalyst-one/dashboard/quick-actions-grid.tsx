@@ -7,12 +7,12 @@ import {
   FilePlus,
   FileText,
   FolderUp,
-  ListTodo,
   PhoneCall,
   Receipt,
   UserPlus,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import { cn } from "@/lib/utils";
 import {
   DashboardCard,
@@ -23,7 +23,6 @@ import {
 const actions = [
   { label: "New Loan File", icon: FilePlus, href: `${ROUTES.LOAN_FILES}?action=new` },
   { label: "Add Customer", icon: UserPlus, href: ROUTES.CUSTOMERS },
-  { label: "Create Task", icon: ListTodo, href: ROUTES.TASKS },
   { label: "Upload Docs", icon: FolderUp, href: `${ROUTES.DOCUMENTS}?action=upload` },
   { label: "Eligibility", icon: Calculator, href: `${ROUTES.AI_ASSISTANT}?tool=eligibility` },
   { label: "Report", icon: FileText, href: ROUTES.REPORTS },
@@ -38,6 +37,18 @@ export function QuickActionsGrid() {
       <DashboardCardHeader title="Quick Actions" description="Common operational shortcuts" />
       <DashboardCardContent className="pt-0 py-2">
         <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-1.5">
+          <div
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 rounded-lg border border-slate-800/80 bg-slate-950/30 px-1.5 py-2",
+            )}
+          >
+            <CreateTaskActionButton
+              allowEntityPicker
+              variant="ghost"
+              className="h-auto flex-col gap-1 px-1.5 py-0 text-[9px] leading-tight text-slate-400 hover:bg-transparent hover:text-slate-200"
+              label="Create Task"
+            />
+          </div>
           {actions.map((action) => (
             <Link
               key={action.label}

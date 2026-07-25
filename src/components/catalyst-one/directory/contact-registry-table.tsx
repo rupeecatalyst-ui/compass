@@ -32,6 +32,7 @@ import {
   uniqueContactStates,
 } from "@/lib/enterprise-contact-registry";
 import { downloadCsv } from "@/lib/loan-files-utils";
+import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import type { EcmCompany } from "@/types/enterprise-company-master";
 import type { EcmContact, EcmContactRole, EcmContactStatus } from "@/types/enterprise-contact-master";
 import {
@@ -842,21 +843,27 @@ export function ContactRegistryTable({
         }}
         maxHeightClassName="h-full max-h-none min-h-0 flex-1"
         toolbarActions={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 gap-1.5 rounded-md px-2 text-[10px]"
-            onClick={() => {
-              downloadCsv(
-                exportContactRegistryCsv(filteredSorted),
-                `contact-registry-${new Date().toISOString().slice(0, 10)}.csv`,
-              );
-            }}
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export to Excel
-          </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <CreateTaskActionButton
+              allowEntityPicker
+              className="h-6 gap-1.5 rounded-md px-2 text-[10px]"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-6 gap-1.5 rounded-md px-2 text-[10px]"
+              onClick={() => {
+                downloadCsv(
+                  exportContactRegistryCsv(filteredSorted),
+                  `contact-registry-${new Date().toISOString().slice(0, 10)}.csv`,
+                );
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export to Excel
+            </Button>
+          </div>
         }
       />
 
