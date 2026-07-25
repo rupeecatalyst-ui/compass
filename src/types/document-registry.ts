@@ -35,6 +35,13 @@ export interface DocumentRegistryVersion {
   isCurrent: boolean;
 }
 
+export type DocumentRegistryUploadSource =
+  | "customer_portal"
+  | "manual_upload"
+  | "email"
+  | "whatsapp"
+  | "api";
+
 export interface DocumentRegistryRecord {
   id: string;
   /** EDIE checklist type reference, e.g. doc:pan */
@@ -51,6 +58,11 @@ export interface DocumentRegistryRecord {
   version: number;
   fileSizeBytes: number;
   mimeType: string;
+  /**
+   * Ingestion channel — same Enterprise Document Repository for all sources.
+   * Document Requests (workflow) never owns storage; it only records this metadata.
+   */
+  uploadSource?: DocumentRegistryUploadSource;
   /** BAT #23 — RM review stamp on Deal / Lender Documents (View Mode). */
   verifiedAt?: string;
   verifiedBy?: string;
@@ -72,6 +84,8 @@ export interface DocumentUploadInput {
   links: DocumentEntityLinks;
   /** When replacing an existing registry record. */
   replaceRecordId?: string;
+  /** Ingestion channel (defaults to manual_upload when omitted). */
+  uploadSource?: DocumentRegistryUploadSource;
 }
 
 export interface DocumentRegistrySnapshot {

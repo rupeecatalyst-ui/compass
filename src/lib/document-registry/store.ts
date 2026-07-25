@@ -306,6 +306,7 @@ export async function uploadDocumentToRegistry(
       version: nextVersion,
       uploadedBy: input.uploadedBy,
       updatedAt: now,
+      uploadSource: input.uploadSource ?? target.uploadSource ?? "manual_upload",
       versions: [
         version,
         ...target.versions.map((v) => ({ ...v, isCurrent: false })),
@@ -346,6 +347,7 @@ export async function uploadDocumentToRegistry(
     version: 1,
     fileSizeBytes: input.file.size,
     mimeType,
+    uploadSource: input.uploadSource ?? "manual_upload",
   };
 
   snap.records.unshift(record);

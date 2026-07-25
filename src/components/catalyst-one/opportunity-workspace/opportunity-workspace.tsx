@@ -10,6 +10,7 @@ import {
 } from "./opportunity-workspace-context";
 import { WorkspaceContactSummary } from "./workspace-contact-summary";
 import { WorkspaceDocumentsPanel } from "./workspace-documents-panel";
+import { WorkspaceDocumentRequestsPanel } from "./workspace-document-requests-panel";
 import { WorkspaceLifeStrategyBoard } from "./workspace-life-strategy-board";
 import { WorkspaceTasksPanel } from "./workspace-tasks-panel";
 import { WorkspaceWorkflowPanel } from "./workspace-workflow-panel";
@@ -464,6 +465,7 @@ function OpportunityWorkspaceShell() {
                 />
               )}
               {tab === "requirement" && <WorkspaceRequirementPanel />}
+              {tab === "document_requests" && <WorkspaceDocumentRequestsPanel />}
               {tab === "product" && <WorkspaceProductPanel />}
               {tab === "relationships" && (
                 <WorkspaceRelationshipsPanel onAddRelationship={() => setIntentOpen(true)} />
