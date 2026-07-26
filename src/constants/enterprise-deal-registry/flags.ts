@@ -20,6 +20,8 @@ export const NEXT_PUBLIC_DEAL_REGISTRY_PORT_RUNTIME_ENV =
   "NEXT_PUBLIC_DEAL_REGISTRY_PORT_RUNTIME" as const;
 export const DEAL_REGISTRY_IMPORT_ENABLED_ENV = "DEAL_REGISTRY_IMPORT_ENABLED" as const;
 export const DEAL_REGISTRY_BLOCK_LOCAL_WRITE_ENV = "DEAL_REGISTRY_BLOCK_LOCAL_WRITE" as const;
+export const NEXT_PUBLIC_DEAL_REGISTRY_BLOCK_LOCAL_WRITE_ENV =
+  "NEXT_PUBLIC_DEAL_REGISTRY_BLOCK_LOCAL_WRITE" as const;
 /** CO-P0-006 — Create requires Enterprise Deal Registry write (fail closed when ON). */
 export const DEAL_REGISTRY_PRIMARY_WRITE_ENV = "DEAL_REGISTRY_PRIMARY_WRITE" as const;
 export const NEXT_PUBLIC_DEAL_REGISTRY_PRIMARY_WRITE_ENV =
@@ -134,8 +136,24 @@ export function isDealRegistryImportEnabled(): boolean {
   return readFlag(DEAL_REGISTRY_IMPORT_ENABLED_ENV);
 }
 
+/**
+ * CO-STAB-002 / Wave 6 — Block LoanFile localStorage as durable SSOT.
+ * Explicit true ⇒ always block. Explicit false ⇒ allow (emergency Soft Go-Live).
+ * Unset ⇒ false (blocking is driven by isEnterpriseDealRegistryOperational in writers).
+ */
 export function isDealRegistryLocalWriteBlocked(): boolean {
-  return readFlag(DEAL_REGISTRY_BLOCK_LOCAL_WRITE_ENV);
+  return readFlag(
+    NEXT_PUBLIC_DEAL_REGISTRY_BLOCK_LOCAL_WRITE_ENV,
+    DEAL_REGISTRY_BLOCK_LOCAL_WRITE_ENV,
+  );
+}
+
+/**
+ * CO-STAB-002 — True when LoanFile localStorage must not be a durable write target.
+ * Registry operational ⇒ projection-only (SSOT is Postgres). Explicit BLOCK flag ⇒ hard stop.
+ */
+export function isLoanFileLocalStorageWriteForbidden(): boolean {
+  return isEnterpriseDealRegistryOperational() || isDealRegistryLocalWriteBlocked();
 }
 
 /**

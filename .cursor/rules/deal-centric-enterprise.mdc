@@ -1,0 +1,39 @@
+# Opportunity-Centric Lending — Foundation Principle F0′ (Constitutional)
+
+Status: **ENTERPRISE APPROVED** · Constitutional · Highest-level domain rule (lending)  
+Authority: Architecture Review Board · **CO-ARCH-003**  
+Full text: `docs/architecture/FOUNDATION-PRINCIPLE-DEAL-CENTRIC.md`  
+Blueprint: `docs/co-arch-003/CO-ARCH-003-IMPLEMENTATION-BLUEPRINT.md`  
+Invariants: `docs/co-arch-003/CO-ARCH-003-BUSINESS-INVARIANTS.md`
+
+This principle **supersedes** CO-ARCH-002 / ADR-016 grain that treated Opportunity and Deal as the same entity.
+
+## Canonical hierarchy
+
+```text
+Contact → Opportunity (Lead) → Deal (per lender)
+```
+
+## Definitions
+
+- **Opportunity** = one financial requirement (product + amount + requirement lifecycle). Exists **before** any lender. Lead = Opportunity.
+- **Deal** = one lender execution case. Exists **only after** a lender is identified. Owns lender pipeline only.
+- **Contact** = party root (ECM).
+
+## Business invariants (frozen)
+
+1. **BI-1:** An Opportunity may exist with **zero** Deals.  
+2. **BI-2:** A Deal must always belong to **exactly one** valid Opportunity.  
+3. **BI-3:** A Deal cannot exist until a valid Opportunity exists **and** a lender is identified/assigned.  
+4. **BI-4:** Opportunity stages (requirement readiness) and Deal stages (lender execution) are **independent** — never overlap or interchange.
+
+## Hard rules for agents
+
+1. Creating a Home Loan / product requirement creates an **Opportunity**, **never** a Deal (BI-3).  
+2. Assigning/identifying a lender creates a **Deal** under that Opportunity (BI-2, BI-3).  
+3. Do not invent parallel SoR roots that conflate Opportunity and Deal (including LoanFile-as-both).  
+4. Do not put Pre Login / Logged In / Disbursed on Opportunity; do not put Raw Lead / Ready for Market on Deal (BI-4).  
+5. Do not require Deals for an Opportunity to be valid (BI-1).  
+6. Prefer Postgres Opportunity Registry + Deal Registry; LoanFile is transitional only.  
+7. **Phase discipline:** Phase 1 Opportunity Registry before Phase 2 Deal redefinition before workspace cutover.  
+8. Align with CO-ARCH-003. Do not re-assert CO-ARCH-002 “Deal = engagement / Opportunity is a view of Deal.”

@@ -3,8 +3,8 @@
  * Analysis memory persists for the loan lifecycle; Identified is execution entry only.
  */
 
-import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
-import { loadLoanFiles } from "@/lib/loan-files-storage";
+import { updateDeal, loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
+import { peekDealProjection } from "@/lib/enterprise-deal/deal-projection-cache";
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
 import type { LoanFile, LoanLenderExecution, LenderProbability } from "@/types/catalyst-one";
 import { isPreExecutionStage, normalizeLenderCaseStage } from "@/constants/lender-pipeline";
@@ -12,9 +12,15 @@ import { isPreExecutionStage, normalizeLenderCaseStage } from "@/constants/lende
 const SHORTLIST_KEY = "catalyst.strategic-lender-shortlist";
 const ANALYSIS_KEY = "catalyst.strategic-lender-analysis";
 
+export type StrategicLenderSelectedBy = "chanakya" | "manual";
+
 export interface StrategicLenderShortlistItem {
   lenderRef: string;
   lenderName: string;
+  /** CO-LENDER-ARCH-002 — Enterprise Lender Registry primary key (Deal.lenderId). */
+  enterpriseLenderId?: string;
+  /** Stable registry code / seed key (e.g. LND000012 or bob). */
+  lenderCode?: string;
   product?: string;
   productRefs?: string[];
   expectedRoi?: number;
@@ -33,6 +39,8 @@ export interface StrategicLenderShortlistItem {
   expectedTurnaround?: string;
   recommendationNotes?: string;
   chanakyaRecommendation?: string;
+  /** LIFE strategy board — who placed this lender in Execution Queue. */
+  selectedBy?: StrategicLenderSelectedBy;
   createdBy: string;
   createdAt: string;
 }
@@ -129,6 +137,41 @@ export function getStrategicShortlist(opportunityId: string): StrategicLenderSho
   return readShortlistMap()[opportunityId]?.items ?? [];
 }
 
+/**
+ * CO-BUG-011 — Drop Execution Queue rows that lack a canonical Enterprise Lender Registry id.
+ * Soft Go-Live / BF_* / name-only rows must never remain selectable for Move to Deal.
+ */
+export function purgeNonCanonicalShortlistItems(
+  opportunityId: string,
+  canonicalIds: Set<string>,
+): { kept: StrategicLenderShortlistItem[]; removed: StrategicLenderShortlistItem[] } {
+  if (!opportunityId) return { kept: [], removed: [] };
+  const map = readShortlistMap();
+  const bucket = map[opportunityId];
+  if (!bucket?.items?.length) return { kept: [], removed: [] };
+
+  const kept: StrategicLenderShortlistItem[] = [];
+  const removed: StrategicLenderShortlistItem[] = [];
+  for (const item of bucket.items) {
+    const id = item.enterpriseLenderId?.trim() || "";
+    const ok =
+      Boolean(id) &&
+      canonicalIds.has(id) &&
+      !/^elend|^elprog|^local-/i.test(id) &&
+      !/^bf[_-]/i.test((item.lenderCode || "").trim());
+    if (ok) kept.push(item);
+    else removed.push(item);
+  }
+
+  if (removed.length > 0) {
+    bucket.items = kept;
+    bucket.updatedAt = new Date().toISOString();
+    map[opportunityId] = bucket;
+    writeShortlistMap(map);
+  }
+  return { kept, removed };
+}
+
 export function upsertStrategicShortlistItem(
   opportunityId: string,
   item: Omit<StrategicLenderShortlistItem, "createdAt" | "createdBy"> & {
@@ -204,6 +247,8 @@ function enrichStrategyFields(
   return {
     lenderRef: item.lenderRef,
     lenderName: item.lenderName,
+    enterpriseLenderId: item.enterpriseLenderId,
+    lenderCode: item.lenderCode,
     product: item.product,
     productRefs: item.productRefs,
     expectedRoi: item.expectedRoi ?? Number((8.2 + (index % 4) * 0.35).toFixed(2)),
@@ -228,14 +273,23 @@ function enrichStrategyFields(
       (rank === 1
         ? `Prioritise ${item.lenderName} for login.`
         : `Keep ${item.lenderName} available as an alternate.`),
+    selectedBy: item.selectedBy,
     createdBy: item.createdBy ?? "RM",
     createdAt: item.createdAt ?? new Date().toISOString(),
   };
 }
 
 function loadFile(loanFileId: string): LoanFile | null {
-  const files = (typeof window !== "undefined" ? loadLoanFiles() : null) ?? getInitialLoanFiles();
-  return files.find((f) => f.id === loanFileId) ?? null;
+  const projected = peekDealProjection(loanFileId);
+  if (projected) return projected;
+  const files =
+    (typeof window !== "undefined" ? loadDealsSync("loan_workspace").files : null) ??
+    getInitialLoanFiles();
+  return (
+    files.find((f) => f.id === loanFileId) ||
+    files.find((f) => f.enterpriseDealId === loanFileId) ||
+    null
+  );
 }
 
 function findExistingCase(
@@ -374,10 +428,15 @@ export function syncShortlistToIdentified(
     });
   }
 
-  const updated = updateLoanFileInStorage(loanFileId, {
-    lenders: cases,
-    lender: cases.find((c) => c.isPrimary)?.lender ?? cases[0]?.lender ?? file.lender,
-  });
+  const updated = updateDeal(
+    loanFileId,
+    {
+      lenders: cases,
+      lender: cases.find((c) => c.isPrimary)?.lender ?? cases[0]?.lender ?? file.lender,
+    },
+    undefined,
+    "loan_workspace",
+  );
 
   return {
     ok: Boolean(updated),
@@ -442,7 +501,7 @@ export function startLenderLogin(
         }
       : c,
   );
-  const updated = updateLoanFileInStorage(loanFileId, { lenders: cases });
+  const updated = updateDeal(loanFileId, { lenders: cases }, undefined, "loan_workspace");
   return updated?.lenders?.find((c) => c.id === caseId) ?? null;
 }
 

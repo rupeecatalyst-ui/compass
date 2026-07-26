@@ -69,14 +69,33 @@ export function mapEnterpriseDealToDealRegistryRow(
     relationshipManagerName: deal.relationshipManagerName,
   });
 
+  const snap =
+    deal.snapshot && typeof deal.snapshot === "object"
+      ? (deal.snapshot as Record<string, unknown>)
+      : {};
+  const expectedRevenue =
+    typeof snap.expectedRevenue === "number"
+      ? snap.expectedRevenue
+      : typeof snap.expectedCommission === "number"
+        ? snap.expectedCommission
+        : 0;
+  const documentsPending =
+    typeof snap.pendingDocumentCount === "number"
+      ? snap.pendingDocumentCount
+      : typeof snap.pendingCustomerDocuments === "number"
+        ? snap.pendingCustomerDocuments
+        : 0;
+
   return {
     id: rowId,
     enterpriseDealId: deal.id,
+    opportunityId: deal.opportunityId?.trim() || undefined,
     dealId: deal.dealNumber,
     opportunityNumber:
       deal.opportunityNumber?.trim() ||
       deal.opportunityId ||
       deal.dealNumber,
+    customerType: undefined,
     fileNumber: deal.fileNumber || deal.dealNumber,
     borrowerName: deal.primaryContactName || "—",
     contactNumber: deal.primaryContactMobile || "—",
@@ -94,8 +113,8 @@ export function mapEnterpriseDealToDealRegistryRow(
     grossStageLabel: STAGE_LABELS[stage] ?? deal.grossStage,
     subStage: deal.subStage || "—",
     selectedLender: deal.primaryCounterpartyName || "—",
-    expectedRevenue: 0,
-    expectedRevenueLabel: formatINR(0),
+    expectedRevenue,
+    expectedRevenueLabel: formatINR(expectedRevenue),
     priority: asPriority(deal.priority),
     lastActivity: last,
     lastActivityLabel: formatWhenTime(last),
@@ -120,7 +139,7 @@ export function mapEnterpriseDealToDealRegistryRow(
     roiLabel: "—",
     tatDays: 0,
     nextFollowUp: "—",
-    documentsPending: 0,
+    documentsPending,
     tasksPending: 0,
     riskIndicator: "Low",
   };

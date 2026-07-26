@@ -1,39 +1,31 @@
 /**
- * CO-ARCH — LIFE → Move to Deal (transition orchestration only).
- * Validates Opportunity + Execution Queue lenders, creates Enterprise Deal(s),
- * links to originating Opportunity, opens Deal Workspace (Lender Pipeline).
- *
- * Does not change LIFE → Execution Queue selection architecture.
+ * CO-ARCH-005 — Move Opportunity Execution Queue → Enterprise Deal(s).
+ * No LoanFile, loadLoanFiles, saveLoanFiles, projection cache, or dual-write.
  */
-
 import { getAccessToken } from "@/lib/api-client";
-import {
-  persistNewDealToEnterpriseRegistry,
-  updateDeal,
-  attachEnterpriseDealIdentity,
-  upsertEnterpriseDealCacheEntry,
-} from "@/lib/enterprise-deal";
-import { ensureLoanWorkspaceForOpportunityAsync } from "@/lib/strategic-lender-pipeline/ensure-loan-workspace";
+import { createDealFromOpportunity } from "@/lib/enterprise-deal/deal-create-from-opportunity";
+import { putSessionDeal, bindSessionDeal } from "@/lib/enterprise-session";
 import {
   getStrategicShortlist,
   normalizeLenderKey,
-  syncShortlistToIdentified,
-  type StrategicLenderShortlistItem,
+  upsertStrategicAnalysis,
 } from "@/lib/strategic-lender-pipeline/sync";
 import {
-  listPublishedLenderOptionsAsync,
-  type PublishedLenderOption,
+  buildCanonicalLenderRef,
+  listCanonicalEnterpriseLenderOptionsAsync,
+  resolvePersistedLenderForDeal,
 } from "@/lib/enterprise-lender-registry/published-directory";
+import { invalidatePublishedLendersSession } from "@/lib/enterprise-session/published-lenders-session";
 import { rememberOpportunityRegistryContext } from "@/lib/lead-opportunity-journey/opportunity-context";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opportunity-api-client";
-import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import type { OpportunityLoanContactHint } from "@/lib/opportunity-loan-continuity";
 import type { LoanLenderExecution } from "@/types/catalyst-one";
-import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
 
 export type MoveToDealInput = {
   opportunityId: string;
+  opportunity?: import("@/lib/enterprise-opportunity/opportunity-api-client").EnterpriseOpportunityApiRecord | null;
   contact?: OpportunityLoanContactHint | null;
   customerName?: string;
   customerMobile?: string;
@@ -44,34 +36,13 @@ export type MoveToDealInput = {
 };
 
 export type MoveToDealResult = {
+  /** @deprecated Prefer primaryDealId — LoanFile identity retired. */
   fileId: string;
   opportunityId: string;
   primaryDealId: string;
   deals: Array<{ dealId: string; dealNumber: string; lenderId: string; lenderName: string }>;
   dealWorkspaceHref: string;
 };
-
-function resolveLenderRegistryId(
-  item: StrategicLenderShortlistItem,
-  options: PublishedLenderOption[],
-): string | null {
-  const ref = (item.lenderRef || "").trim();
-  const bare = ref.replace(/^lender:/i, "").trim();
-  if (bare) {
-    const byId = options.find((o) => o.id === bare);
-    if (byId) return byId.id;
-    const byCode = options.find((o) => o.code.toLowerCase() === bare.toLowerCase());
-    if (byCode) return byCode.id;
-  }
-  const nameKey = normalizeLenderKey(item.lenderName);
-  const byName = options.find(
-    (o) =>
-      normalizeLenderKey(o.displayName) === nameKey ||
-      normalizeLenderKey(o.legalName) === nameKey ||
-      normalizeLenderKey(o.code) === nameKey,
-  );
-  return byName?.id ?? null;
-}
 
 function assertSessionForMoveToDeal(): void {
   if (!getAccessToken()?.trim()) {
@@ -82,6 +53,38 @@ function assertSessionForMoveToDeal(): void {
       { status: 401, code: "SESSION_EXPIRED" },
     );
   }
+}
+
+function buildIdentifiedCases(
+  opportunityId: string,
+  items: Array<{
+    lenderId: string;
+    lenderName: string;
+    lenderRef?: string;
+    product?: string;
+  }>,
+  amount: number | undefined,
+  product: string,
+  actor: string,
+): LoanLenderExecution[] {
+  const now = new Date().toISOString();
+  return items.map((item, index) => ({
+    id: `deal-${item.lenderId}-${Date.now()}-${index}`,
+    lender: item.lenderName,
+    status: "active" as const,
+    caseStage: "identified" as const,
+    isPrimary: index === 0,
+    lenderRegistryId: item.lenderId,
+    lenderRef: item.lenderRef || `lender:${item.lenderId}`,
+    fromStrategic: true,
+    opportunityId,
+    expectedLoanAmount: amount,
+    product,
+    createdBy: actor,
+    createdAt: now,
+    updatedAt: now,
+    identifiedAt: now,
+  }));
 }
 
 /**
@@ -98,9 +101,10 @@ export async function moveOpportunityToDeal(
     );
   }
 
-  const opportunity = await enterpriseOpportunityApiClient.getOpportunity(
-    input.opportunityId,
-  );
+  const opportunity =
+    input.opportunity?.id === input.opportunityId
+      ? input.opportunity
+      : await enterpriseOpportunityApiClient.getOpportunity(input.opportunityId);
   rememberOpportunityRegistryContext(opportunity);
 
   const shortlist = getStrategicShortlist(input.opportunityId);
@@ -110,132 +114,130 @@ export async function moveOpportunityToDeal(
     );
   }
 
-  const registryOptions = await listPublishedLenderOptionsAsync();
-  const resolved = shortlist.map((item) => ({
-    item,
-    lenderId: resolveLenderRegistryId(item, registryOptions),
-  }));
+  // CO-BUG-011 — Resolve against Prisma Enterprise Lender Registry only.
+  invalidatePublishedLendersSession();
+  const registryOptions = await listCanonicalEnterpriseLenderOptionsAsync();
+  if (registryOptions.length === 0) {
+    throw new Error(
+      "Missing: Enterprise Lender Registry. Reason: no active canonical lenders returned from the server. Action: verify Lender Registry in Administration, then retry Manual Recommendation.",
+    );
+  }
+  const resolved = [];
+  for (const item of shortlist) {
+    const opt = await resolvePersistedLenderForDeal(item, registryOptions);
+    if (!opt) {
+      resolved.push({ item, lenderId: null as string | null, opt: null });
+      continue;
+    }
+    resolved.push({
+      opt,
+      lenderId: opt.id,
+      item: {
+        ...item,
+        enterpriseLenderId: opt.id,
+        lenderCode: opt.seedKey || opt.code,
+        lenderRef: buildCanonicalLenderRef(opt),
+        lenderName: opt.displayName || opt.code || item.lenderName,
+      },
+    });
+  }
 
   const unresolved = resolved.filter((r) => !r.lenderId);
-  if (unresolved.length === shortlist.length) {
+  if (unresolved.length > 0) {
+    const names = unresolved.map((u) => u.item.lenderName || u.item.lenderRef || "Unknown");
     throw new Error(
-      `Missing: Lender Registry link. Reason: selected lender(s) (${unresolved
-        .map((u) => u.item.lenderName)
-        .join(
-          ", ",
-        )}) are not published in Enterprise Lender Registry. Action: select lenders from Manual Selection (Registry).`,
+      `Missing: Valid Enterprise Lender Registry id. Reason: ${names.join(
+        ", ",
+      )} could not be mapped to a Prisma Lender primary key (Soft Go-Live / provisional ids are not allowed). Action: re-select lenders from Manual Recommendation after the Enterprise Lender Registry loads from the server.`,
     );
   }
 
-  const file = await ensureLoanWorkspaceForOpportunityAsync({
-    opportunityId: input.opportunityId,
-    contact: input.contact,
-    customerName: input.customerName || opportunity.primaryContactName || undefined,
-    customerMobile:
-      input.customerMobile || opportunity.primaryContactMobile || undefined,
-    customerId: input.customerId || opportunity.primaryContactId,
-    loanProduct: input.loanProduct || opportunity.productLabel || "Home Loan",
-    loanAmount: input.loanAmount ?? opportunity.requestedAmount ?? undefined,
-    relationshipManager:
-      input.relationshipManager ||
-      opportunity.relationshipManagerName ||
-      undefined,
-  });
+  const productLabel =
+    input.loanProduct || opportunity.productLabel || "Home Loan";
+  const amount = input.loanAmount ?? opportunity.requestedAmount ?? undefined;
+  const customerName =
+    input.customerName || opportunity.primaryContactName || undefined;
+  const customerMobile =
+    input.customerMobile || opportunity.primaryContactMobile || undefined;
+  const customerId = input.customerId || opportunity.primaryContactId || undefined;
+  const relationshipManager =
+    input.relationshipManager ||
+    opportunity.relationshipManagerName ||
+    undefined;
 
-  if (!file) {
-    throw new Error(
-      "Missing: Deal workspace attachment. Reason: could not link Opportunity to a Deal file. Action: retry Move to Deal.",
-    );
-  }
+  // Preserve LIFE analysis memory (Opportunity-scoped) without LoanFile sync.
+  upsertStrategicAnalysis(
+    input.opportunityId,
+    resolved.map((r) => r.item),
+  );
 
-  // Identity link only — must not trigger LoanFile completion validation.
-  let working =
-    updateDeal(
-      file.id,
-      {
-        enterpriseOpportunityId: input.opportunityId,
-        opportunityNumber: opportunity.opportunityNumber,
-      },
-      undefined,
-      "opportunity_workspace",
-    ) ?? file;
-
-  const syncItems = resolved.map(({ item, lenderId }) => ({
-    ...item,
-    lenderRef: lenderId ? `lender:${lenderId}` : item.lenderRef,
-  }));
-  const sync = syncShortlistToIdentified(working.id, input.opportunityId, syncItems, "RM", {
-    pruneMissing: false,
-  });
-  if (!sync.ok) {
-    throw new Error(
-      `Missing: Lender Pipeline sync. Reason: ${sync.message}. Action: retry Move to Deal.`,
-    );
-  }
-
-  working = loadLoanFiles().find((f) => f.id === working.id) ?? working;
   const deals: MoveToDealResult["deals"] = [];
+  let primaryDealId = "";
 
   for (const { item, lenderId } of resolved) {
     if (!lenderId) continue;
 
-    const lenders = (working.lenders ?? []).map((l) => {
-      const matches =
-        normalizeLenderKey(l.lenderRef || l.lender) ===
-          normalizeLenderKey(item.lenderRef || item.lenderName) ||
-        normalizeLenderKey(l.lender) === normalizeLenderKey(item.lenderName) ||
-        l.lenderRegistryId === lenderId;
-      return {
-        ...l,
-        lenderRegistryId: matches ? lenderId : l.lenderRegistryId,
-      };
-    });
+    const allCases = buildIdentifiedCases(
+      input.opportunityId,
+      resolved
+        .filter((r): r is typeof r & { lenderId: string } => Boolean(r.lenderId))
+        .map((r) => ({
+          lenderId: r.lenderId!,
+          lenderName: r.item.lenderName,
+          lenderRef: r.item.lenderRef,
+          product: productLabel,
+        })),
+      amount,
+      productLabel,
+      "RM",
+    ).map((c) => ({
+      ...c,
+      isPrimary: c.lenderRegistryId === lenderId,
+    }));
 
-    const hasCase = lenders.some((l) => l.lenderRegistryId === lenderId);
-    const nextLenders: LoanLenderExecution[] = hasCase
-      ? lenders.map((l) => ({
-          ...l,
-          isPrimary: l.lenderRegistryId === lenderId,
-        }))
-      : [
-          {
-            id: `deal-${lenderId}-${Date.now()}`,
-            lender: item.lenderName,
-            status: "active",
-            caseStage: "identified",
-            isPrimary: true,
-            lenderRegistryId: lenderId,
-            lenderRef: `lender:${lenderId}`,
-            fromStrategic: true,
-            opportunityId: input.opportunityId,
-            createdBy: "RM",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            identifiedAt: new Date().toISOString(),
-          },
-          ...lenders.map((l) => ({ ...l, isPrimary: false })),
-        ];
+    // Ensure current lender is present even if shortlist key mismatch.
+    const hasCase = allCases.some((c) => c.lenderRegistryId === lenderId);
+    const thisCase: LoanLenderExecution = hasCase
+      ? {
+          ...allCases.find((c) => c.lenderRegistryId === lenderId)!,
+          isPrimary: true,
+        }
+      : {
+          id: `deal-${lenderId}-${Date.now()}`,
+          lender: item.lenderName,
+          status: "active",
+          caseStage: "identified",
+          isPrimary: true,
+          lenderRegistryId: lenderId,
+          lenderRef: `lender:${lenderId}`,
+          fromStrategic: true,
+          opportunityId: input.opportunityId,
+          expectedLoanAmount: amount,
+          product: productLabel,
+          createdBy: "RM",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          identifiedAt: new Date().toISOString(),
+        };
 
-    const patched = updateDeal(
-      working.id,
-      {
-        lenders: nextLenders,
-        lender: item.lenderName,
-        enterpriseOpportunityId: input.opportunityId,
-        opportunityNumber: opportunity.opportunityNumber,
-      },
-      `Move to Deal · ${item.lenderName}`,
-      "opportunity_workspace",
-    );
-    working = patched ?? working;
-
-    const deal = await persistNewDealToEnterpriseRegistry(working, {
-      opportunityId: input.opportunityId,
+    // CO-ARCH-007 — One Deal = one lender; snapshot is derived single-lender only.
+    const deal = await createDealFromOpportunity({
+      opportunity,
       lenderId,
+      lenderName: item.lenderName,
+      lenders: [thisCase],
+      customerName,
+      customerMobile,
+      customerId,
+      loanProduct: productLabel,
+      loanAmount: amount,
+      relationshipManager,
     });
-    working = attachEnterpriseDealIdentity(working, deal);
-    saveLoanFiles(loadLoanFiles().map((f) => (f.id === working.id ? working : f)));
-    upsertEnterpriseDealCacheEntry(working);
+
+    putSessionDeal(deal);
+    bindSessionDeal(deal);
+
+    if (!primaryDealId) primaryDealId = deal.id;
 
     deals.push({
       dealId: deal.id,
@@ -245,17 +247,11 @@ export async function moveOpportunityToDeal(
     });
   }
 
-  if (deals.length === 0) {
+  if (deals.length === 0 || !primaryDealId) {
     throw new Error(
       "Missing: Deal create. Reason: no lenders resolved to Enterprise Lender Registry ids. Action: select lenders from Manual Selection.",
     );
   }
-
-  // Final cache sync so Lender Pipeline mount does not hydrate a lender-less stub.
-  working = loadLoanFiles().find((f) => f.id === working.id) ?? working;
-  upsertEnterpriseDealCacheEntry(working);
-
-  const primary = deals[0]!;
 
   try {
     await enterpriseOpportunityApiClient.markConvertedToDeal(input.opportunityId);
@@ -271,23 +267,27 @@ export async function moveOpportunityToDeal(
     product: opportunity.productLabel ?? undefined,
     stage: opportunity.requirementStage ?? undefined,
     owner: opportunity.relationshipManagerName ?? undefined,
-    fileId: working.id,
+    fileId: primaryDealId,
     customerName: opportunity.primaryContactName ?? undefined,
     label: opportunity.opportunityNumber,
   });
 
-  const baseHref = buildCanonicalJourneyStageHref("lender_pipeline", {
-    fileId: working.id,
+  const primary = deals[0]!;
+  const dealWorkspaceHref = buildDealWorkspaceHref({
+    dealId: primary.dealId,
     opportunityId: input.opportunityId,
+    tab: "lenders",
+    lenderId: primary.lenderId,
   });
-  const sep = baseHref.includes("?") ? "&" : "?";
-  const dealWorkspaceHref = `${baseHref}${sep}dealId=${encodeURIComponent(primary.dealId)}&lenderId=${encodeURIComponent(primary.lenderId)}`;
 
   return {
-    fileId: working.id,
+    fileId: primaryDealId,
     opportunityId: input.opportunityId,
-    primaryDealId: primary.dealId,
+    primaryDealId,
     deals,
     dealWorkspaceHref,
   };
 }
+
+/** Exported for tests — lender key normalize used in Move to Deal diagnostics. */
+export { normalizeLenderKey };

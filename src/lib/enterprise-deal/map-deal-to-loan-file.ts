@@ -57,26 +57,39 @@ function projectLendersFromDeal(
   deal: EnterpriseDealApiRecord & { snapshot?: unknown },
   local?: LoanFile | null,
 ): LoanLenderExecution[] | undefined {
-  if (local?.lenders && local.lenders.length > 0) {
-    return local.lenders;
-  }
-
   const snap = deal.snapshot as
-    | { lenders?: Array<{ id?: string; name?: string; status?: string }> }
+    | {
+        lenders?: Array<{
+          id?: string;
+          name?: string;
+          status?: string;
+          caseStage?: string;
+          lenderRegistryId?: string | null;
+          lenderRef?: string | null;
+          isPrimary?: boolean;
+          opportunityId?: string | null;
+        }>;
+      }
     | null
     | undefined;
   const now = deal.updatedAt || deal.createdAt || new Date().toISOString();
 
+  // CO-ARCH-004 — Registry snapshot is pipeline authority (never prefer stale local LoanFile).
   if (Array.isArray(snap?.lenders) && snap!.lenders!.length > 0) {
     return snap!.lenders!.map((l, index) => ({
       id: l.id || `snap-lender-${deal.id}-${index}`,
       lender: l.name || deal.primaryCounterpartyName || "Lender",
       status: (l.status as LoanLenderExecution["status"]) || "active",
-      caseStage: "identified" as const,
-      isPrimary: index === 0,
-      lenderRegistryId: index === 0 ? deal.lenderId ?? undefined : undefined,
-      lenderRef: deal.lenderId ? `lender:${deal.lenderId}` : undefined,
-      opportunityId: deal.opportunityId ?? undefined,
+      caseStage: (l.caseStage as LoanLenderExecution["caseStage"]) || "identified",
+      isPrimary: l.isPrimary ?? index === 0,
+      lenderRegistryId:
+        l.lenderRegistryId ||
+        (index === 0 ? deal.lenderId ?? undefined : undefined) ||
+        undefined,
+      lenderRef:
+        l.lenderRef ||
+        (deal.lenderId ? `lender:${deal.lenderId}` : undefined),
+      opportunityId: l.opportunityId || deal.opportunityId || undefined,
       identifiedAt: now,
       createdAt: now,
       updatedAt: now,
@@ -101,7 +114,12 @@ function projectLendersFromDeal(
     ];
   }
 
-  return local?.lenders;
+  // Projection fallback only when Registry has no lender cases yet.
+  if (local?.lenders && local.lenders.length > 0) {
+    return local.lenders;
+  }
+
+  return undefined;
 }
 
 export function mapEnterpriseDealToLoanFileStub(
