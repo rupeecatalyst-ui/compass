@@ -1,0 +1,68 @@
+{
+  "date": "2026-07-21T15:29:03.534Z",
+  "total": 12,
+  "passed": 12,
+  "failed": 0,
+  "results": [
+    {
+      "ok": true,
+      "label": "Wave 5 parity + rollback runner",
+      "detail": ""
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i1-verify.mjs",
+      "detail": "1773ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i2-verify.mjs",
+      "detail": "7379ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i3-verify.mjs",
+      "detail": "2374ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i4a-verify.mjs",
+      "detail": "1831ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i4b-verify.mjs",
+      "detail": "1812ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i4c-verify.mjs",
+      "detail": "1969ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i5a-verify.mjs",
+      "detail": "8307ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i5b-verify.mjs",
+      "detail": "4438ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i6a-verify.mjs",
+      "detail": "8816ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-i6b-verify.mjs",
+      "detail": "3224ms"
+    },
+    {
+      "ok": true,
+      "label": "scripts/co-arch-001-wave4-seed-verify.mjs",
+      "detail": "10277ms"
+    }
+  ]
+}

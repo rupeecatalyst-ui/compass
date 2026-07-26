@@ -1,0 +1,79 @@
+import {
+  errorResponse,
+  fromAuthError,
+  requireAccessToken,
+  successResponse,
+} from "@/lib/api/auth-route-utils";
+import type { ApiResponse } from "@/types/api";
+import type { ProductLifecycleStatus, ProductOperationalStatus } from "@/types/enterprise-product-registry";
+import { productRegistryService } from "@server/services/product-registry/product-registry.service";
+import {
+  mapRouteError,
+  parseListQuery,
+  productRegistryPersistenceGuard,
+  requireProductRegistryAdmin,
+  resolveActorDisplayName,
+} from "../_lib/route-utils";
+
+export async function GET(request: Request) {
+  try {
+    productRegistryPersistenceGuard();
+    requireAccessToken(request);
+    const url = new URL(request.url);
+    const result = await productRegistryService.queryProducts({
+      ...parseListQuery(url),
+      categoryId: url.searchParams.get("categoryId") ?? undefined,
+      groupId: url.searchParams.get("groupId") ?? undefined,
+      lifecycleStatus:
+        (url.searchParams.get("lifecycleStatus") as ProductLifecycleStatus | "all") ?? "all",
+      operationalStatus:
+        (url.searchParams.get("operationalStatus") as ProductOperationalStatus | "all") ?? "all",
+    });
+    return successResponse(result);
+  } catch (err) {
+    const mapped = mapRouteError(err);
+    if (mapped.status === 401) {
+      return fromAuthError(mapped as { status: number; body: ApiResponse<unknown> });
+    }
+    return errorResponse(500, "PRODUCT_QUERY_FAILED", "Failed to query products");
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    productRegistryPersistenceGuard();
+    const actor = requireAccessToken(request);
+    requireProductRegistryAdmin(actor);
+    const body = await request.json();
+
+    const created = await productRegistryService.createProduct(
+      {
+        categoryId: String(body.categoryId ?? ""),
+        groupId: String(body.groupId ?? ""),
+        code: String(body.code ?? ""),
+        label: String(body.label ?? ""),
+        description: body.description ? String(body.description) : undefined,
+        shortDescription: body.shortDescription ? String(body.shortDescription) : undefined,
+        lifecycleStatus: body.lifecycleStatus,
+        operationalStatus: body.operationalStatus,
+        majorVersion: body.majorVersion !== undefined ? Number(body.majorVersion) : undefined,
+        minorVersion: body.minorVersion !== undefined ? Number(body.minorVersion) : undefined,
+        tags: Array.isArray(body.tags) ? body.tags.map(String) : undefined,
+        productOwner: body.productOwner ? String(body.productOwner) : undefined,
+        status: body.status,
+        enabled: body.enabled,
+        notes: body.notes ? String(body.notes) : undefined,
+        createdBy: actor.userId,
+      },
+      await resolveActorDisplayName(actor.userId),
+    );
+    return successResponse(created, 201);
+  } catch (err) {
+    const mapped = mapRouteError(err);
+    if (mapped.status === 401 || mapped.status === 403) {
+      return fromAuthError(mapped as { status: number; body: ApiResponse<unknown> });
+    }
+    const message = err instanceof Error ? err.message : "Failed to create product";
+    return errorResponse(400, "PRODUCT_CREATE_FAILED", message);
+  }
+}
