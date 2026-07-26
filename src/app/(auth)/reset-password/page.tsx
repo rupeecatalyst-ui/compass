@@ -5,12 +5,16 @@ import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { LoadingSkeleton } from "@/components/design-system/loading-skeleton";
 
 export const metadata: Metadata = {
-  title: "Reset Password",
+  title: "Reset Password · Catalyst One",
 };
 
 export default function ResetPasswordPage() {
   return (
-    <AuthLayout title="Reset password" description="Enter your new password below">
+    <AuthLayout
+      title="Create New Password"
+      description="Choose a strong password to secure your Catalyst One account."
+      eyebrow="Password Recovery"
+    >
       <Suspense fallback={<LoadingSkeleton rows={3} />}>
         <ResetPasswordForm />
       </Suspense>

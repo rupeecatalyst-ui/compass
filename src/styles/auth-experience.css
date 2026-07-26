@@ -1,0 +1,159 @@
+/**
+ * CO-SPRINT-118 — Enterprise Authentication Experience styles.
+ * Premium shell + lightweight COMPASS motion (CSS transforms only).
+ */
+
+.auth-shell {
+  --auth-ink: #0b1220;
+  --auth-mist: #e8eef6;
+  --auth-teal: #0f766e;
+  --auth-teal-soft: rgba(15, 118, 110, 0.14);
+  --auth-gold: #c4a35a;
+  --auth-panel: #f7f9fc;
+}
+
+.auth-hero {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(15, 118, 110, 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 80% 80%, rgba(196, 163, 90, 0.12), transparent 50%),
+    linear-gradient(160deg, #07111f 0%, #0f1c2e 45%, #102a2a 100%);
+}
+
+.auth-compass {
+  width: min(280px, 58vw);
+  height: min(280px, 58vw);
+  position: relative;
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.35));
+}
+
+.auth-compass__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(232, 238, 246, 0.18);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(15, 118, 110, 0.18), transparent 62%),
+    rgba(255, 255, 255, 0.03);
+  animation: auth-compass-breathe 7s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.auth-compass__dial {
+  position: absolute;
+  inset: 8%;
+  border-radius: 9999px;
+  border: 1px solid rgba(196, 163, 90, 0.35);
+  background:
+    conic-gradient(
+      from 0deg,
+      rgba(232, 238, 246, 0.05),
+      rgba(15, 118, 110, 0.12),
+      rgba(232, 238, 246, 0.05),
+      rgba(196, 163, 90, 0.1),
+      rgba(232, 238, 246, 0.05)
+    );
+}
+
+.auth-compass__mark {
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  width: 2px;
+  height: 12%;
+  margin-left: -1px;
+  background: rgba(232, 238, 246, 0.55);
+  border-radius: 9999px;
+  transform-origin: 50% 330%;
+}
+
+.auth-compass__mark--n {
+  background: var(--auth-gold);
+  height: 14%;
+}
+
+.auth-compass__needle {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  width: 4px;
+  height: 64%;
+  margin-left: -2px;
+  transform-origin: 50% 70%;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #f3e2b3 0%, #c4a35a 42%, #7f1d1d 42%, #450a0a 100%);
+  animation: auth-compass-settle 5.5s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  will-change: transform;
+}
+
+.auth-compass__hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 35%, #fff7e0, #c4a35a 60%, #8a6b2f);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.35);
+}
+
+@keyframes auth-compass-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+}
+
+@keyframes auth-compass-settle {
+  0% {
+    transform: rotate(-18deg);
+  }
+  35% {
+    transform: rotate(8deg);
+  }
+  60% {
+    transform: rotate(-3deg);
+  }
+  80%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-compass__ring,
+  .auth-compass__needle {
+    animation: none;
+  }
+}
+
+.auth-password-meter {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.auth-password-meter__bar {
+  height: 0.28rem;
+  border-radius: 9999px;
+  background: hsl(var(--muted));
+  transition: background-color 160ms ease;
+}
+
+.auth-password-meter__bar.is-active-weak {
+  background: #dc2626;
+}
+.auth-password-meter__bar.is-active-fair {
+  background: #d97706;
+}
+.auth-password-meter__bar.is-active-good {
+  background: #0d9488;
+}
+.auth-password-meter__bar.is-active-strong {
+  background: #047857;
+}

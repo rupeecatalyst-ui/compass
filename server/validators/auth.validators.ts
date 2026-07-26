@@ -10,14 +10,21 @@ export interface AuthErrorResponse {
   };
 }
 
+/** Normalize email for lookup — users are stored lowercase at provision time. */
+const emailField = z
+  .string()
+  .trim()
+  .email()
+  .transform((value) => value.toLowerCase());
+
 export const loginSchema = z.object({
-  email: z.string().email(),
+  email: emailField,
   password: z.string().min(8),
   rememberMe: z.boolean().optional(),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email(),
+  email: emailField,
 });
 
 export const resetPasswordSchema = z.object({
@@ -42,7 +49,7 @@ export const changePasswordSchema = z
   });
 
 export const provisionUserSchema = z.object({
-  email: z.string().email(),
+  email: emailField,
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   employeeId: z.string().min(1),

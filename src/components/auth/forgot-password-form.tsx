@@ -36,7 +36,9 @@ export function ForgotPasswordForm() {
 
   const onSubmit = async (values: ForgotPasswordValues) => {
     try {
-      const result = await authService.forgotPassword(values);
+      const result = await authService.forgotPassword({
+        email: values.email.trim().toLowerCase(),
+      });
       success("Check your email", result.message);
       form.reset();
     } catch (err) {

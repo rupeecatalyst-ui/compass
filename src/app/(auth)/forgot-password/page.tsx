@@ -3,14 +3,15 @@ import { AuthLayout } from "@/layouts/auth-layout";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
 
 export const metadata: Metadata = {
-  title: "Forgot Password",
+  title: "Forgot Password · Catalyst One",
 };
 
 export default function ForgotPasswordPage() {
   return (
     <AuthLayout
-      title="Forgot password?"
-      description="Enter your email and we'll send you a reset link"
+      title="Forgot Password"
+      description="Enter your work email and we will send a secure reset link."
+      eyebrow="Password Recovery"
     >
       <ForgotPasswordForm />
     </AuthLayout>

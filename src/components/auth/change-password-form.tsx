@@ -3,9 +3,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { PasswordInput } from "@/components/auth/password-input";
+import {
+  evaluatePasswordStrength,
+  PasswordStrengthIndicator,
+} from "@/components/auth/password-strength-indicator";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -15,7 +20,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error-handler";
 import { ROUTES } from "@/constants/routes";
@@ -31,6 +35,16 @@ const schema = z
   .refine((d) => d.newPassword === d.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
+  })
+  .superRefine((d, ctx) => {
+    const { strength } = evaluatePasswordStrength(d.newPassword);
+    if (strength === "weak" || strength === "empty") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose a stronger password",
+        path: ["newPassword"],
+      });
+    }
   });
 
 type Values = z.infer<typeof schema>;
@@ -48,6 +62,8 @@ export function ChangePasswordForm() {
       confirmPassword: "",
     },
   });
+
+  const newPassword = useWatch({ control: form.control, name: "newPassword" });
 
   const onSubmit = async (values: Values) => {
     try {
@@ -76,7 +92,7 @@ export function ChangePasswordForm() {
               <FormItem>
                 <FormLabel>Current / temporary password</FormLabel>
                 <FormControl>
-                  <Input type="password" autoComplete="current-password" {...field} />
+                  <PasswordInput autoComplete="current-password" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -89,8 +105,9 @@ export function ChangePasswordForm() {
               <FormItem>
                 <FormLabel>New password</FormLabel>
                 <FormControl>
-                  <Input type="password" autoComplete="new-password" {...field} />
+                  <PasswordInput autoComplete="new-password" {...field} />
                 </FormControl>
+                <PasswordStrengthIndicator password={newPassword || ""} />
                 <FormMessage />
               </FormItem>
             )}
@@ -102,13 +119,17 @@ export function ChangePasswordForm() {
               <FormItem>
                 <FormLabel>Confirm new password</FormLabel>
                 <FormControl>
-                  <Input type="password" autoComplete="new-password" {...field} />
+                  <PasswordInput autoComplete="new-password" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          <Button
+            type="submit"
+            className="h-10 w-full bg-teal-700 hover:bg-teal-800"
+            disabled={form.formState.isSubmitting}
+          >
             {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save &amp; continue
           </Button>

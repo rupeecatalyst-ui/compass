@@ -1,11 +1,16 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { PasswordInput } from "@/components/auth/password-input";
+import {
+  evaluatePasswordStrength,
+  PasswordStrengthIndicator,
+} from "@/components/auth/password-strength-indicator";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -15,7 +20,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error-handler";
 import { authService } from "@/services/auth.service";
@@ -29,6 +33,16 @@ const resetPasswordSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
+  })
+  .superRefine((d, ctx) => {
+    const { strength } = evaluatePasswordStrength(d.password);
+    if (strength === "weak" || strength === "empty") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose a stronger password",
+        path: ["password"],
+      });
+    }
   });
 
 type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
@@ -42,6 +56,8 @@ export function ResetPasswordForm() {
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: "", confirmPassword: "" },
   });
+
+  const password = useWatch({ control: form.control, name: "password" });
 
   const onSubmit = async (values: ResetPasswordValues) => {
     if (!token) {
@@ -72,8 +88,9 @@ export function ResetPasswordForm() {
             <FormItem>
               <FormLabel>New password</FormLabel>
               <FormControl>
-                <Input type="password" placeholder="••••••••" autoComplete="new-password" {...field} />
+                <PasswordInput placeholder="••••••••" autoComplete="new-password" {...field} />
               </FormControl>
+              <PasswordStrengthIndicator password={password || ""} />
               <FormMessage />
             </FormItem>
           )}
@@ -85,18 +102,22 @@ export function ResetPasswordForm() {
             <FormItem>
               <FormLabel>Confirm password</FormLabel>
               <FormControl>
-                <Input type="password" placeholder="••••••••" autoComplete="new-password" {...field} />
+                <PasswordInput placeholder="••••••••" autoComplete="new-password" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !token}>
+        <Button
+          type="submit"
+          className="h-10 w-full bg-teal-700 hover:bg-teal-800"
+          disabled={form.formState.isSubmitting || !token}
+        >
           {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Reset password
         </Button>
         <p className="text-center text-sm text-muted-foreground">
-          <Link href={ROUTES.LOGIN} className="text-primary hover:underline">
+          <Link href={ROUTES.LOGIN} className="text-teal-700 hover:underline dark:text-teal-300">
             Back to sign in
           </Link>
         </p>

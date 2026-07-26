@@ -3,12 +3,17 @@ import { AuthLayout } from "@/layouts/auth-layout";
 import { LoginForm } from "@/components/auth/login-form";
 
 export const metadata: Metadata = {
-  title: "Sign In",
+  title: "Sign In · Catalyst One",
 };
 
 export default function LoginPage() {
   return (
-    <AuthLayout title="Welcome back" description="Sign in to your Catalyst One account">
+    <AuthLayout
+      title="Sign In"
+      description="Access your Catalyst One workspace securely."
+      eyebrow="Enterprise Authentication"
+      hideAuthFooter
+    >
       <LoginForm />
     </AuthLayout>
   );
