@@ -3,11 +3,13 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
 import { getProposalButtonLabel } from "@/lib/chanakya-phase5-intelligence";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
+import type { PropertyType } from "@/constants/loan-stage-master";
 import type { LoanFile, LoanFileDocument, LoanFileTimelineEvent } from "@/types/catalyst-one";
 import type {
   EcwLeftSectionId,
@@ -16,9 +18,13 @@ import type {
 import { ECW_LEFT_SECTIONS } from "@/types/enterprise-credit-workspace";
 import type { ChanakyaProposalReadinessReview } from "@/types/chanakya-phase5-intelligence";
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
+import {
+  NATURE_OF_BUSINESS_NOT_AVAILABLE,
+  resolveNatureOfBusinessFromProfile,
+} from "@/lib/lead-opportunity-journey/nature-of-business";
 import { useEffect, useMemo } from "react";
 
-function SectionNav({
+export function EcwSectionTabs({
   active,
   onChange,
   employmentType,
@@ -43,14 +49,17 @@ function SectionNav({
   );
 
   return (
-    <nav className="flex gap-0.5 overflow-x-auto border-b border-border/50 px-1.5 py-1.5 lg:flex-col lg:overflow-y-auto lg:overflow-x-visible">
+    <nav
+      className="flex gap-1 overflow-x-auto border-b border-border/50 bg-muted/10 px-2 py-1.5"
+      aria-label="Verification sections"
+    >
       {sections.map((s) => (
         <button
           key={s.id}
           type="button"
           onClick={() => onChange(s.id)}
           className={cn(
-            "shrink-0 rounded-md px-2 py-1 text-left text-[10px] font-medium leading-snug transition-colors",
+            "shrink-0 rounded-md px-2.5 py-1.5 text-[11px] font-medium leading-snug transition-colors",
             active === s.id
               ? "bg-teal-600 text-white shadow-sm"
               : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -103,6 +112,10 @@ export function EcwLeftPanel({
     () => getContextAwareVisibility(file.employmentType),
     [file.employmentType],
   );
+  const natureOfBusiness = useMemo(
+    () => resolveNatureOfBusinessFromProfile(file),
+    [file, stated.statedNatureOfBusiness],
+  );
 
   useEffect(() => {
     if (section === "stated_financial" && categoryCtx.isSelfEmployedFamily) {
@@ -119,8 +132,8 @@ export function EcwLeftPanel({
   ]);
 
   return (
-    <div className="flex flex-col bg-background">
-      <div className="flex h-9 items-center border-b border-border/50 px-2.5">
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="flex h-9 shrink-0 items-center border-b border-border/50 px-2.5">
         <div className="min-w-0">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Verification Form
@@ -137,16 +150,7 @@ export function EcwLeftPanel({
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row">
-        <div className="shrink-0 overflow-x-auto lg:w-[150px] lg:shrink-0 lg:border-r lg:border-border/50">
-          <SectionNav
-            active={section}
-            onChange={onSectionChange}
-            employmentType={file.employmentType}
-          />
-        </div>
-
-        <div className="flex-1 px-2.5 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-2">
           {section === "customer_snapshot" && (
             <div className="space-y-1.5 text-[11px]">
               <p className="text-[10px] text-muted-foreground">
@@ -177,7 +181,8 @@ export function EcwLeftPanel({
           {section === "stated_financial" && (
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Stated Financial Information — completeness only. View bank statements in the centre panel.
+                Stated Financial Information — completeness only. Open a category with View to
+                verify figures while editing this form.
               </p>
               <Field label="Stated Monthly Income">
                 <Input
@@ -231,10 +236,19 @@ export function EcwLeftPanel({
               </Field>
               <Field label="Nature of Business">
                 <Input
-                  className="h-8 text-xs"
-                  value={stated.statedNatureOfBusiness ?? ""}
-                  onChange={(e) => onStatedChange({ statedNatureOfBusiness: e.target.value })}
+                  className="h-8 text-xs bg-muted/30"
+                  value={
+                    natureOfBusiness.source === "none"
+                      ? NATURE_OF_BUSINESS_NOT_AVAILABLE
+                      : natureOfBusiness.label
+                  }
+                  readOnly
+                  aria-readonly="true"
+                  title="Maintained on Customer / Company Profile"
                 />
+                <p className="text-[10px] text-muted-foreground">
+                  From Customer / Company Profile — not edited on this desk.
+                </p>
               </Field>
             </div>
           )}
@@ -243,10 +257,11 @@ export function EcwLeftPanel({
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">Stated Property Information</p>
               <Field label="Stated Property Type">
-                <Input
-                  className="h-8 text-xs"
-                  value={stated.statedPropertyType ?? file.propertyType ?? ""}
-                  onChange={(e) => onStatedChange({ statedPropertyType: e.target.value })}
+                <PropertyTypeSelect
+                  value={stated.statedPropertyType ?? file.propertyType}
+                  onSelect={(type: PropertyType) =>
+                    onStatedChange({ statedPropertyType: type })
+                  }
                 />
               </Field>
               <Field label="Stated Property Value">
@@ -323,8 +338,8 @@ export function EcwLeftPanel({
           {section === "proposal" && (
             <div className="space-y-3 text-xs">
               <p className="leading-relaxed text-muted-foreground">
-                Proposal generation will run from this workspace after readiness is met. Keep reviewing statements on the
-                right while refining Stated Information here.
+                Proposal generation will run from this workspace after readiness is met. Keep the
+                preview drawer open while refining Stated Information here.
               </p>
               <Button type="button" size="sm" className="h-8 text-xs" disabled={!readiness.ready}>
                 {getProposalButtonLabel()}
@@ -353,7 +368,6 @@ export function EcwLeftPanel({
           {section === "timeline" && (
             <TimelineList events={file.timeline ?? []} />
           )}
-        </div>
       </div>
     </div>
   );

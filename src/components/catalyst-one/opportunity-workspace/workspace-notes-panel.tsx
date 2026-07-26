@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/components/providers/auth-provider";
-import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
+import { OwGlassPanel } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
+import { StrategicTabToolbar } from "./strategic-tab-toolbar";
 
 interface StrategicNote {
   id: string;
@@ -29,13 +30,14 @@ function saveNotes(opportunityId: string, notes: StrategicNote[]) {
   localStorage.setItem(`${STORAGE_KEY}:${opportunityId}`, JSON.stringify(notes));
 }
 
-/** Simplified Notes — draft area + Save + chronological list. */
+/** Notes — draft area + Save + chronological list with Edit. */
 export function WorkspaceNotesPanel() {
   const { opportunityId } = useOpportunityWorkspace();
   const { user } = useAuthContext();
   const [draft, setDraft] = useState("");
   const [notes, setNotes] = useState<StrategicNote[]>([]);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [editing, setEditing] = useState(true);
 
   const author =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Platform Admin";
@@ -67,31 +69,35 @@ export function WorkspaceNotesPanel() {
 
   return (
     <div className="space-y-4">
-      <OwGlassPanel>
-        <OwPanelHeader
-          title="Notes"
-          description="Capture planning decisions and customer discussion outcomes."
-        />
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Write a concise decision note…"
-          className="mt-3 min-h-[120px] w-full resize-y rounded-md border border-white/10 bg-zinc-950/50 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/40"
-        />
-        <div className="mt-3 flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 gap-1.5 text-xs"
-            onClick={onSave}
-            disabled={!draft.trim()}
-          >
-            <Save className="h-3.5 w-3.5" />
-            Save Note
-          </Button>
-          {savedFlash && <span className="text-[11px] text-emerald-300">Saved</span>}
-        </div>
-      </OwGlassPanel>
+      <StrategicTabToolbar
+        title="Notes"
+        description="Capture planning decisions and customer discussion outcomes."
+        editing={editing}
+        onEditToggle={() => setEditing((v) => !v)}
+      />
+      {editing && (
+        <OwGlassPanel>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Write a concise decision note…"
+            className="min-h-[120px] w-full resize-y rounded-md border border-white/10 bg-zinc-950/50 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600/40"
+          />
+          <div className="mt-3 flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={onSave}
+              disabled={!draft.trim()}
+            >
+              <Save className="h-3.5 w-3.5" />
+              Save Note
+            </Button>
+            {savedFlash && <span className="text-[11px] text-emerald-300">Saved</span>}
+          </div>
+        </OwGlassPanel>
+      )}
 
       <OwGlassPanel className="!p-3">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
@@ -99,19 +105,15 @@ export function WorkspaceNotesPanel() {
         </p>
         <ul className="mt-3 space-y-2">
           {notes.length === 0 && (
-            <li className="rounded-lg border border-dashed border-white/15 px-3 py-6 text-center text-xs text-zinc-500">
-              No notes yet. Save the first planning note to start the record.
-            </li>
+            <li className="text-[11px] text-zinc-500">No notes yet.</li>
           )}
           {notes.map((n) => (
             <li
               key={n.id}
-              className="rounded-lg border border-white/10 bg-zinc-950/45 px-3 py-2.5"
+              className="rounded-lg border border-white/10 bg-zinc-950/40 px-2.5 py-2"
             >
-              <p className="whitespace-pre-wrap text-xs leading-relaxed text-zinc-100">
-                {n.content}
-              </p>
-              <p className="mt-2 text-[10px] text-zinc-500">
+              <p className="text-xs leading-relaxed text-zinc-200">{n.content}</p>
+              <p className="mt-1 text-[10px] text-zinc-500">
                 {n.author} · {new Date(n.createdAt).toLocaleString()}
               </p>
             </li>
@@ -121,4 +123,3 @@ export function WorkspaceNotesPanel() {
     </div>
   );
 }
-

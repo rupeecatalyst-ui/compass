@@ -14,6 +14,7 @@ import {
 } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
 /**
  * Opportunity Creation stage when an Enterprise Opportunity exists without a Loan File yet.
@@ -75,12 +76,11 @@ export function OpportunityCreationStage({
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-          <p className="text-xs text-muted-foreground">Loading Opportunity Creation…</p>
-        </div>
-      </div>
+      <ChanakyaLoadingExperience
+        module="opportunity"
+        density="panel"
+        statusLabel="Opening Opportunity Creation…"
+      />
     );
   }
 

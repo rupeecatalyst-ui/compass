@@ -4,6 +4,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { buildElwWorkspaceHref, normalizeLenderId } from "@/constants/enterprise-lender-workspace";
 import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 
 type EntityType = "customer" | "loan" | "lender" | "company" | "task" | "document";
 
@@ -20,7 +21,7 @@ function hrefFor(type: EntityType, id: string): string {
     case "customer":
       return `/customers?customer=${id}`;
     case "loan":
-      return `${ROUTES.LOAN_FILES}?file=${id}`;
+      return buildDealWorkspaceHref({ fileId: id, tab: "lenders" });
     case "lender":
       return buildElwWorkspaceHref(normalizeLenderId(id), {
         from: "search",

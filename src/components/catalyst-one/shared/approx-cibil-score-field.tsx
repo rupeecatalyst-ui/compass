@@ -32,6 +32,8 @@ interface ApproxCibilScoreFieldProps {
   /** Compact loan-journey styling */
   triggerClassName?: string;
   id?: string;
+  /** Override display label — values/master remain Approximate CIBIL SSOT. */
+  label?: string;
 }
 
 /**
@@ -46,12 +48,14 @@ export function ApproxCibilScoreField({
   className,
   triggerClassName,
   id = "approx-cibil-score",
+  label = "Approximate CIBIL Score",
 }: ApproxCibilScoreFieldProps) {
   return (
     <div className={cn(className)}>
       <div className="flex items-center gap-1.5">
         <Label htmlFor={id} className="text-[10px] uppercase text-muted-foreground">
-          Approximate CIBIL Score{required ? " *" : ""}
+          {label}
+          {required ? " *" : ""}
         </Label>
         <TooltipProvider delayDuration={200}>
           <Tooltip>
@@ -59,7 +63,7 @@ export function ApproxCibilScoreField({
               <button
                 type="button"
                 className="inline-flex text-muted-foreground hover:text-foreground"
-                aria-label="Approximate CIBIL Score help"
+                aria-label={`${label} help`}
               >
                 <HelpCircle className="h-3.5 w-3.5" />
               </button>

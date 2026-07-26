@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building2,
+  ClipboardList,
   FileText,
   Home,
   Pencil,
@@ -14,10 +15,12 @@ import {
 } from "lucide-react";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
 import { OpportunityBoundStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-bound-stage";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
 import { ChanakyaOpportunityRecommendationPanel } from "@/components/catalyst-one/credit-bench/chanakya-opportunity-recommendation-panel";
 import { OpportunityLoanStructureTab } from "@/components/catalyst-one/credit-bench/opportunity-loan-structure-tab";
 import { ModifyLoanDetailsSheet } from "@/components/catalyst-one/credit-bench/modify-loan-details-sheet";
+import { CreditBenchDocumentRequestsHost } from "@/components/catalyst-one/credit-bench/credit-bench-document-requests-host";
 import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
 import {
   journeyContextFromLoanFile,
@@ -32,6 +35,7 @@ import {
   resolveStatedDraftForFile,
   saveStatedDraft,
 } from "@/lib/lead-opportunity-journey/stated-draft";
+import { NATURE_OF_BUSINESS_NOT_AVAILABLE } from "@/lib/lead-opportunity-journey/nature-of-business";
 import {
   getCachedOpportunityRecord,
   isOpportunityRuntimeCase,
@@ -54,12 +58,21 @@ import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { syncParticipantLegacyFields } from "@/lib/loan-participants";
 import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
 import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
 import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { listEcmMasterOptions } from "@/constants/enterprise-contact-master";
 import { cn } from "@/lib/utils";
 import { useRequirementCapturedGate } from "@/lib/loan-journey/use-requirement-captured-gate";
 import type { EcwStatedInformationDraft } from "@/types/enterprise-credit-workspace";
@@ -67,6 +80,9 @@ import type { LoanFile } from "@/types/catalyst-one";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { toast } from "sonner";
 
+const CONSTITUTION_OPTIONS = listEcmMasterOptions("constitution").filter(
+  (o) => o.id !== "other",
+);
 /**
  * Lead Stage — Opportunity Setup (formerly Credit Bench).
  * Capture/reuse profile context. Verification stays in Credit Workbench.
@@ -90,6 +106,7 @@ export function CreditBenchWorkspace() {
   const [section, setSection] = useState<
     | "customer"
     | "loan"
+    | "document_requests"
     | "structure"
     | "financial"
     | "business"
@@ -156,7 +173,7 @@ export function CreditBenchWorkspace() {
   const context = useMemo(() => journeyContextFromLoanFile(file), [file]);
   const profile = useMemo(
     () => (file ? businessProfileFromLoanFile(file) : null),
-    [file],
+    [file, stated.statedNatureOfBusiness, contactEditOpen],
   );
   const categoryCtx = useMemo(
     () => getContextAwareVisibility(file?.employmentType),
@@ -265,10 +282,10 @@ export function CreditBenchWorkspace() {
     if (!file) return;
     const toLoan = (tab?: string) =>
       router.push(
-        buildJourneyHref(ROUTES.LOAN_FILES, {
+        buildDealWorkspaceHref({
           fileId: file.id,
           opportunityId: opportunityId ?? undefined,
-          tab,
+          tab: tab || "lenders",
         }),
       );
     const toDocs = () =>
@@ -327,27 +344,25 @@ export function CreditBenchWorkspace() {
 
   if (requirementGate.status === "loading" || requirementGate.status === "redirecting") {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-          <p className="text-xs text-muted-foreground">
-            {requirementGate.status === "redirecting"
-              ? "Requirement not captured — opening Lead Information…"
-              : "Loading Opportunity Setup…"}
-          </p>
-        </div>
-      </div>
+      <ChanakyaLoadingExperience
+        module="opportunity"
+        density="panel"
+        statusLabel={
+          requirementGate.status === "redirecting"
+            ? "Requirement not captured — opening Lead Information…"
+            : "Opening Opportunity Setup…"
+        }
+      />
     );
   }
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-          <p className="text-xs text-muted-foreground">Loading Opportunity Setup…</p>
-        </div>
-      </div>
+      <ChanakyaLoadingExperience
+        module="opportunity"
+        density="panel"
+        statusLabel="Opening Opportunity Setup…"
+      />
     );
   }
 
@@ -357,9 +372,12 @@ export function CreditBenchWorkspace() {
 
   // BAT #8 — Salaried → Financial only; Self-Employed → Business Profile only.
   // BAT #9 — Property tab only when secured lending applies.
+  // CO-DOC-001 — Document Requests immediately after Loan Requirement (Loan Details).
+  // Single LOD workflow — not duplicated on Strategic Workspace.
   const sections = [
     { id: "customer" as const, label: "Customer", icon: UserRound },
     { id: "loan" as const, label: "Loan Details", icon: FileText },
+    { id: "document_requests" as const, label: "Document Requests", icon: ClipboardList },
     { id: "structure" as const, label: "Loan Structure", icon: Users },
     ...(categoryCtx.isSalariedFamily
       ? [{ id: "financial" as const, label: "Financial", icon: Wallet }]
@@ -543,6 +561,13 @@ export function CreditBenchWorkspace() {
               </Panel>
             )}
 
+            {section === "document_requests" && (
+              <CreditBenchDocumentRequestsHost
+                fileId={file.id}
+                opportunityId={resolveOppId}
+              />
+            )}
+
             {section === "structure" && (
               <OpportunityLoanStructureTab
                 file={file}
@@ -652,6 +677,25 @@ export function CreditBenchWorkspace() {
               >
                 {editingBusiness ? (
                   <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Business Constitution">
+                      <Select
+                        value={stated.statedConstitution || undefined}
+                        onValueChange={(v) =>
+                          setStated((p) => ({ ...p, statedConstitution: v }))
+                        }
+                      >
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Select constitution" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CONSTITUTION_OPTIONS.map((o) => (
+                            <SelectItem key={o.id} value={o.id}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
                     <Field label="Stated Annual Turnover">
                       <Input
                         className="h-9 text-sm"
@@ -670,24 +714,45 @@ export function CreditBenchWorkspace() {
                         }
                       />
                     </Field>
-                    <Field label="Nature of Business">
-                      <Input
-                        className="h-9 text-sm"
-                        value={stated.statedNatureOfBusiness ?? ""}
-                        onChange={(e) =>
-                          setStated((p) => ({ ...p, statedNatureOfBusiness: e.target.value }))
-                        }
-                      />
-                    </Field>
+                    <ReadOnly
+                      label="Nature of Business"
+                      value={
+                        profile?.natureOfBusiness || NATURE_OF_BUSINESS_NOT_AVAILABLE
+                      }
+                      badge={
+                        profile?.natureOfBusinessSource &&
+                        profile.natureOfBusinessSource !== "none"
+                          ? "From Profile"
+                          : undefined
+                      }
+                    />
+                    <p className="sm:col-span-2 text-[11px] text-muted-foreground">
+                      Nature of Business is maintained on the Customer / Company Profile and
+                      updates automatically here.
+                    </p>
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {profile?.companyName && (
                       <ReadOnly label="Business / Company" value={profile.companyName} badge="Reused" />
                     )}
-                    {profile?.constitution && (
-                      <ReadOnly label="Constitution" value={profile.constitution} badge="Reused" />
-                    )}
+                    <ReadOnly
+                      label="Business Constitution"
+                      value={
+                        CONSTITUTION_OPTIONS.find((o) => o.id === stated.statedConstitution)?.label ||
+                        stated.statedConstitution ||
+                        CONSTITUTION_OPTIONS.find((o) => o.id === profile?.constitution)?.label ||
+                        profile?.constitution ||
+                        "—"
+                      }
+                      badge={
+                        stated.statedConstitution || profile?.constitution
+                          ? profile?.constitution && !stated.statedConstitution
+                            ? "Reused"
+                            : undefined
+                          : undefined
+                      }
+                    />
                     <ReadOnly
                       label="Annual Turnover"
                       value={stated.statedTurnover || profile?.turnover || "—"}
@@ -700,14 +765,20 @@ export function CreditBenchWorkspace() {
                     />
                     <ReadOnly
                       label="Nature of Business"
-                      value={stated.statedNatureOfBusiness || profile?.natureOfBusiness || "—"}
-                      badge={businessFromProfile ? "Reused" : undefined}
+                      value={
+                        profile?.natureOfBusiness || NATURE_OF_BUSINESS_NOT_AVAILABLE
+                      }
+                      badge={
+                        profile?.natureOfBusinessSource &&
+                        profile.natureOfBusinessSource !== "none"
+                          ? "From Profile"
+                          : undefined
+                      }
                     />
                   </div>
                 )}
               </Panel>
             )}
-
             {section === "property" && propertyApplicable && (
               <Panel
                 title="Property Details"

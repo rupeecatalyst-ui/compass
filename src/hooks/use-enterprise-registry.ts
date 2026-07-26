@@ -23,7 +23,7 @@ import {
   type EnterpriseEntityKind,
 } from "@/lib/enterprise-registry/entity-search";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
-import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 import type { ParticipantEntityOption } from "@/types/loan-participant";
 

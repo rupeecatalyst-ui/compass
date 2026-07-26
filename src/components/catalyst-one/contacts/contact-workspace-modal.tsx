@@ -62,6 +62,7 @@ import type { EcmWorkspaceTab } from "@/lib/enterprise-contact-master";
 import { loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
 import { isLoanCompleted } from "@/lib/customer-utils";
 import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { buildOpportunityWorkspaceStageHref } from "@/constants/opportunity-workspace-stages";
 import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
 import type { LoanFile } from "@/types/catalyst-one";
@@ -92,7 +93,7 @@ import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-t
 import { listContactCompanyLinks, getEcmCompany } from "@/lib/enterprise-company-master";
 import { ECM_COMPANY_RELATION_ROLE_LABELS } from "@/constants/enterprise-company-master";
 import { canSoftDelete, softDeleteApi } from "@/lib/enterprise-soft-delete";
-import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { cn } from "@/lib/utils";
 
 export type ContactWorkspaceMode = "create" | "edit";
@@ -766,10 +767,6 @@ export function ContactWorkspaceModal({
   };
 
   const handleOverrideCreateOpportunity = async () => {
-    const confirmed = window.confirm(
-      "Create another active Opportunity for the same Contact and Product?\n\nThis is an exceptional override. Prefer Open Existing Opportunity whenever possible.",
-    );
-    if (!confirmed) return;
     await handleStartLoanJourney({ forceCreate: true });
   };
 
@@ -788,7 +785,7 @@ export function ContactWorkspaceModal({
             ? `${ROUTES.OPPORTUNITY_WORKSPACE}?file=${opts.loanFileId}`
             : opts.openHref
           : opts.loanFileId
-            ? `${ROUTES.LOAN_FILES}?file=${opts.loanFileId}`
+            ? buildDealWorkspaceHref({ fileId: opts.loanFileId, tab: "lenders" })
             : opts.openHref ?? href ?? ROUTES.OPPORTUNITY_WORKSPACE;
         router.push(target);
         return;
@@ -2054,13 +2051,13 @@ export function ContactWorkspaceModal({
                   {tab === "loans" && active && (
                     <ContactEntityWorkspaceShell
                       title="Loans"
-                      description="Loan files linked to this contact."
-                      actionLabel="Open Loan Files"
-                      onAction={() => router.push(ROUTES.LOAN_FILES)}
+                      description="Deals linked to this contact."
+                      actionLabel="Open My Deals"
+                      onAction={() => router.push(ROUTES.MY_DEALS)}
                     >
                       {findActiveLoanForContact(active) ? (
                         <p className="text-sm text-zinc-200">
-                          Active loan found · continue execution from Loan Workspace.
+                          Active deal found · continue execution from Deal Workspace.
                         </p>
                       ) : (
                         <p className="text-sm text-zinc-500">No active loan files for this contact.</p>
@@ -2218,7 +2215,7 @@ export function ContactWorkspaceModal({
             onOpenChange(false);
             onDeleted?.(active.id);
           } catch (err) {
-            window.alert(err instanceof Error ? err.message : "Delete failed");
+            toast.error(err instanceof Error ? err.message : "Delete failed");
           } finally {
             setDeleting(false);
           }

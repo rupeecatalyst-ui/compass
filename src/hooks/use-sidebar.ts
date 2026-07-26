@@ -2,7 +2,7 @@
 
 import { useSidebarContext } from "@/components/providers/sidebar-provider";
 
-/** Global sidebar collapse state — shared via SidebarProvider (UX-02). */
+/** Global sidebar collapse state — shared via SidebarProvider (UX-02 / CO-UX Auto-Collapse). */
 export function useSidebar() {
   const {
     collapsed,
@@ -12,6 +12,13 @@ export function useSidebar() {
     setCollapsed,
     openMobile,
     closeMobile,
+    navMode,
+    setNavMode,
+    noteNavInteraction,
+    setPeekOpen,
+    peekOpen,
+    schedulePeekLeave,
+    cancelPeekLeave,
   } = useSidebarContext();
 
   return {
@@ -22,5 +29,12 @@ export function useSidebar() {
     openMobile,
     closeMobile,
     sidebarWidth,
+    navMode,
+    setNavMode,
+    noteNavInteraction,
+    setPeekOpen,
+    peekOpen,
+    schedulePeekLeave,
+    cancelPeekLeave,
   };
 }

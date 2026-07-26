@@ -6,7 +6,6 @@ export type OwStrategicTabId =
   | "overview"
   | "customer"
   | "requirement"
-  | "document_requests"
   | "product"
   | "relationships"
   | "competition"
@@ -20,7 +19,8 @@ export type OwStrategicTabId =
 
 /**
  * Horizontal Strategic Tabs — frozen order (Business Certified UX Spec v2.0).
- * Document Requests (workflow) inserted after Requirement — not merged with Documents.
+ * CO-DOC-001: Document Requests lives only on Opportunity Creation (Credit Bench),
+ * immediately after Loan Details — not duplicated here.
  * Internal id `funding_strategy` retained; UI label is Lender Strategy (LIFE).
  * Internal id `product` retained; UI label is Solution Design.
  */
@@ -28,7 +28,6 @@ export const OW_STRATEGIC_NAV: Array<{ id: OwStrategicTabId; label: string }> = 
   { id: "overview", label: "Overview" },
   { id: "customer", label: "Customer Profile" },
   { id: "requirement", label: "Requirement" },
-  { id: "document_requests", label: "Document Requests" },
   { id: "product", label: "Solution Design" },
   { id: "relationships", label: "Relationships" },
   { id: "competition", label: "Competition" },
@@ -57,16 +56,6 @@ export function getOwChanakyaTabGuidance(tab: OwStrategicTabId): {
         headline: "Requirement",
         message: "Funding purpose needs additional clarification.",
         nudges: ["Confirm amount, purpose, and urgency before LIFE."],
-      };
-    case "document_requests":
-      return {
-        headline: "Document Requests",
-        message:
-          "Generate the List of Documents only after Customer, Product, and Borrower Type are complete — then request uploads via the secure customer link.",
-        nudges: [
-          "Document Requests is the collection workflow — Document Center remains the repository.",
-          "Critical documents gate lender submission readiness; Journey documents can follow.",
-        ],
       };
     case "product":
       return {

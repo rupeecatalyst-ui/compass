@@ -29,22 +29,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EdieComplianceSummaryDialog } from "@/components/catalyst-one/shared/edie-compliance-summary-dialog";
 import { ChanakyaLenderLoginProbeDialog } from "@/components/catalyst-one/execution/chanakya-lender-login-probe-dialog";
 import { LenderStrategyDrawer } from "@/components/catalyst-one/execution/lender-strategy-drawer";
-import { evaluateEdieComplianceGate } from "@/lib/edie-certified";
-import type { EdieComplianceGateResult } from "@/types/edie-certified-rules";
+import { tracePipelineDrag } from "@/lib/enterprise-deal/pipeline-drag-trace";
 import {
   buildLenderLoginProbePatch,
   isLenderLoginProbeComplete,
   type LenderLoginProbeValues,
 } from "@/lib/lender-pipeline/login-probe";
 import type { LoanCommercialPayeeType } from "@/constants/loan-commercial-payee";
-import {
-  INVOICE_PARTY_REQUIRED_MESSAGE,
-  invoicePartyRequiredToProgressTo,
-  isInvoicePartyAssigned,
-} from "@/lib/loan-commercial-payee";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -61,11 +54,11 @@ import type {
   LenderLostReason,
   LenderPaymentStatus,
   LenderProbability,
-  LoanFile,
   LoanLenderExecution,
 } from "@/types/catalyst-one";
 import { EnterpriseLenderSearch } from "@/components/catalyst-one/shared/enterprise-lender-search";
 import { rememberDealLender } from "@/lib/deal-workspace/recent-deal-lenders";
+import type { DealPipelineContext } from "@/types/deal-pipeline-runtime";
 import type { EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
@@ -80,7 +73,7 @@ function newId(prefix: string) {
 type WorkflowCase = LoanLenderExecution & { targetStage: LenderCaseStage };
 
 export function LenderPipelineBoard({
-  loan,
+  context,
   cases,
   updatedBy,
   onChange,
@@ -88,12 +81,15 @@ export function LenderPipelineBoard({
   addOpen,
   onAddOpenChange,
   onOpenLenderDocuments,
+  onIdentifyLender,
+  onActiveCaseChange,
 }: {
-  loan: LoanFile;
+  /** CO-ARCH-005 — Deal Registry context only (not LoanFile). */
+  context: DealPipelineContext;
   cases: LoanLenderExecution[];
   updatedBy: string;
   onChange: (next: LoanLenderExecution[]) => void;
-  /** @deprecated CO-SPRINT-098 — Payee is collected per lender card via CHANAKYA probe. Kept for call-site compat. */
+  /** @deprecated CO-UX-001 — Payee is Accounting Stage; not collected during lender identification. */
   onCommercialPayeeChange?: (next: {
     commercialPayee?: LoanCommercialPayeeType;
     commercialPayeeSpecify?: string;
@@ -103,7 +99,20 @@ export function LenderPipelineBoard({
   onAddOpenChange?: (open: boolean) => void;
   /** BAT #23 — open Deal Documents → Lender Documents for this lender. */
   onOpenLenderDocuments?: (caseExecution: LoanLenderExecution) => void;
+  /**
+   * CO-ARCH-007 — Create/upsert EnterpriseDeal for the selected lender.
+   * When provided, Identify Lender never appends snapshot-only cases.
+   */
+  onIdentifyLender?: (input: {
+    lender: EnterpriseLenderRecord;
+    program: EnterpriseLenderProgramRecord;
+    expectedLoanAmount?: number;
+    caseSubStage?: string;
+  }) => Promise<void>;
+  /** CO-UX-015 — notify when operator focuses a lender card (Action Center context). */
+  onActiveCaseChange?: (caseExecution: LoanLenderExecution) => void;
 }) {
+  const loan = context;
   const [dragOverStage, setDragOverStage] = useState<LenderCaseStage | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [addOpenInternal, setAddOpenInternal] = useState(false);
@@ -131,9 +140,12 @@ export function LenderPipelineBoard({
   const [lostCase, setLostCase] = useState<WorkflowCase | null>(null);
   const [holdCase, setHoldCase] = useState<WorkflowCase | null>(null);
   const [loginProbeCase, setLoginProbeCase] = useState<WorkflowCase | null>(null);
-  const [complianceOpen, setComplianceOpen] = useState(false);
-  const [complianceResult, setComplianceResult] = useState<EdieComplianceGateResult | null>(null);
   const [strategyCase, setStrategyCase] = useState<LoanLenderExecution | null>(null);
+
+  const focusCase = (c: LoanLenderExecution | undefined | null) => {
+    if (!c) return;
+    onActiveCaseChange?.(c);
+  };
 
   const [addForm, setAddForm] = useState<{
     lender: string;
@@ -207,16 +219,26 @@ export function LenderPipelineBoard({
     e.dataTransfer.setData("text/plain", caseId);
     e.dataTransfer.effectAllowed = "move";
     setDraggingId(caseId);
+    focusCase(cases.find((x) => x.id === caseId));
+    tracePipelineDrag("drag_start", { caseId });
   };
 
   const handleDrop = (e: React.DragEvent, stage: LenderCaseStage) => {
     e.preventDefault();
     const caseId = e.dataTransfer.getData("text/plain");
-    if (!caseId) return;
+    tracePipelineDrag("drop", { caseId, stage });
+    if (!caseId) {
+      tracePipelineDrag("error", { reason: "missing_case_id" });
+      return;
+    }
     const c = cases.find((x) => x.id === caseId);
-    if (!c) return;
+    if (!c) {
+      tracePipelineDrag("error", { reason: "case_not_found", caseId });
+      return;
+    }
 
     if (stage === "disbursed") {
+      tracePipelineDrag("stage_validation", { gate: "disbursement_dialog", caseId, stage });
       setDisbursementCase({ ...c, targetStage: stage });
       setDisbursementForm({
         disbursementDate: new Date().toISOString().slice(0, 10),
@@ -233,6 +255,7 @@ export function LenderPipelineBoard({
       return;
     }
     if (stage === "lost") {
+      tracePipelineDrag("stage_validation", { gate: "lost_dialog", caseId, stage });
       setLostCase({ ...c, targetStage: stage });
       setLostReason(c.lostReason ?? "rejected");
       setDragOverStage(null);
@@ -240,6 +263,7 @@ export function LenderPipelineBoard({
       return;
     }
     if (stage === "hold") {
+      tracePipelineDrag("stage_validation", { gate: "hold_dialog", caseId, stage });
       setHoldCase({ ...c, targetStage: stage });
       setHoldForm({
         holdReason: c.holdReason ?? "",
@@ -250,22 +274,18 @@ export function LenderPipelineBoard({
       return;
     }
 
-    /** CO-SPRINT-098 — Identified/Pre Login → Logged In: CHANAKYA probe (lender-card scoped). */
+    /** CO-UX-001 — Identified/Pre Login → Logged In: minimal Property Identified probe. */
     if (stage === "logged_in_wip" && !isLenderLoginProbeComplete(c)) {
+      tracePipelineDrag("stage_validation", { gate: "login_probe", caseId, stage });
       setLoginProbeCase({ ...c, targetStage: stage });
       setDragOverStage(null);
       setDraggingId(null);
       return;
     }
 
-    /** CO-ARCH-003 Phase 2B S1 — Invoice Party required beyond configured stage. */
-    if (invoicePartyRequiredToProgressTo(stage) && !isInvoicePartyAssigned(loan)) {
-      toast.error(INVOICE_PARTY_REQUIRED_MESSAGE);
-      setDragOverStage(null);
-      setDraggingId(null);
-      return;
-    }
+    // CO-UX-001 — Payee / Invoice Party is Accounting Stage — never block Pipeline drag.
 
+    tracePipelineDrag("apply_move", { caseId, from: c.caseStage, to: stage });
     applyMove(caseId, stage);
   };
 
@@ -280,9 +300,50 @@ export function LenderPipelineBoard({
     }
     const displayName = pendingLender.displayName || pendingLender.label;
     if (assignedLenders.has(displayName) || assignedRegistryIds.has(pendingLender.id)) {
-      toast.error("This lender is already identified on the Deal.");
+      toast.error("This lender already has an Enterprise Deal on this Opportunity.");
       return;
     }
+
+    const finishClose = () => {
+      setAddDialogOpen(false);
+      setPendingLender(null);
+      setPendingProgram(null);
+      setAddForm({
+        lender: "",
+        expectedLoanAmount: loan.requiredAmount,
+        caseStage: "identified",
+        caseSubStage: "",
+      });
+    };
+
+    // CO-ARCH-007 — Prefer EnterpriseDeal create/upsert over snapshot append.
+    if (onIdentifyLender) {
+      void (async () => {
+        try {
+          await onIdentifyLender({
+            lender: pendingLender,
+            program: pendingProgram,
+            expectedLoanAmount: addForm.expectedLoanAmount,
+            caseSubStage: addForm.caseSubStage || undefined,
+          });
+          rememberDealLender({
+            id: pendingLender.id,
+            displayName,
+            code: pendingLender.code,
+          });
+          onTimeline(
+            `Enterprise Deal created: ${displayName} · Program ${pendingProgram.label}`,
+          );
+          finishClose();
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Failed to create Enterprise Deal";
+          toast.error(message);
+        }
+      })();
+      return;
+    }
+
     const ts = nowIso();
     const next: LoanLenderExecution = {
       id: newId("lcase"),
@@ -330,15 +391,7 @@ export function LenderPipelineBoard({
         next.lenderCode ? ` (${next.lenderCode})` : ""
       }`,
     );
-    setAddDialogOpen(false);
-    setPendingLender(null);
-    setPendingProgram(null);
-    setAddForm({
-      lender: "",
-      expectedLoanAmount: loan.requiredAmount,
-      caseStage: "identified",
-      caseSubStage: "",
-    });
+    finishClose();
   };
 
   const setPrimary = (id: string) => {
@@ -385,14 +438,10 @@ export function LenderPipelineBoard({
 
   const confirmDisbursement = () => {
     if (!disbursementCase) return;
-    // Disbursed → Invoicing: mandatory EDIE compliance gate only when invoice is raised.
+    // CO-ARCH-005 — EDIE gate is LoanFile-shaped; Deal path records invoice intent without LoanFile.
+    // Full Deal-native EDIE evaluation is a follow-on; do not revive LoanFile for this gate.
     if (disbursementForm.invoiceRaised) {
-      const gate = evaluateEdieComplianceGate(loan);
-      if (!gate.allowed) {
-        setComplianceResult(gate);
-        setComplianceOpen(true);
-        return;
-      }
+      toast.message("Invoice marked — complete EDIE compliance from Mission Control if required.");
     }
     applyMove(disbursementCase.id, "disbursed", {
       disbursementDate: disbursementForm.disbursementDate,
@@ -429,19 +478,21 @@ export function LenderPipelineBoard({
   };
 
   return (
-    <div className="min-h-0 space-y-3">
-      <div className="h-[calc(100vh-210px)] min-h-[560px] overflow-x-auto overflow-y-hidden scrollbar-thin">
-        <div className="flex h-full w-full min-w-max gap-1 pb-1">
+    <div className="min-h-0 space-y-2">
+      {/* CO-UX-020 / CO-UX-021 — Kanban primary surface; left edge inherits DEAL_WORKSPACE_PAD_X from host. */}
+      <div className="h-[calc(100vh-11.5rem)] min-h-[520px] overflow-x-auto overflow-y-hidden scrollbar-thin">
+        <div className="flex h-full w-full min-w-max gap-2 pb-1 pr-1">
           {LENDER_CASE_STAGES.map((col) => {
             const colCases = casesByStage.get(col.id) ?? [];
             const isDragOver = dragOverStage === col.id;
             return (
               <div
                 key={col.id}
-                className={cn("flex min-w-[148px] flex-1 flex-col h-full max-w-[220px]")}
+                className="flex h-full min-w-[148px] max-w-[220px] flex-1 flex-col"
                 onDragOver={(e) => {
                   e.preventDefault();
-                  setDragOverStage(col.id);
+                  // CO-PIPELINE-001 — avoid setState storm on every dragover pixel.
+                  setDragOverStage((prev) => (prev === col.id ? prev : col.id));
                 }}
                 onDragLeave={() => setDragOverStage(null)}
                 onDrop={(e) => handleDrop(e, col.id)}
@@ -467,7 +518,7 @@ export function LenderPipelineBoard({
                     {colCases.map((c) => (
                       <LenderCaseKanbanCard
                         key={c.id}
-                        loan={loan}
+                        context={loan}
                         stageLabel={col.label}
                         stageColor={LENDER_CASE_STAGE_COLORS[col.id]}
                         caseExecution={c}
@@ -477,10 +528,16 @@ export function LenderPipelineBoard({
                         onRemove={() => removeCase(c.id)}
                         onProbabilityChange={(p) => updateProbability(c.id, p)}
                         onStartLogin={() => startLogin(c.id)}
-                        onViewStrategy={() => setStrategyCase(c)}
+                        onViewStrategy={() => {
+                          focusCase(c);
+                          setStrategyCase(c);
+                        }}
                         onOpenDocuments={
                           onOpenLenderDocuments
-                            ? () => onOpenLenderDocuments(c)
+                            ? () => {
+                                focusCase(c);
+                                onOpenLenderDocuments(c);
+                              }
                             : undefined
                         }
                         onReorderUp={() => reorderIdentified(c.id, "up")}
@@ -581,6 +638,13 @@ export function LenderPipelineBoard({
               size="sm"
               onClick={submitAddCase}
               disabled={!pendingLender || !pendingProgram}
+              title={
+                !pendingLender
+                  ? "Select an eligible lender that is not already on this Opportunity"
+                  : !pendingProgram
+                    ? "Select a Lender Program"
+                    : undefined
+              }
             >
               Identify Lender
             </Button>
@@ -751,14 +815,6 @@ export function LenderPipelineBoard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <EdieComplianceSummaryDialog
-        open={complianceOpen}
-        onOpenChange={setComplianceOpen}
-        result={complianceResult}
-        fileId={loan.id}
-        opportunityId={undefined}
-      />
     </div>
   );
 }
@@ -773,7 +829,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function LenderCaseKanbanCard({
-  loan,
+  context: loan,
   stageLabel,
   stageColor,
   caseExecution,
@@ -788,7 +844,7 @@ function LenderCaseKanbanCard({
   onReorderUp,
   onReorderDown,
 }: {
-  loan: LoanFile;
+  context: DealPipelineContext;
   stageLabel: string;
   stageColor: string;
   caseExecution: LoanLenderExecution;

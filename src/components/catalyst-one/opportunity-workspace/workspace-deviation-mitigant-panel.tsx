@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
+import { OwGlassPanel } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
+import { StrategicTabToolbar } from "./strategic-tab-toolbar";
 
 interface DeviationEntry {
   id: string;
@@ -58,6 +59,7 @@ export function WorkspaceDeviationMitigantPanel() {
   const [mitigants, setMitigants] = useState<MitigantEntry[]>([]);
   const [devDraft, setDevDraft] = useState("");
   const [mitDraft, setMitDraft] = useState("");
+  const [editing, setEditing] = useState(true);
 
   useEffect(() => {
     if (!opportunityId) return;
@@ -105,13 +107,12 @@ export function WorkspaceDeviationMitigantPanel() {
 
   return (
     <div className="space-y-4">
-      <OwGlassPanel>
-        <OwPanelHeader
-          title="Deviation & Mitigant"
-          badge="Manual"
-          description="Capture RM observations for policy deviations and mitigants. Auto-detection is deferred."
-        />
-      </OwGlassPanel>
+      <StrategicTabToolbar
+        title="Deviation & Mitigation"
+        description="Capture RM observations for policy deviations and mitigants. Auto-detection is deferred."
+        editing={editing}
+        onEditToggle={() => setEditing((v) => !v)}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <OwGlassPanel className="!p-3">
@@ -121,6 +122,7 @@ export function WorkspaceDeviationMitigantPanel() {
           <p className="mt-1 text-xs text-zinc-400">
             Policy or underwriting exceptions observed on this opportunity.
           </p>
+          {editing && (
           <div className="mt-3 space-y-2">
             <textarea
               value={devDraft}
@@ -139,6 +141,7 @@ export function WorkspaceDeviationMitigantPanel() {
               Add Deviation
             </Button>
           </div>
+          )}
           <ul className="mt-3 space-y-2">
             {deviations.length === 0 && (
               <li className="rounded-lg border border-dashed border-white/15 px-3 py-4 text-center text-xs text-zinc-500">
@@ -181,6 +184,7 @@ export function WorkspaceDeviationMitigantPanel() {
           <p className="mt-1 text-xs text-zinc-400">
             Compensating factors the RM will present alongside each deviation.
           </p>
+          {editing && (
           <div className="mt-3 space-y-2">
             <Input
               value={mitDraft}
@@ -202,6 +206,7 @@ export function WorkspaceDeviationMitigantPanel() {
               Add Mitigant
             </Button>
           </div>
+          )}
           <ul className="mt-3 space-y-2">
             {mitigants.length === 0 && (
               <li className="rounded-lg border border-dashed border-white/15 px-3 py-4 text-center text-xs text-zinc-500">
@@ -240,4 +245,4 @@ export function WorkspaceDeviationMitigantPanel() {
     </div>
   );
 }
-
+

@@ -14,10 +14,16 @@ import {
 import { captureChanakyaStageTransition } from "@/lib/chanakya-stage-coaching";
 import {
   loadCustomSavedViews,
-  loadLoanFiles,
   saveCustomSavedViews,
-  saveLoanFiles,
 } from "@/lib/loan-files-storage";
+import {
+  createDealAsync,
+  loadDealsSync,
+  updateDealTasks,
+  loadDeals,
+} from "@/lib/enterprise-deal/deal-data-access";
+import { isDealRegistryPrimaryWriteEnabled } from "@/constants/enterprise-deal-registry";
+import { DealCreatePersistenceError } from "@/lib/enterprise-deal/primary-write";
 import type {
   CreateLoanFileInput,
   LoanFile,
@@ -92,16 +98,25 @@ export function useLoanFilesWorkspace() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    setFiles(loadLoanFiles());
+    const initialView = loadView();
+    const consumerModule =
+      initialView === "timeline"
+        ? "activities"
+        : initialView === "tasks"
+          ? "tasks"
+          : "loan_workspace";
+    setFiles(loadDealsSync(consumerModule).files);
     setCustomViews(loadCustomSavedViews());
-    setViewState(loadView());
+    setViewState(initialView);
     setMounted(true);
+    // CO-P0-002 / CO-ARCH-004 — hydrate Enterprise Deal Registry into DAL cache (view only).
+    void loadDeals(consumerModule).then((result) => {
+      setFiles(result.files);
+    });
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-    saveLoanFiles(files);
-  }, [files, mounted]);
+  // CO-ARCH-004 — Never re-persist Enterprise hydrate into Soft Go-Live localStorage.
+  // files state is a view model; Registry remains SSOT.
 
   const allSavedViews = useMemo(
     () => [...defaultViews, ...customViews.filter((c) => !defaultViews.some((d) => d.id === c.id))],
@@ -146,12 +161,30 @@ export function useLoanFilesWorkspace() {
     );
   }, [persistFiles]);
 
+  /** Sync create — throws when primary write is ON (use addFileAsync). */
   const addFile = useCallback(
     (input: CreateLoanFileInput) => {
+      if (isDealRegistryPrimaryWriteEnabled()) {
+        throw new DealCreatePersistenceError(
+          "Deal create requires addFileAsync when Enterprise Deal primary write is enabled.",
+          "SYNC_CREATE_FORBIDDEN",
+        );
+      }
       const created = createLoanFileFromInput(input, files);
       persistFiles((prev) => [...prev, created]);
       setSelectedFileId(created.id);
       return created;
+    },
+    [files, persistFiles],
+  );
+
+  /** CO-P0-006 — primary create via Enterprise Deal Registry when flag ON. */
+  const addFileAsync = useCallback(
+    async (input: CreateLoanFileInput) => {
+      const result = await createDealAsync(input, "loan_workspace", files);
+      persistFiles((prev) => [result.file, ...prev.filter((f) => f.id !== result.file.id)]);
+      setSelectedFileId(result.file.id);
+      return result.file;
     },
     [files, persistFiles],
   );
@@ -206,15 +239,15 @@ export function useLoanFilesWorkspace() {
 
   const updateTask = useCallback(
     (fileId: string, taskId: string, patch: Partial<LoanFileTask>) => {
-      persistFiles((prev) =>
-        prev.map((f) =>
-          f.id === fileId
-            ? { ...f, tasks: f.tasks.map((t) => (t.id === taskId ? { ...t, ...patch } : t)) }
-            : f,
-        ),
-      );
+      const current = loadDealsSync("tasks").files.find((f) => f.id === fileId);
+      if (!current) return;
+      const tasks = current.tasks.map((t) => (t.id === taskId ? { ...t, ...patch } : t));
+      const updated = updateDealTasks(fileId, tasks, "tasks");
+      if (updated) {
+        setFiles((prev) => prev.map((f) => (f.id === fileId ? updated : f)));
+      }
     },
-    [persistFiles],
+    [],
   );
 
   const saveCustomView = useCallback(
@@ -382,6 +415,7 @@ export function useLoanFilesWorkspace() {
     setSelectedFileId,
     moveFile,
     addFile,
+    addFileAsync,
     updateFile,
     deleteFile,
     archiveFile,

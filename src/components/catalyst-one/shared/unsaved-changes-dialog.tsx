@@ -1,6 +1,9 @@
 "use client";
 
-import { WORKSPACE_UNSAVED } from "@/constants/enterprise-workspace-ux";
+import {
+  WORKSPACE_UNSAVED,
+  WORKSPACE_UNSAVED_MY_DEALS,
+} from "@/constants/enterprise-workspace-ux";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,17 +14,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+export type UnsavedChangesDialogVariant = "close" | "my-deals";
+
 export interface UnsavedChangesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDiscard: () => void;
   onSaveAndClose?: () => void | boolean | Promise<void | boolean>;
   saving?: boolean;
+  /** close = Save & Close; my-deals = Save & Go (Chanakya confirm). */
+  variant?: UnsavedChangesDialogVariant;
 }
 
 /**
  * Workspace Exit Standard — never silently discard entered information.
- * Actions: Save & Close · Discard · Cancel
+ * Close: Save & Close · Discard Changes · Cancel
+ * My Deals: Save & Go · Discard Changes · Cancel
  */
 export function UnsavedChangesDialog({
   open,
@@ -29,13 +37,31 @@ export function UnsavedChangesDialog({
   onDiscard,
   onSaveAndClose,
   saving,
+  variant = "close",
 }: UnsavedChangesDialogProps) {
+  const copy =
+    variant === "my-deals"
+      ? {
+          title: WORKSPACE_UNSAVED_MY_DEALS.title,
+          description: WORKSPACE_UNSAVED_MY_DEALS.description,
+          primary: WORKSPACE_UNSAVED_MY_DEALS.saveAndGo,
+          discard: WORKSPACE_UNSAVED_MY_DEALS.discard,
+          cancel: WORKSPACE_UNSAVED_MY_DEALS.cancel,
+        }
+      : {
+          title: WORKSPACE_UNSAVED.title,
+          description: WORKSPACE_UNSAVED.description,
+          primary: WORKSPACE_UNSAVED.saveAndClose,
+          discard: WORKSPACE_UNSAVED.discard,
+          cancel: WORKSPACE_UNSAVED.cancel,
+        };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md [&>button]:hidden">
         <DialogHeader>
-          <DialogTitle>{WORKSPACE_UNSAVED.title}</DialogTitle>
-          <DialogDescription>{WORKSPACE_UNSAVED.description}</DialogDescription>
+          <DialogTitle>{copy.title}</DialogTitle>
+          <DialogDescription>{copy.description}</DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
           {onSaveAndClose && (
@@ -46,7 +72,7 @@ export function UnsavedChangesDialog({
               onClick={() => void onSaveAndClose()}
               disabled={saving}
             >
-              {saving ? "Saving…" : WORKSPACE_UNSAVED.saveAndClose}
+              {saving ? "Saving…" : copy.primary}
             </Button>
           )}
           <Button
@@ -57,7 +83,7 @@ export function UnsavedChangesDialog({
             onClick={onDiscard}
             disabled={saving}
           >
-            {WORKSPACE_UNSAVED.discard}
+            {copy.discard}
           </Button>
           <Button
             type="button"
@@ -67,7 +93,7 @@ export function UnsavedChangesDialog({
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
-            {WORKSPACE_UNSAVED.cancel}
+            {copy.cancel}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,9 +1,12 @@
 /**
  * Shared stated-draft store for Opportunity Setup → Credit Workbench.
  * Prefills from loan Business Profile / ECM customer role so RMs do not re-enter.
+ *
+ * CO-UX-009 — Nature of Business always resolves live from Customer / Company Profile (SSOT).
  */
 
 import { listEcmContacts } from "@/lib/enterprise-contact-master";
+import { resolveNatureOfBusinessFromProfile } from "@/lib/lead-opportunity-journey/nature-of-business";
 import type { LoanFile } from "@/types/catalyst-one";
 import type { EcwStatedInformationDraft } from "@/types/enterprise-credit-workspace";
 
@@ -34,15 +37,18 @@ export function saveStatedDraft(fileId: string, draft: EcwStatedInformationDraft
   localStorage.setItem(`${STATED_DRAFT_KEY}:${fileId}`, JSON.stringify(draft));
 }
 
-/** Business-profile fields already captured on the loan file or ECM customer role. */
+/** Business-profile fields already captured on the loan file or ECM customer / company profile. */
 export function businessProfileFromLoanFile(file: LoanFile): {
   turnover?: string;
   vintage?: string;
+  /** Display label from Customer / Company Profile SSOT */
   natureOfBusiness?: string;
+  natureOfBusinessCode?: string;
+  natureOfBusinessSource: "company" | "contact" | "none";
   companyName?: string;
   constitution?: string;
   monthlyIncome?: string;
-  source: "loan" | "contact" | "none";
+  source: "loan" | "contact" | "company" | "none";
 } {
   const bd = file.businessDetails;
   const contact = listEcmContacts().find((c) => c.id === file.customerId);
@@ -56,11 +62,9 @@ export function businessProfileFromLoanFile(file: LoanFile): {
     fmtNum(bd?.businessVintage) ||
     customer.yearsInBusiness?.trim() ||
     undefined;
+  const nature = resolveNatureOfBusinessFromProfile(file);
   const natureOfBusiness =
-    customer.natureOfBusiness?.trim() ||
-    customer.industry?.trim() ||
-    bd?.constitution ||
-    undefined;
+    nature.source === "none" ? undefined : nature.label;
   const companyName =
     bd?.companyName?.trim() ||
     customer.businessName?.trim() ||
@@ -72,20 +76,31 @@ export function businessProfileFromLoanFile(file: LoanFile): {
     turnover || vintage || natureOfBusiness || companyName || constitution || monthlyIncome,
   );
 
+  let source: "loan" | "contact" | "company" | "none" = "none";
+  if (hasAny) {
+    if (nature.source === "company") source = "company";
+    else if (nature.source === "contact") source = "contact";
+    else if (bd) source = "loan";
+    else if (contact) source = "contact";
+  }
+
   return {
     turnover,
     vintage,
     natureOfBusiness,
+    natureOfBusinessCode: nature.code ?? undefined,
+    natureOfBusinessSource: nature.source,
     companyName,
     constitution,
     monthlyIncome,
-    source: hasAny ? (bd ? "loan" : contact ? "contact" : "none") : "none",
+    source,
   };
 }
 
 /**
  * Merge: local RM draft overrides, then Business Profile, then empty.
- * Does not overwrite draft keys that the RM already saved.
+ * Does not overwrite draft keys that the RM already saved —
+ * except Nature of Business, which always mirrors Customer / Company Profile (CO-UX-009).
  */
 export function resolveStatedDraftForFile(file: LoanFile): EcwStatedInformationDraft {
   const stored = loadStatedDraft(file.id);
@@ -96,11 +111,12 @@ export function resolveStatedDraftForFile(file: LoanFile): EcwStatedInformationD
     statedObligations: stored.statedObligations,
     statedTurnover: stored.statedTurnover || profile.turnover,
     statedBusinessVintage: stored.statedBusinessVintage || profile.vintage,
-    statedNatureOfBusiness: stored.statedNatureOfBusiness || profile.natureOfBusiness,
+    statedNatureOfBusiness: profile.natureOfBusiness,
+    statedConstitution: stored.statedConstitution || profile.constitution,
     statedPropertyType: stored.statedPropertyType || file.propertyType,
     statedPropertyValue: stored.statedPropertyValue,
     statedPropertyLocation: stored.statedPropertyLocation,
     notes: stored.notes,
   };
 }
-
+

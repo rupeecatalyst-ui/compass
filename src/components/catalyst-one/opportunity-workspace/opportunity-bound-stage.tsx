@@ -18,6 +18,7 @@ import { isDashboardNavEntry } from "@/lib/lead-opportunity-journey/active-conte
 import { useSearchParams } from "next/navigation";
 import { useRequirementCapturedGate } from "@/lib/loan-journey/use-requirement-captured-gate";
 import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
 const STAGE_COPY: Record<
   OpportunityWorkspaceStageId,
@@ -113,27 +114,25 @@ export function OpportunityBoundStage({
 
   if (gate.status === "loading" || gate.status === "redirecting") {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-          <p className="text-xs text-muted-foreground">
-            {gate.status === "redirecting"
-              ? "Requirement not captured — opening Lead Information…"
-              : `Loading ${copy.title}…`}
-          </p>
-        </div>
-      </div>
+      <ChanakyaLoadingExperience
+        module="opportunity"
+        density="panel"
+        statusLabel={
+          gate.status === "redirecting"
+            ? "Requirement not captured — opening Lead Information…"
+            : `Opening ${copy.title}…`
+        }
+      />
     );
   }
 
   if (loading && !context) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-          <p className="text-xs text-muted-foreground">Loading {copy.title}…</p>
-        </div>
-      </div>
+      <ChanakyaLoadingExperience
+        module="opportunity"
+        density="panel"
+        statusLabel={`Opening ${copy.title}…`}
+      />
     );
   }
 

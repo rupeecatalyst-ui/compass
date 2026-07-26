@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { LIFE_ACTIVE_STATUS, LIFE_CONTACT_ROLES } from "@/constants/enterprise-life-engine";
 import { buildElwWorkspaceHref, normalizeLenderId } from "@/constants/enterprise-lender-workspace";
 import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
 import {
   getLifeRegistrySnapshot,
@@ -645,7 +646,11 @@ export function WorkspaceLifePanel({
       expandablePayload: { source: "strategic-move-to-execution", lenders: items.map((i) => i.lenderName) },
     });
     router.push(
-      `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(loan.id)}&opportunityId=${encodeURIComponent(opportunityId)}&tab=lenders&from=opportunity_workspace`,
+      buildDealWorkspaceHref({
+        fileId: loan.id,
+        opportunityId,
+        tab: "lenders",
+      }),
     );
   };
 

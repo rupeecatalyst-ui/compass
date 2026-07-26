@@ -34,6 +34,9 @@ const ROLE_ACCENT: Record<LoanParticipantRole, string> = {
   co_applicant: "#F59E0B",
   guarantor: "#3B82F6",
   company: "#64748B",
+  income_contributor: "#8B5CF6",
+  authorized_signatory: "#0EA5E9",
+  payee: "#14B8A6",
   other: "#94A3B8",
 };
 
@@ -148,13 +151,19 @@ export function buildLoanStructureNodes(
     .filter((p) => p.status !== "inactive")
     .map((p) => {
       const role: LoanParticipantRole =
-        p.entityType === "company"
-          ? "company"
-          : p.role === "guarantor"
-            ? "guarantor"
-            : p.role === "other"
-              ? "other"
-              : "co_applicant";
+        p.role === "payee"
+          ? "payee"
+          : p.entityType === "company"
+            ? "company"
+            : p.role === "guarantor"
+              ? "guarantor"
+              : p.role === "income_contributor"
+                ? "income_contributor"
+                : p.role === "authorized_signatory"
+                  ? "authorized_signatory"
+                  : p.role === "other"
+                    ? "other"
+                    : "co_applicant";
 
       const contact = p.entityId ? getEcmContact(p.entityId) : undefined;
       const employment = contact?.employmentType;
@@ -217,3 +226,15 @@ export {
   type LoanStructureSummary,
   type LoanStructureTreeNode,
 } from "./navigation-tree";
+export {
+  buildLoanStructureParticipantGroups,
+  type LoanStructureCardKind,
+  type LoanStructureParticipantCard,
+  type LoanStructureParticipantGroup,
+} from "./participant-view";
+export {
+  syncLoanStructureRelationships,
+  listLoanStructureRelationshipsForContact,
+  listAllLoanStructureRelationships,
+  type LoanStructureRelationshipLink,
+} from "./sync-relationships";

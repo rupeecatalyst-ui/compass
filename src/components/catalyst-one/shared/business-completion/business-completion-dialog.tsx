@@ -14,6 +14,8 @@ import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
 import { OrganizationRegistrySelect } from "@/components/catalyst-one/shared/organization-registry-select";
 import { OccupancySelect } from "@/components/catalyst-one/shared/occupancy-select";
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
+import { CommercialPayeeField } from "@/components/catalyst-one/shared/commercial-payee-field";
+import type { LoanCommercialPayeeType } from "@/constants/loan-commercial-payee";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -111,6 +113,17 @@ export function BusinessCompletionDialog({
         setNudge(`I still need ${field.label} before I can continue.`);
         return;
       }
+      if (
+        field.control === "commercial_payee" &&
+        !String(
+          values.invoicePartyId ?? values.commissionAccountingPayeeId ?? "",
+        ).trim()
+      ) {
+        setNudge(
+          "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.",
+        );
+        return;
+      }
     }
     setNudge(null);
     await onSaveAndContinue(values);
@@ -155,9 +168,51 @@ export function BusinessCompletionDialog({
                 key={field.fieldKey}
                 field={field}
                 value={values[field.fieldKey]}
+                specifyValue={
+                  typeof values.commercialPayeeSpecify === "string"
+                    ? values.commercialPayeeSpecify
+                    : undefined
+                }
+                accountingPayeeId={
+                  typeof values.commissionAccountingPayeeId === "string"
+                    ? values.commissionAccountingPayeeId
+                    : typeof values.invoicePartyId === "string"
+                      ? values.invoicePartyId
+                      : undefined
+                }
+                accountingPayeeLabel={
+                  typeof values.commissionAccountingPayeeLabel === "string"
+                    ? values.commissionAccountingPayeeLabel
+                    : typeof values.invoicePartyLabel === "string"
+                      ? values.invoicePartyLabel
+                      : undefined
+                }
                 loanProduct={loanProduct}
                 productOptions={productOptions}
                 onChange={(next) => setField(field.fieldKey, next)}
+                onCommercialPayee={(next) => {
+                  const id =
+                    next.invoicePartyId ?? next.commissionAccountingPayeeId ?? undefined;
+                  const label =
+                    next.invoicePartyLabel ?? next.commissionAccountingPayeeLabel ?? undefined;
+                  setField("invoicePartyId", id);
+                  setField("invoicePartyLabel", label);
+                  setField("commissionAccountingPayeeId", id);
+                  setField("commissionAccountingPayeeLabel", label);
+                  setField("commercialPayee", next.commercialPayee);
+                  setField("commercialPayeeSpecify", next.commercialPayeeSpecify);
+                  setField(
+                    "invoicePartyContactId",
+                    next.invoicePartyContactId ?? next.commissionPayeeContactId ?? undefined,
+                  );
+                  setField(
+                    "commissionPayeeContactId",
+                    next.invoicePartyContactId ?? next.commissionPayeeContactId ?? undefined,
+                  );
+                  if (field.fieldKey === "commercialPayee" && id) {
+                    setField(field.fieldKey, id);
+                  }
+                }}
                 onLendingTypeChange={(lt) => {
                   setField("lendingType", lt);
                   setField("loanProduct", undefined);
@@ -208,30 +263,58 @@ export const ChanakyaBusinessGuidanceDialog = BusinessCompletionDialog;
 function CompletionFieldControl({
   field,
   value,
+  specifyValue: _specifyValue,
+  accountingPayeeId,
+  accountingPayeeLabel,
   loanProduct,
   productOptions,
   onChange,
+  onCommercialPayee,
   onLendingTypeChange,
   onBtInstitution,
   onOccupancy,
 }: {
   field: BusinessCompletionField;
   value: string | number | undefined;
+  specifyValue?: string;
+  accountingPayeeId?: string;
+  accountingPayeeLabel?: string;
   loanProduct?: string;
   productOptions: readonly string[];
   onChange: (value: string | number | undefined) => void;
+  onCommercialPayee: (next: {
+    invoicePartyId?: string | null;
+    invoicePartyLabel?: string | null;
+    commissionAccountingPayeeId?: string | null;
+    commissionAccountingPayeeLabel?: string | null;
+    commercialPayee?: LoanCommercialPayeeType;
+    commercialPayeeSpecify?: string;
+    invoicePartyContactId?: string | null;
+    commissionPayeeContactId?: string | null;
+  }) => void;
   onLendingTypeChange: (type: LendingType) => void;
   onBtInstitution: (id: string, name: string) => void;
   onOccupancy: (entry: OccupancyMasterEntry) => void;
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-foreground">
-        {field.label}
-        {field.required !== false && <span className="text-violet-600"> *</span>}
-      </Label>
-      {field.helpText && (
+      {field.control !== "commercial_payee" && (
+        <Label className="text-xs font-medium text-foreground">
+          {field.label}
+          {field.required !== false && <span className="text-violet-600"> *</span>}
+        </Label>
+      )}
+      {field.helpText && field.control !== "commercial_payee" && (
         <p className="text-[11px] leading-snug text-muted-foreground">{field.helpText}</p>
+      )}
+
+      {field.control === "commercial_payee" && (
+        <CommercialPayeeField
+          invoicePartyId={accountingPayeeId}
+          invoicePartyLabel={accountingPayeeLabel}
+          required={field.required !== false}
+          onChange={onCommercialPayee}
+        />
       )}
 
       {field.control === "property_type" && (

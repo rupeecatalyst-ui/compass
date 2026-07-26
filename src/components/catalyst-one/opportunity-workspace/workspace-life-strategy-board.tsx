@@ -13,9 +13,19 @@ import { resolveStatedDraftForFile } from "@/lib/lead-opportunity-journey/stated
 import { resolveOpportunityRuntimeCaseSync } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import { getExcludedCompetitionKeys } from "@/lib/strategic-competition";
 import {
+  buildCanonicalLenderRef,
+  isCanonicalDealLenderOption,
+  isProvisionalBfLenderCode,
+  isSoftGoLiveLenderId,
+  listCanonicalEnterpriseLenderOptionsAsync,
+  resolvePublishedLenderOption,
+} from "@/lib/enterprise-lender-registry/published-directory";
+import {
   ensureLoanWorkspaceForOpportunityAsync,
+  getMoveToDealLenderNames,
   getStrategicShortlist,
   normalizeLenderKey,
+  purgeNonCanonicalShortlistItems,
   removeStrategicShortlistItem,
   runMoveToDealTransition,
   syncShortlistToIdentified,
@@ -24,13 +34,16 @@ import {
   type StrategicLenderSelectedBy,
   type StrategicLenderShortlistItem,
 } from "@/lib/strategic-lender-pipeline";
-import { listPublishedLenderOptionsAsync } from "@/lib/enterprise-lender-registry/published-directory";
+import { MoveToDealConfirmDialog } from "@/components/catalyst-one/shared/move-to-deal-confirm-dialog";
 import { cn } from "@/lib/utils";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 
 type BoardInstitution = {
   lenderRef: string;
   lenderName: string;
+  /** Enterprise Lender Registry id — required for Deal FK continuity */
+  enterpriseLenderId?: string;
+  lenderCode?: string;
   productRefs: string[];
   businessMappingRefs: string[];
   successProbability: number;
@@ -51,6 +64,8 @@ export function WorkspaceLifeStrategyBoard() {
   const {
     opportunityId,
     opportunityNumber,
+    registryOpportunity,
+    registryLoadStatus,
     contact,
     productLabel,
     loanAmountLabel,
@@ -65,6 +80,8 @@ export function WorkspaceLifeStrategyBoard() {
   const [manualSearch, setManualSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [competitionTick, setCompetitionTick] = useState(0);
+  const [moveToDealOpen, setMoveToDealOpen] = useState(false);
+  const [moveToDealBusy, setMoveToDealBusy] = useState(false);
 
   const reloadQueue = () => {
     if (!opportunityId) {
@@ -93,8 +110,8 @@ export function WorkspaceLifeStrategyBoard() {
   }, []);
 
   /**
-   * CO-BUG-116 — Manual Recommendation searches Enterprise Lender Registry (master) first.
-   * Competition exclusion is applied after master search — never before.
+   * CO-BUG-011 — Manual Recommendation: Enterprise Lender Registry API (Prisma) ONLY.
+   * Soft Go-Live / BF_* / unmapped display names are never listed.
    */
   useEffect(() => {
     if (!opportunityId) {
@@ -105,15 +122,20 @@ export function WorkspaceLifeStrategyBoard() {
     setRegistryLoading(true);
     void (async () => {
       try {
-        const options = await listPublishedLenderOptionsAsync(debouncedSearch || undefined);
+        const options = await listCanonicalEnterpriseLenderOptionsAsync(
+          debouncedSearch || undefined,
+        );
         if (cancelled) return;
         const excluded = getExcludedCompetitionKeys(opportunityId);
         const mapped = options
+          .filter(isCanonicalDealLenderOption)
           .map((opt) => {
-            const lenderRef = `lender:${opt.code || opt.id}`;
+            const lenderRef = `lender:${opt.id}`;
             return {
               lenderRef,
-              lenderName: opt.displayName,
+              lenderName: opt.displayName || opt.code,
+              enterpriseLenderId: opt.id,
+              lenderCode: opt.code,
               productRefs: [],
               businessMappingRefs: [],
               successProbability: 70,
@@ -126,6 +148,21 @@ export function WorkspaceLifeStrategyBoard() {
           .filter((inst) => !excluded.has(normalizeLenderKey(inst.lenderRef || inst.lenderName)))
           .sort((a, b) => a.lenderName.localeCompare(b.lenderName));
         setRegistryManual(mapped);
+
+        const purgeIds = new Set(
+          (debouncedSearch
+            ? await listCanonicalEnterpriseLenderOptionsAsync()
+            : options
+          ).map((o) => o.id),
+        );
+        if (cancelled) return;
+        const { removed, kept } = purgeNonCanonicalShortlistItems(opportunityId, purgeIds);
+        if (removed.length > 0) {
+          setQueue(kept);
+          toast.message(
+            `Removed ${removed.length} non-registry lender${removed.length === 1 ? "" : "s"} from Execution Queue (cannot create Enterprise Deal).`,
+          );
+        }
       } finally {
         if (!cancelled) setRegistryLoading(false);
       }
@@ -208,23 +245,29 @@ export function WorkspaceLifeStrategyBoard() {
   const recommendations = useMemo(() => {
     if (!opportunityId || !chanakyaResult.ready) return [] as BoardInstitution[];
     const excluded = getExcludedCompetitionKeys(opportunityId);
-    return chanakyaResult.recommendations
-      .filter((r) => !excluded.has(normalizeLenderKey(r.lenderRef || r.lenderName)))
-      .filter((r) => !queueKeys.has(normalizeLenderKey(r.lenderRef || r.lenderName)))
-      .map(
-        (r) =>
-          ({
-            lenderRef: r.lenderRef,
-            lenderName: r.lenderName,
-            productRefs: [],
-            businessMappingRefs: [],
-            successProbability: r.confidencePct,
-            eligibility: "eligible",
-            eligibilityNote: "Chanakya Recommendation Engine",
-            recommended: true,
-            reason: r.reason,
-          }) satisfies BoardInstitution,
-      );
+    const rows: BoardInstitution[] = [];
+    for (const r of chanakyaResult.recommendations) {
+      if (excluded.has(normalizeLenderKey(r.lenderRef || r.lenderName))) continue;
+      if (queueKeys.has(normalizeLenderKey(r.lenderRef || r.lenderName))) continue;
+      const resolved =
+        resolvePublishedLenderOption(r.enterpriseLenderId || r.lenderRef) ||
+        resolvePublishedLenderOption(r.lenderName);
+      if (!resolved || !isCanonicalDealLenderOption(resolved)) continue;
+      rows.push({
+        lenderRef: buildCanonicalLenderRef(resolved),
+        lenderName: resolved.displayName || resolved.code || r.lenderName,
+        enterpriseLenderId: resolved.id,
+        lenderCode: resolved.seedKey || resolved.code,
+        productRefs: [],
+        businessMappingRefs: [],
+        successProbability: r.confidencePct,
+        eligibility: "eligible",
+        eligibilityNote: "Chanakya Recommendation Engine",
+        recommended: true,
+        reason: r.reason,
+      });
+    }
+    return rows;
   }, [opportunityId, chanakyaResult, queueKeys]);
 
   const manualPool = useMemo(() => {
@@ -235,18 +278,43 @@ export function WorkspaceLifeStrategyBoard() {
     inst: BoardInstitution,
     selectedBy: StrategicLenderSelectedBy,
   ) => {
-    if (!opportunityId) return;
+    // CO-OPP-SSOT-001 — never execute on URL/EOLE fallback identities.
+    if (registryLoadStatus !== "ready" || !registryOpportunity?.id) {
+      toast.error(
+        "Opportunity not loaded from the Enterprise Opportunity Registry. Reopen from My Opportunities.",
+      );
+      return;
+    }
+    if (
+      !inst.enterpriseLenderId ||
+      isSoftGoLiveLenderId(inst.enterpriseLenderId) ||
+      isProvisionalBfLenderCode(inst.lenderCode)
+    ) {
+      toast.error(
+        `Missing: Canonical Enterprise Lender Registry id for ${inst.lenderName}. Soft Go-Live / provisional lenders cannot create a Deal.`,
+      );
+      return;
+    }
+    const canonicalOpportunityId = registryOpportunity.id;
+    if (!canonicalOpportunityId) return;
 
     let loan = null;
     try {
       loan = await ensureLoanWorkspaceForOpportunityAsync({
-        opportunityId,
+        opportunityId: canonicalOpportunityId,
+        opportunity: registryOpportunity,
         contact,
-        customerName: contact?.name,
-        customerMobile: contact?.mobilePrimary,
-        customerId: contact?.id,
-        loanProduct: productLabel,
-        relationshipManager: contact?.ownerName,
+        customerName: contact?.name || registryOpportunity.primaryContactName || undefined,
+        customerMobile:
+          contact?.mobilePrimary || registryOpportunity.primaryContactMobile || undefined,
+        customerId: contact?.id || registryOpportunity.primaryContactId,
+        loanProduct: productLabel || registryOpportunity.productLabel || undefined,
+        loanAmount:
+          typeof registryOpportunity.requestedAmount === "number"
+            ? registryOpportunity.requestedAmount
+            : undefined,
+        relationshipManager:
+          contact?.ownerName || registryOpportunity.relationshipManagerName || undefined,
       });
     } catch (err) {
       if (isBusinessCompletionRequiredError(err)) {
@@ -262,9 +330,11 @@ export function WorkspaceLifeStrategyBoard() {
       return;
     }
 
-    const item = upsertStrategicShortlistItem(opportunityId, {
+    const item = upsertStrategicShortlistItem(canonicalOpportunityId, {
       lenderRef: inst.lenderRef,
       lenderName: inst.lenderName,
+      enterpriseLenderId: inst.enterpriseLenderId,
+      lenderCode: inst.lenderCode,
       product: productLabel,
       productRefs: inst.productRefs,
       successProbability: inst.successProbability,
@@ -282,9 +352,15 @@ export function WorkspaceLifeStrategyBoard() {
 
     if (loan) {
       try {
-        const sync = syncShortlistToIdentified(loan.id, opportunityId, item, "RM", {
-          pruneMissing: false,
-        });
+        const sync = syncShortlistToIdentified(
+          loan.id,
+          canonicalOpportunityId,
+          item,
+          "RM",
+          {
+            pruneMissing: false,
+          },
+        );
         if (sync.ok && sync.created.length > 0) {
           toast.success(`${inst.lenderName} ready to create Deal`);
         } else if (sync.ok) {
@@ -308,7 +384,7 @@ export function WorkspaceLifeStrategyBoard() {
     }
 
     appendEdcTimelineEntry({
-      contextRef: { type: "opportunity", id: opportunityId },
+      contextRef: { type: "opportunity", id: canonicalOpportunityId },
       eventType: "workflow",
       title: "Lender selected for execution",
       description: `${inst.lenderName} · via ${selectedBy === "chanakya" ? "Chanakya" : "Manual"}`,
@@ -324,25 +400,53 @@ export function WorkspaceLifeStrategyBoard() {
   };
 
   const handleMoveToDeal = () => {
-    if (!opportunityId) {
+    if (registryLoadStatus !== "ready" || !registryOpportunity?.id) {
       toast.error(
-        "Missing: Opportunity. Reason: no active Opportunity Context. Action: reopen from My Opportunities.",
+        "Missing: Enterprise Opportunity Registry. Reason: Opportunity not loaded. Action: reopen from My Opportunities.",
       );
       return;
     }
-    void runMoveToDealTransition(
-      {
-        opportunityId,
-        contact,
-        customerName: contact?.name,
-        customerMobile: contact?.mobilePrimary,
-        customerId: contact?.id,
-        loanProduct: productLabel,
-        loanAmount: leadCaseFile?.requiredAmount || leadCaseFile?.loanAmount,
-        relationshipManager: contact?.ownerName,
-      },
-      (href) => router.push(href),
-    );
+    if (getMoveToDealLenderNames(registryOpportunity.id).length === 0) {
+      toast.error(
+        "Missing: Lender selection. Reason: Execution Queue is empty. Action: select at least one lender before Move to Deal.",
+      );
+      return;
+    }
+    setMoveToDealOpen(true);
+  };
+
+  const confirmMoveToDeal = async () => {
+    if (!registryOpportunity?.id) return;
+    setMoveToDealBusy(true);
+    try {
+      const result = await runMoveToDealTransition(
+        {
+          opportunityId: registryOpportunity.id,
+          opportunity: registryOpportunity,
+          contact,
+          customerName: contact?.name || registryOpportunity.primaryContactName || undefined,
+          customerMobile:
+            contact?.mobilePrimary || registryOpportunity.primaryContactMobile || undefined,
+          customerId: contact?.id || registryOpportunity.primaryContactId,
+          loanProduct: productLabel || registryOpportunity.productLabel || undefined,
+          loanAmount:
+            leadCaseFile?.requiredAmount ||
+            leadCaseFile?.loanAmount ||
+            (typeof registryOpportunity.requestedAmount === "number"
+              ? registryOpportunity.requestedAmount
+              : undefined),
+          relationshipManager:
+            contact?.ownerName || registryOpportunity.relationshipManagerName || undefined,
+        },
+        (href) => {
+          setMoveToDealOpen(false);
+          router.replace(href);
+        },
+      );
+      if (!result) setMoveToDealOpen(false);
+    } finally {
+      setMoveToDealBusy(false);
+    }
   };
 
   const removeFromQueue = async (item: StrategicLenderShortlistItem) => {
@@ -445,8 +549,8 @@ export function WorkspaceLifeStrategyBoard() {
             <EmptyHint
               text={
                 debouncedSearch
-                  ? "No lenders match in the Enterprise Lender Registry. Competition lenders are hidden."
-                  : "No published lenders available. Competition lenders are hidden."
+                  ? "No canonical Enterprise Lender Registry match. Soft Go-Live / provisional lenders are hidden."
+                  : "No active canonical lenders in the Enterprise Lender Registry. Soft Go-Live and BF_* provisional lenders are never listed."
               }
             />
           ) : (
@@ -527,6 +631,18 @@ export function WorkspaceLifeStrategyBoard() {
           )}
         </StrategyColumn>
       </div>
+
+      <MoveToDealConfirmDialog
+        open={moveToDealOpen}
+        onOpenChange={setMoveToDealOpen}
+        lenderNames={
+          registryOpportunity?.id
+            ? getMoveToDealLenderNames(registryOpportunity.id)
+            : []
+        }
+        busy={moveToDealBusy}
+        onConfirm={confirmMoveToDeal}
+      />
     </div>
   );
 }

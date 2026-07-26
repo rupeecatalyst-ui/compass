@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,12 @@ import {
 import { ExecutionWorkspaceShell } from "@/components/catalyst-one/execution/execution-workspace-shell";
 import { cn } from "@/lib/utils";
 import type { LoanLenderExecution, LenderExecutionStatus } from "@/types/catalyst-one";
-import { loanLenders, loanManagers } from "@/data/catalyst-one/loan-files";
+import { loanManagers } from "@/data/catalyst-one/loan-files";
+import {
+  findPublishedLenderByDisplayName,
+  listPublishedLenderDisplayNames,
+  listPublishedLenderDisplayNamesAsync,
+} from "@/lib/enterprise-lender-registry/published-directory";
 
 function nowIso() {
   return new Date().toISOString();
@@ -38,8 +43,19 @@ export function LendersWorkspace({
 }) {
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
+  const [registryNames, setRegistryNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listPublishedLenderDisplayNamesAsync().then((names) => {
+      if (!cancelled && names.length) setRegistryNames(names);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [draft, setDraft] = useState<Partial<LoanLenderExecution>>({
-    lender: loanLenders[0] ?? "",
+    lender: listPublishedLenderDisplayNames()[0] ?? "",
     branch: "",
     relationshipManager: loanManagers[0] ?? "",
     loginDate: new Date().toISOString().slice(0, 10),
@@ -48,6 +64,7 @@ export function LendersWorkspace({
     caseSubStage: "",
     remarks: "",
   });
+  const lenderOptions = registryNames;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -73,10 +90,22 @@ export function LendersWorkspace({
   const addLender = () => {
     if (!draft.lender) return;
     const ts = nowIso();
+    const published = findPublishedLenderByDisplayName(draft.lender);
     const lender: LoanLenderExecution = {
       id: newId("lnd"),
-      lender: draft.lender,
-      branch: draft.branch?.trim() || undefined,
+      lender: published?.displayName ?? draft.lender,
+      lenderRef: published ? `lender:${published.code}` : undefined,
+      lenderCode: published?.code,
+      lenderLegalName: published?.legalName,
+      lenderDisplayName: published?.displayName,
+      lenderClassification: published?.classification ?? undefined,
+      lenderInstitutionCategory: published?.institutionCategory,
+      lenderWebsite: published?.website ?? undefined,
+      lenderCustomerCarePhone: published?.customerCarePhone ?? undefined,
+      lenderCustomerCareEmail: published?.customerCareEmail ?? undefined,
+      lenderHeadquarters: published?.headquartersLabel ?? undefined,
+      lenderRegistryId: published?.id,
+      branch: draft.branch?.trim() || published?.headquartersLabel || undefined,
       relationshipManager: draft.relationshipManager?.trim() || undefined,
       loginDate: draft.loginDate?.trim() || undefined,
       applicationNumber: draft.applicationNumber?.trim() || undefined,
@@ -89,7 +118,9 @@ export function LendersWorkspace({
       updatedAt: ts,
     };
     onChange([lender, ...lenders]);
-    onTimeline(`Lender assigned: ${lender.lender}${lender.applicationNumber ? ` · Ref ${lender.applicationNumber}` : ""}`);
+    onTimeline(
+      `Lender assigned: ${lender.lender}${lender.lenderCode ? ` (${lender.lenderCode})` : ""}${lender.applicationNumber ? ` · Ref ${lender.applicationNumber}` : ""}`,
+    );
     setAdding(false);
   };
 
@@ -138,7 +169,7 @@ export function LendersWorkspace({
               <Select value={draft.lender ?? ""} onValueChange={(v) => setDraft((d) => ({ ...d, lender: v }))}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {loanLenders.map((l) => (
+                  {lenderOptions.map((l) => (
                     <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
                   ))}
                 </SelectContent>

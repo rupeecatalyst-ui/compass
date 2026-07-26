@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/design-system/page-header";
-import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-role-chips";
+import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,34 +23,99 @@ import {
 } from "@/components/ui/select";
 import { listOperationalEcmContacts } from "@/lib/enterprise-registry";
 import { useEnterpriseRegistry } from "@/hooks/use-enterprise-registry";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import {
   CONTACT_STRATEGY_ACTIVITY_OPTIONS,
   CONTACT_STRATEGY_VISIBLE_DAYS,
   activityTypeLabel,
   listActiveContactStrategyActions,
-  listContactIdsWithActiveActions,
   logContactStrategyAction,
   type ContactStrategyAction,
   type ContactStrategyActivityType,
 } from "@/lib/contact-strategy";
-import type { EcmContact } from "@/types/enterprise-contact-master";
+import { getRicContactById } from "@/lib/contact-strategy/ric-mock-data";
+import type { RicContact } from "@/lib/contact-strategy/ric-types";
+import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
 import { cn } from "@/lib/utils";
+import { RelationshipIntelligenceCanvas } from "./relationship-intelligence-canvas";
+import { StrategicContactPool } from "./strategic-contact-pool";
 
 function daysRemaining(expiresAt: string): number {
   return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000));
 }
 
+function ricCategoryToRole(category: RicContact["category"]): EcmContactRole {
+  switch (category) {
+    case "CA":
+      return "chartered_accountant";
+    case "Builder":
+      return "builder";
+    case "Bank":
+    case "NBFC":
+      return "lender_employee";
+    case "Lawyer":
+      return "partner";
+    case "Relationship Manager":
+      return "employee";
+    case "Valuer":
+      return "partner";
+    case "Customer":
+    default:
+      return "customer";
+  }
+}
+
+/** Build a display-only EcmContact from RIC mock for Contact Workspace open. */
+function ricToEcmContact(contact: RicContact): EcmContact {
+  const now = new Date().toISOString();
+  return {
+    id: contact.id,
+    name: contact.name,
+    mobilePrimary: "9000000000",
+    personalEmail: undefined,
+    officialEmail: undefined,
+    city: "Pune",
+    state: "Maharashtra",
+    country: "IN",
+    primaryRole: ricCategoryToRole(contact.category),
+    additionalRoles: [],
+    roles: [ricCategoryToRole(contact.category)],
+    enabled: true,
+    status: "active",
+    platformAccess: "no_access",
+    linkedUserId: null,
+    contactScore: contact.relationshipScore,
+    createdOn: now,
+    createdBy: "ric-mock",
+    modifiedOn: now,
+    modifiedBy: "ric-mock",
+    lastActiveOn: now,
+    strategicContact: true,
+    roleProfiles: {
+      [ricCategoryToRole(contact.category)]: {
+        firmName: contact.company,
+        designation: contact.businessRole,
+        institution: contact.company,
+      },
+    },
+  };
+}
+
 /**
- * CO-SPRINT-092 — Contact Strategy Workspace.
- * Left: available strategic contacts · Right: active relationship actions (30 days).
+ * CO-SPRINT-092 + CO-FOUNDATION-010 — Contact Strategy Workspace.
+ * Left: Strategic Contact Pool · Centre: Relationship Intelligence Canvas · Right: Active actions.
  */
 export function ContactStrategyWorkspace() {
+  const { user } = useAuthContext();
   const { registryVersion } = useEnterpriseRegistry({ hydrateOnMount: true });
   const [tick, setTick] = useState(0);
   const [dragOver, setDragOver] = useState(false);
-  const [pending, setPending] = useState<EcmContact | null>(null);
+  const [pending, setPending] = useState<{ id: string; name: string } | null>(null);
   const [activityType, setActivityType] = useState<ContactStrategyActivityType>("meeting");
   const [notes, setNotes] = useState("");
+  const [centreContactId, setCentreContactId] = useState<string | null>(null);
+  const [workspaceContact, setWorkspaceContact] = useState<EcmContact | null>(null);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
 
   const refresh = () => setTick((n) => n + 1);
 
@@ -59,20 +124,12 @@ export function ContactStrategyWorkspace() {
     return () => window.clearInterval(id);
   }, []);
 
-  const strategicAvailable = useMemo(() => {
-    const busy = listContactIdsWithActiveActions();
-    return listOperationalEcmContacts().filter(
-      (c) => c.strategicContact && c.enabled && c.status !== "archived" && !busy.has(c.id),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registryVersion, tick]);
-
   const activeActions = useMemo(() => {
     return listActiveContactStrategyActions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick, registryVersion]);
 
-  const openLog = (contact: EcmContact) => {
+  const openLog = (contact: { id: string; name: string }) => {
     setPending(contact);
     setActivityType("meeting");
     setNotes("");
@@ -92,40 +149,47 @@ export function ContactStrategyWorkspace() {
     refresh();
   };
 
+  const openContactWorkspace = (contactId: string) => {
+    const ric = getRicContactById(contactId);
+    if (!ric) return;
+    const fromRegistry = listOperationalEcmContacts().find(
+      (c) => c.name.trim().toLowerCase() === ric.name.trim().toLowerCase(),
+    );
+    setWorkspaceContact(fromRegistry ?? ricToEcmContact(ric));
+    setWorkspaceOpen(true);
+  };
+
   return (
     <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4">
       <PageHeader
         title="Contact Strategy"
-        description="Strategic relationship engagement — available contacts on the left, active cycles on the right."
+        description="Strategic relationship engagement — explore the Relationship Intelligence Canvas."
       />
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
-        {/* LEFT — available strategic contacts */}
+      {/* LEFT 25% · CENTRE 50% · RIGHT 25% */}
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
+        <StrategicContactPool
+          selectedId={centreContactId}
+          onSelect={(contact) => setCentreContactId(contact.id)}
+        />
+
         <section className="flex min-h-[420px] flex-col rounded-xl border border-border/70 bg-card">
           <header className="border-b border-border/60 px-4 py-3">
-            <h2 className="text-sm font-semibold">Strategic Contacts</h2>
+            <h2 className="text-sm font-semibold">Relationship Intelligence Canvas</h2>
             <p className="text-[11px] text-muted-foreground">
-              Drag a card to the right panel to log a relationship action.
+              First-level relationships only · click to recentre · double-click opens Contact Workspace.
             </p>
           </header>
-          <div className="flex-1 space-y-2 overflow-y-auto p-3">
-            {strategicAvailable.map((contact) => (
-              <StrategicContactCard
-                key={contact.id}
-                contact={contact}
-                onDragStart={() => undefined}
-                onOpen={() => openLog(contact)}
-              />
-            ))}
-            {strategicAvailable.length === 0 && (
-              <p className="px-2 py-10 text-center text-xs text-muted-foreground">
-                No open strategic contacts. Mark contacts as Strategic in the Contact Registry.
-              </p>
-            )}
+          <div className="min-h-0 flex-1 p-3">
+            <RelationshipIntelligenceCanvas
+              centreContactId={centreContactId}
+              onSelectContact={setCentreContactId}
+              onOpenContactWorkspace={openContactWorkspace}
+            />
           </div>
         </section>
 
-        {/* RIGHT — active relationship actions */}
+        {/* RIGHT — existing Active Relationship Actions (intact) */}
         <section
           className={cn(
             "flex min-h-[420px] flex-col rounded-xl border border-border/70 bg-card transition-colors",
@@ -141,16 +205,25 @@ export function ContactStrategyWorkspace() {
             e.preventDefault();
             setDragOver(false);
             const contactId = e.dataTransfer.getData("text/plain");
-            const contact = strategicAvailable.find((c) => c.id === contactId);
-            if (contact) openLog(contact);
+            const ric = getRicContactById(contactId);
+            if (ric) openLog({ id: ric.id, name: ric.name });
           }}
         >
           <header className="border-b border-border/60 px-4 py-3">
             <h2 className="text-sm font-semibold">Active Relationship Actions</h2>
             <p className="text-[11px] text-muted-foreground">
-              Visible for {CONTACT_STRATEGY_VISIBLE_DAYS} days, then the contact returns to the left.
+              Visible for {CONTACT_STRATEGY_VISIBLE_DAYS} days · CHANAKYA guidance area.
             </p>
           </header>
+          <div className="border-b border-border/40 bg-violet-500/5 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-300/90">
+              CHANAKYA
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+              Nurture strategic relationships deliberately. Log meaningful interactions to keep the
+              cycle alive.
+            </p>
+          </div>
           <div className="flex-1 space-y-2 overflow-y-auto p-3">
             {activeActions.map((action) => (
               <ActionCard key={action.id} action={action} />
@@ -174,10 +247,7 @@ export function ContactStrategyWorkspace() {
           <DialogHeader>
             <DialogTitle className="text-sm">Log relationship interaction</DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground">
-            {pending?.name}
-            {pending?.roles?.length ? ` · ${pending.roles.join(", ")}` : ""}
-          </p>
+          <p className="text-xs text-muted-foreground">{pending?.name}</p>
           <div className="space-y-3 py-1">
             <div className="space-y-1.5">
               <Label className="text-[11px]">Activity</Label>
@@ -217,36 +287,21 @@ export function ContactStrategyWorkspace() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
 
-function StrategicContactCard({
-  contact,
-  onOpen,
-}: {
-  contact: EcmContact;
-  onDragStart?: () => void;
-  onOpen: () => void;
-}) {
-  return (
-    <article
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData("text/plain", contact.id);
-        e.dataTransfer.effectAllowed = "move";
-      }}
-      onDoubleClick={onOpen}
-      className="cursor-grab rounded-lg border border-border/70 bg-background/80 p-3 active:cursor-grabbing"
-    >
-      <p className="text-sm font-semibold leading-snug">{contact.name}</p>
-      <div className="mt-1.5">
-        <ContactRoleChips roles={contact.roles} className="max-w-full" />
-      </div>
-      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-        Open Relationship
-      </p>
-    </article>
+      <ContactWorkspaceModal
+        open={workspaceOpen}
+        contact={workspaceContact}
+        mode="edit"
+        actorId={user?.id ?? "ui"}
+        onOpenChange={(open) => {
+          setWorkspaceOpen(open);
+          if (!open) setWorkspaceContact(null);
+        }}
+        onSaved={() => {
+          /* mock / display only */
+        }}
+      />
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   buildJourneyHref,
   getLeadJourneyModule,
@@ -23,25 +23,49 @@ import {
   leadModuleToNavigatorStageId,
   businessNavIdToNavigatorStageId,
 } from "@/constants/enterprise-business-journey-navigator";
+import {
+  getNextOpportunityWorkspaceStage,
+  getPreviousOpportunityWorkspaceStage,
+  type OpportunityWorkspaceStageId,
+} from "@/constants/opportunity-workspace-stages";
+import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import type { EnterpriseWorkspaceScrollMode } from "@/constants/enterprise-workspace-ux";
+import {
+  WORKSPACE_SAVE_LOADING_LABEL,
+  WORKSPACE_SAVE_SUCCESS_TOAST,
+} from "@/constants/enterprise-workspace-ux";
 import { WORKSPACE_CLOSE } from "@/constants/workspace-navigation";
+import { buildJourneyBreadcrumbs } from "@/constants/enterprise-exit-navigation";
+import { ROUTES } from "@/constants/routes";
+import { runWithFeedback } from "@/lib/action-feedback";
 import { readMyDealsReturnState, rememberMyDealsReturnState } from "@/lib/my-deals/view-state";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
+import { loadLeadJourneyLoanFile, loadOpportunityJourneyRuntime } from "@/lib/lead-opportunity-journey/load-context";
 import {
   BusinessJourneyNavigator,
   BusinessTransitionCard,
   WorkflowProgressControl,
 } from "@/components/catalyst-one/business-journey-navigator";
+import { OpportunityWorkspaceStageRail } from "@/components/catalyst-one/opportunity-workspace/opportunity-workspace-stage-rail";
 import {
   ChanakyaCompactLive,
   TransactionInsightsPanel,
 } from "@/components/catalyst-one/shared/transaction-insights-panel";
 import { EnterpriseWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-workspace-shell";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
+import {
+  DisbursementDocumentGateDialog,
+  listPendingMandatoryDocuments,
+} from "@/components/catalyst-one/shared/disbursement-document-gate-dialog";
 import { WorkspacePrimaryActions } from "@/components/catalyst-one/shared/workspace-primary-actions";
+import { WorkspaceExitNav } from "@/components/enterprise/navigation";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import { derivePhaseReadiness } from "@/lib/enterprise-phase-readiness";
+import type { ChanakyaLoanJourneyStageId } from "@/types/chanakya-guide";
+import type { LoanFile } from "@/types/catalyst-one";
+import type { EdieChecklistItem } from "@/types/edie-certified-rules";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export interface JourneyContextChips {
   opportunity?: string;
@@ -68,16 +92,48 @@ export interface LeadOpportunityJourneyChromeProps {
   density?: "default" | "compact";
   /** Primary contextual actions (Action Center) — before Save. */
   headerActions?: React.ReactNode;
+  /**
+   * CO-UX-015 — Optional centre slot (e.g. Enterprise Action Center).
+   * When set, header uses LEFT summary · CENTRE actions · RIGHT command bar.
+   */
+  headerCenter?: React.ReactNode;
+  /** Hide Chanakya compact live strip (Deal Workspace — Action Center owns centre). */
+  hideChanakyaCompact?: boolean;
+  /**
+   * Structured meta under the title (no truncation of the title).
+   * Prefer over a single truncated identityLine when space is tight.
+   */
+  identityMeta?: Array<{ label: string; value: string }>;
+  /** When true, borrower / title never line-clamps (Deal Workspace). */
+  titleFullyVisible?: boolean;
   fileId?: string | null;
   opportunityId?: string | null;
   onSaveDraft?: () => void | Promise<void>;
+  /**
+   * BAT #13 — toast after Save. Default on for platform consistency.
+   * Set false when the workspace already shows its own save confirmation.
+   */
+  notifySaveFeedback?: boolean;
+  /** Override success toast copy (e.g. "Opportunity saved successfully."). */
+  saveSuccessMessage?: string;
   /** Extra validation before Continue (return false to block). */
   onBeforeContinue?: () => boolean | Promise<boolean>;
+  /**
+   * Journey ribbon stage click gate. Return false to block.
+   * Default: Disbursement blocked when mandatory documents pending.
+   */
+  onBeforeStageNavigate?: (
+    stageId: ChanakyaLoanJourneyStageId,
+  ) => boolean | Promise<boolean>;
   saving?: boolean;
   className?: string;
   children?: React.ReactNode;
   hideContinue?: boolean;
   hideBack?: boolean;
+  /** Override Continue label (e.g. LIFE → Move to Deal). */
+  continueLabelOverride?: string | null;
+  /** Override Continue handler (business transition instead of stage navigation). */
+  onContinueOverride?: () => void | Promise<void>;
   /** Hide Business Journey Navigator strip (rare). */
   hideJourneyNavigator?: boolean;
   /**
@@ -87,6 +143,11 @@ export interface LeadOpportunityJourneyChromeProps {
   journeyNavigatorMode?: "ribbon" | "button";
   /** Hide Phase Readiness Dashboard (rare). */
   hidePhaseReadiness?: boolean;
+  /**
+   * CO-ARCH — When set, chrome is on the Canonical Journey (Opportunity phase aliases).
+   * Shows CanonicalJourneyHeader and Continue/Back walk the frozen 7-stage sequence.
+   */
+  opportunityWorkspaceStage?: OpportunityWorkspaceStageId;
   /** LIFE finalized — improves Lead Qualification readiness. */
   lifeFinalized?: boolean;
   /**
@@ -94,7 +155,7 @@ export interface LeadOpportunityJourneyChromeProps {
    * locked-split — dual-pane desks (Credit Workbench document preview).
    */
   scrollMode?: EnterpriseWorkspaceScrollMode;
-  /** Close destination — defaults to Loan Files. Pass null to hide Close. */
+  /** Close destination — defaults to My Deals. Pass null to hide Close. */
   closeTo?: string | null;
   onClose?: () => void;
   hasUnsavedChanges?: boolean;
@@ -107,7 +168,7 @@ export interface LeadOpportunityJourneyChromeProps {
 
 /**
  * Shared Lead / Opportunity journey chrome — Navigator + compact header + Close.
- * Continues / Back preserve transaction context. Inherits Enterprise Workspace Shell.
+ * Journey ribbon is primary navigation. Save · My Deals · Close stay top-right.
  */
 export function LeadOpportunityJourneyChrome({
   moduleId,
@@ -118,18 +179,28 @@ export function LeadOpportunityJourneyChrome({
   hideContextChips = false,
   density = "compact",
   headerActions,
+  headerCenter,
+  hideChanakyaCompact = false,
+  identityMeta,
+  titleFullyVisible = false,
   fileId,
   opportunityId,
   onSaveDraft,
+  notifySaveFeedback = true,
+  saveSuccessMessage = WORKSPACE_SAVE_SUCCESS_TOAST,
   onBeforeContinue,
+  onBeforeStageNavigate,
   saving,
   className,
   children,
   hideContinue,
   hideBack,
+  continueLabelOverride,
+  onContinueOverride,
   hideJourneyNavigator,
   journeyNavigatorMode = "ribbon",
   hidePhaseReadiness,
+  opportunityWorkspaceStage,
   lifeFinalized,
   scrollMode = "document",
   closeTo = WORKSPACE_CLOSE.MY_DEALS,
@@ -140,6 +211,7 @@ export function LeadOpportunityJourneyChrome({
   collapseOnScroll = true,
 }: LeadOpportunityJourneyChromeProps) {
   const router = useRouter();
+  const [chromeSaving, setChromeSaving] = useState(false);
   const mod = getLeadJourneyModule(moduleId);
   const stage = stageOverride ?? mod.stage;
   const nextModule = getNextLeadJourneyModule(moduleId);
@@ -149,8 +221,20 @@ export function LeadOpportunityJourneyChrome({
   const prevNav = getPreviousBusinessJourneyNavStep(navId);
   const compact = density === "compact";
   const navigatorStageId = leadModuleToNavigatorStageId(moduleId);
+  const owNext = opportunityWorkspaceStage
+    ? getNextOpportunityWorkspaceStage(opportunityWorkspaceStage)
+    : null;
+  const owPrev = opportunityWorkspaceStage
+    ? getPreviousOpportunityWorkspaceStage(opportunityWorkspaceStage)
+    : null;
 
-  const handleExit = () => {
+  const [myDealsConfirmOpen, setMyDealsConfirmOpen] = useState(false);
+  const [myDealsSaving, setMyDealsSaving] = useState(false);
+  const [disbursementGateOpen, setDisbursementGateOpen] = useState(false);
+  const [gateFile, setGateFile] = useState<LoanFile | null>(null);
+  const [gatePending, setGatePending] = useState<EdieChecklistItem[]>([]);
+
+  const handleExit = useCallback(() => {
     if (closeTo === WORKSPACE_CLOSE.MY_DEALS) {
       const existing = readMyDealsReturnState();
       rememberMyDealsReturnState(existing ?? { view: "kanban", filterId: "my_deals" });
@@ -160,7 +244,24 @@ export function LeadOpportunityJourneyChrome({
       return;
     }
     if (closeTo) router.push(closeTo);
-  };
+  }, [closeTo, onClose, router]);
+
+  /** BAT #13 — loading + success/error feedback for every journey Save. */
+  const executeSaveDraft = useCallback(async () => {
+    if (!onSaveDraft) return;
+    setChromeSaving(true);
+    try {
+      if (notifySaveFeedback) {
+        await runWithFeedback(WORKSPACE_SAVE_LOADING_LABEL, () => onSaveDraft(), {
+          successMessage: saveSuccessMessage,
+        });
+      } else {
+        await onSaveDraft();
+      }
+    } finally {
+      setChromeSaving(false);
+    }
+  }, [notifySaveFeedback, onSaveDraft, saveSuccessMessage]);
 
   const showClose = Boolean(onClose || closeTo);
   const closeApi = useWorkspaceClose({
@@ -170,6 +271,7 @@ export function LeadOpportunityJourneyChrome({
       onSaveAndClose ??
       (onSaveDraft
         ? async () => {
+            // Close path uses WORKSPACE_CLEAN_CLOSE_TOAST — avoid double success toasts.
             await onSaveDraft();
           }
         : undefined),
@@ -177,40 +279,127 @@ export function LeadOpportunityJourneyChrome({
     enableEscapeKey: showClose,
   });
 
-  const continueLabel = nextNav
-    ? getBusinessContinueLabel(nextNav)
-    : nextModule
-      ? `Continue to ${nextModule.label}`
-      : null;
-  const backLabel = prevNav
-    ? getBusinessBackLabel(prevNav)
-    : prevModule
-      ? `Back to ${prevModule.label}`
-      : null;
-  const continuePurpose = nextNav
-    ? getBusinessJourneyTransitionPurpose(businessNavIdToNavigatorStageId(nextNav.id))
-    : nextModule
-      ? getBusinessJourneyTransitionPurpose(leadModuleToNavigatorStageId(nextModule.id))
-      : null;
+  const requestMyDeals = useCallback(() => {
+    if (hasUnsavedChanges) {
+      setMyDealsConfirmOpen(true);
+      return;
+    }
+    handleExit();
+  }, [hasUnsavedChanges, handleExit]);
+
+  const handleSaveAndGoMyDeals = useCallback(async () => {
+    setMyDealsSaving(true);
+    try {
+      if (onSaveAndClose) {
+        const result = await onSaveAndClose();
+        if (result === false) return;
+      } else if (onSaveDraft) {
+        await onSaveDraft();
+      }
+      setMyDealsConfirmOpen(false);
+      toast.success("All changes saved.", { duration: 2200 });
+      handleExit();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Unable to save before leaving. Please try again.",
+      );
+    } finally {
+      setMyDealsSaving(false);
+    }
+  }, [handleExit, onSaveAndClose, onSaveDraft]);
+
+  const refreshDisbursementGate = useCallback(() => {
+    void loadOpportunityJourneyRuntime(fileId ?? null, opportunityId).then((file) => {
+      const pending = listPendingMandatoryDocuments(file);
+      setGateFile(file);
+      setGatePending(pending);
+      if (pending.length === 0) {
+        setDisbursementGateOpen(false);
+      }
+    });
+  }, [fileId, opportunityId]);
+
+  const handleBeforeStageNavigate = useCallback(
+    async (stageId: ChanakyaLoanJourneyStageId) => {
+      if (onBeforeStageNavigate) {
+        return onBeforeStageNavigate(stageId);
+      }
+      if (stageId !== "disbursement") return true;
+      const file =
+        (await loadOpportunityJourneyRuntime(fileId ?? null, opportunityId)) ||
+        loadLeadJourneyLoanFile(fileId ?? null, opportunityId);
+      const pending = listPendingMandatoryDocuments(file);
+      if (pending.length === 0) return true;
+      setGateFile(file);
+      setGatePending(pending);
+      setDisbursementGateOpen(true);
+      return false;
+    },
+    [fileId, onBeforeStageNavigate, opportunityId],
+  );
+
+  const continueLabel =
+    continueLabelOverride !== undefined
+      ? continueLabelOverride
+      : opportunityWorkspaceStage
+        ? owNext
+          ? `Continue to ${owNext.label}`
+          : null
+        : nextNav
+          ? getBusinessContinueLabel(nextNav)
+          : nextModule
+            ? `Continue to ${nextModule.label}`
+            : null;
+  const backLabel = opportunityWorkspaceStage
+    ? owPrev
+      ? `Back to ${owPrev.label}`
+      : null
+    : prevNav
+      ? getBusinessBackLabel(prevNav)
+      : prevModule
+        ? `Back to ${prevModule.label}`
+        : null;
+  const continuePurpose = opportunityWorkspaceStage
+    ? owNext?.purpose ?? null
+    : nextNav
+      ? getBusinessJourneyTransitionPurpose(businessNavIdToNavigatorStageId(nextNav.id))
+      : nextModule
+        ? getBusinessJourneyTransitionPurpose(leadModuleToNavigatorStageId(nextModule.id))
+        : null;
 
   const rememberContext = () => {
-    if (!fileId) return;
+    if (!opportunityId && !fileId) return;
+    // Opportunity Workspace SSOT: never invent fileId from opportunityId.
     setActiveOpportunityContext({
-      fileId,
-      opportunityId: opportunityId ?? undefined,
+      ...(opportunityId ? { opportunityId } : {}),
+      ...(fileId && fileId !== opportunityId ? { fileId } : {}),
+      customer: context?.customer,
       customerName: context?.customer,
       product: context?.product,
+      opportunityReference: context?.opportunity,
       label: context?.opportunity,
+      stage: context?.stage,
+      owner: context?.rm,
     });
   };
 
   const handleContinue = async () => {
+    if (onContinueOverride) {
+      await onContinueOverride();
+      return;
+    }
     if (onBeforeContinue) {
       const ok = await onBeforeContinue();
       if (!ok) return;
     }
     if (onSaveDraft) await onSaveDraft();
     rememberContext();
+    if (opportunityWorkspaceStage && owNext) {
+      router.push(
+        buildCanonicalJourneyStageHref(owNext.id, { fileId, opportunityId }),
+      );
+      return;
+    }
     if (nextNav) {
       router.push(buildBusinessJourneyHref(nextNav, { fileId, opportunityId }));
       return;
@@ -226,6 +415,12 @@ export function LeadOpportunityJourneyChrome({
 
   const handleBack = () => {
     rememberContext();
+    if (opportunityWorkspaceStage && owPrev) {
+      router.push(
+        buildCanonicalJourneyStageHref(owPrev.id, { fileId, opportunityId }),
+      );
+      return;
+    }
     if (prevNav) {
       router.push(buildBusinessJourneyHref(prevNav, { fileId, opportunityId }));
       return;
@@ -287,12 +482,30 @@ export function LeadOpportunityJourneyChrome({
 
   const showChipRow = chips.length > 0 && hideContextChips === false && !compactIdentity;
   const useWorkflowButton =
-    !hideJourneyNavigator && journeyNavigatorMode === "button";
+    !opportunityWorkspaceStage &&
+    !hideJourneyNavigator &&
+    journeyNavigatorMode === "button";
   const showRibbonNavigator =
-    !hideJourneyNavigator && journeyNavigatorMode === "ribbon";
+    !opportunityWorkspaceStage &&
+    !hideJourneyNavigator &&
+    journeyNavigatorMode === "ribbon";
+  const hideTransition = Boolean(hideContinue && hideBack);
+
+  const exitBreadcrumbs = useMemo(() => {
+    const base = buildJourneyBreadcrumbs(moduleId);
+    return base.map((crumb) => {
+      if (!crumb.href) return crumb;
+      if (crumb.href === ROUTES.DASHBOARD || crumb.href === ROUTES.MY_DEALS) return crumb;
+      return {
+        ...crumb,
+        href: buildJourneyHref(crumb.href, { fileId, opportunityId }),
+      };
+    });
+  }, [moduleId, fileId, opportunityId]);
 
   const chrome = (
     <>
+      <WorkspaceExitNav breadcrumbs={exitBreadcrumbs} />
       <div
         className={cn(
           /* Instant collapse — animated height on sticky chrome causes viewport shake. */
@@ -302,11 +515,23 @@ export function LeadOpportunityJourneyChrome({
         )}
       >
         <div className="min-h-0 overflow-hidden">
+          {opportunityWorkspaceStage ? (
+            <OpportunityWorkspaceStageRail
+              currentStage={opportunityWorkspaceStage}
+              fileId={fileId}
+              opportunityId={opportunityId}
+              customerName={context?.customer}
+              product={context?.product}
+              label={context?.opportunity}
+            />
+          ) : null}
           {showRibbonNavigator ? (
             <BusinessJourneyNavigator
               currentStageId={navigatorStageId}
               fileId={fileId}
               opportunityId={opportunityId}
+              allowForwardNavigation
+              onBeforeStageNavigate={handleBeforeStageNavigate}
             />
           ) : null}
           {!hidePhaseReadiness && (fileId || opportunityId) ? (
@@ -322,22 +547,17 @@ export function LeadOpportunityJourneyChrome({
         </div>
       </div>
       <header>
-        {/*
-          Dedicated regions — title never shares a flex line with CHANAKYA.
-          Row 1 (md+): identity (minmax 0) | CHANAKYA (fixed 18rem)
-          Row 2: workflow + actions (full width) — stable under zoom / display scaling
-        */}
         <div
           className={cn(
             "grid gap-x-4 gap-y-2 px-4 sm:px-5",
             "grid-cols-1",
-            "md:grid-cols-[minmax(0,1fr)_minmax(0,18rem)]",
-            "md:items-start",
+            headerCenter
+              ? "lg:grid-cols-[minmax(0,1.35fr)_auto_minmax(0,1fr)] lg:items-center"
+              : "md:grid-cols-[minmax(0,1fr)_minmax(0,18rem)] md:items-start",
             compact ? "py-1.5" : "py-2",
           )}
         >
-          {/* Region: Opportunity Stage → Customer / Opportunity Name */}
-          <div className="min-w-0 md:col-start-1 md:row-start-1">
+          <div className="min-w-0 lg:col-start-1 lg:row-start-1">
             <p
               className={cn(
                 "min-w-0 truncate text-[9px] font-semibold uppercase tracking-[0.16em]",
@@ -350,13 +570,35 @@ export function LeadOpportunityJourneyChrome({
               {journeyStageEyebrow(stage)}
             </p>
             <h1
-              className="mt-0.5 min-w-0 break-words text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg [overflow-wrap:anywhere] line-clamp-2"
+              className={cn(
+                "mt-0.5 min-w-0 break-words text-base font-semibold leading-snug tracking-tight text-foreground sm:text-lg [overflow-wrap:anywhere]",
+                titleFullyVisible ? null : "line-clamp-2",
+              )}
               title={displayTitle}
             >
               {displayTitle}
             </h1>
-            {compactIdentity ? (
-              <p className="mt-0.5 min-w-0 truncate text-[10px] leading-snug text-muted-foreground">
+            {identityMeta && identityMeta.length > 0 ? (
+              <dl className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] leading-snug">
+                {identityMeta.map((item) => (
+                  <div
+                    key={`${item.label}:${item.value}`}
+                    className="inline-flex min-w-0 max-w-full items-baseline gap-1"
+                  >
+                    <dt className="shrink-0 font-medium text-muted-foreground">
+                      {item.label}
+                    </dt>
+                    <dd
+                      className="min-w-0 break-words font-semibold text-foreground [overflow-wrap:anywhere]"
+                      title={item.value}
+                    >
+                      {item.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : compactIdentity ? (
+              <p className="mt-0.5 min-w-0 break-words text-[10px] leading-snug text-muted-foreground [overflow-wrap:anywhere]">
                 {compactIdentity}
               </p>
             ) : null}
@@ -375,24 +617,30 @@ export function LeadOpportunityJourneyChrome({
             ) : null}
           </div>
 
-          {/* Region: CHANAKYA — capped width; overflow clipped inside the card only */}
-          <div
-            className={cn(
-              "hidden min-w-0 w-full max-w-[18rem] justify-self-end md:col-start-2 md:row-start-1 md:block",
-              "group-data-[chrome-collapsed=true]/ews:hidden",
-            )}
-          >
-            <ChanakyaCompactLive
-              message={chanakyaLine}
-              className="h-auto min-h-7 w-full max-w-none overflow-hidden"
-            />
-          </div>
+          {headerCenter ? (
+            <div className="flex min-w-0 items-center justify-start lg:col-start-2 lg:row-start-1 lg:justify-center">
+              {headerCenter}
+            </div>
+          ) : !hideChanakyaCompact ? (
+            <div
+              className={cn(
+                "hidden min-w-0 w-full max-w-[18rem] justify-self-end md:col-start-2 md:row-start-1 md:block",
+                "group-data-[chrome-collapsed=true]/ews:hidden",
+              )}
+            >
+              <ChanakyaCompactLive
+                message={chanakyaLine}
+                className="h-auto min-h-7 w-full max-w-none overflow-hidden"
+              />
+            </div>
+          ) : null}
 
-          {/* Region: Workflow + primary actions — always below identity/CHANAKYA */}
           <div
             className={cn(
               "flex min-w-0 flex-wrap items-center justify-end gap-1.5",
-              "md:col-span-2",
+              headerCenter
+                ? "lg:col-start-3 lg:row-start-1"
+                : "md:col-span-2",
             )}
           >
             {useWorkflowButton ? (
@@ -400,38 +648,37 @@ export function LeadOpportunityJourneyChrome({
                 currentStageId={navigatorStageId}
                 fileId={fileId}
                 opportunityId={opportunityId}
+                onBeforeStageNavigate={handleBeforeStageNavigate}
               />
             ) : null}
             {headerActions}
-            <BusinessTransitionCard
-              continueLabel={continueLabel}
-              continuePurpose={continuePurpose}
-              onContinue={() => void handleContinue()}
-              backLabel={backLabel}
-              onBack={handleBack}
-              hideContinue={hideContinue}
-              hideBack={hideBack}
-              disabled={saving}
-            />
+            {!hideTransition ? (
+              <BusinessTransitionCard
+                continueLabel={continueLabel}
+                continuePurpose={continuePurpose}
+                onContinue={() => void handleContinue()}
+                backLabel={backLabel}
+                onBack={handleBack}
+                hideContinue={hideContinue}
+                hideBack={hideBack}
+                disabled={saving}
+              />
+            ) : null}
             {showClose ? (
               <WorkspacePrimaryActions
                 mode={onSaveDraft || onSaveAndClose ? "editable" : "readonly"}
                 density="compact"
-                saving={saving || closeApi.saving}
+                saving={Boolean(saving || chromeSaving || closeApi.saving || myDealsSaving)}
                 onClose={closeApi.requestClose}
                 onSave={
                   onSaveDraft
                     ? async () => {
-                        await onSaveDraft();
+                        await executeSaveDraft();
                       }
                     : undefined
                 }
-                onSaveAndExit={
-                  onSaveDraft || onSaveAndClose
-                    ? async () => {
-                        await closeApi.handleSaveAndClose();
-                      }
-                    : undefined
+                onMyDeals={
+                  onSaveDraft || onSaveAndClose ? requestMyDeals : undefined
                 }
               />
             ) : null}
@@ -461,8 +708,31 @@ export function LeadOpportunityJourneyChrome({
             onSaveAndClose || onSaveDraft ? closeApi.handleSaveAndClose : undefined
           }
           saving={closeApi.saving}
+          variant="close"
         />
       ) : null}
+      {showClose ? (
+        <UnsavedChangesDialog
+          open={myDealsConfirmOpen}
+          onOpenChange={setMyDealsConfirmOpen}
+          onDiscard={() => {
+            setMyDealsConfirmOpen(false);
+            handleExit();
+          }}
+          onSaveAndClose={
+            onSaveAndClose || onSaveDraft ? handleSaveAndGoMyDeals : undefined
+          }
+          saving={myDealsSaving}
+          variant="my-deals"
+        />
+      ) : null}
+      <DisbursementDocumentGateDialog
+        open={disbursementGateOpen}
+        onOpenChange={setDisbursementGateOpen}
+        file={gateFile}
+        pendingItems={gatePending}
+        onUploaded={refreshDisbursementGate}
+      />
     </>
   );
 }

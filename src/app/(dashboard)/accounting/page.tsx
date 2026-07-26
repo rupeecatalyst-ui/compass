@@ -1,10 +1,20 @@
-import { ModulePlaceholder } from "@/components/catalyst-one/module-placeholder";
+import { Suspense } from "react";
+import { AccountingWorkspace } from "@/components/catalyst-one/accounting";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
+/** CO-SPRINT-095 — Accounting Workspace & Invoice Management. */
 export default function AccountingPage() {
   return (
-    <ModulePlaceholder
-      title="Accounting"
-      description="Commission tracking, invoicing, payouts, and financial reconciliation."
-    />
+    <Suspense
+      fallback={
+        <ChanakyaLoadingExperience
+          module="accounting"
+          statusLabel="Opening Accounting…"
+          density="panel"
+        />
+      }
+    >
+      <AccountingWorkspace />
+    </Suspense>
   );
 }

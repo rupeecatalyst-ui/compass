@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, MessageSquare, SendHorizonal } from "lucide-react";
 import Link from "next/link";
 import { formatINR } from "@/lib/format-currency";
-import { getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
 import { ROUTES } from "@/constants/routes";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
+import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import {
   mapLoanDocumentsToEcwViewerDocs,
   opportunityNumberForFile,
@@ -24,56 +24,91 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/lead-opportunity-journey-chrome";
-import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
-import { loadLeadJourneyLoanFile } from "@/lib/lead-opportunity-journey/load-context";
-import { isDashboardNavEntry } from "@/lib/lead-opportunity-journey/active-context";
+import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
+import { OpportunityBoundStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-bound-stage";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
+import { loadOpportunityJourneyRuntime } from "@/lib/lead-opportunity-journey/load-context";
+import {
+  getActiveOpportunityContext,
+  isDashboardNavEntry,
+} from "@/lib/lead-opportunity-journey/active-context";
+import { useRequirementCapturedGate } from "@/lib/loan-journey/use-requirement-captured-gate";
 import {
   resolveStatedDraftForFile,
   saveStatedDraft,
 } from "@/lib/lead-opportunity-journey/stated-draft";
-import { EcwLeftPanel } from "./ecw-left-panel";
-import { EcwDocumentCentre } from "./ecw-document-centre";
-import { EcwChanakyaLiveBanner } from "./ecw-chanakya-live-banner";
+import { EcwLeftPanel, EcwSectionTabs } from "./ecw-left-panel";
+import { EcwDocumentCategories } from "./ecw-document-categories";
+import { EcwDocumentPreviewDrawer } from "./ecw-document-preview-drawer";
 import type { LoanFile } from "@/types/catalyst-one";
 import type {
   EcwLeftSectionId,
   EcwStatedInformationDraft,
+  EcwViewerDocument,
 } from "@/types/enterprise-credit-workspace";
+import { cn } from "@/lib/utils";
 
 /**
- * Lead Stage — Credit Workbench (verification desk).
- * Collection lives in Document Center; viewer dominates this surface.
+ * Credit Workbench — same workspace philosophy as Document Center.
+ * Journey ribbon · Save / My Deals / Close · horizontal tabs · form + categories + preview drawer.
  */
 export function EnterpriseCreditWorkspace() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const fileParam = searchParams.get("file");
   const opportunityId = searchParams.get("opportunityId");
+  const dashboardEntry = isDashboardNavEntry(searchParams);
+  const hasUrlContext = Boolean(fileParam || opportunityId);
+  const requirementGate = useRequirementCapturedGate(
+    dashboardEntry ? null : opportunityId,
+  );
   const [file, setFile] = useState<LoanFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<EcwLeftSectionId>("stated_financial");
   const [stated, setStated] = useState<EcwStatedInformationDraft>({});
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [savedOnce, setSavedOnce] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<EcwViewerDocument | null>(null);
+  const [previewCategory, setPreviewCategory] = useState<string | undefined>();
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    const next = loadLeadJourneyLoanFile(fileParam, opportunityId, {
+    void loadOpportunityJourneyRuntime(fileParam, opportunityId, {
       dashboardEntry: isDashboardNavEntry(searchParams),
+    }).then((next) => {
+      if (cancelled) return;
+      setFile(next);
+      if (next) {
+        setStated(resolveStatedDraftForFile(next));
+      } else {
+        setStated({});
+      }
+      setPreviewOpen(false);
+      setPreviewDoc(null);
+      setLoading(false);
     });
-    setFile(next);
-    if (next) {
-      setStated(resolveStatedDraftForFile(next));
-      setSelectedDocId(next.documents?.[0]?.id ?? null);
-    } else {
-      setStated({});
-      setSelectedDocId(null);
-    }
-    setLoading(false);
+    return () => {
+      cancelled = true;
+    };
   }, [fileParam, opportunityId, searchParams]);
+
+  useEffect(() => {
+    if (dashboardEntry || hasUrlContext || file) return;
+    const active = getActiveOpportunityContext();
+    if (active?.fileId || active?.opportunityId) {
+      router.replace(
+        buildCanonicalJourneyStageHref("credit_bench", {
+          fileId: active.fileId ?? null,
+          opportunityId: active.opportunityId ?? null,
+        }),
+      );
+    }
+  }, [dashboardEntry, hasUrlContext, file, router]);
 
   const lender = useMemo(
     () =>
@@ -92,8 +127,6 @@ export function EnterpriseCreditWorkspace() {
         : [],
     [file],
   );
-
-  const selectedDoc = viewerDocs.find((d) => d.id === selectedDocId) ?? null;
 
   const readiness = useMemo(() => {
     if (!file) {
@@ -115,8 +148,6 @@ export function EnterpriseCreditWorkspace() {
     });
   }, [file, stated]);
 
-  const missingLabels = readiness.fields.filter((f) => !f.complete).map((f) => f.label);
-
   const pendingDocs = (file?.documents ?? []).filter(
     (d) => d.status === "pending" || d.status === "requested",
   );
@@ -126,36 +157,33 @@ export function EnterpriseCreditWorkspace() {
     window.setTimeout(() => setToast(null), 3200);
   };
 
-  if (loading) {
+  if (requirementGate.status === "loading" || requirementGate.status === "redirecting") {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!file) {
-    return (
-      <OpportunityContextPicker
-        targetHref={ROUTES.CREDIT_WORKBENCH}
-        title="Select an opportunity for Credit Workbench"
-        description="Verification needs an active case. Choose one below or continue from Document Center."
+      <ChanakyaLoadingExperience
+        module="credit"
+        density="panel"
+        statusLabel={
+          requirementGate.status === "redirecting"
+            ? "Requirement not captured — opening Lead Information…"
+            : "Opening Credit Workbench…"
+        }
       />
     );
   }
 
-  const stageLabel = getJourneyStageDisplayLabel(file.stage);
-  const recommendations = [
-    pendingDocs.length > 0
-      ? `Collect pending documents in Document Center (${pendingDocs.length}).`
-      : "Align stated figures to the open document while verifying.",
-    lender.enabled
-      ? `Lender pack recipient locked to ${lender.contactName} (${lender.lenderName}).`
-      : "Select a lender in LIFE before sending documents.",
-    readiness.ready
-      ? "Proposal readiness met — prepare the draft from Proposal."
-      : "Complete missing verification fields while reviewing statements.",
-  ];
+  if (loading) {
+    return (
+      <ChanakyaLoadingExperience
+        module="credit"
+        density="panel"
+        statusLabel="Opening Credit Workbench…"
+      />
+    );
+  }
+
+  if (!file) {
+    return <OpportunityBoundStage stage="credit_workbench" />;
+  }
 
   const docCenterHref = buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
     fileId: file.id,
@@ -167,17 +195,15 @@ export function EnterpriseCreditWorkspace() {
       <LeadOpportunityJourneyChrome
         moduleId="credit_workbench"
         scrollMode="document"
-        journeyNavigatorMode="button"
         density="compact"
         hideContextChips
+        hidePhaseReadiness
+        opportunityWorkspaceStage="credit_workbench"
         title={file.customerName}
         identityLine={[
           opportunityNumber,
           file.loanProduct,
           formatINR(file.requiredAmount || file.loanAmount),
-          stageLabel,
-          file.relationshipManager ? `RM ${file.relationshipManager}` : null,
-          lender.enabled ? lender.lenderName : null,
         ]
           .filter(Boolean)
           .join(" · ")}
@@ -186,33 +212,31 @@ export function EnterpriseCreditWorkspace() {
           customer: file.customerName,
           product: file.loanProduct,
           amount: formatINR(file.requiredAmount || file.loanAmount),
-          life: lender.enabled ? lender.lenderName : undefined,
-          stage: stageLabel,
-          rm: file.relationshipManager,
         }}
         fileId={file.id}
         opportunityId={opportunityId}
         hasUnsavedChanges={dirty}
         acknowledgeCleanClose={!dirty && savedOnce}
+        headerActions={
+          <LoanStructureCommandControl
+            file={file}
+            participants={file.participants ?? []}
+            onNavigate={() => {}}
+          />
+        }
         onSaveDraft={async () => {
           saveStatedDraft(file.id, stated);
           setDirty(false);
           setSavedOnce(true);
-          showToast("Verification draft saved for Opportunity Setup continuity.");
         }}
+        saveSuccessMessage="Verification draft saved successfully."
       >
         <div className="flex flex-col">
-          <EcwChanakyaLiveBanner
-            readiness={readiness}
-            missingLabels={missingLabels}
-            recommendations={recommendations}
-          />
-
-          {toast && (
+          {toast ? (
             <div className="border-b border-teal-500/20 bg-teal-500/10 px-3 py-1 text-[11px] text-teal-950 dark:text-teal-100 sm:px-4">
               {toast}
             </div>
-          )}
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-muted/15 px-3 py-1 sm:px-4">
             <Button
@@ -238,14 +262,23 @@ export function EnterpriseCreditWorkspace() {
             <Button asChild size="sm" variant="outline" className="h-7 text-[11px]">
               <Link href={docCenterHref}>Open Document Center</Link>
             </Button>
-            <span className="text-[10px] text-muted-foreground">
-              Collection → Document Center · Verification → this desk
-            </span>
           </div>
 
-          {/* Natural page scroll: form grows with content; only document preview is height-bound. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(240px,28%)_minmax(0,1fr)]">
-            <div className="border-b border-border/50 lg:border-b-0 lg:border-r">
+          <EcwSectionTabs
+            active={section}
+            onChange={setSection}
+            employmentType={file.employmentType}
+          />
+
+          <div
+            className={cn(
+              "grid min-h-[min(70vh,720px)] grid-cols-1",
+              previewOpen
+                ? "lg:grid-cols-[minmax(240px,34%)_minmax(0,1fr)_minmax(280px,42%)]"
+                : "lg:grid-cols-[minmax(260px,38%)_minmax(0,1fr)]",
+            )}
+          >
+            <div className="min-h-0 border-b border-border/50 lg:border-b-0 lg:border-r">
               <EcwLeftPanel
                 file={file}
                 opportunityNumber={opportunityNumber}
@@ -261,14 +294,27 @@ export function EnterpriseCreditWorkspace() {
                 readiness={readiness}
               />
             </div>
-            <div className="min-h-[min(70vh,720px)] lg:min-h-[calc(100dvh-9rem)]">
-              <EcwDocumentCentre
-                documents={viewerDocs}
-                selectedId={selectedDocId}
-                onSelect={setSelectedDocId}
-                selectedDoc={selectedDoc}
+
+            <div className="min-h-0 p-2 sm:p-3">
+              <EcwDocumentCategories
+                file={file}
+                viewerDocs={viewerDocs}
+                onView={(doc, categoryLabel) => {
+                  setPreviewDoc(doc);
+                  setPreviewCategory(categoryLabel);
+                  setPreviewOpen(true);
+                }}
               />
             </div>
+
+            {previewOpen ? (
+              <EcwDocumentPreviewDrawer
+                open={previewOpen}
+                onClose={() => setPreviewOpen(false)}
+                document={previewDoc}
+                categoryLabel={previewCategory}
+              />
+            ) : null}
           </div>
         </div>
       </LeadOpportunityJourneyChrome>
@@ -360,4 +406,3 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-

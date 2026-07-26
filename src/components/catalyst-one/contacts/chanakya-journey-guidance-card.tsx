@@ -17,6 +17,8 @@ export interface ChanakyaJourneyGuidanceCardProps {
   completeProfileLabel?: string;
   onCompleteProfile?: () => void;
   onStartOrOpenJourney?: () => void;
+  /** Disable primary CTA while async journey start is in flight. */
+  busy?: boolean;
   className?: string;
 }
 
@@ -33,6 +35,7 @@ export function ChanakyaJourneyGuidanceCard({
   completeProfileLabel,
   onCompleteProfile,
   onStartOrOpenJourney,
+  busy = false,
   className,
 }: ChanakyaJourneyGuidanceCardProps) {
   const profileCta = completeProfileLabel ?? journeyLabel;
@@ -93,8 +96,9 @@ export function ChanakyaJourneyGuidanceCard({
               size="sm"
               className="mt-1 h-8 w-full rounded-md bg-teal-600 px-2 text-[11px] font-medium hover:bg-teal-500"
               onClick={onStartOrOpenJourney}
+              disabled={busy}
             >
-              {journeyLabel}
+              {busy ? "Creating Opportunity…" : journeyLabel}
             </Button>
           )}
 
@@ -104,6 +108,7 @@ export function ChanakyaJourneyGuidanceCard({
               size="sm"
               className="mt-1 h-8 w-full rounded-md bg-sky-600 px-2 text-[11px] font-medium hover:bg-sky-500"
               onClick={onStartOrOpenJourney}
+              disabled={busy}
             >
               {journeyLabel}
             </Button>

@@ -82,7 +82,7 @@ export function EcmMasterSelect({
           <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-md">
             <Command className="bg-popover">
               <CommandInput placeholder={searchPlaceholder} className="h-9 text-sm" />
-              <CommandList>
+              <CommandList className="max-h-40">
                 <CommandEmpty className="py-3 text-xs">{emptyHint}</CommandEmpty>
                 <CommandGroup>
                   {options.map((opt) => (

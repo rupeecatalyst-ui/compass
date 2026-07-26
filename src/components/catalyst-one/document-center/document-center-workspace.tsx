@@ -7,6 +7,7 @@ import { LeadOpportunityJourneyChrome } from "@/components/catalyst-one/shared/l
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
 import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import { OpportunityBoundStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-bound-stage";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import {
   getActiveOpportunityContext,
@@ -607,17 +608,25 @@ export function DocumentCenterWorkspace() {
 
   if (requirementGate.status === "loading" || requirementGate.status === "redirecting") {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-      </div>
+      <ChanakyaLoadingExperience
+        module="documents"
+        density="panel"
+        statusLabel={
+          requirementGate.status === "redirecting"
+            ? "Requirement not captured — opening Lead Information…"
+            : "Opening Document Center…"
+        }
+      />
     );
   }
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-      </div>
+      <ChanakyaLoadingExperience
+        module="documents"
+        density="panel"
+        statusLabel="Opening Document Center…"
+      />
     );
   }
 

@@ -75,9 +75,11 @@ import {
 import type { CanonicalJourneyStageId } from "@/constants/canonical-journey-header";
 import { formatINR } from "@/lib/format-currency";
 import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
-import { updateDeal } from "@/lib/enterprise-deal/deal-data-access";
+import { updateDeal, updateDealAsync } from "@/lib/enterprise-deal/deal-data-access";
+import { tracePipelineDrag } from "@/lib/enterprise-deal/pipeline-drag-trace";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -204,22 +206,34 @@ function LoanWorkspaceModalContent({
   }, [opportunityId, file?.id]);
 
   useEffect(() => {
-    if (file) {
+    if (!file) return;
+    setDraft((prev) => {
+      // CO-ARCH-003 — Protect Pipeline / workspace draft across notify remounts.
+      if (prev && prev.id === file.id && isLoanWorkspaceDirty(prev, file, notes)) {
+        return prev;
+      }
       const participants = resolveLoanParticipants(file);
-      const next = { ...file, participants };
-      setDraft(next);
-      setSavedSnapshot(next);
-      setNotes(file.internalNotes);
-      setActiveTab(tabFromUrl || defaultTab);
-      setLenderAddOpen(false);
-      setOverviewUi({
-        loanDetails: { collapsed: false, mode: "view" },
-        propertyInfo: { collapsed: false, mode: "view" },
-        participants: { collapsed: false, mode: "view" },
-        source: { collapsed: false, mode: "view" },
-      });
-    }
-  }, [file, defaultTab, tabFromUrl]);
+      return { ...file, participants };
+    });
+  }, [file, notes]);
+
+  // Reset chrome only when opening a different Deal (not on every notify).
+  useEffect(() => {
+    if (!file) return;
+    const participants = resolveLoanParticipants(file);
+    const next = { ...file, participants };
+    setSavedSnapshot(next);
+    setNotes(file.internalNotes);
+    setActiveTab(tabFromUrl || defaultTab);
+    setLenderAddOpen(false);
+    setOverviewUi({
+      loanDetails: { collapsed: false, mode: "view" },
+      propertyInfo: { collapsed: false, mode: "view" },
+      participants: { collapsed: false, mode: "view" },
+      source: { collapsed: false, mode: "view" },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- identity-only reset
+  }, [file?.id]);
 
   const { registryVersion } = useLoanJourneyEcm({ hydrateOnMount: true, refreshOnOpen: true, open });
   const participantEntityOptions = useMemo(() => {
@@ -913,12 +927,66 @@ function LoanWorkspaceModalContent({
 
           <TabsContent value="lenders" className="mt-0 min-h-[min(78vh,900px)] flex-1">
             <LenderPipelineBoard
-              loan={draft}
+              context={{
+                dealId: draft.enterpriseDealId || draft.id,
+                dealNumber: draft.dealNumber || draft.fileNumber || draft.id,
+                opportunityId: draft.enterpriseOpportunityId,
+                opportunityNumber: draft.opportunityNumber,
+                requiredAmount: draft.requiredAmount ?? draft.loanAmount ?? 0,
+                interestRate: draft.interestRate,
+                tenure: draft.tenure,
+                loanProduct: draft.loanProduct || "",
+                productCode: draft.productCode,
+                relationshipManager: draft.relationshipManager || "",
+                customerName: draft.customerName || "",
+                customerId: draft.customerId,
+                invoicePartyId: draft.invoicePartyId,
+                commissionAccountingPayeeId: draft.commissionAccountingPayeeId,
+                commercialPayee: draft.commercialPayee,
+                commercialPayeeSpecify: draft.commercialPayeeSpecify,
+                rowVersion: 0,
+              }}
               cases={draft.lenders ?? []}
               updatedBy={draft.relationshipManager}
               addOpen={lenderAddOpen}
               onAddOpenChange={setLenderAddOpen}
-              onChange={(next) => patch({ lenders: next })}
+              onChange={(next) => {
+                tracePipelineDrag("context_patch", {
+                  fileId: draft?.id,
+                  lenders: next.map((l) => `${l.id}:${l.caseStage}`),
+                });
+                patch({ lenders: next });
+                // Prefer Deal Registry when Deal id is known; never Soft Go-Live for Deal path.
+                const dealKey = draft.enterpriseDealId || draft.id;
+                if (dealKey) {
+                  tracePipelineDrag("persist_start", { fileId: dealKey });
+                  void updateDealAsync(
+                    dealKey,
+                    { lenders: next },
+                    undefined,
+                    "loan_workspace",
+                  ).then((persisted) => {
+                    if (persisted) {
+                      tracePipelineDrag("persist_registry", {
+                        fileId: persisted.id,
+                        enterpriseDealId: persisted.enterpriseDealId,
+                      });
+                      setSavedSnapshot((s) =>
+                        s ? { ...s, lenders: next, lender: persisted.lender } : s,
+                      );
+                    } else {
+                      tracePipelineDrag("error", {
+                        phase: "persist_registry",
+                        reason: "updateDealAsync_failed",
+                        fileId: draft.id,
+                      });
+                      toast.error(
+                        "Could not persist lender stage to Enterprise Deal Registry. Retry the drag.",
+                      );
+                    }
+                  });
+                }
+              }}
               onCommercialPayeeChange={(next) => patch(next)}
               onOpenLenderDocuments={(c) => {
                 setDocumentsLenderKey(resolveLenderDocumentsKey(c));

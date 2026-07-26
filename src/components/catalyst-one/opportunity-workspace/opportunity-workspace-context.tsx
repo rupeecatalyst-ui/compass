@@ -60,8 +60,18 @@ import {
 } from "@/lib/enterprise-workflow-orchestration-engine";
 import { resolveEcwSelectedLender } from "@/lib/enterprise-credit-workspace";
 import { formatINR } from "@/lib/format-currency";
-import { loadLoanFiles } from "@/lib/loan-files-storage";
+import { loadDealsSync, loadDeals } from "@/lib/enterprise-deal/deal-data-access";
 import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
+import {
+  enterpriseOpportunityApiClient,
+  type EnterpriseOpportunityApiRecord,
+} from "@/lib/enterprise-opportunity/opportunity-api-client";
+import { subscribeOpportunitiesUpdated } from "@/lib/enterprise-opportunity/opportunity-data-sync";
+import {
+  projectOpportunityToRuntimeCase,
+  stampOpportunityOnLegacyLoanFile,
+} from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
+import { rememberOpportunityRegistryContext } from "@/lib/lead-opportunity-journey/opportunity-context";
 import type { EoleOpportunity } from "@/types/enterprise-opportunity-lifecycle-engine";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import type { OpportunityIntelligenceSnapshot } from "@/types/enterprise-opportunity-intelligence";
@@ -105,11 +115,26 @@ export interface SelectedLenderSummary {
   eligibilityNote?: string;
 }
 
+/** CO-OPP-SSOT-001 — operational only after Enterprise Opportunity Registry load. */
+export type OpportunityRegistryLoadStatus = "idle" | "loading" | "ready" | "failed";
+
 export interface OpportunityWorkspaceState {
-  /** True after initial in-memory bootstrap attempt (demo seed or empty). */
+  /**
+   * True only when Enterprise Opportunity Registry load succeeded.
+   * Soft URL / EOLE / LoanFile fallbacks never set this.
+   */
   workspaceReady: boolean;
+  /** Registry bootstrap phase — use to distinguish loading vs failed vs ready. */
+  registryLoadStatus: OpportunityRegistryLoadStatus;
+  /** Human message when Registry load failed (diagnostics only). */
+  registryLoadError: string | null;
+  /** Canonical Registry record — null until load succeeds. */
+  registryOpportunity: EnterpriseOpportunityApiRecord | null;
   leadCaseFile: LoanFile | null;
+  /** Canonical Enterprise Opportunity ID from Registry (empty until ready). */
   opportunityId: string;
+  /** Human Opportunity reference (OPP-…) from Registry only. */
+  opportunityNumber: string;
   contactId: string;
   opportunity: EoleOpportunity | null;
   contact: EcmContact | null;
@@ -285,9 +310,14 @@ export function OpportunityWorkspaceProvider({
   opportunityId: initialOpportunityId,
 }: OpportunityWorkspaceProviderProps) {
   const [workspaceReady, setWorkspaceReady] = useState(false);
+  const [registryLoadStatus, setRegistryLoadStatus] =
+    useState<OpportunityRegistryLoadStatus>("idle");
+  const [registryLoadError, setRegistryLoadError] = useState<string | null>(null);
   const [opportunityId, setOpportunityId] = useState("");
   const [contactId, setContactId] = useState("");
   const [leadCaseFileId, setLeadCaseFileId] = useState("");
+  const [registryOpportunity, setRegistryOpportunity] =
+    useState<EnterpriseOpportunityApiRecord | null>(null);
   const [focus, setFocus] = useState<WorkspaceFocus>("overview");
   const [refreshKey, setRefreshKey] = useState(0);
   const [loanFilesVersion, setLoanFilesVersion] = useState(0);
@@ -300,53 +330,130 @@ export function OpportunityWorkspaceProvider({
   const previousIntelRef = useRef<PreviousIntelligenceState>({});
 
   useEffect(() => subscribeLoanFilesUpdated(() => setLoanFilesVersion((v) => v + 1)), []);
+  useEffect(() => subscribeOpportunitiesUpdated(() => setRefreshKey((k) => k + 1)), []);
 
   useEffect(() => {
-    if (fileId) {
-      setLeadCaseFileId(fileId);
-      setOpportunityId(initialOpportunityId ?? "");
-      const leadCase = loadLoanFiles().find((f) => f.id === fileId) ?? null;
-      setContactId(leadCase?.customerId ?? "");
-      if (leadCase) {
-        const lender = resolveEcwSelectedLender(leadCase);
-        setSelectedLender(
-          lender.enabled
-            ? {
-                lenderName: lender.lenderName,
-                executorName: lender.contactName,
-                reportingManagerName: leadCase.relationshipManager,
-              }
-            : null,
-        );
-      } else {
-        setSelectedLender(null);
+    // CO-P0-002 — hydrate Enterprise Deal Registry before resolving lead case
+    void loadDeals("opportunity_workspace").then(() => {
+      setLoanFilesVersion((v) => v + 1);
+    });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const failRegistry = (message: string) => {
+      if (cancelled) return;
+      setRegistryOpportunity(null);
+      setOpportunityId("");
+      setWorkspaceReady(false);
+      setRegistryLoadStatus("failed");
+      setRegistryLoadError(message);
+    };
+
+    const applyRegistryOpportunity = (opp: EnterpriseOpportunityApiRecord) => {
+      if (cancelled) return;
+      rememberOpportunityRegistryContext(opp);
+      setRegistryOpportunity(opp);
+      setOpportunityId(opp.id);
+      setContactId(opp.primaryContactId);
+      if (opp.legacyLoanFileId?.trim()) {
+        setLeadCaseFileId(opp.legacyLoanFileId.trim());
+      } else if (!fileId) {
+        setLeadCaseFileId("");
       }
+      setRegistryLoadError(null);
+      setRegistryLoadStatus("ready");
       setWorkspaceReady(true);
-      return;
+    };
+
+    const loadFromRegistry = (registryId: string) => {
+      setRegistryLoadStatus("loading");
+      setRegistryLoadError(null);
+      setWorkspaceReady(false);
+      setRegistryOpportunity(null);
+      // Diagnostics only — never treat URL id as operational until Registry confirms.
+      void enterpriseOpportunityApiClient
+        .getOpportunity(registryId)
+        .then((opp) => {
+          applyRegistryOpportunity(opp);
+        })
+        .catch((err) => {
+          const message =
+            err instanceof Error && err.message.trim()
+              ? err.message
+              : "Opportunity could not be loaded from the Enterprise Opportunity Registry.";
+          failRegistry(
+            `${message} Reopen this case from My Opportunities so the canonical Enterprise Opportunity ID is used.`,
+          );
+        });
+    };
+
+    // CO-OPP-SSOT-001 — Opportunity Workspace is Registry-backed only.
+    if (initialOpportunityId?.trim()) {
+      if (fileId) {
+        setLeadCaseFileId(fileId);
+      }
+      loadFromRegistry(initialOpportunityId.trim());
+      return () => {
+        cancelled = true;
+      };
     }
 
-    const seeded = ensureWorkspaceSeed();
-    setOpportunityId(initialOpportunityId ?? seeded.opportunityId);
-    setContactId(seeded.contactId);
-    setLeadCaseFileId("");
-    if (seeded.opportunityId) {
-      initializeEwoeDefaultDefinitions("workspace");
-      startEwoeWorkflowInstance({
-        opportunityId: seeded.opportunityId,
-        stageCode: "processing",
-        actorId: "workspace",
-      });
+    // fileId without opportunityId — resolve Deal → Opportunity Registry id, then load.
+    if (fileId) {
+      setRegistryLoadStatus("loading");
+      setWorkspaceReady(false);
+      setLeadCaseFileId(fileId);
+      const leadCase =
+        loadDealsSync("opportunity_workspace").files.find((f) => f.id === fileId) ?? null;
+      const linkedOppId = leadCase?.enterpriseOpportunityId?.trim() || "";
+      if (!linkedOppId) {
+        failRegistry(
+          "This Deal is not linked to an Enterprise Opportunity. Open the case from My Opportunities (Opportunity Registry) and continue the journey.",
+        );
+        return () => {
+          cancelled = true;
+        };
+      }
+      loadFromRegistry(linkedOppId);
+      return () => {
+        cancelled = true;
+      };
     }
-    setWorkspaceReady(true);
+
+    // No Opportunity id and no Deal link — cannot become operational (no demo / EOLE seed).
+    failRegistry(
+      "Missing Enterprise Opportunity ID. Open an Opportunity from My Opportunities to continue.",
+    );
+    return () => {
+      cancelled = true;
+    };
   }, [fileId, initialOpportunityId]);
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   const leadCaseFile = useMemo(() => {
-    if (!leadCaseFileId) return null;
     void loanFilesVersion;
-    return loadLoanFiles().find((f) => f.id === leadCaseFileId && !f.archived) ?? null;
-  }, [leadCaseFileId, loanFilesVersion, refreshKey]);
+    void refreshKey;
+    void registryVersion;
+
+    // CO-OPP-SSOT-001 — never project operational case without Registry Opportunity.
+    if (!registryOpportunity) return null;
+
+    const contact =
+      listEcmContacts().find((c) => c.id === registryOpportunity.primaryContactId) ?? null;
+    if (leadCaseFileId) {
+      const fromDeal =
+        loadDealsSync("opportunity_workspace").files.find(
+          (f) => f.id === leadCaseFileId && !f.archived,
+        ) ?? null;
+      if (fromDeal) {
+        return stampOpportunityOnLegacyLoanFile(fromDeal, registryOpportunity, contact);
+      }
+    }
+    return projectOpportunityToRuntimeCase(registryOpportunity, contact);
+  }, [leadCaseFileId, loanFilesVersion, refreshKey, registryOpportunity, registryVersion]);
 
   const opportunity = useMemo(() => {
     if (!opportunityId) return null;
@@ -549,26 +656,46 @@ export function OpportunityWorkspaceProvider({
   }, [leadCaseFile, opportunityId]);
 
   const productLabel = useMemo(() => {
-    if (!opportunityId && leadCaseFile) return leadCaseFile.loanProduct;
-    const ref = opportunity?.productRef ?? "product:home-loan";
-    return ref.replace(/^product:/, "").replace(/-/g, " ");
-  }, [leadCaseFile, opportunity?.productRef, opportunityId]);
+    if (registryOpportunity?.productLabel?.trim()) return registryOpportunity.productLabel.trim();
+    if (registryOpportunity?.productCode?.trim()) return registryOpportunity.productCode.trim();
+    if (!opportunityId && leadCaseFile?.loanProduct?.trim()) return leadCaseFile.loanProduct.trim();
+    if (registryOpportunity?.productFamily) {
+      return String(registryOpportunity.productFamily).replace(/_/g, " ");
+    }
+    // Do not invent product:home-loan — uncaptured stays unspecified.
+    const ref = opportunity?.productRef?.trim();
+    if (ref) return ref.replace(/^product:/, "").replace(/-/g, " ");
+    return "Not Specified";
+  }, [
+    leadCaseFile,
+    opportunity?.productRef,
+    opportunityId,
+    registryOpportunity?.productLabel,
+    registryOpportunity?.productCode,
+    registryOpportunity?.productFamily,
+  ]);
 
   const loanAmountLabel = useMemo(() => {
+    if (registryOpportunity) {
+      if (registryOpportunity.requestedAmount != null) {
+        return formatINR(registryOpportunity.requestedAmount);
+      }
+      return "Not Specified";
+    }
     if (!opportunityId && leadCaseFile) {
       return formatINR(leadCaseFile.requiredAmount || leadCaseFile.loanAmount);
     }
-    if (!opportunityId) return "—";
+    if (!opportunityId) return "Not Specified";
     const reqs = getEolePorts().financialRequirements.listByOpportunity(opportunityId);
     const amount = reqs[0]?.amount;
-    if (amount == null) return "—";
+    if (amount == null) return "Not Specified";
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: reqs[0]?.currencyCode ?? "INR",
       maximumFractionDigits: 0,
     }).format(amount);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadCaseFile, opportunityId, refreshKey]);
+  }, [leadCaseFile, opportunityId, refreshKey, registryOpportunity?.requestedAmount, registryOpportunity]);
 
   const changeStage = useCallback(
     (action: string, stageCode?: string) => {
@@ -759,12 +886,19 @@ export function OpportunityWorkspaceProvider({
 
   const value: OpportunityWorkspaceState = {
     workspaceReady,
+    registryLoadStatus,
+    registryLoadError,
+    registryOpportunity,
     leadCaseFile,
-    opportunityId,
+    opportunityId: registryOpportunity?.id ?? "",
+    opportunityNumber: registryOpportunity?.opportunityNumber?.trim() || "",
     contactId,
     opportunity,
     contact,
-    stageCode: opportunity?.stageCode ?? leadCaseFile?.stage ?? "raw_lead",
+    stageCode:
+      registryOpportunity?.requirementStage ??
+      opportunity?.stageCode ??
+      "raw_lead",
     progressRatio,
     overdueTaskCount: taskMetrics.overdue,
     openTaskCount: taskMetrics.open,

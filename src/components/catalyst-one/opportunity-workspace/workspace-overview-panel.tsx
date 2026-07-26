@@ -47,7 +47,6 @@ export function WorkspaceOverviewPanel({
             [
               ["customer", "Customer Profile"],
               ["requirement", "Requirement"],
-              ["document_requests", "Document Requests"],
               ["product", "Solution Design"],
               ["funding_strategy", "Lender Strategy (LIFE)"],
               ["competition", "Competition"],

@@ -26,10 +26,13 @@ type SortKey = "role" | "name" | "city";
 
 const ROLE_ORDER: Record<string, number> = {
   primary_applicant: 0,
-  co_applicant: 1,
-  guarantor: 2,
-  company: 3,
-  other: 4,
+  payee: 1,
+  co_applicant: 2,
+  guarantor: 3,
+  income_contributor: 4,
+  authorized_signatory: 5,
+  company: 6,
+  other: 7,
 };
 
 function roleLabel(role?: string): string {
@@ -47,6 +50,12 @@ function roleStyle(role?: string): string {
       return "bg-amber-500/10 text-amber-900 border-amber-500/25 dark:text-amber-100";
     case "guarantor":
       return "bg-blue-600/10 text-blue-800 border-blue-600/25 dark:text-blue-200";
+    case "income_contributor":
+      return "bg-violet-600/10 text-violet-800 border-violet-600/25 dark:text-violet-200";
+    case "authorized_signatory":
+      return "bg-sky-600/10 text-sky-800 border-sky-600/25 dark:text-sky-200";
+    case "payee":
+      return "bg-teal-600/10 text-teal-800 border-teal-600/25 dark:text-teal-200";
     case "company":
       return "bg-slate-500/10 text-slate-800 border-slate-500/25 dark:text-slate-200";
     default:
@@ -130,7 +139,7 @@ export function LoanParticipantsTable({
   const openProgressiveCreate = (participantId: string, query: string, role?: string) => {
     setCreateForId(participantId);
     setCreatePrefill(query);
-    setCreateKind(role === "guarantor" ? "guarantor" : role === "other" ? "other" : "co_applicant");
+    setCreateKind(role === "guarantor" ? "guarantor" : "co_applicant");
     setCreateOpen(true);
   };
 
@@ -372,7 +381,14 @@ function ParticipantRow({
       <Td>
         {isEditing && participant.entityType === "individual" ? (
           <Select
-            value={participant.role === "guarantor" || participant.role === "other" ? participant.role : "co_applicant"}
+            value={
+              participant.role === "guarantor" ||
+              participant.role === "other" ||
+              participant.role === "income_contributor" ||
+              participant.role === "authorized_signatory"
+                ? participant.role
+                : "co_applicant"
+            }
             onValueChange={(v) =>
               onUpdate(
                 { role: v as LoanParticipantRole },
@@ -385,10 +401,16 @@ function ParticipantRow({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="co_applicant" className="text-xs">
-                Co-Borrower
+                Co-Applicant
               </SelectItem>
               <SelectItem value="guarantor" className="text-xs">
                 Guarantor
+              </SelectItem>
+              <SelectItem value="income_contributor" className="text-xs">
+                Income Contributor
+              </SelectItem>
+              <SelectItem value="authorized_signatory" className="text-xs">
+                Authorised Signatory
               </SelectItem>
               <SelectItem value="other" className="text-xs">
                 Other

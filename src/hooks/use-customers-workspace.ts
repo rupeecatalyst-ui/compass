@@ -22,7 +22,7 @@ import {
 } from "@/lib/customer-utils";
 import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
 import { getInitialCustomers, loadCustomers, saveCustomers } from "@/lib/customers-storage";
-import { getAllLoanFiles } from "@/lib/loan-files-utils";
+import { loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
 import {
   loadCustomerWorkspaceContext,
   popWorkspaceNav,
@@ -213,7 +213,7 @@ export function useCustomersWorkspace() {
   const loanFiles = useMemo(() => {
     if (!mounted) return [];
     void loanFilesVersion;
-    return getAllLoanFiles();
+    return loadDealsSync("customer_360").files;
   }, [mounted, loanFilesVersion]);
 
   const refreshLoanFiles = useCallback(() => {

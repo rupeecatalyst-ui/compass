@@ -10,7 +10,6 @@ import {
 } from "./opportunity-workspace-context";
 import { WorkspaceContactSummary } from "./workspace-contact-summary";
 import { WorkspaceDocumentsPanel } from "./workspace-documents-panel";
-import { WorkspaceDocumentRequestsPanel } from "./workspace-document-requests-panel";
 import { WorkspaceLifeStrategyBoard } from "./workspace-life-strategy-board";
 import { WorkspaceTasksPanel } from "./workspace-tasks-panel";
 import { WorkspaceWorkflowPanel } from "./workspace-workflow-panel";
@@ -63,9 +62,11 @@ import { syncParticipantLegacyFields } from "@/lib/loan-participants";
 import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
 import { isOpportunityRuntimeCase } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opportunity-api-client";
-import { runMoveToDealTransition } from "@/lib/strategic-lender-pipeline";
+import { runMoveToDealTransition, getMoveToDealLenderNames } from "@/lib/strategic-lender-pipeline";
+import { MoveToDealConfirmDialog } from "@/components/catalyst-one/shared/move-to-deal-confirm-dialog";
 import { toast } from "sonner";
 import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { updateDeal } from "@/lib/enterprise-deal/deal-data-access";
@@ -75,6 +76,9 @@ function OpportunityWorkspaceShell() {
   const router = useRouter();
   const {
     workspaceReady,
+    registryLoadStatus,
+    registryLoadError,
+    registryOpportunity,
     leadCaseFile,
     opportunityId,
     opportunityNumber,
@@ -103,6 +107,8 @@ function OpportunityWorkspaceShell() {
   const gateProceedRef = useRef<(() => void) | null>(null);
   const [analyzeDealOpen, setAnalyzeDealOpen] = useState(false);
   const [competitionPromptOpen, setCompetitionPromptOpen] = useState(false);
+  const [moveToDealOpen, setMoveToDealOpen] = useState(false);
+  const [moveToDealBusy, setMoveToDealBusy] = useState(false);
 
   useEffect(() => {
     if (!opportunityId) return;
@@ -134,9 +140,9 @@ function OpportunityWorkspaceShell() {
 
   const loanHref = useMemo(() => {
     if (!opportunity?.id && activeLoan) {
-      return buildJourneyHref(ROUTES.LOAN_FILES, { fileId: activeLoan.id });
+      return buildDealWorkspaceHref({ fileId: activeLoan.id, tab: "lenders" });
     }
-    if (!opportunity?.id) return ROUTES.LOAN_FILES;
+    if (!opportunity?.id) return ROUTES.MY_DEALS;
     return buildOpportunityLoanWorkspaceHref({
       opportunityId: opportunity.id,
       contact: contact
@@ -191,10 +197,10 @@ function OpportunityWorkspaceShell() {
         return;
       }
       router.push(
-        buildJourneyHref(ROUTES.LOAN_FILES, {
+        buildDealWorkspaceHref({
           fileId: activeLoan.id,
           opportunityId: opportunityId ?? opportunity?.id,
-          tab,
+          tab: tab || "lenders",
         }),
       );
     };
@@ -265,12 +271,10 @@ function OpportunityWorkspaceShell() {
     : selectedLender
       ? "In Strategy"
       : "Planning";
-  /** Compact Opportunity Header — single information row. */
+  /** Compact Opportunity Header — single information row (Registry SSOT only). */
   const identityLine = [
     contact?.name ? `Customer ${contact.name}` : null,
-    opportunityNumber || opportunity?.opportunityCode || opportunityId
-      ? `Opportunity ${opportunityNumber || opportunity?.opportunityCode || opportunityId}`
-      : null,
+    opportunityNumber ? `Opportunity ${opportunityNumber}` : null,
     productLabel ? `Product ${productLabel}` : null,
     loanAmountLabel ? `Amount ${loanAmountLabel}` : null,
     strategicStatus ? `Stage ${strategicStatus}` : null,
@@ -280,52 +284,97 @@ function OpportunityWorkspaceShell() {
     .join(" · ");
 
   const handleMoveToDeal = () => {
-    if (!opportunityId) {
+    if (!registryOpportunity?.id) {
       toast.error(
-        "Missing: Opportunity. Reason: no active Opportunity Context. Action: reopen from My Opportunities.",
+        "Missing: Enterprise Opportunity Registry. Reason: Opportunity not loaded. Action: reopen from My Opportunities.",
       );
       return;
     }
-    void runMoveToDealTransition(
-      {
-        opportunityId,
-        contact,
-        customerName: contact?.name,
-        customerMobile: contact?.mobilePrimary,
-        customerId: contact?.id,
-        loanProduct: productLabel,
-        loanAmount: activeLoan?.requiredAmount || activeLoan?.loanAmount,
-        relationshipManager: contact?.ownerName,
-      },
-      (href) => router.push(href),
-    );
+    if (getMoveToDealLenderNames(registryOpportunity.id).length === 0) {
+      toast.error(
+        "Missing: Lender selection. Reason: Execution Queue is empty. Action: select at least one lender before Move to Deal.",
+      );
+      return;
+    }
+    setMoveToDealOpen(true);
   };
 
-  if (!workspaceReady) {
+  const confirmMoveToDeal = async () => {
+    if (!registryOpportunity?.id) return;
+    setMoveToDealBusy(true);
+    try {
+      const result = await runMoveToDealTransition(
+        {
+          opportunityId: registryOpportunity.id,
+          opportunity: registryOpportunity,
+          contact,
+          customerName: contact?.name || registryOpportunity.primaryContactName || undefined,
+          customerMobile:
+            contact?.mobilePrimary || registryOpportunity.primaryContactMobile || undefined,
+          customerId: contact?.id || registryOpportunity.primaryContactId,
+          loanProduct: productLabel || registryOpportunity.productLabel || undefined,
+          loanAmount:
+            activeLoan?.requiredAmount ||
+            activeLoan?.loanAmount ||
+            (typeof registryOpportunity.requestedAmount === "number"
+              ? registryOpportunity.requestedAmount
+              : undefined),
+          relationshipManager:
+            contact?.ownerName || registryOpportunity.relationshipManagerName || undefined,
+        },
+        (href) => {
+          setMoveToDealOpen(false);
+          router.replace(href);
+        },
+      );
+      if (!result) setMoveToDealOpen(false);
+    } finally {
+      setMoveToDealBusy(false);
+    }
+  };
+
+  if (registryLoadStatus === "loading" || registryLoadStatus === "idle" || !workspaceReady) {
+    if (registryLoadStatus === "failed") {
+      return (
+        <div className="mx-auto max-w-lg rounded-2xl border border-amber-500/40 bg-amber-500/5 p-8 text-center">
+          <p className="text-base font-semibold text-foreground">
+            Opportunity could not be loaded
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {registryLoadError ||
+              "The Enterprise Opportunity Registry did not return this Opportunity. Business workflows (Document Requests, LIFE, lender selection, Move to Deal) stay blocked until Registry load succeeds."}
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <Button asChild size="sm">
+              <Link href={ROUTES.MY_OPPORTUNITIES}>My Opportunities</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link href={ROUTES.CONTACTS}>Contacts</Link>
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="rounded-2xl border border-white/10 bg-zinc-900/50 p-8 text-center text-sm text-muted-foreground backdrop-blur-xl">
-        Loading opportunity workspace…
+        Loading Opportunity from Enterprise Opportunity Registry…
       </div>
     );
   }
 
-  if (!opportunityId && !activeLoan) {
+  if (!registryOpportunity?.id || !opportunityId) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-zinc-900/50 p-8 text-center backdrop-blur-xl">
-        <p className="text-base font-medium text-foreground">No Lead Case to open</p>
+      <div className="mx-auto max-w-lg rounded-2xl border border-amber-500/40 bg-amber-500/5 p-8 text-center">
+        <p className="text-base font-semibold text-foreground">
+          Opportunity Registry required
+        </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Create a loan file and open Strategic Workspace from that Lead Case, or pick a persisted
-          Lead Case from the selector.
+          This workspace cannot become operational without a canonical Enterprise Opportunity.
+          Open the case from My Opportunities.
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
           <Button asChild size="sm">
-            <Link href={ROUTES.CONTACTS}>Go to Contacts</Link>
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={ROUTES.MY_DEALS}>My Deals</Link>
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={`${ROUTES.LOAN_FILES}?entry=dashboard`}>Loan Workspace</Link>
+            <Link href={ROUTES.MY_OPPORTUNITIES}>My Opportunities</Link>
           </Button>
         </div>
       </div>
@@ -345,7 +394,7 @@ function OpportunityWorkspaceShell() {
         title={contact?.name ?? "LIFE"}
         identityLine={identityLine || undefined}
         context={{
-          opportunity: opportunityNumber || opportunity?.opportunityCode || opportunityId,
+          opportunity: opportunityNumber,
           customer: contact?.name,
           product: productLabel,
           amount: loanAmountLabel,
@@ -361,7 +410,7 @@ function OpportunityWorkspaceShell() {
           <div className="flex flex-wrap items-center justify-end gap-1">
             <CreateTaskActionButton
               context={{
-                opportunityId: opportunityId ?? opportunity?.id ?? null,
+                opportunityId: opportunityId || null,
                 contactId: contact?.id ?? null,
                 fileId: activeLoan?.id ?? null,
                 dealId: activeLoan?.enterpriseDealId ?? null,
@@ -465,7 +514,6 @@ function OpportunityWorkspaceShell() {
                 />
               )}
               {tab === "requirement" && <WorkspaceRequirementPanel />}
-              {tab === "document_requests" && <WorkspaceDocumentRequestsPanel />}
               {tab === "product" && <WorkspaceProductPanel />}
               {tab === "relationships" && (
                 <WorkspaceRelationshipsPanel onAddRelationship={() => setIntentOpen(true)} />
@@ -544,6 +592,18 @@ function OpportunityWorkspaceShell() {
             open={competitionPromptOpen}
             onClose={() => setCompetitionPromptOpen(false)}
             onGoToCompetition={() => openTab("competition")}
+          />
+
+          <MoveToDealConfirmDialog
+            open={moveToDealOpen}
+            onOpenChange={setMoveToDealOpen}
+            lenderNames={
+              registryOpportunity?.id
+                ? getMoveToDealLenderNames(registryOpportunity.id)
+                : []
+            }
+            busy={moveToDealBusy}
+            onConfirm={confirmMoveToDeal}
           />
         </div>
       </LeadOpportunityJourneyChrome>

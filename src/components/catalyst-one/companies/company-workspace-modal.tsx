@@ -38,7 +38,7 @@ import { SoftDeleteConfirmDialog } from "@/components/enterprise/soft-delete/sof
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { canSoftDelete, softDeleteApi } from "@/lib/enterprise-soft-delete";
-import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -884,7 +884,7 @@ export function CompanyWorkspaceModal({
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button asChild size="sm" className="h-9 rounded-lg">
-                  <Link href={ROUTES.LOAN_FILES}>Start Loan Journey</Link>
+                  <Link href={ROUTES.LOAN_JOURNEY}>Start Loan Journey</Link>
                 </Button>
                 <Button asChild size="sm" variant="outline" className="h-9 rounded-lg border-zinc-700">
                   <Link href={`${ROUTES.CONTACTS}?create=1&intent=investor`}>Start Investment Journey</Link>
@@ -955,7 +955,7 @@ export function CompanyWorkspaceModal({
           onOpenChange(false);
           onDeleted?.(company.id);
         } catch (err) {
-          window.alert(err instanceof Error ? err.message : "Delete failed");
+          toast.error(err instanceof Error ? err.message : "Delete failed");
         } finally {
           setDeleting(false);
         }
