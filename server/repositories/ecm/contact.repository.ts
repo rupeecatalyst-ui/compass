@@ -48,6 +48,20 @@ export class EcmContactRepository {
       where.roles = { hasSome: query.roles };
     }
 
+    // CO-SPRINT-119 — New Arrivals / registry date filters (creation date SSOT)
+    if (query.createdFrom || query.createdTo) {
+      const createdAt: { gte?: Date; lte?: Date } = {};
+      if (query.createdFrom) {
+        const [y, m, d] = query.createdFrom.split("-").map(Number);
+        createdAt.gte = new Date(y!, m! - 1, d!, 0, 0, 0, 0);
+      }
+      if (query.createdTo) {
+        const [y, m, d] = query.createdTo.split("-").map(Number);
+        createdAt.lte = new Date(y!, m! - 1, d!, 23, 59, 59, 999);
+      }
+      where.createdAt = createdAt;
+    }
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },

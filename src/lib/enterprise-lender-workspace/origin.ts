@@ -1,5 +1,6 @@
 import { ROUTES } from "@/constants/routes";
 import { ELW_ORIGIN_LABELS } from "@/constants/enterprise-lender-workspace";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import type { ElwOriginContext, ElwOriginSurface } from "@/types/enterprise-lender-workspace";
 
 const SURFACE_SET = new Set<string>(Object.keys(ELW_ORIGIN_LABELS));
@@ -21,8 +22,8 @@ function defaultReturnTo(
         : ROUTES.LENDERS;
     case "loan_files":
       return ctx.loanFileId
-        ? `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(ctx.loanFileId)}`
-        : ROUTES.LOAN_FILES;
+        ? buildDealWorkspaceHref({ fileId: ctx.loanFileId, tab: "lenders" })
+        : ROUTES.MY_DEALS;
     case "dashboard":
       return ROUTES.DASHBOARD;
     case "lenders":

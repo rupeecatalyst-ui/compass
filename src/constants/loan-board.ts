@@ -1,7 +1,10 @@
 import { STAGE_COLORS } from "@/constants/loan-pipeline";
 import type { PipelineStage } from "@/types/catalyst-one";
 
-/** Executive Loan Board — active pipeline columns (Won excluded — completed). */
+/**
+ * Stage taxonomy retained for Dashboard funnel / treemap analytics.
+ * The obsolete Loan Board workspace UI was removed (CO-ARCH-REVIEW).
+ */
 export const LOAN_BOARD_STAGES: { id: PipelineStage; label: string; color: string }[] = [
   { id: "raw_lead", label: "Raw Lead", color: STAGE_COLORS.raw_lead },
   { id: "pre_login", label: "Pre Login", color: STAGE_COLORS.pre_login },
@@ -13,78 +16,6 @@ export const LOAN_BOARD_STAGES: { id: PipelineStage; label: string; color: strin
 ];
 
 export const LOAN_BOARD_STAGE_IDS = LOAN_BOARD_STAGES.map((s) => s.id);
-
-export const LOAN_BOARD_STAGE_COLORS: Record<PipelineStage, string> = {
-  ...STAGE_COLORS,
-};
-
-export const LOAN_BOARD_STAGE_LABELS: Record<string, string> = Object.fromEntries(
-  LOAN_BOARD_STAGES.map((s) => [s.id, s.label]),
-);
-
-export type LoanBoardDensity = "compact" | "medium" | "large";
-
-export type LoanBoardFieldKey =
-  | "customer"
-  | "company"
-  | "mobile"
-  | "product"
-  | "loanAmount"
-  | "sanctionAmount"
-  | "lender"
-  | "lenderLogo"
-  | "rm"
-  | "city"
-  | "source"
-  | "priority"
-  | "ageing"
-  | "lastActivity"
-  | "nextFollowup"
-  | "revenue"
-  | "expectedPayout";
-
-export const LOAN_BOARD_FIELD_LABELS: Record<LoanBoardFieldKey, string> = {
-  customer: "Customer",
-  company: "Company",
-  mobile: "Mobile",
-  product: "Product",
-  loanAmount: "Loan Amount",
-  sanctionAmount: "Sanction Amount",
-  lender: "Lender",
-  lenderLogo: "Lender Logo",
-  rm: "RM",
-  city: "City",
-  source: "Source",
-  priority: "Priority",
-  ageing: "Ageing",
-  lastActivity: "Last Activity",
-  nextFollowup: "Next Follow-up",
-  revenue: "Revenue",
-  expectedPayout: "Expected Payout",
-};
-
-export const DEFAULT_LOAN_BOARD_FIELDS: LoanBoardFieldKey[] = [
-  "customer",
-  "loanAmount",
-  "revenue",
-  "product",
-  "lenderLogo",
-  "lender",
-  "rm",
-  "priority",
-  "ageing",
-];
-
-export const LOAN_BOARD_SAVED_VIEWS = [
-  { id: "all", label: "All Files" },
-  { id: "my_files", label: "My Files" },
-  { id: "todays_followups", label: "Today's Follow-ups" },
-  { id: "high_value", label: "High Value" },
-  { id: "home_loans", label: "Home Loans" },
-  { id: "business_loans", label: "Business Loans" },
-  { id: "credit_wip", label: "Credit WIP" },
-  { id: "management", label: "Management View" },
-] as const;
 
 export const PRODUCT_TREEMAP_CATEGORIES = [
   "Home Loan",

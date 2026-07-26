@@ -14,7 +14,10 @@ import {
   moduleFinancial,
   moduleProperty,
 } from "@/constants/edie-certified/modules";
-import { EDIE_ADDRESS_PROOF_GROUP } from "@/constants/edie-certified/document-catalog";
+import {
+  EDIE_ADDRESS_PROOF_GROUP,
+  EDIE_IDENTITY_PROOF_GROUP,
+} from "@/constants/edie-certified/document-catalog";
 import { resolveEdieProductFamily } from "@/constants/edie-certified/product-families";
 import type { LoanFile } from "@/types/catalyst-one";
 import type {
@@ -32,6 +35,8 @@ import {
 } from "./resolve-context";
 
 const ADDRESS_KEY = "catalyst.document-center.address-proof";
+const IDENTITY_KEY = "catalyst.document-center.identity-proof";
+const CHOICE_KEY = "catalyst.document-center.choice-selection";
 const RECEIPT_KEY = "catalyst.document-center.receipts";
 
 export function loadEdieReceipts(fileId: string): Record<string, boolean> {
@@ -52,7 +57,10 @@ export function saveEdieReceipts(fileId: string, map: Record<string, boolean>) {
 export function loadAddressProofSelection(fileId: string): string | undefined {
   if (typeof window === "undefined") return undefined;
   try {
-    return localStorage.getItem(`${ADDRESS_KEY}:${fileId}`) ?? undefined;
+    return (
+      localStorage.getItem(`${ADDRESS_KEY}:${fileId}`) ??
+      loadChoiceGroupSelection(fileId, EDIE_ADDRESS_PROOF_GROUP)
+    );
   } catch {
     return undefined;
   }
@@ -61,6 +69,63 @@ export function loadAddressProofSelection(fileId: string): string | undefined {
 export function saveAddressProofSelection(fileId: string, typeRef: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem(`${ADDRESS_KEY}:${fileId}`, typeRef);
+  saveChoiceGroupSelection(fileId, EDIE_ADDRESS_PROOF_GROUP, typeRef);
+}
+
+export function loadIdentityProofSelection(fileId: string): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    return (
+      localStorage.getItem(`${IDENTITY_KEY}:${fileId}`) ??
+      loadChoiceGroupSelection(fileId, EDIE_IDENTITY_PROOF_GROUP)
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveIdentityProofSelection(fileId: string, typeRef: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(`${IDENTITY_KEY}:${fileId}`, typeRef);
+  saveChoiceGroupSelection(fileId, EDIE_IDENTITY_PROOF_GROUP, typeRef);
+}
+
+export function loadChoiceGroupSelection(
+  fileId: string,
+  choiceGroupId: string,
+): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = localStorage.getItem(`${CHOICE_KEY}:${fileId}`);
+    if (!raw) return undefined;
+    const map = JSON.parse(raw) as Record<string, string>;
+    return map[choiceGroupId];
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveChoiceGroupSelection(
+  fileId: string,
+  choiceGroupId: string,
+  typeRef: string,
+) {
+  if (typeof window === "undefined") return;
+  let map: Record<string, string> = {};
+  try {
+    const raw = localStorage.getItem(`${CHOICE_KEY}:${fileId}`);
+    if (raw) map = JSON.parse(raw) as Record<string, string>;
+  } catch {
+    map = {};
+  }
+  map[choiceGroupId] = typeRef;
+  localStorage.setItem(`${CHOICE_KEY}:${fileId}`, JSON.stringify(map));
+  if (choiceGroupId === EDIE_ADDRESS_PROOF_GROUP) {
+    localStorage.setItem(`${ADDRESS_KEY}:${fileId}`, typeRef);
+  }
+  if (choiceGroupId === EDIE_IDENTITY_PROOF_GROUP) {
+    localStorage.setItem(`${IDENTITY_KEY}:${fileId}`, typeRef);
+  }
 }
 
 function markComplete(
@@ -85,6 +150,42 @@ function markComplete(
   });
 }
 
+/** Apply choice_one selections — only the selected type is mandatory for scoring. */
+function applyChoiceGroupSelections(
+  items: EdieChecklistItem[],
+  selections: Record<string, string | undefined>,
+): EdieChecklistItem[] {
+  const groupIds = [
+    ...new Set(
+      items.map((i) => i.choiceGroupId).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  let next = items;
+  for (const groupId of groupIds) {
+    const selected =
+      selections[groupId] ||
+      next.find((i) => i.choiceGroupId === groupId && !i.optional)?.typeRef ||
+      next.find((i) => i.choiceGroupId === groupId)?.typeRef;
+    next = next.map((i) => {
+      if (i.choiceGroupId !== groupId) return i;
+      const isSelected = i.typeRef === selected;
+      return {
+        ...i,
+        optional: !isSelected,
+        mandatory: isSelected,
+        severity: isSelected ? (i.critical ? "critical" : "mandatory") : "required",
+        critical: isSelected ? i.critical : false,
+      };
+    });
+  }
+  return next;
+}
+
+function isScoringItem(item: EdieChecklistItem): boolean {
+  if (item.choiceGroupId && item.optional) return false;
+  return true;
+}
+
 function composeCreditAssessmentItems(input: EdieResolveInput): EdieChecklistItem[] {
   const {
     productRef,
@@ -93,10 +194,11 @@ function composeCreditAssessmentItems(input: EdieResolveInput): EdieChecklistIte
     workflowStage,
     constitution,
     addressProofSelection,
+    identityProofSelection,
   } = input;
 
   return [
-    ...moduleCustomerKyc(),
+    ...moduleCustomerKyc(identityProofSelection),
     ...moduleAddressProof(addressProofSelection),
     ...(customerCategory === "self_employed" || customerCategory === "company"
       ? moduleBusinessConstitution(constitution)
@@ -120,40 +222,26 @@ export function resolveEdieCertifiedChecklist(input: EdieResolveInput): EdieReso
     constitution,
     receipts = {},
     addressProofSelection,
+    identityProofSelection,
   } = input;
 
   const productFamily = resolveEdieProductFamily(productRef);
 
   let items: EdieChecklistItem[] =
     productFamily === "asset_security"
-      ? moduleAssetSecurityMinimal(addressProofSelection)
+      ? moduleAssetSecurityMinimal(addressProofSelection, identityProofSelection)
       : composeCreditAssessmentItems(input);
 
   items = items.map((i) => applyStageSeverity(i, workflowStage));
 
-  if (productFamily === "credit_assessment") {
-    const selectedAddress =
-      addressProofSelection ||
-      items.find((i) => i.choiceGroupId === EDIE_ADDRESS_PROOF_GROUP && !i.optional)?.typeRef;
-
-    items = items.map((i) => {
-      if (i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP) return i;
-      const isSelected = i.typeRef === selectedAddress;
-      return {
-        ...i,
-        optional: !isSelected,
-        mandatory: isSelected,
-        severity: isSelected ? (i.critical ? "critical" : "mandatory") : "required",
-        critical: isSelected ? i.critical : false,
-      };
-    });
-  }
+  items = applyChoiceGroupSelections(items, {
+    [EDIE_ADDRESS_PROOF_GROUP]: addressProofSelection,
+    [EDIE_IDENTITY_PROOF_GROUP]: identityProofSelection,
+  });
 
   items = markComplete(items, receipts);
 
-  const scoringItems = items.filter(
-    (i) => i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP || !i.optional,
-  );
+  const scoringItems = items.filter(isScoringItem);
 
   const modules = groupItemsByModule(items);
   const pending = scoringItems.filter((i) => !i.complete);
@@ -185,6 +273,7 @@ export function resolveEdieChecklistForLoanFile(
   options?: {
     receipts?: Record<string, boolean>;
     addressProofSelection?: string;
+    identityProofSelection?: string;
   },
 ): EdieResolvedChecklist {
   const productRef = resolveEdieProductRef(file.loanProduct);
@@ -195,6 +284,8 @@ export function resolveEdieChecklistForLoanFile(
   const receipts = options?.receipts ?? loadEdieReceipts(file.id);
   const addressProofSelection =
     options?.addressProofSelection ?? loadAddressProofSelection(file.id);
+  const identityProofSelection =
+    options?.identityProofSelection ?? loadIdentityProofSelection(file.id);
 
   const merged = { ...receipts };
   for (const d of file.documents ?? []) {
@@ -222,13 +313,12 @@ export function resolveEdieChecklistForLoanFile(
     constitution: resolveEdieConstitution(file),
     receipts: merged,
     addressProofSelection,
+    identityProofSelection,
   });
 
   checklist.items = markComplete(checklist.items, merged, file.documents);
   checklist.modules = groupItemsByModule(checklist.items);
-  const scoringItems = checklist.items.filter(
-    (i) => i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP || !i.optional,
-  );
+  const scoringItems = checklist.items.filter(isScoringItem);
   checklist.counts = {
     required: scoringItems.filter((i) => i.optional).length,
     mandatory: scoringItems.filter((i) => i.mandatory).length,
@@ -240,29 +330,24 @@ export function resolveEdieChecklistForLoanFile(
   return checklist;
 }
 
-/** Mandatory compliance gate — only for Disbursed → Accounting / Invoicing. */
-export function evaluateEdieComplianceGate(file: LoanFile): EdieComplianceGateResult {
-  const checklist = resolveEdieChecklistForLoanFile(file, {
-    receipts: loadEdieReceipts(file.id),
-  });
-  const scoringItems = checklist.items.filter(
-    (i) => i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP || !i.optional,
+export function evaluateEdieComplianceGate(
+  file: LoanFile,
+): EdieComplianceGateResult {
+  const checklist = resolveEdieChecklistForLoanFile(file);
+  const missingMandatory = checklist.items.filter(
+    (i) => i.mandatory && !i.complete && isScoringItem(i),
   );
-  const missingMandatory = scoringItems.filter((i) => i.mandatory && !i.complete);
   return {
     allowed: missingMandatory.length === 0,
     missingMandatory,
     summary:
       missingMandatory.length === 0
-        ? "All mandatory documents are complete. Accounting / invoicing may proceed."
-        : `Before moving to Invoicing / Accounting, ${missingMandatory.length} mandatory document(s) remain pending.`,
+        ? "All mandatory documents received."
+        : `${missingMandatory.length} mandatory document(s) pending.`,
   };
 }
 
-/** Critical pending items for CHANAKYA stage-aware reminders. */
 export function listEdieCriticalPending(file: LoanFile): EdieChecklistItem[] {
   const checklist = resolveEdieChecklistForLoanFile(file);
-  return checklist.items.filter(
-    (i) => i.critical && !i.complete && (i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP || !i.optional),
-  );
+  return checklist.items.filter((i) => i.critical && !i.complete && isScoringItem(i));
 }

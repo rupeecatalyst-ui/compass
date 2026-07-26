@@ -60,6 +60,9 @@ function leadQualificationPct(input: DerivePhaseReadinessInput): {
   );
   const hasAmount = Boolean((input.file?.requiredAmount || input.file?.loanAmount || 0) > 0);
   const life = Boolean(input.lifeFinalized);
+  const payeeReady = Boolean(
+    input.file?.payeeEntityId && input.file?.payeeStatus === "captured",
+  );
 
   // Progressive Contact Creation — advisory readiness only (never blocks).
   const ids = [
@@ -73,9 +76,10 @@ function leadQualificationPct(input: DerivePhaseReadinessInput): {
   );
 
   let score = 0;
-  if (hasContact) score += 30;
-  if (hasProduct) score += 25;
-  if (hasAmount) score += 20;
+  if (hasContact) score += 25;
+  if (hasProduct) score += 20;
+  if (hasAmount) score += 15;
+  if (payeeReady) score += 15;
   if (life) score += 25;
   else if (hasContact && hasProduct) score += 10;
   if (provisionalGaps > 0) score = Math.max(40, score - Math.min(15, provisionalGaps * 2));
@@ -100,6 +104,19 @@ function leadQualificationPct(input: DerivePhaseReadinessInput): {
       tone: hasProduct && hasAmount ? "success" : "warning",
     },
     {
+      id: "payee",
+      label: "Payee",
+      valueLabel: payeeReady
+        ? input.file?.payeeName
+          ? `Payee · ${input.file.payeeName}`
+          : "Payee captured"
+        : input.file?.payeeStatus === "deferred"
+          ? "Payee deferred — pending"
+          : "Payee pending",
+      pct: payeeReady ? 100 : 0,
+      tone: payeeReady ? "success" : "warning",
+    },
+    {
       id: "life",
       label: "Strategic / LIFE",
       valueLabel: life ? "LIFE finalized" : "LIFE pending",
@@ -112,9 +129,11 @@ function leadQualificationPct(input: DerivePhaseReadinessInput): {
     ? "Establish a clean Contact record before framing the opportunity."
     : provisionalGaps > 0
       ? "Provisional Contacts are usable — Chanakya will remind you to complete Mobile, PAN, Email, and KYC before lender-critical stages."
-      : !life
-        ? "Complete Strategic Workspace planning and finalize LIFE before document-heavy credit work."
-        : "Lead Qualification is complete — protect this foundation as you move into Credit Readiness.";
+      : !payeeReady
+        ? "Identify who will receive the loan disbursement — Chanakya will guide Payee capture without blocking your workflow."
+        : !life
+          ? "Complete Strategic Workspace planning and finalize LIFE before document-heavy credit work."
+          : "Lead Qualification is complete — protect this foundation as you move into Credit Readiness.";
 
   return { pct: clampPct(score), metrics, tip };
 }

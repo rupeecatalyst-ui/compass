@@ -11,6 +11,7 @@ import { getArchitectureDashboardMetrics } from "@/lib/enterprise-architecture/r
 import { ArchitectureShell } from "@/components/catalyst-one/architecture/architecture-shell";
 import { ArchitectureKpiGrid } from "@/components/catalyst-one/architecture/architecture-kpi-grid";
 import { ComplianceScoreBadge } from "@/components/catalyst-one/architecture/compliance-score-badge";
+import { DealCutoverHealthPanel } from "@/components/catalyst-one/architecture/deal-cutover-health-panel";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -21,10 +22,12 @@ export function HealthView() {
   return (
     <ArchitectureShell
       title="Architecture Health"
-      description="Platform health indicators and reserved extension hooks for future modules."
+      description="Platform health indicators, Enterprise Deal cutover monitoring, and reserved extension hooks."
     >
       <div className="space-y-6">
         <ArchitectureKpiGrid />
+
+        <DealCutoverHealthPanel />
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="glass-card border-border/60">

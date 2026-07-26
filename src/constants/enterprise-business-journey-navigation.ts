@@ -8,6 +8,7 @@ import {
   buildJourneyHref,
   type LeadJourneyModuleId,
 } from "@/constants/lead-opportunity-journey";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 
 /** Navigable spine used by workspace Continue / Back CTAs (certification order). */
 export type BusinessJourneyNavId =
@@ -30,20 +31,15 @@ export interface BusinessJourneyNavStep {
 
 /**
  * Certified business progression for primary CTA navigation.
+ * Opportunity Workspace stages first (Creation → Docs → Credit → Strategy), then Loan execution.
  * Tasks / Timeline are support modules — not workflow stages.
  */
 export const BUSINESS_JOURNEY_NAV_SPINE: BusinessJourneyNavStep[] = [
   {
     id: "opportunity_setup",
-    label: "Opportunity Workspace",
+    label: "Opportunity Creation",
     href: ROUTES.CREDIT_BENCH,
     leadModuleId: "credit_bench",
-  },
-  {
-    id: "strategic_workspace",
-    label: "Strategic Workspace",
-    href: ROUTES.OPPORTUNITY_WORKSPACE,
-    leadModuleId: "strategic_workspace",
   },
   {
     id: "document_center",
@@ -58,16 +54,23 @@ export const BUSINESS_JOURNEY_NAV_SPINE: BusinessJourneyNavStep[] = [
     leadModuleId: "credit_workbench",
   },
   {
+    id: "strategic_workspace",
+    label: "Strategy Workbench",
+    href: ROUTES.OPPORTUNITY_WORKSPACE,
+    leadModuleId: "strategic_workspace",
+  },
+  {
     id: "loan_workspace",
-    label: "Loan Workspace",
-    href: ROUTES.LOAN_FILES,
+    label: "Deal Workspace",
+    /** CO-UX-002 — Registry first; workspace via buildBusinessJourneyHref when Deal id known. */
+    href: ROUTES.MY_DEALS,
     tab: "overview",
     leadModuleId: "loan_workspace",
   },
   {
     id: "lender_pipeline",
     label: "Lender Pipeline",
-    href: ROUTES.LOAN_FILES,
+    href: ROUTES.MY_DEALS,
     tab: "lenders",
     leadModuleId: "loan_workspace",
   },
@@ -128,6 +131,19 @@ export function buildBusinessJourneyHref(
   step: BusinessJourneyNavStep,
   context?: { fileId?: string | null; opportunityId?: string | null },
 ): string {
+  // CO-UX-002 — Deal stages: workspace only when Deal id present; else Deal Registry.
+  if (
+    step.href === ROUTES.DEALS ||
+    step.href === ROUTES.MY_DEALS ||
+    step.id === "loan_workspace" ||
+    step.id === "lender_pipeline"
+  ) {
+    return buildDealWorkspaceHref({
+      fileId: context?.fileId,
+      opportunityId: context?.opportunityId,
+      tab: step.tab ?? "lenders",
+    });
+  }
   return buildJourneyHref(step.href, {
     fileId: context?.fileId,
     opportunityId: context?.opportunityId,

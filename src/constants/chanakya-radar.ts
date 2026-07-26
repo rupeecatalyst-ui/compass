@@ -319,9 +319,9 @@ export const CHANAKYA_RADAR_WORKSPACES: Record<
     toneClass: "border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-100",
   },
   loan_workspace: {
-    label: "Loan Workspace",
+    label: "Deal Workspace",
     emoji: "🟢",
-    href: ROUTES.LOAN_FILES,
+    href: ROUTES.MY_DEALS,
     toneClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-50",
   },
 };

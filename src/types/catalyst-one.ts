@@ -329,10 +329,40 @@ export interface LoanLenderExecution {
   identifiedAt?: string;
   /** Stable lender ref for duplicate protection (e.g. lender:hdfc). */
   lenderRef?: string;
+  /** CO-ARCH-004 — Immutable enterprise lender code (LND000001). */
+  lenderCode?: string;
+  /** CO-ARCH-004 — Official legal name from Lender Registry. */
+  lenderLegalName?: string;
+  /** CO-ARCH-004 — Display name from Lender Registry. */
+  lenderDisplayName?: string;
+  /** CO-ARCH-004 — Master classification. */
+  lenderClassification?: string;
+  /** CO-ARCH-004 — Institution type from registry. */
+  lenderInstitutionCategory?: string;
+  /** CO-ARCH-004 — Website from registry (read-only on transaction). */
+  lenderWebsite?: string;
+  /** CO-ARCH-004 — Customer care phone from registry. */
+  lenderCustomerCarePhone?: string;
+  /** CO-ARCH-004 — Customer care email from registry. */
+  lenderCustomerCareEmail?: string;
+  /** CO-ARCH-004 — Headquarters from registry. */
+  lenderHeadquarters?: string;
+  /** CO-ARCH-004 — Registry record id. */
+  lenderRegistryId?: string;
+  /** CO-ARCH-003 Phase 2B Sprint 2 — Selected commercial program id. */
+  lenderProgramId?: string;
+  lenderProgramLabel?: string;
   /** True when case originated from Strategic Workspace shortlist. */
   fromStrategic?: boolean;
   /** Opportunity that shortlisted this lender. */
   opportunityId?: string;
+  /**
+   * CO-ARCH-007 — Enterprise Deal id for this lender negotiation (1 lender = 1 Deal).
+   * Loan Workspace / Pipeline cards must originate from EnterpriseDeal, not snapshot.
+   */
+  enterpriseDealId?: string;
+  /** Optimistic concurrency for Deal PATCH when enterpriseDealId is set. */
+  enterpriseDealRowVersion?: number;
   /** UX-04 — Probability and primary lender signals. */
   probability?: LenderProbability;
   isPrimary?: boolean;
@@ -351,6 +381,24 @@ export interface LoanLenderExecution {
   revenue?: number;
   invoiceRaised?: boolean;
   paymentStatus?: LenderPaymentStatus;
+  /**
+   * CO-SPRINT-098 — Lender-card login probe (Identified → Logged In).
+   * Belongs to this lender journey only — not opportunity-level commercial payee.
+   */
+  loginPayeeEntityType?: "individual" | "company";
+  loginPayeeEntityId?: string;
+  loginPayeeName?: string;
+  loginPayeeMobile?: string;
+  /** Whether property is identified for this lender login. */
+  propertyIdentified?: boolean;
+  /** Existing banker / relationship bank for this lender case. */
+  existingBanker?: string;
+  /** Competitive landscape notes for this lender case. */
+  competitionNotes?: string;
+  /** Relationship notes captured at login for this lender case. */
+  relationshipNotes?: string;
+  /** When CHANAKYA login probe was completed for this card. */
+  loginProbeCompletedAt?: string;
   createdBy?: string;
   updatedBy?: string;
   createdAt: string;
@@ -553,9 +601,19 @@ export interface LoanFileBusiness {
   businessVintage?: number;
   /** UX-02 — Employment income fields */
   monthlySalary?: number;
+  netSalary?: number;
+  existingEmi?: number;
   annualProfit?: number;
   annualGrossReceipts?: number;
   annualProfessionalIncome?: number;
+  /** Context-aware Loan Initiation enrichment */
+  annualBusinessIncome?: number;
+  itrIncome?: number;
+  gstTurnover?: number;
+  ebitda?: number;
+  existingWcLimits?: number;
+  existingCcOdLimit?: number;
+  existingBank?: string;
 }
 
 export interface LoanFile {
@@ -634,6 +692,35 @@ export interface LoanFile {
   approxCibilScore?: import("@/types/cibil-score-master").ApproxCibilScoreBand;
   /** UX-02 — Unified loan participants (max 9 additional entities) */
   participants?: import("@/types/loan-participant").LoanParticipant[];
+  /**
+   * Intelligent Payee Capture — exactly one disbursement recipient.
+   * Mutual exclusivity (individual XOR company) is enforced in UI.
+   */
+  payeeEntityType?: "individual" | "company";
+  payeeEntityId?: string;
+  payeeName?: string;
+  payeeStatus?: "pending" | "captured" | "deferred";
+  payeeCapturedAt?: string;
+  payeeRelationshipCode?: string;
+  /**
+   * CO-SPRINT-096 / CO-ARCH-003 — Invoice Party (who commission invoice is raised on).
+   * Distinct from disbursement payee. Canonical: invoicePartyId → Accounting Master.
+   */
+  commercialPayee?: import("@/constants/loan-commercial-payee").LoanCommercialPayeeType;
+  /** Free text when commercialPayee === "other" (legacy). */
+  commercialPayeeSpecify?: string;
+  /** Canonical — Accounting Invoice Party Master id. */
+  invoicePartyId?: string;
+  /** Display label from Invoice Party Master (denormalized for UI). */
+  invoicePartyLabel?: string;
+  /** Optional Contact id linked via Invoice Party Master (denormalized). */
+  invoicePartyContactId?: string;
+  /** @deprecated use invoicePartyId */
+  commissionAccountingPayeeId?: string;
+  /** @deprecated use invoicePartyLabel */
+  commissionAccountingPayeeLabel?: string;
+  /** @deprecated use invoicePartyContactId */
+  commissionPayeeContactId?: string;
   /** RC Revenue / Accounting only — not a loan stage. */
   settlementCompleted?: boolean;
   documents: LoanFileDocument[];
@@ -645,6 +732,23 @@ export interface LoanFile {
   archived?: boolean;
   /** GL-03 — Loan Execution: lender assignments & history. */
   lenders?: LoanLenderExecution[];
+  /**
+   * CO-P0-006 — Enterprise Deal Registry identity (Postgres `enterprise_deals.id`).
+   * `LoanFile.id` remains legacyLoanFileId bridge during Wave 1.
+   */
+  enterpriseDealId?: string;
+  /** Optimistic concurrency for Deal Registry updates */
+  enterpriseDealRowVersion?: number;
+  /** CO-ARCH-003 Phase 2B Sprint 2 — primary lender / program on Deal */
+  enterpriseLenderId?: string;
+  lenderProgramId?: string;
+  productCode?: string;
+  /** CO-P0-006 — Enterprise deal number (e.g. DEAL-2026-…). */
+  dealNumber?: string;
+  /** CO-ARCH-003 — Opportunity Registry identity (Postgres `enterprise_opportunities.id`). */
+  enterpriseOpportunityId?: string;
+  /** CO-ARCH-003 — Opportunity number (e.g. OPP-2026-…). */
+  opportunityNumber?: string;
 }
 
 export interface SavedViewPreset {

@@ -7,6 +7,7 @@ import { loadRadarDealFilesSync } from "@/lib/chanakya-radar/radar-deal-source";
 import { listEcmContacts } from "@/lib/enterprise-contact-master";
 import { listEteTasks } from "@/lib/enterprise-task-engine/task-registry";
 import { columnForTask } from "@/lib/enterprise-task-engine/task-workspace";
+import { buildChanakyaWorkloadInsights } from "@/lib/enterprise-task-engine/workload-intelligence";
 import type {
   ChanakyaLiveIntelligenceMessage,
   ChanakyaLiveIntelligenceWorkspace,
@@ -248,24 +249,19 @@ function buildDocumentsLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveI
 }
 
 function buildTasksLiveMessages(): ChanakyaLiveIntelligenceMessage[] {
-  const tasks = listEteTasks().filter((t) => t.enabled !== false);
-  const items: ChanakyaLiveIntelligenceMessage[] = [];
-  const pastDue = tasks.filter((t) => columnForTask(t) === "past_due").length;
-  const dueToday = tasks.filter((t) => columnForTask(t) === "due_today").length;
-  if (pastDue > 0) {
-    items.push({
-      id: "past",
-      text: `${pastDue} task${pastDue === 1 ? "" : "s"} past due.`,
-      tone: "danger",
-    });
-  }
-  if (dueToday > 0) {
-    items.push({
-      id: "today",
-      text: `${dueToday} task${dueToday === 1 ? "" : "s"} due today.`,
-      tone: "warning",
-    });
-  }
+  const insights = buildChanakyaWorkloadInsights();
+  const items: ChanakyaLiveIntelligenceMessage[] = insights.slice(0, 6).map((i) => ({
+    id: i.id,
+    text: i.text,
+    tone:
+      i.tone === "danger"
+        ? "danger"
+        : i.tone === "warning"
+          ? "warning"
+          : i.tone === "success"
+            ? "success"
+            : "info",
+  }));
   return items.length ? loop(items) : quiet("Task board is clear — nothing past due.");
 }
 

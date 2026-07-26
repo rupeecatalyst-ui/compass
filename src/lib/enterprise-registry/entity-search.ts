@@ -5,7 +5,7 @@
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import { ORGANIZATION_REGISTRY } from "@/data/catalyst-one/organization-registry-seed";
 import { isDemoSeedEnabled } from "@/lib/demo-seed";
-import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import type { EcmContactRole } from "@/types/enterprise-contact-master";
 import type { ParticipantEntityOption } from "@/types/loan-participant";
 import {

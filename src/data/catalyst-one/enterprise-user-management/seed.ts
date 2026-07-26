@@ -151,7 +151,7 @@ export const EUM_SEED_USERS: EnterpriseManagedUser[] = [
     loginStatus: "active",
     preferences: {
       ...basePrefs(),
-      defaultLandingPage: "/loan-files",
+      defaultLandingPage: "/my-deals",
       theme: "light",
       smsNotifications: true,
     },

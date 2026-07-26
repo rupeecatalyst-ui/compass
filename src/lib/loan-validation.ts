@@ -12,6 +12,10 @@ import {
   shouldShowFinalLoanAmount,
 } from "@/constants/loan-stage-master";
 import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
+import {
+  isCommercialPayeeComplete,
+  requiresCommercialPayee,
+} from "@/lib/loan-commercial-payee";
 import type { BusinessCompletionControl } from "@/types/business-completion";
 
 export interface LoanValidationIssue {
@@ -123,6 +127,18 @@ export function validateLoanFile(
       label: "Final Loan Amount",
       message: "Once the case is finally approved, I need the final loan amount to continue.",
       control: "final_loan_amount",
+    });
+  }
+
+  /** CO-ARCH-003 Phase 2B S1 — Invoice Party mandatory from configured stage onward. */
+  if (requiresCommercialPayee(file.stage) && !isCommercialPayeeComplete(file)) {
+    pushIssue(issues, {
+      code: "LOAN_MISSING_INVOICE_PARTY",
+      fieldKey: "commercialPayee",
+      label: "Invoice Party",
+      message:
+        "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.",
+      control: "commercial_payee",
     });
   }
 

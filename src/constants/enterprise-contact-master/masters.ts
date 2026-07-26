@@ -4,7 +4,30 @@
  * and configure parent–child relationships without code changes (CF-CON-035).
  *
  * Free-text is not allowed for these domains — users select from the master list.
+ *
+ * CO-ARCH-001-I6a — Tier 1 domains delegate to Reference Master port when
+ * REFERENCE_MASTER_PORT_RUNTIME is enabled (reversible via env flag).
+ * CO-ARCH-001-I6b — product / lender domains delegate to Tier 2 registry ports when
+ * TIER2_REGISTRY_PORT_RUNTIME is enabled (reversible via env flag).
  */
+
+import { isTier2RegistryPortRuntimeActive } from "@/constants/enterprise-master-data/dual-read";
+import {
+  configureReferenceMasterPorts,
+  getReferenceMasterPort,
+  isReferenceMasterPortRuntimeActive,
+} from "@/lib/enterprise-master-data";
+import {
+  ecmDomainToReferenceDomain,
+  isTier1EcmMasterDomain,
+} from "@/lib/enterprise-master-data/ecm-domain-map";
+import {
+  configureTier2RegistryPorts,
+  getLenderRegistryPort,
+  getProductRegistryPort,
+} from "@/lib/enterprise-tier2-ports";
+import type { ReferenceMasterPortOption } from "@/types/reference-master-port";
+import type { Tier2RegistryPortOption } from "@/types/tier2-registry-port";
 
 export type EcmMasterDomain =
   | "city"
@@ -268,14 +291,31 @@ export const ECM_MASTER_CATALOGS: Record<EcmMasterDomain, readonly EcmMasterOpti
   nature_of_business: [
     { id: "manufacturing", label: "Manufacturing" },
     { id: "trading", label: "Trading" },
-    { id: "services", label: "Services" },
-    { id: "real-estate-dev", label: "Real Estate Development" },
-    { id: "construction", label: "Construction" },
-    { id: "fintech", label: "Fintech / NBFC" },
-    { id: "consulting", label: "Consulting" },
-    { id: "export-import", label: "Export / Import" },
+    { id: "services", label: "Service" },
     { id: "retail", label: "Retail" },
-    { id: "other", label: "Other" },
+    { id: "wholesale", label: "Wholesale" },
+    { id: "construction", label: "Construction" },
+    { id: "infrastructure", label: "Infrastructure" },
+    { id: "hospitality", label: "Hospitality" },
+    { id: "healthcare", label: "Healthcare" },
+    { id: "education", label: "Education" },
+    { id: "information-technology", label: "Information Technology" },
+    { id: "logistics-transport", label: "Logistics & Transport" },
+    { id: "export-import", label: "Import / Export" },
+    { id: "agriculture", label: "Agriculture" },
+    { id: "food-processing", label: "Food Processing" },
+    { id: "pharmaceutical", label: "Pharmaceutical" },
+    { id: "automobile", label: "Automobile" },
+    { id: "textile", label: "Textile" },
+    { id: "chemicals", label: "Chemicals" },
+    { id: "engineering", label: "Engineering" },
+    { id: "real-estate", label: "Real Estate" },
+    { id: "real-estate-dev", label: "Real Estate Development" },
+    { id: "financial-services", label: "Financial Services" },
+    { id: "fintech", label: "Fintech / NBFC" },
+    { id: "professional-services", label: "Professional Services" },
+    { id: "consulting", label: "Consulting" },
+    { id: "other", label: "Others" },
   ],
   relationship_manager: [
     { id: "platform-admin", label: "Platform Admin" },
@@ -354,12 +394,92 @@ export const ECM_MASTER_CATALOGS: Record<EcmMasterDomain, readonly EcmMasterOpti
   ],
 };
 
+function portOptionToEcm(option: ReferenceMasterPortOption): EcmMasterOption {
+  return {
+    id: option.id,
+    label: option.label,
+    parentId: option.parentId,
+    meta: option.meta,
+    enabled: option.enabled,
+    sortOrder: option.sortOrder,
+  };
+}
+
+function listFromReferencePort(
+  domain: EcmMasterDomain,
+  parentId?: string,
+): EcmMasterOption[] | null {
+  if (!isReferenceMasterPortRuntimeActive() || !isTier1EcmMasterDomain(domain)) {
+    return null;
+  }
+  configureReferenceMasterPorts();
+  const refDomain = ecmDomainToReferenceDomain(domain);
+  if (!refDomain) return null;
+
+  const resolvedParent =
+    domain === "occupation"
+      ? normalizeEcmEmploymentTypeId(parentId) ?? parentId
+      : parentId;
+
+  const raw = getReferenceMasterPort().listOptions(refDomain, resolvedParent);
+  const options = Array.isArray(raw) ? raw.map(portOptionToEcm) : [];
+  if (domain === "occupation" && !resolvedParent) return [];
+
+  const sorted = [...options]
+    .filter((o) => o.enabled !== false)
+    .sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label),
+    );
+
+  return withOtherLast(sorted, resolvedParent);
+}
+
+function tier2OptionToEcm(option: Tier2RegistryPortOption): EcmMasterOption {
+  return {
+    id: option.id,
+    label: option.label,
+    parentId: option.parentId,
+    meta: option.meta,
+    enabled: option.enabled,
+    sortOrder: option.sortOrder,
+  };
+}
+
+function listFromTier2Port(
+  domain: EcmMasterDomain,
+  parentId?: string,
+): EcmMasterOption[] | null {
+  if (!isTier2RegistryPortRuntimeActive()) return null;
+  if (domain !== "product" && domain !== "lender") return null;
+
+  configureTier2RegistryPorts();
+
+  if (domain === "product") {
+    const raw = getProductRegistryPort().listProducts();
+    const options = (Array.isArray(raw) ? raw : [])
+      .filter((o) => o.enabled !== false)
+      .map(tier2OptionToEcm)
+      .sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label),
+      );
+    return withOtherLast(options, parentId);
+  }
+
+  const raw = getLenderRegistryPort().listLenders();
+  const options = (Array.isArray(raw) ? raw : [])
+    .filter((o) => o.enabled !== false)
+    .map(tier2OptionToEcm)
+    .sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label),
+    );
+  return withOtherLast(options, parentId);
+}
+
 /**
- * List enabled master options for a domain.
- * Always ends with Other (enterprise UX standard).
- * When parentId is provided, returns children of that parent (cascading).
+ * List enabled master options from legacy constants catalog only (no port delegation).
+ * Used by Reference Master constants port to avoid circular calls during I6a runtime swap.
  */
-export function listEcmMasterOptions(
+export function listEcmMasterOptionsFromCatalog(
   domain: EcmMasterDomain,
   parentId?: string,
 ): EcmMasterOption[] {
@@ -375,7 +495,7 @@ export function listEcmMasterOptions(
           o.parentId === resolvedParent || (isOtherOption(o) && !o.parentId),
       )
     : domain === "occupation"
-      ? [] // Profession / Occupation requires Employment Type first
+      ? []
       : [...all];
 
   if (filtered.length === 0) {
@@ -391,8 +511,44 @@ export function listEcmMasterOptions(
   return withOtherLast(sorted, resolvedParent);
 }
 
+/**
+ * List enabled master options for a domain.
+ * Always ends with Other (enterprise UX standard).
+ * When parentId is provided, returns children of that parent (cascading).
+ */
+export function listEcmMasterOptions(
+  domain: EcmMasterDomain,
+  parentId?: string,
+): EcmMasterOption[] {
+  const fromPort = listFromReferencePort(domain, parentId);
+  if (fromPort) return fromPort;
+
+  const fromTier2 = listFromTier2Port(domain, parentId);
+  if (fromTier2) return fromTier2;
+
+  return listEcmMasterOptionsFromCatalog(domain, parentId);
+}
+
 export function getEcmMasterLabel(domain: EcmMasterDomain, id?: string): string {
   if (!id) return "";
+  if (isReferenceMasterPortRuntimeActive() && isTier1EcmMasterDomain(domain)) {
+    configureReferenceMasterPorts();
+    const refDomain = ecmDomainToReferenceDomain(domain);
+    if (refDomain) {
+      const label = getReferenceMasterPort().getLabel(refDomain, id);
+      if (label && label !== id) return label;
+    }
+  }
+  if (isTier2RegistryPortRuntimeActive() && domain === "product") {
+    configureTier2RegistryPorts();
+    const label = getProductRegistryPort().getProductLabel(id);
+    if (label && label !== id) return label;
+  }
+  if (isTier2RegistryPortRuntimeActive() && domain === "lender") {
+    configureTier2RegistryPorts();
+    const label = getLenderRegistryPort().getLenderLabel(id);
+    if (label && label !== id) return label;
+  }
   const normalized =
     domain === "employment_type" ? normalizeEcmEmploymentTypeId(id) ?? id : id;
   return (
@@ -405,6 +561,18 @@ export function getEcmMasterOption(
   id?: string,
 ): EcmMasterOption | undefined {
   if (!id) return undefined;
+  if (isReferenceMasterPortRuntimeActive() && isTier1EcmMasterDomain(domain)) {
+    configureReferenceMasterPorts();
+    const refDomain = ecmDomainToReferenceDomain(domain);
+    if (refDomain) {
+      const option = getReferenceMasterPort().getOption(refDomain, id);
+      if (option) return portOptionToEcm(option);
+    }
+  }
+  if (isTier2RegistryPortRuntimeActive() && (domain === "product" || domain === "lender")) {
+    const fromPort = listFromTier2Port(domain)?.find((o) => o.id === id);
+    if (fromPort) return fromPort;
+  }
   const normalized =
     domain === "employment_type" ? normalizeEcmEmploymentTypeId(id) ?? id : id;
   return (

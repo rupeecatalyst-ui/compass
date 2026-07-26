@@ -6,8 +6,14 @@ import { ROUTES } from "@/constants/routes";
 
 /**
  * Segment error boundary — recovery UI for internal dry runs.
- * Does not alter business logic.
+ * CO-ARCH-009 — Non-production / certification builds surface the underlying
+ * exception message; production keeps the friendly screen and logs details.
  */
+function shouldSurfaceErrorDetails(): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+  return process.env.NEXT_PUBLIC_CERTIFICATION_ERROR_DETAILS === "true";
+}
+
 export default function Error({
   error,
   reset,
@@ -15,6 +21,8 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const showDetails = shouldSurfaceErrorDetails();
+
   useEffect(() => {
     console.error("[Catalyst One] route error:", error);
   }, [error]);
@@ -28,6 +36,12 @@ export default function Error({
       <p className="max-w-md text-sm text-muted-foreground">
         An unexpected error occurred. You can retry or return to the dashboard.
       </p>
+      {showDetails && error?.message ? (
+        <pre className="max-w-xl overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-2 text-left text-xs text-destructive whitespace-pre-wrap break-words">
+          {error.message}
+          {error.digest ? `\nDigest: ${error.digest}` : ""}
+        </pre>
+      ) : null}
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"

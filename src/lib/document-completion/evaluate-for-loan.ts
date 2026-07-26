@@ -12,7 +12,6 @@ import {
   type DocumentCompletionScore,
 } from "@/lib/document-completion/score";
 import type { LoanFile } from "@/types/catalyst-one";
-import { EDIE_ADDRESS_PROOF_GROUP } from "@/constants/edie-certified/document-catalog";
 
 export function evaluateDocumentCompletionForLoanFile(
   file: LoanFile | null | undefined,
@@ -25,7 +24,7 @@ export function evaluateDocumentCompletionForLoanFile(
 
   const checklist = resolveEdieChecklistForLoanFile(file);
   const scoringItems = checklist.items.filter(
-    (i) => i.choiceGroupId !== EDIE_ADDRESS_PROOF_GROUP || !i.optional,
+    (i) => !i.choiceGroupId || !i.optional,
   );
 
   const items = scoringItems.map((i) => ({

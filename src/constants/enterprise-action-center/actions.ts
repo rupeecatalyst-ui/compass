@@ -14,11 +14,88 @@ export const ACTION_CENTER_CATALOG: Array<
     entityTypes: ["loan", "opportunity", "customer", "wealth_partner", "lender"],
   },
   {
+    id: "email_lender",
+    label: "Email to Lender",
+    description: "Email the assigned lender relationship manager for this Deal.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
+    id: "email_customer",
+    label: "Email to Customer",
+    description: "Email the primary borrower on this Opportunity.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
+    id: "email_partner",
+    label: "Email to Partner",
+    description: "Email the Channel Partner / Wealth Partner / CA linked to this Deal.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
+    id: "email_source",
+    label: "Email to Source",
+    description: "Email the original referral source when available.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
     id: "send_whatsapp",
     label: "Send WhatsApp",
     description: "Queue a WhatsApp message with an intelligent template.",
     group: "communication",
     entityTypes: ["loan", "opportunity", "customer", "wealth_partner", "lender"],
+  },
+  {
+    id: "whatsapp_lender",
+    label: "WhatsApp to Lender",
+    description: "Message the lender RM on WhatsApp for this Deal.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
+    id: "whatsapp_customer",
+    label: "WhatsApp to Customer",
+    description: "Message the primary borrower on WhatsApp.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
+    id: "send_sms",
+    label: "SMS",
+    description: "Send an SMS without leaving this workspace.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
+    id: "schedule_meeting",
+    label: "Schedule Meeting",
+    description: "Schedule a meeting with a Deal participant.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
+    id: "internal_chat",
+    label: "Internal Chat",
+    description: "Open internal team chat for this Deal.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
+    id: "share_documents",
+    label: "Share Documents",
+    description: "Share Deal documents with a resolved recipient.",
+    group: "communication",
+    entityTypes: ["loan"],
+  },
+  {
+    id: "request_documents",
+    label: "Request Documents",
+    description: "Request missing documents from Customer or Partner.",
+    group: "communication",
+    entityTypes: ["loan"],
   },
   {
     id: "upload_documents",
@@ -106,6 +183,20 @@ export const LOAN_REFERENCE_ACTION_IDS = [
   "upload_documents",
 ] as const;
 
+/**
+ * CO-UX-015 — Deal Workspace Action Center.
+ * Email targets are enabled; future channels appear in catalog as Coming soon.
+ */
+export const DEAL_REFERENCE_ACTION_IDS = [
+  "email_lender",
+  "email_customer",
+  "email_partner",
+  "email_source",
+  "send_email",
+  "send_whatsapp",
+  "upload_documents",
+] as const;
+
 /** Strategic Workspace — Action Center as primary entry (nav + contacts). */
 export const OPPORTUNITY_REFERENCE_ACTION_IDS = [
   "open_credit_workbench",
@@ -118,4 +209,4 @@ export const OPPORTUNITY_REFERENCE_ACTION_IDS = [
 ] as const;
 
 export const OUTBOX_COUNTDOWN_MS = 3 * 60 * 1000;
-
+

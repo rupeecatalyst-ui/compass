@@ -23,13 +23,12 @@ Production and Vercel Preview authenticate through native Next.js Route Handlers
 
 These handlers delegate to the shared `server/services/auth.service.ts` — the same business logic used by Express auth routes.
 
-## Demo credentials
+## Credentials (CO-STAB-001)
 
-When `DATABASE_URL` is unset (current Vercel catalyst-one configuration):
-
-- Email: `admin@compass.com`
-- Password: `Admin@123`
-- Role: `SUPER_ADMIN` (Super Admin — full Business & Functional Certification access)
+- **PostgreSQL auth (production):** users in the database (seed via `BOOTSTRAP_SUPER_ADMIN_PASSWORD`).
+- **Demo auth (local only):** requires `DEMO_AUTH_ENABLED=true` and `DEMO_AUTH_PASSWORD` when `DATABASE_URL` is unset. Demo auth is **forbidden in production** without a database.
+- JWT secrets are **fail-closed** — no insecure defaults. Set `JWT_SECRET` and `JWT_REFRESH_SECRET` (≥32 chars, distinct).
+- Never commit passwords or temporary env dumps.
 
 ## Future migration
 

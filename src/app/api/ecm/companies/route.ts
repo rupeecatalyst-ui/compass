@@ -5,7 +5,7 @@ import {
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
-import { configureEcmPersistencePorts } from "@/lib/enterprise-persistence";
+import { configureEcmPersistencePorts } from "@/lib/enterprise-persistence/server";
 import { ecmCompanyService } from "@server/services/ecm/company.service";
 import type { ApiResponse } from "@/types/api";
 import type { EcmCompanyQuery } from "@/types/enterprise-company-master";

@@ -9,6 +9,9 @@
  *   node scripts/co-blocker-002-local-ui-verify.mjs
  */
 
+import { requireEnv, INSECURE_JWT_DENYLIST } from "./_lib/require-env.mjs";
+
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -102,12 +105,12 @@ async function buildSession() {
   if (!user) throw new Error("admin@rupeecatalyst.com not found");
   const accessToken = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET || "dev-secret-change-in-production",
+    requireEnv("JWT_SECRET", { minLength: 32 }),
     { expiresIn: "1h" },
   );
   const refreshToken = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_REFRESH_SECRET || "dev-refresh-secret-change-in-production",
+    requireEnv("JWT_REFRESH_SECRET", { minLength: 32 }),
     { expiresIn: "7d" },
   );
   return {

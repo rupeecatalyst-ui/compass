@@ -5,6 +5,9 @@
  *   node scripts/co-blocker-002-prod-verify.mjs
  */
 
+import { requireEnv, INSECURE_JWT_DENYLIST } from "./_lib/require-env.mjs";
+
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,9 +25,14 @@ const SHOT_DIR = path.join(__dirname, "..", "docs", "certification-screenshots",
 const prisma = new PrismaClient();
 
 const LOGIN_CANDIDATES = [
-  { email: process.env.VERIFY_ADMIN_EMAIL || "admin@compass.com", password: process.env.VERIFY_ADMIN_PASSWORD || "Admin@123" },
-  { email: "admin@rupeecatalyst.com", password: process.env.VERIFY_ADMIN_PASSWORD || "Admin@123" },
-  { email: "admin@rupeecatalyst.com", password: "Rc7$mK9pL2#vNq4X" },
+  {
+    email: process.env.VERIFY_ADMIN_EMAIL || "admin@compass.com",
+    password: requireEnv("VERIFY_ADMIN_PASSWORD"),
+  },
+  {
+    email: "admin@rupeecatalyst.com",
+    password: requireEnv("VERIFY_ADMIN_PASSWORD"),
+  },
 ];
 
 const stamp = Date.now();
@@ -85,7 +93,7 @@ async function resolveProductionLogin() {
 
   const jwtPairs = [
     [process.env.JWT_SECRET, process.env.JWT_REFRESH_SECRET],
-    ["dev-secret-change-in-production", "dev-refresh-secret-change-in-production"],
+    INSECURE_JWT_DENYLIST,
   ].filter(([access]) => access);
 
   for (const [accessSecret, refreshSecret] of jwtPairs) {

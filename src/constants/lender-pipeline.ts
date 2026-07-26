@@ -1,16 +1,18 @@
 import type { LenderCaseStage, LenderLostReason, LenderProbability } from "@/types/catalyst-one";
 
-/** UX-04D / CO-SPRINT-089 — Frozen enterprise lender pipeline stages. */
+/** UX-04D / CO-SPRINT-089 — Frozen enterprise lender pipeline stages.
+ * Colours aligned to CO-UX-003 Enterprise Journey standard.
+ */
 export const LENDER_CASE_STAGES: { id: LenderCaseStage; label: string; color: string }[] = [
-  { id: "identified", label: "Identified", color: "#6366F1" },
+  { id: "identified", label: "Identified", color: "#94A3B8" },
   { id: "prelogin", label: "Pre Login", color: "#94A3B8" },
-  { id: "logged_in_wip", label: "Logged In – WIP", color: "#3B82F6" },
-  { id: "soft_approved", label: "Soft Approved", color: "#8B5CF6" },
-  { id: "final_approved", label: "Final Approved", color: "#10B981" },
-  { id: "closure_wip", label: "Closure WIP", color: "#F59E0B" },
-  { id: "disbursed", label: "Disbursed", color: "#06B6D4" },
+  { id: "logged_in_wip", label: "Logged In – WIP", color: "#2563EB" },
+  { id: "soft_approved", label: "Soft Approved", color: "#EAB308" },
+  { id: "final_approved", label: "Final Approved", color: "#86EFAC" },
+  { id: "closure_wip", label: "Closure WIP", color: "#22C55E" },
+  { id: "disbursed", label: "Disbursed", color: "#14532D" },
   { id: "lost", label: "Lost", color: "#EF4444" },
-  { id: "hold", label: "Hold", color: "#64748B" },
+  { id: "hold", label: "Hold", color: "#F97316" },
 ] as const;
 
 export const LENDER_CASE_STAGE_LABELS: Record<LenderCaseStage, string> = Object.fromEntries(

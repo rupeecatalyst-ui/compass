@@ -6,6 +6,8 @@ import {
   EDIE_ADDRESS_PROOF_CHOICES,
   EDIE_ADDRESS_PROOF_GROUP,
   EDIE_CATALOG,
+  EDIE_IDENTITY_PROOF_CHOICES,
+  EDIE_IDENTITY_PROOF_GROUP,
   EDIE_MODULE_LABELS,
 } from "@/constants/edie-certified/document-catalog";
 import { EDIE_PROPERTY_PRODUCTS } from "@/constants/edie-certified/product-families";
@@ -100,13 +102,22 @@ export function applyStageSeverity(
   };
 }
 
-export function moduleCustomerKyc(): EdieChecklistItem[] {
+/** One identity proof required — choice group from EDIE master. */
+export function moduleCustomerKyc(selected?: string): EdieChecklistItem[] {
+  const choice =
+    selected &&
+    (EDIE_IDENTITY_PROOF_CHOICES as readonly string[]).includes(selected)
+      ? selected
+      : "doc:pan";
   return [
-    itemFromCatalog("doc:pan"),
-    itemFromCatalog("doc:aadhaar"),
-    itemFromCatalog("doc:passport"),
-    itemFromCatalog("doc:driving-licence"),
-    itemFromCatalog("doc:voter-id"),
+    ...EDIE_IDENTITY_PROOF_CHOICES.map((ref) =>
+      itemFromCatalog(ref, {
+        uploadMode: "choice_one",
+        choiceGroupId: EDIE_IDENTITY_PROOF_GROUP,
+        optional: ref !== choice,
+        severity: ref === choice ? "mandatory" : "required",
+      }),
+    ),
     itemFromCatalog("doc:photograph"),
     itemFromCatalog("doc:signature"),
   ];
@@ -200,10 +211,12 @@ export function moduleProperty(
  * Minimal pack: PAN, Aadhaar, Primary Bank; optional ITR + Address Proof.
  * No Financial Folder, Property Folder, or Business Constitution.
  */
-export function moduleAssetSecurityMinimal(selectedAddress?: string): EdieChecklistItem[] {
+export function moduleAssetSecurityMinimal(
+  selectedAddress?: string,
+  selectedIdentity?: string,
+): EdieChecklistItem[] {
   return [
-    itemFromCatalog("doc:pan"),
-    itemFromCatalog("doc:aadhaar"),
+    ...moduleCustomerKyc(selectedIdentity).filter((i) => i.choiceGroupId === EDIE_IDENTITY_PROOF_GROUP),
     itemFromCatalog("doc:bank-statement"),
     itemFromCatalog("doc:itr-optional"),
     ...moduleAddressProof(selectedAddress).map((i) => ({

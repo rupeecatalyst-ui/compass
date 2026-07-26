@@ -1,13 +1,16 @@
 /**
  * CO-BLOCKER-001 — Live ECM search for pickers (PostgreSQL via REST).
  * Bypasses stale in-memory cache; syncs results back into session cache.
+ *
+ * P0 Stabilization Phase 1 — Read/hydrate must NOT notify the registry change
+ * bus. Notifies are reserved for create/update/archive. Emitting on search
+ * caused LiveEntityMasterSearch warm effects to re-fire in a request storm.
  */
 
 import { getEcmPorts } from "@/lib/enterprise-contact-master/composition";
-import { notifyEcmContactRegistryChanged } from "@/lib/enterprise-contact-master/contact-change-bus";
 import { upsertEcmCompanyLocal } from "@/lib/enterprise-company-master";
 import { ecmApiClient } from "@/lib/enterprise-persistence/ecm-api-client";
-import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import {
   listOperationalCompanies,
   searchOperationalCompanies,
@@ -20,17 +23,19 @@ import {
   toContactPickerOption,
   type EnterpriseContactOption,
 } from "./contacts";
+import type { EcmCompany } from "@/types/enterprise-company-master";
 
+/** Session cache only — no registryVersion bump (read/hydrate path). */
 function syncContactsToCache(contacts: Parameters<typeof toContactPickerOption>[0][]): void {
   for (const c of contacts) {
     getEcmPorts().contacts.save(c);
   }
-  if (contacts.length) notifyEcmContactRegistryChanged();
 }
 
-function syncCompaniesToCache(companies: Parameters<typeof upsertEcmCompanyLocal>[0][]): void {
+/** Session cache only — silent upsert, no registryVersion bump. */
+function syncCompaniesToCache(companies: EcmCompany[]): void {
   for (const c of companies) {
-    upsertEcmCompanyLocal(c);
+    upsertEcmCompanyLocal(c, { silent: true });
   }
 }
 

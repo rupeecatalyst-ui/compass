@@ -12,6 +12,9 @@ export interface WorkflowProgressControlProps {
   className?: string;
   fileId?: string | null;
   opportunityId?: string | null;
+  onBeforeStageNavigate?: (
+    stageId: ChanakyaLoanJourneyStageId,
+  ) => boolean | Promise<boolean>;
 }
 
 /**
@@ -24,6 +27,7 @@ export function WorkflowProgressControl({
   className,
   fileId,
   opportunityId,
+  onBeforeStageNavigate,
 }: WorkflowProgressControlProps) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
@@ -108,6 +112,8 @@ export function WorkflowProgressControl({
               currentStageId={currentStageId}
               fileId={fileId}
               opportunityId={opportunityId}
+              allowForwardNavigation
+              onBeforeStageNavigate={onBeforeStageNavigate}
             />
           </div>
         </div>

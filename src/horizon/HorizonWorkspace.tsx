@@ -42,7 +42,12 @@ export function HorizonWorkspace() {
   }, []);
 
   if (!model) {
-    return <CommandShellLoading label="Preparing Horizon…" />;
+    return (
+      <CommandShellLoading
+        label="Preparing Horizon…"
+        module="dashboard"
+      />
+    );
   }
 
   return (

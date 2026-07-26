@@ -20,7 +20,7 @@ import type { ObservabilityCenterModel } from "./types";
 
 /**
  * Enterprise Observability Center — executive observability workspace.
- * UI architecture only. No telemetry, metrics collection, APIs, or databases.
+ * CO-OPS-002 supplies live System Health via providers (no UI redesign).
  */
 export function EnterpriseObservabilityCenter() {
   const [model, setModel] = useState<ObservabilityCenterModel | null>(null);

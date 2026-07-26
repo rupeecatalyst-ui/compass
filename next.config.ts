@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /** Bake demo-seed policy at build time — Pilot/Production bundles never enable demo data. */
 function resolveDemoSeedsEnabledAtBuild(): "true" | "false" {
@@ -10,7 +13,80 @@ function resolveDemoSeedsEnabledAtBuild(): "true" | "false" {
   return "true";
 }
 
+function tryGit(command: string): string {
+  try {
+    return execSync(`git ${command}`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
+function readPackageVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(join(process.cwd(), "package.json"), "utf8"),
+    ) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+/** CO-OPS-001 — Bake build identity for Administrator Build Information panel. */
+function resolveBuildIdentityEnv(): Record<string, string> {
+  const version =
+    process.env.NEXT_PUBLIC_APP_VERSION?.trim() || readPackageVersion();
+  const buildNumber =
+    process.env.NEXT_PUBLIC_BUILD_NUMBER?.trim() ||
+    process.env.BUILD_NUMBER?.trim() ||
+    "1";
+  const commitSha =
+    process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
+    process.env.NEXT_PUBLIC_GIT_COMMIT_SHA?.trim() ||
+    tryGit("rev-parse HEAD");
+  const branch =
+    process.env.VERCEL_GIT_COMMIT_REF?.trim() ||
+    process.env.NEXT_PUBLIC_GIT_BRANCH?.trim() ||
+    tryGit("rev-parse --abbrev-ref HEAD");
+  const commitTs =
+    process.env.VERCEL_GIT_COMMIT_AUTHOR_DATE?.trim() ||
+    process.env.NEXT_PUBLIC_GIT_COMMIT_TIMESTAMP?.trim() ||
+    tryGit("log -1 --format=%cI");
+  const buildTs =
+    process.env.NEXT_PUBLIC_BUILD_TIMESTAMP?.trim() || new Date().toISOString();
+  const deploymentTs =
+    process.env.NEXT_PUBLIC_DEPLOYMENT_TIMESTAMP?.trim() ||
+    process.env.VERCEL_DEPLOYMENT_ID?.trim() ||
+    buildTs;
+
+  let deploymentEnv = process.env.NEXT_PUBLIC_CATALYST_DEPLOYMENT_ENV?.trim();
+  if (!deploymentEnv) {
+    const vercelEnv = process.env.VERCEL_ENV?.trim();
+    if (vercelEnv === "production") deploymentEnv = "Production";
+    else if (vercelEnv === "preview" || vercelEnv === "development")
+      deploymentEnv = "Preview";
+    else if (process.env.VERCEL === "1") deploymentEnv = "Preview";
+    else deploymentEnv = "Local";
+  }
+
+  return {
+    NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_BUILD_NUMBER: buildNumber,
+    NEXT_PUBLIC_GIT_COMMIT_SHA: commitSha,
+    NEXT_PUBLIC_GIT_BRANCH: branch,
+    NEXT_PUBLIC_GIT_COMMIT_TIMESTAMP: commitTs,
+    NEXT_PUBLIC_BUILD_TIMESTAMP: buildTs,
+    NEXT_PUBLIC_DEPLOYMENT_TIMESTAMP: deploymentTs,
+    NEXT_PUBLIC_CATALYST_DEPLOYMENT_ENV: deploymentEnv,
+    NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? "",
+  };
+}
+
 const demoSeedsEnabled = resolveDemoSeedsEnabledAtBuild();
+const buildIdentity = resolveBuildIdentityEnv();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -20,6 +96,7 @@ const nextConfig: NextConfig = {
     CATALYST_DEMO_SEEDS_ENABLED: demoSeedsEnabled,
     ENTERPRISE_PERSISTENCE_MODE: process.env.ENTERPRISE_PERSISTENCE_MODE ?? "memory",
     NEXT_PUBLIC_ENTERPRISE_PERSISTENCE_MODE: process.env.ENTERPRISE_PERSISTENCE_MODE ?? "memory",
+    ...buildIdentity,
   },
   images: {
     remotePatterns: [

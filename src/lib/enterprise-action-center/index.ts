@@ -1,5 +1,7 @@
 export {
   resolveLoanCommunicationParticipants,
+  resolveDealCommunicationParticipants,
+  preferredDealParticipantId,
   applyTemplatePlaceholders,
 } from "./resolve-participants";
 export {

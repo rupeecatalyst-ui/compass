@@ -168,6 +168,10 @@ export interface EcmContactQuery {
   pageSize?: number;
   sortBy?: "createdOn" | "modifiedOn" | "lastActiveOn" | "name" | "contactScore";
   sortDir?: "asc" | "desc";
+  /** Inclusive local calendar day YYYY-MM-DD (createdAt / createdOn) */
+  createdFrom?: string;
+  /** Inclusive local calendar day YYYY-MM-DD (createdAt / createdOn) */
+  createdTo?: string;
 }
 
 export interface EcmContactQueryResult {

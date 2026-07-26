@@ -240,7 +240,7 @@ export function CustomerMasterTable() {
                   return (
                   <TableRow key={customer.id} className="hover:bg-muted/40">
                     <TableCell className="font-medium">
-                      <Link href={`${ROUTES.LOAN_FILES}?customer=${customer.id}`} className="hover:text-primary hover:underline">
+                      <Link href={`${ROUTES.MY_DEALS}?customer=${customer.id}`} className="hover:text-primary hover:underline">
                         {customer.name}
                       </Link>
                     </TableCell>

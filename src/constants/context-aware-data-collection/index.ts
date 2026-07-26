@@ -2,6 +2,9 @@ import type {
   ContextAwareFieldKey,
   ContextCustomerCategory,
   ContextCustomerFamily,
+  LoanInitiationFinancialFieldDef,
+  LoanInitiationFinancialFormValueKey,
+  LoanInitiationFinancialProfile,
 } from "@/types/context-aware-data-collection";
 
 export const CONTEXT_AWARE_PRINCIPLE_VERSION = "1.0";
@@ -108,6 +111,8 @@ export const CONTEXT_SALARIED_VALUE_KEYS = [
   "employmentTypeDetail",
   "salaryCredits",
   "statedIncomeMonthly",
+  "monthlyGrossSalary",
+  "netSalary",
 ] as const;
 
 export const CONTEXT_SELF_EMPLOYED_VALUE_KEYS = [
@@ -127,4 +132,158 @@ export const CONTEXT_SELF_EMPLOYED_VALUE_KEYS = [
   "annualProfit",
   "annualGrossReceipts",
   "annualProfessionalIncome",
+  "annualBusinessIncome",
+  "itrIncome",
+  "gstTurnover",
+  "annualNetProfit",
+  "ebitda",
+  "existingWcLimits",
+  "existingCcOdLimit",
+  "existingBank",
 ] as const;
+
+export const LOAN_INITIATION_FINANCIAL_PROFILE_LABELS: Record<
+  LoanInitiationFinancialProfile,
+  string
+> = {
+  salaried_individual: "Salaried Individual",
+  self_employed_individual: "Self-Employed Individual",
+  corporate: "Corporate",
+  msme_working_capital: "MSME Working Capital",
+};
+
+export const LOAN_INITIATION_FINANCIAL_FIELDS: Record<
+  LoanInitiationFinancialProfile,
+  readonly LoanInitiationFinancialFieldDef[]
+> = {
+  salaried_individual: [
+    {
+      key: "monthly_gross_salary",
+      label: "Monthly Gross Salary",
+      required: true,
+      input: "currency",
+      formValueKey: "monthlyGrossSalary",
+    },
+    {
+      key: "net_salary",
+      label: "Net Salary",
+      required: true,
+      input: "currency",
+      formValueKey: "netSalary",
+    },
+    {
+      key: "existing_emi",
+      label: "Existing EMIs",
+      required: false,
+      input: "currency",
+      formValueKey: "existingEmi",
+    },
+  ],
+  self_employed_individual: [
+    {
+      key: "annual_business_income",
+      label: "Annual Business Income",
+      required: true,
+      input: "currency",
+      formValueKey: "annualBusinessIncome",
+    },
+    {
+      key: "itr_income",
+      label: "ITR Income",
+      required: true,
+      input: "currency",
+      formValueKey: "itrIncome",
+    },
+    {
+      key: "gst_turnover",
+      label: "GST Turnover (optional)",
+      required: false,
+      input: "currency",
+      formValueKey: "gstTurnover",
+    },
+    {
+      key: "existing_emi",
+      label: "Existing EMIs",
+      required: false,
+      input: "currency",
+      formValueKey: "existingEmi",
+    },
+  ],
+  corporate: [
+    {
+      key: "annual_turnover",
+      label: "Annual Turnover",
+      required: true,
+      input: "currency",
+      formValueKey: "annualTurnover",
+    },
+    {
+      key: "annual_net_profit",
+      label: "Annual Net Profit (optional)",
+      required: false,
+      input: "currency",
+      formValueKey: "annualNetProfit",
+    },
+    {
+      key: "ebitda",
+      label: "EBITDA (optional)",
+      required: false,
+      input: "currency",
+      formValueKey: "ebitda",
+    },
+    {
+      key: "existing_wc_limits",
+      label: "Existing Working Capital Limits (optional)",
+      required: false,
+      input: "currency",
+      formValueKey: "existingWcLimits",
+    },
+  ],
+  msme_working_capital: [
+    {
+      key: "annual_turnover",
+      label: "Annual Turnover",
+      required: true,
+      input: "currency",
+      formValueKey: "annualTurnover",
+    },
+    {
+      key: "gst_turnover",
+      label: "GST Turnover",
+      required: true,
+      input: "currency",
+      formValueKey: "gstTurnover",
+    },
+    {
+      key: "existing_cc_od_limit",
+      label: "Existing CC/OD Limit",
+      required: true,
+      input: "currency",
+      formValueKey: "existingCcOdLimit",
+    },
+    {
+      key: "existing_bank",
+      label: "Existing Bank",
+      required: true,
+      input: "text",
+      formValueKey: "existingBank",
+    },
+  ],
+};
+
+/** All Loan Initiation financial form keys (for sanitize / clear). */
+export const LOAN_INITIATION_ALL_FINANCIAL_VALUE_KEYS: readonly LoanInitiationFinancialFormValueKey[] =
+  [
+    "monthlyGrossSalary",
+    "netSalary",
+    "existingEmi",
+    "annualBusinessIncome",
+    "itrIncome",
+    "gstTurnover",
+    "annualTurnover",
+    "annualNetProfit",
+    "ebitda",
+    "existingWcLimits",
+    "existingCcOdLimit",
+    "existingBank",
+  ];

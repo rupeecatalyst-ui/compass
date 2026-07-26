@@ -106,6 +106,18 @@ export interface BusinessJourneyNavigatorProps {
   /** When false, stage cards are indicators only. */
   enableStageNavigation?: boolean;
   /**
+   * When true (default), upcoming stages with a route are clickable —
+   * journey ribbon is primary navigation across the loan lifecycle.
+   */
+  allowForwardNavigation?: boolean;
+  /**
+   * Return false to block navigation (e.g. Disbursement when mandatory docs pending).
+   * Chanakya messaging is owned by the caller.
+   */
+  onBeforeStageNavigate?: (
+    stageId: ChanakyaLoanJourneyStageId,
+  ) => boolean | Promise<boolean>;
+  /**
    * CO-SPRINT-106 — hide phase labels and “Current” helper captions.
    * Cards communicate via icon, title, and status colour only.
    */
@@ -124,6 +136,8 @@ export function BusinessJourneyNavigator({
   fileId,
   opportunityId,
   enableStageNavigation = true,
+  allowForwardNavigation = true,
+  onBeforeStageNavigate,
   hideHelperCaptions = false,
   density = "default",
 }: BusinessJourneyNavigatorProps) {
@@ -164,9 +178,16 @@ export function BusinessJourneyNavigator({
     stages: stages.filter((s) => s.phaseId === phase.id),
   })).filter((band) => band.stages.length > 0);
 
-  const onStageActivate = (stageId: ChanakyaLoanJourneyStageId, status: string) => {
+  const onStageActivate = async (
+    stageId: ChanakyaLoanJourneyStageId,
+    status: string,
+  ) => {
     if (!enableStageNavigation) return;
-    if (status === "upcoming") return;
+    if (status === "upcoming" && !allowForwardNavigation) return;
+    if (onBeforeStageNavigate) {
+      const ok = await onBeforeStageNavigate(stageId);
+      if (!ok) return;
+    }
     const href = buildNavigatorStageHref(stageId, { fileId, opportunityId });
     if (!href) return;
     router.push(href);
@@ -228,8 +249,8 @@ export function BusinessJourneyNavigator({
                       });
                       const clickable =
                         enableStageNavigation &&
-                        status !== "upcoming" &&
-                        Boolean(href);
+                        Boolean(href) &&
+                        (status !== "upcoming" || allowForwardNavigation);
 
                       return (
                         <div key={stage.id} className="flex items-center">
@@ -237,7 +258,7 @@ export function BusinessJourneyNavigator({
                             type="button"
                             ref={status === "current" ? currentRef : undefined}
                             disabled={!clickable}
-                            onClick={() => onStageActivate(stage.id, status)}
+                            onClick={() => void onStageActivate(stage.id, status)}
                             className={cn(
                               "enterprise-stable-surface group flex flex-col items-center justify-center gap-0.5 rounded-xl border px-1.5",
                               "transition-colors duration-150",

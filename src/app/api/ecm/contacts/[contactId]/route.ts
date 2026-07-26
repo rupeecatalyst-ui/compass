@@ -5,7 +5,10 @@ import {
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
-import { configureEcmPersistencePorts, syncEcmPortsFromPrisma } from "@/lib/enterprise-persistence";
+import {
+  configureEcmPersistencePorts,
+  syncEcmPortsFromPrisma,
+} from "@/lib/enterprise-persistence/server";
 import { ecmContactService } from "@server/services/ecm/contact.service";
 import { softDeleteService } from "@server/services/soft-delete/soft-delete.service";
 import { prisma } from "@server/lib/prisma";

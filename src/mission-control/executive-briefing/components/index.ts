@@ -8,3 +8,7 @@ export { HighlightCard } from "./HighlightCard";
 export { HighlightsSection } from "./HighlightsSection";
 export { QuickActionButton } from "./QuickActionButton";
 export { QuickActions } from "./QuickActions";
+export { ExecutiveStatusCards } from "./ExecutiveStatusCards";
+export { BusinessPerformanceSection } from "./BusinessPerformanceSection";
+export { ExecutiveActionsSection } from "./ExecutiveActionsSection";
+export { EnterpriseHealthSection } from "./EnterpriseHealthSection";

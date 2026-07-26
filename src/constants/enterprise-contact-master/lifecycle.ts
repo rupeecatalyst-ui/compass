@@ -13,10 +13,21 @@ export const ECM_CONTACT_ROLES = {
 } as const satisfies Record<string, EcmContactRole>;
 
 /**
- * Fixed workspace tabs for Contact onboarding.
- * Documents / Timeline / Communication / Audit live on journey/entity workspaces — not here.
+ * Fixed workspace tabs for Contact Workspace.
+ * Identity remains available for edit; Overview + entity tabs are first-class navigation.
+ * Relationships hosts the Enterprise Relationship Workspace (ERW).
  */
-export type EcmFixedWorkspaceTabId = "identity";
+export type EcmFixedWorkspaceTabId =
+  | "identity"
+  | "overview"
+  | "relationships"
+  | "companies"
+  | "opportunities"
+  | "loans"
+  | "investments"
+  | "documents"
+  | "communication"
+  | "timeline";
 
 export type EcmRoleWorkspaceTabId =
   | "borrower"
@@ -173,8 +184,19 @@ export interface EcmFixedWorkspaceTabDefinition {
 }
 
 export const ECM_FIXED_WORKSPACE_TABS: readonly EcmFixedWorkspaceTabDefinition[] = [
-  { id: "identity", label: "Identity", sortOrder: 0, placement: "before_roles" },
+  { id: "overview", label: "Overview", sortOrder: 0, placement: "before_roles" },
+  { id: "relationships", label: "Relationships", sortOrder: 10, placement: "after_roles" },
+  { id: "companies", label: "Companies", sortOrder: 20, placement: "after_roles" },
+  { id: "opportunities", label: "Opportunities", sortOrder: 30, placement: "after_roles" },
+  { id: "loans", label: "Loans", sortOrder: 40, placement: "after_roles" },
+  { id: "investments", label: "Investments", sortOrder: 50, placement: "after_roles" },
+  { id: "documents", label: "Documents", sortOrder: 60, placement: "after_roles" },
+  { id: "communication", label: "Communication", sortOrder: 70, placement: "after_roles" },
+  { id: "timeline", label: "Timeline", sortOrder: 80, placement: "after_roles" },
 ];
+
+/** Identity edit surface — opened via Edit, not shown as a primary workspace tab. */
+export const ECM_IDENTITY_WORKSPACE_TAB_ID = "identity" as const satisfies EcmFixedWorkspaceTabId;
 
 /** Configuration-driven Contact Score weights (grid displays calculated value only) */
 export const ECM_CONTACT_SCORE_CONFIG = {

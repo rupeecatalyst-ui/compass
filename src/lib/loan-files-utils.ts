@@ -18,6 +18,7 @@ import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
 import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { buildElwWorkspaceHref } from "@/constants/enterprise-lender-workspace";
 import { listElwRegistryEntries } from "@/lib/enterprise-lender-workspace";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import type { CustomerLoanStats, LoanFile } from "@/types/catalyst-one";
 
 export function getAllLoanFiles(): LoanFile[] {
@@ -80,7 +81,7 @@ export function searchGlobal(query: string, files?: LoanFile[]): GlobalSearchRes
           type: "loan",
           title: `${f.customerName} · ${f.fileNumber}`,
           subtitle: `${f.loanProduct} · ${f.lender}`,
-          href: `/loan-files?file=${f.id}`,
+          href: buildDealWorkspaceHref({ fileId: f.id, tab: "lenders" }),
         });
       }
     });
@@ -212,6 +213,7 @@ export function createLoanFileFromInput(
     approxPropertyValue: input.approxPropertyValue,
     businessDetails: input.businessDetails,
     approxCibilScore: input.approxCibilScore,
+    payeeStatus: "pending",
     btInstitutionId:
       transactionType === "balance_transfer" ? input.btInstitutionId : undefined,
     btInstitutionName:
@@ -277,9 +279,25 @@ export function updateLoanFileInStorage(
   fileId: string,
   patch: Partial<LoanFile>,
   timelineNote?: string,
+  options?: {
+    /**
+     * Lender Pipeline / LIFE sync may patch `lenders` before property details exist.
+     * Skip Business Completion gate for lender-only structural sync — not a suppress of
+     * real completion when product/amount/property fields are being edited.
+     */
+    skipCompletionGate?: boolean;
+    /** CO-PIPELINE-001 — skip remount notify (default true). */
+    notify?: boolean;
+    /** CO-PIPELINE-001 — skip full dual-write queue (default true). */
+    queueDualWrite?: boolean;
+  },
 ): LoanFile | null {
   const files = loadLoanFiles();
-  const index = files.findIndex((f) => f.id === fileId);
+  let index = files.findIndex((f) => f.id === fileId);
+  // Enterprise Deal UUID may be passed when legacy id is not the path key.
+  if (index < 0) {
+    index = files.findIndex((f) => f.enterpriseDealId === fileId);
+  }
   if (index < 0) return null;
 
   const existing = files[index]!;
@@ -298,10 +316,12 @@ export function updateLoanFileInStorage(
 
   let merged: LoanFile = normalizeLoanFile({ ...existing, ...patch, timeline });
 
-  const validation = validateLoanFile(merged, existing);
-  if (!validation.valid) {
-    throwLoanBusinessCompletionIfNeeded(merged, validation.issues);
-    throw new Error(validation.errors.join(" "));
+  if (!options?.skipCompletionGate) {
+    const validation = validateLoanFile(merged, existing);
+    if (!validation.valid) {
+      throwLoanBusinessCompletionIfNeeded(merged, validation.issues);
+      throw new Error(validation.errors.join(" "));
+    }
   }
 
   if (merged.stage === "won" && existing.stage !== "won") {
@@ -312,7 +332,10 @@ export function updateLoanFileInStorage(
 
   const next = [...files];
   next[index] = merged;
-  saveLoanFiles(next);
+  saveLoanFiles(next, {
+    notify: options?.notify,
+    queueDualWrite: options?.queueDualWrite,
+  });
 
   // CO-SPRINT-108 — Daily Work marks from new meaningful timeline events only
   const prevIds = new Set((existing.timeline ?? []).map((e) => e.id));

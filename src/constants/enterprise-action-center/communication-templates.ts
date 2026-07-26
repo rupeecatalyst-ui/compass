@@ -59,6 +59,16 @@ export const COMMUNICATION_TEMPLATE_REGISTRY: CommunicationTemplateDef[] = [
     recommended: true,
   },
   {
+    id: "tpl-email-source",
+    code: "EMAIL_SOURCE",
+    name: "Referral source update",
+    channel: "email",
+    recipientTypes: ["referral_source"],
+    subject: "Update on referred case — {{fileNumber}}",
+    body: "Dear {{name}},\n\nThank you for referring {{customerName}}.\n\nTheir {{product}} application ({{fileNumber}}) is currently at {{stage}}.\n\nOur RM {{rm}} remains the point of contact for next steps.\n\nRupee Catalyst",
+    recommended: true,
+  },
+  {
     id: "tpl-email-rm",
     code: "EMAIL_RM_INTERNAL",
     name: "Internal note to RM / Hybrid Employee",

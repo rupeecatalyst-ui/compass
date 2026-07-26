@@ -1,7 +1,12 @@
-import type { RegistryImportBatchStatus } from "@prisma/client";
+import type { Prisma, RegistryImportBatchStatus } from "@prisma/client";
 import { prisma } from "@server/lib/prisma";
 import type { CreateRegistryImportBatchInput } from "@/types/enterprise-master-data";
 import { mapPrismaImportBatchToDomain } from "./mappers";
+
+function toJson(value?: Record<string, unknown> | null): Prisma.InputJsonValue | undefined {
+  if (value === undefined || value === null) return undefined;
+  return value as Prisma.InputJsonValue;
+}
 
 export class EnterpriseRegistryImportBatchRepository {
   async create(input: CreateRegistryImportBatchInput) {
@@ -35,7 +40,7 @@ export class EnterpriseRegistryImportBatchRepository {
         rowCount: patch.rowCount,
         successCount: patch.successCount,
         errorCount: patch.errorCount,
-        errorSummary: patch.errorSummary,
+        errorSummary: toJson(patch.errorSummary),
         startedAt: patch.startedAt,
         completedAt: patch.completedAt,
       },

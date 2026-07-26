@@ -17,6 +17,7 @@ export type AdministrationCategoryId =
   | "identity-access"
   | "workflow"
   | "products"
+  | "masters"
   | "lenders-partners"
   | "ai"
   | "enterprise"
@@ -207,16 +208,45 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
     ],
   },
   {
+    id: "masters",
+    title: "Masters",
+    description: "Enterprise master data registries used across Catalyst One.",
+    modules: [
+      {
+        id: "lender-registry",
+        title: "Lender Registry",
+        description:
+          "Single source of truth for lenders, programs, contacts, and documents.",
+        href: ROUTES.ADMIN_LENDER_REGISTRY,
+        keywords: ["lender", "registry", "program", "nbfc", "bank", "hfc"],
+      },
+      {
+        id: "reference-masters",
+        title: "Reference Master",
+        description: "Maintain Tier 1 enterprise reference data (city, industry, employment type, etc.)",
+        href: ROUTES.ADMIN_REFERENCE_MASTERS,
+        keywords: ["reference", "master", "lookup", "city", "industry", "employment"],
+      },
+    ],
+  },
+  {
     id: "lenders-partners",
     title: "Partners & Lenders",
     description: "Lender configuration, partner rules, and credit product mapping.",
     modules: [
       {
         id: "lenders-ops",
-        title: "Lenders",
-        description: "Operational lender directory and relationship workspace.",
+        title: "Lenders Comparison",
+        description: "Read-only comparison of published lender programs (not a maintenance screen).",
         href: ROUTES.LENDERS,
-        keywords: ["lender", "nbfc", "bank"],
+        keywords: ["lender", "nbfc", "bank", "compare"],
+      },
+      {
+        id: "lender-registry-maint",
+        title: "Lender Registry",
+        description: "Create and maintain lenders (Administration Masters).",
+        href: ROUTES.ADMIN_LENDER_REGISTRY,
+        keywords: ["lender registry", "maintain"],
       },
       {
         id: "credit-lenders",
@@ -300,7 +330,7 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
   {
     id: "system",
     title: "System Administration",
-    description: "System modes and platform-level operational switches.",
+    description: "System modes, build identity, and platform-level operational switches.",
     modules: [
       {
         id: "system-modes",
@@ -308,6 +338,23 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         description: "Runtime modes that govern platform behaviour and feature gates.",
         href: ROUTES.ADMIN_SYSTEM_MODES,
         keywords: ["modes", "feature flags", "runtime"],
+      },
+      {
+        id: "build-information",
+        title: "Build Information",
+        description:
+          "Application version, commit, deployment environment, and connected database for operational verification.",
+        href: ROUTES.ADMIN_BUILD_INFORMATION,
+        keywords: [
+          "build",
+          "version",
+          "deploy",
+          "git",
+          "commit",
+          "environment",
+          "database",
+          "ops",
+        ],
       },
     ],
   },

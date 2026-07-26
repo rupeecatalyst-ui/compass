@@ -1,0 +1,360 @@
+{
+  "at": "2026-07-23T20:55:51.544Z",
+  "organizationId": "cmrtlilr60001weys1xv2uu5t",
+  "organizationSlug": "rupee-catalyst",
+  "contact": {
+    "id": "c046aba9970e18705c0fb7ae0",
+    "name": "P2B Integrity Customer 1784840145684",
+    "mobile": "9840145684"
+  },
+  "opportunity": {
+    "id": "c1a30bd30b054f8901c107df5",
+    "opportunityNumber": "OPP-2026-000005",
+    "productLabel": "Home Loan",
+    "requirementStage": "ready_for_market",
+    "primaryContactId": "c046aba9970e18705c0fb7ae0"
+  },
+  "dealCount": 4,
+  "deals": [
+    {
+      "id": "c8ffcf6f457dc46c81f4d8f30",
+      "dealNumber": "DEAL-2026-000016",
+      "stage": "identified",
+      "productCode": "home_loan",
+      "productLabel": "Home Loan",
+      "requestedAmount": "8000000",
+      "lenderId": "c816bc12a4722e2603a9d5a2b",
+      "lenderName": "HDFC",
+      "lenderProgramId": "c1a9674d8ba74a74384947342",
+      "lenderProgramLabel": "HDFC — Home Loan",
+      "invoicePartyId": "c31a948defe20b8128be50e97",
+      "invoicePartyName": "P2B Integrity Invoice Party 1 1784840145684"
+    },
+    {
+      "id": "c711425bf4aeea0c4489184bb",
+      "dealNumber": "DEAL-2026-000017",
+      "stage": "logged_in_wip",
+      "productCode": "home_loan",
+      "productLabel": "Home Loan",
+      "requestedAmount": "7500000",
+      "lenderId": "cfad8cfb2ac7ed62bc57def10",
+      "lenderName": "SBI",
+      "lenderProgramId": "cd545fbb5889dc9f27593c792",
+      "lenderProgramLabel": "SBI — Home Loan",
+      "invoicePartyId": "c54e7527b1a4c6143c173f1f8",
+      "invoicePartyName": "P2B Integrity Invoice Party 2 1784840145684"
+    },
+    {
+      "id": "cdee1d55a8f716c866acf991f",
+      "dealNumber": "DEAL-2026-000018",
+      "stage": "credit_wip",
+      "productCode": "lap",
+      "productLabel": "Loan Against Property",
+      "requestedAmount": "5000000",
+      "lenderId": "cmrusophn003jwe60hymttfjn",
+      "lenderName": "Bajaj Housing Finance",
+      "lenderProgramId": "c643b17b6fbb08d111465b54c",
+      "lenderProgramLabel": "Bajaj Housing Finance — Loan Against Property",
+      "invoicePartyId": "cefed716a0ee34ffcec221220",
+      "invoicePartyName": "P2B Integrity Invoice Party 3 1784840145684"
+    },
+    {
+      "id": "cb8afd3c3396b5978a7baf8be",
+      "dealNumber": "DEAL-2026-000019",
+      "stage": "soft_approved",
+      "productCode": "home_loan",
+      "productLabel": "Home Loan",
+      "requestedAmount": "4500000",
+      "lenderId": "ce391b1b814fa3394bd1c2ef3",
+      "lenderName": "ICICI",
+      "lenderProgramId": "c63dc9d79e3b847da9e6e8d6d",
+      "lenderProgramLabel": "ICICI — Home Loan",
+      "invoicePartyId": "c98bd828c82fa36843e1d7209",
+      "invoicePartyName": "P2B Integrity Invoice Party 4 1784840145684"
+    }
+  ],
+  "checks": [
+    {
+      "section": "SETUP",
+      "name": "Create one test Contact",
+      "ok": true,
+      "detail": "c046aba9970e18705c0fb7ae0"
+    },
+    {
+      "section": "SETUP",
+      "name": "Create four Invoice Party Contacts",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "SETUP",
+      "name": "Create four Invoice Party Master records",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "SETUP",
+      "name": "Create one test Opportunity",
+      "ok": true,
+      "detail": "c1a30bd30b054f8901c107df5 / OPP-2026-000005"
+    },
+    {
+      "section": "SETUP",
+      "name": "Opportunity starts with zero Deals (BI-1)",
+      "ok": true,
+      "detail": "0"
+    },
+    {
+      "section": "SETUP",
+      "name": "Program belongs to lender (HDFC Bank)",
+      "ok": true,
+      "detail": "c1a9674d8ba74a74384947342"
+    },
+    {
+      "section": "SETUP",
+      "name": "Create Deal 1 (HDFC Bank)",
+      "ok": true,
+      "detail": "DEAL-2026-000016 · stage=identified · amt=8000000"
+    },
+    {
+      "section": "SETUP",
+      "name": "Program belongs to lender (SBI)",
+      "ok": true,
+      "detail": "cd545fbb5889dc9f27593c792"
+    },
+    {
+      "section": "SETUP",
+      "name": "Create Deal 2 (SBI)",
+      "ok": true,
+      "detail": "DEAL-2026-000017 · stage=logged_in_wip · amt=7500000"
+    },
+    {
+      "section": "SETUP",
+      "name": "Program belongs to lender (Bajaj Finance)",
+      "ok": true,
+      "detail": "c643b17b6fbb08d111465b54c"
+    },
+    {
+      "section": "SETUP",
+      "name": "Create Deal 3 (Bajaj Finance)",
+      "ok": true,
+      "detail": "DEAL-2026-000018 · stage=credit_wip · amt=5000000"
+    },
+    {
+      "section": "SETUP",
+      "name": "Program belongs to lender (ICICI Bank)",
+      "ok": true,
+      "detail": "c63dc9d79e3b847da9e6e8d6d"
+    },
+    {
+      "section": "SETUP",
+      "name": "Create Deal 4 (ICICI Bank)",
+      "ok": true,
+      "detail": "DEAL-2026-000019 · stage=soft_approved · amt=4500000"
+    },
+    {
+      "section": "DB",
+      "name": "One Contact exists",
+      "ok": true,
+      "detail": "c046aba9970e18705c0fb7ae0"
+    },
+    {
+      "section": "DB",
+      "name": "One Opportunity exists",
+      "ok": true,
+      "detail": "c1a30bd30b054f8901c107df5 / OPP-2026-000005"
+    },
+    {
+      "section": "DB",
+      "name": "No duplicate Opportunity records",
+      "ok": true,
+      "detail": "1"
+    },
+    {
+      "section": "DB",
+      "name": "Four Deal records exist",
+      "ok": true,
+      "detail": "4"
+    },
+    {
+      "section": "DB",
+      "name": "Every Deal references the same Opportunity",
+      "ok": true,
+      "detail": "c1a30bd30b054f8901c107df5"
+    },
+    {
+      "section": "DB",
+      "name": "Every Deal has unique Deal ID",
+      "ok": true,
+      "detail": "c8ffcf6f457dc46c81f4d8f30, c711425bf4aeea0c4489184bb, cdee1d55a8f716c866acf991f, cb8afd3c3396b5978a7baf8be"
+    },
+    {
+      "section": "DB",
+      "name": "Every Deal has unique Deal Number",
+      "ok": true,
+      "detail": "DEAL-2026-000016, DEAL-2026-000017, DEAL-2026-000018, DEAL-2026-000019"
+    },
+    {
+      "section": "DB",
+      "name": "Lender relationships are correct (FK + distinct)",
+      "ok": true,
+      "detail": "HDFC | SBI | Bajaj Housing Finance | ICICI"
+    },
+    {
+      "section": "DB",
+      "name": "Lender Program relationships are correct (program ∈ lender)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "DB",
+      "name": "Invoice Party relationships are correct",
+      "ok": true,
+      "detail": "P2B Integrity Invoice Party 1 1784840145684 | P2B Integrity Invoice Party 2 1784840145684 | P2B Integrity Invoice Party 3 1784840145684 | P2B Integrity Invoice Party 4 1784840145684"
+    },
+    {
+      "section": "DB",
+      "name": "No orphan Deals (Opportunity FK valid)",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "section": "DB",
+      "name": "No Deal with invalid lender FK",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "DB",
+      "name": "No Deal with invalid Invoice Party FK",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "DB",
+      "name": "UUIDs/IDs unique across created set",
+      "ok": true,
+      "detail": "n=18 unique=18"
+    },
+    {
+      "section": "APP",
+      "name": "Opportunity displays correctly (repository findById parity)",
+      "ok": true,
+      "detail": "OPP-2026-000005"
+    },
+    {
+      "section": "APP",
+      "name": "All four Deals are visible",
+      "ok": true,
+      "detail": "4"
+    },
+    {
+      "section": "APP",
+      "name": "Deal counts match the database",
+      "ok": true,
+      "detail": "app=4 db=4"
+    },
+    {
+      "section": "APP",
+      "name": "Relationship integrity preserved (opp + lender + program + invoice party)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "APP",
+      "name": "Duplicate Opportunity+Lender rejected (Option A uniqueness)",
+      "ok": true,
+      "detail": "P2002"
+    },
+    {
+      "section": "CONSISTENCY",
+      "name": "Foreign keys valid (opportunity, lender, program, invoice party)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "CONSISTENCY",
+      "name": "No orphan records in test set",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "CONSISTENCY",
+      "name": "No duplicate Deal IDs or Deal Numbers",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "CONSISTENCY",
+      "name": "Opportunity–Deal relationship intact",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "CONSISTENCY",
+      "name": "Deals have distinct stages",
+      "ok": true,
+      "detail": "identified, logged_in_wip, credit_wip, soft_approved"
+    },
+    {
+      "section": "CONSISTENCY",
+      "name": "Deals have distinct loan amounts",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "CLEANUP",
+      "name": "Test Deals soft-deleted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "CLEANUP",
+      "name": "Test Opportunity soft-deleted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "CLEANUP",
+      "name": "Pre-existing lenders retained when reused (not force-deleted)",
+      "ok": true,
+      "detail": "createdLenders=0; createdPrograms=4"
+    }
+  ],
+  "totals": {
+    "pass": 41,
+    "fail": 0
+  },
+  "cleanup": {
+    "softDeleted": true,
+    "reason": "p2b_opp_deal_integrity_cleanup",
+    "contactIds": [
+      "c046aba9970e18705c0fb7ae0",
+      "ca25e6a3f7d5af6e0723b710c",
+      "c6dcbf232217732440b7169a4",
+      "c35125f0dae874b3fb1802d49",
+      "cfdbd3887528cf0f162964373"
+    ],
+    "opportunityId": "c1a30bd30b054f8901c107df5",
+    "dealIds": [
+      "c8ffcf6f457dc46c81f4d8f30",
+      "c711425bf4aeea0c4489184bb",
+      "cdee1d55a8f716c866acf991f",
+      "cb8afd3c3396b5978a7baf8be"
+    ],
+    "invoicePartyIds": [
+      "c31a948defe20b8128be50e97",
+      "c54e7527b1a4c6143c173f1f8",
+      "cefed716a0ee34ffcec221220",
+      "c98bd828c82fa36843e1d7209"
+    ],
+    "createdProgramIds": [
+      "c1a9674d8ba74a74384947342",
+      "cd545fbb5889dc9f27593c792",
+      "c643b17b6fbb08d111465b54c",
+      "c63dc9d79e3b847da9e6e8d6d"
+    ],
+    "createdLenderIds": [],
+    "note": "Soft-delete used (enterprise pattern + FK Restrict). Active list queries exclude isDeleted=true."
+  }
+}

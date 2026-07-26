@@ -1,0 +1,555 @@
+{
+  "at": "2026-07-24T07:09:32.540Z",
+  "mode": "READ_ONLY",
+  "organizationId": "cmrtlilr60001weys1xv2uu5t",
+  "organizationSlug": "rupee-catalyst",
+  "opportunities": {
+    "total": 8,
+    "active": 5,
+    "softDeleted": 3,
+    "rows": [
+      {
+        "opportunityId": "ccf4dc36c3052ddb1f22c7c74",
+        "businessReference": "OPP-2026-000001",
+        "customerName": "Phase2A Validation Customer",
+        "currentStatus": "active",
+        "requirementStage": "ready_for_market",
+        "fulfilmentStatus": "open",
+        "createdDate": "2026-07-23T19:19:57.588Z",
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "co-arch-003-p2a-e2e"
+      },
+      {
+        "opportunityId": "c70333cc9d81af8cecae32aa3",
+        "businessReference": "OPP-2026-000002",
+        "customerName": "P2B-S1 Invoice Party Contact 1784838320134",
+        "currentStatus": "active",
+        "requirementStage": "ready_for_market",
+        "fulfilmentStatus": "open",
+        "createdDate": "2026-07-23T20:25:21.463Z",
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "co-arch-003-p2b-s1-bfv"
+      },
+      {
+        "opportunityId": "ca10276f67d615035fa51cbda",
+        "businessReference": "OPP-2026-000003",
+        "customerName": "P2B-S1 Invoice Party Contact 1784838360939",
+        "currentStatus": "active",
+        "requirementStage": "ready_for_market",
+        "fulfilmentStatus": "open",
+        "createdDate": "2026-07-23T20:26:02.236Z",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-s1-bfv",
+        "deletionReason": "p2b_s1_bfv_cleanup",
+        "createdBy": "co-arch-003-p2b-s1-bfv"
+      },
+      {
+        "opportunityId": "cb9ff2815d2eae8bb2d23bc91",
+        "businessReference": "OPP-2026-000004",
+        "customerName": "P2B Integrity Customer 1784840101996",
+        "currentStatus": "active",
+        "requirementStage": "ready_for_market",
+        "fulfilmentStatus": "open",
+        "createdDate": "2026-07-23T20:55:03.097Z",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity"
+      },
+      {
+        "opportunityId": "c1a30bd30b054f8901c107df5",
+        "businessReference": "OPP-2026-000005",
+        "customerName": "P2B Integrity Customer 1784840145684",
+        "currentStatus": "active",
+        "requirementStage": "ready_for_market",
+        "fulfilmentStatus": "open",
+        "createdDate": "2026-07-23T20:55:46.754Z",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity"
+      },
+      {
+        "opportunityId": "cmryli0mm0001l404rl7puwiy",
+        "businessReference": "OPP-2026-000006",
+        "customerName": "Gaurang Gandhi",
+        "currentStatus": "active",
+        "requirementStage": "raw_lead",
+        "fulfilmentStatus": "open",
+        "createdDate": "2026-07-24T07:04:54.628Z",
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "cmrtliln30000weys6c2ljzy8"
+      },
+      {
+        "opportunityId": "cmryli0ya0001jm04e9m40ygm",
+        "businessReference": "OPP-2026-000007",
+        "customerName": "Gaurang Gandhi",
+        "currentStatus": "active",
+        "requirementStage": "raw_lead",
+        "fulfilmentStatus": "open",
+        "createdDate": "2026-07-24T07:04:55.182Z",
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "cmrtliln30000weys6c2ljzy8"
+      },
+      {
+        "opportunityId": "cmryli3bc0003l4049ptifeei",
+        "businessReference": "OPP-2026-000008",
+        "customerName": "P2B-S1 Invoice Party Contact 1784838320134",
+        "currentStatus": "active",
+        "requirementStage": "raw_lead",
+        "fulfilmentStatus": "open",
+        "createdDate": "2026-07-24T07:04:57.683Z",
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "cmrtliln30000weys6c2ljzy8"
+      }
+    ]
+  },
+  "deals": {
+    "total": 17,
+    "active": 6,
+    "softDeleted": 11,
+    "rows": [
+      {
+        "dealId": "ce23e28977344bede65849939",
+        "businessReference": "DEAL-2026-000001",
+        "opportunityReference": "OPP-2026-000001",
+        "opportunityId": "ccf4dc36c3052ddb1f22c7c74",
+        "lender": "HDFC",
+        "currentStage": "identified",
+        "invoiceParty": null,
+        "invoicePartyId": null,
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "co-arch-003-p2a-e2e",
+        "createdDate": "2026-07-23T19:19:59.010Z"
+      },
+      {
+        "dealId": "c9dab5e62d1e1fa8c182f3d88",
+        "businessReference": "DEAL-2026-000002",
+        "opportunityReference": "OPP-2026-000001",
+        "opportunityId": "ccf4dc36c3052ddb1f22c7c74",
+        "lender": "SBI",
+        "currentStage": "identified",
+        "invoiceParty": null,
+        "invoicePartyId": null,
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "co-arch-003-p2a-e2e",
+        "createdDate": "2026-07-23T19:19:59.460Z"
+      },
+      {
+        "dealId": "c7bacc240ded85597d17ba4de",
+        "businessReference": "DEAL-2026-000003",
+        "opportunityReference": "OPP-2026-000001",
+        "opportunityId": "ccf4dc36c3052ddb1f22c7c74",
+        "lender": "ICICI",
+        "currentStage": "identified",
+        "invoiceParty": null,
+        "invoicePartyId": null,
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "co-arch-003-p2a-e2e",
+        "createdDate": "2026-07-23T19:19:59.780Z"
+      },
+      {
+        "dealId": "c3a5508e798d225e47537f46a",
+        "businessReference": "DEAL-2026-000005",
+        "opportunityReference": "OPP-2026-000002",
+        "opportunityId": "c70333cc9d81af8cecae32aa3",
+        "lender": "HDFC",
+        "currentStage": "logged_in_wip",
+        "invoiceParty": null,
+        "invoicePartyId": null,
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "co-arch-003-p2b-s1-bfv",
+        "createdDate": "2026-07-23T20:25:22.130Z"
+      },
+      {
+        "dealId": "c9542bdc87e2c9c480c88ecb6",
+        "businessReference": "DEAL-2026-000006",
+        "opportunityReference": "OPP-2026-000002",
+        "opportunityId": "c70333cc9d81af8cecae32aa3",
+        "lender": "SBI",
+        "currentStage": "logged_in_wip",
+        "invoiceParty": "P2B S1 Validation Invoice Party",
+        "invoicePartyId": "c259f348713ee62567dcdf5cc",
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "co-arch-003-p2b-s1-bfv",
+        "createdDate": "2026-07-23T20:25:22.504Z"
+      },
+      {
+        "dealId": "cf12b2ef843f876c78e5419d1",
+        "businessReference": "DEAL-2026-000007",
+        "opportunityReference": "OPP-2026-000002",
+        "opportunityId": "c70333cc9d81af8cecae32aa3",
+        "lender": "ICICI",
+        "currentStage": "logged_in_wip",
+        "invoiceParty": "P2B S1 Validation Invoice Party",
+        "invoicePartyId": "c259f348713ee62567dcdf5cc",
+        "activeOrSoftDeleted": "Active",
+        "isDeleted": false,
+        "deletedBy": null,
+        "deletionReason": null,
+        "createdBy": "co-arch-003-p2b-s1-bfv",
+        "createdDate": "2026-07-23T20:25:22.982Z"
+      },
+      {
+        "dealId": "c0c5fbd002af9876062781c04",
+        "businessReference": "DEAL-2026-000008",
+        "opportunityReference": "OPP-2026-000003",
+        "opportunityId": "ca10276f67d615035fa51cbda",
+        "lender": "HDFC",
+        "currentStage": "logged_in_wip",
+        "invoiceParty": "P2B S1 Validation Invoice Party",
+        "invoicePartyId": "c9af4c0e656f35ab42edfb4fd",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-s1-bfv",
+        "deletionReason": "p2b_s1_bfv_cleanup",
+        "createdBy": "co-arch-003-p2b-s1-bfv",
+        "createdDate": "2026-07-23T20:26:02.902Z"
+      },
+      {
+        "dealId": "c9fb067d3701c6fdc09445efc",
+        "businessReference": "DEAL-2026-000009",
+        "opportunityReference": "OPP-2026-000003",
+        "opportunityId": "ca10276f67d615035fa51cbda",
+        "lender": "SBI",
+        "currentStage": "logged_in_wip",
+        "invoiceParty": "P2B S1 Validation Invoice Party",
+        "invoicePartyId": "c9af4c0e656f35ab42edfb4fd",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-s1-bfv",
+        "deletionReason": "p2b_s1_bfv_cleanup",
+        "createdBy": "co-arch-003-p2b-s1-bfv",
+        "createdDate": "2026-07-23T20:26:03.263Z"
+      },
+      {
+        "dealId": "cae21eacaec7b272e0ec5e542",
+        "businessReference": "DEAL-2026-000010",
+        "opportunityReference": "OPP-2026-000003",
+        "opportunityId": "ca10276f67d615035fa51cbda",
+        "lender": "ICICI",
+        "currentStage": "logged_in_wip",
+        "invoiceParty": "P2B S1 Validation Invoice Party",
+        "invoicePartyId": "c9af4c0e656f35ab42edfb4fd",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-s1-bfv",
+        "deletionReason": "p2b_s1_bfv_cleanup",
+        "createdBy": "co-arch-003-p2b-s1-bfv",
+        "createdDate": "2026-07-23T20:26:03.746Z"
+      },
+      {
+        "dealId": "c1dadfe0316f36e1a2de4e220",
+        "businessReference": "DEAL-2026-000011",
+        "opportunityReference": "OPP-2026-000004",
+        "opportunityId": "cb9ff2815d2eae8bb2d23bc91",
+        "lender": "HDFC",
+        "currentStage": "identified",
+        "invoiceParty": "P2B Integrity Invoice Party 1 1784840101996",
+        "invoicePartyId": "ce5831b87cb4ef897d1dc3cb4",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity",
+        "createdDate": "2026-07-23T20:55:04.099Z"
+      },
+      {
+        "dealId": "cca1f08cb6e8a10e2458019b6",
+        "businessReference": "DEAL-2026-000012",
+        "opportunityReference": "OPP-2026-000004",
+        "opportunityId": "cb9ff2815d2eae8bb2d23bc91",
+        "lender": "SBI",
+        "currentStage": "logged_in_wip",
+        "invoiceParty": "P2B Integrity Invoice Party 2 1784840101996",
+        "invoicePartyId": "c31af18483d8daca4efb5730e",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity",
+        "createdDate": "2026-07-23T20:55:04.656Z"
+      },
+      {
+        "dealId": "c8668ec44dd9accedf5836563",
+        "businessReference": "DEAL-2026-000013",
+        "opportunityReference": "OPP-2026-000004",
+        "opportunityId": "cb9ff2815d2eae8bb2d23bc91",
+        "lender": "Bajaj Housing Finance",
+        "currentStage": "credit_wip",
+        "invoiceParty": "P2B Integrity Invoice Party 3 1784840101996",
+        "invoicePartyId": "c282b3b295943031b079a8e79",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity",
+        "createdDate": "2026-07-23T20:55:05.155Z"
+      },
+      {
+        "dealId": "c291fd81fb2e8f84a79acc55e",
+        "businessReference": "DEAL-2026-000014",
+        "opportunityReference": "OPP-2026-000004",
+        "opportunityId": "cb9ff2815d2eae8bb2d23bc91",
+        "lender": "ICICI",
+        "currentStage": "soft_approved",
+        "invoiceParty": "P2B Integrity Invoice Party 4 1784840101996",
+        "invoicePartyId": "c64fdb20cd183d0e73a81de4a",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity",
+        "createdDate": "2026-07-23T20:55:05.659Z"
+      },
+      {
+        "dealId": "c8ffcf6f457dc46c81f4d8f30",
+        "businessReference": "DEAL-2026-000016",
+        "opportunityReference": "OPP-2026-000005",
+        "opportunityId": "c1a30bd30b054f8901c107df5",
+        "lender": "HDFC",
+        "currentStage": "identified",
+        "invoiceParty": "P2B Integrity Invoice Party 1 1784840145684",
+        "invoicePartyId": "c31a948defe20b8128be50e97",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity",
+        "createdDate": "2026-07-23T20:55:47.729Z"
+      },
+      {
+        "dealId": "c711425bf4aeea0c4489184bb",
+        "businessReference": "DEAL-2026-000017",
+        "opportunityReference": "OPP-2026-000005",
+        "opportunityId": "c1a30bd30b054f8901c107df5",
+        "lender": "SBI",
+        "currentStage": "logged_in_wip",
+        "invoiceParty": "P2B Integrity Invoice Party 2 1784840145684",
+        "invoicePartyId": "c54e7527b1a4c6143c173f1f8",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity",
+        "createdDate": "2026-07-23T20:55:48.292Z"
+      },
+      {
+        "dealId": "cdee1d55a8f716c866acf991f",
+        "businessReference": "DEAL-2026-000018",
+        "opportunityReference": "OPP-2026-000005",
+        "opportunityId": "c1a30bd30b054f8901c107df5",
+        "lender": "Bajaj Housing Finance",
+        "currentStage": "credit_wip",
+        "invoiceParty": "P2B Integrity Invoice Party 3 1784840145684",
+        "invoicePartyId": "cefed716a0ee34ffcec221220",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity",
+        "createdDate": "2026-07-23T20:55:48.786Z"
+      },
+      {
+        "dealId": "cb8afd3c3396b5978a7baf8be",
+        "businessReference": "DEAL-2026-000019",
+        "opportunityReference": "OPP-2026-000005",
+        "opportunityId": "c1a30bd30b054f8901c107df5",
+        "lender": "ICICI",
+        "currentStage": "soft_approved",
+        "invoiceParty": "P2B Integrity Invoice Party 4 1784840145684",
+        "invoicePartyId": "c98bd828c82fa36843e1d7209",
+        "activeOrSoftDeleted": "Soft Deleted",
+        "isDeleted": true,
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "createdBy": "co-arch-003-p2b-integrity",
+        "createdDate": "2026-07-23T20:55:49.282Z"
+      }
+    ]
+  },
+  "invoiceParties": {
+    "total": 12,
+    "active": 2,
+    "softDeleted": 10
+  },
+  "testData": {
+    "opportunities": {
+      "totalMatched": 6,
+      "softDeleted": 3,
+      "stillActive": [
+        {
+          "id": "ccf4dc36c3052ddb1f22c7c74",
+          "opportunityNumber": "OPP-2026-000001",
+          "createdBy": "co-arch-003-p2a-e2e"
+        },
+        {
+          "id": "c70333cc9d81af8cecae32aa3",
+          "opportunityNumber": "OPP-2026-000002",
+          "createdBy": "co-arch-003-p2b-s1-bfv"
+        },
+        {
+          "id": "cmryli3bc0003l4049ptifeei",
+          "opportunityNumber": "OPP-2026-000008",
+          "createdBy": "cmrtliln30000weys6c2ljzy8"
+        }
+      ]
+    },
+    "deals": {
+      "totalMatched": 17,
+      "softDeleted": 11,
+      "stillActive": [
+        {
+          "id": "ce23e28977344bede65849939",
+          "dealNumber": "DEAL-2026-000001",
+          "createdBy": "co-arch-003-p2a-e2e"
+        },
+        {
+          "id": "c9dab5e62d1e1fa8c182f3d88",
+          "dealNumber": "DEAL-2026-000002",
+          "createdBy": "co-arch-003-p2a-e2e"
+        },
+        {
+          "id": "c7bacc240ded85597d17ba4de",
+          "dealNumber": "DEAL-2026-000003",
+          "createdBy": "co-arch-003-p2a-e2e"
+        },
+        {
+          "id": "c3a5508e798d225e47537f46a",
+          "dealNumber": "DEAL-2026-000005",
+          "createdBy": "co-arch-003-p2b-s1-bfv"
+        },
+        {
+          "id": "c9542bdc87e2c9c480c88ecb6",
+          "dealNumber": "DEAL-2026-000006",
+          "createdBy": "co-arch-003-p2b-s1-bfv"
+        },
+        {
+          "id": "cf12b2ef843f876c78e5419d1",
+          "dealNumber": "DEAL-2026-000007",
+          "createdBy": "co-arch-003-p2b-s1-bfv"
+        }
+      ]
+    },
+    "invoiceParties": {
+      "totalMatched": 12,
+      "softDeleted": 10,
+      "stillActive": [
+        {
+          "id": "c259f348713ee62567dcdf5cc",
+          "displayName": "P2B S1 Validation Invoice Party",
+          "createdBy": "co-arch-003-p2b-s1-bfv"
+        },
+        {
+          "id": "c6096e686b64cdcc05916ece0",
+          "displayName": "P2B-S1 Invoice Party Co 1784838320134",
+          "createdBy": "co-arch-003-p2b-s1-bfv"
+        }
+      ]
+    },
+    "contacts": {
+      "totalMatched": 15,
+      "softDeleted": 12,
+      "stillActive": [
+        {
+          "id": "c22f7aa16fe2d2dd41b10c7cb",
+          "name": "Phase2A Validation Customer",
+          "email": "p2a.validation@example.com",
+          "createdBy": "co-arch-003-p2a-e2e"
+        },
+        {
+          "id": "c3ae4b9327929789e76cfe0d1",
+          "name": "P2B-S1 Invoice Party Contact 1784838320134",
+          "email": "p2b.s1.ip.1784838320134@example.com",
+          "createdBy": "co-arch-003-p2b-s1-bfv"
+        },
+        {
+          "id": "c2c02dd0c704d3c99e2042f6d",
+          "name": "P2B-S1 Non-Party Contact 1784838320134",
+          "email": null,
+          "createdBy": "co-arch-003-p2b-s1-bfv"
+        }
+      ]
+    },
+    "companies": {
+      "totalMatched": 2,
+      "softDeleted": 1,
+      "stillActive": [
+        {
+          "id": "c68b704981576ccab19be913c",
+          "companyName": "P2B-S1 Invoice Party Co 1784838320134",
+          "createdBy": "co-arch-003-p2b-s1-bfv"
+        }
+      ]
+    },
+    "cleanupJobs": [
+      {
+        "deletedBy": "co-arch-003-p2b-s1-bfv",
+        "deletionReason": "p2b_s1_bfv_cleanup",
+        "counts": {
+          "opportunities": 1,
+          "deals": 3,
+          "invoiceParties": 2,
+          "contacts": 2,
+          "companies": 1
+        }
+      },
+      {
+        "deletedBy": "co-arch-003-p2b-integrity",
+        "deletionReason": "p2b_opp_deal_integrity_cleanup",
+        "counts": {
+          "opportunities": 2,
+          "deals": 8,
+          "invoiceParties": 8,
+          "contacts": 10,
+          "companies": 0
+        }
+      }
+    ]
+  },
+  "integrity": {
+    "activeOpportunities": 5,
+    "softDeletedOpportunities": 3,
+    "activeDeals": 6,
+    "softDeletedDeals": 11,
+    "activeInvoiceParties": 2,
+    "softDeletedInvoiceParties": 10
+  },
+  "readyForSprint3": {
+    "remainingActiveTestRecords": 15,
+    "clean": false
+  }
+}

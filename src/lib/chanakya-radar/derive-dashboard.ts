@@ -2,12 +2,16 @@
  * CO-SPRINT-100 — CHANAKYA Radar Operational Intelligence dashboard model.
  */
 
-import type { LoanFile } from "@/types/catalyst-one";
+import type { LoanFile, LoanLenderExecution } from "@/types/catalyst-one";
 import {
   CHANAKYA_RADAR_QUADRANTS,
   type ChanakyaOperationalQuadrantId,
   type ChanakyaRadarActionTabId,
 } from "@/constants/chanakya-radar";
+import {
+  LENDER_CASE_STAGE_LABELS,
+  normalizeLenderCaseStage,
+} from "@/constants/lender-pipeline";
 import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
 import { formatINR } from "@/lib/format-currency";
 import {
@@ -226,6 +230,32 @@ function momentumOf(file: LoanFile): "improving" | "stable" | "declining" {
   return "stable";
 }
 
+function resolveRadarDealLender(file: LoanFile): LoanLenderExecution | undefined {
+  const active = listActiveRadarLenders(file);
+  const dealId = file.enterpriseDealId?.trim();
+  if (dealId) {
+    const matched = active.find(
+      (l) =>
+        l.enterpriseDealId === dealId ||
+        l.id === dealId ||
+        (l.lenderRegistryId && file.lender && l.lender === file.lender),
+    );
+    if (matched) return matched;
+  }
+  return active.find((l) => l.isPrimary) ?? active[0];
+}
+
+function radarDealStageLabel(
+  file: LoanFile,
+  lead: LoanLenderExecution | undefined,
+): string {
+  if (lead?.caseStage) {
+    const stage = normalizeLenderCaseStage(lead.caseStage);
+    return LENDER_CASE_STAGE_LABELS[stage] ?? String(lead.caseStage).replace(/_/g, " ");
+  }
+  return String(file.stage ?? "—").replace(/_/g, " ");
+}
+
 export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow | null {
   const classified = classifyDealHealth(file);
   const quadrant = mapHealthToQuadrant(classified.health, file);
@@ -234,7 +264,8 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
   const last = lastActivityIso(file);
   const idle = daysSince(last);
   const amount = file.requiredAmount || file.loanAmount || 0;
-  const lead = listActiveRadarLenders(file).find((l) => l.isPrimary) ?? listActiveRadarLenders(file)[0];
+  /** CO-UX-022 — One Radar card = one Enterprise Deal → that Deal’s lender only. */
+  const lead = resolveRadarDealLender(file);
   const enterpriseDealId = file.enterpriseDealId?.trim() || undefined;
   const opportunityNumber =
     file.opportunityNumber?.trim() || opportunityNumberForFile(file);
@@ -255,7 +286,7 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
     assignedRm: file.relationshipManager || "—",
     quadrant,
     quadrantLabel: quadrantLabel(quadrant),
-    stageLabel: String(file.stage ?? "—").replace(/_/g, " "),
+    stageLabel: radarDealStageLabel(file, lead),
     lender: lead?.lender || file.lender || "—",
     lastActivity: last,
     lastActivityLabel: formatWhen(last),

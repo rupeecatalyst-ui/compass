@@ -111,6 +111,8 @@ export interface EdieResolveInput {
   receipts?: Record<string, boolean>;
   /** Address proof selection (typeRef within choice group). */
   addressProofSelection?: string;
+  /** Identity proof selection (typeRef within choice group). */
+  identityProofSelection?: string;
 }
 
 export interface EdieComplianceGateResult {

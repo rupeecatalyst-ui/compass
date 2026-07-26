@@ -3,12 +3,14 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Migrations / introspect must use DIRECT_URL (5432). Pooler (6543) hangs migrate deploy.
+  directUrl = env("DIRECT_URL")
 }
 
 // =============================================================================
-// Auth (Pilot Phase 1 — live)
+// Auth (Pilot Phase 1 ? live)
 // =============================================================================
 
 enum Role {
@@ -76,10 +78,10 @@ model PasswordResetToken {
 }
 
 // =============================================================================
-// CO-SPRINT-117 — Phase 1B Enterprise Persistence
+// CO-SPRINT-117 ? Phase 1B Enterprise Persistence
 // Foundation + ECM (individuals) + Company Registry (legal entities)
-// Approved: Single org · REST · Supabase Storage (docs CO-SPRINT-121)
-// Excluded: EOLE (Phase 2A) · Loan files hybrid JSONB (CO-SPRINT-118+)
+// Approved: Single org ? REST ? Supabase Storage (docs CO-SPRINT-121)
+// Excluded: EOLE (Phase 2A) ? Loan files hybrid JSONB (CO-SPRINT-118+)
 // =============================================================================
 
 enum EcmContactRole {
@@ -147,7 +149,7 @@ enum EcmCompanyLinkStatus {
   inactive
 }
 
-/// Single organization pilot — slug `rupee-catalyst` (see ENTERPRISE_PERSISTENCE_ORG_SLUG).
+/// Single organization pilot ? slug `rupee-catalyst` (see ENTERPRISE_PERSISTENCE_ORG_SLUG).
 model Organization {
   id        String   @id @default(cuid())
   slug      String   @unique
@@ -167,11 +169,45 @@ model Organization {
   registryAttachments       EnterpriseRegistryAttachment[]
   registryImportBatches     EnterpriseRegistryImportBatch[]
   referenceMasters          EnterpriseReferenceMaster[]
+  productCategories         EnterpriseProductCategory[]
+  productGroups             EnterpriseProductGroup[]
+  products                  EnterpriseProduct[]
+  documentTypes             EnterpriseDocumentType[]
+  documentDefinitions       EnterpriseDocumentDefinition[]
+  lenderCategories          EnterpriseLenderCategory[]
+  lenders                   EnterpriseLender[]
+  lenderPrograms            EnterpriseLenderProgram[]
+  lenderContacts            EnterpriseLenderContact[]
+  lenderDocuments           EnterpriseLenderDocument[]
+  /// CO-ARCH-003 — Opportunity Registry
+  enterpriseOpportunities              EnterpriseOpportunity[]
+  enterpriseOpportunityNumberSequences EnterpriseOpportunityNumberSequence[]
+  /// CO-ARCH-003 Phase 2B Sprint 1 — Invoice Party Master (Accounting)
+  enterpriseInvoiceParties           EnterpriseInvoiceParty[]
+  /// CO-ARCH-002-W1 / CO-ARCH-003 — Enterprise Deal Registry (per-lender Deal)
+  enterpriseDeals                    EnterpriseDeal[]
+  enterpriseDealNumberSequences      EnterpriseDealNumberSequence[]
+  enterpriseDealImportBatches        EnterpriseDealImportBatch[]
+  enterpriseDealParticipants         EnterpriseDealParticipant[]
+  enterpriseDealCounterpartyAssignments EnterpriseDealCounterpartyAssignment[]
+  enterpriseDealDocumentLinks        EnterpriseDealDocumentLink[]
+  enterpriseDealTasks                EnterpriseDealTask[]
+  enterpriseDealActivities           EnterpriseDealActivity[]
+  enterpriseDealNotes                EnterpriseDealNote[]
+  enterpriseDealTimelineEvents       EnterpriseDealTimelineEvent[]
+  enterpriseDealAssignments          EnterpriseDealAssignment[]
+  enterpriseDealCommercialVersions   EnterpriseDealCommercialVersion[]
+  enterpriseDealSnapshots            EnterpriseDealSnapshot[]
+  enterpriseDealCommissionLinks      EnterpriseDealCommissionLink[]
+  enterpriseDealAccountingLinks      EnterpriseDealAccountingLink[]
+  enterpriseDealNotificationLinks    EnterpriseDealNotificationLink[]
+  enterpriseDealIntelligenceLinks    EnterpriseDealIntelligenceLink[]
+  enterpriseDealWorkflowBindings     EnterpriseDealWorkflowBinding[]
 
   @@map("organizations")
 }
 
-/// Enterprise Contact Registry — individuals (Directory Registry entity kind: contact).
+/// Enterprise Contact Registry ? individuals (Directory Registry entity kind: contact).
 model EcmContact {
   id               String            @id @default(cuid())
   organizationId   String            @map("organization_id")
@@ -203,7 +239,7 @@ model EcmContact {
   strategicContact Boolean           @default(false) @map("strategic_contact")
   archivedBy       String?           @map("archived_by")
   archivedAt       DateTime?         @map("archived_at")
-  /// CO-SPRINT-119 — Enterprise Soft Delete (operational hide + Recovery Center).
+  /// CO-SPRINT-119 ? Enterprise Soft Delete (operational hide + Recovery Center).
   isDeleted        Boolean           @default(false) @map("is_deleted")
   deletedAt        DateTime?         @map("deleted_at")
   deletedBy        String?           @map("deleted_by")
@@ -219,6 +255,11 @@ model EcmContact {
   relationshipsTo   EcmContactRelationship[] @relation("EcmRelationshipTo")
   companyLinks      EcmCompanyContactLink[]
   auditReferences   EcmContactAuditReference[]
+  primaryOpportunities EnterpriseOpportunity[] @relation("EnterpriseOpportunityPrimaryContact")
+  primaryDeals         EnterpriseDeal[]         @relation("EnterpriseDealPrimaryContact")
+  invoicePartyDeals    EnterpriseDeal[]         @relation("EnterpriseDealInvoicePartyContact")
+  invoiceParties       EnterpriseInvoiceParty[] @relation("InvoicePartyContact")
+  dealParticipations   EnterpriseDealParticipant[]
 
   @@unique([organizationId, mobilePrimary], map: "ecm_contacts_org_mobile_key")
   @@index([organizationId, status])
@@ -275,7 +316,7 @@ model EcmContactAuditReference {
   @@map("ecm_contact_audit_references")
 }
 
-/// Company Registry — legal entities (Directory Registry entity kind: company).
+/// Company Registry ? legal entities (Directory Registry entity kind: company).
 model EcmCompany {
   id                   String           @id @default(cuid())
   organizationId       String           @map("organization_id")
@@ -300,7 +341,7 @@ model EcmCompany {
   companyScore         Int              @default(0) @map("company_score")
   archivedBy           String?          @map("archived_by")
   archivedAt           DateTime?        @map("archived_at")
-  /// CO-SPRINT-119 — Enterprise Soft Delete (operational hide + Recovery Center).
+  /// CO-SPRINT-119 ? Enterprise Soft Delete (operational hide + Recovery Center).
   isDeleted            Boolean          @default(false) @map("is_deleted")
   deletedAt            DateTime?        @map("deleted_at")
   deletedBy            String?          @map("deleted_by")
@@ -310,8 +351,11 @@ model EcmCompany {
   createdAt            DateTime         @default(now()) @map("created_at")
   updatedAt            DateTime         @updatedAt @map("updated_at")
 
-  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  contactLinks EcmCompanyContactLink[]
+  organization  Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contactLinks  EcmCompanyContactLink[]
+  opportunities EnterpriseOpportunity[] @relation("EnterpriseOpportunityCompany")
+  deals         EnterpriseDeal[]        @relation("EnterpriseDealCompany")
+  invoiceParties EnterpriseInvoiceParty[] @relation("InvoicePartyCompany")
 
   @@index([organizationId, status])
   @@index([organizationId, isDeleted])
@@ -320,7 +364,7 @@ model EcmCompany {
 }
 
 // =============================================================================
-// CO-SPRINT-119 — Enterprise Soft Delete & Recovery Framework
+// CO-SPRINT-119 ? Enterprise Soft Delete & Recovery Framework
 // Cross-module recovery ledger + immutable soft-delete audit trail.
 // =============================================================================
 
@@ -336,7 +380,7 @@ enum SoftDeleteAuditAction {
   permanently_deleted
 }
 
-/// Recovery Center registry — one active deleted row per (org, module, entity).
+/// Recovery Center registry ? one active deleted row per (org, module, entity).
 model EnterpriseSoftDeleteRecord {
   id                    String                    @id @default(cuid())
   organizationId        String                    @map("organization_id")
@@ -408,8 +452,8 @@ model EcmCompanyContactLink {
 }
 
 // =============================================================================
-// CO-ARCH-001-I1 — Tier 0 Enterprise Registry Metadata (Infrastructure)
-// Shared audit, attachment, and import-batch infrastructure for Tier 1–2 registries.
+// CO-ARCH-001-I1 ? Tier 0 Enterprise Registry Metadata (Infrastructure)
+// Shared audit, attachment, and import-batch infrastructure for Tier 1?2 registries.
 // No product/UI changes. ECM and operational entities unchanged in I1.
 // =============================================================================
 
@@ -522,7 +566,7 @@ model EnterpriseRegistryImportBatch {
 }
 
 // =============================================================================
-// CO-ARCH-001-I2 — Tier 1 Enterprise Reference Master (Infrastructure)
+// CO-ARCH-001-I2 ? Tier 1 Enterprise Reference Master (Infrastructure)
 // Single-table domain-keyed lookup framework. CRUD via /api/reference-masters only.
 // No UI / ECM / picker port changes in I2.
 // =============================================================================
@@ -586,4 +630,1324 @@ model EnterpriseReferenceMaster {
   @@index([organizationId, domain, parentId], map: "erm_org_domain_parent_idx")
   @@index([organizationId, domain, isDeleted], map: "erm_org_domain_deleted_idx")
   @@map("enterprise_reference_masters")
+}
+
+// =============================================================================
+// CO-ARCH-001-I4a ? Tier 2 Enterprise Product Registry Foundation (Infrastructure)
+// Category / Group / Product header tables. CRUD via /api/product-registry only.
+// No UI / picker / workflow changes in I4a. Constants remain runtime SSOT until I5.
+// =============================================================================
+
+enum ProductLifecycleStatus {
+  draft
+  review
+  approved
+  published
+  deprecated
+  archived
+}
+
+enum ProductOperationalStatus {
+  active
+  inactive
+  pilot
+  coming_soon
+  retired
+}
+
+model EnterpriseProductCategory {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  code           String
+  label          String
+  description    String?        @db.Text
+  sortOrder      Int            @default(0) @map("sort_order")
+  status         RegistryStatus @default(draft)
+  enabled        Boolean        @default(true)
+  versionNumber  Int            @default(1) @map("version_number")
+  effectiveFrom  DateTime?      @map("effective_from")
+  effectiveUntil DateTime?      @map("effective_until")
+  notes          String?        @db.Text
+  isDeleted      Boolean        @default(false) @map("is_deleted")
+  deletedAt      DateTime?      @map("deleted_at")
+  deletedBy      String?        @map("deleted_by")
+  deletionReason String?        @map("deletion_reason") @db.Text
+  approvalStatus RegistryApprovalStatus @default(none) @map("approval_status")
+  approvedBy     String?        @map("approved_by")
+  approvedAt     DateTime?      @map("approved_at")
+  createdBy      String         @map("created_by")
+  modifiedBy     String         @map("modified_by")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  groups       EnterpriseProductGroup[]
+  products     EnterpriseProduct[]
+
+  @@unique([organizationId, code], map: "epcat_org_code_key")
+  @@index([organizationId, status, enabled], map: "epcat_org_status_enabled_idx")
+  @@index([organizationId, isDeleted], map: "epcat_org_deleted_idx")
+  @@map("enterprise_product_categories")
+}
+
+model EnterpriseProductGroup {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  categoryId     String         @map("category_id")
+  code           String
+  label          String
+  description    String?        @db.Text
+  sortOrder      Int            @default(0) @map("sort_order")
+  status         RegistryStatus @default(draft)
+  enabled        Boolean        @default(true)
+  versionNumber  Int            @default(1) @map("version_number")
+  effectiveFrom  DateTime?      @map("effective_from")
+  effectiveUntil DateTime?      @map("effective_until")
+  notes          String?        @db.Text
+  isDeleted      Boolean        @default(false) @map("is_deleted")
+  deletedAt      DateTime?      @map("deleted_at")
+  deletedBy      String?        @map("deleted_by")
+  deletionReason String?        @map("deletion_reason") @db.Text
+  approvalStatus RegistryApprovalStatus @default(none) @map("approval_status")
+  approvedBy     String?        @map("approved_by")
+  approvedAt     DateTime?      @map("approved_at")
+  createdBy      String         @map("created_by")
+  modifiedBy     String         @map("modified_by")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category     EnterpriseProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  products     EnterpriseProduct[]
+
+  @@unique([organizationId, code], map: "epgrp_org_code_key")
+  @@index([organizationId, categoryId, status, enabled], map: "epgrp_org_cat_status_idx")
+  @@index([organizationId, isDeleted], map: "epgrp_org_deleted_idx")
+  @@map("enterprise_product_groups")
+}
+
+model EnterpriseProduct {
+  id                String                   @id @default(cuid())
+  organizationId    String                   @map("organization_id")
+  categoryId        String                   @map("category_id")
+  groupId           String                   @map("group_id")
+  code              String
+  label             String
+  description       String?                  @db.Text
+  shortDescription  String?                  @map("short_description")
+  lifecycleStatus   ProductLifecycleStatus   @default(draft) @map("lifecycle_status")
+  operationalStatus ProductOperationalStatus @default(inactive) @map("operational_status")
+  majorVersion      Int                      @default(1) @map("major_version")
+  minorVersion      Int                      @default(0) @map("minor_version")
+  tags              Json?
+  productOwner      String?                  @map("product_owner")
+  status            RegistryStatus           @default(draft)
+  enabled           Boolean                  @default(true)
+  versionNumber     Int                      @default(1) @map("version_number")
+  effectiveFrom     DateTime?                @map("effective_from")
+  effectiveUntil    DateTime?                @map("effective_until")
+  notes             String?                  @db.Text
+  isDeleted         Boolean                  @default(false) @map("is_deleted")
+  deletedAt         DateTime?                @map("deleted_at")
+  deletedBy         String?                  @map("deleted_by")
+  deletionReason    String?                  @map("deletion_reason") @db.Text
+  approvalStatus    RegistryApprovalStatus   @default(none) @map("approval_status")
+  approvedBy        String?                  @map("approved_by")
+  approvedAt        DateTime?                @map("approved_at")
+  createdBy         String                   @map("created_by")
+  modifiedBy        String                   @map("modified_by")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category     EnterpriseProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  group        EnterpriseProductGroup    @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  lenderPrograms EnterpriseLenderProgram[]
+  opportunities  EnterpriseOpportunity[]
+  deals          EnterpriseDeal[]
+
+  @@unique([organizationId, code], map: "eprod_org_code_key")
+  @@index([organizationId, categoryId, groupId, status, enabled], map: "eprod_org_cat_grp_status_idx")
+  @@index([organizationId, lifecycleStatus, operationalStatus], map: "eprod_org_lifecycle_ops_idx")
+  @@index([organizationId, isDeleted], map: "eprod_org_deleted_idx")
+  @@map("enterprise_products")
+}
+
+// =============================================================================
+// CO-ARCH-001-I4b ? Tier 2 Enterprise Document Registry Foundation (Infrastructure)
+// Document type + definition header tables. CRUD via /api/document-registry only.
+// No UI / runtime document behaviour changes in I4b.
+// =============================================================================
+
+enum DocumentRegistryCategory {
+  identity
+  financial
+  legal
+  operational
+  compliance
+  communication
+  general
+}
+
+enum DocumentRegistryClassification {
+  public
+  internal
+  confidential
+  restricted
+}
+
+enum DocumentRegistryLifecycleStatus {
+  draft
+  uploaded
+  verified
+  approved
+  active
+  expired
+  archived
+  destroyed
+}
+
+model EnterpriseDocumentType {
+  id             String                 @id @default(cuid())
+  organizationId String                 @map("organization_id")
+  code           String
+  label          String
+  description    String?                @db.Text
+  category       DocumentRegistryCategory
+  sortOrder      Int                    @default(0) @map("sort_order")
+  status         RegistryStatus         @default(draft)
+  enabled        Boolean                @default(true)
+  versionNumber  Int                    @default(1) @map("version_number")
+  effectiveFrom  DateTime?              @map("effective_from")
+  effectiveUntil DateTime?              @map("effective_until")
+  notes          String?                @db.Text
+  isDeleted      Boolean                @default(false) @map("is_deleted")
+  deletedAt      DateTime?              @map("deleted_at")
+  deletedBy      String?                @map("deleted_by")
+  deletionReason String?                @map("deletion_reason") @db.Text
+  approvalStatus RegistryApprovalStatus @default(none) @map("approval_status")
+  approvedBy     String?                @map("approved_by")
+  approvedAt     DateTime?              @map("approved_at")
+  createdBy      String                 @map("created_by")
+  modifiedBy     String                 @map("modified_by")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  organization Organization                   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  definitions  EnterpriseDocumentDefinition[]
+
+  @@unique([organizationId, code], map: "edtype_org_code_key")
+  @@index([organizationId, category, status, enabled], map: "edtype_org_cat_status_idx")
+  @@index([organizationId, isDeleted], map: "edtype_org_deleted_idx")
+  @@map("enterprise_document_types")
+}
+
+model EnterpriseDocumentDefinition {
+  id              String                          @id @default(cuid())
+  organizationId  String                          @map("organization_id")
+  typeId          String                          @map("type_id")
+  code            String
+  label           String
+  description     String?                         @db.Text
+  category        DocumentRegistryCategory
+  classification  DocumentRegistryClassification  @default(internal)
+  lifecycleStatus DocumentRegistryLifecycleStatus @default(draft) @map("lifecycle_status")
+  status          RegistryStatus                  @default(draft)
+  enabled         Boolean                         @default(true)
+  versionNumber   Int                             @default(1) @map("version_number")
+  effectiveFrom   DateTime?                       @map("effective_from")
+  effectiveUntil  DateTime?                       @map("effective_until")
+  notes           String?                         @db.Text
+  isDeleted       Boolean                         @default(false) @map("is_deleted")
+  deletedAt       DateTime?                       @map("deleted_at")
+  deletedBy       String?                         @map("deleted_by")
+  deletionReason  String?                         @map("deletion_reason") @db.Text
+  approvalStatus  RegistryApprovalStatus          @default(none) @map("approval_status")
+  approvedBy      String?                         @map("approved_by")
+  approvedAt      DateTime?                       @map("approved_at")
+  createdBy       String                          @map("created_by")
+  modifiedBy      String                          @map("modified_by")
+  createdAt       DateTime                        @default(now()) @map("created_at")
+  updatedAt       DateTime                        @updatedAt @map("updated_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  type         EnterpriseDocumentType @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, code], map: "eddef_org_code_key")
+  @@index([organizationId, typeId, status, enabled], map: "eddef_org_type_status_idx")
+  @@index([organizationId, lifecycleStatus], map: "eddef_org_lifecycle_idx")
+  @@index([organizationId, isDeleted], map: "eddef_org_deleted_idx")
+  @@map("enterprise_document_definitions")
+}
+
+// =============================================================================
+// CO-ARCH-001-I4c ? Tier 2 Enterprise Lender Registry Foundation (Infrastructure)
+// Lender category + institution + program header tables. CRUD via /api/lender-registry only.
+// No UI / runtime lender behaviour changes in I4c.
+// =============================================================================
+
+enum LenderInstitutionCategory {
+  bank
+  nbfc
+  hfc
+  fintech
+  cooperative
+  other
+}
+
+/// CO-ARCH-004 — enterprise master classification (exactly one per lender).
+enum LenderMasterClassification {
+  public_sector_bank
+  private_sector_bank
+  small_finance_bank
+  housing_finance_company
+  nbfc
+  cooperative_bank
+  payments_bank
+}
+
+enum LenderContactDepartment {
+  relationship_manager
+  credit
+  operations
+  legal
+  technical
+  escalation
+  other
+}
+
+enum LenderDocumentKind {
+  agreement
+  policy
+  program_circular
+  rate_sheet
+  sanction_format
+  kfs
+  other
+}
+
+enum LenderLifecycleStatus {
+  draft
+  onboarding
+  active
+  suspended
+  retired
+}
+
+enum LenderOperationalStatus {
+  inactive
+  active
+  restricted
+}
+
+enum LenderProgramLifecycleStatus {
+  draft
+  active
+  inactive
+  archived
+}
+
+model EnterpriseLenderCategory {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  code           String
+  label          String
+  description    String?        @db.Text
+  sortOrder      Int            @default(0) @map("sort_order")
+  status         RegistryStatus @default(draft)
+  enabled        Boolean        @default(true)
+  versionNumber  Int            @default(1) @map("version_number")
+  effectiveFrom  DateTime?      @map("effective_from")
+  effectiveUntil DateTime?      @map("effective_until")
+  notes          String?        @db.Text
+  isDeleted      Boolean        @default(false) @map("is_deleted")
+  deletedAt      DateTime?      @map("deleted_at")
+  deletedBy      String?        @map("deleted_by")
+  deletionReason String?        @map("deletion_reason") @db.Text
+  approvalStatus RegistryApprovalStatus @default(none) @map("approval_status")
+  approvedBy     String?        @map("approved_by")
+  approvedAt     DateTime?      @map("approved_at")
+  createdBy      String         @map("created_by")
+  modifiedBy     String         @map("modified_by")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lenders      EnterpriseLender[]
+
+  @@unique([organizationId, code], map: "elcat_org_code_key")
+  @@index([organizationId, status, enabled], map: "elcat_org_status_enabled_idx")
+  @@index([organizationId, isDeleted], map: "elcat_org_deleted_idx")
+  @@map("enterprise_lender_categories")
+}
+
+model EnterpriseLender {
+  id                    String                    @id @default(cuid())
+  organizationId        String                    @map("organization_id")
+  categoryId            String                    @map("category_id")
+  /// Immutable enterprise identifier (LND000001…). Never rename after issue.
+  code                  String
+  label                 String
+  /// Official legal name (e.g. HDFC Bank Limited).
+  legalName             String?                   @map("legal_name")
+  /// Operator-facing display name (defaults to label when null).
+  displayName           String?                   @map("display_name")
+  shortName             String?                   @map("short_name")
+  /// Alternate names used for duplicate detection / search (JSON string[]).
+  aliases               Json?
+  description           String?                   @db.Text
+  institutionCategory   LenderInstitutionCategory @map("institution_category")
+  /// CO-ARCH-004 master classification (PSB / Private / SFB / HFC / NBFC / Coop / Payments).
+  classification        LenderMasterClassification? @map("classification")
+  lifecycleStatus       LenderLifecycleStatus     @default(draft) @map("lifecycle_status")
+  operationalStatus     LenderOperationalStatus   @default(inactive) @map("operational_status")
+  countryReferenceId    String?                   @map("country_reference_id")
+  stateReferenceId      String?                   @map("state_reference_id")
+  cityReferenceId       String?                   @map("city_reference_id")
+  headquartersLabel     String?                   @map("headquarters_label")
+  website               String?
+  logoUrl               String?                   @map("logo_url")
+  rbiRegistrationNumber String?                   @map("rbi_registration_number")
+  rbiRegulated          Boolean                   @default(true) @map("rbi_regulated")
+  customerCarePhone     String?                   @map("customer_care_phone")
+  customerCareEmail     String?                   @map("customer_care_email")
+  panIndia              Boolean                   @default(false) @map("pan_india")
+  coverageStates        Json?                     @map("coverage_states")
+  coverageCities        Json?                     @map("coverage_cities")
+  productsSupported     Json?                     @map("products_supported")
+  tags                  Json?
+  sortOrder             Int                       @default(0) @map("sort_order")
+  status                RegistryStatus            @default(draft)
+  enabled               Boolean                   @default(true)
+  versionNumber         Int                       @default(1) @map("version_number")
+  effectiveFrom         DateTime?                 @map("effective_from")
+  effectiveUntil        DateTime?                 @map("effective_until")
+  notes                 String?                   @db.Text
+  isDeleted             Boolean                   @default(false) @map("is_deleted")
+  deletedAt             DateTime?                 @map("deleted_at")
+  deletedBy             String?                   @map("deleted_by")
+  deletionReason        String?                   @map("deletion_reason") @db.Text
+  approvalStatus        RegistryApprovalStatus    @default(none) @map("approval_status")
+  approvedBy            String?                   @map("approved_by")
+  approvedAt            DateTime?                 @map("approved_at")
+  createdBy             String                    @map("created_by")
+  modifiedBy            String                    @map("modified_by")
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  category     EnterpriseLenderCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  programs     EnterpriseLenderProgram[]
+  contacts     EnterpriseLenderContact[]
+  documents    EnterpriseLenderDocument[]
+  deals        EnterpriseDeal[]
+
+  @@unique([organizationId, code], map: "elend_org_code_key")
+  @@index([organizationId, categoryId, status, enabled], map: "elend_org_cat_status_idx")
+  @@index([organizationId, lifecycleStatus, operationalStatus], map: "elend_org_lifecycle_ops_idx")
+  @@index([organizationId, isDeleted], map: "elend_org_deleted_idx")
+  @@map("enterprise_lenders")
+}
+
+model EnterpriseLenderProgram {
+  id                String                       @id @default(cuid())
+  organizationId    String                       @map("organization_id")
+  lenderId          String                       @map("lender_id")
+  productId         String?                      @map("product_id")
+  productCode       String?                      @map("product_code")
+  code              String
+  label             String
+  description       String?                      @db.Text
+  borrowerType      String?                      @map("borrower_type")
+  employmentType    String?                      @map("employment_type")
+  roiPercent        Float?                       @map("roi_percent")
+  minRoiPercent     Float?                       @map("min_roi_percent")
+  maxRoiPercent     Float?                       @map("max_roi_percent")
+  processingFeeLabel String?                     @map("processing_fee_label")
+  processingFeePct  Float?                       @map("processing_fee_pct")
+  maxFundingAmount  Float?                       @map("max_funding_amount")
+  maxLtvPercent     Float?                       @map("max_ltv_percent")
+  maxTenureMonths   Int?                         @map("max_tenure_months")
+  minCibil          Int?                         @map("min_cibil")
+  minIncomeAmount   Float?                       @map("min_income_amount")
+  eligibleStates    Json?                        @map("eligible_states")
+  eligibleCities    Json?                        @map("eligible_cities")
+  averageTatDays    Int?                         @map("average_tat_days")
+  remarks           String?                      @db.Text
+  lifecycleStatus   LenderProgramLifecycleStatus @default(draft) @map("lifecycle_status")
+  status            RegistryStatus               @default(draft)
+  enabled           Boolean                      @default(true)
+  versionNumber     Int                          @default(1) @map("version_number")
+  effectiveFrom     DateTime?                    @map("effective_from")
+  effectiveUntil    DateTime?                    @map("effective_until")
+  notes             String?                      @db.Text
+  isDeleted         Boolean                      @default(false) @map("is_deleted")
+  deletedAt         DateTime?                    @map("deleted_at")
+  deletedBy         String?                      @map("deleted_by")
+  deletionReason    String?                      @map("deletion_reason") @db.Text
+  approvalStatus    RegistryApprovalStatus       @default(none) @map("approval_status")
+  approvedBy        String?                      @map("approved_by")
+  approvedAt        DateTime?                    @map("approved_at")
+  createdBy         String                       @map("created_by")
+  modifiedBy        String                       @map("modified_by")
+  createdAt         DateTime                     @default(now()) @map("created_at")
+  updatedAt         DateTime                     @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  product      EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  deals        EnterpriseDeal[]
+
+  @@unique([organizationId, code], map: "elprog_org_code_key")
+  @@index([organizationId, lenderId, status, enabled], map: "elprog_org_lender_status_idx")
+  @@index([organizationId, lifecycleStatus], map: "elprog_org_lifecycle_idx")
+  @@index([organizationId, isDeleted], map: "elprog_org_deleted_idx")
+  @@map("enterprise_lender_programs")
+}
+
+model EnterpriseLenderContact {
+  id                     String                 @id @default(cuid())
+  organizationId         String                 @map("organization_id")
+  lenderId               String                 @map("lender_id")
+  name                   String
+  designation            String?
+  department             LenderContactDepartment @default(other)
+  mobile                 String?
+  email                  String?
+  preferredContactMethod String?                @map("preferred_contact_method")
+  enabled                Boolean                @default(true)
+  sortOrder              Int                    @default(0) @map("sort_order")
+  isDeleted              Boolean                @default(false) @map("is_deleted")
+  deletedAt              DateTime?              @map("deleted_at")
+  createdBy              String                 @map("created_by")
+  modifiedBy             String                 @map("modified_by")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, lenderId, enabled], map: "elcontact_org_lender_idx")
+  @@index([organizationId, isDeleted], map: "elcontact_org_deleted_idx")
+  @@map("enterprise_lender_contacts")
+}
+
+model EnterpriseLenderDocument {
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  lenderId       String             @map("lender_id")
+  kind           LenderDocumentKind @default(other)
+  title          String
+  fileName       String?            @map("file_name")
+  fileUrl        String?            @map("file_url")
+  mimeType       String?            @map("mime_type")
+  notes          String?            @db.Text
+  enabled        Boolean            @default(true)
+  isDeleted      Boolean            @default(false) @map("is_deleted")
+  deletedAt      DateTime?          @map("deleted_at")
+  createdBy      String             @map("created_by")
+  modifiedBy     String             @map("modified_by")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, lenderId, kind], map: "eldoc_org_lender_kind_idx")
+  @@index([organizationId, isDeleted], map: "eldoc_org_deleted_idx")
+  @@map("enterprise_lender_documents")
+}
+
+// =============================================================================
+// CO-ARCH-002-W1 ? Enterprise Deal Registry (Tier 3 transactional SSOT)
+// F0 constitutional. Feature flags default OFF. No UI consumers in Wave 1.
+// ARB amendments: Deal Snapshot, Append-Only Timeline, Deal Health reservation.
+// CO-ARCH-003: Opportunity Registry schema is Plan Mode — see
+// docs/co-arch-003/CO-ARCH-003-PHASE-1-OPPORTUNITY-SCHEMA-REVIEW.md (no migration yet).
+// =============================================================================
+
+enum DealProductFamily {
+  lending
+  mutual_fund
+  insurance
+  bonds
+  pms
+  other
+}
+
+enum DealLifecycleStatus {
+  active
+  on_hold
+  won
+  lost
+  cancelled
+  archived
+}
+
+enum DealOperationalStatus {
+  on_track
+  at_risk
+  delayed
+  completed
+}
+
+enum DealPriority {
+  urgent
+  high
+  medium
+  low
+}
+
+enum DealCounterpartyType {
+  lender
+  amc
+  insurer
+  issuer
+  institution
+  other
+}
+
+enum DealParticipantRole {
+  primary_customer
+  co_applicant
+  guarantor
+  nominee
+  authorized_signatory
+  other
+}
+
+enum DealDocumentLinkStatus {
+  required
+  requested
+  received
+  under_verification
+  verified
+  rejected
+  expired
+  waived
+}
+
+enum DealAssignmentRole {
+  primary_owner
+  relationship_manager
+  source_owner
+  credit_owner
+  operations
+  other
+}
+
+enum DealImportBatchStatus {
+  dry_run
+  pending
+  running
+  completed
+  failed
+  cancelled
+}
+
+// CO-ARCH-003 Phase 2A — Opportunity Registry + per-lender Deal FK
+// ERD: docs/co-arch-003/CO-ARCH-003-PHASE-2A-ERD.md
+
+enum OpportunityFulfilmentMode {
+  exclusive
+  additive
+  policy_driven
+}
+
+enum OpportunityFulfilmentStatus {
+  open
+  partially_fulfilled
+  fulfilled
+  abandoned
+}
+
+enum OpportunityLifecycleStatus {
+  /// ADR-018 — identity-only draft (no product uniqueness)
+  draft
+  /// ADR-018 — Product + Required Amount saved
+  requirement_captured
+  active
+  on_hold
+  won
+  lost
+  cancelled
+  archived
+}
+
+model EnterpriseOpportunityNumberSequence {
+  organizationId String   @map("organization_id")
+  year           Int
+  nextValue      Int      @default(1) @map("next_value")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@id([organizationId, year], map: "eopp_seq_pk")
+  @@map("enterprise_opportunity_number_sequences")
+}
+
+model EnterpriseOpportunity {
+  id                        String                      @id @default(cuid())
+  organizationId            String                      @map("organization_id")
+  opportunityNumber         String                      @map("opportunity_number")
+  legacyLoanFileId          String?                     @map("legacy_loan_file_id")
+  externalRefs              Json?                       @map("external_refs")
+  productId                 String?                     @map("product_id")
+  productCode               String?                     @map("product_code")
+  productLabel              String?                     @map("product_label")
+  /// CO-ARCH — Contact+Product uniqueness key (normalized). Partial unique while planning-active.
+  productUniquenessKey      String?                     @map("product_uniqueness_key")
+  productFamily             DealProductFamily           @map("product_family")
+  transactionType           String?                     @map("transaction_type")
+  /// BI-4 — requirement readiness only (never lender pipeline)
+  requirementStage          String                      @map("requirement_stage")
+  requirementSubStage       String?                     @map("requirement_sub_stage")
+  lifecycleStatus           OpportunityLifecycleStatus  @default(active) @map("lifecycle_status")
+  fulfilmentMode            OpportunityFulfilmentMode   @default(exclusive) @map("fulfilment_mode")
+  fulfilmentStatus          OpportunityFulfilmentStatus @default(open) @map("fulfilment_status")
+  fulfilledAmount           Decimal                     @default(0) @map("fulfilled_amount") @db.Decimal(18, 2)
+  stageEnteredAt            DateTime                    @map("stage_entered_at")
+  closedAt                  DateTime?                   @map("closed_at")
+  archived                  Boolean                     @default(false)
+  archivedAt                DateTime?                   @map("archived_at")
+  archivedBy                String?                     @map("archived_by")
+  primaryOwnerUserId        String?                     @map("primary_owner_user_id")
+  relationshipManagerUserId String?                     @map("relationship_manager_user_id")
+  relationshipManagerName   String?                     @map("relationship_manager_name")
+  teamId                    String?                     @map("team_id")
+  branchId                  String?                     @map("branch_id")
+  primaryContactId          String                      @map("primary_contact_id")
+  primaryContactName        String?                     @map("primary_contact_name")
+  primaryContactMobile      String?                     @map("primary_contact_mobile")
+  primaryContactEmail       String?                     @map("primary_contact_email")
+  companyId                 String?                     @map("company_id")
+  employmentTypeCode        String?                     @map("employment_type_code")
+  cityLabel                 String?                     @map("city_label")
+  stateLabel                String?                     @map("state_label")
+  currencyCode              String                      @default("INR") @map("currency_code")
+  requestedAmount           Decimal?                    @map("requested_amount") @db.Decimal(18, 2)
+  priority                  DealPriority                @default(medium)
+  sourceCode                String?                     @map("source_code")
+  sourceContactId           String?                     @map("source_contact_id")
+  snapshot                  Json?
+  lendingExtension          Json?                       @map("lending_extension")
+  versionNumber             Int                         @default(1) @map("version_number")
+  rowVersion                Int                         @default(1) @map("row_version")
+  createdBy                 String?                     @map("created_by")
+  updatedBy                 String?                     @map("updated_by")
+  createdAt                 DateTime                    @default(now()) @map("created_at")
+  updatedAt                 DateTime                    @updatedAt @map("updated_at")
+  isDeleted                 Boolean                     @default(false) @map("is_deleted")
+  deletedAt                 DateTime?                   @map("deleted_at")
+  deletedBy                 String?                     @map("deleted_by")
+  deletionReason            String?                     @map("deletion_reason") @db.Text
+
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  primaryContact EcmContact         @relation("EnterpriseOpportunityPrimaryContact", fields: [primaryContactId], references: [id], onDelete: Restrict)
+  company        EcmCompany?        @relation("EnterpriseOpportunityCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  product        EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
+  deals          EnterpriseDeal[]
+
+  @@unique([organizationId, opportunityNumber], map: "eopp_org_number_key")
+  @@unique([organizationId, legacyLoanFileId], map: "eopp_org_legacy_loan_file_key")
+  @@index([organizationId, isDeleted, archived, updatedAt(sort: Desc)], map: "eopp_org_list_idx")
+  @@index([organizationId, primaryContactId], map: "eopp_org_contact_idx")
+  @@index([organizationId, productFamily, requirementStage], map: "eopp_org_family_stage_idx")
+  @@index([organizationId, relationshipManagerUserId], map: "eopp_org_rm_idx")
+  @@index([organizationId, lifecycleStatus, fulfilmentStatus], map: "eopp_org_status_idx")
+  @@index([organizationId, productId], map: "eopp_org_product_idx")
+  @@index([organizationId, primaryContactId, productUniquenessKey, lifecycleStatus], map: "eopp_org_contact_product_lifecycle_idx")
+  @@map("enterprise_opportunities")
+}
+
+/// CO-ARCH-003 Phase 2B Sprint 1 — Accounting Invoice Party Master
+/// Entity against whom RC raises commission invoice for a Deal (not disbursement beneficiary).
+/// Maintained only in Accounting → Invoice Party Master. Deal Workspace reads this list only.
+/// DB table retained as enterprise_accounting_payees for Sprint 1 backward compatibility.
+model EnterpriseInvoiceParty {
+  id               String   @id @default(cuid())
+  organizationId   String   @map("organization_id")
+  /// Exactly one of contactId / companyId required (1 : 0..1 Contact/Company → Master)
+  contactId        String?  @map("contact_id")
+  companyId        String?  @map("company_id")
+  /// customer | lender | builder | channel_partner | chartered_accountant | direct_corporate | intermediary | other
+  partyType        String   @map("payee_type")
+  legalName        String   @map("legal_name")
+  billingName      String   @map("billing_name")
+  displayName      String   @map("display_name")
+  gstin            String?
+  pan              String?
+  billingAddress   String?  @map("billing_address") @db.Text
+  stateLabel       String?  @map("state_label")
+  invoiceEmail     String?  @map("invoice_email")
+  tdsApplicable    Boolean  @default(false) @map("tds_applicable")
+  tdsRatePercent   Float?   @map("tds_rate_percent")
+  /// registered | unregistered | composition | unknown
+  gstStatus        String?  @map("gst_status")
+  specify          String?
+  notes            String?  @db.Text
+  /// Active / Inactive
+  enabled          Boolean  @default(true)
+  createdBy        String?  @map("created_by")
+  updatedBy        String?  @map("updated_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  isDeleted        Boolean  @default(false) @map("is_deleted")
+  deletedAt        DateTime? @map("deleted_at")
+  deletedBy        String?  @map("deleted_by")
+  deletionReason   String?  @map("deletion_reason") @db.Text
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contact      EcmContact?  @relation("InvoicePartyContact", fields: [contactId], references: [id], onDelete: Restrict)
+  company      EcmCompany?  @relation("InvoicePartyCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  deals        EnterpriseDeal[] @relation("DealInvoiceParty")
+
+  @@index([organizationId, isDeleted, enabled], map: "eapayee_org_active_idx")
+  @@index([organizationId, isDeleted, partyType], map: "eapayee_org_type_idx")
+  @@index([organizationId, contactId], map: "eapayee_org_contact_idx")
+  @@index([organizationId, companyId], map: "eapayee_org_company_idx")
+  @@index([organizationId, updatedAt(sort: Desc)], map: "eapayee_org_updated_idx")
+  @@map("enterprise_accounting_payees")
+}
+
+model EnterpriseDealNumberSequence {
+  organizationId String   @map("organization_id")
+  year           Int
+  nextValue      Int      @default(1) @map("next_value")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@id([organizationId, year])
+  @@map("enterprise_deal_number_sequences")
+}
+
+model EnterpriseDeal {
+  id                        String                 @id @default(cuid())
+  organizationId            String                 @map("organization_id")
+  dealNumber                String                 @map("deal_number")
+  /// CO-ARCH-003 — required on new Deal creates (BI-2); nullable only for backfill window
+  opportunityId             String?                @map("opportunity_id")
+  /// CO-ARCH-003 Option A — required on new Deal creates (BI-3); one Deal = one lender
+  lenderId                  String?                @map("lender_id")
+  /// CO-STAB-002 — DB-only partial unique (not expressible in Prisma):
+  /// `edeal_org_opp_lender_active_key` on (organization_id, opportunity_id, lender_id)
+  /// WHERE is_deleted = false AND opportunity_id IS NOT NULL AND lender_id IS NOT NULL.
+  /// Prisma schema remains the canonical model; this index is migration-owned SSOT for BI-3.
+  lenderProgramId           String?                @map("lender_program_id")
+  legacyLoanFileId          String?                @map("legacy_loan_file_id")
+  fileNumber                String?                @map("file_number")
+  externalRefs              Json?                  @map("external_refs")
+  productId                 String?                @map("product_id")
+  productCode               String?                @map("product_code")
+  productLabel              String?                @map("product_label")
+  productCategoryId         String?                @map("product_category_id")
+  productGroupId            String?                @map("product_group_id")
+  productFamily             DealProductFamily      @map("product_family")
+  transactionType           String?                @map("transaction_type")
+  lifecyclePhase            String?                @map("lifecycle_phase")
+  /// BI-4 — lender pipeline stage only (never Opportunity requirement stage)
+  grossStage                String                 @map("gross_stage")
+  subStage                  String?                @map("sub_stage")
+  lifecycleStatus           DealLifecycleStatus    @default(active) @map("lifecycle_status")
+  operationalStatus         DealOperationalStatus  @default(on_track) @map("operational_status")
+  progressPercent           Int                    @default(0) @map("progress_percent")
+  daysInStage               Int                    @default(0) @map("days_in_stage")
+  stageEnteredAt            DateTime               @map("stage_entered_at")
+  closedAt                  DateTime?              @map("closed_at")
+  archived                  Boolean                @default(false)
+  archivedAt                DateTime?              @map("archived_at")
+  archivedBy                String?                @map("archived_by")
+  primaryOwnerUserId        String?                @map("primary_owner_user_id")
+  relationshipManagerUserId String?                @map("relationship_manager_user_id")
+  relationshipManagerName   String?                @map("relationship_manager_name")
+  sourceOwnerUserId         String?                @map("source_owner_user_id")
+  creditOwnerUserId         String?                @map("credit_owner_user_id")
+  teamId                    String?                @map("team_id")
+  branchId                  String?                @map("branch_id")
+  assignmentMode            String?                @map("assignment_mode")
+  primaryContactId          String?                @map("primary_contact_id")
+  primaryContactName        String?                @map("primary_contact_name")
+  primaryContactMobile      String?                @map("primary_contact_mobile")
+  primaryContactEmail       String?                @map("primary_contact_email")
+  companyId                 String?                @map("company_id")
+  employmentTypeCode        String?                @map("employment_type_code")
+  cityCode                  String?                @map("city_code")
+  stateCode                 String?                @map("state_code")
+  cityLabel                 String?                @map("city_label")
+  stateLabel                String?                @map("state_label")
+  currencyCode              String                 @default("INR") @map("currency_code")
+  requestedAmount           Decimal?               @map("requested_amount") @db.Decimal(18, 2)
+  approvedAmount            Decimal?               @map("approved_amount") @db.Decimal(18, 2)
+  fulfilledAmount           Decimal?               @map("fulfilled_amount") @db.Decimal(18, 2)
+  commercialTerms           Json?                  @map("commercial_terms")
+  lendingExtension          Json?                  @map("lending_extension")
+  /// ARB A1 ? working Deal Snapshot (never a substitute for append-only history table)
+  snapshot                  Json?
+  primaryCounterpartyType   DealCounterpartyType?  @map("primary_counterparty_type")
+  primaryCounterpartyId     String?                @map("primary_counterparty_id")
+  primaryCounterpartyName   String?                @map("primary_counterparty_name")
+  primaryCounterpartyProgramId String?             @map("primary_counterparty_program_id")
+  /// CO-ARCH-003 Phase 2B Sprint 1 — Invoice Party (Deal attribute)
+  /// Columns retained as commission_payee_* for Sprint 1 backward compatibility.
+  invoicePartyType          String?                @map("commission_payee_type")
+  invoicePartySpecify       String?                @map("commission_payee_specify")
+  invoicePartyContactId     String?                @map("commission_payee_contact_id")
+  /// Canonical FK → Accounting Invoice Party Master
+  invoicePartyId            String?                @map("commission_accounting_payee_id")
+  expectedRevenue           Decimal                @default(0) @map("expected_revenue") @db.Decimal(18, 2)
+  revenuePercent            Decimal?               @map("revenue_percent") @db.Decimal(9, 4)
+  revenueReceived           Decimal                @default(0) @map("revenue_received") @db.Decimal(18, 2)
+  payoutConfigured          Boolean                @default(false) @map("payout_configured")
+  settlementCompleted       Boolean                @default(false) @map("settlement_completed")
+  priority                  DealPriority           @default(medium)
+  isUrgent                  Boolean                @default(false) @map("is_urgent")
+  isDelayed                 Boolean                @default(false) @map("is_delayed")
+  riskBand                  String?                @map("risk_band")
+  sourceCode                String?                @map("source_code")
+  sourceContactId           String?                @map("source_contact_id")
+  /// ARB A3 ? Deal Health reservation (null until future engines write)
+  healthScore               Int?                   @map("health_score")
+  healthBand                String?                @map("health_band")
+  healthComputedAt          DateTime?              @map("health_computed_at")
+  healthPayload             Json?                  @map("health_payload")
+  importBatchId             String?                @map("import_batch_id")
+  versionNumber             Int                    @default(1) @map("version_number")
+  rowVersion                Int                    @default(1) @map("row_version")
+  createdBy                 String?                @map("created_by")
+  updatedBy                 String?                @map("updated_by")
+  createdAt                 DateTime               @default(now()) @map("created_at")
+  updatedAt                 DateTime               @updatedAt @map("updated_at")
+  isDeleted                 Boolean                @default(false) @map("is_deleted")
+  deletedAt                 DateTime?              @map("deleted_at")
+  deletedBy                 String?                @map("deleted_by")
+  deletionReason            String?                @map("deletion_reason") @db.Text
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity    EnterpriseOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  lender         EnterpriseLender? @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  lenderProgram  EnterpriseLenderProgram? @relation(fields: [lenderProgramId], references: [id], onDelete: Restrict)
+  primaryContact EcmContact?   @relation("EnterpriseDealPrimaryContact", fields: [primaryContactId], references: [id], onDelete: Restrict)
+  invoicePartyContact EcmContact? @relation("EnterpriseDealInvoicePartyContact", fields: [invoicePartyContactId], references: [id], onDelete: Restrict)
+  invoiceParty   EnterpriseInvoiceParty? @relation("DealInvoiceParty", fields: [invoicePartyId], references: [id], onDelete: Restrict)
+  company        EcmCompany?   @relation("EnterpriseDealCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  product        EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
+  importBatch    EnterpriseDealImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+
+  participants            EnterpriseDealParticipant[]
+  counterpartyAssignments EnterpriseDealCounterpartyAssignment[]
+  documentLinks           EnterpriseDealDocumentLink[]
+  tasks                   EnterpriseDealTask[]
+  activities              EnterpriseDealActivity[]
+  notes                   EnterpriseDealNote[]
+  timelineEvents          EnterpriseDealTimelineEvent[]
+  assignments             EnterpriseDealAssignment[]
+  commercialVersions      EnterpriseDealCommercialVersion[]
+  snapshots               EnterpriseDealSnapshot[]
+  commissionLinks         EnterpriseDealCommissionLink[]
+  accountingLinks         EnterpriseDealAccountingLink[]
+  notificationLinks       EnterpriseDealNotificationLink[]
+  intelligenceLinks       EnterpriseDealIntelligenceLink[]
+  workflowBindings        EnterpriseDealWorkflowBinding[]
+
+  @@unique([organizationId, dealNumber], map: "edeal_org_number_key")
+  /// CO-ARCH-003: legacy_loan_file_id is NON-unique — multiple Deals may share one LoanFile bridge
+  @@index([organizationId, legacyLoanFileId], map: "edeal_org_legacy_loan_file_idx")
+  @@index([organizationId, opportunityId], map: "edeal_org_opportunity_idx")
+  @@index([organizationId, lenderId], map: "edeal_org_lender_idx")
+  @@index([organizationId, invoicePartyContactId], map: "edeal_org_commission_payee_contact_idx")
+  @@index([organizationId, invoicePartyId], map: "edeal_org_commission_accounting_payee_idx")
+  @@index([organizationId, isDeleted, archived, updatedAt(sort: Desc)], map: "edeal_org_list_idx")
+  @@index([organizationId, primaryContactId], map: "edeal_org_contact_idx")
+  @@index([organizationId, productFamily, grossStage], map: "edeal_org_family_stage_idx")
+  @@index([organizationId, relationshipManagerUserId], map: "edeal_org_rm_idx")
+  @@index([organizationId, lifecycleStatus, operationalStatus], map: "edeal_org_status_idx")
+  @@index([organizationId, productId], map: "edeal_org_product_idx")
+  @@index([organizationId, importBatchId], map: "edeal_org_import_idx")
+  @@map("enterprise_deals")
+}
+
+model EnterpriseDealSnapshot {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  dealId         String   @map("deal_id")
+  versionNumber  Int      @map("version_number")
+  reason         String
+  snapshot       Json
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, versionNumber], map: "edeal_snap_deal_ver_key")
+  @@index([dealId, createdAt(sort: Desc)], map: "edeal_snap_deal_created_idx")
+  @@map("enterprise_deal_snapshots")
+}
+
+model EnterpriseDealParticipant {
+  id                  String              @id @default(cuid())
+  organizationId      String              @map("organization_id")
+  dealId              String              @map("deal_id")
+  ecmContactId        String              @map("ecm_contact_id")
+  role                DealParticipantRole
+  isPropertyOwner     Boolean             @default(false) @map("is_property_owner")
+  ownershipPercent    Decimal?            @map("ownership_percent") @db.Decimal(5, 2)
+  sortOrder           Int                 @default(0) @map("sort_order")
+  createdBy           String?             @map("created_by")
+  updatedBy           String?             @map("updated_by")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  isDeleted           Boolean             @default(false) @map("is_deleted")
+  deletedAt           DateTime?           @map("deleted_at")
+  deletedBy           String?             @map("deleted_by")
+  deletionReason      String?             @map("deletion_reason") @db.Text
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  ecmContact   EcmContact   @relation(fields: [ecmContactId], references: [id], onDelete: Restrict)
+
+  @@unique([dealId, ecmContactId, role], map: "edeal_part_deal_contact_role_key")
+  @@index([organizationId, ecmContactId], map: "edeal_part_org_contact_idx")
+  @@index([dealId, isDeleted], map: "edeal_part_deal_deleted_idx")
+  @@map("enterprise_deal_participants")
+}
+
+model EnterpriseDealCounterpartyAssignment {
+  id                   String               @id @default(cuid())
+  organizationId       String               @map("organization_id")
+  dealId               String               @map("deal_id")
+  counterpartyType     DealCounterpartyType @map("counterparty_type")
+  counterpartyRegistryId String             @map("counterparty_registry_id")
+  programId            String?              @map("program_id")
+  isPrimary            Boolean              @default(false) @map("is_primary")
+  pipelineStage        String?              @map("pipeline_stage")
+  pipelineSubStage     String?              @map("pipeline_sub_stage")
+  applicationRef       String?              @map("application_ref")
+  decision             String?
+  decisionAt           DateTime?            @map("decision_at")
+  extension            Json?
+  createdBy            String?              @map("created_by")
+  updatedBy            String?              @map("updated_by")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+  isDeleted            Boolean              @default(false) @map("is_deleted")
+  deletedAt            DateTime?            @map("deleted_at")
+  deletedBy            String?              @map("deleted_by")
+  deletionReason       String?              @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, isPrimary], map: "edeal_cp_deal_primary_idx")
+  @@index([organizationId, counterpartyType, counterpartyRegistryId], map: "edeal_cp_org_type_reg_idx")
+  @@index([dealId, isDeleted], map: "edeal_cp_deal_deleted_idx")
+  @@map("enterprise_deal_counterparty_assignments")
+}
+
+model EnterpriseDealDocumentLink {
+  id                   String                 @id @default(cuid())
+  organizationId       String                 @map("organization_id")
+  dealId               String                 @map("deal_id")
+  documentDefinitionId String?                @map("document_definition_id")
+  documentTypeId       String?                @map("document_type_id")
+  participantId        String?                @map("participant_id")
+  status               DealDocumentLinkStatus @default(required)
+  storageKey           String?                @map("storage_key")
+  uploadedAt           DateTime?              @map("uploaded_at")
+  verifiedAt           DateTime?              @map("verified_at")
+  extension            Json?
+  createdBy            String?                @map("created_by")
+  updatedBy            String?                @map("updated_by")
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  isDeleted            Boolean                @default(false) @map("is_deleted")
+  deletedAt            DateTime?              @map("deleted_at")
+  deletedBy            String?                @map("deleted_by")
+  deletionReason       String?                @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, status], map: "edeal_doc_deal_status_idx")
+  @@index([organizationId, documentDefinitionId], map: "edeal_doc_org_def_idx")
+  @@map("enterprise_deal_document_links")
+}
+
+model EnterpriseDealTask {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  dealId         String    @map("deal_id")
+  title          String
+  status         String    @default("open")
+  priority       String?   
+  dueAt          DateTime? @map("due_at")
+  assigneeUserId String?   @map("assignee_user_id")
+  slaPolicyId    String?   @map("sla_policy_id")
+  completedAt    DateTime? @map("completed_at")
+  payload        Json?
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletionReason String?   @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, status, dueAt], map: "edeal_task_deal_status_due_idx")
+  @@map("enterprise_deal_tasks")
+}
+
+model EnterpriseDealActivity {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  dealId         String    @map("deal_id")
+  title          String
+  status         String    @default("open")
+  activityType   String?   @map("activity_type")
+  dueAt          DateTime? @map("due_at")
+  assigneeUserId String?   @map("assignee_user_id")
+  completedAt    DateTime? @map("completed_at")
+  payload        Json?
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletionReason String?   @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, status, dueAt], map: "edeal_act_deal_status_due_idx")
+  @@map("enterprise_deal_activities")
+}
+
+model EnterpriseDealNote {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  dealId         String    @map("deal_id")
+  body           String    @db.Text
+  visibility     String    @default("internal")
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletionReason String?   @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, createdAt(sort: Desc)], map: "edeal_note_deal_created_idx")
+  @@map("enterprise_deal_notes")
+}
+
+/// ARB A2 ? Append-only timeline (no update / soft-delete columns)
+model EnterpriseDealTimelineEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  dealId         String   @map("deal_id")
+  eventType      String   @map("event_type")
+  occurredAt     DateTime @map("occurred_at")
+  actorUserId    String?  @map("actor_user_id")
+  summary        String
+  payload        Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, occurredAt(sort: Desc)], map: "edeal_tl_deal_occurred_idx")
+  @@index([organizationId, eventType, occurredAt(sort: Desc)], map: "edeal_tl_org_type_occurred_idx")
+  @@map("enterprise_deal_timeline_events")
+}
+
+model EnterpriseDealAssignment {
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  dealId         String             @map("deal_id")
+  role           DealAssignmentRole
+  userId         String             @map("user_id")
+  effectiveFrom  DateTime           @map("effective_from")
+  effectiveUntil DateTime?          @map("effective_until")
+  isPrimary      Boolean            @default(false) @map("is_primary")
+  createdBy      String?            @map("created_by")
+  updatedBy      String?            @map("updated_by")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  isDeleted      Boolean            @default(false) @map("is_deleted")
+  deletedAt      DateTime?          @map("deleted_at")
+  deletedBy      String?            @map("deleted_by")
+  deletionReason String?            @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, role, isDeleted], map: "edeal_asg_deal_role_idx")
+  @@map("enterprise_deal_assignments")
+}
+
+model EnterpriseDealCommercialVersion {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  dealId         String   @map("deal_id")
+  versionNumber  Int      @map("version_number")
+  effectiveFrom  DateTime @map("effective_from")
+  payload        Json
+  changeReason   String?  @map("change_reason")
+  edlEntryId     String?  @map("edl_entry_id")
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, versionNumber], map: "edeal_comm_deal_ver_key")
+  @@index([dealId, createdAt(sort: Desc)], map: "edeal_comm_deal_created_idx")
+  @@map("enterprise_deal_commercial_versions")
+}
+
+model EnterpriseDealCommissionLink {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  dealId         String    @map("deal_id")
+  linkType       String    @map("link_type")
+  externalRef    String?   @map("external_ref")
+  payload        Json?
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletionReason String?   @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, linkType], map: "edeal_cml_deal_type_idx")
+  @@map("enterprise_deal_commission_links")
+}
+
+model EnterpriseDealAccountingLink {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  dealId         String    @map("deal_id")
+  linkType       String    @map("link_type")
+  externalRef    String?   @map("external_ref")
+  payload        Json?
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletionReason String?   @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, linkType], map: "edeal_acl_deal_type_idx")
+  @@map("enterprise_deal_accounting_links")
+}
+
+model EnterpriseDealNotificationLink {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  dealId         String    @map("deal_id")
+  linkType       String    @map("link_type")
+  externalRef    String?   @map("external_ref")
+  payload        Json?
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletionReason String?   @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, linkType], map: "edeal_ntl_deal_type_idx")
+  @@map("enterprise_deal_notification_links")
+}
+
+model EnterpriseDealIntelligenceLink {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  dealId         String    @map("deal_id")
+  linkType       String    @map("link_type")
+  externalRef    String?   @map("external_ref")
+  payload        Json?
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletionReason String?   @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, linkType], map: "edeal_intl_deal_type_idx")
+  @@map("enterprise_deal_intelligence_links")
+}
+
+model EnterpriseDealWorkflowBinding {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  dealId         String    @map("deal_id")
+  linkType       String    @map("link_type")
+  externalRef    String?   @map("external_ref")
+  payload        Json?
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+  deletionReason String?   @map("deletion_reason") @db.Text
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, linkType], map: "edeal_wf_deal_type_idx")
+  @@map("enterprise_deal_workflow_bindings")
+}
+
+model EnterpriseDealImportBatch {
+  id            String                 @id @default(cuid())
+  organizationId String                @map("organization_id")
+  status        DealImportBatchStatus  @default(pending)
+  checksum      String?
+  itemCount     Int                    @default(0) @map("item_count")
+  createdCount  Int                    @default(0) @map("created_count")
+  updatedCount  Int                    @default(0) @map("updated_count")
+  skippedCount  Int                    @default(0) @map("skipped_count")
+  errorReport   Json?                  @map("error_report")
+  createdBy     String?                @map("created_by")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  completedAt   DateTime?              @map("completed_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deals        EnterpriseDeal[]
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "edeal_imp_org_created_idx")
+  @@map("enterprise_deal_import_batches")
 }

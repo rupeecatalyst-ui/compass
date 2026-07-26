@@ -4,11 +4,43 @@ export const ROUTES = {
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password",
   CHANGE_PASSWORD: "/change-password",
+  /** CO-SPRINT-118 — Public organization registration */
+  CREATE_ORGANIZATION: "/create-organization",
+  /** CO-SPRINT-118 — Join existing organization via invitation */
+  ACCEPT_INVITATION: "/accept-invitation",
+  /**
+   * Primary "Dashboard" nav + authenticated default landing (CO-SPRINT-114).
+   * Official User Home Dashboard — operational “What should I work on today?”
+   * Not Mission Control. Not Executive Briefing.
+   */
   DASHBOARD: "/dashboard",
   CUSTOMERS: "/customers",
   MY_DEALS: "/my-deals",
+  /** CO-ARCH-003 — Enterprise Opportunity Registry (requirement queue). */
+  MY_OPPORTUNITIES: "/my-opportunities",
   CHANAKYA_RADAR: "/chanakya-radar",
+  /**
+   * @deprecated Legacy Deal book host. Prefer DEALS / buildDealWorkspaceHref.
+   * `/loan-files` redirects to Deal Workspace or My Deals (CO-ARCH cleanup).
+   */
   LOAN_FILES: "/loan-files",
+  /**
+   * ADR-019 — Canonical Deal Workspace identity.
+   * Open as `/deals/:dealId` (Enterprise Deal id or legacy file id).
+   */
+  DEALS: "/deals",
+  /**
+   * ADR-018 Wave 3 — Execution Hub (Loan Journey roadmap / orchestration).
+   * Not Deal Workspace.
+   */
+  LOAN_JOURNEY: "/loan-journey",
+  /** Loan Journey Step 1 — full-page loan initiation workspace (legacy LoanFile). */
+  LOAN_INFORMATION: "/loan-information",
+  /**
+   * ADR-018 Wave 2 — Opportunity-native Lead Information Workspace.
+   * Captures requirement into Opportunity Registry only (not LoanFile/Deal).
+   */
+  LEAD_INFORMATION: "/lead-information",
   /** Future placeholder — Investments product line. */
   INVESTMENTS: "/investments",
   /** @deprecated Removed — redirects to CHANAKYA Radar. */
@@ -33,6 +65,7 @@ export const ROUTES = {
   MISSION_CONTROL_OBSERVABILITY: "/mission-control/observability",
   MISSION_CONTROL_ALERT_CENTER: "/mission-control/alert-center",
   MISSION_CONTROL_SITUATION_ROOM: "/mission-control/situation-room",
+  /** Canonical Executive Briefing inside Mission Control (CO-SPRINT-094 / 113). */
   MISSION_CONTROL_EXECUTIVE_BRIEFING: "/mission-control/executive-briefing",
   /** Relocated from Loan Workspace — Funnel / Treemap / AI Insights. */
   MISSION_CONTROL_OPERATIONS_INTELLIGENCE: "/mission-control/operations-intelligence",
@@ -57,6 +90,8 @@ export const ROUTES = {
   ADMIN: "/admin",
   ADMIN_ECG: "/admin/ecg",
   ADMIN_SYSTEM_MODES: "/admin/system-modes",
+  /** CO-OPS-001 — Administrator Build Information (System). */
+  ADMIN_BUILD_INFORMATION: "/admin/build-information",
   ADMIN_USERS: "/admin/users",
   ADMIN_ROLES_PERMISSIONS: "/admin/roles-permissions",
   ADMIN_CREDIT_KNOWLEDGE_FRAMEWORK: "/admin/credit-knowledge-framework",
@@ -104,6 +139,10 @@ export const ROUTES = {
   ADMIN_ENTERPRISE_DECISION_LEDGER: "/admin/enterprise-decision-ledger",
   /** CO-SPRINT-119 — Soft-deleted business records recovery. */
   ADMIN_ENTERPRISE_RECOVERY_CENTER: "/admin/enterprise-recovery-center",
+  /** CO-ARCH-001-I7 — Tier 1 Reference Master administration. */
+  ADMIN_REFERENCE_MASTERS: "/admin/reference-masters",
+  /** GO-LIVE P0 — Enterprise Lender Registry (Administration → Masters). */
+  ADMIN_LENDER_REGISTRY: "/admin/lender-registry",
   ADMIN_FOUNDATION_LIBRARIES: "/admin/foundation-libraries",
   ADMIN_FOUNDATION_LIBRARIES_REGISTRY: "/admin/foundation-libraries/registry",
   ADMIN_FOUNDATION_LIBRARIES_ENTRIES: "/admin/foundation-libraries/entries",
@@ -116,12 +155,16 @@ export const PUBLIC_ROUTES = [
   ROUTES.LOGIN,
   ROUTES.FORGOT_PASSWORD,
   ROUTES.RESET_PASSWORD,
+  ROUTES.CREATE_ORGANIZATION,
+  ROUTES.ACCEPT_INVITATION,
 ] as const;
 
 export const AUTH_ROUTES = [
   ROUTES.LOGIN,
   ROUTES.FORGOT_PASSWORD,
   ROUTES.RESET_PASSWORD,
+  ROUTES.CREATE_ORGANIZATION,
+  ROUTES.ACCEPT_INVITATION,
 ] as const;
 
 /** Accessible while authenticated — first-login password change gate */
@@ -131,9 +174,14 @@ export const PROTECTED_ROUTES = [
   ROUTES.CHANGE_PASSWORD,
   ROUTES.DASHBOARD,
   ROUTES.CUSTOMERS,
+  ROUTES.MY_OPPORTUNITIES,
   ROUTES.MY_DEALS,
   ROUTES.CHANAKYA_RADAR,
   ROUTES.LOAN_FILES,
+  ROUTES.DEALS,
+  ROUTES.LOAN_JOURNEY,
+  ROUTES.LOAN_INFORMATION,
+  ROUTES.LEAD_INFORMATION,
   ROUTES.INVESTMENTS,
   ROUTES.PIPELINE,
   ROUTES.LENDERS,
@@ -168,6 +216,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ORGANIZATION_COMPANY_SEAL,
   ROUTES.ADMIN_ECG,
   ROUTES.ADMIN_SYSTEM_MODES,
+  ROUTES.ADMIN_BUILD_INFORMATION,
   ROUTES.ADMIN_USERS,
   ROUTES.ADMIN_ROLES_PERMISSIONS,
   ROUTES.ADMIN_CREDIT_KNOWLEDGE_FRAMEWORK,
@@ -213,6 +262,8 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_ENTERPRISE_ASSETS_AUDIT,
   ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER,
   ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER,
+  ROUTES.ADMIN_REFERENCE_MASTERS,
+  ROUTES.ADMIN_LENDER_REGISTRY,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_REGISTRY,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_ENTRIES,

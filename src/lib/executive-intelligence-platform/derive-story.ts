@@ -69,7 +69,7 @@ function buildPulse(files: LoanFile[]): EiPulseMetric[] {
       deltaLabel: `${urgent} urgent · ${delayed} delayed`,
       deltaTone: urgent + delayed > 5 ? "down" : "flat",
       insight: "Files that need attention today",
-      href: `${ROUTES.LOAN_FILES}?filter=risk`,
+      href: `${ROUTES.MY_DEALS}?filter=risk`,
     },
     {
       id: "velocity",

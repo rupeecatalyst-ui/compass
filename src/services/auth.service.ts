@@ -73,4 +73,26 @@ export const authService = {
     });
     return unwrapResponse(response);
   },
+
+  /** CO-SPRINT-118 — Create Organization + Super Admin session */
+  async registerOrganization(payload: Record<string, unknown>) {
+    const response = await apiRequest<AuthSession & { organization: { id: string; name: string; slug: string } }>({
+      method: "POST",
+      url: "/api/auth/register-organization",
+      data: payload,
+      skipAuth: true,
+    });
+    return unwrapResponse(response);
+  },
+
+  /** CO-SPRINT-118 — Accept invitation into existing organization */
+  async acceptInvitation(payload: Record<string, unknown>) {
+    const response = await apiRequest<AuthSession & { joined: boolean; role: string }>({
+      method: "POST",
+      url: "/api/auth/accept-invitation",
+      data: payload,
+      skipAuth: true,
+    });
+    return unwrapResponse(response);
+  },
 };

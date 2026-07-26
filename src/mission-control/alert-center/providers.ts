@@ -210,7 +210,7 @@ function mockAlerts(): EnterpriseAlert[] {
       status: "open",
       acknowledged: false,
       recommendedAction: "Monitor Customer 360 watch items.",
-      viewDetails: { label: "View Details", href: "/mission-control" },
+      viewDetails: { label: "View Details", href: "/mission-control/executive-briefing" },
       dismissAction: { label: "Dismiss" },
     },
     {
@@ -313,17 +313,68 @@ function matchesFilter(alert: EnterpriseAlert, filter: AlertFilter): boolean {
   return true;
 }
 
+/** CO-OPS-002 — Live operational alerts from System Health API. */
+async function opsHealthAsAlerts(): Promise<EnterpriseAlert[]> {
+  try {
+    const { fetchOpsHealthClient } = await import("@/lib/ops/fetch-ops-health-client");
+    const live = await fetchOpsHealthClient();
+    if (!live) return [];
+    return live.alerts.map((a) => {
+      const severity: AlertSeverity =
+        a.severity === "critical"
+          ? "critical"
+          : a.severity === "high"
+            ? "high"
+            : a.severity === "medium"
+              ? "medium"
+              : a.severity === "low"
+                ? "low"
+                : "info";
+      const category: AlertCategory =
+        a.category === "security"
+          ? "security"
+          : a.category === "infrastructure"
+            ? "infrastructure"
+            : a.category === "technology"
+              ? "technology"
+              : "system";
+      return {
+        id: a.id,
+        title: a.title,
+        summary: a.summary,
+        description: a.summary,
+        category,
+        severity,
+        sourceModule: a.sourceModule,
+        generatedAt: a.generatedAt,
+        status: "open" as const,
+        acknowledged: false,
+        recommendedAction: a.recommendedAction,
+        viewDetails: {
+          label: "View Details",
+          href: "/mission-control/observability",
+        },
+        dismissAction: { label: "Dismiss" },
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function createEnterpriseAlertProvider(): EnterpriseAlertProvider {
   return {
     async listAlerts(filter) {
       const mock = isDemoSeedEnabled() ? mockAlerts() : [];
-      const store = [...sdeEventsAsAlerts(), ...mock];
+      const ops = await opsHealthAsAlerts();
+      const store = [...ops, ...sdeEventsAsAlerts(), ...mock];
       if (!filter) return store;
       return store.filter((a) => matchesFilter(a, filter));
     },
     async getAlert(id) {
       const mock = isDemoSeedEnabled() ? mockAlerts() : [];
-      const store = [...sdeEventsAsAlerts(), ...mock];
+      const ops = await opsHealthAsAlerts();
+      const store = [...ops, ...sdeEventsAsAlerts(), ...mock];
       return store.find((a) => a.id === id);
     },
   };
@@ -457,7 +508,7 @@ export function createAlertCenterProvider(): AlertCenterProvider {
         quickActions: [
           { label: "Situation Room", href: "/mission-control/situation-room" },
           { label: "Security Operations", href: "/mission-control/security-operations" },
-          { label: "Executive Briefing", href: "/mission-control" },
+          { label: "Executive Briefing", href: "/mission-control/executive-briefing" },
           { label: "Command Console", href: "/mission-control/command-console" },
           { label: "Observability", href: "/mission-control/observability" },
         ],

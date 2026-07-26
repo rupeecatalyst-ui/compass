@@ -5,6 +5,9 @@
  * Usage: node scripts/co-blocker-001-local-ui-verify.mjs
  */
 
+import { requireEnv, INSECURE_JWT_DENYLIST } from "./_lib/require-env.mjs";
+
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,8 +23,8 @@ config({ path: path.join(__dirname, "..", ".env.local") });
 config({ path: path.join(__dirname, "..", ".env") });
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "dev-refresh-secret-change-in-production";
+const JWT_SECRET = requireEnv("JWT_SECRET", { minLength: 32 });
+const JWT_REFRESH_SECRET = requireEnv("JWT_REFRESH_SECRET", { minLength: 32 });
 
 async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));

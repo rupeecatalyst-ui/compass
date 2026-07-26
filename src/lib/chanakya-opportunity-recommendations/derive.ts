@@ -6,17 +6,13 @@
  * - LIFE Strategic Workspace → Chanakya Recommendation panel
  * - Future: Customer Mobile App recommendation feed
  *
- * Ranking reuses LIFE lender-executive selection; narrative uses Opportunity signals.
- * Future: Credit & Risk Engine + Lender Policy Engine refine scores/reasons.
+ * CO-LENDER-ARCH-001 — Ranks Published lenders from Enterprise Lender Registry only.
+ * Flow: Opportunity → signals → Enterprise Lender Registry (Published) → Ranking.
  * Do not create parallel recommendation calculators in UI modules.
  */
 
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
-import {
-  getLifeRegistrySnapshot,
-  recommendLifeLenderExecutives,
-  seedLifeContactsIfEmpty,
-} from "@/lib/enterprise-life-engine";
+import { recommendPublishedLendersFromRegistry } from "@/lib/enterprise-lender-registry/recommend-from-registry";
 import { getCachedOpportunityRecord } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import { isPropertySectionVisible } from "@/constants/loan-stage-master";
 import { isProductSecured } from "@/constants/product-master";
@@ -42,8 +38,10 @@ export type ChanakyaRecommendationGap = {
 export type ChanakyaOpportunityRecommendation = {
   rank: number;
   lenderName: string;
-  /** LIFE / registry lender ref when available (e.g. lender:hdfc) */
+  /** Enterprise Lender Registry ref: lender:{enterpriseLenderId} */
   lenderRef: string;
+  /** Enterprise Lender Registry primary key when resolved */
+  enterpriseLenderId?: string;
   /** Recommendation score 0–100 (reusable by LIFE / Mobile) */
   score: number;
   confidencePct: number;
@@ -77,20 +75,9 @@ type OpportunitySignals = {
   city?: string;
 };
 
-function normalizeLenderRef(lenderName: string, lenderRef?: string): string {
-  const ref = lenderRef?.trim();
-  if (ref) return ref.startsWith("lender:") ? ref : `lender:${ref}`;
-  const slug = lenderName
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  return `lender:${slug || "unknown"}`;
-}
-
 function readExtensionSignals(file: LoanFile): Pick<
   OpportunitySignals,
-  "approxCibil" | "btLender"
+  "approxCibil" | "btLender" | "city"
 > {
   const oppId =
     file.enterpriseOpportunityId?.trim() ||
@@ -110,8 +97,10 @@ function readExtensionSignals(file: LoanFile): Pick<
     (typeof ext.btInstitutionName === "string" && ext.btInstitutionName.trim()) ||
     file.btInstitutionName?.trim() ||
     undefined;
+  // CO-CHANAKYA-001 — Registry cityLabel is journey SSOT; file.city is the projected view.
+  const city = file.city?.trim() || opp?.cityLabel?.trim() || undefined;
 
-  return { approxCibil: cibil, btLender: bt };
+  return { approxCibil: cibil, btLender: bt, city };
 }
 
 function collectSignals(
@@ -139,7 +128,7 @@ function collectSignals(
     approxCibil: ext.approxCibil,
     loanAmount: file.requiredAmount || file.loanAmount || undefined,
     btLender: ext.btLender,
-    city: file.city?.trim() || undefined,
+    city: ext.city,
   };
 }
 
@@ -316,67 +305,30 @@ export function deriveChanakyaOpportunityRecommendations(input: {
     };
   }
 
-  if (typeof window !== "undefined") {
-    seedLifeContactsIfEmpty();
-  }
-
-  const outcome = recommendLifeLenderExecutives({ loanFile: input.file });
-  const registry = getLifeRegistrySnapshot();
-
-  if (!outcome.ready) {
+  // CO-LENDER-ARCH-001 — Enterprise Lender Registry (Published ∧ Active) only.
+  const ranked = recommendPublishedLendersFromRegistry({
+    file: input.file,
+    limit: 8,
+  }).map((row) => {
+    const confidencePct = confidenceFromScore(row.score, signals);
     return {
-      ready: false,
-      missingRequirements: [],
-      guidance: outcome.blockers.map((b) => b.message),
-      recommendations: [],
-      analyzedAt,
+      rank: row.rank,
+      lenderName: row.lenderName,
+      lenderRef: row.lenderRef,
+      enterpriseLenderId: row.enterpriseLenderId,
+      score: row.score,
+      confidencePct,
+      stars: starsFromRank(row.rank, confidencePct),
+      reason: buildReason(row.lenderName, row.reason, signals),
     };
-  }
-
-  // Collapse executive rows → one row per lender (highest score wins).
-  const byLender = new Map<
-    string,
-    { lenderName: string; lenderRef: string; score: number; baseReason: string }
-  >();
-  for (const row of outcome.recommendations) {
-    const key = row.lenderName.trim().toLowerCase();
-    if (!key) continue;
-    const contact = registry.contacts.find((c) => c.id === row.contactId);
-    const lenderRef = normalizeLenderRef(row.lenderName, contact?.lenderRef);
-    const prev = byLender.get(key);
-    if (!prev || row.recommendationScore > prev.score) {
-      byLender.set(key, {
-        lenderName: row.lenderName,
-        lenderRef,
-        score: row.recommendationScore,
-        baseReason: row.reason,
-      });
-    }
-  }
-
-  const ranked = [...byLender.values()]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8)
-    .map((row, index) => {
-      const rank = index + 1;
-      const confidencePct = confidenceFromScore(row.score, signals);
-      return {
-        rank,
-        lenderName: row.lenderName,
-        lenderRef: row.lenderRef,
-        score: Math.round(row.score),
-        confidencePct,
-        stars: starsFromRank(rank, confidencePct),
-        reason: buildReason(row.lenderName, row.baseReason, signals),
-      };
-    });
+  });
 
   if (ranked.length === 0) {
     return {
       ready: false,
       missingRequirements: [],
       guidance: [
-        "No matching lenders yet for this Opportunity profile. Complete Product, City, and Employment Type, then return here.",
+        "No Published lenders in Enterprise Lender Registry yet. Publish lenders in Administration → Lender Registry, then return here.",
       ],
       recommendations: [],
       analyzedAt,
@@ -391,4 +343,4 @@ export function deriveChanakyaOpportunityRecommendations(input: {
     analyzedAt,
   };
 }
-
+

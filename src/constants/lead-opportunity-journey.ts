@@ -62,9 +62,10 @@ export const LEAD_OPPORTUNITY_JOURNEY: LeadJourneyModule[] = [
   {
     id: "loan_workspace",
     stage: "opportunity",
-    label: "Loan Workspace",
-    href: ROUTES.LOAN_FILES,
-    title: "Loan Workspace",
+    label: "Deal Workspace",
+    /** CO-UX-002 — Enterprise Deal Registry first (not bare /deals). */
+    href: ROUTES.MY_DEALS,
+    title: "Deal Workspace",
   },
 ];
 

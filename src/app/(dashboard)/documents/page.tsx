@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { ROUTES } from "@/constants/routes";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
 /** Backward compatible: /documents → Document Center (preserve query). */
 function DocumentsRedirectInner() {
@@ -16,9 +17,10 @@ function DocumentsRedirectInner() {
   }, [router, searchParams]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-    </div>
+    <ChanakyaLoadingExperience
+      module="documents"
+      statusLabel="Opening Document Center…"
+    />
   );
 }
 
@@ -26,9 +28,10 @@ export default function DocumentsPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-        </div>
+        <ChanakyaLoadingExperience
+          module="documents"
+          statusLabel="Opening Document Center…"
+        />
       }
     >
       <DocumentsRedirectInner />

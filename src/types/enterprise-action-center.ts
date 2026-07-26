@@ -24,7 +24,20 @@ export type ActionCenterActionId =
   | "open_credit_workbench"
   | "open_loan_workspace"
   | "add_contact"
-  | "edit_contact";
+  | "edit_contact"
+  /** CO-UX-015 — Deal Workspace targeted communication */
+  | "email_lender"
+  | "email_customer"
+  | "email_partner"
+  | "email_source"
+  /** Future-ready communication channels (catalog-visible, enable progressively) */
+  | "whatsapp_lender"
+  | "whatsapp_customer"
+  | "send_sms"
+  | "schedule_meeting"
+  | "internal_chat"
+  | "share_documents"
+  | "request_documents";
 
 export type CommunicationRecipientType =
   | "customer"
@@ -34,6 +47,7 @@ export type CommunicationRecipientType =
   | "relationship_manager"
   | "hybrid_employee"
   | "lender_representative"
+  | "referral_source"
   | "other";
 
 export interface ActionCenterContext {

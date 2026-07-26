@@ -261,8 +261,8 @@ export function createSituationRoomProvider(): SituationRoomProvider {
           {
             id: "nav-briefing",
             label: "Executive Briefing",
-            href: "/mission-control",
-            description: "CHANAKYA landing brief",
+            href: "/mission-control/executive-briefing",
+            description: "CHANAKYA Executive Decision Dashboard",
           },
           {
             id: "nav-alerts",

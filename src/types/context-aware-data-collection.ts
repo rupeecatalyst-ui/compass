@@ -1,6 +1,7 @@
 /**
  * Context-Aware Data Collection — platform contracts.
- * Forms adapt by Customer Category / Employment Type family.
+ * Forms adapt by Customer Category / Employment Type family,
+ * and (for Loan Initiation) by Product + Customer Type.
  */
 
 /** Canonical category keys used across Catalyst One surfaces. */
@@ -51,4 +52,56 @@ export interface ContextAwareVisibility {
   isVisible: (key: ContextAwareFieldKey) => boolean;
   isSalariedFamily: boolean;
   isSelfEmployedFamily: boolean;
+}
+
+/** Loan Initiation — Product + Customer Type financial profiles. */
+export type LoanInitiationFinancialProfile =
+  | "salaried_individual"
+  | "self_employed_individual"
+  | "corporate"
+  | "msme_working_capital";
+
+export type LoanInitiationFinancialFieldKey =
+  | "monthly_gross_salary"
+  | "net_salary"
+  | "existing_emi"
+  | "annual_business_income"
+  | "itr_income"
+  | "gst_turnover"
+  | "annual_turnover"
+  | "annual_net_profit"
+  | "ebitda"
+  | "existing_wc_limits"
+  | "existing_cc_od_limit"
+  | "existing_bank";
+
+export interface LoanInitiationFinancialFieldDef {
+  key: LoanInitiationFinancialFieldKey;
+  label: string;
+  required: boolean;
+  input: "currency" | "text";
+  formValueKey: LoanInitiationFinancialFormValueKey;
+}
+
+/** Form value keys owned by the Loan Initiation financial section. */
+export type LoanInitiationFinancialFormValueKey =
+  | "monthlyGrossSalary"
+  | "netSalary"
+  | "existingEmi"
+  | "annualBusinessIncome"
+  | "itrIncome"
+  | "gstTurnover"
+  | "annualTurnover"
+  | "annualNetProfit"
+  | "ebitda"
+  | "existingWcLimits"
+  | "existingCcOdLimit"
+  | "existingBank";
+
+export interface LoanInitiationFinancialVisibility {
+  profile: LoanInitiationFinancialProfile;
+  profileLabel: string;
+  fields: readonly LoanInitiationFinancialFieldDef[];
+  isVisible: (key: LoanInitiationFinancialFieldKey) => boolean;
+  requiredKeys: readonly LoanInitiationFinancialFormValueKey[];
 }

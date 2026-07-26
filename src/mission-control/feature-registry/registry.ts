@@ -16,7 +16,7 @@ const MODULES: MissionControlFeatureModule[] = [
     status: "scaffold",
     dependencies: [],
     description:
-      "CHANAKYA Radar — certified operational intelligence dashboard (Mission Control landing)",
+      "CHANAKYA Radar — certified operational intelligence (Mission Control rail + primary /chanakya-radar)",
   },
   {
     id: "mc-dashboard",
@@ -37,10 +37,24 @@ const MODULES: MissionControlFeatureModule[] = [
     icon: "Briefcase",
     permissions: [{ id: "mc.briefing.view", resource: "mission-control.briefing", action: "view" }],
     featureFlag: "enabled",
-    version: "0.1.0",
-    status: "scaffold",
+    version: "1.0.0",
+    status: "active",
     dependencies: [],
-    description: "CHANAKYA Executive Briefing",
+    description: "CHANAKYA Executive Decision Dashboard — primary Mission Control entry",
+  },
+  {
+    id: "mc-enterprise-intelligence",
+    displayName: "Enterprise Intelligence",
+    route: "/reports",
+    icon: "BarChart3",
+    permissions: [
+      { id: "mc.enterprise-intelligence.view", resource: "mission-control.enterprise-intelligence", action: "view" },
+    ],
+    featureFlag: "enabled",
+    version: "1.0.0",
+    status: "active",
+    dependencies: [],
+    description: "Executive Intelligence visualization platform",
   },
   {
     id: "mc-situation-room",
@@ -240,9 +254,14 @@ export function createInMemoryFeatureRegistry(
 export const defaultMissionControlFeatureRegistry = createInMemoryFeatureRegistry();
 
 export function listMissionControlNavModules(): MissionControlFeatureModule[] {
-  return defaultMissionControlFeatureRegistry
+  const modules = defaultMissionControlFeatureRegistry
     .list()
-    .filter((m) => !m.id.endsWith("-alias") && m.featureFlag !== "disabled");
+    .filter((m) => !m.id.endsWith("-alias") && m.featureFlag === "enabled");
+
+  /** Executive Briefing first — primary Mission Control command surface. */
+  const briefing = modules.find((m) => m.id === "mc-executive-briefing");
+  const rest = modules.filter((m) => m.id !== "mc-executive-briefing");
+  return briefing ? [briefing, ...rest] : modules;
 }
 
 export function getMissionControlFeatureByRoute(

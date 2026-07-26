@@ -20,7 +20,8 @@ export const PIPELINE_STAGE_MASTER: PipelineStageMaster[] = [
   {
     id: "pre_login",
     label: "Pre Login",
-    color: "#3B82F6",
+    /** CO-UX-003 — Pre-Login Grey */
+    color: "#94A3B8",
     subStatuses: [
       { id: "contacted", label: "Contacted" },
       { id: "documents_pending", label: "Documents Pending" },
@@ -28,22 +29,26 @@ export const PIPELINE_STAGE_MASTER: PipelineStageMaster[] = [
       { id: "login_ready", label: "Login Ready" },
     ],
   },
-  { id: "logged_in", label: "Logged In", color: "#06B6D4", subStatuses: [] },
+  /** CO-UX-003 — Logged In – WIP Blue */
+  { id: "logged_in", label: "Logged In", color: "#2563EB", subStatuses: [] },
   {
     id: "credit_wip",
     label: "Credit WIP",
-    color: "#F59E0B",
+    color: "#2563EB",
     subStatuses: [
       { id: "query_raised", label: "Query Raised" },
       { id: "query_resolved", label: "Query Resolved" },
     ],
   },
-  { id: "soft_approved", label: "Soft Approved", color: "#A855F7", subStatuses: [] },
-  { id: "final_approved", label: "Final Approved", color: "#22C55E", subStatuses: [] },
+  /** CO-UX-003 — Soft Approved Yellow */
+  { id: "soft_approved", label: "Soft Approved", color: "#EAB308", subStatuses: [] },
+  /** CO-UX-003 — Final Approved Light Green */
+  { id: "final_approved", label: "Final Approved", color: "#86EFAC", subStatuses: [] },
   {
     id: "closure_wip",
     label: "Closure WIP",
-    color: "#F97316",
+    /** CO-UX-003 — Closure WIP Green */
+    color: "#22C55E",
     subStatuses: [
       { id: "agreement_signing", label: "Agreement Signing" },
       { id: "pre_authorization", label: "Pre Authorization" },
@@ -53,7 +58,8 @@ export const PIPELINE_STAGE_MASTER: PipelineStageMaster[] = [
       { id: "top_up_awaited", label: "Top-up Awaited" },
     ],
   },
-  { id: "won", label: "Won", color: "#0F766E", subStatuses: [] },
+  /** CO-UX-003 — Disbursed Deep Green */
+  { id: "won", label: "Won", color: "#14532D", subStatuses: [] },
 ];
 
 export const STAGE_ORDER: PipelineStage[] = PIPELINE_STAGE_MASTER.map((s) => s.id);

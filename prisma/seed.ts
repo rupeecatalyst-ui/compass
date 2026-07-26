@@ -6,14 +6,21 @@ const prisma = new PrismaClient();
 
 /**
  * Bootstrap Super Admin — temporary password for first login only.
- * Shown once in the seed console report. Account forces password change.
- * Do not reuse as a long-lived credential.
+ * CO-STAB-001 — password MUST come from BOOTSTRAP_SUPER_ADMIN_PASSWORD (never hardcoded).
  */
-const BOOTSTRAP_SUPER_ADMIN_EMAIL = "admin@rupeecatalyst.com";
-const BOOTSTRAP_TEMPORARY_PASSWORD = "Rc7$mK9pL2#vNq4X";
+const BOOTSTRAP_SUPER_ADMIN_EMAIL =
+  (process.env.BOOTSTRAP_SUPER_ADMIN_EMAIL ?? "admin@rupeecatalyst.com").trim().toLowerCase();
 
 async function main() {
-  const passwordHash = await hashPassword(BOOTSTRAP_TEMPORARY_PASSWORD);
+  const temporaryPassword = (process.env.BOOTSTRAP_SUPER_ADMIN_PASSWORD ?? "").trim();
+  if (!temporaryPassword || temporaryPassword.length < 12) {
+    throw new Error(
+      "[CO-STAB-001] BOOTSTRAP_SUPER_ADMIN_PASSWORD is required (min 12 characters). " +
+        "Set it in the environment before running prisma seed.",
+    );
+  }
+
+  const passwordHash = await hashPassword(temporaryPassword);
 
   await prisma.user.upsert({
     where: { email: BOOTSTRAP_SUPER_ADMIN_EMAIL },
@@ -55,9 +62,9 @@ async function main() {
   console.log(`Organization : Rupee Catalyst (slug=${ENTERPRISE_PERSISTENCE_ORG_SLUG})`);
   console.log(`Super Admin  : ${BOOTSTRAP_SUPER_ADMIN_EMAIL}`);
   console.log(`Role         : SUPER_ADMIN`);
-  console.log(`Temp password: ${BOOTSTRAP_TEMPORARY_PASSWORD}`);
+  console.log(`Temp password: [set via BOOTSTRAP_SUPER_ADMIN_PASSWORD — not printed]`);
   console.log(`mustChangePassword: true`);
-  console.log("Store this temporary password securely. It will not be shown again by the app.");
+  console.log("Store the temporary password securely. The app will not display it.");
   console.log("No contacts, companies, loans, or demo business data were seeded.");
   console.log("==============================================================");
   console.log("");

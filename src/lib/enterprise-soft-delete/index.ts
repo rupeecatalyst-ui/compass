@@ -8,7 +8,7 @@ export {
   canPermanentlyDelete,
 } from "./permissions";
 
-import { getAccessToken } from "@/lib/api-client";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
 import type {
   SoftDeleteAuditEntry,
@@ -17,15 +17,7 @@ import type {
 } from "@/types/enterprise-soft-delete";
 
 async function softDeleteFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const token = getAccessToken();
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
+  const res = await authenticatedJsonFetch(url, init);
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.success) {
     throw new Error(body?.error?.message || `Soft delete request failed (${res.status})`);

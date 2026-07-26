@@ -7,6 +7,7 @@ import {
 } from "@/constants/roles-permissions-engine";
 import { listEnterpriseUsers } from "@/lib/enterprise-user-management";
 import { FROZEN_CERTIFICATION_ADMIN_EMAIL } from "@/constants/enterprise-user-management";
+import { recordAdminGovernanceAction } from "@/lib/enterprise-governance/admin-governance";
 import type {
   RpeAuditAction,
   RpeAuditEvent,
@@ -69,6 +70,33 @@ function pushAudit(
     ipAddress: null,
     deviceInfo: null,
   });
+  try {
+    const isPermission =
+      partial.entityType === "template" ||
+      partial.action.includes("permission") ||
+      partial.action.includes("template") ||
+      partial.action.includes("delegation");
+    recordAdminGovernanceAction({
+      actorUserId: partial.changedByUserId,
+      actorName: partial.changedByUserName,
+      category: isPermission ? "permission_changes" : "user_role_changes",
+      changeType: partial.action.includes("created")
+        ? "created"
+        : partial.action.includes("deleted")
+          ? "archived"
+          : "updated",
+      entityType: isPermission ? "Permission" : "Role",
+      entityId: partial.entityId,
+      entityLabel: partial.entityLabel,
+      previousValue: partial.previousValue,
+      newValue: partial.newValue,
+      justification:
+        partial.reason?.trim() ||
+        `RPE ${partial.action} for ${partial.entityLabel ?? partial.entityId}`,
+    });
+  } catch {
+    /* never block RPE */
+  }
 }
 
 export function listRpeRoles(): RpeRoleDefinition[] {

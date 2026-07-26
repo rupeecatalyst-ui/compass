@@ -14,7 +14,8 @@ export type BusinessCompletionControl =
   | "loan_product"
   | "bt_institution"
   | "bt_amount"
-  | "final_loan_amount";
+  | "final_loan_amount"
+  | "commercial_payee";
 
 export interface BusinessCompletionField {
   /** Stable field key on the domain entity (e.g. propertyType). */

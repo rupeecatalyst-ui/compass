@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from "@/constants/animations";
+import { isLoanFileLocalStorageWriteForbidden } from "@/constants/enterprise-deal-registry";
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
 import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { notifyLoanFilesUpdated } from "@/lib/loan-data-sync";
@@ -25,8 +26,9 @@ function readStoredLoanFiles(): LoanFile[] | null {
 }
 
 /**
- * Loan files SSOT for client workspaces.
- * Production / prisma: never hydrate demo generators or sticky localStorage demo rows.
+ * Loan files projection loader for client workspaces.
+ * When Enterprise Deal Registry is operational, durable SSOT is Postgres —
+ * localStorage may hold a stale cache for Soft Go-Live only.
  */
 export function loadLoanFiles(): LoanFile[] {
   if (!isDemoSeedEnabled()) {
@@ -38,15 +40,44 @@ export function loadLoanFiles(): LoanFile[] {
   return stored;
 }
 
-export function saveLoanFiles(files: LoanFile[]): void {
+export function saveLoanFiles(
+  files: LoanFile[],
+  options?: {
+    /** Default true. Pipeline lenders-only persist sets false to avoid remount hang. */
+    notify?: boolean;
+    /** Default true. Pipeline lenders-only persist sets false (uses snapshot path). */
+    queueDualWrite?: boolean;
+  },
+): void {
   if (typeof window === "undefined") return;
+  const notify = options?.notify !== false;
+  const queueDualWrite = options?.queueDualWrite !== false;
+
+  // CO-STAB-002 — Enterprise Deal Registry is SSOT: do not persist Deal business
+  // state to LoanFile localStorage (projection notify only). Soft Go-Live rollback
+  // (Registry not operational + BLOCK flag off) still writes localStorage.
+  if (isLoanFileLocalStorageWriteForbidden()) {
+    if (notify) notifyLoanFilesUpdated();
+    return;
+  }
+
   if (!isDemoSeedEnabled() && files.length === 0) {
     localStorage.removeItem(STORAGE_KEYS.LOAN_FILES_DATA);
-    notifyLoanFilesUpdated();
+    if (notify) notifyLoanFilesUpdated();
     return;
   }
   localStorage.setItem(STORAGE_KEYS.LOAN_FILES_DATA, JSON.stringify(files));
-  notifyLoanFilesUpdated();
+  if (notify) notifyLoanFilesUpdated();
+  // Soft Go-Live secondary persist — no-ops when Registry becomes operational
+  if (queueDualWrite) {
+    void import("@/lib/enterprise-deal/dual-write")
+      .then(({ queueDealDualWriteAfterLocalSave }) => {
+        queueDealDualWriteAfterLocalSave(files);
+      })
+      .catch(() => {
+        /* dual-write module load failure must not affect Soft Go-Live */
+      });
+  }
 }
 
 export function loadCustomSavedViews(): SavedViewPreset[] {

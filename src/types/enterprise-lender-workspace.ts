@@ -72,6 +72,14 @@ export interface ElwLenderProfile {
   lenderRef: string;
   name: string;
   code: string;
+  /** CO-ARCH-004 master enrichment */
+  legalName?: string;
+  displayName?: string;
+  classification?: string;
+  institutionCategory?: string;
+  website?: string;
+  customerCarePhone?: string;
+  customerCareEmail?: string;
   headquartersCity?: string;
   overview: string;
   metrics: ElwPerformanceMetrics;

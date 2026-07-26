@@ -4,19 +4,24 @@ import { useEffect, useState } from "react";
 import { WorkspaceLoadingState } from "../shared/ui";
 import { ExecutiveDecisionWorkspace } from "../executive-decision-workspace";
 import {
+  BusinessPerformanceSection,
+  EnterpriseHealthSection,
+  ExecutiveActionsSection,
   ExecutiveBriefCard,
   ExecutiveGreeting,
+  ExecutiveStatusCards,
   QuickActions,
 } from "./components";
 import { createExecutiveBriefingService } from "./services";
 import type { ExecutiveBriefingPageModel } from "./types";
 
 /**
- * CHANAKYA Executive Briefing — Mission Control landing experience.
- * Decision Workspace renders below the brief; Quick Actions remain at the footer.
+ * CO-SPRINT-094 — CHANAKYA Executive Decision Dashboard.
+ * Briefing → Status cards → Business performance → Actions → Enterprise health
+ * → Executive Decision Workspace (approved architecture mount).
  */
 export function ExecutiveBriefingPage({
-  userDisplayName = "Executive",
+  userDisplayName = "Rahul",
 }: {
   userDisplayName?: string;
 }) {
@@ -39,11 +44,15 @@ export function ExecutiveBriefingPage({
   }
 
   return (
-    <div className="space-y-6 md:space-y-8">
+    <div className="space-y-6 pb-8 md:space-y-8">
       <ExecutiveGreeting greeting={model.greeting} />
       <ExecutiveBriefCard brief={model.brief} />
-      <ExecutiveDecisionWorkspace />
+      <ExecutiveStatusCards cards={model.statusCards} />
+      <BusinessPerformanceSection model={model.businessPerformance} />
+      <ExecutiveActionsSection model={model.executiveActions} />
+      <EnterpriseHealthSection indicators={model.enterpriseHealth} />
       <QuickActions actions={model.quickActions} />
+      <ExecutiveDecisionWorkspace />
     </div>
   );
 }

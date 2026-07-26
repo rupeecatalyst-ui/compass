@@ -26,7 +26,13 @@ export function clearStoredUser(): void {
 
 function setAuthCookie(name: string, value: string, maxAgeDays = 7): void {
   if (typeof document === "undefined") return;
-  document.cookie = `${name}=${value}; path=/; max-age=${maxAgeDays * 86400}; SameSite=Lax`;
+  const secure =
+    typeof window !== "undefined" && window.location.protocol === "https:"
+      ? "; Secure"
+      : "";
+  // CO-STAB-001 — SameSite=Lax + Secure on HTTPS. HttpOnly migration tracked as future enhancement
+  // (requires Set-Cookie from auth API; tokens today mirror to document.cookie for middleware presence).
+  document.cookie = `${name}=${value}; path=/; max-age=${maxAgeDays * 86400}; SameSite=Lax${secure}`;
 }
 
 function clearAuthCookie(name: string): void {

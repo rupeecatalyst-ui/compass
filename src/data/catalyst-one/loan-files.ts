@@ -1,4 +1,4 @@
-import { generateLoanFiles, defaultSavedViews, LOAN_LENDERS, LOAN_MANAGERS, LOAN_PRODUCTS, loanFilePriorityOptions, loanFileStatusOptions } from "@/data/catalyst-one/generate-loan-files";
+import { generateLoanFiles, defaultSavedViews, LOAN_MANAGERS, LOAN_PRODUCTS, loanFilePriorityOptions, loanFileStatusOptions } from "@/data/catalyst-one/generate-loan-files";
 import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { normalizeLoanFile } from "@/lib/loan-validation";
 import type { LoanFile } from "@/types/catalyst-one";
@@ -14,7 +14,11 @@ export function getInitialLoanFiles(): LoanFile[] {
 }
 
 export const loanProducts = [...LOAN_PRODUCTS];
-export const loanLenders = [...LOAN_LENDERS];
+/**
+ * @deprecated CO-LENDER-ARCH-001 — Do not use for selection.
+ * Call `listPublishedLenderDisplayNames()` from Enterprise Lender Registry.
+ */
+export const loanLenders: string[] = [];
 export const loanManagers = [...LOAN_MANAGERS];
 export const savedViews = defaultSavedViews;
 export { loanFileStatusOptions, loanFilePriorityOptions };

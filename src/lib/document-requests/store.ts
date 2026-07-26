@@ -4,6 +4,7 @@
  * Uploads always go to Enterprise Document Registry SSOT.
  */
 
+import { getEcmMasterLabel } from "@/constants/enterprise-contact-master";
 import {
   CUSTOMER_PORTAL_DEFAULT_APPLICATION_STATUS,
   CUSTOMER_PORTAL_DEFAULT_STAGE,
@@ -12,7 +13,11 @@ import {
   DOCUMENT_REQUESTS_UPDATED_EVENT,
 } from "@/constants/document-requests";
 import { listDocumentsForOpportunityRuntime } from "@/lib/document-registry";
-import { generateOpportunityLod } from "@/lib/document-requests/generate-lod";
+import {
+  EdieLodCertificationError,
+  generateOpportunityLod,
+} from "@/lib/document-requests/generate-lod";
+import { evaluateDocumentRequestLodReadiness } from "@/lib/document-requests/lod-readiness";
 import {
   buildLodDimensionKey,
   mergeLodItemsWithPrior,
@@ -244,6 +249,32 @@ export function generateAndPersistLod(input: {
   actor: string;
   opportunityReference?: string;
 }): DocumentRequestWorkspaceState {
+  const entityHint = input.runtimeFile?.participants?.find((p) => p.entityType === "company")
+    ? "company"
+    : undefined;
+  const gate = evaluateDocumentRequestLodReadiness({
+    customerName: "validated",
+    mobile: "validated",
+    email: "validated",
+    productLabel: input.productLabel,
+    employmentType: input.employmentType,
+    borrowerCategory: input.borrowerCategory,
+    constitution:
+      input.constitution?.trim() ||
+      (input.runtimeFile
+        ? input.runtimeFile.businessDetails?.constitution ||
+          input.runtimeFile.participants?.find((p) => p.entityType === "company")?.constitution
+        : undefined),
+    entityHint,
+  });
+  if (!gate.canGenerate) {
+    throw new EdieLodCertificationError(
+      gate.chanakyaMessage ||
+        "EDIE certified checklist validation failed. LOD was not generated.",
+      gate.gaps,
+    );
+  }
+
   const lod = generateOpportunityLod(input);
   const now = new Date().toISOString();
   const current = getDocumentRequestState(input.opportunityId);
@@ -266,7 +297,10 @@ export function generateAndPersistLod(input: {
   }
 
   const borrowerTypeLabel = formatBorrowerLabel(input.employmentType, input.borrowerCategory);
-  const constitutionLabel = (input.constitution || "").trim() || "—";
+  const constitutionLabel =
+    getEcmMasterLabel("constitution", (input.constitution || "").trim()) ||
+    (input.constitution || "").trim() ||
+    "—";
   const productLabel = input.productLabel || "—";
   const versionNumber = nextLodVersionNumber(priorVersions);
   const snapshot: DocumentRequestLodVersionSnapshot = {
@@ -495,6 +529,11 @@ export function recordDocumentRequestCommunication(
 
 export function buildCustomerUploadPortalPath(token: string): string {
   return `/document-upload/${encodeURIComponent(token)}`;
+}
+
+/** CO-BIZ-004 — Full customer engagement shell (dashboard · tasks · docs · timeline). */
+export function buildCustomerEngagementPortalPath(token: string): string {
+  return `/customer-engagement/${encodeURIComponent(token)}`;
 }
 
 export function markItemRemarks(

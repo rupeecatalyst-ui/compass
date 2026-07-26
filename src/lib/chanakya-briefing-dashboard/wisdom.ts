@@ -12,7 +12,7 @@ const CHANAKYA_WISDOM: { quote: string; actionHint: string; href: string; label:
   {
     quote: "A lender who has not replied in three days is not silent — they are waiting for you.",
     actionHint: "Your logged-in cases need banker follow-up before credit review stalls.",
-    href: "/loan-files?stage=logged_in",
+    href: "/my-deals?stage=logged_in",
     label: "Follow Up Lenders",
   },
   {
@@ -30,7 +30,7 @@ const CHANAKYA_WISDOM: { quote: string; actionHint: string; href: string; label:
   {
     quote: "When credit raises a query, answer it the same day — speed is your competitive edge.",
     actionHint: "Nine credit queries are open on your pipeline.",
-    href: "/loan-files?filter=credit_queries",
+    href: "/my-deals?filter=credit_queries",
     label: "Resolve Credit Queries",
   },
 ];

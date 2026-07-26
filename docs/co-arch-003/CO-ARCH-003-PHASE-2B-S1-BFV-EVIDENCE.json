@@ -1,0 +1,376 @@
+{
+  "at": "2026-07-23T20:26:05.806Z",
+  "organizationId": "cmrtlilr60001weys1xv2uu5t",
+  "totals": {
+    "pass": 56,
+    "fail": 0
+  },
+  "byTest": {
+    "WIRE": {
+      "pass": 11,
+      "fail": 0
+    },
+    "T1": {
+      "pass": 12,
+      "fail": 0
+    },
+    "T2": {
+      "pass": 7,
+      "fail": 0
+    },
+    "T4": {
+      "pass": 9,
+      "fail": 0
+    },
+    "T3": {
+      "pass": 3,
+      "fail": 0
+    },
+    "T5": {
+      "pass": 5,
+      "fail": 0
+    },
+    "T6": {
+      "pass": 9,
+      "fail": 0
+    }
+  },
+  "checks": [
+    {
+      "test": "WIRE",
+      "name": "Source present: workbench",
+      "ok": true,
+      "detail": "src/constants/accounting-workbench.ts"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: masterUi",
+      "ok": true,
+      "detail": "src/components/catalyst-one/accounting/invoice-party-master-workbench.tsx"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: accountingPage",
+      "ok": true,
+      "detail": "src/app/(dashboard)/accounting/page.tsx"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: accountingWs",
+      "ok": true,
+      "detail": "src/components/catalyst-one/accounting/accounting-workspace.tsx"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: field",
+      "ok": true,
+      "detail": "src/components/catalyst-one/shared/commercial-payee-field.tsx"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: loanModal",
+      "ok": true,
+      "detail": "src/components/catalyst-one/shared/loan-workspace-modal.tsx"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: pipeline",
+      "ok": true,
+      "detail": "src/components/catalyst-one/execution/lender-pipeline-board.tsx"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: constants",
+      "ok": true,
+      "detail": "src/constants/invoice-party.ts"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: assert",
+      "ok": true,
+      "detail": "server/services/enterprise-deal/deal-invoice-party.ts"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: api",
+      "ok": true,
+      "detail": "src/app/api/invoice-parties/route.ts"
+    },
+    {
+      "test": "WIRE",
+      "name": "Source present: apiAlias",
+      "ok": true,
+      "detail": "src/app/api/accounting-payees/route.ts"
+    },
+    {
+      "test": "T1",
+      "name": "Accounting nav includes Invoice Party Master",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T1",
+      "name": "Add Invoice Party CTA present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T1",
+      "name": "Master searches Contact Registry (LiveEntityMasterSearch)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T1",
+      "name": "Master searches Company Registry",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T1",
+      "name": "Master creates via Invoice Party API (no Contact create)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T2",
+      "name": "Deal Invoice Party field loads Master only (listActive)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T2",
+      "name": "Deal field label is Invoice Party",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T4",
+      "name": "Required stage is configurable constant (not hard-coded gate only)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T4",
+      "name": "Approved Chanakya validation message present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T4",
+      "name": "Lender Pipeline uses configurable Invoice Party gate",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T4",
+      "name": "Deal transition assert uses Invoice Party Master id",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T1",
+      "name": "Create Contact in Enterprise Contact Registry",
+      "ok": true,
+      "detail": "c08f3b35d91c7fcbbf82b91a1"
+    },
+    {
+      "test": "T1",
+      "name": "Create Company in Enterprise Company Registry",
+      "ok": true,
+      "detail": "c7d60f3d68c71880e4e40fe83"
+    },
+    {
+      "test": "T1",
+      "name": "Create linked Invoice Party Master record",
+      "ok": true,
+      "detail": "c9af4c0e656f35ab42edfb4fd"
+    },
+    {
+      "test": "T1",
+      "name": "Invoice Party references existing Contact",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T1",
+      "name": "Accounting fields saved (GSTIN/PAN/email/TDS/GST)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T1",
+      "name": "No duplicate Contact created by Invoice Party create (+1 expected for test contact only)",
+      "ok": true,
+      "detail": "before=8 after=9"
+    },
+    {
+      "test": "T3",
+      "name": "1:0..1 — duplicate Invoice Party for same Contact blocked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T1",
+      "name": "Company-linked Invoice Party created",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T2",
+      "name": "Active Invoice Party Master list non-empty",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T3",
+      "name": "Every Invoice Party references Contact or Company",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T2",
+      "name": "Contact that is NOT an Invoice Party does not appear in Master list",
+      "ok": true,
+      "detail": "cec07b24e8a249420fbaaff8f"
+    },
+    {
+      "test": "T5",
+      "name": "Create Opportunity",
+      "ok": true,
+      "detail": "OPP-2026-000003"
+    },
+    {
+      "test": "T5",
+      "name": "Lenders available for multi-Deal",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T5",
+      "name": "Create Deal without Invoice Party",
+      "ok": true,
+      "detail": "DEAL-2026-000008"
+    },
+    {
+      "test": "T2",
+      "name": "Create Deal with Invoice Party assigned",
+      "ok": true,
+      "detail": "DEAL-2026-000009"
+    },
+    {
+      "test": "T2",
+      "name": "Invoice Party FK saved on Deal",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T2",
+      "name": "Invoice Party persists after reload (reopen)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T3",
+      "name": "One Invoice Party usable across multiple Deals",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T5",
+      "name": "Opportunity–Deal relationship intact (3 Deals)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T5",
+      "name": "All Deals reference same Opportunity",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T4",
+      "name": "Chanakya blocks progression beyond Logged In without Invoice Party",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T4",
+      "name": "Correct validation message appears",
+      "ok": true,
+      "detail": "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proc"
+    },
+    {
+      "test": "T4",
+      "name": "Validation clears when Invoice Party assigned — progression allowed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T4",
+      "name": "After assigning Invoice Party, Deal can proceed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T4",
+      "name": "Configured stage semantics: Logged In itself not hard-blocked (beyond-stage gate)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T6",
+      "name": "Opportunity Registry table intact",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T6",
+      "name": "Deal Registry table intact",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T6",
+      "name": "Contact Registry table intact",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T6",
+      "name": "Company Registry table intact",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T6",
+      "name": "Invoice Party uniqueness indexes present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T6",
+      "name": "Deal → Invoice Party FK constraint intact",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T6",
+      "name": "Invoice Party API route exists",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T6",
+      "name": "Legacy accounting-payees API alias exists",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "T6",
+      "name": "Accounting page routes to AccountingWorkspace",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -8,9 +8,12 @@
  *   node scripts/co-sprint-118-verify.mjs http://localhost:3000
  */
 
+import { requireEnv, INSECURE_JWT_DENYLIST } from "./_lib/require-env.mjs";
+
+
 const BASE = (process.argv[2] || process.env.SMOKE_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 const EMAIL = process.env.SMOKE_EMAIL || "admin@rupeecatalyst.com";
-const PASSWORD = process.env.SMOKE_PASSWORD || "Rc7$mK9pL2#vNq4X";
+const PASSWORD = requireEnv("SMOKE_PASSWORD");
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);

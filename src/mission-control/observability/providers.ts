@@ -1,6 +1,6 @@
 /**
  * Enterprise Observability Center — providers.
- * Consumes Enterprise Observability Framework (no telemetry / APIs / DB).
+ * Consumes Enterprise Observability Framework; CO-OPS-002 enriches with live Ops Health.
  */
 
 import {
@@ -300,6 +300,146 @@ export function createDependencyProvider(): DependencyProvider {
   };
 }
 
+function mapOpsStatus(status: string): ObservabilityHealth {
+  return asHealth(status);
+}
+
+/** CO-OPS-002 — Merge live System Health into Observability Center (no UI redesign). */
+async function enrichWithOpsHealth(
+  model: ObservabilityCenterModel,
+): Promise<ObservabilityCenterModel> {
+  try {
+    const { fetchOpsHealthClient } = await import("@/lib/ops/fetch-ops-health-client");
+    const live = await fetchOpsHealthClient();
+    if (!live) return model;
+
+    const platformHealth: PlatformHealthIndicator[] = [
+      {
+        id: "ops-application",
+        label: "Application Status",
+        status: mapOpsStatus(live.applicationStatus),
+        detail: live.summary,
+      },
+      {
+        id: "ops-database",
+        label: "Database Status",
+        status: mapOpsStatus(live.databaseStatus),
+        detail: live.databaseConnected
+          ? `Connected · ${live.persistenceMode}`
+          : "Health check failed",
+      },
+      {
+        id: "ops-authentication",
+        label: "Authentication Status",
+        status: mapOpsStatus(live.authenticationStatus),
+        detail: "JWT configuration posture (secret presence only)",
+      },
+      {
+        id: "ops-api",
+        label: "API Health",
+        status: mapOpsStatus(live.apiHealth),
+        detail: `Error rate ~${live.errorRatePct}% (this instance window)`,
+      },
+      {
+        id: "ops-migrations",
+        label: "Migration Status",
+        status: mapOpsStatus(live.migrationStatus),
+        detail: live.lastMigrationApplied ?? "No migration recorded",
+      },
+      ...model.platformHealth,
+    ];
+
+    const performance: PerformanceMetric[] = [
+      {
+        id: "ops-avg-response",
+        label: "Average Response Time",
+        valueLabel:
+          live.averageResponseMs == null ? "—" : `${live.averageResponseMs} ms`,
+        trendLabel: "In-process samples",
+        status: mapOpsStatus(live.apiHealth),
+      },
+      {
+        id: "ops-error-rate",
+        label: "Error Rate",
+        valueLabel: `${live.errorRatePct}%`,
+        trendLabel: "Recent API window",
+        status: mapOpsStatus(live.apiHealth),
+      },
+      {
+        id: "ops-active-users",
+        label: "Active Users (estimate)",
+        valueLabel:
+          live.activeUsersEstimate == null
+            ? "—"
+            : String(live.activeUsersEstimate),
+        trendLabel: "15-minute actor window",
+        status: "healthy",
+      },
+      ...live.topSlowEndpoints.slice(0, 5).map((e, i) => ({
+        id: `ops-slow-${i}`,
+        label: `Slow · ${e.method} ${e.endpoint}`,
+        valueLabel: `avg ${e.avgMs} ms (max ${e.maxMs})`,
+        trendLabel: `${e.samples} samples`,
+        status: e.avgMs >= 2000 ? ("degraded" as ObservabilityHealth) : ("healthy" as ObservabilityHealth),
+      })),
+      ...model.performance,
+    ];
+
+    const errors: ErrorTimelineEvent[] = [
+      ...live.recentErrors.slice(0, 15).map((e) => ({
+        id: e.id,
+        title: `${e.code}`,
+        summary: e.message,
+        severity: asSeverity(e.httpStatus && e.httpStatus >= 500 ? "high" : "medium"),
+        sourceModule: String(e.module),
+        occurredAt: e.at,
+        acknowledgeAction: { label: "Acknowledge" },
+      })),
+      ...model.errors,
+    ];
+
+    const healthyCount = platformHealth.filter((p) => p.status === "healthy").length;
+    const degradedCount = platformHealth.filter((p) => p.status !== "healthy").length;
+
+    return {
+      ...model,
+      summary: {
+        ...model.summary,
+        title: "Enterprise Observability · Live Ops",
+        postureLabel: live.alerts.some((a) => a.severity === "critical")
+          ? "Attention required"
+          : "Operational",
+        summary: live.summary,
+        asOf: live.asOf,
+        healthyCount,
+        degradedCount,
+        sourceModules: [
+          "CO-OPS-002",
+          "Build Information",
+          ...model.summary.sourceModules,
+        ],
+      },
+      platformHealth,
+      performance,
+      errors,
+      availability: {
+        ...model.availability,
+        overallLabel: live.alerts.some((a) => a.severity === "critical")
+          ? "Impaired"
+          : "Available",
+        status: mapOpsStatus(
+          live.alerts.some((a) => a.severity === "critical")
+            ? "impaired"
+            : live.applicationStatus,
+        ),
+        summary: live.summary,
+      },
+    };
+  } catch {
+    return model;
+  }
+}
+
 export function createObservabilityCenterProvider(): ObservabilityCenterProvider {
   const platform = createPlatformHealthProvider();
   const engines = createEngineHealthProvider();
@@ -335,7 +475,7 @@ export function createObservabilityCenterProvider(): ObservabilityCenterProvider
         deps.listProviders(),
       ]);
 
-      return {
+      const base: ObservabilityCenterModel = {
         summary,
         platformHealth,
         engines: engineList,
@@ -348,6 +488,7 @@ export function createObservabilityCenterProvider(): ObservabilityCenterProvider
         dependencies,
         providers,
       };
+      return enrichWithOpsHealth(base);
     },
   };
 }

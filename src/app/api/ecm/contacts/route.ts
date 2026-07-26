@@ -3,9 +3,14 @@ import {
   fromAuthError,
   requireAccessToken,
   successResponse,
+  withOpsRoute,
 } from "@/lib/api/auth-route-utils";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
-import { configureEcmPersistencePorts, syncEcmPortsFromPrisma } from "@/lib/enterprise-persistence";
+import {
+  configureEcmPersistencePorts,
+  syncEcmPortsFromPrisma,
+} from "@/lib/enterprise-persistence/server";
+import { recordBusinessAudit } from "@/lib/ops";
 import { ecmContactService } from "@server/services/ecm/contact.service";
 import type { ApiResponse } from "@/types/api";
 import type { EcmContactQuery, EcmContactRole, EcmContactStatus } from "@/types/enterprise-contact-master";
@@ -30,6 +35,8 @@ export async function GET(request: Request) {
       sortDir: (url.searchParams.get("sortDir") as "asc" | "desc") ?? "desc",
       status: (url.searchParams.get("status") as EcmContactQuery["status"]) ?? "active",
       roles: url.searchParams.get("roles")?.split(",").filter(Boolean) as EcmContactRole[] | undefined,
+      createdFrom: url.searchParams.get("createdFrom") ?? undefined,
+      createdTo: url.searchParams.get("createdTo") ?? undefined,
     };
     const result = await ecmContactService.query(query);
     await syncEcmPortsFromPrisma();
@@ -44,34 +51,62 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  try {
-    persistenceGuard();
-    configureEcmPersistencePorts();
-    const actor = requireAccessToken(request);
-    const body = await request.json();
-    const contact = await ecmContactService.register({
-      name: String(body.name ?? ""),
-      mobilePrimary: String(body.mobilePrimary ?? ""),
-      createdBy: actor.userId,
-      mobileSecondary: body.mobileSecondary,
-      personalEmail: body.personalEmail,
-      officialEmail: body.officialEmail,
-      city: body.city,
-      state: body.state,
-      roles: body.roles,
-      primaryRole: body.primaryRole,
-      status: body.status as EcmContactStatus | undefined,
-      ownerName: body.ownerName,
-      ownerId: body.ownerId,
-      strategicContact: body.strategicContact,
-    });
-    await syncEcmPortsFromPrisma();
-    return successResponse(contact, 201);
-  } catch (err) {
-    if (typeof err === "object" && err !== null && "status" in err) {
-      return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
-    }
-    const message = err instanceof Error ? err.message : "Failed to create contact";
-    return errorResponse(400, "ECM_CREATE_FAILED", message);
-  }
+  return withOpsRoute(
+    request,
+    { module: "Customer", action: "create", endpoint: "/api/ecm/contacts" },
+    async ({ correlationId }) => {
+      try {
+        persistenceGuard();
+        configureEcmPersistencePorts();
+        const actor = requireAccessToken(request);
+        const body = await request.json();
+        const contact = await ecmContactService.register({
+          name: String(body.name ?? ""),
+          mobilePrimary: String(body.mobilePrimary ?? ""),
+          createdBy: actor.userId,
+          mobileSecondary: body.mobileSecondary,
+          personalEmail: body.personalEmail,
+          officialEmail: body.officialEmail,
+          city: body.city,
+          state: body.state,
+          roles: body.roles,
+          primaryRole: body.primaryRole,
+          status: body.status as EcmContactStatus | undefined,
+          ownerName: body.ownerName,
+          ownerId: body.ownerId,
+          strategicContact: body.strategicContact,
+        });
+        await syncEcmPortsFromPrisma();
+        const entityId =
+          contact && typeof contact === "object" && "id" in contact
+            ? String((contact as { id: unknown }).id)
+            : null;
+        recordBusinessAudit({
+          actorUserId: actor.userId,
+          module: "Customer",
+          action: "Customer Created",
+          entityId,
+          previousValue: null,
+          newValue: entityId ? `contact:${entityId}` : "created",
+          result: "Success",
+          correlationId,
+        });
+        return successResponse(contact, 201, correlationId);
+      } catch (err) {
+        if (typeof err === "object" && err !== null && "status" in err) {
+          return fromAuthError(err as { status: number; body: ApiResponse<unknown> }, {
+            correlationId,
+            endpoint: "/api/ecm/contacts",
+          });
+        }
+        const message = err instanceof Error ? err.message : "Failed to create contact";
+        return errorResponse(400, "ECM_CREATE_FAILED", message, undefined, {
+          correlationId,
+          module: "Customer",
+          action: "create",
+          endpoint: "/api/ecm/contacts",
+        });
+      }
+    },
+  );
 }

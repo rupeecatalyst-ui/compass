@@ -13,6 +13,7 @@ import {
 } from "@/components/catalyst-one/customers/customers-context";
 import { CustomersListView } from "@/components/catalyst-one/customers/customers-list-view";
 import { CustomersToolbar } from "@/components/catalyst-one/customers/customers-toolbar";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
 function CustomersQuerySync() {
   const searchParams = useSearchParams();
@@ -34,9 +35,10 @@ function CustomersInner() {
 
   if (!mounted) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-background">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
+      <ChanakyaLoadingExperience
+        module="customers"
+        statusLabel="Opening Customers…"
+      />
     );
   }
 
@@ -63,9 +65,10 @@ export function CustomersWorkspace() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-background">
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <ChanakyaLoadingExperience
+          module="customers"
+          statusLabel="Opening Customers…"
+        />
       }
     >
       <CustomersProvider>

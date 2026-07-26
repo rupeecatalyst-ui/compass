@@ -6,7 +6,8 @@
 
 import { ROUTES } from "@/constants/routes";
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
-import { loadLoanFiles } from "@/lib/loan-files-storage";
+import { loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import type { LoanFile } from "@/types/catalyst-one";
 
 const STORAGE_KEY = "c1:opportunity-active-loan";
@@ -66,7 +67,7 @@ function normalizeMobile(value?: string): string {
 
 function loadAllLoanFiles(): LoanFile[] {
   if (typeof window === "undefined") return getInitialLoanFiles();
-  return loadLoanFiles() ?? getInitialLoanFiles();
+  return loadDealsSync("opportunity_workspace").files;
 }
 
 /** Match loans to an opportunity via remembered link + contact identity. */
@@ -115,18 +116,17 @@ export function buildOpportunityLoanWorkspaceHref(input: {
   /** Explicit request to show the list even when a single loan is known. */
   browseAll?: boolean;
 }): string {
-  const params = new URLSearchParams({
-    from: "opportunity_workspace",
-    opportunityId: input.opportunityId,
-  });
   if (input.browseAll) {
-    params.set("browse", "1");
-  } else {
-    const fileId = resolveActiveLoanFileIdForOpportunity(
-      input.opportunityId,
-      input.contact,
-    );
-    if (fileId) params.set("file", fileId);
+    return ROUTES.MY_DEALS;
   }
-  return `${ROUTES.LOAN_FILES}?${params.toString()}`;
+  const fileId = resolveActiveLoanFileIdForOpportunity(
+    input.opportunityId,
+    input.contact,
+  );
+  if (!fileId) return ROUTES.MY_DEALS;
+  return buildDealWorkspaceHref({
+    fileId,
+    opportunityId: input.opportunityId,
+    tab: "lenders",
+  });
 }

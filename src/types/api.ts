@@ -11,6 +11,8 @@ export interface ApiError {
   message: string;
   details?: Record<string, string[]>;
   statusCode?: number;
+  /** CO-OPS-002 — request correlation for production diagnostics */
+  correlationId?: string;
 }
 
 export interface ApiMeta {

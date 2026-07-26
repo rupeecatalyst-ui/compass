@@ -30,6 +30,7 @@ export function EmailContextWorkspace({
   fileNumber,
   rm,
   participants,
+  preferredRecipientId,
   editingMessage,
 }: {
   open: boolean;
@@ -42,6 +43,8 @@ export function EmailContextWorkspace({
   fileNumber?: string;
   rm?: string;
   participants: ContextParticipant[];
+  /** CO-UX-015 — pre-select resolved recipient (Email to Lender / Customer / …). */
+  preferredRecipientId?: string;
   editingMessage?: OutboxMessage | null;
 }) {
   const [recipientId, setRecipientId] = useState("");
@@ -84,9 +87,14 @@ export function EmailContextWorkspace({
       setBody(editingMessage.body);
       return;
     }
-    setRecipientId(participants[0]?.id ?? "");
+    const preferred =
+      preferredRecipientId &&
+      participants.some((p) => p.id === preferredRecipientId)
+        ? preferredRecipientId
+        : participants[0]?.id ?? "";
+    setRecipientId(preferred);
     setChanakyaHint(null);
-  }, [open, editingMessage, participants]);
+  }, [open, editingMessage, participants, preferredRecipientId]);
 
   useEffect(() => {
     if (!open || editingMessage) return;
@@ -265,4 +273,4 @@ export function EmailContextWorkspace({
     </ContextWorkspaceShell>
   );
 }
-
+

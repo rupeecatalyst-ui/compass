@@ -6,6 +6,7 @@
  */
 
 import { normalizeLenderCaseStage } from "@/constants/lender-pipeline";
+import { isPayeeCaptured } from "@/lib/loan-payee";
 import type { LoanFile, LoanLenderExecution } from "@/types/catalyst-one";
 import type {
   WorkspaceIntelligenceMessage,
@@ -193,6 +194,17 @@ export function buildLoanWorkspaceIntelligenceMessages(
   }
 
   // ── Priority 2 — Action required ───────────────────────────────────────
+  if (!isPayeeCaptured(loan) && (loan.payeeStatus === "deferred" || loan.payeeStatus === "pending")) {
+    items.push(
+      msg(loan, {
+        id: "payee-pending",
+        text: "Payee information is still pending.",
+        tone: "warning",
+        priority: "action",
+      }),
+    );
+  }
+
   const pendingDocs = docs.filter((d) => d.status === "pending");
   if (pendingDocs.length > 0) {
     items.push(

@@ -1,13 +1,19 @@
 /**
- * LIFE case context resolver — CF-LIFE-001.
- * Collects engine inputs from Loan / Contact / Role context.
+ * LIFE case context resolver — CF-LIFE-001 / FS-01.
+ * Collects engine inputs from Opportunity runtime (+ optional Deal attachment).
  * Never exposed as editable UI filters.
- *
- * Once Loan Journey is certified, prefer Loan File fields via the same
- * `LifeCaseContextInput` shape — the recommendation UI stays unchanged.
  */
 
 import { loadLoanFiles } from "@/lib/loan-files-storage";
+import {
+  getActiveOpportunityContext,
+} from "@/lib/lead-opportunity-journey/active-context";
+import {
+  getCachedOpportunityRecord,
+  isOpportunityRuntimeCase,
+  peekOpportunityRuntimeCase,
+  resolveOpportunityRuntimeCaseSync,
+} from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import type { LoanFile } from "@/types/catalyst-one";
 import type {
   LifeCaseContext,
@@ -15,7 +21,8 @@ import type {
   LifeContextBlocker,
   LifeLenderSelectionCriteria,
 } from "@/types/enterprise-life-engine";
-import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
+import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 
 const WEST_CITIES = new Set(
   ["mumbai", "pune", "nagpur", "nashik", "ahmedabad", "surat", "vadodara", "indore"].map((c) =>
@@ -50,17 +57,26 @@ export function deriveLifeBusinessMappingRef(city: string | undefined): string |
 }
 
 function fromLoanFile(file: LoanFile): LifeCaseContext {
-  const customerCity = file.city?.trim() || undefined;
+  const oppId =
+    file.enterpriseOpportunityId?.trim() ||
+    (file as LoanFile & { opportunityId?: string }).opportunityId?.trim() ||
+    (isOpportunityRuntimeCase(file) ? file.id : undefined);
+  const oppCity = oppId
+    ? getCachedOpportunityRecord(oppId)?.cityLabel?.trim() || undefined
+    : undefined;
+  // CO-CHANAKYA-001 — Prefer projected file.city (from Opportunity.cityLabel); Registry fallback.
+  const customerCity = file.city?.trim() || oppCity || undefined;
   // Until Loan Journey certifies a dedicated property city field, use loan city.
   const propertyCity = customerCity;
   const productLabel = file.loanProduct?.trim() || undefined;
   const productRef = mapLifeProductLabelToRef(productLabel);
   const resolvedCity = propertyCity || customerCity;
   const businessMappingRef = deriveLifeBusinessMappingRef(resolvedCity);
+  const opportunityRuntime = isOpportunityRuntimeCase(file);
 
   return {
-    source: "loan_file",
-    loanFileId: file.id,
+    source: opportunityRuntime ? "opportunity" : "loan_file",
+    loanFileId: opportunityRuntime ? undefined : file.id,
     loanFileNumber: file.fileNumber,
     customerName: file.customerName,
     productRef,
@@ -76,7 +92,8 @@ function fromLoanFile(file: LoanFile): LifeCaseContext {
 
 /**
  * Resolves recommendation context from available case sources.
- * Priority: explicit Loan File → opportunity/contact provisional → none.
+ * FS-01 priority: explicit file → Opportunity runtime → legacy LoanFile by id → provisional.
+ * Never picks an unrelated open LoanFile as authority.
  */
 export function resolveLifeCaseContext(input: LifeCaseContextInput = {}): LifeCaseContext {
   if (input.loanFile) {
@@ -84,14 +101,22 @@ export function resolveLifeCaseContext(input: LifeCaseContextInput = {}): LifeCa
   }
 
   if (typeof window !== "undefined") {
+    const active = getActiveOpportunityContext();
+    const opportunityId = active?.opportunityId?.trim();
+    if (opportunityId) {
+      const runtime =
+        peekOpportunityRuntimeCase(opportunityId) ||
+        resolveOpportunityRuntimeCaseSync({ opportunityId });
+      if (runtime) return fromLoanFile(runtime);
+    }
+
     const files = loadLoanFiles();
     if (input.loanFileId) {
-      const match = files.find((f) => f.id === input.loanFileId || f.fileNumber === input.loanFileId);
+      const match = files.find(
+        (f) => f.id === input.loanFileId || f.fileNumber === input.loanFileId,
+      );
       if (match) return fromLoanFile(match);
     }
-    // Temporary: consume best-available open loan context until Loan Journey wiring lands
-    const active = files.find((f) => !f.archived && f.status !== "completed") ?? files[0];
-    if (active) return fromLoanFile(active);
   }
 
   if (input.provisional) {
@@ -135,8 +160,11 @@ export function evaluateLifeContextBlockers(context: LifeCaseContext): LifeConte
         "I need the loan product on this file before I can recommend the right lender executives.",
       actionLabel: "Continue Loan Journey",
       actionHref: context.loanFileId
-        ? `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(context.loanFileId)}`
-        : ROUTES.LOAN_FILES,
+        ? buildDealWorkspaceHref({ fileId: context.loanFileId, tab: "lenders" })
+        : buildCanonicalJourneyStageHref("lead_creation", {
+            opportunityId: getActiveOpportunityContext()?.opportunityId ?? null,
+            fileId: null,
+          }),
       actionKind: "select_loan_product",
     });
   }
@@ -149,22 +177,27 @@ export function evaluateLifeContextBlockers(context: LifeCaseContext): LifeConte
         "Add the customer or property city on the Loan File so I can recommend executives in the right geography.",
       actionLabel: "Continue Loan Journey",
       actionHref: context.loanFileId
-        ? `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(context.loanFileId)}`
-        : ROUTES.LOAN_FILES,
+        ? buildDealWorkspaceHref({ fileId: context.loanFileId, tab: "lenders" })
+        : buildCanonicalJourneyStageHref("lead_creation", {
+            opportunityId: getActiveOpportunityContext()?.opportunityId ?? null,
+            fileId: null,
+          }),
       actionKind: "complete_property_details",
     });
   }
 
   if (!context.loanFileId && context.source === "provisional" && blockers.length === 0) {
-    // Edge: empty provisional with product/city somehow — still prefer a loan anchor
     if (!context.productRef) {
       blockers.push({
         code: "LIFE_MISSING_LOAN_CONTEXT",
-        title: "Open a Loan Journey with me",
+        title: "Open an Opportunity with me",
         message:
-          "Start or open a Loan File so I can recommend lender executives from real case context.",
-        actionLabel: "Open Loan Files",
-        actionHref: ROUTES.LOAN_FILES,
+          "Start or open an Opportunity so I can recommend lender executives from real case context.",
+        actionLabel: "Open Opportunities",
+        actionHref: buildCanonicalJourneyStageHref("life", {
+          opportunityId: getActiveOpportunityContext()?.opportunityId ?? null,
+          fileId: null,
+        }),
         actionKind: "open_loan_files",
       });
     }

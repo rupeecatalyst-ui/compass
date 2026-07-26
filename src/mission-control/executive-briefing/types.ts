@@ -15,7 +15,6 @@ export type EnterpriseHealthStatus =
 export interface EnterpriseHealth {
   status: EnterpriseHealthStatus;
   label: string;
-  /** Future API confidence — not calculated locally */
   confidence?: number;
   observedAt?: string;
   sourceModules?: string[];
@@ -27,13 +26,9 @@ export interface ExecutiveGreeting {
   dateLabel: string;
   timeLabel: string;
   health: EnterpriseHealth;
-  /** Future personalization hooks */
   personalizationHints?: string[];
 }
 
-/**
- * AI-ready brief contract — UI accepts these fields without redesign.
- */
 export interface ExecutiveBrief {
   title: string;
   summary: string;
@@ -43,8 +38,56 @@ export interface ExecutiveBrief {
   confidence?: number;
   generatedAt: string;
   sourceModules: string[];
-  /** Placeholder attribution until insight APIs land */
   presentedBy: "CHANAKYA";
+  /** CO-SPRINT-094 — Today's Executive Summary pillars (mock). */
+  summaryPillars?: ExecutiveSummaryPillar[];
+}
+
+export interface ExecutiveSummaryPillar {
+  id: string;
+  label: string;
+  points: string[];
+}
+
+export type ExecutiveStatusDomain = "business" | "technical" | "people" | "risk" | "ai";
+
+export interface ExecutiveStatusMetric {
+  label: string;
+  value: string;
+  hint?: string;
+}
+
+export interface ExecutiveStatusCard {
+  id: ExecutiveStatusDomain;
+  title: string;
+  subtitle: string;
+  tone: "neutral" | "attention" | "positive";
+  metrics: ExecutiveStatusMetric[];
+}
+
+export interface BusinessPerformanceModel {
+  funnel: Array<{ stage: string; value: number }>;
+  products: Array<{ name: string; value: number }>;
+  lenders: Array<{ name: string; value: number }>;
+  conversion: Array<{ label: string; rate: number }>;
+  revenueTrend: Array<{ month: string; revenue: number }>;
+}
+
+export interface ExecutiveActionsModel {
+  priorities: Array<{ id: string; title: string; urgency: string }>;
+  pendingApprovals: Array<{ id: string; title: string; owner: string }>;
+  criticalTasks: Array<{ id: string; title: string; due: string }>;
+  meetings: Array<{ id: string; title: string; when: string }>;
+  notifications: Array<{ id: string; title: string; when: string }>;
+}
+
+export type HealthIndicatorState = "healthy" | "warning";
+
+export interface EnterpriseHealthIndicator {
+  id: string;
+  label: string;
+  state: HealthIndicatorState;
+  detail: string;
 }
 
 export interface PriorityAction {
@@ -87,4 +130,8 @@ export interface ExecutiveBriefingPageModel {
   priorityActions: PriorityAction[];
   highlights: EnterpriseHighlight[];
   quickActions: QuickAction[];
+  statusCards: ExecutiveStatusCard[];
+  businessPerformance: BusinessPerformanceModel;
+  executiveActions: ExecutiveActionsModel;
+  enterpriseHealth: EnterpriseHealthIndicator[];
 }

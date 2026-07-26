@@ -2,16 +2,23 @@
 
 import { Suspense } from "react";
 import { ChanakyaRadarWorkspace } from "@/components/catalyst-one/chanakya-radar";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
 /**
- * CO-SPRINT-100 — Mission Control default landing = CHANAKYA Radar.
- * Matrix retired. Executive Briefing remains at /mission-control/executive-briefing.
+ * CO-SPRINT-100 — `/mission-control` remains CHANAKYA Radar inside the MC shell
+ * (rail item + deep links). Primary sidebar "Mission Control" opens Executive Briefing.
+ * Matrix retired.
  */
 export default function MissionControlLandingPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-6 text-sm text-muted-foreground">Loading CHANAKYA Radar…</div>
+        <ChanakyaLoadingExperience
+          module="mission-control"
+          surface="command"
+          statusLabel="Opening CHANAKYA Radar…"
+          density="panel"
+        />
       }
     >
       <ChanakyaRadarWorkspace />

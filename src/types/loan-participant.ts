@@ -7,6 +7,9 @@ export type LoanParticipantRole =
   | "co_applicant"
   | "guarantor"
   | "company"
+  | "income_contributor"
+  | "authorized_signatory"
+  | "payee"
   | "other";
 
 export type LoanParticipantStatus = "active" | "inactive";
@@ -48,8 +51,11 @@ export const MAX_LOAN_PARTICIPANTS = 9;
 
 export const LOAN_PARTICIPANT_ROLE_LABELS: Record<LoanParticipantRole, string> = {
   primary_applicant: "Borrower",
-  co_applicant: "Co-Borrower",
+  co_applicant: "Co-Applicant",
   guarantor: "Guarantor",
   company: "Company",
+  income_contributor: "Income Contributor",
+  authorized_signatory: "Authorised Signatory",
+  payee: "Payee",
   other: "Participant",
 };

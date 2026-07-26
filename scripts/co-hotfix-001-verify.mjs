@@ -3,9 +3,12 @@
  * Usage: node scripts/co-hotfix-001-verify.mjs
  */
 
+import { requireEnv, INSECURE_JWT_DENYLIST } from "./_lib/require-env.mjs";
+
+
 const BASE = (process.argv[2] || "https://catalyst-one-two.vercel.app").replace(/\/$/, "");
 const EMAIL = process.env.SMOKE_EMAIL || "admin@rupeecatalyst.com";
-const PASSWORD = process.env.SMOKE_PASSWORD || "Rc7$mK9pL2#vNq4X";
+const PASSWORD = requireEnv("SMOKE_PASSWORD");
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);

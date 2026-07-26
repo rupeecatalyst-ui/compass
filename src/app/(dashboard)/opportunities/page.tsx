@@ -3,59 +3,74 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { OpportunityWorkspace } from "@/components/catalyst-one/opportunity-workspace";
-import { OpportunityContextPicker } from "@/components/catalyst-one/shared/opportunity-context-picker";
-import { ROUTES } from "@/constants/routes";
-import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
+import { OpportunityBoundStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-bound-stage";
+import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import {
   clearActiveOpportunityContext,
   getActiveOpportunityContext,
   isDashboardNavEntry,
 } from "@/lib/lead-opportunity-journey/active-context";
+import { useRequirementCapturedGate } from "@/lib/loan-journey/use-requirement-captured-gate";
 
+/**
+ * LIFE (Strategy) — Opportunity Workspace stage.
+ * Consumes shared Opportunity Context (Registry SSOT). No independent LoanFile pick.
+ * ADR-018 Wave 3 — gated until Requirement Captured.
+ */
 function StrategicWorkspaceGate() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const file = searchParams.get("file");
   const opportunityId = searchParams.get("opportunityId");
   const dashboardEntry = isDashboardNavEntry(searchParams);
-  const hasContext = Boolean(file || opportunityId);
+  const hasUrlContext = Boolean(file || opportunityId);
+  const gate = useRequirementCapturedGate(dashboardEntry ? null : opportunityId);
 
   useEffect(() => {
     if (dashboardEntry) {
       clearActiveOpportunityContext();
       return;
     }
-    if (hasContext) return;
+    if (hasUrlContext) return;
     const active = getActiveOpportunityContext();
-    if (active?.fileId) {
+    if (active?.opportunityId) {
       router.replace(
-        buildJourneyHref(ROUTES.OPPORTUNITY_WORKSPACE, {
-          fileId: active.fileId,
+        buildCanonicalJourneyStageHref("life", {
+          fileId: active.fileId ?? null,
           opportunityId: active.opportunityId,
         }),
       );
     }
-  }, [dashboardEntry, hasContext, router]);
+  }, [dashboardEntry, hasUrlContext, router]);
 
-  if (dashboardEntry || (!hasContext && !getActiveOpportunityContext()?.fileId)) {
-    return (
-      <OpportunityContextPicker
-        targetHref={ROUTES.OPPORTUNITY_WORKSPACE}
-        title="Select an opportunity for Strategic Workspace"
-        description="Opened from main navigation — pick a case to begin. While you work inside a transaction, related workspaces keep that same context."
-      />
-    );
+  if (dashboardEntry || (!hasUrlContext && !getActiveOpportunityContext()?.opportunityId)) {
+    return <OpportunityBoundStage stage="strategy_workbench" />;
   }
 
-  if (!hasContext) {
+  if (!hasUrlContext) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
-        Restoring active opportunity…
+        Restoring active Opportunity…
       </div>
     );
   }
 
-  return <OpportunityWorkspace />;
+  if (gate.status === "loading" || gate.status === "redirecting") {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
+        {gate.status === "redirecting"
+          ? "Requirement not captured — opening Lead Information…"
+          : "Loading LIFE…"}
+      </div>
+    );
+  }
+
+  // Prefer full LIFE workspace when opportunityId is present (Registry-backed).
+  if (opportunityId) {
+    return <OpportunityWorkspace />;
+  }
+
+  return <OpportunityBoundStage stage="strategy_workbench" />;
 }
 
 export default function OpportunityWorkspacePage() {
@@ -63,7 +78,7 @@ export default function OpportunityWorkspacePage() {
     <Suspense
       fallback={
         <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
-          Loading Strategic Workspace…
+          Loading LIFE…
         </div>
       }
     >

@@ -14,7 +14,7 @@ import { useCommandPalette } from "@/hooks/use-command-palette";
 import { pageVariants } from "@/lib/animations";
 import { purgeClientDemoBusinessDataIfNeeded } from "@/lib/demo-seed";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
-import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
@@ -42,6 +42,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const isFullWidth =
     pathname.startsWith("/loan-files") ||
+    pathname.startsWith("/deals") ||
     pathname === "/admin" ||
     pathname.startsWith("/admin/console") ||
     pathname.startsWith("/admin/credit-risk-engine") ||
@@ -68,6 +69,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             className={cn(
               "min-h-0 flex-1 overflow-y-auto scrollbar-thin",
               pathname.startsWith("/loan-files") && "overflow-hidden",
+              pathname.startsWith("/deals") && "overflow-hidden",
               pathname === "/my-deals" && "overflow-hidden",
               pathname.startsWith("/admin/credit-risk-engine") && "overflow-hidden",
             )}
@@ -81,7 +83,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 "container mx-auto p-4 md:p-6 lg:p-8",
                 !isFullWidth && "max-w-7xl",
                 isFullWidth &&
-                  pathname.startsWith("/loan-files") &&
+                  (pathname.startsWith("/loan-files") || pathname.startsWith("/deals")) &&
                   "max-w-none h-full p-0 md:p-0 lg:p-0",
                 isFullWidth &&
                   pathname.startsWith("/admin/credit-risk-engine") &&

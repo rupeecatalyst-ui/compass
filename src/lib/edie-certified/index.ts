@@ -9,6 +9,10 @@ export {
   saveEdieReceipts,
   loadAddressProofSelection,
   saveAddressProofSelection,
+  loadIdentityProofSelection,
+  saveIdentityProofSelection,
+  loadChoiceGroupSelection,
+  saveChoiceGroupSelection,
 } from "./resolve-checklist";
 
 export {
@@ -17,6 +21,13 @@ export {
   resolveEdieTransactionType,
   resolveEdieWorkflowStage,
   resolveEdieConstitution,
+  tryResolveEdieProductRef,
+  tryResolveEdieCustomerCategory,
+  tryResolveEdieConstitutionKind,
+  type EdieProductResolveResult,
+  type EdieCategoryResolveResult,
+  type EdieConstitutionResolveResult,
+  type EdieConstitutionKind,
 } from "./resolve-context";
 
 export { seedEdieCertifiedRulesIfNeeded } from "./seed-rules";

@@ -20,6 +20,8 @@ export interface EcwStatedInformationDraft {
   statedTurnover?: string;
   statedBusinessVintage?: string;
   statedNatureOfBusiness?: string;
+  /** Business Constitution — required for Self-Employed / Company LOD (EDIE). */
+  statedConstitution?: string;
   statedPropertyType?: string;
   statedPropertyValue?: string;
   statedPropertyLocation?: string;

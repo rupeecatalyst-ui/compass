@@ -4,9 +4,12 @@
  * Usage: node scripts/co-hotfix-005-verify.mjs [baseUrl]
  */
 
+import { requireEnv, INSECURE_JWT_DENYLIST } from "./_lib/require-env.mjs";
+
+
 const BASE = process.argv[2] || process.env.VERIFY_BASE_URL || "https://catalyst-one-two.vercel.app";
 const ADMIN_EMAIL = process.env.VERIFY_ADMIN_EMAIL || "admin@rupeecatalyst.com";
-const ADMIN_PASSWORD = process.env.VERIFY_ADMIN_PASSWORD || "Rc7$mK9pL2#vNq4X";
+const ADMIN_PASSWORD = requireEnv("VERIFY_ADMIN_PASSWORD");
 
 let passed = 0;
 let failed = 0;

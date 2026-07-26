@@ -120,6 +120,7 @@ export function LoanActionCenter({
         documents={loan.documents ?? []}
         onDocumentsChange={onDocumentsChange}
         onTimelineNote={onTimelineNote}
+        opportunityId={loan.enterpriseOpportunityId || null}
       />
     </EnterpriseOutboxProvider>
   );
@@ -129,4 +130,4 @@ export function LoanActionCenter({
 export function notifyActionComingSoon(label: string) {
   toast.message(`${label} will open as a Context Workspace in a later sprint.`);
 }
-
+

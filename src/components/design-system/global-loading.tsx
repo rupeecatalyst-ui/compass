@@ -1,29 +1,34 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+/**
+ * CO-UX-024 — Global loading delegates to CHANAKYA Loading Experience.
+ */
+
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
+import type { ChanakyaLoadingModule } from "@/types/chanakya-loading";
 import { cn } from "@/lib/utils";
 
 interface GlobalLoadingProps {
   className?: string;
+  /** @deprecated Prefer module-scoped CHANAKYA insights; kept as optional status line. */
   message?: string;
   fullScreen?: boolean;
+  module?: ChanakyaLoadingModule;
 }
 
 export function GlobalLoading({
   className,
-  message = "Loading...",
+  message,
   fullScreen = false,
+  module = "enterprise",
 }: GlobalLoadingProps) {
   return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center gap-3",
-        fullScreen && "fixed inset-0 z-50 bg-background/80 backdrop-blur-sm",
-        className,
-      )}
-    >
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      {message && <p className="text-sm text-muted-foreground">{message}</p>}
-    </div>
+    <ChanakyaLoadingExperience
+      module={module}
+      statusLabel={message}
+      fullScreen={fullScreen}
+      density={fullScreen ? "page" : "panel"}
+      className={cn(className)}
+    />
   );
 }

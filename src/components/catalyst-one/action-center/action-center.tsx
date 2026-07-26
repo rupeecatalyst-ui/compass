@@ -36,7 +36,18 @@ import { cn } from "@/lib/utils";
 
 const ICONS: Partial<Record<ActionCenterActionId, typeof Mail>> = {
   send_email: Mail,
+  email_lender: Mail,
+  email_customer: Mail,
+  email_partner: Mail,
+  email_source: Mail,
   send_whatsapp: MessageCircle,
+  whatsapp_lender: MessageCircle,
+  whatsapp_customer: MessageCircle,
+  send_sms: MessageCircle,
+  schedule_meeting: BriefcaseBusiness,
+  internal_chat: MessageCircle,
+  share_documents: FileUp,
+  request_documents: FileStack,
   upload_documents: FileUp,
   ask_chanakya: Sparkles,
   open_credit_workbench: FileStack,

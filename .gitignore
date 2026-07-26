@@ -39,6 +39,12 @@ dist-ssr
 .env*
 !.env.example
 
+# CO-STAB-001 — never commit temporary env dumps / deploy artefacts
+.tmp
+.tmp-*
+.tmp*
+*.tmp
+
 # TypeScript incremental
 *.tsbuildinfo
 tsconfig.tsbuildinfo

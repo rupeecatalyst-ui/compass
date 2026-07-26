@@ -2,14 +2,16 @@
 
 import { Suspense } from "react";
 import { DocumentCenterWorkspace } from "@/components/catalyst-one/document-center/document-center-workspace";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
 export default function DocumentCenterPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-        </div>
+        <ChanakyaLoadingExperience
+          module="documents"
+          statusLabel="Opening Document Center…"
+        />
       }
     >
       <DocumentCenterWorkspace />

@@ -2,7 +2,7 @@ import { DEMO_CURRENT_RM } from "@/constants/customer-360";
 import { isLoanWon } from "@/constants/loan-pipeline";
 import { getPortfolioDisbursedAmount, getRevenueBaseAmount } from "@/lib/loan-amount-utils";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
-import { getAllLoanFiles } from "@/lib/loan-files-utils";
+import { loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
 import type {
   Customer360Metrics,
   CustomerAuditEntry,
@@ -13,6 +13,11 @@ import type {
   LoanFile,
   SortDirection,
 } from "@/types/catalyst-one";
+
+/** CO-ARCH-002-W5 — Customer 360 Deal reads via DAL (legacy when flag OFF). */
+function getAllLoanFiles(): LoanFile[] {
+  return loadDealsSync("customer_360").files;
+}
 
 export function formatCustomerId(id: string): string {
   return `CUS-${id.toUpperCase()}`;

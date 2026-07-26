@@ -336,9 +336,19 @@ export function replaceAllCompanyLinks(next: EcmCompanyContactLink[]): void {
   notifyEcmContactRegistryChanged();
 }
 
-export function upsertEcmCompanyLocal(company: EcmCompany): void {
+/**
+ * Session-cache upsert. Pass `{ silent: true }` for read/hydrate paths
+ * (e.g. live search) so the registry change bus is not notified — notifies
+ * are reserved for create/update/archive mutations.
+ */
+export function upsertEcmCompanyLocal(
+  company: EcmCompany,
+  opts?: { silent?: boolean },
+): void {
   companies.set(company.id, company);
-  notifyEcmContactRegistryChanged();
+  if (!opts?.silent) {
+    notifyEcmContactRegistryChanged();
+  }
 }
 
 export function upsertCompanyLinkLocal(link: EcmCompanyContactLink): void {

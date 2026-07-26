@@ -2,7 +2,11 @@ export {
   evaluateDocumentRequestLodReadiness,
   type DocumentRequestContextInput,
 } from "./lod-readiness";
-export { generateOpportunityLod } from "./generate-lod";
+export {
+  generateOpportunityLod,
+  EdieLodCertificationError,
+  type GenerateOpportunityLodInput,
+} from "./generate-lod";
 export { deriveOpportunityDocumentReadiness } from "./readiness";
 export { deriveCustomerPortalProgress } from "./portal-progress";
 export {
@@ -37,6 +41,7 @@ export {
   recordPortalOpened,
   recordDocumentRequestCommunication,
   buildCustomerUploadPortalPath,
+  buildCustomerEngagementPortalPath,
   markItemRemarks,
   recordCustomerPortalUpload,
   newSecureUploadToken,

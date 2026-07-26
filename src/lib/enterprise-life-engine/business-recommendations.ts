@@ -10,6 +10,8 @@ import type {
   LifeLenderSelectionResult,
   LifeRecommendationOutcome,
 } from "@/types/enterprise-life-engine";
+import { recommendPublishedLendersFromRegistry } from "@/lib/enterprise-lender-registry/recommend-from-registry";
+import { loadLoanFiles } from "@/lib/loan-files-storage";
 import {
   evaluateLifeContextBlockers,
   resolveLifeCaseContext,
@@ -59,6 +61,11 @@ export function toLifeBusinessRecommendations(
  * End-to-end business action: resolve context → blockers or ranked executives.
  * Engine criteria are never returned for UI display.
  */
+/**
+ * End-to-end business action: resolve context → blockers or ranked executives.
+ * CO-LENDER-ARCH-001 — Executives only for Published Enterprise Lenders.
+ * Institution-level fallback uses Enterprise Lender Registry ranking when no executives match.
+ */
 export function recommendLifeLenderExecutives(
   input: LifeCaseContextInput = {},
 ): LifeRecommendationOutcome {
@@ -79,10 +86,41 @@ export function recommendLifeLenderExecutives(
   }
 
   const matched = selectLifeLenderExecutors(criteria);
+  if (matched.length > 0) {
+    return {
+      ready: true,
+      blockers: [],
+      recommendations: toLifeBusinessRecommendations(matched),
+      context,
+    };
+  }
+
+  // Institution-level recommendations from Published registry (no demo lender list).
+  const file =
+    input.loanFile ||
+    (input.loanFileId
+      ? loadLoanFiles().find((f) => f.id === input.loanFileId) ?? null
+      : null);
+  if (!file) {
+    return { ready: true, blockers: [], recommendations: [], context };
+  }
+
+  const ranked = recommendPublishedLendersFromRegistry({ file, limit: 8 });
+  const recommendations: LifeBusinessRecommendation[] = ranked.map((r) => ({
+    rank: r.rank,
+    contactId: `registry:${r.enterpriseLenderId}`,
+    lenderName: r.lenderName,
+    branchName: "—",
+    executiveName: "Assign lender contact",
+    relationshipManagerName: "—",
+    reason: r.reason,
+    recommendationScore: r.score,
+  }));
+
   return {
     ready: true,
     blockers: [],
-    recommendations: toLifeBusinessRecommendations(matched),
+    recommendations,
     context,
   };
 }

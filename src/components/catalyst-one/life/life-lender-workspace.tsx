@@ -19,7 +19,8 @@ import { PageHeader } from "@/components/design-system/page-header";
 import { Button } from "@/components/ui/button";
 import { buildElwWorkspaceHref, normalizeLenderId } from "@/constants/enterprise-lender-workspace";
 import { ROUTES } from "@/constants/routes";
-import { updateLoanFileInStorage } from "@/lib/loan-files-utils";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
+import { updateDeal } from "@/lib/enterprise-deal/deal-data-access";
 import { cn } from "@/lib/utils";
 import type { LoanLenderExecution } from "@/types/catalyst-one";
 
@@ -99,10 +100,15 @@ export function LifeLenderWorkspace() {
         createdAt: now,
         updatedAt: now,
       };
-      const updated = updateLoanFileInStorage(loanFileId, {
-        lenders: [lenderCase],
-        lender: row.lenderName,
-      });
+      const updated = updateDeal(
+        loanFileId,
+        {
+          lenders: [lenderCase],
+          lender: row.lenderName,
+        },
+        undefined,
+        "loan_workspace",
+      );
       if (updated) {
         setAssignNotice(
           `${row.executiveName} · ${row.lenderName} linked to loan ${updated.fileNumber}.`,
@@ -198,8 +204,8 @@ export function LifeLenderWorkspace() {
               {loanFileId && (
                 <div className="mt-2">
                   <Button asChild size="sm" variant="outline" className="h-7 rounded-md text-xs">
-                    <Link href={`${ROUTES.LOAN_FILES}?file=${encodeURIComponent(loanFileId)}`}>
-                      Open Loan File
+                    <Link href={buildDealWorkspaceHref({ fileId: loanFileId, tab: "lenders" })}>
+                      Open Deal Workspace
                     </Link>
                   </Button>
                 </div>

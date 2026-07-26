@@ -12,6 +12,7 @@ import type { LeadJourneyModuleId } from "@/constants/lead-opportunity-journey";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import type { BusinessJourneyNavId } from "@/constants/enterprise-business-journey-navigation";
 import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 
 /** Purpose shown under Continue CTA — why the next step matters. */
 export const BUSINESS_JOURNEY_TRANSITION_PURPOSE: Partial<
@@ -124,13 +125,36 @@ export function buildNavigatorStageHref(
     case "credit_workbench":
       return buildJourneyHref(ROUTES.CREDIT_WORKBENCH, { fileId, opportunityId });
     case "loan_workspace":
-      return buildJourneyHref(ROUTES.LOAN_FILES, { fileId, opportunityId, tab: "overview" });
     case "lender_pipeline":
-      return buildJourneyHref(ROUTES.LOAN_FILES, { fileId, opportunityId, tab: "lenders" });
+    case "approval":
+    case "timeline":
+      // CO-UX-002 — Deal Registry first when no Deal selected.
+      if (!fileId) {
+        return opportunityId
+          ? `${ROUTES.MY_DEALS}?opportunityId=${encodeURIComponent(opportunityId)}`
+          : ROUTES.MY_DEALS;
+      }
+      return buildDealWorkspaceHref({
+        fileId,
+        opportunityId,
+        tab: stageId === "lender_pipeline" || stageId === "approval" ? "lenders" : stageId === "timeline" ? "timeline" : "overview",
+      });
     case "tasks":
       return ROUTES.TASKS;
-    case "timeline":
-      return buildJourneyHref(ROUTES.LOAN_FILES, { fileId, opportunityId, tab: "timeline" });
+    case "disbursement":
+    case "closure":
+      if (!fileId) {
+        return stageId === "disbursement"
+          ? `${ROUTES.MY_DEALS}?filter=disbursed`
+          : ROUTES.MY_DEALS;
+      }
+      return buildDealWorkspaceHref({
+        fileId,
+        opportunityId,
+        tab: "overview",
+      });
+    case "accounting":
+      return buildJourneyHref(ROUTES.ACCOUNTING, { fileId, opportunityId });
     default:
       return null;
   }

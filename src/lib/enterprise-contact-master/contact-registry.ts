@@ -21,6 +21,7 @@ import {
   type ProgressiveParticipantKind,
 } from "./progressive-contact";
 import { notifyEcmContactRegistryChanged } from "./contact-change-bus";
+import { generateTasksForBusinessEvent } from "@/lib/enterprise-task-engine/auto-generation";
 
 export function normalizeEcmAssignedRoles(input: {
   roles?: EcmContactRole[];
@@ -170,7 +171,7 @@ export function registerProgressiveLoanContact(input: {
   ownerName?: string;
   personalEmail?: string;
 }): EcmContact {
-  return registerEcmContact({
+  const contact = registerEcmContact({
     name: input.name,
     mobilePrimary: input.mobilePrimary?.trim() || "",
     personalEmail: input.personalEmail,
@@ -180,6 +181,23 @@ export function registerProgressiveLoanContact(input: {
     progressiveKind: input.kind,
     status: "provisional",
   });
+  try {
+    generateTasksForBusinessEvent({
+      event: "customer_created",
+      entityKind: "Customer",
+      entityId: contact.id,
+      entityLabel: contact.name,
+      contactId: contact.id,
+      assigneeRef: input.createdBy?.startsWith("user:")
+        ? input.createdBy
+        : `user:${input.createdBy}`,
+      createdBy: input.createdBy,
+      borrowerName: contact.name,
+    });
+  } catch {
+    /* task generation is best-effort */
+  }
+  return contact;
 }
 
 /**
@@ -395,6 +413,17 @@ export function queryEcmContacts(query: EcmContactQuery = {}): EcmContactQueryRe
   }
   if (query.roles?.length) {
     items = items.filter((c) => query.roles!.some((r) => c.roles.includes(r)));
+  }
+  if (query.createdFrom || query.createdTo) {
+    const from = query.createdFrom ?? "0000-01-01";
+    const to = query.createdTo ?? "9999-12-31";
+    items = items.filter((c) => {
+      if (!c.createdOn) return false;
+      const d = new Date(c.createdOn);
+      if (Number.isNaN(d.getTime())) return false;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return key >= from && key <= to;
+    });
   }
   if (search) {
     items = items.filter((c) => {

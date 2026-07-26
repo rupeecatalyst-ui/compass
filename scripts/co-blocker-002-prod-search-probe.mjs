@@ -1,3 +1,4 @@
+import { requireEnv } from "./_lib/require-env.mjs";
 import { config } from "dotenv";
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
@@ -15,16 +16,21 @@ const admin = await prisma.user.findFirst({
 });
 const token = jwt.sign(
   { userId: admin.id, email: admin.email, role: admin.role },
-  "dev-secret-change-in-production",
+  requireEnv("JWT_SECRET", { minLength: 32 }),
   { expiresIn: "1h" },
 );
 
 for (const term of ["CertLead", "Certlead", "9631921174"]) {
-  const res = await fetch(`${BASE}/api/ecm/contacts?search=${encodeURIComponent(term)}&pageSize=5`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const res = await fetch(
+    `${BASE}/api/ecm/contacts?search=${encodeURIComponent(term)}&pageSize=5`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
   const body = await res.json();
-  console.log(term, "→", body.success ? body.data.items.map((i) => i.name).join(", ") : body.error?.message);
+  console.log(
+    term,
+    "→",
+    body.success ? body.data.items.map((i) => i.name).join(", ") : body.error?.message,
+  );
 }
 
 await prisma.$disconnect();

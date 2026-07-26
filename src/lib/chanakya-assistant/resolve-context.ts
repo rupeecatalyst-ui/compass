@@ -39,7 +39,7 @@ function workspaceFromPath(pathname: string): {
   if (path.startsWith("/credit-workbench")) {
     return { workspaceId: "credit_workbench", advisorTitle: "Credit Advisor" };
   }
-  if (path.startsWith("/loan-files")) {
+  if (path.startsWith("/deals") || path.startsWith("/loan-files") || path.startsWith("/my-deals")) {
     return { workspaceId: "loan_workspace", advisorTitle: "Loan Advisor" };
   }
   if (path.startsWith("/document-center") || path.startsWith("/documents")) {

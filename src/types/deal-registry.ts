@@ -9,10 +9,14 @@ export interface DealRegistryRow {
   id: string;
   /** Enterprise Deal UUID when SSOT is Deal Registry (required for API delete). */
   enterpriseDealId?: string;
+  /** Enterprise Opportunity UUID — groups Deals under one Opportunity (CO-UX-003). */
+  opportunityId?: string;
   dealId: string;
   opportunityNumber: string;
   fileNumber: string;
   borrowerName: string;
+  /** Customer category / employment family when known (optional display). */
+  customerType?: string;
   contactNumber: string;
   product: string;
   loanAmount: number;
@@ -88,7 +92,10 @@ export type DealRegistrySortField =
   | "nextFollowUp"
   | "documentsPending"
   | "tasksPending"
-  | "riskIndicator";
+  | "riskIndicator"
+  /** CO-UX-018 — Opportunity-level executive sorts */
+  | "opportunityHealth"
+  | "activeDealCount";
 
 export interface DealRegistryFilters {
   search: string;

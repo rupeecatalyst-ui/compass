@@ -28,7 +28,14 @@ export function resolveChanakyaLiveIntelligenceWorkspace(
   ) {
     return "opportunities";
   }
-  if (path === ROUTES.LOAN_FILES || path.startsWith(`${ROUTES.LOAN_FILES}/`)) {
+  if (
+    path === ROUTES.DEALS ||
+    path.startsWith(`${ROUTES.DEALS}/`) ||
+    path === ROUTES.LOAN_FILES ||
+    path.startsWith(`${ROUTES.LOAN_FILES}/`) ||
+    path === ROUTES.MY_DEALS ||
+    path.startsWith(`${ROUTES.MY_DEALS}/`)
+  ) {
     return "loan_files";
   }
   if (

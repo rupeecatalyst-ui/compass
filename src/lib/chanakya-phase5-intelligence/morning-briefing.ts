@@ -93,7 +93,7 @@ export function deriveChanakyaMorningBriefing(input?: {
       whyAttentionRequired: "No at-risk files in yesterday's reflection — use this window for proactive outreach.",
       suggestedNextAction: "Open Loan Workflow to review active cases and set today's top three actions.",
       navigationLabel: "Open Loan Workflow",
-      href: ROUTES.LOAN_FILES,
+      href: ROUTES.MY_DEALS,
       priority: 3,
     });
   }

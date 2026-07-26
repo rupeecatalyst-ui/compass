@@ -103,7 +103,7 @@ export function deriveChanakyaBriefingDashboard(input: {
       insight: topRisk.description,
       reason: `${topRisk.impact} — ${topRisk.mitigation}`,
       actionLabel: "Review Risk Cases",
-      actionHref: `${ROUTES.LOAN_FILES}?filter=risk`,
+      actionHref: `${ROUTES.MY_DEALS}?filter=risk`,
       priority: 1,
     },
     {

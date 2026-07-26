@@ -25,6 +25,10 @@ import type {
 
 export const LOAN_PRODUCTS = [...SECURED_PRODUCTS, ...UNSECURED_PRODUCTS] as const;
 
+/**
+ * Demo synthetic LoanFile generator only — NOT a selection SSOT.
+ * CO-LENDER-ARCH-001 — Manual / Chanakya / LIFE / Deal must use Enterprise Lender Registry.
+ */
 export const LOAN_LENDERS = [
   "HDFC Bank",
   "ICICI Bank",

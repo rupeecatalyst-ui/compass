@@ -74,6 +74,13 @@ export const CHANAKYA_GUIDE_WORKSPACE_META: ChanakyaGuideWorkspaceMeta[] = [
     pagePurpose:
       "Browse permanent enterprise decisions — configuration and commercial history that must never be rewritten.",
   },
+  {
+    platform: "catalyst_one",
+    workspaceId: "execution_hub",
+    workspaceLabel: "Execution Hub",
+    pagePurpose:
+      "Enter the continuous loan journey — one transaction, sequenced workspaces, Chanakya as your executive guide.",
+  },
 ];
 
 /**
@@ -81,6 +88,70 @@ export const CHANAKYA_GUIDE_WORKSPACE_META: ChanakyaGuideWorkspaceMeta[] = [
  * Filter by platform + workspace + section at resolve time.
  */
 export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
+  {
+    id: "c1-eh-welcome",
+    platform: "catalyst_one",
+    workspaceId: "execution_hub",
+    section: "default",
+    guidanceTitle: "Welcome to the Loan Journey",
+    mentorMessage:
+      "You are at the Execution Hub — the doorway to one continuous loan journey, not a menu of unrelated modules.",
+    detailedGuidance:
+      "Progress left to right: Lead Creation → Documents → Credit Bench → LIFE → Lender Pipeline → Disbursed → Journey Complete. See the full roadmap at a glance — no scrolling required.",
+    bestPractice:
+      "Stay on the journey path. Prefer Continue into the next workspace over returning to dashboards mid-case.",
+    recommendedNextStep:
+      "Open Lead Creation to create the loan file from a Contact or Company, then advance when ready.",
+    relatedWorkflow: "Lead Creation → Documents",
+    relatedEnterpriseEngine: "Chanakya Guide",
+    sortOrder: 10,
+  },
+  {
+    id: "c1-eh-next-action",
+    platform: "catalyst_one",
+    workspaceId: "execution_hub",
+    section: "default",
+    guidanceTitle: "Next recommended action",
+    mentorMessage:
+      "Begin with Lead Creation so product, amount, and customer framing stay consistent across every later desk.",
+    detailedGuidance:
+      "Documents and Credit Bench become productive only after the loan story is clear. LIFE and Lender Pipeline then execute against that story — until Disbursed and Journey Complete.",
+    bestPractice: "Complete framing before collecting documents whenever practical.",
+    recommendedNextStep: "Select Lead Creation on the roadmap, or use Continue Journey.",
+    relatedWorkflow: "Lead Creation → Documents",
+    sortOrder: 20,
+  },
+  {
+    id: "c1-eh-progress",
+    platform: "catalyst_one",
+    workspaceId: "execution_hub",
+    section: "default",
+    guidanceTitle: "Journey progress",
+    mentorMessage:
+      "The rail shows where you are, what is ahead, and which workspace to open next — one loan, one path.",
+    detailedGuidance:
+      "Current steps glow. Pending steps wait quietly. Completed and locked states are ready for future readiness wiring without changing this hub’s navigation.",
+    bestPractice: "Use the rail as your compass; use Chanakya for why and what next.",
+    recommendedNextStep: "Follow the highlighted step, then return here whenever you need orientation.",
+    relatedWorkflow: "Execution Hub navigation",
+    sortOrder: 30,
+  },
+  {
+    id: "c1-eh-best-practice",
+    platform: "catalyst_one",
+    workspaceId: "execution_hub",
+    section: "default",
+    guidanceTitle: "Best practice",
+    mentorMessage:
+      "Treat every hop as the same transaction. Context should travel with you — never restart from a blank dashboard when Continue is available.",
+    detailedGuidance:
+      "Document gaps and credit verification inform readiness; they guide — they do not replace your judgment on when to advance.",
+    bestPractice:
+      "When unsure, open Chanakya’s recommended next step rather than skipping ahead to Lender Pipeline.",
+    recommendedNextStep: "Advance one stage at a time unless the case is already mid-execution.",
+    relatedWorkflow: "Guided loan progression",
+    sortOrder: 40,
+  },
   {
     id: "c1-sw-default-plan",
     platform: "catalyst_one",
@@ -185,6 +256,63 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     relatedRegistry: "Loan participants · Product library",
     relatedEnterpriseEngine: "Loan Workspace",
     sortOrder: 20,
+  },
+  {
+    id: "c1-lw-invoice-party",
+    platform: "catalyst_one",
+    workspaceId: "loan_workspace",
+    section: "overview",
+    guidanceTitle: "Invoice Party",
+    mentorMessage:
+      "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.",
+    detailedGuidance:
+      "Invoice Party identifies the organization against whom Rupee Catalyst raises its commission invoice for this Deal — often a lender, DSA, or channel partner. It is not the loan disbursement beneficiary. Choose only from Accounting → Invoice Party Master; Contact Registry is not used for this Deal field.",
+    bestPractice:
+      "Ask Accounting to add missing Invoice Parties to the Master before Login progression.",
+    recommendedNextStep:
+      "Select an Accounting Invoice Party Master record on the Deal before moving past the configured stage.",
+    relatedWorkflow: "Logged In → Soft Approval",
+    relatedRegistry: "Accounting Invoice Party Master · Enterprise Contact Registry (link only)",
+    relatedEnterpriseEngine: "Deal Registry · Accounting",
+    sortOrder: 25,
+  },
+  {
+    id: "c1-lw-edit-deal",
+    platform: "catalyst_one",
+    workspaceId: "loan_workspace",
+    section: "default",
+    guidanceTitle: "Edit Deal",
+    mentorMessage:
+      "Use Edit Deal to change Lender, Lender Program, amount, ROI, tenure, Invoice Party, or internal remarks — changes are auditable.",
+    detailedGuidance:
+      "Lender search is filtered by the Deal product from the Product Library. After selecting a Lender, only programs belonging to that Lender appear. Changing Lender clears an invalid Program so combinations stay valid. Invoice Party remains Master-only from Accounting.",
+    bestPractice:
+      "Record an optional reason when changing Lender or Program so Deal history explains commercial context.",
+    recommendedNextStep:
+      "Open Edit Deal from the workspace header, confirm Lender + Program + Invoice Party, then save.",
+    relatedWorkflow: "Deal Workspace · Lender Pipeline",
+    relatedRegistry: "Enterprise Lender Registry · Lender Programs · Product Library · Invoice Party Master",
+    relatedEnterpriseEngine: "Deal Registry",
+    sortOrder: 26,
+  },
+  {
+    id: "c1-lw-lender-program",
+    platform: "catalyst_one",
+    workspaceId: "loan_workspace",
+    section: "lenders",
+    guidanceTitle: "Lender and Program selection",
+    mentorMessage:
+      "Select an active Lender eligible for this product, then choose a Program that belongs to that Lender before progressing.",
+    detailedGuidance:
+      "Identify Lender uses enterprise search (name, product, program) with recently used lenders. Only Product Library–eligible lenders are shown. Invalid Lender–Program pairs are never accepted by the Deal Registry.",
+    bestPractice:
+      "Prefer recently used eligible lenders when re-working similar products; always confirm Program after switching Lender.",
+    recommendedNextStep:
+      "Identify Lender → select Program → assign Invoice Party → continue pipeline stages.",
+    relatedWorkflow: "Identify Lender → Logged In",
+    relatedRegistry: "Enterprise Lender Registry · Product Library",
+    relatedEnterpriseEngine: "Lender Pipeline · Deal Registry",
+    sortOrder: 27,
   },
   {
     id: "c1-lw-actions",

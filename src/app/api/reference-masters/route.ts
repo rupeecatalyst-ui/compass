@@ -4,8 +4,12 @@ import {
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
-import type { ReferenceMasterDomain } from "@/types/enterprise-master-data";
 import type { ApiResponse } from "@/types/api";
+import {
+  configureReferenceMasterPorts,
+  syncReferenceMasterPortsFromPrisma,
+} from "@/lib/enterprise-master-data/server";
+import type { ReferenceMasterDomain } from "@/types/enterprise-master-data";
 import { referenceMasterService } from "@server/services/reference-master/reference-master.service";
 import {
   mapRouteError,
@@ -18,6 +22,8 @@ export async function GET(request: Request) {
   try {
     referenceMasterPersistenceGuard();
     requireAccessToken(request);
+    configureReferenceMasterPorts();
+    void syncReferenceMasterPortsFromPrisma();
     const url = new URL(request.url);
     const domain = url.searchParams.get("domain") as ReferenceMasterDomain | null;
     if (!domain) {

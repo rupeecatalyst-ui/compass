@@ -8,6 +8,7 @@ import type {
 } from "@/types/enterprise-asset-framework-feature-flags";
 import type { EafAssetTypeCode, EafInternalId } from "@/types/enterprise-asset-framework";
 import { getEafPorts } from "./composition";
+import { recordAdminGovernanceAction } from "@/lib/enterprise-governance/admin-governance";
 
 export function resetEafFeatureFlagHooks(): void {
   getEafPorts().featureFlags.reset();
@@ -37,7 +38,30 @@ export function listEafAssetFeatureFlagStates(): EafAssetFeatureFlagState[] {
 }
 
 export function upsertEafAssetFeatureFlagState(state: EafAssetFeatureFlagState): void {
+  const previous = listEafAssetFeatureFlagStates().find(
+    (s) => s.assetId === state.assetId && s.flagCode === state.flagCode,
+  );
   getEafPorts().featureFlags.upsertAssetState(state);
+  try {
+    recordAdminGovernanceAction({
+      actorUserId: "system",
+      category: "enterprise_engine_configuration",
+      changeType: previous ? "updated" : "created",
+      impactScope: "entity",
+      entityType: "FeatureFlag",
+      entityId: `${state.assetId}:${state.flagCode}`,
+      entityLabel: state.flagCode,
+      previousValue: previous
+        ? { enabled: previous.enabled, source: previous.source }
+        : null,
+      newValue: { enabled: state.enabled, source: state.source },
+      justification: `Feature flag ${state.flagCode} upserted for asset ${state.assetId}`,
+      relatedEngine: "Enterprise Asset Framework",
+      versionNumber: "1",
+    });
+  } catch {
+    /* never block flag upsert */
+  }
 }
 
 export function resolveEafFeatureFlagDefault(

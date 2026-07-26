@@ -1,15 +1,19 @@
 /**
- * Loan Workspace — operational hub navigator (Architecture Freeze).
- * Landing selects a bench; it is not an analytics dashboard.
+ * Loan Workspace — Execution Hub journey roadmap (UI presentation).
+ * Aligned to frozen Canonical Journey Header (CO-ARCH).
  */
 
+import {
+  CANONICAL_JOURNEY_STAGES,
+  type CanonicalJourneyStageDef,
+  type CanonicalJourneyStageId,
+} from "@/constants/canonical-journey-header";
 import { ROUTES } from "@/constants/routes";
-import { buildDashboardHref } from "@/lib/lead-opportunity-journey/active-context";
 
-export const LOAN_WORKSPACE_HUB_OFFICIAL_NAME = "Loan Workspace";
+export const LOAN_WORKSPACE_HUB_OFFICIAL_NAME = "Loan Journey";
 
 export const LOAN_WORKSPACE_HUB_STATUS_LINE =
-  "Select the operational workspace for this opportunity. Complete work, then Save & Return to My Deals.";
+  "One roadmap. See where the loan starts, where you are, what comes next, and what success looks like.";
 
 /** Query flag: show execution book (Kanban / List / Timeline / Tasks). */
 export const LOAN_WORKSPACE_BROWSE_PARAM = "browse";
@@ -18,52 +22,59 @@ export const LOAN_WORKSPACE_BROWSE_PARAM = "browse";
 export const LOAN_WORKSPACE_SURFACE_PARAM = "surface";
 export const LOAN_WORKSPACE_SURFACE_HUB = "hub";
 
-export type LoanWorkspaceHubCardId =
-  | "strategic_bench"
-  | "credit_bench"
-  | "loan_workspace"
-  | "documents";
+/** Visual states supported by the hub journey rail (presentation only). */
+export type ExecutionHubJourneyVisualState =
+  | "current"
+  | "completed"
+  | "pending"
+  | "locked";
 
-export interface LoanWorkspaceHubCard {
-  id: LoanWorkspaceHubCardId;
+export type ExecutionHubJourneyStepId = CanonicalJourneyStageId;
+
+export interface ExecutionHubJourneyStep {
+  id: ExecutionHubJourneyStepId;
   label: string;
+  shortLabel: string;
   description: string;
   href: string;
-  accentClass: string;
-  iconTone: string;
+  tab?: string;
+  defaultState: ExecutionHubJourneyVisualState;
+  navigable?: boolean;
+  isSuccessDestination?: boolean;
 }
 
-export const LOAN_WORKSPACE_HUB_CARDS: LoanWorkspaceHubCard[] = [
-  {
-    id: "strategic_bench",
-    label: "Strategic Bench",
-    description: "Strategy, competition, and funding plan for the opportunity.",
-    href: buildDashboardHref(ROUTES.OPPORTUNITY_WORKSPACE),
-    accentClass: "border-violet-500/35 hover:border-violet-500/55 hover:bg-violet-500/[0.06]",
-    iconTone: "bg-violet-500/15 text-violet-800 dark:text-violet-200",
-  },
-  {
-    id: "credit_bench",
-    label: "Credit Bench",
-    description: "Opportunity setup, credit framing, and case progression.",
-    href: buildDashboardHref(ROUTES.CREDIT_BENCH),
-    accentClass: "border-sky-500/35 hover:border-sky-500/55 hover:bg-sky-500/[0.06]",
-    iconTone: "bg-sky-500/15 text-sky-800 dark:text-sky-200",
-  },
-  {
-    id: "loan_workspace",
-    label: "Loan Workspace",
-    description: "Execute the loan file — lenders, pipeline, and case work.",
-    href: `${ROUTES.LOAN_FILES}?${LOAN_WORKSPACE_BROWSE_PARAM}=1`,
-    accentClass: "border-emerald-500/35 hover:border-emerald-500/55 hover:bg-emerald-500/[0.06]",
-    iconTone: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200",
-  },
-  {
-    id: "documents",
-    label: "Documents",
-    description: "Document Center for collection, gaps, and readiness gates.",
-    href: buildDashboardHref(ROUTES.DOCUMENT_CENTER),
-    accentClass: "border-amber-500/35 hover:border-amber-500/55 hover:bg-amber-500/[0.06]",
-    iconTone: "bg-amber-500/15 text-amber-900 dark:text-amber-100",
-  },
-];
+function toHubStep(
+  stage: CanonicalJourneyStageDef,
+  defaultState: ExecutionHubJourneyVisualState,
+): ExecutionHubJourneyStep {
+  return {
+    id: stage.id,
+    label: stage.label,
+    shortLabel: stage.shortLabel,
+    description: stage.purpose,
+    href: stage.href,
+    tab: stage.tab,
+    defaultState,
+    navigable: stage.navigable,
+    isSuccessDestination: stage.isSuccessDestination,
+  };
+}
+
+/**
+ * Execution Hub loan journey roadmap — same frozen sequence as Canonical Journey Header.
+ */
+export const EXECUTION_HUB_JOURNEY_STEPS: ExecutionHubJourneyStep[] =
+  CANONICAL_JOURNEY_STAGES.map((stage, index) =>
+    toHubStep(stage, index === 0 ? "current" : "pending"),
+  );
+
+/** @deprecated Prefer EXECUTION_HUB_JOURNEY_STEPS — kept for type compatibility. */
+export type LoanWorkspaceHubCardId = ExecutionHubJourneyStepId;
+
+/** @deprecated Prefer ExecutionHubJourneyStep. */
+export type LoanWorkspaceHubCard = ExecutionHubJourneyStep;
+
+/** @deprecated Prefer EXECUTION_HUB_JOURNEY_STEPS. */
+export const LOAN_WORKSPACE_HUB_CARDS = EXECUTION_HUB_JOURNEY_STEPS;
+
+void ROUTES;

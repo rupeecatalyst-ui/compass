@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import { createMissionControlSecurityGateway } from "../security";
 import { getMissionControlFeatureByRoute } from "../feature-registry";
+import { buildMissionControlBreadcrumbs } from "@/constants/enterprise-exit-navigation";
 import { McEnterpriseHeader } from "./enterprise-header";
 import { McGlobalStatusBar } from "./global-status-bar";
 import { McNavigationRail } from "./navigation-rail";
@@ -12,6 +13,7 @@ import { McSecurityGateway } from "./security-gateway";
 /**
  * Persistent Mission Control shell.
  * Header + Nav + Status remain mounted; only workspace children change.
+ * CO-UX-115 — exit nav always starts at User Home Dashboard (never traps in Briefing).
  */
 export function MissionControlShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/mission-control";
@@ -28,28 +30,19 @@ export function MissionControlShell({ children }: { children: React.ReactNode })
       ? "CHANAKYA Executive Briefing"
       : (feature?.displayName ?? "Command Center");
 
+  const breadcrumbs = useMemo(() => {
+    if (isRadarLanding) return buildMissionControlBreadcrumbs("CHANAKYA Radar");
+    if (isBriefing) return buildMissionControlBreadcrumbs("Executive Briefing");
+    return buildMissionControlBreadcrumbs(currentModule);
+  }, [currentModule, isBriefing, isRadarLanding]);
+
   return (
     <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100">
       <McEnterpriseHeader
         environment="development"
         currentModule={currentModule}
         workspaceTitle={workspaceTitle}
-        breadcrumbs={
-          isRadarLanding
-            ? [
-                { label: "Mission Control", href: "/mission-control" },
-                { label: "Radar" },
-              ]
-            : isBriefing
-              ? [
-                  { label: "Mission Control", href: "/mission-control" },
-                  { label: "CHANAKYA" },
-                ]
-              : [
-                  { label: "Mission Control", href: "/mission-control" },
-                  { label: currentModule },
-                ]
-        }
+        breadcrumbs={breadcrumbs}
       />
       <div className="flex min-h-0 flex-1">
         <McNavigationRail

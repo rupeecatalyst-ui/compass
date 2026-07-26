@@ -1,12 +1,12 @@
-import { Loader2 } from "lucide-react";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
+/** CO-UX-024 — Root route loading uses CHANAKYA Insight. */
 export default function Loading() {
   return (
-    <div className="flex h-screen items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Loading COMPASS...</p>
-      </div>
-    </div>
+    <ChanakyaLoadingExperience
+      module="enterprise"
+      statusLabel="Preparing Catalyst One…"
+      fullScreen
+    />
   );
 }

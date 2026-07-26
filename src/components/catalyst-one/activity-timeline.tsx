@@ -23,7 +23,7 @@ const typeConfig: Record<
   ActivityEvent["type"],
   { icon: React.ComponentType<{ className?: string }>; color: string; href: string }
 > = {
-  loan: { icon: Workflow, color: "bg-primary/10 text-primary border-primary/20", href: ROUTES.LOAN_FILES },
+  loan: { icon: Workflow, color: "bg-primary/10 text-primary border-primary/20", href: ROUTES.MY_DEALS },
   customer: { icon: UserPlus, color: "bg-info/10 text-info border-info/20", href: ROUTES.CUSTOMERS },
   document: { icon: FileText, color: "bg-warning/10 text-warning border-warning/20", href: ROUTES.DOCUMENTS },
   disbursement: { icon: Banknote, color: "bg-accent/10 text-accent border-accent/20", href: ROUTES.MY_DEALS },

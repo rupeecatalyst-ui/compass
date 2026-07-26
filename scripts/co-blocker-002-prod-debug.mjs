@@ -1,3 +1,4 @@
+import { requireEnv } from "./_lib/require-env.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,7 +20,7 @@ async function sleep(ms) {
 const admin = await prisma.user.findFirst({ where: { email: "admin@rupeecatalyst.com", isActive: true } });
 const token = jwt.sign(
   { userId: admin.id, email: admin.email, role: admin.role },
-  "dev-secret-change-in-production",
+  requireEnv("JWT_SECRET", { minLength: 32 }),
   { expiresIn: "1h" },
 );
 const session = {

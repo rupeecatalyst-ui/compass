@@ -5,7 +5,7 @@ import { cn } from "../cn";
 
 /**
  * Standard Mission Control workspace loading surface.
- * Matches existing “Preparing …” blocks across centers.
+ * CO-UX-024 — CHANAKYA contextual insights.
  */
 export function WorkspaceLoadingState({
   label,
@@ -14,5 +14,11 @@ export function WorkspaceLoadingState({
   label: string;
   className?: string;
 }) {
-  return <CommandShellLoading label={label} className={cn(className)} />;
+  return (
+    <CommandShellLoading
+      label={label}
+      module="mission-control"
+      className={cn(className)}
+    />
+  );
 }

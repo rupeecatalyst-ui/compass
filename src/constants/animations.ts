@@ -19,7 +19,12 @@ export const ANIMATION = {
   sidebar: {
     expanded: { width: 260 },
     collapsed: { width: 64 },
-    transition: { type: "spring", stiffness: 380, damping: 32 },
+    /** CO-UX Intelligent Auto-Collapse — smooth 250ms (enterprise, no layout jump). */
+    transition: {
+      type: "tween" as const,
+      duration: 0.25,
+      ease: [0.4, 0, 0.2, 1] as [number, number, number, number],
+    },
   },
   /** Enterprise Context Navigation — Column 2 */
   contextPanel: {
@@ -51,6 +56,8 @@ export const ANIMATION = {
 
 export const STORAGE_KEYS = {
   SIDEBAR_COLLAPSED: "compass:sidebar-collapsed",
+  /** CO-UX — Expanded | Collapsed | Auto (default). */
+  SIDEBAR_NAV_MODE: "compass:sidebar-nav-mode",
   SIDEBAR_EXPANDED: "compass:sidebar-expanded",
   CONTEXT_PANEL_COLLAPSED: "catalyst:context-panel-collapsed",
   CONTEXT_PANEL_PINNED: "catalyst:context-panel-pinned",
@@ -61,9 +68,6 @@ export const STORAGE_KEYS = {
   LOAN_FILES_VIEW: "compass:loan-files-view",
   LOAN_FILES_DATA: "compass:loan-files-data",
   LOAN_FILES_SAVED_VIEWS: "compass:loan-files-saved-views",
-  LOAN_BOARD_DENSITY: "compass:loan-board-density",
-  LOAN_BOARD_FIELDS: "compass:loan-board-fields",
-  LOAN_BOARD_COLLAPSED_COLUMNS: "compass:loan-board-collapsed-columns",
   CUSTOMERS_DATA: "compass:customers-data",
   CUSTOMERS_VIEW_MODE: "compass:customers-view-mode",
   CUSTOMERS_COLUMNS: "compass:customers-columns",

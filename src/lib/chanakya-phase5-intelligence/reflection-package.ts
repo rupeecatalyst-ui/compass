@@ -5,6 +5,7 @@
 
 import { ROUTES } from "@/constants/routes";
 import { CP5_NIGHTLY_REFLECTION_DEFAULT_LOCAL_TIME } from "@/constants/chanakya-phase5-intelligence";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import type { ChanakyaDailyReflectionPackage, ChanakyaMemoryEvent } from "@/types/chanakya-phase5-intelligence";
 import { getChanakyaDayMemory, listChanakyaMemoryEvents } from "./memory-store";
 
@@ -45,8 +46,8 @@ export function buildChanakyaDailyReflectionPackage(input?: {
       whyAtRisk: e.summary,
       loanFileId: e.loanFileId,
       href: e.loanFileId
-        ? `${ROUTES.LOAN_FILES}?file=${encodeURIComponent(e.loanFileId)}`
-        : ROUTES.LOAN_FILES,
+        ? buildDealWorkspaceHref({ fileId: e.loanFileId, tab: "lenders" })
+        : ROUTES.MY_DEALS,
     }));
 
   const appreciations = byKind(events, "appreciation").map((e) => e.summary);
@@ -83,7 +84,7 @@ export function buildChanakyaDailyReflectionPackage(input?: {
               product: "—",
               stage: "—",
               whyAtRisk: "No files flagged at risk from today's memory.",
-              href: ROUTES.LOAN_FILES,
+              href: ROUTES.MY_DEALS,
             },
           ],
     appreciations:

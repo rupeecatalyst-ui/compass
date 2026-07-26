@@ -3,7 +3,10 @@
  * Run: npx tsx scripts/co-doc-001-bat-verify.ts
  */
 
-import { generateOpportunityLod } from "../src/lib/document-requests/generate-lod";
+import {
+  EdieLodCertificationError,
+  generateOpportunityLod,
+} from "../src/lib/document-requests/generate-lod";
 import {
   buildLodDimensionKey,
   hasLodDimensionDrift,
@@ -43,11 +46,19 @@ const SCENARIOS: Scenario[] = [
     employmentType: "self-employed-business",
     constitution: "LLP",
   },
+];
+
+const BLOCKED_SCENARIOS: Scenario[] = [
   {
-    name: "Private Limited · Working Capital",
+    name: "Private Limited · Working Capital (Phase 1 excluded)",
     productLabel: "Working Capital",
     employmentType: "company",
     constitution: "Private Limited",
+  },
+  {
+    name: "Unknown product must not fall back to Home Loan",
+    productLabel: "Mystery Product XYZ",
+    employmentType: "salaried",
   },
 ];
 
@@ -72,6 +83,26 @@ function run() {
       `${scenario.name}: invalid category`,
     );
     results.push(`PASS LOD · ${scenario.name} · ${lod.length} docs`);
+  }
+
+  for (const scenario of BLOCKED_SCENARIOS) {
+    let blocked = false;
+    try {
+      generateOpportunityLod({
+        productLabel: scenario.productLabel,
+        employmentType: scenario.employmentType,
+        constitution: scenario.constitution,
+      });
+    } catch (err) {
+      blocked = err instanceof EdieLodCertificationError;
+      assert(blocked, `${scenario.name}: expected EdieLodCertificationError`);
+      assert(
+        Boolean(err instanceof Error && err.message),
+        `${scenario.name}: expected user-facing message`,
+      );
+    }
+    assert(blocked, `${scenario.name}: LOD must not generate via silent fallback`);
+    results.push(`PASS BLOCK · ${scenario.name}`);
   }
 
   // Versioning + merge: uploaded PAN survives product change; no duplicate pending

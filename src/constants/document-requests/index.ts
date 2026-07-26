@@ -15,8 +15,31 @@ export const DOCUMENT_REQUEST_SESSION_AUDIT_KEY =
 export const CUSTOMER_PORTAL_ACCEPT =
   ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.csv,.zip,application/pdf,image/jpeg,image/png";
 
+/** Preferred submission methods — upload portal is primary. */
 export const CUSTOMER_PORTAL_DEFAULT_STAGE = "Document Collection";
 export const CUSTOMER_PORTAL_DEFAULT_APPLICATION_STATUS = "Documents Requested";
+
+/**
+ * CO-DOC-001 Phase 1 BAT — Product × Borrower × Constitution combinations
+ * ready for manual LOD generation from Opportunity Creation.
+ */
+export const CO_DOC_001_PHASE1_BAT_SCENARIOS = [
+  { product: "Home Loan", borrower: "Salaried", constitution: null },
+  { product: "Home Loan", borrower: "Self-employed", constitution: "Proprietorship" },
+  { product: "Home Loan", borrower: "Self-employed", constitution: "Partnership" },
+  { product: "Home Loan", borrower: "Self-employed", constitution: "LLP" },
+  { product: "Home Loan", borrower: "Self-employed", constitution: "Private Limited" },
+  { product: "Home Loan Balance Transfer", borrower: "Salaried", constitution: null },
+  { product: "Home Loan Balance Transfer", borrower: "Self-employed", constitution: "Proprietorship" },
+  { product: "Loan Against Property", borrower: "Salaried", constitution: null },
+  { product: "Loan Against Property", borrower: "Self-employed", constitution: "Proprietorship" },
+  { product: "Personal Loan", borrower: "Salaried", constitution: null },
+  { product: "Education Loan", borrower: "Salaried", constitution: null },
+  { product: "Car Loan", borrower: "Salaried", constitution: null },
+  { product: "Gold Loan", borrower: "Salaried", constitution: null },
+  { product: "Loan Against Securities", borrower: "Salaried", constitution: null },
+  { product: "Unsecured Business Loan", borrower: "Self-employed", constitution: "Proprietorship" },
+] as const;
 
 export const DOCUMENT_REQUEST_EMAIL_SUBJECT =
   "Documents Required for Your {{Loan Product}} Application";

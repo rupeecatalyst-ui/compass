@@ -1,14 +1,22 @@
 /**
- * Placeholder services — mock objects only.
- * TODO: replace with insight API clients (no direct table queries).
+ * Executive Briefing services — CO-BIZ-003 live BI providers (compose ETE + Radar).
+ * UI contracts unchanged; mock payloads replaced with EBI snapshot.
  */
 
+import { ROUTES } from "@/constants/routes";
+import { composeBusinessIntelligenceSnapshot } from "@/lib/enterprise-business-intelligence";
+import { formatINRCompact } from "@/lib/format-currency";
+import type { EbiSnapshot } from "@/types/enterprise-business-intelligence";
 import type {
-  EnterpriseHighlight,
+  BusinessPerformanceModel,
   EnterpriseHealth,
+  EnterpriseHealthIndicator,
+  EnterpriseHighlight,
+  ExecutiveActionsModel,
   ExecutiveBrief,
-  ExecutiveGreeting,
   ExecutiveBriefingPageModel,
+  ExecutiveGreeting,
+  ExecutiveStatusCard,
   PriorityAction,
   QuickAction,
 } from "./types";
@@ -18,6 +26,22 @@ function timeOfDaySalutation(date = new Date()): string {
   if (hour < 12) return "Good Morning";
   if (hour < 17) return "Good Afternoon";
   return "Good Evening";
+}
+
+function healthFromBi(snap: EbiSnapshot): EnterpriseHealth {
+  const status =
+    snap.health.status === "healthy"
+      ? "normal"
+      : snap.health.status === "watch"
+        ? "attention"
+        : "elevated";
+  return {
+    status,
+    label: `Business Health ${snap.health.overallScore}/100`,
+    confidence: Math.min(99, 60 + Math.round(snap.health.overallScore / 5)),
+    observedAt: snap.asOf,
+    sourceModules: [...snap.health.sourceModules],
+  };
 }
 
 export interface ExecutiveBriefService {
@@ -41,19 +65,10 @@ export interface ExecutiveBriefingService {
   getPageModel(userDisplayName?: string): Promise<ExecutiveBriefingPageModel>;
 }
 
-function mockHealth(): EnterpriseHealth {
-  return {
-    status: "attention",
-    label: "Attention Required",
-    confidence: undefined,
-    observedAt: new Date().toISOString(),
-    sourceModules: ["placeholder"],
-  };
-}
-
 export function createExecutiveBriefService(): ExecutiveBriefService {
   return {
     async getGreeting(userDisplayName = "Executive") {
+      const snap = composeBusinessIntelligenceSnapshot();
       const now = new Date();
       return {
         salutation: timeOfDaySalutation(now),
@@ -68,32 +83,58 @@ export function createExecutiveBriefService(): ExecutiveBriefService {
           hour: "2-digit",
           minute: "2-digit",
         }),
-        health: mockHealth(),
-        personalizationHints: [],
+        health: healthFromBi(snap),
+        personalizationHints: snap.insights.slice(0, 2).map((i) => i.text),
       };
     },
     async getBrief() {
+      const snap = composeBusinessIntelligenceSnapshot();
+      const risk =
+        snap.health.status === "impaired"
+          ? "critical"
+          : snap.health.status === "watch"
+            ? "high"
+            : "medium";
       return {
-        title: "Executive Brief",
-        summary:
-          "Good Morning.\n\nYour enterprise is operating normally.\n\nThree operational areas require attention today.\n\nRevenue performance is stable.\n\nCredit operations have increased workload.\n\nTwo SLA alerts require review.\n\nOpen the Situation Room for details.",
-        observations: [
-          "Enterprise operations are within normal bands.",
-          "Three operational areas require attention today.",
-          "Revenue performance is stable.",
-          "Credit operations show increased workload.",
-          "Two SLA alerts require review.",
+        title: "CHANAKYA Executive Briefing",
+        summary: snap.health.summary,
+        observations: snap.insights.map((i) => i.text),
+        recommendations: snap.insights
+          .map((i) => i.recommendedAction)
+          .filter((x): x is string => Boolean(x))
+          .slice(0, 5),
+        riskLevel: risk,
+        confidence: Math.min(99, 55 + Math.round(snap.health.overallScore / 4)),
+        generatedAt: snap.asOf,
+        sourceModules: [
+          "Enterprise Business Intelligence",
+          "Chanakya Radar",
+          "Enterprise Task Engine",
         ],
-        recommendations: [
-          "Open the Situation Room for operational detail.",
-          "Review SLA alerts in Alert Center.",
-          "Monitor credit operations workload.",
-        ],
-        riskLevel: "medium",
-        confidence: undefined,
-        generatedAt: new Date().toISOString(),
-        sourceModules: ["placeholder-briefing"],
         presentedBy: "CHANAKYA",
+        summaryPillars: [
+          {
+            id: "pipeline",
+            label: "Pipeline",
+            points: [
+              `${snap.executive.activeDeals} active Deals · ${formatINRCompact(snap.executive.pipelineValue)}`,
+              `Conversion ${snap.executive.conversionRatioPct}% · Avg size ${formatINRCompact(snap.executive.averageDealSize)}`,
+            ],
+          },
+          {
+            id: "execution",
+            label: "Execution",
+            points: [
+              `${snap.operational.overdueTasks} overdue tasks · ${snap.operational.tasksDueToday} due today`,
+              `${snap.operational.dealsAwaitingDocuments} Deals awaiting documents`,
+            ],
+          },
+          {
+            id: "health",
+            label: "Business Health",
+            points: snap.health.dimensions.slice(0, 3).map((d) => `${d.label}: ${d.score}`),
+          },
+        ],
       };
     },
   };
@@ -102,48 +143,20 @@ export function createExecutiveBriefService(): ExecutiveBriefService {
 export function createPriorityService(): PriorityService {
   return {
     async listPriorityActions() {
-      return [
-        {
-          id: "pa-sla-1",
-          priority: "critical",
-          title: "SLA breach risk — document verification",
-          description: "Two verification queues are approaching SLA thresholds.",
-          reason: "Queue depth and ageing indicate near-breach conditions.",
-          recommendedAction: "Review Alert Center and assign capacity.",
-          navigateTo: "/mission-control/alert-center",
-          navigateLabel: "Open Alert Center",
-        },
-        {
-          id: "pa-credit-1",
-          priority: "high",
-          title: "Credit operations workload elevated",
-          description: "Credit ops volume is above the usual daily band.",
-          reason: "Placeholder signal for executive attention — not a calculated KPI.",
-          recommendedAction: "Inspect Situation Room for credit posture.",
-          navigateTo: "/mission-control/situation-room",
-          navigateLabel: "Open Situation Room",
-        },
-        {
-          id: "pa-sec-1",
-          priority: "medium",
-          title: "Security posture check recommended",
-          description: "Routine executive review of security operations.",
-          reason: "Governance cadence — placeholder only.",
-          recommendedAction: "Visit Security Operations.",
-          navigateTo: "/mission-control/security-operations",
-          navigateLabel: "Open Security Ops",
-        },
-        {
-          id: "pa-replay-1",
-          priority: "low",
-          title: "Mission Replay available",
-          description: "Prior mission timeline can be reviewed for continuity.",
-          reason: "Optional executive follow-up.",
-          recommendedAction: "Open Mission Replay when convenient.",
-          navigateTo: "/mission-control/mission-replay",
-          navigateLabel: "Open Mission Replay",
-        },
-      ];
+      const snap = composeBusinessIntelligenceSnapshot();
+      return snap.insights
+        .filter((i) => i.tone === "danger" || i.tone === "warning")
+        .slice(0, 6)
+        .map((i) => ({
+          id: i.id,
+          priority: (i.tone === "danger" ? "critical" : "high") as PriorityAction["priority"],
+          title: i.text,
+          description: i.reason,
+          reason: i.reason,
+          recommendedAction: i.recommendedAction ?? "Review in Mission Control.",
+          navigateTo: i.href ?? ROUTES.MISSION_CONTROL_EXECUTIVE_BRIEFING,
+          navigateLabel: "Open",
+        }));
     },
   };
 }
@@ -151,50 +164,14 @@ export function createPriorityService(): PriorityService {
 export function createHighlightsService(): HighlightsService {
   return {
     async listHighlights() {
-      return [
-        {
-          id: "hl-branch",
-          label: "Top Performing Branch",
-          value: "Placeholder Branch",
-          detail: "Placeholder highlight — not computed",
-          category: "branch",
-        },
-        {
-          id: "hl-rm",
-          label: "Top Relationship Manager",
-          value: "Placeholder RM",
-          detail: "Placeholder highlight — not computed",
-          category: "relationship_manager",
-        },
-        {
-          id: "hl-lender",
-          label: "Fastest Lender",
-          value: "Placeholder Lender",
-          detail: "Placeholder highlight — not computed",
-          category: "lender",
-        },
-        {
-          id: "hl-sla",
-          label: "Best SLA",
-          value: "Placeholder SLA",
-          detail: "Placeholder highlight — not computed",
-          category: "sla",
-        },
-        {
-          id: "hl-prod",
-          label: "Highest Productivity",
-          value: "Placeholder Unit",
-          detail: "Placeholder highlight — not computed",
-          category: "productivity",
-        },
-        {
-          id: "hl-csat",
-          label: "Customer Satisfaction",
-          value: "Placeholder Score",
-          detail: "Placeholder highlight — not computed",
-          category: "satisfaction",
-        },
-      ];
+      const snap = composeBusinessIntelligenceSnapshot();
+      return snap.executive.dealsByRm.slice(0, 5).map((r) => ({
+        id: `hl-rm-${r.name}`,
+        label: r.name,
+        value: String(r.count),
+        detail: `${formatINRCompact(r.value ?? 0)} pipeline`,
+        category: "relationship_manager" as const,
+      }));
     },
   };
 }
@@ -204,57 +181,157 @@ export function createQuickActionService(): QuickActionService {
     async listQuickActions() {
       return [
         {
-          id: "qa-situation",
-          label: "Situation Room",
-          href: "/mission-control/situation-room",
-          description: "Operational situation overview",
-          icon: "Radar",
+          id: "qa-radar",
+          label: "Open CHANAKYA Radar",
+          href: ROUTES.CHANAKYA_RADAR,
+          description: "Portfolio operational vector",
+          icon: "radar",
         },
         {
-          id: "qa-alerts",
-          label: "Alert Center",
-          href: "/mission-control/alert-center",
-          description: "Enterprise alerts",
-          icon: "Bell",
+          id: "qa-tasks",
+          label: "Open My Work",
+          href: ROUTES.TASKS,
+          description: "ETE task execution",
+          icon: "list-todo",
         },
         {
-          id: "qa-security",
-          label: "Security Operations",
-          href: "/mission-control/security-operations",
-          description: "Security command",
-          icon: "Shield",
-        },
-        {
-          id: "qa-replay",
-          label: "Mission Replay",
-          href: "/mission-control/mission-replay",
-          description: "Timeline replay",
-          icon: "History",
-        },
-        {
-          id: "qa-twin",
-          label: "Digital Twin",
-          href: "/mission-control/situation-room",
-          description: "Enterprise twin (routes to Situation Room until twin ships)",
-          icon: "Boxes",
-        },
-        {
-          id: "qa-reports",
-          label: "Executive Reports",
-          href: "/mission-control/executive-briefing",
-          description: "Briefing & reports",
-          icon: "FileText",
-        },
-        {
-          id: "qa-command",
-          label: "Command Console",
-          href: "/mission-control/command-console",
-          description: "Operator console",
-          icon: "Terminal",
+          id: "qa-deals",
+          label: "My Deals",
+          href: ROUTES.MY_DEALS,
+          description: "Active Deal queue",
+          icon: "briefcase",
         },
       ];
     },
   };
+}
+
+function liveStatusCards(snap: EbiSnapshot): ExecutiveStatusCard[] {
+  return [
+    {
+      id: "business",
+      title: "Business",
+      subtitle: "Commercial posture",
+      tone: snap.health.status === "healthy" ? "positive" : "attention",
+      metrics: [
+        {
+          label: "Pipeline",
+          value: formatINRCompact(snap.executive.pipelineValue),
+          hint: `${snap.executive.activeDeals} Deals`,
+        },
+        {
+          label: "Revenue (exp.)",
+          value: formatINRCompact(snap.executive.expectedRevenue),
+          hint: "Book expected",
+        },
+        {
+          label: "Conversion",
+          value: `${snap.executive.conversionRatioPct}%`,
+          hint: "Won share",
+        },
+      ],
+    },
+    {
+      id: "people",
+      title: "People",
+      subtitle: "Workforce posture",
+      tone: snap.operational.overdueTasks > 5 ? "attention" : "neutral",
+      metrics: [
+        { label: "Team members", value: String(snap.team.members.length) },
+        { label: "Overdue tasks", value: String(snap.operational.overdueTasks) },
+        { label: "Due today", value: String(snap.operational.tasksDueToday) },
+      ],
+    },
+    {
+      id: "risk",
+      title: "Risk",
+      subtitle: "Execution posture",
+      tone:
+        snap.operational.inactiveOpportunities > 5 ||
+        snap.operational.dealsAwaitingDocuments > 10
+          ? "attention"
+          : "neutral",
+      metrics: [
+        {
+          label: "Inactive ≥5d",
+          value: String(snap.operational.inactiveOpportunities),
+        },
+        {
+          label: "Docs delayed",
+          value: String(snap.operational.dealsAwaitingDocuments),
+        },
+        { label: "Health score", value: String(snap.health.overallScore) },
+      ],
+    },
+  ];
+}
+
+function liveBusinessPerformance(snap: EbiSnapshot): BusinessPerformanceModel {
+  return {
+    funnel: snap.executive.dealsByStage.map((s) => ({
+      stage: s.name,
+      value: s.count,
+    })),
+    products: snap.executive.dealsByProduct.slice(0, 8).map((p) => ({
+      name: p.name,
+      value: p.count,
+    })),
+    lenders: snap.executive.dealsByRm.slice(0, 8).map((r) => ({
+      name: r.name,
+      value: r.count,
+    })),
+    conversion: [
+      { label: "Won share", rate: snap.executive.conversionRatioPct / 100 },
+      {
+        label: "Doc progress",
+        rate: snap.operational.documentCollectionProgressPct / 100,
+      },
+    ],
+    revenueTrend: [
+      {
+        month: "Current",
+        revenue: Math.round(snap.executive.expectedRevenue),
+      },
+    ],
+  };
+}
+
+function liveExecutiveActions(snap: EbiSnapshot): ExecutiveActionsModel {
+  return {
+    priorities: snap.insights.slice(0, 5).map((i) => ({
+      id: i.id,
+      title: i.text,
+      urgency: i.tone,
+    })),
+    pendingApprovals: [],
+    criticalTasks: [
+      {
+        id: "overdue",
+        title: `${snap.operational.overdueTasks} overdue ETE tasks`,
+        due: "Overdue",
+      },
+      {
+        id: "today",
+        title: `${snap.operational.tasksDueToday} tasks due today`,
+        due: "Today",
+      },
+    ],
+    meetings: [],
+    notifications: snap.insights.slice(0, 3).map((i) => ({
+      id: `n-${i.id}`,
+      title: i.text,
+      when: "Now",
+    })),
+  };
+}
+
+function liveEnterpriseHealth(snap: EbiSnapshot): EnterpriseHealthIndicator[] {
+  return snap.health.dimensions.map((d) => ({
+    id: d.id,
+    label: d.label,
+    state: d.status === "healthy" ? "healthy" : "warning",
+    detail: `${d.score}/100 · ${d.detail}`,
+  }));
 }
 
 export function createExecutiveBriefingService(): ExecutiveBriefingService {
@@ -265,6 +342,7 @@ export function createExecutiveBriefingService(): ExecutiveBriefingService {
 
   return {
     async getPageModel(userDisplayName) {
+      const snap = composeBusinessIntelligenceSnapshot();
       const [greeting, brief, priorityActions, highlights, quickActions] = await Promise.all([
         briefService.getGreeting(userDisplayName),
         briefService.getBrief(),
@@ -274,14 +352,18 @@ export function createExecutiveBriefingService(): ExecutiveBriefingService {
       ]);
       const alignedBrief: ExecutiveBrief = {
         ...brief,
-        summary: brief.summary.replace(/^Good Morning\./, `${greeting.salutation}.`),
+        summary: `${greeting.salutation}. ${brief.summary}`,
       };
       return {
-        greeting,
+        greeting: { ...greeting, health: healthFromBi(snap) },
         brief: alignedBrief,
         priorityActions,
         highlights,
         quickActions,
+        statusCards: liveStatusCards(snap),
+        businessPerformance: liveBusinessPerformance(snap),
+        executiveActions: liveExecutiveActions(snap),
+        enterpriseHealth: liveEnterpriseHealth(snap),
       };
     },
   };

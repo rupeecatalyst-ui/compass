@@ -44,6 +44,7 @@ import {
 } from "@/constants/chanakya-radar";
 import { ROUTES } from "@/constants/routes";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import {
   buildChanakyaRadarDashboard,
@@ -588,15 +589,20 @@ export function ChanakyaRadarWorkspace() {
                             onClick={() => setSelectedFileId(row.fileId)}
                             onDoubleClick={() => openOpportunityWorkspace(router, row)}
                             className={cn(
-                              "flex w-full items-start justify-between gap-2 rounded-md border border-transparent px-2.5 py-2 text-left hover:border-zinc-600 hover:bg-zinc-900",
+                              "flex w-full items-start justify-between gap-2 rounded-md border border-transparent px-2.5 py-1.5 text-left hover:border-zinc-600 hover:bg-zinc-900",
                               selectedFileId === row.fileId &&
                                 "border-violet-500/40 bg-violet-500/10",
                             )}
                           >
-                            <div className="min-w-0">
+                            <div className="min-w-0 leading-tight">
                               <p className="truncate text-[12px] font-medium">{row.borrower}</p>
                               <p className="truncate text-[10px] text-muted-foreground">
-                                {row.product} · {row.stageLabel}
+                                {row.product}
+                              </p>
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                {row.lender && row.lender !== "—"
+                                  ? `${row.lender} · ${row.stageLabel}`
+                                  : row.stageLabel}
                                 {row.workedToday ? " · ✓ Today" : ""}
                               </p>
                             </div>
@@ -723,7 +729,7 @@ export function ChanakyaRadarWorkspace() {
               onOpenTimeline={() => {
                 setOpportunityContext(selectedPreview.file, selectedPreview.card);
                 router.push(
-                  buildJourneyHref(ROUTES.LOAN_FILES, {
+                  buildDealWorkspaceHref({
                     fileId: selectedPreview.file.id,
                     opportunityId: selectedPreview.card.opportunityNumber,
                     tab: "timeline",
@@ -733,7 +739,7 @@ export function ChanakyaRadarWorkspace() {
               onAddFollowUp={() => {
                 setOpportunityContext(selectedPreview.file, selectedPreview.card);
                 router.push(
-                  buildJourneyHref(ROUTES.LOAN_FILES, {
+                  buildDealWorkspaceHref({
                     fileId: selectedPreview.file.id,
                     opportunityId: selectedPreview.card.opportunityNumber,
                     tab: "tasks",

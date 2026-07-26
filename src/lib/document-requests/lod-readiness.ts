@@ -1,7 +1,13 @@
 /**
- * LOD readiness — mandatory Opportunity fields before Generate LOD.
+ * LOD readiness — mandatory Opportunity fields + EDIE certified checklist gate.
+ * Never allow Generate LOD when product / borrower type would silently fall back.
  */
 
+import {
+  tryResolveEdieConstitutionKind,
+  tryResolveEdieCustomerCategory,
+  tryResolveEdieProductRef,
+} from "@/lib/edie-certified/resolve-context";
 import type {
   DocumentRequestLodReadiness,
   DocumentRequestLodReadinessGap,
@@ -16,24 +22,41 @@ export type DocumentRequestContextInput = {
   borrowerCategory?: string | null;
   employmentType?: string | null;
   constitution?: string | null;
+  /** Optional entity hint (e.g. company participant) */
+  entityHint?: string | null;
 };
 
-function isSelfEmployedFamily(category?: string | null, employment?: string | null): boolean {
-  const c = (category || "").toLowerCase();
-  const e = (employment || "").toLowerCase();
-  return (
-    c === "self_employed" ||
-    c === "company" ||
-    e.includes("self-employed") ||
-    e.includes("self employed") ||
-    e.includes("business") ||
-    e.includes("propriet") ||
-    e.includes("partner") ||
-    e.includes("llp") ||
-    e.includes("private")
-  );
+function requiresConstitution(category: "salaried" | "self_employed" | "company"): boolean {
+  return category === "self_employed" || category === "company";
 }
 
+function buildChanakyaMessage(gaps: DocumentRequestLodReadinessGap[]): string {
+  const edieGaps = gaps.filter((g) => g.field.startsWith("edie."));
+  const fieldGaps = gaps.filter((g) => !g.field.startsWith("edie."));
+
+  const parts: string[] = [];
+  if (fieldGaps.length) {
+    parts.push(
+      "I cannot generate an accurate List of Documents because some mandatory Opportunity information is missing.",
+      "",
+      `Please complete: ${fieldGaps.map((g) => g.label).join(", ")}.`,
+    );
+  }
+  if (edieGaps.length) {
+    if (parts.length) parts.push("");
+    parts.push(
+      "EDIE does not have a certified document checklist for the selected combination.",
+      "LOD will not be generated using a different product or borrower type.",
+      "",
+      ...edieGaps.map((g) => g.detail || g.label),
+    );
+  }
+  return parts.join("\n");
+}
+
+/**
+ * Validate Opportunity context for LOD — field completeness + EDIE certification.
+ */
 export function evaluateDocumentRequestLodReadiness(
   input: DocumentRequestContextInput,
 ): DocumentRequestLodReadiness {
@@ -48,15 +71,39 @@ export function evaluateDocumentRequestLodReadiness(
   if (!input.email?.trim()) {
     gaps.push({ field: "email", label: "Email Address" });
   }
-  if (!input.productLabel?.trim()) {
-    gaps.push({ field: "product", label: "Product" });
+
+  const product = tryResolveEdieProductRef(input.productLabel);
+  if (!product.ok) {
+    gaps.push({
+      field: product.code === "missing" ? "product" : "edie.product",
+      label: product.code === "missing" ? "Product" : "Certified Product (EDIE)",
+      detail: product.message,
+    });
   }
-  if (!input.borrowerCategory?.trim() && !input.employmentType?.trim()) {
-    gaps.push({ field: "borrowerType", label: "Borrower Type" });
-  }
-  if (isSelfEmployedFamily(input.borrowerCategory, input.employmentType)) {
-    if (!input.constitution?.trim()) {
-      gaps.push({ field: "constitution", label: "Business Constitution" });
+
+  const category = tryResolveEdieCustomerCategory(
+    input.employmentType,
+    input.entityHint,
+    input.borrowerCategory,
+  );
+  if (!category.ok) {
+    gaps.push({
+      field: category.code === "missing" ? "borrowerType" : "edie.borrowerType",
+      label:
+        category.code === "missing" ? "Borrower Type" : "Certified Borrower Type (EDIE)",
+      detail: category.message,
+    });
+  } else if (requiresConstitution(category.customerCategory)) {
+    const constitution = tryResolveEdieConstitutionKind(input.constitution);
+    if (!constitution.ok) {
+      gaps.push({
+        field: constitution.code === "missing" ? "constitution" : "edie.constitution",
+        label:
+          constitution.code === "missing"
+            ? "Business Constitution"
+            : "Certified Business Constitution (EDIE)",
+        detail: constitution.message,
+      });
     }
   }
 
@@ -64,8 +111,6 @@ export function evaluateDocumentRequestLodReadiness(
   return {
     canGenerate,
     gaps,
-    chanakyaMessage: canGenerate
-      ? null
-      : "I cannot generate an accurate List of Documents because some mandatory Opportunity information is missing.\n\nPlease complete the highlighted information before generating the LOD.",
+    chanakyaMessage: canGenerate ? null : buildChanakyaMessage(gaps),
   };
 }

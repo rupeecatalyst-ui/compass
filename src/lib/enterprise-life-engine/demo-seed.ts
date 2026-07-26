@@ -1,10 +1,12 @@
 /**
- * Shared LIFE demo seed — executor registry for recommendations.
- * Seeds once; engines and UIs must not ask users for filter values.
+ * Shared LIFE demo seed — executor contacts linked to Published Enterprise Lenders.
+ * Institution identity always resolves through Enterprise Lender Registry.
  */
 
 import { LIFE_ACTIVE_STATUS, LIFE_CONTACT_ROLES } from "@/constants/enterprise-life-engine";
 import { runDemoSeedIfEnabledWithResult } from "@/lib/demo-seed";
+import { ensureLenderMasterBootstrapped } from "@/lib/enterprise-lender-registry/bootstrap-master";
+import { findPublishedLenderByDisplayName } from "@/lib/enterprise-lender-registry/published-directory";
 import {
   getLifeRegistrySnapshot,
 } from "./registry-snapshot";
@@ -13,19 +15,29 @@ import {
   registerLifeRecommendationHint,
 } from "./contact-registry";
 
+function publishedRef(displayName: string, fallbackSlug: string): { lenderRef: string; lenderName: string } {
+  const hit = findPublishedLenderByDisplayName(displayName);
+  if (hit) return { lenderRef: `lender:${hit.id}`, lenderName: hit.displayName };
+  return { lenderRef: `lender:${fallbackSlug}`, lenderName: displayName };
+}
+
 export function seedLifeContactsIfEmpty(): number {
   return runDemoSeedIfEnabledWithResult(() => {
+    if (typeof window !== "undefined") {
+      ensureLenderMasterBootstrapped();
+    }
     if (getLifeRegistrySnapshot().contacts.length > 0) {
       return getLifeRegistrySnapshot().contacts.length;
     }
 
+    const hdfcId = publishedRef("HDFC Bank", "hdfc");
     const hdfc = registerLifeLenderContact({
     contactCode: "LIFE-HDFC-EXE-001",
     contactName: "Rahul Shah",
     mobile: "9876500001",
     email: "rahul.shah@hdfc.demo",
-    lenderRef: "lender:hdfc",
-    lenderName: "HDFC Bank",
+    lenderRef: hdfcId.lenderRef,
+    lenderName: hdfcId.lenderName,
     branchRef: "branch:hdfc-andheri",
     branchName: "Andheri",
     city: "Mumbai",
@@ -47,13 +59,14 @@ export function seedLifeContactsIfEmpty(): number {
     enabled: true,
   });
 
+  const iciciId = publishedRef("ICICI Bank", "icici");
   const icici = registerLifeLenderContact({
     contactCode: "LIFE-ICICI-EXE-001",
     contactName: "Neha Gupta",
     mobile: "9876500002",
     email: "neha.gupta@icici.demo",
-    lenderRef: "lender:icici",
-    lenderName: "ICICI Bank",
+    lenderRef: iciciId.lenderRef,
+    lenderName: iciciId.lenderName,
     branchRef: "branch:icici-andheri",
     branchName: "Andheri",
     city: "Mumbai",
@@ -75,13 +88,14 @@ export function seedLifeContactsIfEmpty(): number {
     enabled: true,
   });
 
+  const axisId = publishedRef("Axis Bank", "axis");
   const axis = registerLifeLenderContact({
     contactCode: "LIFE-AXIS-EXE-001",
     contactName: "Amit Jain",
     mobile: "9876500004",
     email: "amit.jain@axis.demo",
-    lenderRef: "lender:axis",
-    lenderName: "Axis Bank",
+    lenderRef: axisId.lenderRef,
+    lenderName: axisId.lenderName,
     branchRef: "branch:axis-andheri",
     branchName: "Andheri",
     city: "Mumbai",
@@ -109,8 +123,8 @@ export function seedLifeContactsIfEmpty(): number {
     contactName: "Priya Sharma",
     mobile: "9876500011",
     email: "priya.sharma@hdfc.demo",
-    lenderRef: "lender:hdfc",
-    lenderName: "HDFC Bank",
+    lenderRef: hdfcId.lenderRef,
+    lenderName: hdfcId.lenderName,
     branchRef: "branch:hdfc-pune",
     branchName: "Pune Camp",
     city: "Pune",
@@ -130,8 +144,8 @@ export function seedLifeContactsIfEmpty(): number {
     contactName: "Rahul Verma",
     mobile: "9876500012",
     email: "rahul.verma@icici.demo",
-    lenderRef: "lender:icici",
-    lenderName: "ICICI Bank",
+    lenderRef: iciciId.lenderRef,
+    lenderName: iciciId.lenderName,
     branchRef: "branch:icici-pune",
     branchName: "Baner",
     city: "Pune",

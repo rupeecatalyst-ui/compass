@@ -250,14 +250,14 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
       {
         key: "natureOfBusiness",
         label: "Nature of Business",
-        control: "text",
+        control: "master",
+        masterDomain: "nature_of_business",
         mandatory: true,
         sortOrder: 14,
         visible: true,
         dataClass: "role",
         owner: "Borrower Role",
-        why: "Describe what the business does — relevant for self-employed business owners.",
-        placeholder: "e.g. Wholesale trading of industrial chemicals",
+        why: "Standard business category — reused automatically in Loan / Opportunity Workspace (SSOT).",
         relevance: { whenField: "employmentType", whenValues: SELF_EMPLOYED_BUSINESS },
       },
       {
@@ -280,10 +280,10 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         label: "Start Loan Journey",
         openLabel: "Continue Loan Journey",
         description:
-          "Opens Loan Journey to capture product, amount, purpose, property and other loan-file data. Never stored on Borrower profile.",
-        requiresMirComplete: true,
-        href: "/loan-files",
-        openHref: "/loan-files",
+          "Creates an Opportunity for this Contact and opens Opportunity Workspace at Lead Creation. No Loan Journey form — Continue through Documents → Credit Bench → LIFE → Lender Pipeline.",
+        requiresMirComplete: false,
+        href: "/credit-bench",
+        openHref: "/credit-bench",
         enabled: true,
       },
     ],
@@ -886,12 +886,15 @@ export function getPrimaryEcmBusinessAction(
 export function getEcmBusinessJourneyDashAction(
   roleCode: EcmContactRole,
   values: Record<string, string>,
-  options?: { hasActiveJourney?: boolean },
+  options?: {
+    hasActiveJourney?: boolean;
+    /** Start Loan Journey: Name + Mobile on Contact identity (not full role MIR). */
+    loanJourneyReady?: boolean;
+  },
 ): EcmBusinessJourneyDashAction | null {
   const actionable = getPrimaryEcmBusinessAction(roleCode);
   if (!actionable) return null;
 
-  const roleLabel = getEcmRoleLabel(roleCode);
   const mirComplete = isEcmRoleMirComplete(roleCode, values);
   const profileJourney = Boolean(values[ECM_ACTIVE_JOURNEY_PROFILE_KEY]?.trim());
   /** Explicit option wins (avoids stale profile journey key when loan state is known). */
@@ -900,14 +903,28 @@ export function getEcmBusinessJourneyDashAction(
       ? Boolean(options.hasActiveJourney)
       : profileJourney;
   const journeyName = extractBusinessJourneyName(actionable.label);
+  const isStartLoanJourney = actionable.id === "start_loan_journey";
+  const canStartLoanJourney =
+    !isStartLoanJourney || options?.loanJourneyReady !== false;
 
-  if (!mirComplete) {
+  if (!mirComplete && !isStartLoanJourney) {
     return {
       mode: "guide",
       label: actionable.label,
       guideCtaLabel: actionable.label,
       actionId: actionable.id,
       reason: buildChanakyaJourneyGuideDetail(roleCode, journeyName),
+    };
+  }
+
+  if (isStartLoanJourney && !canStartLoanJourney) {
+    return {
+      mode: "guide",
+      label: actionable.label,
+      guideCtaLabel: actionable.label,
+      actionId: actionable.id,
+      reason:
+        "Add Full Name and Mobile on this Contact, then Start Loan Journey to create an Opportunity and open Opportunity Workspace.",
     };
   }
 

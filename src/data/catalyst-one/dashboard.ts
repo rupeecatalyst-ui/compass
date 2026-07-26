@@ -98,7 +98,7 @@ export const executiveKpis: ExecutiveKpi[] = demoOnly([
     trend: { direction: "up", label: "+18% vs yesterday" },
     icon: "files",
     accent: "primary",
-    href: `${ROUTES.LOAN_FILES}?stage=raw_lead`,
+    href: `${ROUTES.MY_DEALS}?stage=raw_lead`,
   },
   {
     id: "tasks_due",
@@ -139,7 +139,7 @@ export const focusTiles: FocusTile[] = demoOnly([
     label: "Credit Queries Pending",
     count: 9,
     urgency: "high",
-    href: `${ROUTES.LOAN_FILES}?filter=credit_queries`,
+    href: `${ROUTES.MY_DEALS}?filter=credit_queries`,
   },
   {
     id: "expected_disbursement",
@@ -168,7 +168,7 @@ export const dashboardTasks: DashboardTaskItem[] = demoOnly([
   { id: "t1", title: "Call — Sharma Industries disbursement", type: "call", time: "Yesterday", href: `${ROUTES.TASKS}?id=t1`, bucket: "overdue" },
   { id: "t2", title: "Collect ITR — Patel Manufacturing", type: "document", time: "Yesterday", href: `${ROUTES.DOCUMENTS}?file=patel`, bucket: "overdue" },
   { id: "t3", title: "RM meeting — HDFC rate revision", type: "meeting", time: "10:30 AM", href: `${ROUTES.TASKS}?id=t2`, bucket: "today" },
-  { id: "t4", title: "Credit query — income variance", type: "credit", time: "3:30 PM", href: `${ROUTES.LOAN_FILES}?filter=credit`, bucket: "today" },
+  { id: "t4", title: "Credit query — income variance", type: "credit", time: "3:30 PM", href: `${ROUTES.MY_DEALS}?filter=credit`, bucket: "today" },
   { id: "t5", title: "Disbursement follow-up — ICICI BL", type: "disbursement", time: "5:00 PM", href: `${ROUTES.MY_DEALS}?stage=disbursement`, bucket: "today" },
   { id: "t6", title: "Site visit — Mehta Traders", type: "call", time: "Tomorrow", href: `${ROUTES.TASKS}?id=t6`, bucket: "upcoming" },
 ]);
@@ -275,7 +275,7 @@ export const todaysWork: TodaysWorkItem[] = demoOnly([
     count: 9,
     description: "Open queries from credit team requiring RM response",
     priority: "medium",
-    href: "/loan-files",
+    href: "/my-deals",
   },
   {
     id: "disbursements",

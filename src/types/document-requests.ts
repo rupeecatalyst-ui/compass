@@ -158,6 +158,8 @@ export interface CustomerPortalProgressSnapshot extends OpportunityDocumentReadi
 export interface DocumentRequestLodReadinessGap {
   field: string;
   label: string;
+  /** Optional longer user-facing explanation (EDIE certification failures). */
+  detail?: string;
 }
 
 export interface DocumentRequestLodReadiness {

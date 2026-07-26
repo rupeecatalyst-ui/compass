@@ -347,9 +347,12 @@ export function ChanakyaRadarVisual({
               <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                 {blipHover.row.product}
               </p>
+              <p className="mt-0.5 truncate text-[10px] font-medium text-foreground/90">
+                {blipHover.row.lender && blipHover.row.lender !== "—"
+                  ? `${blipHover.row.lender} · ${blipHover.row.stageLabel}`
+                  : blipHover.row.stageLabel}
+              </p>
               <dl className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
-                <dt className="text-muted-foreground">Stage</dt>
-                <dd className="truncate text-right font-medium">{blipHover.row.stageLabel}</dd>
                 <dt className="text-muted-foreground">RM</dt>
                 <dd className="truncate text-right font-medium">{blipHover.row.assignedRm}</dd>
                 <dt className="text-muted-foreground">Days</dt>

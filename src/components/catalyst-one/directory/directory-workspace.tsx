@@ -25,10 +25,8 @@ import {
   seedEcmCompaniesIfEmpty,
 } from "@/lib/enterprise-company-master";
 import { seedEcmContactsDemoIfEmpty } from "@/lib/demo-seed";
-import {
-  hydrateEcmFromPrisma,
-  isEnterprisePersistencePrisma,
-} from "@/lib/enterprise-persistence";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { hydrateEcmFromPrisma } from "@/lib/enterprise-persistence";
 import type { EcmCompany } from "@/types/enterprise-company-master";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 

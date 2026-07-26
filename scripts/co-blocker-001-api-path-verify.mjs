@@ -2,6 +2,9 @@
  * CO-BLOCKER-001 — API path verification (no browser).
  * Simulates LiveEntityMasterSearch → ecmApiClient calls against local/prod server.
  */
+
+import { requireEnv, INSECURE_JWT_DENYLIST } from "./_lib/require-env.mjs";
+
 import { config } from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,7 +16,7 @@ config({ path: path.join(__dirname, "..", ".env.local") });
 config({ path: path.join(__dirname, "..", ".env") });
 
 const BASE = process.env.VERIFY_BASE_URL || "http://localhost:3000";
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+const JWT_SECRET = requireEnv("JWT_SECRET", { minLength: 32 });
 const prisma = new PrismaClient();
 
 async function tokenForAdmin() {

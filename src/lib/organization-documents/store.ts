@@ -3,6 +3,11 @@ import {
   ORG_DOC_STORAGE_KEY,
   ORG_DOC_SYSTEM_TYPES,
 } from "@/constants/organization-documents";
+import { isTier2RegistryPortRuntimeActive } from "@/constants/enterprise-master-data/dual-read";
+import {
+  configureTier2RegistryPorts,
+  getDocumentRegistryPort,
+} from "@/lib/enterprise-tier2-ports";
 import type {
   OrgDocCategoryId,
   OrgDocStatus,
@@ -70,6 +75,23 @@ export function listOrgDocumentTypes(
     const types = templateTypes ?? readSnapshot().templateTypes;
     return [...types].sort((a, b) => a.sortOrder - b.sortOrder);
   }
+
+  if (isTier2RegistryPortRuntimeActive()) {
+    configureTier2RegistryPorts();
+    const fromPort = getDocumentRegistryPort()
+      .listDefinitions(categoryId)
+      .filter((d) => d.enabled !== false)
+      .map((d) => ({
+        id: d.id,
+        categoryId,
+        label: d.label,
+        sortOrder: d.sortOrder ?? 0,
+        system: true as const,
+      }))
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    if (fromPort.length > 0) return fromPort;
+  }
+
   return ORG_DOC_SYSTEM_TYPES.filter((t) => t.categoryId === categoryId).sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
@@ -79,6 +101,27 @@ export function listAllOrgDocumentTypes(
   templateTypes?: OrgDocTypeDefinition[],
 ): OrgDocTypeDefinition[] {
   const templates = templateTypes ?? readSnapshot().templateTypes;
+
+  if (isTier2RegistryPortRuntimeActive()) {
+    configureTier2RegistryPorts();
+    const port = getDocumentRegistryPort();
+    const systemFromPort = port
+      .listTypes()
+      .filter((t) => t.id !== "templates" && t.enabled !== false)
+      .flatMap((type) =>
+        port.listDefinitions(type.id).map((d) => ({
+          id: d.id,
+          categoryId: type.id as OrgDocCategoryId,
+          label: d.label,
+          sortOrder: d.sortOrder ?? 0,
+          system: true as const,
+        })),
+      );
+    if (systemFromPort.length > 0) {
+      return [...systemFromPort, ...templates].sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+  }
+
   return [...ORG_DOC_SYSTEM_TYPES, ...templates].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 

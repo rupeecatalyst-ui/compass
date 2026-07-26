@@ -1,21 +1,46 @@
 /**
  * EDIE Certified Document Catalog — reusable document definitions.
+ * Module labels = business document categories shown in Document Center.
  */
 
 import type { EdieCatalogDocument, EdieDocumentModuleId } from "@/types/edie-certified-rules";
 
 export const EDIE_MODULE_LABELS: Record<EdieDocumentModuleId, string> = {
-  customer_kyc: "Customer KYC",
+  customer_kyc: "Identity Proof",
   address_proof: "Address Proof",
-  business_constitution: "Business Constitution",
-  financial: "Financial Documents",
-  banking: "Banking",
+  business_constitution: "Business Proof",
+  financial: "Income Proof",
+  banking: "Banking Proof",
   property: "Property Documents",
-  existing_loan: "Existing Loan",
+  existing_loan: "Existing Loan Documents",
 };
 
+export const EDIE_IDENTITY_PROOF_GROUP = "identity_proof_one_of";
+export const EDIE_IDENTITY_PROOF_CHOICES = [
+  "doc:pan",
+  "doc:aadhaar",
+  "doc:passport",
+  "doc:driving-licence",
+  "doc:voter-id",
+  "doc:government-id",
+  "doc:other-id",
+] as const;
+
+export const EDIE_ADDRESS_PROOF_GROUP = "address_proof_one_of";
+export const EDIE_ADDRESS_PROOF_CHOICES = [
+  "doc:address-aadhaar",
+  "doc:address-passport",
+  "doc:address-electricity",
+  "doc:address-telephone",
+  "doc:address-gas",
+  "doc:address-bank-statement",
+  "doc:address-rent",
+  "doc:address-property-tax",
+  "doc:address-other",
+] as const;
+
 export const EDIE_CATALOG: Record<string, EdieCatalogDocument> = {
-  // A. Customer KYC
+  // A. Identity Proof (choice — one of)
   "doc:pan": {
     typeRef: "doc:pan",
     label: "PAN Card",
@@ -35,24 +60,35 @@ export const EDIE_CATALOG: Record<string, EdieCatalogDocument> = {
     label: "Passport",
     moduleId: "customer_kyc",
     defaultSeverity: "required",
-    optional: true,
-    weight: 4,
+    weight: 10,
   },
   "doc:driving-licence": {
     typeRef: "doc:driving-licence",
     label: "Driving Licence",
     moduleId: "customer_kyc",
     defaultSeverity: "required",
-    optional: true,
-    weight: 3,
+    weight: 8,
   },
   "doc:voter-id": {
     typeRef: "doc:voter-id",
     label: "Voter ID",
     moduleId: "customer_kyc",
     defaultSeverity: "required",
-    optional: true,
-    weight: 3,
+    weight: 8,
+  },
+  "doc:government-id": {
+    typeRef: "doc:government-id",
+    label: "Government ID",
+    moduleId: "customer_kyc",
+    defaultSeverity: "required",
+    weight: 8,
+  },
+  "doc:other-id": {
+    typeRef: "doc:other-id",
+    label: "Other Approved ID",
+    moduleId: "customer_kyc",
+    defaultSeverity: "required",
+    weight: 6,
   },
   "doc:photograph": {
     typeRef: "doc:photograph",
@@ -72,6 +108,13 @@ export const EDIE_CATALOG: Record<string, EdieCatalogDocument> = {
   },
 
   // B. Address Proof (choice — one of)
+  "doc:address-aadhaar": {
+    typeRef: "doc:address-aadhaar",
+    label: "Aadhaar Card",
+    moduleId: "address_proof",
+    defaultSeverity: "mandatory",
+    weight: 10,
+  },
   "doc:address-electricity": {
     typeRef: "doc:address-electricity",
     label: "Electricity Bill",
@@ -109,13 +152,27 @@ export const EDIE_CATALOG: Record<string, EdieCatalogDocument> = {
   },
   "doc:address-passport": {
     typeRef: "doc:address-passport",
-    label: "Passport (Address)",
+    label: "Passport",
     moduleId: "address_proof",
     defaultSeverity: "mandatory",
     weight: 10,
   },
+  "doc:address-bank-statement": {
+    typeRef: "doc:address-bank-statement",
+    label: "Bank Statement",
+    moduleId: "address_proof",
+    defaultSeverity: "mandatory",
+    weight: 10,
+  },
+  "doc:address-other": {
+    typeRef: "doc:address-other",
+    label: "Other Approved Address Proof",
+    moduleId: "address_proof",
+    defaultSeverity: "mandatory",
+    weight: 8,
+  },
 
-  // C. Business Constitution
+  // C. Business Proof
   "doc:shop-act": {
     typeRef: "doc:shop-act",
     label: "Shop & Establishment / Trade Licence",
@@ -159,7 +216,7 @@ export const EDIE_CATALOG: Record<string, EdieCatalogDocument> = {
     weight: 10,
   },
 
-  // D. Financial
+  // D. Income Proof
   "doc:salary-slip": {
     typeRef: "doc:salary-slip",
     label: "Salary Slips (last 3 months)",
@@ -177,22 +234,21 @@ export const EDIE_CATALOG: Record<string, EdieCatalogDocument> = {
   },
   "doc:financial-folder": {
     typeRef: "doc:financial-folder",
-    label: "Financial Documents Folder",
+    label: "Financial Statements Folder",
     moduleId: "financial",
     defaultSeverity: "mandatory",
     weight: 20,
   },
-  /** Optional single ITR for asset/security products (not the financial folder). */
   "doc:itr-optional": {
     typeRef: "doc:itr-optional",
-    label: "ITR",
+    label: "Income Tax Return",
     moduleId: "financial",
     defaultSeverity: "required",
     optional: true,
     weight: 8,
   },
 
-  // E. Banking
+  // E. Banking Proof
   "doc:bank-statement": {
     typeRef: "doc:bank-statement",
     label: "Primary Bank Statement",
@@ -209,22 +265,22 @@ export const EDIE_CATALOG: Record<string, EdieCatalogDocument> = {
     weight: 6,
   },
 
-  // F. Property (folder — after soft approval)
+  // F. Property
   "doc:property-folder": {
     typeRef: "doc:property-folder",
     label: "Property Documents Folder",
     moduleId: "property",
     defaultSeverity: "mandatory",
-    weight: 20,
+    weight: 16,
   },
 
-  // G. Existing Loan / BT
+  // G. Existing Loan (BT)
   "doc:bt-sanction-letter": {
     typeRef: "doc:bt-sanction-letter",
-    label: "Existing Loan Sanction Letter",
+    label: "Sanction Letter",
     moduleId: "existing_loan",
     defaultSeverity: "mandatory",
-    weight: 16,
+    weight: 12,
   },
   "doc:bt-loan-statement": {
     typeRef: "doc:bt-loan-statement",
@@ -248,14 +304,3 @@ export const EDIE_CATALOG: Record<string, EdieCatalogDocument> = {
     weight: 10,
   },
 };
-
-export const EDIE_ADDRESS_PROOF_CHOICES = [
-  "doc:address-electricity",
-  "doc:address-gas",
-  "doc:address-telephone",
-  "doc:address-rent",
-  "doc:address-property-tax",
-  "doc:address-passport",
-] as const;
-
-export const EDIE_ADDRESS_PROOF_GROUP = "address_proof_one_of";

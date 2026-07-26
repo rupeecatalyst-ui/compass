@@ -114,7 +114,8 @@ export const EUM_BUSINESS_UNITS = [
 export const EUM_LANDING_PAGES = [
   { id: "/dashboard", label: "Dashboard" },
   { id: "/contacts", label: "Contacts" },
-  { id: "/loan-files", label: "Loan Workspace" },
+  { id: "/my-deals", label: "My Deals" },
+  { id: "/deals", label: "Deal Workspace" },
   { id: "/opportunities", label: "Strategic Workspace" },
   { id: "/reports", label: "Enterprise Intelligence" },
 ] as const;
