@@ -14,6 +14,7 @@ import { activityTimeline } from "@/data/catalyst-one/dashboard";
 import { useDashboardFilter } from "@/hooks/use-dashboard-filter";
 import { filterActivityByRange } from "@/lib/dashboard-metrics";
 import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { formatRelativeTime } from "@/lib/utils";
 import {
   DashboardCard,
@@ -37,7 +38,7 @@ const typeConfig: Record<
 
 function resolveHref(event: ActivityEvent): string {
   if (event.href) return event.href;
-  if (event.fileId) return `${ROUTES.LOAN_FILES}?file=${event.fileId}`;
+  if (event.fileId) return buildDealWorkspaceHref({ fileId: event.fileId, tab: "lenders" });
   switch (event.type) {
     case "customer":
       return ROUTES.CUSTOMERS;
@@ -48,7 +49,7 @@ function resolveHref(event: ActivityEvent): string {
     case "task":
       return ROUTES.TASKS;
     default:
-      return ROUTES.LOAN_FILES;
+      return ROUTES.MY_DEALS;
   }
 }
 

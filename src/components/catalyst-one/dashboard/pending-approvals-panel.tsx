@@ -12,6 +12,7 @@ import {
   DashboardCardHeader,
 } from "@/components/catalyst-one/dashboard/dashboard-card";
 import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 
 const stageStyles = {
   warning: "border-amber-500/30 bg-amber-500/10 text-amber-300",
@@ -42,7 +43,7 @@ export function PendingApprovalsPanel() {
           <button
             key={item.id}
             type="button"
-            onClick={() => router.push(`/loan-files?file=${item.fileId}`)}
+            onClick={() => router.push(buildDealWorkspaceHref({ fileId: item.fileId, tab: "lenders" }))}
             className="w-full flex items-start gap-2.5 rounded-lg border border-slate-800/80 bg-slate-950/20 px-2.5 py-2 text-left transition-colors hover:border-slate-700 hover:bg-slate-900/50"
           >
             <div className="flex-1 min-w-0">

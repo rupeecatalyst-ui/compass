@@ -83,8 +83,10 @@ export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
   return {
     id: file.id,
     enterpriseDealId: file.enterpriseDealId?.trim() || undefined,
+    opportunityId: file.enterpriseOpportunityId?.trim() || undefined,
     dealId,
     opportunityNumber,
+    customerType: file.employmentType || undefined,
     fileNumber: file.fileNumber,
     borrowerName: file.customerName,
     contactNumber: file.customerMobile || "—",
@@ -221,9 +223,14 @@ export function sortDealRegistryRows(
   direction: "asc" | "desc",
 ): DealRegistryRow[] {
   const dir = direction === "asc" ? 1 : -1;
+  // Opportunity-level sorts belong on OpportunityRegistryGroup (CO-UX-018).
+  const rowField: keyof DealRegistryRow =
+    field === "opportunityHealth" || field === "activeDealCount"
+      ? "lastActivity"
+      : (field as keyof DealRegistryRow);
   return [...rows].sort((a, b) => {
-    const av = a[field];
-    const bv = b[field];
+    const av = a[rowField];
+    const bv = b[rowField];
     if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
     return String(av).localeCompare(String(bv)) * dir;
   });

@@ -6,12 +6,20 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { usePathname } from "next/navigation";
 import { ANIMATION, STORAGE_KEYS } from "@/constants/animations";
 import { resolveContextKeyForPath } from "@/config/navigation";
+import {
+  isSidebarCollapseBlocked,
+  isSidebarNavMode,
+  SIDEBAR_AUTO_COLLAPSE_MS,
+  SIDEBAR_PEEK_LEAVE_MS,
+  type SidebarNavMode,
+} from "@/constants/sidebar-navigation";
 
 function readBool(key: string, fallback = false): boolean {
   if (typeof window === "undefined") return fallback;
@@ -30,11 +38,44 @@ function readExpandedGroups(): string[] {
   }
 }
 
+function readNavMode(): SidebarNavMode {
+  if (typeof window === "undefined") return "auto";
+  const raw = localStorage.getItem(STORAGE_KEYS.SIDEBAR_NAV_MODE);
+  if (isSidebarNavMode(raw)) return raw;
+  // Migrate legacy boolean preference once
+  if (readBool(STORAGE_KEYS.SIDEBAR_COLLAPSED)) return "collapsed";
+  return "auto";
+}
+
+function deriveCollapsed(
+  mode: SidebarNavMode,
+  autoIdleCollapsed: boolean,
+  peekOpen: boolean,
+  collapsedManualExpanded: boolean,
+): boolean {
+  if (mode === "expanded") return false;
+  if (mode === "collapsed") return !collapsedManualExpanded;
+  // auto
+  if (peekOpen) return false;
+  return autoIdleCollapsed;
+}
+
 interface SidebarContextValue {
   collapsed: boolean;
   mobileOpen: boolean;
   sidebarWidth: number;
   hydrated: boolean;
+  /** Preferred navigation mode (persisted). */
+  navMode: SidebarNavMode;
+  setNavMode: (mode: SidebarNavMode) => void;
+  /** Record interaction with the primary nav (resets Auto idle timer). */
+  noteNavInteraction: () => void;
+  /** Temporary expand while hovering edge / nav in Auto (or click peek). */
+  setPeekOpen: (open: boolean) => void;
+  peekOpen: boolean;
+  /** Schedule collapse after leaving nav (Auto peek leave delay). */
+  schedulePeekLeave: () => void;
+  cancelPeekLeave: () => void;
   toggle: () => void;
   setCollapsed: (value: boolean) => void;
   openMobile: () => void;
@@ -62,7 +103,10 @@ const SidebarContext = createContext<SidebarContextValue | null>(null);
 /** UX — Global sidebar + Enterprise Context Navigation state. */
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [collapsed, setCollapsedState] = useState(false);
+  const [navMode, setNavModeState] = useState<SidebarNavMode>("auto");
+  const [autoIdleCollapsed, setAutoIdleCollapsed] = useState(false);
+  const [peekOpen, setPeekOpenState] = useState(false);
+  const [collapsedManualExpanded, setCollapsedManualExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -71,8 +115,124 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const [contextPanelPinned, setContextPanelPinnedState] = useState(false);
   const [manualContextClear, setManualContextClear] = useState(false);
 
+  const lastNavInteractionRef = useRef(Date.now());
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peekLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busyRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navModeRef = useRef(navMode);
+  navModeRef.current = navMode;
+
+  const collapsed = deriveCollapsed(
+    navMode,
+    autoIdleCollapsed,
+    peekOpen,
+    collapsedManualExpanded,
+  );
+
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  }, []);
+
+  const clearPeekLeave = useCallback(() => {
+    if (peekLeaveTimerRef.current) {
+      clearTimeout(peekLeaveTimerRef.current);
+      peekLeaveTimerRef.current = null;
+    }
+  }, []);
+
+  const clearBusyRetry = useCallback(() => {
+    if (busyRetryRef.current) {
+      clearTimeout(busyRetryRef.current);
+      busyRetryRef.current = null;
+    }
+  }, []);
+
+  const tryAutoCollapse = useCallback(() => {
+    if (navModeRef.current !== "auto") return;
+    if (isSidebarCollapseBlocked()) {
+      clearBusyRetry();
+      busyRetryRef.current = setTimeout(() => {
+        tryAutoCollapse();
+      }, 1500);
+      return;
+    }
+    setPeekOpenState(false);
+    setAutoIdleCollapsed(true);
+    localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "true");
+  }, [clearBusyRetry]);
+
+  const armIdleTimer = useCallback(() => {
+    clearIdleTimer();
+    if (navModeRef.current !== "auto") return;
+    idleTimerRef.current = setTimeout(() => {
+      tryAutoCollapse();
+    }, SIDEBAR_AUTO_COLLAPSE_MS);
+  }, [clearIdleTimer, tryAutoCollapse]);
+
+  const noteNavInteraction = useCallback(() => {
+    lastNavInteractionRef.current = Date.now();
+    clearBusyRetry();
+    if (navModeRef.current === "auto") {
+      setAutoIdleCollapsed(false);
+      localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "false");
+      armIdleTimer();
+    }
+  }, [armIdleTimer, clearBusyRetry]);
+
+  const setPeekOpen = useCallback(
+    (open: boolean) => {
+      clearPeekLeave();
+      setPeekOpenState(open);
+      if (open) {
+        noteNavInteraction();
+      }
+    },
+    [clearPeekLeave, noteNavInteraction],
+  );
+
+  const schedulePeekLeaveRef = useRef<() => void>(() => {});
+
+  const schedulePeekLeave = useCallback(() => {
+    clearPeekLeave();
+    if (navModeRef.current !== "auto") return;
+    peekLeaveTimerRef.current = setTimeout(() => {
+      if (isSidebarCollapseBlocked()) {
+        clearPeekLeave();
+        peekLeaveTimerRef.current = setTimeout(() => {
+          schedulePeekLeaveRef.current();
+        }, 1000);
+        return;
+      }
+      setPeekOpenState(false);
+    }, SIDEBAR_PEEK_LEAVE_MS);
+  }, [clearPeekLeave]);
+
+  schedulePeekLeaveRef.current = schedulePeekLeave;
+  const cancelPeekLeave = useCallback(() => {
+    clearPeekLeave();
+  }, [clearPeekLeave]);
+
   useEffect(() => {
-    setCollapsedState(readBool(STORAGE_KEYS.SIDEBAR_COLLAPSED));
+    const mode = readNavMode();
+    setNavModeState(mode);
+    localStorage.setItem(STORAGE_KEYS.SIDEBAR_NAV_MODE, mode);
+    if (mode === "collapsed") {
+      setAutoIdleCollapsed(false);
+      setCollapsedManualExpanded(false);
+      localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "true");
+    } else if (mode === "expanded") {
+      setAutoIdleCollapsed(false);
+      setCollapsedManualExpanded(false);
+      localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "false");
+    } else {
+      // Auto starts expanded
+      setAutoIdleCollapsed(false);
+      setCollapsedManualExpanded(false);
+      localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "false");
+    }
     setExpandedGroups(readExpandedGroups());
     setContextPanelCollapsedState(readBool(STORAGE_KEYS.CONTEXT_PANEL_COLLAPSED));
     setContextPanelPinnedState(readBool(STORAGE_KEYS.CONTEXT_PANEL_PINNED));
@@ -81,8 +241,8 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     setHydrated(true);
 
     const onStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEYS.SIDEBAR_COLLAPSED) {
-        setCollapsedState(event.newValue === "true");
+      if (event.key === STORAGE_KEYS.SIDEBAR_NAV_MODE && isSidebarNavMode(event.newValue)) {
+        setNavModeState(event.newValue);
       }
       if (event.key === STORAGE_KEYS.CONTEXT_PANEL_COLLAPSED) {
         setContextPanelCollapsedState(event.newValue === "true");
@@ -95,6 +255,25 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  // Arm Auto idle timer after hydrate / mode changes
+  useEffect(() => {
+    if (!hydrated) return;
+    if (navMode === "auto" && !autoIdleCollapsed) {
+      armIdleTimer();
+    } else {
+      clearIdleTimer();
+    }
+    return () => clearIdleTimer();
+  }, [hydrated, navMode, autoIdleCollapsed, armIdleTimer, clearIdleTimer]);
+
+  useEffect(() => {
+    return () => {
+      clearIdleTimer();
+      clearPeekLeave();
+      clearBusyRetry();
+    };
+  }, [clearBusyRetry, clearIdleTimer, clearPeekLeave]);
 
   // Sync context domain from route — one panel at a time
   useEffect(() => {
@@ -112,18 +291,78 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     }
   }, [pathname, hydrated, manualContextClear, contextPanelPinned]);
 
-  const setCollapsed = useCallback((value: boolean) => {
-    setCollapsedState(value);
-    localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, String(value));
-  }, []);
+  const setNavMode = useCallback(
+    (mode: SidebarNavMode) => {
+      setNavModeState(mode);
+      localStorage.setItem(STORAGE_KEYS.SIDEBAR_NAV_MODE, mode);
+      setPeekOpenState(false);
+      setCollapsedManualExpanded(false);
+      clearPeekLeave();
+      if (mode === "expanded") {
+        setAutoIdleCollapsed(false);
+        localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "false");
+      } else if (mode === "collapsed") {
+        setAutoIdleCollapsed(false);
+        localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "true");
+      } else {
+        // Auto — start expanded, arm idle
+        setAutoIdleCollapsed(false);
+        localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "false");
+        lastNavInteractionRef.current = Date.now();
+      }
+    },
+    [clearPeekLeave],
+  );
+
+  /** Legacy API — maps to mode / peek behaviour without changing callers. */
+  const setCollapsed = useCallback(
+    (value: boolean) => {
+      if (navModeRef.current === "auto") {
+        if (value) {
+          setPeekOpenState(false);
+          setAutoIdleCollapsed(true);
+          localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "true");
+        } else {
+          setAutoIdleCollapsed(false);
+          setPeekOpenState(true);
+          noteNavInteraction();
+          localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "false");
+        }
+        return;
+      }
+      if (navModeRef.current === "collapsed") {
+        setCollapsedManualExpanded(!value);
+        localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, String(value));
+        return;
+      }
+      // expanded mode — requesting collapse switches preference to collapsed
+      if (value) setNavMode("collapsed");
+    },
+    [noteNavInteraction, setNavMode],
+  );
 
   const toggle = useCallback(() => {
-    setCollapsedState((prev) => {
-      const next = !prev;
-      localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, String(next));
-      return next;
-    });
-  }, []);
+    if (navModeRef.current === "expanded") {
+      setNavMode("collapsed");
+      return;
+    }
+    if (navModeRef.current === "collapsed") {
+      setCollapsedManualExpanded((prev) => {
+        const nextExpanded = !prev;
+        localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, String(!nextExpanded));
+        return nextExpanded;
+      });
+      return;
+    }
+    // auto
+    if (deriveCollapsed(navModeRef.current, autoIdleCollapsed, peekOpen, false)) {
+      setPeekOpen(true);
+    } else {
+      setPeekOpenState(false);
+      setAutoIdleCollapsed(true);
+      localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "true");
+    }
+  }, [autoIdleCollapsed, peekOpen, setNavMode, setPeekOpen]);
 
   const openMobile = useCallback(() => setMobileOpen(true), []);
   const closeMobile = useCallback(() => setMobileOpen(false), []);
@@ -164,8 +403,6 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     setManualContextClear(false);
     setActiveContextKeyState(key);
     localStorage.setItem(STORAGE_KEYS.CONTEXT_PANEL_ACTIVE, key);
-    // Opening a domain expands the panel unless user has it collapsed preference
-    // but always show the panel for the selected domain
   }, []);
 
   const clearContextDomain = useCallback(() => {
@@ -206,10 +443,17 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     () => ({
       collapsed: hydrated ? collapsed : false,
       mobileOpen,
-      sidebarWidth: collapsed
+      sidebarWidth: (hydrated ? collapsed : false)
         ? ANIMATION.sidebar.collapsed.width
         : ANIMATION.sidebar.expanded.width,
       hydrated,
+      navMode: hydrated ? navMode : "auto",
+      setNavMode,
+      noteNavInteraction,
+      setPeekOpen,
+      peekOpen,
+      schedulePeekLeave,
+      cancelPeekLeave,
       toggle,
       setCollapsed,
       openMobile,
@@ -233,6 +477,13 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       collapsed,
       mobileOpen,
       hydrated,
+      navMode,
+      setNavMode,
+      noteNavInteraction,
+      setPeekOpen,
+      peekOpen,
+      schedulePeekLeave,
+      cancelPeekLeave,
       toggle,
       setCollapsed,
       openMobile,

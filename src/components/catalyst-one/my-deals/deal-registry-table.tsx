@@ -88,6 +88,8 @@ interface DealRegistryTableProps {
   onAssignUsers: (row: DealRegistryRow, users: AssignedUserRef[]) => void | Promise<void>;
   initialScope?: DealRegistryFilters["scope"];
   initialSearch?: string;
+  /** CO-UX-002 — seed stage filter from Loan Journey (e.g. disbursed → won). */
+  initialGrossStage?: string;
   onFiltersChanged?: (filters: DealRegistryFilters) => void;
 }
 
@@ -104,6 +106,7 @@ export function DealRegistryTable({
   onAssignUsers,
   initialScope = "my_team",
   initialSearch = "",
+  initialGrossStage = "all",
   onFiltersChanged,
 }: DealRegistryTableProps) {
   const { user } = useAuthContext();
@@ -112,6 +115,7 @@ export function DealRegistryTable({
     ...EMPTY_DEAL_REGISTRY_FILTERS,
     scope: initialScope,
     search: initialSearch,
+    grossStage: initialGrossStage || "all",
   }));
   const [sortField, setSortField] = useState<DealRegistrySortField>("dateCreated");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");

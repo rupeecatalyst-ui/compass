@@ -28,9 +28,11 @@ import {
   Sparkles,
   SlidersHorizontal,
   ToggleLeft,
+  Info,
   Shield,
   Orbit,
   Briefcase,
+  Target,
   Radar,
   LineChart,
   Gauge,
@@ -113,7 +115,9 @@ export const administrationChildren: NavSubItem[] = [
   ...organizationChildren,
   { title: "Users", href: ROUTES.ADMIN_USERS, separatorBefore: true },
   { title: "Roles & Permissions", href: ROUTES.ADMIN_ROLES_PERMISSIONS },
-  { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY, separatorBefore: true },
+  { title: "Lender Registry", href: ROUTES.ADMIN_LENDER_REGISTRY, separatorBefore: true },
+  { title: "Reference Masters", href: ROUTES.ADMIN_REFERENCE_MASTERS },
+  { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY },
   { title: "Enterprise Asset Library", href: ROUTES.ADMIN_ENTERPRISE_ASSETS },
   { title: "Enterprise Decision Ledger", href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER },
   { title: "Foundation Libraries", href: ROUTES.ADMIN_FOUNDATION_LIBRARIES },
@@ -126,12 +130,16 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Workflow Engine", href: ROUTES.ADMIN_WORKFLOW_ENGINE },
   { title: "ECG", href: ROUTES.ADMIN_ECG },
   { title: "System Modes", href: ROUTES.ADMIN_SYSTEM_MODES },
+  { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION },
 ];
 /**
- * Primary domain navigation — Column 1 (Architecture Freeze).
- * Dashboard · CHANAKYA Radar · Contacts · My Deals · Loan Workspace · Investments ·
+ * Primary domain navigation — Column 1 (Architecture Freeze + CO-ARCH-003).
+ * Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Journey · Investments ·
  * Tasks · Documents · Lenders · Accounting · Mission Control · Horizon · Administration · Settings
+ * Mission Control primary href = Executive Briefing (Radar remains a separate primary item).
  * CO-SPRINT-111: Administration is a single entry → Administration Console (not an expandable tree).
+ * CO-ARCH-003: My Opportunities = Opportunity Registry; My Deals = Deal Registry.
+ * ADR-018 / ADR-019: Loan Journey = Execution Hub (/loan-journey); Deal Workspace = /deals/:dealId; /loan-files redirects.
  */
 export const primaryDomainNavigation: NavGroup = {
   title: "Catalyst One",
@@ -140,11 +148,11 @@ export const primaryDomainNavigation: NavGroup = {
     { title: "Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
     { title: "CHANAKYA Radar", href: ROUTES.CHANAKYA_RADAR, icon: Radar },
     { title: "Contacts", href: ROUTES.CONTACTS, icon: Contact },
-    { title: "Contact Strategy", href: ROUTES.CONTACT_STRATEGY, icon: Network },
+    { title: "My Opportunities", href: ROUTES.MY_OPPORTUNITIES, icon: Target },
     { title: "My Deals", href: ROUTES.MY_DEALS, icon: Briefcase },
     {
-      title: "Loan Workspace",
-      href: buildDashboardHref(ROUTES.LOAN_FILES),
+      title: "Loan Journey",
+      href: buildDashboardHref(ROUTES.LOAN_JOURNEY),
       icon: Landmark,
     },
     { title: "Investments", href: ROUTES.INVESTMENTS, icon: LineChart, badge: "Soon" },
@@ -156,13 +164,17 @@ export const primaryDomainNavigation: NavGroup = {
     },
     { title: "Lenders", href: ROUTES.LENDERS, icon: Building2 },
     { title: "Accounting", href: ROUTES.ACCOUNTING, icon: Calculator },
+    /**
+     * Mission Control section hub (rail + executive modules).
+     * Executive Briefing remains at /mission-control/executive-briefing — not Dashboard.
+     */
     { title: "Mission Control", href: ROUTES.MISSION_CONTROL, icon: Gauge },
     { title: "Horizon", href: ROUTES.HORIZON, icon: Orbit },
     {
       title: "Administration",
       href: ROUTES.ADMIN,
       icon: Shield,
-      roles: [ROLES.SUPER_ADMIN],
+      roles: [ROLES.SUPER_ADMIN, ROLES.ADMIN],
     },
     {
       title: "Settings",
@@ -227,8 +239,20 @@ export function isNavHrefActive(pathname: string, href: string, hash = ""): bool
       pathname.startsWith("/organization/")
     );
   }
+  /**
+   * Dashboard = User Home (`/dashboard`) only.
+   * Mission Control = entire /mission-control/* section (including Executive Briefing).
+   */
+  if (hrefPath === ROUTES.DASHBOARD) {
+    return pathname === ROUTES.DASHBOARD;
+  }
+  if (hrefPath === ROUTES.MISSION_CONTROL_EXECUTIVE_BRIEFING) {
+    return pathname === ROUTES.MISSION_CONTROL_EXECUTIVE_BRIEFING;
+  }
+  if (hrefPath === ROUTES.MISSION_CONTROL) {
+    return pathname === ROUTES.MISSION_CONTROL || pathname.startsWith("/mission-control/");
+  }
   if (
-    hrefPath === "/dashboard" ||
     hrefPath === "/organization" ||
     hrefPath === ROUTES.ADMIN_CREDIT_RISK_ENGINE ||
     hrefPath === ROUTES.ADMIN_ARCHITECTURE ||
@@ -286,7 +310,7 @@ export const organizationNavigation: NavGroup = {
 /** Admin Console flat list for command palette — configuration only */
 export const adminConsoleNavigation: NavGroup = {
   title: "Admin Console",
-  roles: [ROLES.SUPER_ADMIN],
+  roles: [ROLES.SUPER_ADMIN, ROLES.ADMIN],
   items: [
     { title: "Administration Console", href: ROUTES.ADMIN, icon: Shield },
     { title: "Users", href: ROUTES.ADMIN_USERS, icon: Users },
@@ -304,6 +328,7 @@ export const adminConsoleNavigation: NavGroup = {
     { title: "Workflow Engine", href: ROUTES.ADMIN_WORKFLOW_ENGINE, icon: GitBranch },
     { title: "ECG", href: ROUTES.ADMIN_ECG, icon: SlidersHorizontal },
     { title: "System Modes", href: ROUTES.ADMIN_SYSTEM_MODES, icon: ToggleLeft },
+    { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION, icon: Info },
     { title: "Enterprise Intelligence", href: ROUTES.REPORTS, icon: BarChart3 },
   ],
 };
@@ -315,12 +340,14 @@ export const recentPages = [
   { title: "Dashboard", href: ROUTES.DASHBOARD },
   { title: "CHANAKYA Radar", href: ROUTES.CHANAKYA_RADAR },
   { title: "Contacts", href: ROUTES.CONTACTS },
+  { title: "My Opportunities", href: ROUTES.MY_OPPORTUNITIES },
   { title: "My Deals", href: ROUTES.MY_DEALS },
-  { title: "Loan Workspace", href: ROUTES.LOAN_FILES },
+  { title: "Loan Journey", href: ROUTES.LOAN_JOURNEY },
 ];
 
 export const favoritePages = [
   { title: "CHANAKYA Radar", href: ROUTES.CHANAKYA_RADAR },
+  { title: "My Opportunities", href: ROUTES.MY_OPPORTUNITIES },
   { title: "My Deals", href: ROUTES.MY_DEALS },
   { title: "Contacts", href: ROUTES.CONTACTS },
 ];
@@ -368,8 +395,22 @@ export const systemAdministrationCommandPaletteRoutes = [
     href: buildDashboardHref(ROUTES.CREDIT_WORKBENCH),
     icon: Scale,
   },
+  {
+    title: "Contact Strategy",
+    href: ROUTES.CONTACT_STRATEGY,
+    icon: Network,
+  },
   { title: "Dialogue", href: ROUTES.DIALOGUE, icon: MessagesSquare },
-  { title: "Mission Control", href: ROUTES.MISSION_CONTROL, icon: Gauge },
+  {
+    title: "Mission Control · Executive Briefing",
+    href: ROUTES.MISSION_CONTROL_EXECUTIVE_BRIEFING,
+    icon: Gauge,
+  },
+  {
+    title: "Mission Control · Section Home",
+    href: ROUTES.MISSION_CONTROL,
+    icon: Radar,
+  },
   { title: "Customers", href: ROUTES.CUSTOMERS, icon: Users },
   { title: "Opportunity Compass", href: ROUTES.OPPORTUNITY_COMPASS, icon: Compass },
   { title: "Enterprise Intelligence", href: ROUTES.REPORTS, icon: BarChart3 },

@@ -14,16 +14,24 @@ Complements Chanakya Guide. Do **not** replace Chanakya.
 
 Immediately below the workspace chrome entry / above workspace content — full-width horizontal strip on every major Enterprise Workspace.
 
-## Certified order (frozen — same as Chanakya Loan Journey)
+## Certified order (Opportunity Workspace — Product Architecture freeze)
 
-Lead Qualification: Contact → Opportunity Workspace → Strategic Workspace  
-Credit Readiness: Document Center → Credit Workbench  
-Loan Execution: Loan Workspace → Lender Pipeline → Tasks → Timeline → Approval  
-Post Disbursement: Disbursement → Accounting → Closure
+Opportunity Workspace stages (continuous journey):
+
+Opportunity Creation → Document Center → Credit Workbench → Strategy Workbench
+
+Then Loan Execution (post–Opportunity Workspace): Loan Workspace → Lender Pipeline → …
+
+Full Chanakya map remains in `loan-journey.ts`. Opportunity Workspace stage SSOT:
+`src/constants/opportunity-workspace-stages.ts`
+
+Lead Qualification historically listed Contact → Opportunity → Strategic before Docs;
+**Opportunity Workspace now owns Creation → Docs → Credit → Strategy as one desk.**
 
 SSOT stages: `src/constants/chanakya-guide/loan-journey.ts`  
+Opportunity Workspace stages: `src/constants/opportunity-workspace-stages.ts`  
 Navigator helpers: `src/constants/enterprise-business-journey-navigator.ts`  
-UI: `src/components/catalyst-one/business-journey-navigator/`
+UI: `src/components/catalyst-one/business-journey-navigator/` + `OpportunityWorkspaceStageRail`
 
 ## Visual states
 

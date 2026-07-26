@@ -1,61 +1,68 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Briefcase } from "lucide-react";
-import { DealRegistryTable } from "@/components/catalyst-one/my-deals/deal-registry-table";
+import { OpportunityDealRegistry } from "@/components/catalyst-one/my-deals/opportunity-deal-registry";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import {
   MY_DEALS_BUSINESS_TABS,
   MY_DEALS_OFFICIAL_NAME,
   type MyDealsBusinessTabId,
 } from "@/constants/my-deals";
-import { ROUTES } from "@/constants/routes";
-import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
-import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
-import { listDealRegistryRows } from "@/lib/my-deals/deal-registry";
-import { loadMyDealsDealRegistryRows } from "@/lib/enterprise-deal/deal-registry-port";
+import {
+  loadMyDealsDealRegistryRows,
+  resolveMyDealsDisplayRows,
+} from "@/lib/enterprise-deal/deal-registry-port";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { getRememberedDeal } from "@/lib/enterprise-deal/dual-write-store";
-import { mapEnterpriseDealToDealRegistryRow } from "@/lib/enterprise-deal/map-deal-to-registry-row";
-import { queueMyDealsShadowRead } from "@/lib/enterprise-deal/shadow-read";
-import {
-  buildAssignmentPatch,
-  formatAssignedUsersLabel,
-  writeAssignedUsersIntoExtension,
-  type AssignedUserRef,
-} from "@/lib/assigned-users";
+import { bindSessionDeal } from "@/lib/enterprise-session";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { resolveCurrentRmName } from "@/lib/my-deals";
+import {
+  pickPreferredDealForOpportunity,
+  type OpportunityRegistryGroup,
+} from "@/lib/my-deals/group-opportunities";
 import { readMyDealsReturnState, rememberMyDealsReturnState } from "@/lib/my-deals/view-state";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
-import { subscribeOpportunitiesUpdated } from "@/lib/enterprise-opportunity/opportunity-data-sync";
 import type { DealRegistryFilters, DealRegistryRow } from "@/types/deal-registry";
 import { WorkspaceExitNav } from "@/components/enterprise/navigation";
 import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * Certified open path: My Deals work queue → Opportunity Workspace (`/credit-bench`).
- * Strategic Workspace remains the next Continue hop from Opportunity Setup.
+ * CO-UX-003 — Opportunity Summary → Loan Workspace only.
+ * Preferred Deal (furthest journey) seeds workspace; all lenders managed inside.
  */
-function openOpportunityWorkspace(
+async function openLoanWorkspaceForOpportunity(
   router: ReturnType<typeof useRouter>,
-  row: DealRegistryRow,
+  group: OpportunityRegistryGroup,
 ) {
+  const row = pickPreferredDealForOpportunity(group.deals);
+  const dealId = (await resolveEnterpriseDealId(row)) || row.id;
+  let opportunityId = group.opportunityId?.trim() || row.opportunityId?.trim() || undefined;
+  try {
+    const deal = await enterpriseDealApiClient.getDeal(dealId);
+    bindSessionDeal(deal);
+    opportunityId = deal.opportunityId?.trim() || opportunityId;
+  } catch {
+    bindSessionDeal(dealId);
+  }
   setActiveOpportunityContext({
     fileId: row.id,
-    opportunityId: row.opportunityNumber,
-    customerName: row.borrowerName,
-    product: row.product,
-    label: row.opportunityNumber,
+    opportunityId,
+    customerName: group.borrowerName,
+    product: group.product,
+    label: group.opportunityNumber,
   });
   router.push(
-    buildJourneyHref(ROUTES.CREDIT_BENCH, {
+    buildDealWorkspaceHref({
+      dealId,
       fileId: row.id,
-      opportunityId: row.opportunityNumber,
+      opportunityId,
+      tab: "lenders",
     }),
   );
 }
@@ -72,22 +79,13 @@ async function resolveEnterpriseDealId(row: DealRegistryRow): Promise<string | n
   }
 }
 
-function removeLocalDealMirror(fileId: string) {
-  const files = loadLoanFiles();
-  const next = files.filter((f) => f.id !== fileId);
-  if (next.length !== files.length) {
-    saveLoanFiles(next);
-  }
-}
-
 /**
- * CO-SPRINT-098 / CO-ARCH-002-W4 — Enterprise Deal Registry (My Deals landing).
- * CO-P0-001 — Prisma mode: Enterprise Deal Registry is operational SSOT (Port Runtime).
- * Soft Go-Live local LoanFile only when persistence=memory or flags explicitly OFF.
- * Shadow Read (optional): compare only — never replaces UI.
+ * CO-SPRINT-098 / CO-ARCH-002-W4 / CO-UX-003 — Enterprise Deal Registry (Opportunity-grouped).
+ * CO-ARCH-005 — Enterprise Deal Registry only (no Soft Go-Live LoanFile list).
  */
 export function MyDealsWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuthContext();
   const registryVersion = useEcmContactRegistryVersion();
   const [businessTab, setBusinessTab] = useState<MyDealsBusinessTabId>("loans");
@@ -103,6 +101,10 @@ export function MyDealsWorkspace() {
   const initialScope: DealRegistryFilters["scope"] =
     saved?.filterId === "my_deals" ? "my_deals" : "my_team";
   const initialSearch = saved?.search ?? "";
+  // CO-UX-002 — Loan Journey Disbursement → Deal Registry with disbursed stage seed.
+  const filterParam = searchParams.get("filter")?.trim() || null;
+  const initialGrossStage =
+    filterParam === "disbursed" || filterParam === "won" ? "won" : "all";
 
   useEffect(() => {
     const filterId =
@@ -122,35 +124,44 @@ export function MyDealsWorkspace() {
   useEffect(() => {
     const onStorage = () => setTick((t) => t + 1);
     window.addEventListener("storage", onStorage);
+    // CO-ARCH-003 — Deal list refreshes on Deal/LoanFile notify only (not Opportunity storm).
     const unsubLoan = subscribeLoanFilesUpdated(() => setTick((t) => t + 1));
-    const unsubOpp = subscribeOpportunitiesUpdated(() => setTick((t) => t + 1));
     return () => {
       window.removeEventListener("storage", onStorage);
       unsubLoan();
-      unsubOpp();
     };
   }, []);
 
   const currentRm = resolveCurrentRmName(user);
 
-  const localRows = useMemo(() => {
+  const localRows = useMemo((): DealRegistryRow[] => {
     void tick;
     void registryVersion;
-    return listDealRegistryRows(loadLoanFiles());
-  }, [tick, registryVersion]);
-
-  useEffect(() => {
-    queueMyDealsShadowRead(loadLoanFiles());
+    return [];
   }, [tick, registryVersion]);
 
   useEffect(() => {
     let cancelled = false;
-    setReadSource("loading");
+    const generation = tick;
+    setReadSource((prev) => (prev === "enterprise_deal" ? prev : "loading"));
     void loadMyDealsDealRegistryRows().then((result) => {
       if (cancelled) return;
-      setPortRows(result.rows);
-      setReadSource(result.source);
+      setPortRows((previous) =>
+        resolveMyDealsDisplayRows({
+          previous,
+          incoming: result.rows,
+          source: result.source,
+          localRows: [],
+        }),
+      );
+      // Never flip to "enterprise empty" when we kept prior rows.
+      if (result.source === "enterprise_deal" && result.rows.length === 0) {
+        setReadSource((prev) => (prev === "enterprise_deal" ? prev : result.source));
+      } else {
+        setReadSource(result.source);
+      }
       setReadError(result.error ?? null);
+      void generation;
     });
     return () => {
       cancelled = true;
@@ -171,85 +182,12 @@ export function MyDealsWorkspace() {
     setRegistryFilters(filters);
   }, []);
 
-  const refresh = useCallback(() => {
-    setTick((t) => t + 1);
-  }, []);
-
-  const handleDeleteDeal = useCallback(
-    async (row: DealRegistryRow) => {
-      try {
-        const enterpriseId = await resolveEnterpriseDealId(row);
-        if (enterpriseId) {
-          await enterpriseDealApiClient.softDeleteDeal(enterpriseId);
-          removeLocalDealMirror(row.id);
-        } else if (readSource === "local" || readSource === "local_fallback") {
-          removeLocalDealMirror(row.id);
-        } else {
-          throw new Error(
-            "Missing: Enterprise Deal id. Reason: deal is not linked to Deal Registry. Action: open the deal once, then retry delete.",
-          );
-        }
-        toast.success("Deal deleted successfully.");
-        refresh();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to delete Deal";
-        toast.error(message);
-        throw err;
-      }
-    },
-    [readSource, refresh],
-  );
-
-  const handleAssignUsers = useCallback(
-    async (row: DealRegistryRow, users: AssignedUserRef[]) => {
-      const enterpriseId = await resolveEnterpriseDealId(row);
-      if (!enterpriseId) {
-        const message =
-          "Missing: Enterprise Deal id. Reason: deal is not linked to Deal Registry. Action: open the deal once, then retry assignment.";
-        toast.error(message);
-        throw new Error(message);
-      }
-      if (typeof row.rowVersion !== "number") {
-        const message =
-          "Missing: Deal row version. Reason: registry row is incomplete. Action: refresh My Deals, then retry.";
-        toast.error(message);
-        throw new Error(message);
-      }
-      const patch = buildAssignmentPatch(users);
-      const lendingExtension = writeAssignedUsersIntoExtension(
-        row.lendingExtension,
-        users,
-      );
-      try {
-        const updated = await enterpriseDealApiClient.updateDeal(enterpriseId, {
-          rowVersion: row.rowVersion,
-          lendingExtension,
-          primaryOwnerUserId: patch.primaryOwnerUserId,
-          relationshipManagerUserId: patch.relationshipManagerUserId,
-          relationshipManagerName: patch.relationshipManagerName,
-        });
-        const mapped = mapEnterpriseDealToDealRegistryRow(updated);
-        setPortRows((prev) =>
-          (prev ?? []).map((r) =>
-            r.id === row.id || r.enterpriseDealId === enterpriseId
-              ? {
-                  ...mapped,
-                  assignedUsers: users,
-                  assignedRm: formatAssignedUsersLabel(users),
-                }
-              : r,
-          ),
-        );
-        toast.success("Assigned users updated.");
-        refresh();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update assigned users";
-        toast.error(message);
-        throw err;
-      }
-    },
-    [refresh],
-  );
+  const opportunityCount = useMemo(() => {
+    const keys = new Set(
+      allRows.map((r) => r.opportunityId?.trim() || r.opportunityNumber || r.id),
+    );
+    return keys.size;
+  }, [allRows]);
 
   return (
     <div
@@ -287,7 +225,7 @@ export function MyDealsWorkspace() {
             </span>
           </div>
           <p className="text-[11px] tabular-nums text-muted-foreground">
-            {allRows.length} deals in pipeline
+            {opportunityCount} opportunities · {allRows.length} deals
           </p>
         </header>
 
@@ -321,16 +259,16 @@ export function MyDealsWorkspace() {
 
         {businessTab === "loans" ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <DealRegistryTable
+            <OpportunityDealRegistry
               rows={allRows}
               currentRm={currentRm}
               initialScope={initialScope}
               initialSearch={initialSearch}
+              initialGrossStage={initialGrossStage}
               onFiltersChanged={handleFiltersChanged}
-              onOpenDeal={(row) => openOpportunityWorkspace(router, row)}
-              onEditDeal={(row) => openOpportunityWorkspace(router, row)}
-              onDeleteDeal={handleDeleteDeal}
-              onAssignUsers={handleAssignUsers}
+              onOpenOpportunity={(group) =>
+                void openLoanWorkspaceForOpportunity(router, group)
+              }
             />
           </div>
         ) : (

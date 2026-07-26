@@ -56,8 +56,8 @@ export function mapLoanFileToDealRow(file: LoanFile): MyDealRow {
   const last = lastActivityIso(file);
   return {
     id: file.id,
-    opportunityNumber: opportunityNumberForFile(file),
-    fileNumber: file.fileNumber,
+    opportunityNumber: file.opportunityNumber?.trim() || opportunityNumberForFile(file),
+    fileNumber: file.dealNumber || file.fileNumber,
     borrower: file.customerName,
     customerMobile: file.customerMobile || "",
     companyName: file.businessDetails?.companyName,
@@ -81,6 +81,14 @@ export function mapLoanFileToDealRow(file: LoanFile): MyDealRow {
 export function listMyDealRows(files: LoanFile[]): MyDealRow[] {
   return files
     .filter((f) => f.stage !== undefined)
+    // CO-ARCH-003 — My Deals = lender execution rows (BI-3). Opportunity-only stays out.
+    .filter(
+      (f) =>
+        Boolean(f.enterpriseDealId) ||
+        Boolean(f.dealNumber) ||
+        Boolean(f.lenders?.some((l) => l.lenderRegistryId || l.lender)) ||
+        Boolean(f.lender?.trim()),
+    )
     .map(mapLoanFileToDealRow)
     .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
 }

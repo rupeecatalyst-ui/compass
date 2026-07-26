@@ -8,6 +8,7 @@ import { ArrowRight } from "lucide-react";
 import { getLenderInitials, getRmInitials } from "@/data/catalyst-one/dashboard";
 import { STAGE_LABELS } from "@/constants/loan-pipeline";
 import { ROUTES } from "@/constants/routes";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { useDashboardFilter } from "@/hooks/use-dashboard-filter";
 import { formatINRCompact } from "@/lib/format-currency";
 import { getAllLoanFiles } from "@/lib/loan-files-utils";
@@ -55,10 +56,10 @@ export function DashboardKanbanPreview() {
             </CardDescription>
           </div>
           <Link
-            href={`${ROUTES.LOAN_FILES}?view=kanban`}
+            href={ROUTES.MY_DEALS}
             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline shrink-0"
           >
-            Open Kanban
+            Open My Deals
             <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
@@ -85,7 +86,11 @@ export function DashboardKanbanPreview() {
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: columnIndex * 0.04 + index * 0.03 }}
-                      onClick={() => router.push(`${ROUTES.LOAN_FILES}?file=${file.id}`)}
+                      onClick={() =>
+                        router.push(
+                          buildDealWorkspaceHref({ fileId: file.id, tab: "lenders" }),
+                        )
+                      }
                       className={cn(
                         "rounded-lg border border-border/60 bg-card p-2.5 text-left shadow-sm",
                         "hover:border-primary/30 hover:shadow-md transition-all",

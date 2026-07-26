@@ -56,7 +56,7 @@ export function ChanakyaBriefingWorkspace() {
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-9 gap-1.5 rounded-lg border-violet-400/40">
-              <Link href={`${ROUTES.LOAN_FILES}?create=1`}>
+              <Link href={`${ROUTES.LOAN_JOURNEY}`}>
                 <Plus className="h-3.5 w-3.5" />
                 Add Loan
               </Link>

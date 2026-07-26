@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -27,7 +27,8 @@ import {
 } from "@/constants/loan-pipeline";
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import { isDemoSeedEnabled } from "@/lib/demo-seed";
-import { loanLenders, loanManagers } from "@/data/catalyst-one/loan-files";
+import { loanManagers } from "@/data/catalyst-one/loan-files";
+import { listPublishedLenderDisplayNames } from "@/lib/enterprise-lender-registry/published-directory";
 import {
   mapContactOptionsToParticipantEntities,
   syncParticipantLegacyFields,
@@ -43,9 +44,15 @@ import {
   findLoanJourneyContactById,
 } from "@/lib/loan-journey/ecm-registry-options";
 import { ProgressiveContactCreateModal } from "@/components/catalyst-one/contacts/progressive-contact-create-modal";
+import { ProgressiveCompanyCreateModal } from "@/components/catalyst-one/companies/progressive-company-create-modal";
 import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
-import { getContextAwareVisibility, resolveContextCustomerCategory } from "@/lib/context-aware-data-collection";
+import {
+  getLoanInitiationFinancialVisibility,
+  primaryAssessmentAmountFromFinancialValues,
+} from "@/lib/context-aware-data-collection";
+import { LOAN_INITIATION_ALL_FINANCIAL_VALUE_KEYS } from "@/constants/context-aware-data-collection";
 import type { EcmContact } from "@/types/enterprise-contact-master";
+import type { LoanInitiationFinancialFormValueKey } from "@/types/context-aware-data-collection";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -91,7 +98,20 @@ const schema = z.object({
     required_error: "Required loan amount is required",
     invalid_type_error: "Enter Required Loan Amount",
   }).min(100000, "Minimum loan amount is ₹1,00,000"),
-  monthlyIncome: z.coerce.number().min(1, "Monthly Income is required for loan assessment"),
+  /** Legacy assessment bridge — derived from context-aware primary field. */
+  monthlyIncome: z.coerce.number().optional(),
+  monthlyGrossSalary: z.coerce.number().optional(),
+  netSalary: z.coerce.number().optional(),
+  existingEmi: z.coerce.number().optional(),
+  annualBusinessIncome: z.coerce.number().optional(),
+  itrIncome: z.coerce.number().optional(),
+  gstTurnover: z.coerce.number().optional(),
+  annualTurnover: z.coerce.number().optional(),
+  annualNetProfit: z.coerce.number().optional(),
+  ebitda: z.coerce.number().optional(),
+  existingWcLimits: z.coerce.number().optional(),
+  existingCcOdLimit: z.coerce.number().optional(),
+  existingBank: z.string().optional(),
   approxCibilScore: z.enum(APPROX_CIBIL_SCORE_ENUM, {
     required_error: "Approximate CIBIL Score is required",
     invalid_type_error: "Select Approximate CIBIL Score",
@@ -106,20 +126,49 @@ const schema = z.object({
   btInstitutionName: z.string().optional(),
   btAmount: z.number().optional(),
 }).superRefine((values, ctx) => {
-  if (values.transactionType !== "balance_transfer") return;
-  if (!values.btInstitutionId?.trim()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["btInstitutionId"],
-      message: "Current Lending Institution is required for Balance Transfer",
-    });
+  if (values.transactionType === "balance_transfer") {
+    if (!values.btInstitutionId?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["btInstitutionId"],
+        message: "Current Lending Institution is required for Balance Transfer",
+      });
+    }
+    if (!values.btAmount || values.btAmount <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["btAmount"],
+        message: "Outstanding Loan Amount is required for Balance Transfer",
+      });
+    }
   }
-  if (!values.btAmount || values.btAmount <= 0) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["btAmount"],
-      message: "Outstanding Loan Amount is required for Balance Transfer",
-    });
+
+  const financial = getLoanInitiationFinancialVisibility({
+    customerType: values.customerType,
+    loanProduct: values.loanProduct,
+    employmentType: values.employmentType,
+  });
+
+  for (const field of financial.fields) {
+    if (!field.required) continue;
+    const raw = values[field.formValueKey as keyof typeof values];
+    if (field.input === "text") {
+      if (typeof raw !== "string" || !raw.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field.formValueKey],
+          message: `${field.label.replace(/\s*\(optional\)/i, "")} is required`,
+        });
+      }
+      continue;
+    }
+    if (typeof raw !== "number" || !(raw > 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [field.formValueKey],
+        message: `${field.label.replace(/\s*\(optional\)/i, "")} is required`,
+      });
+    }
   }
 });
 
@@ -140,10 +189,18 @@ export interface LoanCreateSubmitMeta {
 export interface LoanCreateFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (input: CreateLoanFileInput, meta?: LoanCreateSubmitMeta) => void;
+  onSubmit: (
+    input: CreateLoanFileInput,
+    meta?: LoanCreateSubmitMeta,
+  ) => void | Promise<void>;
   title?: string;
   description?: string;
   contentClassName?: string;
+  /**
+   * dialog — modal overlay (default).
+   * workspace — full-page Loan Information workspace (no Dialog chrome).
+   */
+  presentation?: "dialog" | "workspace";
   prefillCustomer?: {
     id: string;
     name: string;
@@ -166,9 +223,11 @@ export function LoanCreateFormDialog({
   title = "New Loan Entry",
   description = "Create a loan file and add it to the pipeline.",
   contentClassName,
+  presentation = "dialog",
   prefillCustomer,
   onOpenSourceContact,
 }: LoanCreateFormDialogProps) {
+  const isWorkspace = presentation === "workspace";
   const today = new Date().toISOString().slice(0, 10);
   const [participants, setParticipants] = useState<LoanParticipant[]>([]);
   const [associatedCompanyId, setAssociatedCompanyId] = useState<string>();
@@ -183,6 +242,9 @@ export function LoanCreateFormDialog({
   });
   const [primaryCreateOpen, setPrimaryCreateOpen] = useState(false);
   const [primaryCreatePrefill, setPrimaryCreatePrefill] = useState("");
+  const [companyCreateOpen, setCompanyCreateOpen] = useState(false);
+  const [companyCreatePrefill, setCompanyCreatePrefill] = useState("");
+  const [entryFocus, setEntryFocus] = useState<"contact" | "company" | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -198,7 +260,19 @@ export function LoanCreateFormDialog({
       customerType: "Individual",
       loanProduct: getProductsForLendingType("secured")[0] ?? "",
       requiredAmount: undefined as unknown as number,
-      monthlyIncome: undefined as unknown as number,
+      monthlyIncome: undefined,
+      monthlyGrossSalary: undefined,
+      netSalary: undefined,
+      existingEmi: undefined,
+      annualBusinessIncome: undefined,
+      itrIncome: undefined,
+      gstTurnover: undefined,
+      annualTurnover: undefined,
+      annualNetProfit: undefined,
+      ebitda: undefined,
+      existingWcLimits: undefined,
+      existingCcOdLimit: undefined,
+      existingBank: "",
       approxCibilScore: undefined as unknown as ApproxCibilScoreBand,
       priority: "medium",
       loginDate: today,
@@ -215,8 +289,37 @@ export function LoanCreateFormDialog({
   const lendingType = form.watch("lendingType");
   const transactionType = form.watch("transactionType");
   const source = form.watch("source");
+  const customerType = form.watch("customerType");
+  const loanProduct = form.watch("loanProduct");
+  const employmentType = form.watch("employmentType");
   const productOptions = useMemo(() => getProductsForLendingType(lendingType), [lendingType]);
   const showExistingLoan = transactionType === "balance_transfer";
+
+  const financialVisibility = useMemo(
+    () =>
+      getLoanInitiationFinancialVisibility({
+        customerType,
+        loanProduct,
+        employmentType,
+      }),
+    [customerType, loanProduct, employmentType],
+  );
+
+  /** Instantly drop irrelevant financial values when Product / Customer Type / Employment changes. */
+  const financialProfileKey = `${customerType}|${loanProduct}|${employmentType}`;
+  const previousFinancialProfileKey = useRef(financialProfileKey);
+  useEffect(() => {
+    if (previousFinancialProfileKey.current === financialProfileKey) return;
+    previousFinancialProfileKey.current = financialProfileKey;
+    const keep = new Set(financialVisibility.fields.map((f) => f.formValueKey));
+    for (const key of LOAN_INITIATION_ALL_FINANCIAL_VALUE_KEYS) {
+      if (keep.has(key)) continue;
+      form.setValue(key, key === "existingBank" ? "" : undefined, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [financialProfileKey, financialVisibility.fields, form]);
 
   const contactOptions = useMemo(() => {
     void registryVersion;
@@ -365,7 +468,19 @@ export function LoanCreateFormDialog({
       customerType: "Individual",
       loanProduct: getProductsForLendingType("secured")[0] ?? "",
       requiredAmount: undefined as unknown as number,
-      monthlyIncome: undefined as unknown as number,
+      monthlyIncome: undefined,
+      monthlyGrossSalary: undefined,
+      netSalary: undefined,
+      existingEmi: undefined,
+      annualBusinessIncome: undefined,
+      itrIncome: undefined,
+      gstTurnover: undefined,
+      annualTurnover: undefined,
+      annualNetProfit: undefined,
+      ebitda: undefined,
+      existingWcLimits: undefined,
+      existingCcOdLimit: undefined,
+      existingBank: "",
       approxCibilScore: undefined as unknown as ApproxCibilScoreBand,
       priority: "medium",
       loginDate: today,
@@ -432,6 +547,15 @@ export function LoanCreateFormDialog({
       associatedCompanyName ? { companyName: associatedCompanyName } : undefined,
     );
     const sourceContact = findSourceContactOption(values.source, values.sourceContactId);
+    const financial = getLoanInitiationFinancialVisibility({
+      customerType: values.customerType,
+      loanProduct: values.loanProduct,
+      employmentType: values.employmentType,
+    });
+    const assessmentAmount = primaryAssessmentAmountFromFinancialValues(
+      values as unknown as Record<string, unknown>,
+      financial.profile,
+    );
 
     return {
       input: {
@@ -448,26 +572,33 @@ export function LoanCreateFormDialog({
         loanAmount: values.requiredAmount,
         requiredAmount: values.requiredAmount,
         approxCibilScore: values.approxCibilScore,
-        lender: loanLenders[0] ?? "HDFC Bank",
+        lender: listPublishedLenderDisplayNames()[0] ?? "State Bank of India",
         relationshipManager: values.relationshipManager,
         priority: values.priority,
         loginDate: new Date(values.loginDate).toISOString(),
         expectedLoginDate: new Date(values.expectedLoginDate).toISOString(),
-        internalNotes: `Customer Type: ${values.customerType}`,
+        internalNotes: `Customer Type: ${values.customerType} · Financial profile: ${financial.profileLabel}${
+          assessmentAmount ? ` · Assessment: ₹${assessmentAmount}` : ""
+        }`,
         businessDetails: {
           ...synced.businessDetails,
-          ...(getContextAwareVisibility(values.employmentType).isSelfEmployedFamily
-            ? {
-                monthlySalary: undefined,
-                annualTurnover: values.monthlyIncome,
-              }
-            : {
-                monthlySalary: values.monthlyIncome,
-                annualTurnover: undefined,
-                annualProfit: undefined,
-                annualGrossReceipts: undefined,
-                annualProfessionalIncome: undefined,
-              }),
+          monthlySalary: values.monthlyGrossSalary,
+          netSalary: values.netSalary,
+          existingEmi: values.existingEmi,
+          annualBusinessIncome: values.annualBusinessIncome,
+          itrIncome: values.itrIncome,
+          gstTurnover: values.gstTurnover,
+          annualTurnover: values.annualTurnover ?? values.annualBusinessIncome,
+          annualProfit: values.annualNetProfit,
+          ebitda: values.ebitda,
+          existingWcLimits: values.existingWcLimits,
+          existingCcOdLimit: values.existingCcOdLimit,
+          existingBank: values.existingBank?.trim() || undefined,
+          annualGrossReceipts:
+            values.annualBusinessIncome && !values.annualTurnover
+              ? values.annualBusinessIncome
+              : undefined,
+          annualProfessionalIncome: values.itrIncome,
         },
         ...(values.transactionType === "balance_transfer"
           ? {
@@ -491,14 +622,29 @@ export function LoanCreateFormDialog({
     };
   };
 
-  const submitAndClose = (values: FormValues, proceedToDocuments: boolean) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const submitAndClose = async (values: FormValues, proceedToDocuments: boolean) => {
     const { input, meta } = buildPayload(values, proceedToDocuments);
-    onSubmit(input, meta);
-    onOpenChange(false);
+    setSubmitting(true);
+    try {
+      await onSubmit(input, meta);
+      onOpenChange(false);
+    } catch (err) {
+      // Parent surfaces toast; keep dialog open so user can retry
+      console.error(err);
+      throw err;
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSaveAndExit = form.handleSubmit((values) => submitAndClose(values, false));
-  const handleProceedToDocuments = form.handleSubmit((values) => submitAndClose(values, true));
+  const handleSaveAndExit = form.handleSubmit((values) => {
+    void submitAndClose(values, false).catch(() => undefined);
+  });
+  const handleProceedToDocuments = form.handleSubmit((values) => {
+    void submitAndClose(values, true).catch(() => undefined);
+  });
 
   const closeApi = useWorkspaceClose({
     onClose: () => onOpenChange(false),
@@ -507,9 +653,13 @@ export function LoanCreateFormDialog({
     onSaveAndClose: () =>
       new Promise<boolean>((resolve) => {
         void form.handleSubmit(
-          (values) => {
-            submitAndClose(values, false);
-            resolve(true);
+          async (values) => {
+            try {
+              await submitAndClose(values, false);
+              resolve(true);
+            } catch {
+              resolve(false);
+            }
           },
           () => resolve(false),
         )();
@@ -519,97 +669,154 @@ export function LoanCreateFormDialog({
   const sourceContactId = form.watch("sourceContactId");
   const sourceContact = findSourceContactOption(source, sourceContactId);
 
-  return (
-    <>
-      <Dialog
-        open={open}
-        onOpenChange={(next) => {
-          if (next) onOpenChange(true);
-          else closeApi.requestClose();
-        }}
-      >
-        <DialogContent
-          className={cn(
-            "max-w-6xl w-[min(96vw,72rem)] max-h-[92vh] p-0 gap-0 rounded-xl",
-            contentClassName,
-          )}
+  const entryScenarios = isWorkspace ? (
+    <div className="rounded-xl border border-teal-500/25 bg-gradient-to-r from-teal-500/[0.07] to-cyan-500/[0.04] p-3.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-teal-800 dark:text-teal-200">
+        How do you want to begin?
+      </p>
+      <p className="mt-1 text-[12px] text-muted-foreground">
+        Stay on this page — search existing records or create new ones without leaving the journey.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={entryFocus === "contact" ? "default" : "outline"}
+          className="h-8 text-xs"
+          onClick={() => {
+            setEntryFocus("contact");
+            document.getElementById("loan-info-primary-applicant")?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }}
         >
-          <DialogHeader className="shrink-0 border-b border-border p-6 pb-4">
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
-          </DialogHeader>
+          Existing Contact
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={entryFocus === "company" ? "default" : "outline"}
+          className="h-8 text-xs"
+          onClick={() => {
+            setEntryFocus("company");
+            document.getElementById("loan-info-associated-company")?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }}
+        >
+          Existing Company
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          onClick={() => {
+            setEntryFocus("contact");
+            setPrimaryCreatePrefill("");
+            setPrimaryCreateOpen(true);
+          }}
+        >
+          New Contact → Start Journey
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          onClick={() => {
+            setEntryFocus("company");
+            setCompanyCreatePrefill("");
+            setCompanyCreateOpen(true);
+          }}
+        >
+          New Company → Start Journey
+        </Button>
+      </div>
+    </div>
+  ) : null;
 
-          <ScrollArea className="max-h-[calc(92vh-10rem)]">
-            <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
-              <div className="space-y-6">
-                <LoanOriginationSection
-                  theme="blue"
-                  title="Loan Participants"
-                  description="Who is borrowing?"
-                  icon={<Users className="h-4 w-4" />}
-                >
-                  <div className="space-y-4">
-                    <FormField label="Primary Applicant *" error={form.formState.errors.customerId?.message}>
-                      <LiveEntityMasterSearch
-                        kind="contact"
-                        warmOnMount={open}
-                        placeholder="Search contact…"
-                        selectedId={form.watch("customerId")}
-                        selectedLabel={form.watch("customerName") || undefined}
-                        fallbackOptions={contactOptions}
-                        onSelect={selectPrimaryApplicant}
-                        onCreateNew={(q) => {
-                          setPrimaryCreatePrefill(q);
-                          setPrimaryCreateOpen(true);
-                        }}
-                      />
-                    </FormField>
+  const formSections = (
+    <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+      <div className="space-y-6">
+        {entryScenarios}
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <ReadOnlyField label="Mobile Number" value={form.watch("customerMobile")} />
-                      <ReadOnlyField label="Email Address" value={form.watch("customerEmail")} />
-                      <ReadOnlyField label="Employment Type" value={form.watch("employmentType")} />
-                      <ReadOnlyField label="City" value={form.watch("city")} />
-                    </div>
+        <LoanOriginationSection
+          theme="blue"
+          title="Loan Participants"
+          description="Who is borrowing?"
+          icon={<Users className="h-4 w-4" />}
+        >
+          <div className="space-y-4" id="loan-info-primary-applicant">
+            <FormField label="Primary Applicant *" error={form.formState.errors.customerId?.message}>
+              <LiveEntityMasterSearch
+                kind="contact"
+                warmOnMount={open}
+                placeholder="Search contact…"
+                selectedId={form.watch("customerId")}
+                selectedLabel={form.watch("customerName") || undefined}
+                fallbackOptions={contactOptions}
+                onSelect={selectPrimaryApplicant}
+                onCreateNew={(q) => {
+                  setPrimaryCreatePrefill(q);
+                  setPrimaryCreateOpen(true);
+                }}
+              />
+            </FormField>
 
-                    <FormField
-                      label={
-                        companyFromProfile
-                          ? "Associated Company (from Borrower Profile)"
-                          : "Associated Company (Optional)"
-                      }
-                    >
-                      <LiveEntityMasterSearch
-                        kind="company"
-                        warmOnMount={open}
-                        placeholder="Search company…"
-                        selectedId={associatedCompanyId}
-                        selectedLabel={associatedCompanyName}
-                        fallbackOptions={companyOptions}
-                        onSelect={selectAssociatedCompany}
-                        allowCreateNew={false}
-                      />
-                      {companyFromProfile && (
-                        <p className="mt-1 text-[10px] text-muted-foreground">
-                          Capture once on Borrower Profile · reused here. Change only if needed.
-                        </p>
-                      )}
-                    </FormField>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ReadOnlyField label="Mobile Number" value={form.watch("customerMobile")} />
+              <ReadOnlyField label="Email Address" value={form.watch("customerEmail")} />
+              <ReadOnlyField label="Employment Type" value={form.watch("employmentType")} />
+              <ReadOnlyField label="City" value={form.watch("city")} />
+            </div>
 
-                    <div className="border-t border-blue-600/15 pt-4">
-                      <p className="mb-3 text-xs font-semibold text-foreground">
-                        Co-Applicants / Loan Participants
-                      </p>
-                      <LoanParticipantsPanel
-                        participants={participants}
-                        entityOptions={participantEntityOptions}
-                        onChange={setParticipants}
-                        maxParticipants={9}
-                        onContactCreated={() => void refreshEcm(true)}
-                      />
-                    </div>
-                  </div>
-                </LoanOriginationSection>
+            <FormField
+              label={
+                companyFromProfile
+                  ? "Associated Company (from Borrower Profile)"
+                  : "Associated Company (Optional)"
+              }
+            >
+              <div id="loan-info-associated-company">
+                <LiveEntityMasterSearch
+                  kind="company"
+                  warmOnMount={open}
+                  placeholder="Search company…"
+                  selectedId={associatedCompanyId}
+                  selectedLabel={associatedCompanyName}
+                  fallbackOptions={companyOptions}
+                  onSelect={selectAssociatedCompany}
+                  allowCreateNew
+                  onCreateNew={(q) => {
+                    setCompanyCreatePrefill(q);
+                    setCompanyCreateOpen(true);
+                  }}
+                />
+              </div>
+              {companyFromProfile && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Capture once on Borrower Profile · reused here. Change only if needed.
+                </p>
+              )}
+            </FormField>
+
+            <div className="border-t border-blue-600/15 pt-4">
+              <p className="mb-3 text-xs font-semibold text-foreground">
+                Co-Applicants / Loan Participants
+              </p>
+              <LoanParticipantsPanel
+                participants={participants}
+                entityOptions={participantEntityOptions}
+                onChange={setParticipants}
+                maxParticipants={9}
+                onContactCreated={() => void refreshEcm(true)}
+              />
+            </div>
+          </div>
+        </LoanOriginationSection>
 
                 <LoanOriginationSection
                   theme="purple"
@@ -805,42 +1012,55 @@ export function LoanCreateFormDialog({
                       />
                     </FormField>
 
-                    <FormField
-                      label={(() => {
-                        const emp = form.watch("employmentType");
-                        const ctx = getContextAwareVisibility(emp);
-                        const cat = resolveContextCustomerCategory(emp);
-                        if (ctx.isSalariedFamily) return "Monthly Salary (₹) *";
-                        if (cat === "self_employed_professional") return "Annual Gross Receipts (₹) *";
-                        if (ctx.isSelfEmployedFamily) return "Annual Turnover (₹) *";
-                        return "Monthly Salary (₹) *";
-                      })()}
-                      error={form.formState.errors.monthlyIncome?.message}
-                    >
-                      <INRCurrencyInput
-                        value={form.watch("monthlyIncome")}
-                        onChange={(v) =>
-                          form.setValue("monthlyIncome", v ?? 0, { shouldDirty: true })
-                        }
-                      />
-                      <p className="mt-1 text-[10px] text-muted-foreground">
-                        {(() => {
-                          const emp = form.watch("employmentType");
-                          const ctx = getContextAwareVisibility(emp);
-                          const cat = resolveContextCustomerCategory(emp);
-                          if (ctx.isSalariedFamily) {
-                            return "Context-aware · salaried monthly salary for loan assessment.";
+                    <div className="sm:col-span-2 lg:col-span-3 space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">Financial Information</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Context-aware · {financialVisibility.profileLabel} — fields update instantly
+                          when Product or Customer Type changes. Irrelevant fields are removed.
+                        </p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {financialVisibility.fields.map((field) => {
+                          const valueKey = field.formValueKey as LoanInitiationFinancialFormValueKey;
+                          const error =
+                            form.formState.errors[valueKey]?.message as string | undefined;
+                          const label = field.required
+                            ? `${field.label.replace(/\s*\(optional\)/i, "")} *`
+                            : field.label;
+                          if (field.input === "text") {
+                            return (
+                              <FormField key={field.key} label={label} error={error}>
+                                <Input
+                                  className="h-8 text-xs"
+                                  value={(form.watch(valueKey) as string | undefined) ?? ""}
+                                  placeholder="e.g. HDFC Bank"
+                                  onChange={(e) =>
+                                    form.setValue(valueKey, e.target.value, {
+                                      shouldDirty: true,
+                                      shouldValidate: true,
+                                    })
+                                  }
+                                />
+                              </FormField>
+                            );
                           }
-                          if (cat === "self_employed_professional") {
-                            return "Context-aware · professional annual gross receipts (not salary).";
-                          }
-                          if (ctx.isSelfEmployedFamily) {
-                            return "Context-aware · business annual turnover (not salary).";
-                          }
-                          return "Context-aware income metric for loan assessment.";
-                        })()}
-                      </p>
-                    </FormField>
+                          return (
+                            <FormField key={field.key} label={`${label} (₹)`} error={error}>
+                              <INRCurrencyInput
+                                value={form.watch(valueKey) as number | undefined}
+                                onChange={(v) =>
+                                  form.setValue(valueKey, (v ?? undefined) as number, {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  })
+                                }
+                              />
+                            </FormField>
+                          );
+                        })}
+                      </div>
+                    </div>
 
                     <ApproxCibilScoreField
                       value={form.watch("approxCibilScore")}
@@ -893,30 +1113,38 @@ export function LoanCreateFormDialog({
                 </LoanOriginationSection>
               </div>
 
-              <div className="lg:sticky lg:top-0 lg:self-start">
-                <ChanakyaOriginationPanel />
-              </div>
+            <div className="lg:sticky lg:top-0 lg:self-start">
+              <ChanakyaOriginationPanel />
             </div>
+          </div>
+  );
 
-            <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/20 px-6 py-4 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={closeApi.requestClose}>
-                Cancel
-              </Button>
-              <Button type="button" variant="secondary" onClick={handleSaveAndExit}>
-                Save &amp; Exit
-              </Button>
-              <Button
-                type="button"
-                className="bg-primary hover:bg-primary/90"
-                onClick={handleProceedToDocuments}
-              >
-                Proceed to Document Stage
-              </Button>
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
+  const actionBar = (
+    <div
+      className={cn(
+        "flex flex-col-reverse gap-2 border-t border-border bg-muted/20 px-6 py-4 sm:flex-row sm:justify-end",
+        isWorkspace && "sticky bottom-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-muted/80",
+      )}
+    >
+      <Button type="button" variant="outline" onClick={closeApi.requestClose} disabled={submitting}>
+        {isWorkspace ? "Back to Journey Hub" : "Cancel"}
+      </Button>
+      <Button type="button" variant="secondary" onClick={handleSaveAndExit} disabled={submitting}>
+        {submitting ? "Saving…" : "Save & Exit"}
+      </Button>
+      <Button
+        type="button"
+        className="bg-primary hover:bg-primary/90"
+        onClick={handleProceedToDocuments}
+        disabled={submitting}
+      >
+        {submitting ? "Saving…" : "Proceed to Document Stage"}
+      </Button>
+    </div>
+  );
 
+  const overlays = (
+    <>
       <ProgressiveContactCreateModal
         open={primaryCreateOpen}
         onOpenChange={setPrimaryCreateOpen}
@@ -924,7 +1152,23 @@ export function LoanCreateFormDialog({
         participantKind="primary_applicant"
         onCreated={applyProgressivePrimary}
       />
-
+      <ProgressiveCompanyCreateModal
+        open={companyCreateOpen}
+        onOpenChange={setCompanyCreateOpen}
+        initialName={companyCreatePrefill}
+        onCreated={(company) => {
+          void refreshEcm(true);
+          selectAssociatedCompany({
+            id: company.id,
+            label: company.companyName,
+          });
+          setEntryFocus("company");
+          if (!form.getValues("customerId")) {
+            setPrimaryCreatePrefill("");
+            setPrimaryCreateOpen(true);
+          }
+        }}
+      />
       <UnsavedChangesDialog
         open={closeApi.confirmOpen}
         onOpenChange={closeApi.setConfirmOpen}
@@ -932,6 +1176,58 @@ export function LoanCreateFormDialog({
         onSaveAndClose={closeApi.handleSaveAndClose}
         saving={closeApi.saving}
       />
+    </>
+  );
+
+  if (!open && !isWorkspace) {
+    return overlays;
+  }
+
+  if (isWorkspace) {
+    return (
+      <>
+        <div className={cn("mx-auto w-full max-w-6xl", contentClassName)}>
+          <div className="border-b border-border px-6 py-5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700 dark:text-teal-300">
+              Loan Journey · Step 1
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>
+          </div>
+          {formSections}
+          {actionBar}
+        </div>
+        {overlays}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) onOpenChange(true);
+          else closeApi.requestClose();
+        }}
+      >
+        <DialogContent
+          className={cn(
+            "max-w-6xl w-[min(96vw,72rem)] max-h-[92vh] p-0 gap-0 rounded-xl",
+            contentClassName,
+          )}
+        >
+          <DialogHeader className="shrink-0 border-b border-border p-6 pb-4">
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[calc(92vh-10rem)]">
+            {formSections}
+            {actionBar}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+      {overlays}
     </>
   );
 }

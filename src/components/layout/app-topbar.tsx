@@ -15,6 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface AppTopbarProps {
   onSearchClick?: () => void;
@@ -26,12 +27,33 @@ interface AppTopbarProps {
  */
 export function AppTopbar({ onSearchClick }: AppTopbarProps) {
   const { toggleTheme, isDark, mounted } = useTheme();
-  const { openMobile } = useSidebar();
+  const { openMobile, collapsed, setPeekOpen, noteNavInteraction, navMode, setCollapsed } =
+    useSidebar();
+
+  const expandNavFromMenu = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      openMobile();
+      return;
+    }
+    // Desktop: expand immediately (Auto peek or Collapsed manual expand)
+    if (navMode === "auto") {
+      setPeekOpen(true);
+      noteNavInteraction();
+      return;
+    }
+    setCollapsed(false);
+  };
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-background/80 px-3 backdrop-blur-xl sm:gap-3 sm:px-4 lg:px-6">
       {/* Logo / Workspace */}
-      <Button variant="ghost" size="icon" className="shrink-0 md:hidden" onClick={openMobile}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn("shrink-0", collapsed ? "inline-flex" : "md:hidden")}
+        onClick={expandNavFromMenu}
+        aria-label="Open navigation"
+      >
         <Menu className="h-5 w-5" />
       </Button>
       <div className="shrink-0">

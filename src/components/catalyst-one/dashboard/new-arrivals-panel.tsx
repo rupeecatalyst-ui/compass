@@ -7,6 +7,8 @@ import { demoNewArrivals, deriveLeadSource } from "@/data/catalyst-one/dashboard
 import { STAGE_LABELS } from "@/constants/loan-pipeline";
 import { formatINRCompact } from "@/lib/format-currency";
 import { getAllLoanFiles } from "@/lib/loan-files-utils";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
+import { ROUTES } from "@/constants/routes";
 import { formatRelativeTime } from "@/lib/utils";
 import {
   DashboardCard,
@@ -65,7 +67,7 @@ export function NewArrivalsPanel() {
         title="New files"
         description="Created in the last 72 hours"
         action={
-          <Link href="/loan-files?filter=new" className="text-[10px] font-medium text-teal-400 hover:underline">
+          <Link href={ROUTES.MY_DEALS} className="text-[10px] font-medium text-teal-400 hover:underline">
             View all
           </Link>
         }
@@ -96,7 +98,7 @@ export function NewArrivalsPanel() {
                   <TableRow
                     key={row.id}
                     className="border-slate-800 cursor-pointer hover:bg-slate-800/40"
-                    onClick={() => router.push(`/loan-files?file=${row.fileId}`)}
+                    onClick={() => router.push(buildDealWorkspaceHref({ fileId: row.fileId, tab: "lenders" }))}
                   >
                     <TableCell className="text-xs font-medium text-slate-200 py-2">{row.customerName}</TableCell>
                     <TableCell className="text-xs text-slate-400 py-2">{row.source}</TableCell>

@@ -21,7 +21,7 @@ import {
 } from "@/components/catalyst-one/dashboard/dashboard-card";
 
 const actions = [
-  { label: "New Loan File", icon: FilePlus, href: `${ROUTES.LOAN_FILES}?action=new` },
+  { label: "Start Loan Journey", icon: FilePlus, href: ROUTES.LOAN_JOURNEY },
   { label: "Add Customer", icon: UserPlus, href: ROUTES.CUSTOMERS },
   { label: "Upload Docs", icon: FolderUp, href: `${ROUTES.DOCUMENTS}?action=upload` },
   { label: "Eligibility", icon: Calculator, href: `${ROUTES.AI_ASSISTANT}?tool=eligibility` },

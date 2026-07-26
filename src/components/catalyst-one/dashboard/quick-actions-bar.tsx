@@ -14,7 +14,7 @@ import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-t
 import { cn } from "@/lib/utils";
 
 const actions = [
-  { label: "New Loan", icon: FilePlus, href: `${ROUTES.LOAN_FILES}?action=new` },
+  { label: "Start Loan Journey", icon: FilePlus, href: ROUTES.LOAN_JOURNEY },
   { label: "Add Customer", icon: UserPlus, href: ROUTES.CUSTOMERS },
   { label: "Upload Folder", icon: FolderUp, href: `${ROUTES.DOCUMENTS}?action=upload` },
   { label: "Eligibility Calculator", icon: Calculator, href: `${ROUTES.AI_ASSISTANT}?tool=eligibility` },

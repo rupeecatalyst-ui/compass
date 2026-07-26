@@ -13,8 +13,9 @@ globs:
 ## Three-column model
 
 1. **Column 1 — Primary Navigation** (frozen order — do not change without approval):
-   Dashboard · CHANAKYA Radar · Contacts · My Deals · Loan Workspace · Investments · Tasks · Documents · Lenders · Accounting · Mission Control · Horizon · Administration · Settings.
-   Fixed height — **never** expand child menus inline.
+ Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Workspace · Investments · Tasks · Documents · Lenders · Accounting · Mission Control · Horizon · Administration · Settings.
+ Fixed height — **never** expand child menus inline.
+ **CO-ARCH-003:** My Opportunities = Opportunity Registry; My Deals = Deal Registry.
 2. **Column 2 — Context Navigation Panel**: children of Administration / Settings only.
 3. **Column 3 — Workspace**: selected screen.
 
@@ -24,7 +25,8 @@ globs:
 |--------|----------------|
 | Dashboard | KPIs |
 | CHANAKYA Radar | AI prioritisation / deal health (Kanban only; no drag) |
-| My Deals | User work queue (Kanban / List / Table) |
+| My Opportunities | Opportunity Registry (requirement queue) |
+| My Deals | Deal Registry (lender Deal work queue) |
 | Loan Workspace | Execution (benches retained) |
 | Lender Pipeline | Workflow (inside deal) |
 

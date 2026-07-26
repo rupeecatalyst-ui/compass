@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader } from "@/components/ui/sheet";
 import { UserProfile } from "@/components/layout/user-profile";
+import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
@@ -34,7 +35,15 @@ export function MobileNav() {
     <Sheet open={mobileOpen} onOpenChange={(open) => !open && closeMobile()}>
       <SheetContent side="left" className="w-[min(100vw,20rem)] p-0 bg-sidebar">
         <SheetHeader className="flex flex-row items-center justify-between border-b border-sidebar-border px-4 py-4">
-          <CatalystBranding variant="sidebar" />
+          <Link
+            href={ROUTES.DASHBOARD}
+            onClick={closeMobile}
+            className="min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            aria-label="Rupee Catalyst — User Home Dashboard"
+            title="Go to User Home Dashboard"
+          >
+            <CatalystBranding variant="sidebar" />
+          </Link>
           <Button variant="ghost" size="icon" onClick={closeMobile}>
             <X className="h-4 w-4" />
           </Button>

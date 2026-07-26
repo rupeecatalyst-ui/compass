@@ -8,6 +8,8 @@ import { demoNewArrivals, deriveLeadSource } from "@/data/catalyst-one/dashboard
 import { useDashboardFilter } from "@/hooks/use-dashboard-filter";
 import { formatINRCompact } from "@/lib/format-currency";
 import { getAllLoanFiles } from "@/lib/loan-files-utils";
+import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
+import { ROUTES } from "@/constants/routes";
 import { formatRelativeTime } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -69,7 +71,7 @@ export function NewArrivalsWidget() {
             </CardDescription>
           </div>
           <Link
-            href="/loan-files?filter=new"
+            href={ROUTES.MY_DEALS}
             className="text-xs font-medium text-primary hover:underline shrink-0"
           >
             View all
@@ -99,7 +101,7 @@ export function NewArrivalsWidget() {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer hover:bg-muted/40"
-                  onClick={() => router.push(`/loan-files?file=${row.fileId}`)}
+                  onClick={() => router.push(buildDealWorkspaceHref({ fileId: row.fileId, tab: "lenders" }))}
                 >
                   <TableCell className="font-medium">{row.customerName}</TableCell>
                   <TableCell>{row.source}</TableCell>
