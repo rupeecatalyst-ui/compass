@@ -3,7 +3,7 @@
  * Auth: Bearer access token. No localStorage business SSOT.
  */
 
-import { getAccessToken } from "@/lib/api-client";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import type {
   EcmCompany,
   EcmCompanyContactLink,
@@ -20,15 +20,7 @@ import type {
 import type { EcmContactRegisterInput } from "@/lib/enterprise-contact-master/contact-registry";
 
 async function ecmFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const token = getAccessToken();
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
+  const res = await authenticatedJsonFetch(url, init);
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.success) {
     throw new Error(body?.error?.message || `ECM request failed (${res.status})`);
@@ -46,6 +38,8 @@ export const ecmApiClient = {
     if (query.sortBy) params.set("sortBy", query.sortBy);
     if (query.sortDir) params.set("sortDir", query.sortDir);
     if (query.roles?.length) params.set("roles", query.roles.join(","));
+    if (query.createdFrom) params.set("createdFrom", query.createdFrom);
+    if (query.createdTo) params.set("createdTo", query.createdTo);
     return ecmFetch(`/api/ecm/contacts?${params.toString()}`);
   },
 

@@ -1,3 +1,15 @@
+/**
+ * CO-ARCH-009 — Client-safe Enterprise Persistence barrel.
+ *
+ * Safe for Client Components / browser bundles:
+ * - constants & mode helpers
+ * - REST API client
+ * - client persistence helpers (hydrate / persist via API)
+ *
+ * Server-only wiring (configure-ports, Prisma, repositories) lives in:
+ *   `@/lib/enterprise-persistence/server`
+ */
+
 export {
   CATALYST_ONE_SUPABASE_PROJECT_ID,
   CATALYST_ONE_SUPABASE_URL,
@@ -10,13 +22,6 @@ export {
   type CoSprint117CertificationGate,
   type EnterprisePersistenceMode,
 } from "@/constants/enterprise-persistence";
-
-export {
-  configureEcmPersistencePorts,
-  configureEcmPersistencePorts as configureEcmPortsForPrisma,
-  isEcmPrismaPersistenceActive,
-  syncEcmPortsFromPrisma,
-} from "./configure-ports";
 
 export { ecmApiClient } from "./ecm-api-client";
 

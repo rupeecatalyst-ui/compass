@@ -12,7 +12,11 @@
  * - syncEcmPortsFromPrisma() refreshes the cache after API reads/mutations.
  *
  * Memory mode (local only): in-memory ports remain the working store; demo seeds may apply.
+ *
+ * CO-ARCH-009 — Server-only. Clients must use `@/lib/enterprise-persistence` (client barrel).
  */
+
+import "server-only";
 
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { configureEcmPorts, getEcmPorts } from "@/lib/enterprise-contact-master/composition";
@@ -29,8 +33,13 @@ export function isEcmPrismaPersistenceActive(): boolean {
 export function configureEcmPersistencePorts(): void {
   if (persistenceConfigured) return;
   if (isEnterprisePersistencePrisma() && typeof window === "undefined") {
-    // Ports remain the in-memory adapter; Prisma is authoritative via REST + syncEcmPortsFromPrisma.
     configureEcmPorts(getEcmPorts());
+    void import("@/lib/enterprise-master-data").then(({ configureReferenceMasterPorts }) => {
+      configureReferenceMasterPorts();
+    });
+    void import("@/lib/enterprise-tier2-ports").then(({ configureTier2RegistryPorts }) => {
+      configureTier2RegistryPorts();
+    });
   }
   persistenceConfigured = true;
 }

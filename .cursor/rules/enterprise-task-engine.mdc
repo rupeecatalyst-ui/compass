@@ -1,0 +1,80 @@
+---
+description: Enterprise Task Engine (ETE) — sole task authoring/orchestration SSOT; entity-bound; no parallel engines
+alwaysApply: true
+---
+
+# Enterprise Task Engine (ETE) — Platform Constitution
+
+Status: **ENTERPRISE APPROVED** · Frozen · Permanent platform service  
+Sprint foundation: **CO-BIZ-001** (extends SPR-001 ETE)
+
+## Constitutional principles (frozen)
+
+1. **ETE is the only** task authoring and orchestration engine in Catalyst One.
+2. **Every task must belong to a business entity.** Orphan tasks are not permitted.
+3. **My Work** is a **projection** of ETE — never a separate datastore.
+4. **Reports**, **Notifications**, and **CHANAKYA** must consume ETE as the single source of truth for tasks.
+5. Tasks are **business context**, not personal reminders.
+6. **No** additional task engines, reminder engines, follow-up engines, or workflow-specific task systems may ever be introduced.
+7. Future modules (Wealth Partner, Customer Portal, Accounting, Document Intelligence, Workflow Engine, and any later surface) **must reuse ETE**.
+
+## Entity binding (required)
+
+A task must associate with at least one supported entity:
+
+- Contact / Customer  
+- Opportunity  
+- Enterprise Deal  
+- Loan File  
+- Document  
+- Workflow  
+- Lender (when lender-scoped work applies)
+
+New entity types integrate **with ETE** — they do not invent independent task implementations.
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Domain / registry | `src/lib/enterprise-task-engine/` |
+| Types | `src/types/enterprise-task-engine.ts` |
+| Constants / auto-rules | `src/constants/enterprise-task-engine/` |
+| Org desk UI | `/tasks` → `TaskEngineWorkspace` (Board · My Work · Reports) |
+| Entity panel | `EntityTasksPanel` |
+
+## Dual-path cleanup (do not expand)
+
+- Prisma `EnterpriseDealTask` and LoanFile-embedded tasks are **legacy / complementary projections** — not parallel authoring SSOTs.
+- Prefer ETE with `dealId` / `opportunityRef` / `contactId` / `fileId` / `entityKind`+`entityId`.
+- Do not build new UI that writes only to Deal API tasks or LoanFile.tasks without ETE.
+
+## Lifecycle automation
+
+Auto-generation via `generateTasksForBusinessEvent` is the foundation.
+
+Future iterations should wire stage transitions to generate, complete, or close ETE tasks for:
+
+Login · Logged In – WIP · Soft Approved · Final Approved · Closure WIP · Disbursed · Lost · Hold
+
+Do **not** invent a separate lifecycle-task engine for these stages.
+
+## Persistence
+
+Prisma durability is a **technical enhancement**, not a redesign.
+
+- Keep ETE as the **canonical** source of truth.
+- Introduce durable persistence **behind ETE ports** (`configureEtePorts` / adapters).
+- Do **not** create another persistence model that duplicates task ownership.
+
+## Forbidden
+
+- New `*-task-engine` / `*-reminder-engine` / `*-follow-up-engine` packages for business work  
+- Orphan / personal to-do lists presented as enterprise tasks  
+- My Work or Reports recalculating task ownership outside ETE list APIs  
+- Chanakya inventing task counts instead of calling ETE derive helpers  
+
+## Related
+
+- Metric SSOT: `enterprise-metric-single-implementation.mdc`  
+- Chanakya non-blocking: `chanakya-operating-principles.mdc`  
+- Docs: `docs/co-biz-001/CO-BIZ-001-TASK-WORK-MANAGEMENT.md`
