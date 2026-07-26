@@ -76,23 +76,25 @@ This release does **not** introduce new business features beyond work already co
 
 ## Certification (CO-REL-001)
 
-Run against the RC candidate:
+| Check | Status |
+|-------|--------|
+| Build · TypeScript · Lint | ✅ PASS |
+| `cert:env` · `cert:routes` · `cert:integrity` · `cert:migrations` | ✅ PASS |
+| `cert:production` (composite) | ✅ **GO** |
+| Ops · Governance · EBI · ECE verify | ✅ PASS |
+
+Full matrix: `docs/co-rel-001/CO-REL-001-CERTIFICATION-RESULTS.md`
 
 ```bash
 npm run build
 npx tsc --noEmit -p tsconfig.json
 npm run lint
-npm run cert:env
-npm run cert:routes
-npm run cert:integrity
-npm run cert:migrations
+npm run cert:production
 npm run ece:verify
 npm run biz:verify
 npm run ops:verify
 npm run gov:verify
 ```
-
-Results are recorded in the CO-REL-001 certification section of the Implementation Report after execution.
 
 ---
 
