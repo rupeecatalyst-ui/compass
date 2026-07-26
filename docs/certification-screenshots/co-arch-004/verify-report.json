@@ -1,0 +1,10 @@
+{
+  "registryOnlyWritePath": true,
+  "dualWriteNoOpWhenOperational": true,
+  "dealWorkspaceLoadsFromRegistry": true,
+  "pipelineAwaitsRegistry": true,
+  "snapshotBeatsLocalLenders": true,
+  "noHydrateLocalPersist": true,
+  "loanFileProjectionOnlyWhenOperational": true,
+  "verdict": "PASS"
+}

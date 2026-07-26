@@ -1,7 +1,7 @@
 # Decision Register
 
 **Owner:** PMO Director  
-**Last updated:** 2026-07-21
+**Last updated:** 2026-07-24
 
 ---
 
@@ -16,6 +16,7 @@
 | DEC-2026-005 | 2026-07-07 | Migrate auth gateway to Next.js Route Handlers only | ARB | CO-SPRINT-17 / ADR-014 | Vercel cannot run Express; preserve shared auth service | Implemented |
 | DEC-2026-006 | 2026-07-21 | CO-BLOCKER-002 production verified — ready for business sign-off | Quality | CO-BLOCKER-002 | Full production proof on Vercel | Pending sign-off |
 | DEC-2026-007 | 2026-07-21 | CO-CERTIFICATION-003 audit complete — **not certified** (~11% compliance) | Quality | CO-CERTIFICATION-003 | 0/15 masters as DB tables; parallel SSOTs documented | Recorded |
+| DEC-2026-008 | 2026-07-24 | FS-01 implementation complete and ready for Product Owner Business Acceptance Testing on production — **certification and freeze deferred** until Product Owner confirms **"FS-01 Approved"** | Business / ARB | FS-01 | BAT must be completed by Product Owner on latest Vercel production deployment before FOUNDATION CERTIFIED / FROZEN | Active |
 
 ---
 

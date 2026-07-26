@@ -1,0 +1,69 @@
+{
+  "generatedAt": "2026-07-21T16:09:42.479Z",
+  "results": [
+    {
+      "width": 1366,
+      "beforeOverlap": false,
+      "afterOverlap": false,
+      "afterActionsOverlap": false,
+      "afterTitleChanakyaGap": 16,
+      "afterGapOk": true,
+      "beforeTitleWidth": 596.015625,
+      "afterTitleWidth": 580.015625,
+      "afterChanakyaWidth": 288,
+      "beforeTruncated": false,
+      "afterTruncated": false,
+      "afterTitlePreview": "Gaurav Kumar Sharma Private Limited Enterprises",
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\header-1366px.png",
+      "pass": true
+    },
+    {
+      "width": 1440,
+      "beforeOverlap": false,
+      "afterOverlap": false,
+      "afterActionsOverlap": false,
+      "afterTitleChanakyaGap": 16,
+      "afterGapOk": true,
+      "beforeTitleWidth": 670.015625,
+      "afterTitleWidth": 654.015625,
+      "afterChanakyaWidth": 288,
+      "beforeTruncated": false,
+      "afterTruncated": false,
+      "afterTitlePreview": "Gaurav Kumar Sharma Private Limited Enterprises",
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\header-1440px.png",
+      "pass": true
+    },
+    {
+      "width": 1600,
+      "beforeOverlap": false,
+      "afterOverlap": false,
+      "afterActionsOverlap": false,
+      "afterTitleChanakyaGap": 16,
+      "afterGapOk": true,
+      "beforeTitleWidth": 830.015625,
+      "afterTitleWidth": 814.015625,
+      "afterChanakyaWidth": 288,
+      "beforeTruncated": false,
+      "afterTruncated": false,
+      "afterTitlePreview": "Gaurav Kumar Sharma Private Limited Enterprises",
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\header-1600px.png",
+      "pass": true
+    },
+    {
+      "width": 1920,
+      "beforeOverlap": false,
+      "afterOverlap": false,
+      "afterActionsOverlap": false,
+      "afterTitleChanakyaGap": 16,
+      "afterGapOk": true,
+      "beforeTitleWidth": 1150.015625,
+      "afterTitleWidth": 1134.015625,
+      "afterChanakyaWidth": 288,
+      "beforeTruncated": false,
+      "afterTruncated": false,
+      "afterTitlePreview": "Gaurav Kumar Sharma Private Limited Enterprises",
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\header-1920px.png",
+      "pass": true
+    }
+  ]
+}

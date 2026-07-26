@@ -1,0 +1,17 @@
+{
+  "batFlow": [
+    "Create Opportunity",
+    "Complete Opportunity Journey",
+    "Move to Deal → Registry create (no LoanFile)",
+    "Open Pipeline → loadDealPipelineRuntime",
+    "Drag → persistDealPipelineLenders (snapshot only)",
+    "Refresh → loadDealPipelineRuntime → snapshot caseStage",
+    "Logout/login → same Registry reopen",
+    "Second Deal → same path"
+  ],
+  "moveToDealNoLoanFile": true,
+  "dealHostPipelineRuntime": true,
+  "stagePersistNoLenderId": true,
+  "caseStageInSnapshot": true,
+  "verdict": "PASS"
+}

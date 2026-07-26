@@ -64,6 +64,9 @@ Semantic versioning for customer-facing releases (future).
 
 ## 6. Related Documents
 
+- **CO-GOV-001 — Catalyst One Release Governance Framework** (`docs/governance/CO-GOV-001-RELEASE-GOVERNANCE-FRAMEWORK.md`) — **primary release lifecycle SOP**
 - PMO-005 Change Control Policy  
+- PMO-008 Certification Governance Standard  
 - `docs/deployment.md`  
+- `docs/ops/CO-OPS-001-BUILD-INFORMATION.md`  
 - `.cursor/rules/github-vercel-deployment-policy.mdc`

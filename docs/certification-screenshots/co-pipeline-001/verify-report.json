@@ -1,0 +1,13 @@
+{
+  "quietLendersPersist": true,
+  "noSyncNotifyOnDrag": true,
+  "snapshotRegistryPersist": true,
+  "deferredNotifyOnly": true,
+  "dragOverStormFixed": true,
+  "hostBindOncePerDeal": true,
+  "caseStageInFingerprint": true,
+  "dealUuidResolve": true,
+  "rootCause": "Drop called updateDeal → sync localStorage notify + dual-write + host remount + getDeal on every file object; dragOver setState every pixel froze UI",
+  "fix": "Lenders-only quiet save + snapshot Registry persist + deferred notify; dragOver guard; bind Deal by identity",
+  "verdict": "PASS"
+}

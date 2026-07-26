@@ -1,0 +1,15 @@
+{
+  "opportunitySingleFlight": true,
+  "opportunityCacheReadWriteInvalidate": true,
+  "publishedLendersSessionCache": true,
+  "selectUsesSessionOpportunity": true,
+  "moveToDealUsesSessionOpportunity": true,
+  "dealCreateAcceptsOpportunity": true,
+  "beforeOpportunityGetsPerJourney": 10,
+  "afterColdOpenOpportunityGets": 1,
+  "afterWarmSelectOpportunityGets": 0,
+  "afterWarmMoveToDealOpportunityGets": 0,
+  "registriesRemainSSOT": true,
+  "sessionIsNotSecondRegistry": true,
+  "verdict": "PASS"
+}

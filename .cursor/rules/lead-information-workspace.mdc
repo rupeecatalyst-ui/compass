@@ -1,0 +1,23 @@
+---
+description: ADR-018 Wave 2 — Lead Information Workspace (Opportunity Registry only)
+alwaysApply: false
+globs:
+  - src/components/catalyst-one/lead-information/**
+  - src/app/(dashboard)/lead-information/**
+  - src/constants/lead-information-workspace.ts
+  - src/lib/lead-information/**
+---
+
+# Lead Information Workspace (ADR-018 Wave 2)
+
+**Route:** `/lead-information?opportunityId=`  
+**Docs:** `docs/co-arch-003/CO-ARCH-ADR-018-WAVE2-LEAD-INFORMATION.md`
+
+## Rules
+
+1. Persist **only** via Opportunity Registry PATCH (`updateOpportunity`).
+2. **Never** create/update LoanFile or Deal.
+3. No fabricated defaults — empty → Not Specified / Not Selected.
+4. Requirement Captured = Product + Required Amount (Wave 1 server).
+5. Save & Continue (Requirement Captured) → Opportunity Workspace (ADR-018 Wave 3).
+6. Lending Type stays Not Specified until captured or approved derivation.

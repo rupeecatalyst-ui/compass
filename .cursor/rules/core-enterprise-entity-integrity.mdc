@@ -1,0 +1,23 @@
+---
+description: Core enterprise entity persistence integrity (CO-P0-001 / CO-P0-002)
+alwaysApply: true
+---
+
+# Core Enterprise Entity Integrity
+
+Deals, Customers, Lenders, Loan Files, Documents, Accounting, and Workflows are **core enterprise entities**.
+
+## Milestones (never conflate)
+
+- **Phase A — Implementation Complete:** engine exists (may be Soft Go-Live / idle).
+- **Phase B — Operational Cutover Complete:** prisma mode ⇒ database is default runtime SSOT.
+- **Phase C — Legacy Decommissioned:** local/legacy stores removed.
+
+## Hard rules
+
+1. When `ENTERPRISE_PERSISTENCE_MODE=prisma` (+ `NEXT_PUBLIC_` mirror), Enterprise Deal Registry is the **default** operational SSOT — no manual Deal flag enablement for normal operation.
+2. Deal-specific flags may exist only as **emergency rollback** (`=false`).
+3. Do not mark a Deal sprint complete until Phase B CRUD is verified against Postgres (`npm run verify:deal-registry`).
+4. Never report Phase A as “Deals are live in production” without Phase B.
+
+Docs: `docs/incidents/CO-P0-002-ENTERPRISE-DEAL-OPERATIONAL-CUTOVER.md`

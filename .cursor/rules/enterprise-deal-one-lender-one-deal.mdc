@@ -1,0 +1,29 @@
+---
+description: CO-ARCH-007 — One lender negotiation = one Enterprise Deal (constitutional)
+alwaysApply: true
+---
+
+# Enterprise Deal Model (CO-ARCH-007) — FROZEN
+
+```
+Customer → Opportunity → Enterprise Deal (per lender) → Loan Workspace
+```
+
+Loan Workspace is an **Opportunity execution desk**, not a Deal entity.
+
+## Rules
+
+1. One lender negotiation = one `EnterpriseDeal`.
+2. Uniqueness: `(opportunityId + lenderId)`.
+3. `EnterpriseDeal` is the only SSOT for Deal count, stage, lifecycle, accounting, Chanakya, Radar.
+4. `snapshot.lenders` is derived single-lender projection only — never multi-lender SSOT.
+5. Identify Additional Lender must create/upsert Deal — never append snapshot-only cases.
+6. Loan Workspace loads Deals via `listDealsByOpportunity`.
+7. Opportunity reporting = aggregation of child Deals.
+
+## Forbidden
+
+- Treating multi-lender `snapshot.lenders` as Deal inventory
+- Creating lender negotiations that exist only in JSON snapshot
+- Registry Deal Count from snapshot length
+---

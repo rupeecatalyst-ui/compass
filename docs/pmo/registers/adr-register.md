@@ -1,7 +1,7 @@
 # ADR Register
 
 **Owner:** Architecture Review Board  
-**Last updated:** 2026-07-21  
+**Last updated:** 2026-07-25  
 **SSOT path for ADRs:** `docs/adr/`
 
 ---
@@ -12,6 +12,7 @@
 |----|-------|--------|------|---------|----------|
 | ADR-014 | Authentication Gateway Migration | Accepted | 2026-07-07 | CO-SPRINT-17 | [ADR-014-authentication-gateway-migration.md](../../adr/ADR-014-authentication-gateway-migration.md) |
 | ADR-015 | Enterprise Master Data Tier Model (CO-ARCH-001) | Accepted | 2026-07-21 | CO-ARCH-001 | [ADR-015-enterprise-master-data-tier-model.md](../../adr/ADR-015-enterprise-master-data-tier-model.md) |
+| ADR-019 | Deal Workspace Identity (CO-ARCH-004) | Approved · Architecture Certified · Frozen · Implementation not authorised | 2026-07-25 | CO-ARCH-004-DWI | [ADR-019-co-arch-004-deal-workspace-identity.md](../../adr/ADR-019-co-arch-004-deal-workspace-identity.md) |
 
 ---
 

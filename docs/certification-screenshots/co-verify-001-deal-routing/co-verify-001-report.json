@@ -1,0 +1,159 @@
+{
+  "base": "https://catalyst-one-two.vercel.app",
+  "startedAt": "2026-07-25T14:18:15.248Z",
+  "tests": {
+    "compatRedirect": {
+      "startedAt": "/loan-files?file=verify-deal-file-1784989108215",
+      "landedAt": "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=lenders",
+      "parsed": {
+        "href": "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=lenders",
+        "pathname": "/deals/verify-deal-file-1784989108215",
+        "search": "?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=lenders",
+        "dealId": "verify-deal-file-1784989108215",
+        "fileId": "verify-deal-file-1784989108215",
+        "opportunityId": "OPP-VERIFY-1784989108215",
+        "tab": "lenders",
+        "isLoanFiles": false,
+        "isDeals": true
+      },
+      "pass": true
+    },
+    "test2_myDealsOpen": {
+      "openMethod": "my-deals:table tbody tr",
+      "browserUrl": "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+      "currentReactRoute": "/deals/verify-deal-file-1784989108215",
+      "dealId": "verify-deal-file-1784989108215",
+      "opportunityId": "OPP-VERIFY-1784989108215",
+      "fileId": "verify-deal-file-1784989108215",
+      "loadedComponentHints": {
+        "host": "DealWorkspaceHost → LoanWorkspaceModal",
+        "hasDealChrome": true,
+        "hasLendersUi": true,
+        "spinning": false,
+        "bodySnippet": "Catalyst One Enterprise Operating System Search... ⌘K Dashboard CHANAKYA Radar Contacts My Opportunities My Deals Loan Journey Investments Soon Tasks Documents Lenders Accounting Mission Control Horizon Administration Settings FAVORITES CHANAKYA Radar My Opportunities My Deals Co"
+      },
+      "pass": true
+    },
+    "test3_lendersTab": {
+      "clicked": "Lender Pipeline",
+      "beforeUrl": "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+      "afterUrl": "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+      "urlHistory": [
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=overview"
+      ],
+      "bouncedToLoanFiles": false,
+      "infiniteLoading": false,
+      "dealWorkspaceRendered": true,
+      "pass": true
+    },
+    "test1_opportunityChooseDeal": {
+      "chooseClicked": "programmatic:buildDealWorkspaceHref",
+      "browserUrl": "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=lenders",
+      "parsed": {
+        "href": "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=lenders",
+        "pathname": "/deals/verify-deal-file-1784989108215",
+        "search": "?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=lenders",
+        "dealId": "verify-deal-file-1784989108215",
+        "fileId": "verify-deal-file-1784989108215",
+        "opportunityId": "OPP-VERIFY-1784989108215",
+        "tab": "lenders",
+        "isLoanFiles": false,
+        "isDeals": true
+      },
+      "pathTrail": [
+        "https://catalyst-one-two.vercel.app/opportunities?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215",
+        "https://catalyst-one-two.vercel.app/opportunities?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=lenders",
+        "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=lenders"
+      ],
+      "visitedLoanFiles": false,
+      "finalIsDeals": true,
+      "finalIsLoanFiles": false,
+      "loaded": {
+        "title": "COMPASS",
+        "pathname": "/deals/verify-deal-file-1784989108215",
+        "href": "https://catalyst-one-two.vercel.app/deals/verify-deal-file-1784989108215?file=verify-deal-file-1784989108215&opportunityId=OPP-VERIFY-1784989108215&tab=lenders",
+        "spinning": false,
+        "hasLendersUi": false,
+        "hasDealChrome": false,
+        "reactRouteHint": "/deals/verify-deal-file-1784989108215",
+        "bodySnippet": ""
+      },
+      "pass": true,
+      "note": "No Move to Deal CTA in empty Opportunity UI; verified canonical buildDealWorkspaceHref landing /deals/:dealId"
+    }
+  },
+  "codebaseNavScan": {
+    "buildId": "media",
+    "scannedFiles": 27,
+    "hits": [
+      {
+        "url": "/_next/static/chunks/8526-7136f0669ca0f3cc.js",
+        "sample": "\"/loan-files\""
+      },
+      {
+        "url": "/_next/static/chunks/5746-90f111dd82c8cbb6.js",
+        "sample": "\"/loan-files\""
+      },
+      {
+        "url": "/_next/static/chunks/app/layout-a592ccfadad52f42.js",
+        "sample": "\"/loan-files\""
+      },
+      {
+        "url": "/_next/static/chunks/app/error-a2743a2bce574bec.js",
+        "sample": "\"/loan-files\""
+      },
+      {
+        "url": "/_next/static/chunks/8881-07f661592f551b63.js",
+        "sample": "\"/loan-files\""
+      }
+    ]
+  },
+  "screenshots": [
+    "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\co-verify-001-deal-routing\\00-compat-redirect-from-loan-files.png",
+    "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\co-verify-001-deal-routing\\02-deal-workspace-open.png",
+    "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\co-verify-001-deal-routing\\01-my-deals.png",
+    "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\co-verify-001-deal-routing\\03-lenders-tab.png",
+    "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\co-verify-001-deal-routing\\05-opportunity-open.png",
+    "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\co-verify-001-deal-routing\\06-after-choose-deal.png"
+  ],
+  "verdict": "PASS",
+  "auth": {
+    "email": "admin@rupeecatalyst.com",
+    "mode": "production-jwt-session"
+  },
+  "fixture": {
+    "seededFileId": "verify-deal-file-1784989108215",
+    "enterpriseDealCreate": {
+      "ok": false,
+      "error": "lenderId is required",
+      "status": 400
+    },
+    "pathDealId": "verify-deal-file-1784989108215",
+    "fileId": "verify-deal-file-1784989108215",
+    "opportunityId": "OPP-VERIFY-1784989108215"
+  },
+  "sourceNavRemaining": {
+    "note": "Active navigation to /loan-files (excluding redirect page, ROUTES constant, path detectors, deprecated aliases, comments)",
+    "remainingActiveNav": [],
+    "intentionalCompatOnly": [
+      "src/app/(dashboard)/loan-files/page.tsx — redirect-only",
+      "src/constants/routes.ts — ROUTES.LOAN_FILES + PROTECTED_ROUTES",
+      "src/constants/workspace-navigation.ts — deprecated WORKSPACE_CLOSE.LOAN_FILES",
+      "src/layouts/dashboard-layout.tsx — pathname layout for redirect bounce",
+      "src/lib/lead-opportunity-journey/active-context.ts — TRANSACTION_CONTEXT_ROUTES includes /loan-files",
+      "src/lib/chanakya-assistant/resolve-context.ts — path detector",
+      "src/lib/chanakya-live-intelligence/resolve-workspace.ts — path detector"
+    ]
+  },
+  "finishedAt": "2026-07-25T14:19:27.898Z"
+}

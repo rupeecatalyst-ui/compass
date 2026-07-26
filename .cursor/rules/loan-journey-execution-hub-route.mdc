@@ -1,0 +1,25 @@
+---
+description: ADR-018 Wave 3 — Execution Hub canonical route /loan-journey (locked)
+alwaysApply: true
+globs:
+  - src/app/(dashboard)/loan-journey/**
+  - src/components/catalyst-one/loan-files/loan-workspace-navigator.tsx
+  - src/constants/loan-workspace-navigator.ts
+  - src/config/navigation.ts
+  - src/constants/routes.ts
+  - src/lib/enterprise-opportunity/start-opportunity-from-contact.ts
+---
+
+# Execution Hub route (ADR-018 Wave 3 — locked)
+
+**Canonical route:** `/loan-journey`  
+**ADR:** `docs/adr/ADR-018-start-loan-journey-draft-lead-information.md` §3 Wave 3 route lock
+
+## Rules
+
+1. Wave 3 introduces **`/loan-journey`** as the Execution Hub (Loan Journey Roadmap) orchestration entry.
+2. **Do not** migrate or rename **`/loan-files`** Deal / file workspace in Wave 3.
+3. Preserve backward compatibility (`/loan-files` remains for Deal execution book / `?file=` / browse modes).
+4. Deal workspace path migration is a **future architectural programme**, not Wave 3.
+5. Start Loan Journey (Wave 3) lands on `/loan-journey`, then Lead Information — not Opportunity Workspace, not Loan Files list as Hub SSOT.
+6. Hub must not mint Deal/LoanFile on the ADR-018 entry path.

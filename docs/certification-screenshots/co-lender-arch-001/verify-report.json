@@ -1,0 +1,13 @@
+{
+  "masterCatalogCount": 83,
+  "uniqueSeedKeys": 83,
+  "publishedGate": true,
+  "chanakyaUsesRegistry": true,
+  "lifeGatesOnRegistry": true,
+  "manualUsesRegistry": true,
+  "competitionUsesRegistry": true,
+  "prismaSeedUsesMaster": true,
+  "dealResolvesEnterpriseLenderId": true,
+  "remainingLoanLendersImports": [],
+  "verdict": "PASS"
+}

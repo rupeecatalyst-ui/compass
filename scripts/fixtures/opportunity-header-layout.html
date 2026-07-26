@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Opportunity Header Edge-Case Fixture</title>
+    <style>
+      :root {
+        --gap-x: 1rem;
+        --gap-y: 0.5rem;
+        --pad-x: 1.25rem;
+        --chanakya-max: 18rem;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #f4f4f5;
+        color: #18181b;
+      }
+      #meta {
+        padding: 8px 20px;
+        font-size: 12px;
+        color: #52525b;
+        background: #fff;
+        border-bottom: 1px solid #e4e4e7;
+      }
+      header {
+        background: #fff;
+        border-bottom: 1px solid #e4e4e7;
+      }
+      .header-grid {
+        display: grid;
+        gap: var(--gap-y) var(--gap-x);
+        padding: 0.375rem var(--pad-x);
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+      }
+      @media (min-width: 768px) {
+        .header-grid {
+          grid-template-columns: minmax(0, 1fr) minmax(0, var(--chanakya-max));
+        }
+      }
+      .identity {
+        min-width: 0;
+        grid-column: 1;
+        grid-row: 1;
+      }
+      .stage {
+        margin: 0;
+        min-width: 0;
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #6d28d9;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .title {
+        margin: 2px 0 0;
+        min-width: 0;
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+      }
+      .identity-line {
+        margin: 2px 0 0;
+        font-size: 10px;
+        color: #71717a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .chanakya {
+        display: none;
+        min-width: 0;
+        width: 100%;
+        max-width: var(--chanakya-max);
+        justify-self: end;
+        grid-column: 2;
+        grid-row: 1;
+      }
+      @media (min-width: 768px) {
+        .chanakya {
+          display: block;
+        }
+      }
+      .chanakya-card {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 1.75rem;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        padding: 0 0.625rem;
+        border: 1px solid rgba(5, 150, 105, 0.2);
+        border-radius: 0.375rem;
+        background: rgba(16, 185, 129, 0.05);
+      }
+      .chanakya-label {
+        flex-shrink: 0;
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #065f46;
+      }
+      .chanakya-msg {
+        min-width: 0;
+        flex: 1;
+        margin: 0;
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.375rem;
+        min-width: 0;
+      }
+      @media (min-width: 768px) {
+        .actions {
+          grid-column: 1 / span 2;
+        }
+      }
+      .btn {
+        height: 28px;
+        padding: 0 10px;
+        border: 1px solid #d4d4d8;
+        border-radius: 6px;
+        background: #fafafa;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .btn-primary {
+        background: #0f766e;
+        border-color: #0f766e;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="meta">Loading…</div>
+    <header id="after-header" data-variant="after">
+      <div class="header-grid">
+        <div class="identity" data-region="identity">
+          <p class="stage" data-region="stage" title="">OPPORTUNITY STAGE</p>
+          <h1 class="title" data-region="title">
+            M/s ABCD Infrastructure Developers Private Limited
+          </h1>
+          <p class="identity-line">OPP-WS-001 · Home Loan · ₹85L</p>
+        </div>
+        <div class="chanakya" data-region="chanakya">
+          <div class="chanakya-card" data-region="chanakya-card">
+            <span class="chanakya-label">Chanakya Live</span>
+            <p class="chanakya-msg">
+              Qualify requirement, confirm LIFE path, and prepare credit readiness checklist.
+            </p>
+          </div>
+        </div>
+        <div class="actions" data-region="actions">
+          <button class="btn" type="button" data-btn>Workflow Progress</button>
+          <button class="btn btn-primary" type="button" data-btn>
+            Continue to Strategic Workspace →
+          </button>
+          <button class="btn" type="button" data-btn>Save</button>
+          <button class="btn" type="button" data-btn>Close</button>
+        </div>
+      </div>
+    </header>
+  </body>
+</html>

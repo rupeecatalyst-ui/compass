@@ -1,0 +1,51 @@
+---
+description: CAD-2026-001 — Business Data Provenance Standard (constitutional)
+alwaysApply: true
+---
+
+# CAD-2026-001 — Business Data Provenance Standard
+
+**Status:** CONSTITUTIONAL · ACCEPTED (2026-07-25)  
+**ADR:** `docs/adr/ADR-017-business-data-provenance-cad-2026-001.md`  
+**OW register:** `docs/co-arch-003/CO-ARCH-OPPORTUNITY-FIELD-PROVENANCE.md`
+
+## Principle
+
+Every business value displayed in Catalyst One has **exactly one** authoritative source.
+
+Never invent, assume, fabricate, or silently default business information in UI, projections, or adapters.
+
+Uncaptured → **Not Specified** / **Not Selected** / **Pending Input** / editable control.
+
+## Lead & Opportunity stages
+
+**Opportunity Registry** is the only business SSOT.
+
+Must **not** inject business values:
+
+- LoanFile compatibility / caches / stamps
+- Runtime projections (structure translation only)
+- UI defaults / legacy adapters / placeholder runtime values
+
+## Provenance categories (one per field)
+
+1. Persisted Opportunity Data  
+2. User Entered Data  
+3. Policy Engine Output  
+4. Calculated Business Value  
+5. System Metadata  
+
+## Prohibited (unless from an approved source above)
+
+`transactionType = "fresh"` · `lendingType = "secured"` · `requiredAmount = 5000000` · inventing product labels · inventing customer names as business facts
+
+Create-time product defaults are allowed only when **persisted** to Opportunity Registry (explicit create policy), never as silent display invention.
+
+## Deal boundary
+
+Deal / `ensure-loan-workspace` defaults are **Deal runtime** only. They must not feed Opportunity Workspace business display.
+
+## Engineering
+
+Before shipping Opportunity Workspace (or Lead/Opportunity stage) UI: document field provenance or refuse the field.
+Do not mark FS-01 FOUNDATION CERTIFIED / FROZEN without Product Owner **"FS-01 Approved"**.

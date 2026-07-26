@@ -1,0 +1,11 @@
+{
+  "base": "https://catalyst-one-two.vercel.app",
+  "vercelId": "bom1::sf7g7-1784653653904-7252de97dcc5",
+  "vercelCache": "HIT",
+  "age": "477",
+  "buildId": "media",
+  "scannedFiles": 32,
+  "foundNewLayoutMarker": true,
+  "hitUrl": "https://catalyst-one-two.vercel.app/_next/static/css/97935f1caedb1847.css",
+  "servingLatestLayout": true
+}

@@ -1,0 +1,70 @@
+---
+description: FS-01 — Opportunity Registry runtime authority — Implementation Complete · Ready for Product Owner BAT
+alwaysApply: true
+globs:
+  - src/lib/lead-opportunity-journey/**
+  - src/components/catalyst-one/document-center/**
+  - src/components/catalyst-one/credit-bench/**
+  - src/components/catalyst-one/enterprise-credit-workspace/**
+  - src/components/catalyst-one/opportunity-workspace/**
+  - src/lib/document-registry/**
+  - src/lib/enterprise-life-engine/**
+---
+
+# FS-01 — Opportunity Runtime Stabilization
+
+**Status:** Implementation Complete · Ready for Business Acceptance Testing · Awaiting Product Owner Certification  
+
+Do **not** treat as FOUNDATION CERTIFIED or FROZEN until the Product Owner explicitly confirms **"FS-01 Approved"** after BAT on the latest production deployment.
+
+## Constitutional principle
+
+The **Opportunity Registry** is the **only** runtime authority for the Opportunity lifecycle.
+
+LoanFile must **not** be required to execute:
+
+- Opportunity Workspace / Header / Timeline
+- Document Center
+- Credit Bench (Lead Creation)
+- Credit Workbench
+- LIFE
+
+LoanFile may remain only as a **temporary compatibility layer** (Deal attachment). It must never behave as the runtime source of truth.
+
+## Expected runtime
+
+Contact → Opportunity Service → Opportunity Registry → Shared Opportunity Context → Opportunity Workspace → Document Center → Credit Bench → LIFE
+
+## Shared Opportunity Context
+
+SSOT session context: `src/lib/lead-opportunity-journey/active-context.ts`
+
+Stages resolve via `useOpportunityWorkspaceContext` / `rememberOpportunityRegistryContext`.
+
+`fileId` is optional Deal attachment only — never equal to `opportunityId`.
+
+## Runtime adapter
+
+Canonical resolve: `src/lib/lead-opportunity-journey/opportunity-runtime-adapter.ts`
+
+Governed by **CAD-2026-001** (Business Data Provenance) — see `.cursor/rules/business-data-provenance-cad-2026-001.mdc` and ADR-017.
+
+- `resolveOpportunityRuntimeCase` (async) — stages must use this
+- Projects Opportunity → LoanFile-shaped **structure** only (`__fs01OpportunityRuntime`)
+- **Never** invents business values (`secured` / `fresh` / amounts / `medium` priority / placeholder customer names). Uncaptured → UI **Not Specified**
+- Optionally remembers linked legacy LoanFile id on context — never overlays LoanFile business fields into OW
+- Field provenance: `docs/co-arch-003/CO-ARCH-OPPORTUNITY-FIELD-PROVENANCE.md`
+
+Do not call `loadLoanFiles` / Deal DAL to decide which Opportunity is open or what business values to show.
+
+## Documents
+
+Document Registry links prefer `opportunityId`. Do not dual-write Deal when runtime is Opportunity-only.
+
+## Prohibited
+
+- Hard-gating Opportunity stages on LoanFile presence
+- Picking an unrelated open LoanFile for LIFE / journey context
+- Writing Opportunity planning state into LoanFile storage as SSOT
+- Marking FS-01 FOUNDATION CERTIFIED / FROZEN before Product Owner **"FS-01 Approved"**
+- Implementing FS-02 Deal transition work under FS-01

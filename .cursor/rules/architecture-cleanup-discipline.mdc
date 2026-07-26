@@ -1,0 +1,43 @@
+---
+description: Permanent Architecture Cleanup discipline after every major milestone (CO-ARCH-006)
+alwaysApply: true
+---
+
+# Architecture Cleanup Discipline (CO-ARCH-006) — PERMANENT
+
+Catalyst One is evolving architecture — **not** carrying legacy for compatibility.
+
+## Lifecycle (mandatory)
+
+```text
+Architecture → Implementation → Stabilization → BAT → Architecture Cleanup → Next Sprint
+```
+
+Every major architecture milestone ends with an **Architecture Cleanup Sprint** before the next feature sprint.
+
+## Five-question removal test
+
+For each obsolete-looking component:
+
+1. Belong to current enterprise architecture?
+2. Used by any active business workflow?
+3. Another component already performs the same responsibility?
+4. Can Catalyst One function correctly if removed?
+5. Does removing it simplify the runtime?
+
+If **No / No / Yes / Yes / Yes** → **delete permanently**.
+
+## Forbidden
+
+- Deprecate-and-leave
+- Keep dormant “just in case”
+- Compatibility adapters once no workflow needs them
+- Dual Soft Go-Live + Registry write paths for the same Deal mutation
+
+## Allowed during transition
+
+Opportunity-before–Move to Deal may still use LoanFile-**shaped** projections until Category B cleanup redirects those workflows. Deal Workspace after Move to Deal must remain Enterprise Deal Registry only (`deal-pipeline-runtime`).
+
+## Report SSOT
+
+`docs/co-arch-006/CO-ARCH-006-ARCHITECTURE-CLEANUP-REPORT.md`

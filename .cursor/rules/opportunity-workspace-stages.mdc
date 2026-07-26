@@ -1,0 +1,28 @@
+/**
+ * CO-ARCH — Opportunity Workspace Stage Reorganization
+ *
+ * Status: ENTERPRISE APPROVED · Amended by ADR-018 (2026-07-25)
+ *
+ * ADR-018: Opportunity Workspace begins only after Requirement Captured
+ * (Product + Required Amount saved via Lead Information Workspace).
+ * Initial requirement capture is NOT an OW responsibility.
+ *
+ * Canonical Opportunity Workspace stages (execution / enrichment):
+ * 1. Opportunity Creation / enrichment (post–Requirement Captured)
+ * 2. Document Center
+ * 3. Credit Workbench
+ * 4. Strategy Workbench (LIFE)
+ *
+ * Entry path (outside OW): Contact → Draft → Execution Hub → Lead Information → gate → OW
+ * SSOT journey: `docs/adr/ADR-018-start-loan-journey-draft-lead-information.md`
+ * SSOT stages: `src/constants/opportunity-workspace-stages.ts`
+ *
+ * Rules:
+ * - Preserve Opportunity context across stage hops (never re-pick Opportunity).
+ * - Never return to a list page while navigating these four stages.
+ * - Deal creation / Deal Workspace / Lender Pipeline are out of scope here.
+ * - Do not reorder stages without Product Architecture approval.
+ * - Do not open OW from Start Loan Journey before Requirement Captured.
+ */
+
+export {};

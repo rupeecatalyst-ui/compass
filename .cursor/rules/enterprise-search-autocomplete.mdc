@@ -1,0 +1,32 @@
+---
+description: Enterprise Search Autocomplete — close on select (FROZEN UX)
+alwaysApply: true
+globs:
+  - src/components/catalyst-one/shared/entity-master-search.tsx
+  - src/components/catalyst-one/shared/live-entity-master-search.tsx
+  - src/components/catalyst-one/shared/enterprise-lender-search.tsx
+  - src/components/catalyst-one/shared/city-select.tsx
+  - src/constants/enterprise-search-autocomplete.ts
+---
+
+# Enterprise Search Autocomplete (FROZEN)
+
+## Pattern
+
+Type → Select → Dropdown closes → Value populated → Continue working
+
+Never leave the results list open after selection. Never require manual dismissal.
+
+## Display
+
+- Show results only after the user types
+- Filtered matches only (max 8)
+- Compact height (`max-h-40`) with internal scroll
+- Absolute overlay — do not push / dominate the form
+
+## SSOT
+
+- Constants: `src/constants/enterprise-search-autocomplete.ts`
+- Primatives: `EntityMasterSearch`, `LiveEntityMasterSearch`, `EnterpriseLenderSearch`, `CitySelect`, `EcmMasterSelect`
+
+Applies to Contact, Company, Lender, Partner, Opportunity, Deal, and Product registry lookups.

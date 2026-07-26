@@ -1,0 +1,80 @@
+---
+description: Pre-Launch Single Implementation Rule — one active implementation per business capability until Go-Live
+alwaysApply: true
+---
+
+# Pre-Launch Engineering Policy — Single Implementation Rule
+
+**Status:** PRODUCT ARCHITECTURE DIRECTIVE · Default until Catalyst One official production Go-Live  
+**Authority:** Product Architecture  
+**Does not modify:** ADR-018 (frozen as certified)
+
+## Principle
+
+Until official production Go-Live, Catalyst One optimises for a **clean canonical architecture**, not long-lived dual-path backward compatibility.
+
+For every business capability there shall be **ONLY ONE active implementation**.
+
+## When Product Architecture says “Replace”
+
+The replacement becomes the **only** active implementation of that capability.
+
+The superseded implementation must **immediately** stop participating in:
+
+- Navigation  
+- Routing  
+- User Journey  
+- Workflow  
+- Business Logic  
+
+Then retire or remove it in a controlled manner (code deletion / dead-path quarantine after Replacement Certification).
+
+## Why (BAT lesson)
+
+Parallel active implementations of the same capability inflate BAT investigation cost (“which path handled this?”). Pre-launch, that cost outweighs legacy dual-run value.
+
+## Replacement Certification (mandatory)
+
+Every replacement sprint is incomplete until Product Owner accepts a **Replacement Certification** that confirms:
+
+1. Which implementation is now **canonical**  
+2. Which legacy implementation has been **retired**  
+3. Which **routes** were removed or redirected  
+4. Which **navigation** entries were removed  
+5. Which **workflow** references were updated  
+6. That **only one** active implementation of that capability remains  
+
+Template: `docs/governance/REPLACEMENT-CERTIFICATION-TEMPLATE.md`
+
+## Business Capability Ownership
+
+Every major business capability shall have: one canonical business identity · one canonical route · one primary workspace · one authoritative data owner · one active implementation (until Go-Live).
+
+See `.cursor/rules/business-capability-ownership.mdc` · ADR-019 §3A.
+
+## Legacy Retirement Impact (mandatory in Assessments & ADRs)
+
+Every Product Architecture Assessment and ADR that proposes a **Replace** shall include a section titled **Legacy Retirement Impact** documenting:
+
+- Business capability being replaced  
+- Current vs proposed canonical implementation  
+- Legacy routes, navigation, and components/services to retire  
+- Expected Replacement Certification deliverables  
+- Confirmation that only **one** active implementation will remain after implementation  
+
+Reference example: `docs/adr/ADR-019-co-arch-004-deal-workspace-identity.md` §11.
+
+## Scope boundary
+
+- **Applies:** All future Product Architecture replacement programmes until Go-Live.  
+- **Does not reopen:** Certified ADRs (including ADR-018) unless a new ADR explicitly supersedes them.  
+- **Post–Go-Live:** Compatibility strategy may be reconsidered under a separate Production Continuity policy.
+
+## Agent behaviour
+
+When implementing a Product Architecture “Replace” decision:
+
+1. Wire **only** the canonical path into nav, routes, journey, and business logic.  
+2. Do **not** leave the legacy path as an alternate active journey.  
+3. Do **not** mark the sprint complete without Replacement Certification artefacts.  
+4. Prefer controlled retirement over silent dual-run “just in case.”

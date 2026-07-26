@@ -1,0 +1,41 @@
+---
+description: Canonical Journey Header & context preservation (ENTERPRISE FROZEN)
+alwaysApply: true
+globs:
+  - src/constants/canonical-journey-header.ts
+  - src/components/catalyst-one/opportunity-workspace/**
+  - src/components/catalyst-one/shared/lead-opportunity-journey-chrome.tsx
+  - src/lib/lead-opportunity-journey/**
+---
+
+# Canonical Journey Header & Context Preservation (FROZEN)
+
+## Canonical stages (exact order)
+
+1. Lead Creation  
+2. Documents  
+3. Credit Bench  
+4. LIFE (Strategy)  
+5. Lender Pipeline  
+6. Disbursed  
+7. Journey Complete  
+
+SSOT: `src/constants/canonical-journey-header.ts`  
+UI: `CanonicalJourneyHeader`
+
+## Context preservation
+
+When the user is inside an Opportunity or Deal, stage navigation must preserve active context (`file` / `opportunityId` / session Active Opportunity Context). Never force re-selection mid-journey.
+
+## Selection screen
+
+Show Opportunity/Deal selection **only** when:
+
+- Module opened from left navigation with `entry=dashboard`, **or**
+- No active Opportunity/Deal context exists
+
+Helper: `shouldShowEntitySelectionScreen` in `active-context.ts`.
+
+## Business objective
+
+One continuous business journey — not unrelated pages.

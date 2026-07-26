@@ -1,7 +1,7 @@
 # Architecture Freeze Register
 
 **Owner:** Architecture Review Board  
-**Last updated:** 2026-07-21  
+**Last updated:** 2026-07-24  
 **Policy:** PMO-006 — Architecture frozen unless changed via approved ADR
 
 ---
@@ -26,13 +26,14 @@
 
 ---
 
-## Pending Freeze (awaiting ADR formalization)
+## Pending Freeze (awaiting ADR / Product Owner certification)
 
-| Domain | Proposed freeze date | ADR |
-|--------|---------------------|-----|
+| Domain | Proposed freeze date | ADR / Gate |
+|--------|---------------------|------------|
 | Reference Master schema (Tier 1) | Post CO-ARCH-001-I2 | ADR-015 |
 | Product / Lender / Document registries (Tier 2) | Post CO-ARCH-001-I4 | TBD |
 | Master data API namespace (`/api/masters/*`) | Post CO-ARCH-001-I2 | TBD |
+| **FS-01 Opportunity runtime authority** | After Product Owner **"FS-01 Approved"** | `docs/co-arch-003/CO-ARCH-FS-01-OPPORTUNITY-RUNTIME-STABILIZATION.md` |
 
 ---
 

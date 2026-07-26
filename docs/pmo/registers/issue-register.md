@@ -1,7 +1,7 @@
 # Issue Register
 
 **Owner:** PMO Director (operational); Development Office (bugs)  
-**Last updated:** 2026-07-21
+**Last updated:** 2026-07-24
 
 ---
 
@@ -15,6 +15,9 @@
 | ISSUE-2026-004 | Product Library in-memory only (no persistence) | Data | High | CO-ARCH-001 | Infrastructure | No | Deferred (INFRA) |
 | ISSUE-2026-005 | ADR-015 formalized for CO-ARCH-001 tier model | Architecture | Medium | CO-ARCH-001 | ARB | No | Resolved (ADR-015 Accepted) |
 | ISSUE-2026-006 | CO-ARCH-001-I1 migration not deployed to Supabase | Infrastructure | High | CO-ARCH-001-I1 | Infrastructure | Yes (I1 Gate 1b) | Open |
+| ISSUE-2026-012 | Move to Deal uses browser `window.confirm` (FS-01 BAT) | Tech debt / UX | Medium | FS-02 | Architecture | No | Backlog (FS-02-TD-001) |
+| ISSUE-2026-013 | Opportunity → Deal transition orchestration incomplete (FS-01 BAT) | Tech debt / Architecture | High | FS-02 | Architecture | No | Backlog (FS-02-TD-002/003) |
+| ISSUE-2026-014 | Lender Pipeline sync messaging technical (FS-01 BAT) | Tech debt / UX | Medium | FS-02 | Architecture | No | Backlog (FS-02-TD-004/005) |
 
 ---
 

@@ -1,0 +1,41 @@
+---
+description: Opportunity Workspace shared context — Registry SSOT (FROZEN)
+alwaysApply: true
+globs:
+  - src/lib/lead-opportunity-journey/**
+  - src/hooks/use-opportunity-workspace-context.ts
+  - src/components/catalyst-one/opportunity-workspace/**
+  - src/components/catalyst-one/document-center/**
+  - src/components/catalyst-one/credit-bench/**
+  - src/components/catalyst-one/enterprise-credit-workspace/**
+---
+
+# Opportunity Workspace Context (FROZEN)
+
+## SSOT
+
+Enterprise **Opportunity Registry** — not LoanFiles — owns the Opportunity lifecycle.
+
+## Shared context (minimum)
+
+`opportunityId` · `opportunityReference` · `contactId` · `customer` · `product` · `stage` · `owner`
+
+Optional: `fileId` only when a Deal/LoanFile is later attached. Never set `fileId = opportunityId`.
+
+## Stages
+
+Lead Creation → Documents → Credit Bench → LIFE
+
+All consume the same active Opportunity context. Modules must not independently pick which Opportunity to load.
+
+## Selection screen
+
+Only when left-nav opens a module (`entry=dashboard`) or no active `opportunityId` exists.
+
+## SSOT paths
+
+- Session: `active-context.ts`
+- Registry remember: `opportunity-context.ts`
+- Hook: `useOpportunityWorkspaceContext`
+- Opportunity-only stage shell: `OpportunityBoundStage`
+- Picker: `OpportunityContextPicker` (Registry API)

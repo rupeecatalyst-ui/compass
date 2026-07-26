@@ -39,6 +39,14 @@ The PMO is the **central governance authority** for all Catalyst One workstreams
 | PMO-009 | Release Management Standard | [standards/PMO-009-release-management-standard.md](./standards/PMO-009-release-management-standard.md) |
 | PMO-010 | Executive Reporting Framework | [standards/PMO-010-executive-reporting-framework.md](./standards/PMO-010-executive-reporting-framework.md) |
 
+### Cross-cutting governance (CO-GOV)
+
+| ID | Document | Path |
+|----|----------|------|
+| CO-GOV-001 | Release Governance Framework v1.0 | [../governance/CO-GOV-001-RELEASE-GOVERNANCE-FRAMEWORK.md](../governance/CO-GOV-001-RELEASE-GOVERNANCE-FRAMEWORK.md) |
+
+CO-GOV-001 is the **standard operating procedure** for the Catalyst One release lifecycle (Development Complete → Production Release). It complements PMO-008 and PMO-009.
+
 ---
 
 ## Registers

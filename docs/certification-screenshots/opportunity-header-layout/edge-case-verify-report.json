@@ -1,0 +1,848 @@
+{
+  "generatedAt": "2026-07-21T16:51:40.034Z",
+  "longTitle": "M/s ABCD Infrastructure Developers Private Limited",
+  "longStage": "OPPORTUNITY STAGE — CREDIT READINESS QUALIFICATION WORKSTREAM",
+  "failures": 0,
+  "results": [
+    {
+      "width": 1366,
+      "zoom": "90%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 93,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 93,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1366-z90-dpr100.png"
+    },
+    {
+      "width": 1366,
+      "zoom": "100%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1366-z100-dpr100.png"
+    },
+    {
+      "width": 1366,
+      "zoom": "110%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 113,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 113,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1366-z110-dpr100.png"
+    },
+    {
+      "width": 1366,
+      "zoom": "125%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1366-z125-dpr100.png"
+    },
+    {
+      "width": 1440,
+      "zoom": "90%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 93,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 93,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1440-z90-dpr100.png"
+    },
+    {
+      "width": 1440,
+      "zoom": "100%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1440-z100-dpr100.png"
+    },
+    {
+      "width": 1440,
+      "zoom": "110%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 113,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 113,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1440-z110-dpr100.png"
+    },
+    {
+      "width": 1440,
+      "zoom": "125%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1440-z125-dpr100.png"
+    },
+    {
+      "width": 1600,
+      "zoom": "90%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 93,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 93,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1600-z90-dpr100.png"
+    },
+    {
+      "width": 1600,
+      "zoom": "100%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1600-z100-dpr100.png"
+    },
+    {
+      "width": 1600,
+      "zoom": "110%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 113,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 113,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1600-z110-dpr100.png"
+    },
+    {
+      "width": 1600,
+      "zoom": "125%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1600-z125-dpr100.png"
+    },
+    {
+      "width": 1920,
+      "zoom": "90%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 93,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 93,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1920-z90-dpr100.png"
+    },
+    {
+      "width": 1920,
+      "zoom": "100%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1920-z100-dpr100.png"
+    },
+    {
+      "width": 1920,
+      "zoom": "110%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 113,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 113,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1920-z110-dpr100.png"
+    },
+    {
+      "width": 1920,
+      "zoom": "125%",
+      "displayScale": "100%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1920-z125-dpr100.png"
+    },
+    {
+      "width": 1366,
+      "zoom": "100%",
+      "displayScale": "125%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1366-z100-dpr125.png"
+    },
+    {
+      "width": 1366,
+      "zoom": "125%",
+      "displayScale": "125%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1366-z125-dpr125.png"
+    },
+    {
+      "width": 1366,
+      "zoom": "100%",
+      "displayScale": "150%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1366-z100-dpr150.png"
+    },
+    {
+      "width": 1366,
+      "zoom": "125%",
+      "displayScale": "150%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1366-z125-dpr150.png"
+    },
+    {
+      "width": 1920,
+      "zoom": "100%",
+      "displayScale": "125%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1920-z100-dpr125.png"
+    },
+    {
+      "width": 1920,
+      "zoom": "125%",
+      "displayScale": "125%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1920-z125-dpr125.png"
+    },
+    {
+      "width": 1920,
+      "zoom": "100%",
+      "displayScale": "150%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 103,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1920-z100-dpr150.png"
+    },
+    {
+      "width": 1920,
+      "zoom": "125%",
+      "displayScale": "150%",
+      "checks": [
+        {
+          "label": "longTitle",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        },
+        {
+          "label": "longStage+Title",
+          "pass": true,
+          "titleChanakyaOverlap": false,
+          "stageChanakyaOverlap": false,
+          "titleActionsOverlap": false,
+          "gapOk": true,
+          "buttonsClipped": false,
+          "chanakyaClipped": false,
+          "titleLines": 1,
+          "headerHeight": 127,
+          "heightJump": false
+        }
+      ],
+      "pass": true,
+      "shotPath": "C:\\Compass by Rupee Catalyst (3)\\docs\\certification-screenshots\\opportunity-header-layout\\w1920-z125-dpr150.png"
+    }
+  ]
+}

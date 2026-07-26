@@ -1,0 +1,111 @@
+---
+description: Constitutional Health Check — stop and report before any change that may violate approved architecture
+alwaysApply: true
+---
+
+# Business Impact & Constitutional Health Check
+
+**Status:** CONSTITUTIONAL ENGINEERING PRINCIPLE · Effective immediately  
+**Authority:** Product Architecture / Product Owner  
+**Precedence:** Architectural integrity **over** implementation speed
+
+## Core principle
+
+Before implementing any requested enhancement, replacement, refactoring, optimisation, or bug fix, perform a **Constitutional Health Check**.
+
+The question is not only “can this be built?”  
+It is “does this **preserve** Catalyst One’s approved constitutional architecture?”
+
+**Implementation shall never take precedence over architectural integrity.**
+
+## When (mandatory)
+
+Before writing **any** production code for a user request, internally evaluate whether the change may affect approved constitutional principles, including but not limited to:
+
+- Business Process Flow · Customer Journey  
+- Opportunity Lifecycle · Deal Lifecycle · Stage / Sub-stage progression  
+- Routing · Navigation · Identity  
+- Data ownership · Single Source of Truth  
+- Business calculations · Financial calculations  
+- Workflow engine · Rules engine · Permissions  
+- Events · Reporting · Enterprise integrations  
+- Previously certified ADRs · Previously frozen constitutional decisions  
+- Business Capability Ownership · Pre-Launch Single Implementation Rule · CAD-2026-001  
+
+## Constitutional conflict — STOP
+
+Do **not** proceed with implementation if the change may:
+
+- Violate an approved ADR  
+- Violate CAD-2026-001  
+- Violate Business Capability Ownership  
+- Violate the Single Implementation Rule  
+- Introduce multiple sources of truth  
+- Create routing conflicts  
+- Alter certified business calculations  
+- Alter certified workflow behaviour  
+- Introduce side effects into other business capabilities  
+- Invalidate previously certified architecture  
+
+### Result scale (implementation waves)
+
+| Result | Action |
+|--------|--------|
+| **GREEN** | Implementation may proceed (after Architecture + Sprint Approval) |
+| **AMBER** | STOP — Architecture Impact Report — wait for Product Owner |
+| **RED** | STOP — Architecture Impact Report — implementation blocked |
+
+ADR-019 waves: proceed with production code **only** when Constitutional Health Check = **GREEN**.  
+Wave close requires **Enterprise Health Check = GREEN** (`docs/governance/ENTERPRISE-HEALTH-CHECK-TEMPLATE.md`) before Freeze.
+
+## Mandatory response when conflict / risk detected
+
+1. **Stop** implementation.  
+2. Produce an **Architecture Impact Report** (see template below).  
+3. Keep implementation **blocked** until Product Owner approval.  
+
+### Architecture Impact Report (required sections)
+
+1. Requested change  
+2. Constitutional principles affected  
+3. ADRs affected  
+4. Business processes affected  
+5. Risk assessment  
+6. Expected side effects  
+7. Recommended options  
+
+Template: `docs/governance/ARCHITECTURE-IMPACT-REPORT-TEMPLATE.md`
+
+## No silent architectural changes
+
+Never silently alter:
+
+- Business outputs · business calculations  
+- Routing · workflow behaviour  
+- SSOT · lifecycle transitions  
+- Constitutional architecture  
+
+Always **explicitly highlight** impact when any of the above may change.
+
+## Default behaviour under uncertainty
+
+**STOP and ASK** rather than **ASSUME and IMPLEMENT**.
+
+Architectural safety takes precedence over implementation speed.
+
+## Safe to proceed (examples)
+
+Proceed with implementation only when the Health Check finds **no** constitutional conflict (or Product Owner has approved a documented impact), for example:
+
+- Pure UI density / copy within an already-certified desk  
+- Local bug fix that does not change SSOT, routing, lifecycle, or certified formulas  
+- Docs / rules / ADR drafting with no production behaviour change  
+
+When in doubt → Impact Report → wait for Product Owner.
+
+## Related governance
+
+- Business Capability Ownership — `.cursor/rules/business-capability-ownership.mdc`  
+- Pre-Launch Single Implementation Rule — `.cursor/rules/pre-launch-single-implementation.mdc`  
+- CAD-2026-001 / ADR-017 — business data provenance  
+- Index — `docs/governance/PRE-LAUNCH-ENGINEERING-POLICY.md`

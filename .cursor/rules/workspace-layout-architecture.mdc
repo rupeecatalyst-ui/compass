@@ -1,0 +1,44 @@
+---
+description: Workspace Layout Architecture — Registry / Workspace / Dashboard (CO-UX-020)
+alwaysApply: true
+---
+
+# Catalyst One — Workspace Layout Architecture (CO-UX-020)
+
+Status: **ENTERPRISE APPROVED** · Priority: **CRITICAL** · Scope: layout architecture
+
+## Philosophy
+
+Every screen belongs to **exactly one** category. Do not mix them.
+
+| Category | Role | Layout bias |
+|----------|------|-------------|
+| **Registry** | Scan & select | Compact rows · collapsed by default |
+| **Workspace** | Execute work | Primary work surface ≈75% · chrome ≈25% |
+| **Dashboard** | Analyse | Analytics / KPIs first |
+
+## Registry (e.g. My Deals)
+
+- List-based, not a dashboard of permanently visible KPI cards.
+- Default row = compact summary (identity + minimal signals).
+- Operational intelligence appears only when the user **expands** a row.
+- Users must scan hundreds of Opportunities without scrolling through dashboards.
+
+## Workspace (e.g. Deal Workspace)
+
+- **Kanban-first / execution-first.**
+- Executive / identity header provides **context only** (≈25%).
+- Lender Pipeline / primary desk occupies ≈75%.
+- Do not turn workspace chrome into a second dashboard.
+
+## Nested scroll
+
+Never place vertical scrollbars inside small KPI or registry **cards**.
+
+If detail exceeds the compact surface, open a Right Drawer, Bottom Sheet, or Dedicated page.
+
+Kanban column lanes may scroll as part of the primary work surface (not “cards”).
+
+## Before implementing
+
+Review the change against this philosophy — not only against a checklist of UI fields.

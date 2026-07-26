@@ -1,0 +1,49 @@
+---
+description: Start Loan Journey — Draft → Hub → Lead Information → Requirement Captured → OW (ADR-018)
+alwaysApply: true
+globs:
+  - src/lib/enterprise-opportunity/**
+  - src/components/catalyst-one/contacts/contact-workspace-modal.tsx
+  - src/components/catalyst-one/loan-files/**
+  - src/components/catalyst-one/opportunity-workspace/**
+  - src/components/catalyst-one/credit-bench/**
+  - src/constants/canonical-journey-header.ts
+  - src/constants/opportunity-workspace-stages.ts
+---
+
+# Start Loan Journey (ADR-018 — Product Architecture Approved)
+
+**Status:** ACCEPTED · supersedes prior Contact → Opportunity Workspace shortcut  
+**ADR:** `docs/adr/ADR-018-start-loan-journey-draft-lead-information.md`
+
+## Canonical flow
+
+```
+Contact
+  → Start Loan Journey
+  → Draft Opportunity (identity only — no fabricated business values)
+  → Loan Journey (Execution Hub) — orchestration, NOT Deal workspace
+  → Lead Information Workspace — Opportunity Registry capture only
+  → Save Product + Required Amount → Requirement Captured
+  → Opportunity Workspace (execution / enrichment)
+  → Documents → Credit → LIFE → Pipeline
+```
+
+## Lifecycle
+
+`Draft` → `Requirement Captured` → `Active Opportunity`
+
+## Hard rules
+
+1. Start creates **Draft** Opportunity — identity only. No fabricated product/amount/lending/transaction.
+2. **Requirement Captured** only when **Product** and **Required Amount** are saved on Opportunity Registry.
+3. Execution Hub = journey orchestration at **`/loan-journey`** (Wave 3). Never mint Deal/LoanFile on this entry path. Do **not** rename `/loan-files` Deal workspace in Wave 3 — preserve backward compatibility.
+4. Lead Information Workspace writes **only** to Opportunity Registry — never LoanFile/Deal models; never `LoanCreateFormDialog`.
+5. Opportunity Workspace begins **only after** Requirement Captured — not for initial requirement capture.
+6. Lending type stays **Not Specified** until captured or Policy/approved derivation.
+7. Align with **CAD-2026-001** — no compatibility-layer business invent.
+
+## Implementation
+
+Future work must follow ADR-018 waves. Do not restore Contact → `/credit-bench` as Start landing.  
+Wave 3 Hub route lock: `.cursor/rules/loan-journey-execution-hub-route.mdc` · `docs/co-arch-003/CO-ARCH-ADR-018-WAVE3-HUB-ROUTE-LOCK.md`

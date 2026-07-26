@@ -1,0 +1,9 @@
+{
+  "masterContainsBob": true,
+  "mergeAndResolvePresent": true,
+  "strategyPersistsEnterpriseLenderId": true,
+  "moveToDealUsesCanonicalResolve": true,
+  "softGoLiveBobOverlapsPrismaBob": true,
+  "nameOnlyResolves": true,
+  "verdict": "PASS"
+}

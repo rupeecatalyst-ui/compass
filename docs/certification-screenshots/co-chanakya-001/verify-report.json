@@ -1,0 +1,9 @@
+{
+  "opportunityCityLabelIsJourneySsot": true,
+  "projectionPrefersCityLabel": true,
+  "chanakyaDeriveReadsCityLabel": true,
+  "lifeReadsCityLabelFallback": true,
+  "rootCause": "projectOpportunityToRuntimeCase mapped city from Contact only; Chanakya read file.city; remount after cityLabel PATCH wiped optimistic city and recommendations",
+  "fix": "Prefer Opportunity.cityLabel in runtime projection + derive + LIFE fallback",
+  "verdict": "PASS"
+}

@@ -1,0 +1,8 @@
+{
+  "softUrlFallbackRemoved": true,
+  "workspaceReadyOnlyAfterRegistry": true,
+  "opportunityNumberFromRegistryOnly": true,
+  "selectRequiresRegistry": true,
+  "failureUiPresent": true,
+  "verdict": "PASS"
+}

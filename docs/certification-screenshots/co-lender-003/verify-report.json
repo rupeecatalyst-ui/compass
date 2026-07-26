@@ -1,0 +1,8 @@
+{
+  "registryQueried": "Enterprise Lender Registry via listPublishedLenderOptionsAsync (API ∪ Soft Go-Live Published·Active)",
+  "noObsoleteLocalOnlyList": true,
+  "resultsVisibleWithoutEditGate": true,
+  "exclusionUsesEnterpriseId": true,
+  "rootCause": "Results UI required editing=true while search showed without Edit; sync listPublishedLenderOptions missed API Published lenders",
+  "verdict": "PASS"
+}

@@ -1,0 +1,41 @@
+---
+description: Active Opportunity uniqueness — Contact + Product + planning-active (ADR-018)
+alwaysApply: true
+globs:
+  - src/lib/enterprise-opportunity/**
+  - server/services/enterprise-opportunity/**
+  - server/repositories/enterprise-opportunity/**
+  - src/components/catalyst-one/contacts/**
+  - src/app/api/enterprise-opportunities/**
+---
+
+# Active Opportunity Uniqueness (FROZEN · ADR-018 amended)
+
+## Constitutional rule
+
+At any time, one **Contact** may have **only one planning-active Opportunity** for the **same Product**.
+
+Uniqueness key: **Contact + Product + Active Status** — not Contact alone.
+
+## Planning-active (uniqueness applies)
+
+`lifecycleStatus` in `requirement_captured` | `active` | `on_hold`, and not archived/deleted/closed, and `product_uniqueness_key` not null.
+
+**Draft** does **not** participate. Enforce uniqueness at **Requirement Capture**, not Draft create.
+
+## Start Loan Journey
+
+- Legacy path: product at create → uniqueness at create (UX unchanged until Wave 3).
+- ADR-018 Draft: `createAsDraft: true` → no product → uniqueness on PATCH when Product + Amount saved.
+
+## Single create / update sink
+
+- Create: `enterpriseOpportunityService.createOpportunity`
+- Update: `enterpriseOpportunityService.updateOpportunity` (PATCH API)
+
+## SSOT
+
+- `src/constants/opportunity-active-uniqueness.ts`
+- `src/constants/opportunity-lifecycle.ts`
+- `docs/co-arch-003/CO-ARCH-003-ACTIVE-OPPORTUNITY-UNIQUENESS.md`
+- `docs/co-arch-003/CO-ARCH-ADR-018-WAVE1-PERSISTENCE.md`

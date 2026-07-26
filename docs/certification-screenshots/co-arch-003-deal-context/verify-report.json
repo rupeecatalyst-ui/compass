@@ -1,0 +1,16 @@
+{
+  "enterpriseDealContext": true,
+  "myDealsEmptyOverwriteFixed": true,
+  "opportunityRefreshStormRemoved": true,
+  "caseStageInSnapshot": true,
+  "draftProtectedFromRemount": true,
+  "dragPersistsLenders": true,
+  "dualWriteNoRemountNotify": true,
+  "beforeMyDealsFlicker": "portRows=[] overwrote local",
+  "afterMyDealsFlicker": "empty enterprise response keeps prior rows",
+  "beforeDrag": "draft-only then remount wipe",
+  "afterDrag": "persist lenders-only + protect dirty draft",
+  "registriesRemainSSOT": true,
+  "sessionIsRuntimeConsumerOnly": true,
+  "verdict": "PASS"
+}

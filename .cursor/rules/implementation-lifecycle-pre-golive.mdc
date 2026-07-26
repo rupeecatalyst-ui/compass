@@ -1,0 +1,36 @@
+---
+description: Mandatory implementation wave lifecycle until Go-Live (CHC, BAT, EHC, Freeze)
+alwaysApply: true
+---
+
+# Catalyst One Implementation Lifecycle (Pre–Go-Live)
+
+**Status:** PRODUCT OWNER CERTIFIED · Mandatory until official production Go-Live  
+**Source:** ADR-019 Implementation Programme v1.0 (2026-07-25)
+
+## Mandatory lifecycle (every implementation wave)
+
+1. Architecture Approval  
+2. Sprint Approval  
+3. Constitutional Health Check (**GREEN**)  
+4. Implementation  
+5. Business Acceptance Testing (BAT)  
+6. Product Owner Certification  
+7. Replacement Certification (where applicable)  
+8. Enterprise Health Check (**GREEN**)  
+9. Freeze  
+
+## Rules
+
+- CHC **AMBER** or **RED** → stop · Architecture Impact Report · no production code.  
+- EHC **AMBER** or **RED** → do not certify · do not Freeze.  
+- Programme approval ≠ wave implementation authorisation.  
+- Mandatory controls: Business Milestones · CHC · EHC · Architecture Impact Report · Replacement Certification · Freeze Gates.
+
+## References
+
+- `.cursor/rules/constitutional-health-check.mdc`  
+- `docs/governance/ENTERPRISE-HEALTH-CHECK-TEMPLATE.md`  
+- `docs/governance/ARCHITECTURE-IMPACT-REPORT-TEMPLATE.md`  
+- `docs/governance/REPLACEMENT-CERTIFICATION-TEMPLATE.md`  
+- `docs/co-arch-003/CO-ARCH-ADR-019-IMPLEMENTATION-PROGRAMME.md`

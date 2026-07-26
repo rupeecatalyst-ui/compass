@@ -1,0 +1,81 @@
+---
+description: Opportunity Document Center — sole document SSOT (FROZEN)
+alwaysApply: true
+globs:
+  - src/components/catalyst-one/document-center/**
+  - src/components/catalyst-one/deal-workspace/**
+  - src/lib/document-registry/**
+  - src/constants/opportunity-document-center.ts
+  - src/components/catalyst-one/action-center/workspaces/documents-context-workspace.tsx
+  - src/components/catalyst-one/execution/documents-workspace.tsx
+---
+
+# Opportunity Document Center Governance (FROZEN)
+
+## Constitutional decision
+
+The **Opportunity Document Center** is the **only** document authoring workspace in Catalyst One.
+
+No other module may maintain an independent document repository.
+
+## Two constitutional SSOTs
+
+1. **Opportunity Registry** — business entities  
+2. **Opportunity Document Center** — business documents  
+
+Downstream modules (Credit Bench, LIFE, Deal Workspace, Lender Packaging, Accounting, Reports) **consume** these — they never duplicate them.
+
+## Document ownership scopes
+
+Every document belongs to **exactly one** scope:
+
+### 1. Applicant Documents
+
+Belong to a specific participant (Primary Applicant, Co-Applicant, Guarantor, …).
+
+Examples: PAN, Aadhaar, Passport, Salary Slips, Bank Statements, ITR, GST, KYC, Photograph, Signature.
+
+Document Center shows a **Participant Selector**. Selecting a participant shows only that participant’s documents.
+
+Stamp uploads with `links.participantId` + `links.documentScope: "applicant"`.
+
+### 2. Shared Opportunity Documents
+
+Belong to the Opportunity once.
+
+Examples: Property Papers, Sale Agreement, Legal / Valuation, NOC, Collateral, Builder / Society docs.
+
+Selector option: **Shared Opportunity Documents**.  
+Stamp with `links.documentScope: "shared"` (no participantId).
+
+SSOT helpers: `src/constants/opportunity-document-center.ts`
+
+## Authoring (Document Center only)
+
+Upload · Replace · Delete · Rename · Tag · Categorize · Version
+
+## Deal Workspace Documents tab
+
+**Read-only projection** of Document Center.
+
+Allowed: View · Preview · Download · Print · Search · Filter  
+
+Forbidden: Upload · Replace · Delete · Rename · Edit metadata  
+
+UI: `DealDocumentsProjection`
+
+If the user attempts to modify documents from Deal / Action Center:
+
+> Documents can only be edited from the Opportunity Document Center.
+
+Provide **Go to Document Center** — navigate via `buildCanonicalJourneyStageHref("documents", …)` preserving Opportunity context.
+
+## Forbidden patterns
+
+- Second document store on Deal, Credit Bench, LIFE, Accounting, or Action Center  
+- Upload / replace / delete outside Document Center  
+- Treating LoanFile checklist status mutations as document authoring  
+
+## Related
+
+`docs/co-arch-003/CO-ARCH-003-DOCUMENT-CENTER-GOVERNANCE.md`

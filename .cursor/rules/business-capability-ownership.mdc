@@ -1,0 +1,36 @@
+---
+description: Business Capability Ownership — one identity, route, workspace, data owner, active implementation
+alwaysApply: true
+---
+
+# Business Capability Ownership
+
+**Status:** PRODUCT ARCHITECTURE GOVERNANCE · Frozen with ADR-019 (2026-07-25)  
+**Applies to:** All future Product Architecture Reviews, Assessments, and ADRs  
+**Related:** Pre-Launch Single Implementation Rule · ADR-019 §3A
+
+## Principle
+
+Every major business capability within Catalyst One shall have:
+
+1. **One canonical business identity**  
+2. **One canonical route**  
+3. **One primary workspace**  
+4. **One authoritative data owner**  
+5. **One active implementation** (until official production Go-Live)
+
+## Review expectation
+
+Product Architecture Reviews must verify these five pillars for any new or replaced capability.
+
+Replace programmes must also include **Legacy Retirement Impact** and conclude with **Replacement Certification**.
+
+## Examples (certified identity)
+
+| Capability | Identity | Route | Workspace | Data owner |
+|------------|----------|-------|-----------|------------|
+| Execution Hub | Loan Journey | `/loan-journey` | Execution Hub | Journey orchestration (not Deal/Opp SSOT) |
+| Requirement capture | Lead Information | `/lead-information` | Lead Information | Opportunity Registry |
+| Deal execution | Deal Workspace | `/deals/:dealId` (ADR-019) | Deal Workspace | Enterprise Deal Registry |
+
+Loan File is **not** a business capability workspace after ADR-019 — it is an implementation/runtime artefact.
