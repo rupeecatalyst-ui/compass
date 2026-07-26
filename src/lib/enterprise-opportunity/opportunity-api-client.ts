@@ -1,10 +1,18 @@
 /**
  * CO-ARCH-003 — Browser client for Opportunity Registry API.
+ * CO-ARCH-002 — GETs go through Enterprise Session single-flight cache.
  */
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { notifyOpportunitiesUpdated } from "@/lib/enterprise-opportunity/opportunity-data-sync";
 import { DEFAULT_START_LOAN_JOURNEY_PRODUCT } from "@/constants/opportunity-active-uniqueness";
-import { cacheOpportunityRecord } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
+import {
+  configureOpportunityNetworkFetcher,
+  ensureSessionOpportunity,
+  invalidateSessionOpportunity,
+  putSessionOpportunity,
+  type EnsureOpportunityOptions,
+} from "@/lib/enterprise-session/opportunity-runtime-cache";
+import { bindSessionOpportunity } from "@/lib/enterprise-session/session-context";
 
 export type EnterpriseOpportunityApiRecord = {
   id: string;
@@ -86,6 +94,22 @@ async function opportunityFetch<T>(url: string, init?: RequestInit): Promise<T> 
   return body.data as T;
 }
 
+/** Network-only Registry GET — used by Enterprise Session Layer. */
+async function fetchOpportunityFromRegistry(
+  opportunityId: string,
+): Promise<EnterpriseOpportunityApiRecord> {
+  return opportunityFetch<EnterpriseOpportunityApiRecord>(
+    `/api/enterprise-opportunities/${opportunityId}`,
+  );
+}
+
+let opportunityFetcherWired = false;
+function ensureOpportunityFetcherWired(): void {
+  if (opportunityFetcherWired) return;
+  opportunityFetcherWired = true;
+  configureOpportunityNetworkFetcher(fetchOpportunityFromRegistry);
+}
+
 export type OpportunityCreateBody = {
   primaryContactId: string;
   productFamily?: string;
@@ -143,6 +167,7 @@ export const enterpriseOpportunityApiClient = {
     productCode?: string | null;
     productLabel?: string | null;
   }): Promise<EnterpriseOpportunityApiRecord | null> {
+    ensureOpportunityFetcherWired();
     const params = new URLSearchParams({
       findActive: "1",
       primaryContactId: query.primaryContactId,
@@ -159,6 +184,7 @@ export const enterpriseOpportunityApiClient = {
   async createOpportunity(
     body: OpportunityCreateBody,
   ): Promise<EnterpriseOpportunityApiRecord> {
+    ensureOpportunityFetcherWired();
     const asDraft = Boolean(body.createAsDraft) || body.lifecycleStatus === "draft";
     const payload = asDraft
       ? {
@@ -195,7 +221,8 @@ export const enterpriseOpportunityApiClient = {
         body: JSON.stringify(payload),
       },
     );
-    cacheOpportunityRecord(created);
+    putSessionOpportunity(created);
+    bindSessionOpportunity(created);
     notifyOpportunitiesUpdated();
     return created;
   },
@@ -205,6 +232,7 @@ export const enterpriseOpportunityApiClient = {
     opportunityId: string,
     body: OpportunityUpdateBody,
   ): Promise<EnterpriseOpportunityApiRecord> {
+    ensureOpportunityFetcherWired();
     const updated = await opportunityFetch<EnterpriseOpportunityApiRecord>(
       `/api/enterprise-opportunities/${opportunityId}`,
       {
@@ -212,7 +240,8 @@ export const enterpriseOpportunityApiClient = {
         body: JSON.stringify(body),
       },
     );
-    cacheOpportunityRecord(updated);
+    putSessionOpportunity(updated);
+    bindSessionOpportunity(updated);
     notifyOpportunitiesUpdated();
     return updated;
   },
@@ -229,6 +258,7 @@ export const enterpriseOpportunityApiClient = {
     limit: number;
     offset: number;
   }> {
+    ensureOpportunityFetcherWired();
     const params = new URLSearchParams();
     if (query.q?.trim()) params.set("q", query.q.trim());
     if (query.primaryContactId) params.set("primaryContactId", query.primaryContactId);
@@ -238,19 +268,29 @@ export const enterpriseOpportunityApiClient = {
     return opportunityFetch(`/api/enterprise-opportunities?${params.toString()}`);
   },
 
-  async getOpportunity(opportunityId: string): Promise<EnterpriseOpportunityApiRecord> {
-    const row = await opportunityFetch<EnterpriseOpportunityApiRecord>(
-      `/api/enterprise-opportunities/${opportunityId}`,
-    );
-    cacheOpportunityRecord(row);
+  /**
+   * CO-ARCH-002 — Cache-first + single-flight via Enterprise Session Layer.
+   * Use `{ forceRefresh: true }` only after an explicit save/refresh.
+   */
+  async getOpportunity(
+    opportunityId: string,
+    options?: EnsureOpportunityOptions,
+  ): Promise<EnterpriseOpportunityApiRecord> {
+    ensureOpportunityFetcherWired();
+    const row = await ensureSessionOpportunity(opportunityId, options);
+    bindSessionOpportunity(row);
     return row;
   },
 
   async markConvertedToDeal(opportunityId: string): Promise<EnterpriseOpportunityApiRecord> {
+    ensureOpportunityFetcherWired();
+    invalidateSessionOpportunity(opportunityId);
     const updated = await opportunityFetch<EnterpriseOpportunityApiRecord>(
       `/api/enterprise-opportunities/${opportunityId}/convert-to-deal`,
       { method: "POST", body: JSON.stringify({}) },
     );
+    putSessionOpportunity(updated);
+    bindSessionOpportunity(updated);
     notifyOpportunitiesUpdated();
     return updated;
   },
@@ -260,6 +300,7 @@ export const enterpriseOpportunityApiClient = {
     opportunityId: string,
     reason?: string,
   ): Promise<EnterpriseOpportunityApiRecord> {
+    ensureOpportunityFetcherWired();
     const deleted = await opportunityFetch<EnterpriseOpportunityApiRecord>(
       `/api/enterprise-opportunities/${opportunityId}`,
       {
@@ -267,6 +308,7 @@ export const enterpriseOpportunityApiClient = {
         body: JSON.stringify({ reason }),
       },
     );
+    invalidateSessionOpportunity(opportunityId);
     notifyOpportunitiesUpdated();
     return deleted;
   },
