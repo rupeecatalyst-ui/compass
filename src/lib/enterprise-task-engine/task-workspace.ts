@@ -1,8 +1,15 @@
 /**
  * Enterprise Task Workspace — timeline columns, due-date mapping, enrichment.
+ * CO-BIZ-001 — work type / status helpers + lifecycle notifications.
  */
 
-import type { EteTask, EteTaskCategory } from "@/types/enterprise-task-engine";
+import type {
+  EteTask,
+  EteTaskCategory,
+  EteTaskStatus,
+  EteWorkType,
+} from "@/types/enterprise-task-engine";
+import { ETE_PREDEFINED_TO_WORK_TYPE } from "@/constants/enterprise-task-engine";
 import {
   getEnterpriseUser,
   listEnterpriseUsers,
@@ -60,9 +67,32 @@ export function resolveTaskCategory(task: EteTask): EteTaskCategory {
   return task.taskType === "opportunity" ? "workflow" : "general";
 }
 
+export function resolveWorkType(task: EteTask): EteWorkType {
+  if (task.workType) return task.workType;
+  return ETE_PREDEFINED_TO_WORK_TYPE[task.predefinedDescription] ?? "Custom";
+}
+
+export function resolveTaskStatus(task: EteTask): EteTaskStatus {
+  if (task.status) return task.status;
+  return task.enabled === false ? "completed" : "open";
+}
+
 export function taskTitle(task: EteTask): string {
+  if (task.title?.trim()) return task.title.trim();
   if (task.predefinedDescription === "Custom") return task.description || "Custom task";
   return task.predefinedDescription;
+}
+
+export function hasBusinessContext(task: Partial<EteTask>): boolean {
+  return Boolean(
+    task.entityId ||
+      task.opportunityRef ||
+      task.contactId ||
+      task.dealId ||
+      task.fileId ||
+      task.lenderId ||
+      task.documentId,
+  );
 }
 
 export function assigneeLabel(ref: string): string {
@@ -111,7 +141,6 @@ export function columnForTask(task: EteTask): TaskTimelineColumnId {
   return "next_month";
 }
 
-/** Map a timeline column to a concrete due ISO timestamp (local noon). */
 export function dueDateForColumn(column: TaskTimelineColumnId): string | undefined {
   if (column === "no_schedule") return undefined;
   const today = startOfDay(new Date());
@@ -146,7 +175,6 @@ export function dueDateForColumn(column: TaskTimelineColumnId): string | undefin
   return d.toISOString();
 }
 
-/** Column order index — higher = later schedule. */
 export function columnOrder(id: TaskTimelineColumnId): number {
   return TASK_TIMELINE_COLUMNS.findIndex((c) => c.id === id);
 }
@@ -159,25 +187,55 @@ export function isPostponeMove(from: TaskTimelineColumnId, to: TaskTimelineColum
 
 export function enrichTaskDefaults(task: EteTask): EteTask {
   const category = resolveTaskCategory(task);
+  const workType = resolveWorkType(task);
+  const status = resolveTaskStatus(task);
   if (category === "workflow") {
     return {
       ...task,
       category,
+      workType,
+      status,
+      title:
+        task.title ??
+        (task.predefinedDescription === "Custom"
+          ? task.description
+          : task.predefinedDescription),
       priority: task.priority ?? (task.colourStatus === "red" ? "high" : "medium"),
       borrowerName: task.borrowerName ?? "Rahul Menon",
       loanProduct: task.loanProduct ?? "Home Loan",
-      lenderName: task.lenderName ?? (task.predefinedDescription.includes("Lender") ? "HDFC Bank" : undefined),
+      lenderName:
+        task.lenderName ??
+        (task.predefinedDescription.includes("Lender") ? "HDFC Bank" : undefined),
       assignedByRef: task.assignedByRef ?? task.reportingManagerRef ?? "employee:mgr-001",
       grossStage: task.grossStage ?? "Document Center",
       fileId: task.fileId,
+      entityKind:
+        task.entityKind ??
+        (task.dealId
+          ? "EnterpriseDeal"
+          : task.opportunityRef
+            ? "Opportunity"
+            : task.contactId
+              ? "Customer"
+              : undefined),
+      entityId: task.entityId ?? task.dealId ?? task.opportunityRef ?? task.contactId,
     };
   }
   return {
     ...task,
     category,
+    workType,
+    status,
+    title:
+      task.title ??
+      (task.predefinedDescription === "Custom"
+        ? task.description
+        : task.predefinedDescription),
     priority: task.priority ?? "medium",
     department: task.department ?? "Operations",
     assignedByRef: task.assignedByRef ?? "employee:mgr-001",
+    entityKind: task.entityKind ?? (task.contactId ? "Customer" : "Workflow"),
+    entityId: task.entityId ?? task.contactId ?? task.department ?? "org-workflow",
   };
 }
 
@@ -199,6 +257,9 @@ export interface TaskPostponeNotification {
   comment?: string;
   assignedByRef?: string;
   read: boolean;
+  kind?: "postpone" | "due_reminder" | "overdue" | "completed" | "reassigned" | "system_generated";
+  message?: string;
+  assigneeRef?: string;
 }
 
 export function loadTaskNotifications(): TaskPostponeNotification[] {
@@ -221,4 +282,48 @@ export function pushTaskNotification(n: Omit<TaskPostponeNotification, "id" | "a
     read: false,
   });
   localStorage.setItem(NOTIFY_KEY, JSON.stringify(list.slice(0, 50)));
+}
+
+export function pushTaskLifecycleNotification(input: {
+  kind: NonNullable<TaskPostponeNotification["kind"]>;
+  taskId: string;
+  taskName: string;
+  message: string;
+  assigneeRef?: string;
+  category?: EteTaskCategory;
+}) {
+  pushTaskNotification({
+    kind: input.kind,
+    taskId: input.taskId,
+    taskName: input.taskName,
+    message: input.message,
+    assigneeRef: input.assigneeRef,
+    category: input.category ?? "workflow",
+    newTimeline: input.kind,
+    commitmentLevel: "—",
+    reasonCategory: input.kind,
+    comment: input.message,
+  });
+}
+
+export function refreshTaskDueReminders(tasks: EteTask[]): void {
+  if (typeof window === "undefined") return;
+  const day = new Date().toISOString().slice(0, 10);
+  const existing = loadTaskNotifications();
+  for (const t of tasks) {
+    if (resolveTaskStatus(t) !== "open" || t.enabled === false) continue;
+    const col = columnForTask(t);
+    if (col !== "past_due" && col !== "due_today") continue;
+    const kind = col === "past_due" ? "overdue" : "due_reminder";
+    const marker = `${kind}:${t.id}:${day}`;
+    if (existing.some((n) => n.comment === marker || n.message?.includes(marker))) continue;
+    pushTaskLifecycleNotification({
+      kind,
+      taskId: t.id,
+      taskName: taskTitle(t),
+      message: marker,
+      assigneeRef: t.assigneeRef,
+      category: resolveTaskCategory(t),
+    });
+  }
 }

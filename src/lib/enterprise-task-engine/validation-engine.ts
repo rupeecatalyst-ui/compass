@@ -1,9 +1,14 @@
 /**
- * ETE validation and colour derivation.
+ * ETE validation and colour derivation (SPR-001 + CO-BIZ-001).
  */
 
-import { ETE_DUE_SOON_HOURS, ETE_PREDEFINED_DESCRIPTIONS, ETE_TASK_TYPES } from "@/constants/enterprise-task-engine";
+import {
+  ETE_DUE_SOON_HOURS,
+  ETE_PREDEFINED_DESCRIPTIONS,
+  ETE_TASK_TYPES,
+} from "@/constants/enterprise-task-engine";
 import type { EteTask, EteTaskColour, EteValidationResult } from "@/types/enterprise-task-engine";
+import { hasBusinessContext } from "./task-workspace";
 
 function issue(
   code: string,
@@ -16,7 +21,19 @@ function issue(
 export function validateEteTask(
   task: Pick<
     EteTask,
-    "taskType" | "assigneeRef" | "opportunityRef" | "predefinedDescription" | "description"
+    | "taskType"
+    | "assigneeRef"
+    | "opportunityRef"
+    | "predefinedDescription"
+    | "description"
+    | "entityKind"
+    | "entityId"
+    | "contactId"
+    | "dealId"
+    | "fileId"
+    | "lenderId"
+    | "documentId"
+    | "title"
   >,
 ): EteValidationResult {
   const issues = [];
@@ -27,9 +44,18 @@ export function validateEteTask(
   }
   if (
     task.predefinedDescription === ETE_PREDEFINED_DESCRIPTIONS.CUSTOM &&
-    !task.description?.trim()
+    !task.description?.trim() &&
+    !task.title?.trim()
   ) {
-    issues.push(issue("ETE_CUSTOM_DESCRIPTION_REQUIRED", "Custom tasks require a description."));
+    issues.push(issue("ETE_CUSTOM_DESCRIPTION_REQUIRED", "Custom tasks require a title or description."));
+  }
+  if (!hasBusinessContext(task)) {
+    issues.push(
+      issue(
+        "ETE_MISSING_BUSINESS_CONTEXT",
+        "Tasks must belong to a business entity (Customer, Opportunity, Deal, Document, Lender, or Workflow).",
+      ),
+    );
   }
   return { valid: issues.filter((i) => i.severity === "error").length === 0, issues };
 }

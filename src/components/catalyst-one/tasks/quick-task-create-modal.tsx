@@ -136,6 +136,18 @@ export function QuickTaskCreateModal({
         contactId,
         dealId,
         fileId,
+        entityKind: dealId
+          ? "EnterpriseDeal"
+          : opportunityId
+            ? "Opportunity"
+            : contactId
+              ? "Customer"
+              : "Workflow",
+        entityId: dealId || opportunityId || contactId || fileId || "org-workflow",
+        entityLabel: contextSummary || undefined,
+        title: name.trim(),
+        workType: "Custom",
+        status: "open",
         assigneeRef: `user:${assigneeId}`,
         assignedByRef: user?.id ? `user:${user.id}` : actor,
         predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.CUSTOM,

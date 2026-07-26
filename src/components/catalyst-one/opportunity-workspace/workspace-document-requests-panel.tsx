@@ -27,9 +27,10 @@ import {
 import { queueOutboxMessage } from "@/lib/enterprise-action-center";
 import { subscribeDocumentRegistryUpdated } from "@/lib/document-registry";
 import {
-  buildCustomerUploadPortalPath,
+  buildCustomerEngagementPortalPath,
   createOrRegenerateUploadSession,
   deriveOpportunityDocumentReadiness,
+  EdieLodCertificationError,
   evaluateDocumentRequestLodReadiness,
   generateAndPersistLod,
   getActiveLodVersion,
@@ -39,15 +40,32 @@ import {
   refreshDocumentRequestFromRegistry,
   subscribeDocumentRequestsUpdated,
 } from "@/lib/document-requests";
+import {
+  loadStatedDraft,
+  saveStatedDraft,
+} from "@/lib/lead-opportunity-journey/stated-draft";
+import {
+  getEcmMasterLabel,
+  listEcmMasterOptions,
+} from "@/constants/enterprise-contact-master";
 import type {
   DocumentRequestCommEvent,
   DocumentRequestItemState,
   DocumentRequestWorkspaceState,
 } from "@/types/document-requests";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { OwGlassPanel, OwInfoChip, OwKpiCard, OwPanelHeader, OwSectionLabel } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 import { cn } from "@/lib/utils";
+
+const CONSTITUTION_OPTIONS = listEcmMasterOptions("constitution").filter((o) => o.id !== "other");
 
 function formatBorrowerType(employmentType?: string | null): string {
   const e = (employmentType || "").toLowerCase();
@@ -57,6 +75,12 @@ function formatBorrowerType(employmentType?: string | null): string {
   }
   if (e.includes("company") || e.includes("corporate")) return "Company";
   return "Salaried";
+}
+
+function formatConstitutionLabel(value?: string | null): string {
+  const raw = (value || "").trim();
+  if (!raw) return "—";
+  return getEcmMasterLabel("constitution", raw) || raw;
 }
 
 function formatDate(iso?: string | null): string {
@@ -137,11 +161,25 @@ export function WorkspaceDocumentRequestsPanel() {
   const email = contact?.personalEmail || contact?.officialEmail || leadCaseFile?.customerEmail || "";
   const employmentType =
     contact?.employmentType || leadCaseFile?.employmentType || "";
+  const statedDraft = useMemo(
+    () => (leadCaseFile?.id ? loadStatedDraft(leadCaseFile.id) : {}),
+    // Re-read when opportunity identity changes; constitutionOverride covers in-panel edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional identity-only reload
+    [leadCaseFile?.id],
+  );
+  const [constitutionOverride, setConstitutionOverride] = useState<string>("");
   const constitution =
+    constitutionOverride ||
+    statedDraft.statedConstitution ||
     leadCaseFile?.businessDetails?.constitution ||
     leadCaseFile?.participants?.find((p) => p.entityType === "company")?.constitution ||
     "";
+  const constitutionLabel = formatConstitutionLabel(constitution);
   const borrowerTypeLabel = formatBorrowerType(employmentType);
+  const needsConstitution =
+    borrowerTypeLabel === "Self-employed" || borrowerTypeLabel === "Company";
+  const productForLod =
+    productLabel && productLabel !== "Not Specified" ? productLabel : "";
   const oppRef =
     opportunityNumber ||
     opportunity?.opportunityCode ||
@@ -158,11 +196,11 @@ export function WorkspaceDocumentRequestsPanel() {
         customerName: customerName === "—" ? "" : customerName,
         mobile,
         email,
-        productLabel,
+        productLabel: productForLod,
         employmentType,
         constitution,
       }),
-    [customerName, mobile, email, productLabel, employmentType, constitution],
+    [customerName, mobile, email, productForLod, employmentType, constitution],
   );
 
   const [state, setState] = useState<DocumentRequestWorkspaceState>(() =>
@@ -191,24 +229,41 @@ export function WorkspaceDocumentRequestsPanel() {
     () =>
       hasLodDimensionDrift(activeVersion, {
         borrowerTypeLabel,
-        productLabel: productLabel || "—",
-        constitutionLabel: constitution || "—",
+        productLabel: productForLod || "—",
+        constitutionLabel: constitutionLabel || "—",
       }),
-    [activeVersion, borrowerTypeLabel, productLabel, constitution],
+    [activeVersion, borrowerTypeLabel, productForLod, constitutionLabel],
+  );
+
+  const persistConstitution = useCallback(
+    (value: string) => {
+      setConstitutionOverride(value);
+      if (leadCaseFile?.id) {
+        const next = { ...loadStatedDraft(leadCaseFile.id), statedConstitution: value };
+        saveStatedDraft(leadCaseFile.id, next);
+      }
+    },
+    [leadCaseFile?.id],
   );
 
   const runGenerateLod = useCallback(
     (reason: "manual" | "dimension_change") => {
-      if (!opportunityId || !lodGate.canGenerate) return;
+      if (!opportunityId || !lodGate.canGenerate) {
+        if (!lodGate.canGenerate && lodGate.chanakyaMessage) {
+          toast.error(lodGate.chanakyaMessage.split("\n").filter(Boolean)[0] ?? "Cannot generate LOD");
+        }
+        return;
+      }
       setBusy(true);
       try {
         const next = generateAndPersistLod({
           opportunityId,
-          productLabel: productLabel || "",
+          productLabel: productForLod || "",
           employmentType,
           constitution,
           transactionType:
-            leadCaseFile?.transactionType === "balance_transfer"
+            leadCaseFile?.transactionType === "balance_transfer" ||
+            /balance.?transfer|home.?loan.?bt|HOME_LOAN_BT/i.test(productForLod)
               ? "balance_transfer"
               : "fresh",
           runtimeFile: leadCaseFile,
@@ -220,9 +275,9 @@ export function WorkspaceDocumentRequestsPanel() {
             opportunityId,
             opportunityReference: oppRef,
             customerName: customerName === "—" ? "Customer" : customerName,
-            loanProduct: productLabel || "Loan",
+            loanProduct: productForLod || "Loan",
             borrowerTypeLabel,
-            constitutionLabel: constitution || "—",
+            constitutionLabel: constitutionLabel || "—",
             rmName,
             actor,
             regenerate: false,
@@ -234,6 +289,14 @@ export function WorkspaceDocumentRequestsPanel() {
             ? `LOD auto-regenerated (v${next.lodVersions?.[0]?.versionNumber ?? "—"}) — uploaded documents kept linked`
             : `LOD ${next.lodVersions && next.lodVersions.length > 1 ? "regenerated" : "generated"} — ${next.lodItems.length} documents`,
         );
+      } catch (err) {
+        const message =
+          err instanceof EdieLodCertificationError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "LOD generation failed.";
+        toast.error(message.split("\n").filter(Boolean)[0] ?? message);
       } finally {
         setBusy(false);
       }
@@ -241,9 +304,11 @@ export function WorkspaceDocumentRequestsPanel() {
     [
       opportunityId,
       lodGate.canGenerate,
-      productLabel,
+      lodGate.chanakyaMessage,
+      productForLod,
       employmentType,
       constitution,
+      constitutionLabel,
       leadCaseFile,
       actor,
       oppRef,
@@ -256,7 +321,7 @@ export function WorkspaceDocumentRequestsPanel() {
 
   useEffect(() => {
     if (!opportunityId || !lodGate.canGenerate || !activeVersion || !dimensionDrift) return;
-    const key = `${opportunityId}|${borrowerTypeLabel}|${productLabel}|${constitution}`;
+    const key = `${opportunityId}|${borrowerTypeLabel}|${productForLod}|${constitution}`;
     if (autoRegenKeyRef.current === key) return;
     autoRegenKeyRef.current = key;
     runGenerateLod("dimension_change");
@@ -266,7 +331,7 @@ export function WorkspaceDocumentRequestsPanel() {
     activeVersion,
     dimensionDrift,
     borrowerTypeLabel,
-    productLabel,
+    productForLod,
     constitution,
     runGenerateLod,
   ]);
@@ -287,7 +352,8 @@ export function WorkspaceDocumentRequestsPanel() {
   );
 
   const absoluteUploadUrl = (token: string) => {
-    const path = buildCustomerUploadPortalPath(token);
+    // CO-BIZ-004 — share full engagement portal (includes Documents tab).
+    const path = buildCustomerEngagementPortalPath(token);
     if (typeof window === "undefined") return path;
     return `${window.location.origin}${path}`;
   };
@@ -298,9 +364,9 @@ export function WorkspaceDocumentRequestsPanel() {
       opportunityId,
       opportunityReference: oppRef,
       customerName: customerName === "—" ? "Customer" : customerName,
-      loanProduct: productLabel || "Loan",
+      loanProduct: productForLod || "Loan",
       borrowerTypeLabel,
-      constitutionLabel: constitution || "—",
+      constitutionLabel: constitutionLabel || "—",
       rmName,
       actor,
       regenerate,
@@ -322,7 +388,7 @@ export function WorkspaceDocumentRequestsPanel() {
     }
     try {
       await navigator.clipboard.writeText(absoluteUploadUrl(session.token));
-      toast.success("Secure upload link copied");
+      toast.success("Customer engagement link copied");
     } catch {
       toast.error("Unable to copy link");
     }
@@ -356,13 +422,13 @@ export function WorkspaceDocumentRequestsPanel() {
     const uploadUrl = absoluteUploadUrl(session.token);
     const subject = DOCUMENT_REQUEST_EMAIL_SUBJECT.replace(
       "{{Loan Product}}",
-      productLabel || "Loan",
+      productForLod || "Loan",
     );
     const body = buildDocumentRequestEmailBody({
       customerName: customerName === "—" ? "Customer" : customerName,
-      loanProduct: productLabel || "Loan",
+      loanProduct: productForLod || "Loan",
       borrowerType: borrowerTypeLabel,
-      constitution: constitution || "N/A",
+      constitution: constitutionLabel || "N/A",
       opportunityReference: oppRef,
       uploadUrl,
     });
@@ -409,7 +475,7 @@ export function WorkspaceDocumentRequestsPanel() {
     const uploadUrl = absoluteUploadUrl(session.token);
     const body = buildDocumentRequestWhatsAppBody({
       customerName: customerName === "—" ? "Customer" : customerName,
-      loanProduct: productLabel || "Loan",
+      loanProduct: productForLod || "Loan",
       uploadUrl,
     });
     queueOutboxMessage({
@@ -445,25 +511,81 @@ export function WorkspaceDocumentRequestsPanel() {
         <div className="flex flex-wrap gap-2">
           <OwInfoChip label="Opportunity" value={oppRef} />
           <OwInfoChip label="Customer" value={customerName} />
-          <OwInfoChip label="Product" value={productLabel || "—"} />
+          <OwInfoChip label="Product" value={productForLod || productLabel || "—"} />
           <OwInfoChip label="Borrower Type" value={borrowerTypeLabel} />
-          <OwInfoChip label="Constitution" value={constitution || "—"} />
+          <OwInfoChip label="Constitution" value={needsConstitution ? constitutionLabel : "N/A"} />
           <OwInfoChip label="RM" value={rmName || "—"} />
           <OwInfoChip label="Stage" value={stageCode || "—"} />
         </div>
+        {needsConstitution && (
+          <div className="mt-3 max-w-sm">
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+              Business Constitution (required for LOD)
+            </p>
+            <Select value={constitution || undefined} onValueChange={persistConstitution}>
+              <SelectTrigger className="h-9 border-white/15 bg-zinc-950 text-xs text-zinc-100">
+                <SelectValue placeholder="Select constitution for EDIE checklist" />
+              </SelectTrigger>
+              <SelectContent>
+                {CONSTITUTION_OPTIONS.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </OwGlassPanel>
 
       {!lodGate.canGenerate && (
-        <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-3">
+        <div
+          className={
+            lodGate.gaps.some((g) => g.field.startsWith("edie."))
+              ? "rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-3"
+              : "rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-3"
+          }
+        >
           <div className="flex items-start gap-2">
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+            <Sparkles
+              className={
+                lodGate.gaps.some((g) => g.field.startsWith("edie."))
+                  ? "mt-0.5 h-4 w-4 shrink-0 text-rose-300"
+                  : "mt-0.5 h-4 w-4 shrink-0 text-amber-300"
+              }
+            />
             <div>
-              <p className="text-xs font-semibold text-amber-100">Chanakya advisory</p>
-              <p className="mt-1 whitespace-pre-line text-[11px] leading-relaxed text-amber-50/90">
+              <p
+                className={
+                  lodGate.gaps.some((g) => g.field.startsWith("edie."))
+                    ? "text-xs font-semibold text-rose-100"
+                    : "text-xs font-semibold text-amber-100"
+                }
+              >
+                {lodGate.gaps.some((g) => g.field.startsWith("edie."))
+                  ? "EDIE certification required"
+                  : "Chanakya advisory"}
+              </p>
+              <p
+                className={
+                  lodGate.gaps.some((g) => g.field.startsWith("edie."))
+                    ? "mt-1 whitespace-pre-line text-[11px] leading-relaxed text-rose-50/90"
+                    : "mt-1 whitespace-pre-line text-[11px] leading-relaxed text-amber-50/90"
+                }
+              >
                 {lodGate.chanakyaMessage}
               </p>
-              <p className="mt-2 text-[10px] text-amber-200/80">
-                Missing: {lodGate.gaps.map((g) => g.label).join(" · ")}
+              <p
+                className={
+                  lodGate.gaps.some((g) => g.field.startsWith("edie."))
+                    ? "mt-2 text-[10px] text-rose-200/80"
+                    : "mt-2 text-[10px] text-amber-200/80"
+                }
+              >
+                {lodGate.gaps.some((g) => g.field.startsWith("edie."))
+                  ? "Blocked:"
+                  : "Missing:"}{" "}
+                {lodGate.gaps.map((g) => g.label).join(" · ")}
               </p>
             </div>
           </div>
@@ -536,17 +658,47 @@ export function WorkspaceDocumentRequestsPanel() {
       </div>
 
       <OwGlassPanel>
-        <OwSectionLabel>LOD Summary</OwSectionLabel>
-        {activeVersion && (
-          <p className="mt-2 text-[11px] text-zinc-400">
-            Active LOD v{activeVersion.versionNumber} · {formatDate(activeVersion.generatedAt)} ·{" "}
-            {activeVersion.generatedBy} · {activeVersion.documentCount} documents
-          </p>
-        )}
-        {!state.lodItems.length && (
+        <OwSectionLabel>EDIE Certified Checklist Review</OwSectionLabel>
+        {!state.lodItems.length ? (
           <p className="mt-3 text-xs text-zinc-500">
-            No LOD yet. Complete mandatory Opportunity fields, then generate the List of Documents.
+            No LOD yet. Complete Customer Name, Mobile, Email, Product, Borrower Type
+            {needsConstitution ? ", and Business Constitution" : ""}, then Generate LOD to review
+            the certified checklist before sending to the customer.
           </p>
+        ) : (
+          <div className="mt-3 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <OwInfoChip label="Product" value={activeVersion?.productLabel || productForLod || "—"} />
+              <OwInfoChip
+                label="Borrower Type"
+                value={activeVersion?.borrowerTypeLabel || borrowerTypeLabel}
+              />
+              <OwInfoChip
+                label="Business Constitution"
+                value={
+                  needsConstitution
+                    ? activeVersion?.constitutionLabel || constitutionLabel
+                    : "N/A"
+                }
+              />
+              <OwInfoChip
+                label="Version"
+                value={activeVersion ? `v${activeVersion.versionNumber}` : "—"}
+              />
+              <OwInfoChip
+                label="Generated"
+                value={formatDate(activeVersion?.generatedAt || state.lodGeneratedAt)}
+              />
+              <OwInfoChip
+                label="Required documents"
+                value={String(activeVersion?.documentCount ?? state.lodItems.length)}
+              />
+            </div>
+            <p className="text-[11px] text-zinc-400">
+              Review the Critical and Journey lists below before Email / WhatsApp / Upload Link.
+              No documents are uploaded automatically.
+            </p>
+          </div>
         )}
         <div className="mt-3 flex flex-wrap gap-2">
           <OwKpiCard label="Total" value={String(readiness.total)} />

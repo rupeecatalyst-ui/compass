@@ -1,0 +1,38 @@
+---
+description: Enterprise Business Intelligence (EBI) — canonical read-only analytics compose layer; no duplicate KPI formulas
+alwaysApply: true
+---
+
+# Enterprise Business Intelligence (EBI) — Platform Constitution
+
+Status: **ENTERPRISE APPROVED** · Frozen · Canonical analytics service  
+Sprint foundation: **CO-BIZ-003**
+
+## Constitutional principles
+
+1. EBI is a **read-only intelligence layer** — no workflow changes, no new ownership models.
+2. **Do not introduce new sources of truth.** Compose Deal Registry / Radar · ETE · EDL (where applicable) · Governance · Observability · Registries.
+3. **Never duplicate business metric formulas.** Call existing SSOTs (`buildChanakyaRadarDashboard`, `computeOperationalVector`, `buildEteOperationalReport`, EI derive-story, etc.).
+4. Mission Control / Manager / RM / Branch dashboards **consume EBI providers** — they do not recalculate KPIs.
+5. CHANAKYA executive insights must explain **observation + reason** from EBI compose outputs.
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Compose layer | `src/lib/enterprise-business-intelligence/` |
+| Types | `src/types/enterprise-business-intelligence.ts` |
+| Admin API | `GET /api/admin/business-intelligence` |
+| Docs | `docs/co-biz-003/CO-BIZ-003-BI-READINESS-REPORT.md` |
+
+## Forbidden
+
+- Parallel “analytics engines” that reimplement Radar / ETE / EI formulas  
+- Writing BI results back into Deal / Task / Opportunity ownership stores  
+- Mock KPI numbers in Mission Control once EBI providers are available  
+
+## Related
+
+- `enterprise-metric-single-implementation.mdc`
+- `enterprise-task-engine.mdc`
+- `executive-intelligence-visualization.mdc`

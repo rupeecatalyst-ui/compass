@@ -111,7 +111,15 @@ function canReplace(status: DocumentRequestItemStatus): boolean {
   );
 }
 
-export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
+export function CustomerDocumentCollectionPortal({
+  token,
+  mode = "standalone",
+}: {
+  token: string;
+  /** embedded — used inside Customer Engagement shell (no outer page chrome). */
+  mode?: "standalone" | "embedded";
+}) {
+  const embedded = mode === "embedded";
   const [state, setState] = useState<DocumentRequestWorkspaceState | null>(null);
   const [invalid, setInvalid] = useState(false);
   const [busyRef, setBusyRef] = useState<string | null>(null);
@@ -189,10 +197,8 @@ export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
   ) => {
     if (!file || !session) return;
     if (mode === "replace") {
-      const ok = window.confirm(
-        `Replace ${item.label}? The previous file remains in version history inside the Enterprise Document Repository.`,
-      );
-      if (!ok) return;
+      // Enterprise replace — proceed; repository keeps prior version history.
+      setFlash(`Replacing ${item.label}… prior file remains in version history.`);
     }
     if (
       mode === "upload" &&
@@ -282,6 +288,17 @@ export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
   }, [previewUrl]);
 
   if (invalid) {
+    if (embedded) {
+      return (
+        <div className="rounded-2xl border border-rose-500/30 bg-zinc-900/80 p-6 text-center text-zinc-100">
+          <ShieldCheck className="mx-auto h-8 w-8 text-rose-300" />
+          <h1 className="mt-3 text-lg font-semibold">Link unavailable</h1>
+          <p className="mt-2 text-sm text-zinc-400">
+            This secure upload link is invalid, expired, or has been replaced.
+          </p>
+        </div>
+      );
+    }
     return (
       <main className="min-h-dvh bg-zinc-950 px-4 py-10 text-zinc-100">
         <div className="mx-auto max-w-lg rounded-2xl border border-rose-500/30 bg-zinc-900/80 p-6 text-center">
@@ -297,6 +314,13 @@ export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
   }
 
   if (!session || !state) {
+    if (embedded) {
+      return (
+        <div className="flex items-center justify-center py-16 text-zinc-300">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      );
+    }
     return (
       <main className="flex min-h-dvh items-center justify-center bg-zinc-950 text-zinc-300">
         <Loader2 className="h-6 w-6 animate-spin" />
@@ -304,9 +328,8 @@ export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
     );
   }
 
-  return (
-    <main className="min-h-dvh bg-[radial-gradient(ellipse_at_top,#0f766e22,transparent_55%),#09090b] px-3 py-5 text-zinc-100 sm:px-4 sm:py-8">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+  const body = (
+      <div className={cn("mx-auto w-full max-w-3xl space-y-4", embedded && "max-w-none")}>
         {/* Header */}
         <header className="rounded-2xl border border-white/10 bg-zinc-900/85 p-4 shadow-xl backdrop-blur sm:p-5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-300/90">
@@ -473,9 +496,30 @@ export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
         <p className="pb-8 text-center text-[11px] text-zinc-500">
           Uploads are stored in the Enterprise Document Repository. Never share this secure link.
           Supported: PDF, JPEG, PNG, DOCX, XLSX and other enterprise formats.
+          {!embedded ? (
+            <>
+              {" "}
+              <a
+                href={`/customer-engagement/${encodeURIComponent(token)}`}
+                className="text-teal-400/90 hover:text-teal-300"
+              >
+                Open full engagement portal
+              </a>
+            </>
+          ) : null}
         </p>
       </div>
+  );
 
+  return (
+    <>
+      {embedded ? (
+        body
+      ) : (
+        <main className="min-h-dvh bg-[radial-gradient(ellipse_at_top,#0f766e22,transparent_55%),#09090b] px-3 py-5 text-zinc-100 sm:px-4 sm:py-8">
+          {body}
+        </main>
+      )}
       {previewUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/15 bg-zinc-950">
@@ -496,7 +540,7 @@ export function CustomerDocumentCollectionPortal({ token }: { token: string }) {
           </div>
         </div>
       )}
-    </main>
+    </>
   );
 }
 

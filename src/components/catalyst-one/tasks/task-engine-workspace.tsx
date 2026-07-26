@@ -20,6 +20,7 @@ import {
   TASK_POSTPONE_REASONS,
   TASK_TIMELINE_COLUMNS,
   assigneeLabel,
+  buildChanakyaWorkloadInsights,
   columnForTask,
   completeEteTask,
   dueDateForColumn,
@@ -30,6 +31,7 @@ import {
   loadTaskNotifications,
   patchEteTask,
   pushTaskNotification,
+  refreshTaskDueReminders,
   registerEteTask,
   resolveTaskCategory,
   taskTitle,
@@ -64,6 +66,8 @@ import { cn } from "@/lib/utils";
 import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { TaskCommitmentDialog } from "@/components/catalyst-one/tasks/task-commitment-dialog";
 import { TaskDetailDrawer } from "@/components/catalyst-one/tasks/task-detail-drawer";
+import { MyWorkPanel } from "@/components/catalyst-one/tasks/my-work-panel";
+import { TaskReportsPanel } from "@/components/catalyst-one/tasks/task-reports-panel";
 import { ChanakyaMark } from "@/components/layout/chanakya-mark";
 
 const PREDEFINED = Object.values(ETE_PREDEFINED_DESCRIPTIONS);
@@ -110,6 +114,11 @@ function seedEnterpriseTasksIfEmpty() {
       category: "workflow",
       assigneeRef: "employee:rm-001",
       opportunityRef: "opp-demo-001",
+      entityKind: "Opportunity",
+      entityId: "opp-demo-001",
+      title: "Follow-up Documents",
+      workType: "Document Collection",
+      status: "open",
       predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.FOLLOW_UP_DOCUMENTS,
       dueOn: iso(2 * 60 * 60 * 1000),
       reportingManagerRef: "employee:mgr-001",
@@ -126,6 +135,11 @@ function seedEnterpriseTasksIfEmpty() {
       category: "workflow",
       assigneeRef: "employee:rm-001",
       opportunityRef: "opp-demo-002",
+      entityKind: "Opportunity",
+      entityId: "opp-demo-002",
+      title: "Follow-up Lender",
+      workType: "Lender Call",
+      status: "open",
       predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.FOLLOW_UP_LENDER,
       dueOn: iso(-26 * 60 * 60 * 1000),
       reportingManagerRef: "employee:mgr-001",
@@ -142,6 +156,11 @@ function seedEnterpriseTasksIfEmpty() {
       category: "workflow",
       assigneeRef: "employee:rm-001",
       opportunityRef: "opp-demo-003",
+      entityKind: "Opportunity",
+      entityId: "opp-demo-003",
+      title: "Customer Meeting",
+      workType: "Customer Call",
+      status: "open",
       predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.CUSTOMER_MEETING,
       dueOn: iso(26 * 60 * 60 * 1000),
       assignedByRef: "employee:mgr-001",
@@ -156,6 +175,11 @@ function seedEnterpriseTasksIfEmpty() {
       category: "workflow",
       assigneeRef: "employee:ops-001",
       opportunityRef: "opp-demo-004",
+      entityKind: "Opportunity",
+      entityId: "opp-demo-004",
+      title: "Verify CIBIL",
+      workType: "Verification",
+      status: "open",
       predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.VERIFY_CIBIL,
       dueOn: iso(4 * 24 * 60 * 60 * 1000),
       assignedByRef: "employee:mgr-001",
@@ -170,6 +194,11 @@ function seedEnterpriseTasksIfEmpty() {
       taskType: ETE_TASK_TYPES.INDEPENDENT,
       category: "general",
       assigneeRef: "employee:ops-001",
+      entityKind: "Workflow",
+      entityId: "org-ops",
+      title: "Weekly ops standup prep",
+      workType: "Internal Review",
+      status: "open",
       predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.INTERNAL_REVIEW,
       description: "Weekly ops standup prep",
       dueOn: iso(10 * 24 * 60 * 60 * 1000),
@@ -226,6 +255,7 @@ function seedEnterpriseTasksIfEmpty() {
  */
 export function TaskEngineWorkspace() {
   const [tasks, setTasks] = useState<EteTask[]>([]);
+  const [deskView, setDeskView] = useState<"board" | "my_work" | "reports">("board");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [dragOverCol, setDragOverCol] = useState<TaskTimelineColumnId | null>(null);
@@ -260,7 +290,21 @@ export function TaskEngineWorkspace() {
     seedEnterpriseTasksIfEmpty();
     escalateEteOverdueTasks("system");
     refresh();
+    refreshTaskDueReminders(listEteTasks());
   }, []);
+
+  const insights = useMemo(() => {
+    const workload = buildChanakyaWorkloadInsights("employee:rm-001").map((i) => i.text);
+    if (workload.length > 0) return workload.slice(0, 3);
+    const open = tasks.filter((t) => t.enabled);
+    const today = open.filter((t) => columnForTask(t) === "due_today").length;
+    const overdue = open.filter((t) => columnForTask(t) === "past_due").length;
+    const lines: string[] = [];
+    if (today > 0) lines.push(`You have ${today} task${today === 1 ? "" : "s"} today.`);
+    if (overdue > 0) lines.push(`${overdue === 1 ? "One task is" : `${overdue} tasks are`} overdue.`);
+    if (lines.length === 0) lines.push("All clear — no urgent timeline pressure.");
+    return lines.slice(0, 3);
+  }, [tasks]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -318,24 +362,6 @@ export function TaskEngineWorkspace() {
     }
     return map;
   }, [filtered, filters.status]);
-
-  const insights = useMemo(() => {
-    const open = tasks.filter((t) => t.enabled);
-    const today = open.filter((t) => columnForTask(t) === "due_today").length;
-    const overdue = open.filter((t) => columnForTask(t) === "past_due").length;
-    const workflowHot = open.filter(
-      (t) => resolveTaskCategory(t) === "workflow" && (columnForTask(t) === "past_due" || columnForTask(t) === "due_today"),
-    ).length;
-    const lines: string[] = [];
-    if (today > 0) lines.push(`You have ${today} task${today === 1 ? "" : "s"} today.`);
-    if (overdue > 0) lines.push(`${overdue === 1 ? "One task is" : `${overdue} tasks are`} overdue.`);
-    if (workflowHot > 0)
-      lines.push(
-        `${workflowHot === 1 ? "One workflow task requires" : `${workflowHot} workflow tasks require`} immediate attention.`,
-      );
-    if (lines.length === 0) lines.push("All clear — no urgent timeline pressure.");
-    return lines.slice(0, 3);
-  }, [tasks]);
 
   const selectedTask = useMemo(
     () => (selectedId ? tasks.find((t) => t.id === selectedId) ?? null : null),
@@ -447,6 +473,11 @@ export function TaskEngineWorkspace() {
         category: isWorkflow ? "workflow" : "general",
         assigneeRef: assignee,
         opportunityRef: isWorkflow ? "opp-demo-001" : undefined,
+        entityKind: isWorkflow ? "Opportunity" : "Workflow",
+        entityId: isWorkflow ? "opp-demo-001" : "org-ops",
+        title: predefined === ETE_PREDEFINED_DESCRIPTIONS.CUSTOM ? customDescription : predefined,
+        workType: predefined === ETE_PREDEFINED_DESCRIPTIONS.CUSTOM ? "Custom" : undefined,
+        status: "open",
         predefinedDescription: predefined,
         description: predefined === ETE_PREDEFINED_DESCRIPTIONS.CUSTOM ? customDescription : undefined,
         dueOn: dueOn ? new Date(dueOn).toISOString() : undefined,
@@ -472,7 +503,7 @@ export function TaskEngineWorkspace() {
     <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4">
       <PageHeader
         title="Enterprise Task Workspace"
-        description="Organization execution hub — workflow and general tasks in one Kanban."
+        description="Business-driven execution — My Work, organization board, and operational reports."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -498,6 +529,30 @@ export function TaskEngineWorkspace() {
         }
       />
 
+      <div className="flex flex-wrap gap-1.5">
+        {(
+          [
+            { id: "my_work" as const, label: "My Work" },
+            { id: "board" as const, label: "Board" },
+            { id: "reports" as const, label: "Reports" },
+          ] as const
+        ).map((v) => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => setDeskView(v.id)}
+            className={cn(
+              "rounded-md border px-3 py-1.5 text-xs font-medium",
+              deskView === v.id
+                ? "border-teal-600/40 bg-teal-500/10 text-foreground"
+                : "border-border/60 text-muted-foreground hover:bg-muted/40",
+            )}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
       {/* Minimal CHANAKYA */}
       <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-muted/15 px-3 py-2.5">
         <ChanakyaMark className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -508,6 +563,20 @@ export function TaskEngineWorkspace() {
         </ul>
       </div>
 
+      {deskView === "my_work" ? (
+        <div className="rounded-xl border border-border/70 bg-card p-3">
+          <MyWorkPanel onChanged={refresh} />
+        </div>
+      ) : null}
+
+      {deskView === "reports" ? (
+        <div className="rounded-xl border border-border/70 bg-card p-3">
+          <TaskReportsPanel />
+        </div>
+      ) : null}
+
+      {deskView === "board" ? (
+        <>
       {/* Search + filters */}
       <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card p-3">
         <div className="relative">
@@ -707,6 +776,8 @@ export function TaskEngineWorkspace() {
           );
         })}
       </div>
+        </>
+      ) : null}
 
       <TaskDetailDrawer
         task={selectedTask ? enrichTaskDefaults(selectedTask) : null}
@@ -784,7 +855,7 @@ export function TaskEngineWorkspace() {
                     </Button>
                     {n.category === "workflow" ? (
                       <Button asChild size="sm" variant="ghost" className="h-7 text-[11px]">
-                        <Link href={ROUTES.LOAN_FILES}>Open Loan Workspace</Link>
+                        <Link href={ROUTES.MY_DEALS}>Open My Deals</Link>
                       </Button>
                     ) : null}
                   </div>

@@ -1,0 +1,41 @@
+---
+description: Enterprise Customer Engagement (ECE) — customer portal is a projection of Deal · ETE · Documents · EDC; no parallel workflow
+alwaysApply: true
+---
+
+# Enterprise Customer Engagement (ECE) — Platform Constitution
+
+Status: **ENTERPRISE APPROVED** · Frozen · Canonical customer self-service projection  
+Sprint foundation: **CO-BIZ-004**
+
+## Constitutional principles
+
+1. The customer portal is a **projection** of existing enterprise services — not a second operating system.
+2. **Consume:** Enterprise Deal Lifecycle · ETE · Document Registry / Document Requests · EDC · ENCE · (optional) EBI.
+3. **Never** invent a customer workflow engine, duplicate status tracking, or parallel task ownership.
+4. Customer-facing tasks are **allowlisted projections** of ETE + Document Requests LOD — ETE remains the sole task SSOT.
+5. Document storage remains **Enterprise Document Registry** (CO-DOC-002 ingestion channel).
+6. Auth for Phase 1–6 stays **opaque upload/engagement tokens** — do not expose Opportunity IDs or mount under ERP `(dashboard)`.
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Compose / projection | `src/lib/enterprise-customer-engagement/` |
+| Types | `src/types/enterprise-customer-engagement.ts` |
+| Portal UI | `/customer-engagement/[token]` · Documents via `/document-upload/[token]` |
+| CX Score | `deriveCustomerExperienceScore` (single formula) |
+| Docs | `docs/co-biz-004/CO-BIZ-004-CUSTOMER-ENGAGEMENT-READINESS-REPORT.md` |
+
+## Forbidden
+
+- Parallel customer task / reminder / stage engines  
+- Writing customer portal state back as a competing Deal / Opportunity ownership store  
+- Showing internal ETE work types (Lender Call, Internal Review, etc.) to customers  
+- Mounting customer self-service under Administration or employee dashboard chrome  
+
+## Related
+
+- `enterprise-task-engine.mdc`
+- `enterprise-business-intelligence.mdc`
+- `enterprise-metric-single-implementation.mdc`

@@ -32,10 +32,22 @@ export {
   isPostponeMove,
   enrichTaskDefaults,
   resolveTaskCategory,
+  resolveWorkType,
+  resolveTaskStatus,
   taskTitle,
   assigneeLabel,
+  hasBusinessContext,
   pushTaskNotification,
+  pushTaskLifecycleNotification,
+  refreshTaskDueReminders,
   loadTaskNotifications,
   type TaskTimelineColumnId,
   type TaskPostponeNotification,
 } from "./task-workspace";
+export { buildMyWorkView, listTasksForEntity } from "./my-work";
+export {
+  generateTasksForBusinessEvent,
+  type GenerateTasksForEventInput,
+} from "./auto-generation";
+export { buildEteOperationalReport, reportTaskLabel } from "./reporting";
+export { buildChanakyaWorkloadInsights } from "./workload-intelligence";

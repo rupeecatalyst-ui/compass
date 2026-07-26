@@ -5,10 +5,15 @@
 import { EDC_EVENT_TYPES } from "@/constants/enterprise-dialogue-center";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
 import { shouldSuppressAutomation } from "@/lib/enterprise-platform-modes";
+import { ETE_PREDEFINED_TO_WORK_TYPE } from "@/constants/enterprise-task-engine";
 import type { EteTask } from "@/types/enterprise-task-engine";
 import { recordEteAudit } from "./audit-integration";
 import { getEtePorts } from "./composition";
 import { deriveEteTaskColour, validateEteTask } from "./validation-engine";
+import {
+  pushTaskLifecycleNotification,
+  taskTitle,
+} from "./task-workspace";
 
 function tryAppendEdcTaskEntry(input: {
   taskId: string;
@@ -46,16 +51,46 @@ export function registerEteTask(
     throw new Error("ETE task registration suppressed by migration mode.");
   }
 
-  const validation = validateEteTask(input);
+  const withContext = {
+    ...input,
+    workType: input.workType ?? ETE_PREDEFINED_TO_WORK_TYPE[input.predefinedDescription],
+    status: input.status ?? ("open" as const),
+    entityKind:
+      input.entityKind ??
+      (input.dealId
+        ? ("EnterpriseDeal" as const)
+        : input.opportunityRef
+          ? ("Opportunity" as const)
+          : input.contactId
+            ? ("Customer" as const)
+            : input.lenderId
+              ? ("Lender" as const)
+              : input.documentId
+                ? ("Document" as const)
+                : undefined),
+    entityId:
+      input.entityId ??
+      input.dealId ??
+      input.opportunityRef ??
+      input.contactId ??
+      input.lenderId ??
+      input.documentId ??
+      input.fileId,
+  };
+
+  const validation = validateEteTask(withContext);
   if (!validation.valid) throw new Error(validation.issues.map((i) => i.message).join("; "));
 
   const now = new Date().toISOString();
   const task: EteTask = {
-    ...input,
+    ...withContext,
     coOwnerRefs: input.coOwnerRefs ?? [],
     escalated: false,
     colourStatus: deriveEteTaskColour(input.dueOn),
     chanakyaMonitoring: input.chanakyaMonitoring ?? true,
+    title: input.title ?? input.predefinedDescription,
+    workType: withContext.workType,
+    status: withContext.status,
     id: crypto.randomUUID(),
     enabled: true,
     createdOn: now,
@@ -157,6 +192,17 @@ export function patchEteTask(
       | "department"
       | "grossStage"
       | "category"
+      | "title"
+      | "workType"
+      | "status"
+      | "completionNotes"
+      | "entityKind"
+      | "entityId"
+      | "entityLabel"
+      | "dealId"
+      | "contactId"
+      | "lenderId"
+      | "documentId"
     >
   >,
   actorId: string,
@@ -171,27 +217,52 @@ export function patchEteTask(
     modifiedOn: new Date().toISOString(),
   };
   getEtePorts().tasks.save(updated);
+  if (patch.assigneeRef && patch.assigneeRef !== existing.assigneeRef) {
+    pushTaskLifecycleNotification({
+      kind: "reassigned",
+      taskId: updated.id,
+      taskName: taskTitle(updated),
+      message: `Task reassigned to ${patch.assigneeRef}`,
+      assigneeRef: patch.assigneeRef,
+    });
+  }
   return updated;
 }
 
-/** Placeholder complete — disables task in registry. */
-export function completeEteTask(taskId: string, actorId: string): EteTask {
+/** Complete a task — disables monitoring and records completion notes. */
+export function completeEteTask(
+  taskId: string,
+  actorId: string,
+  completionNotes?: string,
+): EteTask {
   const existing = getEtePorts().tasks.findById(taskId);
   if (!existing) throw new Error(`ETE task not found: ${taskId}`);
+  const now = new Date().toISOString();
   const updated: EteTask = {
     ...existing,
     enabled: false,
+    status: "completed",
     chanakyaMonitoring: false,
+    completionNotes: completionNotes ?? existing.completionNotes,
+    completedAt: now,
+    completedBy: actorId,
     modifiedBy: actorId,
-    modifiedOn: new Date().toISOString(),
+    modifiedOn: now,
   };
   getEtePorts().tasks.save(updated);
   tryAppendEdcTaskEntry({
     taskId,
     title: "Task completed",
-    description: `Placeholder complete · ${existing.predefinedDescription}`,
+    description: `${taskTitle(existing)}${completionNotes ? ` · ${completionNotes}` : ""}`,
     actorId,
     opportunityRef: existing.opportunityRef,
+  });
+  pushTaskLifecycleNotification({
+    kind: "completed",
+    taskId,
+    taskName: taskTitle(existing),
+    message: `Task completed${completionNotes ? `: ${completionNotes}` : ""}`,
+    assigneeRef: existing.assigneeRef,
   });
   return updated;
 }
@@ -208,6 +279,9 @@ export function reopenEteTask(taskId: string, actorId: string): EteTask {
   const updated: EteTask = {
     ...existing,
     enabled: true,
+    status: "open",
+    completedAt: undefined,
+    completedBy: undefined,
     chanakyaMonitoring: true,
     colourStatus: deriveEteTaskColour(existing.dueOn),
     modifiedBy: actorId,
@@ -217,7 +291,7 @@ export function reopenEteTask(taskId: string, actorId: string): EteTask {
   tryAppendEdcTaskEntry({
     taskId,
     title: "Task reopened",
-    description: `Placeholder reopen · ${existing.predefinedDescription}`,
+    description: `Reopened · ${taskTitle(existing)}`,
     actorId,
     opportunityRef: existing.opportunityRef,
   });

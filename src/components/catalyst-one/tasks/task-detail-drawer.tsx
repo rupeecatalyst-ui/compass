@@ -240,7 +240,7 @@ export function TaskDetailDrawer({
               <dl className="grid gap-1.5 text-xs">
                 <LinkRow label="Customer" value={task.borrowerName ?? "—"} />
                 <LinkRow label="Opportunity" value={task.opportunityRef ?? "—"} />
-                <LinkRow label="Loan" value={task.loanProduct ?? "—"} href={ROUTES.LOAN_FILES} />
+                <LinkRow label="Deal" value={task.loanProduct ?? "—"} href={ROUTES.MY_DEALS} />
                 <LinkRow label="Lender" value={task.lenderName ?? "—"} />
                 <LinkRow label="Gross Stage" value={task.grossStage ?? "—"} />
               </dl>
