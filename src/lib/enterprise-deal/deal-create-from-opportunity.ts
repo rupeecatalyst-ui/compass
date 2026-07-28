@@ -1,11 +1,13 @@
 /**
  * CO-ARCH-005 — Create Enterprise Deal from Opportunity + lenders (no LoanFile).
+ * CO-DOM-001A — Borrower may be Contact (individual) or Company.
  */
 import { assertPrimaryWriteEnvironment, DealCreatePersistenceError } from "@/lib/enterprise-deal/primary-write";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import type { DealCreateBody } from "@/lib/enterprise-deal/map-loan-file-to-deal";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
+import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import type { LoanLenderExecution } from "@/types/catalyst-one";
 
 export type CreateDealFromOpportunityInput = {
@@ -54,6 +56,9 @@ function buildSnapshot(
     source: "enterprise_deal_derived",
     opportunityId: opportunity.id,
     opportunityNumber: opportunity.opportunityNumber,
+    primaryBorrowerKind: opportunity.primaryBorrowerKind ?? "individual",
+    companyId: opportunity.companyId ?? null,
+    companyName: opportunity.companyName ?? null,
     primaryContact: {
       id: opportunity.primaryContactId,
       name: opportunity.primaryContactName,
@@ -88,6 +93,11 @@ export function buildDealCreateBodyFromOpportunity(
   const primary =
     lenders.find((l) => l.lenderRegistryId === lenderId) ??
     lenders.find((l) => l.isPrimary);
+  const borrower = resolveOpportunityBorrowerIdentity(opportunity);
+  const displayName =
+    input.customerName?.trim() || borrower.displayName || null;
+  const partyId =
+    input.customerId?.trim() || borrower.partyEntityId || null;
 
   return {
     productFamily: "lending",
@@ -100,10 +110,15 @@ export function buildDealCreateBodyFromOpportunity(
     productLabel,
     productCode: productLabel.toUpperCase().replace(/\s+/g, "_"),
     transactionType: opportunity.transactionType ?? null,
+    primaryBorrowerKind: borrower.kind,
+    companyId: borrower.companyId ?? opportunity.companyId ?? null,
+    companyName: borrower.companyName ?? opportunity.companyName ?? null,
     primaryContactId:
-      input.customerId || opportunity.primaryContactId || null,
-    primaryContactName:
-      input.customerName || opportunity.primaryContactName || null,
+      borrower.kind === "individual"
+        ? partyId || opportunity.primaryContactId || null
+        : opportunity.primaryContactId ?? null,
+    // Denormalized borrower display (Contact name or Company name) for registry scan.
+    primaryContactName: displayName,
     primaryContactMobile:
       input.customerMobile || opportunity.primaryContactMobile || null,
     primaryContactEmail: opportunity.primaryContactEmail ?? null,

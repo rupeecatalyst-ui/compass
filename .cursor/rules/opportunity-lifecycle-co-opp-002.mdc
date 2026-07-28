@@ -1,0 +1,14 @@
+# CO-OPP-002 — Opportunity Status Lifecycle Revision
+
+Status: **ENTERPRISE APPROVED** · Lifecycle enhancement only
+
+## Principles
+
+1. **Draft is retired** from the application. New Opportunities start as **Dialogue**.
+2. Historical DB values (`draft`, `active`, `won`, `archived`) are **not migrated** — display labels map them.
+3. Automatic transitions: Dialogue → Requirement Captured → (In Progress) → Converted to Deal → Completed / Lost.
+4. Do not modify Contacts, Deals workflow chrome, or Loan Workspace behaviour beyond Opportunity lifecycle sync hooks.
+
+## SSOT
+
+`src/constants/opportunity-lifecycle.ts`

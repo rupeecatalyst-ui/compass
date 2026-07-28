@@ -18,6 +18,7 @@ import {
   type EnterpriseOpportunityApiRecord,
 } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { peekSessionOpportunity } from "@/lib/enterprise-session";
+import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import {
   rememberOpportunityActiveLoan,
   resolveLoansForOpportunity,
@@ -114,13 +115,22 @@ async function enrichSeedFromOpportunityRegistry(
         ? (oppTxn as TransactionType)
         : undefined);
 
+    const borrower = resolveOpportunityBorrowerIdentity(opp);
     return {
       ...input,
       opportunity: opp,
-      customerName: input.customerName || opp.primaryContactName || undefined,
-      customerMobile: input.customerMobile || opp.primaryContactMobile || undefined,
-      customerEmail: input.customerEmail || opp.primaryContactEmail || undefined,
-      customerId: input.customerId || opp.primaryContactId,
+      customerName: input.customerName || borrower.displayName || undefined,
+      customerMobile:
+        input.customerMobile ||
+        borrower.primaryContactMobile ||
+        opp.primaryContactMobile ||
+        undefined,
+      customerEmail:
+        input.customerEmail ||
+        borrower.primaryContactEmail ||
+        opp.primaryContactEmail ||
+        undefined,
+      customerId: input.customerId || borrower.partyEntityId || undefined,
       loanProduct:
         input.loanProduct ||
         opp.productLabel?.trim() ||

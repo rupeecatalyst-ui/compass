@@ -12,6 +12,7 @@ import {
 } from "@/constants/my-deals";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import {
+  enrichMyDealsDealRegistryRows,
   loadMyDealsDealRegistryRows,
   resolveMyDealsDisplayRows,
 } from "@/lib/enterprise-deal/deal-registry-port";
@@ -144,6 +145,7 @@ export function MyDealsWorkspace() {
     let cancelled = false;
     const generation = tick;
     setReadSource((prev) => (prev === "enterprise_deal" ? prev : "loading"));
+    // CO-PERF-002 Phase 1 — summary paint first.
     void loadMyDealsDealRegistryRows().then((result) => {
       if (cancelled) return;
       setPortRows((previous) =>
@@ -154,7 +156,6 @@ export function MyDealsWorkspace() {
           localRows: [],
         }),
       );
-      // Never flip to "enterprise empty" when we kept prior rows.
       if (result.source === "enterprise_deal" && result.rows.length === 0) {
         setReadSource((prev) => (prev === "enterprise_deal" ? prev : result.source));
       } else {
@@ -162,6 +163,15 @@ export function MyDealsWorkspace() {
       }
       setReadError(result.error ?? null);
       void generation;
+
+      // Phase 2 — progressive enrich (lenders / history / chips fields) without blocking paint.
+      if (result.source === "enterprise_deal" && result.projection === "summary") {
+        void enrichMyDealsDealRegistryRows().then((enriched) => {
+          if (cancelled || enriched.source !== "enterprise_deal") return;
+          if (enriched.rows.length === 0) return;
+          setPortRows(enriched.rows);
+        });
+      }
     });
     return () => {
       cancelled = true;

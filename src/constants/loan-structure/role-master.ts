@@ -86,15 +86,16 @@ export const LOAN_STRUCTURE_ROLE_MASTER: readonly LoanStructureRoleDefinition[] 
   },
   {
     code: "company",
-    label: "Company",
+    label: "Company / Business Entity",
     group: "companies",
-    groupLabel: "Companies",
+    groupLabel: "Companies / Business Entities",
     groupSortOrder: 40,
     assignableInBuilder: true,
     defaultEntityType: "company",
     erwRelationshipCode: "director",
     enabled: true,
     sortOrder: 40,
+    description: "Borrowing company or firm in the loan structure",
   },
   {
     code: "property",

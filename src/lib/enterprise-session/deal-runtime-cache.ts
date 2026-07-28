@@ -28,6 +28,9 @@ export type SessionDealRecord = {
   primaryContactMobile?: string | null;
   primaryContactId?: string | null;
   primaryContactEmail?: string | null;
+  primaryBorrowerKind?: "individual" | "company" | null;
+  companyId?: string | null;
+  companyName?: string | null;
   productLabel?: string | null;
   requestedAmount?: number | null;
   approvedAmount?: number | null;

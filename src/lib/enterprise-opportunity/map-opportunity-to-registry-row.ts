@@ -3,7 +3,10 @@
  */
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { coalesceAssignedUsers, formatAssignedUsersLabel } from "@/lib/assigned-users";
+import { opportunityBusinessSourceLabel } from "@/constants/opportunity-business-source";
 import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { borrowerDisplayNameOrDash } from "@/lib/enterprise-borrower-identity";
+import { opportunityLifecycleLabel } from "@/constants/opportunity-lifecycle";
 import type { OpportunityRegistryRow } from "@/types/opportunity-registry";
 
 /** Enterprise list timestamp — e.g. 05 Jul 2026, 10:42 AM */
@@ -37,7 +40,7 @@ export function mapEnterpriseOpportunityToRegistryRow(
   opp: EnterpriseOpportunityApiRecord,
 ): OpportunityRegistryRow {
   const stage = opp.requirementStage || "—";
-  const status = opp.lifecycleStatus || "—";
+  const status = opp.lifecycleStatus || "dialogue";
   const assignedUsers = coalesceAssignedUsers({
     lendingExtension: opp.lendingExtension,
     primaryOwnerUserId: opp.primaryOwnerUserId,
@@ -54,7 +57,7 @@ export function mapEnterpriseOpportunityToRegistryRow(
     id: opp.id,
     opportunityNumber: opp.opportunityNumber,
     legacyLoanFileId: opp.legacyLoanFileId ?? null,
-    customerName: opp.primaryContactName?.trim() || "—",
+    customerName: borrowerDisplayNameOrDash(opp),
     product: opp.productLabel?.trim() || humanize(opp.productFamily) || "—",
     opportunityStage: stage,
     opportunityStageLabel,
@@ -70,9 +73,14 @@ export function mapEnterpriseOpportunityToRegistryRow(
     updatedAt: opp.updatedAt || opp.createdAt || "",
     updatedAtLabel: formatWhenTime(opp.updatedAt || opp.createdAt || ""),
     status,
-    statusLabel: humanize(status),
+    statusLabel: opportunityLifecycleLabel(status),
     fulfilmentStatus: opp.fulfilmentStatus || "—",
-    primaryContactId: opp.primaryContactId,
+    primaryBorrowerKind: opp.primaryBorrowerKind ?? "individual",
+    primaryContactId: opp.primaryContactId ?? null,
+    companyId: opp.companyId ?? null,
+    companyName: opp.companyName ?? null,
     requestedAmount: opp.requestedAmount ?? null,
+    sourceCode: opp.sourceCode?.trim() || null,
+    sourceLabel: opportunityBusinessSourceLabel(opp.sourceCode),
   };
 }

@@ -13,6 +13,7 @@ import {
   putSessionDeal,
   type EnsureDealOptions,
 } from "@/lib/enterprise-session/deal-runtime-cache";
+import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 
 export type EnterpriseDealApiRecord = {
   id: string;
@@ -31,6 +32,9 @@ export type EnterpriseDealApiRecord = {
   operationalStatus?: string;
   archived: boolean;
   isDeleted: boolean;
+  primaryBorrowerKind?: "individual" | "company" | null;
+  companyId?: string | null;
+  companyName?: string | null;
   primaryContactName?: string | null;
   primaryContactMobile?: string | null;
   primaryContactId?: string | null;
@@ -49,6 +53,7 @@ export type EnterpriseDealApiRecord = {
   invoicePartyContactId?: string | null;
   invoicePartyId?: string | null;
   priority?: string;
+  stageEnteredAt?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
   /** Deal snapshot — may include lenders[] for Pipeline rehydrate. */
@@ -110,29 +115,34 @@ export const enterpriseDealApiClient = {
       body: JSON.stringify(body),
     });
     await bindActiveDeal(created);
-    try {
-      const { generateTasksForBusinessEvent } = await import(
-        "@/lib/enterprise-task-engine/auto-generation"
-      );
-      generateTasksForBusinessEvent({
-        event: "deal_created",
-        entityKind: "EnterpriseDeal",
-        entityId: created.id,
-        entityLabel: created.dealNumber ?? created.id,
-        dealId: created.id,
-        opportunityRef: created.opportunityId ?? undefined,
-        contactId: created.primaryContactId ?? undefined,
-        assigneeRef: created.relationshipManagerUserId
-          ? `user:${created.relationshipManagerUserId}`
-          : "employee:rm-001",
-        createdBy: "system",
-        borrowerName: created.primaryContactName ?? undefined,
-        loanProduct: created.productLabel ?? undefined,
-        grossStage: "Loan Workspace",
-      });
-    } catch {
-      /* best-effort */
-    }
+    // CO-ARCH-003 — ETE / notifications are Tier 2; never delay Deal create response.
+    queueMicrotask(() => {
+      void (async () => {
+        try {
+          const { generateTasksForBusinessEvent } = await import(
+            "@/lib/enterprise-task-engine/auto-generation"
+          );
+          generateTasksForBusinessEvent({
+            event: "deal_created",
+            entityKind: "EnterpriseDeal",
+            entityId: created.id,
+            entityLabel: created.dealNumber ?? created.id,
+            dealId: created.id,
+            opportunityRef: created.opportunityId ?? undefined,
+            contactId: created.primaryContactId ?? undefined,
+            assigneeRef: created.relationshipManagerUserId
+              ? `user:${created.relationshipManagerUserId}`
+              : "employee:rm-001",
+            createdBy: "system",
+            borrowerName: resolveDealBorrowerIdentity(created).displayName || undefined,
+            loanProduct: created.productLabel ?? undefined,
+            grossStage: "Loan Workspace",
+          });
+        } catch {
+          /* best-effort Tier 2 */
+        }
+      })();
+    });
     return created;
   },
 
@@ -158,7 +168,9 @@ export const enterpriseDealApiClient = {
     pageSize?: number;
     archived?: boolean;
     productFamily?: string;
-  } = {}): Promise<{ items: EnterpriseDealApiRecord[]; total: number }> {
+    /** CO-PERF-002 — Phase 1 registry paint */
+    view?: "summary" | "full";
+  } = {}): Promise<{ items: EnterpriseDealApiRecord[]; total: number; view?: string }> {
     ensureDealFetcherWired();
     const params = new URLSearchParams({
       page: String(query.page ?? 1),
@@ -168,11 +180,41 @@ export const enterpriseDealApiClient = {
     if (query.archived === false) params.set("archived", "false");
     if (query.archived === true) params.set("archived", "true");
     if (query.productFamily) params.set("productFamily", query.productFamily);
-    const page = await dealFetch<{ items: EnterpriseDealApiRecord[]; total: number }>(
-      `/api/enterprise-deals?${params.toString()}`,
-    );
+    if (query.view) params.set("view", query.view);
+    const page = await dealFetch<{
+      items: EnterpriseDealApiRecord[];
+      total: number;
+      view?: string;
+    }>(`/api/enterprise-deals?${params.toString()}`);
     for (const row of page.items) putSessionDeal(row);
     return page;
+  },
+
+  /**
+   * CO-PERF-002 — Workspace bootstrap: anchor Deal + sibling Deals in one GET.
+   */
+  async bootstrapDealWorkspace(
+    dealId: string,
+    options?: EnsureDealOptions,
+  ): Promise<{
+    deal: EnterpriseDealApiRecord;
+    siblings: EnterpriseDealApiRecord[];
+  }> {
+    ensureDealFetcherWired();
+    if (options?.forceRefresh) {
+      invalidateSessionDeal(dealId);
+    }
+    const raw = await dealFetch<
+      EnterpriseDealApiRecord & { siblings?: EnterpriseDealApiRecord[] }
+    >(`/api/enterprise-deals/${encodeURIComponent(dealId)}?include=siblings`);
+    const siblings =
+      Array.isArray(raw.siblings) && raw.siblings.length > 0
+        ? raw.siblings
+        : [raw];
+    for (const row of siblings) putSessionDeal(row);
+    putSessionDeal(raw);
+    await bindActiveDeal(raw);
+    return { deal: raw, siblings };
   },
 
   /**
@@ -285,5 +327,14 @@ export const enterpriseDealApiClient = {
     );
     invalidateSessionDeal(dealId);
     return deleted;
+  },
+
+  async getTodayNewDealKpis(): Promise<{
+    asOf: string;
+    definition: string;
+    counts: { total: number };
+  }> {
+    ensureDealFetcherWired();
+    return dealFetch("/api/enterprise-deals/today-new");
   },
 };

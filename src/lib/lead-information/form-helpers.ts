@@ -11,6 +11,11 @@ import {
   type LeadInformationLendingExtension,
 } from "@/constants/lead-information-workspace";
 import {
+  isNoCostReferralSource,
+  isWealthPartnerBusinessSource,
+  resolveBusinessSourceContactLookup,
+} from "@/constants/opportunity-business-source";
+import {
   isApproxCibilScoreBand,
 } from "@/constants/cibil-score-master";
 import { findCityEntry } from "@/constants/city-master";
@@ -46,6 +51,12 @@ export function formFromOpportunity(
         ""
       );
     })(),
+    businessSource: opp.sourceCode?.trim() || "",
+    sourceContactId: opp.sourceContactId?.trim() || "",
+    sourceContactName: opp.sourceContactName?.trim() || "",
+    sourceWealthPartnerId: opp.sourceWealthPartnerId?.trim() || "",
+    participationRole: opp.participationRole?.trim() || "",
+    sourceCampaignLabel: opp.sourceCampaignLabel?.trim() || "",
     employmentTypeCode: opp.employmentTypeCode?.trim() || "",
     approxCibilScore:
       ext.approxCibilScore && isApproxCibilScoreBand(ext.approxCibilScore)
@@ -65,6 +76,10 @@ export function buildLeadInformationPatchBody(
   form: LeadInformationFormState,
   rowVersion?: number | null,
   existingExtension?: LeadInformationLendingExtension,
+  primaryBorrower?: {
+    contactId?: string | null;
+    contactName?: string | null;
+  },
 ): OpportunityUpdateBody {
   const product = LEAD_INFORMATION_PRODUCT_OPTIONS.find(
     (p) => p.code === form.productCode || p.label === form.productLabel,
@@ -85,6 +100,44 @@ export function buildLeadInformationPatchBody(
       ? form.lendingType
       : null;
 
+  const contactLookup = resolveBusinessSourceContactLookup(form.businessSource);
+  let sourceContactId = form.sourceContactId.trim() || null;
+  let sourceContactName = form.sourceContactName.trim() || null;
+  let sourceWealthPartnerId = form.sourceWealthPartnerId.trim() || null;
+  let participationRole = form.participationRole.trim() || null;
+  let sourceCampaignLabel = form.sourceCampaignLabel.trim() || null;
+
+  if (contactLookup.registry === "auto_customer") {
+    sourceContactId = primaryBorrower?.contactId?.trim() || sourceContactId;
+    sourceContactName = primaryBorrower?.contactName?.trim() || sourceContactName;
+    sourceWealthPartnerId = null;
+    participationRole = null;
+    sourceCampaignLabel = null;
+  } else if (contactLookup.registry === "none") {
+    sourceContactId = null;
+    sourceContactName = null;
+    sourceWealthPartnerId = null;
+    participationRole = null;
+    sourceCampaignLabel = null;
+  } else if (contactLookup.showReferrerName || isNoCostReferralSource(form.businessSource)) {
+    sourceContactId = null;
+    sourceWealthPartnerId = null;
+    participationRole = null;
+    sourceCampaignLabel = null;
+    sourceContactName = form.sourceContactName.trim() || null;
+  } else if (contactLookup.showCampaign) {
+    sourceContactId = null;
+    sourceContactName = null;
+    sourceWealthPartnerId = null;
+    participationRole = null;
+  } else if (!isWealthPartnerBusinessSource(form.businessSource)) {
+    sourceWealthPartnerId = null;
+    participationRole = null;
+    if (!contactLookup.showCampaign) sourceCampaignLabel = null;
+  } else {
+    sourceCampaignLabel = null;
+  }
+
   return {
     productId: null,
     productCode: form.productCode.trim() || null,
@@ -95,6 +148,12 @@ export function buildLeadInformationPatchBody(
     employmentTypeCode: form.employmentTypeCode.trim() || null,
     cityLabel: form.cityLabel.trim() || null,
     stateLabel: form.stateLabel.trim() || null,
+    sourceCode: form.businessSource.trim() || null,
+    sourceContactId,
+    sourceContactName,
+    sourceWealthPartnerId,
+    participationRole,
+    sourceCampaignLabel,
     lendingExtension: {
       ...(historicalPurpose ? { purpose: historicalPurpose } : {}),
       remarks: form.remarks.trim() || null,

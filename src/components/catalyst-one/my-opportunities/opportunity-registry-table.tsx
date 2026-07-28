@@ -26,6 +26,7 @@ import {
   uniqueOpportunityValues,
 } from "@/lib/my-opportunities/opportunity-registry";
 import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { opportunityBusinessSourceLabel } from "@/constants/opportunity-business-source";
 import {
   EMPTY_OPPORTUNITY_REGISTRY_FILTERS,
   OPPORTUNITY_REGISTRY_PAGE_SIZES,
@@ -42,6 +43,7 @@ const SORT_MAP: Record<string, OpportunityRegistrySortField> = {
   customerName: "customerName",
   product: "product",
   opportunityStage: "opportunityStageLabel",
+  source: "sourceLabel",
   assignedUsers: "owner",
   owner: "owner",
   createdAt: "createdAt",
@@ -52,6 +54,9 @@ const SORT_MAP: Record<string, OpportunityRegistrySortField> = {
 interface OpportunityRegistryTableProps {
   rows: OpportunityRegistryRow[];
   loading?: boolean;
+  /** CO-UX-006 — server-applied Fresh Login / source drill-down context */
+  listContextLabel?: string | null;
+  onClearListContext?: () => void;
   onOpenOpportunity: (row: OpportunityRegistryRow) => void;
   onEditOpportunity: (row: OpportunityRegistryRow) => void;
   onDeleteOpportunity: (row: OpportunityRegistryRow) => void | Promise<void>;
@@ -66,6 +71,8 @@ interface OpportunityRegistryTableProps {
 export function OpportunityRegistryTable({
   rows: allRows,
   loading = false,
+  listContextLabel = null,
+  onClearListContext,
   onOpenOpportunity,
   onEditOpportunity,
   onDeleteOpportunity,
@@ -91,6 +98,10 @@ export function OpportunityRegistryTable({
     [allRows],
   );
   const statuses = useMemo(() => uniqueOpportunityValues(allRows, "status"), [allRows]);
+  const sources = useMemo(
+    () => uniqueOpportunityValues(allRows, "sourceCode"),
+    [allRows],
+  );
 
   const filtered = useMemo(
     () => filterOpportunityRegistryRows(allRows, filters),
@@ -110,7 +121,7 @@ export function OpportunityRegistryTable({
 
   useEffect(() => {
     setPage(1);
-  }, [filters.search, filters.stage, filters.status, pageSize]);
+  }, [filters.search, filters.stage, filters.status, filters.source, pageSize]);
 
   const handleSort = (columnId: string) => {
     const field = SORT_MAP[columnId];
@@ -174,10 +185,21 @@ export function OpportunityRegistryTable({
         exportValue: (row) => row.opportunityStageLabel,
       },
       {
+        id: "source",
+        label: "Source",
+        sortable: true,
+        defaultOrder: 5,
+        defaultWidth: 130,
+        render: (row) => (
+          <span className="text-muted-foreground">{row.sourceLabel}</span>
+        ),
+        exportValue: (row) => row.sourceLabel,
+      },
+      {
         id: "assignedUsers",
         label: "Assigned Users",
         sortable: true,
-        defaultOrder: 5,
+        defaultOrder: 6,
         defaultWidth: 160,
         render: (row) => (
           <AssignedUsersCell
@@ -193,7 +215,7 @@ export function OpportunityRegistryTable({
         id: "createdAt",
         label: "Created Date & Time",
         sortable: true,
-        defaultOrder: 6,
+        defaultOrder: 7,
         defaultWidth: 160,
         render: (row) => (
           <span className="tabular-nums text-muted-foreground">{row.createdAtLabel}</span>
@@ -204,7 +226,7 @@ export function OpportunityRegistryTable({
         id: "updatedAt",
         label: "Last Updated",
         sortable: true,
-        defaultOrder: 7,
+        defaultOrder: 8,
         defaultWidth: 140,
         render: (row) => (
           <span className="tabular-nums text-muted-foreground">{row.updatedAtLabel}</span>
@@ -215,13 +237,16 @@ export function OpportunityRegistryTable({
         id: "status",
         label: "Status",
         sortable: true,
-        defaultOrder: 8,
+        defaultOrder: 9,
         defaultWidth: 100,
         render: (row) => (
           <span
             className={cn(
               "inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium capitalize",
-              row.status === "active"
+              row.status === "active" ||
+              row.status === "in_progress" ||
+              row.status === "converted_to_deal" ||
+              row.status === "requirement_captured"
                 ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
                 : "bg-muted text-muted-foreground",
             )}
@@ -256,17 +281,39 @@ export function OpportunityRegistryTable({
   const hasActiveFilters =
     Boolean(filters.search.trim()) ||
     filters.stage !== "all" ||
-    filters.status !== "all";
+    filters.status !== "all" ||
+    filters.source !== "all";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+      {listContextLabel ? (
+        <div
+          className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-md border border-teal-500/30 bg-teal-500/10 px-2.5 py-1.5"
+          role="status"
+        >
+          <p className="text-[11px] font-medium text-teal-900 dark:text-teal-100">
+            {listContextLabel}
+          </p>
+          {onClearListContext ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onClearListContext}
+            >
+              Clear drill-down
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex shrink-0 flex-wrap items-center gap-1.5">
         <div className="relative min-w-[180px] max-w-sm flex-1">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={filters.search}
             onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-            placeholder="Search opportunity, customer, product…"
+            placeholder="Search opportunity, customer, product, source…"
             className="h-8 pl-7 text-xs"
             aria-label="Enterprise search opportunities"
           />
@@ -339,6 +386,22 @@ export function OpportunityRegistryTable({
               {statuses.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s.replace(/_/g, " ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={filters.source}
+            onValueChange={(source) => setFilters((f) => ({ ...f, source }))}
+          >
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue placeholder="Source" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sources</SelectItem>
+              {sources.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {opportunityBusinessSourceLabel(s)}
                 </SelectItem>
               ))}
             </SelectContent>

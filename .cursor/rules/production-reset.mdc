@@ -1,0 +1,28 @@
+# CO-ADMIN-004 — Production Reset (permanent)
+
+Status: **ENTERPRISE APPROVED** · Super Administrator only
+
+## Placement
+
+Administration → System Administration → **Production Reset**  
+Route: `/admin/production-reset`  
+Permission: `admin.system_tools.production_reset` + `SUPER_ADMIN`
+
+## Principles
+
+- Not a database truncate.
+- Preserve all enterprise configuration / masters / identity.
+- Soft-delete transactional business data in dependency order inside a transaction.
+- Dry-run before every execute.
+- Feature flag **default OFF** (`PRODUCTION_RESET_ENABLED`).
+- Never auto-delete on deploy or implementation.
+
+## SSOT
+
+- Types: `src/types/production-reset.ts`
+- Flags / presets: `src/constants/production-reset/`
+- Engine: `server/services/production-reset/`
+- API: `src/app/api/admin/production-reset/`
+- UI: `src/components/catalyst-one/admin/production-reset/`
+- Audit: `ProductionResetRun` Prisma model
+- Readiness: `docs/co-admin-004/CO-ADMIN-004-PRODUCTION-RESET-READINESS-REPORT.md`

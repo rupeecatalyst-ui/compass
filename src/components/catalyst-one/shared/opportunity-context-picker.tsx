@@ -20,6 +20,7 @@ import {
   notifyOpportunitiesUpdated,
   subscribeOpportunitiesUpdated,
 } from "@/lib/enterprise-opportunity/opportunity-data-sync";
+import { borrowerDisplayNameOrDash } from "@/lib/enterprise-borrower-identity";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -79,6 +80,7 @@ export function OpportunityContextPicker({
     return rows.filter((o) => {
       const hay = [
         o.opportunityNumber,
+        o.companyName,
         o.primaryContactName,
         o.productLabel,
         o.productFamily,
@@ -155,7 +157,9 @@ export function OpportunityContextPicker({
               here.
             </li>
           ) : (
-            filtered.map((opportunity) => (
+            filtered.map((opportunity) => {
+              const borrowerLabel = borrowerDisplayNameOrDash(opportunity);
+              return (
               <li key={opportunity.id}>
                 <button
                   type="button"
@@ -163,7 +167,7 @@ export function OpportunityContextPicker({
                   className="flex w-full flex-col gap-0.5 rounded-xl border border-border/60 bg-muted/15 px-3 py-2.5 text-left transition-colors hover:border-teal-500/40 hover:bg-teal-500/5"
                 >
                   <span className="truncate text-sm font-semibold text-foreground">
-                    {opportunity.primaryContactName?.trim() || "Opportunity"}
+                    {borrowerLabel === "—" ? "Opportunity" : borrowerLabel}
                   </span>
                   <span className="truncate text-[11px] text-muted-foreground">
                     {opportunity.opportunityNumber}
@@ -178,7 +182,8 @@ export function OpportunityContextPicker({
                   </span>
                 </button>
               </li>
-            ))
+              );
+            })
           )}
         </ul>
 

@@ -41,9 +41,11 @@ Do automatically — do not wait to be asked:
 
 ## 4. Definition of Done
 
-Not complete until: implementation done, build passed, Vercel deployed, live verified, URL shared, Certification Report delivered.
+Not complete until: implementation done, build passed, Vercel deployed, **E2E Business Scenario Pack executed on the live app** (or explicitly blocked pending ops with scenario steps listed), URL shared, Certification Report delivered.
 
 GitHub milestone commit is **not** required for per-implementation Done.
+
+**Permanent (CO-QA-001):** Build / TypeScript / lint / verify scripts / smoke tests are **engineering gates only**. They do **not** constitute Business Certification. Scenario Fail ⇒ module remains **OPEN**. See `co-qa-001-enterprise-regression-certification.mdc`.
 
 ## 5. Required report format (end every completed implementation)
 
@@ -57,6 +59,15 @@ GitHub milestone commit is **not** required for per-implementation Done.
 - TypeScript Status: ✅ / ❌
 - Lint Status: ✅ / ❌
 - Smoke Test Status: ✅ / ❌ / ⚠️
+- Verify Script Status: ✅ / ❌ / ⚠️ (engineering gate only)
+
+### E2E Business Scenario
+- Scenario ID: <MODULE>-E2E-001
+- Scenario Pack path: <docs/…>
+- Live run Status: ✅ Pass / ❌ Fail / ⏸️ Blocked (ops)
+- Environment URL: <url>
+- Related domains covered: <list>
+- Evidence: <what was observed in the app>
 
 ### Git
 - Branch: <branch>
@@ -81,12 +92,13 @@ Authentication: ✅ Unchanged
 
 ### Final Status
 ✅ Ready for Business Certification
-(or 🟡 Partially Ready / 🔴 Requires Further Development)
+(or 🟡 Partially Ready / 🔴 Requires Further Development / 🔴 OPEN — E2E Fail)
 ```
 
-## 6. Claims
+**CO-QA-001:** Do **not** mark Final Status ✅ Ready for Business Certification unless the E2E Scenario **Passed** on the live app. If the scenario **Fails**, Final Status must be **OPEN** (or Requires Further Development) regardless of build/verify/smoke. If blocked only by pending ops (migration/deploy), use Partially Ready and list the blocker — Scenario Pack must still be documented.
+## 6. Claims (CO-QA-001)
 
-Do not mark a module “Certified” unless the user explicitly certifies it. Use Ready / Partially Ready / Requires Further Development.
+Do not mark a module “Certified” unless the user explicitly certifies it **after** the E2E Business Scenario Pack has **Passed** on the live app. Use Ready / Partially Ready / Requires Further Development / **OPEN**. Verify-script success alone is never “Certified.” Scenario Fail ⇒ remain **OPEN**.
 
 ## 7. Infra / manual steps
 

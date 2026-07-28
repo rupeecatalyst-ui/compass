@@ -98,12 +98,16 @@ export const ecmApiClient = {
     companyId: string;
     contactId: string;
     relationRole: EcmCompanyRelationRole;
+    designation?: string | null;
+    department?: string | null;
   }): Promise<EcmCompanyContactLink> {
     return ecmFetch(`/api/ecm/companies/${input.companyId}/links`, {
       method: "POST",
       body: JSON.stringify({
         contactId: input.contactId,
         relationRole: input.relationRole,
+        designation: input.designation,
+        department: input.department,
       }),
     });
   },

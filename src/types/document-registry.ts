@@ -37,6 +37,7 @@ export interface DocumentRegistryVersion {
 
 export type DocumentRegistryUploadSource =
   | "customer_portal"
+  | "lender_portal"
   | "manual_upload"
   | "email"
   | "whatsapp"

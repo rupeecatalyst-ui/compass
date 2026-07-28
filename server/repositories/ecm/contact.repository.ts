@@ -25,6 +25,20 @@ export class EcmContactRepository {
     return row ? mapPrismaContactToDomain(row) : null;
   }
 
+  /** Exact official-email match (case-insensitive). Prefer over fuzzy search for dedupe. */
+  async findByOfficialEmail(organizationId: string, officialEmail: string) {
+    const email = officialEmail.trim();
+    if (!email) return null;
+    const row = await prisma.ecmContact.findFirst({
+      where: {
+        organizationId,
+        isDeleted: false,
+        officialEmail: { equals: email, mode: "insensitive" },
+      },
+    });
+    return row ? mapPrismaContactToDomain(row) : null;
+  }
+
   async query(organizationId: string, query: EcmContactQuery = {}) {
     const page = Math.max(1, query.page ?? 1);
     const pageSize = query.pageSize ?? 100;

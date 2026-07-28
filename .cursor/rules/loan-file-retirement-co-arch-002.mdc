@@ -1,0 +1,38 @@
+---
+description: CO-ARCH-002 — Legacy Loan File business entity is retired; Opportunity → Deal is canonical
+alwaysApply: true
+---
+
+# CO-ARCH-002 — Legacy Loan File Retirement
+
+Status: **ENTERPRISE APPROVED** · Loan File is **not** a business entity
+
+## Canonical model
+
+```
+Contact / Company → Opportunity → Deal
+```
+
+No intermediate Loan File business entity.
+
+## Rules
+
+1. Do **not** introduce user-facing “Loan File” / “Loan Files” product language.
+2. Do **not** create a Prisma `LoanFile` model or restore a Loan Files registry book.
+3. `/loan-files` remains a **redirect shell** only (deep-link compatibility).
+4. TypeScript `LoanFile` is a **deprecated read-only projection** of Opportunity (FS-01) or Deal — not SSOT.
+5. `legacyLoanFileId` on Opportunity/Deal is a **retired bridge key** — do not treat as entity identity.
+6. New work must use Opportunity Registry and Enterprise Deal Registry types/APIs.
+
+## Quarantine (rename later — do not expand)
+
+- `src/lib/lead-opportunity-journey/opportunity-runtime-adapter.ts`
+- `src/lib/enterprise-deal/map-deal-to-loan-file.ts`
+- `src/lib/loan-files-storage.ts` (local projection cache only when gated)
+
+## Related
+
+- ADR-019 Deal Workspace identity
+- FS-01 Opportunity runtime
+- CO-ARCH-004 Deal primary writes
+- Report: `docs/co-arch-002/CO-ARCH-002-LEGACY-LOAN-FILE-RETIREMENT-REPORT.md`

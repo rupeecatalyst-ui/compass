@@ -55,17 +55,32 @@ export async function hydrateEcmFromPrisma(): Promise<{
   getEcmPorts().contacts.replaceAll(contactsResult.items);
   replaceAllEcmCompanies(companiesResult.items);
 
-  const linkBatches = await Promise.all(
-    companiesResult.items.map((c) => ecmApiClient.listCompanyLinks(c.id).catch(() => [])),
-  );
-  const allLinks = linkBatches.flat();
-  replaceAllCompanyLinks(allLinks);
+  // CO-PERF-002 — Do not fan-out N× listCompanyLinks on every Contacts/Dashboard hydrate.
+  // Links load on demand via hydrateCompanyLinksFromPrisma when a Company workspace opens.
+  // Memory starts empty for links (Prisma remains SSOT).
+  replaceAllCompanyLinks([]);
 
   return {
     contacts: contactsResult.items.length,
     companies: companiesResult.items.length,
-    links: allLinks.length,
+    links: 0,
   };
+}
+
+/**
+ * CO-PERF-002 — Lazy company↔contact links for one company (Company Workspace open).
+ */
+export async function hydrateCompanyLinksFromPrisma(
+  companyId: string,
+): Promise<number> {
+  if (!isEnterprisePersistencePrisma()) return 0;
+  const id = companyId.trim();
+  if (!id) return 0;
+  const links = await ecmApiClient.listCompanyLinks(id).catch(() => []);
+  for (const link of links) {
+    upsertCompanyLinkLocal(link);
+  }
+  return links.length;
 }
 
 export async function persistRegisterEcmContact(
@@ -138,6 +153,8 @@ export async function persistLinkCompanyContact(input: {
   companyId: string;
   contactId: string;
   relationRole: EcmCompanyRelationRole;
+  designation?: string | null;
+  department?: string | null;
   createdBy: string;
 }): Promise<EcmCompanyContactLink> {
   if (!isEnterprisePersistencePrisma()) {
@@ -147,6 +164,8 @@ export async function persistLinkCompanyContact(input: {
     companyId: input.companyId,
     contactId: input.contactId,
     relationRole: input.relationRole,
+    designation: input.designation,
+    department: input.department,
   });
   upsertCompanyLinkLocal(link);
   return link;

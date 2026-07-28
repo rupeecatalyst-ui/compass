@@ -15,14 +15,17 @@ import {
   selectLifeLenderExecutors,
 } from "@/lib/enterprise-life-engine";
 import {
+  enforceStrategicShortlistMax,
   getStrategicAnalysis,
-  getStrategicShortlist,
   identifyLenderFromAnalysis,
+  isStrategicShortlistAtLimit,
+  isStrategicShortlistLimitError,
   removeStrategicShortlistItem,
   syncShortlistToIdentified,
   upsertStrategicAnalysis,
   upsertStrategicShortlistItem,
 } from "@/lib/strategic-lender-pipeline";
+import { STRATEGY_SHORTLIST_LIMIT_GUIDANCE } from "@/constants/strategic-lender-shortlist";
 import {
   buildOpportunityLoanWorkspaceHref,
   rememberOpportunityActiveLoan,
@@ -219,7 +222,7 @@ export function WorkspaceLifePanel({
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
   const [probFlash, setProbFlash] = useState(false);
   const [shortlist, setShortlist] = useState(() =>
-    opportunityId ? getStrategicShortlist(opportunityId) : [],
+    opportunityId ? enforceStrategicShortlistMax(opportunityId) : [],
   );
   const [analysis, setAnalysis] = useState(() =>
     opportunityId ? getStrategicAnalysis(opportunityId) : [],
@@ -236,7 +239,7 @@ export function WorkspaceLifePanel({
       setAnalysis([]);
       return;
     }
-    setShortlist(getStrategicShortlist(opportunityId));
+    setShortlist(enforceStrategicShortlistMax(opportunityId));
     setAnalysis(getStrategicAnalysis(opportunityId));
   }, [opportunityId, refreshKey]);
 
@@ -497,19 +500,29 @@ export function WorkspaceLifePanel({
       eligibility: saved.eligibility,
       eligibilityNote: saved.eligibilityNote,
     });
-    const nextShortlist = upsertStrategicShortlistItem(opportunityId, {
-      lenderRef: saved.lenderRef ?? `lender:${saved.lenderName.toLowerCase().replace(/\s+/g, "-")}`,
-      lenderName: saved.lenderName,
-      product: productLabel || productDisplayLabel(saved.productRefs?.[0] ?? OPPORTUNITY_PRODUCT_REF),
-      productRefs: saved.productRefs,
-      successProbability: saved.successProbability,
-      expectedRoi: undefined,
-      specialNotes: saved.recommended ? "Recommended by LIFE" : undefined,
-      branchName: saved.branchName,
-      executorName: saved.executorName,
-      reportingManagerName: saved.reportingManagerName,
-      createdBy: "RM",
-    });
+    let nextShortlist;
+    try {
+      nextShortlist = upsertStrategicShortlistItem(opportunityId, {
+        lenderRef: saved.lenderRef ?? `lender:${saved.lenderName.toLowerCase().replace(/\s+/g, "-")}`,
+        lenderName: saved.lenderName,
+        product: productLabel || productDisplayLabel(saved.productRefs?.[0] ?? OPPORTUNITY_PRODUCT_REF),
+        productRefs: saved.productRefs,
+        successProbability: saved.successProbability,
+        expectedRoi: undefined,
+        specialNotes: saved.recommended ? "Recommended by LIFE" : undefined,
+        branchName: saved.branchName,
+        executorName: saved.executorName,
+        reportingManagerName: saved.reportingManagerName,
+        createdBy: "RM",
+      });
+    } catch (err) {
+      if (isStrategicShortlistLimitError(err)) {
+        toast.message(err.message || STRATEGY_SHORTLIST_LIMIT_GUIDANCE);
+        setShortlist(enforceStrategicShortlistMax(opportunityId));
+        return;
+      }
+      throw err;
+    }
     setShortlist(nextShortlist);
     // Live sync into IDENTIFIED when a loan file is already linked
     const loans = resolveLoansForOpportunity(opportunityId, contact);
@@ -561,16 +574,29 @@ export function WorkspaceLifePanel({
       next = removeStrategicShortlistItem(opportunityId, inst.lenderRef || inst.lenderName);
       toast.message(`${inst.lenderName} removed from shortlist.`);
     } else {
-      next = upsertStrategicShortlistItem(opportunityId, {
-        lenderRef: inst.lenderRef,
-        lenderName: inst.lenderName,
-        product: productLabel || productDisplayLabel(inst.productRefs[0] ?? OPPORTUNITY_PRODUCT_REF),
-        productRefs: inst.productRefs,
-        successProbability: inst.successProbability,
-        specialNotes: inst.recommended ? "Recommended by LIFE" : undefined,
-        createdBy: "RM",
-      });
-      toast.success(`${inst.lenderName} shortlisted.`);
+      if (isStrategicShortlistAtLimit(opportunityId)) {
+        toast.message(STRATEGY_SHORTLIST_LIMIT_GUIDANCE);
+        return;
+      }
+      try {
+        next = upsertStrategicShortlistItem(opportunityId, {
+          lenderRef: inst.lenderRef,
+          lenderName: inst.lenderName,
+          product: productLabel || productDisplayLabel(inst.productRefs[0] ?? OPPORTUNITY_PRODUCT_REF),
+          productRefs: inst.productRefs,
+          successProbability: inst.successProbability,
+          specialNotes: inst.recommended ? "Recommended by LIFE" : undefined,
+          createdBy: "RM",
+        });
+        toast.success(`${inst.lenderName} shortlisted.`);
+      } catch (err) {
+        if (isStrategicShortlistLimitError(err)) {
+          toast.message(err.message || STRATEGY_SHORTLIST_LIMIT_GUIDANCE);
+          setShortlist(enforceStrategicShortlistMax(opportunityId));
+          return;
+        }
+        throw err;
+      }
     }
     setShortlist(next);
     const loans = resolveLoansForOpportunity(opportunityId, contact);
@@ -590,9 +616,13 @@ export function WorkspaceLifePanel({
       return;
     }
     const sync = identifyLenderFromAnalysis(loans[0].id, opportunityId, lenderRef);
-    setShortlist(getStrategicShortlist(opportunityId));
+    setShortlist(enforceStrategicShortlistMax(opportunityId));
     setAnalysis(getStrategicAnalysis(opportunityId));
     rememberOpportunityActiveLoan(opportunityId, loans[0].id);
+    if (!sync.ok) {
+      toast.message(sync.message);
+      return;
+    }
     toast.success(sync.message);
   };
 
@@ -600,19 +630,31 @@ export function WorkspaceLifePanel({
     if (!opportunityId) return;
     let items = shortlist;
     if (items.length === 0 && selectedLender) {
-      items = upsertStrategicShortlistItem(opportunityId, {
-        lenderRef: `lender:${selectedLender.lenderName.toLowerCase().replace(/\s+/g, "-")}`,
-        lenderName: selectedLender.lenderName,
-        product: productLabel,
-        productRefs: selectedLender.productRefs,
-        successProbability: selectedLender.successProbability,
-        specialNotes: selectedLender.recommended ? "Recommended by LIFE" : undefined,
-        branchName: selectedLender.branchName,
-        executorName: selectedLender.executorName,
-        reportingManagerName: selectedLender.reportingManagerName,
-        createdBy: "RM",
-      });
-      setShortlist(items);
+      if (isStrategicShortlistAtLimit(opportunityId)) {
+        toast.message(STRATEGY_SHORTLIST_LIMIT_GUIDANCE);
+        return;
+      }
+      try {
+        items = upsertStrategicShortlistItem(opportunityId, {
+          lenderRef: `lender:${selectedLender.lenderName.toLowerCase().replace(/\s+/g, "-")}`,
+          lenderName: selectedLender.lenderName,
+          product: productLabel,
+          productRefs: selectedLender.productRefs,
+          successProbability: selectedLender.successProbability,
+          specialNotes: selectedLender.recommended ? "Recommended by LIFE" : undefined,
+          branchName: selectedLender.branchName,
+          executorName: selectedLender.executorName,
+          reportingManagerName: selectedLender.reportingManagerName,
+          createdBy: "RM",
+        });
+        setShortlist(items);
+      } catch (err) {
+        if (isStrategicShortlistLimitError(err)) {
+          toast.message(err.message || STRATEGY_SHORTLIST_LIMIT_GUIDANCE);
+          return;
+        }
+        throw err;
+      }
     }
     if (items.length === 0) {
       toast.error("Shortlist at least one lender before moving to execution.");

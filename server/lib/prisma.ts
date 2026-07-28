@@ -17,6 +17,16 @@ export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: serverEnv.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    /**
+     * CO-QA-005 — Align interactive transaction maxWait with Postgres pool_timeout
+     * (Prisma default maxWait=2s < pool_timeout=10s → false "Unable to start a transaction").
+     * Root cause is connection checkout under Supabase pooler :6543, not slow SQL.
+     * Do not treat this as a substitute for reducing sequential $transaction calls.
+     */
+    transactionOptions: {
+      maxWait: 10_000,
+      timeout: 20_000,
+    },
   });
 
 if (serverEnv.NODE_ENV !== "production") {

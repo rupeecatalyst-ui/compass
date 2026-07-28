@@ -148,6 +148,8 @@ export class EcmCompanyService {
     companyId: string;
     contactId: string;
     relationRole: EcmCompanyRelationRole;
+    designation?: string | null;
+    department?: string | null;
     createdBy: string;
   }) {
     const organizationId = await resolvePilotOrganizationId();
@@ -161,6 +163,8 @@ export class EcmCompanyService {
       companyId: input.companyId,
       contactId: input.contactId,
       relationRole: input.relationRole,
+      designation: input.designation,
+      department: input.department,
       createdBy: input.createdBy,
     });
 

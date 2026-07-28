@@ -50,7 +50,7 @@ export async function persistNewOpportunityToEnterpriseRegistry(
   }
   if (!file.customerId?.trim()) {
     throw new DealCreatePersistenceError(
-      "primaryContactId (customerId) is required to create an Opportunity",
+      "Borrower party id (customerId) is required to create an Opportunity — Contact for Individual borrowers",
       "VALIDATION",
       400,
     );

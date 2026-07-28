@@ -26,6 +26,7 @@ import {
 } from "@/constants/document-requests";
 import { queueOutboxMessage } from "@/lib/enterprise-action-center";
 import { subscribeDocumentRegistryUpdated } from "@/lib/document-registry";
+import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import {
   buildCustomerEngagementPortalPath,
   createOrRegenerateUploadSession,
@@ -149,6 +150,7 @@ export function WorkspaceDocumentRequestsPanel() {
     stageCode,
     leadCaseFile,
     opportunity,
+    registryOpportunity,
   } = useOpportunityWorkspace();
 
   const actor =
@@ -156,9 +158,25 @@ export function WorkspaceDocumentRequestsPanel() {
     user?.email ||
     "Relationship Manager";
 
-  const customerName = contact?.name?.trim() || leadCaseFile?.customerName || "—";
-  const mobile = contact?.mobilePrimary || leadCaseFile?.customerMobile || "";
-  const email = contact?.personalEmail || contact?.officialEmail || leadCaseFile?.customerEmail || "";
+  const borrower = registryOpportunity
+    ? resolveOpportunityBorrowerIdentity(registryOpportunity)
+    : null;
+  const customerName =
+    borrower?.displayName ||
+    contact?.name?.trim() ||
+    leadCaseFile?.customerName ||
+    "—";
+  const mobile =
+    borrower?.primaryContactMobile ||
+    contact?.mobilePrimary ||
+    leadCaseFile?.customerMobile ||
+    "";
+  const email =
+    borrower?.primaryContactEmail ||
+    contact?.personalEmail ||
+    contact?.officialEmail ||
+    leadCaseFile?.customerEmail ||
+    "";
   const employmentType =
     contact?.employmentType || leadCaseFile?.employmentType || "";
   const statedDraft = useMemo(

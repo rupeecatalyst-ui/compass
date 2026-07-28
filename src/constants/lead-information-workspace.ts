@@ -1,27 +1,21 @@
 /**
  * ADR-018 Wave 2 — Lead Information Workspace constants.
- * Product options are a selection catalog — never applied as silent defaults.
+ * Product options: CO-ADMIN-005 canonical Product Master (fallback).
+ * Runtime screens should prefer useProductMasterOptions() for live registry.
  */
+
+import {
+  getCanonicalProductByCode,
+  listCanonicalProductOptions,
+} from "@/constants/enterprise-product-master";
 
 export const LEAD_INFORMATION_ROUTE = "/lead-information";
 
-/** Catalog for explicit user selection only (CAD: no fabricated default).
- * Phase 1 EDIE LOD products are included so Opportunity Creation can BAT Generate LOD. */
-export const LEAD_INFORMATION_PRODUCT_OPTIONS = [
-  { code: "HOME_LOAN", label: "Home Loan" },
-  { code: "HOME_LOAN_BT", label: "Home Loan Balance Transfer" },
-  { code: "LAP", label: "Loan Against Property" },
-  { code: "PERSONAL_LOAN", label: "Personal Loan" },
-  { code: "EDUCATION_LOAN", label: "Education Loan" },
-  { code: "CAR_LOAN", label: "Car Loan" },
-  { code: "GOLD_LOAN", label: "Gold Loan" },
-  { code: "LOAN_AGAINST_SECURITIES", label: "Loan Against Securities" },
-  { code: "UNSECURED_BUSINESS_LOAN", label: "Unsecured Business Loan" },
-  /** Alias retained for existing Opportunities — same EDIE pack as Unsecured Business Loan */
-  { code: "BUSINESS_LOAN", label: "Business Loan (Unsecured)" },
-  { code: "WORKING_CAPITAL", label: "Working Capital" },
-  { code: "PLOT_LOAN", label: "Plot Loan" },
-] as const;
+/** Catalog for explicit user selection only (CAD: no fabricated default). */
+export const LEAD_INFORMATION_PRODUCT_OPTIONS = listCanonicalProductOptions(true).map((p) => ({
+  code: p.code,
+  label: p.label,
+}));
 
 export const LEAD_INFORMATION_TRANSACTION_OPTIONS = [
   { value: "fresh", label: "Fresh" },
@@ -50,6 +44,18 @@ export type LeadInformationFormState = {
   transactionType: string;
   /** Same values as LoanFile.lendingType — stored in lendingExtension. */
   lendingType: string;
+  /** Mandatory Business Source / Source Type (Opportunity.sourceCode). */
+  businessSource: string;
+  /** Source Contact — registry id (Opportunity.sourceContactId). */
+  sourceContactId: string;
+  /** Source Contact display name (Opportunity.sourceContactName). */
+  sourceContactName: string;
+  /** CO-OPP-003 — Wealth Partner Registry id. */
+  sourceWealthPartnerId: string;
+  /** CO-OPP-003 — Participation Role (Wealth Partner only). */
+  participationRole: string;
+  /** CO-OPP-003 — Marketing campaign label. */
+  sourceCampaignLabel: string;
   employmentTypeCode: string;
   /** CO-SPRINT-101 Approximate CIBIL Score (shared master) — Opportunity capture label: Expected CIBIL Score */
   approxCibilScore: string;
@@ -70,6 +76,12 @@ export function emptyLeadInformationForm(): LeadInformationFormState {
     requestedAmount: "",
     transactionType: "",
     lendingType: "",
+    businessSource: "",
+    sourceContactId: "",
+    sourceContactName: "",
+    sourceWealthPartnerId: "",
+    participationRole: "",
+    sourceCampaignLabel: "",
     employmentTypeCode: "",
     approxCibilScore: "",
     cityLabel: "",
@@ -129,25 +141,10 @@ export function resolveDefaultLendingTypeForProduct(
   productCode?: string | null,
   productLabel?: string | null,
 ): "secured" | "unsecured" | "" {
-  const code = productCode?.trim().toUpperCase() || "";
+  const canonical = getCanonicalProductByCode(productCode);
+  if (canonical) return canonical.isSecured ? "secured" : "unsecured";
+
   const label = productLabel?.trim() || "";
-
-  const byCode: Record<string, "secured" | "unsecured"> = {
-    HOME_LOAN: "secured",
-    HOME_LOAN_BT: "secured",
-    LAP: "secured",
-    WORKING_CAPITAL: "secured",
-    PLOT_LOAN: "secured",
-    PERSONAL_LOAN: "unsecured",
-    EDUCATION_LOAN: "unsecured",
-    CAR_LOAN: "secured",
-    GOLD_LOAN: "secured",
-    LOAN_AGAINST_SECURITIES: "secured",
-    UNSECURED_BUSINESS_LOAN: "unsecured",
-    BUSINESS_LOAN: "unsecured",
-  };
-  if (code && byCode[code]) return byCode[code];
-
   const normalized = label.toLowerCase();
   if (
     normalized.includes("personal loan") ||
@@ -163,13 +160,15 @@ export function resolveDefaultLendingTypeForProduct(
     normalized.includes("working capital") ||
     normalized.includes("plot loan") ||
     normalized.includes("construction finance") ||
-    normalized.includes("commercial property") ||
+    normalized.includes("commercial") ||
     normalized.includes("lease rental") ||
-    normalized.includes("machinery loan")
+    normalized.includes("project finance")
   ) {
     return "secured";
   }
-  if (normalized.includes("business loan")) return "unsecured";
+  if (normalized.includes("business loan") || normalized.includes("education") || normalized.includes("doctor") || normalized.includes("professional")) {
+    return "unsecured";
+  }
 
   return "";
 }

@@ -9,8 +9,8 @@ export default function MyDealsPage() {
     <Suspense
       fallback={
         <ChanakyaLoadingExperience
-          module="deal"
-          statusLabel="Opening My Deals…"
+          module="my-deals"
+          statusLabel="Loading active Deals..."
           density="panel"
         />
       }

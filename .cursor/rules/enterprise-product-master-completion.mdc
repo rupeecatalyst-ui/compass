@@ -1,0 +1,30 @@
+# CO-ADMIN-006 — Product Master Functional Completion
+
+Status: **ENTERPRISE APPROVED**  
+Extends: CO-ADMIN-005 Product & Lender Master
+
+## Principles
+
+1. Categories, Groups, and Products are **Master Data** maintained by administrators in the UI.
+2. No developer intervention to add a product.
+3. Operational dropdowns consume Product Registry (`useProductMasterOptions`) — canonical catalog is fallback only.
+4. Product Registry APIs require `ENTERPRISE_PERSISTENCE_MODE=prisma`.
+
+## SSOT
+
+| Concern | Path |
+|--------|------|
+| Category/Group UI | `/admin/product-library/categories` |
+| Product Master UI | `/admin/product-library/master` |
+| Admin client | `src/lib/enterprise-product-master/admin-client.ts` |
+| Runtime options | `src/lib/enterprise-product-master/options.ts` |
+| Canonical seed fallback | `src/constants/enterprise-product-master/` |
+| Taxonomy seeds | `src/data/catalyst-one/product-library/product-*-seed.ts` |
+| APIs | `/api/product-registry/*` |
+| Docs | `docs/co-admin-006/CO-ADMIN-006-PRODUCT-MASTER-COMPLETION-REPORT.md` |
+
+## Forbidden
+
+- Page-specific hard-coded product option lists for Opportunity / Deal / Policy operational selects
+- Masking Product Registry errors as a fixed “Failed to query products” without actionable detail
+- Deleting a Category/Group that still has children

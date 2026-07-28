@@ -49,6 +49,7 @@ import {
   displayOpportunityEnumLabel,
   displayOpportunityText,
 } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { formatOpportunitySourceDisplay } from "@/constants/opportunity-business-source";
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
 import { buildJourneyHref, getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
@@ -556,6 +557,13 @@ export function CreditBenchWorkspace() {
                   <ReadOnly
                     label="Relationship Manager"
                     value={displayOpportunityText(file.relationshipManager)}
+                  />
+                  <ReadOnly
+                    label="SOURCE"
+                    value={formatOpportunitySourceDisplay(
+                      file.source,
+                      file.sourceContactName,
+                    )}
                   />
                 </div>
               </Panel>

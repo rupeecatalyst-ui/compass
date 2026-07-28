@@ -1,0 +1,77 @@
+---
+description: CO-QA-001 Enterprise Regression Certification — E2E scenario required; fail keeps module OPEN
+alwaysApply: true
+---
+
+# CO-QA-001 — Enterprise Regression Certification Standard
+
+Status: **ENTERPRISE APPROVED** · Effective immediately · Permanent  
+Sprint / Standard ID: **CO-QA-001**
+
+## Effective immediately
+
+Every Business Certified module must include **at least one real end-to-end business scenario**.
+
+Whenever any **related domain** changes, that scenario **must be re-run**.
+
+## What does NOT grant Business Certification
+
+Business Certification is **NOT** granted solely based on:
+
+- Successful build  
+- TypeScript  
+- Lint  
+- Verify scripts  
+- Smoke tests  
+
+These are **engineering gates only**.
+
+## What grants Business Certification readiness
+
+Business Certification requires **successful execution** of the defined end-to-end scenario on the live certification / production application.
+
+Product Owner may then explicitly accept (“Business Certified”). Until then, agents may only claim Ready / Partially Ready / Requires Further Development per `business-functional-certification-report.mdc`.
+
+## Failure rule (non-negotiable)
+
+If the end-to-end scenario **fails**, the module remains **OPEN** regardless of technical verification status (build / TypeScript / lint / verify / smoke).
+
+Do **not** close the sprint, mark Ready for Business Certification, or imply certification while the Scenario Pack is Fail or not yet run.
+
+## Related domain change → mandatory re-run
+
+Re-run the module’s Scenario Pack before claiming Ready / Certified when changes touch:
+
+- Persistence, purge, storage keys, migrations  
+- Association / ownership / identity keys  
+- Registry / API list filters  
+- Hydration / projection adapters  
+- Cross-entity linkage (Document / Task / Deal / Opportunity / Contact)  
+- Navigation or workspace entry that loads the entity  
+
+A prior Pass is **invalidated** until the scenario is re-run and Passes again.
+
+## Scenario Pack (required artefact)
+
+Every Business Certified (or BAT-bound) module must maintain:
+
+`docs/<module-or-sprint>/<MODULE>-E2E-SCENARIO.md`
+
+Template: `docs/governance/E2E-BUSINESS-SCENARIO-PACK-TEMPLATE.md`  
+Programme docs: `docs/co-qa-001/`
+
+Minimum contents: Scenario ID · business path · preconditions · live steps · expected outcomes · related-domain re-run triggers · last-run log.
+
+## Agent behaviour
+
+1. Identify or create the Scenario Pack before claiming module completion.  
+2. Prefer live observable business outcomes over verify-script Pass.  
+3. On related-domain change: name the Scenario Pack(s) to re-run; treat prior certification as stale until Pass.  
+4. On Scenario Fail: module status = **OPEN**; report Fail honestly; do not soft-close on engineering gates.  
+
+## Related
+
+- `business-functional-certification-report.mdc`  
+- `business-certification-e2e-scenario.mdc` (operational detail; authority is this CO-QA-001 rule)  
+- `implementation-lifecycle-pre-golive.mdc`  
+- `docs/co-qa-001/CO-QA-001-ENTERPRISE-REGRESSION-CERTIFICATION-STANDARD.md`  

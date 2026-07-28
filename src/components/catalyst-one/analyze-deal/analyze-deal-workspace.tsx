@@ -277,7 +277,7 @@ export function AnalyzeDealWorkspace({
               Analyze Deal
             </SheetTitle>
             <SheetDescription className="text-xs leading-relaxed text-muted-foreground">
-              High-level strategic evaluation before creating a Loan File. Phase 1 is UX architecture
+              High-level strategic evaluation before creating a Deal. Phase 1 is UX architecture
               only — recommendations are demo placeholders.
             </SheetDescription>
           </SheetHeader>

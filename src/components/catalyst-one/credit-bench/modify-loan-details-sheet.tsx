@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Save } from "lucide-react";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +37,7 @@ import {
   resolveDefaultLendingTypeForProduct,
   type LeadInformationFormState,
 } from "@/constants/lead-information-workspace";
+import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import { OPPORTUNITY_FIELD_NOT_SPECIFIED } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import {
   buildLeadInformationPatchBody,
@@ -102,6 +104,9 @@ export function ModifyLoanDetailsSheet({
   const [errors, setErrors] = useState<
     Partial<Record<keyof LeadInformationFormState, string>>
   >({});
+  const { options: productOptions } = useProductMasterOptions(true);
+  const productCatalog =
+    productOptions.length > 0 ? productOptions : LEAD_INFORMATION_PRODUCT_OPTIONS;
 
   const load = useCallback(async () => {
     if (!opportunityId) return;
@@ -144,7 +149,7 @@ export function ModifyLoanDetailsSheet({
 
   const onProductChange = (codeOrNone: string) => {
     const code = fromSelectValue(codeOrNone);
-    const hit = LEAD_INFORMATION_PRODUCT_OPTIONS.find((p) => p.code === code);
+    const hit = productCatalog.find((p) => p.code === code);
     const defaultLending = resolveDefaultLendingTypeForProduct(
       hit?.code ?? "",
       hit?.label ?? "",
@@ -203,10 +208,12 @@ export function ModifyLoanDetailsSheet({
 
         <div className="flex-1 space-y-4 overflow-y-auto py-4">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading…
-            </div>
+            <ChanakyaLoadingExperience
+              module="opportunity"
+              statusLabel="Loading Opportunity details..."
+              density="inline"
+              useEbiSignals={false}
+            />
           ) : (
             <>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -217,7 +224,7 @@ export function ModifyLoanDetailsSheet({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={LEAD_INFORMATION_NONE}>Not Selected</SelectItem>
-                      {LEAD_INFORMATION_PRODUCT_OPTIONS.map((p) => (
+                      {productCatalog.map((p) => (
                         <SelectItem key={p.code} value={p.code}>
                           {p.label}
                         </SelectItem>

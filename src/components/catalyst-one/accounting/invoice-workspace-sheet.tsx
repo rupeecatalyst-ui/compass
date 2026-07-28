@@ -106,7 +106,7 @@ export function InvoiceWorkspaceSheet({
 
               <Section title="Loan Details">
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
-                  <Fact label="Loan File" value={invoice.loanFileRef} />
+                  <Fact label="Deal" value={invoice.loanFileRef} />
                   <Fact label="Lender" value={invoice.lender} />
                   <Fact label="Product" value={invoice.product} />
                   <Fact label="Loan Amount" value={formatINR(invoice.loanAmount)} />

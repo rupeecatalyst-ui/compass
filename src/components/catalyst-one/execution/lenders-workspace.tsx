@@ -143,7 +143,7 @@ export function LendersWorkspace({
     <ExecutionWorkspaceShell
       theme="blue"
       title="Lenders"
-      subtitle="Track single or multiple lenders for this loan file."
+      subtitle="Track single or multiple lenders for this Deal."
       statusLabel={statusLabel}
       search={search}
       onSearchChange={setSearch}

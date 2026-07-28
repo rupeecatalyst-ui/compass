@@ -179,13 +179,16 @@ function ContactsRegistryInner() {
     setWorkspaceOpen(true);
     refresh();
 
-    if (creationIntent?.kind === "individual_company" && creationIntent.companyName) {
+    if (creationIntent?.kind === "company" && creationIntent.companyName) {
       setActiveCompany(null);
       setCompanyMode("create");
       setCompanyInitialName(creationIntent.companyName);
-      setLinkContactId(contact.id);
+      setLinkContactId(undefined);
       setCompanyOpen(true);
+      setCreationIntent(null);
+      return;
     }
+
     setCreationIntent(null);
   };
 
@@ -267,7 +270,7 @@ function ContactsRegistryInner() {
         }
         onOpenChange={(open) => {
           setWizardOpen(open);
-          if (!open && creationIntent?.kind !== "individual_company") setCreationIntent(null);
+          if (!open) setCreationIntent(null);
         }}
         onCreated={onWizardCreated}
         onOpenExisting={(contact) => {

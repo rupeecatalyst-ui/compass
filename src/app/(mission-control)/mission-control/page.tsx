@@ -16,7 +16,7 @@ export default function MissionControlLandingPage() {
         <ChanakyaLoadingExperience
           module="mission-control"
           surface="command"
-          statusLabel="Opening CHANAKYA Radar…"
+          statusLabel="Preparing Mission Control..."
           density="panel"
         />
       }

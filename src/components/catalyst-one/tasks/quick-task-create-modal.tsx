@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuthContext } from "@/components/providers/auth-provider";
-import { listEligibleAssignedUsers } from "@/lib/assigned-users";
+import { searchAssignableUsers, type AssignedUserRef } from "@/lib/assigned-users";
 import {
   registerChanakyaTaskMonitoring,
   registerEteTask,
@@ -78,12 +78,34 @@ export function QuickTaskCreateModal({
   const [entitySearch, setEntitySearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const employees = useMemo(() => listEligibleAssignedUsers(), []);
+  const [employees, setEmployees] = useState<AssignedUserRef[]>([]);
 
   const lockedContext = Boolean(
     context?.contactId || context?.opportunityId || context?.dealId || context?.fileId,
   );
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void searchAssignableUsers("")
+      .then((rows) => {
+        if (cancelled) return;
+        const mapped = rows.map((u) => ({
+          id: u.id,
+          name: u.fullName,
+          email: u.email,
+          employeeId: u.employeeId ?? undefined,
+        }));
+        setEmployees(mapped);
+        setAssigneeId((prev) => prev || mapped[0]?.id || "");
+      })
+      .catch(() => {
+        if (!cancelled) setEmployees([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -93,11 +115,10 @@ export function QuickTaskCreateModal({
     setDueOn("");
     setReminderAt("");
     setError(null);
-    setAssigneeId(employees[0]?.id ?? "");
     if (context?.opportunityId) setEntityKind("opportunity");
     else if (context?.dealId || context?.fileId) setEntityKind("deal");
     else if (context?.contactId) setEntityKind("contact");
-  }, [open, employees, context?.opportunityId, context?.dealId, context?.fileId, context?.contactId]);
+  }, [open, context?.opportunityId, context?.dealId, context?.fileId, context?.contactId]);
 
   const contextSummary = useMemo(() => {
     if (context?.opportunityId) return `Opportunity · ${context.opportunityId}`;

@@ -1,0 +1,48 @@
+# Enterprise Borrower Domain (CO-DOM-001 / CO-DOM-001A) — Platform Constitution
+
+Status: **ENTERPRISE APPROVED** · Frozen · Canonical borrower identity  
+Sprint foundation: **CO-DOM-001** · Domain migration: **CO-DOM-001A**
+
+## Constitutional model
+
+Primary Borrower is **never** assumed to be a Contact.
+
+| `primaryBorrowerKind` | Borrower entity | Contacts role |
+|---|---|---|
+| `individual` | Contact (`primaryContactId`) | The borrower is the Contact |
+| `company` | Company (`companyId`) | Representatives / communication only |
+
+## SSOT
+
+| Concern | Path |
+|---|---|
+| Kind constants | `src/constants/opportunity-primary-borrower.ts` |
+| Identity projection | `src/lib/enterprise-borrower-identity/` |
+| Opportunity create (company) | `src/lib/enterprise-opportunity/start-opportunity-from-company.ts` |
+| Opportunity create (contact) | `src/lib/enterprise-opportunity/start-opportunity-from-contact.ts` |
+
+## Mandatory consumer rule
+
+Display names, party ids, session context, registry rows, Deal create, runtime projections, Action Center participants, and Move-to-Deal seeds **must** call:
+
+- `resolveOpportunityBorrowerIdentity` / `resolveDealBorrowerIdentity`
+- or `borrowerDisplayNameOrDash`
+
+Never:
+
+- `customerName = opportunity.primaryContactName` alone
+- `customerId = primaryContactId` alone when `primaryBorrowerKind === company`
+- Require `primaryContactId` for Company borrowers
+
+## Forbidden
+
+- Parallel borrower / customer registries
+- Treating Company representatives as automatic applicants / guarantors
+- Inventing Individual names for Company Opportunities (CAD-2026-001)
+
+## Related
+
+- `docs/co-dom-001/CO-DOM-001-BORROWER-CONTACT-READINESS-REPORT.md`
+- `docs/co-dom-001a/CO-DOM-001A-DOMAIN-MIGRATION-REPORT.md`
+- `progressive-contact-creation.mdc`
+- `business-data-provenance-cad-2026-001.mdc`

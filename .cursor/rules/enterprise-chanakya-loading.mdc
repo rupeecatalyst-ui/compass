@@ -1,0 +1,48 @@
+# Enterprise CHANAKYA Loading Experience (CO-UX-008)
+
+Status: **ENTERPRISE APPROVED · FROZEN**  
+Priority: **CRITICAL** · Scope: entire Catalyst One platform
+
+## Constitution
+
+> Users should never wait without receiving value.
+
+Every loading state must Inform · Guide · Educate · Reassure · Increase business awareness.
+
+A meaningless spinner must never be shown when a contextual CHANAKYA experience can be displayed.
+
+## Canonical framework
+
+| Concern | Path |
+|--------|------|
+| UI | `src/components/catalyst-one/chanakya-loading/` |
+| Controlled gate | `EnterpriseLoadingSurface` |
+| Session / levels | `src/lib/chanakya-loading/use-chanakya-loading-session.ts` |
+| Message compose | `src/lib/chanakya-loading/compose-messages.ts` |
+| Live signals (EBI) | `src/lib/chanakya-loading/derive-live-signals.ts` |
+| Catalogs | `src/constants/chanakya-loading/` |
+| Types | `src/types/chanakya-loading.ts` |
+
+## Loading levels
+
+1. **&lt; 500ms** — no loading UI  
+2. **500ms–2s** — CHANAKYA + preparing line  
+3. **&gt; 2s** — rotate prioritised messages every 2.5s (fade only)
+
+Never artificially delay when work is ready.
+
+## Priority order
+
+Critical → Pending work → Business insights → Progress → Tips → Knowledge  
+
+Never show educational tips while critical / pending work exists.
+
+## Data
+
+Live insights consume **EBI compose** (and optional caller-supplied signals from EME / ETE / Deal Registry). Do not invent parallel KPI formulas.
+
+## Forbidden
+
+- Page-specific spinner frameworks  
+- Second loading experience libraries  
+- Hardcoded demo business numbers in loading copy (use live signals or static educational text only)

@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { Home, Trash2, UserRound, Users } from "lucide-react";
+import { Building2, Home, Trash2, UserRound, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EntityMasterSearch } from "@/components/catalyst-one/shared/entity-master-search";
+import { LiveEntityMasterSearch } from "@/components/catalyst-one/shared/live-entity-master-search";
+import type { EntityMasterOption } from "@/components/catalyst-one/shared/entity-master-search";
 import { ProgressiveContactCreateModal } from "@/components/catalyst-one/contacts/progressive-contact-create-modal";
 import {
   buildDefaultParticipantEntityOptions,
@@ -24,18 +25,27 @@ import {
 } from "@/lib/loan-participants";
 import type {
   LoanParticipant,
+  LoanParticipantEntityType,
   LoanParticipantRole,
   ParticipantEntityOption,
 } from "@/types/loan-participant";
 import type { LoanFile } from "@/types/catalyst-one";
 import type { ProgressiveParticipantKind } from "@/lib/enterprise-contact-master";
 import type { EcmContact } from "@/types/enterprise-contact-master";
+import type { EnterpriseCompanyOption } from "@/lib/enterprise-registry/companies";
+import type { EnterpriseContactOption } from "@/lib/enterprise-registry/contacts";
 import { cn } from "@/lib/utils";
 
-type AssignableRole = "primary_applicant" | "co_applicant" | "guarantor";
+type AssignableRole = "primary_applicant" | "co_applicant" | "guarantor" | "company";
 
-const ASSIGNABLE_ROLES: { value: AssignableRole; label: string }[] = [
+const INDIVIDUAL_ROLES: { value: AssignableRole; label: string }[] = [
   { value: "primary_applicant", label: "Primary Applicant" },
+  { value: "co_applicant", label: "Co-Applicant" },
+  { value: "guarantor", label: "Guarantor" },
+];
+
+const COMPANY_ROLES: { value: AssignableRole; label: string }[] = [
+  { value: "company", label: "Company / Business Entity" },
   { value: "co_applicant", label: "Co-Applicant" },
   { value: "guarantor", label: "Guarantor" },
 ];
@@ -81,6 +91,8 @@ export function OpportunityLoanStructureTab({
   readOnly?: boolean;
   headerAction?: React.ReactNode;
 }) {
+  const [addEntityType, setAddEntityType] =
+    useState<LoanParticipantEntityType>("individual");
   const [addRole, setAddRole] = useState<AssignableRole>("co_applicant");
   const [addAsPropertyOwner, setAddAsPropertyOwner] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -88,13 +100,15 @@ export function OpportunityLoanStructureTab({
   const [extraOptions, setExtraOptions] = useState<ParticipantEntityOption[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const roleOptions = addEntityType === "company" ? COMPANY_ROLES : INDIVIDUAL_ROLES;
+
   const entityOptions = useMemo(() => {
     const live = buildDefaultParticipantEntityOptions();
     const byKey = new Map<string, ParticipantEntityOption>();
     for (const row of [...live, ...extraOptions]) {
       byKey.set(`${row.entityType}:${row.id}`, row);
     }
-    return [...byKey.values()].filter((o) => o.entityType === "individual");
+    return [...byKey.values()];
   }, [extraOptions]);
 
   const active = useMemo(
@@ -102,16 +116,22 @@ export function OpportunityLoanStructureTab({
     [participants],
   );
 
-  const pickerOptions = useMemo(
+  const fallbackPickerOptions = useMemo(
     () =>
       entityOptions
-        .filter((o) => !active.some((p) => p.entityId === o.id))
+        .filter((o) => o.entityType === addEntityType)
+        .filter(
+          (o) =>
+            !active.some(
+              (p) => p.entityId === o.id && p.entityType === addEntityType,
+            ),
+        )
         .map((o) => ({
           id: o.id,
           label: o.name,
-          sublabel: o.mobile || o.email,
+          sublabel: o.mobile || o.constitution || o.email,
         })),
-    [entityOptions, active],
+    [entityOptions, active, addEntityType],
   );
 
   const structurePreview = useMemo(() => {
@@ -120,8 +140,12 @@ export function OpportunityLoanStructureTab({
       .map((p) => p.name);
     const cos = active.filter((p) => p.role === "co_applicant").map((p) => p.name);
     const guars = active.filter((p) => p.role === "guarantor").map((p) => p.name);
+    const companies = active
+      .filter((p) => p.entityType === "company" || p.role === "company")
+      .filter((p) => p.role !== "co_applicant" && p.role !== "guarantor")
+      .map((p) => p.name);
     const owners = active.filter((p) => p.isPropertyOwner).map((p) => p.name);
-    return { primary, cos, guars, owners };
+    return { primary, cos, guars, companies, owners };
   }, [active]);
 
   const enforceSinglePrimary = (
@@ -134,19 +158,41 @@ export function OpportunityLoanStructureTab({
         : p,
     );
 
+  const setParticipantType = (next: LoanParticipantEntityType) => {
+    setAddEntityType(next);
+    setAddRole(next === "company" ? "company" : "co_applicant");
+    setError(null);
+  };
+
   const addExisting = (option: ParticipantEntityOption) => {
-    if (active.some((p) => p.entityId === option.id)) {
-      setError("This contact is already in the Loan Structure.");
+    if (
+      active.some(
+        (p) => p.entityId === option.id && p.entityType === option.entityType,
+      )
+    ) {
+      setError(
+        option.entityType === "company"
+          ? "This company is already in the Loan Structure."
+          : "This contact is already in the Loan Structure.",
+      );
       return;
     }
+    const role: LoanParticipantRole =
+      option.entityType === "company" &&
+      (addRole === "co_applicant" || addRole === "guarantor")
+        ? addRole
+        : option.entityType === "company"
+          ? "company"
+          : addRole;
     const row: LoanParticipant = {
       id: createParticipantId(),
-      entityType: "individual",
+      entityType: option.entityType,
       entityId: option.id,
       name: option.name,
       mobile: option.mobile,
       email: option.email,
-      role: addRole,
+      constitution: option.constitution,
+      role,
       status: "active",
       isPropertyOwner: addAsPropertyOwner,
     };
@@ -156,6 +202,30 @@ export function OpportunityLoanStructureTab({
     }
     onChange(next);
     setError(null);
+  };
+
+  const addFromLiveSelect = (opt: EntityMasterOption) => {
+    if (addEntityType === "company") {
+      const company = opt as EnterpriseCompanyOption;
+      addExisting({
+        id: opt.id,
+        name: opt.label,
+        constitution: company.constitution,
+        entityType: "company",
+      });
+      return;
+    }
+    const contact = opt as EnterpriseContactOption;
+    const fromCache = entityOptions.find(
+      (o) => o.id === opt.id && o.entityType === "individual",
+    );
+    addExisting({
+      id: opt.id,
+      name: fromCache?.name || opt.label,
+      mobile: fromCache?.mobile || contact.mobile,
+      email: fromCache?.email || contact.email,
+      entityType: "individual",
+    });
   };
 
   const removeParticipant = (id: string) => {
@@ -196,8 +266,8 @@ export function OpportunityLoanStructureTab({
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold text-foreground">Loan Structure</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Build the participant structure for this Opportunity. Contacts come from the
-              Enterprise Contact Registry — no duplicate customers.
+              Build the participant structure for this Opportunity. Individuals come from the
+              Enterprise Contact Registry; companies from the Enterprise Company Registry.
             </p>
           </div>
           {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
@@ -220,12 +290,19 @@ export function OpportunityLoanStructureTab({
               names={active.filter((p) => p.role === "guarantor").map((p) => p.name)}
             />
             <StructureGroup
+              title="Borrowing Entity / Company"
+              names={active
+                .filter((p) => p.entityType === "company" || p.role === "company")
+                .filter((p) => p.role !== "co_applicant" && p.role !== "guarantor")
+                .map((p) => p.name)}
+            />
+            <StructureGroup
               title="Property Owners"
               names={active.filter((p) => p.isPropertyOwner).map((p) => p.name)}
             />
             {active.length === 0 ? (
               <p className="text-xs text-muted-foreground sm:col-span-2">
-                No participants yet. Click Modify to add contacts.
+                No participants yet. Click Modify to add contacts or companies.
               </p>
             ) : null}
           </div>
@@ -239,7 +316,7 @@ export function OpportunityLoanStructureTab({
             <ul className="space-y-2">
               {active.length === 0 ? (
                 <li className="rounded-lg border border-dashed border-border/70 px-3 py-6 text-center text-xs text-muted-foreground">
-                  No participants yet. Add a contact below.
+                  No participants yet. Add a contact or company below.
                 </li>
               ) : (
                 active.map((p) => (
@@ -249,29 +326,43 @@ export function OpportunityLoanStructureTab({
                   >
                     <div className="flex items-start gap-2">
                       <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground">
-                        <UserRound className="h-3.5 w-3.5" />
+                        {p.entityType === "company" ? (
+                          <Building2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <UserRound className="h-3.5 w-3.5" />
+                        )}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{p.name}</p>
                         <p className="truncate text-[11px] text-muted-foreground">
-                          {p.mobile || p.email || "Registry linked"}
+                          {p.entityType === "company" ? "Company" : "Individual"}
+                          {" · "}
+                          {p.mobile || p.email || p.constitution || "Registry linked"}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <Select
                             value={
                               p.role === "primary_applicant" ||
                               p.role === "guarantor" ||
-                              p.role === "co_applicant"
+                              p.role === "co_applicant" ||
+                              p.role === "company"
                                 ? p.role
-                                : "co_applicant"
+                                : p.entityType === "company"
+                                  ? "company"
+                                  : "co_applicant"
                             }
                             onValueChange={(v) => changeRole(p.id, v as AssignableRole)}
                           >
-                            <SelectTrigger className="h-8 w-[150px] text-xs">
+                            <SelectTrigger className="h-8 w-[170px] text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {ASSIGNABLE_ROLES.map((role) => (
+                              {[...INDIVIDUAL_ROLES, ...COMPANY_ROLES]
+                                .filter(
+                                  (r, i, arr) =>
+                                    arr.findIndex((x) => x.value === r.value) === i,
+                                )
+                                .map((role) => (
                                 <SelectItem
                                   key={role.value}
                                   value={role.value}
@@ -317,7 +408,33 @@ export function OpportunityLoanStructureTab({
             <div className="space-y-2 border-t border-border/60 pt-3">
               <Label className="text-[11px] text-muted-foreground">Add participant</Label>
               <div className="flex flex-wrap items-end gap-2">
+                <div className="w-[170px]">
+                  <Label className="mb-1 block text-[10px] text-muted-foreground">
+                    Participant Type
+                  </Label>
+                  <Select
+                    value={addEntityType}
+                    onValueChange={(v) =>
+                      setParticipantType(v as LoanParticipantEntityType)
+                    }
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="individual" className="text-xs">
+                        Individual
+                      </SelectItem>
+                      <SelectItem value="company" className="text-xs">
+                        Company / Business Entity
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="w-[150px]">
+                  <Label className="mb-1 block text-[10px] text-muted-foreground">
+                    Role
+                  </Label>
                   <Select
                     value={addRole}
                     onValueChange={(v) => setAddRole(v as AssignableRole)}
@@ -326,7 +443,7 @@ export function OpportunityLoanStructureTab({
                       <SelectValue placeholder="Role" />
                     </SelectTrigger>
                     <SelectContent>
-                      {ASSIGNABLE_ROLES.map((role) => (
+                      {roleOptions.map((role) => (
                         <SelectItem key={role.value} value={role.value} className="text-xs">
                           {role.label}
                         </SelectItem>
@@ -335,14 +452,22 @@ export function OpportunityLoanStructureTab({
                   </Select>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <EntityMasterSearch
-                    key={`add-${addRole}-${active.length}`}
-                    options={pickerOptions}
-                    placeholder="Search Contact Registry…"
-                    onSelect={(opt) => {
-                      const full = entityOptions.find((o) => o.id === opt.id);
-                      if (full) addExisting(full);
-                    }}
+                  <Label className="mb-1 block text-[10px] text-muted-foreground">
+                    {addEntityType === "company"
+                      ? "Company Registry"
+                      : "Contact Registry"}
+                  </Label>
+                  <LiveEntityMasterSearch
+                    key={`add-${addEntityType}-${addRole}-${active.length}`}
+                    kind={addEntityType === "company" ? "company" : "contact"}
+                    fallbackOptions={fallbackPickerOptions}
+                    placeholder={
+                      addEntityType === "company"
+                        ? "Search Company Registry…"
+                        : "Search Contact Registry…"
+                    }
+                    allowCreateNew={addEntityType === "individual"}
+                    onSelect={addFromLiveSelect}
                     onCreateNew={(q) => {
                       setCreatePrefill(q);
                       setCreateOpen(true);
@@ -374,10 +499,15 @@ export function OpportunityLoanStructureTab({
             <div className="space-y-3">
               <StructureGroup title="Primary Applicant" names={structurePreview.primary} />
               <StructureGroup title="Co-Applicant" names={structurePreview.cos} />
+              <StructureGroup
+                title="Borrowing Entity / Company"
+                names={structurePreview.companies}
+              />
               <StructureGroup title="Guarantor" names={structurePreview.guars} />
               <StructureGroup title="Property Owner" names={structurePreview.owners} />
               {structurePreview.primary.length === 0 &&
                 structurePreview.cos.length === 0 &&
+                structurePreview.companies.length === 0 &&
                 structurePreview.guars.length === 0 &&
                 structurePreview.owners.length === 0 && (
                   <p className="rounded-lg border border-dashed border-border/70 px-3 py-8 text-center text-xs text-muted-foreground">
@@ -397,7 +527,9 @@ export function OpportunityLoanStructureTab({
       <ProgressiveContactCreateModal
         open={createOpen}
         onOpenChange={setCreateOpen}
-        participantKind={toProgressiveKind(addRole)}
+        participantKind={toProgressiveKind(
+          addRole === "company" ? "co_applicant" : addRole,
+        )}
         initialName={createPrefill}
         onCreated={(contact: EcmContact) => {
           const option: ParticipantEntityOption = {

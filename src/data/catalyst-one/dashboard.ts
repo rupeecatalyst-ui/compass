@@ -349,7 +349,7 @@ export const activityTimeline: ActivityEvent[] = demoOnly([
   {
     id: "7",
     title: "Pipeline sync complete",
-    description: "Catalyst One synced 248 loan files across all stages",
+    description: "Catalyst One synced 248 Deals across all stages",
     timestamp: new Date(Date.now() - 24 * 3600_000).toISOString(),
     type: "system",
     actor: "COMPASS",

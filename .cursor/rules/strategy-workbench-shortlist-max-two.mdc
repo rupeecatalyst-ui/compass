@@ -1,0 +1,27 @@
+# Strategy Workbench Shortlist Cap (CO-ARCH-002)
+
+Status: **ENTERPRISE APPROVED** · Workflow refinement · Opportunity phase only
+
+## Rule
+
+Strategy Workbench Execution Queue holds at most **two** lenders:
+
+1. Primary Choice  
+2. Secondary Choice  
+
+Additional lenders are added **only** from Deal Workspace after Move to Deal.
+
+## SSOT
+
+| Concern | Path |
+|---------|------|
+| Cap + guidance copy | `src/constants/strategic-lender-shortlist.ts` |
+| Enforce on upsert | `upsertStrategicShortlistItem` in `src/lib/strategic-lender-pipeline/sync.ts` |
+| Move to Deal slice | `takeStrategyShortlistForMoveToDeal` |
+| UI | `workspace-life-strategy-board.tsx` |
+
+## Forbidden
+
+- Capping Deal Workspace Identify Additional Lender  
+- Schema / Registry / routing changes for this rule  
+- Silent third+ Deal create on Move to Deal  

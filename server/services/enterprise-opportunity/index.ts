@@ -1,8 +1,8 @@
 /**
- * CO-ARCH-003 / ADR-018 Wave 1 — Opportunity Registry service.
+ * CO-ARCH-003 / ADR-018 / CO-OPP-002 — Opportunity Registry service.
  * Create Opportunity never creates a Deal (BI-1 / BI-3).
- * Draft create: identity only, no product uniqueness.
- * Uniqueness (Contact + Product) at Requirement Captured / Active / On Hold.
+ * Dialogue create: identity only, no product uniqueness (replaces retired Draft).
+ * Uniqueness (Contact + Product) from Requirement Captured onward.
  */
 import type { OpportunityLifecycleStatus, Prisma } from "@prisma/client";
 import {
@@ -11,17 +11,25 @@ import {
   resolveProductUniquenessKey,
 } from "@/constants/opportunity-active-uniqueness";
 import {
+  assertOpportunityPrimaryBorrowerKind,
+  OPPORTUNITY_PRIMARY_BORROWER_KIND,
+} from "@/constants/opportunity-primary-borrower";
+import {
   assertLifecycleTransitionAllowed,
   hasRequirementCaptureFields,
-  isDraftLifecycle,
+  isDialogueLifecycle,
+  isUniquenessLifecycle,
   OPPORTUNITY_LIFECYCLE,
 } from "@/constants/opportunity-lifecycle";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
+import { prisma } from "@server/lib/prisma";
 import {
   enterpriseOpportunityRepository,
   type CreateEnterpriseOpportunityInput,
   type UpdateEnterpriseOpportunityInput,
 } from "@server/repositories/enterprise-opportunity";
+import { resolveCommercialRevenueSharePercent } from "@/lib/enterprise-commercial-participation";
+import { isWealthPartnerBusinessSource } from "@/constants/opportunity-business-source";
 import { serializeOpportunity } from "@server/services/enterprise-opportunity/opportunity-serialize";
 import {
   assertNonEmpty,
@@ -34,7 +42,7 @@ import {
 } from "@server/services/enterprise-opportunity/opportunity-validation";
 
 const DEFAULT_REQUIREMENT_STAGE = "raw_lead";
-const DRAFT_REQUIREMENT_STAGE = "draft";
+const DIALOGUE_REQUIREMENT_STAGE = "dialogue";
 
 function truthyOverride(value: unknown): boolean {
   return value === true || value === "true" || value === 1 || value === "1";
@@ -44,15 +52,21 @@ function truthyFlag(value: unknown): boolean {
   return value === true || value === "true" || value === 1 || value === "1";
 }
 
-function wantDraftCreate(body: Record<string, unknown>): boolean {
-  if (truthyFlag(body.createAsDraft)) return true;
+/** CO-OPP-002 — identity-only create (Dialogue). Accepts legacy createAsDraft flag. */
+function wantDialogueCreate(body: Record<string, unknown>): boolean {
+  if (truthyFlag(body.createAsDialogue) || truthyFlag(body.createAsDraft)) return true;
   const lifecycle = assertOpportunityLifecycle(body.lifecycleStatus);
-  return lifecycle === OPPORTUNITY_LIFECYCLE.DRAFT;
+  return (
+    lifecycle === OPPORTUNITY_LIFECYCLE.DIALOGUE ||
+    lifecycle === OPPORTUNITY_LIFECYCLE.DRAFT
+  );
 }
 
 async function assertNoActiveDuplicate(args: {
   organizationId: string;
-  primaryContactId: string;
+  primaryBorrowerKind?: "individual" | "company";
+  primaryContactId?: string | null;
+  companyId?: string | null;
   productUniquenessKey: string;
   productLabel: string | null;
   productCode: string | null;
@@ -60,11 +74,21 @@ async function assertNoActiveDuplicate(args: {
   allowOverride: boolean;
   overrideReason?: unknown;
 }) {
-  const existing = await enterpriseOpportunityRepository.findActiveForContactProduct(
-    args.organizationId,
-    args.primaryContactId,
-    args.productUniquenessKey,
-  );
+  const borrowerKind = args.primaryBorrowerKind ?? "individual";
+  const existing =
+    borrowerKind === OPPORTUNITY_PRIMARY_BORROWER_KIND.COMPANY && args.companyId
+      ? await enterpriseOpportunityRepository.findActiveForCompanyProduct(
+          args.organizationId,
+          args.companyId,
+          args.productUniquenessKey,
+        )
+      : args.primaryContactId
+        ? await enterpriseOpportunityRepository.findActiveForContactProduct(
+            args.organizationId,
+            args.primaryContactId,
+            args.productUniquenessKey,
+          )
+        : null;
   if (!existing) return;
   if (args.excludeOpportunityId && existing.id === args.excludeOpportunityId) return;
 
@@ -126,15 +150,133 @@ export class EnterpriseOpportunityService {
   }
 
   /**
+   * Find planning-active Opportunity for Company + Product (CO-DOM-001A).
+   */
+  async findActiveForCompanyProduct(query: {
+    companyId: string;
+    productId?: string | null;
+    productCode?: string | null;
+    productLabel?: string | null;
+  }) {
+    const organizationId = await this.orgId();
+    const companyId = assertNonEmpty(query.companyId, "companyId");
+    const productUniquenessKey = resolveProductUniquenessKey({
+      productId: query.productId,
+      productCode: query.productCode,
+      productLabel: query.productLabel,
+    });
+    if (!productUniquenessKey) return null;
+
+    const row = await enterpriseOpportunityRepository.findActiveForCompanyProduct(
+      organizationId,
+      companyId,
+      productUniquenessKey,
+    );
+    return row ? serializeOpportunity(row) : null;
+  }
+
+  /**
    * Canonical Opportunity create.
    * - Legacy / explicit product create: uniqueness enforced (UX unchanged).
-   * - ADR-018 Draft (`createAsDraft` / `lifecycleStatus: draft`): identity only,
-   *   no product fabrication, no uniqueness check.
+   * - CO-OPP-002 Dialogue (`createAsDialogue` / legacy `createAsDraft`): identity only,
+   *   no product fabrication. Open Dialogue (or legacy Draft) for the same Contact/Company
+   *   is reused (P1 idempotent Start) unless allowActiveDuplicateOverride is set.
+   * - Never deletes / merges existing Opportunities.
    */
   async createOpportunity(body: Record<string, unknown>, actorUserId: string) {
     const organizationId = await this.orgId();
-    const primaryContactId = assertNonEmpty(body.primaryContactId, "primaryContactId");
-    const asDraft = wantDraftCreate(body);
+    const primaryBorrowerKind = assertOpportunityPrimaryBorrowerKind(body.primaryBorrowerKind);
+    const isCompanyBorrower =
+      primaryBorrowerKind === OPPORTUNITY_PRIMARY_BORROWER_KIND.COMPANY;
+    const companyId =
+      body.companyId !== undefined && body.companyId !== null
+        ? String(body.companyId).trim() || null
+        : null;
+    const primaryContactId =
+      body.primaryContactId !== undefined && body.primaryContactId !== null
+        ? String(body.primaryContactId).trim() || null
+        : null;
+
+    if (isCompanyBorrower) {
+      if (!companyId) {
+        throw new OpportunityValidationError(
+          "companyId is required when primary borrower is a Company.",
+        );
+      }
+    } else if (!primaryContactId) {
+      throw new OpportunityValidationError("primaryContactId is required for Individual borrower.");
+    }
+
+    const asDialogue = wantDialogueCreate(body);
+    const allowOverride = truthyOverride(body.allowActiveDuplicateOverride);
+
+    // P1 — Dialogue Start must be idempotent: reuse open Dialogue/legacy Draft; never mint a second.
+    if (asDialogue && !allowOverride) {
+      const lockKey = isCompanyBorrower
+        ? `eopp-dialogue:company:${organizationId}:${companyId}`
+        : `eopp-dialogue:contact:${organizationId}:${primaryContactId}`;
+      await prisma.$executeRaw`SELECT pg_advisory_lock(872014, hashtext(${lockKey}))`;
+      try {
+        const openDialogue = isCompanyBorrower
+          ? await enterpriseOpportunityRepository.findOpenDraftForCompany(
+              organizationId,
+              companyId!,
+            )
+          : await enterpriseOpportunityRepository.findOpenDraftForContact(
+              organizationId,
+              primaryContactId!,
+            );
+        if (openDialogue) {
+          return serializeOpportunity(openDialogue);
+        }
+        return await this.createOpportunityUnlocked(body, actorUserId, {
+          organizationId,
+          primaryBorrowerKind,
+          isCompanyBorrower,
+          companyId,
+          primaryContactId,
+          asDialogue,
+          allowOverride,
+        });
+      } finally {
+        await prisma.$executeRaw`SELECT pg_advisory_unlock(872014, hashtext(${lockKey}))`;
+      }
+    }
+
+    return this.createOpportunityUnlocked(body, actorUserId, {
+      organizationId,
+      primaryBorrowerKind,
+      isCompanyBorrower,
+      companyId,
+      primaryContactId,
+      asDialogue,
+      allowOverride,
+    });
+  }
+
+  /** Internal create after optional dialogue-idempotency lock. */
+  private async createOpportunityUnlocked(
+    body: Record<string, unknown>,
+    actorUserId: string,
+    ctx: {
+      organizationId: string;
+      primaryBorrowerKind: ReturnType<typeof assertOpportunityPrimaryBorrowerKind>;
+      isCompanyBorrower: boolean;
+      companyId: string | null;
+      primaryContactId: string | null;
+      asDialogue: boolean;
+      allowOverride: boolean;
+    },
+  ) {
+    const {
+      organizationId,
+      primaryBorrowerKind,
+      isCompanyBorrower,
+      companyId,
+      primaryContactId,
+      asDialogue,
+      allowOverride,
+    } = ctx;
 
     const productFamily = assertProductFamily(
       body.productFamily ?? DEFAULT_START_LOAN_JOURNEY_PRODUCT.productFamily,
@@ -142,8 +284,8 @@ export class EnterpriseOpportunityService {
     const requirementStage =
       typeof body.requirementStage === "string" && body.requirementStage.trim()
         ? body.requirementStage.trim()
-        : asDraft
-          ? DRAFT_REQUIREMENT_STAGE
+        : asDialogue
+          ? DIALOGUE_REQUIREMENT_STAGE
           : DEFAULT_REQUIREMENT_STAGE;
 
     if (body.grossStage !== undefined || body.lenderId !== undefined || body.lender !== undefined) {
@@ -156,19 +298,19 @@ export class EnterpriseOpportunityService {
     let productCode = body.productCode ? String(body.productCode) : null;
     let productLabel = body.productLabel ? String(body.productLabel) : null;
 
-    if (asDraft) {
-      // ADR-018 / CAD-2026-001 — Draft is identity only; never fabricate product/amount.
+    if (asDialogue) {
+      // CO-OPP-002 / CAD-2026-001 — Dialogue is identity only; never fabricate product/amount.
       productId = productId?.trim() || null;
       productCode = productCode?.trim() || null;
       productLabel = productLabel?.trim() || null;
       if (productId || productCode || productLabel) {
         throw new OpportunityValidationError(
-          "Draft Opportunity must not include product. Capture Product on Lead Information (Requirement Capture).",
+          "Dialogue Opportunity must not include product. Capture Product on Lead Information (Requirement Capture).",
         );
       }
       if (body.requestedAmount !== undefined && body.requestedAmount !== null && body.requestedAmount !== "") {
         throw new OpportunityValidationError(
-          "Draft Opportunity must not include requestedAmount. Capture amount on Lead Information.",
+          "Dialogue Opportunity must not include requestedAmount. Capture amount on Lead Information.",
         );
       }
     } else if (
@@ -177,29 +319,30 @@ export class EnterpriseOpportunityService {
       !productCode?.trim() &&
       !productLabel?.trim()
     ) {
-      // Legacy Start Loan Journey path — UX unchanged until Wave 3.
       productCode = DEFAULT_START_LOAN_JOURNEY_PRODUCT.productCode;
       productLabel = DEFAULT_START_LOAN_JOURNEY_PRODUCT.productLabel;
     }
 
-    const productUniquenessKey = asDraft
+    const productUniquenessKey = asDialogue
       ? null
       : resolveProductUniquenessKey({ productId, productCode, productLabel });
 
-    if (!asDraft && !productUniquenessKey) {
+    if (!asDialogue && !productUniquenessKey) {
       throw new OpportunityValidationError(
         "Product is required to create an Opportunity (Contact + Product uniqueness).",
       );
     }
 
-    if (!asDraft && productUniquenessKey) {
+    if (!asDialogue && productUniquenessKey) {
       await assertNoActiveDuplicate({
         organizationId,
+        primaryBorrowerKind,
         primaryContactId,
+        companyId,
         productUniquenessKey,
         productLabel,
         productCode,
-        allowOverride: truthyOverride(body.allowActiveDuplicateOverride),
+        allowOverride,
         overrideReason: body.overrideReason,
       });
     }
@@ -208,18 +351,19 @@ export class EnterpriseOpportunityService {
       organizationId,
       productFamily,
       requirementStage,
+      primaryBorrowerKind,
       primaryContactId,
       actorUserId,
-      lifecycleStatus: asDraft
-        ? (OPPORTUNITY_LIFECYCLE.DRAFT as OpportunityLifecycleStatus)
+      lifecycleStatus: asDialogue
+        ? (OPPORTUNITY_LIFECYCLE.DIALOGUE as OpportunityLifecycleStatus)
         : ((assertOpportunityLifecycle(body.lifecycleStatus) ??
-            OPPORTUNITY_LIFECYCLE.ACTIVE) as OpportunityLifecycleStatus),
+            OPPORTUNITY_LIFECYCLE.IN_PROGRESS) as OpportunityLifecycleStatus),
       legacyLoanFileId: body.legacyLoanFileId ? String(body.legacyLoanFileId) : null,
       productId,
       productCode,
       productLabel,
       productUniquenessKey,
-      transactionType: asDraft
+      transactionType: asDialogue
         ? null
         : body.transactionType
           ? String(body.transactionType)
@@ -234,7 +378,8 @@ export class EnterpriseOpportunityService {
       primaryContactEmail: body.primaryContactEmail
         ? String(body.primaryContactEmail)
         : null,
-      companyId: body.companyId ? String(body.companyId) : null,
+      companyId,
+      companyName: body.companyName ? String(body.companyName) : null,
       employmentTypeCode: body.employmentTypeCode
         ? String(body.employmentTypeCode)
         : null,
@@ -250,7 +395,7 @@ export class EnterpriseOpportunityService {
         ? String(body.primaryOwnerUserId)
         : actorUserId,
       priority: assertPriority(body.priority) ?? "medium",
-      requestedAmount: asDraft
+      requestedAmount: asDialogue
         ? null
         : body.requestedAmount !== undefined && body.requestedAmount !== null
           ? Number(body.requestedAmount)
@@ -258,18 +403,51 @@ export class EnterpriseOpportunityService {
       currencyCode: body.currencyCode ? String(body.currencyCode) : "INR",
       snapshot: (body.snapshot as Prisma.InputJsonValue) ?? null,
       lendingExtension: (body.lendingExtension as Prisma.InputJsonValue) ?? null,
+      sourceCode: body.sourceCode ? String(body.sourceCode).trim() : null,
+      sourceContactId: body.sourceContactId ? String(body.sourceContactId).trim() : null,
+      sourceContactName: body.sourceContactName
+        ? String(body.sourceContactName).trim()
+        : null,
+      sourceWealthPartnerId: body.sourceWealthPartnerId
+        ? String(body.sourceWealthPartnerId).trim()
+        : null,
+      participationRole: body.participationRole
+        ? String(body.participationRole).trim()
+        : null,
+      sourceCampaignLabel: body.sourceCampaignLabel
+        ? String(body.sourceCampaignLabel).trim()
+        : null,
+      commercialRevenueSharePercent: await resolveOpportunityCommercialShare({
+        organizationId,
+        sourceCode: body.sourceCode ? String(body.sourceCode).trim() : null,
+        sourceWealthPartnerId: body.sourceWealthPartnerId
+          ? String(body.sourceWealthPartnerId).trim()
+          : null,
+        participationRole: body.participationRole
+          ? String(body.participationRole).trim()
+          : null,
+      }),
     };
 
     try {
       const created = await enterpriseOpportunityRepository.createOpportunity(input);
       return serializeOpportunity(created);
     } catch (err) {
-      if (!asDraft && productUniquenessKey) {
-        const again = await enterpriseOpportunityRepository.findActiveForContactProduct(
-          organizationId,
-          primaryContactId,
-          productUniquenessKey,
-        );
+      if (!asDialogue && productUniquenessKey) {
+        const again =
+          primaryBorrowerKind === OPPORTUNITY_PRIMARY_BORROWER_KIND.COMPANY && companyId
+            ? await enterpriseOpportunityRepository.findActiveForCompanyProduct(
+                organizationId,
+                companyId,
+                productUniquenessKey,
+              )
+            : primaryContactId
+              ? await enterpriseOpportunityRepository.findActiveForContactProduct(
+                  organizationId,
+                  primaryContactId,
+                  productUniquenessKey,
+                )
+              : null;
         const message = err instanceof Error ? err.message : String(err);
         if (again && /eopp_active_contact_product_uidx|unique/i.test(message)) {
           const label = formatProductDisplayLabel({
@@ -287,6 +465,32 @@ export class EnterpriseOpportunityService {
       }
       throw err;
     }
+  }
+
+  /**
+   * P1 — Latest open Draft for Contact (Start Loan Journey reuse probe).
+   */
+  async findOpenDraftForContact(query: { primaryContactId: string }) {
+    const organizationId = await this.orgId();
+    const primaryContactId = assertNonEmpty(query.primaryContactId, "primaryContactId");
+    const row = await enterpriseOpportunityRepository.findOpenDraftForContact(
+      organizationId,
+      primaryContactId,
+    );
+    return row ? serializeOpportunity(row) : null;
+  }
+
+  /**
+   * P1 — Latest open Draft for Company.
+   */
+  async findOpenDraftForCompany(query: { companyId: string }) {
+    const organizationId = await this.orgId();
+    const companyId = assertNonEmpty(query.companyId, "companyId");
+    const row = await enterpriseOpportunityRepository.findOpenDraftForCompany(
+      organizationId,
+      companyId,
+    );
+    return row ? serializeOpportunity(row) : null;
   }
 
   /**
@@ -355,28 +559,42 @@ export class EnterpriseOpportunityService {
     let nextLifecycle =
       assertOpportunityLifecycle(body.lifecycleStatus) ?? existing.lifecycleStatus;
 
-    // Auto-promote Draft → Requirement Captured when gate fields are present.
-    if (isDraftLifecycle(existing.lifecycleStatus) && captureReady) {
+    // Auto-promote Dialogue (or legacy Draft) → Requirement Captured when gate fields are present.
+    if (isDialogueLifecycle(existing.lifecycleStatus) && captureReady) {
       if (
         !body.lifecycleStatus ||
         assertOpportunityLifecycle(body.lifecycleStatus) ===
           OPPORTUNITY_LIFECYCLE.REQUIREMENT_CAPTURED ||
+        assertOpportunityLifecycle(body.lifecycleStatus) ===
+          OPPORTUNITY_LIFECYCLE.IN_PROGRESS ||
         assertOpportunityLifecycle(body.lifecycleStatus) === OPPORTUNITY_LIFECYCLE.ACTIVE
       ) {
+        const requested = assertOpportunityLifecycle(body.lifecycleStatus);
         nextLifecycle =
-          assertOpportunityLifecycle(body.lifecycleStatus) === OPPORTUNITY_LIFECYCLE.ACTIVE
-            ? OPPORTUNITY_LIFECYCLE.ACTIVE
+          requested === OPPORTUNITY_LIFECYCLE.IN_PROGRESS ||
+          requested === OPPORTUNITY_LIFECYCLE.ACTIVE
+            ? OPPORTUNITY_LIFECYCLE.IN_PROGRESS
             : OPPORTUNITY_LIFECYCLE.REQUIREMENT_CAPTURED;
       }
     }
 
-    // Promoting to Active requires Requirement Capture fields.
+    // After Requirement Captured, enrichment / processing → In Progress (unless explicit hold/cancel).
     if (
-      nextLifecycle === OPPORTUNITY_LIFECYCLE.ACTIVE &&
+      (nextLifecycle === OPPORTUNITY_LIFECYCLE.REQUIREMENT_CAPTURED ||
+        existing.lifecycleStatus === OPPORTUNITY_LIFECYCLE.REQUIREMENT_CAPTURED) &&
+      captureReady &&
+      body.markInProgress === true
+    ) {
+      nextLifecycle = OPPORTUNITY_LIFECYCLE.IN_PROGRESS;
+    }
+
+    if (
+      (nextLifecycle === OPPORTUNITY_LIFECYCLE.IN_PROGRESS ||
+        nextLifecycle === OPPORTUNITY_LIFECYCLE.ACTIVE) &&
       !captureReady
     ) {
       throw new OpportunityValidationError(
-        "Active Opportunity requires Product and Required Amount (Requirement Captured).",
+        "In Progress Opportunity requires Product and Required Amount (Requirement Captured).",
       );
     }
 
@@ -397,16 +615,15 @@ export class EnterpriseOpportunityService {
       throw new OpportunityValidationError(transition.message);
     }
 
-    // Uniqueness at Requirement Capture / Active / On Hold — not Draft.
-    const willEnterUniqueness =
-      nextLifecycle === OPPORTUNITY_LIFECYCLE.REQUIREMENT_CAPTURED ||
-      nextLifecycle === OPPORTUNITY_LIFECYCLE.ACTIVE ||
-      nextLifecycle === OPPORTUNITY_LIFECYCLE.ON_HOLD;
+    // Uniqueness from Requirement Captured onward — not Dialogue.
+    const willEnterUniqueness = isUniquenessLifecycle(nextLifecycle);
 
     if (willEnterUniqueness && nextKey) {
       await assertNoActiveDuplicate({
         organizationId,
+        primaryBorrowerKind: existing.primaryBorrowerKind,
         primaryContactId: existing.primaryContactId,
+        companyId: existing.companyId,
         productUniquenessKey: nextKey,
         productLabel: nextProductLabel,
         productCode: nextProductCode,
@@ -446,8 +663,8 @@ export class EnterpriseOpportunityService {
     if (body.requirementStage !== undefined) {
       patch.requirementStage = assertNonEmpty(body.requirementStage, "requirementStage");
     } else if (
-      isDraftLifecycle(existing.lifecycleStatus) &&
-      nextLifecycle !== OPPORTUNITY_LIFECYCLE.DRAFT
+      isDialogueLifecycle(existing.lifecycleStatus) &&
+      !isDialogueLifecycle(nextLifecycle)
     ) {
       patch.requirementStage = DEFAULT_REQUIREMENT_STAGE;
     }
@@ -516,6 +733,63 @@ export class EnterpriseOpportunityService {
     if (body.lendingExtension !== undefined) {
       patch.lendingExtension = body.lendingExtension as Prisma.InputJsonValue | null;
     }
+    if (body.sourceCode !== undefined) {
+      patch.sourceCode = body.sourceCode ? String(body.sourceCode).trim() : null;
+    }
+    if (body.sourceContactId !== undefined) {
+      patch.sourceContactId = body.sourceContactId
+        ? String(body.sourceContactId).trim()
+        : null;
+    }
+    if (body.sourceContactName !== undefined) {
+      patch.sourceContactName = body.sourceContactName
+        ? String(body.sourceContactName).trim()
+        : null;
+    }
+    if (body.sourceWealthPartnerId !== undefined) {
+      patch.sourceWealthPartnerId = body.sourceWealthPartnerId
+        ? String(body.sourceWealthPartnerId).trim()
+        : null;
+    }
+    if (body.participationRole !== undefined) {
+      patch.participationRole = body.participationRole
+        ? String(body.participationRole).trim()
+        : null;
+    }
+    if (body.sourceCampaignLabel !== undefined) {
+      patch.sourceCampaignLabel = body.sourceCampaignLabel
+        ? String(body.sourceCampaignLabel).trim()
+        : null;
+    }
+
+    const nextSourceCode =
+      patch.sourceCode !== undefined ? patch.sourceCode : existing.sourceCode;
+    const nextWpId =
+      patch.sourceWealthPartnerId !== undefined
+        ? patch.sourceWealthPartnerId
+        : existing.sourceWealthPartnerId;
+    const nextRole =
+      patch.participationRole !== undefined
+        ? patch.participationRole
+        : existing.participationRole;
+    if (
+      body.sourceCode !== undefined ||
+      body.sourceWealthPartnerId !== undefined ||
+      body.participationRole !== undefined ||
+      body.commercialRevenueSharePercent !== undefined
+    ) {
+      patch.commercialRevenueSharePercent =
+        body.commercialRevenueSharePercent !== undefined
+          ? body.commercialRevenueSharePercent == null
+            ? null
+            : Number(body.commercialRevenueSharePercent)
+          : await resolveOpportunityCommercialShare({
+              organizationId,
+              sourceCode: nextSourceCode,
+              sourceWealthPartnerId: nextWpId,
+              participationRole: nextRole,
+            });
+    }
 
     try {
       const updated = await enterpriseOpportunityRepository.updateOpportunity(
@@ -528,11 +802,20 @@ export class EnterpriseOpportunityService {
       if (willEnterUniqueness && nextKey) {
         const message = err instanceof Error ? err.message : String(err);
         if (/eopp_active_contact_product_uidx|unique/i.test(message)) {
-          const again = await enterpriseOpportunityRepository.findActiveForContactProduct(
-            organizationId,
-            existing.primaryContactId,
-            nextKey,
-          );
+          const again =
+            existing.primaryBorrowerKind === "company" && existing.companyId
+              ? await enterpriseOpportunityRepository.findActiveForCompanyProduct(
+                  organizationId,
+                  existing.companyId,
+                  nextKey,
+                )
+              : existing.primaryContactId
+                ? await enterpriseOpportunityRepository.findActiveForContactProduct(
+                    organizationId,
+                    existing.primaryContactId,
+                    nextKey,
+                  )
+                : null;
           if (again && again.id !== existing.id) {
             const label = formatProductDisplayLabel({
               productLabel: again.productLabel ?? nextProductLabel,
@@ -564,15 +847,155 @@ export class EnterpriseOpportunityService {
   async searchOpportunities(query: {
     q?: string;
     primaryContactId?: string;
+    companyId?: string;
     requirementStage?: string;
+    sourceCode?: string;
+    sourceBucket?: "direct" | "channel_partner" | "referral" | "other";
+    opportunityIds?: string[];
+    freshLoginToday?: boolean;
     limit?: number;
     offset?: number;
   }) {
     const organizationId = await this.orgId();
-    const result = await enterpriseOpportunityRepository.search(organizationId, query);
+    let opportunityIds = query.opportunityIds;
+    if (query.freshLoginToday) {
+      opportunityIds = await this.resolveFreshLoginOpportunityIds(organizationId);
+    }
+    const result = await enterpriseOpportunityRepository.search(organizationId, {
+      ...query,
+      opportunityIds,
+    });
     return {
       ...result,
       items: result.items.map(serializeOpportunity),
+    };
+  }
+
+  /**
+   * CO-UX-006 — Distinct Opportunities that reached Login (via Deal stage) today.
+   * Counts Opportunities — never lender/deal rows.
+   */
+  async resolveFreshLoginOpportunityIds(organizationId?: string): Promise<string[]> {
+    const orgId = organizationId ?? (await this.orgId());
+    const { FRESH_LOGIN_DEAL_STAGES } = await import(
+      "@/constants/opportunity-business-source"
+    );
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    const deals = await prisma.enterpriseDeal.findMany({
+      where: {
+        organizationId: orgId,
+        isDeleted: false,
+        opportunityId: { not: null },
+        grossStage: { in: [...FRESH_LOGIN_DEAL_STAGES] },
+        stageEnteredAt: { gte: start, lte: end },
+      },
+      select: { opportunityId: true },
+      distinct: ["opportunityId"],
+    });
+    return deals
+      .map((d) => d.opportunityId)
+      .filter((id): id is string => Boolean(id));
+  }
+
+  async getFreshLoginKpis() {
+    const { resolveFreshLoginKpiBucket } = await import(
+      "@/constants/opportunity-business-source"
+    );
+    const organizationId = await this.orgId();
+    const opportunityIds = await this.resolveFreshLoginOpportunityIds(organizationId);
+    if (opportunityIds.length === 0) {
+      return {
+        asOf: new Date().toISOString(),
+        definition:
+          "Fresh Login = Opportunity reaching Login stage today (distinct Opportunities; Deal login stages).",
+        counts: {
+          direct: 0,
+          channel_partner: 0,
+          referral: 0,
+          other: 0,
+          total: 0,
+        },
+        opportunityIds: [] as string[],
+      };
+    }
+
+    const rows = await prisma.enterpriseOpportunity.findMany({
+      where: {
+        organizationId,
+        isDeleted: false,
+        id: { in: opportunityIds },
+      },
+      select: { id: true, sourceCode: true },
+    });
+
+    const counts = {
+      direct: 0,
+      channel_partner: 0,
+      referral: 0,
+      other: 0,
+      total: rows.length,
+    };
+    for (const row of rows) {
+      const bucket = resolveFreshLoginKpiBucket(row.sourceCode);
+      counts[bucket] += 1;
+    }
+
+    return {
+      asOf: new Date().toISOString(),
+      definition:
+        "Fresh Login = Opportunity reaching Login stage today (distinct Opportunities; Deal login stages).",
+      counts,
+      opportunityIds: rows.map((r) => r.id),
+    };
+  }
+
+  /**
+   * Today's New Opportunities — created today (includes Dialogue).
+   * Grouped by Business Source. Independent from Fresh Logins and Deal counts.
+   */
+  async getTodayNewOpportunityKpis() {
+    const { resolveFreshLoginKpiBucket } = await import(
+      "@/constants/opportunity-business-source"
+    );
+    const { DASHBOARD_TODAY_NEW_OPPORTUNITIES_DEFINITION } = await import(
+      "@/constants/opportunity-creation-business-rules"
+    );
+    const organizationId = await this.orgId();
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    const rows = await prisma.enterpriseOpportunity.findMany({
+      where: {
+        organizationId,
+        isDeleted: false,
+        createdAt: { gte: start, lte: end },
+      },
+      select: { id: true, sourceCode: true },
+    });
+
+    const counts = {
+      direct: 0,
+      channel_partner: 0,
+      referral: 0,
+      other: 0,
+      total: rows.length,
+    };
+    for (const row of rows) {
+      const bucket = resolveFreshLoginKpiBucket(row.sourceCode);
+      counts[bucket] += 1;
+    }
+
+    return {
+      asOf: new Date().toISOString(),
+      definition: DASHBOARD_TODAY_NEW_OPPORTUNITIES_DEFINITION,
+      counts,
+      opportunityIds: rows.map((r) => r.id),
     };
   }
 
@@ -590,7 +1013,7 @@ export class EnterpriseOpportunityService {
     return deals.map(serializeDeal);
   }
 
-  /** After Move to Deal — Opportunity leaves planning-active uniqueness set. */
+  /** After first Deal created — Opportunity → Converted to Deal. */
   async markConvertedToDeal(opportunityId: string, actorUserId: string) {
     const organizationId = await this.orgId();
     const row = await enterpriseOpportunityRepository.markConvertedToDeal(
@@ -599,6 +1022,78 @@ export class EnterpriseOpportunityService {
       actorUserId,
     );
     return serializeOpportunity(row);
+  }
+
+  /**
+   * CO-OPP-002 — Sync Opportunity lifecycle from child Deal stages.
+   * Does not migrate historical terminal Opportunities.
+   */
+  async syncLifecycleFromDeals(opportunityId: string, actorUserId: string) {
+    const organizationId = await this.orgId();
+    const existing = await enterpriseOpportunityRepository.requireOpportunity(
+      organizationId,
+      opportunityId,
+    );
+    const current = (existing.lifecycleStatus || "").toLowerCase();
+    if (["completed", "won", "lost", "cancelled", "archived"].includes(current)) {
+      return serializeOpportunity(existing);
+    }
+
+    const { enterpriseDealRepository } = await import(
+      "@server/repositories/enterprise-deal"
+    );
+    const deals = await enterpriseDealRepository.listByOpportunity(
+      organizationId,
+      opportunityId,
+    );
+    if (deals.length === 0) {
+      return serializeOpportunity(existing);
+    }
+
+    const stages = deals.map((d) => (d.grossStage || "").toLowerCase());
+    const anyDisbursed = stages.some(
+      (s) =>
+        s === "disbursed" ||
+        s === "won" ||
+        s === "partially_disbursed" ||
+        s.includes("disburs"),
+    );
+    const allLost =
+      deals.length > 0 &&
+      stages.every((s) => s === "lost" || s === "cancelled" || s === "rejected");
+
+    if (anyDisbursed) {
+      const row = await enterpriseOpportunityRepository.applyLifecycleStatus(
+        organizationId,
+        opportunityId,
+        "completed",
+        actorUserId,
+        { closedAt: new Date(), fulfilmentStatus: "fulfilled" },
+      );
+      return serializeOpportunity(row);
+    }
+
+    if (allLost) {
+      const row = await enterpriseOpportunityRepository.applyLifecycleStatus(
+        organizationId,
+        opportunityId,
+        "lost",
+        actorUserId,
+        { closedAt: new Date(), fulfilmentStatus: "abandoned" },
+      );
+      return serializeOpportunity(row);
+    }
+
+    if (current !== "converted_to_deal") {
+      const row = await enterpriseOpportunityRepository.markConvertedToDeal(
+        organizationId,
+        opportunityId,
+        actorUserId,
+      );
+      return serializeOpportunity(row);
+    }
+
+    return serializeOpportunity(existing);
   }
 
   async softDelete(opportunityId: string, actorUserId: string, reason?: string) {
@@ -611,6 +1106,33 @@ export class EnterpriseOpportunityService {
     );
     return serializeOpportunity(row);
   }
+}
+
+async function resolveOpportunityCommercialShare(input: {
+  organizationId: string;
+  sourceCode: string | null | undefined;
+  sourceWealthPartnerId: string | null | undefined;
+  participationRole: string | null | undefined;
+}): Promise<number | null> {
+  if (!isWealthPartnerBusinessSource(input.sourceCode)) return null;
+  if (!input.sourceWealthPartnerId?.trim() || !input.participationRole?.trim()) {
+    return null;
+  }
+  const partner = await prisma.enterpriseWealthPartner.findFirst({
+    where: {
+      id: input.sourceWealthPartnerId.trim(),
+      organizationId: input.organizationId,
+      isDeleted: false,
+    },
+    select: {
+      commercialReferralSharePercent: true,
+      commercialSoleExecutorSharePercent: true,
+      commercialJointExecutorSharePercent: true,
+      commercialStatus: true,
+      commercialEffectiveFrom: true,
+    },
+  });
+  return resolveCommercialRevenueSharePercent(partner, input.participationRole);
 }
 
 export const enterpriseOpportunityService = new EnterpriseOpportunityService();

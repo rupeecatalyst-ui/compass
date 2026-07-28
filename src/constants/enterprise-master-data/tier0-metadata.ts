@@ -69,6 +69,9 @@ export const REFERENCE_MASTER_DOMAINS = [
   "risk_appetite",
   "investment_horizon",
   "specialization",
+  "business_source",
+  "customer_segment",
+  "relationship_type",
 ] as const;
 
 export type ReferenceMasterDomainCode = (typeof REFERENCE_MASTER_DOMAINS)[number];

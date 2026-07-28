@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, User, Users } from "lucide-react";
+import { Building2, User } from "lucide-react";
 import { ChanakyaAvatar, ChanakyaIdentityLabel } from "@/components/catalyst-one/chanakya-enterprise-identity";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-export type ContactCreationIntentKind = "individual" | "company" | "individual_company";
+export type ContactCreationIntentKind = "individual" | "company";
 
 export interface ContactCreationIntentResult {
   kind: ContactCreationIntentKind;
@@ -48,12 +48,6 @@ const CHOICES: {
     description: "A legal entity — company, firm, or organisation.",
     icon: Building2,
   },
-  {
-    kind: "individual_company",
-    label: "Individual + Company",
-    description: "A person linked to a company (director, partner, proprietor…).",
-    icon: Users,
-  },
 ];
 
 /**
@@ -70,8 +64,8 @@ export function ContactCreationIntentScreen({
   const [individualName, setIndividualName] = useState("");
   const [companyName, setCompanyName] = useState("");
 
-  const showIndividual = kind === "individual" || kind === "individual_company";
-  const showCompany = kind === "company" || kind === "individual_company";
+  const showIndividual = kind === "individual";
+  const showCompany = kind === "company";
 
   const canContinue =
     kind != null &&

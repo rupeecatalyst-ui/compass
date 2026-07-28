@@ -23,7 +23,38 @@ function iso(value: Date | null | undefined): string | null {
   return value.toISOString();
 }
 
+/** CO-DOM-001A — borrower stamps from working snapshot when columns are absent. */
+function borrowerMetaFromSnapshot(snapshot: unknown): {
+  companyName: string | null;
+  primaryBorrowerKind: "individual" | "company" | null;
+} {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return { companyName: null, primaryBorrowerKind: null };
+  }
+  const s = snapshot as Record<string, unknown>;
+  const kindRaw =
+    typeof s.primaryBorrowerKind === "string"
+      ? s.primaryBorrowerKind.trim().toLowerCase()
+      : "";
+  const company =
+    s.company && typeof s.company === "object" && !Array.isArray(s.company)
+      ? (s.company as Record<string, unknown>)
+      : null;
+  const companyName =
+    (typeof s.companyName === "string" && s.companyName.trim()) ||
+    (typeof company?.name === "string" && company.name.trim()) ||
+    null;
+  return {
+    companyName,
+    primaryBorrowerKind:
+      kindRaw === "company" || kindRaw === "individual"
+        ? kindRaw
+        : null,
+  };
+}
+
 export function serializeDeal(deal: EnterpriseDeal) {
+  const snapBorrower = borrowerMetaFromSnapshot(deal.snapshot);
   return {
     id: deal.id,
     organizationId: deal.organizationId,
@@ -66,6 +97,10 @@ export function serializeDeal(deal: EnterpriseDeal) {
     primaryContactMobile: deal.primaryContactMobile,
     primaryContactEmail: deal.primaryContactEmail,
     companyId: deal.companyId,
+    companyName: snapBorrower.companyName,
+    primaryBorrowerKind:
+      snapBorrower.primaryBorrowerKind ??
+      (deal.companyId ? "company" : "individual"),
     employmentTypeCode: deal.employmentTypeCode,
     cityCode: deal.cityCode,
     stateCode: deal.stateCode,
@@ -117,6 +152,31 @@ export function serializeDeal(deal: EnterpriseDeal) {
     deletedAt: iso(deal.deletedAt),
     deletedBy: deal.deletedBy,
     deletionReason: deal.deletionReason,
+  };
+}
+
+/**
+ * CO-PERF-002 — Phase 1 My Deals / list projection.
+ * Omits heavy JSON (full snapshot, commercialTerms, healthPayload) while keeping card fields.
+ */
+export function serializeDealSummary(deal: EnterpriseDeal) {
+  const full = serializeDeal(deal);
+  const snapBorrower = borrowerMetaFromSnapshot(deal.snapshot);
+  const leanSnapshot =
+    snapBorrower.companyName || snapBorrower.primaryBorrowerKind
+      ? {
+          companyName: snapBorrower.companyName,
+          primaryBorrowerKind: snapBorrower.primaryBorrowerKind,
+        }
+      : null;
+  return {
+    ...full,
+    commercialTerms: null,
+    healthPayload: null,
+    externalRefs: null,
+    snapshot: leanSnapshot,
+    /** Marker for progressive enrichment */
+    _projection: "summary" as const,
   };
 }
 

@@ -83,6 +83,7 @@ export function LenderPipelineBoard({
   onOpenLenderDocuments,
   onIdentifyLender,
   onActiveCaseChange,
+  onRemoveDeal,
 }: {
   /** CO-ARCH-005 — Deal Registry context only (not LoanFile). */
   context: DealPipelineContext;
@@ -111,6 +112,11 @@ export function LenderPipelineBoard({
   }) => Promise<void>;
   /** CO-UX-015 — notify when operator focuses a lender card (Action Center context). */
   onActiveCaseChange?: (caseExecution: LoanLenderExecution) => void;
+  /**
+   * CO-QA-002 — Explicit EnterpriseDeal soft-delete (preferred over onChange filter).
+   * Host must persist to Registry and only then update UI.
+   */
+  onRemoveDeal?: (dealId: string, card: LoanLenderExecution) => Promise<void>;
 }) {
   const loan = context;
   const [dragOverStage, setDragOverStage] = useState<LenderCaseStage | null>(null);
@@ -408,10 +414,58 @@ export function LenderPipelineBoard({
     onTimeline(`Success probability updated: ${lender?.lender ?? id} → ${LENDER_PROBABILITY_LABELS[p]}`);
   };
 
+  const registryDeleteAvailable = typeof onRemoveDeal === "function";
+
   const removeCase = (id: string) => {
     const lender = cases.find((c) => c.id === id);
-    onChange(cases.filter((c) => c.id !== id));
-    onTimeline(`Lender case removed: ${lender?.lender ?? id}`);
+    if (!lender) return;
+    const dealId = (lender.enterpriseDealId || lender.id || "").trim();
+
+    tracePipelineDrag("delete_user_click", {
+      cardId: id,
+      dealId: dealId || null,
+      lender: lender.lender,
+      registryDeleteAvailable,
+    });
+
+    // CO-QA-002 Round 3 — never remove from React state without Registry persistence.
+    if (!registryDeleteAvailable) {
+      tracePipelineDrag("delete_blocked", {
+        reason: "onRemoveDeal_undefined",
+        cardId: id,
+      });
+      toast.error("Deal deletion is currently unavailable.");
+      onTimeline(`Lender deal delete blocked (unavailable): ${lender.lender ?? id}`);
+      return;
+    }
+
+    if (!dealId) {
+      tracePipelineDrag("delete_blocked", {
+        reason: "missing_enterprise_deal_id",
+        cardId: id,
+      });
+      toast.error("Deal deletion is currently unavailable.");
+      onTimeline(`Lender deal delete blocked (missing Deal id): ${lender.lender ?? id}`);
+      return;
+    }
+
+    void (async () => {
+      try {
+        tracePipelineDrag("delete_callback_invoked", { dealId, lender: lender.lender });
+        onTimeline(`Lender deal delete initiated: ${lender.lender}`);
+        await onRemoveDeal(dealId, lender);
+        tracePipelineDrag("delete_render_complete", { dealId });
+      } catch (err) {
+        tracePipelineDrag("delete_failed", {
+          dealId,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        toast.error(
+          err instanceof Error ? err.message : "Failed to delete lender deal",
+        );
+        // Card stays visible — onRemoveDeal must not mutate UI until Registry confirms.
+      }
+    })();
   };
 
   const startLogin = (id: string) => {
@@ -525,6 +579,7 @@ export function LenderPipelineBoard({
                         probability={c.probability ?? "medium"}
                         onDragStart={handleDragStart}
                         onSetPrimary={() => setPrimary(c.id)}
+                        removeEnabled={registryDeleteAvailable}
                         onRemove={() => removeCase(c.id)}
                         onProbabilityChange={(p) => updateProbability(c.id, p)}
                         onStartLogin={() => startLogin(c.id)}
@@ -640,9 +695,9 @@ export function LenderPipelineBoard({
               disabled={!pendingLender || !pendingProgram}
               title={
                 !pendingLender
-                  ? "Select an eligible lender that is not already on this Opportunity"
+                  ? "Select a lender from the Enterprise Lender Registry that is not already on this Opportunity"
                   : !pendingProgram
-                    ? "Select a Lender Program"
+                    ? "Select a lender program"
                     : undefined
               }
             >
@@ -836,6 +891,7 @@ function LenderCaseKanbanCard({
   probability,
   onDragStart,
   onSetPrimary,
+  removeEnabled,
   onRemove,
   onProbabilityChange,
   onStartLogin,
@@ -851,6 +907,8 @@ function LenderCaseKanbanCard({
   probability: LenderProbability;
   onDragStart: (e: React.DragEvent, caseId: string) => void;
   onSetPrimary: () => void;
+  /** CO-QA-002 — false when Registry soft-delete callback is not wired. */
+  removeEnabled: boolean;
   onRemove: () => void;
   onProbabilityChange: (p: LenderProbability) => void;
   onStartLogin: () => void;
@@ -965,12 +1023,22 @@ function LenderCaseKanbanCard({
               </Select>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={(e) => (e.preventDefault(), onRemove())}
-            >
-              Remove
-            </DropdownMenuItem>
+            {removeEnabled ? (
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={(e) => (e.preventDefault(), onRemove())}
+              >
+                Remove
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                disabled
+                className="text-muted-foreground"
+                title="Deal deletion is currently unavailable."
+              >
+                Deal deletion is currently unavailable.
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -1029,15 +1097,28 @@ function LenderCaseKanbanCard({
               Documents
             </Button>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-6 px-1.5 text-[9px] text-destructive"
-            onClick={onRemove}
-          >
-            Remove
-          </Button>
+          {removeEnabled ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-6 px-1.5 text-[9px] text-destructive"
+              onClick={onRemove}
+            >
+              Remove
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled
+              className="h-6 px-1.5 text-[9px] text-muted-foreground"
+              title="Deal deletion is currently unavailable."
+            >
+              Delete unavailable
+            </Button>
+          )}
         </div>
       ) : (
         <div className="mt-1.5 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>

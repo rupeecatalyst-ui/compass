@@ -1,0 +1,79 @@
+---
+description: CO-QA-001 operational detail — Scenario Pack shape and related-domain re-run triggers
+alwaysApply: true
+---
+
+# Business Certification — End-to-End Scenario Mandate (CO-QA-001)
+
+Status: **ENTERPRISE APPROVED** · Permanent  
+**Authority:** **CO-QA-001** — `.cursor/rules/co-qa-001-enterprise-regression-certification.mdc`
+
+This rule provides operational detail for Scenario Packs. Conflict resolution: **CO-QA-001 wins**.
+
+## Constitutional rule (CO-QA-001)
+
+Every Business Certified module must include at least one real end-to-end business scenario. Re-run it whenever a related domain changes. Build / TypeScript / Lint / verify / smoke do **not** grant Business Certification. Scenario Fail ⇒ module remains **OPEN**.
+
+## What “real end-to-end business scenario” means
+
+1. Uses **real business identities** (Contact / Company / Opportunity / Deal / Document / Task as applicable) — not only mock fixtures asserted in Node scripts.  
+2. Walks the **canonical business path** for that module (create → work → verify outcome in UI).  
+3. Asserts **observable business outcomes** the Product Owner cares about.  
+4. Is documented as a reusable **Scenario Pack** for that module.  
+5. Is **re-executed** after any change that touches a related domain.
+
+## Related domain change → mandatory re-run
+
+- Persistence mode, purge, storage keys, migrations  
+- Association / ownership / identity keys  
+- Registry / API list-query filters  
+- Hydration / projection adapters  
+- Document / task / deal / opportunity linkage  
+- Navigation or workspace entry that loads the entity  
+
+## Scenario Pack minimum template
+
+Store under `docs/<sprint-or-module>/` as `*-E2E-SCENARIO.md`:
+
+```markdown
+## E2E Business Scenario Pack — <Module>
+
+### Scenario ID
+<MODULE>-E2E-001
+
+### Business path
+Contact/Company → … → observable outcome
+
+### Preconditions
+Environment, auth, migrations, seed identities
+
+### Steps
+1. …
+2. …
+
+### Expected business outcomes
+- …
+
+### Related domains (re-run triggers)
+- …
+
+### Last run
+Date · Environment URL · Result Pass/Fail · Evidence notes
+```
+
+Template: `docs/governance/E2E-BUSINESS-SCENARIO-PACK-TEMPLATE.md`
+
+## Claims language
+
+| Claim | Allowed only when |
+|-------|-------------------|
+| Ready for Business Certification | Scenario Pack **Pass** on live app |
+| Business Certified | Product Owner acceptance **after** Scenario Pass |
+| OPEN | Scenario Fail, not run, or stale after related-domain change |
+| Verify script Pass | Engineering gate only — never “Certified” |
+
+## Related
+
+- `co-qa-001-enterprise-regression-certification.mdc`  
+- `business-functional-certification-report.mdc`  
+- `docs/co-qa-001/CO-QA-001-ENTERPRISE-REGRESSION-CERTIFICATION-STANDARD.md`  

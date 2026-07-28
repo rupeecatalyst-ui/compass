@@ -30,6 +30,9 @@ const DOMAIN_LABELS: Record<ReferenceMasterDomain, string> = {
   risk_appetite: "Risk Appetite",
   investment_horizon: "Investment Horizon",
   specialization: "Specialization",
+  business_source: "Business Source",
+  customer_segment: "Customer Segment",
+  relationship_type: "Relationship Type",
 };
 
 function auditSnapshot(record: {
@@ -221,6 +224,60 @@ export class ReferenceMasterService {
     });
 
     return updated;
+  }
+
+  async archive(id: string, actorId: string, reason?: string, actorName?: string) {
+    return this.softDelete(id, actorId, reason ?? "Archived via Master Data Management", actorName);
+  }
+
+  async restore(id: string, actorId: string, actorName?: string) {
+    const organizationId = await resolvePilotOrganizationId();
+    const existing = await referenceMasterRepository.findById(id, { includeDeleted: true });
+    if (!existing) throw new Error("Reference master not found.");
+
+    const updated = await referenceMasterRepository.restore(id, actorId);
+
+    await enterpriseRegistryAuditService.recordChange({
+      organizationId,
+      registryModule: "reference_master",
+      entityId: updated.id,
+      entityCode: updated.code,
+      action: "restored",
+      previousValue: auditSnapshot(existing),
+      newValue: auditSnapshot(updated),
+      actorUserId: actorId,
+      actorName,
+    });
+
+    return updated;
+  }
+
+  async duplicate(
+    id: string,
+    actorId: string,
+    opts?: { code?: string; label?: string },
+    actorName?: string,
+  ) {
+    const organizationId = await resolvePilotOrganizationId();
+    const existing = await referenceMasterRepository.findById(id);
+    if (!existing) throw new Error("Reference master not found.");
+
+    const created = await referenceMasterRepository.duplicate(id, actorId, opts);
+
+    await enterpriseRegistryAuditService.recordChange({
+      organizationId,
+      registryModule: "reference_master",
+      entityId: created.id,
+      entityCode: created.code,
+      action: "created",
+      previousValue: auditSnapshot(existing),
+      newValue: auditSnapshot(created),
+      actorUserId: actorId,
+      actorName,
+      reason: `Duplicated from ${existing.code}`,
+    });
+
+    return created;
   }
 }
 

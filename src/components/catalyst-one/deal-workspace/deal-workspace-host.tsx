@@ -20,6 +20,7 @@ import {
   identifyLenderAsEnterpriseDeal,
   loadDealPipelineRuntime,
   persistDealPipelineLenders,
+  removeLenderPipelineDeal,
 } from "@/lib/enterprise-deal/deal-pipeline-runtime";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { deriveDealExecutiveIntelligence } from "@/lib/deal-workspace/derive-deal-executive-intelligence";
@@ -33,6 +34,7 @@ import type { LoanLenderExecution } from "@/types/catalyst-one";
 import { tracePipelineDrag } from "@/lib/enterprise-deal/pipeline-drag-trace";
 import { peekSessionDeal } from "@/lib/enterprise-session/deal-runtime-cache";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
+import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import { cn } from "@/lib/utils";
 
 export function DealWorkspaceHost() {
@@ -122,15 +124,47 @@ export function DealWorkspaceHost() {
   const persistLenders = useCallback(
     async (next: LoanLenderExecution[]) => {
       if (!runtime) return;
+      const previousCount = runtime.lenders.length;
       setSaving(true);
       tracePipelineDrag("persist_start", { dealId: runtime.deal.id });
       try {
         const updated = await persistDealPipelineLenders(runtime, next);
+        const removedCount = Math.max(0, previousCount - updated.lenders.length);
+
+        if (updated.siblingDeals.length === 0 || updated.lenders.length === 0) {
+          toast.success("Lender deal deleted.");
+          tracePipelineDrag("persist_registry", {
+            dealId: runtime.deal.id,
+            dealCount: 0,
+            removed: removedCount,
+          });
+          router.push(WORKSPACE_CLOSE.MY_DEALS);
+          return;
+        }
+
         setRuntime(updated);
+        setActiveDealId(updated.deal.id);
         tracePipelineDrag("persist_registry", {
           dealId: updated.deal.id,
           dealCount: updated.siblingDeals.length,
+          removed: removedCount,
         });
+
+        if (removedCount > 0) {
+          toast.success(
+            removedCount === 1
+              ? "Lender deal deleted."
+              : `${removedCount} lender deals deleted.`,
+          );
+        }
+
+        // CO-QA-002 — if the route anchor Deal was soft-deleted, retarget URL.
+        if (updated.deal.id !== dealIdParam) {
+          const oppQs = opportunityIdParam
+            ? `?opportunityId=${encodeURIComponent(opportunityIdParam)}`
+            : "";
+          router.replace(`${ROUTES.DEALS}/${encodeURIComponent(updated.deal.id)}${oppQs}`);
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to save Pipeline";
         toast.error(message);
@@ -144,7 +178,7 @@ export function DealWorkspaceHost() {
         setSaving(false);
       }
     },
-    [runtime, reloadRuntime],
+    [runtime, reloadRuntime, router, dealIdParam, opportunityIdParam],
   );
 
   const handleIdentifyLender = useCallback(
@@ -378,6 +412,51 @@ export function DealWorkspaceHost() {
             onAddOpenChange={setLenderAddOpen}
             onIdentifyLender={handleIdentifyLender}
             onActiveCaseChange={handleActiveCaseChange}
+            onRemoveDeal={async (dealId) => {
+              if (!runtime) return;
+              setSaving(true);
+              try {
+                const updated = await removeLenderPipelineDeal(runtime, dealId, {
+                  reason: "kanban_pipeline_remove",
+                });
+                if (updated.siblingDeals.length === 0 || updated.lenders.length === 0) {
+                  toast.success("Lender deal deleted.");
+                  router.push(WORKSPACE_CLOSE.MY_DEALS);
+                  return;
+                }
+                setRuntime(updated);
+                setActiveDealId(updated.deal.id);
+                toast.success("Lender deal deleted.");
+                const { tracePipelineDrag } = await import(
+                  "@/lib/enterprise-deal/pipeline-drag-trace"
+                );
+                tracePipelineDrag("delete_render_complete", {
+                  dealId,
+                  remaining: updated.siblingDeals.length,
+                  surface: "deal_workspace_host",
+                });
+                if (updated.deal.id !== dealIdParam) {
+                  const oppQs = opportunityIdParam
+                    ? `?opportunityId=${encodeURIComponent(opportunityIdParam)}`
+                    : "";
+                  router.replace(
+                    `${ROUTES.DEALS}/${encodeURIComponent(updated.deal.id)}${oppQs}`,
+                  );
+                }
+              } catch (err) {
+                toast.error(
+                  err instanceof Error ? err.message : "Failed to delete lender deal",
+                );
+                try {
+                  await reloadRuntime(runtime.deal.id);
+                } catch {
+                  /* keep current UI */
+                }
+                throw err;
+              } finally {
+                setSaving(false);
+              }
+            }}
             onChange={(next) => {
               setRuntime((prev) => (prev ? { ...prev, lenders: next } : prev));
               void persistLenders(next);
@@ -386,17 +465,32 @@ export function DealWorkspaceHost() {
               toast.message(note);
             }}
           />
-          <EntityTasksPanel
-            className="mt-3"
-            compact
-            entityKind="EnterpriseDeal"
-            entityId={activeDealId || dealIdParam}
-            entityLabel={runtime?.deal?.dealNumber ?? dealIdParam}
-            dealId={activeDealId || dealIdParam}
-            opportunityId={opportunityIdParam ?? undefined}
-            borrowerName={runtime?.deal?.primaryContactName ?? undefined}
-            loanProduct={runtime?.deal?.productLabel ?? undefined}
-          />
+          {/* CO-PERF-002 — Lazy secondary module: tasks load only when expanded */}
+          <details className="mt-3 rounded-lg border border-border/60 bg-card/40 open:pb-2">
+            <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+              Tasks & follow-ups
+              <span className="ml-2 font-normal text-muted-foreground/80">
+                (opens on demand)
+              </span>
+            </summary>
+            <div className="px-2 pb-2">
+              <EntityTasksPanel
+                className="mt-1"
+                compact
+                entityKind="EnterpriseDeal"
+                entityId={activeDealId || dealIdParam}
+                entityLabel={runtime?.deal?.dealNumber ?? dealIdParam}
+                dealId={activeDealId || dealIdParam}
+                opportunityId={opportunityIdParam ?? undefined}
+                borrowerName={
+                  runtime?.deal
+                    ? resolveDealBorrowerIdentity(runtime.deal).displayName || undefined
+                    : undefined
+                }
+                loanProduct={runtime?.deal?.productLabel ?? undefined}
+              />
+            </div>
+          </details>
         </div>
       </EnterpriseWorkspaceShell>
 

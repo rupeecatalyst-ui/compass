@@ -1,0 +1,39 @@
+# Enterprise Processing Architecture (CO-ARCH-003)
+
+Status: **ENTERPRISE APPROVED** · Permanent · Constitutional
+
+## Principle
+
+Every feature belongs to **exactly one** processing tier.
+
+**No Tier 2 or Tier 3 work may slow a Tier 1 Critical User Journey.**
+
+## Tiers
+
+| Tier | When | Examples |
+|------|------|----------|
+| **1 — Critical User Journey** | User is waiting | Login, Contacts, Opportunity/Deal open & save, Strategy, Move to Deal, Pipeline, Documents, Lender search/assign, Accounting ops, Tasks |
+| **2 — Background** | After commit / idle | Notifications, timeline, audit, search index, cache refresh, messaging, ETE generation, EDC |
+| **3 — Enterprise Intelligence** | Scheduled (default overnight) | Scores, EME snapshots, dashboard aggregates, AI insights, leaderboards |
+| **4 — Snapshot Consumers** | Page open | Mission Control, CHANAKYA Radar — read certified snapshots only (CO-ARCH-007) |
+
+## Critical path (Tier 1 only)
+
+1. Input validation  
+2. Required business validation  
+3. Database transaction  
+4. Commit  
+5. Response to UI  
+
+## SSOT
+
+- Constants: `src/constants/enterprise-processing-architecture.ts`
+- Server deferral: `server/lib/schedule-tier2.ts` (`after()`)
+- Client deferral: `src/lib/enterprise-processing-architecture/schedule-client.ts`
+- Docs: `docs/co-arch-003/CO-ARCH-003-ENTERPRISE-PROCESSING-ARCHITECTURE.md`
+
+## Related
+
+- CO-PERF-001 / CO-PERF-002 (request reduction)
+- Strategy shortlist max 2 (`strategy-workbench-shortlist-max-two.mdc`)
+- Enterprise metric single implementation  

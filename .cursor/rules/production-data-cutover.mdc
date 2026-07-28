@@ -1,0 +1,37 @@
+# Production Data Cutover (CO-CUTOVER-001)
+
+Status: **ENTERPRISE APPROVED** · Super Administrator only  
+Depends on: **CO-ADMIN-004 Production Reset** (engine + wizard)
+
+## Objective
+
+Remove historical **demo / development** transactional data before live production while preserving:
+
+1. All enterprise master / configuration data  
+2. All genuine live business records  
+
+## Hard rules
+
+1. **Never delete** Users, Roles, Permissions, Organisation, Products, Product Categories, Lenders, Product-Lender Matrix, Workflow / Rules / Policy engines, Identity Registry, Registry metadata, Lookup / Source masters, Templates, Settings.
+2. **Never delete** unmarked live Contacts, Companies, Opportunities, Deals, Tasks, Documents, Notes, Activities, Timelines.
+3. Target **demo heuristics only** via preset `demo_data_only` (DEMO/TEST/UAT prefixes, `createdBy=demo-seed`, `.demo` emails, import batches).
+4. **Analyse before execute.** No deletion until Super Admin reviews the Cutover Validation Report.
+5. Feature flag **default OFF** (`PRODUCTION_RESET_ENABLED`).
+6. After cleanup, **rebuild derived metrics** (EME Force Recalculate) from remaining live data only.
+
+## SSOT
+
+| Concern | Path |
+|--------|------|
+| Engine | `server/services/production-reset/` |
+| Demo filters | `server/services/production-reset/filters.ts` |
+| Cutover analyse API | `GET /api/admin/production-reset?view=cutover` |
+| Wizard | `/admin/production-reset` |
+| Validation report | `docs/co-cutover-001/CO-CUTOVER-001-PRODUCTION-DATA-CUTOVER-VALIDATION-REPORT.md` |
+
+## Forbidden
+
+- Truncating the database  
+- Using `production_cutover` preset when live transactions must be retained  
+- Auto-delete on deploy or implementation  
+- Inventing a second reset engine outside Production Reset

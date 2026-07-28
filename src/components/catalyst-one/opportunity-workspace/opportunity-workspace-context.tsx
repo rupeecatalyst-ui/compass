@@ -67,11 +67,18 @@ import {
   type EnterpriseOpportunityApiRecord,
 } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { subscribeOpportunitiesUpdated } from "@/lib/enterprise-opportunity/opportunity-data-sync";
+import { peekSessionOpportunity } from "@/lib/enterprise-session/opportunity-runtime-cache";
+import { scheduleClientDeferredWork } from "@/lib/enterprise-processing-architecture/schedule-client";
 import {
   projectOpportunityToRuntimeCase,
   stampOpportunityOnLegacyLoanFile,
 } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import { rememberOpportunityRegistryContext } from "@/lib/lead-opportunity-journey/opportunity-context";
+import {
+  listDocumentsForOpportunityRuntime,
+  subscribeDocumentRegistryUpdated,
+} from "@/lib/document-registry";
+import { isCompanyPrimaryBorrower } from "@/constants/opportunity-primary-borrower";
 import type { EoleOpportunity } from "@/types/enterprise-opportunity-lifecycle-engine";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import type { OpportunityIntelligenceSnapshot } from "@/types/enterprise-opportunity-intelligence";
@@ -333,11 +340,13 @@ export function OpportunityWorkspaceProvider({
   useEffect(() => subscribeOpportunitiesUpdated(() => setRefreshKey((k) => k + 1)), []);
 
   useEffect(() => {
-    // CO-P0-002 — hydrate Enterprise Deal Registry before resolving lead case
+    // CO-PERF-002 — Skip org-wide Deal list hydrate when Opportunity Registry id is known.
+    // Avoids GET /enterprise-deals?pageSize=100 on every Opportunity Workspace open.
+    if (initialOpportunityId?.trim()) return;
     void loadDeals("opportunity_workspace").then(() => {
       setLoanFilesVersion((v) => v + 1);
     });
-  }, []);
+  }, [initialOpportunityId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -356,7 +365,7 @@ export function OpportunityWorkspaceProvider({
       rememberOpportunityRegistryContext(opp);
       setRegistryOpportunity(opp);
       setOpportunityId(opp.id);
-      setContactId(opp.primaryContactId);
+      setContactId(opp.primaryContactId ?? "");
       if (opp.legacyLoanFileId?.trim()) {
         setLeadCaseFileId(opp.legacyLoanFileId.trim());
       } else if (!fileId) {
@@ -368,11 +377,25 @@ export function OpportunityWorkspaceProvider({
     };
 
     const loadFromRegistry = (registryId: string) => {
-      setRegistryLoadStatus("loading");
       setRegistryLoadError(null);
+      // CO-PERF-002 — Paint warm session immediately; single-flight GET revalidates without remount gate.
+      const warm = peekSessionOpportunity(registryId);
+      if (warm?.id) {
+        applyRegistryOpportunity(warm);
+        void enterpriseOpportunityApiClient
+          .getOpportunity(registryId)
+          .then((opp) => {
+            if (!cancelled) applyRegistryOpportunity(opp);
+          })
+          .catch(() => {
+            /* keep warm row — user already has a Registry-backed session */
+          });
+        return;
+      }
+
+      setRegistryLoadStatus("loading");
       setWorkspaceReady(false);
       setRegistryOpportunity(null);
-      // Diagnostics only — never treat URL id as operational until Registry confirms.
       void enterpriseOpportunityApiClient
         .getOpportunity(registryId)
         .then((opp) => {
@@ -441,8 +464,9 @@ export function OpportunityWorkspaceProvider({
     // CO-OPP-SSOT-001 — never project operational case without Registry Opportunity.
     if (!registryOpportunity) return null;
 
-    const contact =
-      listEcmContacts().find((c) => c.id === registryOpportunity.primaryContactId) ?? null;
+    const contact = registryOpportunity.primaryContactId
+      ? listEcmContacts().find((c) => c.id === registryOpportunity.primaryContactId) ?? null
+      : null;
     if (leadCaseFileId) {
       const fromDeal =
         loadDealsSync("opportunity_workspace").files.find(
@@ -455,6 +479,61 @@ export function OpportunityWorkspaceProvider({
     return projectOpportunityToRuntimeCase(registryOpportunity, contact);
   }, [leadCaseFileId, loanFilesVersion, refreshKey, registryOpportunity, registryVersion]);
 
+  /** CO-DOC-002 — hydrate Files / Readiness from Document Registry SSOT (+ durable server). */
+  useEffect(() => {
+    let cancelled = false;
+    const hydrate = async () => {
+      const oppId = registryOpportunity?.id?.trim() || opportunityId?.trim() || "";
+      const runtimeKey =
+        leadCaseFile?.id?.trim() || leadCaseFileId?.trim() || oppId;
+      if (!runtimeKey && !oppId) {
+        setUploadedDocs(new Set());
+        setVerifiedDocs(new Set());
+        return;
+      }
+      if (oppId) {
+        try {
+          const { hydrateDocumentRegistryFromServer } = await import(
+            "@/lib/document-registry"
+          );
+          await hydrateDocumentRegistryFromServer({
+            opportunityId: oppId,
+            opportunityNumber: registryOpportunity?.opportunityNumber ?? null,
+          });
+        } catch {
+          /* local registry still used */
+        }
+      }
+      if (cancelled) return;
+      const records = listDocumentsForOpportunityRuntime(runtimeKey, oppId || undefined, {
+        customerId: leadCaseFile?.customerId || registryOpportunity?.primaryContactId,
+        contactId: registryOpportunity?.primaryContactId,
+        opportunityNumber: registryOpportunity?.opportunityNumber ?? null,
+      }).filter((r) => r.status === "active");
+      setUploadedDocs(new Set(records.map((r) => r.typeRef)));
+      setVerifiedDocs(
+        new Set(records.filter((r) => Boolean(r.verifiedAt)).map((r) => r.typeRef)),
+      );
+    };
+    void hydrate();
+    const unsubscribe = subscribeDocumentRegistryUpdated(() => {
+      void hydrate();
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [
+    registryOpportunity?.id,
+    registryOpportunity?.opportunityNumber,
+    registryOpportunity?.primaryContactId,
+    opportunityId,
+    leadCaseFile?.id,
+    leadCaseFile?.customerId,
+    leadCaseFileId,
+    refreshKey,
+  ]);
+
   const opportunity = useMemo(() => {
     if (!opportunityId) return null;
     return getEolePorts().opportunities.findById(opportunityId) ?? null;
@@ -462,10 +541,19 @@ export function OpportunityWorkspaceProvider({
   }, [opportunityId, refreshKey]);
 
   const contact = useMemo(() => {
-    const resolvedContactId = contactId || leadCaseFile?.customerId || "";
+    const companyBorrower = registryOpportunity
+      ? isCompanyPrimaryBorrower(registryOpportunity)
+      : false;
+    const fromRegistry =
+      registryOpportunity?.primaryContactId?.trim() || contactId?.trim() || "";
+    const fromLegacy =
+      !companyBorrower && leadCaseFile?.customerId?.trim()
+        ? leadCaseFile.customerId.trim()
+        : "";
+    const resolvedContactId = fromRegistry || fromLegacy;
     if (!resolvedContactId) return null;
     return listEcmContacts().find((c) => c.id === resolvedContactId) ?? null;
-  }, [contactId, leadCaseFile?.customerId, refreshKey, registryVersion]);
+  }, [contactId, leadCaseFile?.customerId, registryOpportunity, refreshKey, registryVersion]);
 
   const progressRatio = useMemo(() => {
     if (!opportunityId && leadCaseFile) {
@@ -549,10 +637,12 @@ export function OpportunityWorkspaceProvider({
       };
     }
     const pendingDocs = requiredDocs.filter((d) => !uploadedDocs.has(d) && !verifiedDocs.has(d));
+    // CO-DOC-002 — completion uses uploaded (registry presence), not verified-only.
+    const doneCount = Math.max(verifiedDocs.size, uploadedDocs.size);
     const completionPct =
       requiredDocs.length === 0
         ? 0
-        : Math.round((verifiedDocs.size / requiredDocs.length) * 100);
+        : Math.round((doneCount / requiredDocs.length) * 100);
     return {
       requiredCount: requiredDocs.length,
       uploadedCount: uploadedDocs.size,
@@ -605,28 +695,40 @@ export function OpportunityWorkspaceProvider({
   useEffect(() => {
     if (!opportunityId || !opportunity) return;
 
-    const activity = deriveActivitySignals(opportunityId);
-    const ageMs = Date.now() - new Date(opportunity.createdOn).getTime();
-    const opportunityAgeDays = Math.max(0, Math.floor(ageMs / (24 * 60 * 60 * 1000)));
+    // CO-ARCH-003 — Opportunity intelligence + EDC publish are Tier 2/3; defer after paint.
+    let cancelled = false;
+    scheduleClientDeferredWork(() => {
+      if (cancelled) return;
+      const activity = deriveActivitySignals(opportunityId);
+      const ageMs = Date.now() - new Date(opportunity.createdOn).getTime();
+      const opportunityAgeDays = Math.max(0, Math.floor(ageMs / (24 * 60 * 60 * 1000)));
 
-    const snapshot = buildOpportunityIntelligenceSnapshot({
-      opportunityId,
-      stageProgressRatio: progressRatio,
-      documentRequiredCount: documentStats.requiredCount,
-      documentUploadedCount: documentStats.uploadedCount,
-      documentVerifiedCount: documentStats.verifiedCount,
-      openTaskCount: taskMetrics.open,
-      overdueTaskCount: taskMetrics.overdue,
-      completedTaskCount: taskMetrics.completed,
-      daysSinceLastActivity: activity.daysSinceLastActivity,
-      communicationEventCount: activity.communicationEventCount,
-      opportunityAgeDays,
-      assignedRmLabel: "RM-001",
-      lastActivityOn: activity.lastActivityOn,
+      const snapshot = buildOpportunityIntelligenceSnapshot({
+        opportunityId,
+        stageProgressRatio: progressRatio,
+        documentRequiredCount: documentStats.requiredCount,
+        documentUploadedCount: documentStats.uploadedCount,
+        documentVerifiedCount: documentStats.verifiedCount,
+        openTaskCount: taskMetrics.open,
+        overdueTaskCount: taskMetrics.overdue,
+        completedTaskCount: taskMetrics.completed,
+        daysSinceLastActivity: activity.daysSinceLastActivity,
+        communicationEventCount: activity.communicationEventCount,
+        opportunityAgeDays,
+        assignedRmLabel: "RM-001",
+        lastActivityOn: activity.lastActivityOn,
+      });
+
+      previousIntelRef.current = publishIntelligenceDialogueEvents(
+        snapshot,
+        previousIntelRef.current,
+      );
+      setIntelligence(snapshot);
     });
 
-    previousIntelRef.current = publishIntelligenceDialogueEvents(snapshot, previousIntelRef.current);
-    setIntelligence(snapshot);
+    return () => {
+      cancelled = true;
+    };
   }, [
     opportunityId,
     opportunity,
@@ -881,7 +983,7 @@ export function OpportunityWorkspaceProvider({
   const lastPlaceholderStatus = opportunityId
     ? getWorkspacePlaceholderStatus(opportunityId)
     : leadCaseFile
-      ? "Lead Case context loaded from persisted Loan File."
+      ? "Lead Case context loaded from persisted Deal."
       : null;
 
   const value: OpportunityWorkspaceState = {

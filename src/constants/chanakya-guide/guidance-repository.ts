@@ -27,14 +27,14 @@ export const CHANAKYA_GUIDE_WORKSPACE_META: ChanakyaGuideWorkspaceMeta[] = [
     workspaceId: "loan_workspace",
     workspaceLabel: "Loan Workspace",
     pagePurpose:
-      "Execute the loan file — lenders, documents, tasks, and timeline — without leaving the transaction.",
+      "Execute the Loan Workspace — lenders, documents, tasks, and timeline — without leaving the transaction.",
   },
   {
     platform: "catalyst_one",
     workspaceId: "lender_pipeline",
     workspaceLabel: "Lender Pipeline",
     pagePurpose:
-      "Track each lender case’s independent workflow status for this loan file.",
+      "Track each lender case’s independent workflow status for this Deal.",
   },
   {
     platform: "catalyst_one",
@@ -101,7 +101,7 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     bestPractice:
       "Stay on the journey path. Prefer Continue into the next workspace over returning to dashboards mid-case.",
     recommendedNextStep:
-      "Open Lead Creation to create the loan file from a Contact or Company, then advance when ready.",
+      "Open Lead Creation to capture the Opportunity from a Contact or Company, then advance when ready.",
     relatedWorkflow: "Lead Creation → Documents",
     relatedEnterpriseEngine: "Chanakya Guide",
     sortOrder: 10,
@@ -230,13 +230,13 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     workspaceId: "loan_workspace",
     section: "default",
     guidanceTitle: "Workspace first",
-    mentorMessage: "This is your execution surface for the active loan file.",
+    mentorMessage: "This is your execution surface for the active Deal.",
     detailedGuidance:
-      "A loan file can have multiple lender cases. Lender Pipeline is the source of truth for login, credit, PD, legal, pricing, approval, and disbursement status — not a single file-level stage.",
+      "A Deal can have multiple lender cases. Lender Pipeline is the source of truth for login, credit, PD, legal, pricing, approval, and disbursement status — not a single transaction-level stage.",
     bestPractice: "Keep routine actions in Action Center so you never leave this transaction.",
     recommendedNextStep: "Open Lender Pipeline to manage each lender case independently.",
     relatedWorkflow: "Loan execution",
-    relatedRegistry: "Loan File · Lender Case",
+    relatedRegistry: "Deal · Lender Case",
     relatedEnterpriseEngine: "Lender Pipeline",
     sortOrder: 10,
   },
@@ -245,7 +245,7 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     platform: "catalyst_one",
     workspaceId: "loan_workspace",
     section: "overview",
-    guidanceTitle: "Loan file facts",
+    guidanceTitle: "Deal facts",
     mentorMessage:
       "Confirm product, amount, participants, and property facts that lenders will rely on.",
     detailedGuidance:
@@ -302,15 +302,15 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     section: "lenders",
     guidanceTitle: "Lender and Program selection",
     mentorMessage:
-      "Select an active Lender eligible for this product, then choose a Program that belongs to that Lender before progressing.",
+      "Identify Additional Lender is a registry lookup — pick any active lender not already on this Opportunity, then choose a Program.",
     detailedGuidance:
-      "Identify Lender uses enterprise search (name, product, program) with recently used lenders. Only Product Library–eligible lenders are shown. Invalid Lender–Program pairs are never accepted by the Deal Registry.",
+      "Identify Lender browses the Enterprise Lender Registry (search by name/code). Product eligibility, recommendation, and policy engines do not filter this list. Only lenders already attached to the Opportunity are excluded. After selecting a lender, choose one of that lender’s programs, then save.",
     bestPractice:
-      "Prefer recently used eligible lenders when re-working similar products; always confirm Program after switching Lender.",
+      "Search by lender name (e.g. Bank of Baroda). Confirm Program after switching Lender. Do not expect product-based filtering on this dialog.",
     recommendedNextStep:
       "Identify Lender → select Program → assign Invoice Party → continue pipeline stages.",
     relatedWorkflow: "Identify Lender → Logged In",
-    relatedRegistry: "Enterprise Lender Registry · Product Library",
+    relatedRegistry: "Enterprise Lender Registry",
     relatedEnterpriseEngine: "Lender Pipeline · Deal Registry",
     sortOrder: 27,
   },
@@ -336,11 +336,11 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     platform: "catalyst_one",
     workspaceId: "lender_pipeline",
     section: "default",
-    guidanceTitle: "One file, many lenders",
+    guidanceTitle: "One Deal, many lenders",
     mentorMessage:
       "Each lender case has its own login, credit, PD, legal, pricing, approval, and disbursement status.",
     detailedGuidance:
-      "Do not look for a single Current Stage for the whole loan file. The pipeline board is the workflow SSOT.",
+      "Do not look for a single Current Stage for the whole Deal. The pipeline board is the workflow SSOT.",
     bestPractice:
       "Update statuses on the active lender case; add cases when exploring parallel lenders.",
     recommendedNextStep: "Update the active lender case statuses and add cases as needed.",
@@ -355,9 +355,9 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     workspaceId: "lender_pipeline",
     section: "lenders",
     guidanceTitle: "Pipeline board",
-    mentorMessage: "Treat each card as an independent lender journey on this loan file.",
+    mentorMessage: "Treat each card as an independent lender journey on this Deal.",
     detailedGuidance:
-      "Parallel lenders are normal. Progress one case without inventing a fake roll-up stage for the file.",
+      "Parallel lenders are normal. Progress one case without inventing a fake roll-up stage for the Deal.",
     bestPractice: "Keep notes and status changes on the correct lender case.",
     recommendedNextStep: "Select a lender case and advance the next real status.",
     relatedWorkflow: "Lender case progression",
@@ -440,7 +440,7 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     guidanceTitle: "Stay on commitments",
     mentorMessage: "Track what needs attention without losing the bigger journey.",
     detailedGuidance:
-      "When a task belongs to a loan file, open that Loan Workspace so Action Center and Lender Pipeline stay available.",
+      "When a task belongs to a Deal, open that Loan Workspace so Action Center and Lender Pipeline stay available.",
     bestPractice: "Clear overdue items first; then return to the related transaction.",
     recommendedNextStep:
       "Clear overdue items, then return to the related loan or opportunity workspace.",
@@ -494,7 +494,7 @@ export const CHANAKYA_GUIDE_TOUR_STEPS: ChanakyaTourStep[] = [
   {
     id: "tour-nav",
     title: "Navigation",
-    body: "Left navigation opens module dashboards. Inside a transaction, related workspaces keep the same Opportunity or Loan File.",
+    body: "Left navigation opens module dashboards. Inside a transaction, related workspaces keep the same Opportunity or Deal.",
   },
   {
     id: "tour-workspace",

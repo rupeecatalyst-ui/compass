@@ -82,6 +82,12 @@ export interface EnterpriseProductRecord {
   minorVersion: number;
   tags?: string[] | null;
   productOwner?: string | null;
+  /** CO-ADMIN-005 */
+  sortOrder: number;
+  parentProductId?: string | null;
+  isSecured?: boolean | null;
+  customerSegment?: string[] | null;
+  remarks?: string | null;
   status: RegistryStatus;
   enabled: boolean;
   versionNumber: number;
@@ -179,6 +185,11 @@ export interface CreateProductRegistryInput {
   minorVersion?: number;
   tags?: string[];
   productOwner?: string;
+  sortOrder?: number;
+  parentProductId?: string | null;
+  isSecured?: boolean | null;
+  customerSegment?: string[];
+  remarks?: string;
   status?: RegistryStatus;
   enabled?: boolean;
   notes?: string;
@@ -197,6 +208,11 @@ export interface UpdateProductRegistryInput {
   minorVersion?: number;
   tags?: string[] | null;
   productOwner?: string | null;
+  sortOrder?: number;
+  parentProductId?: string | null;
+  isSecured?: boolean | null;
+  customerSegment?: string[] | null;
+  remarks?: string | null;
   status?: RegistryStatus;
   enabled?: boolean;
   notes?: string | null;

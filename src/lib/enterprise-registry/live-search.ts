@@ -42,13 +42,18 @@ function syncCompaniesToCache(companies: EcmCompany[]): void {
 /** Search contacts — API in prisma mode, memory SSOT otherwise. */
 export async function liveSearchOperationalContacts(
   query: string,
-  opts?: { pageSize?: number },
+  opts?: { pageSize?: number; roles?: import("@/types/enterprise-contact-master").EcmContactRole[] },
 ): Promise<EnterpriseContactOption[]> {
   const q = query.trim();
   const pageSize = opts?.pageSize ?? 25;
+  const roles = opts?.roles;
 
   if (!isEnterprisePersistencePrisma()) {
-    return searchOperationalContacts(q).slice(0, pageSize);
+    const rows = searchOperationalContacts(q);
+    const filtered = roles?.length
+      ? rows.filter((c) => c.roles?.some((r) => roles.includes(r)))
+      : rows;
+    return filtered.slice(0, pageSize);
   }
 
   const result = await ecmApiClient.queryContacts({
@@ -58,6 +63,7 @@ export async function liveSearchOperationalContacts(
     status: "all",
     sortBy: "modifiedOn",
     sortDir: "desc",
+    ...(roles?.length ? { roles } : {}),
   });
 
   syncContactsToCache(result.items);

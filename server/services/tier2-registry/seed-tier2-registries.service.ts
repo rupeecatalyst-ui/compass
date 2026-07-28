@@ -103,6 +103,20 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
   const lenderCategoryIds = new Map<string, string>();
   const lenderIds = new Map<string, string>();
 
+  // Hydrate existing taxonomy so seed can attach new rows without overwriting.
+  for (const row of await prisma.enterpriseProductCategory.findMany({
+    where: { organizationId, isDeleted: false },
+    select: { id: true, code: true },
+  })) {
+    productCategoryIds.set(row.code, row.id);
+  }
+  for (const row of await prisma.enterpriseProductGroup.findMany({
+    where: { organizationId, isDeleted: false },
+    select: { id: true, code: true },
+  })) {
+    productGroupIds.set(row.code, row.id);
+  }
+
   // —— Product categories ——
   for (const seed of getProductCategorySeeds()) {
     const code = normalizeProductRegistryCode(seed.code);
@@ -128,20 +142,8 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
       productCategoryIds.set(code, created.id);
       bump(categoryCounts, "created");
     } else {
-      const needsUpdate =
-        existing.label !== data.label ||
-        existing.sortOrder !== data.sortOrder ||
-        existing.enabled !== data.enabled ||
-        existing.status !== data.status;
-      if (needsUpdate) {
-        await prisma.enterpriseProductCategory.update({
-          where: { id: existing.id },
-          data,
-        });
-        bump(categoryCounts, "updated");
-      } else {
-        bump(categoryCounts, "skipped");
-      }
+      // CO-MDM-001 — preserve administrator changes; seed only creates missing codes.
+      bump(categoryCounts, "skipped");
       productCategoryIds.set(code, existing.id);
     }
   }
@@ -174,21 +176,8 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
       productGroupIds.set(code, created.id);
       bump(groupCounts, "created");
     } else {
-      const needsUpdate =
-        existing.label !== data.label ||
-        existing.categoryId !== data.categoryId ||
-        existing.sortOrder !== data.sortOrder ||
-        existing.enabled !== data.enabled ||
-        existing.status !== data.status;
-      if (needsUpdate) {
-        await prisma.enterpriseProductGroup.update({
-          where: { id: existing.id },
-          data,
-        });
-        bump(groupCounts, "updated");
-      } else {
-        bump(groupCounts, "skipped");
-      }
+      // CO-MDM-001 — preserve administrator changes; seed only creates missing codes.
+      bump(groupCounts, "skipped");
       productGroupIds.set(code, existing.id);
     }
   }
@@ -219,6 +208,12 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
       minorVersion: seed.minorVersion,
       tags: seed.tags ? (seed.tags as Prisma.InputJsonValue) : undefined,
       productOwner: seed.productOwner ?? null,
+      sortOrder: seed.sortOrder ?? 0,
+      isSecured: seed.isSecured ?? null,
+      customerSegment: seed.customerSegment
+        ? (seed.customerSegment as Prisma.InputJsonValue)
+        : undefined,
+      remarks: seed.remarks ?? null,
       status: "active" as const,
       enabled: true,
       modifiedBy: actorId,
@@ -229,23 +224,9 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
       });
       bump(productCounts, "created");
     } else {
-      const needsUpdate =
-        existing.label !== data.label ||
-        existing.categoryId !== data.categoryId ||
-        existing.groupId !== data.groupId ||
-        existing.lifecycleStatus !== data.lifecycleStatus ||
-        existing.operationalStatus !== data.operationalStatus ||
-        existing.enabled !== data.enabled ||
-        existing.status !== data.status;
-      if (needsUpdate) {
-        await prisma.enterpriseProduct.update({
-          where: { id: existing.id },
-          data,
-        });
-        bump(productCounts, "updated");
-      } else {
-        bump(productCounts, "skipped");
-      }
+      // CO-MDM-001 — preserve administrator changes; seed only creates missing codes.
+      // Do not rename alias rows (e.g. COMMERCIAL_PURCHASE → COMM_PURCHASE).
+      bump(productCounts, "skipped");
     }
   }
 
@@ -429,7 +410,9 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
         existing.institutionCategory !== data.institutionCategory ||
         existing.sortOrder !== data.sortOrder ||
         existing.enabled !== data.enabled ||
-        existing.status !== data.status;
+        existing.status !== data.status ||
+        existing.lifecycleStatus !== data.lifecycleStatus ||
+        existing.operationalStatus !== data.operationalStatus;
       if (needsUpdate) {
         await prisma.enterpriseLender.update({
           where: { id: existing.id },

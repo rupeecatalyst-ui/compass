@@ -9,6 +9,7 @@ export const ECM_COMPANY_RELATION_ROLES = {
   PROMOTER: "promoter",
   PARTNER: "partner",
   AUTHORIZED_SIGNATORY: "authorized_signatory",
+  EMPLOYEE: "employee",
   CFO: "cfo",
   COMPANY_SECRETARY: "company_secretary",
   PROPRIETOR: "proprietor",
@@ -16,11 +17,21 @@ export const ECM_COMPANY_RELATION_ROLES = {
   OTHER: "other",
 } as const;
 
+/** CO-DOM-001 — Communication-only company representatives (not loan structure). */
+export const ECM_COMPANY_REPRESENTATIVE_ROLES = [
+  ECM_COMPANY_RELATION_ROLES.EMPLOYEE,
+  ECM_COMPANY_RELATION_ROLES.AUTHORIZED_SIGNATORY,
+] as const;
+
+export type EcmCompanyRepresentativeRole =
+  (typeof ECM_COMPANY_REPRESENTATIVE_ROLES)[number];
+
 export const ECM_COMPANY_RELATION_ROLE_LABELS: Record<string, string> = {
   director: "Director",
   promoter: "Promoter",
   partner: "Partner",
-  authorized_signatory: "Authorized Signatory",
+  authorized_signatory: "Authorised Signatory",
+  employee: "Employee",
   cfo: "CFO",
   company_secretary: "Company Secretary",
   proprietor: "Proprietor",

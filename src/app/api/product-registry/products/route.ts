@@ -10,6 +10,7 @@ import { productRegistryService } from "@server/services/product-registry/produc
 import {
   mapRouteError,
   parseListQuery,
+  productRegistryErrorResponse,
   productRegistryPersistenceGuard,
   requireProductRegistryAdmin,
   resolveActorDisplayName,
@@ -31,11 +32,15 @@ export async function GET(request: Request) {
     });
     return successResponse(result);
   } catch (err) {
-    const mapped = mapRouteError(err);
+    const mapped = productRegistryErrorResponse(err, "PRODUCT_QUERY_FAILED", "Failed to query products");
     if (mapped.status === 401) {
       return fromAuthError(mapped as { status: number; body: ApiResponse<unknown> });
     }
-    return errorResponse(500, "PRODUCT_QUERY_FAILED", "Failed to query products");
+    return errorResponse(
+      mapped.status,
+      mapped.body.error?.code ?? "PRODUCT_QUERY_FAILED",
+      mapped.body.error?.message ?? "Failed to query products",
+    );
   }
 }
 
@@ -60,6 +65,13 @@ export async function POST(request: Request) {
         minorVersion: body.minorVersion !== undefined ? Number(body.minorVersion) : undefined,
         tags: Array.isArray(body.tags) ? body.tags.map(String) : undefined,
         productOwner: body.productOwner ? String(body.productOwner) : undefined,
+        sortOrder: body.sortOrder !== undefined ? Number(body.sortOrder) : undefined,
+        parentProductId: body.parentProductId ? String(body.parentProductId) : undefined,
+        isSecured: body.isSecured !== undefined ? Boolean(body.isSecured) : undefined,
+        customerSegment: Array.isArray(body.customerSegment)
+          ? body.customerSegment.map(String)
+          : undefined,
+        remarks: body.remarks ? String(body.remarks) : undefined,
         status: body.status,
         enabled: body.enabled,
         notes: body.notes ? String(body.notes) : undefined,

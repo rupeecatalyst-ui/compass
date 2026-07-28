@@ -11,6 +11,7 @@ import {
   serializeActivity,
   serializeCounterparty,
   serializeDeal,
+  serializeDealSummary,
   serializeDocumentLink,
   serializeSnapshot,
   serializeTask,
@@ -192,6 +193,18 @@ export class EnterpriseDealService {
 
     // Never accept client-supplied id as authority
     const deal = await enterpriseDealRepository.createDeal(input);
+    // CO-OPP-002 — first Deal → Opportunity Converted to Deal (best-effort; never fails Deal create)
+    try {
+      const { enterpriseOpportunityService } = await import(
+        "@server/services/enterprise-opportunity"
+      );
+      await enterpriseOpportunityService.syncLifecycleFromDeals(
+        opportunityId,
+        actorUserId,
+      );
+    } catch {
+      /* Opportunity sync is advisory for Deal create */
+    }
     return serializeDeal(deal);
   }
 
@@ -245,18 +258,31 @@ export class EnterpriseDealService {
         await enterpriseDealRepository.listSnapshots(organizationId, dealId)
       ).map(serializeSnapshot);
     }
+    // CO-PERF-002 — Workspace bootstrap: sibling Deals in one response.
+    if (include.includes("siblings") && deal.opportunityId) {
+      const siblingRows = await enterpriseDealRepository.listByOpportunity(
+        organizationId,
+        deal.opportunityId,
+      );
+      extras.siblings = siblingRows.map((row) => ({
+        ...serializeDeal(row),
+        opportunityNumber,
+      }));
+    }
     return { ...withOpp, ...extras };
   }
 
   async searchDeals(query: EnterpriseDealSearchQuery) {
     const organizationId = await this.orgId();
     const result = await enterpriseDealRepository.searchDeals(organizationId, query);
+    const serialize = query.view === "summary" ? serializeDealSummary : serializeDeal;
     return {
       ...result,
       items: result.items.map((row) => ({
-        ...serializeDeal(row),
+        ...serialize(row),
         opportunityNumber: row.opportunity?.opportunityNumber ?? null,
       })),
+      view: query.view === "summary" ? "summary" : "full",
     };
   }
 
@@ -444,42 +470,47 @@ export class EnterpriseDealService {
 
     const lenderChanged =
       previousLenderId !== nextLenderId || previousProgramId !== nextProgramId;
-    await enterpriseDealRepository.appendTimelineEvent({
-      organizationId,
-      dealId,
-      eventType: lenderChanged ? "deal_lender_changed" : "deal_updated",
-      summary: lenderChanged
-        ? `Deal ${updated.dealNumber} lender/program updated`
-        : `Deal ${updated.dealNumber} updated`,
-      actorUserId: input.actorUserId,
-      payload: {
-        reason: input.reason ?? null,
-        fields: Object.keys(data),
-        previousLenderId,
-        newLenderId: nextLenderId,
-        previousProgramId,
-        newProgramId: nextProgramId,
-        at: new Date().toISOString(),
-      },
-    });
 
-    if (lenderChanged) {
-      await enterpriseDealRepository.appendSnapshot({
+    // CO-ARCH-003 — Tier 2 audit trail after Tier 1 Deal save commit.
+    const { scheduleTier2Work } = await import("@server/lib/schedule-tier2");
+    scheduleTier2Work(`deal.update.timeline:${dealId}`, async () => {
+      await enterpriseDealRepository.appendTimelineEvent({
         organizationId,
         dealId,
-        reason: "lender_or_program_change",
-        snapshot: {
+        eventType: lenderChanged ? "deal_lender_changed" : "deal_updated",
+        summary: lenderChanged
+          ? `Deal ${updated.dealNumber} lender/program updated`
+          : `Deal ${updated.dealNumber} updated`,
+        actorUserId: input.actorUserId,
+        payload: {
+          reason: input.reason ?? null,
+          fields: Object.keys(data),
           previousLenderId,
           newLenderId: nextLenderId,
           previousProgramId,
           newProgramId: nextProgramId,
-          actorUserId: input.actorUserId,
-          reason: input.reason ?? null,
           at: new Date().toISOString(),
-        } as Prisma.InputJsonValue,
-        actorUserId: input.actorUserId,
+        },
       });
-    }
+
+      if (lenderChanged) {
+        await enterpriseDealRepository.appendSnapshot({
+          organizationId,
+          dealId,
+          reason: "lender_or_program_change",
+          snapshot: {
+            previousLenderId,
+            newLenderId: nextLenderId,
+            previousProgramId,
+            newProgramId: nextProgramId,
+            actorUserId: input.actorUserId,
+            reason: input.reason ?? null,
+            at: new Date().toISOString(),
+          } as Prisma.InputJsonValue,
+          actorUserId: input.actorUserId,
+        });
+      }
+    });
 
     return serializeDeal(updated);
   }
@@ -490,6 +521,12 @@ export class EnterpriseDealService {
     actorName?: string | null,
     reason?: string | null,
   ) {
+    // CO-QA-002 Round 3 — temporary server timeline for BAT forensics.
+    console.info("[CO-QA-002]", "repository_softDeleteDeal_start", {
+      dealId,
+      actorUserId,
+      reason: reason ?? null,
+    });
     const organizationId = await this.orgId();
     const updated = await enterpriseDealRepository.softDeleteDeal({
       organizationId,
@@ -499,6 +536,12 @@ export class EnterpriseDealService {
       reason,
     });
     if (!updated) throw new DealNotFoundError();
+    console.info("[CO-QA-002]", "repository_softDeleteDeal_committed", {
+      dealId,
+      dealNumber: updated.dealNumber,
+      isDeleted: updated.isDeleted,
+      deletedAt: updated.deletedAt?.toISOString?.() ?? updated.deletedAt,
+    });
     return serializeDeal(updated);
   }
 
@@ -563,6 +606,22 @@ export class EnterpriseDealService {
         : undefined,
       reason: input.reason,
     });
+
+    // CO-OPP-002 — Completed / Lost / Converted sync from Deal stages
+    if (updated.opportunityId) {
+      try {
+        const { enterpriseOpportunityService } = await import(
+          "@server/services/enterprise-opportunity"
+        );
+        await enterpriseOpportunityService.syncLifecycleFromDeals(
+          updated.opportunityId,
+          input.actorUserId,
+        );
+      } catch {
+        /* advisory */
+      }
+    }
+
     return serializeDeal(updated);
   }
 
@@ -610,7 +669,7 @@ export class EnterpriseDealService {
     return serializeSnapshot(row);
   }
 
-  /** ARB A3 — placeholder only; does not compute or persist health. */
+  /** ARB A3 / CO-PERF-001 — Deal Health from EME (reserved columns). */
   async getDealHealth(dealId: string) {
     const organizationId = await this.orgId();
     const deal = await enterpriseDealRepository.requireDeal(organizationId, dealId);
@@ -621,20 +680,34 @@ export class EnterpriseDealService {
       healthBand: deal.healthBand,
       healthComputedAt: deal.healthComputedAt?.toISOString() ?? null,
       healthPayload: deal.healthPayload,
-      status: "reserved" as const,
+      status: deal.healthScore != null ? ("computed" as const) : ("reserved" as const),
+      authority: "Enterprise Metrics Engine",
       message:
-        "Deal Health storage is reserved (ARB A3). Computation engines are out of Wave 2 scope.",
+        deal.healthScore != null
+          ? "Deal Health populated by Enterprise Metrics Engine (CO-PERF-001)."
+          : "Deal Health not yet computed. Run Force Recalculate in Administration → Enterprise Metrics.",
     };
   }
 
-  /** Placeholder writer — rejected until a certified health engine exists. */
-  async updateDealHealthPlaceholder(_dealId: string) {
-    throw Object.assign(
-      new Error(
-        "Deal Health write is not implemented in Wave 2. Reserved columns remain null until a certified engine is authorized.",
-      ),
-      { status: 501, code: "DEAL_HEALTH_NOT_IMPLEMENTED" },
+  /** CO-PERF-001 — Trigger EME event refresh for this deal (no duplicate formula). */
+  async updateDealHealthPlaceholder(dealId: string) {
+    const organizationId = await this.orgId();
+    await enterpriseDealRepository.requireDeal(organizationId, dealId);
+    const { enterpriseMetricsEngineService } = await import(
+      "@server/services/enterprise-metrics-engine"
     );
+    const result = await enterpriseMetricsEngineService.refreshForEvent("deal.stage_changed", {
+      triggerSource: "api",
+      metricKeys: ["deal.health", "dashboard.visual_analytics"],
+    });
+    const deal = await enterpriseDealRepository.requireDeal(organizationId, dealId);
+    return {
+      dealId: deal.id,
+      healthScore: deal.healthScore,
+      healthBand: deal.healthBand,
+      healthComputedAt: deal.healthComputedAt?.toISOString() ?? null,
+      runId: result.run.id,
+    };
   }
 
   // Counterparties
@@ -857,6 +930,36 @@ export class EnterpriseDealService {
       actorUserId: input.actorUserId,
     });
     return serializeActivity(row);
+  }
+
+  /**
+   * Today's New Deals — Deal Registry createdAt today.
+   * Independent from Opportunity KPIs (Deal only after lender identify).
+   */
+  async getTodayNewDealKpis() {
+    const { DASHBOARD_TODAY_NEW_DEALS_DEFINITION } = await import(
+      "@/constants/opportunity-creation-business-rules"
+    );
+    const { prisma } = await import("@server/lib/prisma");
+    const organizationId = await this.orgId();
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    const total = await prisma.enterpriseDeal.count({
+      where: {
+        organizationId,
+        isDeleted: false,
+        createdAt: { gte: start, lte: end },
+      },
+    });
+
+    return {
+      asOf: new Date().toISOString(),
+      definition: DASHBOARD_TODAY_NEW_DEALS_DEFINITION,
+      counts: { total },
+    };
   }
 }
 

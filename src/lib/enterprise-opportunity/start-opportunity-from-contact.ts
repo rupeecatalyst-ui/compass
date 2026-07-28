@@ -1,10 +1,11 @@
 /**
- * ADR-018 Wave 3 — Frozen Start Loan Journey.
+ * ADR-018 Wave 3 / CO-OPP-002 — Frozen Start Loan Journey.
  *
- * Contact → Start Loan Journey → Create Draft Opportunity → Execution Hub (/loan-journey)
+ * Contact → Start Loan Journey → Create Dialogue Opportunity → Execution Hub (/loan-journey)
  * → Lead Information → Requirement Captured → Opportunity Workspace …
  *
- * Draft is identity-only (CAD-2026-001 / ADR-018). No LoanFile or Deal on this path.
+ * Dialogue is identity-only (CAD-2026-001). No LoanFile or Deal on this path.
+ * P1: Start is idempotent — reuse an open Dialogue for the Contact; never mint a second.
  */
 import {
   formatProductDisplayLabel,
@@ -69,7 +70,8 @@ export function assertContactReadyForLoanJourney(
 }
 
 /**
- * Create Draft Opportunity (identity only) and land on Execution Hub.
+ * Create Dialogue Opportunity (identity only) and land on Execution Hub.
+ * Reuses an existing open Dialogue (or legacy Draft) for this Contact (idempotent Start).
  * Does not invent product / amount / lending / transaction defaults.
  */
 export async function startOpportunityFromContact(
@@ -84,12 +86,22 @@ export async function startOpportunityFromContact(
     throw new Error(readiness.message);
   }
 
+  const forceNew = Boolean(options?.allowActiveDuplicateOverride);
+
   try {
+    if (!forceNew) {
+      const openDialogue =
+        await enterpriseOpportunityApiClient.findOpenDraftForContact(contact.id);
+      if (openDialogue?.id) {
+        return openExistingOpportunityWorkspace(openDialogue);
+      }
+    }
+
     const opportunity = await enterpriseOpportunityApiClient.createOpportunity({
       primaryContactId: contact.id,
-      createAsDraft: true,
-      lifecycleStatus: "draft",
-      requirementStage: "raw_lead",
+      createAsDialogue: true,
+      lifecycleStatus: "dialogue",
+      requirementStage: "dialogue",
       productId: null,
       productCode: null,
       productLabel: null,
@@ -167,11 +179,11 @@ export function openExistingOpportunityWorkspace(
 }
 
 /**
- * @deprecated ADR-018 Wave 3 — Draft Start no longer probes Home Loan active uniqueness.
- * Kept for conflict UI compatibility; returns null.
+ * P1 — Open Dialogue for Contact (Start Loan Journey reuse probe).
  */
 export async function findActiveOpportunityForStartLoanJourney(
-  _contact: EcmContact,
+  contact: EcmContact,
 ): Promise<EnterpriseOpportunityApiRecord | null> {
-  return null;
+  if (!contact.id?.trim()) return null;
+  return enterpriseOpportunityApiClient.findOpenDraftForContact(contact.id);
 }

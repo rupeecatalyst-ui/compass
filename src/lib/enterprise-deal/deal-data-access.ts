@@ -507,6 +507,21 @@ export async function updateDealAsync(
   const updated = applyDealPatch(existing, patch, timelineNote);
   commitDealProjection(updated);
 
+  // CO-QA-002 — Kanban Remove on legacy Loan Workspace must soft-delete
+  // sibling Enterprise Deals, not only rewrite one Deal's snapshot.lenders.
+  if (lendersOnly && Array.isArray(patch.lenders)) {
+    const { softDeleteRemovedPipelineDeals } = await import(
+      "@/lib/enterprise-deal/deal-pipeline-runtime"
+    );
+    const knownDealIds = (existing.lenders ?? [])
+      .map((l) => l.enterpriseDealId?.trim())
+      .filter((id): id is string => Boolean(id));
+    await softDeleteRemovedPipelineDeals(existing.lenders ?? [], patch.lenders, {
+      knownDealIds,
+      reason: "kanban_pipeline_remove",
+    });
+  }
+
   const result = await persistDealProjectionToRegistry(updated, {
     lendersOnly,
     reason: lendersOnly ? "pipeline_lender_stage" : "deal_workspace_persist",

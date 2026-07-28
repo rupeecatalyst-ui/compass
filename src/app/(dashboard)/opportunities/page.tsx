@@ -4,6 +4,7 @@ import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { OpportunityWorkspace } from "@/components/catalyst-one/opportunity-workspace";
 import { OpportunityBoundStage } from "@/components/catalyst-one/opportunity-workspace/opportunity-bound-stage";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import {
   clearActiveOpportunityContext,
@@ -49,19 +50,25 @@ function StrategicWorkspaceGate() {
 
   if (!hasUrlContext) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
-        Restoring active Opportunity…
-      </div>
+      <ChanakyaLoadingExperience
+        module="opportunity"
+        statusLabel="Restoring active Opportunity..."
+        density="panel"
+      />
     );
   }
 
   if (gate.status === "loading" || gate.status === "redirecting") {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
-        {gate.status === "redirecting"
-          ? "Requirement not captured — opening Lead Information…"
-          : "Loading LIFE…"}
-      </div>
+      <ChanakyaLoadingExperience
+        module="opportunity"
+        statusLabel={
+          gate.status === "redirecting"
+            ? "Requirement not captured — opening Lead Information..."
+            : "Loading LIFE..."
+        }
+        density="panel"
+      />
     );
   }
 
@@ -77,9 +84,11 @@ export default function OpportunityWorkspacePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
-          Loading LIFE…
-        </div>
+        <ChanakyaLoadingExperience
+          module="opportunity"
+          statusLabel="Loading LIFE..."
+          density="panel"
+        />
       }
     >
       <StrategicWorkspaceGate />

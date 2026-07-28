@@ -1,5 +1,6 @@
 import {
   FolderTree,
+  Grid3X3,
   History,
   LayoutDashboard,
   Library,
@@ -28,10 +29,17 @@ export const PRODUCT_LIBRARY_NAV: ProductLibraryNavItem[] = [
     description: "Product Library executive dashboard and platform metrics.",
   },
   {
+    id: "master",
+    title: "Product Master",
+    href: ROUTES.ADMIN_PRODUCT_MASTER,
+    icon: Library,
+    description: "Create, edit, activate, and deactivate enterprise products.",
+  },
+  {
     id: "registry",
     title: "Product Registry",
     href: ROUTES.ADMIN_PRODUCT_REGISTRY,
-    icon: Library,
+    icon: Grid3X3,
     description: "Enterprise catalog of governed product definitions.",
   },
   {

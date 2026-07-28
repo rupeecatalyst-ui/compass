@@ -36,6 +36,8 @@ import {
   Radar,
   LineChart,
   Gauge,
+  Handshake,
+  Eraser,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
@@ -116,7 +118,13 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Users", href: ROUTES.ADMIN_USERS, separatorBefore: true },
   { title: "Roles & Permissions", href: ROUTES.ADMIN_ROLES_PERMISSIONS },
   { title: "Lender Registry", href: ROUTES.ADMIN_LENDER_REGISTRY, separatorBefore: true },
-  { title: "Reference Masters", href: ROUTES.ADMIN_REFERENCE_MASTERS },
+  { title: "Wealth Partner Registry", href: ROUTES.ADMIN_WEALTH_PARTNER_REGISTRY },
+  { title: "Enterprise Master Data", href: ROUTES.ADMIN_ENTERPRISE_MDM },
+  { title: "Product–Lender Matrix", href: ROUTES.ADMIN_PRODUCT_LENDER_MATRIX },
+  { title: "Lender Program Portal", href: ROUTES.ADMIN_LENDER_PROGRAM_PORTAL },
+  { title: "Lookup Masters", href: ROUTES.ADMIN_REFERENCE_MASTERS },
+  { title: "Product Programs", href: ROUTES.ADMIN_PRODUCT_PROGRAMS },
+  { title: "Document Types", href: ROUTES.ADMIN_DOCUMENT_TYPES },
   { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY },
   { title: "Enterprise Asset Library", href: ROUTES.ADMIN_ENTERPRISE_ASSETS },
   { title: "Enterprise Decision Ledger", href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER },
@@ -131,6 +139,8 @@ export const administrationChildren: NavSubItem[] = [
   { title: "ECG", href: ROUTES.ADMIN_ECG },
   { title: "System Modes", href: ROUTES.ADMIN_SYSTEM_MODES },
   { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION },
+  { title: "Production Reset", href: ROUTES.ADMIN_PRODUCTION_RESET },
+  { title: "Enterprise Metrics", href: ROUTES.ADMIN_ENTERPRISE_METRICS },
 ];
 /**
  * Primary domain navigation — Column 1 (Architecture Freeze + CO-ARCH-003).
@@ -163,12 +173,13 @@ export const primaryDomainNavigation: NavGroup = {
       icon: FileStack,
     },
     { title: "Lenders", href: ROUTES.LENDERS, icon: Building2 },
+    { title: "Wealth Partners", href: ROUTES.WEALTH_PARTNERS, icon: Handshake },
     { title: "Accounting", href: ROUTES.ACCOUNTING, icon: Calculator },
     /**
      * Mission Control section hub (rail + executive modules).
      * Executive Briefing remains at /mission-control/executive-briefing — not Dashboard.
      */
-    { title: "Mission Control", href: ROUTES.MISSION_CONTROL, icon: Gauge },
+    { title: "Mission Control", href: ROUTES.MISSION_CONTROL_EXECUTIVE_BRIEFING, icon: Gauge },
     { title: "Horizon", href: ROUTES.HORIZON, icon: Orbit },
     {
       title: "Administration",
@@ -329,6 +340,8 @@ export const adminConsoleNavigation: NavGroup = {
     { title: "ECG", href: ROUTES.ADMIN_ECG, icon: SlidersHorizontal },
     { title: "System Modes", href: ROUTES.ADMIN_SYSTEM_MODES, icon: ToggleLeft },
     { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION, icon: Info },
+    { title: "Production Reset", href: ROUTES.ADMIN_PRODUCTION_RESET, icon: Eraser },
+    { title: "Enterprise Metrics", href: ROUTES.ADMIN_ENTERPRISE_METRICS, icon: BarChart3 },
     { title: "Enterprise Intelligence", href: ROUTES.REPORTS, icon: BarChart3 },
   ],
 };

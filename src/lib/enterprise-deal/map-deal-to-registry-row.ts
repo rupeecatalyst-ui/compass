@@ -6,6 +6,8 @@ import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { formatINR } from "@/lib/format-currency";
 import { coalesceAssignedUsers, formatAssignedUsersLabel } from "@/lib/assigned-users";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
+import { resolveDealStageProjection } from "@/lib/enterprise-deal/deal-stage-projection";
+import { borrowerDisplayNameOrDash } from "@/lib/enterprise-borrower-identity";
 import type { DealRegistryRow } from "@/types/deal-registry";
 import type { LoanFilePriority, LoanFileStatus, PipelineStage } from "@/types/catalyst-one";
 
@@ -60,7 +62,7 @@ export function mapEnterpriseDealToDealRegistryRow(
 ): DealRegistryRow {
   const amount = deal.requestedAmount ?? 0;
   const last = deal.updatedAt || deal.createdAt || "";
-  const stage = (deal.grossStage || "raw_lead") as PipelineStage;
+  const stage = resolveDealStageProjection(deal) || ("raw_lead" as PipelineStage);
   const rowId = deal.legacyLoanFileId || deal.id;
   const assignedUsers = coalesceAssignedUsers({
     lendingExtension: deal.lendingExtension,
@@ -97,7 +99,7 @@ export function mapEnterpriseDealToDealRegistryRow(
       deal.dealNumber,
     customerType: undefined,
     fileNumber: deal.fileNumber || deal.dealNumber,
-    borrowerName: deal.primaryContactName || "—",
+    borrowerName: borrowerDisplayNameOrDash(deal),
     contactNumber: deal.primaryContactMobile || "—",
     product: deal.productLabel || "—",
     loanAmount: amount,

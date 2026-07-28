@@ -1,0 +1,65 @@
+# CHANAKYA Day / Night & Tier 4 Snapshots (CO-ARCH-007)
+
+
+
+Status: **ENTERPRISE APPROVED** · Extends CO-ARCH-003 · Preserves CO-ARCH-005
+
+
+
+## Day Mode
+
+
+
+Observe · record decisions · monitor SLA / workflow · display certified recommendations.  
+
+**Forbidden:** scoring engines, portfolio intelligence, heavy SQL aggregation on interactive paths.
+
+
+
+## Night Mode
+
+
+
+Default **02:00** (Admin-configurable). Runs Tier 3 intelligence via EME (Radar + MC snapshots, scores, learning).
+
+
+
+## Tier 4
+
+
+
+Mission Control and CHANAKYA Radar **consume** certified snapshots only.
+
+
+
+## Manual lender selection
+
+
+
+Registry read + store lender ID only. No Recommendation / Programme / Policy / Eligibility / AI on select.
+
+
+
+## SSOT
+
+
+
+- `src/constants/chanakya-operating-model.ts`
+
+- `src/constants/manual-lender-selection.ts`
+
+- `src/constants/enterprise-processing-architecture.ts` (Tier 4)
+
+- Docs: `docs/co-arch-007/CO-ARCH-007-CHANAKYA-DAY-NIGHT.md`
+
+
+
+## Related
+
+
+
+- `mission-control-snapshot.mdc` (CO-ARCH-005 — do not regress)
+
+- `enterprise-processing-architecture.mdc` (CO-ARCH-003)
+
+

@@ -15,7 +15,21 @@ export {
   filterDocumentRegistryRecords,
   subscribeDocumentRegistryUpdated,
   buildEntityLinksFromLoanFile,
+  healDocumentOwnerAssociations,
+  mergeDurableDocumentsIntoLocalRegistry,
 } from "./store";
+
+export {
+  resolveDocumentRegistryRuntimeKeys,
+  recordMatchesDocumentOwnerScope,
+} from "./association";
+
+export type { ListDocumentsRuntimeOptions } from "./store";
+
+export {
+  syncDocumentRecordToServer,
+  hydrateDocumentRegistryFromServer,
+} from "./server-sync";
 
 export {
   canUploadDocuments,

@@ -4,6 +4,8 @@ export const EDC_CONTEXT_TYPES = {
   OPPORTUNITY: "opportunity",
   LOAN: "loan",
   CUSTOMER: "customer",
+  /** CO-LEND-001B — Lender program portal dialogue projection */
+  LENDER_PROGRAM: "lender_program",
 } as const;
 
 export const EDC_EVENT_TYPES = {

@@ -85,22 +85,34 @@ export function assertPriority(value: unknown) {
 }
 
 const LIFECYCLES = [
-  "draft",
+  "dialogue",
   "requirement_captured",
-  "active",
+  "in_progress",
+  "converted_to_deal",
+  "completed",
   "on_hold",
-  "won",
   "lost",
   "cancelled",
+  /** Historical values — accept on read/write only when already present; prefer canonical above. */
+  "draft",
+  "active",
+  "won",
   "archived",
 ] as const;
 
 export function assertOpportunityLifecycle(value: unknown) {
   if (value === undefined || value === null || value === "") return undefined;
   const v = String(value).trim().toLowerCase();
-  if (!(LIFECYCLES as readonly string[]).includes(v)) {
+  // Accept legacy createAsDraft aliases
+  const normalized =
+    v === "draft" ? "dialogue" : v === "active" ? "in_progress" : v === "won" ? "completed" : v;
+  if (!(LIFECYCLES as readonly string[]).includes(normalized) && !(LIFECYCLES as readonly string[]).includes(v)) {
     throw new OpportunityValidationError(`Invalid lifecycleStatus: ${v}`);
   }
+  // Prefer writing canonical statuses when client sends legacy aliases
+  if (v === "draft") return "dialogue" as (typeof LIFECYCLES)[number];
+  if (v === "active") return "in_progress" as (typeof LIFECYCLES)[number];
+  if (v === "won") return "completed" as (typeof LIFECYCLES)[number];
   return v as (typeof LIFECYCLES)[number];
 }
 

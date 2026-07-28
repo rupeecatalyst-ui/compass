@@ -37,6 +37,8 @@ export type EnterpriseDealSearchQuery = {
   pageSize?: number;
   sort?: "updatedAt_desc" | "updatedAt_asc" | "createdAt_desc" | "dealNumber_asc";
   includeDeleted?: boolean;
+  /** CO-PERF-002 — summary omits heavy JSON for list/registry paint. */
+  view?: "summary" | "full";
 };
 
 export type DealIncludeOption =
@@ -45,7 +47,9 @@ export type DealIncludeOption =
   | "tasks"
   | "activities"
   | "timeline"
-  | "snapshots";
+  | "snapshots"
+  /** CO-PERF-002 — sibling Deals for the same Opportunity (workspace bootstrap). */
+  | "siblings";
 
 export type UpdateEnterpriseDealInput = {
   rowVersion: number;

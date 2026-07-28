@@ -139,6 +139,17 @@ export class ProductRegistryService {
     const existing = await productRegistryRepository.findCategoryById(id);
     if (!existing) throw new Error("Product category not found.");
 
+    const childGroups = await productRegistryRepository.queryGroups(organizationId, {
+      categoryId: id,
+      pageSize: 1,
+      status: "all",
+    });
+    if (childGroups.total > 0) {
+      throw new Error(
+        `Cannot delete category "${existing.label}" while ${childGroups.total} group(s) still belong to it. Deactivate or reassign groups first.`,
+      );
+    }
+
     const updated = await productRegistryRepository.softDeleteCategory(id, actorId, reason);
     await enterpriseRegistryAuditService.recordChange({
       organizationId,
@@ -259,6 +270,17 @@ export class ProductRegistryService {
     const organizationId = await resolvePilotOrganizationId();
     const existing = await productRegistryRepository.findGroupById(id);
     if (!existing) throw new Error("Product group not found.");
+
+    const childProducts = await productRegistryRepository.queryProducts(organizationId, {
+      groupId: id,
+      pageSize: 1,
+      status: "all",
+    });
+    if (childProducts.total > 0) {
+      throw new Error(
+        `Cannot delete group "${existing.label}" while ${childProducts.total} product(s) still belong to it. Deactivate or reassign products first.`,
+      );
+    }
 
     const updated = await productRegistryRepository.softDeleteGroup(id, actorId, reason);
     await enterpriseRegistryAuditService.recordChange({
@@ -411,6 +433,56 @@ export class ProductRegistryService {
       reason,
     });
     return updated;
+  }
+
+  async archiveProduct(id: string, actorId: string, reason?: string, actorName?: string) {
+    const organizationId = await resolvePilotOrganizationId();
+    const existing = await productRegistryRepository.findProductById(id);
+    if (!existing) throw new Error("Product not found.");
+
+    const updated = await productRegistryRepository.archiveProduct(id, actorId, reason);
+    await enterpriseRegistryAuditService.recordChange({
+      organizationId,
+      registryModule: "product",
+      entityId: updated.id,
+      entityCode: updated.code,
+      action: "archived",
+      previousValue: auditSnapshot(existing),
+      newValue: auditSnapshot(updated),
+      actorUserId: actorId,
+      actorName,
+      reason,
+    });
+    return updated;
+  }
+
+  async duplicateProduct(
+    sourceId: string,
+    input: { code: string; label?: string; createdBy: string },
+    actorName?: string,
+  ) {
+    const organizationId = await resolvePilotOrganizationId();
+    const existing = await productRegistryRepository.findProductById(sourceId);
+    if (!existing) throw new Error("Product not found.");
+    const duplicate = await productRegistryRepository.findProductByCode(
+      organizationId,
+      input.code,
+    );
+    if (duplicate) throw new Error(`Product "${input.code}" already exists.`);
+
+    const created = await productRegistryRepository.duplicateProduct(sourceId, input);
+    await enterpriseRegistryAuditService.recordChange({
+      organizationId,
+      registryModule: "product",
+      entityId: created.id,
+      entityCode: created.code,
+      action: "created",
+      newValue: auditSnapshot(created),
+      actorUserId: input.createdBy,
+      actorName,
+      reason: `Duplicated from ${existing.code}`,
+    });
+    return created;
   }
 }
 

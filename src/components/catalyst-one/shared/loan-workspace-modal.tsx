@@ -74,8 +74,10 @@ import {
 } from "@/components/catalyst-one/opportunity-workspace/opportunity-workspace-stage-rail";
 import type { CanonicalJourneyStageId } from "@/constants/canonical-journey-header";
 import { formatINR } from "@/lib/format-currency";
+import { formatOpportunitySourceDisplay } from "@/constants/opportunity-business-source";
 import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
 import { updateDeal, updateDealAsync } from "@/lib/enterprise-deal/deal-data-access";
+import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { tracePipelineDrag } from "@/lib/enterprise-deal/pipeline-drag-trace";
 import { isLoanWorkspaceDirty } from "@/lib/loan-workspace-dirty";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
@@ -537,6 +539,13 @@ function LoanWorkspaceModalContent({
                       <SummaryItem label="Priority" value={draft.priority?.toUpperCase?.() ?? draft.priority} />
                       <SummaryItem label="RM" value={draft.relationshipManager || "—"} />
                       <SummaryItem
+                        label="SOURCE"
+                        value={formatOpportunitySourceDisplay(
+                          draft.source,
+                          draft.sourceContactName,
+                        )}
+                      />
+                      <SummaryItem
                         label="Active lender cases"
                         value={String((draft.lenders ?? []).filter((l) => l.status === "active").length)}
                       />
@@ -836,12 +845,12 @@ function LoanWorkspaceModalContent({
               {!overviewUi.source.collapsed && (
                 <>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <SummaryItem label="Source" value={draft.source ?? "—"} />
-                    <SummaryItem label="Source Contact" value={draft.sourceContactName ?? "—"} />
-                    <SummaryItem label="Lead Origin" value={draft.source ?? "—"} />
                     <SummaryItem
-                      label="Referral"
-                      value={(draft.source ?? "").toLowerCase().includes("ref") ? (draft.sourceContactName ?? "—") : "—"}
+                      label="SOURCE"
+                      value={formatOpportunitySourceDisplay(
+                        draft.source,
+                        draft.sourceContactName,
+                      )}
                     />
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
@@ -950,6 +959,89 @@ function LoanWorkspaceModalContent({
               updatedBy={draft.relationshipManager}
               addOpen={lenderAddOpen}
               onAddOpenChange={setLenderAddOpen}
+              onRemoveDeal={async (dealId, card) => {
+                // CO-QA-002 Round 3 — Registry soft-delete first; UI only after confirmation.
+                tracePipelineDrag("delete_initiated", {
+                  dealId,
+                  opportunityId: draft.enterpriseOpportunityId,
+                  surface: "loan_workspace_modal",
+                });
+                tracePipelineDrag("delete_api_called", {
+                  dealId,
+                  reason: "kanban_pipeline_remove",
+                  method: "DELETE",
+                  path: `/api/enterprise-deals/${dealId}`,
+                });
+                const deleted = await enterpriseDealApiClient.softDeleteDeal(
+                  dealId,
+                  "kanban_pipeline_remove",
+                );
+                if (!deleted.isDeleted) {
+                  tracePipelineDrag("delete_failed", {
+                    dealId,
+                    message: "DELETE returned Deal without isDeleted=true",
+                  });
+                  throw new Error(
+                    "Deal delete did not persist (isDeleted is still false).",
+                  );
+                }
+                tracePipelineDrag("delete_db_confirmed", {
+                  dealId,
+                  dealNumber: deleted.dealNumber,
+                  isDeleted: deleted.isDeleted,
+                });
+
+                const opportunityId = draft.enterpriseOpportunityId?.trim();
+                if (opportunityId) {
+                  try {
+                    const { removeStrategicShortlistItem } = await import(
+                      "@/lib/strategic-lender-pipeline"
+                    );
+                    const lenderRef =
+                      card.lenderRef ||
+                      (deleted.lenderId ? `lender:${deleted.lenderId}` : null) ||
+                      deleted.primaryCounterpartyName ||
+                      card.lender ||
+                      dealId;
+                    removeStrategicShortlistItem(opportunityId, lenderRef);
+                  } catch {
+                    /* shortlist prune best-effort */
+                  }
+
+                  const { items } = await enterpriseDealApiClient.listDealsByOpportunity(
+                    opportunityId,
+                  );
+                  if (items.some((d) => d.id === dealId)) {
+                    tracePipelineDrag("delete_failed", {
+                      dealId,
+                      message: "Deleted Deal still returned by listDealsByOpportunity",
+                    });
+                    throw new Error(
+                      "Deleted Deal reappeared after Registry reload. Soft-delete did not stick.",
+                    );
+                  }
+                  tracePipelineDrag("delete_pipeline_refreshed", {
+                    dealId,
+                    remaining: items.length,
+                  });
+                }
+
+                const next = (draft.lenders ?? []).filter((c) => {
+                  const id = (c.enterpriseDealId || c.id || "").trim();
+                  return id !== dealId;
+                });
+                patch({ lenders: next });
+                setSavedSnapshot((s) => (s ? { ...s, lenders: next } : s));
+                toast.success("Lender deal deleted.");
+                tracePipelineDrag("delete_registry_refreshed", {
+                  dealId,
+                  remaining: next.length,
+                });
+                tracePipelineDrag("delete_render_complete", {
+                  dealId,
+                  remaining: next.length,
+                });
+              }}
               onChange={(next) => {
                 tracePipelineDrag("context_patch", {
                   fileId: draft?.id,

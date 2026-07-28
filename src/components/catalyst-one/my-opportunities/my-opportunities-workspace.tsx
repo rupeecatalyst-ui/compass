@@ -1,7 +1,7 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Target } from "lucide-react";
 import { OpportunityRegistryTable } from "@/components/catalyst-one/my-opportunities/opportunity-registry-table";
@@ -14,6 +14,10 @@ import { ROUTES } from "@/constants/routes";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { buildOpportunityWorkspaceStageHref } from "@/constants/opportunity-workspace-stages";
 import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
+import {
+  freshLoginKpiTitle,
+  type FreshLoginKpiBucketId,
+} from "@/constants/opportunity-business-source";
 import { rememberOpportunityRegistryRowContext } from "@/lib/lead-opportunity-journey/opportunity-context";
 import {
   enterpriseOpportunityApiClient,
@@ -30,6 +34,7 @@ import {
   writeAssignedUsersIntoExtension,
   type AssignedUserRef,
 } from "@/lib/assigned-users";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
 import type { OpportunityRegistryRow } from "@/types/opportunity-registry";
 import { cn } from "@/lib/utils";
@@ -60,17 +65,59 @@ function editOpportunityWorkspace(
   );
 }
 
+function parseSourceBucket(
+  raw: string | null,
+): "direct" | "channel_partner" | "referral" | "other" | undefined {
+  if (
+    raw === "direct" ||
+    raw === "channel_partner" ||
+    raw === "referral" ||
+    raw === "other"
+  ) {
+    return raw;
+  }
+  return undefined;
+}
+
 /**
  * CO-ARCH-003 — Enterprise Opportunity Registry (My Opportunities).
  * Primary business list for all Opportunities (requirement queue).
+ * CO-UX-006 — supports Fresh Login KPI drill-down via URL query.
  */
 export function MyOpportunitiesWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [tick, setTick] = useState(0);
   const [rows, setRows] = useState<OpportunityRegistryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sourceLabel, setSourceLabel] = useState("Loading…");
+
+  const freshLoginToday = searchParams.get("freshLogin") === "today";
+  const sourceBucket = parseSourceBucket(searchParams.get("sourceBucket"));
+  const sourceCode = searchParams.get("sourceCode")?.trim() || undefined;
+  const requirementStage = searchParams.get("requirementStage")?.trim() || undefined;
+  const q = searchParams.get("q")?.trim() || undefined;
+  const ageBucket = searchParams.get("ageBucket")?.trim() || undefined;
+
+  const listContextLabel = useMemo(() => {
+    if (freshLoginToday) {
+      const bucketTitle = sourceBucket
+        ? freshLoginKpiTitle(sourceBucket as FreshLoginKpiBucketId)
+        : "Total";
+      return `Today's Fresh Logins · ${bucketTitle}`;
+    }
+    if (sourceBucket) return `Source bucket · ${freshLoginKpiTitle(sourceBucket)}`;
+    if (sourceCode) return `Source · ${sourceCode}`;
+    if (requirementStage) return `Stage · ${requirementStage.replace(/_/g, " ")}`;
+    if (ageBucket) return `Ageing · ${ageBucket.replace(/_/g, "–")}`;
+    if (q) return `Search · ${q}`;
+    return null;
+  }, [freshLoginToday, sourceBucket, sourceCode, requirementStage, ageBucket, q]);
+
+  const clearListContext = useCallback(() => {
+    router.replace(ROUTES.MY_OPPORTUNITIES);
+  }, [router]);
 
   const refresh = useCallback(() => {
     setTick((t) => t + 1);
@@ -92,10 +139,41 @@ export function MyOpportunitiesWorkspace() {
     let cancelled = false;
     setLoading(true);
     void enterpriseOpportunityApiClient
-      .searchOpportunities({ limit: 100, offset: 0 })
+      .searchOpportunities({
+        limit: 100,
+        offset: 0,
+        freshLoginToday: freshLoginToday || undefined,
+        sourceBucket,
+        sourceCode,
+        requirementStage,
+        q,
+      })
       .then((result) => {
         if (cancelled) return;
-        setRows(result.items.map(mapEnterpriseOpportunityToRegistryRow));
+        let mapped = result.items.map(mapEnterpriseOpportunityToRegistryRow);
+        if (ageBucket) {
+          const asOf = Date.now();
+          mapped = mapped.filter((row) => {
+            const created = row.createdAt ? Date.parse(row.createdAt) : NaN;
+            if (Number.isNaN(created)) return false;
+            const days = Math.floor((asOf - created) / (1000 * 60 * 60 * 24));
+            switch (ageBucket) {
+              case "0_7":
+                return days <= 7;
+              case "8_15":
+                return days >= 8 && days <= 15;
+              case "16_30":
+                return days >= 16 && days <= 30;
+              case "31_60":
+                return days >= 31 && days <= 60;
+              case "60_plus":
+                return days >= 61;
+              default:
+                return true;
+            }
+          });
+        }
+        setRows(mapped);
         setSourceLabel("SSOT: Enterprise DB");
         setError(null);
       })
@@ -112,7 +190,7 @@ export function MyOpportunitiesWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [tick]);
+  }, [tick, freshLoginToday, sourceBucket, sourceCode, requirementStage, q, ageBucket]);
 
   const handleDeleteOpportunity = useCallback(async (row: OpportunityRegistryRow) => {
     try {
@@ -134,9 +212,31 @@ export function MyOpportunitiesWorkspace() {
   const handleAssignUsers = useCallback(
     async (row: OpportunityRegistryRow, users: AssignedUserRef[]) => {
       const patch = buildAssignmentPatch(users);
+      let hierarchyVisibilityUserIds: string[] = [];
+      try {
+        const params = new URLSearchParams({
+          userIds: patch.hierarchySeedUserIds.join(","),
+        });
+        const res = await authenticatedJsonFetch(
+          `/api/users/hierarchy-ancestors?${params.toString()}`,
+        );
+        const body = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          data?: { ancestorUserIds?: string[] };
+        };
+        if (res.ok && body.success) {
+          hierarchyVisibilityUserIds = body.data?.ancestorUserIds ?? [];
+        }
+      } catch {
+        hierarchyVisibilityUserIds = [];
+      }
       const lendingExtension = writeAssignedUsersIntoExtension(
         row.lendingExtension,
-        users,
+        patch.lendingExtensionPatch,
+        {
+          primaryOwnerUserId: patch.primaryOwnerUserId,
+          hierarchyVisibilityUserIds,
+        },
       );
       try {
         const updated = await enterpriseOpportunityApiClient.updateOpportunity(row.id, {
@@ -151,8 +251,8 @@ export function MyOpportunitiesWorkspace() {
             r.id === row.id
               ? {
                   ...mapEnterpriseOpportunityToRegistryRow(updated),
-                  assignedUsers: users,
-                  owner: formatAssignedUsersLabel(users),
+                  assignedUsers: patch.lendingExtensionPatch,
+                  owner: formatAssignedUsersLabel(patch.lendingExtensionPatch),
                 }
               : r,
           ),
@@ -219,6 +319,8 @@ export function MyOpportunitiesWorkspace() {
         <OpportunityRegistryTable
           rows={rows}
           loading={loading}
+          listContextLabel={listContextLabel}
+          onClearListContext={listContextLabel ? clearListContext : undefined}
           onOpenOpportunity={(row) => openOpportunityWorkspace(router, row)}
           onEditOpportunity={(row) => editOpportunityWorkspace(router, row)}
           onDeleteOpportunity={handleDeleteOpportunity}
@@ -232,4 +334,3 @@ export function MyOpportunitiesWorkspace() {
     </div>
   );
 }
-

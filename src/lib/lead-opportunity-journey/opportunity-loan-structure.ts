@@ -5,6 +5,7 @@
  */
 
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
+import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import type { LoanParticipant } from "@/types/loan-participant";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 
@@ -36,28 +37,65 @@ export function readOpportunityParticipantsFromExtension(
     .map((p) => ({ ...p, status: p.status ?? "active" }));
 }
 
-/** Ensure primary contact is present as Primary Applicant; merge stored structure. */
+/** Ensure primary borrower is present; merge stored loan structure participants. */
 export function resolveOpportunityLoanStructureParticipants(
   opp: EnterpriseOpportunityApiRecord,
   contact?: EcmContact | null,
 ): LoanParticipant[] {
   const stored = readOpportunityParticipantsFromExtension(opp.lendingExtension);
+  const borrower = resolveOpportunityBorrowerIdentity(opp);
+  const isCompanyBorrower = borrower.kind === "company" && Boolean(borrower.companyId);
+
+  if (isCompanyBorrower) {
+    const companyName = borrower.displayName || "Not Specified";
+    const companyId = borrower.companyId!;
+    const primaryId = `opp-company-${companyId}`;
+    const withoutStalePrimary = stored.filter((p) => {
+      if (p.role !== "primary_applicant") return true;
+      return p.entityId === companyId;
+    });
+    const hasPrimary = withoutStalePrimary.some(
+      (p) =>
+        p.role === "primary_applicant" &&
+        p.status !== "inactive" &&
+        p.entityId === companyId,
+    );
+    if (hasPrimary || companyName === "Not Specified") {
+      return withoutStalePrimary;
+    }
+    const primary: LoanParticipant = {
+      id: primaryId,
+      entityType: "company",
+      entityId: companyId,
+      name: companyName,
+      role: "primary_applicant",
+      status: "active",
+    };
+    const rest = withoutStalePrimary.filter((p) => p.entityId !== companyId);
+    return [primary, ...rest];
+  }
+
+  if (!borrower.primaryContactId) {
+    return stored;
+  }
+
+  const contactId = borrower.primaryContactId;
   const customerName =
-    opp.primaryContactName?.trim() || contact?.name?.trim() || "";
-  const primaryId = `opp-primary-${opp.primaryContactId}`;
+    borrower.displayName || contact?.name?.trim() || "";
+  const primaryId = `opp-primary-${contactId}`;
 
   if (!customerName && stored.length === 0) return [];
 
   const withoutStalePrimary = stored.filter((p) => {
     if (p.role !== "primary_applicant") return true;
-    return p.entityId === opp.primaryContactId;
+    return p.entityId === contactId;
   });
 
   const hasPrimary = withoutStalePrimary.some(
     (p) =>
       p.role === "primary_applicant" &&
       p.status !== "inactive" &&
-      p.entityId === opp.primaryContactId,
+      p.entityId === contactId,
   );
 
   if (hasPrimary || !customerName) {
@@ -65,17 +103,21 @@ export function resolveOpportunityLoanStructureParticipants(
   }
 
   const priorOwnerFlag = withoutStalePrimary.find(
-    (p) => p.entityId === opp.primaryContactId,
+    (p) => p.entityId === contactId,
   )?.isPropertyOwner;
 
   const primary: LoanParticipant = {
     id: primaryId,
     entityType: "individual",
-    entityId: opp.primaryContactId,
+    entityId: contactId,
     name: customerName,
     mobile:
-      opp.primaryContactMobile?.trim() || contact?.mobilePrimary?.trim() || undefined,
+      borrower.primaryContactMobile ||
+      opp.primaryContactMobile?.trim() ||
+      contact?.mobilePrimary?.trim() ||
+      undefined,
     email:
+      borrower.primaryContactEmail ||
       opp.primaryContactEmail?.trim() ||
       contact?.personalEmail?.trim() ||
       contact?.officialEmail?.trim() ||
@@ -85,7 +127,7 @@ export function resolveOpportunityLoanStructureParticipants(
     isPropertyOwner: priorOwnerFlag,
   };
 
-  const rest = withoutStalePrimary.filter((p) => p.entityId !== opp.primaryContactId);
+  const rest = withoutStalePrimary.filter((p) => p.entityId !== contactId);
   return [primary, ...rest];
 }
 

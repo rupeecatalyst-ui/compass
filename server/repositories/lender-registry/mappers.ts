@@ -303,6 +303,31 @@ export function mapLenderRow(row: {
 
     sortOrder: row.sortOrder,
 
+    priority:
+      "priority" in row
+        ? Number((row as { priority?: number }).priority ?? 50)
+        : 50,
+    defaultProcessingRules:
+      "defaultProcessingRules" in row
+        ? ((row as { defaultProcessingRules?: Prisma.JsonValue | null })
+            .defaultProcessingRules as Record<string, unknown> | null) ?? null
+        : null,
+    branchCoverage:
+      "branchCoverage" in row
+        ? jsonToStringArray(
+            (row as { branchCoverage?: Prisma.JsonValue | null }).branchCoverage ?? null,
+          )
+        : [],
+    rmMapping:
+      "rmMapping" in row &&
+      Array.isArray((row as { rmMapping?: unknown }).rmMapping)
+        ? ((row as { rmMapping: Array<Record<string, unknown>> }).rmMapping)
+        : [],
+    remarks:
+      "remarks" in row
+        ? ((row as { remarks?: string | null }).remarks ?? null)
+        : null,
+
     status: row.status,
 
     enabled: row.enabled,

@@ -10,6 +10,8 @@
  * Opportunity Workspace must not use this stub as business SSOT.
  */
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
+import { resolveDealStageProjection } from "@/lib/enterprise-deal/deal-stage-projection";
+import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import type {
   LendingType,
   LoanFile,
@@ -129,21 +131,25 @@ export function mapEnterpriseDealToLoanFileStub(
   const id = deal.legacyLoanFileId || local?.id || deal.id;
   // Amount from Deal Registry or local capture only — never invent 5_000_000.
   const amount = deal.requestedAmount ?? local?.requiredAmount ?? local?.loanAmount ?? 0;
-  const stage = (deal.grossStage || local?.stage || "") as PipelineStage;
+  // CO-PERF-001 — Deal Registry grossStage is the only stage authority for projections.
+  const stage = (resolveDealStageProjection(deal) || "") as PipelineStage;
   const now = deal.updatedAt || deal.createdAt || local?.createdAt || new Date().toISOString();
   const lenders = projectLendersFromDeal(deal, local);
   const lendingType = asLendingType(local?.lendingType) as LoanFile["lendingType"];
   const transactionType = asTransactionType(local?.transactionType) as LoanFile["transactionType"];
+  const borrower = resolveDealBorrowerIdentity(deal);
+  const fallbackPartyId =
+    borrower.partyEntityId || `deal-party-${deal.id}`;
 
   const base: LoanFile = local
     ? { ...local }
     : {
         id,
         fileNumber: deal.fileNumber || deal.dealNumber,
-        customerId: `deal-contact-${deal.id}`,
-        customerName: deal.primaryContactName || "",
-        customerMobile: deal.primaryContactMobile || "",
-        customerEmail: "",
+        customerId: fallbackPartyId,
+        customerName: borrower.displayName || "",
+        customerMobile: borrower.primaryContactMobile || deal.primaryContactMobile || "",
+        customerEmail: borrower.primaryContactEmail || "",
         city: "",
         state: "",
         employmentType: "",
@@ -191,9 +197,12 @@ export function mapEnterpriseDealToLoanFileStub(
       local?.opportunityNumber ||
       base.opportunityNumber,
     fileNumber: deal.fileNumber || deal.dealNumber || base.fileNumber,
-    customerId: deal.primaryContactId || (local?.customerId ?? base.customerId),
-    customerName: deal.primaryContactName || base.customerName,
-    customerMobile: deal.primaryContactMobile || base.customerMobile,
+    customerId: borrower.partyEntityId || (local?.customerId ?? base.customerId),
+    customerName: borrower.displayName || base.customerName,
+    customerMobile:
+      borrower.primaryContactMobile ||
+      deal.primaryContactMobile ||
+      base.customerMobile,
     loanProduct: deal.productLabel || base.loanProduct,
     loanAmount: amount || base.loanAmount,
     requiredAmount: amount || base.requiredAmount,

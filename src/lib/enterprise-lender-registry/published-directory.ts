@@ -243,8 +243,9 @@ function mergeOptions(
 }
 
 function publishedQuery() {
+  // CO-PERF-001 — Cap Soft Go-Live local query (was 5000). API path already uses 200.
   return {
-    pageSize: 5000 as const,
+    pageSize: 200 as const,
     status: "active" as const,
     enabled: true,
     lifecycleStatus: "active" as const,
@@ -257,7 +258,7 @@ function listLocalPublished(search?: string): PublishedLenderOption[] {
   }
   const { items } = localLenderRegistryStore.queryLenders({
     ...publishedQuery(),
-    pageSize: 5000,
+    pageSize: 200,
     search: search?.trim() || undefined,
   });
   return items.filter(isLenderPublishedAndActive).map((l) => toOption(l, "local"));
@@ -267,26 +268,40 @@ async function listApiPublished(search?: string): Promise<PublishedLenderOption[
   const q = search?.trim();
   const params = new URLSearchParams({
     page: "1",
-    pageSize: "500",
+    pageSize: "200",
     status: "active",
     enabled: "true",
     lifecycleStatus: "active",
   });
   if (q) params.set("search", q);
-  try {
-    const res = await authenticatedJsonFetch(`/api/lender-registry/lenders?${params}`);
-    if (!res.ok) return [];
-    const body = (await res.json().catch(() => ({}))) as {
-      success?: boolean;
-      data?: { items?: EnterpriseLenderRecord[] };
-    };
-    if (!body.success || !Array.isArray(body.data?.items)) return [];
-    return body.data.items
-      .filter(isLenderPublishedAndActive)
-      .map((l) => toOption(l, "api"));
-  } catch {
-    return [];
+  const res = await authenticatedJsonFetch(`/api/lender-registry/lenders?${params}`);
+  if (res.status === 401) {
+    throw new Error("Session expired. Sign in again to search the Enterprise Lender Registry.");
   }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: { message?: string; code?: string };
+    };
+    throw new Error(
+      body.error?.message ||
+        `Enterprise Lender Registry unavailable (${res.status}${
+          body.error?.code ? ` · ${body.error.code}` : ""
+        }).`,
+    );
+  }
+  const body = (await res.json().catch(() => ({}))) as {
+    success?: boolean;
+    data?: { items?: EnterpriseLenderRecord[]; total?: number };
+    error?: { message?: string };
+  };
+  if (!body.success || !Array.isArray(body.data?.items)) {
+    throw new Error(
+      body.error?.message || "Enterprise Lender Registry returned an invalid response.",
+    );
+  }
+  return body.data.items
+    .filter(isLenderPublishedAndActive)
+    .map((l) => toOption(l, "api"));
 }
 
 /** Sync Soft Go-Live published lenders — prefers warm Enterprise Session snapshot. */
@@ -321,13 +336,21 @@ export async function listPublishedLenderOptionsAsync(
   if (pending) return pending;
 
   const request = (async () => {
-    const [apiOpts, localOpts] = await Promise.all([
-      listApiPublished(search),
-      Promise.resolve(listLocalPublished(search)),
-    ]);
+    let apiOpts: PublishedLenderOption[] = [];
+    let apiError: Error | null = null;
+    try {
+      apiOpts = await listApiPublished(search);
+    } catch (err) {
+      apiError = err instanceof Error ? err : new Error(String(err));
+      console.error("[CO-QA-003] lender registry API failed during published merge", err);
+    }
+    const localOpts = listLocalPublished(search);
     let merged: PublishedLenderOption[];
     if (apiOpts.length === 0) {
       merged = localOpts.sort((a, b) => a.displayName.localeCompare(b.displayName));
+      if (apiError && localOpts.length === 0) {
+        throw apiError;
+      }
     } else if (localOpts.length === 0) {
       merged = apiOpts.sort((a, b) => a.displayName.localeCompare(b.displayName));
     } else {

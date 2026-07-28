@@ -174,7 +174,7 @@ export function evaluateLifeContextBlockers(context: LifeCaseContext): LifeConte
       code: "LIFE_MISSING_PROPERTY_CITY",
       title: "City helps me match lenders",
       message:
-        "Add the customer or property city on the Loan File so I can recommend executives in the right geography.",
+        "Add the customer or property city on the Deal so I can recommend executives in the right geography.",
       actionLabel: "Continue Loan Journey",
       actionHref: context.loanFileId
         ? buildDealWorkspaceHref({ fileId: context.loanFileId, tab: "lenders" })

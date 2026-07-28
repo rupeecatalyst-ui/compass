@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { CatalystBranding } from "@/components/catalyst-one/catalyst-branding";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { PrismaUserAdminWorkspace } from "@/components/catalyst-one/enterprise-user-management/prisma-user-admin-workspace";
 import { PageHeader } from "@/components/design-system/page-header";
 import { StatusPill } from "@/components/design-system/status-pill";
@@ -21,7 +22,15 @@ export default function AdminUsersPage() {
           description="Create and manage login accounts persisted in PostgreSQL. New and reset passwords are temporary — users must change them before using Catalyst One."
         />
       </div>
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading users…</p>}>
+      <Suspense
+        fallback={
+          <ChanakyaLoadingExperience
+            module="administration"
+            statusLabel="Preparing User Management..."
+            density="panel"
+          />
+        }
+      >
         <PrismaUserAdminWorkspace />
       </Suspense>
     </div>

@@ -25,6 +25,7 @@ import {
   LEAD_INFORMATION_PRODUCT_OPTIONS,
   resolveDefaultLendingTypeForProduct,
 } from "@/constants/lead-information-workspace";
+import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import type { ApproxCibilScoreBand } from "@/constants/cibil-score-master";
 import type { PropertyType } from "@/constants/loan-stage-master";
 import type { ChanakyaRecommendationGap } from "@/lib/chanakya-opportunity-recommendations";
@@ -76,13 +77,17 @@ export function ChanakyaGapInlineField({
   disabled?: boolean;
   onSave: (payload: ChanakyaGapSavePayload) => void | Promise<void>;
 }) {
+  const { options: productOptions } = useProductMasterOptions(true);
+  const productCatalog =
+    productOptions.length > 0 ? productOptions : LEAD_INFORMATION_PRODUCT_OPTIONS;
+
   switch (gap.id) {
     case "product":
       return (
         <Select
           disabled={disabled}
           value={selectValue(
-            LEAD_INFORMATION_PRODUCT_OPTIONS.find(
+            productCatalog.find(
               (p) =>
                 p.label === file.loanProduct ||
                 p.code === file.loanProduct,
@@ -90,7 +95,7 @@ export function ChanakyaGapInlineField({
           )}
           onValueChange={(v) => {
             const code = fromSelectValue(v);
-            const hit = LEAD_INFORMATION_PRODUCT_OPTIONS.find((p) => p.code === code);
+            const hit = productCatalog.find((p) => p.code === code);
             if (!hit) return;
             const defaultLending = resolveDefaultLendingTypeForProduct(
               hit.code,
@@ -116,7 +121,7 @@ export function ChanakyaGapInlineField({
             <SelectValue placeholder="Select product" />
           </SelectTrigger>
           <SelectContent>
-            {LEAD_INFORMATION_PRODUCT_OPTIONS.map((p) => (
+            {productCatalog.map((p) => (
               <SelectItem key={p.code} value={p.code} className="text-xs">
                 {p.label}
               </SelectItem>

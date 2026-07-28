@@ -1,6 +1,5 @@
 /**
- * CO-ARCH-001-I7 — Reference Master admin REST client.
- * Thin wrapper around /api/reference-masters for Administration Console use.
+ * CO-ARCH-001-I7 / CO-MDM-001 — Reference Master admin REST client.
  */
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import type { ReferenceMasterDomainCode } from "@/constants/enterprise-master-data";
@@ -26,12 +25,18 @@ export interface ReferenceMasterAdminQuery {
   search?: string;
   status?: "all" | "draft" | "active" | "inactive" | "archived";
   enabled?: boolean | "all";
+  sortBy?: "sortOrder" | "label" | "code" | "modifiedOn" | "createdOn";
+  sortDir?: "asc" | "desc";
 }
 
 export interface CreateReferenceMasterPayload {
   domain: ReferenceMasterDomainCode;
   code: string;
   label: string;
+  description?: string;
+  sortOrder?: number;
+  enabled?: boolean;
+  status?: string;
 }
 
 export const referenceMasterAdminClient = {
@@ -48,6 +53,8 @@ export const referenceMasterAdminClient = {
       page: String(params.page ?? 1),
       pageSize: String(params.pageSize ?? 500),
       status: params.status ?? "all",
+      sortBy: params.sortBy ?? "sortOrder",
+      sortDir: params.sortDir ?? "asc",
       enabled:
         params.enabled === true ? "true" : params.enabled === false ? "false" : "all",
     });
@@ -90,6 +97,29 @@ export const referenceMasterAdminClient = {
   async deactivate(masterId: string): Promise<EnterpriseReferenceMasterRecord> {
     return refMasterAdminFetch(`/api/reference-masters/${masterId}/deactivate`, {
       method: "POST",
+    });
+  },
+
+  async archive(masterId: string, reason?: string): Promise<EnterpriseReferenceMasterRecord> {
+    return refMasterAdminFetch(`/api/reference-masters/${masterId}/archive`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  async restore(masterId: string): Promise<EnterpriseReferenceMasterRecord> {
+    return refMasterAdminFetch(`/api/reference-masters/${masterId}/restore`, {
+      method: "POST",
+    });
+  },
+
+  async duplicate(
+    masterId: string,
+    opts?: { code?: string; label?: string },
+  ): Promise<EnterpriseReferenceMasterRecord> {
+    return refMasterAdminFetch(`/api/reference-masters/${masterId}/duplicate`, {
+      method: "POST",
+      body: JSON.stringify(opts ?? {}),
     });
   },
 };

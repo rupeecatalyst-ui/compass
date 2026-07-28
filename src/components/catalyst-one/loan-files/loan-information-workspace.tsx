@@ -97,7 +97,7 @@ function LoanInformationWorkspaceInner() {
             Execution Hub · Loan Journey
           </p>
           <p className="truncate text-sm font-medium text-foreground">
-            Loan Information — create the loan file that anchors this journey
+            Loan Information — create the Deal that anchors this journey
           </p>
         </div>
         <Button

@@ -80,7 +80,7 @@ export const PLACEHOLDER_SECURITY_PUBLISHERS: readonly SecurityPublisher[] = [
   {
     id: "loan-workspace",
     displayName: "Loan Workspace",
-    description: "Loan file access and workspace signals",
+    description: "Deal access and workspace signals",
     status: "planned",
     version: "0.1.0",
     module: "Loan Workspace",

@@ -8,6 +8,7 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { ROUTES } from "@/constants/routes";
 import { buildDealWorkspaceHref, buildLoanJourneyHref } from "@/lib/loan-journey/adr-018-routing";
 import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
@@ -51,9 +52,11 @@ function LoanFilesRedirectInner() {
   }, [router, searchParams]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
-      Redirecting…
-    </div>
+    <ChanakyaLoadingExperience
+      module="loan-journey"
+      statusLabel="Preparing your workspace..."
+      density="panel"
+    />
   );
 }
 
@@ -61,9 +64,11 @@ export default function LoanFilesPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
-          Redirecting…
-        </div>
+        <ChanakyaLoadingExperience
+          module="loan-journey"
+          statusLabel="Preparing your workspace..."
+          density="panel"
+        />
       }
     >
       <LoanFilesRedirectInner />

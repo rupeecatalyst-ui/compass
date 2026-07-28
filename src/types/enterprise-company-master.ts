@@ -10,6 +10,7 @@ export type EcmCompanyRelationRole =
   | "promoter"
   | "partner"
   | "authorized_signatory"
+  | "employee"
   | "cfo"
   | "company_secretary"
   | "proprietor"
@@ -70,6 +71,8 @@ export interface EcmCompanyContactLink {
   companyId: string;
   contactId: string;
   relationRole: EcmCompanyRelationRole;
+  designation?: string;
+  department?: string;
   status: "active" | "inactive";
   createdBy: string;
   createdOn: string;

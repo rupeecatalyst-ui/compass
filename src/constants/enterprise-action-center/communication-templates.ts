@@ -54,8 +54,8 @@ export const COMMUNICATION_TEMPLATE_REGISTRY: CommunicationTemplateDef[] = [
     name: "Lender pack / follow-up",
     channel: "email",
     recipientTypes: ["lender_representative"],
-    subject: "Loan file {{fileNumber}} — {{customerName}} · {{product}}",
-    body: "Dear {{name}},\n\nPlease find context for loan file {{fileNumber}}.\nCustomer: {{customerName}}\nProduct: {{product}}\nStage: {{stage}}\n\nWe look forward to your guidance.\n\n{{rm}}\nRupee Catalyst",
+    subject: "Deal {{fileNumber}} — {{customerName}} · {{product}}",
+    body: "Dear {{name}},\n\nPlease find context for deal {{fileNumber}}.\nCustomer: {{customerName}}\nProduct: {{product}}\nStage: {{stage}}\n\nWe look forward to your guidance.\n\n{{rm}}\nRupee Catalyst",
     recommended: true,
   },
   {
@@ -75,7 +75,7 @@ export const COMMUNICATION_TEMPLATE_REGISTRY: CommunicationTemplateDef[] = [
     channel: "email",
     recipientTypes: ["relationship_manager", "hybrid_employee"],
     subject: "Action required — {{fileNumber}}",
-    body: "Hi {{name}},\n\nPlease review loan file {{fileNumber}} ({{customerName}} · {{product}}) currently at {{stage}}.\n\nThanks",
+    body: "Hi {{name}},\n\nPlease review deal {{fileNumber}} ({{customerName}} · {{product}}) currently at {{stage}}.\n\nThanks",
   },
   {
     id: "tpl-wa-customer-docs",
@@ -145,4 +145,4 @@ export function filterCommunicationTemplates(input: {
     return true;
   }).sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)));
 }
-
+

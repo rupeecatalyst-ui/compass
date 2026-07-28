@@ -9,7 +9,7 @@ export default function ContactsPage() {
       fallback={
         <ChanakyaLoadingExperience
           module="contacts"
-          statusLabel="Opening Contacts…"
+          statusLabel="Preparing Enterprise Contacts..."
           density="panel"
         />
       }

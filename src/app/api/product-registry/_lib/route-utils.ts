@@ -5,8 +5,21 @@ import { prisma } from "@server/lib/prisma";
 
 export function productRegistryPersistenceGuard() {
   if (!isEnterprisePersistencePrisma()) {
-    throw new Error(
-      "Product Registry API requires ENTERPRISE_PERSISTENCE_MODE=prisma",
+    throw Object.assign(
+      new Error(
+        "Product Registry requires ENTERPRISE_PERSISTENCE_MODE=prisma (and NEXT_PUBLIC_ENTERPRISE_PERSISTENCE_MODE=prisma). Apply Product Registry migrations, then use Seed / Sync Catalog.",
+      ),
+      {
+        status: 503,
+        body: {
+          success: false,
+          error: {
+            code: "PRODUCT_REGISTRY_PERSISTENCE_REQUIRED",
+            message:
+              "Product Registry requires ENTERPRISE_PERSISTENCE_MODE=prisma (and NEXT_PUBLIC_ENTERPRISE_PERSISTENCE_MODE=prisma). Apply Product Registry migrations, then use Seed / Sync Catalog.",
+          },
+        } satisfies ApiResponse<unknown>,
+      },
     );
   }
 }
@@ -40,7 +53,51 @@ export function mapRouteError(err: unknown) {
     return err as { status: number; body: ApiResponse<unknown> };
   }
   const message = err instanceof Error ? err.message : "Product registry request failed";
-  return { status: 400, body: { success: false, error: { code: "PRODUCT_REGISTRY_ERROR", message } } };
+  const prismaCode =
+    typeof err === "object" && err !== null && "code" in err
+      ? String((err as { code?: string }).code ?? "")
+      : "";
+  if (prismaCode === "P2022" || /column .* does not exist/i.test(message)) {
+    return {
+      status: 503,
+      body: {
+        success: false,
+        error: {
+          code: "PRODUCT_REGISTRY_SCHEMA_REQUIRED",
+          message:
+            "Product Registry schema is incomplete. Apply prisma migrations (CO-ARCH-001 / CO-ADMIN-005), then Seed / Sync Catalog.",
+        },
+      } satisfies ApiResponse<unknown>,
+    };
+  }
+  return {
+    status: 500,
+    body: { success: false, error: { code: "PRODUCT_REGISTRY_ERROR", message } },
+  };
+}
+
+/** Prefer mapped API body; never hide the actionable message behind a fixed string. */
+export function productRegistryErrorResponse(
+  err: unknown,
+  fallbackCode: string,
+  fallbackMessage: string,
+) {
+  const mapped = mapRouteError(err);
+  if (mapped.status === 401 || mapped.status === 403) {
+    return mapped;
+  }
+  const message =
+    mapped.body?.error?.message ||
+    (err instanceof Error ? err.message : null) ||
+    fallbackMessage;
+  const code = mapped.body?.error?.code || fallbackCode;
+  return {
+    status: mapped.status >= 400 ? mapped.status : 500,
+    body: {
+      success: false,
+      error: { code, message },
+    } satisfies ApiResponse<unknown>,
+  };
 }
 
 export function notFound(message = "Product registry record not found") {
@@ -54,7 +111,7 @@ export function parseListQuery(url: URL) {
     search: url.searchParams.get("search") ?? undefined,
     status:
       (url.searchParams.get("status") as "all" | "draft" | "active" | "inactive" | "archived") ??
-      "active",
+      "all",
     enabled:
       url.searchParams.get("enabled") === "true"
         ? true

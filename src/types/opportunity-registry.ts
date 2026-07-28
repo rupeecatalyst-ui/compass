@@ -24,8 +24,14 @@ export interface OpportunityRegistryRow {
   status: string;
   statusLabel: string;
   fulfilmentStatus: string;
-  primaryContactId: string;
+  primaryBorrowerKind?: "individual" | "company" | null;
+  primaryContactId?: string | null;
+  companyId?: string | null;
+  companyName?: string | null;
   requestedAmount: number | null;
+  /** CO-UX-006 — Opportunity.sourceCode */
+  sourceCode: string | null;
+  sourceLabel: string;
 }
 
 export type OpportunityRegistrySortField =
@@ -37,7 +43,8 @@ export type OpportunityRegistrySortField =
   | "assignedUsers"
   | "createdAt"
   | "updatedAt"
-  | "status";
+  | "status"
+  | "sourceLabel";
 
 export type OpportunityRegistrySortDir = "asc" | "desc";
 
@@ -45,12 +52,15 @@ export interface OpportunityRegistryFilters {
   search: string;
   stage: string;
   status: string;
+  /** Exact sourceCode, or "all" */
+  source: string;
 }
 
 export const EMPTY_OPPORTUNITY_REGISTRY_FILTERS: OpportunityRegistryFilters = {
   search: "",
   stage: "all",
   status: "all",
+  source: "all",
 };
 
 export const OPPORTUNITY_REGISTRY_PAGE_SIZES = [20, 50, 100] as const;

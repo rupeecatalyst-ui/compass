@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { ROUTES } from "@/constants/routes";
 import { clearSession } from "@/lib/auth";
@@ -51,9 +51,12 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
   // the initial session check runs and the user is not yet signed in.
   if ((isLoading && !isAuthenticated) || !isAuthorized) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <ChanakyaLoadingExperience
+        module="enterprise"
+        statusLabel="Preparing your workspace..."
+        fullScreen
+        density="page"
+      />
     );
   }
 

@@ -1,4 +1,5 @@
 import type { LendingType, PipelineStage, TransactionType } from "@/types/catalyst-one";
+import { CANONICAL_PRODUCT_MASTER_SEED } from "@/constants/enterprise-product-master";
 
 /** CRC-017 — Configurable loan stage master (future: Product/Lender Masters). */
 
@@ -153,23 +154,13 @@ export const LENDING_TYPES: { id: LendingType; label: string }[] = [
   { id: "hybrid", label: "Hybrid" },
 ];
 
-export const SECURED_PRODUCTS = [
-  "Home Loan",
-  "Home Loan Balance Transfer",
-  "Loan Against Property",
-  "Working Capital",
-  "Construction Finance",
-  "Commercial Property Loan",
-  "Lease Rental Discounting",
-  "Machinery Loan",
-  "Plot Loan",
-] as const;
+export const SECURED_PRODUCTS = CANONICAL_PRODUCT_MASTER_SEED.filter((p) => p.isSecured).map(
+  (p) => p.label,
+);
 
-export const UNSECURED_PRODUCTS = [
-  "Personal Loan",
-  "Business Loan (Unsecured)",
-  "Credit Card",
-] as const;
+export const UNSECURED_PRODUCTS = CANONICAL_PRODUCT_MASTER_SEED.filter((p) => !p.isSecured).map(
+  (p) => p.label,
+);
 
 export function getProductsForLendingType(lendingType: LendingType): readonly string[] {
   switch (lendingType) {

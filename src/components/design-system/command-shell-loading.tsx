@@ -2,7 +2,7 @@
 
 /**
  * Dark command-shell loading surface (Mission Control, Horizon).
- * CO-UX-024 — CHANAKYA Insight instead of plain “Preparing…”.
+ * CO-UX-008 — CHANAKYA Loading Experience (canonical).
  */
 
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";

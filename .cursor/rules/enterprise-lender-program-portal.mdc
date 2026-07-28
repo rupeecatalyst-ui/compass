@@ -1,0 +1,56 @@
+---
+description: CO-LEND-001 — Enterprise Lender Self-Service Program Management Portal
+alwaysApply: true
+---
+
+# Enterprise Lender Program Portal (CO-LEND-001)
+
+Status: **ENTERPRISE APPROVED** · Product-driven lender self-service · Admin approval required
+
+## Constitutional principles
+
+1. Portal is a **staging + approval** layer — not a parallel Product / Lender program SSOT.
+2. **Live programs** update only via Administrator **Publish** into existing `EnterpriseLenderProgram` / Lender Registry.
+3. **Product-driven** forms — select Product first; templates are metadata from Product Master mapping.
+4. Home Loan and Home Loan BT + Top-up share **one** template.
+5. Secure opaque tokens · dual OTP (email + mobile) · revocable · TTL · audit logged.
+6. Supporting files enter **Enterprise Document Registry** (`uploadSource: lender_portal`).
+7. Public route outside ERP chrome: `/lender/program-update/{token}`.
+8. Every submission must resolve/reuse an ECM Contact and create a durable Dialogue thread — no orphan submissions.
+
+## Contact & Dialogue (CO-LEND-001B)
+
+- Match Contact by Official Email, then Official Mobile — never duplicate.
+- New contacts: role `lender_employee`, portal type label **Lender Representative**, linked to lender via `roleProfiles.lender_employee.institution`.
+- Dual OTP on Official Email + Official Mobile before submit.
+- Durable thread: `LenderProgramDialogueThread` + messages; lifecycle events append to the same thread.
+- EDC context type `lender_program` reserved for Dialogue Center projection.
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Templates | `src/constants/lender-program-portal/` |
+| Types | `src/types/lender-program-portal.ts` |
+| Lib | `src/lib/lender-program-portal/` |
+| Service | `server/services/lender-program-portal/` |
+| Contact resolve | `server/services/lender-program-portal/contact-resolve.ts` |
+| Dialogue | `server/services/lender-program-portal/dialogue.ts` |
+| Admin UI | `/admin/lender-program-portal` |
+| Public UI | `/lender/program-update/[token]` |
+
+## Forbidden
+
+- Direct live DB program writes from lender submissions  
+- Lender-specific form schemas that bypass Product Master templates  
+- Overwriting existing program versions on publish  
+- Mounting the public portal under `(dashboard)` employee chrome  
+- Submissions without ECM Contact ID or Dialogue Thread ID  
+
+## Related
+
+- Product Master / Product–Lender Matrix (CO-ADMIN-005)
+- Enterprise Document Registry
+- Lender Registry
+- Enterprise Contact Master (`lender_employee`)
+- Enterprise Dialogue Center (`lender_program` context)

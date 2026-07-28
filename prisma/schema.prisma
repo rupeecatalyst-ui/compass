@@ -137,11 +137,18 @@ enum EcmCompanyRelationRole {
   promoter
   partner
   authorized_signatory
+  employee
   cfo
   company_secretary
   proprietor
   shareholder
   other
+}
+
+/// CO-DOM-001 — Primary borrower on Opportunity (individual or company).
+enum OpportunityPrimaryBorrowerKind {
+  individual
+  company
 }
 
 enum EcmCompanyLinkStatus {
@@ -203,6 +210,25 @@ model Organization {
   enterpriseDealNotificationLinks    EnterpriseDealNotificationLink[]
   enterpriseDealIntelligenceLinks    EnterpriseDealIntelligenceLink[]
   enterpriseDealWorkflowBindings     EnterpriseDealWorkflowBinding[]
+  /// CO-ADMIN-004 — Production Reset run audit (immutable history)
+  productionResetRuns                ProductionResetRun[]
+  /// CO-PERF-001 — Enterprise Metrics Engine read models
+  enterpriseMetricRuns               EnterpriseMetricRun[]
+  enterpriseMetricSnapshots          EnterpriseMetricSnapshot[]
+  /// CO-LEND-001 — Lender Self-Service Program Portal
+  lenderProgramPortalInvites         LenderProgramPortalInvite[]
+  lenderProgramSubmissions           LenderProgramSubmission[]
+  lenderProgramPortalAudits          LenderProgramPortalAudit[]
+  lenderProgramDialogueThreads       LenderProgramDialogueThread[]
+  lenderProgramDialogueMessages      LenderProgramDialogueMessage[]
+  /// CO-DOC-002 — Durable Opportunity Document Registry (metadata + optional content)
+  enterpriseTransactionDocuments     EnterpriseTransactionDocument[]
+  /// CO-WP-001 — Enterprise Wealth Partner Registry (additive; Contact/Company remain identity SSOT)
+  enterpriseWealthPartners                 EnterpriseWealthPartner[]
+  enterpriseWealthPartnerNetworkMembers    EnterpriseWealthPartnerNetworkMember[]
+  enterpriseWealthPartnerCommissions       EnterpriseWealthPartnerCommission[]
+  enterpriseWealthPartnerBankAccounts      EnterpriseWealthPartnerBankAccount[]
+  enterpriseWealthPartnerActivities        EnterpriseWealthPartnerActivity[]
 
   @@map("organizations")
 }
@@ -435,6 +461,10 @@ model EcmCompanyContactLink {
   companyId      String                 @map("company_id")
   contactId      String                 @map("contact_id")
   relationRole   EcmCompanyRelationRole @map("relation_role")
+  /// CO-DOM-001 — Representative designation (communication contacts only).
+  designation    String?
+  /// CO-DOM-001 — Optional department for company representatives.
+  department     String?
   status         EcmCompanyLinkStatus   @default(active)
   createdBy      String                 @map("created_by")
   modifiedBy     String                 @map("modified_by")
@@ -591,6 +621,12 @@ enum ReferenceMasterDomain {
   risk_appetite
   investment_horizon
   specialization
+  /// CO-MDM-001 — Opportunity Business Source vocabulary
+  business_source
+  /// CO-MDM-001 — Product Customer Segment vocabulary
+  customer_segment
+  /// CO-MDM-001 — Contact / party Relationship Type vocabulary
+  relationship_type
 }
 
 model EnterpriseReferenceMaster {
@@ -741,6 +777,12 @@ model EnterpriseProduct {
   minorVersion      Int                      @default(0) @map("minor_version")
   tags              Json?
   productOwner      String?                  @map("product_owner")
+  /// CO-ADMIN-005 — Product Master management fields
+  sortOrder         Int                      @default(0) @map("sort_order")
+  parentProductId   String?                  @map("parent_product_id")
+  isSecured         Boolean?                 @map("is_secured")
+  customerSegment   Json?                    @map("customer_segment")
+  remarks           String?                  @db.Text
   status            RegistryStatus           @default(draft)
   enabled           Boolean                  @default(true)
   versionNumber     Int                      @default(1) @map("version_number")
@@ -762,6 +804,8 @@ model EnterpriseProduct {
   organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   category     EnterpriseProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   group        EnterpriseProductGroup    @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  parentProduct EnterpriseProduct?       @relation("ProductParent", fields: [parentProductId], references: [id], onDelete: SetNull)
+  childProducts EnterpriseProduct[]      @relation("ProductParent")
   lenderPrograms EnterpriseLenderProgram[]
   opportunities  EnterpriseOpportunity[]
   deals          EnterpriseDeal[]
@@ -770,6 +814,8 @@ model EnterpriseProduct {
   @@index([organizationId, categoryId, groupId, status, enabled], map: "eprod_org_cat_grp_status_idx")
   @@index([organizationId, lifecycleStatus, operationalStatus], map: "eprod_org_lifecycle_ops_idx")
   @@index([organizationId, isDeleted], map: "eprod_org_deleted_idx")
+  @@index([organizationId, sortOrder], map: "eprod_org_sort_idx")
+  @@index([parentProductId], map: "eprod_parent_idx")
   @@map("enterprise_products")
 }
 
@@ -1017,6 +1063,15 @@ model EnterpriseLender {
   productsSupported     Json?                     @map("products_supported")
   tags                  Json?
   sortOrder             Int                       @default(0) @map("sort_order")
+  /// CO-ADMIN-005 — business priority (lower = higher priority in matching)
+  priority              Int                       @default(50)
+  /// Default processing rules pack (JSON object — TAT, fee defaults, login prefs)
+  defaultProcessingRules Json?                    @map("default_processing_rules")
+  /// Branch / location coverage labels beyond state/city masters
+  branchCoverage        Json?                     @map("branch_coverage")
+  /// RM mapping entries [{ name, mobile?, email?, userId?, branch? }]
+  rmMapping             Json?                     @map("rm_mapping")
+  remarks               String?                   @db.Text
   status                RegistryStatus            @default(draft)
   enabled               Boolean                   @default(true)
   versionNumber         Int                       @default(1) @map("version_number")
@@ -1041,6 +1096,9 @@ model EnterpriseLender {
   contacts     EnterpriseLenderContact[]
   documents    EnterpriseLenderDocument[]
   deals        EnterpriseDeal[]
+  /// CO-LEND-001
+  programPortalInvites LenderProgramPortalInvite[]
+  programSubmissions   LenderProgramSubmission[]
 
   @@unique([organizationId, code], map: "elend_org_code_key")
   @@index([organizationId, categoryId, status, enabled], map: "elend_org_cat_status_idx")
@@ -1262,15 +1320,25 @@ enum OpportunityFulfilmentStatus {
 }
 
 enum OpportunityLifecycleStatus {
-  /// ADR-018 — identity-only draft (no product uniqueness)
-  draft
-  /// ADR-018 — Product + Required Amount saved
+  /// CO-OPP-002 — discussion started; requirement not yet submitted (initial status)
+  dialogue
+  /// ADR-018 / CO-OPP-002 — Product + Required Amount saved
   requirement_captured
-  active
+  /// CO-OPP-002 — documents / credit / processing
+  in_progress
+  /// CO-OPP-002 — at least one Deal created
+  converted_to_deal
+  /// CO-OPP-002 — requirement fulfilled (e.g. disbursement)
+  completed
   on_hold
-  won
   lost
   cancelled
+  /// @deprecated Historical only — never write for new Opportunities (CO-OPP-002). Do not migrate rows.
+  draft
+  /// @deprecated Historical synonym of in_progress — do not migrate rows.
+  active
+  /// @deprecated Historical synonym of completed — do not migrate rows.
+  won
   archived
 }
 
@@ -1290,6 +1358,11 @@ model EnterpriseOpportunity {
   id                        String                      @id @default(cuid())
   organizationId            String                      @map("organization_id")
   opportunityNumber         String                      @map("opportunity_number")
+  /**
+   * CO-ARCH-002 — Retired bridge key only (not a Loan File entity FK).
+   * Historical Soft Go-Live continuity. Do not treat as business SSOT.
+   * Canonical identity: Opportunity / Deal ids.
+   */
   legacyLoanFileId          String?                     @map("legacy_loan_file_id")
   externalRefs              Json?                       @map("external_refs")
   productId                 String?                     @map("product_id")
@@ -1316,11 +1389,16 @@ model EnterpriseOpportunity {
   relationshipManagerName   String?                     @map("relationship_manager_name")
   teamId                    String?                     @map("team_id")
   branchId                  String?                     @map("branch_id")
-  primaryContactId          String                      @map("primary_contact_id")
+  /// CO-DOM-001 — null when primary borrower is a Company.
+  primaryContactId          String?                     @map("primary_contact_id")
   primaryContactName        String?                     @map("primary_contact_name")
   primaryContactMobile      String?                     @map("primary_contact_mobile")
   primaryContactEmail       String?                     @map("primary_contact_email")
+  /// CO-DOM-001 — individual (default) or company primary borrower.
+  primaryBorrowerKind       OpportunityPrimaryBorrowerKind @default(individual) @map("primary_borrower_kind")
   companyId                 String?                     @map("company_id")
+  /// Denormalized company name when company is primary borrower.
+  companyName               String?                     @map("company_name")
   employmentTypeCode        String?                     @map("employment_type_code")
   cityLabel                 String?                     @map("city_label")
   stateLabel                String?                     @map("state_label")
@@ -1329,6 +1407,16 @@ model EnterpriseOpportunity {
   priority                  DealPriority                @default(medium)
   sourceCode                String?                     @map("source_code")
   sourceContactId           String?                     @map("source_contact_id")
+  /// Denormalized Source Contact display name (analytics / MIS / commissions).
+  sourceContactName         String?                     @map("source_contact_name")
+  /// CO-OPP-003 — Wealth Partner Registry id when Business Source = Wealth Partner.
+  sourceWealthPartnerId     String?                     @map("source_wealth_partner_id")
+  /// CO-OPP-003 — referral | sole_executor | joint_executor (Wealth Partner only).
+  participationRole         String?                     @map("participation_role")
+  /// CO-OPP-003 — snapshot % of RC revenue from Commercial Profile (auto-resolved).
+  commercialRevenueSharePercent Float?                  @map("commercial_revenue_share_percent")
+  /// CO-OPP-003 — Marketing campaign label (future-ready).
+  sourceCampaignLabel       String?                     @map("source_campaign_label")
   snapshot                  Json?
   lendingExtension          Json?                       @map("lending_extension")
   versionNumber             Int                         @default(1) @map("version_number")
@@ -1343,7 +1431,7 @@ model EnterpriseOpportunity {
   deletionReason            String?                     @map("deletion_reason") @db.Text
 
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  primaryContact EcmContact         @relation("EnterpriseOpportunityPrimaryContact", fields: [primaryContactId], references: [id], onDelete: Restrict)
+  primaryContact EcmContact?        @relation("EnterpriseOpportunityPrimaryContact", fields: [primaryContactId], references: [id], onDelete: Restrict)
   company        EcmCompany?        @relation("EnterpriseOpportunityCompany", fields: [companyId], references: [id], onDelete: Restrict)
   product        EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   deals          EnterpriseDeal[]
@@ -1357,6 +1445,10 @@ model EnterpriseOpportunity {
   @@index([organizationId, lifecycleStatus, fulfilmentStatus], map: "eopp_org_status_idx")
   @@index([organizationId, productId], map: "eopp_org_product_idx")
   @@index([organizationId, primaryContactId, productUniquenessKey, lifecycleStatus], map: "eopp_org_contact_product_lifecycle_idx")
+  @@index([organizationId, companyId, productUniquenessKey, lifecycleStatus], map: "eopp_org_company_product_lifecycle_idx")
+  @@index([organizationId, sourceCode, isDeleted], map: "eopp_org_source_idx")
+  @@index([organizationId, sourceWealthPartnerId], map: "eopp_org_source_wp_idx")
+  @@index([organizationId, participationRole], map: "eopp_org_participation_idx")
   @@map("enterprise_opportunities")
 }
 
@@ -1435,6 +1527,7 @@ model EnterpriseDeal {
   /// WHERE is_deleted = false AND opportunity_id IS NOT NULL AND lender_id IS NOT NULL.
   /// Prisma schema remains the canonical model; this index is migration-owned SSOT for BI-3.
   lenderProgramId           String?                @map("lender_program_id")
+  /// CO-ARCH-002 — Retired bridge key only (not a Loan File entity). Prefer Deal / Opportunity ids.
   legacyLoanFileId          String?                @map("legacy_loan_file_id")
   fileNumber                String?                @map("file_number")
   externalRefs              Json?                  @map("external_refs")
@@ -1951,3 +2044,533 @@ model EnterpriseDealImportBatch {
   @@index([organizationId, createdAt(sort: Desc)], map: "edeal_imp_org_created_idx")
   @@map("enterprise_deal_import_batches")
 }
+
+/// CO-ADMIN-004 — Immutable Production Reset / Demo Cleanup run ledger.
+model ProductionResetRun {
+  id               String    @id @default(cuid())
+  organizationId   String?   @map("organization_id")
+  mode             String
+  status           String
+  dryRun           Boolean   @default(true) @map("dry_run")
+  actorUserId      String    @map("actor_user_id")
+  actorEmail       String?   @map("actor_email")
+  actorName        String?   @map("actor_name")
+  reason           String    @db.Text
+  preset           String?
+  selection        Json?
+  filters          Json?
+  impact           Json?
+  countsRemoved    Json?     @map("counts_removed")
+  countsRemaining  Json?     @map("counts_remaining")
+  warnings         Json?
+  durationMs       Int?      @map("duration_ms")
+  errorMessage     String?   @map("error_message") @db.Text
+  reportSummary    String?   @map("report_summary") @db.Text
+  reportJson       Json?     @map("report_json")
+  startedAt        DateTime  @default(now()) @map("started_at")
+  completedAt      DateTime? @map("completed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)], map: "prod_reset_created_idx")
+  @@index([organizationId, createdAt(sort: Desc)], map: "prod_reset_org_created_idx")
+  @@index([actorUserId, createdAt(sort: Desc)], map: "prod_reset_actor_created_idx")
+  @@map("production_reset_runs")
+}
+
+/// CO-PERF-001 — Enterprise Metrics Engine run telemetry (Category A / B).
+model EnterpriseMetricRun {
+  id               String    @id @default(cuid())
+  organizationId   String    @map("organization_id")
+  runType          String    @map("run_type")
+  category         String
+  status           String
+  dryRun           Boolean   @default(false) @map("dry_run")
+  triggerSource    String    @map("trigger_source")
+  actorUserId      String?   @map("actor_user_id")
+  eventKey         String?   @map("event_key")
+  metricKeys       Json?     @map("metric_keys")
+  recordsProcessed Int       @default(0) @map("records_processed")
+  snapshotsWritten Int       @default(0) @map("snapshots_written")
+  failures         Int       @default(0)
+  durationMs       Int?      @map("duration_ms")
+  errorMessage     String?   @map("error_message") @db.Text
+  summary          Json?
+  startedAt        DateTime  @default(now()) @map("started_at")
+  completedAt      DateTime? @map("completed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  snapshots    EnterpriseMetricSnapshot[]
+
+  @@index([organizationId, startedAt(sort: Desc)], map: "eme_run_org_started_idx")
+  @@index([organizationId, status, startedAt(sort: Desc)], map: "eme_run_org_status_idx")
+  @@map("enterprise_metric_runs")
+}
+
+/// CO-PERF-001 — Computed metrics read model (never replaces entity SSOT).
+model EnterpriseMetricSnapshot {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  runId          String?  @map("run_id")
+  metricKey      String   @map("metric_key")
+  category       String
+  entityKind     String?  @map("entity_kind")
+  entityId       String   @default("") @map("entity_id")
+  periodKey      String   @map("period_key")
+  asOf           DateTime @map("as_of")
+  numericValue   Float?   @map("numeric_value")
+  score          Int?
+  band           String?
+  payload        Json
+  sourceModules  Json?    @map("source_modules")
+  version        Int      @default(1)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  run          EnterpriseMetricRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, metricKey, entityId, periodKey], map: "eme_snap_org_key_entity_period_uidx")
+  @@index([organizationId, metricKey, asOf(sort: Desc)], map: "eme_snap_org_key_asof_idx")
+  @@index([organizationId, category, asOf(sort: Desc)], map: "eme_snap_org_cat_asof_idx")
+  @@index([organizationId, entityKind, entityId], map: "eme_snap_org_entity_idx")
+  @@map("enterprise_metric_snapshots")
+}
+
+// ─── CO-LEND-001 — Lender Self-Service Program Management Portal ─────────────
+
+enum LenderProgramPortalInviteStatus {
+  active
+  revoked
+  expired
+}
+
+enum LenderProgramSubmissionStatus {
+  draft
+  pending_review
+  clarification_requested
+  rejected
+  approved
+  published
+  scheduled
+}
+
+/// Secure, revocable invite token for lender program self-service.
+model LenderProgramPortalInvite {
+  id             String                         @id @default(cuid())
+  organizationId String                         @map("organization_id")
+  lenderId       String                         @map("lender_id")
+  /// Public token (random). Never log full token after issue.
+  token          String                         @unique
+  status         LenderProgramPortalInviteStatus @default(active)
+  expiresAt      DateTime                       @map("expires_at")
+  revokedAt      DateTime?                      @map("revoked_at")
+  revokedBy      String?                        @map("revoked_by")
+  revokeReason   String?                        @map("revoke_reason") @db.Text
+  maxUses        Int?                           @map("max_uses")
+  useCount       Int                            @default(0) @map("use_count")
+  /// Dual OTP — email channel (hashed)
+  emailOtpHash        String?   @map("email_otp_hash")
+  emailOtpExpiresAt   DateTime? @map("email_otp_expires_at")
+  emailOtpVerifiedAt  DateTime? @map("email_otp_verified_at")
+  /// Dual OTP — mobile channel (hashed)
+  mobileOtpHash       String?   @map("mobile_otp_hash")
+  mobileOtpExpiresAt  DateTime? @map("mobile_otp_expires_at")
+  mobileOtpVerifiedAt DateTime? @map("mobile_otp_verified_at")
+  /// Both channels verified (gate for submit)
+  otpVerifiedAt  DateTime?                      @map("otp_verified_at")
+  /// Pending verifier identity captured at OTP request
+  pendingVerifier Json?                         @map("pending_verifier")
+  /// Legacy single-OTP columns (kept for migration compatibility)
+  otpHash        String?                        @map("otp_hash")
+  otpExpiresAt   DateTime?                      @map("otp_expires_at")
+  createdBy      String                         @map("created_by")
+  notes          String?                        @db.Text
+  createdAt      DateTime                       @default(now()) @map("created_at")
+  updatedAt      DateTime                       @updatedAt @map("updated_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender          @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  submissions  LenderProgramSubmission[]
+
+  @@index([organizationId, lenderId, status], map: "lpp_invite_org_lender_status_idx")
+  @@index([organizationId, expiresAt], map: "lpp_invite_org_expires_idx")
+  @@map("lender_program_portal_invites")
+}
+
+/// Staging submission — never writes live EnterpriseLenderProgram until admin publish.
+model LenderProgramSubmission {
+  id                   String                        @id @default(cuid())
+  organizationId       String                        @map("organization_id")
+  inviteId             String                        @map("invite_id")
+  lenderId             String                        @map("lender_id")
+  productCode          String                        @map("product_code")
+  productId            String?                       @map("product_id")
+  templateKey          String                        @map("template_key")
+  programName          String                        @map("program_name")
+  status               LenderProgramSubmissionStatus @default(draft)
+  /// Verifier identity captured after OTP
+  verifierName         String?                       @map("verifier_name")
+  verifierEmployeeId   String?                       @map("verifier_employee_id")
+  verifierEmail        String?                       @map("verifier_email")
+  verifierMobile       String?                       @map("verifier_mobile")
+  verifierDesignation  String?                       @map("verifier_designation")
+  verifierBranch       String?                       @map("verifier_branch")
+  verifierRegion       String?                       @map("verifier_region")
+  /// CO-LEND-001B — Contact Directory + Dialogue attribution
+  ecmContactId         String?                       @map("ecm_contact_id")
+  dialogueThreadId     String?                       @map("dialogue_thread_id")
+  emailVerifiedAt      DateTime?                     @map("email_verified_at")
+  mobileVerifiedAt     DateTime?                     @map("mobile_verified_at")
+  approvedAt           DateTime?                     @map("approved_at")
+  /// Proposed program fields (product-template shaped JSON)
+  proposedPayload      Json                          @map("proposed_payload")
+  /// Snapshot of current published program at submit (for comparison)
+  currentSnapshot      Json?                         @map("current_snapshot")
+  /// Document registry record ids / metadata
+  documentLinks        Json?                         @map("document_links")
+  versionNumber        Int                           @default(1) @map("version_number")
+  previousProgramId    String?                       @map("previous_program_id")
+  publishedProgramId   String?                       @map("published_program_id")
+  submittedAt          DateTime?                     @map("submitted_at")
+  reviewedBy           String?                       @map("reviewed_by")
+  reviewedAt           DateTime?                     @map("reviewed_at")
+  publishedBy          String?                       @map("published_by")
+  publishedAt          DateTime?                     @map("published_at")
+  schedulePublishAt    DateTime?                     @map("schedule_publish_at")
+  adminComments        String?                       @map("admin_comments") @db.Text
+  clarificationNotes   String?                       @map("clarification_notes") @db.Text
+  rejectionReason      String?                       @map("rejection_reason") @db.Text
+  ipAddress            String?                       @map("ip_address")
+  createdAt            DateTime                      @default(now()) @map("created_at")
+  updatedAt            DateTime                      @updatedAt @map("updated_at")
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invite       LenderProgramPortalInvite @relation(fields: [inviteId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender         @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+  dialogueThread LenderProgramDialogueThread? @relation(fields: [dialogueThreadId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, submittedAt], map: "lpp_sub_org_status_submitted_idx")
+  @@index([organizationId, lenderId, productCode], map: "lpp_sub_org_lender_product_idx")
+  @@index([organizationId, inviteId], map: "lpp_sub_org_invite_idx")
+  @@index([organizationId, ecmContactId], map: "lpp_sub_org_contact_idx")
+  @@index([organizationId, dialogueThreadId], map: "lpp_sub_org_dialogue_idx")
+  @@map("lender_program_submissions")
+}
+
+/// Durable ECH dialogue thread for a lender program submission (CO-LEND-001B).
+model LenderProgramDialogueThread {
+  id               String   @id @default(cuid())
+  organizationId   String   @map("organization_id")
+  lenderId         String   @map("lender_id")
+  ecmContactId     String   @map("ecm_contact_id")
+  subject          String
+  /// Participants: submitter, RM (if any), administrators
+  participants     Json
+  status           String   @default("open")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  organization Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  messages     LenderProgramDialogueMessage[]
+  submissions  LenderProgramSubmission[]
+
+  @@index([organizationId, lenderId], map: "lpp_dlg_org_lender_idx")
+  @@index([organizationId, ecmContactId], map: "lpp_dlg_org_contact_idx")
+  @@map("lender_program_dialogue_threads")
+}
+
+model LenderProgramDialogueMessage {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  threadId       String   @map("thread_id")
+  eventKind      String   @map("event_kind")
+  title          String
+  body           String   @db.Text
+  actorId        String   @map("actor_id")
+  actorName      String   @map("actor_name")
+  actorRole      String?  @map("actor_role")
+  payload        Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  thread       LenderProgramDialogueThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, threadId, createdAt], map: "lpp_dlg_msg_org_thread_created_idx")
+  @@map("lender_program_dialogue_messages")
+}
+
+model LenderProgramPortalAudit {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  inviteId       String?  @map("invite_id")
+  submissionId   String?  @map("submission_id")
+  action         String
+  actor          String
+  detail         Json?
+  ipAddress      String?  @map("ip_address")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt], map: "lpp_audit_org_created_idx")
+  @@index([organizationId, submissionId], map: "lpp_audit_org_submission_idx")
+  @@map("lender_program_portal_audits")
+}
+
+/// CO-DOC-002 — Durable transaction document metadata (Opportunity Document Center SSOT).
+/// Client IndexedDB remains the fast local blob cache; Postgres survives purge / browser change.
+model EnterpriseTransactionDocument {
+  id                 String    @id @default(cuid())
+  organizationId     String    @map("organization_id")
+  opportunityId      String    @map("opportunity_id")
+  opportunityNumber  String?   @map("opportunity_number")
+  clientRecordId     String?   @map("client_record_id")
+  loanFileId         String?   @map("loan_file_id")
+  contactId          String?   @map("contact_id")
+  customerId         String?   @map("customer_id")
+  participantId      String?   @map("participant_id")
+  lenderId           String?   @map("lender_id")
+  documentScope      String    @default("applicant") @map("document_scope")
+  typeRef            String    @map("type_ref")
+  categoryLabel      String    @map("category_label")
+  originalFilename   String    @map("original_filename")
+  displayName        String    @map("display_name")
+  mimeType           String    @map("mime_type")
+  fileSizeBytes      Int       @map("file_size_bytes")
+  status             String    @default("active")
+  uploadSource       String?   @map("upload_source")
+  uploadedBy         String    @map("uploaded_by")
+  verifiedAt         DateTime? @map("verified_at")
+  verifiedBy         String?   @map("verified_by")
+  /// Optional binary (capped by API). Null = metadata-only (blob may be client-local).
+  contentBytes       Bytes?    @map("content_bytes")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, clientRecordId], map: "etd_org_client_record_key")
+  @@index([organizationId, opportunityId, status], map: "etd_org_opp_status_idx")
+  @@index([organizationId, contactId], map: "etd_org_contact_idx")
+  @@map("enterprise_transaction_documents")
+}
+
+// =============================================================================
+// CO-WP-001 — Enterprise Wealth Partner Registry
+// Additive module. Contact / Company remain master identity SSOTs.
+// Identity IDs stored without Prisma relations on ECM models (zero ECM schema churn).
+// =============================================================================
+
+enum WealthPartnerLifecycleStatus {
+  draft
+  onboarding
+  active
+  suspended
+  retired
+}
+
+enum WealthPartnerOperationalStatus {
+  inactive
+  active
+  restricted
+}
+
+enum WealthPartnerIdentityKind {
+  contact
+  company
+}
+
+enum WealthPartnerNetworkMemberStatus {
+  active
+  inactive
+  ended
+}
+
+enum WealthPartnerCommissionPayoutFrequency {
+  monthly
+  quarterly
+  half_yearly
+  annually
+  on_disbursement
+  other
+}
+
+/// Immutable codes e.g. WPT000001. Business relationship on top of Contact or Company.
+model EnterpriseWealthPartner {
+  id                String                         @id @default(cuid())
+  organizationId    String                         @map("organization_id")
+  code              String
+  displayName       String                         @map("display_name")
+  /// Wealth Partner Type (business relationship) — not profession.
+  partnerType       String                         @map("partner_type")
+  identityKind      WealthPartnerIdentityKind      @map("identity_kind")
+  /// Exactly one of contactId / companyId required (application-enforced).
+  contactId         String?                        @map("contact_id")
+  companyId         String?                        @map("company_id")
+  identityLabel     String?                        @map("identity_label")
+  lifecycleStatus   WealthPartnerLifecycleStatus   @default(onboarding) @map("lifecycle_status")
+  operationalStatus WealthPartnerOperationalStatus @default(active) @map("operational_status")
+  pan               String?
+  gstin             String?
+  email             String?
+  mobile            String?
+  cityLabel         String?                        @map("city_label")
+  stateLabel        String?                        @map("state_label")
+  website           String?
+  notes             String?                        @db.Text
+  profileJson       Json?                          @map("profile_json")
+  complianceJson    Json?                          @map("compliance_json")
+  /// CO-OPP-003 — Commercial Profile (% of Rupee Catalyst revenue by Participation Role).
+  commercialReferralSharePercent       Float?      @map("commercial_referral_share_percent")
+  commercialSoleExecutorSharePercent   Float?      @map("commercial_sole_executor_share_percent")
+  commercialJointExecutorSharePercent  Float?      @map("commercial_joint_executor_share_percent")
+  commercialEffectiveFrom              DateTime?   @map("commercial_effective_from")
+  commercialStatus                     String      @default("active") @map("commercial_status")
+  sortOrder         Int                            @default(0) @map("sort_order")
+  status            RegistryStatus                 @default(active)
+  enabled           Boolean                        @default(true)
+  versionNumber     Int                            @default(1) @map("version_number")
+  effectiveFrom     DateTime?                      @map("effective_from")
+  effectiveUntil    DateTime?                      @map("effective_until")
+  isDeleted         Boolean                        @default(false) @map("is_deleted")
+  deletedAt         DateTime?                      @map("deleted_at")
+  deletedBy         String?                        @map("deleted_by")
+  deletionReason    String?                        @map("deletion_reason") @db.Text
+  approvalStatus    RegistryApprovalStatus         @default(none) @map("approval_status")
+  approvedBy        String?                        @map("approved_by")
+  approvedAt        DateTime?                      @map("approved_at")
+  createdBy         String                         @map("created_by")
+  modifiedBy        String                         @map("modified_by")
+  createdAt         DateTime                       @default(now()) @map("created_at")
+  updatedAt         DateTime                       @updatedAt @map("updated_at")
+
+  organization   Organization                          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  networkMembers EnterpriseWealthPartnerNetworkMember[]
+  commissions    EnterpriseWealthPartnerCommission[]
+  bankAccounts   EnterpriseWealthPartnerBankAccount[]
+  activities     EnterpriseWealthPartnerActivity[]
+
+  @@unique([organizationId, code], map: "ewp_org_code_key")
+  @@index([organizationId, partnerType, isDeleted], map: "ewp_org_type_idx")
+  @@index([organizationId, contactId], map: "ewp_org_contact_idx")
+  @@index([organizationId, companyId], map: "ewp_org_company_idx")
+  @@index([organizationId, isDeleted, updatedAt(sort: Desc)], map: "ewp_org_list_idx")
+  @@map("enterprise_wealth_partners")
+}
+
+/// Network relationship only — never duplicates Contact/Company masters.
+model EnterpriseWealthPartnerNetworkMember {
+  id                 String                         @id @default(cuid())
+  organizationId     String                         @map("organization_id")
+  parentPartnerId    String                         @map("parent_partner_id")
+  identityKind       WealthPartnerIdentityKind      @map("identity_kind")
+  childContactId     String?                        @map("child_contact_id")
+  childCompanyId     String?                        @map("child_company_id")
+  childDisplayName   String                         @map("child_display_name")
+  relationshipType   String                         @map("relationship_type")
+  memberPartnerType  String?                        @map("member_partner_type")
+  effectiveDate      DateTime                       @map("effective_date")
+  status             WealthPartnerNetworkMemberStatus @default(active)
+  notes              String?                        @db.Text
+  isDeleted          Boolean                        @default(false) @map("is_deleted")
+  deletedAt          DateTime?                      @map("deleted_at")
+  deletedBy          String?                        @map("deleted_by")
+  createdBy          String                         @map("created_by")
+  modifiedBy         String                         @map("modified_by")
+  createdAt          DateTime                       @default(now()) @map("created_at")
+  updatedAt          DateTime                       @updatedAt @map("updated_at")
+
+  organization  Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  parentPartner EnterpriseWealthPartner @relation(fields: [parentPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, parentPartnerId, status], map: "ewpnm_org_parent_idx")
+  @@index([organizationId, childContactId], map: "ewpnm_org_child_contact_idx")
+  @@index([organizationId, childCompanyId], map: "ewpnm_org_child_company_idx")
+  @@map("enterprise_wealth_partner_network_members")
+}
+
+model EnterpriseWealthPartnerCommission {
+  id               String                              @id @default(cuid())
+  organizationId   String                              @map("organization_id")
+  wealthPartnerId  String                              @map("wealth_partner_id")
+  code             String
+  label            String
+  productCode      String?                             @map("product_code")
+  productLabel     String?                             @map("product_label")
+  /// Product-wise | slab-wise structure payload
+  structureKind    String                              @default("product") @map("structure_kind")
+  slabsJson        Json?                               @map("slabs_json")
+  ratePercent      Float?                              @map("rate_percent")
+  rateBps          Float?                              @map("rate_bps")
+  flatAmount       Float?                              @map("flat_amount")
+  currencyCode     String                              @default("INR") @map("currency_code")
+  payoutFrequency  WealthPartnerCommissionPayoutFrequency @default(on_disbursement) @map("payout_frequency")
+  overrideRulesJson Json?                              @map("override_rules_json")
+  effectiveFrom    DateTime?                           @map("effective_from")
+  effectiveUntil   DateTime?                           @map("effective_until")
+  status           RegistryStatus                      @default(active)
+  enabled          Boolean                             @default(true)
+  versionNumber    Int                                 @default(1) @map("version_number")
+  notes            String?                             @db.Text
+  isDeleted        Boolean                             @default(false) @map("is_deleted")
+  deletedAt        DateTime?                           @map("deleted_at")
+  deletedBy        String?                             @map("deleted_by")
+  createdBy        String                              @map("created_by")
+  modifiedBy       String                              @map("modified_by")
+  createdAt        DateTime                            @default(now()) @map("created_at")
+  updatedAt        DateTime                            @updatedAt @map("updated_at")
+
+  organization  Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  wealthPartner EnterpriseWealthPartner @relation(fields: [wealthPartnerId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code], map: "ewpc_org_code_key")
+  @@index([organizationId, wealthPartnerId, enabled], map: "ewpc_org_partner_idx")
+  @@map("enterprise_wealth_partner_commissions")
+}
+
+model EnterpriseWealthPartnerBankAccount {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  wealthPartnerId String   @map("wealth_partner_id")
+  accountName     String   @map("account_name")
+  bankName        String   @map("bank_name")
+  accountNumber   String   @map("account_number")
+  ifsc            String
+  accountType     String?  @map("account_type")
+  isPrimary       Boolean  @default(false) @map("is_primary")
+  enabled         Boolean  @default(true)
+  notes           String?  @db.Text
+  isDeleted       Boolean  @default(false) @map("is_deleted")
+  deletedAt       DateTime? @map("deleted_at")
+  createdBy       String   @map("created_by")
+  modifiedBy      String   @map("modified_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization  Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  wealthPartner EnterpriseWealthPartner @relation(fields: [wealthPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, wealthPartnerId], map: "ewpba_org_partner_idx")
+  @@map("enterprise_wealth_partner_bank_accounts")
+}
+
+model EnterpriseWealthPartnerActivity {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  wealthPartnerId String   @map("wealth_partner_id")
+  activityType    String   @map("activity_type")
+  title           String
+  detail          String?  @db.Text
+  payload         Json?
+  actorUserId     String?  @map("actor_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  organization  Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  wealthPartner EnterpriseWealthPartner @relation(fields: [wealthPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, wealthPartnerId, createdAt(sort: Desc)], map: "ewpa_org_partner_created_idx")
+  @@map("enterprise_wealth_partner_activities")
+}
+

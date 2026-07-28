@@ -208,6 +208,8 @@ export function linkCompanyContact(input: {
   companyId: string;
   contactId: string;
   relationRole: EcmCompanyRelationRole;
+  designation?: string | null;
+  department?: string | null;
   createdBy: string;
 }): EcmCompanyContactLink {
   const existing = [...links.values()].find(
@@ -225,6 +227,8 @@ export function linkCompanyContact(input: {
     companyId: input.companyId,
     contactId: input.contactId,
     relationRole: input.relationRole,
+    designation: input.designation?.trim() || undefined,
+    department: input.department?.trim() || undefined,
     status: "active",
     createdBy: input.createdBy,
     createdOn,

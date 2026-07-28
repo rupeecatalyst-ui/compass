@@ -348,6 +348,7 @@ export function ContactWorkspaceModal({
   const [showIdentityAdditional, setShowIdentityAdditional] = useState(false);
   const [showRoleAdditional, setShowRoleAdditional] = useState(false);
   const [startingJourney, setStartingJourney] = useState(false);
+  const startingJourneyLockRef = useRef(false);
   const [activeOppConflict, setActiveOppConflict] = useState<{
     message: string;
     productLabel: string;
@@ -715,7 +716,7 @@ export function ContactWorkspaceModal({
   ) => {
     markRoleJourneyStarted("customer", opportunity.id);
     toastSuccess(
-      created ? "Draft Opportunity created" : "Opening Loan Journey",
+      created ? "Dialogue Opportunity created" : "Opening Loan Journey",
       `${opportunity.opportunityNumber} · opening Execution Hub`,
     );
     setActiveOppConflict(null);
@@ -724,12 +725,13 @@ export function ContactWorkspaceModal({
   };
 
   const handleStartLoanJourney = async (opts?: { forceCreate?: boolean }) => {
-    if (!active || startingJourney) return;
+    if (!active || startingJourney || startingJourneyLockRef.current) return;
+    startingJourneyLockRef.current = true;
     setStartingJourney(true);
     setActionNotice(null);
     try {
-      // ADR-018 Wave 3 — always create Draft (identity only); land on /loan-journey.
-      // Active Contact+Product uniqueness applies from Requirement Captured onward.
+      // ADR-018 Wave 3 — Draft Start (identity only); land on /loan-journey.
+      // P1: open Draft for this Contact is reused (idempotent); never mint a second.
       const result = await startOpportunityFromContact(active, {
         allowActiveDuplicateOverride: Boolean(opts?.forceCreate),
         overrideReason: opts?.forceCreate
@@ -756,6 +758,7 @@ export function ContactWorkspaceModal({
         err instanceof Error ? err.message : "Opportunity could not be created.";
       toastError("Could not start loan journey", message);
     } finally {
+      startingJourneyLockRef.current = false;
       setStartingJourney(false);
     }
   };
@@ -2060,7 +2063,7 @@ export function ContactWorkspaceModal({
                           Active deal found · continue execution from Deal Workspace.
                         </p>
                       ) : (
-                        <p className="text-sm text-zinc-500">No active loan files for this contact.</p>
+                        <p className="text-sm text-zinc-500">No active Deals for this contact.</p>
                       )}
                     </ContactEntityWorkspaceShell>
                   )}

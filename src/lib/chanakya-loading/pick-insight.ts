@@ -1,8 +1,8 @@
 /**
- * CO-UX-024 — Pick a CHANAKYA loading insight; avoid consecutive repeats per module.
+ * CO-UX-008 — Legacy insight picker (wraps compose). Prefer composeChanakyaLoadingMessages.
  */
 
-import { getChanakyaLoadingInsights } from "@/constants/chanakya-loading";
+import { composeChanakyaLoadingMessages } from "@/lib/chanakya-loading/compose-messages";
 import type { ChanakyaLoadingModule } from "@/types/chanakya-loading";
 
 const STORAGE_PREFIX = "chanakya-loading-insight:";
@@ -28,7 +28,7 @@ function writeLastIndex(module: ChanakyaLoadingModule, index: number): void {
   try {
     sessionStorage.setItem(storageKey(module), String(index));
   } catch {
-    /* private mode / quota — ignore */
+    /* ignore */
   }
 }
 
@@ -36,8 +36,8 @@ function writeLastIndex(module: ChanakyaLoadingModule, index: number): void {
 export function pickChanakyaLoadingInsight(
   module: ChanakyaLoadingModule,
 ): string {
-  const insights = getChanakyaLoadingInsights(module);
-  if (insights.length === 0) return "Business grows where attention goes.";
+  const insights = composeChanakyaLoadingMessages(module).map((m) => m.text);
+  if (insights.length === 0) return "Preparing your workspace...";
   if (insights.length === 1) return insights[0]!;
 
   const last = readLastIndex(module);

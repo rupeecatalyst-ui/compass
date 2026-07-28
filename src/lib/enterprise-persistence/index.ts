@@ -27,6 +27,7 @@ export { ecmApiClient } from "./ecm-api-client";
 
 export {
   hydrateEcmFromPrisma,
+  hydrateCompanyLinksFromPrisma,
   persistLinkCompanyContact,
   persistRegisterEcmCompany,
   persistRegisterEcmContact,

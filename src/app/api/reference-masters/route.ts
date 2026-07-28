@@ -30,12 +30,16 @@ export async function GET(request: Request) {
       return errorResponse(400, "DOMAIN_REQUIRED", "Query parameter domain is required.");
     }
 
+    const status =
+      (url.searchParams.get("status") as "all" | "draft" | "active" | "inactive" | "archived") ??
+      "all";
     const result = await referenceMasterService.query({
       domain,
       page: Number(url.searchParams.get("page") ?? 1),
       pageSize: Number(url.searchParams.get("pageSize") ?? 100),
       search: url.searchParams.get("search") ?? undefined,
-      status: (url.searchParams.get("status") as "all" | "draft" | "active" | "inactive" | "archived") ?? "active",
+      status,
+      includeDeleted: status === "all" || status === "archived",
       enabled:
         url.searchParams.get("enabled") === "true"
           ? true

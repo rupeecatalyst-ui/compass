@@ -248,7 +248,7 @@ export function createLoanFileFromInput(
       {
         id: "tl-0",
         title: "Lead Created",
-        description: "New loan file created",
+        description: "New Deal created",
         timestamp: now,
         completed: true,
       },

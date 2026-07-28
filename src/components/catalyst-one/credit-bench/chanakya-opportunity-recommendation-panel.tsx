@@ -7,6 +7,7 @@ import {
   ChanakyaGapInlineField,
   type ChanakyaGapSavePayload,
 } from "@/components/catalyst-one/credit-bench/chanakya-gap-inline-field";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import {
   deriveChanakyaOpportunityRecommendations,
 } from "@/lib/chanakya-opportunity-recommendations";
@@ -236,15 +237,12 @@ export function ChanakyaOpportunityRecommendationPanel({
           ))}
 
         {generating && (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-teal-500/30 bg-teal-500/5 px-3.5 py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-teal-700 dark:text-teal-300" />
-            <p className="text-sm font-medium text-foreground">
-              Generating lender recommendations…
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              Chanakya is analysing this Opportunity profile.
-            </p>
-          </div>
+          <ChanakyaLoadingExperience
+            module="credit"
+            statusLabel="Analysing this Opportunity profile..."
+            density="inline"
+            useEbiSignals={false}
+          />
         )}
 
         {!result.ready && missingCount > 0 && (

@@ -604,45 +604,53 @@ export class LenderRegistryRepository {
         website: input.website,
 
         tags: input.tags === null ? Prisma.JsonNull : input.tags,
-
+        productsSupported:
+          input.productsSupported === null
+            ? Prisma.JsonNull
+            : input.productsSupported
+              ? (input.productsSupported as Prisma.InputJsonValue)
+              : undefined,
         sortOrder: input.sortOrder,
-
+        priority: input.priority,
+        defaultProcessingRules:
+          input.defaultProcessingRules === null
+            ? Prisma.JsonNull
+            : input.defaultProcessingRules !== undefined
+              ? (input.defaultProcessingRules as Prisma.InputJsonValue)
+              : undefined,
+        branchCoverage:
+          input.branchCoverage === null
+            ? Prisma.JsonNull
+            : input.branchCoverage
+              ? (input.branchCoverage as Prisma.InputJsonValue)
+              : undefined,
+        rmMapping:
+          input.rmMapping === null
+            ? Prisma.JsonNull
+            : input.rmMapping
+              ? (input.rmMapping as Prisma.InputJsonValue)
+              : undefined,
+        remarks: input.remarks,
         status: input.status,
-
         enabled: input.enabled,
-
         notes: input.notes,
-
         modifiedBy: input.modifiedBy,
-
         versionNumber: {
-
           increment:
-
             input.label ||
-
             input.status ||
-
             input.enabled !== undefined ||
-
             input.lifecycleStatus ||
-
             input.operationalStatus ||
-
-            input.institutionCategory
-
+            input.institutionCategory ||
+            input.productsSupported !== undefined
               ? 1
-
               : 0,
-
         },
-
       },
-
     });
 
     return mapLenderRow(row);
-
   }
 
 
@@ -659,6 +667,8 @@ export class LenderRegistryRepository {
 
   ) {
 
+    const isActive = status === "active";
+
     const row = await prisma.enterpriseLender.update({
 
       where: { id },
@@ -667,7 +677,25 @@ export class LenderRegistryRepository {
 
         status,
 
-        enabled: enabled ?? status === "active",
+        enabled: enabled ?? isActive,
+
+        // Picker SSOT requires lifecycle + operational active (not only RegistryStatus).
+
+        ...(isActive
+
+          ? {
+
+              lifecycleStatus: "active" as const,
+
+              operationalStatus: "active" as const,
+
+            }
+
+          : {
+
+              operationalStatus: "inactive" as const,
+
+            }),
 
         modifiedBy: actorId,
 

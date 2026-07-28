@@ -11,6 +11,7 @@ import {
 } from "@/lib/enterprise-deal/deal-lender-stage-map";
 import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { putSessionDeal, bindSessionDeal } from "@/lib/enterprise-session";
+import { notifyLoanFilesUpdated } from "@/lib/loan-data-sync";
 import type { LoanLenderExecution, LenderCaseStage } from "@/types/catalyst-one";
 import type {
   DealPipelineContext,
@@ -19,6 +20,7 @@ import type {
 } from "@/types/deal-pipeline-runtime";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import type { LoanCommercialPayeeType } from "@/constants/loan-commercial-payee";
+import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 
 function readDerivedSingleLender(
   deal: EnterpriseDealApiRecord,
@@ -35,9 +37,8 @@ function readDerivedSingleLender(
 export function dealToLenderExecution(deal: EnterpriseDealApiRecord): LoanLenderExecution {
   const now = deal.updatedAt || deal.createdAt || new Date().toISOString();
   const derived = readDerivedSingleLender(deal);
-  const caseStage =
-    (derived?.caseStage as LenderCaseStage | undefined) ||
-    grossStageToLenderCaseStage(deal.grossStage);
+  // P1 — Deal Registry grossStage is SSOT. Never prefer snapshot.caseStage over Registry.
+  const caseStage = grossStageToLenderCaseStage(deal.grossStage);
   const name =
     derived?.name ||
     deal.primaryCounterpartyName ||
@@ -95,6 +96,7 @@ export function buildDerivedSingleLenderSnapshot(
 }
 
 export function toDealPipelineContext(deal: EnterpriseDealApiRecord): DealPipelineContext {
+  const borrower = resolveDealBorrowerIdentity(deal);
   return {
     dealId: deal.id,
     dealNumber: deal.dealNumber,
@@ -104,8 +106,8 @@ export function toDealPipelineContext(deal: EnterpriseDealApiRecord): DealPipeli
     loanProduct: deal.productLabel || "",
     productCode: undefined,
     relationshipManager: deal.relationshipManagerName || "",
-    customerName: deal.primaryContactName || "",
-    customerId: deal.primaryContactId,
+    customerName: borrower.displayName || "",
+    customerId: borrower.partyEntityId || deal.primaryContactId,
     invoicePartyId: deal.invoicePartyId,
     commissionAccountingPayeeId: deal.invoicePartyId,
     commercialPayee: (deal.invoicePartyType as LoanCommercialPayeeType) || undefined,
@@ -132,74 +134,105 @@ function toRuntime(
 
 /**
  * Load Opportunity execution desk: all Enterprise Deals for the Opportunity.
- * Anchor dealId opens the route; lenders come from listDealsByOpportunity.
+ * Anchor dealId opens the route; lenders come from sibling Deals (CO-ARCH-007).
+ *
+ * CO-PERF-002 — Prefer single bootstrap GET (?include=siblings) over multi-RTT open.
+ * CO-BUG-009 — fall back to session row after Move to Deal create.
  */
-export async function loadDealPipelineRuntime(dealId: string): Promise<DealPipelineRuntime> {
+export async function loadDealPipelineRuntime(
+  dealId: string,
+  options?: { forceRefresh?: boolean },
+): Promise<DealPipelineRuntime> {
   const id = dealId.trim();
   if (!id) throw new Error("Missing Enterprise Deal id.");
 
-  let anchor: EnterpriseDealApiRecord;
+  const { peekSessionDeal } = await import(
+    "@/lib/enterprise-session/deal-runtime-cache"
+  );
+  const warm = peekSessionDeal(id);
+  const forceRefresh = options?.forceRefresh === true || !warm?.id;
+
+  let bootstrap: {
+    deal: EnterpriseDealApiRecord;
+    siblings: EnterpriseDealApiRecord[];
+  } | null = null;
+
   try {
-    // Prefer network; fall back to session row right after Move to Deal create
-    // so navigation is never blocked by a transient GET miss (CO-BUG-009).
-    anchor = await enterpriseDealApiClient.getDeal(id, { forceRefresh: true });
+    bootstrap = await enterpriseDealApiClient.bootstrapDealWorkspace(id, {
+      forceRefresh,
+    });
   } catch (err) {
-    const { peekSessionDeal } = await import(
-      "@/lib/enterprise-session/deal-runtime-cache"
-    );
-    const warm = peekSessionDeal(id);
-    if (!warm?.id) throw err;
-    anchor = warm as EnterpriseDealApiRecord;
+    if (!warm?.id) {
+      // Fallback to legacy parallel path when bootstrap unavailable.
+      try {
+        const anchorOnly = await enterpriseDealApiClient.getDeal(id, { forceRefresh });
+        putSessionDeal(anchorOnly);
+        bindSessionDeal(anchorOnly);
+        const opportunityId = anchorOnly.opportunityId?.trim();
+        if (!opportunityId) return toRuntime(anchorOnly, [anchorOnly]);
+        const siblingsResult = await enterpriseDealApiClient
+          .listDealsByOpportunity(opportunityId)
+          .catch(() => ({ items: [anchorOnly] as EnterpriseDealApiRecord[], total: 1 }));
+        const siblings =
+          siblingsResult.items.length > 0 ? siblingsResult.items : [anchorOnly];
+        for (const d of siblings) putSessionDeal(d);
+        return toRuntime(anchorOnly, siblings);
+      } catch {
+        throw err;
+      }
+    }
+    return toRuntime(warm as EnterpriseDealApiRecord, [warm as EnterpriseDealApiRecord]);
   }
-  putSessionDeal(anchor);
-  bindSessionDeal(anchor);
+
+  let anchor = bootstrap.deal;
+  let siblings = bootstrap.siblings.length > 0 ? bootstrap.siblings : [anchor];
 
   const opportunityId = anchor.opportunityId?.trim();
-  if (!opportunityId) {
-    return toRuntime(anchor, [anchor]);
-  }
-
-  let siblings: EnterpriseDealApiRecord[] = [anchor];
-  try {
-    const { items } = await enterpriseDealApiClient.listDealsByOpportunity(opportunityId);
-    siblings = items.length > 0 ? items : [anchor];
-  } catch {
-    siblings = [anchor];
-  }
-
-  // CO-UX-017 QA — stamp human OPP number when Deal GET omits the Opportunity join.
-  const needsOppNumber = siblings.some((d) => {
-    const n = d.opportunityNumber?.trim();
+  const needsOppNumber = (() => {
+    const n = anchor.opportunityNumber?.trim();
     return !n || /^deal[-_]/i.test(n);
-  });
-  if (needsOppNumber) {
-    try {
-      const opportunity =
-        await enterpriseOpportunityApiClient.getOpportunity(opportunityId);
-      const oppNumber = opportunity.opportunityNumber?.trim();
-      if (oppNumber && !/^deal[-_]/i.test(oppNumber)) {
-        siblings = siblings.map((d) => ({
-          ...d,
-          opportunityNumber: d.opportunityNumber?.trim() || oppNumber,
-        }));
-        anchor = {
-          ...anchor,
-          opportunityNumber: anchor.opportunityNumber?.trim() || oppNumber,
-        };
-      }
-    } catch {
-      /* keep Deal-only labels */
+  })();
+
+  if (opportunityId && needsOppNumber) {
+    const opportunity = await enterpriseOpportunityApiClient
+      .getOpportunity(opportunityId)
+      .catch(() => null);
+    const oppNumber = opportunity?.opportunityNumber?.trim();
+    if (oppNumber && !/^deal[-_]/i.test(oppNumber)) {
+      siblings = siblings.map((d) => ({
+        ...d,
+        opportunityNumber: d.opportunityNumber?.trim() || oppNumber,
+      }));
+      anchor = {
+        ...anchor,
+        opportunityNumber: anchor.opportunityNumber?.trim() || oppNumber,
+      };
     }
+  }
+
+  const refreshedAnchor = siblings.find((d) => d.id === anchor.id);
+  if (refreshedAnchor) {
+    anchor = {
+      ...refreshedAnchor,
+      opportunityNumber:
+        refreshedAnchor.opportunityNumber?.trim() || anchor.opportunityNumber,
+    };
   }
 
   for (const d of siblings) putSessionDeal(d);
   putSessionDeal(anchor);
+  bindSessionDeal(anchor);
   return toRuntime(anchor, siblings);
 }
 
 /**
  * CO-ARCH-007 — Identify Additional Lender creates/upserts EnterpriseDeal
  * uniqueness: (opportunityId + lenderId).
+ * CO-PERF-002 — Prefer warm Opportunity session; merge created Deal into runtime (no full reload).
+ *
+ * Manual lender selection (CO-ARCH-007) — user intent only:
+ * read Lender Registry + store lender ID / create Deal.
+ * Does NOT execute Recommendation, Programme, Policy, Eligibility, or AI engines.
  */
 export async function identifyLenderAsEnterpriseDeal(input: {
   runtime: DealPipelineRuntime;
@@ -211,6 +244,17 @@ export async function identifyLenderAsEnterpriseDeal(input: {
   caseSubStage?: string;
   identifiedBy?: string;
 }): Promise<DealPipelineRuntime> {
+  const { createManualLenderSelectionIntent } = await import(
+    "@/constants/manual-lender-selection"
+  );
+  // Intent record — advisory audit only; never triggers scoring engines.
+  void createManualLenderSelectionIntent({
+    opportunityId: input.runtime.context.opportunityId ?? "",
+    lenderId: input.lenderId,
+    lenderName: input.lenderName,
+    selectedBy: "identify",
+  });
+
   const opportunityId = input.runtime.context.opportunityId?.trim();
   if (!opportunityId) {
     throw new Error(
@@ -221,7 +265,13 @@ export async function identifyLenderAsEnterpriseDeal(input: {
     throw new Error("lenderId is required to create an Enterprise Deal.");
   }
 
-  const opportunity = await enterpriseOpportunityApiClient.getOpportunity(opportunityId);
+  const { peekSessionOpportunity } = await import(
+    "@/lib/enterprise-session/opportunity-runtime-cache"
+  );
+  const opportunity =
+    peekSessionOpportunity(opportunityId) ??
+    (await enterpriseOpportunityApiClient.getOpportunity(opportunityId));
+
   const ts = new Date().toISOString();
   const single: LoanLenderExecution = {
     id: `pending-${input.lenderId}`,
@@ -244,7 +294,7 @@ export async function identifyLenderAsEnterpriseDeal(input: {
     updatedAt: ts,
   };
 
-  await createDealFromOpportunity({
+  const created = await createDealFromOpportunity({
     opportunity,
     lenderId: input.lenderId,
     lenderName: input.lenderName,
@@ -257,21 +307,208 @@ export async function identifyLenderAsEnterpriseDeal(input: {
     relationshipManager: input.runtime.context.relationshipManager,
   });
 
-  return loadDealPipelineRuntime(input.runtime.deal.id);
+  putSessionDeal(created);
+
+  const siblings = [
+    ...input.runtime.siblingDeals.filter(
+      (d) => d.id !== created.id && d.lenderId !== created.lenderId,
+    ),
+    created,
+  ];
+  const anchor =
+    siblings.find((d) => d.id === input.runtime.deal.id) ?? input.runtime.deal;
+  return toRuntime(anchor, siblings);
+}
+
+/**
+ * Resolve the Enterprise Deal UUID for a Pipeline card (CO-ARCH-007).
+ * Prefer explicit enterpriseDealId; never invent IDs.
+ */
+export function resolvePipelineDealId(lender: LoanLenderExecution): string {
+  return (lender.enterpriseDealId || lender.id || "").trim();
+}
+
+/**
+ * Soft-delete Enterprise Deals that were removed from the Kanban card list.
+ * CO-QA-002 — Kanban Remove must persist via Deal Registry soft-delete (SSOT).
+ * Filtering React state alone is not a delete.
+ */
+export async function softDeleteRemovedPipelineDeals(
+  previous: LoanLenderExecution[],
+  next: LoanLenderExecution[],
+  options?: {
+    /** Only soft-delete IDs known to be sibling Enterprise Deals (preferred). */
+    knownDealIds?: ReadonlySet<string> | readonly string[];
+    reason?: string;
+  },
+): Promise<string[]> {
+  const nextIds = new Set(
+    next.map(resolvePipelineDealId).filter(Boolean),
+  );
+  const known =
+    options?.knownDealIds == null
+      ? null
+      : options.knownDealIds instanceof Set
+        ? options.knownDealIds
+        : new Set(options.knownDealIds);
+  const reason = options?.reason ?? "kanban_pipeline_remove";
+  const candidates: string[] = [];
+
+  for (const prev of previous) {
+    const dealId = resolvePipelineDealId(prev);
+    if (!dealId || nextIds.has(dealId)) continue;
+    // Prefer sibling Deal ids; if unknown, still attempt soft-delete (API 404 if invalid).
+    if (known && known.size > 0 && !known.has(dealId)) {
+      // Card id may still be a Deal UUID that was optimistic / stale — try delete anyway
+      // when it matches a previous enterpriseDealId field.
+      if (!prev.enterpriseDealId || prev.enterpriseDealId !== dealId) continue;
+    }
+    candidates.push(dealId);
+  }
+
+  // CO-PERF-002 — Parallel soft-deletes (was sequential N× RTT).
+  const removed: string[] = [];
+  await Promise.all(
+    candidates.map(async (dealId) => {
+      try {
+        await enterpriseDealApiClient.softDeleteDeal(dealId, reason);
+        removed.push(dealId);
+      } catch {
+        /* keep attempting others; caller may force-refresh inventory */
+      }
+    }),
+  );
+
+  return removed;
+}
+
+/**
+ * CO-QA-002 re-open — Explicit Kanban Remove for one EnterpriseDeal.
+ * Does not rely on persist-diff alone. Verifies soft-delete response before reload.
+ */
+export async function removeLenderPipelineDeal(
+  runtime: DealPipelineRuntime,
+  dealIdInput: string,
+  options?: { reason?: string },
+): Promise<DealPipelineRuntime> {
+  const dealId = dealIdInput.trim();
+  if (!dealId) {
+    throw new Error("Missing Enterprise Deal id for Kanban delete.");
+  }
+
+  const { tracePipelineDrag } = await import("@/lib/enterprise-deal/pipeline-drag-trace");
+  tracePipelineDrag("delete_initiated", {
+    dealId,
+    opportunityId: runtime.deal.opportunityId,
+    siblingCount: runtime.siblingDeals.length,
+  });
+
+  const card = runtime.lenders.find((l) => resolvePipelineDealId(l) === dealId);
+
+  tracePipelineDrag("delete_api_called", { dealId, reason: options?.reason ?? "kanban_pipeline_remove" });
+  const deleted = await enterpriseDealApiClient.softDeleteDeal(
+    dealId,
+    options?.reason ?? "kanban_pipeline_remove",
+  );
+
+  if (!deleted.isDeleted) {
+    tracePipelineDrag("delete_failed", {
+      dealId,
+      message: "DELETE returned Deal without isDeleted=true",
+    });
+    throw new Error(
+      "Deal delete did not persist (isDeleted is still false). The card was not removed from the Enterprise Deal Registry.",
+    );
+  }
+
+  tracePipelineDrag("delete_db_confirmed", {
+    dealId,
+    dealNumber: deleted.dealNumber,
+    isDeleted: deleted.isDeleted,
+  });
+
+  // Keep Strategy Execution Queue from re-creating this lender negotiation.
+  const opportunityId = runtime.deal.opportunityId?.trim();
+  if (opportunityId && typeof window !== "undefined") {
+    try {
+      const { removeStrategicShortlistItem } = await import(
+        "@/lib/strategic-lender-pipeline"
+      );
+      const lenderRef =
+        card?.lenderRef ||
+        (deleted.lenderId ? `lender:${deleted.lenderId}` : null) ||
+        deleted.primaryCounterpartyName ||
+        card?.lender ||
+        dealId;
+      removeStrategicShortlistItem(opportunityId, lenderRef);
+    } catch {
+      /* shortlist prune best-effort */
+    }
+  }
+
+  const remaining = runtime.siblingDeals.filter((d) => d.id !== dealId);
+  const reloadId =
+    remaining.find((d) => d.id === runtime.deal.id)?.id || remaining[0]?.id || null;
+
+  if (!reloadId) {
+    tracePipelineDrag("delete_registry_refreshed", { dealId, dealCount: 0 });
+    return {
+      ...runtime,
+      lenders: [],
+      siblingDeals: [],
+    };
+  }
+
+  // CO-PERF-002 — Optimistic merge after confirmed soft-delete (no full workspace reload).
+  const nextAnchor =
+    remaining.find((d) => d.id === runtime.deal.id) ?? remaining[0]!;
+  const next = toRuntime(nextAnchor, remaining);
+  for (const d of remaining) putSessionDeal(d);
+  putSessionDeal(nextAnchor);
+  bindSessionDeal(nextAnchor);
+
+  tracePipelineDrag("delete_pipeline_refreshed", {
+    dealId,
+    dealCount: next.siblingDeals.length,
+    reloadId: next.deal.id,
+  });
+  tracePipelineDrag("delete_registry_refreshed", {
+    dealId,
+    dealCount: next.siblingDeals.length,
+    reloadId: next.deal.id,
+  });
+  return next;
 }
 
 /**
  * Persist Pipeline stage/field changes per EnterpriseDeal (not multi-lender snapshot).
+ * CO-QA-002 — Also soft-deletes Enterprise Deals removed from the Kanban (ghost-card fix).
+ * CO-PERF-001 — After stage updates, rebuild runtime from PATCH responses (no full Registry reload).
+ * Full reload only when Deals were soft-deleted (list must exclude them).
  */
 export async function persistDealPipelineLenders(
   runtime: DealPipelineRuntime,
   lenders: LoanLenderExecution[],
 ): Promise<DealPipelineRuntime> {
   const byId = new Map(runtime.siblingDeals.map((d) => [d.id, d]));
-  const previousById = new Map(runtime.lenders.map((l) => [l.enterpriseDealId || l.id, l]));
+  const previousById = new Map(
+    runtime.lenders.map((l) => [resolvePipelineDealId(l), l]),
+  );
+  const knownDealIds = new Set(runtime.siblingDeals.map((d) => d.id));
+
+  // 1) Persist removals first — Enterprise Deal Registry soft-delete (SSOT).
+  const deletedIds = await softDeleteRemovedPipelineDeals(runtime.lenders, lenders, {
+    knownDealIds,
+    reason: "kanban_pipeline_remove",
+  });
+  const deletedSet = new Set(deletedIds);
+
+  // 2) Persist stage / field changes for remaining cards.
+  const patchedById = new Map<string, EnterpriseDealApiRecord>();
 
   for (const lender of lenders) {
-    const dealId = lender.enterpriseDealId?.trim() || lender.id;
+    const dealId = resolvePipelineDealId(lender);
+    if (!dealId || deletedSet.has(dealId)) continue;
     const deal = byId.get(dealId);
     if (!deal) continue;
 
@@ -290,29 +527,106 @@ export async function persistDealPipelineLenders(
     let current = deal;
 
     if (deal.grossStage !== grossStage) {
-      try {
-        current = await enterpriseDealApiClient.transitionDeal(dealId, {
-          rowVersion,
-          toGrossStage: grossStage,
-          reason: "deal_pipeline_stage",
-          allowSkip: true,
-        });
-        rowVersion = current.rowVersion;
-      } catch {
-        // If transition API rejects, still persist derived snapshot on current stage.
-        current = deal;
-      }
+      // Deal Registry transition is mandatory for stage changes.
+      // Never advance snapshot.caseStage when transition fails (P1 sync).
+      current = await enterpriseDealApiClient.transitionDeal(dealId, {
+        rowVersion,
+        toGrossStage: grossStage,
+        reason: "deal_pipeline_stage",
+        allowSkip: true,
+      });
+      rowVersion = current.rowVersion;
+      patchedById.set(dealId, current);
     }
 
-    await enterpriseDealApiClient.updateDeal(dealId, {
+    // Derived snapshot must mirror Registry stage — never invent an independent stage.
+    const lenderAligned: LoanLenderExecution = {
+      ...lender,
+      caseStage: grossStageToLenderCaseStage(current.grossStage),
+    };
+
+    const updated = await enterpriseDealApiClient.updateDeal(dealId, {
       rowVersion,
-      snapshot: buildDerivedSingleLenderSnapshot(current, lender),
+      snapshot: buildDerivedSingleLenderSnapshot(current, lenderAligned),
       primaryCounterpartyName: lender.lender,
       reason: "deal_pipeline_derived_snapshot",
     });
+    patchedById.set(dealId, updated);
   }
 
-  return loadDealPipelineRuntime(runtime.deal.id);
+  // 3) Rebuild runtime.
+  const remainingIds = lenders
+    .map(resolvePipelineDealId)
+    .filter((id): id is string => Boolean(id) && !deletedSet.has(id));
+  const reloadId =
+    remainingIds.find((id) => id === runtime.deal.id) || remainingIds[0] || null;
+
+  if (!reloadId) {
+    return {
+      ...runtime,
+      lenders: [],
+      siblingDeals: [],
+    };
+  }
+
+  // Soft-delete changed inventory — merge locally from DELETE successes (skip 3-GET reload).
+  // Explicit Kanban Remove still verifies via removeLenderPipelineDeal.
+  if (deletedSet.size > 0) {
+    const mergedAfterDelete = runtime.siblingDeals
+      .filter((d) => !deletedSet.has(d.id))
+      .map((d) => patchedById.get(d.id) ?? d);
+    const byMergedDelete = new Map(mergedAfterDelete.map((d) => [d.id, d]));
+    for (const [id, row] of patchedById) {
+      if (!byMergedDelete.has(id) && !deletedSet.has(id)) {
+        mergedAfterDelete.push(row);
+        byMergedDelete.set(id, row);
+      }
+    }
+    const orderedDelete = remainingIds
+      .map((id) => byMergedDelete.get(id))
+      .filter((d): d is EnterpriseDealApiRecord => Boolean(d));
+    const anchorDelete =
+      orderedDelete.find((d) => d.id === reloadId) ||
+      byMergedDelete.get(reloadId) ||
+      orderedDelete[0] ||
+      runtime.deal;
+    for (const d of orderedDelete) putSessionDeal(d);
+    putSessionDeal(anchorDelete);
+    queueMicrotask(() => notifyLoanFilesUpdated());
+    return toRuntime(
+      anchorDelete,
+      orderedDelete.length > 0 ? orderedDelete : [anchorDelete],
+    );
+  }
+
+  // CO-PERF-001 — No delete: merge PATCH responses into sibling set; skip 3-GET reload.
+  const mergedSiblings = runtime.siblingDeals
+    .filter((d) => !deletedSet.has(d.id))
+    .map((d) => patchedById.get(d.id) ?? d);
+
+  const byMerged = new Map(mergedSiblings.map((d) => [d.id, d]));
+  for (const [id, row] of patchedById) {
+    if (!byMerged.has(id)) {
+      mergedSiblings.push(row);
+      byMerged.set(id, row);
+    }
+  }
+
+  const ordered = remainingIds
+    .map((id) => byMerged.get(id))
+    .filter((d): d is EnterpriseDealApiRecord => Boolean(d));
+
+  const anchor =
+    ordered.find((d) => d.id === reloadId) ||
+    byMerged.get(reloadId) ||
+    ordered[0] ||
+    runtime.deal;
+
+  for (const d of ordered) putSessionDeal(d);
+  putSessionDeal(anchor);
+  // P1 — notify My Deals / Registry consumers after successful Pipeline persist.
+  queueMicrotask(() => notifyLoanFilesUpdated());
+  return toRuntime(anchor, ordered.length > 0 ? ordered : [anchor]);
 }
 
 /** @deprecated Legacy name — multi-lender snapshot read. Prefer dealToLenderExecution. */

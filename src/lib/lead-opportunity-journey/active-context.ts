@@ -23,9 +23,18 @@ export interface ActiveOpportunityContext {
   opportunityId?: string;
   /** Opportunity reference number (e.g. OPP-…). */
   opportunityReference?: string;
-  /** Primary Contact id from Registry. */
+  /**
+   * Primary Contact id when Individual borrower.
+   * Optional for Company borrowers (representatives are Contacts, not the borrower).
+   */
   contactId?: string;
-  /** Customer display name. */
+  /** Company id when primaryBorrowerKind === company. */
+  companyId?: string;
+  /** individual | company — CO-DOM-001A */
+  primaryBorrowerKind?: "individual" | "company";
+  /** Stable party key: company:<id> | contact:<id> */
+  partyId?: string;
+  /** Customer / borrower display name (Contact or Company). */
   customer?: string;
   /** Product label / family. */
   product?: string;
@@ -71,10 +80,17 @@ function normalizeContext(
   const opportunityReference =
     raw.opportunityReference?.trim() || raw.label?.trim() || undefined;
 
+  const kindRaw = raw.primaryBorrowerKind?.trim();
+  const primaryBorrowerKind =
+    kindRaw === "company" || kindRaw === "individual" ? kindRaw : undefined;
+
   return {
     ...(opportunityId ? { opportunityId } : {}),
     ...(opportunityReference ? { opportunityReference } : {}),
     contactId: raw.contactId?.trim() || undefined,
+    companyId: raw.companyId?.trim() || undefined,
+    ...(primaryBorrowerKind ? { primaryBorrowerKind } : {}),
+    partyId: raw.partyId?.trim() || undefined,
     customer,
     product: raw.product?.trim() || undefined,
     stage: raw.stage?.trim() || undefined,

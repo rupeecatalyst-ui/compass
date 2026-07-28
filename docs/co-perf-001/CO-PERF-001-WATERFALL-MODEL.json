@@ -1,0 +1,169 @@
+{
+  "at": "2026-07-27T18:01:41.917Z",
+  "sampleDeal": {
+    "id": "cms3hxpgy0001ic04lmxd7amp",
+    "number": "DEAL-2026-000067",
+    "opportunityId": "cms3evasv0005i904s6qga7uh"
+  },
+  "unitCostsMs": {
+    "opportunityGet": {
+      "label": "opportunityGet",
+      "p50Ms": 298.1,
+      "minMs": 297.9,
+      "maxMs": 302.4
+    },
+    "dealGet": {
+      "label": "dealGet",
+      "p50Ms": 298.4,
+      "minMs": 298.3,
+      "maxMs": 302.1
+    },
+    "dealsByOpp": {
+      "label": "dealsByOpp",
+      "p50Ms": 300.9,
+      "minMs": 299.2,
+      "maxMs": 301.4
+    },
+    "oppList50": {
+      "label": "oppList50",
+      "p50Ms": 300.1,
+      "minMs": 297.1,
+      "maxMs": 304
+    },
+    "dealList50": {
+      "label": "dealList50",
+      "p50Ms": 306.2,
+      "minMs": 305.1,
+      "maxMs": 357.9
+    },
+    "contactList50": {
+      "label": "contactList50",
+      "p50Ms": 299.9,
+      "minMs": 299.6,
+      "maxMs": 311.6
+    },
+    "lenderList100": {
+      "label": "lenderList100",
+      "p50Ms": 302.4,
+      "minMs": 300.5,
+      "maxMs": 304.2
+    },
+    "dealUpdateRoundTrip": {
+      "label": "dealFindForUpdateShape",
+      "p50Ms": 302.9,
+      "minMs": 300.5,
+      "maxMs": 303.5
+    }
+  },
+  "insight": "EXPLAIN ANALYZE execution ≪ 1ms; Prisma wall ~300ms/query → latency is RTT/pooler/serialization, not SQL CPU.",
+  "callGraphModels": {
+    "myOpportunities": {
+      "queries": [
+        {
+          "name": "searchOpportunities",
+          "count": 1,
+          "unit": "oppList50"
+        }
+      ],
+      "estimatedDbPathMs": 300.1,
+      "estimatedApiPathMs": 600,
+      "targetMs": 2000
+    },
+    "opportunityWorkspaceOpen": {
+      "queries": [
+        {
+          "name": "getOpportunity gate",
+          "count": 1,
+          "unit": "opportunityGet"
+        },
+        {
+          "name": "getOpportunity provider",
+          "count": 1,
+          "unit": "opportunityGet"
+        },
+        {
+          "name": "loadDeals search",
+          "count": 1,
+          "unit": "dealList50"
+        }
+      ],
+      "estimatedDbPathMs": 902.4000000000001,
+      "note": "Parallel gate∥provider still = ~max(2 gets) wall if parallel; code often remounts stages → sequential across journey",
+      "estimatedApiPathMs": 1805,
+      "targetMs": 3000
+    },
+    "dealWorkspaceOpen": {
+      "queries": [
+        {
+          "name": "getDeal forceRefresh",
+          "count": 1,
+          "unit": "dealGet"
+        },
+        {
+          "name": "listDealsByOpportunity",
+          "count": 1,
+          "unit": "dealsByOpp"
+        },
+        {
+          "name": "getOpportunity (opp number)",
+          "count": 1,
+          "unit": "opportunityGet"
+        }
+      ],
+      "estimatedDbPathMs": 897.4,
+      "note": "loadDealPipelineRuntime is sequential",
+      "estimatedApiPathMs": 1795,
+      "targetMs": 3000
+    },
+    "moveToDeal_3lenders": {
+      "queries": [
+        {
+          "name": "getOpportunity",
+          "count": 1,
+          "unit": "opportunityGet"
+        },
+        {
+          "name": "lender directory",
+          "count": 1,
+          "unit": "lenderList100"
+        },
+        {
+          "name": "createDeal (single TX after CO-QA-005)",
+          "count": 3,
+          "unit": "dealGet",
+          "factor": 2.5
+        }
+      ],
+      "estimatedDbPathMs": 2838.5,
+      "note": "create cost approximated as 2.5× dealGet RTT (allocate+insert+snapshot+timeline in one TX)",
+      "estimatedApiPathMs": 5677,
+      "targetMs": 5000
+    },
+    "saveDeal_preflightPlusWrite": {
+      "queries": [
+        {
+          "name": "getDeal for rowVersion",
+          "count": 1,
+          "unit": "dealGet"
+        },
+        {
+          "name": "updateDeal write",
+          "count": 1,
+          "unit": "dealGet",
+          "factor": 2
+        }
+      ],
+      "estimatedDbPathMs": 895.1999999999999,
+      "note": "If UI also reloadRuntime after save, add dealWorkspaceOpen cost again",
+      "estimatedApiPathMs": 1790,
+      "targetMs": 3000
+    },
+    "saveThenReload": {
+      "estimatedDbPathMs": 1792.6,
+      "note": "Save + full pipeline reload — common if persist then reloadRuntime",
+      "estimatedApiPathMs": 3585,
+      "targetMs": 3000
+    }
+  },
+  "poolConfigNote": "DATABASE_URL :6543 pgbouncer=true connection_limit unset → serverless can exhaust pool → Timed out fetching connection / Unable to start transaction"
+}

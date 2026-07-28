@@ -1,0 +1,26 @@
+# CO-MDM-001 — Enterprise Master Data Management
+
+Status: **ENTERPRISE APPROVED**
+
+## Principles
+
+1. Admin Console is the single interface for business master data.
+2. Seed / default catalogues remain reference data — never deleted by seed sync.
+3. Seed sync **creates missing codes only** — never overwrites administrator edits.
+4. Hierarchy: Category → Group → Product → Program (Product + Lender).
+5. Operational dropdowns consume registries (fallback to preserved constants only).
+
+## SSOT
+
+| Concern | Path |
+|--------|------|
+| Hub | `/admin/enterprise-mdm` |
+| Module catalogue | `src/constants/enterprise-mdm/` |
+| Lookup Masters UI | `src/components/catalyst-one/reference-master-admin/` |
+| Seed protect | `seed-reference-masters.service.ts`, `seed-tier2-registries.service.ts` |
+| Business Source options | `src/lib/enterprise-mdm/business-source-options.ts` |
+| Readiness | `docs/co-mdm-001/CO-MDM-001-ENTERPRISE-MASTER-DATA-READINESS-REPORT.md` |
+
+## Permissions
+
+SUPER_ADMIN / ADMIN — write · Managers — read-only (`canWriteEnterpriseMdm`)

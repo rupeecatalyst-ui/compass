@@ -8,6 +8,7 @@ import type {
   ProductLifecycleStatus,
   ProductOperationalStatus,
 } from "@prisma/client";
+import { CANONICAL_PRODUCT_MASTER_SEED } from "@/constants/enterprise-product-master";
 import { listEcmMasterOptionsFromCatalog } from "@/constants/enterprise-contact-master/masters";
 import { LENDER_MASTER_SEED_CATALOG } from "@/constants/enterprise-lender-registry/master-seed-catalog";
 import {
@@ -49,6 +50,11 @@ export interface ProductSeed {
   minorVersion: number;
   tags?: string[];
   productOwner?: string;
+  sortOrder?: number;
+  isSecured?: boolean;
+  customerSegment?: string[];
+  remarks?: string;
+  aliases?: string[];
 }
 
 export interface DocumentTypeSeed {
@@ -219,7 +225,7 @@ export function getProductGroupSeeds(): ProductGroupSeed[] {
   return DEFAULT_PRODUCT_GROUPS.map((g) => ({
     code: normalizeProductRegistryCode(g.groupCode),
     label: g.groupName,
-    categoryCode: categoryIdToCode.get(g.categoryId) ?? "LENDING",
+    categoryCode: categoryIdToCode.get(g.categoryId) ?? "LOAN_PRODUCTS",
     description: g.description,
     sortOrder: g.sortOrder,
   }));
@@ -239,6 +245,30 @@ export function getProductSeeds(): ProductSeed[] {
   const seeds: ProductSeed[] = [];
   const seen = new Set<string>();
 
+  // CO-ADMIN-005 Phase 5 — canonical Product Master seed first
+  for (const entry of CANONICAL_PRODUCT_MASTER_SEED) {
+    const code = normalizeProductRegistryCode(entry.code);
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    seeds.push({
+      code,
+      label: entry.label,
+      categoryCode: normalizeProductRegistryCode(entry.categoryCode),
+      groupCode: normalizeProductRegistryCode(entry.groupCode),
+      description: entry.description,
+      shortDescription: entry.description,
+      lifecycleStatus: "published",
+      operationalStatus: "active",
+      majorVersion: 1,
+      minorVersion: 0,
+      sortOrder: entry.sortOrder,
+      isSecured: entry.isSecured,
+      customerSegment: entry.customerSegment,
+      tags: [entry.isSecured ? "secured" : "unsecured", ...entry.customerSegment],
+      aliases: entry.aliases,
+    });
+  }
+
   for (const def of buildUniquePublishedProducts()) {
     const code = normalizeProductRegistryCode(def.productCode || def.productId);
     if (!code || seen.has(code)) continue;
@@ -246,8 +276,8 @@ export function getProductSeeds(): ProductSeed[] {
     seeds.push({
       code,
       label: def.productName,
-      categoryCode: categoryIdToCode.get(def.categoryId) ?? "LENDING",
-      groupCode: groupIdToCode.get(def.groupId) ?? "SECURED_RETAIL",
+      categoryCode: categoryIdToCode.get(def.categoryId) ?? "LOAN_PRODUCTS",
+      groupCode: groupIdToCode.get(def.groupId) ?? "SECURED_LOANS",
       description: def.description,
       shortDescription: def.shortDescription,
       lifecycleStatus: mapLifecycleStatus(def.lifecycleStatus),
@@ -261,7 +291,7 @@ export function getProductSeeds(): ProductSeed[] {
 
   // Preserve ECM product picker continuity under first lending group
   const lendingGroups = getProductGroupSeeds()
-    .filter((g) => g.categoryCode === "LENDING")
+    .filter((g) => g.categoryCode === "LOAN_PRODUCTS")
     .sort((a, b) => a.sortOrder - b.sortOrder);
   const firstLendingGroup = lendingGroups[0];
   if (firstLendingGroup) {
@@ -275,6 +305,7 @@ export function getProductSeeds(): ProductSeed[] {
         label: option.label,
         categoryCode: firstLendingGroup.categoryCode,
         groupCode: firstLendingGroup.code,
+        description: option.label,
         lifecycleStatus: "published",
         operationalStatus: "active",
         majorVersion: 1,

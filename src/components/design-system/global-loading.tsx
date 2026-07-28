@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CO-UX-024 — Global loading delegates to CHANAKYA Loading Experience.
+ * CO-UX-008 — Global loading delegates to CHANAKYA Loading Experience.
  */
 
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";

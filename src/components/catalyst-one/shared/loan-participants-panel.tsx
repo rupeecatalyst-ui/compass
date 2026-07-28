@@ -235,7 +235,7 @@ function ParticipantRow({
                 Individual
               </SelectItem>
               <SelectItem value="company" className="text-xs">
-                Company
+                Company / Business Entity
               </SelectItem>
             </SelectContent>
           </Select>

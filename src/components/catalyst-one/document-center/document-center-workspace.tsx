@@ -45,7 +45,7 @@ import {
   type DocumentCategoryRow,
 } from "@/lib/document-center/derive-category-rows";
 import {
-  loadDocumentVersions,
+  registryRecordToVersions,
   type DocumentCenterVersion,
 } from "@/lib/document-center/versions";
 import { classifyUploadsAgainstChecklist } from "@/lib/document-center/classify-upload";
@@ -58,9 +58,12 @@ import {
 import {
   buildEntityLinksFromLoanFile,
   canUploadDocuments,
+  healDocumentOwnerAssociations,
   listDocumentsByTypeRef,
-  listDocumentsForLoanFile,
+  listDocumentsForOpportunityRuntime,
+  recordMatchesDocumentOwnerScope,
   replaceDocumentInRegistry,
+  resolveDocumentRegistryRuntimeKeys,
   subscribeDocumentRegistryUpdated,
   uploadDocumentToRegistry,
 } from "@/lib/document-registry";
@@ -76,7 +79,6 @@ import {
   documentCenterActiveOwner,
   parseParticipantScopeKey,
   resolveDocumentScopeForModule,
-  resolveDocumentScopeForTypeRef,
   type DocumentCenterScopeKey,
 } from "@/constants/opportunity-document-center";
 import { ROUTES } from "@/constants/routes";
@@ -112,7 +114,6 @@ export function DocumentCenterWorkspace() {
   const [addressChoice, setAddressChoice] = useState<string | undefined>();
   const [identityChoice, setIdentityChoice] = useState<string | undefined>();
   const [categoryFocus, setCategoryFocus] = useState<Record<string, string>>({});
-  const [versionsMap, setVersionsMap] = useState<Record<string, DocumentCenterVersion[]>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedOnce, setSavedOnce] = useState(false);
@@ -162,29 +163,73 @@ export function DocumentCenterWorkspace() {
   }, [participants, documentOwnerScope]);
 
   const recordMatchesOwnerScope = useCallback(
-    (record: DocumentRegistryRecord) => {
-      const docScope =
-        record.links.documentScope ??
-        resolveDocumentScopeForTypeRef(record.typeRef);
-      const participantId = record.links.participantId?.trim();
-      if (documentOwnerScope === DOCUMENT_CENTER_SHARED_SCOPE_KEY) {
-        return docScope === "shared";
-      }
-      if (docScope === "shared") return false;
-      const selected = parseParticipantScopeKey(documentOwnerScope);
-      if (!selected) return true;
-      if (!participantId) {
-        const primary = participants.find((p) => p.role === "primary_applicant");
-        return (
-          selected === "primary" ||
-          selected === primary?.id ||
-          documentOwnerScope.endsWith(":primary")
-        );
-      }
-      return participantId === selected;
-    },
+    (record: DocumentRegistryRecord) =>
+      recordMatchesDocumentOwnerScope(record, documentOwnerScope, participants),
     [documentOwnerScope, participants],
   );
+
+  const registryListKeys = useMemo(() => {
+    if (!file) return { runtimeKey: "", opportunityId: undefined as string | undefined };
+    const keys = resolveDocumentRegistryRuntimeKeys({
+      id: file.id,
+      enterpriseOpportunityId: file.enterpriseOpportunityId,
+      opportunityId:
+        (file as { opportunityId?: string }).opportunityId ||
+        opportunityId ||
+        undefined,
+    });
+    return {
+      runtimeKey: keys.runtimeKey,
+      opportunityId: keys.opportunityId || opportunityId || undefined,
+    };
+  }, [file, opportunityId]);
+
+  const listRegistryForFile = useCallback(() => {
+    if (!file || !registryListKeys.runtimeKey) return [] as DocumentRegistryRecord[];
+    return listDocumentsForOpportunityRuntime(
+      registryListKeys.runtimeKey,
+      registryListKeys.opportunityId,
+      {
+        customerId: file.customerId,
+        contactId: file.customerId,
+        opportunityNumber:
+          (file as { opportunityNumber?: string }).opportunityNumber ||
+          (file as { fileNumber?: string }).fileNumber ||
+          undefined,
+      },
+    );
+  }, [file, registryListKeys]);
+
+  useEffect(() => {
+    if (!file || !registryListKeys.opportunityId) return;
+    let cancelled = false;
+    void import("@/lib/document-registry").then(async ({ hydrateDocumentRegistryFromServer }) => {
+      const n = await hydrateDocumentRegistryFromServer({
+        opportunityId: registryListKeys.opportunityId!,
+        opportunityNumber:
+          (file as { opportunityNumber?: string }).opportunityNumber || null,
+      });
+      if (cancelled) return;
+      if (n > 0) setRegistryTick((t) => t + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [file, registryListKeys.opportunityId]);
+
+  useEffect(() => {
+    if (!file || !registryListKeys.runtimeKey) return;
+    healDocumentOwnerAssociations({
+      runtimeKey: registryListKeys.runtimeKey,
+      opportunityId: registryListKeys.opportunityId,
+      customerId: file.customerId,
+      participants: participants.map((p) => ({
+        id: p.id,
+        entityId: p.entityId,
+        role: p.role,
+      })),
+    });
+  }, [file, registryListKeys, participants]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,7 +252,6 @@ export function DocumentCenterWorkspace() {
         setAddressChoice(loadAddressProofSelection(next.id));
         setIdentityChoice(loadIdentityProofSelection(next.id));
         setCategoryFocus({});
-        setVersionsMap(loadDocumentVersions(next.id));
         setOtherDocs(loadOtherDocumentEntries(next.id));
         const opts = buildDocumentCenterScopeOptions(
           resolveLoanParticipants(next),
@@ -248,8 +292,9 @@ export function DocumentCenterWorkspace() {
 
   const refreshRegistry = useCallback(() => {
     if (!file) return;
-    setVersionsMap(loadDocumentVersions(file.id));
-    const records = listDocumentsForLoanFile(file.id);
+    // Persist opportunity-wide receipt markers only (does not mutate document records).
+    // Participant-scoped completeness is derived separately from filtered registry rows.
+    const records = listRegistryForFile();
     const next: Record<string, boolean> = { ...loadEdieReceipts(file.id) };
     for (const r of records) {
       if (r.status === "active") next[r.typeRef] = true;
@@ -262,7 +307,7 @@ export function DocumentCenterWorkspace() {
     setReceipts(next);
     saveEdieReceipts(file.id, next);
     setRegistryTick((t) => t + 1);
-  }, [file]);
+  }, [file, listRegistryForFile]);
 
   useEffect(() => {
     return subscribeDocumentRegistryUpdated(() => {
@@ -272,25 +317,63 @@ export function DocumentCenterWorkspace() {
 
   const registryRecords = useMemo(() => {
     if (!file) return [];
-    return listDocumentsForLoanFile(file.id).filter(recordMatchesOwnerScope);
+    return listRegistryForFile().filter(recordMatchesOwnerScope);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file?.id, registryTick, recordMatchesOwnerScope]);
+  }, [file?.id, registryTick, recordMatchesOwnerScope, listRegistryForFile]);
+
+  /** Checklist completeness for the selected Document Owner only. */
+  const scopedReceipts = useMemo(() => {
+    const next: Record<string, boolean> = {};
+    for (const r of registryRecords) {
+      if (r.status === "active") next[r.typeRef] = true;
+    }
+    return next;
+  }, [registryRecords]);
+
+  /** Viewer / history versions for the selected Document Owner only. */
+  const versionsMap = useMemo(() => {
+    const map: Record<string, DocumentCenterVersion[]> = {};
+    for (const record of registryRecords) {
+      const list = registryRecordToVersions(record);
+      const key = record.typeRef;
+      map[key] = [...(map[key] ?? []), ...list].sort(
+        (a, b) => a.version - b.version,
+      );
+    }
+    return map;
+  }, [registryRecords]);
 
   const checklist = useMemo(() => {
     if (!file) return null;
     return resolveEdieChecklistForLoanFile(file, {
-      receipts,
+      receipts: scopedReceipts,
       addressProofSelection: addressChoice,
       identityProofSelection: identityChoice,
     });
-  }, [file, receipts, addressChoice, identityChoice]);
+  }, [file, scopedReceipts, addressChoice, identityChoice]);
+
+  const activeRecordsForType = useCallback(
+    (typeRef: string) =>
+      listDocumentsByTypeRef(
+        registryListKeys.runtimeKey,
+        typeRef,
+        registryListKeys.opportunityId,
+        {
+          customerId: file?.customerId,
+          contactId: file?.customerId,
+          opportunityNumber:
+            (file as { opportunityNumber?: string })?.opportunityNumber ||
+            undefined,
+        },
+      )
+        .filter((r) => r.status === "active")
+        .filter(recordMatchesOwnerScope),
+    [registryListKeys, file?.customerId, registryTick, recordMatchesOwnerScope],
+  );
 
   const attachmentCountFor = useCallback(
-    (typeRef: string) =>
-      listDocumentsByTypeRef(file?.id ?? "", typeRef)
-        .filter((r) => r.status === "active")
-        .filter(recordMatchesOwnerScope).length,
-    [file?.id, registryTick, recordMatchesOwnerScope],
+    (typeRef: string) => activeRecordsForType(typeRef).length,
+    [activeRecordsForType],
   );
 
   const categoryRows = useMemo(() => {
@@ -823,6 +906,7 @@ export function DocumentCenterWorkspace() {
                 )?.key ?? localFocus
               }
               attachmentCountFor={attachmentCountFor}
+              activeRecordsForType={activeRecordsForType}
               onCategoryTypeSelect={onCategoryTypeSelect}
               onUpload={(storageRef, label) => uploadDocument(storageRef, label)}
               onAdd={(storageRef, label) => addDocuments(storageRef, label)}
@@ -897,11 +981,7 @@ export function DocumentCenterWorkspace() {
         onClose={() => setAttachmentsTypeRef(null)}
         categoryLabel={attachmentsLabel}
         records={
-          attachmentsTypeRef && file
-            ? listDocumentsByTypeRef(file.id, attachmentsTypeRef).filter(
-                recordMatchesOwnerScope,
-              )
-            : []
+          attachmentsTypeRef ? activeRecordsForType(attachmentsTypeRef) : []
         }
         onReplace={(record) => {
           promptUpload(record.typeRef, record.categoryLabel, record.id, "single");

@@ -1,0 +1,21 @@
+# CO-ADMIN-005 — Enterprise Product & Lender Master
+
+Status: **ENTERPRISE APPROVED**
+
+## Principles
+
+- Products and Lenders are **Master Data** (Enterprise Registry).
+- No hard-coded product lists for operational dropdowns.
+- Opportunity / Deal / Customer product selections consume Product Master (registry-first, canonical fallback).
+- Lender selections consume Lender Registry.
+- Product–Lender offers configured via matrix (`productsSupported` + programs) — never hard-coded lender lists.
+
+## SSOT
+
+- Canonical seed: `src/constants/enterprise-product-master/`
+- Runtime options: `src/lib/enterprise-product-master/`
+- Product Registry API: `/api/product-registry`
+- Product Master UI: `/admin/product-library/master`
+- Matrix UI: `/admin/product-lender-matrix`
+- Readiness: `docs/co-admin-005/CO-ADMIN-005-PRODUCT-LENDER-MASTER-READINESS-REPORT.md`
+- Functional completion (CRUD + taxonomy): CO-ADMIN-006 · `docs/co-admin-006/CO-ADMIN-006-PRODUCT-MASTER-COMPLETION-REPORT.md`

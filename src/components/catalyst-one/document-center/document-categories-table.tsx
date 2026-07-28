@@ -9,7 +9,7 @@ import {
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 import type { DocumentCategoryRow } from "@/lib/document-center/derive-category-rows";
-import { listDocumentsByTypeRef } from "@/lib/document-registry";
+import type { DocumentRegistryRecord } from "@/types/document-registry";
 
 function RowAction({
   label,
@@ -48,9 +48,10 @@ function RowAction({
  */
 export function DocumentCategoriesTable({
   rows,
-  fileId,
+  fileId: _fileId,
   highlightedKey,
   attachmentCountFor,
+  activeRecordsForType,
   onCategoryTypeSelect,
   onUpload,
   onAdd,
@@ -62,6 +63,8 @@ export function DocumentCategoriesTable({
   fileId: string;
   highlightedKey?: string | null;
   attachmentCountFor: (storageRef: string) => number;
+  /** Active registry rows for the selected Document Owner only. */
+  activeRecordsForType: (storageRef: string) => DocumentRegistryRecord[];
   onCategoryTypeSelect: (row: DocumentCategoryRow, typeRef: string) => void;
   onUpload: (storageRef: string, label: string) => void;
   onAdd: (storageRef: string, label: string) => void;
@@ -183,7 +186,8 @@ export function DocumentCategoriesTable({
           const storageRef = item.folderId ?? item.typeRef;
           const label = item.folderLabel || item.label;
           const count = attachmentCountFor(storageRef);
-          const hasFiles = count > 0 || item.complete;
+          // Only count files for the selected Document Owner — never global receipts.
+          const hasFiles = count > 0;
           if (!hasFiles) {
             return (
               <div className="flex flex-wrap justify-end gap-1">
@@ -211,9 +215,7 @@ export function DocumentCategoriesTable({
               <RowAction
                 label="Replace"
                 onClick={() => {
-                  const records = listDocumentsByTypeRef(fileId, storageRef).filter(
-                    (r) => r.status === "active",
-                  );
+                  const records = activeRecordsForType(storageRef);
                   if (records.length <= 1) {
                     onReplaceSingle(storageRef, label, records[0]?.id ?? "");
                     return;
@@ -229,8 +231,8 @@ export function DocumentCategoriesTable({
       },
     ],
     [
+      activeRecordsForType,
       attachmentCountFor,
-      fileId,
       onAdd,
       onCategoryTypeSelect,
       onOpenAttachments,

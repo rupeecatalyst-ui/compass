@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2, Save } from "lucide-react";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +31,11 @@ import {
   resolveDefaultLendingTypeForProduct,
   type LeadInformationFormState,
 } from "@/constants/lead-information-workspace";
+import { OPPORTUNITY_BUSINESS_SOURCES, OPPORTUNITY_PARTICIPATION_ROLES } from "@/constants/opportunity-business-source";
+import { opportunityLifecycleLabel } from "@/constants/opportunity-lifecycle";
+import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import { OPPORTUNITY_FIELD_NOT_SPECIFIED } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { borrowerDisplayNameOrDash } from "@/lib/enterprise-borrower-identity";
 import {
   parseRequestedAmountInput,
   validateLeadInformationForm,
@@ -48,6 +53,8 @@ import { buildOpportunityWorkspaceEntryHref } from "@/lib/loan-journey/adr-018-r
 import { CitySelect } from "@/components/catalyst-one/shared/city-select";
 import { ApproxCibilScoreField } from "@/components/catalyst-one/shared/approx-cibil-score-field";
 import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
+import { BusinessSourceContactLookupField } from "@/components/catalyst-one/lead-information/business-source-contact-lookup";
+import { resolveBusinessSourceContactLookup } from "@/constants/opportunity-business-source";
 import {
   isApproxCibilScoreBand,
   type ApproxCibilScoreBand,
@@ -103,6 +110,9 @@ export function LeadInformationWorkspace() {
     Partial<Record<keyof LeadInformationFormState, string>>
   >({});
   const [loadError, setLoadError] = useState<string | null>(null);
+  const { options: productOptions } = useProductMasterOptions(true);
+  const productCatalog =
+    productOptions.length > 0 ? productOptions : LEAD_INFORMATION_PRODUCT_OPTIONS;
 
   const load = useCallback(async () => {
     if (!opportunityId) {
@@ -149,7 +159,7 @@ export function LeadInformationWorkspace() {
 
   const onProductChange = (codeOrNone: string) => {
     const code = fromSelectValue(codeOrNone);
-    const hit = LEAD_INFORMATION_PRODUCT_OPTIONS.find((p) => p.code === code);
+    const hit = productCatalog.find((p) => p.code === code);
     const defaultLending = resolveDefaultLendingTypeForProduct(
       hit?.code ?? "",
       hit?.label ?? "",
@@ -168,6 +178,11 @@ export function LeadInformationWorkspace() {
       return next;
     });
   };
+
+  const sourceContactLookup = useMemo(
+    () => resolveBusinessSourceContactLookup(form.businessSource),
+    [form.businessSource],
+  );
 
   const validation = useMemo(
     () => validateLeadInformationForm(form, { requireMandatory: false }),
@@ -191,8 +206,8 @@ export function LeadInformationWorkspace() {
       toastError(
         "Complete required fields",
         form.transactionType === "balance_transfer"
-          ? "Product, Required Amount, Lending Type, Existing Lender, and Outstanding Amount are required to continue."
-          : "Product, Required Amount, and Lending Type are mandatory to continue.",
+          ? "Product, Required Amount, Lending Type, Transaction Type, Business Source, Existing Lender, and Outstanding Amount are required to create the Opportunity."
+          : "Product, Required Amount, Lending Type, Transaction Type, and Business Source (with Source Contact where applicable) are required to create the Opportunity.",
       );
       return;
     }
@@ -203,10 +218,17 @@ export function LeadInformationWorkspace() {
         form,
         opp.rowVersion,
         parseLeadInformationLendingExtension(opp.lendingExtension),
+        {
+          contactId: opp.primaryContactId,
+          contactName: borrowerDisplayNameOrDash(opp) !== "—" ? borrowerDisplayNameOrDash(opp) : opp.primaryContactName,
+        },
       );
       const updated = await enterpriseOpportunityApiClient.updateOpportunity(
         opportunityId,
-        body,
+        {
+          ...body,
+          ...(opts.continueAfter ? { markInProgress: true } : {}),
+        },
       );
       setOpp(updated);
       setForm(formFromOpportunity(updated));
@@ -214,20 +236,22 @@ export function LeadInformationWorkspace() {
       const captured =
         Boolean(updated.requirementCaptured) ||
         updated.lifecycleStatus === "requirement_captured" ||
+        updated.lifecycleStatus === "in_progress" ||
+        updated.lifecycleStatus === "converted_to_deal" ||
         updated.lifecycleStatus === "active";
 
       success(
-        captured ? "Requirement Captured" : "Opportunity saved",
+        captured ? "Requirement Captured" : "Dialogue saved",
         captured
-          ? `${updated.opportunityNumber} · Product and Required Amount saved to Opportunity Registry.`
-          : `${updated.opportunityNumber} · Draft updated (Opportunity Registry only).`,
+          ? `${updated.opportunityNumber} · Customer requirement saved. Opportunity is live in the Registry (documents not required).`
+          : `${updated.opportunityNumber} · Dialogue — save Product, Amount, Lending Type, Transaction Type, and Business Source for Requirement Captured.`,
       );
 
       if (opts.continueAfter) {
         if (!captured) {
           toastError(
             "Continue unavailable",
-            "Save Product and Required Amount to reach Requirement Captured.",
+            "Save the Customer Requirement form (Product, Amount, Lending Type, Transaction Type, Business Source) to create the Opportunity.",
           );
           return;
         }
@@ -249,10 +273,11 @@ export function LeadInformationWorkspace() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading Lead Information…
-      </div>
+      <ChanakyaLoadingExperience
+        module="loan-journey"
+        statusLabel="Loading borrower journey..."
+        density="panel"
+      />
     );
   }
 
@@ -265,7 +290,7 @@ export function LeadInformationWorkspace() {
     );
   }
 
-  const lifecycleLabel = (opp.lifecycleStatus || "draft").replace(/_/g, " ");
+  const lifecycleLabel = opportunityLifecycleLabel(opp.lifecycleStatus);
 
   return (
     <div className="min-h-[calc(100dvh-4rem)] bg-gradient-to-b from-slate-50/80 via-background to-background dark:from-zinc-950/50">
@@ -277,11 +302,13 @@ export function LeadInformationWorkspace() {
             </p>
             <p className="truncate text-sm font-medium text-foreground">
               {opp.opportunityNumber}
-              {opp.primaryContactName ? ` · ${opp.primaryContactName}` : ""}
+              {borrowerDisplayNameOrDash(opp) !== "—"
+                ? ` · ${borrowerDisplayNameOrDash(opp)}`
+                : ""}
             </p>
             <p className="mt-0.5 text-[11px] capitalize text-muted-foreground">
               Lifecycle: {lifecycleLabel}
-              {requirementCaptured ? " · Requirement Captured" : " · Draft"}
+              {requirementCaptured ? "" : " · Discussion in progress"}
               {" · "}Lending Type: {OPPORTUNITY_FIELD_NOT_SPECIFIED}
             </p>
           </div>
@@ -304,7 +331,7 @@ export function LeadInformationWorkspace() {
               title={
                 continueEnabled
                   ? "Save mandatory fields and continue (routing in Wave 3)"
-                  : "Requires Product, Required Amount, and Lending Type"
+                  : "Requires Product, Required Amount, Lending Type, Transaction Type, and Business Source"
               }
               onClick={() => void persist({ requireMandatory: true, continueAfter: true })}
             >
@@ -317,8 +344,9 @@ export function LeadInformationWorkspace() {
 
       <div className="mx-auto max-w-3xl space-y-5 px-4 py-5 md:px-6">
         <p className="text-xs text-muted-foreground">
-          Capture the customer requirement into the Opportunity Registry. This workspace does not
-          create Loan Files or Deals.
+          Capture the customer requirement into the Opportunity Registry. Saving this form creates
+          the Opportunity — documents and enrichment are not required. Deals are created only when
+          a lender is identified in Loan Workspace.
         </p>
 
         <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
@@ -334,7 +362,7 @@ export function LeadInformationWorkspace() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={LEAD_INFORMATION_NONE}>Not Selected</SelectItem>
-                  {LEAD_INFORMATION_PRODUCT_OPTIONS.map((p) => (
+                  {productCatalog.map((p) => (
                     <SelectItem key={p.code} value={p.code}>
                       {p.label}
                     </SelectItem>
@@ -383,9 +411,191 @@ export function LeadInformationWorkspace() {
         </section>
 
         <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-foreground">Business Source</h2>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            How business entered Rupee Catalyst — foundation for commissions, MIS, and partner
+            statements.
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Business Source"
+              required
+              error={errors.businessSource}
+              hint="Persisted as Opportunity.sourceCode"
+            >
+              <Select
+                value={selectValue(form.businessSource)}
+                onValueChange={(v) => {
+                  const next = fromSelectValue(v);
+                  setForm((prev) => ({
+                    ...prev,
+                    businessSource: next,
+                    sourceContactId: "",
+                    sourceContactName: "",
+                    sourceWealthPartnerId: "",
+                    participationRole: "",
+                    sourceCampaignLabel: "",
+                  }));
+                  setErrors((prev) => {
+                    const cleared = { ...prev };
+                    delete cleared.businessSource;
+                    delete cleared.sourceContactId;
+                    delete cleared.sourceContactName;
+                    delete cleared.sourceWealthPartnerId;
+                    delete cleared.participationRole;
+                    delete cleared.sourceCampaignLabel;
+                    return cleared;
+                  });
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={LEAD_INFORMATION_NONE}>Not Selected</SelectItem>
+                  {OPPORTUNITY_BUSINESS_SOURCES.map((s) => (
+                    <SelectItem key={s.code} value={s.code}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                  {/* Preserve visibility of historical source codes when editing */}
+                  {form.businessSource &&
+                  !OPPORTUNITY_BUSINESS_SOURCES.some((s) => s.code === form.businessSource) ? (
+                    <SelectItem value={form.businessSource}>
+                      {form.businessSource} (legacy)
+                    </SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            {sourceContactLookup.showCampaign ? (
+              <Field
+                label="Campaign"
+                error={errors.sourceCampaignLabel}
+                hint="Future-ready marketing campaign label"
+              >
+                <Input
+                  className="h-9"
+                  value={form.sourceCampaignLabel}
+                  placeholder="Campaign name (optional)"
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      sourceCampaignLabel: e.target.value,
+                    }))
+                  }
+                />
+              </Field>
+            ) : null}
+
+            {sourceContactLookup.showReferrerName ? (
+              <Field
+                label="Referrer Name"
+                required
+                error={errors.sourceContactName}
+                hint="No Cost Referral — goodwill only; no commercial participation"
+              >
+                <Input
+                  className="h-9"
+                  value={form.sourceContactName}
+                  placeholder="Referrer name"
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      sourceContactName: e.target.value,
+                      sourceContactId: "",
+                      sourceWealthPartnerId: "",
+                    }))
+                  }
+                />
+              </Field>
+            ) : null}
+
+            {!sourceContactLookup.showCampaign && !sourceContactLookup.showReferrerName ? (
+              <Field
+                label={sourceContactLookup.fieldLabel || "Source Name"}
+                required={
+                  sourceContactLookup.contactMandatory && !sourceContactLookup.hideField
+                }
+                error={errors.sourceContactId || errors.sourceWealthPartnerId}
+                hint={
+                  sourceContactLookup.registry === "wealth_partner"
+                    ? "Search Wealth Partner Registry — type is on the partner profile"
+                    : "Dynamic lookup for the selected Business Source"
+                }
+              >
+                <BusinessSourceContactLookupField
+                  businessSource={form.businessSource}
+                  selectedId={form.sourceContactId}
+                  selectedName={form.sourceContactName}
+                  selectedWealthPartnerId={form.sourceWealthPartnerId}
+                  autoCustomerName={
+                    borrowerDisplayNameOrDash(opp) !== "—"
+                      ? borrowerDisplayNameOrDash(opp)
+                      : opp.primaryContactName
+                  }
+                  onSelect={(next) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      sourceContactId: next?.contactId || next?.id || "",
+                      sourceContactName: next?.name ?? "",
+                      sourceWealthPartnerId: next?.wealthPartnerId ?? "",
+                    }));
+                    setErrors((prev) => {
+                      const cleared = { ...prev };
+                      delete cleared.sourceContactId;
+                      delete cleared.sourceContactName;
+                      delete cleared.sourceWealthPartnerId;
+                      return cleared;
+                    });
+                  }}
+                />
+              </Field>
+            ) : null}
+
+            {sourceContactLookup.showParticipationRole ? (
+              <Field
+                label="Participation Role"
+                required={sourceContactLookup.participationRoleMandatory}
+                error={errors.participationRole}
+                hint="How the Wealth Partner participated in THIS Opportunity"
+              >
+                <Select
+                  value={selectValue(form.participationRole)}
+                  onValueChange={(v) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      participationRole: fromSelectValue(v),
+                    }));
+                    setErrors((prev) => {
+                      const cleared = { ...prev };
+                      delete cleared.participationRole;
+                      return cleared;
+                    });
+                  }}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={LEAD_INFORMATION_NONE}>Not Selected</SelectItem>
+                    {OPPORTUNITY_PARTICIPATION_ROLES.map((r) => (
+                      <SelectItem key={r.code} value={r.code}>
+                        {r.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-foreground">Transaction</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field label="Transaction Type" hint="Optional — Not Specified until selected">
+            <Field label="Transaction Type" hint="Required to create the Opportunity">
               <Select
                 value={selectValue(form.transactionType)}
                 onValueChange={(v) => {
@@ -402,10 +612,13 @@ export function LeadInformationWorkspace() {
                       : {}),
                   }));
                   setErrors((prev) => {
-                    if (!prev.btInstitutionId && !prev.btAmount) return prev;
+                    if (!prev.btInstitutionId && !prev.btAmount && !prev.transactionType) {
+                      return prev;
+                    }
                     const cleared = { ...prev };
                     delete cleared.btInstitutionId;
                     delete cleared.btAmount;
+                    delete cleared.transactionType;
                     return cleared;
                   });
                 }}

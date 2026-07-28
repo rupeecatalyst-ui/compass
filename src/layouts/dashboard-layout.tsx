@@ -40,6 +40,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, []);
 
+  // CO-PERF-002 — Tier-0 master warm (products + lenders) without blocking paint.
+  useEffect(() => {
+    void import("@/lib/enterprise-tier0-cache").then((m) => m.warmTier0EnterpriseCache());
+  }, []);
+
   const isFullWidth =
     pathname.startsWith("/loan-files") ||
     pathname.startsWith("/deals") ||

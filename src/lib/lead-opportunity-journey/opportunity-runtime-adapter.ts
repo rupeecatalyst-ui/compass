@@ -17,6 +17,7 @@ import {
   enterpriseOpportunityApiClient,
   type EnterpriseOpportunityApiRecord,
 } from "@/lib/enterprise-opportunity/opportunity-api-client";
+import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import {
   clearActiveOpportunityContext,
   getActiveOpportunityContext,
@@ -139,14 +140,20 @@ export function projectOpportunityToRuntimeCase(
   opp: EnterpriseOpportunityApiRecord,
   contact?: EcmContact | null,
 ): OpportunityRuntimeCase {
+  const borrower = resolveOpportunityBorrowerIdentity(opp);
+  const isCompanyBorrower = borrower.kind === "company";
   const resolved =
-    contact ?? listEcmContacts().find((c) => c.id === opp.primaryContactId) ?? null;
+    contact ??
+    (opp.primaryContactId
+      ? listEcmContacts().find((c) => c.id === opp.primaryContactId) ?? null
+      : null);
   const amountCaptured =
     typeof opp.requestedAmount === "number" && !Number.isNaN(opp.requestedAmount);
   const amount = amountCaptured ? (opp.requestedAmount as number) : 0;
   const product = opp.productLabel?.trim() || opp.productCode?.trim() || "";
   const customerName =
-    opp.primaryContactName?.trim() || resolved?.name?.trim() || "";
+    borrower.displayName ||
+    (!isCompanyBorrower ? resolved?.name?.trim() || "" : "");
   const transactionTypeRaw = opp.transactionType?.trim() || "";
   const ext =
     opp.lendingExtension && typeof opp.lendingExtension === "object"
@@ -173,7 +180,7 @@ export function projectOpportunityToRuntimeCase(
     amountCaptured,
     id: opp.id,
     fileNumber: opp.opportunityNumber,
-    customerId: opp.primaryContactId,
+    customerId: borrower.partyEntityId,
     // Empty → UI Not Specified (never invent "Customer")
     customerName,
     customerMobile:
@@ -197,6 +204,10 @@ export function projectOpportunityToRuntimeCase(
     relationshipManager: opp.relationshipManagerName?.trim() || "",
     // Empty priority → structural cast only; never invent "medium"
     priority: priorityRaw as LoanFile["priority"],
+    // Opportunity Business Source (SSOT) — display via formatOpportunitySourceDisplay
+    source: opp.sourceCode?.trim() || "",
+    sourceContactId: opp.sourceContactId?.trim() || undefined,
+    sourceContactName: opp.sourceContactName?.trim() || undefined,
     daysInStage: 0,
     expectedRevenue: 0,
     revenuePercent: 0,

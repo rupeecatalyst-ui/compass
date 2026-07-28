@@ -3,7 +3,7 @@
  * Unified timeline for opportunity / loan / customer context events.
  */
 
-export type EdcContextType = "opportunity" | "loan" | "customer";
+export type EdcContextType = "opportunity" | "loan" | "customer" | "lender_program";
 
 export type EdcEventType =
   | "stage_change"

@@ -86,22 +86,7 @@ async function upsertSeedOption(
     return "created";
   }
 
-  const needsUpdate =
-    existing.label !== data.label ||
-    existing.parentId !== data.parentId ||
-    existing.sortOrder !== data.sortOrder ||
-    existing.enabled !== data.enabled ||
-    existing.status !== data.status;
-
-  if (needsUpdate) {
-    const updated = await prisma.enterpriseReferenceMaster.update({
-      where: { id: existing.id },
-      data,
-    });
-    ids.set(lookupKey(domain, code), updated.id);
-    return "updated";
-  }
-
+  // CO-MDM-001 — Never overwrite administrator changes. Seed only fills missing codes.
   ids.set(lookupKey(domain, code), existing.id);
   return "skipped";
 }

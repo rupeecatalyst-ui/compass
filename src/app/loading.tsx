@@ -1,11 +1,11 @@
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
-/** CO-UX-024 — Root route loading uses CHANAKYA Insight. */
+/** CO-UX-008 — Root route loading uses CHANAKYA Loading Experience. */
 export default function Loading() {
   return (
     <ChanakyaLoadingExperience
       module="enterprise"
-      statusLabel="Preparing Catalyst One…"
+      statusLabel="Preparing your workspace..."
       fullScreen
     />
   );

@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
+import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import {
-  LENDER_REGISTRY_PRODUCT_OPTIONS,
   LENDER_MASTER_CLASSIFICATION_LABELS,
   type LenderContactDepartment,
   type LenderDocumentKind,
@@ -127,6 +127,11 @@ type Props = {
 export function NewLenderWizard({ open, onOpenChange, onCompleted }: Props) {
   const { user } = useAuthContext();
   const actor = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "admin";
+  const { options: productMasterOptions } = useProductMasterOptions(true);
+  const LENDER_REGISTRY_PRODUCT_OPTIONS = productMasterOptions.map((p) => ({
+    code: p.code,
+    label: p.label,
+  }));
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
 

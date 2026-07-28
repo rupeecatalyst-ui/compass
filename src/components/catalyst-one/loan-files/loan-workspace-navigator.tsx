@@ -37,6 +37,7 @@ import {
   type ActiveOpportunityContext,
 } from "@/lib/lead-opportunity-journey/active-context";
 import { rememberOpportunityRegistryContext } from "@/lib/lead-opportunity-journey/opportunity-context";
+import { borrowerDisplayNameOrDash } from "@/lib/enterprise-borrower-identity";
 import {
   enterpriseOpportunityApiClient,
   type EnterpriseOpportunityApiRecord,
@@ -363,7 +364,7 @@ export function LoanWorkspaceNavigator({
       : "Opportunity Workspace";
 
   const recommendedDescription = !opp
-    ? "Open a Contact and choose Start Loan Journey to create a Draft Opportunity."
+    ? "Open a Contact and choose Start Loan Journey to create a Dialogue Opportunity."
     : !captured
       ? "Capture Product and Required Amount on Lead Information (Opportunity Registry only)."
       : "Continue into Opportunity Workspace for execution and enrichment.";
@@ -394,10 +395,16 @@ export function LoanWorkspaceNavigator({
               </p>
             ) : null}
           </div>
-          {ctx?.label || ctx?.customerName || opp?.primaryContactName ? (
+          {ctx?.label ||
+          ctx?.customerName ||
+          (opp && borrowerDisplayNameOrDash(opp) !== "—") ? (
             <div className="rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1.5 text-[11px]">
               <span className="font-semibold text-teal-900 dark:text-teal-100">
-                {opp?.primaryContactName || ctx?.customerName || ctx?.label}
+                {(opp && borrowerDisplayNameOrDash(opp) !== "—"
+                  ? borrowerDisplayNameOrDash(opp)
+                  : null) ||
+                  ctx?.customerName ||
+                  ctx?.label}
               </span>
               {opp?.productLabel || ctx?.product ? (
                 <span className="text-muted-foreground">
@@ -410,7 +417,8 @@ export function LoanWorkspaceNavigator({
             </div>
           ) : (
             <p className="text-[11px] text-muted-foreground">
-              Start Loan Journey from a Contact to open a Draft Opportunity here.
+              Start Loan Journey from a Contact or Company to open a Dialogue Opportunity
+              here.
             </p>
           )}
         </header>

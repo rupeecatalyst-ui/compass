@@ -1,0 +1,28 @@
+# Enterprise Wealth Partner Registry (CO-WP-001+)
+
+Status: **ENTERPRISE APPROVED** · Additive module · Contact/Company remain identity SSOTs
+
+## Principles
+
+1. Wealth Partner is a **business relationship**, not a profession.
+2. Identity is exactly one of **Contact** or **Company** (ECM masters unchanged).
+3. Network members are **relationships only** — never duplicate Contacts/Companies.
+4. Documents are **referenced** from Contact/Company — never duplicated.
+5. Business Sourcing KPIs are **read-only** projections over Opportunities/Deals — never write those registries.
+6. Do **not** migrate historical production data into this module.
+7. **CO-WP-003 Network Intelligence** is a visualization over relationship records + read-only Opportunity/Deal aggregates. It must not modify the Commission Engine, Contacts, Companies, Opportunities, or Deals.
+
+## SSOT
+
+| Concern | Path |
+|---------|------|
+| Types | `src/types/enterprise-wealth-partner-registry.ts` |
+| Constants | `src/constants/enterprise-wealth-partner-registry/` |
+| Service | `server/services/wealth-partner-registry/` |
+| Network Intelligence | `server/services/wealth-partner-registry/network-intelligence.service.ts` |
+| Network Intelligence API | `GET /api/wealth-partner-registry/partners/:id/network-intelligence` |
+| Network UI | `src/components/catalyst-one/wealth-partner-registry/wealth-partner-network-intelligence.tsx` |
+| API | `/api/wealth-partner-registry/**` |
+| Ops registry | `/wealth-partners` |
+| Workspace | `/wealth-partners/:id/workspace` |
+| Admin | `/admin/wealth-partner-registry` |

@@ -11,7 +11,7 @@ export default function DashboardPage() {
       fallback={
         <ChanakyaLoadingExperience
           module="dashboard"
-          statusLabel="Opening Dashboard…"
+          statusLabel="Preparing Business Dashboard..."
           density="panel"
         />
       }

@@ -1,0 +1,183 @@
+{
+  "at": "2026-07-27T18:00:15.230Z",
+  "base": "https://catalyst-one-two.vercel.app",
+  "poolConfig": {
+    "DATABASE_URL": {
+      "host": "aws-0-ap-southeast-1.pooler.supabase.com",
+      "port": "6543",
+      "pgbouncer": "true",
+      "connection_limit": null,
+      "pool_timeout": null,
+      "uses6543": true
+    },
+    "DIRECT_URL": {
+      "host": "aws-0-ap-southeast-1.pooler.supabase.com",
+      "port": "5432",
+      "pgbouncer": null,
+      "connection_limit": null,
+      "pool_timeout": null,
+      "uses6543": false
+    }
+  },
+  "targetsMs": {
+    "dashboard": 2000,
+    "opportunityWorkspace": 3000,
+    "dealWorkspace": 3000,
+    "lenderProfile": 2000,
+    "save": 3000,
+    "moveToDeal": 5000,
+    "search": 1000
+  },
+  "database": {
+    "sampleOppId": "cms3evasv0005i904s6qga7uh",
+    "sampleOppNumber": "OPP-2026-000044",
+    "sampleDealId": "cms3hxpgy0001ic04lmxd7amp",
+    "sampleDealNumber": "DEAL-2026-000067",
+    "prismaTimingsMs": {
+      "opportunityList50": 888,
+      "opportunityGet": 304.7,
+      "dealOpenSim_getPlusSiblings": 616.7,
+      "contactList50": 305.7,
+      "lenderList200": 307.6
+    },
+    "prismaQueryEventsTop20": [
+      {
+        "durationMs": 132,
+        "query": "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT id FROM enterprise_deals WHERE opportunity_id='cms3evasv0005i904s6qga7uh' AND COALESCE(is_deleted,false)=false AND lender_id IS NOT NULL ORDER BY updated"
+      },
+      {
+        "durationMs": 124,
+        "query": "SELECT \"public\".\"enterprise_opportunities\".\"id\", \"public\".\"enterprise_opportunities\".\"organization_id\", \"public\".\"enterprise_opportunities\".\"opportunity_number\", \"public\".\"enterprise_opportunities\".\"l"
+      },
+      {
+        "durationMs": 123,
+        "query": "SELECT \"public\".\"enterprise_deals\".\"id\", \"public\".\"enterprise_deals\".\"organization_id\", \"public\".\"enterprise_deals\".\"deal_number\", \"public\".\"enterprise_deals\".\"opportunity_id\", \"public\".\"enterprise_de"
+      },
+      {
+        "durationMs": 123,
+        "query": "SELECT \"public\".\"enterprise_deals\".\"id\", \"public\".\"enterprise_deals\".\"organization_id\", \"public\".\"enterprise_deals\".\"deal_number\", \"public\".\"enterprise_deals\".\"opportunity_id\", \"public\".\"enterprise_de"
+      },
+      {
+        "durationMs": 123,
+        "query": "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT id FROM enterprise_opportunities WHERE COALESCE(is_deleted,false)=false ORDER BY updated_at DESC LIMIT 50"
+      },
+      {
+        "durationMs": 123,
+        "query": "\n    SELECT\n      COUNT(*)::int AS total_backends,\n      COUNT(*) FILTER (WHERE state = 'active')::int AS active,\n      COUNT(*) FILTER (WHERE state = 'idle')::int AS idle,\n      COUNT(*) FILTER (WHER"
+      },
+      {
+        "durationMs": 122,
+        "query": "SELECT \"public\".\"enterprise_deals\".\"id\", \"public\".\"enterprise_deals\".\"organization_id\", \"public\".\"enterprise_deals\".\"deal_number\", \"public\".\"enterprise_deals\".\"opportunity_id\", \"public\".\"enterprise_de"
+      },
+      {
+        "durationMs": 122,
+        "query": "SELECT \"public\".\"enterprise_lenders\".\"id\", \"public\".\"enterprise_lenders\".\"organization_id\", \"public\".\"enterprise_lenders\".\"category_id\", \"public\".\"enterprise_lenders\".\"code\", \"public\".\"enterprise_lend"
+      },
+      {
+        "durationMs": 122,
+        "query": "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT id FROM enterprise_lenders WHERE COALESCE(is_deleted,false)=false AND enabled=true ORDER BY updated_at DESC LIMIT 200"
+      },
+      {
+        "durationMs": 121,
+        "query": "SELECT \"public\".\"enterprise_opportunities\".\"id\", \"public\".\"enterprise_opportunities\".\"organization_id\", \"public\".\"enterprise_opportunities\".\"opportunity_number\", \"public\".\"enterprise_opportunities\".\"l"
+      },
+      {
+        "durationMs": 121,
+        "query": "SELECT \"public\".\"ecm_contacts\".\"id\", \"public\".\"ecm_contacts\".\"organization_id\", \"public\".\"ecm_contacts\".\"name\", \"public\".\"ecm_contacts\".\"mobile_primary\", \"public\".\"ecm_contacts\".\"mobile_secondary\", \"p"
+      },
+      {
+        "durationMs": 62,
+        "query": "BEGIN"
+      },
+      {
+        "durationMs": 61,
+        "query": "DEALLOCATE ALL"
+      },
+      {
+        "durationMs": 61,
+        "query": "DEALLOCATE ALL"
+      },
+      {
+        "durationMs": 61,
+        "query": "DEALLOCATE ALL"
+      },
+      {
+        "durationMs": 61,
+        "query": "COMMIT"
+      },
+      {
+        "durationMs": 61,
+        "query": "DEALLOCATE ALL"
+      },
+      {
+        "durationMs": 61,
+        "query": "COMMIT"
+      },
+      {
+        "durationMs": 61,
+        "query": "DEALLOCATE ALL"
+      },
+      {
+        "durationMs": 61,
+        "query": "DEALLOCATE ALL"
+      }
+    ],
+    "explains": [
+      {
+        "label": "opportunity_list_50",
+        "ok": true,
+        "wallMs": 306.4,
+        "planningTime": 0.117,
+        "executionTime": 0.068,
+        "nodeType": "Limit",
+        "actualTotalTime": 0.044,
+        "sharedHitBlocks": 5,
+        "sharedReadBlocks": 0
+      },
+      {
+        "label": "deals_by_opportunity",
+        "ok": true,
+        "wallMs": 317,
+        "planningTime": 0.145,
+        "executionTime": 0.053,
+        "nodeType": "Sort",
+        "actualTotalTime": 0.026,
+        "sharedHitBlocks": 3,
+        "sharedReadBlocks": 0
+      },
+      {
+        "label": "lender_list_active",
+        "ok": true,
+        "wallMs": 305.7,
+        "planningTime": 0.099,
+        "executionTime": 0.057,
+        "nodeType": "Limit",
+        "actualTotalTime": 0.033,
+        "sharedHitBlocks": 1,
+        "sharedReadBlocks": 0
+      }
+    ],
+    "pool": {
+      "total_backends": 7,
+      "active": 1,
+      "idle": 5,
+      "idle_in_transaction": 0,
+      "waiting_lock": 0
+    }
+  },
+  "login": {
+    "status": 401,
+    "loginMs": 4424.8,
+    "ok": false,
+    "error": {
+      "code": "INVALID_CREDENTIALS",
+      "message": "Invalid email or password",
+      "correlationId": "99672a22-d7db-4ea3-b073-f94c0eb90791"
+    }
+  },
+  "api": {
+    "results": [],
+    "slowestWarm": [],
+    "slowestCold": []
+  }
+}

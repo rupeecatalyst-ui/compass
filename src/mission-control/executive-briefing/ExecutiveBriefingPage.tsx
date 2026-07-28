@@ -3,22 +3,20 @@
 import { useEffect, useState } from "react";
 import { WorkspaceLoadingState } from "../shared/ui";
 import { ExecutiveDecisionWorkspace } from "../executive-decision-workspace";
+import { EnterpriseIntelligencePlatform } from "../enterprise-intelligence";
 import {
-  BusinessPerformanceSection,
-  EnterpriseHealthSection,
-  ExecutiveActionsSection,
   ExecutiveBriefCard,
   ExecutiveGreeting,
-  ExecutiveStatusCards,
   QuickActions,
 } from "./components";
+import { MissionControlSnapshotBanner } from "./components/MissionControlSnapshotBanner";
 import { createExecutiveBriefingService } from "./services";
 import type { ExecutiveBriefingPageModel } from "./types";
 
 /**
- * CO-SPRINT-094 — CHANAKYA Executive Decision Dashboard.
- * Briefing → Status cards → Business performance → Actions → Enterprise health
- * → Executive Decision Workspace (approved architecture mount).
+ * CO-SPRINT-094 / CO-ARCH-005 / CO-MC-002 — CHANAKYA Executive Intelligence Platform.
+ * Loads certified Mission Control Snapshot only (no live heavy analytics on open).
+ * Full-width cards · one per row · graph-first sections.
  */
 export function ExecutiveBriefingPage({
   userDisplayName = "Rahul",
@@ -40,17 +38,21 @@ export function ExecutiveBriefingPage({
   }, [userDisplayName]);
 
   if (!model) {
-    return <WorkspaceLoadingState label="Preparing CHANAKYA Executive Briefing…" />;
+    return <WorkspaceLoadingState label="Loading Mission Control Snapshot…" />;
   }
 
   return (
-    <div className="space-y-6 pb-8 md:space-y-8">
+    <div className="mx-auto w-full max-w-6xl space-y-6 pb-10 md:space-y-8">
+      <MissionControlSnapshotBanner
+        asOf={model.snapshotMeta?.asOf ?? model.brief.generatedAt}
+        version={model.snapshotMeta?.version}
+        source={model.snapshotMeta?.source}
+      />
       <ExecutiveGreeting greeting={model.greeting} />
       <ExecutiveBriefCard brief={model.brief} />
-      <ExecutiveStatusCards cards={model.statusCards} />
-      <BusinessPerformanceSection model={model.businessPerformance} />
-      <ExecutiveActionsSection model={model.executiveActions} />
-      <EnterpriseHealthSection indicators={model.enterpriseHealth} />
+      <EnterpriseIntelligencePlatform
+        pack={model.enterpriseIntelligence ?? null}
+      />
       <QuickActions actions={model.quickActions} />
       <ExecutiveDecisionWorkspace />
     </div>

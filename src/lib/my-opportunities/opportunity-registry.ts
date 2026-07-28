@@ -16,6 +16,7 @@ export function filterOpportunityRegistryRows(
   return rows.filter((row) => {
     if (filters.stage !== "all" && row.opportunityStage !== filters.stage) return false;
     if (filters.status !== "all" && row.status !== filters.status) return false;
+    if (filters.source !== "all" && (row.sourceCode || "") !== filters.source) return false;
     if (!q) return true;
     const hay = [
       row.opportunityNumber,
@@ -24,6 +25,8 @@ export function filterOpportunityRegistryRows(
       row.opportunityStageLabel,
       row.owner,
       row.statusLabel,
+      row.sourceLabel,
+      row.sourceCode ?? "",
     ]
       .join(" ")
       .toLowerCase();
@@ -54,7 +57,7 @@ export function sortOpportunityRegistryRows(
 
 export function uniqueOpportunityValues(
   rows: OpportunityRegistryRow[],
-  key: "opportunityStage" | "status",
+  key: "opportunityStage" | "status" | "sourceCode",
 ): string[] {
   const set = new Set<string>();
   for (const row of rows) {

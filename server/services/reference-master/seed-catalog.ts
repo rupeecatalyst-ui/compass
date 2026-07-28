@@ -9,6 +9,8 @@ import {
   type EcmMasterDomain,
   type EcmMasterOption,
 } from "@/constants/enterprise-contact-master/masters";
+import { OPPORTUNITY_BUSINESS_SOURCES } from "@/constants/opportunity-business-source";
+import { ERW_RELATIONSHIP_TYPE_MASTER } from "@/constants/enterprise-relationship-workspace/relationship-master";
 import { PROPERTY_TYPES } from "@/constants/loan-stage-master";
 import {
   DEFAULT_OCCUPANCY_MASTER,
@@ -47,6 +49,9 @@ export const REFERENCE_MASTER_SEED_ORDER: ReferenceMasterDomain[] = [
   "risk_appetite",
   "investment_horizon",
   "specialization",
+  "business_source",
+  "customer_segment",
+  "relationship_type",
 ];
 
 const ECM_DOMAIN_MAP: Partial<Record<EcmMasterDomain, ReferenceMasterDomain>> = {
@@ -137,6 +142,46 @@ function catalogOptionsForDomain(domain: ReferenceMasterDomain): ReferenceMaster
     );
 
     return [...categories, ...entries];
+  }
+
+  // CO-MDM-001 — Additive seed from existing constant catalogues (never deletes constants).
+  if (domain === "business_source") {
+    return OPPORTUNITY_BUSINESS_SOURCES.map((s, index) => ({
+      code: normalizeReferenceMasterCode(s.code),
+      label: s.label,
+      sortOrder: index + 1,
+      meta: { kpiBucket: s.kpiBucket },
+      enabled: true,
+    }));
+  }
+
+  if (domain === "customer_segment") {
+    const segments: Array<{ code: string; label: string }> = [
+      { code: "salaried", label: "Salaried" },
+      { code: "self_employed", label: "Self Employed" },
+      { code: "professional", label: "Professional" },
+      { code: "business", label: "Business" },
+      { code: "msme", label: "MSME" },
+      { code: "company", label: "Company" },
+      { code: "nri", label: "NRI" },
+      { code: "all", label: "All Segments" },
+    ];
+    return segments.map((s, index) => ({
+      code: normalizeReferenceMasterCode(s.code),
+      label: s.label,
+      sortOrder: index + 1,
+      enabled: true,
+    }));
+  }
+
+  if (domain === "relationship_type") {
+    return ERW_RELATIONSHIP_TYPE_MASTER.filter((t) => t.enabled).map((t) => ({
+      code: normalizeReferenceMasterCode(t.code),
+      label: t.label,
+      sortOrder: t.sortOrder,
+      meta: { group: t.group, colourFamily: t.colourFamily },
+      enabled: true,
+    }));
   }
 
   return [];

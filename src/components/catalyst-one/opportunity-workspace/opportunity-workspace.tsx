@@ -9,6 +9,7 @@ import {
   type WorkspaceFocus,
 } from "./opportunity-workspace-context";
 import { WorkspaceContactSummary } from "./workspace-contact-summary";
+import { WorkspaceBorrowerPartySections } from "./workspace-borrower-party-sections";
 import { WorkspaceDocumentsPanel } from "./workspace-documents-panel";
 import { WorkspaceLifeStrategyBoard } from "./workspace-life-strategy-board";
 import { WorkspaceTasksPanel } from "./workspace-tasks-panel";
@@ -63,6 +64,7 @@ import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
 import { isOpportunityRuntimeCase } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { runMoveToDealTransition, getMoveToDealLenderNames } from "@/lib/strategic-lender-pipeline";
+import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import { MoveToDealConfirmDialog } from "@/components/catalyst-one/shared/move-to-deal-confirm-dialog";
 import { toast } from "sonner";
 import { ROUTES } from "@/constants/routes";
@@ -303,15 +305,19 @@ function OpportunityWorkspaceShell() {
     if (!registryOpportunity?.id) return;
     setMoveToDealBusy(true);
     try {
+      const borrower = resolveOpportunityBorrowerIdentity(registryOpportunity);
       const result = await runMoveToDealTransition(
         {
           opportunityId: registryOpportunity.id,
           opportunity: registryOpportunity,
           contact,
-          customerName: contact?.name || registryOpportunity.primaryContactName || undefined,
+          customerName: borrower.displayName || undefined,
           customerMobile:
-            contact?.mobilePrimary || registryOpportunity.primaryContactMobile || undefined,
-          customerId: contact?.id || registryOpportunity.primaryContactId,
+            borrower.primaryContactMobile ||
+            contact?.mobilePrimary ||
+            registryOpportunity.primaryContactMobile ||
+            undefined,
+          customerId: borrower.partyEntityId || undefined,
           loanProduct: productLabel || registryOpportunity.productLabel || undefined,
           loanAmount:
             activeLoan?.requiredAmount ||
@@ -505,13 +511,16 @@ function OpportunityWorkspaceShell() {
             >
               {tab === "overview" && <WorkspaceOverviewPanel onOpenTab={openTab} />}
               {tab === "customer" && (
-                <WorkspaceContactSummary
-                  onEditContact={() => {
-                    if (!contact) return;
-                    setEditContact(contact);
-                    setEditOpen(true);
-                  }}
-                />
+                <div className="space-y-4">
+                  <WorkspaceContactSummary
+                    onEditContact={() => {
+                      if (!contact) return;
+                      setEditContact(contact);
+                      setEditOpen(true);
+                    }}
+                  />
+                  <WorkspaceBorrowerPartySections opportunity={registryOpportunity} />
+                </div>
               )}
               {tab === "requirement" && <WorkspaceRequirementPanel />}
               {tab === "product" && <WorkspaceProductPanel />}
@@ -550,7 +559,7 @@ function OpportunityWorkspaceShell() {
             }
             onOpenChange={(open) => {
               setWizardOpen(open);
-              if (!open && creationIntent?.kind !== "individual_company") setCreationIntent(null);
+              if (!open) setCreationIntent(null);
             }}
             onCreated={() => {
               setWizardOpen(false);

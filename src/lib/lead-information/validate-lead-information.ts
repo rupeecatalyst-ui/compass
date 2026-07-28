@@ -1,10 +1,13 @@
 /**
  * ADR-018 Wave 2 — Lead Information validation (client).
- * Mandatory: Product + Required Amount → Requirement Captured (server Wave 1).
- * Balance Transfer: Existing Lender + Outstanding Amount when transaction type is BT.
+ * CO-OPP-003 — Business Source dynamic rules + Participation Role for Wealth Partner.
  */
 
 import type { LeadInformationFormState } from "@/constants/lead-information-workspace";
+import {
+  isOpportunityParticipationRoleCode,
+  resolveBusinessSourceContactLookup,
+} from "@/constants/opportunity-business-source";
 
 export type LeadInformationValidation = {
   valid: boolean;
@@ -26,11 +29,14 @@ export function validateLeadInformationForm(
 ): LeadInformationValidation {
   const errors: LeadInformationValidation["errors"] = {};
   const requireMandatory = options?.requireMandatory ?? false;
+  const contactLookup = resolveBusinessSourceContactLookup(form.businessSource);
 
   const productOk = Boolean(form.productCode.trim() || form.productLabel.trim());
   const amount = parseRequestedAmountInput(form.requestedAmount);
   const amountOk = amount != null && amount > 0;
   const isBalanceTransfer = form.transactionType === "balance_transfer";
+  const transactionOk =
+    form.transactionType === "fresh" || form.transactionType === "balance_transfer";
 
   if (requireMandatory) {
     if (!productOk) errors.productCode = "Product is required.";
@@ -42,6 +48,37 @@ export function validateLeadInformationForm(
     }
     if (form.lendingType !== "secured" && form.lendingType !== "unsecured") {
       errors.lendingType = "Lending Type is required.";
+    }
+    if (!transactionOk) {
+      errors.transactionType = "Transaction Type is required.";
+    }
+    if (!form.businessSource.trim()) {
+      errors.businessSource = "Business Source is required.";
+    }
+    if (
+      contactLookup.contactMandatory &&
+      !contactLookup.hideField &&
+      contactLookup.registry === "wealth_partner" &&
+      !form.sourceWealthPartnerId.trim()
+    ) {
+      errors.sourceWealthPartnerId = "Wealth Partner is required (Source Name).";
+    } else if (
+      contactLookup.contactMandatory &&
+      !contactLookup.hideField &&
+      contactLookup.registry !== "wealth_partner" &&
+      !form.sourceContactId.trim()
+    ) {
+      errors.sourceContactId = `${contactLookup.fieldLabel} is required (${contactLookup.registryLabel}).`;
+    }
+    if (contactLookup.showReferrerName && !form.sourceContactName.trim()) {
+      errors.sourceContactName = "Referrer Name is required for No Cost Referral.";
+    }
+    if (
+      contactLookup.participationRoleMandatory &&
+      !isOpportunityParticipationRoleCode(form.participationRole)
+    ) {
+      errors.participationRole =
+        "Participation Role is required when Business Source is Wealth Partner.";
     }
     if (isBalanceTransfer) {
       if (!form.btInstitutionId.trim()) {
@@ -69,8 +106,29 @@ export function validateLeadInformationForm(
 
   const lendingOk =
     form.lendingType === "secured" || form.lendingType === "unsecured";
+  const sourceOk = Boolean(form.businessSource.trim());
+  const sourceIdentityOk =
+    !contactLookup.contactMandatory ||
+    contactLookup.hideField ||
+    (contactLookup.registry === "wealth_partner"
+      ? Boolean(form.sourceWealthPartnerId.trim())
+      : Boolean(form.sourceContactId.trim()));
+  const referrerOk =
+    !contactLookup.showReferrerName || Boolean(form.sourceContactName.trim());
+  const participationOk =
+    !contactLookup.participationRoleMandatory ||
+    isOpportunityParticipationRoleCode(form.participationRole);
   const requirementReady =
-    productOk && amountOk && amount != null && amount > 0 && lendingOk;
+    productOk &&
+    amountOk &&
+    amount != null &&
+    amount > 0 &&
+    lendingOk &&
+    transactionOk &&
+    sourceOk &&
+    sourceIdentityOk &&
+    referrerOk &&
+    participationOk;
 
   return {
     valid: Object.keys(errors).length === 0,

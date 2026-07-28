@@ -221,7 +221,7 @@ export function LoanCreateFormDialog({
   onOpenChange,
   onSubmit,
   title = "New Loan Entry",
-  description = "Create a loan file and add it to the pipeline.",
+  description = "Create a Deal and add it to the pipeline.",
   contentClassName,
   presentation = "dialog",
   prefillCustomer,

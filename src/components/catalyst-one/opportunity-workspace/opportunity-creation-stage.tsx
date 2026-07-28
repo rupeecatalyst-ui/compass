@@ -6,15 +6,21 @@ import {
   enterpriseOpportunityApiClient,
   type EnterpriseOpportunityApiRecord,
 } from "@/lib/enterprise-opportunity/opportunity-api-client";
+import { peekSessionOpportunity } from "@/lib/enterprise-session/opportunity-runtime-cache";
 import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import { formatINR } from "@/lib/format-currency";
 import {
   displayOpportunityEnumLabel,
   displayOpportunityRequirementStageLabel,
 } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
+import { formatOpportunitySourceDisplay } from "@/constants/opportunity-business-source";
+import { opportunityLifecycleLabel } from "@/constants/opportunity-lifecycle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
+import { WorkspaceBorrowerPartySections } from "./workspace-borrower-party-sections";
+import { isCompanyPrimaryBorrower } from "@/constants/opportunity-primary-borrower";
 
 /**
  * Opportunity Creation stage when an Enterprise Opportunity exists without a Loan File yet.
@@ -34,6 +40,28 @@ export function OpportunityCreationStage({
 
   useEffect(() => {
     let cancelled = false;
+    const warm = peekSessionOpportunity(opportunityId);
+    if (warm?.id) {
+      setOpp(warm);
+      setError(null);
+      setLoading(false);
+      // CO-PERF-002 — background revalidate; avoid blocking Creation stage remount.
+      void enterpriseOpportunityApiClient
+        .getOpportunity(opportunityId)
+        .then((row) => {
+          if (!cancelled) {
+            setOpp(row);
+            setError(null);
+          }
+        })
+        .catch(() => {
+          /* keep warm */
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setLoading(true);
     void enterpriseOpportunityApiClient
       .getOpportunity(opportunityId)
@@ -57,11 +85,15 @@ export function OpportunityCreationStage({
     };
   }, [opportunityId]);
 
+  const companyBorrower = opp ? isCompanyPrimaryBorrower(opp) : false;
   const contact = opp?.primaryContactId
     ? findOperationalEcmContactById(opp.primaryContactId)
     : null;
+  const borrower = opp ? resolveOpportunityBorrowerIdentity(opp) : null;
   const customerName =
-    opp?.primaryContactName?.trim() || contact?.name?.trim() || "Not Specified";
+    borrower?.displayName ||
+    (!companyBorrower ? contact?.name?.trim() : "") ||
+    "Not Specified";
   const product =
     opp?.productLabel?.trim() ||
     (opp?.productCode?.trim()
@@ -71,7 +103,7 @@ export function OpportunityCreationStage({
         : "Not Specified");
   const amount =
     opp?.requestedAmount != null ? formatINR(opp.requestedAmount) : "Not Specified";
-  const status = (opp?.lifecycleStatus?.trim() || "Not Specified").replace(/_/g, " ");
+  const status = opportunityLifecycleLabel(opp?.lifecycleStatus);
   const stage = displayOpportunityRequirementStageLabel(opp?.requirementStage);
 
   if (loading) {
@@ -191,6 +223,8 @@ export function OpportunityCreationStage({
             </div>
           </section>
 
+          <WorkspaceBorrowerPartySections opportunity={opp} />
+
           <section className="rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-foreground">Loan Requirement & Product</h2>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -225,6 +259,16 @@ export function OpportunityCreationStage({
                   readOnly
                   value={displayOpportunityEnumLabel(opp.transactionType)}
                   className="h-9 capitalize text-xs"
+                />
+              </Field>
+              <Field label="SOURCE">
+                <Input
+                  readOnly
+                  value={formatOpportunitySourceDisplay(
+                    opp.sourceCode,
+                    opp.sourceContactName,
+                  )}
+                  className="h-9 text-xs"
                 />
               </Field>
             </div>

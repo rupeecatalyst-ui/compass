@@ -1,0 +1,47 @@
+# Progressive Loading & Performance (CO-PERF-002)
+
+
+
+Status: **ENTERPRISE APPROVED** · Extends CO-PERF-001 / Sprint C
+
+
+
+## Principle
+
+
+
+Primary business entities render immediately. Secondary context loads progressively.
+
+
+
+## Patterns
+
+
+
+1. **My Deals** — Phase 1 `view=summary` · Phase 2 background enrich  
+
+2. **Workspace bootstrap** — `GET /api/enterprise-deals/:id?include=siblings`  
+
+3. **Tier-0 cache** — `src/lib/enterprise-tier0-cache` (products / lenders)  
+
+4. **Lazy modules** — hidden / collapsed panels must not fetch until opened  
+
+5. **Optimistic UI** — update UI first; persist async; merge without full reload  
+
+
+
+## Do not regress
+
+
+
+- CO-ARCH-005 Mission Control snapshots  
+
+- CO-ARCH-007 one-lender-one-deal sibling SSOT  
+
+- CAD-2026-001 / Opportunity provenance  
+
+
+
+Docs: `docs/co-perf-002/CO-PERF-002-API-REQUEST-REDUCTION.md`
+
+

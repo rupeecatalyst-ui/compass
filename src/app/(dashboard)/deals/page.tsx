@@ -8,6 +8,7 @@
 
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { ROUTES } from "@/constants/routes";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 
@@ -50,9 +51,11 @@ function DealsIndexRedirectInner() {
   }, [router, searchParams]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
-      Opening Deal Registry…
-    </div>
+    <ChanakyaLoadingExperience
+      module="my-deals"
+      statusLabel="Opening Deal Registry..."
+      density="panel"
+    />
   );
 }
 
@@ -60,9 +63,11 @@ export default function DealsIndexPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-xs text-muted-foreground">
-          Opening Deal Registry…
-        </div>
+        <ChanakyaLoadingExperience
+          module="my-deals"
+          statusLabel="Opening Deal Registry..."
+          density="panel"
+        />
       }
     >
       <DealsIndexRedirectInner />

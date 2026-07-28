@@ -119,7 +119,7 @@ export class ReferenceMasterRepository {
         parentId: input.parentId,
         sortOrder: input.sortOrder ?? 0,
         meta: input.meta ? (input.meta as Prisma.InputJsonValue) : undefined,
-        status: input.status ?? "draft",
+        status: input.status ?? (input.enabled === false ? "inactive" : "active"),
         enabled: input.enabled ?? true,
         notes: input.notes?.trim(),
         createdBy: input.createdBy,
@@ -177,6 +177,54 @@ export class ReferenceMasterRepository {
         enabled: false,
         modifiedBy: actorId,
         versionNumber: { increment: 1 },
+      },
+    });
+    return mapPrismaReferenceMasterToDomain(row);
+  }
+
+  async restore(id: string, actorId: string) {
+    const row = await prisma.enterpriseReferenceMaster.update({
+      where: { id },
+      data: {
+        isDeleted: false,
+        deletedAt: null,
+        deletedBy: null,
+        deletionReason: null,
+        status: "active",
+        enabled: true,
+        modifiedBy: actorId,
+        versionNumber: { increment: 1 },
+      },
+    });
+    return mapPrismaReferenceMasterToDomain(row);
+  }
+
+  async duplicate(
+    id: string,
+    actorId: string,
+    opts?: { code?: string; label?: string },
+  ) {
+    const source = await prisma.enterpriseReferenceMaster.findUnique({ where: { id } });
+    if (!source || source.isDeleted) throw new Error("Reference master not found.");
+    const code = normalizeReferenceMasterCode(
+      opts?.code?.trim() || `${source.code}_COPY`,
+    );
+    if (!code) throw new Error("Duplicate code is required.");
+    const row = await prisma.enterpriseReferenceMaster.create({
+      data: {
+        organizationId: source.organizationId,
+        domain: source.domain,
+        code,
+        label: opts?.label?.trim() || `${source.label} (Copy)`,
+        description: source.description,
+        parentId: source.parentId,
+        sortOrder: source.sortOrder + 1,
+        meta: source.meta ?? undefined,
+        status: "draft",
+        enabled: false,
+        notes: source.notes,
+        createdBy: actorId,
+        modifiedBy: actorId,
       },
     });
     return mapPrismaReferenceMasterToDomain(row);

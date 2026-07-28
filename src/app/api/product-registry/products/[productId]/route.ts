@@ -55,6 +55,26 @@ export async function PATCH(request: Request, context: RouteContext) {
         minorVersion: body.minorVersion !== undefined ? Number(body.minorVersion) : undefined,
         tags: body.tags === null ? null : Array.isArray(body.tags) ? body.tags.map(String) : undefined,
         productOwner: body.productOwner,
+        sortOrder: body.sortOrder !== undefined ? Number(body.sortOrder) : undefined,
+        parentProductId:
+          body.parentProductId === null
+            ? null
+            : body.parentProductId
+              ? String(body.parentProductId)
+              : undefined,
+        isSecured:
+          body.isSecured === null
+            ? null
+            : body.isSecured !== undefined
+              ? Boolean(body.isSecured)
+              : undefined,
+        customerSegment:
+          body.customerSegment === null
+            ? null
+            : Array.isArray(body.customerSegment)
+              ? body.customerSegment.map(String)
+              : undefined,
+        remarks: body.remarks,
         status: body.status,
         enabled: body.enabled,
         notes: body.notes,

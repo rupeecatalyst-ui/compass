@@ -11,10 +11,13 @@ import {
   type MoveToDealInput,
   type MoveToDealResult,
 } from "@/lib/strategic-lender-pipeline/move-to-deal";
-import { getStrategicShortlist } from "@/lib/strategic-lender-pipeline/sync";
+import {
+  enforceStrategicShortlistMax,
+  takeStrategyShortlistForMoveToDeal,
+} from "@/lib/strategic-lender-pipeline/sync";
 
 export function getMoveToDealLenderNames(opportunityId: string): string[] {
-  return getStrategicShortlist(opportunityId)
+  return takeStrategyShortlistForMoveToDeal(enforceStrategicShortlistMax(opportunityId))
     .map((q) => q.lenderName)
     .filter(Boolean);
 }
@@ -49,7 +52,9 @@ export async function runMoveToDealTransition(
     return null;
   }
 
-  const queue = getStrategicShortlist(input.opportunityId);
+  const queue = takeStrategyShortlistForMoveToDeal(
+    enforceStrategicShortlistMax(input.opportunityId),
+  );
   if (queue.length === 0) {
     toast.error(
       "Missing: Lender selection. Reason: Execution Queue is empty. Action: select at least one lender before Move to Deal.",

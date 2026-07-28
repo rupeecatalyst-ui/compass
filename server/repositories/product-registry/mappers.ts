@@ -143,6 +143,11 @@ export function mapProductRow(row: {
   minorVersion: number;
   tags: Prisma.JsonValue | null;
   productOwner: string | null;
+  sortOrder?: number;
+  parentProductId?: string | null;
+  isSecured?: boolean | null;
+  customerSegment?: Prisma.JsonValue | null;
+  remarks?: string | null;
   status: EnterpriseProductRecord["status"];
   enabled: boolean;
   versionNumber: number;
@@ -176,6 +181,11 @@ export function mapProductRow(row: {
     minorVersion: row.minorVersion,
     tags: jsonToStringArray(row.tags),
     productOwner: row.productOwner,
+    sortOrder: row.sortOrder ?? 0,
+    parentProductId: row.parentProductId ?? null,
+    isSecured: row.isSecured ?? null,
+    customerSegment: jsonToStringArray(row.customerSegment ?? null),
+    remarks: row.remarks ?? null,
     status: row.status,
     enabled: row.enabled,
     versionNumber: row.versionNumber,

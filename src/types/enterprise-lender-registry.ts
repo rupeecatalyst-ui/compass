@@ -10,6 +10,7 @@ import type {
   RegistryApprovalStatus,
   RegistryStatus,
 } from "@prisma/client";
+import { listCanonicalProductOptions } from "@/constants/enterprise-product-master";
 
 export type {
   LenderInstitutionCategory,
@@ -60,21 +61,15 @@ export type LenderDocumentKind =
   | "kfs"
   | "other";
 
-/** Configurable product codes supported by a lender (wizard Step 4). */
-export const LENDER_REGISTRY_PRODUCT_OPTIONS = [
-  { code: "home_loan", label: "Home Loan" },
-  { code: "home_loan_bt", label: "Home Loan Balance Transfer" },
-  { code: "lap", label: "Loan Against Property" },
-  { code: "business_loan", label: "Business Loan" },
-  { code: "working_capital", label: "Working Capital" },
-  { code: "construction_funding", label: "Construction Funding" },
-  { code: "personal_loan", label: "Personal Loan" },
-  { code: "gold_loan", label: "Gold Loan" },
-  { code: "las", label: "Loan Against Securities" },
-] as const;
+/** Configurable product codes supported by a lender (wizard Step 4).
+ * CO-ADMIN-005 — derived from Product Master canonical catalog (no hard-coded parallel list).
+ */
+export const LENDER_REGISTRY_PRODUCT_OPTIONS = listCanonicalProductOptions(true).map((p) => ({
+  code: p.code,
+  label: p.label,
+}));
 
-export type LenderRegistryProductCode =
-  (typeof LENDER_REGISTRY_PRODUCT_OPTIONS)[number]["code"];
+export type LenderRegistryProductCode = string;
 
 export interface EnterpriseLenderCategoryRecord {
   id: string;
@@ -171,6 +166,12 @@ export interface EnterpriseLenderRecord {
   productsSupported?: string[] | null;
   tags?: string[] | null;
   sortOrder: number;
+  /** CO-ADMIN-005 */
+  priority?: number;
+  defaultProcessingRules?: Record<string, unknown> | null;
+  branchCoverage?: string[] | null;
+  rmMapping?: Array<Record<string, unknown>> | null;
+  remarks?: string | null;
   status: RegistryStatus;
   enabled: boolean;
   versionNumber: number;
@@ -370,6 +371,11 @@ export interface UpdateLenderInput {
   productsSupported?: string[] | null;
   tags?: string[] | null;
   sortOrder?: number;
+  priority?: number;
+  defaultProcessingRules?: Record<string, unknown> | null;
+  branchCoverage?: string[] | null;
+  rmMapping?: Array<Record<string, unknown>> | null;
+  remarks?: string | null;
   status?: RegistryStatus;
   enabled?: boolean;
   notes?: string | null;

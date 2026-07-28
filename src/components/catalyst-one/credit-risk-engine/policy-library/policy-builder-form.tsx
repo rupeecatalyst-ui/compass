@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import { categoryToPolicySection } from "@/constants/policy-rule-sections";
-import { getEnabledProducts } from "@/constants/product-master";
+import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import {
   getActiveLenders,
   savePolicyDraft,
@@ -48,7 +48,11 @@ interface PolicyBuilderFormProps {
 export function PolicyBuilderForm({ initialPolicy, initialRuleRefs = [] }: PolicyBuilderFormProps) {
   const router = useRouter();
   const lenders = getActiveLenders();
-  const products = getEnabledProducts();
+  const { options: productMasterOptions } = useProductMasterOptions(true);
+  const products = productMasterOptions.map((p) => ({
+    id: p.code,
+    name: p.label,
+  }));
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<PolicyRuleSectionId>("financial");

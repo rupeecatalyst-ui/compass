@@ -87,7 +87,7 @@ export const PLACEHOLDER_OBSERVABILITY_PUBLISHERS: readonly ObservabilityPublish
   {
     id: "loan-workspace",
     displayName: "Loan Workspace",
-    description: "Loan file workspace health",
+    description: "Loan Workspace health",
     status: "planned",
     version: "0.1.0",
     module: "Loan Workspace",

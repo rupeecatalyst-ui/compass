@@ -21,7 +21,7 @@ import {
   RULE_REVIEW_CYCLE_LABELS,
 } from "@/constants/rule-governance";
 import { PROPERTY_TYPES } from "@/constants/loan-stage-master";
-import { getEnabledProducts } from "@/constants/product-master";
+import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import { getOccupancyMaster } from "@/constants/occupancy-master";
 import { getLatestRuleVersions, getRuleCategories, saveRuleDraft } from "@/lib/credit-risk-engine/rule-store";
 import type {
@@ -61,7 +61,8 @@ interface RuleBuilderFormProps {
 export function RuleBuilderForm({ initialRule }: RuleBuilderFormProps) {
   const router = useRouter();
   const categories = getRuleCategories();
-  const products = getEnabledProducts().map((p) => p.name);
+  const { options: productMasterOptions } = useProductMasterOptions(true);
+  const products = productMasterOptions.map((p) => p.label);
   const occupancyOptions = getOccupancyMaster().map((o) => o.label);
   const availableRules = getLatestRuleVersions().filter((r) => r.ruleId !== initialRule?.ruleId);
 

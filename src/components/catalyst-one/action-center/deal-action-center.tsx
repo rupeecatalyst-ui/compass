@@ -17,6 +17,7 @@ import {
   preferredDealParticipantId,
   resolveDealCommunicationParticipants,
 } from "@/lib/enterprise-action-center";
+import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import type { DealPipelineRuntime } from "@/types/deal-pipeline-runtime";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import type {
@@ -58,6 +59,12 @@ export function DealActionCenter({
     [runtime, activeDeal],
   );
 
+  const borrower = useMemo(
+    () => resolveDealBorrowerIdentity(activeDeal),
+    [activeDeal],
+  );
+  const customerName = borrower.displayName || runtime.context.customerName;
+
   const lenderLabel =
     runtime.lenders.find(
       (l) =>
@@ -71,7 +78,7 @@ export function DealActionCenter({
   const entityLabel = [
     lenderLabel,
     activeDeal.dealNumber,
-    activeDeal.primaryContactName || runtime.context.customerName,
+    customerName,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -175,7 +182,7 @@ export function DealActionCenter({
         entityLabel={entityLabel}
         product={product}
         stage={stageLabel}
-        customerName={activeDeal.primaryContactName || runtime.context.customerName}
+        customerName={customerName}
         fileNumber={activeDeal.dealNumber}
         rm={activeDeal.relationshipManagerName || runtime.context.relationshipManager}
         participants={participants}
@@ -193,7 +200,7 @@ export function DealActionCenter({
         entityLabel={entityLabel}
         product={product}
         stage={stageLabel}
-        customerName={activeDeal.primaryContactName || runtime.context.customerName}
+        customerName={customerName}
         fileNumber={activeDeal.dealNumber}
         rm={activeDeal.relationshipManagerName || runtime.context.relationshipManager}
         participants={participants}

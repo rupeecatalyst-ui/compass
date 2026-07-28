@@ -189,6 +189,7 @@ export interface ProductLibraryDashboardMetrics {
 export type ProductLibrarySectionId =
   | "overview"
   | "registry"
+  | "master"
   | "categories"
   | "lifecycle"
   | "audit";

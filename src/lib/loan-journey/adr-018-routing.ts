@@ -1,13 +1,13 @@
 /**
  * ADR-018 Wave 3 — Customer journey routing (orchestration only).
  *
- * Draft → Lead Information → Requirement Captured → Opportunity Workspace
+ * Dialogue → Lead Information → Requirement Captured → Opportunity Workspace
  * → Documents → Credit Bench → LIFE → Move to Deal → Deal Workspace (/deals/:dealId)
  */
 
 import {
   OPPORTUNITY_LIFECYCLE,
-  isDraftLifecycle,
+  isDialogueLifecycle,
 } from "@/constants/opportunity-lifecycle";
 import { buildOpportunityWorkspaceStageHref } from "@/constants/opportunity-workspace-stages";
 import { ROUTES } from "@/constants/routes";
@@ -91,7 +91,7 @@ export function opportunityWorkspaceGateRedirect(
 export function describeCurrentJourneyStage(
   opp: JourneyOpportunityLike,
 ): { id: string; label: string } {
-  if (!isOpportunityRequirementCaptured(opp) || isDraftLifecycle(opp.lifecycleStatus)) {
+  if (!isOpportunityRequirementCaptured(opp) || isDialogueLifecycle(opp.lifecycleStatus)) {
     return { id: "lead_information", label: "Lead Information" };
   }
   return { id: "opportunity_workspace", label: "Opportunity Workspace" };

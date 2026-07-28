@@ -8,6 +8,7 @@ import type { LoanFile } from "@/types/catalyst-one";
 import type { ContextParticipant } from "@/types/enterprise-action-center";
 import type { DealPipelineRuntime } from "@/types/deal-pipeline-runtime";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
+import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 
 export function resolveLoanCommunicationParticipants(file: LoanFile): ContextParticipant[] {
   const list: ContextParticipant[] = [];
@@ -132,17 +133,16 @@ export function resolveDealCommunicationParticipants(
 
   const list: ContextParticipant[] = [];
 
-  const customerName = deal.primaryContactName || ctx.customerName;
+  const borrower = resolveDealBorrowerIdentity(deal);
+  const customerName = borrower.displayName || ctx.customerName;
   if (customerName?.trim()) {
     list.push({
-      id: `customer:${deal.primaryContactId || ctx.customerId || deal.id}`,
+      id: `customer:${borrower.partyEntityId || ctx.customerId || deal.id}`,
       name: customerName.trim(),
       recipientType: "customer",
       email: deal.primaryContactEmail || undefined,
       mobile: deal.primaryContactMobile || undefined,
-      identityRef: deal.primaryContactId
-        ? `identity:contact:${deal.primaryContactId}`
-        : undefined,
+      identityRef: borrower.partyId ? `identity:${borrower.partyId}` : undefined,
     });
   }
 

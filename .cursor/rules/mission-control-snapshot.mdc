@@ -1,0 +1,53 @@
+# Mission Control Snapshot (CO-ARCH-005 / CO-MC-002)
+
+Status: **ENTERPRISE APPROVED** · Permanent · Executive Intelligence Platform
+
+## Principle
+
+Mission Control **consumes** scheduled Enterprise Intelligence snapshots.  
+It **never** executes heavy analytics on page load.
+
+## CO-MC-002 layout
+
+- Full-width analytics cards · **one card per row**
+- Twelve business sections (Executive Summary → AI Executive Intelligence)
+- Graph-first presentation (funnel, line, bar, donut, treemap, heatmap, waterfall, area, network)
+- Vertical scroll preferred
+
+## Analytics Refresh
+
+- Daily **02:00 AM Asia/Kolkata** (`30 20 * * *` UTC on Vercel Cron)
+- Aggregates KPIs / chart datasets during refresh only
+- Mission Control reads **only** precomputed `intelligence` pack + EBI snapshot
+
+## Tiers
+
+Aligns with CO-ARCH-003:
+
+- Tier 1 ops must not be blocked by Mission Control  
+- Snapshot generation is Tier 3 (scheduled / admin force)
+
+## SSOT
+
+| Concern | Path |
+|---------|------|
+| Schedule constants | `src/constants/mission-control-snapshot.ts` · `mission-control-enterprise-intelligence.ts` |
+| Compose | `server/services/enterprise-metrics-engine/compose-mission-control-snapshot.ts` |
+| Intelligence derive | `src/lib/mission-control-enterprise-intelligence/` |
+| Persist / cron | Enterprise Metrics Engine · `POST /api/cron/enterprise-metrics` |
+| Read API | `GET /api/enterprise-metrics/mission-control` |
+| UI | `src/mission-control/enterprise-intelligence/` · Executive Briefing |
+| Admin | `/admin/enterprise-metrics` |
+
+## Permissions
+
+- **Administrators:** configure schedule · Force Recalculate · view history  
+- **Management / Executives:** view current snapshot only  
+- **Employees:** existing MC permissions  
+
+## Forbidden
+
+- Live org-wide KPI recompute on Mission Control open  
+- Manual refresh for non-administrators  
+- Parallel formula engines for MC health / KPIs  
+- Two-column competing analytics grids on the Executive Intelligence report  

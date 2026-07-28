@@ -78,7 +78,7 @@ export function buildMissionControlLiveMessages(
   if (docs > 0) {
     items.push({
       id: "docs",
-      text: `${docs} file${docs === 1 ? "" : "s"} awaiting document action.`,
+      text: `${docs} deal${docs === 1 ? "" : "s"} awaiting document action.`,
       tone: "warning",
     });
   }
@@ -98,7 +98,7 @@ export function buildMissionControlLiveMessages(
   if (rmAction > 0) {
     items.push({
       id: "rm",
-      text: `${rmAction} file${rmAction === 1 ? " is" : "s are"} awaiting RM action.`,
+      text: `${rmAction} deal${rmAction === 1 ? " is" : "s are"} awaiting RM action.`,
       tone: "info",
     });
   }
@@ -201,7 +201,7 @@ function buildLoanFilesLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveI
   if (awaiting > 0) {
     items.push({
       id: "await-docs",
-      text: `${awaiting} file${awaiting === 1 ? "" : "s"} awaiting customer documents.`,
+      text: `${awaiting} deal${awaiting === 1 ? "" : "s"} awaiting customer documents.`,
       tone: "warning",
     });
   }
@@ -210,12 +210,12 @@ function buildLoanFilesLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveI
   if (idle > 0) {
     items.push({
       id: "idle",
-      text: `${idle} file${idle === 1 ? "" : "s"} idle past SLA.`,
+      text: `${idle} deal${idle === 1 ? "" : "s"} idle past SLA.`,
       tone: "danger",
     });
   }
 
-  return items.length ? loop(items) : quiet("Loan files are current — no urgent file signals.");
+  return items.length ? loop(items) : quiet("Deals are current — no urgent deal signals.");
 }
 
 function buildDocumentsLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveIntelligenceMessage[] {
@@ -224,7 +224,7 @@ function buildDocumentsLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveI
   if (pending.length > 0) {
     items.push({
       id: "pending",
-      text: `${pending.length} file${pending.length === 1 ? "" : "s"} have documents pending.`,
+      text: `${pending.length} deal${pending.length === 1 ? "" : "s"} have documents pending.`,
       tone: "warning",
     });
     for (const r of pending.slice(0, 3)) {
@@ -239,7 +239,7 @@ function buildDocumentsLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveI
   if (worked > 0) {
     items.push({
       id: "verified",
-      text: `${worked} file${worked === 1 ? "" : "s"} cleared document checks today.`,
+      text: `${worked} deal${worked === 1 ? "" : "s"} cleared document checks today.`,
       tone: "success",
     });
   }
@@ -278,7 +278,7 @@ function buildLendersLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveInt
   for (const [lender, count] of top) {
     items.push({
       id: `lender-${lender}`,
-      text: `${lender}: ${count} file${count === 1 ? "" : "s"} need attention.`,
+      text: `${lender}: ${count} deal${count === 1 ? "" : "s"} need attention.`,
       tone: "warning",
     });
   }

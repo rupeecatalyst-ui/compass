@@ -22,8 +22,10 @@ import {
 } from "@/lib/enterprise-lender-registry/published-directory";
 import {
   ensureLoanWorkspaceForOpportunityAsync,
+  enforceStrategicShortlistMax,
   getMoveToDealLenderNames,
-  getStrategicShortlist,
+  isStrategicShortlistAtLimit,
+  isStrategicShortlistLimitError,
   normalizeLenderKey,
   purgeNonCanonicalShortlistItems,
   removeStrategicShortlistItem,
@@ -34,6 +36,12 @@ import {
   type StrategicLenderSelectedBy,
   type StrategicLenderShortlistItem,
 } from "@/lib/strategic-lender-pipeline";
+import {
+  STRATEGY_SHORTLIST_LIMIT_GUIDANCE,
+  STRATEGY_SHORTLIST_MAX_LENDERS,
+  strategyShortlistChoiceLabel,
+} from "@/constants/strategic-lender-shortlist";
+import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import { MoveToDealConfirmDialog } from "@/components/catalyst-one/shared/move-to-deal-confirm-dialog";
 import { cn } from "@/lib/utils";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
@@ -76,6 +84,7 @@ export function WorkspaceLifeStrategyBoard() {
 
   const [registryManual, setRegistryManual] = useState<BoardInstitution[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
+  const [registryError, setRegistryError] = useState<string | null>(null);
   const [queue, setQueue] = useState<StrategicLenderShortlistItem[]>([]);
   const [manualSearch, setManualSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -88,7 +97,7 @@ export function WorkspaceLifeStrategyBoard() {
       setQueue([]);
       return;
     }
-    setQueue(getStrategicShortlist(opportunityId));
+    setQueue(enforceStrategicShortlistMax(opportunityId));
   };
 
   useEffect(() => {
@@ -110,16 +119,20 @@ export function WorkspaceLifeStrategyBoard() {
   }, []);
 
   /**
-   * CO-BUG-011 — Manual Recommendation: Enterprise Lender Registry API (Prisma) ONLY.
+   * CO-BUG-011 / CO-QA-003 — Manual Recommendation: Enterprise Lender Registry API (Prisma) ONLY.
    * Soft Go-Live / BF_* / unmapped display names are never listed.
+   * Loading must always clear; API failures must surface (never silent empty / hung Searching…).
    */
   useEffect(() => {
     if (!opportunityId) {
       setRegistryManual([]);
+      setRegistryLoading(false);
+      setRegistryError(null);
       return;
     }
     let cancelled = false;
     setRegistryLoading(true);
+    setRegistryError(null);
     void (async () => {
       try {
         const options = await listCanonicalEnterpriseLenderOptionsAsync(
@@ -149,20 +162,31 @@ export function WorkspaceLifeStrategyBoard() {
           .sort((a, b) => a.lenderName.localeCompare(b.lenderName));
         setRegistryManual(mapped);
 
-        const purgeIds = new Set(
-          (debouncedSearch
-            ? await listCanonicalEnterpriseLenderOptionsAsync()
-            : options
-          ).map((o) => o.id),
-        );
+        // Purge non-canonical queue items without blocking search UX on a second full catalog call.
+        void listCanonicalEnterpriseLenderOptionsAsync()
+          .then((allCanonical) => {
+            if (cancelled) return;
+            const purgeIds = new Set(allCanonical.map((o) => o.id));
+            const { removed, kept } = purgeNonCanonicalShortlistItems(opportunityId, purgeIds);
+            if (removed.length > 0) {
+              setQueue(kept);
+              toast.message(
+                `Removed ${removed.length} non-registry lender${removed.length === 1 ? "" : "s"} from Execution Queue (cannot create Enterprise Deal).`,
+              );
+            }
+          })
+          .catch(() => {
+            /* purge is best-effort; search results already rendered */
+          });
+      } catch (err) {
         if (cancelled) return;
-        const { removed, kept } = purgeNonCanonicalShortlistItems(opportunityId, purgeIds);
-        if (removed.length > 0) {
-          setQueue(kept);
-          toast.message(
-            `Removed ${removed.length} non-registry lender${removed.length === 1 ? "" : "s"} from Execution Queue (cannot create Enterprise Deal).`,
-          );
-        }
+        setRegistryManual([]);
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Could not search the Enterprise Lender Registry.";
+        setRegistryError(message);
+        console.error("[CO-QA-003] Manual Recommendation lender search failed", err);
       } finally {
         if (!cancelled) setRegistryLoading(false);
       }
@@ -285,6 +309,8 @@ export function WorkspaceLifeStrategyBoard() {
       );
       return;
     }
+    // CO-ARCH-007 — Manual / display selection stores lender ID only (user intent).
+    // Does not execute Recommendation, Programme, Policy, Eligibility, or AI engines.
     if (
       !inst.enterpriseLenderId ||
       isSoftGoLiveLenderId(inst.enterpriseLenderId) ||
@@ -298,16 +324,26 @@ export function WorkspaceLifeStrategyBoard() {
     const canonicalOpportunityId = registryOpportunity.id;
     if (!canonicalOpportunityId) return;
 
+    // CO-ARCH-002 — Strategy shortlist = Primary + Secondary only.
+    if (isStrategicShortlistAtLimit(canonicalOpportunityId)) {
+      toast.message(STRATEGY_SHORTLIST_LIMIT_GUIDANCE);
+      return;
+    }
+
+    const borrower = resolveOpportunityBorrowerIdentity(registryOpportunity);
     let loan = null;
     try {
       loan = await ensureLoanWorkspaceForOpportunityAsync({
         opportunityId: canonicalOpportunityId,
         opportunity: registryOpportunity,
         contact,
-        customerName: contact?.name || registryOpportunity.primaryContactName || undefined,
+        customerName: borrower.displayName || undefined,
         customerMobile:
-          contact?.mobilePrimary || registryOpportunity.primaryContactMobile || undefined,
-        customerId: contact?.id || registryOpportunity.primaryContactId,
+          borrower.primaryContactMobile ||
+          contact?.mobilePrimary ||
+          registryOpportunity.primaryContactMobile ||
+          undefined,
+        customerId: borrower.partyEntityId || undefined,
         loanProduct: productLabel || registryOpportunity.productLabel || undefined,
         loanAmount:
           typeof registryOpportunity.requestedAmount === "number"
@@ -330,23 +366,33 @@ export function WorkspaceLifeStrategyBoard() {
       return;
     }
 
-    const item = upsertStrategicShortlistItem(canonicalOpportunityId, {
-      lenderRef: inst.lenderRef,
-      lenderName: inst.lenderName,
-      enterpriseLenderId: inst.enterpriseLenderId,
-      lenderCode: inst.lenderCode,
-      product: productLabel,
-      productRefs: inst.productRefs,
-      successProbability: inst.successProbability,
-      strategicScore: inst.successProbability,
-      reasonForRecommendation: inst.reason,
-      specialNotes:
-        selectedBy === "chanakya"
-          ? "Selected from Chanakya Recommendations"
-          : "Selected via Manual Recommendation",
-      selectedBy,
-      createdBy: selectedBy === "chanakya" ? "Chanakya" : "RM",
-    });
+    let item: StrategicLenderShortlistItem[];
+    try {
+      item = upsertStrategicShortlistItem(canonicalOpportunityId, {
+        lenderRef: inst.lenderRef,
+        lenderName: inst.lenderName,
+        enterpriseLenderId: inst.enterpriseLenderId,
+        lenderCode: inst.lenderCode,
+        product: productLabel,
+        productRefs: inst.productRefs,
+        successProbability: inst.successProbability,
+        strategicScore: inst.successProbability,
+        reasonForRecommendation: inst.reason,
+        specialNotes:
+          selectedBy === "chanakya"
+            ? "Selected from Chanakya Recommendations"
+            : "Selected via Manual Recommendation",
+        selectedBy,
+        createdBy: selectedBy === "chanakya" ? "Chanakya" : "RM",
+      });
+    } catch (err) {
+      if (isStrategicShortlistLimitError(err)) {
+        toast.message(err.message || STRATEGY_SHORTLIST_LIMIT_GUIDANCE);
+        setQueue(enforceStrategicShortlistMax(canonicalOpportunityId));
+        return;
+      }
+      throw err;
+    }
 
     setQueue(item);
 
@@ -419,15 +465,19 @@ export function WorkspaceLifeStrategyBoard() {
     if (!registryOpportunity?.id) return;
     setMoveToDealBusy(true);
     try {
+      const borrower = resolveOpportunityBorrowerIdentity(registryOpportunity);
       const result = await runMoveToDealTransition(
         {
           opportunityId: registryOpportunity.id,
           opportunity: registryOpportunity,
           contact,
-          customerName: contact?.name || registryOpportunity.primaryContactName || undefined,
+          customerName: borrower.displayName || undefined,
           customerMobile:
-            contact?.mobilePrimary || registryOpportunity.primaryContactMobile || undefined,
-          customerId: contact?.id || registryOpportunity.primaryContactId,
+            borrower.primaryContactMobile ||
+            contact?.mobilePrimary ||
+            registryOpportunity.primaryContactMobile ||
+            undefined,
+          customerId: borrower.partyEntityId || undefined,
           loanProduct: productLabel || registryOpportunity.productLabel || undefined,
           loanAmount:
             leadCaseFile?.requiredAmount ||
@@ -458,12 +508,19 @@ export function WorkspaceLifeStrategyBoard() {
     setQueue(next);
 
     try {
+      const borrower = registryOpportunity
+        ? resolveOpportunityBorrowerIdentity(registryOpportunity)
+        : null;
       const loan = await ensureLoanWorkspaceForOpportunityAsync({
         opportunityId,
+        opportunity: registryOpportunity ?? undefined,
         contact,
-        customerName: contact?.name,
-        customerMobile: contact?.mobilePrimary,
-        customerId: contact?.id,
+        customerName: borrower?.displayName || contact?.name || undefined,
+        customerMobile:
+          borrower?.primaryContactMobile ||
+          contact?.mobilePrimary ||
+          undefined,
+        customerId: borrower?.partyEntityId || contact?.id || undefined,
         loanProduct: productLabel,
       });
       if (loan) {
@@ -497,7 +554,8 @@ export function WorkspaceLifeStrategyBoard() {
           </p>
           <p className="text-[11px] text-zinc-400">
             {productLabel}
-            {loanAmountLabel ? ` · ${loanAmountLabel}` : ""} · Select lenders · Move to Deal
+            {loanAmountLabel ? ` · ${loanAmountLabel}` : ""} · Shortlist up to{" "}
+            {STRATEGY_SHORTLIST_MAX_LENDERS} lenders · Move to Deal
           </p>
         </div>
       </div>
@@ -519,7 +577,10 @@ export function WorkspaceLifeStrategyBoard() {
                 score={inst.successProbability}
                 reason={inst.reason}
                 eligibility={inst.eligibilityNote}
-                actionLabel="Select"
+                actionLabel={
+                  queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS ? "Shortlist full" : "Select"
+                }
+                disabled={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS}
                 onAction={() => selectLender(inst, "chanakya")}
               />
             ))
@@ -543,7 +604,9 @@ export function WorkspaceLifeStrategyBoard() {
             </div>
           }
         >
-          {registryLoading && manualPool.length === 0 ? (
+          {registryError ? (
+            <EmptyHint text={registryError} />
+          ) : registryLoading && manualPool.length === 0 ? (
             <EmptyHint text="Searching Enterprise Lender Registry…" />
           ) : manualPool.length === 0 ? (
             <EmptyHint
@@ -562,7 +625,10 @@ export function WorkspaceLifeStrategyBoard() {
                 reason="Enterprise Lender Registry"
                 eligibility={inst.eligibilityNote}
                 compact
-                actionLabel="Select"
+                actionLabel={
+                  queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS ? "Shortlist full" : "Select"
+                }
+                disabled={queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS}
                 onAction={() => selectLender(inst, "manual")}
               />
             ))
@@ -573,22 +639,32 @@ export function WorkspaceLifeStrategyBoard() {
         <StrategyColumn
           title="Execution Queue"
           subtitle={
-            queue.length > 0 ? "Ready to Create Deal" : "Pending Deal Creation"
+            queue.length > 0
+              ? `${queue.length}/${STRATEGY_SHORTLIST_MAX_LENDERS} · Ready to Create Deal`
+              : `Pending Deal Creation · max ${STRATEGY_SHORTLIST_MAX_LENDERS}`
           }
           accent="violet"
         >
           {queue.length === 0 ? (
-            <EmptyHint text="Select a lender to prepare Deal creation. Stay in LIFE until you Move to Deal." />
+            <EmptyHint text="Select up to two lenders (Primary + Secondary). Additional lenders can be added after Deal creation from the Deal Workspace." />
           ) : (
             <>
-              {queue.map((item) => (
+              {queue.length >= STRATEGY_SHORTLIST_MAX_LENDERS ? (
+                <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2 text-[11px] leading-snug text-amber-100/95">
+                  {STRATEGY_SHORTLIST_LIMIT_GUIDANCE}
+                </p>
+              ) : null}
+              {queue.map((item, index) => (
                 <div
                   key={item.lenderRef}
                   className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-2.5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-zinc-50">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-violet-300/90">
+                        {strategyShortlistChoiceLabel(index)}
+                      </p>
+                      <p className="mt-0.5 truncate text-sm font-semibold text-zinc-50">
                         {item.lenderName}
                       </p>
                       <p className="mt-0.5 text-[10px] text-zinc-400">
@@ -700,6 +776,7 @@ function LenderCard({
   actionLabel,
   onAction,
   compact,
+  disabled,
 }: {
   name: string;
   score: number;
@@ -708,6 +785,7 @@ function LenderCard({
   actionLabel: string;
   onAction: () => void;
   compact?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="rounded-xl border border-white/10 bg-zinc-900/55 p-2.5">
@@ -725,6 +803,8 @@ function LenderCard({
         type="button"
         size="sm"
         className="mt-2 h-7 w-full text-[11px]"
+        disabled={disabled}
+        title={disabled ? STRATEGY_SHORTLIST_LIMIT_GUIDANCE : undefined}
         onClick={onAction}
       >
         {actionLabel}

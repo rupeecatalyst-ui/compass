@@ -1,7 +1,7 @@
 /**
  * CO-ARCH-003 Phase 2B Sprint 2 — Lender / program clients for Deal Workspace.
  */
-import { getAccessToken } from "@/lib/api-client";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import type { EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
 
@@ -12,13 +12,7 @@ type ApiEnvelope<T> = {
 };
 
 async function apiFetch<T>(url: string): Promise<T> {
-  const token = getAccessToken();
-  const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  const res = await authenticatedJsonFetch(url);
   const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T>;
   if (!res.ok || !body.success) {
     throw new Error(body.error?.message || `Lender API failed (${res.status})`);
@@ -32,7 +26,7 @@ export async function searchActiveLenders(opts?: {
 }): Promise<EnterpriseLenderRecord[]> {
   const params = new URLSearchParams({
     page: "1",
-    pageSize: String(opts?.pageSize ?? 100),
+    pageSize: String(opts?.pageSize ?? 200),
     status: "active",
     enabled: "true",
     lifecycleStatus: "active",

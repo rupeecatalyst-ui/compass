@@ -338,7 +338,7 @@ function Customer360ModalContent({
         timeline: [
           {
             id: `tl-loan-${file.id}`,
-            title: "Loan file created",
+            title: "Deal created",
             description: file.dealNumber
               ? `${file.dealNumber} · ${file.loanProduct}`
               : `${file.fileNumber} · ${file.loanProduct}`,
@@ -360,7 +360,7 @@ function Customer360ModalContent({
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Deal could not be saved.";
-      error("Could not create loan file", message);
+      error("Could not create Deal", message);
       throw err;
     }
   };
@@ -600,7 +600,7 @@ function Customer360ModalContent({
         open={loanCreateOpen}
         onOpenChange={setLoanCreateOpen}
         title="Add Loan for Customer"
-        description={`Create a new loan file for ${customer.name}`}
+        description={`Create a new Deal for ${customer.name}`}
         onOpenSourceContact={openContactFromWorkspace}
         prefillCustomer={{
           id: customer.id,

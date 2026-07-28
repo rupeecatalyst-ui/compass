@@ -81,7 +81,7 @@ export function LifeLenderWorkspace() {
 
     if (!loanFileId) {
       setAssignNotice(
-        "Executive selected. Open a Loan File and return via Link to Lender to persist the assignment.",
+        "Executive selected. Open Loan Workspace and return via Link to Lender to persist the assignment.",
       );
       return;
     }
@@ -114,7 +114,7 @@ export function LifeLenderWorkspace() {
           `${row.executiveName} · ${row.lenderName} linked to loan ${updated.fileNumber}.`,
         );
       } else {
-        setAssignNotice("Could not find the Loan File to persist this assignment.");
+        setAssignNotice("Could not find the Deal to persist this assignment.");
       }
     } catch (error) {
       // BCC / validation will surface if loan cannot save — keep context

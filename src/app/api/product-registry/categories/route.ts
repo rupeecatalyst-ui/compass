@@ -13,6 +13,7 @@ import {
 import {
   mapRouteError,
   parseListQuery,
+  productRegistryErrorResponse,
   productRegistryPersistenceGuard,
   requireProductRegistryAdmin,
   resolveActorDisplayName,
@@ -28,11 +29,19 @@ export async function GET(request: Request) {
     const result = await productRegistryService.queryCategories(parseListQuery(url));
     return successResponse(result);
   } catch (err) {
-    const mapped = mapRouteError(err);
+    const mapped = productRegistryErrorResponse(
+      err,
+      "PRODUCT_CATEGORY_QUERY_FAILED",
+      "Failed to query product categories",
+    );
     if (mapped.status === 401) {
       return fromAuthError(mapped as { status: number; body: ApiResponse<unknown> });
     }
-    return errorResponse(500, "PRODUCT_CATEGORY_QUERY_FAILED", "Failed to query product categories");
+    return errorResponse(
+      mapped.status,
+      mapped.body.error?.code ?? "PRODUCT_CATEGORY_QUERY_FAILED",
+      mapped.body.error?.message ?? "Failed to query product categories",
+    );
   }
 }
 

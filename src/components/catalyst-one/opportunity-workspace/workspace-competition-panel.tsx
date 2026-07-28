@@ -60,7 +60,12 @@ export function WorkspaceCompetitionPanel() {
   }, [search]);
 
   useEffect(() => {
-    if (!opportunityId) return;
+    if (!opportunityId) {
+      setCatalog([]);
+      setCatalogLoading(false);
+      setCatalogError(null);
+      return;
+    }
     let cancelled = false;
     setCatalogLoading(true);
     setCatalogError(null);
@@ -68,16 +73,17 @@ export function WorkspaceCompetitionPanel() {
       .then((rows) => {
         if (cancelled) return;
         setCatalog(rows);
-        setCatalogLoading(false);
       })
       .catch((err) => {
         if (cancelled) return;
         setCatalog([]);
-        setCatalogLoading(false);
         setCatalogError(
           err instanceof Error ? err.message : "Could not load Enterprise Lender Registry.",
         );
-        console.error("[CO-LENDER-003] published lender search failed", err);
+        console.error("[CO-QA-003] published lender search failed", err);
+      })
+      .finally(() => {
+        if (!cancelled) setCatalogLoading(false);
       });
     return () => {
       cancelled = true;

@@ -32,7 +32,7 @@ export const PLACEHOLDER_SEARCH_PUBLISHERS: readonly SearchPublisher[] = [
   {
     id: "publisher-loan-workspace",
     displayName: "Loan Workspace",
-    description: "Loan files and origination workspace",
+    description: "Deals and origination workspace",
     status: "active",
     version: "0.1.0",
     module: "Loan Workspace",
@@ -186,7 +186,7 @@ export function createPlaceholderSearchEntities(): SearchEntity[] {
     }),
     entity({
       id: "se-loan-4821",
-      entityType: "loan_file",
+      entityType: "deal",
       title: "Deal Workspace entity",
       subtitle: "Home Loan · Underwriting",
       description: "Placeholder Deal Workspace entity.",

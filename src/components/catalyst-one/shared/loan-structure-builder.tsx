@@ -3,6 +3,9 @@
 /**
  * Loan Structure Builder — dedicated editing workspace for transaction participants.
  * View stays in the drawer; structural changes happen only here.
+ *
+ * Participant Type: Individual (Contact Registry) | Company / Business Entity (Company Registry).
+ * Existing rows are never migrated — additive selection only.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -32,7 +35,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EntityMasterSearch } from "@/components/catalyst-one/shared/entity-master-search";
+import { LiveEntityMasterSearch } from "@/components/catalyst-one/shared/live-entity-master-search";
+import type { EntityMasterOption } from "@/components/catalyst-one/shared/entity-master-search";
 import { ProgressiveContactCreateModal } from "@/components/catalyst-one/contacts/progressive-contact-create-modal";
 import {
   getAssignableLoanStructureRoles,
@@ -55,6 +59,8 @@ import type {
 import type { ProgressiveParticipantKind } from "@/lib/enterprise-contact-master";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { MAX_LOAN_PARTICIPANTS } from "@/types/loan-participant";
+import type { EnterpriseCompanyOption } from "@/lib/enterprise-registry/companies";
+import type { EnterpriseContactOption } from "@/lib/enterprise-registry/contacts";
 
 export interface LoanStructureBuilderProps {
   open: boolean;
@@ -70,8 +76,20 @@ function toProgressiveKind(role: LoanParticipantRole): ProgressiveParticipantKin
   return "co_applicant";
 }
 
-function roleToEntityType(role: LoanParticipantRole): LoanParticipantEntityType {
-  return role === "company" ? "company" : "individual";
+function rolesForEntityType(entityType: LoanParticipantEntityType) {
+  const all = getAssignableLoanStructureRoles().filter(
+    (r) => r.code !== "primary_applicant" && r.code !== "property" && r.code !== "existing_lender",
+  );
+  if (entityType === "company") {
+    return all.filter(
+      (r) =>
+        r.code === "company" ||
+        r.code === "co_applicant" ||
+        r.code === "guarantor" ||
+        r.defaultEntityType === "company",
+    );
+  }
+  return all.filter((r) => r.code !== "company");
 }
 
 export function LoanStructureBuilder({
@@ -82,6 +100,8 @@ export function LoanStructureBuilder({
   onSave,
 }: LoanStructureBuilderProps) {
   const [draft, setDraft] = useState<LoanParticipant[]>([]);
+  const [addEntityType, setAddEntityType] =
+    useState<LoanParticipantEntityType>("individual");
   const [addRole, setAddRole] = useState<LoanParticipantRole>("co_applicant");
   const [createOpen, setCreateOpen] = useState(false);
   const [createPrefill, setCreatePrefill] = useState("");
@@ -89,9 +109,17 @@ export function LoanStructureBuilder({
   const [error, setError] = useState<string | null>(null);
 
   const assignableRoles = useMemo(
+    () => rolesForEntityType(addEntityType),
+    [addEntityType],
+  );
+
+  const rowRoleOptions = useMemo(
     () =>
       getAssignableLoanStructureRoles().filter(
-        (r) => r.code !== "primary_applicant" && r.code !== "property" && r.code !== "existing_lender",
+        (r) =>
+          r.code !== "primary_applicant" &&
+          r.code !== "property" &&
+          r.code !== "existing_lender",
       ),
     [],
   );
@@ -108,28 +136,54 @@ export function LoanStructureBuilder({
   useEffect(() => {
     if (!open) return;
     setDraft(participants.map((p) => ({ ...p })));
+    setAddEntityType("individual");
     setAddRole("co_applicant");
     setError(null);
     setCreateOpen(false);
   }, [open, participants]);
 
-  const pickerOptions = useMemo(() => {
-    const wantType = roleToEntityType(addRole);
+  const fallbackPickerOptions = useMemo(() => {
     return entityOptions
-      .filter((o) => o.entityType === wantType)
-      .filter((o) => !draft.some((p) => p.entityId && p.entityId === o.id))
+      .filter((o) => o.entityType === addEntityType)
+      .filter((o) => !draft.some((p) => p.entityId && p.entityId === o.id && p.entityType === addEntityType))
       .map((o) => ({
         id: o.id,
         label: o.name,
         sublabel: o.mobile || o.constitution,
       }));
-  }, [entityOptions, addRole, draft]);
+  }, [entityOptions, addEntityType, draft]);
+
+  const setParticipantType = (next: LoanParticipantEntityType) => {
+    setAddEntityType(next);
+    setAddRole(next === "company" ? "company" : "co_applicant");
+    setError(null);
+  };
 
   const addExisting = (option: ParticipantEntityOption) => {
     if (draft.length >= MAX_LOAN_PARTICIPANTS) {
       setError(`Maximum ${MAX_LOAN_PARTICIPANTS} participants allowed.`);
       return;
     }
+    if (
+      draft.some(
+        (p) => p.entityId === option.id && p.entityType === option.entityType,
+      )
+    ) {
+      setError(
+        option.entityType === "company"
+          ? "This company is already in the Loan Structure."
+          : "This contact is already in the Loan Structure.",
+      );
+      return;
+    }
+    const role: LoanParticipantRole =
+      option.entityType === "company" && addRole === "co_applicant"
+        ? addRole
+        : option.entityType === "company" && addRole === "guarantor"
+          ? addRole
+          : option.entityType === "company"
+            ? "company"
+            : addRole;
     const next: LoanParticipant = {
       id: createParticipantId(),
       entityType: option.entityType,
@@ -138,25 +192,49 @@ export function LoanStructureBuilder({
       mobile: option.mobile,
       email: option.email,
       constitution: option.constitution,
-      role: option.entityType === "company" ? "company" : addRole,
+      role,
       status: "active",
     };
     setDraft((prev) => [...prev, next]);
     setError(null);
   };
 
+  const addFromLiveSelect = (opt: EntityMasterOption) => {
+    if (addEntityType === "company") {
+      const company = opt as EnterpriseCompanyOption;
+      addExisting({
+        id: opt.id,
+        name: opt.label,
+        constitution: company.constitution,
+        entityType: "company",
+      });
+      return;
+    }
+    const contact = opt as EnterpriseContactOption;
+    const fromCache = entityOptions.find(
+      (o) => o.id === opt.id && o.entityType === "individual",
+    );
+    addExisting({
+      id: opt.id,
+      name: fromCache?.name || opt.label,
+      mobile: fromCache?.mobile || contact.mobile,
+      email: fromCache?.email || contact.email,
+      entityType: "individual",
+    });
+  };
+
   const removeAt = (id: string) => {
     setDraft((prev) => prev.filter((p) => p.id !== id));
   };
 
+  /** Role change must never rewrite entityType or registry ids (no historical mutation). */
   const changeRole = (id: string, role: LoanParticipantRole) => {
     setDraft((prev) =>
       prev.map((p) =>
         p.id === id
           ? {
               ...p,
-              role: role === "company" ? "company" : role,
-              entityType: role === "company" ? "company" : p.entityType === "company" ? "individual" : p.entityType,
+              role,
             }
           : p,
       ),
@@ -192,8 +270,9 @@ export function LoanStructureBuilder({
               Loan Structure Builder
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Modify participants for {file.customerName || "this loan"}. Roles come from the Loan
-              Structure Role Master. Contacts come from the Enterprise Contact Registry.
+              Modify participants for {file.customerName || "this loan"}. Add an Individual from
+              the Enterprise Contact Registry or a Company / Business Entity from the Enterprise
+              Company Registry.
             </DialogDescription>
           </DialogHeader>
 
@@ -230,7 +309,8 @@ export function LoanStructureBuilder({
 
               {draft.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-border/70 px-3 py-6 text-center text-xs text-muted-foreground">
-                  No participants yet. Select an existing contact or create a new one.
+                  No participants yet. Choose Individual or Company, then search the matching
+                  registry.
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -249,6 +329,8 @@ export function LoanStructureBuilder({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{p.name || "Unnamed"}</p>
                         <p className="truncate text-[11px] text-muted-foreground">
+                          {p.entityType === "company" ? "Company" : "Individual"}
+                          {" · "}
                           {p.mobile || p.email || p.constitution || "Registry linked"}
                         </p>
                       </div>
@@ -256,11 +338,11 @@ export function LoanStructureBuilder({
                         value={p.role ?? (p.entityType === "company" ? "company" : "co_applicant")}
                         onValueChange={(v) => changeRole(p.id, v as LoanParticipantRole)}
                       >
-                        <SelectTrigger className="h-8 w-[160px] text-xs">
+                        <SelectTrigger className="h-8 w-[180px] text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {assignableRoles.map((role) => (
+                          {rowRoleOptions.map((role) => (
                             <SelectItem key={role.code} value={role.code} className="text-xs">
                               {role.label}
                             </SelectItem>
@@ -311,7 +393,28 @@ export function LoanStructureBuilder({
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Add Participant
               </p>
-              <div className="grid gap-2 sm:grid-cols-[180px_1fr]">
+              <div className="grid gap-2 sm:grid-cols-[160px_160px_1fr]">
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Participant Type</Label>
+                  <Select
+                    value={addEntityType}
+                    onValueChange={(v) =>
+                      setParticipantType(v as LoanParticipantEntityType)
+                    }
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="individual" className="text-xs">
+                        Individual
+                      </SelectItem>
+                      <SelectItem value="company" className="text-xs">
+                        Company / Business Entity
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-1">
                   <Label className="text-[11px]">Role</Label>
                   <Select
@@ -332,31 +435,29 @@ export function LoanStructureBuilder({
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[11px]">
-                    Select existing {addRole === "company" ? "company" : "contact"}
+                    {addEntityType === "company"
+                      ? "Search Enterprise Company Registry"
+                      : "Search Enterprise Contact Registry"}
                   </Label>
-                  <EntityMasterSearch
-                    key={`add-${addRole}-${draft.length}`}
+                  <LiveEntityMasterSearch
+                    key={`add-${addEntityType}-${addRole}-${draft.length}`}
+                    kind={addEntityType === "company" ? "company" : "contact"}
                     placeholder={
-                      addRole === "company"
+                      addEntityType === "company"
                         ? "Search companies…"
-                        : "Search Enterprise Contact Registry…"
+                        : "Search contacts…"
                     }
-                    options={pickerOptions}
-                    allowCreateNew={addRole !== "company"}
+                    fallbackOptions={fallbackPickerOptions}
+                    allowCreateNew={addEntityType === "individual"}
                     onCreateNew={(query) => {
                       setCreatePrefill(query);
                       setCreateOpen(true);
                     }}
-                    onSelect={(opt) => {
-                      const option = entityOptions.find(
-                        (o) => o.id === opt.id && o.entityType === roleToEntityType(addRole),
-                      );
-                      if (option) addExisting(option);
-                    }}
+                    onSelect={addFromLiveSelect}
                   />
                 </div>
               </div>
-              {addRole !== "company" && (
+              {addEntityType === "individual" && (
                 <Button
                   type="button"
                   size="sm"

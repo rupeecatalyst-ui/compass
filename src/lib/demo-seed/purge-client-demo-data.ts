@@ -4,7 +4,6 @@
  */
 
 import { STORAGE_KEYS } from "@/constants/animations";
-import { DOCUMENT_REGISTRY_STORAGE_KEY } from "@/constants/document-registry";
 import { ELW_HIERARCHY_STORAGE_KEY } from "@/constants/enterprise-lender-workspace";
 import { EUM_STORAGE_KEY } from "@/constants/enterprise-user-management";
 import { ORG_DOC_STORAGE_KEY } from "@/constants/organization-documents";
@@ -14,7 +13,10 @@ import { isDemoSeedEnabled } from "@/lib/demo-seed/environment";
 const DEMO_BUSINESS_STORAGE_KEYS = [
   STORAGE_KEYS.LOAN_FILES_SAVED_VIEWS,
   STORAGE_KEYS.CUSTOMERS_DATA,
-  DOCUMENT_REGISTRY_STORAGE_KEY,
+  // CO-DOC-002 — NEVER purge Document Registry. Transaction documents are live
+  // business data (localStorage metadata + IndexedDB blobs), not demo seeds.
+  // Prior inclusion of DOCUMENT_REGISTRY_STORAGE_KEY wiped OPP uploads on every
+  // dashboard mount when demo seeds are disabled (prisma / Vercel) → Files=0.
   ELW_HIERARCHY_STORAGE_KEY,
   EUM_STORAGE_KEY,
   ORG_DOC_STORAGE_KEY,

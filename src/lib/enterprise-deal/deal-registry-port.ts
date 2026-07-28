@@ -1,7 +1,6 @@
 /**
- * CO-ARCH-005 — My Deals Deal Registry port.
+ * CO-PERF-002 — My Deals Deal Registry port (progressive Phase 1 → Phase 2).
  * Enterprise Deal API is the only operational SSOT.
- * Soft Go-Live / loadLoanFiles is not used for Deal list when Registry is operational.
  */
 import {
   isDealRegistryPortRuntimeActive,
@@ -17,13 +16,11 @@ export type DealRegistryPortResult = {
   rows: DealRegistryRow[];
   source: DealRegistryReadSource;
   error?: string;
-  /** True when Enterprise Deal Registry is the configured operational SSOT */
   enterpriseSsotExpected: boolean;
+  /** CO-PERF-002 */
+  projection?: "summary" | "full";
 };
 
-/**
- * CO-ARCH-003 / CO-ARCH-005 — Prefer enterprise rows; never invent Soft Go-Live list as SSOT.
- */
 export function resolveMyDealsDisplayRows(input: {
   previous: DealRegistryRow[] | null;
   incoming: DealRegistryRow[];
@@ -34,7 +31,6 @@ export function resolveMyDealsDisplayRows(input: {
   if (source === "enterprise_deal") {
     if (incoming.length > 0) return incoming;
     if (previous && previous.length > 0) return previous;
-    // CO-ARCH-005 — do not fall back to Soft Go-Live LoanFile list when Registry is SSOT.
     return incoming;
   }
   if (source === "local_fallback") {
@@ -55,7 +51,7 @@ export function listDealRegistryRowsLocal(): DealRegistryPortResult {
 }
 
 /**
- * Async read for My Deals — Enterprise Deal API only when port runtime is active.
+ * CO-PERF-002 Phase 1 — Immediate registry paint (summary projection).
  */
 export async function loadMyDealsDealRegistryRows(): Promise<DealRegistryPortResult> {
   if (!isDealRegistryPortRuntimeActive()) {
@@ -73,6 +69,7 @@ export async function loadMyDealsDealRegistryRows(): Promise<DealRegistryPortRes
       pageSize: 100,
       archived: false,
       productFamily: "lending",
+      view: "summary",
     });
     const rows = page.items
       .filter((d) => !d.isDeleted && !d.archived)
@@ -82,6 +79,7 @@ export async function loadMyDealsDealRegistryRows(): Promise<DealRegistryPortRes
       rows,
       source: "enterprise_deal",
       enterpriseSsotExpected: true,
+      projection: "summary",
     };
   } catch (err) {
     return {
@@ -92,3 +90,39 @@ export async function loadMyDealsDealRegistryRows(): Promise<DealRegistryPortRes
     };
   }
 }
+
+/**
+ * CO-PERF-002 Phase 2 — Background enrichment (full Deal rows for expand / chips / history).
+ */
+export async function enrichMyDealsDealRegistryRows(): Promise<DealRegistryPortResult> {
+  if (!isDealRegistryPortRuntimeActive()) {
+    return listDealRegistryRowsLocal();
+  }
+  try {
+    const page = await enterpriseDealApiClient.searchDeals({
+      page: 1,
+      pageSize: 100,
+      archived: false,
+      productFamily: "lending",
+      view: "full",
+    });
+    const rows = page.items
+      .filter((d) => !d.isDeleted && !d.archived)
+      .map(mapEnterpriseDealToDealRegistryRow)
+      .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
+    return {
+      rows,
+      source: "enterprise_deal",
+      enterpriseSsotExpected: true,
+      projection: "full",
+    };
+  } catch (err) {
+    return {
+      rows: [],
+      source: "local_fallback",
+      enterpriseSsotExpected: true,
+      error: err instanceof Error ? err.message : "Deal enrich failed",
+    };
+  }
+}
+

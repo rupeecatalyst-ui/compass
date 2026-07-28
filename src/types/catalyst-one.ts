@@ -543,14 +543,22 @@ export type CustomerListSortField =
   | "lastContact"
   | "health";
 
-/** Loan File Management — Sprint 3 */
+/** Loan Workspace / Deal projection types (CO-ARCH-002 — Loan File business entity retired) */
 
+/**
+ * @deprecated CO-ARCH-002 — Not a business entity. Read-only UI/runtime projection of
+ * Opportunity (FS-01) or Enterprise Deal (`mapDealToLoanFile`). Prefer Opportunity /
+ * Deal domain types for new work. Do not persist as SSOT.
+ */
 export type LoanFileView = "kanban" | "list" | "timeline" | "analytics" | "tasks";
 
+/** @deprecated CO-ARCH-002 — projection field only */
 export type LoanFilePriority = "urgent" | "high" | "medium" | "low";
 
+/** @deprecated CO-ARCH-002 — projection field only */
 export type LoanFileStatus = "on_track" | "at_risk" | "delayed" | "completed";
 
+/** @deprecated CO-ARCH-002 — projection DTO only */
 export interface LoanFileDocument {
   id: string;
   name: string;
@@ -616,6 +624,12 @@ export interface LoanFileBusiness {
   existingBank?: string;
 }
 
+/**
+ * @deprecated CO-ARCH-002 — Loan File is not a business entity.
+ * This shape is a **read-only UI/runtime projection** of Opportunity (FS-01) or
+ * Enterprise Deal (`mapDealToLoanFile`). Canonical flow: Contact/Company → Opportunity → Deal.
+ * Do not introduce new SSOT persistence against this type.
+ */
 export interface LoanFile {
   id: string;
   fileNumber: string;

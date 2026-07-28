@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { CUSTOMER_PORTAL_ACCEPT } from "@/constants/document-requests";
 import {
   answerSaarthiQuestion,
@@ -316,14 +317,24 @@ export function CustomerDocumentCollectionPortal({
   if (!session || !state) {
     if (embedded) {
       return (
-        <div className="flex items-center justify-center py-16 text-zinc-300">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
+        <ChanakyaLoadingExperience
+          module="documents"
+          statusLabel="Preparing document checklist..."
+          surface="command"
+          density="inline"
+          useEbiSignals={false}
+        />
       );
     }
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-zinc-950 text-zinc-300">
-        <Loader2 className="h-6 w-6 animate-spin" />
+      <main className="min-h-dvh bg-zinc-950">
+        <ChanakyaLoadingExperience
+          module="documents"
+          statusLabel="Preparing document checklist..."
+          surface="command"
+          density="page"
+          useEbiSignals={false}
+        />
       </main>
     );
   }

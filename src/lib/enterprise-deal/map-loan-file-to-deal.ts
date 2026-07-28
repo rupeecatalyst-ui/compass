@@ -27,6 +27,9 @@ export type DealCreateBody = {
   productLabel?: string | null;
   productCode?: string | null;
   transactionType?: string | null;
+  primaryBorrowerKind?: "individual" | "company" | null;
+  companyId?: string | null;
+  companyName?: string | null;
   primaryContactId?: string | null;
   primaryContactName?: string | null;
   primaryContactMobile?: string | null;
@@ -222,10 +225,15 @@ export function resolvePrimaryLenderRegistryId(file: LoanFile): string | null {
 
 export function mapLoanFileToOpportunityCreateBody(file: LoanFile) {
   if (!file.customerId?.trim()) {
-    throw new Error("primaryContactId (LoanFile.customerId) is required for Opportunity create");
+    throw new Error(
+      "Borrower party id (LoanFile.customerId) is required for Opportunity create — Contact for Individual or Company for Company borrower",
+    );
   }
   const productLabel = file.loanProduct?.trim() || "Home Loan";
+  // Legacy LoanFile create path is Individual-oriented; company borrowers
+  // must use startOpportunityFromCompany / Registry create with primaryBorrowerKind.
   return {
+    primaryBorrowerKind: "individual" as const,
     primaryContactId: file.customerId,
     productFamily: "lending" as const,
     requirementStage: "raw_lead",

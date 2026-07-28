@@ -47,34 +47,77 @@ import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import {
-  buildChanakyaRadarDashboard,
+  type ChanakyaRadarDashboardModel,
   type ChanakyaRadarDealRow,
 } from "@/lib/chanakya-radar/derive-dashboard";
 import {
   filterChanakyaRadarCards,
-  listChanakyaRadarCards,
-  mapLoanFileToRadarCard,
   type ChanakyaRadarCard,
 } from "@/lib/chanakya-radar";
 import {
   defaultRadarScope,
-  filterFilesByRadarScope,
   resolveRadarActorName,
 } from "@/lib/chanakya-radar/portfolio-scope";
 import {
-  hydrateRadarDealFiles,
-  loadRadarDealFilesSync,
-  subscribeRadarDealSource,
-} from "@/lib/chanakya-radar/radar-deal-source";
+  loadCertifiedRadarSnapshot,
+  type CertifiedRadarSnapshotMeta,
+} from "@/lib/chanakya-radar/load-certified-radar-snapshot";
+import {
+  filterRadarRowsByScope,
+  mapRadarDealRowToKanbanCard,
+} from "@/lib/chanakya-radar/snapshot-projection";
 import { rememberChanakyaRadarViewState } from "@/lib/chanakya-radar/view-state";
 import {
   getChanakyaRadarWorkspaceTab,
   subscribeChanakyaRadarWorkspaceTab,
   type ChanakyaRadarWorkspaceTab,
 } from "@/lib/chanakya-radar/workspace-tab";
+import { ChanakyaRadarSnapshotChrome } from "@/components/catalyst-one/chanakya-radar/chanakya-radar-snapshot-chrome";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import type { LoanFile } from "@/types/catalyst-one";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
+
+const EMPTY_RADAR_VECTOR: ChanakyaRadarDashboardModel["vector"] = {
+  bearingDeg: 0,
+  direction: "North",
+  healthScore: 0,
+  trend: "Stable",
+  dominantQuadrant: "needs_attention",
+  largestConcern: "needs_attention",
+  attentionFocus: "needs_attention",
+  quadrantWeights: {
+    on_track: 0,
+    follow_up_required: 0,
+    needs_attention: 0,
+    at_risk: 0,
+  },
+  attentionWeights: {
+    on_track: 0,
+    follow_up_required: 0,
+    needs_attention: 0,
+    at_risk: 0,
+  },
+  totalWeight: 0,
+  vectorPurpose: "Awaiting certified CHANAKYA Radar Snapshot",
+};
+
+const EMPTY_RADAR_DASHBOARD: ChanakyaRadarDashboardModel = {
+  rows: [],
+  vector: EMPTY_RADAR_VECTOR,
+  kpis: [],
+  intelligence: [],
+  activeCount: 0,
+  hoverSummary: {
+    healthScore: 0,
+    direction: "Stable",
+    largestConcern: "—",
+    dominantCategory: "—",
+    totalActive: 0,
+  },
+};
 
 type WorkspaceTab = ChanakyaRadarWorkspaceTab;
 type SnapshotKpiId =
@@ -149,14 +192,12 @@ function filterRowsForSnapshot(
 }
 
 /**
- * CO-SPRINT-105 — Mission Control layout optimization.
- * First viewport: Radar header (title + scope + vector strip) + hero Radar.
- * Live Intelligence / view switcher live in the global header.
+ * CO-ARCH-007 — CHANAKYA Radar is a Tier 4 Snapshot Consumer.
+ * Page load reads certified Night Mode intelligence — never live enterprise aggregation.
  */
 export function ChanakyaRadarWorkspace() {
   const router = useRouter();
   const { user } = useAuthContext();
-  const [tick, setTick] = useState(0);
   const [scope, setScope] = useState<ChanakyaRadarScopeId>(() =>
     defaultRadarScope(user?.role),
   );
@@ -166,10 +207,33 @@ export function ChanakyaRadarWorkspace() {
   const [radarFocus, setRadarFocus] = useState<ChanakyaOperationalQuadrantId | null>(null);
   const [expandedKpi, setExpandedKpi] = useState<SnapshotKpiId | null>(null);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [snapshotMeta, setSnapshotMeta] = useState<CertifiedRadarSnapshotMeta | null>(null);
+  const [certifiedDashboard, setCertifiedDashboard] =
+    useState<ChanakyaRadarDashboardModel | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(true);
+  const [refreshBusy, setRefreshBusy] = useState(false);
   const snapshotRef = useRef<HTMLElement | null>(null);
   const columnRefs = useRef<
     Partial<Record<ChanakyaOperationalQuadrantId, HTMLElement | null>>
   >({});
+
+  const isAdministrator =
+    user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
+
+  const reloadSnapshot = useCallback(async () => {
+    setSnapshotLoading(true);
+    try {
+      const certified = await loadCertifiedRadarSnapshot();
+      setCertifiedDashboard(certified.dashboard);
+      setSnapshotMeta(certified.meta);
+    } finally {
+      setSnapshotLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void reloadSnapshot();
+  }, [reloadSnapshot]);
 
   useEffect(() => {
     setWorkspaceTab(getChanakyaRadarWorkspaceTab());
@@ -191,53 +255,55 @@ export function ChanakyaRadarWorkspace() {
     });
   }, [scope]);
 
-  useEffect(() => {
-    const bump = () => setTick((t) => t + 1);
-    const unsubscribe = subscribeRadarDealSource(bump);
-    window.addEventListener("storage", bump);
-    const id = window.setInterval(bump, 60_000);
-    return () => {
-      unsubscribe();
-      window.removeEventListener("storage", bump);
-      window.clearInterval(id);
-    };
-  }, []);
+  const forceIntelligenceRefresh = async () => {
+    if (!isAdministrator) return;
+    setRefreshBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/enterprise-metrics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "force_recalculate" }),
+      });
+      const body = (await res.json()) as { success?: boolean; error?: { message?: string } };
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message || "Intelligence refresh failed");
+      }
+      toast.success("Enterprise Intelligence refresh complete");
+      await reloadSnapshot();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Refresh failed");
+    } finally {
+      setRefreshBusy(false);
+    }
+  };
 
   const actorRm = resolveRadarActorName(user);
 
-  /** Deal Registry SSOT — hydrated async; sync cache for first paint / Live Intelligence. */
-  const [dealBook, setDealBook] = useState<LoanFile[]>(() =>
-    typeof window !== "undefined" ? loadRadarDealFilesSync().files : [],
+  const baseDashboard = certifiedDashboard ?? EMPTY_RADAR_DASHBOARD;
+
+  const scopedRows = useMemo(
+    () => filterRadarRowsByScope(baseDashboard.rows, scope, actorRm),
+    [baseDashboard.rows, scope, actorRm],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    void hydrateRadarDealFiles().then((result) => {
-      if (cancelled) return;
-      setDealBook(result.files);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [tick]);
-
-  const scopedFiles = useMemo(() => {
-    return filterFilesByRadarScope(dealBook, scope, {
-      actorRm,
-      role: user?.role,
-    });
-  }, [dealBook, scope, actorRm, user?.role]);
-
-  const model = useMemo(() => buildChanakyaRadarDashboard(scopedFiles), [scopedFiles]);
+  /** Certified vector/KPIs stay org-wide; scope only focuses blips / lists (lightweight). */
+  const model = useMemo<ChanakyaRadarDashboardModel>(
+    () => ({
+      ...baseDashboard,
+      rows: scopedRows,
+      activeCount: scopedRows.length || baseDashboard.activeCount,
+    }),
+    [baseDashboard, scopedRows],
+  );
 
   const kanbanCards = useMemo(() => {
-    const cards = listChanakyaRadarCards(scopedFiles);
+    const cards = scopedRows.map(mapRadarDealRowToKanbanCard);
     return filterChanakyaRadarCards(cards, {
       relationshipManager: "all",
       product: "all",
       source: "all",
     });
-  }, [scopedFiles]);
+  }, [scopedRows]);
 
   const kanbanGroups = useMemo(
     () => groupRadarCardsForKanban(kanbanCards),
@@ -246,18 +312,36 @@ export function ChanakyaRadarWorkspace() {
 
   const selectedPreview = useMemo(() => {
     if (!selectedFileId) return null;
-    const file = scopedFiles.find(
-      (f) =>
-        f.id === selectedFileId ||
-        f.enterpriseDealId === selectedFileId,
+    const row = scopedRows.find(
+      (r) => r.fileId === selectedFileId || r.enterpriseDealId === selectedFileId || r.id === selectedFileId,
     );
-    if (!file) return null;
+    if (!row) return null;
+    const card = mapRadarDealRowToKanbanCard(row);
+    // Preview file stub — navigation identity only; not a business SSOT hydrate.
+    const file = {
+      id: row.fileId,
+      enterpriseDealId: row.enterpriseDealId,
+      customerName: row.borrower,
+      customerId: row.customerId,
+      loanProduct: row.product,
+      loanAmount: row.loanAmount,
+      relationshipManager: row.assignedRm,
+      stage: "pre_login",
+      status: "on_track",
+      priority: "medium",
+      createdAt: row.lastActivity || new Date().toISOString(),
+      updatedAt: row.lastActivity || new Date().toISOString(),
+      lenders: [],
+      documents: [],
+      tasks: [],
+      timeline: [],
+    } as unknown as LoanFile;
     return {
-      card: mapLoanFileToRadarCard(file),
+      card,
       file,
       portfolioHealthScore: model.vector.healthScore,
     };
-  }, [selectedFileId, scopedFiles, model.vector.healthScore]);
+  }, [selectedFileId, scopedRows, model.vector.healthScore]);
 
   const kpiById = useMemo(() => {
     const map = Object.fromEntries(model.kpis.map((k) => [k.id, k])) as Record<
@@ -436,13 +520,38 @@ export function ChanakyaRadarWorkspace() {
   );
 
   return (
-    <div className="w-full bg-zinc-950/20">
+    <div className="w-full bg-zinc-950/20" data-sprint="CO-ARCH-007">
       <div className="flex w-full flex-col gap-1.5 pb-6 md:gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-2 px-0.5">
+          {snapshotMeta ? <ChanakyaRadarSnapshotChrome meta={snapshotMeta} className="min-w-0 flex-1" /> : null}
+          {isAdministrator ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 shrink-0 gap-1.5 border-zinc-700 bg-zinc-950/80 text-[11px]"
+              disabled={refreshBusy || snapshotLoading}
+              onClick={() => void forceIntelligenceRefresh()}
+            >
+              {refreshBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Refresh Intelligence
+            </Button>
+          ) : null}
+        </div>
+
+        {snapshotLoading && !certifiedDashboard ? (
+          <p className="px-1 text-[11px] text-muted-foreground">Loading certified Radar Snapshot…</p>
+        ) : null}
+
         {workspaceTab === "radar" ? (
           <>
             {/*
-              First viewport — Mission Control only.
-              Global Header → Radar Header → Radar → (scroll) analytics
+              First viewport — Snapshot consumer (CO-ARCH-007).
+              Global Header → Philosophy / metadata → Radar Header → Radar → (scroll) analytics
             */}
             <section className="rounded-xl border border-zinc-700/90 bg-zinc-950/80">
               <header className="flex flex-col gap-1 border-b border-zinc-800/90 px-3 py-2 md:px-3.5 md:py-2">

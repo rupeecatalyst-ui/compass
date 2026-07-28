@@ -11,15 +11,22 @@ const TOKEN_KEY = "compass:access-token";
 const REFRESH_KEY = "compass:refresh-token";
 
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshSubscribers: Array<(token: string | null) => void> = [];
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
+function subscribeTokenRefresh(cb: (token: string | null) => void) {
   refreshSubscribers.push(cb);
 }
 
 function onTokenRefreshed(token: string) {
   refreshSubscribers.forEach((cb) => cb(token));
   refreshSubscribers = [];
+}
+
+/** CO-QA-003 — Always flush waiters (including refresh failure) so fetch never hangs forever. */
+function flushTokenRefreshWaiters(token: string | null = null) {
+  const waiting = refreshSubscribers;
+  refreshSubscribers = [];
+  waiting.forEach((cb) => cb(token));
 }
 
 export function getAccessToken(): string | null {
@@ -83,10 +90,10 @@ export async function authenticatedJsonFetch(
   }
 
   if (isRefreshing) {
-    await new Promise<void>((resolve) => {
-      subscribeTokenRefresh(() => resolve());
+    const tokenAfterWait = await new Promise<string | null>((resolve) => {
+      subscribeTokenRefresh((next) => resolve(next));
     });
-    return doFetch(getAccessToken());
+    return doFetch(tokenAfterWait ?? getAccessToken());
   }
 
   isRefreshing = true;
@@ -107,11 +114,13 @@ export async function authenticatedJsonFetch(
       return doFetch(refreshBody.data.accessToken);
     }
     clearTokens();
+    flushTokenRefreshWaiters(null);
     if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
       window.location.href = "/login";
     }
   } catch {
     clearTokens();
+    flushTokenRefreshWaiters(null);
     if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
       window.location.href = "/login";
     }
@@ -161,8 +170,12 @@ apiClient.interceptors.response.use(
       }
 
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          subscribeTokenRefresh((token: string) => {
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh((token: string | null) => {
+            if (!token) {
+              reject(error);
+              return;
+            }
             originalRequest.headers.Authorization = `Bearer ${token}`;
             resolve(apiClient(originalRequest));
           });
@@ -185,7 +198,13 @@ apiClient.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
           return apiClient(originalRequest);
         }
+        flushTokenRefreshWaiters(null);
+        clearTokens();
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
       } catch {
+        flushTokenRefreshWaiters(null);
         clearTokens();
         if (typeof window !== "undefined") {
           window.location.href = "/login";

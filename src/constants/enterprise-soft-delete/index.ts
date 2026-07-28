@@ -11,7 +11,7 @@ export const SOFT_DELETE_MODULE_LABELS: Record<SoftDeleteModuleId, string> = {
   contacts: "Contacts",
   companies: "Companies",
   opportunities: "Opportunities",
-  loan_files: "Loan Files",
+  loan_files: "Deals",
   documents: "Documents",
   tasks: "Tasks",
   notes: "Notes",

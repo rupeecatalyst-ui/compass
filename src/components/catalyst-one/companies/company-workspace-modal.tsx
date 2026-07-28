@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Building2, Plus, Search, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   ECM_COMPANY_RELATION_ROLE_LABELS,
-  ECM_COMPANY_RELATION_ROLES,
+  ECM_COMPANY_REPRESENTATIVE_ROLES,
 } from "@/constants/enterprise-company-master";
 import { getEcmMasterLabel } from "@/constants/enterprise-contact-master";
 import { ROUTES } from "@/constants/routes";
+import { startOpportunityFromCompany } from "@/lib/enterprise-opportunity/start-opportunity-from-company";
 import {
   deriveEcmCompanyReadiness,
   getEcmCompany,
@@ -25,6 +27,7 @@ import {
 } from "@/lib/enterprise-contact-master";
 import { useEnterpriseRegistry } from "@/hooks/use-enterprise-registry";
 import {
+  hydrateCompanyLinksFromPrisma,
   persistLinkCompanyContact,
   persistRegisterEcmCompany,
   persistRegisterEcmContact,
@@ -64,7 +67,7 @@ type CompanyTab = "identity" | "business" | "relationships" | "readiness";
 const COMPANY_TABS: { id: CompanyTab; label: string }[] = [
   { id: "identity", label: "Company Identity" },
   { id: "business", label: "Business Profile" },
-  { id: "relationships", label: "Relationship" },
+  { id: "relationships", label: "Representatives" },
   { id: "readiness", label: "Business Readiness" },
 ];
 
@@ -117,6 +120,7 @@ export function CompanyWorkspaceModal({
   onCompleted,
   onDeleted,
 }: CompanyWorkspaceModalProps) {
+  const router = useRouter();
   const { user } = useAuthContext();
   const [tab, setTab] = useState<CompanyTab>("identity");
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -152,7 +156,12 @@ export function CompanyWorkspaceModal({
   const [relSearch, setRelSearch] = useState("");
   const [newRelName, setNewRelName] = useState("");
   const [newRelMobile, setNewRelMobile] = useState("");
-  const [newRelRole, setNewRelRole] = useState<EcmCompanyRelationRole>("director");
+  const [newRelEmail, setNewRelEmail] = useState("");
+  const [newRelDesignation, setNewRelDesignation] = useState("");
+  const [newRelDepartment, setNewRelDepartment] = useState("");
+  const [newRelRole, setNewRelRole] = useState<EcmCompanyRelationRole>("employee");
+  const [startingJourney, setStartingJourney] = useState(false);
+  const startingJourneyLockRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const baselineRef = useRef("");
   const wasOpenRef = useRef(false);
@@ -210,6 +219,12 @@ export function CompanyWorkspaceModal({
       setValidationMessage(null);
       if (company) {
         hydrateFromCompany(company);
+        // CO-PERF-002 — links are no longer bulk-hydrated; fetch for this company only.
+        if (company.id) {
+          void hydrateCompanyLinksFromPrisma(company.id).then(() => {
+            setLinkTick((n) => n + 1);
+          });
+        }
       } else {
         resetBlankForm(initialCompanyName);
       }
@@ -444,6 +459,8 @@ export function CompanyWorkspaceModal({
           companyId: draftId,
           contactId,
           relationRole: newRelRole,
+          designation: newRelDesignation.trim() || null,
+          department: newRelDepartment.trim() || null,
           createdBy: actorId,
         });
         setRelSearch("");
@@ -471,6 +488,7 @@ export function CompanyWorkspaceModal({
         const contact = await persistRegisterEcmContact({
           name,
           mobilePrimary: mobile,
+          personalEmail: newRelEmail.trim() || undefined,
           roles: ["customer"],
           ownerName,
           createdBy: actorId,
@@ -479,10 +497,15 @@ export function CompanyWorkspaceModal({
           companyId: draftId,
           contactId: contact.id,
           relationRole: newRelRole,
+          designation: newRelDesignation.trim() || null,
+          department: newRelDepartment.trim() || null,
           createdBy: actorId,
         });
         setNewRelName("");
         setNewRelMobile("");
+        setNewRelEmail("");
+        setNewRelDesignation("");
+        setNewRelDepartment("");
         setLinkTick((n) => n + 1);
         toast.success("Individual Contact created and linked.");
       } catch (e) {
@@ -746,8 +769,9 @@ export function CompanyWorkspaceModal({
             <div className="space-y-5">
               {validationBanner}
               <p className="text-xs text-zinc-400">
-                People are always Individual Contacts. Company stores only the relationship link — never
-                duplicate contacts.
+                Company representatives are communication contacts only — not borrowers. Link
+                Individuals from the Contact Registry; assign borrower roles in Opportunity Loan
+                Structure.
               </p>
 
               <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
@@ -761,22 +785,34 @@ export function CompanyWorkspaceModal({
                     className="border-zinc-700 bg-zinc-950 pl-9"
                   />
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="grid gap-2 sm:grid-cols-2">
                   <Select
                     value={newRelRole}
                     onValueChange={(v) => setNewRelRole(v as EcmCompanyRelationRole)}
                   >
-                    <SelectTrigger className="h-9 w-48 border-zinc-700 bg-zinc-950">
+                    <SelectTrigger className="h-9 border-zinc-700 bg-zinc-950">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.values(ECM_COMPANY_RELATION_ROLES).map((role) => (
+                      {ECM_COMPANY_REPRESENTATIVE_ROLES.map((role) => (
                         <SelectItem key={role} value={role}>
                           {ECM_COMPANY_RELATION_ROLE_LABELS[role]}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <Input
+                    value={newRelDesignation}
+                    onChange={(e) => setNewRelDesignation(e.target.value)}
+                    placeholder="Designation"
+                    className="border-zinc-700 bg-zinc-950"
+                  />
+                  <Input
+                    value={newRelDepartment}
+                    onChange={(e) => setNewRelDepartment(e.target.value)}
+                    placeholder="Department (optional)"
+                    className="border-zinc-700 bg-zinc-950"
+                  />
                 </div>
                 {searchHits.map((c) => (
                   <div
@@ -809,6 +845,12 @@ export function CompanyWorkspaceModal({
                     placeholder="Mobile"
                     className="border-zinc-700 bg-zinc-950"
                   />
+                  <Input
+                    value={newRelEmail}
+                    onChange={(e) => setNewRelEmail(e.target.value)}
+                    placeholder="Email address"
+                    className="border-zinc-700 bg-zinc-950 sm:col-span-2"
+                  />
                 </div>
                 <Button type="button" size="sm" className="h-8 gap-1.5" onClick={createAndLink}>
                   <Plus className="h-3.5 w-3.5" />
@@ -818,7 +860,7 @@ export function CompanyWorkspaceModal({
 
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Linked relationships
+                  Company representatives
                 </p>
                 {links.length === 0 && (
                   <p className="text-sm text-zinc-500">No relationships yet.</p>
@@ -834,6 +876,8 @@ export function CompanyWorkspaceModal({
                         <p className="text-sm font-medium">{person?.name ?? "Contact"}</p>
                         <p className="text-[11px] text-zinc-500">
                           {ECM_COMPANY_RELATION_ROLE_LABELS[link.relationRole] ?? link.relationRole}
+                          {link.designation ? ` · ${link.designation}` : ""}
+                          {link.department ? ` · ${link.department}` : ""}
                           {person?.mobilePrimary ? ` · ${person.mobilePrimary}` : ""}
                         </p>
                       </div>
@@ -883,8 +927,36 @@ export function CompanyWorkspaceModal({
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button asChild size="sm" className="h-9 rounded-lg">
-                  <Link href={ROUTES.LOAN_JOURNEY}>Start Loan Journey</Link>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 rounded-lg"
+                  disabled={!liveCompany || startingJourney}
+                  onClick={() => {
+                    if (!liveCompany || startingJourneyLockRef.current) return;
+                    startingJourneyLockRef.current = true;
+                    setStartingJourney(true);
+                    void startOpportunityFromCompany(liveCompany)
+                      .then((result) => {
+                        toast.success(
+                          result.created
+                            ? "Loan journey started for company."
+                            : "Continuing existing draft loan journey.",
+                        );
+                        router.push(result.workspaceHref);
+                      })
+                      .catch((err: unknown) => {
+                        toast.message(
+                          err instanceof Error ? err.message : "Could not start loan journey.",
+                        );
+                      })
+                      .finally(() => {
+                        startingJourneyLockRef.current = false;
+                        setStartingJourney(false);
+                      });
+                  }}
+                >
+                  {startingJourney ? "Starting…" : "Start Loan Journey"}
                 </Button>
                 <Button asChild size="sm" variant="outline" className="h-9 rounded-lg border-zinc-700">
                   <Link href={`${ROUTES.CONTACTS}?create=1&intent=investor`}>Start Investment Journey</Link>

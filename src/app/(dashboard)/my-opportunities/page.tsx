@@ -9,8 +9,8 @@ export default function MyOpportunitiesPage() {
     <Suspense
       fallback={
         <ChanakyaLoadingExperience
-          module="opportunity"
-          statusLabel="Opening Opportunities…"
+          module="my-opportunities"
+          statusLabel="Loading Opportunities..."
           density="panel"
         />
       }

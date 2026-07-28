@@ -16,6 +16,8 @@ function mapLink(row: {
   companyId: string;
   contactId: string;
   relationRole: EcmCompanyRelationRole;
+  designation?: string | null;
+  department?: string | null;
   status: "active" | "inactive";
   createdBy: string;
   modifiedBy: string;
@@ -27,6 +29,8 @@ function mapLink(row: {
     companyId: row.companyId,
     contactId: row.contactId,
     relationRole: row.relationRole as DomainRelationRole,
+    designation: row.designation ?? undefined,
+    department: row.department ?? undefined,
     status: row.status,
     createdBy: row.createdBy,
     createdOn: row.createdAt.toISOString(),
@@ -192,6 +196,8 @@ export class EcmCompanyRepository {
     companyId: string;
     contactId: string;
     relationRole: DomainRelationRole;
+    designation?: string | null;
+    department?: string | null;
     createdBy: string;
   }) {
     const existing = await prisma.ecmCompanyContactLink.findUnique({
@@ -209,6 +215,8 @@ export class EcmCompanyRepository {
         where: { id: existing.id },
         data: {
           status: "active",
+          designation: input.designation ?? existing.designation,
+          department: input.department ?? existing.department,
           modifiedBy: input.createdBy,
         },
       });
@@ -221,6 +229,8 @@ export class EcmCompanyRepository {
         companyId: input.companyId,
         contactId: input.contactId,
         relationRole: input.relationRole,
+        designation: input.designation?.trim() || null,
+        department: input.department?.trim() || null,
         status: "active",
         createdBy: input.createdBy,
         modifiedBy: input.createdBy,

@@ -18,7 +18,17 @@ export type PipelineDragTraceStep =
   | "context_refresh"
   | "render"
   | "error"
-  | "blocked";
+  | "blocked"
+  | "delete_user_click"
+  | "delete_callback_invoked"
+  | "delete_initiated"
+  | "delete_api_called"
+  | "delete_db_confirmed"
+  | "delete_registry_refreshed"
+  | "delete_pipeline_refreshed"
+  | "delete_render_complete"
+  | "delete_failed"
+  | "delete_blocked";
 
 type TracePayload = Record<string, unknown>;
 
@@ -38,12 +48,14 @@ export function tracePipelineDrag(
   step: PipelineDragTraceStep,
   payload?: TracePayload,
 ): void {
-  if (!enabled()) return;
+  // CO-QA-002 — always emit delete lifecycle to console for BAT forensics.
+  const always =
+    step.startsWith("delete_") || step === "error" || step === "blocked";
+  if (!always && !enabled()) return;
   const entry = { t: Date.now(), step, payload };
   sequence.push(entry);
   if (sequence.length > 80) sequence.shift();
-  // Explicit console — do not suppress (CO-PIPELINE-001).
-  console.info("[CO-PIPELINE-001]", step, payload ?? {});
+  console.info(always ? "[CO-QA-002]" : "[CO-PIPELINE-001]", step, payload ?? {});
 }
 
 export function getPipelineDragTrace(): typeof sequence {

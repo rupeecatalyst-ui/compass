@@ -1,0 +1,22 @@
+---
+description: CO-QA-003 Lender Registry search must not hang; surface API errors
+alwaysApply: true
+---
+
+# CO-QA-003 — Enterprise Lender Registry Search
+
+Status: **ENTERPRISE APPROVED** · Effective immediately  
+Authority: CO-BUG-011 · CO-QA-001
+
+## Rules
+
+1. Strategy Manual Recommendation searches **Prisma Enterprise Lender Registry only** (`listCanonicalEnterpriseLenderOptionsAsync`).
+2. Never swallow lender API failures as an empty list on the Manual / Deal-eligible path.
+3. Auth refresh waiters must always be flushed (success **and** failure) — never leave “Searching Enterprise Lender Registry…” forever.
+4. Soft Go-Live local catalog must not be used for Deal FK lender selection.
+
+## Certification
+
+Module remains **OPEN** until `CO-QA-003-E2E-001` Passes on the live app.
+
+Docs: `docs/co-qa-003/`

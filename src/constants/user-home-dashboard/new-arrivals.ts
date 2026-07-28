@@ -72,7 +72,7 @@ export const NEW_ARRIVALS_KPI_CARDS: readonly NewArrivalsKpiCardDef[] = [
   // Future examples (disabled — enable when registries/counts are ready):
   // {
   //   id: "new_loan_files",
-  //   title: "New Loan Files",
+  //   title: "New Deals",
   //   icon: "landmark",
   //   source: { type: "custom", sourceKey: "loan_files" },
   //   drillDown: { type: "route", path: ROUTES.LOAN_FILES, query: { filter: "new" } },

@@ -12,9 +12,10 @@ import type {
   Prisma,
 } from "@prisma/client";
 import { prisma } from "@server/lib/prisma";
+import { userAdminService } from "@server/services/user-admin.service";
 import { ENTERPRISE_DEAL_SOFT_DELETE_MODULE } from "@/constants/enterprise-deal-registry";
 import type { EnterpriseDealSearchQuery } from "@/types/enterprise-deal";
-import { allocateDealNumber } from "@server/services/enterprise-deal/deal-number.service";
+import { allocateDealNumberInTransaction } from "@server/services/enterprise-deal/deal-number.service";
 import {
   DealConflictError,
   DealNotFoundError,
@@ -69,6 +70,25 @@ function buildWorkingSnapshot(input: CreateEnterpriseDealInput): Prisma.InputJso
       mobile: input.primaryContactMobile ?? null,
       email: input.primaryContactEmail ?? null,
     },
+    company: {
+      id: input.companyId ?? null,
+      name:
+        (input.snapshot &&
+        typeof input.snapshot === "object" &&
+        !Array.isArray(input.snapshot) &&
+        typeof (input.snapshot as Record<string, unknown>).companyName === "string"
+          ? ((input.snapshot as Record<string, unknown>).companyName as string)
+          : null) ??
+        null,
+    },
+    primaryBorrowerKind: input.companyId ? "company" : "individual",
+    companyName:
+      (input.snapshot &&
+      typeof input.snapshot === "object" &&
+      !Array.isArray(input.snapshot) &&
+      typeof (input.snapshot as Record<string, unknown>).companyName === "string"
+        ? ((input.snapshot as Record<string, unknown>).companyName as string)
+        : null) ?? null,
     product: {
       id: input.productId ?? null,
       code: input.productCode ?? null,
@@ -209,12 +229,15 @@ export class EnterpriseDealRepository {
     );
     if (existingPair) return existingPair;
 
-    const dealNumber = await allocateDealNumber(input.organizationId);
     const now = new Date();
     const snapshot = buildWorkingSnapshot(input);
     const actor = input.actorUserId ?? null;
 
+    // CO-QA-005 — Single interactive transaction: number allocate + create + snapshot + timeline.
+    // Sequential allocateDealNumber() + $transaction doubled pool checkout pressure under
+    // Supabase PgBouncer (6543) and default maxWait=2s → "Unable to start a transaction…".
     return prisma.$transaction(async (tx) => {
+      const dealNumber = await allocateDealNumberInTransaction(tx, input.organizationId);
       const deal = await tx.enterpriseDeal.create({
         data: {
           organizationId: input.organizationId,
@@ -533,10 +556,18 @@ export class EnterpriseDealRepository {
       });
     }
     if (query.scope === "my" && query.scopeUserId) {
+      const downlineIds = await userAdminService.resolveDownlineUserIds(query.scopeUserId);
       andFilters.push({
         OR: [
-          { relationshipManagerUserId: query.scopeUserId },
-          { primaryOwnerUserId: query.scopeUserId },
+          { relationshipManagerUserId: { in: downlineIds } },
+          { primaryOwnerUserId: { in: downlineIds } },
+          // Supervisors stored on assignment save (hierarchyVisibilityUserIds)
+          {
+            lendingExtension: {
+              path: ["hierarchyVisibilityUserIds"],
+              array_contains: query.scopeUserId,
+            },
+          },
         ],
       });
     }
@@ -752,34 +783,37 @@ export class EnterpriseDealRepository {
       },
     );
 
-    await this.appendTimelineEvent({
-      organizationId: input.organizationId,
-      dealId: input.dealId,
-      eventType: "stage_transition",
-      summary: `Stage ${deal.grossStage} → ${input.toGrossStage}`,
-      actorUserId: input.actorUserId,
-      payload: {
-        fromGrossStage: deal.grossStage,
-        toGrossStage: input.toGrossStage,
-        fromSubStage: deal.subStage,
-        toSubStage: input.toSubStage ?? null,
-        fromLifecycleStatus: deal.lifecycleStatus,
-        toLifecycleStatus: input.toLifecycleStatus ?? null,
-        reason: input.reason ?? null,
-      },
-    });
-
-    if (stageChanged) {
-      await this.appendSnapshot({
+    // CO-ARCH-003 — Tier 2 timeline/snapshot after Tier 1 stage commit (do not block response).
+    const { scheduleTier2Work } = await import("@server/lib/schedule-tier2");
+    scheduleTier2Work(`deal.transition.timeline:${input.dealId}`, async () => {
+      await this.appendTimelineEvent({
         organizationId: input.organizationId,
         dealId: input.dealId,
-        reason: "stage_transition",
-        snapshot: (updated.snapshot as Prisma.InputJsonValue) ?? {},
+        eventType: "stage_transition",
+        summary: `Stage ${deal.grossStage} → ${input.toGrossStage}`,
         actorUserId: input.actorUserId,
+        payload: {
+          fromGrossStage: deal.grossStage,
+          toGrossStage: input.toGrossStage,
+          fromSubStage: deal.subStage,
+          toSubStage: input.toSubStage ?? null,
+          fromLifecycleStatus: deal.lifecycleStatus,
+          toLifecycleStatus: input.toLifecycleStatus ?? null,
+          reason: input.reason ?? null,
+        },
       });
-    }
+      if (stageChanged) {
+        await this.appendSnapshot({
+          organizationId: input.organizationId,
+          dealId: input.dealId,
+          reason: "stage_transition",
+          snapshot: (updated.snapshot as Prisma.InputJsonValue) ?? {},
+          actorUserId: input.actorUserId,
+        });
+      }
+    });
 
-    return this.requireDeal(input.organizationId, input.dealId);
+    return updated;
   }
 
   // --- Counterparties ---

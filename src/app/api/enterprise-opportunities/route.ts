@@ -19,7 +19,30 @@ export async function GET(request: Request) {
     void actor;
     const url = new URL(request.url);
     const primaryContactId = url.searchParams.get("primaryContactId") ?? undefined;
+    const companyId = url.searchParams.get("companyId") ?? undefined;
     const findActive = url.searchParams.get("findActive") === "1";
+    const findOpenDraft = url.searchParams.get("findOpenDraft") === "1";
+    if (findOpenDraft && companyId) {
+      const draft = await enterpriseOpportunityService.findOpenDraftForCompany({
+        companyId,
+      });
+      return successResponse({ item: draft });
+    }
+    if (findOpenDraft && primaryContactId) {
+      const draft = await enterpriseOpportunityService.findOpenDraftForContact({
+        primaryContactId,
+      });
+      return successResponse({ item: draft });
+    }
+    if (findActive && companyId) {
+      const active = await enterpriseOpportunityService.findActiveForCompanyProduct({
+        companyId,
+        productId: url.searchParams.get("productId"),
+        productCode: url.searchParams.get("productCode"),
+        productLabel: url.searchParams.get("productLabel"),
+      });
+      return successResponse({ item: active });
+    }
     if (findActive && primaryContactId) {
       const active = await enterpriseOpportunityService.findActiveForContactProduct({
         primaryContactId,
@@ -32,7 +55,16 @@ export async function GET(request: Request) {
     const result = await enterpriseOpportunityService.searchOpportunities({
       q: url.searchParams.get("q") ?? undefined,
       primaryContactId,
+      companyId,
       requirementStage: url.searchParams.get("requirementStage") ?? undefined,
+      sourceCode: url.searchParams.get("sourceCode") ?? undefined,
+      sourceBucket: (url.searchParams.get("sourceBucket") as
+        | "direct"
+        | "channel_partner"
+        | "referral"
+        | "other"
+        | null) ?? undefined,
+      freshLoginToday: url.searchParams.get("freshLogin") === "today",
       limit: url.searchParams.get("limit")
         ? Number(url.searchParams.get("limit"))
         : undefined,

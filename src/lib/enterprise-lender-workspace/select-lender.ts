@@ -9,9 +9,12 @@ import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
 import { buildLenderMasterSnapshot } from "@/lib/enterprise-lender-registry/auto-populate";
 import { localLenderRegistryStore } from "@/lib/enterprise-lender-registry/local-store";
 import {
+  isStrategicShortlistAtLimit,
+  isStrategicShortlistLimitError,
   syncShortlistToIdentified,
   upsertStrategicShortlistItem,
 } from "@/lib/strategic-lender-pipeline";
+import { STRATEGY_SHORTLIST_LIMIT_GUIDANCE } from "@/constants/strategic-lender-shortlist";
 import type { ElwLenderProfile, ElwOriginContext } from "@/types/enterprise-lender-workspace";
 
 export interface ElwSelectLenderResult {
@@ -109,17 +112,35 @@ export function applyElwSelectLender(
       });
       placeholderSaveLifeSelection(origin.opportunityId);
     }
-    upsertStrategicShortlistItem(origin.opportunityId, {
-      lenderRef: master.lenderRef,
-      lenderName: master.lender,
-      product: profile.products[0]?.label,
-      productRefs: institution.productRefs,
-      successProbability: profile.metrics.successProbability,
-      specialNotes: "Selected from Enterprise Lender Workspace",
-      branchName: primary?.branchName ?? profile.branchNames[0],
-      executorName: primary?.name,
-      createdBy: "RM",
-    });
+    if (isStrategicShortlistAtLimit(origin.opportunityId)) {
+      return {
+        ok: false,
+        returnTo: origin.returnTo,
+        message: STRATEGY_SHORTLIST_LIMIT_GUIDANCE,
+      };
+    }
+    try {
+      upsertStrategicShortlistItem(origin.opportunityId, {
+        lenderRef: master.lenderRef,
+        lenderName: master.lender,
+        product: profile.products[0]?.label,
+        productRefs: institution.productRefs,
+        successProbability: profile.metrics.successProbability,
+        specialNotes: "Selected from Enterprise Lender Workspace",
+        branchName: primary?.branchName ?? profile.branchNames[0],
+        executorName: primary?.name,
+        createdBy: "RM",
+      });
+    } catch (err) {
+      if (isStrategicShortlistLimitError(err)) {
+        return {
+          ok: false,
+          returnTo: origin.returnTo,
+          message: err.message || STRATEGY_SHORTLIST_LIMIT_GUIDANCE,
+        };
+      }
+      throw err;
+    }
     return {
       ok: true,
       returnTo: origin.returnTo,
@@ -145,17 +166,36 @@ export function applyElwSelectLender(
     }
 
     const opportunityId = origin.opportunityId ?? `loan:${origin.loanFileId}`;
-    const shortlist = upsertStrategicShortlistItem(opportunityId, {
-      lenderRef: master.lenderRef,
-      lenderName: master.lender,
-      product: profile.products[0]?.label,
-      productRefs: profile.products.map((p) => p.productRef),
-      successProbability: profile.metrics.successProbability,
-      branchName: primary?.branchName ?? profile.branchNames[0],
-      executorName: primary?.name,
-      specialNotes: "Selected from Enterprise Lender Workspace",
-      createdBy: "RM",
-    });
+    if (isStrategicShortlistAtLimit(opportunityId)) {
+      return {
+        ok: false,
+        returnTo: origin.returnTo,
+        message: STRATEGY_SHORTLIST_LIMIT_GUIDANCE,
+      };
+    }
+    let shortlist;
+    try {
+      shortlist = upsertStrategicShortlistItem(opportunityId, {
+        lenderRef: master.lenderRef,
+        lenderName: master.lender,
+        product: profile.products[0]?.label,
+        productRefs: profile.products.map((p) => p.productRef),
+        successProbability: profile.metrics.successProbability,
+        branchName: primary?.branchName ?? profile.branchNames[0],
+        executorName: primary?.name,
+        specialNotes: "Selected from Enterprise Lender Workspace",
+        createdBy: "RM",
+      });
+    } catch (err) {
+      if (isStrategicShortlistLimitError(err)) {
+        return {
+          ok: false,
+          returnTo: origin.returnTo,
+          message: err.message || STRATEGY_SHORTLIST_LIMIT_GUIDANCE,
+        };
+      }
+      throw err;
+    }
     const sync = syncShortlistToIdentified(origin.loanFileId, opportunityId, shortlist);
     if (!sync.ok) {
       // Fallback single upsert if sync failed to load file

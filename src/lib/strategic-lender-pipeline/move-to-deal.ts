@@ -6,8 +6,9 @@ import { getAccessToken } from "@/lib/api-client";
 import { createDealFromOpportunity } from "@/lib/enterprise-deal/deal-create-from-opportunity";
 import { putSessionDeal, bindSessionDeal } from "@/lib/enterprise-session";
 import {
-  getStrategicShortlist,
+  enforceStrategicShortlistMax,
   normalizeLenderKey,
+  takeStrategyShortlistForMoveToDeal,
   upsertStrategicAnalysis,
 } from "@/lib/strategic-lender-pipeline/sync";
 import {
@@ -15,9 +16,12 @@ import {
   listCanonicalEnterpriseLenderOptionsAsync,
   resolvePersistedLenderForDeal,
 } from "@/lib/enterprise-lender-registry/published-directory";
-import { invalidatePublishedLendersSession } from "@/lib/enterprise-session/published-lenders-session";
-import { rememberOpportunityRegistryContext } from "@/lib/lead-opportunity-journey/opportunity-context";
+import {
+  rememberOpportunityRegistryContext,
+  opportunityContextFromRegistry,
+} from "@/lib/lead-opportunity-journey/opportunity-context";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
+import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import type { OpportunityLoanContactHint } from "@/lib/opportunity-loan-continuity";
@@ -107,7 +111,10 @@ export async function moveOpportunityToDeal(
       : await enterpriseOpportunityApiClient.getOpportunity(input.opportunityId);
   rememberOpportunityRegistryContext(opportunity);
 
-  const shortlist = getStrategicShortlist(input.opportunityId);
+  // CO-ARCH-002 — Move to Deal transfers Primary + Secondary only (max 2).
+  const shortlist = takeStrategyShortlistForMoveToDeal(
+    enforceStrategicShortlistMax(input.opportunityId),
+  );
   if (shortlist.length === 0) {
     throw new Error(
       "Missing: Lender selection. Reason: Execution Queue is empty. Action: select at least one lender in Chanakya Recommendations or Manual Selection.",
@@ -115,32 +122,32 @@ export async function moveOpportunityToDeal(
   }
 
   // CO-BUG-011 — Resolve against Prisma Enterprise Lender Registry only.
-  invalidatePublishedLendersSession();
+  // CO-PERF-002 — Reuse warm published-lender session (do not invalidate → force 200 refetch).
   const registryOptions = await listCanonicalEnterpriseLenderOptionsAsync();
   if (registryOptions.length === 0) {
     throw new Error(
       "Missing: Enterprise Lender Registry. Reason: no active canonical lenders returned from the server. Action: verify Lender Registry in Administration, then retry Manual Recommendation.",
     );
   }
-  const resolved = [];
-  for (const item of shortlist) {
-    const opt = await resolvePersistedLenderForDeal(item, registryOptions);
-    if (!opt) {
-      resolved.push({ item, lenderId: null as string | null, opt: null });
-      continue;
-    }
-    resolved.push({
-      opt,
-      lenderId: opt.id,
-      item: {
-        ...item,
-        enterpriseLenderId: opt.id,
-        lenderCode: opt.seedKey || opt.code,
-        lenderRef: buildCanonicalLenderRef(opt),
-        lenderName: opt.displayName || opt.code || item.lenderName,
-      },
-    });
-  }
+  const resolved = await Promise.all(
+    shortlist.map(async (item) => {
+      const opt = await resolvePersistedLenderForDeal(item, registryOptions);
+      if (!opt) {
+        return { item, lenderId: null as string | null, opt: null };
+      }
+      return {
+        opt,
+        lenderId: opt.id,
+        item: {
+          ...item,
+          enterpriseLenderId: opt.id,
+          lenderCode: opt.seedKey || opt.code,
+          lenderRef: buildCanonicalLenderRef(opt),
+          lenderName: opt.displayName || opt.code || item.lenderName,
+        },
+      };
+    }),
+  );
 
   const unresolved = resolved.filter((r) => !r.lenderId);
   if (unresolved.length > 0) {
@@ -155,11 +162,16 @@ export async function moveOpportunityToDeal(
   const productLabel =
     input.loanProduct || opportunity.productLabel || "Home Loan";
   const amount = input.loanAmount ?? opportunity.requestedAmount ?? undefined;
+  const borrower = resolveOpportunityBorrowerIdentity(opportunity);
   const customerName =
-    input.customerName || opportunity.primaryContactName || undefined;
+    input.customerName || borrower.displayName || undefined;
   const customerMobile =
-    input.customerMobile || opportunity.primaryContactMobile || undefined;
-  const customerId = input.customerId || opportunity.primaryContactId || undefined;
+    input.customerMobile ||
+    borrower.primaryContactMobile ||
+    opportunity.primaryContactMobile ||
+    undefined;
+  const customerId =
+    input.customerId || borrower.partyEntityId || undefined;
   const relationshipManager =
     input.relationshipManager ||
     opportunity.relationshipManagerName ||
@@ -171,81 +183,87 @@ export async function moveOpportunityToDeal(
     resolved.map((r) => r.item),
   );
 
-  const deals: MoveToDealResult["deals"] = [];
-  let primaryDealId = "";
+  const ready = resolved.filter(
+    (r): r is typeof r & { lenderId: string } => Boolean(r.lenderId),
+  );
 
-  for (const { item, lenderId } of resolved) {
-    if (!lenderId) continue;
-
-    const allCases = buildIdentifiedCases(
-      input.opportunityId,
-      resolved
-        .filter((r): r is typeof r & { lenderId: string } => Boolean(r.lenderId))
-        .map((r) => ({
-          lenderId: r.lenderId!,
+  // CO-PERF-002 — Parallel Deal creates (was sequential N× TX RTT). Order = Primary then Secondary.
+  const created = await Promise.all(
+    ready.map(async ({ item, lenderId }) => {
+      const allCases = buildIdentifiedCases(
+        input.opportunityId,
+        ready.map((r) => ({
+          lenderId: r.lenderId,
           lenderName: r.item.lenderName,
           lenderRef: r.item.lenderRef,
           product: productLabel,
         })),
-      amount,
-      productLabel,
-      "RM",
-    ).map((c) => ({
-      ...c,
-      isPrimary: c.lenderRegistryId === lenderId,
-    }));
+        amount,
+        productLabel,
+        "RM",
+      ).map((c) => ({
+        ...c,
+        isPrimary: c.lenderRegistryId === lenderId,
+      }));
 
-    // Ensure current lender is present even if shortlist key mismatch.
-    const hasCase = allCases.some((c) => c.lenderRegistryId === lenderId);
-    const thisCase: LoanLenderExecution = hasCase
-      ? {
-          ...allCases.find((c) => c.lenderRegistryId === lenderId)!,
-          isPrimary: true,
-        }
-      : {
-          id: `deal-${lenderId}-${Date.now()}`,
-          lender: item.lenderName,
-          status: "active",
-          caseStage: "identified",
-          isPrimary: true,
-          lenderRegistryId: lenderId,
-          lenderRef: `lender:${lenderId}`,
-          fromStrategic: true,
-          opportunityId: input.opportunityId,
-          expectedLoanAmount: amount,
-          product: productLabel,
-          createdBy: "RM",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          identifiedAt: new Date().toISOString(),
-        };
+      const hasCase = allCases.some((c) => c.lenderRegistryId === lenderId);
+      const thisCase: LoanLenderExecution = hasCase
+        ? {
+            ...allCases.find((c) => c.lenderRegistryId === lenderId)!,
+            isPrimary: true,
+          }
+        : {
+            id: `deal-${lenderId}-${Date.now()}`,
+            lender: item.lenderName,
+            status: "active",
+            caseStage: "identified",
+            isPrimary: true,
+            lenderRegistryId: lenderId,
+            lenderRef: `lender:${lenderId}`,
+            fromStrategic: true,
+            opportunityId: input.opportunityId,
+            expectedLoanAmount: amount,
+            product: productLabel,
+            createdBy: "RM",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            identifiedAt: new Date().toISOString(),
+          };
 
-    // CO-ARCH-007 — One Deal = one lender; snapshot is derived single-lender only.
-    const deal = await createDealFromOpportunity({
-      opportunity,
-      lenderId,
-      lenderName: item.lenderName,
-      lenders: [thisCase],
-      customerName,
-      customerMobile,
-      customerId,
-      loanProduct: productLabel,
-      loanAmount: amount,
-      relationshipManager,
-    });
+      // CO-ARCH-007 — One Deal = one lender; snapshot is derived single-lender only.
+      const deal = await createDealFromOpportunity({
+        opportunity,
+        lenderId,
+        lenderName: item.lenderName,
+        lenders: [thisCase],
+        customerName,
+        customerMobile,
+        customerId,
+        loanProduct: productLabel,
+        loanAmount: amount,
+        relationshipManager,
+      });
 
-    putSessionDeal(deal);
-    bindSessionDeal(deal);
+      putSessionDeal(deal);
+      return {
+        deal,
+        lenderId,
+        lenderName: item.lenderName,
+      };
+    }),
+  );
 
-    if (!primaryDealId) primaryDealId = deal.id;
-
-    deals.push({
-      dealId: deal.id,
-      dealNumber: deal.dealNumber,
-      lenderId,
-      lenderName: item.lenderName,
-    });
+  for (const row of created) {
+    bindSessionDeal(row.deal);
   }
+
+  const deals: MoveToDealResult["deals"] = created.map((row) => ({
+    dealId: row.deal.id,
+    dealNumber: row.deal.dealNumber,
+    lenderId: row.lenderId,
+    lenderName: row.lenderName,
+  }));
+  const primaryDealId = created[0]?.deal.id ?? "";
 
   if (deals.length === 0 || !primaryDealId) {
     throw new Error(
@@ -260,16 +278,8 @@ export async function moveOpportunityToDeal(
   }
 
   setActiveOpportunityContext({
-    opportunityId: input.opportunityId,
-    opportunityReference: opportunity.opportunityNumber,
-    contactId: opportunity.primaryContactId,
-    customer: opportunity.primaryContactName ?? undefined,
-    product: opportunity.productLabel ?? undefined,
-    stage: opportunity.requirementStage ?? undefined,
-    owner: opportunity.relationshipManagerName ?? undefined,
+    ...opportunityContextFromRegistry(opportunity),
     fileId: primaryDealId,
-    customerName: opportunity.primaryContactName ?? undefined,
-    label: opportunity.opportunityNumber,
   });
 
   const primary = deals[0]!;

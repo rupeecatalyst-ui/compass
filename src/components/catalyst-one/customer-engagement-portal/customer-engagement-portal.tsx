@@ -13,12 +13,12 @@ import {
   FileText,
   LayoutDashboard,
   ListTodo,
-  Loader2,
   MessageSquare,
   Send,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { ECE_PORTAL_TABS } from "@/constants/enterprise-customer-engagement";
 import { CustomerDocumentCollectionPortal } from "@/components/catalyst-one/customer-document-portal";
 import {
@@ -111,8 +111,14 @@ export function CustomerEngagementPortal({ token }: { token: string }) {
 
   if (!snap) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-zinc-950 text-zinc-300">
-        <Loader2 className="h-6 w-6 animate-spin" />
+      <main className="min-h-dvh bg-zinc-950">
+        <ChanakyaLoadingExperience
+          module="enterprise"
+          statusLabel="Preparing your engagement workspace..."
+          surface="command"
+          density="page"
+          useEbiSignals={false}
+        />
       </main>
     );
   }

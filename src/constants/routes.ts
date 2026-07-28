@@ -20,8 +20,8 @@ export const ROUTES = {
   MY_OPPORTUNITIES: "/my-opportunities",
   CHANAKYA_RADAR: "/chanakya-radar",
   /**
-   * @deprecated Legacy Deal book host. Prefer DEALS / buildDealWorkspaceHref.
-   * `/loan-files` redirects to Deal Workspace or My Deals (CO-ARCH cleanup).
+   * @deprecated Prefer DEALS / buildDealWorkspaceHref / Loan Journey.
+   * CO-ARCH-002 — `/loan-files` is a redirect shell only (Loan File book retired).
    */
   LOAN_FILES: "/loan-files",
   /**
@@ -46,6 +46,8 @@ export const ROUTES = {
   /** @deprecated Removed — redirects to CHANAKYA Radar. */
   PIPELINE: "/pipeline",
   LENDERS: "/lenders",
+  /** CO-WP-001 — Enterprise Wealth Partner Registry (ops desk). */
+  WEALTH_PARTNERS: "/wealth-partners",
   /** @deprecated Prefer DOCUMENT_CENTER; kept for backward-compatible deep links. */
   DOCUMENTS: "/documents",
   DOCUMENT_CENTER: "/document-center",
@@ -92,6 +94,10 @@ export const ROUTES = {
   ADMIN_SYSTEM_MODES: "/admin/system-modes",
   /** CO-OPS-001 — Administrator Build Information (System). */
   ADMIN_BUILD_INFORMATION: "/admin/build-information",
+  /** CO-ADMIN-004 — Production Reset & Demo Data Cleanup Wizard (Super Admin). */
+  ADMIN_PRODUCTION_RESET: "/admin/production-reset",
+  /** CO-PERF-001 — Enterprise Metrics Engine administration */
+  ADMIN_ENTERPRISE_METRICS: "/admin/enterprise-metrics",
   ADMIN_USERS: "/admin/users",
   ADMIN_ROLES_PERMISSIONS: "/admin/roles-permissions",
   ADMIN_CREDIT_KNOWLEDGE_FRAMEWORK: "/admin/credit-knowledge-framework",
@@ -128,6 +134,8 @@ export const ROUTES = {
   ADMIN_WORKFLOW_SETTINGS: "/admin/workflow-engine/settings",
   ADMIN_PRODUCT_LIBRARY: "/admin/product-library",
   ADMIN_PRODUCT_REGISTRY: "/admin/product-library/registry",
+  /** CO-ADMIN-005 — Product Master management desk */
+  ADMIN_PRODUCT_MASTER: "/admin/product-library/master",
   ADMIN_PRODUCT_CATEGORIES: "/admin/product-library/categories",
   ADMIN_PRODUCT_LIFECYCLE: "/admin/product-library/lifecycle",
   ADMIN_PRODUCT_AUDIT: "/admin/product-library/audit",
@@ -141,8 +149,20 @@ export const ROUTES = {
   ADMIN_ENTERPRISE_RECOVERY_CENTER: "/admin/enterprise-recovery-center",
   /** CO-ARCH-001-I7 — Tier 1 Reference Master administration. */
   ADMIN_REFERENCE_MASTERS: "/admin/reference-masters",
+  /** CO-MDM-001 — Enterprise Master Data Management hub */
+  ADMIN_ENTERPRISE_MDM: "/admin/enterprise-mdm",
+  /** CO-MDM-001 — Product Programs desk */
+  ADMIN_PRODUCT_PROGRAMS: "/admin/product-programs",
+  /** CO-MDM-001 — Document Type Master */
+  ADMIN_DOCUMENT_TYPES: "/admin/document-types",
   /** GO-LIVE P0 — Enterprise Lender Registry (Administration → Masters). */
   ADMIN_LENDER_REGISTRY: "/admin/lender-registry",
+  /** CO-WP-001 — Enterprise Wealth Partner Registry (Administration → Masters). */
+  ADMIN_WEALTH_PARTNER_REGISTRY: "/admin/wealth-partner-registry",
+  /** CO-ADMIN-005 — Product × Lender offer matrix */
+  ADMIN_PRODUCT_LENDER_MATRIX: "/admin/product-lender-matrix",
+  /** CO-LEND-001 — Lender Self-Service Program Portal (admin) */
+  ADMIN_LENDER_PROGRAM_PORTAL: "/admin/lender-program-portal",
   ADMIN_FOUNDATION_LIBRARIES: "/admin/foundation-libraries",
   ADMIN_FOUNDATION_LIBRARIES_REGISTRY: "/admin/foundation-libraries/registry",
   ADMIN_FOUNDATION_LIBRARIES_ENTRIES: "/admin/foundation-libraries/entries",
@@ -185,6 +205,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.INVESTMENTS,
   ROUTES.PIPELINE,
   ROUTES.LENDERS,
+  ROUTES.WEALTH_PARTNERS,
   ROUTES.DOCUMENTS,
   ROUTES.DOCUMENT_CENTER,
   ROUTES.CREDIT_BENCH,
@@ -217,6 +238,8 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_ECG,
   ROUTES.ADMIN_SYSTEM_MODES,
   ROUTES.ADMIN_BUILD_INFORMATION,
+  ROUTES.ADMIN_PRODUCTION_RESET,
+  ROUTES.ADMIN_ENTERPRISE_METRICS,
   ROUTES.ADMIN_USERS,
   ROUTES.ADMIN_ROLES_PERMISSIONS,
   ROUTES.ADMIN_CREDIT_KNOWLEDGE_FRAMEWORK,
@@ -252,9 +275,15 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_WORKFLOW_SETTINGS,
   ROUTES.ADMIN_PRODUCT_LIBRARY,
   ROUTES.ADMIN_PRODUCT_REGISTRY,
+  ROUTES.ADMIN_PRODUCT_MASTER,
   ROUTES.ADMIN_PRODUCT_CATEGORIES,
   ROUTES.ADMIN_PRODUCT_LIFECYCLE,
   ROUTES.ADMIN_PRODUCT_AUDIT,
+  ROUTES.ADMIN_PRODUCT_LENDER_MATRIX,
+  ROUTES.ADMIN_LENDER_PROGRAM_PORTAL,
+  ROUTES.ADMIN_ENTERPRISE_MDM,
+  ROUTES.ADMIN_PRODUCT_PROGRAMS,
+  ROUTES.ADMIN_DOCUMENT_TYPES,
   ROUTES.ADMIN_ENTERPRISE_ASSETS,
   ROUTES.ADMIN_ENTERPRISE_ASSETS_REGISTRY,
   ROUTES.ADMIN_ENTERPRISE_ASSETS_CATEGORIES,
@@ -264,6 +293,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER,
   ROUTES.ADMIN_REFERENCE_MASTERS,
   ROUTES.ADMIN_LENDER_REGISTRY,
+  ROUTES.ADMIN_WEALTH_PARTNER_REGISTRY,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_REGISTRY,
   ROUTES.ADMIN_FOUNDATION_LIBRARIES_ENTRIES,

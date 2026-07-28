@@ -69,35 +69,211 @@ export function listDocumentsForLoanFile(loanFileId: string): DocumentRegistryRe
   return listDocumentsForOpportunityRuntime(loanFileId);
 }
 
+export type ListDocumentsRuntimeOptions = {
+  /**
+   * CO-DOC-002 — when set, reclaim orphaned registry rows for this customer that
+   * lost Opportunity association (missing opportunityId) after runtime identity changes.
+   * Never reassigns rows that already belong to a different Opportunity.
+   */
+  customerId?: string | null;
+  /** Contact id for primary applicant — same reclaim rules as customerId. */
+  contactId?: string | null;
+  /** Opportunity number alias (e.g. OPP-2026-000043) — matches stamps that used the display number. */
+  opportunityNumber?: string | null;
+};
+
 /**
- * FS-01 — list documents by Opportunity runtime key and/or Deal attachment id.
+ * FS-01 / CO-DOC-002 — list documents by Opportunity runtime key and/or Deal attachment id.
  * Matches opportunityId OR loanFileId so Opportunity-only cases work without LoanFile.
  */
 export function listDocumentsForOpportunityRuntime(
   runtimeKey: string,
   opportunityId?: string | null,
+  options?: ListDocumentsRuntimeOptions,
 ): DocumentRegistryRecord[] {
   const key = runtimeKey.trim();
-  const oppId = opportunityId?.trim() || key;
-  return readSnapshot()
-    .records.filter((r) => {
-      if (r.status === "deleted") return false;
-      if (r.links.loanFileId === key) return true;
-      if (r.links.opportunityId === key || r.links.opportunityId === oppId) return true;
-      return false;
-    })
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const oppId = opportunityId?.trim() || "";
+  const oppNumber = options?.opportunityNumber?.trim() || "";
+  const keys = new Set<string>([key, oppId, oppNumber].filter(Boolean));
+  if (keys.size === 0) return [];
+
+  const partyIds = new Set(
+    [options?.customerId?.trim(), options?.contactId?.trim()].filter(Boolean) as string[],
+  );
+
+  const snap = readSnapshot();
+  let healed = false;
+  const matchedIds = new Set<string>();
+
+  const matched = snap.records.filter((r) => {
+    if (r.status === "deleted") return false;
+    if (r.links.loanFileId && keys.has(r.links.loanFileId)) {
+      matchedIds.add(r.id);
+      return true;
+    }
+    if (r.links.opportunityId && keys.has(r.links.opportunityId)) {
+      matchedIds.add(r.id);
+      return true;
+    }
+    return false;
+  });
+
+  // CO-DOC-002 — reclaim orphans: same party, compatible Opportunity stamp.
+  if (partyIds.size > 0 && (oppId || oppNumber)) {
+    for (const r of snap.records) {
+      if (r.status === "deleted" || matchedIds.has(r.id)) continue;
+      const existingOpp = r.links.opportunityId?.trim();
+      if (existingOpp && !keys.has(existingOpp)) continue; // other Opportunity
+      const party =
+        r.links.customerId?.trim() ||
+        r.links.contactId?.trim() ||
+        "";
+      if (!party || !partyIds.has(party)) continue;
+      // Missing stamp OR stamped with alias already in keys — reclaim under canonical id.
+      const canonical = oppId || oppNumber;
+      if (canonical && existingOpp !== canonical) {
+        r.links = { ...r.links, opportunityId: canonical };
+        healed = true;
+      }
+      matched.push(r);
+      matchedIds.add(r.id);
+    }
+  }
+
+  // Stamp opportunityId onto Deal-keyed rows that matched only via loanFileId.
+  if (oppId) {
+    for (const r of matched) {
+      if (!r.links.opportunityId?.trim() || (oppNumber && r.links.opportunityId === oppNumber)) {
+        r.links = { ...r.links, opportunityId: oppId };
+        healed = true;
+      }
+    }
+  }
+
+  if (healed) {
+    writeSnapshot({
+      records: snap.records.map((row) => matched.find((m) => m.id === row.id) ?? row),
+      schemaVersion: snap.schemaVersion,
+    });
+  }
+
+  return matched.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/**
+ * CO-DOC-002 — Remap stale Document Owner participant ids when Contact/Company
+ * entityId still matches current Loan Structure. No duplicates created.
+ */
+export function healDocumentOwnerAssociations(input: {
+  runtimeKey: string;
+  opportunityId?: string | null;
+  customerId?: string | null;
+  participants: Array<{ id: string; entityId?: string; role?: string }>;
+}): number {
+  const records = listDocumentsForOpportunityRuntime(
+    input.runtimeKey,
+    input.opportunityId,
+    { customerId: input.customerId },
+  );
+  if (records.length === 0) return 0;
+
+  const byEntity = new Map(
+    input.participants
+      .filter((p) => p.entityId?.trim())
+      .map((p) => [p.entityId!.trim(), p.id] as const),
+  );
+  const primary = input.participants.find((p) => p.role === "primary_applicant");
+  const snap = readSnapshot();
+  let changed = 0;
+
+  const nextRecords = snap.records.map((row) => {
+    if (!records.some((r) => r.id === row.id) || row.status === "deleted") return row;
+    const scope = row.links.documentScope ?? "applicant";
+    if (scope === "shared" || scope === "lender") {
+      if (input.opportunityId?.trim() && !row.links.opportunityId?.trim()) {
+        changed += 1;
+        return {
+          ...row,
+          links: { ...row.links, opportunityId: input.opportunityId.trim() },
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return row;
+    }
+
+    const contactId = row.links.contactId?.trim();
+    const participantId = row.links.participantId?.trim();
+    let nextParticipant = participantId;
+    let nextContact = contactId;
+
+    if (contactId && byEntity.has(contactId)) {
+      nextParticipant = byEntity.get(contactId);
+    } else if (!participantId && primary?.id) {
+      nextParticipant = primary.id;
+      if (!nextContact && primary.entityId?.trim()) {
+        nextContact = primary.entityId.trim();
+      }
+    } else if (participantId && !byEntityHasParticipant(byEntity, participantId) && contactId) {
+      // Stale participant id with valid contact — remap.
+      const mapped = byEntity.get(contactId);
+      if (mapped) nextParticipant = mapped;
+    }
+
+    const oppStamp = input.opportunityId?.trim();
+    const needsOpp = Boolean(oppStamp && !row.links.opportunityId?.trim());
+    const needsParticipant =
+      Boolean(nextParticipant) && nextParticipant !== participantId;
+    const needsContact = Boolean(nextContact) && nextContact !== contactId;
+
+    if (!needsOpp && !needsParticipant && !needsContact) return row;
+    changed += 1;
+    return {
+      ...row,
+      links: {
+        ...row.links,
+        ...(needsOpp ? { opportunityId: oppStamp } : {}),
+        ...(needsParticipant ? { participantId: nextParticipant } : {}),
+        ...(needsContact ? { contactId: nextContact } : {}),
+        documentScope: row.links.documentScope ?? "applicant",
+      },
+      updatedAt: new Date().toISOString(),
+    };
+  });
+
+  if (changed > 0) writeSnapshot({ ...snap, records: nextRecords });
+  return changed;
+}
+
+function byEntityHasParticipant(
+  byEntity: Map<string, string>,
+  participantId: string,
+): boolean {
+  for (const id of byEntity.values()) {
+    if (id === participantId) return true;
+  }
+  return false;
 }
 
 export function listDocumentsByTypeRef(
   loanFileId: string,
   typeRef: string,
+  opportunityId?: string | null,
+  options?: ListDocumentsRuntimeOptions,
 ): DocumentRegistryRecord[] {
-  return listDocumentsForLoanFile(loanFileId).filter((r) => r.typeRef === typeRef);
+  return listDocumentsForOpportunityRuntime(loanFileId, opportunityId, options).filter(
+    (r) => r.typeRef === typeRef,
+  );
 }
 
-export function hasDocumentForTypeRef(loanFileId: string, typeRef: string): boolean {
-  return listDocumentsByTypeRef(loanFileId, typeRef).some((r) => r.status === "active");
+export function hasDocumentForTypeRef(
+  loanFileId: string,
+  typeRef: string,
+  opportunityId?: string | null,
+  options?: ListDocumentsRuntimeOptions,
+): boolean {
+  return listDocumentsByTypeRef(loanFileId, typeRef, opportunityId, options).some(
+    (r) => r.status === "active",
+  );
 }
 
 export function filterDocumentRegistryRecords(
@@ -316,6 +492,9 @@ export async function uploadDocumentToRegistry(
     snap.records[idx] = updated;
     writeSnapshot(snap);
     syncLoanFileDocument(input.links, input.categoryLabel, input.categoryLabel, input.uploadedBy);
+    void import("./server-sync").then(({ syncDocumentRecordToServer }) =>
+      syncDocumentRecordToServer(updated, { contentBlob: input.file }),
+    );
     return { record: updated, isNewVersion: true };
   }
 
@@ -353,6 +532,10 @@ export async function uploadDocumentToRegistry(
   snap.records.unshift(record);
   writeSnapshot(snap);
   syncLoanFileDocument(input.links, input.categoryLabel, input.categoryLabel, input.uploadedBy);
+  // CO-DOC-002 — durable server sync (best-effort; never blocks upload UX)
+  void import("./server-sync").then(({ syncDocumentRecordToServer }) =>
+    syncDocumentRecordToServer(record, { contentBlob: input.file }),
+  );
   return { record, isNewVersion: false };
 }
 
@@ -525,4 +708,115 @@ export function buildEntityLinksFromLoanFile(
       : {}),
     ...(documentScope === "lender" && lenderId ? { lenderId } : {}),
   };
+}
+
+type DurableDocRow = {
+  id?: string;
+  clientRecordId?: string | null;
+  opportunityId: string;
+  opportunityNumber?: string | null;
+  loanFileId?: string | null;
+  contactId?: string | null;
+  customerId?: string | null;
+  participantId?: string | null;
+  lenderId?: string | null;
+  documentScope?: string;
+  typeRef: string;
+  categoryLabel: string;
+  originalFilename: string;
+  displayName: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  status?: string;
+  uploadSource?: string | null;
+  uploadedBy: string;
+  verifiedAt?: string | null;
+  verifiedBy?: string | null;
+  hasContent?: boolean;
+};
+
+/**
+ * CO-DOC-002 — Merge durable Postgres documents into local registry snapshot.
+ * Creates local records (and placeholder blob ids) when missing.
+ */
+export async function mergeDurableDocumentsIntoLocalRegistry(
+  items: DurableDocRow[],
+  ctx: { opportunityId: string; opportunityNumber?: string | null },
+): Promise<number> {
+  if (!items.length) return 0;
+  const snap = readSnapshot();
+  const now = new Date().toISOString();
+  let added = 0;
+
+  for (const item of items) {
+    const clientId = item.clientRecordId?.trim() || item.id?.trim();
+    if (!clientId) continue;
+    const existing = snap.records.find((r) => r.id === clientId);
+    if (existing) {
+      const needsOpp =
+        !existing.links.opportunityId?.trim() ||
+        existing.links.opportunityId === item.opportunityNumber;
+      if (needsOpp || existing.status === "deleted") {
+        existing.links = {
+          ...existing.links,
+          opportunityId: ctx.opportunityId || item.opportunityId,
+          contactId: existing.links.contactId || item.contactId || undefined,
+          customerId: existing.links.customerId || item.customerId || undefined,
+          participantId: existing.links.participantId || item.participantId || undefined,
+          documentScope:
+            (existing.links.documentScope as "applicant" | "shared" | "lender") ||
+            ((item.documentScope as "applicant" | "shared" | "lender") ?? "applicant"),
+        };
+        if (existing.status === "deleted") existing.status = "active";
+        existing.updatedAt = now;
+        added += 1;
+      }
+      continue;
+    }
+
+    const blobId = newId("blob");
+    const version: DocumentRegistryVersion = {
+      id: newId("drv"),
+      version: 1,
+      originalFilename: item.originalFilename,
+      displayName: item.displayName,
+      fileSizeBytes: item.fileSizeBytes,
+      mimeType: item.mimeType,
+      blobId,
+      uploadedBy: item.uploadedBy,
+      uploadedAt: now,
+      isCurrent: true,
+    };
+    snap.records.unshift({
+      id: clientId,
+      typeRef: item.typeRef,
+      categoryLabel: item.categoryLabel,
+      originalFilename: item.originalFilename,
+      displayName: item.displayName,
+      status: (item.status as DocumentRegistryRecord["status"]) || "active",
+      links: {
+        opportunityId: ctx.opportunityId || item.opportunityId,
+        loanFileId: item.loanFileId || undefined,
+        contactId: item.contactId || undefined,
+        customerId: item.customerId || undefined,
+        participantId: item.participantId || undefined,
+        lenderId: item.lenderId || undefined,
+        documentScope: (item.documentScope as "applicant" | "shared" | "lender") || "applicant",
+      },
+      versions: [version],
+      uploadedBy: item.uploadedBy,
+      uploadedAt: now,
+      updatedAt: now,
+      version: 1,
+      fileSizeBytes: item.fileSizeBytes,
+      mimeType: item.mimeType,
+      uploadSource: (item.uploadSource as DocumentRegistryRecord["uploadSource"]) || "api",
+      verifiedAt: item.verifiedAt || undefined,
+      verifiedBy: item.verifiedBy || undefined,
+    });
+    added += 1;
+  }
+
+  if (added > 0) writeSnapshot(snap);
+  return added;
 }

@@ -3,6 +3,8 @@
  * Future: consume standardized insight APIs (no direct business queries).
  */
 
+import type { MissionControlEnterpriseIntelligencePack } from "@/types/mission-control-enterprise-intelligence";
+
 export type ExecutiveBriefingPriority = "critical" | "high" | "medium" | "low";
 
 export type EnterpriseHealthStatus =
@@ -124,6 +126,14 @@ export interface QuickAction {
   icon: string;
 }
 
+export interface MissionControlSnapshotMeta {
+  asOf: string;
+  version: string | null;
+  /** certified_snapshot = EME write; awaiting_snapshot = no row yet (never live-derive). */
+  source: "certified_snapshot" | "awaiting_snapshot";
+  refreshScheduleLabel?: string;
+}
+
 export interface ExecutiveBriefingPageModel {
   greeting: ExecutiveGreeting;
   brief: ExecutiveBrief;
@@ -134,4 +144,8 @@ export interface ExecutiveBriefingPageModel {
   businessPerformance: BusinessPerformanceModel;
   executiveActions: ExecutiveActionsModel;
   enterpriseHealth: EnterpriseHealthIndicator[];
+  /** CO-ARCH-005 */
+  snapshotMeta?: MissionControlSnapshotMeta;
+  /** CO-MC-002 — precomputed full-width intelligence sections (snapshot only). */
+  enterpriseIntelligence?: MissionControlEnterpriseIntelligencePack | null;
 }

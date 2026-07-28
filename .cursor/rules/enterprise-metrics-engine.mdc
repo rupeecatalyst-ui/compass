@@ -1,0 +1,35 @@
+# Enterprise Metrics Engine (CO-PERF-001)
+
+Status: **ENTERPRISE APPROVED** · Platform optimisation
+
+## Principle
+
+EME is a **computation + read-model** layer for KPIs, health scores, and dashboard analytics.
+
+- Opportunity, Deal, Customer, Product, Lender, Task remain **canonical SSOT**.
+- UI must prefer precomputed EME snapshots over recalculating during render.
+- Never duplicate metric formulas in screens, Mission Control, or AI paths.
+
+## Categories
+
+| Category | Cadence | Examples |
+|----------|---------|----------|
+| A Nightly | Scheduled / Force Recalculate | Portfolio KPIs, dashboard visual analytics pack, deal health proxy |
+| B Event | Targeted refresh | Opportunity/Deal stage events → mapped metric keys only |
+| C Live | Always real-time | Today's Opportunities / Logins / Disbursements, pending/overdue tasks |
+
+## SSOT paths
+
+- Server engine: `server/services/enterprise-metrics-engine/`
+- Types: `src/types/enterprise-metrics-engine.ts`
+- Admin: `/admin/enterprise-metrics`
+- Dashboard read: `/api/enterprise-metrics/dashboard`
+- Cron (optional): `/api/cron/enterprise-metrics` + `CRON_SECRET`
+- Deal stage projection: `src/lib/enterprise-deal/deal-stage-projection.ts` → `EnterpriseDeal.grossStage`
+
+## Hard rules
+
+1. Do not invent a second health formula for My Deals / Dashboard / Mission Control.
+2. Financial values for Opportunity analytics = Opportunity requested amount — never sum lender pipelines.
+3. Lender pipeline current stage = Deal Registry `grossStage` only.
+4. Loan Journey stages are orchestration vocabulary — do not conflate with Deal grossStage.

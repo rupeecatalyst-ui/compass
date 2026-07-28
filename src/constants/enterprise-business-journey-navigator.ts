@@ -28,9 +28,9 @@ export const BUSINESS_JOURNEY_TRANSITION_PURPOSE: Partial<
   credit_workbench:
     "Verify stated facts against documents before loan execution.",
   loan_workspace:
-    "Execute the active loan file without leaving the transaction.",
+    "Execute the active Deal without leaving the transaction.",
   lender_pipeline:
-    "Track each lender case independently across the loan file.",
+    "Track each lender case independently across the Deal.",
   tasks: "Clear follow-ups that protect SLAs and customer experience.",
   timeline: "Review chronological activity across the loan journey.",
   approval: "Secure lender approval before disbursement begins.",

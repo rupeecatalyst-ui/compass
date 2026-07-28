@@ -52,7 +52,7 @@ export const MOCK_PRIORITY_ITEMS: PriorityItem[] = [
     id: "pri-005",
     level: "medium",
     title: "Customer inactive — follow-up required",
-    description: "No customer touchpoint in 7 days on active Home Loan file.",
+    description: "No customer touchpoint in 7 days on active Home Loan Deal.",
     owner: "Kavita Iyer",
     loanRef: "LN-2026-0104",
   },

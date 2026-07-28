@@ -53,7 +53,7 @@ export const LOAN_PARTICIPANT_ROLE_LABELS: Record<LoanParticipantRole, string> =
   primary_applicant: "Borrower",
   co_applicant: "Co-Applicant",
   guarantor: "Guarantor",
-  company: "Company",
+  company: "Company / Business Entity",
   income_contributor: "Income Contributor",
   authorized_signatory: "Authorised Signatory",
   payee: "Payee",

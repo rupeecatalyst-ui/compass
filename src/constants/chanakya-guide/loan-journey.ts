@@ -25,7 +25,7 @@ export const CHANAKYA_LOAN_JOURNEY_PHASES: ChanakyaLoanJourneyPhaseDef[] = [
   {
     id: "loan_execution",
     label: "Loan Execution",
-    description: "Run the loan file across lenders and approval.",
+    description: "Run the Deal across lenders and approval.",
     tone: "green",
   },
   {
@@ -94,9 +94,9 @@ export const CHANAKYA_LOAN_JOURNEY_STAGES: ChanakyaLoanJourneyStageDef[] = [
     order: 6,
     phaseId: "loan_execution",
     name: "Loan Workspace",
-    objective: "Execute the active loan file without leaving the transaction.",
+    objective: "Execute the active Deal without leaving the transaction.",
     chanakyaMessage:
-      "You are in Loan Execution. Keep work inside this loan file — Action Center handles routine moves in context.",
+      "You are in Loan Execution. Keep work inside this Loan Workspace — Action Center handles routine moves in context.",
     matchWorkspaceIds: ["loan_workspace"],
     matchSections: ["overview", "default", "documents", "mission-control"],
   },
@@ -105,7 +105,7 @@ export const CHANAKYA_LOAN_JOURNEY_STAGES: ChanakyaLoanJourneyStageDef[] = [
     order: 7,
     phaseId: "loan_execution",
     name: "Lender Pipeline",
-    objective: "Track each lender case independently across the loan file.",
+    objective: "Track each lender case independently across the Deal.",
     chanakyaMessage:
       "You are on Lender Pipeline. Each lender has its own status path — this board is the workflow source of truth.",
     matchWorkspaceIds: ["lender_pipeline", "loan_workspace"],
@@ -160,7 +160,7 @@ export const CHANAKYA_LOAN_JOURNEY_STAGES: ChanakyaLoanJourneyStageDef[] = [
     kind: "support",
     objective: "Clear follow-ups that protect SLAs and customer experience.",
     chanakyaMessage:
-      "Tasks are available from any stage. Clear overdue commitments, then return to the loan file to continue.",
+      "Tasks are available from any stage. Clear overdue commitments, then return to the Loan Workspace to continue.",
     matchWorkspaceIds: ["tasks"],
     matchSections: ["tasks"],
   },

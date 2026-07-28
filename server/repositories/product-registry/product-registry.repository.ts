@@ -110,7 +110,7 @@ export class ProductRegistryRepository {
         label: input.label.trim(),
         description: input.description?.trim(),
         sortOrder: input.sortOrder ?? 0,
-        status: input.status ?? "draft",
+        status: input.status ?? (input.enabled === false ? "inactive" : "active"),
         enabled: input.enabled ?? true,
         notes: input.notes?.trim(),
         createdBy: input.createdBy,
@@ -239,7 +239,7 @@ export class ProductRegistryRepository {
         label: input.label.trim(),
         description: input.description?.trim(),
         sortOrder: input.sortOrder ?? 0,
-        status: input.status ?? "draft",
+        status: input.status ?? (input.enabled === false ? "inactive" : "active"),
         enabled: input.enabled ?? true,
         notes: input.notes?.trim(),
         createdBy: input.createdBy,
@@ -365,13 +365,13 @@ export class ProductRegistryRepository {
             ? { updatedAt: sortDir }
             : sortBy === "createdOn"
               ? { createdAt: sortDir }
-              : { label: sortDir };
+              : { sortOrder: sortDir };
 
     const [total, rows] = await prisma.$transaction([
       prisma.enterpriseProduct.count({ where }),
       prisma.enterpriseProduct.findMany({
         where,
-        orderBy,
+        orderBy: [orderBy, { label: "asc" }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -399,7 +399,14 @@ export class ProductRegistryRepository {
         minorVersion: input.minorVersion ?? 0,
         tags: input.tags ? (input.tags as Prisma.InputJsonValue) : undefined,
         productOwner: input.productOwner?.trim(),
-        status: input.status ?? "draft",
+        sortOrder: input.sortOrder ?? 0,
+        parentProductId: input.parentProductId ?? null,
+        isSecured: input.isSecured ?? null,
+        customerSegment: input.customerSegment
+          ? (input.customerSegment as Prisma.InputJsonValue)
+          : undefined,
+        remarks: input.remarks?.trim(),
+        status: input.status ?? (input.enabled === false ? "inactive" : "active"),
         enabled: input.enabled ?? true,
         notes: input.notes?.trim(),
         createdBy: input.createdBy,
@@ -429,6 +436,16 @@ export class ProductRegistryRepository {
               ? (input.tags as Prisma.InputJsonValue)
               : undefined,
         productOwner: input.productOwner,
+        sortOrder: input.sortOrder,
+        parentProductId: input.parentProductId,
+        isSecured: input.isSecured,
+        customerSegment:
+          input.customerSegment === null
+            ? Prisma.JsonNull
+            : input.customerSegment
+              ? (input.customerSegment as Prisma.InputJsonValue)
+              : undefined,
+        remarks: input.remarks,
         status: input.status,
         enabled: input.enabled,
         notes: input.notes,
@@ -439,7 +456,8 @@ export class ProductRegistryRepository {
             input.status ||
             input.enabled !== undefined ||
             input.lifecycleStatus ||
-            input.operationalStatus
+            input.operationalStatus ||
+            input.sortOrder !== undefined
               ? 1
               : 0,
         },
@@ -477,8 +495,64 @@ export class ProductRegistryRepository {
         deletionReason: reason,
         status: "archived",
         enabled: false,
+        lifecycleStatus: "archived",
+        operationalStatus: "retired",
         modifiedBy: actorId,
         versionNumber: { increment: 1 },
+      },
+    });
+    return mapProductRow(row);
+  }
+
+  async archiveProduct(id: string, actorId: string, reason?: string) {
+    const row = await prisma.enterpriseProduct.update({
+      where: { id },
+      data: {
+        lifecycleStatus: "archived",
+        operationalStatus: "retired",
+        status: "archived",
+        enabled: false,
+        notes: reason,
+        modifiedBy: actorId,
+        versionNumber: { increment: 1 },
+      },
+    });
+    return mapProductRow(row);
+  }
+
+  async duplicateProduct(
+    sourceId: string,
+    input: { code: string; label?: string; createdBy: string },
+  ) {
+    const source = await prisma.enterpriseProduct.findUnique({ where: { id: sourceId } });
+    if (!source || source.isDeleted) throw new Error("Source product not found.");
+    const code = normalizeProductRegistryCode(input.code);
+    if (!code) throw new Error("Code is required.");
+    const row = await prisma.enterpriseProduct.create({
+      data: {
+        organizationId: source.organizationId,
+        categoryId: source.categoryId,
+        groupId: source.groupId,
+        code,
+        label: (input.label?.trim() || `${source.label} (Copy)`).trim(),
+        description: source.description,
+        shortDescription: source.shortDescription,
+        lifecycleStatus: "draft",
+        operationalStatus: "inactive",
+        majorVersion: 1,
+        minorVersion: 0,
+        tags: source.tags ?? undefined,
+        productOwner: source.productOwner,
+        sortOrder: source.sortOrder,
+        parentProductId: source.id,
+        isSecured: source.isSecured,
+        customerSegment: source.customerSegment ?? undefined,
+        remarks: source.remarks,
+        status: "draft",
+        enabled: false,
+        notes: source.notes,
+        createdBy: input.createdBy,
+        modifiedBy: input.createdBy,
       },
     });
     return mapProductRow(row);

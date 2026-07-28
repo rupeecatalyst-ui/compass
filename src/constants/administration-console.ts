@@ -178,6 +178,13 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         keywords: ["products", "catalog"],
       },
       {
+        id: "product-master",
+        title: "Product Master",
+        description: "Create, edit, activate, and deactivate enterprise products without code changes.",
+        href: ROUTES.ADMIN_PRODUCT_MASTER,
+        keywords: ["product master", "create", "activate", "deactivate"],
+      },
+      {
         id: "credit-policies",
         title: "Credit Policies",
         description: "Policy library and credit & risk engine administration.",
@@ -213,6 +220,14 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
     description: "Enterprise master data registries used across Catalyst One.",
     modules: [
       {
+        id: "enterprise-mdm",
+        title: "Enterprise Master Data",
+        description:
+          "Single administration hub for Products, Lenders, Programs, and all Lookup Masters.",
+        href: ROUTES.ADMIN_ENTERPRISE_MDM,
+        keywords: ["mdm", "master", "product", "lender", "lookup", "source"],
+      },
+      {
         id: "lender-registry",
         title: "Lender Registry",
         description:
@@ -221,11 +236,41 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         keywords: ["lender", "registry", "program", "nbfc", "bank", "hfc"],
       },
       {
+        id: "wealth-partner-registry",
+        title: "Wealth Partner Registry",
+        description:
+          "Enterprise Wealth Partner master — business relationships on Contact or Company identity.",
+        href: ROUTES.ADMIN_WEALTH_PARTNER_REGISTRY,
+        keywords: ["wealth", "partner", "ca", "dsa", "builder", "commission"],
+      },
+      {
+        id: "product-programs",
+        title: "Product Programs",
+        description: "Lender programs linked to Products.",
+        href: ROUTES.ADMIN_PRODUCT_PROGRAMS,
+        keywords: ["program", "product", "lender"],
+      },
+      {
+        id: "document-types",
+        title: "Document Types",
+        description: "Document Type Master for Document Center.",
+        href: ROUTES.ADMIN_DOCUMENT_TYPES,
+        keywords: ["document", "type", "master"],
+      },
+      {
+        id: "product-lender-matrix",
+        title: "Product–Lender Matrix",
+        description: "Configure which lenders offer which products.",
+        href: ROUTES.ADMIN_PRODUCT_LENDER_MATRIX,
+        keywords: ["product", "lender", "matrix", "mapping", "offer"],
+      },
+      {
         id: "reference-masters",
-        title: "Reference Master",
-        description: "Maintain Tier 1 enterprise reference data (city, industry, employment type, etc.)",
+        title: "Lookup Masters",
+        description:
+          "Business Source, Occupation, Industry, Property Type, Designation, and related lookups.",
         href: ROUTES.ADMIN_REFERENCE_MASTERS,
-        keywords: ["reference", "master", "lookup", "city", "industry", "employment"],
+        keywords: ["reference", "master", "lookup", "city", "industry", "employment", "source"],
       },
     ],
   },
@@ -247,6 +292,29 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         description: "Create and maintain lenders (Administration Masters).",
         href: ROUTES.ADMIN_LENDER_REGISTRY,
         keywords: ["lender registry", "maintain"],
+      },
+      {
+        id: "wealth-partners-ops",
+        title: "Wealth Partner Registry",
+        description:
+          "Business relationships with Rupee Catalyst — Contact or Company identity with partner-type workspace (CO-WP-001).",
+        href: ROUTES.WEALTH_PARTNERS,
+        keywords: ["wealth", "partner", "ca", "dsa", "builder", "network", "commission"],
+      },
+      {
+        id: "wealth-partner-registry-maint",
+        title: "Wealth Partner Registry (Admin)",
+        description: "Maintain Wealth Partners from Administration Masters.",
+        href: ROUTES.ADMIN_WEALTH_PARTNER_REGISTRY,
+        keywords: ["wealth partner", "maintain", "registry"],
+      },
+      {
+        id: "lender-program-portal",
+        title: "Lender Program Portal",
+        description:
+          "Generate secure lender program links and approve product-program submissions (CO-LEND-001).",
+        href: ROUTES.ADMIN_LENDER_PROGRAM_PORTAL,
+        keywords: ["lender", "program", "portal", "otp", "approval", "self-service"],
       },
       {
         id: "credit-lenders",
@@ -354,6 +422,36 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
           "environment",
           "database",
           "ops",
+        ],
+      },
+      {
+        id: "production-reset",
+        title: "Production Reset",
+        description:
+          "Controlled Super Admin wizard to remove demo and transactional business data while preserving enterprise configuration.",
+        href: ROUTES.ADMIN_PRODUCTION_RESET,
+        keywords: [
+          "production reset",
+          "demo cleanup",
+          "cutover",
+          "uat reset",
+          "system tools",
+        ],
+      },
+      {
+        id: "enterprise-metrics",
+        title: "Enterprise Metrics",
+        description:
+          "Enterprise Metrics Engine — last run, force recalculate, dry run, and metric snapshot health.",
+        href: ROUTES.ADMIN_ENTERPRISE_METRICS,
+        keywords: [
+          "eme",
+          "metrics",
+          "kpi",
+          "performance",
+          "snapshot",
+          "health score",
+          "dashboard",
         ],
       },
     ],

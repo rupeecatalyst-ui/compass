@@ -68,6 +68,9 @@ export {
 export {
   loadDealPipelineRuntime,
   persistDealPipelineLenders,
+  softDeleteRemovedPipelineDeals,
+  removeLenderPipelineDeal,
+  resolvePipelineDealId,
   identifyLenderAsEnterpriseDeal,
   dealToLenderExecution,
   toDealPipelineRuntime,
@@ -76,6 +79,10 @@ export {
   lenderCaseStageToGrossStage,
   grossStageToLenderCaseStage,
 } from "./deal-lender-stage-map";
+export {
+  resolveDealStageProjection,
+  assertDealStageAuthority,
+} from "./deal-stage-projection";
 export {
   aggregateOpportunityDealIntelligence,
   type OpportunityDealAggregation,

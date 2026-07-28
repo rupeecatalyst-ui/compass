@@ -120,6 +120,7 @@ export function parseInclude(url: URL): DealIncludeOption[] {
     "activities",
     "timeline",
     "snapshots",
+    "siblings",
   ]);
   return raw
     .split(",")
@@ -164,5 +165,6 @@ export function parseDealSearchQuery(
     page: Number(url.searchParams.get("page") ?? 1),
     pageSize: Number(url.searchParams.get("pageSize") ?? 25),
     sort: (url.searchParams.get("sort") as EnterpriseDealSearchQuery["sort"]) ?? "updatedAt_desc",
+    view: (url.searchParams.get("view") as EnterpriseDealSearchQuery["view"]) ?? undefined,
   };
 }

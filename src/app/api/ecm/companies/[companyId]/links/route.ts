@@ -92,6 +92,10 @@ export async function POST(request: Request, context: RouteContext) {
 
       relationRole: (body.relationRole as EcmCompanyRelationRole) || "other",
 
+      designation: body.designation ? String(body.designation) : null,
+
+      department: body.department ? String(body.department) : null,
+
       createdBy: actor.userId,
 
     });

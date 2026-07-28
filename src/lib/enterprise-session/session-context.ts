@@ -22,6 +22,10 @@ import {
   peekPublishedLendersSession,
   invalidatePublishedLendersSession,
 } from "@/lib/enterprise-session/published-lenders-session";
+import {
+  resolveDealBorrowerIdentity,
+  resolveOpportunityBorrowerIdentity,
+} from "@/lib/enterprise-borrower-identity";
 
 export type EnterpriseSessionSnapshot = {
   opportunityId: string | null;
@@ -29,6 +33,10 @@ export type EnterpriseSessionSnapshot = {
   dealId: string | null;
   deal: SessionDealRecord | null;
   contactId: string | null;
+  /** Company id when primary borrower is a Company (CO-DOM-001A). */
+  activeCompanyId: string | null;
+  /** Stable party key: company:<id> | contact:<id> */
+  partyId: string | null;
   publishedLendersLoaded: boolean;
   publishedLenderCount: number;
 };
@@ -38,6 +46,8 @@ type Listener = () => void;
 let activeOpportunityId: string | null = null;
 let activeDealId: string | null = null;
 let activeContactId: string | null = null;
+let activeCompanyId: string | null = null;
+let activePartyId: string | null = null;
 const listeners = new Set<Listener>();
 
 function emit(): void {
@@ -58,7 +68,10 @@ export function subscribeEnterpriseSession(listener: Listener): () => void {
 export function bindSessionOpportunity(opp: EnterpriseOpportunityApiRecord): void {
   putSessionOpportunity(opp);
   activeOpportunityId = opp.id;
-  activeContactId = opp.primaryContactId || activeContactId;
+  const borrower = resolveOpportunityBorrowerIdentity(opp);
+  activeContactId = borrower.primaryContactId || null;
+  activeCompanyId = borrower.companyId || null;
+  activePartyId = borrower.partyId || null;
   emit();
 }
 
@@ -81,9 +94,10 @@ export function bindSessionDeal(
   if (deal.opportunityId?.trim()) {
     activeOpportunityId = deal.opportunityId.trim();
   }
-  if (deal.primaryContactId?.trim()) {
-    activeContactId = deal.primaryContactId.trim();
-  }
+  const borrower = resolveDealBorrowerIdentity(deal);
+  activeContactId = borrower.primaryContactId || null;
+  activeCompanyId = borrower.companyId || null;
+  activePartyId = borrower.partyId || null;
   emit();
 }
 
@@ -99,6 +113,8 @@ export function clearEnterpriseSession(): void {
   activeOpportunityId = null;
   activeDealId = null;
   activeContactId = null;
+  activeCompanyId = null;
+  activePartyId = null;
   invalidatePublishedLendersSession();
   emit();
 }
@@ -109,6 +125,10 @@ export function getEnterpriseSessionSnapshot(): EnterpriseSessionSnapshot {
     : null;
   const deal = activeDealId ? peekSessionDeal(activeDealId) : null;
   const lenders = peekPublishedLendersSession();
+  const oppBorrower = opportunity
+    ? resolveOpportunityBorrowerIdentity(opportunity)
+    : null;
+  const dealBorrower = deal ? resolveDealBorrowerIdentity(deal) : null;
   return {
     opportunityId: activeOpportunityId,
     opportunity,
@@ -116,9 +136,13 @@ export function getEnterpriseSessionSnapshot(): EnterpriseSessionSnapshot {
     deal,
     contactId:
       activeContactId ||
-      opportunity?.primaryContactId ||
-      deal?.primaryContactId ||
+      oppBorrower?.primaryContactId ||
+      dealBorrower?.primaryContactId ||
       null,
+    activeCompanyId:
+      activeCompanyId || oppBorrower?.companyId || dealBorrower?.companyId || null,
+    partyId:
+      activePartyId || oppBorrower?.partyId || dealBorrower?.partyId || null,
     publishedLendersLoaded: Boolean(lenders),
     publishedLenderCount: lenders?.length ?? 0,
   };

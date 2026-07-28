@@ -4,7 +4,7 @@ import { ROUTES } from "@/constants/routes";
 export const ELW_ORIGIN_LABELS: Record<ElwOriginSurface, string> = {
   opportunity_workspace: "Opportunity Workspace",
   life: "LIFE · Link to Lender",
-  loan_files: "Loan File",
+  loan_files: "Loan Workspace",
   dashboard: "Dashboard",
   lenders: "Lender Master",
   search: "Search",

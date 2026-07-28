@@ -1,0 +1,39 @@
+---
+description: Enterprise RM Workspace — canonical RM operational home; projection of ETE · EBI · Documents · Deals
+alwaysApply: true
+---
+
+# Enterprise RM Workspace — Platform Constitution
+
+Status: **ENTERPRISE APPROVED** · Frozen · Canonical RM morning desk  
+Sprint foundation: **CO-BIZ-005**
+
+## Constitutional principles
+
+1. The RM Workspace is a **projection layer** — not a second operating system.
+2. **Consume:** ETE · EBI · Document Requests · Deal DAL · (optional) ECE / Governance / Ops signals.
+3. **Never** invent a parallel task engine, KPI formula set, or workflow ownership model.
+4. Mounted on **User Home** (`/dashboard`) — do not add a duplicate primary-nav “RM Home”.
+5. Chanakya briefing is **advisory only** and never blocks workflow.
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Compose | `src/lib/enterprise-rm-workspace/` |
+| Types | `src/types/enterprise-rm-workspace.ts` |
+| UI pack | `src/components/catalyst-one/user-home-dashboard/rm-workspace-pack.tsx` |
+| Docs | `docs/co-biz-005/CO-BIZ-005-RM-WORKSPACE-READINESS-REPORT.md` |
+
+## Forbidden
+
+- Parallel “RM task” or “RM priority” stores that bypass ETE  
+- Recalculating EBI conversion / pipeline value in the RM UI  
+- Mounting this desk under Mission Control as the RM home  
+
+## Related
+
+- `enterprise-task-engine.mdc`
+- `enterprise-business-intelligence.mdc`
+- `enterprise-customer-engagement.mdc`
+- `enterprise-metric-single-implementation.mdc`

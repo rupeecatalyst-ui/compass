@@ -68,11 +68,14 @@ export function resolveProductUniquenessKey(
   return normalized.replace(/\s+/g, "_");
 }
 
-/** Lifecycle values that block another Opportunity for the same Contact+Product (ADR-018). */
+/** Lifecycle values that block another Opportunity for the same Contact+Product (CO-OPP-002). */
 export const ACTIVE_PLANNING_LIFECYCLE_STATUSES = [
   "requirement_captured",
-  "active",
+  "in_progress",
+  "converted_to_deal",
   "on_hold",
+  /** legacy synonym of In Progress — historical rows only */
+  "active",
 ] as const;
 
 export type ActivePlanningLifecycleStatus =
@@ -80,7 +83,7 @@ export type ActivePlanningLifecycleStatus =
 
 /**
  * Opportunity participates in Contact+Product uniqueness while Requirement Captured,
- * Active, or On Hold — not Draft, and not Converted/Lost/Cancelled/Closed.
+ * In Progress, Converted to Deal, or On Hold — not Dialogue (or legacy Draft).
  */
 export function isOpportunityPlanningActive(row: {
   lifecycleStatus?: string | null;
@@ -91,7 +94,7 @@ export function isOpportunityPlanningActive(row: {
   if (row.isDeleted) return false;
   if (row.archived) return false;
   if (row.closedAt) return false;
-  const status = (row.lifecycleStatus || "active").toLowerCase();
+  const status = (row.lifecycleStatus || "in_progress").toLowerCase();
   return (ACTIVE_PLANNING_LIFECYCLE_STATUSES as readonly string[]).includes(status);
 }
 

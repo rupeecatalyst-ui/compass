@@ -6,6 +6,9 @@ import {
   ACTIVE_PLANNING_LIFECYCLE_STATUSES,
 } from "@/constants/opportunity-active-uniqueness";
 import {
+  businessSourceCodesForKpiBucket,
+} from "@/constants/opportunity-business-source";
+import {
   Prisma,
   type DealPriority,
   type DealProductFamily,
@@ -20,11 +23,15 @@ import {
   OpportunityNotFoundError,
 } from "@server/services/enterprise-opportunity/opportunity-validation";
 
+function sourceCodesForBucket(bucket: string): string[] {
+  return businessSourceCodesForKpiBucket(bucket);
+}
 export type CreateEnterpriseOpportunityInput = {
   organizationId: string;
   productFamily: DealProductFamily;
   requirementStage: string;
-  primaryContactId: string;
+  primaryBorrowerKind?: "individual" | "company";
+  primaryContactId?: string | null;
   actorUserId?: string | null;
   legacyLoanFileId?: string | null;
   productId?: string | null;
@@ -40,6 +47,7 @@ export type CreateEnterpriseOpportunityInput = {
   primaryContactMobile?: string | null;
   primaryContactEmail?: string | null;
   companyId?: string | null;
+  companyName?: string | null;
   employmentTypeCode?: string | null;
   cityLabel?: string | null;
   stateLabel?: string | null;
@@ -52,6 +60,13 @@ export type CreateEnterpriseOpportunityInput = {
   fulfilmentMode?: OpportunityFulfilmentMode;
   snapshot?: Prisma.InputJsonValue | null;
   lendingExtension?: Prisma.InputJsonValue | null;
+  sourceCode?: string | null;
+  sourceContactId?: string | null;
+  sourceContactName?: string | null;
+  sourceWealthPartnerId?: string | null;
+  participationRole?: string | null;
+  commercialRevenueSharePercent?: number | null;
+  sourceCampaignLabel?: string | null;
 };
 
 export type UpdateEnterpriseOpportunityInput = {
@@ -79,6 +94,13 @@ export type UpdateEnterpriseOpportunityInput = {
   currencyCode?: string;
   snapshot?: Prisma.InputJsonValue | null;
   lendingExtension?: Prisma.InputJsonValue | null;
+  sourceCode?: string | null;
+  sourceContactId?: string | null;
+  sourceContactName?: string | null;
+  sourceWealthPartnerId?: string | null;
+  participationRole?: string | null;
+  commercialRevenueSharePercent?: number | null;
+  sourceCampaignLabel?: string | null;
   updatedBy?: string | null;
   expectedRowVersion?: number | null;
 };
@@ -144,18 +166,112 @@ export class EnterpriseOpportunityRepository {
     });
   }
 
+  /**
+   * CO-OPP-002 — Open Dialogue for Contact (Start Loan Journey idempotency).
+   * Also matches legacy `draft` rows so historical Drafts are reused as Dialogue
+   * without migrating their stored status.
+   */
+  async findOpenDraftForContact(organizationId: string, primaryContactId: string) {
+    return prisma.enterpriseOpportunity.findFirst({
+      where: {
+        organizationId,
+        primaryContactId,
+        isDeleted: false,
+        archived: false,
+        closedAt: null,
+        lifecycleStatus: { in: ["dialogue", "draft"] },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+  }
+
+  /**
+   * CO-DOM-001 — Find planning-active Opportunity for Company + Product uniqueness.
+   */
+  async findActiveForCompanyProduct(
+    organizationId: string,
+    companyId: string,
+    productUniquenessKey: string,
+  ) {
+    return prisma.enterpriseOpportunity.findFirst({
+      where: {
+        organizationId,
+        companyId,
+        primaryBorrowerKind: "company",
+        productUniquenessKey,
+        isDeleted: false,
+        archived: false,
+        closedAt: null,
+        lifecycleStatus: {
+          in: [...ACTIVE_PLANNING_LIFECYCLE_STATUSES] as OpportunityLifecycleStatus[],
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+  }
+
+  /**
+   * CO-OPP-002 — Open Dialogue for Company (Start Loan Journey idempotency).
+   * Includes legacy `draft` without rewriting those rows.
+   */
+  async findOpenDraftForCompany(organizationId: string, companyId: string) {
+    return prisma.enterpriseOpportunity.findFirst({
+      where: {
+        organizationId,
+        companyId,
+        primaryBorrowerKind: "company",
+        isDeleted: false,
+        archived: false,
+        closedAt: null,
+        lifecycleStatus: { in: ["dialogue", "draft"] },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+  }
+
   async markConvertedToDeal(
     organizationId: string,
     opportunityId: string,
     actorUserId: string,
   ) {
     const existing = await this.requireOpportunity(organizationId, opportunityId);
+    const current = (existing.lifecycleStatus || "").toLowerCase();
+    // Do not regress Completed / Lost / Cancelled; do not rewrite historical terminal rows.
+    if (["completed", "won", "lost", "cancelled", "archived"].includes(current)) {
+      return existing;
+    }
     return prisma.enterpriseOpportunity.update({
       where: { id: existing.id },
       data: {
-        lifecycleStatus: "won",
+        lifecycleStatus: "converted_to_deal",
         fulfilmentStatus: "partially_fulfilled",
-        closedAt: existing.closedAt ?? new Date(),
+        // Converted to Deal is not terminal — leave closedAt unset.
+        closedAt: null,
+        updatedBy: actorUserId,
+      },
+    });
+  }
+
+  async applyLifecycleStatus(
+    organizationId: string,
+    opportunityId: string,
+    lifecycleStatus: OpportunityLifecycleStatus,
+    actorUserId: string,
+    extras?: { closedAt?: Date | null; fulfilmentStatus?: string },
+  ) {
+    const existing = await this.requireOpportunity(organizationId, opportunityId);
+    return prisma.enterpriseOpportunity.update({
+      where: { id: existing.id },
+      data: {
+        lifecycleStatus,
+        fulfilmentStatus: (extras?.fulfilmentStatus as
+          | "open"
+          | "partially_fulfilled"
+          | "fulfilled"
+          | "abandoned"
+          | undefined) ?? existing.fulfilmentStatus,
+        closedAt:
+          extras?.closedAt !== undefined ? extras.closedAt : existing.closedAt,
         updatedBy: actorUserId,
       },
     });
@@ -164,25 +280,50 @@ export class EnterpriseOpportunityRepository {
   async search(organizationId: string, query: {
     q?: string;
     primaryContactId?: string;
+    companyId?: string;
     requirementStage?: string;
     lifecycleStatus?: OpportunityLifecycleStatus;
+    sourceCode?: string;
+    /** CO-UX-006 — filter by Fresh Login KPI bucket */
+    sourceBucket?: "direct" | "channel_partner" | "referral" | "other";
+    /** Distinct Opportunity IDs (e.g. Fresh Login today) */
+    opportunityIds?: string[];
     limit?: number;
     offset?: number;
   }) {
     const limit = Math.min(Math.max(query.limit ?? 50, 1), 200);
     const offset = Math.max(query.offset ?? 0, 0);
+
     const where: Prisma.EnterpriseOpportunityWhereInput = {
       organizationId,
       isDeleted: false,
       ...(query.primaryContactId ? { primaryContactId: query.primaryContactId } : {}),
+      ...(query.companyId ? { companyId: query.companyId } : {}),
       ...(query.requirementStage ? { requirementStage: query.requirementStage } : {}),
       ...(query.lifecycleStatus ? { lifecycleStatus: query.lifecycleStatus } : {}),
+      ...(query.sourceCode ? { sourceCode: query.sourceCode } : {}),
+      ...(query.opportunityIds
+        ? { id: { in: query.opportunityIds.length ? query.opportunityIds : ["__none__"] } }
+        : {}),
+      ...(query.sourceBucket && !query.sourceCode
+        ? query.sourceBucket === "other"
+          ? {
+              OR: [
+                { sourceCode: { in: sourceCodesForBucket("other") } },
+                { sourceCode: null },
+                { sourceCode: "" },
+              ],
+            }
+          : { sourceCode: { in: sourceCodesForBucket(query.sourceBucket) } }
+        : {}),
       ...(query.q
         ? {
             OR: [
               { opportunityNumber: { contains: query.q, mode: "insensitive" } },
               { primaryContactName: { contains: query.q, mode: "insensitive" } },
+              { companyName: { contains: query.q, mode: "insensitive" } },
               { productLabel: { contains: query.q, mode: "insensitive" } },
+              { sourceCode: { contains: query.q, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -213,15 +354,48 @@ export class EnterpriseOpportunityRepository {
       if (existing) return existing;
     }
 
-    const contact = await prisma.ecmContact.findFirst({
-      where: {
-        id: input.primaryContactId,
-        organizationId: input.organizationId,
-        isDeleted: false,
-      },
-    });
-    if (!contact) {
+    const borrowerKind = input.primaryBorrowerKind ?? "individual";
+    const isCompanyBorrower = borrowerKind === "company";
+
+    if (isCompanyBorrower) {
+      if (!input.companyId?.trim()) {
+        throw new OpportunityConflictError("companyId is required when primary borrower is a Company");
+      }
+    } else if (!input.primaryContactId?.trim()) {
       throw new OpportunityConflictError("primaryContactId must reference a valid Contact");
+    }
+
+    let contactName: string | null = null;
+    let contactMobile: string | null = null;
+    let contactEmail: string | null = null;
+    let companyName: string | null = input.companyName?.trim() || null;
+
+    if (isCompanyBorrower) {
+      const company = await prisma.ecmCompany.findFirst({
+        where: {
+          id: input.companyId!,
+          organizationId: input.organizationId,
+          isDeleted: false,
+        },
+      });
+      if (!company) {
+        throw new OpportunityConflictError("companyId must reference a valid Company");
+      }
+      companyName = companyName || company.companyName;
+    } else {
+      const contact = await prisma.ecmContact.findFirst({
+        where: {
+          id: input.primaryContactId!,
+          organizationId: input.organizationId,
+          isDeleted: false,
+        },
+      });
+      if (!contact) {
+        throw new OpportunityConflictError("primaryContactId must reference a valid Contact");
+      }
+      contactName = contact.name;
+      contactMobile = contact.mobilePrimary;
+      contactEmail = contact.personalEmail ?? contact.officialEmail;
     }
 
     if (input.productId) {
@@ -256,12 +430,19 @@ export class EnterpriseOpportunityRepository {
         requirementSubStage: input.requirementSubStage ?? null,
         lifecycleStatus: input.lifecycleStatus ?? "active",
         stageEnteredAt: now,
-        primaryContactId: input.primaryContactId,
-        primaryContactName: input.primaryContactName ?? contact.name,
-        primaryContactMobile: input.primaryContactMobile ?? contact.mobilePrimary,
-        primaryContactEmail:
-          input.primaryContactEmail ?? contact.personalEmail ?? contact.officialEmail,
-        companyId: input.companyId ?? null,
+        primaryBorrowerKind: borrowerKind,
+        primaryContactId: isCompanyBorrower ? null : input.primaryContactId ?? null,
+        primaryContactName: isCompanyBorrower
+          ? companyName
+          : input.primaryContactName ?? contactName,
+        primaryContactMobile: isCompanyBorrower
+          ? null
+          : input.primaryContactMobile ?? contactMobile,
+        primaryContactEmail: isCompanyBorrower
+          ? null
+          : input.primaryContactEmail ?? contactEmail,
+        companyId: isCompanyBorrower ? input.companyId ?? null : input.companyId ?? null,
+        companyName: isCompanyBorrower ? companyName : null,
         employmentTypeCode: input.employmentTypeCode ?? null,
         cityLabel: input.cityLabel ?? null,
         stateLabel: input.stateLabel ?? null,
@@ -275,6 +456,13 @@ export class EnterpriseOpportunityRepository {
         fulfilmentStatus: "open" satisfies OpportunityFulfilmentStatus,
         snapshot: input.snapshot ?? undefined,
         lendingExtension: input.lendingExtension ?? undefined,
+        sourceCode: input.sourceCode ?? null,
+        sourceContactId: input.sourceContactId ?? null,
+        sourceContactName: input.sourceContactName ?? null,
+        sourceWealthPartnerId: input.sourceWealthPartnerId ?? null,
+        participationRole: input.participationRole ?? null,
+        commercialRevenueSharePercent: input.commercialRevenueSharePercent ?? null,
+        sourceCampaignLabel: input.sourceCampaignLabel ?? null,
         createdBy: actor,
         updatedBy: actor,
       },
@@ -367,6 +555,21 @@ export class EnterpriseOpportunityRepository {
     if (input.snapshot !== undefined) data.snapshot = input.snapshot ?? Prisma.JsonNull;
     if (input.lendingExtension !== undefined) {
       data.lendingExtension = input.lendingExtension ?? Prisma.JsonNull;
+    }
+    if (input.sourceCode !== undefined) data.sourceCode = input.sourceCode;
+    if (input.sourceContactId !== undefined) data.sourceContactId = input.sourceContactId;
+    if (input.sourceContactName !== undefined) data.sourceContactName = input.sourceContactName;
+    if (input.sourceWealthPartnerId !== undefined) {
+      data.sourceWealthPartnerId = input.sourceWealthPartnerId;
+    }
+    if (input.participationRole !== undefined) {
+      data.participationRole = input.participationRole;
+    }
+    if (input.commercialRevenueSharePercent !== undefined) {
+      data.commercialRevenueSharePercent = input.commercialRevenueSharePercent;
+    }
+    if (input.sourceCampaignLabel !== undefined) {
+      data.sourceCampaignLabel = input.sourceCampaignLabel;
     }
 
     return prisma.enterpriseOpportunity.update({

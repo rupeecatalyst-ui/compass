@@ -1,6 +1,7 @@
 /**
  * CO-SPRINT-089 — Strategic Workspace ↔ Lender Pipeline.
  * Analysis memory persists for the loan lifecycle; Identified is execution entry only.
+ * CO-ARCH-002 — Strategy shortlist capped at Primary + Secondary (max 2).
  */
 
 import { updateDeal, loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
@@ -8,6 +9,31 @@ import { peekDealProjection } from "@/lib/enterprise-deal/deal-projection-cache"
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
 import type { LoanFile, LoanLenderExecution, LenderProbability } from "@/types/catalyst-one";
 import { isPreExecutionStage, normalizeLenderCaseStage } from "@/constants/lender-pipeline";
+import {
+  STRATEGY_SHORTLIST_LIMIT_GUIDANCE,
+  STRATEGY_SHORTLIST_MAX_LENDERS,
+} from "@/constants/strategic-lender-shortlist";
+
+/** Thrown when Strategy Execution Queue already has Primary + Secondary. */
+export class StrategicShortlistLimitError extends Error {
+  readonly code = "CO_ARCH_002_SHORTLIST_LIMIT" as const;
+
+  constructor(message: string = STRATEGY_SHORTLIST_LIMIT_GUIDANCE) {
+    super(message);
+    this.name = "StrategicShortlistLimitError";
+  }
+}
+
+export function isStrategicShortlistLimitError(
+  err: unknown,
+): err is StrategicShortlistLimitError {
+  return (
+    err instanceof StrategicShortlistLimitError ||
+    (typeof err === "object" &&
+      err !== null &&
+      (err as { code?: string }).code === "CO_ARCH_002_SHORTLIST_LIMIT")
+  );
+}
 
 const SHORTLIST_KEY = "catalyst.strategic-lender-shortlist";
 const ANALYSIS_KEY = "catalyst.strategic-lender-analysis";
@@ -137,6 +163,37 @@ export function getStrategicShortlist(opportunityId: string): StrategicLenderSho
   return readShortlistMap()[opportunityId]?.items ?? [];
 }
 
+/** True when Strategy queue already holds Primary + Secondary (new lenders blocked). */
+export function isStrategicShortlistAtLimit(opportunityId: string): boolean {
+  return getStrategicShortlist(opportunityId).length >= STRATEGY_SHORTLIST_MAX_LENDERS;
+}
+
+/**
+ * CO-ARCH-002 — Trim legacy queues that exceed max 2 (keeps insertion order = Primary, Secondary).
+ * Analysis memory is not truncated.
+ */
+export function enforceStrategicShortlistMax(
+  opportunityId: string,
+): StrategicLenderShortlistItem[] {
+  if (!opportunityId) return [];
+  const map = readShortlistMap();
+  const bucket = map[opportunityId];
+  if (!bucket?.items?.length) return [];
+  if (bucket.items.length <= STRATEGY_SHORTLIST_MAX_LENDERS) return bucket.items;
+  bucket.items = bucket.items.slice(0, STRATEGY_SHORTLIST_MAX_LENDERS);
+  bucket.updatedAt = new Date().toISOString();
+  map[opportunityId] = bucket;
+  writeShortlistMap(map);
+  return bucket.items;
+}
+
+/** Lenders transferred on Move to Deal — Primary + Secondary only. */
+export function takeStrategyShortlistForMoveToDeal(
+  items: StrategicLenderShortlistItem[],
+): StrategicLenderShortlistItem[] {
+  return items.slice(0, STRATEGY_SHORTLIST_MAX_LENDERS);
+}
+
 /**
  * CO-BUG-011 — Drop Execution Queue rows that lack a canonical Enterprise Lender Registry id.
  * Soft Go-Live / BF_* / name-only rows must never remain selectable for Move to Deal.
@@ -180,7 +237,7 @@ export function upsertStrategicShortlistItem(
   },
 ): StrategicLenderShortlistItem[] {
   const enriched = enrichStrategyFields(item, item.strategicRank ? item.strategicRank - 1 : 0);
-  // Always keep analysis memory
+  // Always keep analysis memory (planning history is not capped).
   upsertStrategicAnalysis(opportunityId, [enriched]);
 
   const map = readShortlistMap();
@@ -201,6 +258,10 @@ export function upsertStrategicShortlistItem(
   if (existingIdx >= 0) {
     bucket.items[existingIdx] = { ...bucket.items[existingIdx], ...nextItem };
   } else {
+    // CO-ARCH-002 — Strategy shortlist = Primary + Secondary only.
+    if (bucket.items.length >= STRATEGY_SHORTLIST_MAX_LENDERS) {
+      throw new StrategicShortlistLimitError();
+    }
     bucket.items.push(nextItem);
   }
   bucket.updatedAt = new Date().toISOString();
@@ -368,7 +429,7 @@ export function syncShortlistToIdentified(
       cases: [],
       created: [],
       existingOpened: [],
-      message: "Loan file not found — open Loan Workspace to continue.",
+      message: "Deal not found — open Loan Workspace to continue.",
     };
   }
 
@@ -477,7 +538,20 @@ export function identifyLenderFromAnalysis(
       message: "Lender not found in strategic analysis.",
     };
   }
-  upsertStrategicShortlistItem(opportunityId, item);
+  try {
+    upsertStrategicShortlistItem(opportunityId, item);
+  } catch (err) {
+    if (err instanceof StrategicShortlistLimitError) {
+      return {
+        ok: false,
+        cases: [],
+        created: [],
+        existingOpened: [],
+        message: err.message,
+      };
+    }
+    throw err;
+  }
   return syncShortlistToIdentified(loanFileId, opportunityId, [item], actor, {
     pruneMissing: false,
   });

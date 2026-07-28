@@ -1,0 +1,25 @@
+---
+description: CO-QA-002 Kanban delete must soft-delete EnterpriseDeal SSOT
+alwaysApply: true
+---
+
+# CO-QA-002 — Lender Pipeline Kanban Delete Persistence
+
+Status: **ENTERPRISE APPROVED** · Effective immediately  
+Authority: CO-ARCH-007 · CO-QA-001
+
+## Rule
+
+Kanban **Remove** must soft-delete the corresponding **EnterpriseDeal** via Deal Registry (`DELETE /api/enterprise-deals/:dealId`).
+
+Filtering React state / rewriting `snapshot.lenders` alone is **not** a delete.
+
+## SSOT path
+
+`persistDealPipelineLenders` → `softDeleteRemovedPipelineDeals` → reload via `listDealsByOpportunity` (`isDeleted: false`).
+
+## Certification
+
+Module remains **OPEN** until `CO-QA-002-E2E-001` Passes on the live app. Build/verify/smoke do not certify.
+
+Docs: `docs/co-qa-002/`

@@ -36,7 +36,6 @@ import {
   buildDocumentCenterScopeOptions,
   documentCenterActiveOwner,
   parseParticipantScopeKey,
-  resolveDocumentScopeForTypeRef,
   type DocumentCenterScopeKey,
 } from "@/constants/opportunity-document-center";
 import {
@@ -54,8 +53,10 @@ import {
   canReplaceDocuments,
   canUploadDocuments,
   getDocumentPreviewUrl,
+  healDocumentOwnerAssociations,
   listDocumentsForOpportunityRuntime,
   markDocumentVerified,
+  recordMatchesDocumentOwnerScope,
   replaceDocumentInRegistry,
   subscribeDocumentRegistryUpdated,
   uploadDocumentToRegistry,
@@ -82,25 +83,7 @@ function matchesCustomerScope(
   ) {
     return false;
   }
-  const docScope =
-    record.links.documentScope ??
-    resolveDocumentScopeForTypeRef(record.typeRef);
-  const participantId = record.links.participantId?.trim();
-  if (scope === DOCUMENT_CENTER_SHARED_SCOPE_KEY) {
-    return docScope === "shared";
-  }
-  const selectedParticipant = parseParticipantScopeKey(scope);
-  if (!selectedParticipant) return true;
-  if (docScope === "shared") return false;
-  if (!participantId) {
-    const primary = participants.find((p) => p.role === "primary_applicant");
-    return (
-      selectedParticipant === "primary" ||
-      selectedParticipant === primary?.id ||
-      scope.endsWith(":primary")
-    );
-  }
-  return participantId === selectedParticipant;
+  return recordMatchesDocumentOwnerScope(record, scope, participants);
 }
 
 function lenderLabel(c: LoanLenderExecution): string {
@@ -182,12 +165,26 @@ export function DealDocumentsProjection({
 
   const oppId = opportunityId || file.enterpriseOpportunityId || null;
 
+  useEffect(() => {
+    healDocumentOwnerAssociations({
+      runtimeKey: file.id,
+      opportunityId: oppId,
+      customerId: file.customerId,
+      participants: participants.map((p) => ({
+        id: p.id,
+        entityId: p.entityId,
+        role: p.role,
+      })),
+    });
+  }, [file.id, file.customerId, oppId, participants]);
+
   const records = useMemo(() => {
     void tick;
-    return listDocumentsForOpportunityRuntime(file.id, oppId).filter(
-      (r) => r.status === "active",
-    );
-  }, [file.id, oppId, tick]);
+    return listDocumentsForOpportunityRuntime(file.id, oppId, {
+      customerId: file.customerId,
+      contactId: file.customerId,
+    }).filter((r) => r.status === "active");
+  }, [file.id, file.customerId, oppId, tick]);
 
   const customerFiltered = useMemo(() => {
     const q = query.trim().toLowerCase();

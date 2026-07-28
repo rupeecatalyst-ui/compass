@@ -9,7 +9,6 @@ import Link from "next/link";
 import {
   Handshake,
   LineChart,
-  Loader2,
   TrendingUp,
   UserRound,
   type LucideIcon,
@@ -36,7 +35,6 @@ import {
   buildNewArrivalsDrillDownHref,
 } from "@/lib/user-home-dashboard/new-arrivals";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
-import { hydrateEcmFromPrisma } from "@/lib/enterprise-persistence";
 import { seedEcmContactsDemoIfEmpty } from "@/lib/demo-seed";
 import { cn } from "@/lib/utils";
 import type { NewArrivalsDatePresetId } from "@/types/user-home-new-arrivals";
@@ -70,15 +68,11 @@ export function NewArrivalsSection() {
   const refreshCounts = useCallback(async () => {
     setLoading(true);
     try {
-      if (isEnterprisePersistencePrisma()) {
-        try {
-          await hydrateEcmFromPrisma();
-        } catch {
-          /* fall through to local ports / API path inside loader */
-        }
-      } else {
+      if (!isEnterprisePersistencePrisma()) {
         seedEcmContactsDemoIfEmpty();
       }
+      // CO-ARCH-003 — Do not re-hydrate ECM (Tier 2 cache warm) on every New Arrivals refresh.
+      // Dashboard layout already hydrates once; this KPI strip must stay Tier 1.
       const result = await loadNewArrivalsCounts(range);
       const next: Record<string, number> = {};
       for (const row of result.counts) next[row.id] = row.count;
@@ -213,8 +207,11 @@ export function NewArrivalsSection() {
 
                   <div>
                     {loading && count === undefined ? (
-                      <div className="flex h-9 items-center text-muted-foreground">
-                        <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                      <div className="flex h-9 items-center" aria-busy>
+                        <span
+                          aria-hidden
+                          className="h-7 w-16 animate-pulse rounded-md bg-muted"
+                        />
                         <span className="sr-only">Loading count</span>
                       </div>
                     ) : (

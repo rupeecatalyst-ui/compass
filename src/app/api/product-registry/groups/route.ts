@@ -9,6 +9,7 @@ import { productRegistryService } from "@server/services/product-registry/produc
 import {
   mapRouteError,
   parseListQuery,
+  productRegistryErrorResponse,
   productRegistryPersistenceGuard,
   requireProductRegistryAdmin,
   resolveActorDisplayName,
@@ -25,11 +26,19 @@ export async function GET(request: Request) {
     });
     return successResponse(result);
   } catch (err) {
-    const mapped = mapRouteError(err);
+    const mapped = productRegistryErrorResponse(
+      err,
+      "PRODUCT_GROUP_QUERY_FAILED",
+      "Failed to query product groups",
+    );
     if (mapped.status === 401) {
       return fromAuthError(mapped as { status: number; body: ApiResponse<unknown> });
     }
-    return errorResponse(500, "PRODUCT_GROUP_QUERY_FAILED", "Failed to query product groups");
+    return errorResponse(
+      mapped.status,
+      mapped.body.error?.code ?? "PRODUCT_GROUP_QUERY_FAILED",
+      mapped.body.error?.message ?? "Failed to query product groups",
+    );
   }
 }
 

@@ -114,6 +114,14 @@ export type UpdateUserAdminInput = {
   isActive?: boolean;
 };
 
+export type AssignableUserRecord = {
+  id: string;
+  fullName: string;
+  email: string;
+  employeeId: string | null;
+  reportingManagerId: string | null;
+};
+
 export const userAdminService = {
   async list(query: { search?: string; role?: Role | "all"; status?: "all" | "active" | "inactive" } = {}) {
     requireDb();
@@ -146,6 +154,111 @@ export const userAdminService = {
       take: 500,
     });
     return rows.map(mapUser);
+  },
+
+  /**
+   * Assignment picker SSOT — every ACTIVE Enterprise User Registry account.
+   * No role / department / branch eligibility filters.
+   * Search: name · employee code · email.
+   */
+  async listAssignable(query: { search?: string } = {}): Promise<AssignableUserRecord[]> {
+    requireDb();
+    const where: NonNullable<Parameters<typeof prisma.user.findMany>[0]>["where"] = {
+      isActive: true,
+    };
+
+    if (query.search?.trim()) {
+      const s = query.search.trim();
+      const parts = s.split(/\s+/).filter(Boolean);
+      where.OR = [
+        { email: { contains: s, mode: "insensitive" } },
+        { firstName: { contains: s, mode: "insensitive" } },
+        { lastName: { contains: s, mode: "insensitive" } },
+        { employeeId: { contains: s, mode: "insensitive" } },
+        ...parts.flatMap((p) => [
+          { firstName: { contains: p, mode: "insensitive" as const } },
+          { lastName: { contains: p, mode: "insensitive" as const } },
+        ]),
+      ];
+    }
+
+    const rows = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        employeeId: true,
+        reportingManagerId: true,
+      },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+      take: 500,
+    });
+
+    return rows.map((u) => ({
+      id: u.id,
+      fullName: `${u.firstName} ${u.lastName}`.trim(),
+      email: u.email,
+      employeeId: u.employeeId,
+      reportingManagerId: u.reportingManagerId,
+    }));
+  },
+
+  /** Ancestors above the given users in reportingManagerId hierarchy (supervisors). */
+  async resolveHierarchyAncestors(userIds: string[]): Promise<string[]> {
+    requireDb();
+    const seed = [...new Set(userIds.map((id) => id.trim()).filter(Boolean))];
+    if (seed.length === 0) return [];
+
+    const all = await prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, reportingManagerId: true },
+    });
+    const managerOf = new Map(all.map((u) => [u.id, u.reportingManagerId]));
+    const ancestors = new Set<string>();
+
+    for (const start of seed) {
+      let cursor = managerOf.get(start) ?? null;
+      const seen = new Set<string>();
+      while (cursor && !seen.has(cursor)) {
+        seen.add(cursor);
+        if (!seed.includes(cursor)) ancestors.add(cursor);
+        cursor = managerOf.get(cursor) ?? null;
+      }
+    }
+
+    return [...ancestors];
+  },
+
+  /** Actor + all users who report (transitively) to the actor — for "my" visibility scope. */
+  async resolveDownlineUserIds(actorUserId: string): Promise<string[]> {
+    requireDb();
+    const actor = actorUserId.trim();
+    if (!actor) return [];
+
+    const all = await prisma.user.findMany({
+      select: { id: true, reportingManagerId: true },
+    });
+    const children = new Map<string, string[]>();
+    for (const row of all) {
+      if (!row.reportingManagerId) continue;
+      const list = children.get(row.reportingManagerId) ?? [];
+      list.push(row.id);
+      children.set(row.reportingManagerId, list);
+    }
+
+    const out = new Set<string>([actor]);
+    const queue = [actor];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const child of children.get(current) ?? []) {
+        if (out.has(child)) continue;
+        out.add(child);
+        queue.push(child);
+      }
+    }
+    return [...out];
   },
 
   async getById(id: string) {

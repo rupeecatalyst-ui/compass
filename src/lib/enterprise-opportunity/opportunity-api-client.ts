@@ -18,10 +18,13 @@ export type EnterpriseOpportunityApiRecord = {
   id: string;
   opportunityNumber: string;
   legacyLoanFileId?: string | null;
-  primaryContactId: string;
+  primaryBorrowerKind?: "individual" | "company" | null;
+  primaryContactId?: string | null;
   primaryContactName?: string | null;
   primaryContactMobile?: string | null;
   primaryContactEmail?: string | null;
+  companyId?: string | null;
+  companyName?: string | null;
   productFamily: string;
   productId?: string | null;
   productCode?: string | null;
@@ -42,6 +45,13 @@ export type EnterpriseOpportunityApiRecord = {
   cityLabel?: string | null;
   stateLabel?: string | null;
   lendingExtension?: unknown;
+  sourceCode?: string | null;
+  sourceContactId?: string | null;
+  sourceContactName?: string | null;
+  sourceWealthPartnerId?: string | null;
+  participationRole?: string | null;
+  commercialRevenueSharePercent?: number | null;
+  sourceCampaignLabel?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   rowVersion?: number;
@@ -111,7 +121,10 @@ function ensureOpportunityFetcherWired(): void {
 }
 
 export type OpportunityCreateBody = {
-  primaryContactId: string;
+  primaryBorrowerKind?: "individual" | "company";
+  primaryContactId?: string | null;
+  companyId?: string | null;
+  companyName?: string | null;
   productFamily?: string;
   requirementStage?: string;
   productId?: string | null;
@@ -125,9 +138,18 @@ export type OpportunityCreateBody = {
   relationshipManagerName?: string | null;
   transactionType?: string | null;
   priority?: string;
-  /** ADR-018 — create identity-only Draft (no product fabrication / uniqueness). */
+  /** CO-OPP-002 — create identity-only Dialogue (no product fabrication / uniqueness). */
+  createAsDialogue?: boolean;
+  /** @deprecated Use createAsDialogue — Draft is retired. */
   createAsDraft?: boolean;
   lifecycleStatus?: string;
+  sourceCode?: string | null;
+  sourceContactId?: string | null;
+  sourceContactName?: string | null;
+  sourceWealthPartnerId?: string | null;
+  participationRole?: string | null;
+  commercialRevenueSharePercent?: number | null;
+  sourceCampaignLabel?: string | null;
   /** Explicit override of Contact+Product uniqueness (requires overrideReason). */
   allowActiveDuplicateOverride?: boolean;
   overrideReason?: string;
@@ -154,10 +176,19 @@ export type OpportunityUpdateBody = {
   currencyCode?: string;
   rowVersion?: number;
   lendingExtension?: Record<string, unknown> | null;
+  sourceCode?: string | null;
+  sourceContactId?: string | null;
+  sourceContactName?: string | null;
+  sourceWealthPartnerId?: string | null;
+  participationRole?: string | null;
+  commercialRevenueSharePercent?: number | null;
+  sourceCampaignLabel?: string | null;
   primaryOwnerUserId?: string | null;
   relationshipManagerUserId?: string | null;
   allowActiveDuplicateOverride?: boolean;
   overrideReason?: string;
+  /** CO-OPP-002 — promote Requirement Captured → In Progress when continuing journey. */
+  markInProgress?: boolean;
 };
 
 export const enterpriseOpportunityApiClient = {
@@ -181,17 +212,51 @@ export const enterpriseOpportunityApiClient = {
     return result.item ?? null;
   },
 
+  /** P1 — Latest open Draft for Contact (Start Loan Journey reuse). */
+  async findOpenDraftForContact(
+    primaryContactId: string,
+  ): Promise<EnterpriseOpportunityApiRecord | null> {
+    ensureOpportunityFetcherWired();
+    const params = new URLSearchParams({
+      findOpenDraft: "1",
+      primaryContactId,
+    });
+    const result = await opportunityFetch<{ item: EnterpriseOpportunityApiRecord | null }>(
+      `/api/enterprise-opportunities?${params.toString()}`,
+    );
+    return result.item ?? null;
+  },
+
+  /** P1 — Latest open Draft for Company. */
+  async findOpenDraftForCompany(
+    companyId: string,
+  ): Promise<EnterpriseOpportunityApiRecord | null> {
+    ensureOpportunityFetcherWired();
+    const params = new URLSearchParams({
+      findOpenDraft: "1",
+      companyId,
+    });
+    const result = await opportunityFetch<{ item: EnterpriseOpportunityApiRecord | null }>(
+      `/api/enterprise-opportunities?${params.toString()}`,
+    );
+    return result.item ?? null;
+  },
+
   async createOpportunity(
     body: OpportunityCreateBody,
   ): Promise<EnterpriseOpportunityApiRecord> {
     ensureOpportunityFetcherWired();
-    const asDraft = Boolean(body.createAsDraft) || body.lifecycleStatus === "draft";
-    const payload = asDraft
+    const asDialogue =
+      Boolean(body.createAsDialogue) ||
+      Boolean(body.createAsDraft) ||
+      body.lifecycleStatus === "dialogue" ||
+      body.lifecycleStatus === "draft";
+    const payload = asDialogue
       ? {
           ...body,
-          createAsDraft: true,
-          lifecycleStatus: "draft",
-          // CAD / ADR-018 — never inject Home Loan on Draft create
+          createAsDialogue: true,
+          lifecycleStatus: "dialogue",
+          // CAD / CO-OPP-002 — never inject Home Loan on Dialogue create
           productFamily: body.productFamily ?? DEFAULT_START_LOAN_JOURNEY_PRODUCT.productFamily,
           productId: null,
           productCode: null,
@@ -250,6 +315,9 @@ export const enterpriseOpportunityApiClient = {
     q?: string;
     primaryContactId?: string;
     requirementStage?: string;
+    sourceCode?: string;
+    sourceBucket?: "direct" | "channel_partner" | "referral" | "other";
+    freshLoginToday?: boolean;
     limit?: number;
     offset?: number;
   } = {}): Promise<{
@@ -263,9 +331,42 @@ export const enterpriseOpportunityApiClient = {
     if (query.q?.trim()) params.set("q", query.q.trim());
     if (query.primaryContactId) params.set("primaryContactId", query.primaryContactId);
     if (query.requirementStage) params.set("requirementStage", query.requirementStage);
+    if (query.sourceCode) params.set("sourceCode", query.sourceCode);
+    if (query.sourceBucket) params.set("sourceBucket", query.sourceBucket);
+    if (query.freshLoginToday) params.set("freshLogin", "today");
     params.set("limit", String(query.limit ?? 100));
     params.set("offset", String(query.offset ?? 0));
     return opportunityFetch(`/api/enterprise-opportunities?${params.toString()}`);
+  },
+
+  async getFreshLoginKpis(): Promise<{
+    asOf: string;
+    definition: string;
+    counts: {
+      direct: number;
+      channel_partner: number;
+      referral: number;
+      other: number;
+      total: number;
+    };
+    opportunityIds: string[];
+  }> {
+    return opportunityFetch("/api/enterprise-opportunities/fresh-logins");
+  },
+
+  async getTodayNewOpportunityKpis(): Promise<{
+    asOf: string;
+    definition: string;
+    counts: {
+      direct: number;
+      channel_partner: number;
+      referral: number;
+      other: number;
+      total: number;
+    };
+    opportunityIds: string[];
+  }> {
+    return opportunityFetch("/api/enterprise-opportunities/today-new");
   },
 
   /**
