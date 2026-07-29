@@ -52,6 +52,7 @@
     "perf:request-reduction:verify": "node scripts/co-perf-002-request-reduction-verify.mjs",
     "arch:mc-snapshot:verify": "node scripts/co-arch-005-mission-control-snapshot-verify.mjs",
     "verify:co-mc-002": "node scripts/co-mc-002-verify.mjs",
+    "verify:co-doc-003": "node scripts/co-doc-003-verify.mjs",
     "arch:chanakya-day-night:verify": "node scripts/co-arch-007-chanakya-intelligence-verify.mjs",
     "lender:activate-operational": "tsx --env-file=.env.local scripts/co-lender-activate-operational.ts",
     "lender:activate-operational:apply": "tsx --env-file=.env.local scripts/co-lender-activate-operational.ts --apply",

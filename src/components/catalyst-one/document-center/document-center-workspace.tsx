@@ -18,6 +18,7 @@ import {
 } from "@/components/catalyst-one/document-center/document-readiness-card";
 import { DocumentReadinessDrawer } from "@/components/catalyst-one/document-center/document-readiness-drawer";
 import { DocumentRegistryPanel } from "@/components/catalyst-one/document-center/document-registry-panel";
+import { DocumentPackagesPanel } from "@/components/catalyst-one/document-center/document-packages-panel";
 import { DocumentCategoriesTable } from "@/components/catalyst-one/document-center/document-categories-table";
 import { DocumentOtherDocumentsTable } from "@/components/catalyst-one/document-center/document-other-documents-table";
 import { DocumentUploadProgressBar } from "@/components/catalyst-one/document-center/document-upload-zone";
@@ -67,7 +68,13 @@ import {
   subscribeDocumentRegistryUpdated,
   uploadDocumentToRegistry,
 } from "@/lib/document-registry";
+import {
+  listDocumentPackagesForRuntime,
+  subscribeDocumentPackagesUpdated,
+  uploadFolderAsDocumentPackage,
+} from "@/lib/document-package";
 import type { DocumentRegistryRecord, DocumentUploadProgress } from "@/types/document-registry";
+import type { DocumentPackageRecord } from "@/types/document-package";
 import {
   EDIE_ADDRESS_PROOF_GROUP,
   EDIE_IDENTITY_PROOF_GROUP,
@@ -125,6 +132,7 @@ export function DocumentCenterWorkspace() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [localFocus, setLocalFocus] = useState<string | null>(focusParam);
   const [registryTick, setRegistryTick] = useState(0);
+  const [packageTick, setPackageTick] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<DocumentUploadProgress | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [documentOwnerScope, setDocumentOwnerScope] =
@@ -315,11 +323,35 @@ export function DocumentCenterWorkspace() {
     });
   }, [refreshRegistry]);
 
+  useEffect(() => {
+    return subscribeDocumentPackagesUpdated(() => {
+      setPackageTick((t) => t + 1);
+    });
+  }, []);
+
   const registryRecords = useMemo(() => {
     if (!file) return [];
     return listRegistryForFile().filter(recordMatchesOwnerScope);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file?.id, registryTick, recordMatchesOwnerScope, listRegistryForFile]);
+
+  const documentPackages = useMemo(() => {
+    if (!file || !registryListKeys.runtimeKey) return [] as DocumentPackageRecord[];
+    return listDocumentPackagesForRuntime(
+      registryListKeys.runtimeKey,
+      registryListKeys.opportunityId,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file?.id, registryListKeys, packageTick, registryTick]);
+
+  const recordsById = useMemo(() => {
+    const map = new Map<string, DocumentRegistryRecord>();
+    for (const r of listRegistryForFile()) {
+      map.set(r.id, r);
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file?.id, registryTick, listRegistryForFile]);
 
   /** Checklist completeness for the selected Document Owner only. */
   const scopedReceipts = useMemo(() => {
@@ -562,6 +594,10 @@ export function DocumentCenterWorkspace() {
 
   const onFolderInputChange = async (files: FileList | null) => {
     if (!files?.length || !file || !checklist) return;
+    if (!canUploadDocuments(user)) {
+      flash("Upload not permitted for your role.");
+      return;
+    }
     const list = Array.from(files).filter((f) => f.size > 0);
     if (!list.length) {
       flash("No files found in the selected folder.");
@@ -569,28 +605,76 @@ export function DocumentCenterWorkspace() {
     }
 
     const classified = classifyUploadsAgainstChecklist(list, flatItems);
-    let mapped = 0;
-    let otherCount = 0;
     const nextOther = [...otherDocs];
-
-    for (const item of classified) {
+    const packageFiles = classified.map((item) => {
       if (item.isOther) {
         const entry = createOtherDocumentEntry(item.label);
         nextOther.push(entry);
-        await processUpload(item.file, entry.typeRef, entry.name);
-        otherCount += 1;
-      } else {
-        await processUpload(item.file, item.typeRef, item.label);
-        mapped += 1;
+        return {
+          file: item.file,
+          typeRef: entry.typeRef,
+          categoryLabel: entry.name,
+        };
       }
-    }
+      return {
+        file: item.file,
+        typeRef: item.typeRef,
+        categoryLabel: item.label,
+      };
+    });
 
-    setOtherDocs(nextOther);
-    saveOtherDocumentEntries(file.id, nextOther);
-    flash(
-      `Folder upload complete — ${mapped} mapped to checklist, ${otherCount} placed in Other Documents.`,
-    );
-    if (folderInputRef.current) folderInputRef.current.value = "";
+    const isShared = documentOwnerScope === DOCUMENT_CENTER_SHARED_SCOPE_KEY;
+    const participantId = isShared
+      ? null
+      : parseParticipantScopeKey(documentOwnerScope);
+    const ownerParticipant = participantId
+      ? participants.find((p) => p.id === participantId)
+      : undefined;
+    const links = buildEntityLinksFromLoanFile(file, {
+      documentScope: isShared ? "shared" : "applicant",
+      participantId,
+      ownerEntityId: isShared
+        ? null
+        : ownerParticipant?.entityId?.trim() || file.customerId || null,
+    });
+
+    preserveScroll();
+    setUploadBusy(true);
+    setUploadProgress({
+      phase: "reading",
+      percent: 2,
+      message: `Preparing folder upload (${packageFiles.length} files)…`,
+    });
+
+    try {
+      const pkg = await uploadFolderAsDocumentPackage({
+        files: packageFiles,
+        uploadedBy: uploaderName,
+        links,
+        onProgress: (p) => setUploadProgress(p),
+      });
+      for (const item of packageFiles) {
+        markReceipt(item.typeRef);
+      }
+      setOtherDocs(nextOther);
+      saveOtherDocumentEntries(file.id, nextOther);
+      refreshRegistry();
+      setPackageTick((t) => t + 1);
+      setDirty(false);
+      setSavedOnce(true);
+      flash(
+        `Document Package “${pkg.folderName}” uploaded — ${pkg.fileCount} file(s). Open the package below to review.`,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Folder upload failed";
+      setUploadProgress({ phase: "error", percent: 0, message: msg });
+      flash(msg);
+    } finally {
+      setUploadBusy(false);
+      window.setTimeout(() => setUploadProgress(null), 2400);
+      restoreScroll();
+      if (folderInputRef.current) folderInputRef.current.value = "";
+    }
   };
 
   const onBulkFiles = async (files: File[]) => {
@@ -927,6 +1011,46 @@ export function DocumentCenterWorkspace() {
             attachmentCountFor={attachmentCountFor}
             onUpload={(typeRef, name) => uploadDocument(typeRef, name)}
             onAddRow={addOtherDocumentRow}
+          />
+
+          <DocumentPackagesPanel
+            packages={documentPackages}
+            recordsById={recordsById}
+            links={(() => {
+              const isShared = documentOwnerScope === DOCUMENT_CENTER_SHARED_SCOPE_KEY;
+              const participantId = isShared
+                ? null
+                : parseParticipantScopeKey(documentOwnerScope);
+              const ownerParticipant = participantId
+                ? participants.find((p) => p.id === participantId)
+                : undefined;
+              return buildEntityLinksFromLoanFile(file, {
+                documentScope: isShared ? "shared" : "applicant",
+                participantId,
+                ownerEntityId: isShared
+                  ? null
+                  : ownerParticipant?.entityId?.trim() || file.customerId || null,
+              });
+            })()}
+            uploaderName={uploaderName}
+            onRefresh={() => {
+              refreshRegistry();
+              setPackageTick((t) => t + 1);
+            }}
+            onPreviewRecord={(record) => openViewer(record.typeRef)}
+            onReplaceRecord={(record) =>
+              promptUpload(record.typeRef, record.categoryLabel, record.id)
+            }
+            classifyFile={(uploadFile) => {
+              const classified = classifyUploadsAgainstChecklist([uploadFile], flatItems);
+              const item = classified[0];
+              if (!item || item.isOther) {
+                const entry = createOtherDocumentEntry(uploadFile.name);
+                return { typeRef: entry.typeRef, categoryLabel: entry.name || uploadFile.name };
+              }
+              return { typeRef: item.typeRef, categoryLabel: item.label };
+            }}
+            onProgress={(p) => setUploadProgress(p)}
           />
 
           <DocumentRegistryPanel

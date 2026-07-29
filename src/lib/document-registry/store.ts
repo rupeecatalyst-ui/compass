@@ -555,9 +555,21 @@ export async function replaceDocumentInRegistry(
       uploadedBy,
       links: existing.links,
       replaceRecordId: recordId,
+      uploadSource: existing.uploadSource,
     },
     onProgress,
   );
+  if (existing.links.packageId) {
+    void import("@/lib/document-package").then(({ appendDocumentPackageTimeline }) => {
+      appendDocumentPackageTimeline({
+        packageId: existing.links.packageId!,
+        eventType: "file_replaced",
+        description: `${record.displayName} replaced inside Document Package.`,
+        actorId: uploadedBy,
+        metadata: { documentId: record.id },
+      });
+    });
+  }
   return record;
 }
 

@@ -18,6 +18,10 @@ export interface DocumentEntityLinks {
   participantId?: string;
   /** CO-ARCH — applicant | shared | lender (BAT #23) */
   documentScope?: "applicant" | "shared" | "lender";
+  /** CO-DOC-003 — Document Package id when uploaded via Folder Upload. */
+  packageId?: string;
+  /** CO-DOC-003 — path inside the package (relative to folder root). */
+  packageRelativePath?: string;
 }
 
 export interface DocumentRegistryVersion {
@@ -41,7 +45,9 @@ export type DocumentRegistryUploadSource =
   | "manual_upload"
   | "email"
   | "whatsapp"
-  | "api";
+  | "api"
+  /** CO-DOC-003 — file ingested as part of a Document Package (folder upload). */
+  | "folder_package";
 
 export interface DocumentRegistryRecord {
   id: string;

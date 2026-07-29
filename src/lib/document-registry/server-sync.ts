@@ -72,6 +72,9 @@ export async function syncDocumentRecordToServer(
         uploadedBy: record.uploadedBy,
         verifiedAt: record.verifiedAt ?? null,
         verifiedBy: record.verifiedBy ?? null,
+        // CO-DOC-003 — additive fields (ignored by API until migration applied)
+        packageId: record.links.packageId ?? null,
+        packageRelativePath: record.links.packageRelativePath ?? null,
         contentBase64,
       }),
     });

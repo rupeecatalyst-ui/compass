@@ -76,6 +76,16 @@ Provide **Go to Document Center** — navigate via `buildCanonicalJourneyStageHr
 - Upload / replace / delete outside Document Center  
 - Treating LoanFile checklist status mutations as document authoring  
 
+## CO-DOC-003 — Document Packages
+
+Folder Upload creates a **Document Package** grouping over Document Registry records.
+
+- Packages are **not** a second document store — contained files still use `uploadDocumentToRegistry`.
+- Upload Files and Upload Folder must **coexist**.
+- Commercial / package metadata SSOT: `src/lib/document-package/` · types `src/types/document-package.ts`
+- Durable Postgres package tables are additive and require migration approval before activation.
+
 ## Related
 
-`docs/co-arch-003/CO-ARCH-003-DOCUMENT-CENTER-GOVERNANCE.md`
+`docs/co-arch-003/CO-ARCH-003-DOCUMENT-CENTER-GOVERNANCE.md`  
+`docs/co-doc-003/CO-DOC-003-DOCUMENT-PACKAGE-UPLOAD-READINESS-REPORT.md`
