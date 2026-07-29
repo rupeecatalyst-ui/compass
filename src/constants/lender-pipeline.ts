@@ -44,23 +44,45 @@ export const LENDER_PROBABILITY_LABELS: Record<LenderProbability, string> = {
 };
 
 const LEGACY_STAGE_MAP: Record<string, LenderCaseStage> = {
-  raw_lead: "prelogin",
+  // Legacy PipelineStage → canonical LenderCaseStage (read-only normalize)
+  raw_lead: "identified",
   pre_login: "prelogin",
+  logged_in: "logged_in_wip",
   login: "logged_in_wip",
+  credit_wip: "logged_in_wip",
   credit: "logged_in_wip",
   bank_query: "logged_in_wip",
   sanction: "soft_approved",
+  soft_approval: "soft_approved",
+  final_approval: "final_approved",
   disbursement: "closure_wip",
+  won: "disbursed",
   rejected: "lost",
   withdrawn: "lost",
 };
 
 export function normalizeLenderCaseStage(stage?: string): LenderCaseStage {
-  if (!stage) return "prelogin";
-  if (LENDER_CASE_STAGE_LABELS[stage as LenderCaseStage]) {
-    return stage as LenderCaseStage;
+  if (!stage) return "identified";
+  const key = stage.trim().toLowerCase().replace(/\s+/g, "_");
+  if (LENDER_CASE_STAGE_LABELS[key as LenderCaseStage]) {
+    return key as LenderCaseStage;
   }
-  return LEGACY_STAGE_MAP[stage] ?? "prelogin";
+  return LEGACY_STAGE_MAP[key] ?? "identified";
+}
+
+/**
+ * Strict canonicalize — returns null for unknown tokens (does not default).
+ * Used by server transition validation (CO-INC-001A).
+ */
+export function tryCanonicalLenderCaseStage(
+  stage: string | null | undefined,
+): LenderCaseStage | null {
+  if (!stage?.trim()) return null;
+  const key = stage.trim().toLowerCase().replace(/\s+/g, "_");
+  if (LENDER_CASE_STAGE_LABELS[key as LenderCaseStage]) {
+    return key as LenderCaseStage;
+  }
+  return LEGACY_STAGE_MAP[key] ?? null;
 }
 
 /** Stages that have not entered login execution yet. */

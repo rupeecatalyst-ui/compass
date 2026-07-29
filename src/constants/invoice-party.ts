@@ -71,13 +71,18 @@ export function isValidInvoicePartyType(value: unknown): value is InvoicePartyTy
 export function normalizeInvoicePartyStage(stage: string): PipelineStage {
   const s = stage.trim().toLowerCase().replace(/\s+/g, "_");
   const aliases: Record<string, PipelineStage> = {
+    identified: "pre_login",
+    prelogin: "pre_login",
     logged_in_wip: "logged_in",
     login: "logged_in",
     credit: "credit_wip",
     sanction: "soft_approved",
     soft_approval: "soft_approved",
     disbursement: "closure_wip",
-    disbursed: "closure_wip",
+    disbursed: "won",
+    hold: "pre_login",
+    lost: "pre_login",
+    won: "won",
   };
   if (aliases[s]) return aliases[s];
   return migrateLegacyStage(s);

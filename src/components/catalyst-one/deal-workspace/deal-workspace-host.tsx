@@ -169,6 +169,7 @@ export function DealWorkspaceHost() {
         const message = err instanceof Error ? err.message : "Failed to save Pipeline";
         toast.error(message);
         tracePipelineDrag("error", { dealId: runtime.deal.id, message });
+        // CO-INC-001A — fail-closed reload from Registry (canonical LenderCaseStage).
         try {
           await reloadRuntime(runtime.deal.id);
         } catch {

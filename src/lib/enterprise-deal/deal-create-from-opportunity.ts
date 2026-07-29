@@ -65,7 +65,7 @@ function buildSnapshot(
       mobile: opportunity.primaryContactMobile,
     },
     product: { label: productLabel },
-    stage: { grossStage: "login", subStage: null },
+    stage: { grossStage: "logged_in_wip", subStage: null },
     amounts: { requiredAmount: amount, loanAmount: amount },
     lenders: single,
   };
@@ -101,7 +101,7 @@ export function buildDealCreateBodyFromOpportunity(
 
   return {
     productFamily: "lending",
-    grossStage: "login",
+    grossStage: "logged_in_wip",
     opportunityId: opportunity.id,
     lenderId,
     lenderProgramId: input.lenderProgramId ?? null,

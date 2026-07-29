@@ -1,5 +1,8 @@
 import type { PipelineStage } from "@/types/catalyst-one";
-import { migrateLegacyStage } from "@/constants/loan-stage-master";
+import {
+  grossStageToLenderCaseStage,
+  lenderCaseStageToPipelineStageProjection,
+} from "@/lib/enterprise-deal/deal-lender-stage-map";
 
 export type DealStageProjectionSource = {
   grossStage?: string | null;
@@ -7,7 +10,8 @@ export type DealStageProjectionSource = {
 };
 
 /**
- * Resolve the canonical Deal Registry stage for UI projections.
+ * Resolve Deal Registry stage for LoanFile / My Deals PipelineStage projections.
+ * Registry may store LenderCaseStage (canonical) or legacy PipelineStage.
  * Never invent a stage. Never prefer LoanFile.stage over Deal.grossStage.
  */
 export function resolveDealStageProjection(
@@ -15,7 +19,8 @@ export function resolveDealStageProjection(
 ): PipelineStage | "" {
   const raw = deal.grossStage?.trim();
   if (!raw) return "";
-  return migrateLegacyStage(raw) as PipelineStage;
+  const lenderStage = grossStageToLenderCaseStage(raw);
+  return lenderCaseStageToPipelineStageProjection(lenderStage);
 }
 
 export function assertDealStageAuthority(): string {

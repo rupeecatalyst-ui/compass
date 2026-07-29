@@ -1,8 +1,11 @@
 /**
- * CO-ARCH-003 Phase 2B Sprint 1 — Deal (lender pipeline) stage transition rules.
- * Reuses frozen lender case stages (BI-4: Deal stages only).
+ * CO-ARCH-003 / CO-INC-001A — Deal (lender pipeline) stage transition rules.
+ * Canonical vocabulary: LenderCaseStage (same ids as Kanban columns).
  */
-import { LENDER_CASE_STAGES } from "@/constants/lender-pipeline";
+import {
+  LENDER_CASE_STAGES,
+  tryCanonicalLenderCaseStage,
+} from "@/constants/lender-pipeline";
 import type { LenderCaseStage } from "@/types/catalyst-one";
 import { DealValidationError } from "@server/services/enterprise-deal/deal-validation";
 
@@ -20,38 +23,47 @@ const TERMINAL = new Set<LenderCaseStage>(["lost", "hold", "disbursed"]);
 
 const KNOWN = new Set(LENDER_CASE_STAGES.map((s) => s.id));
 
-function normalizeDealStage(stage: string): string {
-  return stage.trim().toLowerCase().replace(/\s+/g, "_");
+/**
+ * Canonicalize any Registry / client stage string to LenderCaseStage.
+ * Accepts already-canonical ids and legacy PipelineStage aliases.
+ */
+export function canonicalizeDealPipelineStage(stage: string): LenderCaseStage {
+  const canonical = tryCanonicalLenderCaseStage(stage);
+  if (!canonical) {
+    throw new DealValidationError(
+      `Unknown Deal stage "${stage}". Use lender pipeline stages.`,
+    );
+  }
+  return canonical;
 }
 
 /**
  * Validates Deal gross_stage transitions for lending pipeline.
- * - Forward along primary path is allowed (including skip-ahead with warning via allowSkip)
+ * - Forward along primary path is allowed (including skip-ahead with allowSkip)
  * - lost / hold allowed from non-terminal stages
- * - Exit hold back to previous stage allowed
+ * - Exit hold back to a forward stage allowed (re-open)
  * - No movement out of lost / disbursed without explicit lifecycle change
+ * - Always returns canonical LenderCaseStage in toGrossStage
  */
 export function assertLenderPipelineStageTransition(input: {
   fromGrossStage: string;
   toGrossStage: string;
   allowSkip?: boolean;
 }): { toGrossStage: string } {
-  const from = normalizeDealStage(input.fromGrossStage);
-  const to = normalizeDealStage(input.toGrossStage);
-
-  if (!to) throw new DealValidationError("toGrossStage is required");
-  if (from === to) return { toGrossStage: to };
-
-  const fromKnown = KNOWN.has(from as LenderCaseStage);
-  const toKnown = KNOWN.has(to as LenderCaseStage);
-
-  // Allow unknown legacy stages to move onto the known matrix once
-  if (!fromKnown && toKnown) return { toGrossStage: to };
-  if (!toKnown) {
-    throw new DealValidationError(
-      `Unknown Deal stage "${input.toGrossStage}". Use lender pipeline stages.`,
-    );
+  if (!String(input.toGrossStage ?? "").trim()) {
+    throw new DealValidationError("toGrossStage is required");
   }
+
+  const to = canonicalizeDealPipelineStage(input.toGrossStage);
+  const fromCanonical = tryCanonicalLenderCaseStage(input.fromGrossStage);
+
+  // Unknown / empty from (legacy row) may move onto the known matrix once.
+  if (!fromCanonical) {
+    return { toGrossStage: to };
+  }
+
+  const from = fromCanonical;
+  if (from === to) return { toGrossStage: to };
 
   if (from === "lost") {
     throw new DealValidationError("Deal in Lost cannot change pipeline stage");
@@ -61,20 +73,20 @@ export function assertLenderPipelineStageTransition(input: {
   }
 
   if (to === "lost" || to === "hold") {
-    if (TERMINAL.has(from as LenderCaseStage) && from !== "hold") {
+    if (TERMINAL.has(from) && from !== "hold") {
       throw new DealValidationError(`Cannot move from ${from} to ${to}`);
     }
     return { toGrossStage: to };
   }
 
   if (from === "hold") {
-    // Resume to any forward stage (including identified)
-    if (FORWARD.includes(to as LenderCaseStage)) return { toGrossStage: to };
+    // Re-open: resume to any forward stage (including identified)
+    if (FORWARD.includes(to)) return { toGrossStage: to };
     throw new DealValidationError(`Cannot resume Hold to stage ${to}`);
   }
 
-  const fromIdx = FORWARD.indexOf(from as LenderCaseStage);
-  const toIdx = FORWARD.indexOf(to as LenderCaseStage);
+  const fromIdx = FORWARD.indexOf(from);
+  const toIdx = FORWARD.indexOf(to);
   if (fromIdx < 0 || toIdx < 0) {
     throw new DealValidationError(`Invalid stage transition ${from} → ${to}`);
   }
@@ -90,3 +102,7 @@ export function assertLenderPipelineStageTransition(input: {
   }
   return { toGrossStage: to };
 }
+
+/** @internal test helper — exported for verify scripts */
+export const DEAL_PIPELINE_FORWARD_STAGES = FORWARD;
+export const DEAL_PIPELINE_KNOWN_STAGES = KNOWN;
