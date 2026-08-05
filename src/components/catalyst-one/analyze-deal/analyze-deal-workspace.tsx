@@ -29,6 +29,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { EnterpriseFinancialInput } from "@/components/catalyst-one/shared/enterprise-financial-input";
+import {
+  absoluteRupeesFromStoredString,
+  absoluteRupeesToStoredString,
+} from "@/lib/enterprise-financial-input";
+import type { EnterpriseFinancialUnit } from "@/constants/enterprise-financial-input";
 import {
   Select,
   SelectContent,
@@ -95,6 +101,32 @@ function StatusBadge({ status }: { status: AnalyzeDealLenderRecommendation["stat
     <span className={cn("rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide", tone[status])}>
       {map[status]}
     </span>
+  );
+}
+
+function AnalyzeDealMoneyField({
+  label,
+  value,
+  onChange,
+  placeholder = "e.g. 45",
+  defaultUnit = "lakh",
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+  placeholder?: string;
+  defaultUnit?: EnterpriseFinancialUnit;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <EnterpriseFinancialInput
+        value={absoluteRupeesFromStoredString(value)}
+        onChange={(absolute) => onChange(absoluteRupeesToStoredString(absolute))}
+        placeholder={placeholder}
+        defaultUnit={defaultUnit}
+      />
+    </div>
   );
 }
 
@@ -361,41 +393,32 @@ export function AnalyzeDealWorkspace({
                   )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Requested Loan Amount</Label>
-                  <Input
-                    className="h-9"
-                    inputMode="numeric"
-                    placeholder="e.g. 75,00,000"
-                    value={inputs.requestedAmount}
-                    onChange={(e) => patch("requestedAmount", e.target.value)}
-                  />
-                </div>
+                <AnalyzeDealMoneyField
+                  label="Requested Loan Amount"
+                  value={inputs.requestedAmount}
+                  onChange={(v) => patch("requestedAmount", v)}
+                  placeholder="e.g. 75"
+                  defaultUnit="lakh"
+                />
 
                 {showProperty ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Property Value</Label>
-                    <Input
-                      className="h-9"
-                      inputMode="numeric"
-                      placeholder="e.g. 1,20,00,000"
-                      value={inputs.propertyValue}
-                      onChange={(e) => patch("propertyValue", e.target.value)}
-                    />
-                  </div>
+                  <AnalyzeDealMoneyField
+                    label="Property Value"
+                    value={inputs.propertyValue}
+                    onChange={(v) => patch("propertyValue", v)}
+                    placeholder="e.g. 1.2"
+                    defaultUnit="crore"
+                  />
                 ) : null}
 
                 {categoryCtx.isVisible("salary") ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Approximate Monthly Income (Salary)</Label>
-                    <Input
-                      className="h-9"
-                      inputMode="numeric"
-                      placeholder="e.g. 1,85,000"
-                      value={inputs.monthlyIncome}
-                      onChange={(e) => patch("monthlyIncome", e.target.value)}
-                    />
-                  </div>
+                  <AnalyzeDealMoneyField
+                    label="Approximate Monthly Income (Salary)"
+                    value={inputs.monthlyIncome}
+                    onChange={(v) => patch("monthlyIncome", v)}
+                    placeholder="e.g. 1.85"
+                    defaultUnit="lakh"
+                  />
                 ) : null}
 
                 {categoryCtx.isVisible("employer") ? (
@@ -411,29 +434,23 @@ export function AnalyzeDealWorkspace({
                 ) : null}
 
                 {categoryCtx.isVisible("salary_credits") ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Salary Credits (approx / month)</Label>
-                    <Input
-                      className="h-9"
-                      inputMode="numeric"
-                      placeholder="e.g. bank credit pattern"
-                      value={inputs.salaryCredits}
-                      onChange={(e) => patch("salaryCredits", e.target.value)}
-                    />
-                  </div>
+                  <AnalyzeDealMoneyField
+                    label="Salary Credits (approx / month)"
+                    value={inputs.salaryCredits}
+                    onChange={(v) => patch("salaryCredits", v)}
+                    placeholder="e.g. 1.85"
+                    defaultUnit="lakh"
+                  />
                 ) : null}
 
                 {categoryCtx.isVisible("business_turnover") ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Business Turnover (annual)</Label>
-                    <Input
-                      className="h-9"
-                      inputMode="numeric"
-                      placeholder="e.g. 2,50,00,000"
-                      value={inputs.businessTurnover}
-                      onChange={(e) => patch("businessTurnover", e.target.value)}
-                    />
-                  </div>
+                  <AnalyzeDealMoneyField
+                    label="Business Turnover (annual)"
+                    value={inputs.businessTurnover}
+                    onChange={(v) => patch("businessTurnover", v)}
+                    placeholder="e.g. 2.5"
+                    defaultUnit="crore"
+                  />
                 ) : null}
 
                 {categoryCtx.isVisible("business_vintage") ? (
@@ -462,68 +479,53 @@ export function AnalyzeDealWorkspace({
                 ) : null}
 
                 {categoryCtx.isVisible("itr") ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">ITR (latest year income)</Label>
-                    <Input
-                      className="h-9"
-                      inputMode="numeric"
-                      placeholder="e.g. 48,00,000"
-                      value={inputs.itr}
-                      onChange={(e) => patch("itr", e.target.value)}
-                    />
-                  </div>
+                  <AnalyzeDealMoneyField
+                    label="ITR (latest year income)"
+                    value={inputs.itr}
+                    onChange={(v) => patch("itr", v)}
+                    placeholder="e.g. 48"
+                    defaultUnit="lakh"
+                  />
                 ) : null}
 
                 {categoryCtx.isVisible("banking") ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Banking (avg monthly credits)</Label>
-                    <Input
-                      className="h-9"
-                      inputMode="numeric"
-                      placeholder="e.g. 18,00,000"
-                      value={inputs.banking}
-                      onChange={(e) => patch("banking", e.target.value)}
-                    />
-                  </div>
+                  <AnalyzeDealMoneyField
+                    label="Banking (avg monthly credits)"
+                    value={inputs.banking}
+                    onChange={(v) => patch("banking", v)}
+                    placeholder="e.g. 18"
+                    defaultUnit="lakh"
+                  />
                 ) : null}
 
                 {categoryCtx.isVisible("profit") ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Profit (annual)</Label>
-                    <Input
-                      className="h-9"
-                      inputMode="numeric"
-                      placeholder="e.g. 35,00,000"
-                      value={inputs.profit}
-                      onChange={(e) => patch("profit", e.target.value)}
-                    />
-                  </div>
+                  <AnalyzeDealMoneyField
+                    label="Profit (annual)"
+                    value={inputs.profit}
+                    onChange={(v) => patch("profit", v)}
+                    placeholder="e.g. 35"
+                    defaultUnit="lakh"
+                  />
                 ) : null}
 
                 {categoryCtx.isVisible("rental_income") ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Rental Income (monthly)</Label>
-                    <Input
-                      className="h-9"
-                      inputMode="numeric"
-                      placeholder="Optional"
-                      value={inputs.rentalIncome}
-                      onChange={(e) => patch("rentalIncome", e.target.value)}
-                    />
-                  </div>
+                  <AnalyzeDealMoneyField
+                    label="Rental Income (monthly)"
+                    value={inputs.rentalIncome}
+                    onChange={(v) => patch("rentalIncome", v)}
+                    placeholder="e.g. 50"
+                    defaultUnit="thousand"
+                  />
                 ) : null}
 
                 {categoryCtx.isVisible("existing_emi") ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Existing EMI</Label>
-                    <Input
-                      className="h-9"
-                      inputMode="numeric"
-                      placeholder="e.g. 28,000"
-                      value={inputs.existingEmi}
-                      onChange={(e) => patch("existingEmi", e.target.value)}
-                    />
-                  </div>
+                  <AnalyzeDealMoneyField
+                    label="Existing EMI"
+                    value={inputs.existingEmi}
+                    onChange={(v) => patch("existingEmi", v)}
+                    placeholder="e.g. 28"
+                    defaultUnit="thousand"
+                  />
                 ) : null}
 
                 {categoryCtx.isVisible("cibil") ? (

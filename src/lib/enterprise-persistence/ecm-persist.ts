@@ -99,6 +99,7 @@ export async function persistRegisterEcmContact(
     state: input.state,
     roles: input.roles,
     primaryRole: input.primaryRole,
+    roleProfiles: input.roleProfiles,
     status: input.status,
     ownerName: input.ownerName,
     ownerId: input.ownerId,

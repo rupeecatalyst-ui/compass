@@ -11,6 +11,8 @@
 
 The PMO is the **central governance authority** for all Catalyst One workstreams. It owns governance—not implementation.
 
+**Enterprise Project Status (living):** [`docs/co-docs-001/ENTERPRISE-PROJECT-STATUS.md`](../co-docs-001/ENTERPRISE-PROJECT-STATUS.md) — consolidated completed / in-progress / pending migrate / BAT / known issues (CO-DOCS-001).
+
 | Office | Owns |
 |--------|------|
 | Executive Steering Committee | Strategic direction, Go/No-Go, priorities |

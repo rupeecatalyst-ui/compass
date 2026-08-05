@@ -77,6 +77,11 @@ export interface EcmContact {
   /** Set when status transitions to archived (soft delete). */
   archivedBy?: string;
   archivedOn?: string;
+  /** Soft-delete flags — present when identity lookup includes deleted rows. */
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  deletionReason?: string;
   /** Role-specific profile fields — never duplicates Identity */
   roleProfiles?: Partial<Record<EcmContactRole, Record<string, string>>>;
   createdBy: string;
@@ -84,6 +89,27 @@ export interface EcmContact {
   modifiedBy: string;
   modifiedOn: string;
 }
+
+/**
+ * CO-CONTACT-IDENTITY-001 — Mobile identity resolution (one Contact per mobile / org).
+ */
+export type EcmContactIdentityStatus = "none" | "active" | "soft_deleted";
+
+export type EcmContactIdentitySnapshot = {
+  contactId: string;
+  name: string;
+  mobilePrimary: string;
+  status: EcmContactStatus;
+  deletedAt?: string;
+  deletedBy?: string;
+  deletionReason?: string;
+};
+
+export type EcmContactIdentityLookupResult = {
+  status: EcmContactIdentityStatus;
+  contact?: EcmContact;
+  snapshot?: EcmContactIdentitySnapshot;
+};
 
 export type EcmValidationSeverity = "error" | "warning";
 
@@ -172,6 +198,13 @@ export interface EcmContactQuery {
   createdFrom?: string;
   /** Inclusive local calendar day YYYY-MM-DD (createdAt / createdOn) */
   createdTo?: string;
+  /**
+   * CO-BUG-LSC-LOOKUP — Match Banker roleProfiles.institution / institutionLabel / lenderName
+   * (case-insensitive; any key). Server-side institution scope for Lender Sales Contact.
+   */
+  institutionKeys?: string[];
+  /** Skip COUNT(*) when callers only need a page of rows (LSC latency path). */
+  skipTotal?: boolean;
 }
 
 export interface EcmContactQueryResult {

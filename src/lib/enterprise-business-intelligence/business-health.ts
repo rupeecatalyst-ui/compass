@@ -30,7 +30,19 @@ export function deriveBusinessHealthScore(input: {
 
   const active = Math.max(1, executive.activeDeals);
   const inactivePct = (operational.inactiveOpportunities / active) * 100;
-  const customerActivity = Math.max(0, Math.min(100, Math.round(100 - inactivePct)));
+  /** CO-MC-001 — prefer mean Activity Momentum from Radar rows when present. */
+  const momentumRows = ctx.radar.rows;
+  const avgMomentum =
+    momentumRows.length > 0
+      ? Math.round(
+          momentumRows.reduce((s, r) => s + (r.activityMomentumScore ?? 0), 0) /
+            momentumRows.length,
+        )
+      : null;
+  const customerActivity =
+    avgMomentum != null
+      ? Math.max(0, Math.min(100, avgMomentum))
+      : Math.max(0, Math.min(100, Math.round(100 - inactivePct)));
 
   const taskHealth = Math.max(
     0,
@@ -89,7 +101,10 @@ export function deriveBusinessHealthScore(input: {
       label: "Customer Activity",
       score: customerActivity,
       status: statusFromScore(customerActivity),
-      detail: `${operational.inactiveOpportunities} inactive ≥5 days`,
+      detail:
+        avgMomentum != null
+          ? `Activity Momentum ${avgMomentum} · ${operational.inactiveOpportunities} neglect (≥5d, excl. Healthy Waiting)`
+          : `${operational.inactiveOpportunities} inactive ≥5 days`,
     },
     {
       id: "documents",

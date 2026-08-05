@@ -76,16 +76,20 @@ Provide **Go to Document Center** — navigate via `buildCanonicalJourneyStageHr
 - Upload / replace / delete outside Document Center  
 - Treating LoanFile checklist status mutations as document authoring  
 
-## CO-DOC-003 — Document Packages
+## CO-DOC-003 / CO-DOC-005 — Document Packages
 
 Folder Upload creates a **Document Package** grouping over Document Registry records.
 
-- Packages are **not** a second document store — contained files still use `uploadDocumentToRegistry`.
+- Packages are **first-class Enterprise Registry objects** (CO-DOC-005) with durable Postgres tables prepared for approval.
+- Contained files still use `uploadDocumentToRegistry` (single binary sink).
 - Upload Files and Upload Folder must **coexist**.
-- Commercial / package metadata SSOT: `src/lib/document-package/` · types `src/types/document-package.ts`
-- Durable Postgres package tables are additive and require migration approval before activation.
+- Preview for package files resolves **Document Registry record → blobId** (never checklist typeRef alone).
+- SSOT: `src/lib/document-package/` · types `src/types/document-package.ts` · API `/api/enterprise-document-packages`
+- Durable tables require migration approval before runtime Postgres use; local cache + reconstruct remain until then.
 
 ## Related
 
 `docs/co-arch-003/CO-ARCH-003-DOCUMENT-CENTER-GOVERNANCE.md`  
-`docs/co-doc-003/CO-DOC-003-DOCUMENT-PACKAGE-UPLOAD-READINESS-REPORT.md`
+`docs/co-doc-003/CO-DOC-003-DOCUMENT-PACKAGE-UPLOAD-READINESS-REPORT.md`  
+`docs/co-doc-004/CO-DOC-004-DOCUMENT-ENGINE-STABILIZATION-RCA.md`  
+`docs/co-doc-005/CO-DOC-005-DOCUMENT-PACKAGE-REGISTRY-READINESS-REPORT.md`

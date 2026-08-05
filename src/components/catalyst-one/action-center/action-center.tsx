@@ -7,6 +7,7 @@ import {
   FileUp,
   Mail,
   MessageCircle,
+  Mic,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -48,6 +49,7 @@ const ICONS: Partial<Record<ActionCenterActionId, typeof Mail>> = {
   internal_chat: MessageCircle,
   share_documents: FileUp,
   request_documents: FileStack,
+  add_activity: Mic,
   upload_documents: FileUp,
   ask_chanakya: Sparkles,
   open_credit_workbench: FileStack,
@@ -68,16 +70,26 @@ const GROUP_LABEL: Record<string, string> = {
 /**
  * Hidden until clicked — never permanently consumes screen space.
  */
+export type ActionCenterReadinessNotice = {
+  title: string;
+  detail: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
+
 export function ActionCenter({
   context,
   enabledActionIds,
   onAction,
   className,
+  readinessNotices,
 }: {
   context: ActionCenterContext;
   enabledActionIds?: ActionCenterActionId[];
   onAction: (id: ActionCenterActionId) => void;
   className?: string;
+  /** CO-DWS-001 — non-blocking readiness (e.g. Accounting Ready). */
+  readinessNotices?: ActionCenterReadinessNotice[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -146,6 +158,35 @@ export function ActionCenter({
           </p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{context.entityLabel}</p>
         </div>
+        {readinessNotices && readinessNotices.length > 0 ? (
+          <div
+            className="space-y-1.5 border-b border-amber-500/25 bg-amber-500/5 px-3 py-2"
+            data-dws="action-center-readiness"
+          >
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">
+              Readiness
+            </p>
+            {readinessNotices.map((notice) => (
+              <div key={notice.title} className="space-y-0.5">
+                <p className="text-[11px] font-semibold text-foreground">⚠ {notice.title}</p>
+                <p className="text-[10px] leading-snug text-muted-foreground">{notice.detail}</p>
+                {notice.actionLabel && notice.onAction ? (
+                  <button
+                    type="button"
+                    className="text-[10px] font-medium text-violet-700 underline-offset-2 hover:underline dark:text-violet-300"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      notice.onAction?.();
+                      setOpen(false);
+                    }}
+                  >
+                    {notice.actionLabel}
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="max-h-[min(420px,60vh)] overflow-y-auto py-1">
           {groups.map(([group, items], gi) => (
             <div key={group}>

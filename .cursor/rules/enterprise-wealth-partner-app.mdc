@@ -1,0 +1,50 @@
+# Wealth Partner App — Enterprise Companion (CO-WP-101A)
+
+Status: **ENTERPRISE APPROVED** · Frozen · Product Owner accepted 2026-07-31  
+**Supreme rule:** CO-WP-CONSTITUTION-001 (Enterprise Companion Application Principle) — NON-NEGOTIABLE.
+
+## Identity
+
+The **Wealth Partner App** is an **Enterprise Companion Application** for Catalyst One.
+
+It is **not** a standalone CRM, **not** Catalyst Connect (naming), and **not** an employee portal.
+
+**Catalyst One THINKS. The Wealth Partner App PRESENTS.**
+
+## Architecture
+
+```text
+Catalyst One (Enterprise OS)
+  → Partner-scoped Enterprise APIs (Zero-Trust)
+  → Wealth Partner App (presentation · session · UX)
+```
+
+## Hard rules
+
+1. Recover and reuse the existing Wealth Partner App foundation — do not greenfield a replacement.
+2. Preserve Vercel project `wealth-partner-app` and mobile-first UX.
+3. Consume **only** partner-scoped Enterprise APIs — never employee APIs (e.g. `/api/wealth-partner-registry/**`).
+4. No second business database · no duplicated commission/ROI/FOIR/eligibility/workflow logic.
+5. Every request: Authenticated Partner → Partner UUID → Enterprise Mapping → Authorised Resource → Response. Deny if ownership unproven.
+6. Apply **CO-WP-CONSTITUTION-001** PR gate on every WP App change (reject duplicated logic, in-app calculations, recreated registries, or non-Enterprise data sources).
+7. **Availability:** If Catalyst One is unreachable, the app may only support login / session attempt and an **enterprise services unavailable** state — no meaningful business work, no demo-as-truth.
+8. Apply **CO-WP-103B UX Constitution** — Daily Business Companion, not CRM/MIS. Home is an experience. Pass the morning enjoyment test. Experience Engine projections only (never companion-local content SSOT).
+9. Apply **CO-WP-DEVELOPMENT-MODE-003** — develop **complete modules** (Home · Business · Saarthi · Private · More), not isolated screens. Expanded module DoD (skeletons, a11y, error/unavailable). Product Workspace from Enterprise DTOs only. Product Owner: Review → Refinements → Certification → Freeze → Deploy. Deploy only after Product Owner approval. MODE-002 is superseded.
+10. Apply **CO-WP-ARCHITECTURE-UPDATE-001** — roadmap only (**DO NOT IMPLEMENT**). Enterprise Experience Engine (EEE) lives in Catalyst One. **Business module ON HOLD** until PO designs EEE architecture and authorises next phase. Never hardcode product pages, entitlements, or tier logic in the companion.
+
+## Ownership
+
+| Concern | Owner |
+|---------|--------|
+| Registries, workflow, calculations, documents, activities, commissions, communication, invitation, rules, credit, lender policy, approvals, reporting, **Experience Engine content** | Catalyst One |
+| UX, mobile, presentation, navigation, secure session, device notifications, camera, file upload UI, approved offline UI | Wealth Partner App |
+
+## Source locations
+
+| Asset | Path |
+|-------|------|
+| Constitution (companion principle) | `.cursor/rules/co-wp-constitution-001.mdc` · `docs/co-wp-constitution-001/` |
+| UX Constitution (CO-WP-103B) | `.cursor/rules/wealth-partner-app-ux-constitution.mdc` · `docs/co-wp-103b/` |
+| Recovered app | `C:\Wealth Partner App\` |
+| Amendment | `C:\Wealth Partner App\docs\CO-FOUNDATION-001-AMENDMENT-001-enterprise-companion-alignment.md` |
+| Employee WP Registry (internal) | `.cursor/rules/enterprise-wealth-partner.mdc` — **not** the partner app API |

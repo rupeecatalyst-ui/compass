@@ -8,7 +8,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { LENDERS_BY_PRODUCT, type LenderOffer } from "@/lib/site";
+import {
+  lenderOffersForProductSlug,
+  type LenderOffer,
+} from "@/lib/enterprise-lender-product-catalogue";
 import { submitLead } from "@/lib/lead-capture";
 
 // ───────────────────────────── helpers
@@ -115,7 +118,7 @@ export function EligibilityGate({
     setS((p) => ({ ...p, [k]: v }));
   }
 
-  const lenders = LENDERS_BY_PRODUCT[productSlug] || [];
+  const lenders = lenderOffersForProductSlug(productSlug);
   const tenureMonths = (isHLBT ? s.remainingTenure ?? 15 : defaultTenure) * 12;
 
   // ───────────────── eligibility computation

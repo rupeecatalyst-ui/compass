@@ -745,6 +745,8 @@ type DurableDocRow = {
   verifiedAt?: string | null;
   verifiedBy?: string | null;
   hasContent?: boolean;
+  packageId?: string | null;
+  packageRelativePath?: string | null;
 };
 
 /**
@@ -814,6 +816,8 @@ export async function mergeDurableDocumentsIntoLocalRegistry(
         participantId: item.participantId || undefined,
         lenderId: item.lenderId || undefined,
         documentScope: (item.documentScope as "applicant" | "shared" | "lender") || "applicant",
+        packageId: item.packageId || undefined,
+        packageRelativePath: item.packageRelativePath || undefined,
       },
       versions: [version],
       uploadedBy: item.uploadedBy,

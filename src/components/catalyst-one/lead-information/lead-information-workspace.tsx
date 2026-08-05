@@ -53,7 +53,12 @@ import { buildOpportunityWorkspaceEntryHref } from "@/lib/loan-journey/adr-018-r
 import { CitySelect } from "@/components/catalyst-one/shared/city-select";
 import { ApproxCibilScoreField } from "@/components/catalyst-one/shared/approx-cibil-score-field";
 import { ExistingLoanInformationSection } from "@/components/catalyst-one/shared/existing-loan-information-section";
+import { EnterpriseFinancialInput } from "@/components/catalyst-one/shared/enterprise-financial-input";
 import { BusinessSourceContactLookupField } from "@/components/catalyst-one/lead-information/business-source-contact-lookup";
+import {
+  absoluteRupeesFromStoredString,
+  absoluteRupeesToStoredString,
+} from "@/lib/enterprise-financial-input";
 import { resolveBusinessSourceContactLookup } from "@/constants/opportunity-business-source";
 import {
   isApproxCibilScoreBand,
@@ -374,14 +379,15 @@ export function LeadInformationWorkspace() {
               label="Required Amount (₹)"
               required
               error={errors.requestedAmount}
-              hint="Persisted as Opportunity requestedAmount"
+              hint="Persisted as Opportunity requestedAmount (absolute rupees)"
             >
-              <Input
-                className="h-9"
-                inputMode="numeric"
-                placeholder={OPPORTUNITY_FIELD_NOT_SPECIFIED}
-                value={form.requestedAmount}
-                onChange={(e) => patchForm("requestedAmount", e.target.value)}
+              <EnterpriseFinancialInput
+                value={absoluteRupeesFromStoredString(form.requestedAmount)}
+                onChange={(absolute) =>
+                  patchForm("requestedAmount", absoluteRupeesToStoredString(absolute))
+                }
+                placeholder="e.g. 45"
+                defaultUnit="lakh"
               />
             </Field>
             <Field

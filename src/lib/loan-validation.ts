@@ -12,10 +12,6 @@ import {
   shouldShowFinalLoanAmount,
 } from "@/constants/loan-stage-master";
 import { computeExpectedRevenueAmount } from "@/lib/financial-engine-revenue";
-import {
-  isCommercialPayeeComplete,
-  requiresCommercialPayee,
-} from "@/lib/loan-commercial-payee";
 import type { BusinessCompletionControl } from "@/types/business-completion";
 
 export interface LoanValidationIssue {
@@ -130,17 +126,8 @@ export function validateLoanFile(
     });
   }
 
-  /** CO-ARCH-003 Phase 2B S1 — Invoice Party mandatory from configured stage onward. */
-  if (requiresCommercialPayee(file.stage) && !isCommercialPayeeComplete(file)) {
-    pushIssue(issues, {
-      code: "LOAN_MISSING_INVOICE_PARTY",
-      fieldKey: "commercialPayee",
-      label: "Invoice Party",
-      message:
-        "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.",
-      control: "commercial_payee",
-    });
-  }
+  // CO-DWS-001 — Invoice Party is Accounting readiness (warning), not a loan-save / pipeline blocker.
+  // Surface via deriveDealReadiness / DealReadinessStrip; gate only via assertInvoicePartyForAccountingOperation.
 
   if (isProductSecured(file.loanProduct) && !file.propertyType?.trim()) {
     pushIssue(issues, {

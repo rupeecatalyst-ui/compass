@@ -4,7 +4,12 @@
  * Radar visualises active Deals (not Opportunities).
  * Each Deal is an independent entity; multi-Deal customers appear as multiple rows
  * (no visual grouping yet — identity fields prepare for a future Product decision).
+ *
+ * CO-CHANAKYA-007 — Active book excludes deleted / archived / demo / fixture rows.
  */
+import {
+  filterLiveActiveLoanFiles,
+} from "@/lib/chanakya-live-intelligence/live-ssot";
 import {
   loadDeals,
   loadDealsSync,
@@ -16,9 +21,9 @@ import type { LoanFile } from "@/types/catalyst-one";
 
 export const CHANAKYA_RADAR_DEAL_CONSUMER = "chanakya_radar" as const;
 
-/** Active operational deals for Radar (Deal Registry via DAL). */
+/** Active operational deals for Radar / Live Intelligence (Deal Registry via DAL). */
 export function listActiveRadarDealFiles(files: LoanFile[]): LoanFile[] {
-  return files.filter((f) => !f.archived && f.stage !== "won");
+  return filterLiveActiveLoanFiles(files);
 }
 
 export function loadRadarDealFilesSync(): DealReadResult {

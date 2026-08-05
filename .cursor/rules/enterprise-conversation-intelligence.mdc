@@ -1,0 +1,46 @@
+# Enterprise Conversation Intelligence Engine (ECIE) — Platform Constitution
+
+Status: **ENTERPRISE APPROVED · ARCHITECTURE FROZEN** (ADR-021)  
+Capability: **CO-VOICE-001** · Waves: **CO-VOICE-002+**  
+ADR: `docs/adr/ADR-021-enterprise-conversation-intelligence-engine.md`
+
+## Canonical name
+
+**Enterprise Conversation Intelligence Engine (ECIE)**  
+Former name EVIE is retired.
+
+## Constitutional principles
+
+1. ECIE is a **conversation platform** (voice, phone, WhatsApp, Teams, Zoom, email, chat) — not a mic-only feature.
+2. Exactly **one** Enterprise Activity Composer across Contact, Customer Strategy, Opportunity, Deal, Loan, and Task workspaces.
+3. **Primary entry:** Action Center → **Add Activity**. Also reusable from Dialogue / Timeline.
+4. **SSOTs (frozen):**
+   - Audio → Document Registry  
+   - Transcript + AI summaries → Enterprise Activity Registry  
+   - Tasks → Enterprise Task Engine (ETE)  
+   - Timeline → Enterprise Dialogue Center (EDC)  
+5. **Approval Principle:** Speak → STT → Chanakya Analysis → Recommendations → **User Approval** → Enterprise Update → Audit.  
+   No automatic CRM / Opportunity / Deal / Loan / Task updates.
+6. Every AI extraction must include a **confidence score**; thresholds are configurable (Wave 2+).
+7. **Forbidden:** localStorage / sessionStorage / mock JSON / temporary note stores as activity SSOT; parallel composers; second blob stores.
+8. Do **not** materially change this architecture without a new ADR or Product Owner approval.
+
+## Wave governance
+
+| Wave | Programme | Focus |
+|------|-----------|--------|
+| 1 | CO-VOICE-002 | Composer · recording · audio · STT · timeline |
+| 2 | (future) | AI summary · entity detection · task extraction |
+| 3 | (future) | Search · relationship linking · cross-workspace timeline |
+| 4 | (future) | Chanakya Conversation Intelligence · executive analytics |
+| 5 | (future) | External integrations |
+
+Wave 1 must **not** include automatic CRM updates, AI task creation, AI entity linking, or external integrations.
+
+## Related
+
+- Programme Wave 1: `docs/co-voice-002/CO-VOICE-002-WAVE1-IMPLEMENTATION-PROGRAMME.md`
+- Proposal: `docs/co-voice-001/CO-VOICE-001-ENTERPRISE-ARCHITECTURE-PROPOSAL.md`
+- ETE: `enterprise-task-engine.mdc`
+- Chanakya: `chanakya-operating-principles.mdc`
+- Document Center: `opportunity-document-center-governance.mdc`

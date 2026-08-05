@@ -1,0 +1,37 @@
+---
+description: CO-WP-DEVELOPMENT-WAVE-001 — Build complete WP modules (Home→More); no EEE; no deploy
+alwaysApply: true
+---
+
+# CO-WP-DEVELOPMENT-WAVE-001
+
+Status: **EFFECTIVE** · Product Owner instruction  
+Docs: `docs/co-wp-development-wave/CO-WP-DEVELOPMENT-WAVE-001.md`
+
+## Authorised
+
+Build **complete functional modules** in the Wealth Partner App:
+
+1. Home → 2. Business → 3. Saarthi → 4. Private → 5. More
+
+Within **Business**, prioritise the full **Opportunity journey**: Create · Customer selection · Details · Documents · Activities · Loan File views.
+
+Focus: journeys · navigation · responsive · loading/empty · Enterprise DTO integration.  
+**Not** visual perfection.
+
+Placeholder DTOs where Partner APIs are missing — clearly marked, replaceable without redesign.
+
+## Forbidden in this wave
+
+- Enterprise Experience Center / **EEE** implementation  
+- Business logic that belongs in Catalyst One (calculations, SSOT ownership)  
+- **Deployment** until Product Owner reviews completed modules  
+
+## Hold override
+
+**Business ON HOLD** from CO-WP-ARCHITECTURE-UPDATE-001 is **lifted for WAVE-001 module builds only**.  
+EEE remains **DO NOT IMPLEMENT**.
+
+## Cadence
+
+Align with MODE-003 module-complete DoD where practical; WAVE-001 de-emphasises visual polish until journeys are complete.

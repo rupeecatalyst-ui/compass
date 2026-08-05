@@ -21,6 +21,8 @@ export function buildLenderMasterSnapshot(
     classification: lender.classification ?? null,
     institutionCategory: lender.institutionCategory,
     website: lender.website ?? null,
+    logoUrl: lender.logoUrl ?? null,
+    brandName: lender.displayName || lender.label,
     customerCarePhone: lender.customerCarePhone ?? null,
     customerCareEmail: lender.customerCareEmail ?? null,
     headquartersLabel: lender.headquartersLabel ?? null,

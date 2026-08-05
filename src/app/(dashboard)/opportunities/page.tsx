@@ -65,14 +65,14 @@ function StrategicWorkspaceGate() {
         statusLabel={
           gate.status === "redirecting"
             ? "Requirement not captured — opening Lead Information..."
-            : "Loading LIFE..."
+            : "Loading Strategy Workbench..."
         }
         density="panel"
       />
     );
   }
 
-  // Prefer full LIFE workspace when opportunityId is present (Registry-backed).
+  // Prefer full Strategy Workbench when opportunityId is present (Registry-backed).
   if (opportunityId) {
     return <OpportunityWorkspace />;
   }
@@ -86,7 +86,7 @@ export default function OpportunityWorkspacePage() {
       fallback={
         <ChanakyaLoadingExperience
           module="opportunity"
-          statusLabel="Loading LIFE..."
+          statusLabel="Loading Strategy Workbench..."
           density="panel"
         />
       }

@@ -1,0 +1,88 @@
+---
+description: Wealth Partner App UX Constitution — Daily Business Companion (CO-WP-103B)
+alwaysApply: true
+---
+
+# Wealth Partner App UX Constitution (CO-WP-103B)
+
+Status: **PRODUCT OWNER DIRECTION** · Priority: **CRITICAL** · Governing principle for all WP App work  
+Companion to: CO-WP-CONSTITUTION-001 · `enterprise-wealth-partner-app.mdc`
+
+## Philosophy (non-negotiable)
+
+The Wealth Partner App is **not**:
+
+- a CRM
+- a reporting application
+- a dashboard / MIS
+- a mobile version of Catalyst One
+
+It is a **Daily Business Companion**.
+
+Partners should **want** to open it multiple times per day.  
+It inspires business generation — it does not display reports.
+
+**Catalyst One runs the business. The Wealth Partner App helps the partner succeed.**
+
+## Design principles
+
+Every page must feel: Premium · Minimal · Elegant · Modern FinTech · Highly interactive.
+
+- No dense tables
+- No enterprise dashboard feeling
+- No clutter
+- Large cards · rounded corners · excellent spacing · beautiful gradients · meaningful animations
+
+Reference spirit: Groww · CRED · Jupiter · Zerodha · PhonePe Business — never Salesforce-on-mobile.
+
+## Morning test (mandatory)
+
+Every new screen must answer:
+
+> Would a Wealth Partner enjoy opening this every morning?
+
+If **no** → redesign before shipping.
+
+## Home page principle
+
+Home is an **EXPERIENCE**, not an MIS.
+
+Allowed on Home:
+
+- Greeting
+- Hero Carousel
+- My Business Today (compact chips)
+- Business Feed
+- Recommended Actions
+- Today's Highlights
+- Digital Visiting Card
+- Compact Saarthi
+
+**Forbidden on Home:** pipeline statistics · deal counts · opportunity cards · commission cards · CRM KPI strips.
+
+Those belong on **Business**.
+
+Opening Home should feel: “What is happening today?” — never “How many customers do I have?”
+
+## Enterprise Experience Engine
+
+Assume every Home visual element is eventually driven by the **Enterprise Experience Engine** in Catalyst One:
+
+Hero cards · Business Feed · Campaigns · Training · Marketing creatives · Announcements · Notifications · Quick Actions · Highlights · Digital Toolkit
+
+Do **not** architect companion-local hardcoded business content as the long-term SSOT.  
+Catalogues may temporarily seed Experience Engine projections in Catalyst One only — the app still only renders Partner API DTOs.
+
+## Catalyst One decides · App renders
+
+Catalyst One decides: who sees content · products · campaigns · notifications · quick actions · visiting card · professional title · training.
+
+Wealth Partner App: presentation · navigation · session · device UX only.
+
+## Related
+
+- **CO-WP-DEVELOPMENT-MODE-003** — Module-complete development (supersedes MODE-002). PO certifies modules; Freeze; deploy only after PO approval. Rule: `.cursor/rules/co-wp-development-mode-003.mdc`
+- **CO-WP-ARCHITECTURE-UPDATE-001** — Roadmap alignment only (**DO NOT IMPLEMENT**). EEE in Catalyst One; Business ON HOLD. Rule: `.cursor/rules/co-wp-architecture-update-001.mdc`
+- Docs: `docs/co-wp-103b/CO-WP-103B-UX-CONSTITUTION.md`
+- Companion principle: CO-WP-CONSTITUTION-001
+- Do not start feature sprints that violate this constitution

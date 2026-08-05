@@ -3,18 +3,18 @@ import type {
   ElwProductPolicySection,
 } from "@/types/enterprise-lender-workspace";
 
+/** @deprecated CO-LENDER-HIERARCHY-REMEDIATION-001 — ranks retired; key kept for purge only */
+export const ELW_HIERARCHY_STORAGE_KEY = "catalyst.elw.hierarchy-assignments.v1";
+
+/**
+ * @deprecated Hardcoded vacant ranks retired. Hierarchy is ECM reports_to projection.
+ * Kept only so legacy imports do not crash; production UI must not render these ranks.
+ */
 export const ELW_HIERARCHY_RANKS: ReadonlyArray<{
   rank: ElwHierarchyRank;
   label: string;
   accent: string;
-}> = [
-  { rank: "vice_president", label: "Vice President", accent: "from-slate-700 to-slate-600" },
-  { rank: "national_head", label: "National Head", accent: "from-indigo-700 to-indigo-600" },
-  { rank: "regional_head", label: "Regional Head", accent: "from-violet-700 to-violet-600" },
-  { rank: "state_head", label: "State Head", accent: "from-teal-700 to-teal-600" },
-  { rank: "cluster_head", label: "Cluster Head", accent: "from-cyan-700 to-cyan-600" },
-  { rank: "relationship_manager", label: "Relationship Manager", accent: "from-emerald-700 to-emerald-600" },
-];
+}> = [];
 
 export const ELW_DEFAULT_PRODUCTS = [
   { productRef: "product:home-loan", label: "Home Loan", id: "home-loan" },
@@ -71,5 +71,3 @@ export const ELW_PRODUCT_POLICY_SECTIONS: readonly ElwProductPolicySection[] = [
     placeholder: "Policy version timeline will appear here.",
   },
 ];
-
-export const ELW_HIERARCHY_STORAGE_KEY = "catalyst.elw.hierarchy-assignments.v1";

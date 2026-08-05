@@ -1,0 +1,45 @@
+---
+description: CO-ARCH-002 — Enterprise Data Protection & Non-Destructive Development (FROZEN)
+alwaysApply: true
+---
+
+# CO-ARCH-002 — Enterprise Data Protection & Non-Destructive Development
+
+Status: **FROZEN** · Authority: Product Owner · Priority: **CRITICAL**  
+Full text: `docs/governance/CO-ARCH-002-ENTERPRISE-DATA-PROTECTION.md`
+
+## Principle
+
+Enterprise Data is SSOT. Default: **READ · EXTEND · NEVER DESTROY.**
+
+Under no circumstances may implementation, enhancement, refactoring, optimisation, or feature work **modify, delete, reset, reseed, recreate, truncate, corrupt**, or otherwise affect existing enterprise data unless the Product Owner **explicitly** authorises it.
+
+## Allowed (additive)
+
+- New UI, screens, modules, services, registries  
+- Extend APIs  
+- Backward-compatible schema additions  
+- UX / performance improvements  
+
+## Forbidden without Product Owner authorisation
+
+- Delete / mutate production business records  
+- Reset IDs · reseed · truncate · rename enterprise tables  
+- Remove enterprise relationships or break existing APIs  
+- Destructive migrations  
+- Remove working business logic when extension suffices  
+- Replace working implementations when extension is sufficient  
+
+## Live data
+
+Never alter live enterprise data during feature development.  
+Test needs → isolated demo / local mock / fixtures only.
+
+## When in doubt
+
+**STOP.** Request Product Owner approval before any change that might touch existing data.
+
+## Scope
+
+Catalyst One · Catalyst Connect · COMPASS · CHANAKYA · every registry · every future sprint.  
+Supersedes implementation convenience.

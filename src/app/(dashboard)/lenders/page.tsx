@@ -1,13 +1,14 @@
 import { Suspense } from "react";
-import { PageHeader } from "@/components/design-system/page-header";
-import { ElwLenderRegistry } from "@/components/catalyst-one/enterprise-lender-workspace";
-import { WorkspaceExitNav } from "@/components/enterprise/navigation";
+import { EnterpriseLenderDirectoryWorkspace } from "@/components/catalyst-one/enterprise-lender-directory";
+import { EnterpriseRegistryWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-registry-workspace-shell";
 import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
+import { ENTERPRISE_LENDER_DIRECTORY_TITLE } from "@/constants/enterprise-lender-directory";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
 /**
- * Enterprise Lender Directory — Enterprise Table Standard.
- * Dense spreadsheet listing; rich layouts only inside the lender workspace.
+ * CO-ARCH-ELD-001 — Enterprise Lender Directory.
+ * Route remains `/lenders` (backward compatible). Landing is registry table — not analytics.
+ * Analytics live inside the lender slide-over workspace after selection.
  */
 export default function LendersPage() {
   return (
@@ -15,19 +16,20 @@ export default function LendersPage() {
       fallback={
         <ChanakyaLoadingExperience
           module="lenders"
-          statusLabel="Opening Lenders…"
+          statusLabel="Opening Enterprise Lender Directory…"
           density="panel"
         />
       }
     >
-      <div className="space-y-3">
-        <WorkspaceExitNav breadcrumbs={buildSimpleWorkspaceBreadcrumbs("Lenders")} className="-mx-4 sm:-mx-6" />
-        <PageHeader
-          title="Lenders"
-          description="Compare lender programs side-by-side — ROI, Lender Score, Contact Score, funding, tenure, fee, and TAT."
-        />
-        <ElwLenderRegistry />
-      </div>
+      <EnterpriseRegistryWorkspaceShell
+        title={ENTERPRISE_LENDER_DIRECTORY_TITLE}
+        breadcrumbs={buildSimpleWorkspaceBreadcrumbs(ENTERPRISE_LENDER_DIRECTORY_TITLE)}
+        layoutMode="document"
+        data-surface="enterprise-lender-directory"
+        data-sprint="CO-ARCH-ELD-001"
+      >
+        <EnterpriseLenderDirectoryWorkspace />
+      </EnterpriseRegistryWorkspaceShell>
     </Suspense>
   );
 }

@@ -8,9 +8,15 @@ import type {
   ProductLifecycleStatus,
   ProductOperationalStatus,
 } from "@prisma/client";
-import { CANONICAL_PRODUCT_MASTER_SEED } from "@/constants/enterprise-product-master";
-import { listEcmMasterOptionsFromCatalog } from "@/constants/enterprise-contact-master/masters";
+import {
+  CANONICAL_PRODUCT_MASTER_SEED,
+  getCanonicalProductByCode,
+  normalizeProductCodeKey,
+  normalizeProductLabelKey,
+  resolveCanonicalProductCode,
+} from "@/constants/enterprise-product-master";
 import { LENDER_MASTER_SEED_CATALOG } from "@/constants/enterprise-lender-registry/master-seed-catalog";
+import { normalizeSupportedProductCodes } from "@/constants/enterprise-lender-registry/baseline-commercial-program-seed";
 import {
   ORG_DOC_CATEGORIES,
   ORG_DOC_SYSTEM_TYPES,
@@ -90,9 +96,11 @@ export interface LenderSeed {
   classification?: string;
   sortOrder: number;
   website?: string;
+  logoUrl?: string;
   headquartersLabel?: string;
   productsSupported?: string[];
   aliases?: string[];
+  defaultRecord?: boolean;
 }
 
 export interface LenderProgramSeed {
@@ -118,6 +126,8 @@ const LENDER_CATEGORIES: LenderCategorySeed[] = [
   { code: "fintech", label: "Fintech", sortOrder: 4 },
   { code: "cooperative", label: "Cooperative", sortOrder: 5 },
   { code: "other", label: "Other", sortOrder: 6 },
+  /** CO-LM-003 — dedicated Foreign Bank category (string category code; no Prisma enum migration). */
+  { code: "foreign_bank", label: "Foreign Bank", sortOrder: 7 },
 ];
 
 function lifecycleRank(status: string): number {
@@ -243,13 +253,30 @@ export function getProductSeeds(): ProductSeed[] {
   );
 
   const seeds: ProductSeed[] = [];
-  const seen = new Set<string>();
+  const seenCodes = new Set<string>();
+  const seenLabels = new Set<string>();
 
-  // CO-ADMIN-005 Phase 5 — canonical Product Master seed first
+  const remember = (code: string, label: string) => {
+    seenCodes.add(normalizeProductCodeKey(code));
+    seenLabels.add(normalizeProductLabelKey(label));
+  };
+  const isDuplicate = (code: string, label: string) => {
+    const codeKey = normalizeProductCodeKey(code);
+    const resolved = resolveCanonicalProductCode(code);
+    if (seenCodes.has(codeKey)) return true;
+    if (resolved && seenCodes.has(normalizeProductCodeKey(resolved))) return true;
+    if (seenLabels.has(normalizeProductLabelKey(label))) return true;
+    return false;
+  };
+
+  // CO-ADMIN-005 / CO-BUG-002 — canonical Product Master is the only loan-product seed source.
   for (const entry of CANONICAL_PRODUCT_MASTER_SEED) {
     const code = normalizeProductRegistryCode(entry.code);
-    if (!code || seen.has(code)) continue;
-    seen.add(code);
+    if (!code || isDuplicate(code, entry.label)) continue;
+    remember(code, entry.label);
+    for (const alias of entry.aliases ?? []) {
+      seenCodes.add(normalizeProductCodeKey(alias));
+    }
     seeds.push({
       code,
       label: entry.label,
@@ -269,10 +296,16 @@ export function getProductSeeds(): ProductSeed[] {
     });
   }
 
+  // Product Library composition defs may add non-loan catalogue rows (e.g. Mutual Fund)
+  // but must never re-seed retail loan products already covered by the canonical master.
+  // CO-PR-004 — also skip when the library code resolves to a canonical Product Master code.
   for (const def of buildUniquePublishedProducts()) {
     const code = normalizeProductRegistryCode(def.productCode || def.productId);
-    if (!code || seen.has(code)) continue;
-    seen.add(code);
+    if (!code || isDuplicate(code, def.productName)) continue;
+    if (getCanonicalProductByCode(code)) continue;
+    // Skip retired / archived library versions — they previously created live duplicates.
+    if (def.lifecycleStatus === "archived" || def.operationalStatus === "retired") continue;
+    remember(code, def.productName);
     seeds.push({
       code,
       label: def.productName,
@@ -289,30 +322,9 @@ export function getProductSeeds(): ProductSeed[] {
     });
   }
 
-  // Preserve ECM product picker continuity under first lending group
-  const lendingGroups = getProductGroupSeeds()
-    .filter((g) => g.categoryCode === "LOAN_PRODUCTS")
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-  const firstLendingGroup = lendingGroups[0];
-  if (firstLendingGroup) {
-    for (const option of listEcmMasterOptionsFromCatalog("product")) {
-      if (option.id === "other" || option.label.trim().toLowerCase() === "other") continue;
-      const code = normalizeProductRegistryCode(option.id);
-      if (!code || seen.has(code)) continue;
-      seen.add(code);
-      seeds.push({
-        code,
-        label: option.label,
-        categoryCode: firstLendingGroup.categoryCode,
-        groupCode: firstLendingGroup.code,
-        description: option.label,
-        lifecycleStatus: "published",
-        operationalStatus: "active",
-        majorVersion: 1,
-        minorVersion: 0,
-      });
-    }
-  }
+  // CO-BUG-002 — Do NOT re-seed ECM legacy product picker ids (home-loan, business-loan, …).
+  // Those codes collide with canonical labels and created duplicate dropdown rows.
+  // ECM product domain already dual-reads the Product Registry at runtime.
 
   return seeds;
 }
@@ -347,8 +359,8 @@ export function getLenderCategorySeeds(): LenderCategorySeed[] {
 }
 
 /**
- * CO-LENDER-ARCH-001 — Enterprise Lender Registry master catalog (~83 lenders).
- * Published on seed (status/lifecycle/enabled active). Replaces ECM 6-lender list.
+ * CO-LENDER-ARCH-001 / CO-LM-003 — Enterprise Lender Registry master catalog.
+ * Published on seed (status/lifecycle/enabled active).
  */
 export function getLenderSeeds(): LenderSeed[] {
   return LENDER_MASTER_SEED_CATALOG.map((l, index) => ({
@@ -357,19 +369,27 @@ export function getLenderSeeds(): LenderSeed[] {
     legalName: l.legalName,
     displayName: l.displayName,
     shortName: l.shortName,
-    categoryCode: normalizeLenderRegistryCode(l.institutionCategory),
+    categoryCode: normalizeLenderRegistryCode(
+      l.categoryCode ?? l.institutionCategory,
+    ),
     institutionCategory: l.institutionCategory,
     classification: l.classification,
     sortOrder: index + 1,
     website: l.website,
+    logoUrl: l.logoUrl,
     headquartersLabel: l.headquartersLabel,
-    productsSupported: [...l.productsSupported],
+    productsSupported: normalizeSupportedProductCodes(l.productsSupported),
     aliases: [...l.aliases],
+    defaultRecord: l.defaultRecord === true,
   }));
 }
 
+/**
+ * CO-PROG-004 — Commercial program seeds are applied by the dedicated
+ * `seedBaselineCommercialPrograms` service (create-missing only).
+ * Keep Tier-2 loop empty so routine product/lender seed never auto-syncs programs.
+ */
 export function getLenderProgramSeeds(): LenderProgramSeed[] {
-  // Commercial programs are managed in Lender Registry admin — not ECM region clones.
   return [];
 }
 

@@ -230,6 +230,10 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
     }
   }
 
+  // CO-BUG-002 / Production Data Protection — do NOT disable or mutate existing Product rows.
+  // Historical multi-source duplicates remain in Postgres unchanged.
+  // Selection UIs dedupe at read-time (see enterprise-product-master/options.ts).
+
   // —— Document types ——
   for (const seed of getDocumentTypeSeeds()) {
     const code = seed.code.trim();
@@ -375,9 +379,62 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
     const institutionCategory: LenderInstitutionCategory = seed.institutionCategory;
     const lifecycleStatus: LenderLifecycleStatus = "active";
     const operationalStatus: LenderOperationalStatus = "active";
-    const existing = await prisma.enterpriseLender.findUnique({
+    // CO-LM-003 — Prisma enum has no foreign_bank yet (no migration this sprint).
+    // Category row "Foreign Bank" remains the SSOT label; classification column stays null.
+    const prismaClassification =
+      seed.classification && seed.classification !== "foreign_bank"
+        ? (seed.classification as import("@prisma/client").LenderMasterClassification)
+        : null;
+
+    let existing = await prisma.enterpriseLender.findUnique({
       where: { organizationId_code: { organizationId, code } },
     });
+    // Duplicate check by display name / aliases when seedKey code is new.
+    if (!existing) {
+      const nameKeys = new Set(
+        [seed.label, seed.displayName, seed.legalName, ...(seed.aliases ?? [])]
+          .filter(Boolean)
+          .map((s) => String(s).trim().toLowerCase().replace(/\s+/g, " ")),
+      );
+      const candidates = await prisma.enterpriseLender.findMany({
+        where: { organizationId, isDeleted: false },
+        select: {
+          id: true,
+          code: true,
+          label: true,
+          displayName: true,
+          legalName: true,
+          aliases: true,
+          categoryId: true,
+          institutionCategory: true,
+          classification: true,
+          sortOrder: true,
+          enabled: true,
+          status: true,
+          lifecycleStatus: true,
+          operationalStatus: true,
+          productsSupported: true,
+        },
+      });
+      const match =
+        candidates.find((row) => {
+          const keys = [
+            row.label,
+            row.displayName,
+            row.legalName,
+            ...(Array.isArray(row.aliases)
+              ? (row.aliases as unknown[]).filter((x): x is string => typeof x === "string")
+              : []),
+          ]
+            .filter(Boolean)
+            .map((s) => String(s).trim().toLowerCase().replace(/\s+/g, " "));
+          return keys.some((k) => nameKeys.has(k));
+        }) ?? null;
+      if (match) {
+        existing = await prisma.enterpriseLender.findUnique({ where: { id: match.id } });
+      }
+    }
+
     const data = {
       categoryId,
       label: seed.label,
@@ -386,37 +443,79 @@ export async function seedTier2Registries(): Promise<Tier2RegistrySeedResult> {
       shortName: seed.shortName ?? null,
       aliases: seed.aliases ?? undefined,
       institutionCategory,
-      classification: (seed.classification as import("@prisma/client").LenderMasterClassification | undefined) ?? null,
+      classification: prismaClassification,
       lifecycleStatus,
       operationalStatus,
       website: seed.website ?? null,
+      logoUrl: seed.logoUrl ?? null,
       headquartersLabel: seed.headquartersLabel ?? null,
-      productsSupported: seed.productsSupported ?? undefined,
       sortOrder: seed.sortOrder,
       status: "active" as const,
       enabled: true,
       modifiedBy: actorId,
     };
+    const defaultTags = seed.defaultRecord
+      ? (["default_record", "co-lm-003", `seed:${code}`] as string[])
+      : null;
     if (!existing) {
       const created = await prisma.enterpriseLender.create({
-        data: { organizationId, code, createdBy: actorId, ...data },
+        data: {
+          organizationId,
+          code,
+          createdBy: actorId,
+          ...data,
+          ...(defaultTags ? { tags: defaultTags as Prisma.InputJsonValue } : {}),
+          // CO-PROG-004 — seed capability only on create (canonical product codes)
+          productsSupported: seed.productsSupported ?? undefined,
+        },
       });
       lenderIds.set(code, created.id);
       bump(lenderCounts, "created");
     } else {
-      const needsUpdate =
-        existing.label !== data.label ||
-        existing.categoryId !== data.categoryId ||
-        existing.institutionCategory !== data.institutionCategory ||
-        existing.sortOrder !== data.sortOrder ||
-        existing.enabled !== data.enabled ||
-        existing.status !== data.status ||
-        existing.lifecycleStatus !== data.lifecycleStatus ||
-        existing.operationalStatus !== data.operationalStatus;
-      if (needsUpdate) {
+      // CO-MDM-001 / CO-LR-006 — never create a second row; fill only missing profile fields.
+      // Never overwrite administrator identity, commercials, or non-empty productsSupported.
+      const existingSupported = Array.isArray(existing.productsSupported)
+        ? (existing.productsSupported as unknown[])
+            .filter((x): x is string => typeof x === "string")
+        : [];
+      const fillCapability =
+        existingSupported.length === 0 && (seed.productsSupported?.length ?? 0) > 0
+          ? { productsSupported: seed.productsSupported }
+          : {};
+      const existingTags = Array.isArray((existing as { tags?: unknown }).tags)
+        ? ((existing as { tags: unknown[] }).tags.filter(
+            (x): x is string => typeof x === "string",
+          ) as string[])
+        : [];
+      const mergedTags = defaultTags
+        ? Array.from(new Set([...existingTags, ...defaultTags]))
+        : null;
+      const fillMissingProfile: Prisma.EnterpriseLenderUpdateInput = {
+        ...fillCapability,
+        ...(mergedTags && mergedTags.length !== existingTags.length
+          ? { tags: mergedTags as Prisma.InputJsonValue }
+          : {}),
+        ...(!existing.website && seed.website ? { website: seed.website } : {}),
+        ...(!existing.logoUrl && seed.logoUrl ? { logoUrl: seed.logoUrl } : {}),
+        ...(!existing.headquartersLabel && seed.headquartersLabel
+          ? { headquartersLabel: seed.headquartersLabel }
+          : {}),
+        ...(!existing.shortName && seed.shortName ? { shortName: seed.shortName } : {}),
+        ...(!existing.legalName && seed.legalName ? { legalName: seed.legalName } : {}),
+        ...(!existing.displayName && seed.displayName
+          ? { displayName: seed.displayName }
+          : {}),
+        ...(!existing.classification && prismaClassification
+          ? { classification: prismaClassification }
+          : {}),
+      };
+      if (Object.keys(fillMissingProfile).length > 0) {
         await prisma.enterpriseLender.update({
           where: { id: existing.id },
-          data,
+          data: {
+            ...fillMissingProfile,
+            modifiedBy: actorId,
+          },
         });
         bump(lenderCounts, "updated");
       } else {

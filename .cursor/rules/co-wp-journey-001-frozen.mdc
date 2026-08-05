@@ -1,0 +1,18 @@
+---
+description: CO-WP-JOURNEY-001 — Opportunity Creation CERTIFIED FROZEN; do not modify unless PO instructs
+alwaysApply: true
+---
+
+# CO-WP-JOURNEY-001 — Opportunity Creation · CERTIFIED · FROZEN
+
+Status: **CERTIFIED** · **FROZEN** (includes 001A · 001B · 001C · 001D)
+
+## Agent behaviour
+
+1. Do **NOT** modify the Opportunity Creation Journey (`CreateOpportunityScreen`, journey config create path, create-only UX) unless the Product Owner explicitly instructs a change.  
+2. Opportunity Workspace is **CO-WP-JOURNEY-002** (also frozen). Customer Workspace is **CO-WP-JOURNEY-003**.  
+3. Do **not** reopen section/field architecture for create unless PO supersedes this freeze.
+
+## Related
+
+`docs/co-wp-journey/` · `.cursor/rules/co-wp-journey-002.mdc` · `.cursor/rules/co-wp-journey-003.mdc`

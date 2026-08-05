@@ -18,7 +18,7 @@ import {
 } from "@/lib/enterprise-company-master";
 import {
   listOperationalEcmContacts,
-  searchOperationalContacts,
+  liveSearchOperationalEcmContacts,
   findOperationalEcmContactById,
 } from "@/lib/enterprise-registry";
 import {
@@ -44,6 +44,11 @@ import { canSoftDelete, softDeleteApi } from "@/lib/enterprise-soft-delete";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EnterpriseFinancialInput } from "@/components/catalyst-one/shared/enterprise-financial-input";
+import {
+  absoluteRupeesFromStoredString,
+  absoluteRupeesToStoredString,
+} from "@/lib/enterprise-financial-input";
 import {
   Dialog,
   DialogContent,
@@ -252,14 +257,34 @@ export function CompanyWorkspaceModal({
     return map;
   }, [linkTick, registryVersion]);
 
-  const searchHits = useMemo(() => {
-    void registryVersion;
-    const q = relSearch.trim().toLowerCase();
-    if (!q || q.length < 2) return [];
-    return searchOperationalContacts(relSearch)
-      .map((hit) => findOperationalEcmContactById(hit.id))
-      .filter((c): c is EcmContact => Boolean(c))
-      .slice(0, 8);
+  const [searchHits, setSearchHits] = useState<EcmContact[]>([]);
+  const [relSearching, setRelSearching] = useState(false);
+
+  useEffect(() => {
+    const q = relSearch.trim();
+    if (!q || q.length < 2) {
+      setSearchHits([]);
+      setRelSearching(false);
+      return;
+    }
+    let cancelled = false;
+    const handle = window.setTimeout(() => {
+      setRelSearching(true);
+      void (async () => {
+        try {
+          const rows = await liveSearchOperationalEcmContacts(q, { pageSize: 12 });
+          if (!cancelled) setSearchHits(rows.slice(0, 8));
+        } catch {
+          if (!cancelled) setSearchHits([]);
+        } finally {
+          if (!cancelled) setRelSearching(false);
+        }
+      })();
+    }, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
   }, [relSearch, linkTick, registryVersion]);
 
   const readiness = useMemo(
@@ -728,23 +753,28 @@ export function CompanyWorkspaceModal({
                   />
                 </Field>
                 <Field label="Annual Turnover" required error={fieldErrors.turnover}>
-                  <Input
-                    value={turnover}
-                    onChange={(e) => {
-                      setTurnover(e.target.value);
+                  <EnterpriseFinancialInput
+                    value={absoluteRupeesFromStoredString(turnover)}
+                    onChange={(absolute) => {
+                      setTurnover(absoluteRupeesToStoredString(absolute));
                       if (fieldErrors.turnover) {
                         setFieldErrors((prev) => ({ ...prev, turnover: undefined }));
                       }
                     }}
-                    aria-invalid={Boolean(fieldErrors.turnover)}
+                    placeholder="e.g. 5"
+                    defaultUnit="crore"
                     className={cn(
-                      "border-zinc-700 bg-zinc-900",
-                      fieldErrors.turnover && "border-amber-500 ring-1 ring-amber-500/50",
+                      fieldErrors.turnover && "[&_input]:border-amber-500 [&_input]:ring-1 [&_input]:ring-amber-500/50",
                     )}
                   />
                 </Field>
                 <Field label="Approximate Net Profit (Optional)">
-                  <Input value={profit} onChange={(e) => setProfit(e.target.value)} className="border-zinc-700 bg-zinc-900" />
+                  <EnterpriseFinancialInput
+                    value={absoluteRupeesFromStoredString(profit)}
+                    onChange={(absolute) => setProfit(absoluteRupeesToStoredString(absolute))}
+                    placeholder="e.g. 50"
+                    defaultUnit="lakh"
+                  />
                 </Field>
                 <Field label="Employee Strength (Optional)">
                   <Input value={employees} onChange={(e) => setEmployees(e.target.value)} className="border-zinc-700 bg-zinc-900" />
@@ -814,6 +844,9 @@ export function CompanyWorkspaceModal({
                     className="border-zinc-700 bg-zinc-950"
                   />
                 </div>
+                {relSearching ? (
+                  <p className="text-[11px] text-zinc-500">Searching Enterprise Contact Registry…</p>
+                ) : null}
                 {searchHits.map((c) => (
                   <div
                     key={c.id}

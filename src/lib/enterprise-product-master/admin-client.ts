@@ -29,12 +29,18 @@ export async function listProductMaster(params?: {
   search?: string;
   enabled?: string;
   lifecycleStatus?: string;
-}): Promise<{ items: EnterpriseProductRecord[]; total: number }> {
+  /**
+   * CO-PR-005 — default `canonical` hides Legacy / Historical duplicates.
+   * Pass `all` only for read-only inventory (not for normal administration).
+   */
+  presentation?: "canonical" | "all";
+}): Promise<{ items: EnterpriseProductRecord[]; total: number; presentation?: string }> {
   const qs = new URLSearchParams({
     pageSize: "200",
     sortBy: "sortOrder",
     sortDir: "asc",
     status: "all",
+    presentation: params?.presentation ?? "canonical",
     ...(params?.search ? { search: params.search } : {}),
     ...(params?.enabled ? { enabled: params.enabled } : {}),
     ...(params?.lifecycleStatus ? { lifecycleStatus: params.lifecycleStatus } : {}),

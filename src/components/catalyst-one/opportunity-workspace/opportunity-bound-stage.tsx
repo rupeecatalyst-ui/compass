@@ -56,10 +56,11 @@ const STAGE_COPY: Record<
     targetHref: "/credit-workbench",
   },
   strategy_workbench: {
-    title: "LIFE",
+    // CO-UX-012 — "LIFE" is the journey stage only; never the page title.
+    title: "Strategy Workbench",
     body: "Select execution strategy for this Opportunity before Deal creation.",
     moduleId: "strategic_workspace",
-    pickerTitle: "Select an opportunity for LIFE",
+    pickerTitle: "Select an opportunity for Strategy Workbench",
     targetHref: "/opportunities",
   },
 };
@@ -153,7 +154,9 @@ export function OpportunityBoundStage({
     );
   }
 
-  const customer = context.customer || "Opportunity";
+  // CO-UX-012 — primary heading is borrower / customer from Opportunity context (SSOT).
+  // Never fall back to the journey stage label ("LIFE").
+  const customer = context.customer?.trim() || "Not Specified";
   const product = context.product || "—";
   const reference = context.opportunityReference || context.opportunityId;
   const stageLabel = displayOpportunityRequirementStageLabel(context.stage) || "—";
@@ -168,6 +171,7 @@ export function OpportunityBoundStage({
         hidePhaseReadiness
         opportunityWorkspaceStage={stage}
         title={customer}
+        titleFullyVisible
         identityLine={[reference, product, stageLabel, owner !== "—" ? `RM ${owner}` : null]
           .filter(Boolean)
           .join(" · ")}
@@ -187,7 +191,7 @@ export function OpportunityBoundStage({
             <h2 className="text-sm font-semibold text-foreground">{copy.title}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Shared Opportunity Context — same Opportunity across Lead Creation, Documents,
-              Credit Bench, and LIFE.
+              Credit Bench, and Strategy Workbench (LIFE stage).
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <Field label="Opportunity Reference" value={reference} mono />

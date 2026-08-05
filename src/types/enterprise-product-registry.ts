@@ -105,6 +105,12 @@ export interface EnterpriseProductRecord {
   modifiedBy: string;
   createdAt: string;
   updatedAt: string;
+  /** CO-PR-005 — presentation-only annotations (not persisted columns). */
+  presentationRole?: "canonical" | "legacy";
+  presentationBadge?: "Canonical" | "Legacy / Historical";
+  presentationFamilyKey?: string;
+  canonicalSurvivorId?: string;
+  canonicalSurvivorCode?: string;
 }
 
 export interface ProductCategoryQuery {

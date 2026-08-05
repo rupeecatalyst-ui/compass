@@ -32,6 +32,8 @@ export { ensureEnterpriseRegistryHydrated, resetEnterpriseRegistryHydration } fr
 
 export {
   liveSearchOperationalContacts,
+  liveSearchOperationalEcmContacts,
+  liveListAllEcmContactsByRole,
   liveSearchOperationalCompanies,
   warmPickerCachesFromApi,
 } from "./live-search";

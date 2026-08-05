@@ -25,11 +25,11 @@ import type {
 } from "@/types/enterprise-soft-delete";
 
 const RECOVERY_TABS: SoftDeleteModuleId[] = [
-  "opportunities",
   "contacts",
-  "companies",
   "documents",
+  "companies",
   "tasks",
+  "opportunities",
   "loan_files",
 ];
 
@@ -116,7 +116,7 @@ export function EnterpriseRecoveryCenterWorkspace() {
     <div className="space-y-4">
       <PageHeader
         title="Enterprise Recovery Center"
-        description={`Soft-deleted business records · ${SOFT_DELETE_DEFAULT_RETENTION_DAYS}-day retention before purge eligibility · SUPER_ADMIN may permanently delete`}
+        description={`Restore soft-deleted Contacts, Documents, Partners/Companies, Tasks, and future registries · ${SOFT_DELETE_DEFAULT_RETENTION_DAYS}-day retention · Permanent Delete is Super Admin only`}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">

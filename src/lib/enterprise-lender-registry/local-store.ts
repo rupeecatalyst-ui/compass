@@ -122,6 +122,50 @@ export const localLenderRegistryStore = {
     return readBag().categories.filter((c) => !c.isDeleted);
   },
 
+  /** Idempotent category upsert by code (CO-LM-003 Foreign Bank, etc.). */
+  ensureCategory(input: {
+    code: string;
+    label: string;
+    sortOrder?: number;
+    actor?: string;
+  }): EnterpriseLenderCategoryRecord {
+    const bag = readBag();
+    const code = normalizeCode(input.code);
+    const existing = bag.categories.find((c) => !c.isDeleted && c.code === code);
+    if (existing) {
+      if (existing.label !== input.label || existing.enabled !== true || existing.status !== "active") {
+        existing.label = input.label;
+        existing.enabled = true;
+        existing.status = "active";
+        existing.sortOrder = input.sortOrder ?? existing.sortOrder;
+        existing.modifiedBy = input.actor ?? "system";
+        existing.updatedAt = nowIso();
+        writeBag(bag);
+      }
+      return existing;
+    }
+    const at = nowIso();
+    const row: EnterpriseLenderCategoryRecord = {
+      id: uid("elcat"),
+      organizationId: ORG,
+      code,
+      label: input.label,
+      sortOrder: input.sortOrder ?? bag.categories.length + 1,
+      status: "active",
+      enabled: true,
+      versionNumber: 1,
+      isDeleted: false,
+      approvalStatus: "none",
+      createdBy: input.actor ?? "system",
+      modifiedBy: input.actor ?? "system",
+      createdAt: at,
+      updatedAt: at,
+    };
+    bag.categories.push(row);
+    writeBag(bag);
+    return row;
+  },
+
   queryLenders(query: LenderQuery = {}) {
     let items = readBag().lenders.filter((l) => !l.isDeleted || query.includeDeleted);
     if (query.search?.trim()) {
@@ -394,12 +438,35 @@ export const localLenderRegistryStore = {
   replaceContacts(lenderId: string, contacts: CreateLenderContactInput[], actor: string) {
     const bag = readBag();
     const at = nowIso();
+    const keepIds = new Set(
+      contacts.map((c) => c.id).filter((id): id is string => Boolean(id)),
+    );
     bag.contacts = bag.contacts.map((c) =>
-      c.lenderId === lenderId && !c.isDeleted
+      c.lenderId === lenderId && !c.isDeleted && !keepIds.has(c.id)
         ? { ...c, isDeleted: true, updatedAt: at, modifiedBy: actor }
         : c,
     );
     for (const [i, input] of contacts.entries()) {
+      if (input.id) {
+        const idx = bag.contacts.findIndex((c) => c.id === input.id && c.lenderId === lenderId);
+        if (idx >= 0) {
+          bag.contacts[idx] = {
+            ...bag.contacts[idx],
+            name: input.name.trim(),
+            designation: input.designation ?? null,
+            department: input.department,
+            mobile: input.mobile ?? null,
+            email: input.email ?? null,
+            preferredContactMethod: input.preferredContactMethod ?? null,
+            enabled: input.enabled ?? true,
+            sortOrder: input.sortOrder ?? i,
+            isDeleted: false,
+            modifiedBy: actor,
+            updatedAt: at,
+          };
+          continue;
+        }
+      }
       bag.contacts.push({
         id: uid("elcontact"),
         organizationId: ORG,
@@ -430,12 +497,32 @@ export const localLenderRegistryStore = {
   replaceDocuments(lenderId: string, docs: CreateLenderDocumentInput[], actor: string) {
     const bag = readBag();
     const at = nowIso();
+    const keepIds = new Set(docs.map((d) => d.id).filter((id): id is string => Boolean(id)));
     bag.documents = bag.documents.map((d) =>
-      d.lenderId === lenderId && !d.isDeleted
+      d.lenderId === lenderId && !d.isDeleted && !keepIds.has(d.id)
         ? { ...d, isDeleted: true, updatedAt: at, modifiedBy: actor }
         : d,
     );
     for (const input of docs) {
+      if (input.id) {
+        const idx = bag.documents.findIndex((d) => d.id === input.id && d.lenderId === lenderId);
+        if (idx >= 0) {
+          bag.documents[idx] = {
+            ...bag.documents[idx],
+            kind: input.kind,
+            title: input.title.trim(),
+            fileName: input.fileName ?? null,
+            fileUrl: input.fileUrl ?? null,
+            mimeType: input.mimeType ?? null,
+            notes: input.notes ?? null,
+            enabled: input.enabled ?? true,
+            isDeleted: false,
+            modifiedBy: actor,
+            updatedAt: at,
+          };
+          continue;
+        }
+      }
       bag.documents.push({
         id: uid("eldoc"),
         organizationId: ORG,

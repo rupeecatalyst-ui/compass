@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 export function CreateTaskActionButton({
   context,
-  allowEntityPicker = false,
+  allowEntityPicker,
   className,
   label = "Create Task",
   size = "sm",
@@ -30,6 +30,10 @@ export function CreateTaskActionButton({
   variant?: "outline" | "default" | "ghost" | "secondary";
 }) {
   const [open, setOpen] = useState(false);
+  const locked = Boolean(
+    context?.contactId || context?.opportunityId || context?.dealId || context?.fileId,
+  );
+  const showPicker = allowEntityPicker ?? !locked;
 
   return (
     <>
@@ -47,7 +51,7 @@ export function CreateTaskActionButton({
         open={open}
         onOpenChange={setOpen}
         context={context}
-        allowEntityPicker={allowEntityPicker}
+        allowEntityPicker={showPicker}
       />
     </>
   );

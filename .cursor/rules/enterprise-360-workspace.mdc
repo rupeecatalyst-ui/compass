@@ -1,0 +1,56 @@
+# Enterprise Universal 360° Workspace Framework (CO-360-001)
+
+Status: **ENTERPRISE APPROVED** · Frozen architecture standard · Framework wave  
+Sprint foundation: **CO-360-001**
+
+## Constitutional principle
+
+| Layer | Role |
+|-------|------|
+| **Registry** | Identity & Master Data — Enterprise SSOT |
+| **Workspace** | Daily Operations — operational interface only |
+
+No operational activity shall be performed directly inside a Registry.  
+Registries remain administrative. Workspaces remain operational.
+
+## Common framework
+
+Every 360 Workspace inherits:
+
+Executive Summary · Timeline · Documents · Tasks · Notes · Communications · Activities · AI Insights · Audit History · Attachments
+
+Plus entity-specific sections from the module catalog.
+
+## Document & task SSOT
+
+- Documents → Enterprise Document Registry (projection only; never duplicate)
+- Tasks → Enterprise Task Engine (`EntityTasksPanel` / `listTasksForEntity`)
+- Do **not** invent parallel 360 document/task stores
+
+## Existing entity desks
+
+Customer 360 modal, Lender Workspace, Wealth Partner Workspace remain active desks.  
+This framework is the **shared architecture**; adapters adopt the shell/catalog over time.  
+Do not cut over primary nav in this wave without Product Architecture approval.
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Types | `src/types/enterprise-360-workspace.ts` |
+| Constants / catalogs | `src/constants/enterprise-360-workspace/` |
+| Compose | `src/lib/enterprise-360-workspace/` |
+| UI shell | `src/components/catalyst-one/enterprise-360-workspace/` |
+| Admin BAT demo | `/admin/enterprise-360` |
+| Docs | `docs/co-360-001/` |
+
+## Entity modules
+
+Customer · Lender · Wealth Partner · Vendor · Employee · Contact (identity + role deep-links)
+
+## Forbidden
+
+- Operational CRUD inside Registry screens as the primary path  
+- Second document repository under 360  
+- Parallel task engine for 360  
+- Database migrations for framework-only waves without Architecture approval  

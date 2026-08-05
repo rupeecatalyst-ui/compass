@@ -17,5 +17,8 @@ Status: **ENTERPRISE APPROVED**
 - Product Registry API: `/api/product-registry`
 - Product Master UI: `/admin/product-library/master`
 - Matrix UI: `/admin/product-lender-matrix`
+- Baseline programs (CO-PROG-004): one-time create-missing seed — `seedBaselineCommercialPrograms` · `docs/co-prog-004/CO-PROG-004-DEFAULT-LENDER-PROGRAM-SEEDING-READINESS-REPORT.md` · **no website auto-sync**
 - Readiness: `docs/co-admin-005/CO-ADMIN-005-PRODUCT-LENDER-MASTER-READINESS-REPORT.md`
 - Functional completion (CRUD + taxonomy): CO-ADMIN-006 · `docs/co-admin-006/CO-ADMIN-006-PRODUCT-MASTER-COMPLETION-REPORT.md`
+- **CO-PR-004** — Selection / matrix uniqueness via canonical family (`dedupeProductOptionsForSelection`). Never delete/disable live Product rows without PO-approved migration + FK remapping. Inventory: `npm run inventory:co-pr-004`.
+- **CO-PR-005** — Admin Product Registry / selectors / matrix present **canonical Products only**. Legacy duplicates stay in DB, annotated `Legacy / Historical` when `presentation=all`, hidden from normal administration. Presentation-layer only — no ID or relationship changes.

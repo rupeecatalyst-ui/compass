@@ -67,6 +67,8 @@ export const ROUTES = {
   MISSION_CONTROL_OBSERVABILITY: "/mission-control/observability",
   MISSION_CONTROL_ALERT_CENTER: "/mission-control/alert-center",
   MISSION_CONTROL_SITUATION_ROOM: "/mission-control/situation-room",
+  /** CO-MC-002 — CHANAKYA Intelligence (why the business is heading there). */
+  MISSION_CONTROL_CHANAKYA_INTELLIGENCE: "/mission-control/chanakya-intelligence",
   /** Canonical Executive Briefing inside Mission Control (CO-SPRINT-094 / 113). */
   MISSION_CONTROL_EXECUTIVE_BRIEFING: "/mission-control/executive-briefing",
   /** Relocated from Loan Workspace — Funnel / Treemap / AI Insights. */
@@ -98,6 +100,10 @@ export const ROUTES = {
   ADMIN_PRODUCTION_RESET: "/admin/production-reset",
   /** CO-PERF-001 — Enterprise Metrics Engine administration */
   ADMIN_ENTERPRISE_METRICS: "/admin/enterprise-metrics",
+  /** CO-ECC-001 — Enterprise Communication Center (profiles & sender identities) */
+  ADMIN_ENTERPRISE_COMMUNICATION: "/admin/enterprise-communication",
+  /** CO-360-001 — Universal 360° Workspace Framework (Admin demo / BAT) */
+  ADMIN_ENTERPRISE_360: "/admin/enterprise-360",
   ADMIN_USERS: "/admin/users",
   ADMIN_ROLES_PERMISSIONS: "/admin/roles-permissions",
   ADMIN_CREDIT_KNOWLEDGE_FRAMEWORK: "/admin/credit-knowledge-framework",
@@ -149,6 +155,8 @@ export const ROUTES = {
   ADMIN_ENTERPRISE_RECOVERY_CENTER: "/admin/enterprise-recovery-center",
   /** CO-ARCH-001-I7 — Tier 1 Reference Master administration. */
   ADMIN_REFERENCE_MASTERS: "/admin/reference-masters",
+  /** CO-MASTER-REGION-001 — Enterprise Region Master (Geography) */
+  ADMIN_GEOGRAPHY_REGIONS: "/admin/geography/regions",
   /** CO-MDM-001 — Enterprise Master Data Management hub */
   ADMIN_ENTERPRISE_MDM: "/admin/enterprise-mdm",
   /** CO-MDM-001 — Product Programs desk */
@@ -240,6 +248,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_BUILD_INFORMATION,
   ROUTES.ADMIN_PRODUCTION_RESET,
   ROUTES.ADMIN_ENTERPRISE_METRICS,
+  ROUTES.ADMIN_ENTERPRISE_COMMUNICATION,
   ROUTES.ADMIN_USERS,
   ROUTES.ADMIN_ROLES_PERMISSIONS,
   ROUTES.ADMIN_CREDIT_KNOWLEDGE_FRAMEWORK,

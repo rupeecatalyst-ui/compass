@@ -51,6 +51,7 @@ export function dealToLenderExecution(deal: EnterpriseDealApiRecord): LoanLender
     lender: name,
     status: (derived?.status as LoanLenderExecution["status"]) || "active",
     caseStage,
+    caseSubStage: derived?.caseSubStage ?? deal.subStage ?? undefined,
     isPrimary: Boolean(derived?.isPrimary),
     lenderRegistryId: deal.lenderId ?? derived?.lenderRegistryId ?? undefined,
     lenderRef: deal.lenderId ? `lender:${deal.lenderId}` : derived?.lenderRef || undefined,
@@ -58,6 +59,23 @@ export function dealToLenderExecution(deal: EnterpriseDealApiRecord): LoanLender
     opportunityId: deal.opportunityId ?? derived?.opportunityId ?? undefined,
     expectedLoanAmount: derived?.expectedLoanAmount ?? deal.requestedAmount ?? undefined,
     product: derived?.product || deal.productLabel || undefined,
+    // CO-LR-013 — Sales contact link from derived snapshot
+    lenderSalesContactId: derived?.lenderSalesContactId ?? undefined,
+    lenderSalesContactName: derived?.lenderSalesContactName ?? undefined,
+    lenderSalesContactMobile: derived?.lenderSalesContactMobile ?? undefined,
+    lenderSalesContactDesignationId: derived?.lenderSalesContactDesignationId ?? undefined,
+    lenderSalesContactDesignationLabel: derived?.lenderSalesContactDesignationLabel ?? undefined,
+    lenderSalesContactOfficialEmail: derived?.lenderSalesContactOfficialEmail ?? undefined,
+    lenderSalesContactInstitutionId: derived?.lenderSalesContactInstitutionId ?? undefined,
+    lenderSalesContactInstitutionLabel:
+      derived?.lenderSalesContactInstitutionLabel ?? undefined,
+    // CO-UX-017
+    loginDate: derived?.loginDate ?? undefined,
+    disbursementDate: derived?.disbursementDate ?? undefined,
+    probability: (derived?.probability as LoanLenderExecution["probability"]) ?? undefined,
+    relationshipManager: derived?.relationshipManager ?? undefined,
+    dealPriority: deal.priority ?? undefined,
+    dealHealthScore: typeof deal.healthScore === "number" ? deal.healthScore : null,
     identifiedAt: now,
     createdAt: deal.createdAt || now,
     updatedAt: deal.updatedAt || now,
@@ -83,6 +101,7 @@ export function buildDerivedSingleLenderSnapshot(
         name: lender.lender,
         status: lender.status,
         caseStage: lender.caseStage,
+        caseSubStage: lender.caseSubStage ?? null,
         lenderRegistryId: lender.lenderRegistryId ?? deal.lenderId ?? null,
         lenderRef: lender.lenderRef ?? null,
         isPrimary: Boolean(lender.isPrimary),
@@ -90,6 +109,21 @@ export function buildDerivedSingleLenderSnapshot(
         expectedLoanAmount: lender.expectedLoanAmount,
         product: lender.product,
         enterpriseDealId: deal.id,
+        // CO-LR-013
+        lenderSalesContactId: lender.lenderSalesContactId ?? null,
+        lenderSalesContactName: lender.lenderSalesContactName ?? null,
+        lenderSalesContactMobile: lender.lenderSalesContactMobile ?? null,
+        lenderSalesContactDesignationId: lender.lenderSalesContactDesignationId ?? null,
+        lenderSalesContactDesignationLabel: lender.lenderSalesContactDesignationLabel ?? null,
+        lenderSalesContactOfficialEmail: lender.lenderSalesContactOfficialEmail ?? null,
+        lenderSalesContactInstitutionId: lender.lenderSalesContactInstitutionId ?? null,
+        lenderSalesContactInstitutionLabel:
+          lender.lenderSalesContactInstitutionLabel ?? null,
+        // CO-UX-017 — operational control panel fields (derived snapshot only)
+        loginDate: lender.loginDate ?? null,
+        disbursementDate: lender.disbursementDate ?? null,
+        probability: lender.probability ?? null,
+        relationshipManager: lender.relationshipManager ?? null,
       },
     ],
   };
@@ -243,6 +277,17 @@ export async function identifyLenderAsEnterpriseDeal(input: {
   expectedLoanAmount?: number;
   caseSubStage?: string;
   identifiedBy?: string;
+  /** CO-LR-013 — Mandatory Sales Contact (Banker) link. */
+  lenderSalesContact: {
+    contactId: string;
+    contactName: string;
+    mobile?: string;
+    designationId?: string;
+    designationLabel?: string;
+    officialEmail?: string;
+    institutionId?: string;
+    institutionLabel?: string;
+  };
 }): Promise<DealPipelineRuntime> {
   const { createManualLenderSelectionIntent } = await import(
     "@/constants/manual-lender-selection"
@@ -263,6 +308,11 @@ export async function identifyLenderAsEnterpriseDeal(input: {
   }
   if (!input.lenderId?.trim()) {
     throw new Error("lenderId is required to create an Enterprise Deal.");
+  }
+  if (!input.lenderSalesContact?.contactId?.trim()) {
+    throw new Error(
+      "Lender Sales Contact is mandatory. Select or create a Sales Contact from the selected lender.",
+    );
   }
 
   const { peekSessionOpportunity } = await import(
@@ -292,6 +342,15 @@ export async function identifyLenderAsEnterpriseDeal(input: {
     identifiedAt: ts,
     createdAt: ts,
     updatedAt: ts,
+    lenderSalesContactId: input.lenderSalesContact?.contactId,
+    lenderSalesContactName: input.lenderSalesContact?.contactName,
+    lenderSalesContactMobile: input.lenderSalesContact?.mobile,
+    lenderSalesContactDesignationId: input.lenderSalesContact?.designationId,
+    lenderSalesContactDesignationLabel: input.lenderSalesContact?.designationLabel,
+    lenderSalesContactOfficialEmail: input.lenderSalesContact?.officialEmail,
+    lenderSalesContactInstitutionId: input.lenderSalesContact?.institutionId,
+    lenderSalesContactInstitutionLabel:
+      input.lenderSalesContact?.institutionLabel,
   };
 
   const created = await createDealFromOpportunity({
@@ -516,9 +575,23 @@ export async function persistDealPipelineLenders(
     const stageChanged =
       !prev ||
       prev.caseStage !== lender.caseStage ||
+      prev.caseSubStage !== lender.caseSubStage ||
       prev.isPrimary !== lender.isPrimary ||
       prev.expectedLoanAmount !== lender.expectedLoanAmount ||
-      prev.status !== lender.status;
+      prev.status !== lender.status ||
+      // CO-UX-017 — Deal Control Panel operational fields
+      prev.product !== lender.product ||
+      prev.loginDate !== lender.loginDate ||
+      prev.disbursementDate !== lender.disbursementDate ||
+      prev.probability !== lender.probability ||
+      prev.relationshipManager !== lender.relationshipManager ||
+      prev.lenderSalesContactId !== lender.lenderSalesContactId ||
+      prev.lenderSalesContactName !== lender.lenderSalesContactName ||
+      prev.lenderSalesContactMobile !== lender.lenderSalesContactMobile ||
+      prev.lenderSalesContactOfficialEmail !== lender.lenderSalesContactOfficialEmail ||
+      prev.lenderSalesContactInstitutionId !== lender.lenderSalesContactInstitutionId ||
+      prev.lenderSalesContactInstitutionLabel !==
+        lender.lenderSalesContactInstitutionLabel;
 
     if (!stageChanged) continue;
 
@@ -526,12 +599,13 @@ export async function persistDealPipelineLenders(
     let rowVersion = lender.enterpriseDealRowVersion ?? deal.rowVersion;
     let current = deal;
 
-    if (deal.grossStage !== grossStage) {
+    if (deal.grossStage !== grossStage || (lender.caseSubStage && deal.subStage !== lender.caseSubStage)) {
       // Deal Registry transition is mandatory for stage changes.
       // Never advance snapshot.caseStage when transition fails (P1 sync).
       current = await enterpriseDealApiClient.transitionDeal(dealId, {
         rowVersion,
         toGrossStage: grossStage,
+        toSubStage: lender.caseSubStage ?? null,
         reason: "deal_pipeline_stage",
         allowSkip: true,
       });

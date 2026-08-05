@@ -112,6 +112,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 
         website: body.website,
 
+        logoUrl: body.logoUrl,
+
         tags: body.tags === null ? null : Array.isArray(body.tags) ? body.tags.map(String) : undefined,
 
         sortOrder: body.sortOrder !== undefined ? Number(body.sortOrder) : undefined,

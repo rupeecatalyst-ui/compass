@@ -1,0 +1,34 @@
+---
+description: CO-WP-BAT-003 — BAT review build deployed; STOP new modules until PO review
+alwaysApply: true
+---
+
+# CO-WP-BAT-003 — BAT Review Build · DEVELOPMENT HOLD
+
+Status: **BAT DEPLOYED** · **AWAITING PRODUCT OWNER REVIEW**  
+Docs: `docs/co-wp-bat/CO-WP-BAT-003-REVIEW-BUILD.md`
+
+## Live BAT
+
+- Wealth Partner: https://wealth-partner-app.vercel.app  
+- Version: **0.9.0** · Sprint: **CO-WP-BAT-003**  
+- WP Deploy: `dpl_EirRqWLC95E7YUG5CwxKzaTDGV6t`  
+- Catalyst One API: https://catalyst-one-two.vercel.app  
+- C1 Deploy: `dpl_7E5H5JsfjnT3Ts6CJpNsKPd8nL2A`
+
+## Included
+
+Home · My Business Pipeline · Opportunity Creation · Opportunity Workspace · Customer Workspace · Professional Identity Card
+
+## Agent behaviour (mandatory)
+
+1. **STOP** — do not start new modules until Product Owner BAT completes.  
+2. Do **not** begin Enterprise Experience Center / EEE.  
+3. Do **not** begin Partner Tier Engine / Partner Entitlements.  
+4. Do **not** modify architecture or frozen journeys unless PO issues an explicit BAT hotfix.  
+5. Do **not** deploy again unless Product Owner explicitly requests a BAT hotfix.  
+6. Only answer questions, document findings, or apply **explicit PO-approved BAT hotfixes**.
+
+## First PO review focus
+
+My Professional Identity Card (logo · flip · tier · products · QR · contacts · share · mobile).

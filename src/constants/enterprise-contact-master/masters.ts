@@ -13,6 +13,11 @@
 
 import { isTier2RegistryPortRuntimeActive } from "@/constants/enterprise-master-data/dual-read";
 import {
+  getEnterpriseRegionLabel,
+  listEnterpriseRegionMasterOptions,
+  normalizeEnterpriseRegionId,
+} from "@/constants/enterprise-region-master";
+import {
   configureReferenceMasterPorts,
   getReferenceMasterPort,
   isReferenceMasterPortRuntimeActive,
@@ -219,39 +224,35 @@ export const ECM_MASTER_CATALOGS: Record<EcmMasterDomain, readonly EcmMasterOpti
     { id: "other", label: "Other" },
   ],
   city: [
-    { id: "mumbai", label: "Mumbai", parentId: "MH", meta: { state: "Maharashtra" } },
-    { id: "pune", label: "Pune", parentId: "MH", meta: { state: "Maharashtra" } },
-    { id: "thane", label: "Thane", parentId: "MH", meta: { state: "Maharashtra" } },
-    { id: "bengaluru", label: "Bengaluru", parentId: "KA", meta: { state: "Karnataka" } },
-    { id: "ahmedabad", label: "Ahmedabad", parentId: "GJ", meta: { state: "Gujarat" } },
-    { id: "delhi", label: "New Delhi", parentId: "DL", meta: { state: "Delhi" } },
-    { id: "hyderabad", label: "Hyderabad", parentId: "TG", meta: { state: "Telangana" } },
+    { id: "mumbai", label: "Mumbai", parentId: "MH", meta: { state: "Maharashtra", region: "west" } },
+    { id: "pune", label: "Pune", parentId: "MH", meta: { state: "Maharashtra", region: "west" } },
+    { id: "thane", label: "Thane", parentId: "MH", meta: { state: "Maharashtra", region: "west" } },
+    { id: "bengaluru", label: "Bengaluru", parentId: "KA", meta: { state: "Karnataka", region: "south" } },
+    { id: "ahmedabad", label: "Ahmedabad", parentId: "GJ", meta: { state: "Gujarat", region: "west" } },
+    { id: "delhi", label: "New Delhi", parentId: "DL", meta: { state: "Delhi", region: "north" } },
+    { id: "hyderabad", label: "Hyderabad", parentId: "TG", meta: { state: "Telangana", region: "south" } },
     { id: "other", label: "Other" },
   ],
-  lender: [
-    { id: "hdfc", label: "HDFC Bank", meta: { city: "Mumbai" } },
-    { id: "sbi", label: "State Bank of India", meta: { city: "Mumbai" } },
-    { id: "icici", label: "ICICI Bank", meta: { city: "Mumbai" } },
-    { id: "axis", label: "Axis Bank", meta: { city: "Mumbai" } },
-    { id: "kotak", label: "Kotak Mahindra Bank", meta: { city: "Mumbai" } },
-    { id: "bajaj", label: "Bajaj Housing Finance", meta: { city: "Pune" } },
-    { id: "other", label: "Other" },
-  ],
-  region: [
-    { id: "hdfc-west", label: "West", parentId: "hdfc" },
-    { id: "hdfc-south", label: "South", parentId: "hdfc" },
-    { id: "sbi-west", label: "West", parentId: "sbi" },
-    { id: "icici-west", label: "West", parentId: "icici" },
-    { id: "axis-west", label: "West", parentId: "axis" },
-    { id: "kotak-west", label: "West", parentId: "kotak" },
-    { id: "bajaj-west", label: "West", parentId: "bajaj" },
-    { id: "other", label: "Other" },
-  ],
+  /**
+   * CO-LENDER-SSOT-REMEDIATE-001 — Legacy ECM lender seed retired.
+   * Institution / BT / Deal / Partner selectors use Enterprise Lender Registry only.
+   */
+  lender: [],
+  /**
+   * CO-MASTER-REGION-001 — Enterprise Region Master SSOT (North / South / East / West).
+   * Populated from `enterprise-region-master` — never lender-scoped duplicates.
+   */
+  region: listEnterpriseRegionMasterOptions().map((r) => ({
+    id: r.id,
+    label: r.label,
+    sortOrder: r.sortOrder,
+    enabled: true as const,
+  })),
   branch: [
-    { id: "hdfc-bandra", label: "Bandra West", parentId: "hdfc", meta: { city: "mumbai", region: "hdfc-west" } },
-    { id: "hdfc-andheri", label: "Andheri East", parentId: "hdfc", meta: { city: "mumbai", region: "hdfc-west" } },
-    { id: "sbi-fort", label: "Fort", parentId: "sbi", meta: { city: "mumbai", region: "sbi-west" } },
-    { id: "icici-koregaon", label: "Koregaon Park", parentId: "icici", meta: { city: "pune", region: "icici-west" } },
+    { id: "hdfc-bandra", label: "Bandra West", parentId: "hdfc", meta: { city: "mumbai", region: "west" } },
+    { id: "hdfc-andheri", label: "Andheri East", parentId: "hdfc", meta: { city: "mumbai", region: "west" } },
+    { id: "sbi-fort", label: "Fort", parentId: "sbi", meta: { city: "mumbai", region: "west" } },
+    { id: "icici-koregaon", label: "Koregaon Park", parentId: "icici", meta: { city: "pune", region: "west" } },
     { id: "other", label: "Other" },
   ],
   product: [
@@ -472,6 +473,8 @@ function listFromTier2Port(
     .sort(
       (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.label.localeCompare(b.label),
     );
+  // CO-BUG-005 — Empty Tier-2 cache must not block catalog fallback (Contact Banker Institution).
+  if (options.length === 0) return null;
   return withOtherLast(options, parentId);
 }
 
@@ -483,6 +486,16 @@ export function listEcmMasterOptionsFromCatalog(
   domain: EcmMasterDomain,
   parentId?: string,
 ): EcmMasterOption[] {
+  // CO-MASTER-REGION-001 — Region is a closed Enterprise Master (exactly 4 values, no Other).
+  if (domain === "region") {
+    return listEnterpriseRegionMasterOptions().map((r) => ({
+      id: r.id,
+      label: r.label,
+      sortOrder: r.sortOrder,
+      enabled: true,
+    }));
+  }
+
   const all = ECM_MASTER_CATALOGS[domain] ?? [];
   const resolvedParent =
     domain === "occupation"
@@ -520,6 +533,11 @@ export function listEcmMasterOptions(
   domain: EcmMasterDomain,
   parentId?: string,
 ): EcmMasterOption[] {
+  // CO-MASTER-REGION-001 — always Enterprise Region Master (ignore ports / Other).
+  if (domain === "region") {
+    return listEcmMasterOptionsFromCatalog("region");
+  }
+
   const fromPort = listFromReferencePort(domain, parentId);
   if (fromPort) return fromPort;
 
@@ -531,6 +549,9 @@ export function listEcmMasterOptions(
 
 export function getEcmMasterLabel(domain: EcmMasterDomain, id?: string): string {
   if (!id) return "";
+  if (domain === "region") {
+    return getEnterpriseRegionLabel(id) || id;
+  }
   if (isReferenceMasterPortRuntimeActive() && isTier1EcmMasterDomain(domain)) {
     configureReferenceMasterPorts();
     const refDomain = ecmDomainToReferenceDomain(domain);
@@ -552,7 +573,9 @@ export function getEcmMasterLabel(domain: EcmMasterDomain, id?: string): string 
   const normalized =
     domain === "employment_type" ? normalizeEcmEmploymentTypeId(id) ?? id : id;
   return (
-    ECM_MASTER_CATALOGS[domain]?.find((o) => o.id === normalized || o.id === id)?.label ?? id
+    ECM_MASTER_CATALOGS[domain]?.find(
+      (o) => o.id === normalized || o.id === id,
+    )?.label ?? id
   );
 }
 
@@ -561,6 +584,11 @@ export function getEcmMasterOption(
   id?: string,
 ): EcmMasterOption | undefined {
   if (!id) return undefined;
+  if (domain === "region") {
+    const canonical = normalizeEnterpriseRegionId(id);
+    if (!canonical) return undefined;
+    return listEcmMasterOptionsFromCatalog("region").find((o) => o.id === canonical);
+  }
   if (isReferenceMasterPortRuntimeActive() && isTier1EcmMasterDomain(domain)) {
     configureReferenceMasterPorts();
     const refDomain = ecmDomainToReferenceDomain(domain);

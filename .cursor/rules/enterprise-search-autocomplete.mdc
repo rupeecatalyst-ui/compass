@@ -30,3 +30,21 @@ Never leave the results list open after selection. Never require manual dismissa
 - Primatives: `EntityMasterSearch`, `LiveEntityMasterSearch`, `EnterpriseLenderSearch`, `CitySelect`, `EcmMasterSelect`
 
 Applies to Contact, Company, Lender, Partner, Opportunity, Deal, and Product registry lookups.
+
+## Constitutional rule — No UI control without SSOT
+
+No search field, dropdown, lookup, autocomplete, or selector may ship unless connected to its Enterprise Registry:
+
+| Entity | Registry |
+|--------|----------|
+| Customer / Contact / Builder / CA / Lawyer / Valuer | Enterprise Contact Registry |
+| Company | Enterprise Company Registry |
+| Lender | Enterprise Lender Registry |
+| Branch | Enterprise Branch / Lender coverage |
+| City | Enterprise City Master |
+| Product | Enterprise Product Master |
+| Employee | Enterprise Employee / User Registry |
+| Wealth Partner | Enterprise Wealth Partner Registry |
+| Vendor | Enterprise Vendor Registry |
+
+Empty UI controls are incomplete. Prefer live registry APIs (`liveSearchOperationalContacts`, `searchActiveLenders`, `searchAssignableUsers`, Product Master options). Never present seed/demo catalogs as production entity truth.

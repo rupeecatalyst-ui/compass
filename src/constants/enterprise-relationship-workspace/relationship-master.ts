@@ -163,6 +163,11 @@ export const ERW_RELATIONSHIP_TYPE_MASTER: readonly ErwRelationshipTypeDefinitio
   // Operational
   { code: "co_applicant", label: "Co-applicant", group: "operational", colourFamily: "financial", defaultEntityType: "individual", enabled: true, sortOrder: 310 },
   { code: "guarantor", label: "Guarantor", group: "operational", colourFamily: "financial", defaultEntityType: "individual", enabled: true, sortOrder: 320 },
+  { code: "nominee", label: "Nominee", group: "operational", colourFamily: "family", defaultEntityType: "individual", enabled: true, sortOrder: 325 },
+  { code: "property_owner", label: "Property Owner", group: "operational", colourFamily: "organisation", defaultEntityType: "individual", enabled: true, sortOrder: 326 },
+  { code: "borrowing_entity", label: "Borrowing Entity", group: "operational", colourFamily: "business", defaultEntityType: "company", enabled: true, sortOrder: 327 },
+  { code: "trust", label: "Trust", group: "business", colourFamily: "business", defaultEntityType: "organisation", enabled: true, sortOrder: 328 },
+  { code: "huf", label: "HUF", group: "business", colourFamily: "business", defaultEntityType: "organisation", enabled: true, sortOrder: 329 },
   { code: "reference", label: "Reference", group: "operational", colourFamily: "professional", defaultEntityType: "individual", enabled: true, sortOrder: 330 },
   { code: "introducer", label: "Introducer", group: "operational", colourFamily: "professional", defaultEntityType: "individual", enabled: true, sortOrder: 340 },
   { code: "vendor", label: "Vendor", group: "operational", colourFamily: "organisation", defaultEntityType: "organisation", enabled: true, sortOrder: 350 },
@@ -221,7 +226,87 @@ export function mapLegacyRelationCodeToErw(code: string): string {
     assistant_to: "consultant",
     legal_representative: "lawyer",
     refers_to: "introducer",
+    property_owner: "property_owner",
+    borrowing_entity: "borrowing_entity",
+    nominee: "nominee",
+    trust: "trust",
+    huf: "huf",
   };
   const mapped = aliases[normalized] ?? normalized;
   return getErwRelationshipType(mapped) ? mapped : "other";
+}
+
+/**
+ * CO-BUG-ERW-NETWORK — Relationship Network allowlist (customer ecosystem).
+ * Only these codes may appear when backed by an explicit relationship record.
+ * Commercial / org-hierarchy codes are excluded from automatic network projection.
+ */
+export const ERW_NETWORK_ECOSYSTEM_CODES = [
+  // Personal / family
+  "father",
+  "mother",
+  "spouse",
+  "son",
+  "daughter",
+  "brother",
+  "sister",
+  "guardian",
+  "family",
+  // Party / borrowing structure
+  "co_applicant",
+  "guarantor",
+  "nominee",
+  "property_owner",
+  "borrowing_entity",
+  // Business / company party
+  "director",
+  "partner",
+  "shareholder",
+  "proprietor",
+  "authorized_signatory",
+  "promoter",
+  "cfo",
+  "company_secretary",
+  "business",
+  "trust",
+  "huf",
+  // Explicit professional links (only when a registry edge exists — never inferred)
+  "chartered_accountant",
+  "lawyer",
+  "reference",
+  "other",
+] as const;
+
+export type ErwNetworkEcosystemCode = (typeof ERW_NETWORK_ECOSYSTEM_CODES)[number];
+
+const ERW_NETWORK_ECOSYSTEM_CODE_SET = new Set<string>(ERW_NETWORK_ECOSYSTEM_CODES);
+
+/**
+ * Org-hierarchy / commercial codes that must never auto-appear on Relationship Network
+ * (Bank RM, Wealth Partner, internal employees, channel partners, etc.).
+ */
+export const ERW_NETWORK_EXCLUDED_CODES = [
+  "bank_rm",
+  "existing_lender",
+  "wealth_partner",
+  "builder",
+  "broker",
+  "insurance_advisor",
+  "reports_to",
+  "managed_by",
+  "employee",
+  "employer",
+  "introducer",
+  "consultant",
+  "vendor",
+  "supplier",
+  "customer",
+] as const;
+
+const ERW_NETWORK_EXCLUDED_CODE_SET = new Set<string>(ERW_NETWORK_EXCLUDED_CODES);
+
+export function isErwNetworkEcosystemCode(code: string): boolean {
+  const mapped = mapLegacyRelationCodeToErw(code);
+  if (ERW_NETWORK_EXCLUDED_CODE_SET.has(mapped)) return false;
+  return ERW_NETWORK_ECOSYSTEM_CODE_SET.has(mapped);
 }

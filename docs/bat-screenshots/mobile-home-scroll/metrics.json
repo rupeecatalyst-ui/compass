@@ -1,0 +1,28 @@
+{
+  "android": {
+    "canScroll": true,
+    "scrolled": true,
+    "navFixed": true,
+    "shellH": 908,
+    "mainScrollH": 1268,
+    "mainClientH": 844,
+    "vh": 844
+  },
+  "iphone": {
+    "canScroll": true,
+    "scrolled": true,
+    "navFixed": true,
+    "shellH": 916,
+    "mainScrollH": 1268,
+    "mainClientH": 852,
+    "vh": 852
+  },
+  "live": {
+    "cssAsset": "index-CH6Mj32t.css",
+    "has100dvh": true,
+    "hasMinHeight0": true,
+    "hasOverflowYAuto": true,
+    "hasPanXY": true
+  },
+  "outDir": "C:\\Compass by Rupee Catalyst (3)\\docs\\bat-screenshots\\mobile-home-scroll"
+}

@@ -4,6 +4,10 @@ import type {
 
   CreateLenderCategoryInput,
 
+  CreateLenderContactInput,
+
+  CreateLenderDocumentInput,
+
   CreateLenderInput,
 
   CreateLenderProgramInput,
@@ -23,6 +27,8 @@ import type {
 } from "@/types/enterprise-lender-registry";
 
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
+
+import { lenderContactsDocumentsRepository } from "@server/repositories/lender-registry/lender-contacts-documents.repository";
 
 import { lenderRegistryRepository } from "@server/repositories/lender-registry/lender-registry.repository";
 
@@ -844,6 +850,94 @@ export class LenderRegistryService {
 
     return updated;
 
+  }
+
+  async listContacts(lenderId: string) {
+    const organizationId = await resolvePilotOrganizationId();
+    const lender = await lenderRegistryRepository.findLenderById(lenderId);
+    if (!lender || lender.isDeleted) throw new Error("Lender not found.");
+    return lenderContactsDocumentsRepository.listContacts(organizationId, lenderId);
+  }
+
+  async replaceContacts(
+    lenderId: string,
+    contacts: CreateLenderContactInput[],
+    actorId: string,
+    actorName?: string,
+  ) {
+    const organizationId = await resolvePilotOrganizationId();
+    const lender = await lenderRegistryRepository.findLenderById(lenderId);
+    if (!lender || lender.isDeleted) throw new Error("Lender not found.");
+
+    const previous = await lenderContactsDocumentsRepository.listContacts(
+      organizationId,
+      lenderId,
+    );
+    const next = await lenderContactsDocumentsRepository.replaceContacts(
+      organizationId,
+      lenderId,
+      contacts.map((c) => ({ ...c, lenderId, createdBy: c.createdBy || actorId })),
+      actorId,
+    );
+
+    await enterpriseRegistryAuditService.recordChange({
+      organizationId,
+      registryModule: "lender",
+      entityId: lenderId,
+      entityCode: lender.code,
+      action: "updated",
+      previousValue: { contacts: previous.map((c) => ({ id: c.id, name: c.name, department: c.department })) },
+      newValue: { contacts: next.map((c) => ({ id: c.id, name: c.name, department: c.department })) },
+      actorUserId: actorId,
+      actorName,
+      reason: "lender_contacts_replaced",
+    });
+
+    return next;
+  }
+
+  async listDocuments(lenderId: string) {
+    const organizationId = await resolvePilotOrganizationId();
+    const lender = await lenderRegistryRepository.findLenderById(lenderId);
+    if (!lender || lender.isDeleted) throw new Error("Lender not found.");
+    return lenderContactsDocumentsRepository.listDocuments(organizationId, lenderId);
+  }
+
+  async replaceDocuments(
+    lenderId: string,
+    docs: CreateLenderDocumentInput[],
+    actorId: string,
+    actorName?: string,
+  ) {
+    const organizationId = await resolvePilotOrganizationId();
+    const lender = await lenderRegistryRepository.findLenderById(lenderId);
+    if (!lender || lender.isDeleted) throw new Error("Lender not found.");
+
+    const previous = await lenderContactsDocumentsRepository.listDocuments(
+      organizationId,
+      lenderId,
+    );
+    const next = await lenderContactsDocumentsRepository.replaceDocuments(
+      organizationId,
+      lenderId,
+      docs.map((d) => ({ ...d, lenderId, createdBy: d.createdBy || actorId })),
+      actorId,
+    );
+
+    await enterpriseRegistryAuditService.recordChange({
+      organizationId,
+      registryModule: "lender",
+      entityId: lenderId,
+      entityCode: lender.code,
+      action: "updated",
+      previousValue: { documents: previous.map((d) => ({ id: d.id, title: d.title, kind: d.kind })) },
+      newValue: { documents: next.map((d) => ({ id: d.id, title: d.title, kind: d.kind })) },
+      actorUserId: actorId,
+      actorName,
+      reason: "lender_documents_replaced",
+    });
+
+    return next;
   }
 
 }

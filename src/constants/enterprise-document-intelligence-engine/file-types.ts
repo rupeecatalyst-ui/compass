@@ -35,4 +35,10 @@ export const EDIE_DEFAULT_FILE_TYPES: EdieDefaultFileTypeConfig[] = [
   { extension: "json", mimeType: "application/json", displayName: "JSON File" },
   { extension: "eml", mimeType: "message/rfc822", displayName: "Email Message" },
   { extension: "msg", mimeType: "application/vnd.ms-outlook", displayName: "Outlook Message" },
+  /** CO-VOICE-002 — ECIE conversation audio (Document Registry owns binaries). */
+  { extension: "webm", mimeType: "audio/webm", displayName: "WebM Audio" },
+  { extension: "m4a", mimeType: "audio/mp4", displayName: "M4A Audio" },
+  { extension: "mp3", mimeType: "audio/mpeg", displayName: "MP3 Audio" },
+  { extension: "ogg", mimeType: "audio/ogg", displayName: "OGG Audio" },
+  { extension: "wav", mimeType: "audio/wav", displayName: "WAV Audio" },
 ];

@@ -4,9 +4,17 @@ import type {
 
   EnterpriseLenderCategoryRecord,
 
+  EnterpriseLenderContactRecord,
+
+  EnterpriseLenderDocumentRecord,
+
   EnterpriseLenderProgramRecord,
 
   EnterpriseLenderRecord,
+
+  LenderContactDepartment,
+
+  LenderDocumentKind,
 
 } from "@/types/enterprise-lender-registry";
 
@@ -369,113 +377,166 @@ export function mapLenderRow(row: {
 
 
 export function mapProgramRow(row: {
-
   id: string;
-
   organizationId: string;
-
   lenderId: string;
-
   productId: string | null;
-
+  productCode?: string | null;
   code: string;
-
   label: string;
-
   description: string | null;
-
+  borrowerType?: string | null;
+  employmentType?: string | null;
+  roiPercent?: number | null;
+  minRoiPercent?: number | null;
+  maxRoiPercent?: number | null;
+  processingFeeLabel?: string | null;
+  processingFeePct?: number | null;
+  maxFundingAmount?: number | null;
+  maxLtvPercent?: number | null;
+  maxTenureMonths?: number | null;
+  minCibil?: number | null;
+  minIncomeAmount?: number | null;
+  eligibleStates?: unknown;
+  eligibleCities?: unknown;
+  averageTatDays?: number | null;
+  remarks?: string | null;
   lifecycleStatus: EnterpriseLenderProgramRecord["lifecycleStatus"];
-
   status: EnterpriseLenderProgramRecord["status"];
-
   enabled: boolean;
-
   versionNumber: number;
-
   effectiveFrom: Date | null;
-
   effectiveUntil: Date | null;
-
   notes: string | null;
-
   isDeleted: boolean;
-
   deletedAt: Date | null;
-
   deletedBy: string | null;
-
   deletionReason: string | null;
-
   approvalStatus: EnterpriseLenderProgramRecord["approvalStatus"];
-
   approvedBy: string | null;
-
   approvedAt: Date | null;
-
   createdBy: string;
-
   modifiedBy: string;
-
   createdAt: Date;
-
   updatedAt: Date;
-
 }): EnterpriseLenderProgramRecord {
-
   return {
-
     id: row.id,
-
     organizationId: row.organizationId,
-
     lenderId: row.lenderId,
-
     productId: row.productId,
-
+    productCode: row.productCode ?? null,
     code: row.code,
-
     label: row.label,
-
     description: row.description,
-
+    borrowerType: row.borrowerType ?? null,
+    employmentType: row.employmentType ?? null,
+    roiPercent: row.roiPercent ?? null,
+    minRoiPercent: row.minRoiPercent ?? null,
+    maxRoiPercent: row.maxRoiPercent ?? null,
+    processingFeeLabel: row.processingFeeLabel ?? null,
+    processingFeePct: row.processingFeePct ?? null,
+    maxFundingAmount: row.maxFundingAmount ?? null,
+    maxLtvPercent: row.maxLtvPercent ?? null,
+    maxTenureMonths: row.maxTenureMonths ?? null,
+    minCibil: row.minCibil ?? null,
+    minIncomeAmount: row.minIncomeAmount ?? null,
+    eligibleStates: jsonToStringArray((row.eligibleStates as never) ?? null),
+    eligibleCities: jsonToStringArray((row.eligibleCities as never) ?? null),
+    averageTatDays: row.averageTatDays ?? null,
+    remarks: row.remarks ?? null,
     lifecycleStatus: row.lifecycleStatus,
-
     status: row.status,
-
     enabled: row.enabled,
-
     versionNumber: row.versionNumber,
-
     effectiveFrom: row.effectiveFrom ? toIso(row.effectiveFrom) : null,
-
     effectiveUntil: row.effectiveUntil ? toIso(row.effectiveUntil) : null,
-
     notes: row.notes,
-
     isDeleted: row.isDeleted,
-
     deletedAt: row.deletedAt ? toIso(row.deletedAt) : null,
-
     deletedBy: row.deletedBy,
-
     deletionReason: row.deletionReason,
-
     approvalStatus: row.approvalStatus,
-
     approvedBy: row.approvedBy,
-
     approvedAt: row.approvedAt ? toIso(row.approvedAt) : null,
-
     createdBy: row.createdBy,
-
     modifiedBy: row.modifiedBy,
-
     createdAt: toIso(row.createdAt),
-
     updatedAt: toIso(row.updatedAt),
-
   };
-
 }
 
+export function mapContactRow(row: {
+  id: string;
+  organizationId: string;
+  lenderId: string;
+  name: string;
+  designation: string | null;
+  department: string;
+  mobile: string | null;
+  email: string | null;
+  preferredContactMethod: string | null;
+  enabled: boolean;
+  sortOrder: number;
+  isDeleted: boolean;
+  createdBy: string;
+  modifiedBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): EnterpriseLenderContactRecord {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    lenderId: row.lenderId,
+    name: row.name,
+    designation: row.designation,
+    department: row.department as LenderContactDepartment,
+    mobile: row.mobile,
+    email: row.email,
+    preferredContactMethod: row.preferredContactMethod,
+    enabled: row.enabled,
+    sortOrder: row.sortOrder,
+    isDeleted: row.isDeleted,
+    createdBy: row.createdBy,
+    modifiedBy: row.modifiedBy,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+export function mapDocumentRow(row: {
+  id: string;
+  organizationId: string;
+  lenderId: string;
+  kind: string;
+  title: string;
+  fileName: string | null;
+  fileUrl: string | null;
+  mimeType: string | null;
+  notes: string | null;
+  enabled: boolean;
+  isDeleted: boolean;
+  createdBy: string;
+  modifiedBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): EnterpriseLenderDocumentRecord {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    lenderId: row.lenderId,
+    kind: row.kind as LenderDocumentKind,
+    title: row.title,
+    fileName: row.fileName,
+    fileUrl: row.fileUrl,
+    mimeType: row.mimeType,
+    notes: row.notes,
+    enabled: row.enabled,
+    isDeleted: row.isDeleted,
+    createdBy: row.createdBy,
+    modifiedBy: row.modifiedBy,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
 

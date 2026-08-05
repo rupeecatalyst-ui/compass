@@ -14,16 +14,49 @@ import type {
 } from "@/types/enterprise-company-master";
 import type {
   EcmContact,
+  EcmContactIdentityLookupResult,
   EcmContactQuery,
   EcmContactQueryResult,
 } from "@/types/enterprise-contact-master";
 import type { EcmContactRegisterInput } from "@/lib/enterprise-contact-master/contact-registry";
+import {
+  ECM_CONTACT_ACTIVE_EXISTS,
+  ECM_CONTACT_SOFT_DELETED,
+  EcmContactActiveExistsClientError,
+  EcmContactSoftDeletedClientError,
+} from "@/lib/enterprise-contact-master/contact-identity";
 
 async function ecmFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await authenticatedJsonFetch(url, init);
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.success) {
-    throw new Error(body?.error?.message || `ECM request failed (${res.status})`);
+    const err = body?.error;
+    if (err?.code === ECM_CONTACT_SOFT_DELETED && err.softDeletedContact) {
+      throw new EcmContactSoftDeletedClientError({
+        contactId: err.softDeletedContact.contactId,
+        name: err.softDeletedContact.name,
+        mobilePrimary: err.softDeletedContact.mobilePrimary,
+        status: "archived",
+        deletedAt: err.softDeletedContact.deletedAt,
+        deletedBy: err.softDeletedContact.deletedBy,
+        deletionReason: err.softDeletedContact.deletionReason,
+      });
+    }
+    if (err?.code === ECM_CONTACT_ACTIVE_EXISTS && err.activeContact) {
+      throw new EcmContactActiveExistsClientError({
+        contactId: err.activeContact.contactId,
+        name: err.activeContact.name,
+        mobilePrimary: err.activeContact.mobilePrimary,
+        status: "active",
+      });
+    }
+    const message = err?.message || `ECM request failed (${res.status})`;
+    if (/P2002|prisma|unique constraint|SQL/i.test(message)) {
+      throw new Error(
+        "This mobile number is already linked to an Enterprise Contact. Search the registry or restore a deleted Contact.",
+      );
+    }
+    throw new Error(message);
   }
   return body.data as T;
 }
@@ -40,7 +73,17 @@ export const ecmApiClient = {
     if (query.roles?.length) params.set("roles", query.roles.join(","));
     if (query.createdFrom) params.set("createdFrom", query.createdFrom);
     if (query.createdTo) params.set("createdTo", query.createdTo);
+    if (query.institutionKeys?.length) {
+      params.set("institutionKeys", query.institutionKeys.join("|"));
+    }
+    if (query.skipTotal) params.set("skipTotal", "1");
     return ecmFetch(`/api/ecm/contacts?${params.toString()}`);
+  },
+
+  /** CO-CONTACT-IDENTITY-001 — resolve active / soft-deleted / none by mobile. */
+  async lookupContactIdentity(mobile: string): Promise<EcmContactIdentityLookupResult> {
+    const params = new URLSearchParams({ mobile: mobile.replace(/\D/g, "") || mobile });
+    return ecmFetch(`/api/ecm/contacts/identity?${params.toString()}`);
   },
 
   async createContact(
@@ -50,6 +93,10 @@ export const ecmApiClient = {
       method: "POST",
       body: JSON.stringify(input),
     });
+  },
+
+  async getContact(contactId: string): Promise<EcmContact> {
+    return ecmFetch(`/api/ecm/contacts/${encodeURIComponent(contactId)}`);
   },
 
   async updateContact(

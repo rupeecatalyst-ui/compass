@@ -1,0 +1,296 @@
+{
+  "programme": "CO-LR-010",
+  "apply": true,
+  "productionDataProtection": {
+    "deletes": false,
+    "idRewrites": false,
+    "fkChanges": false,
+    "truncate": false,
+    "inventedPolicyValues": false,
+    "mode": "additive_apply"
+  },
+  "phase1": {
+    "catalogTotal": 275,
+    "uniqueSeedKeys": 275,
+    "getLenderSeeds": 275,
+    "byClassification": {
+      "public_sector_bank": 12,
+      "private_sector_bank": 22,
+      "small_finance_bank": 12,
+      "housing_finance_company": 32,
+      "nbfc": 98,
+      "cooperative_bank": 65,
+      "payments_bank": 6,
+      "foreign_bank": 28
+    },
+    "emptyProducts": 0,
+    "additionalLendersRecommended": [],
+    "validated": true,
+    "notes": [
+      "Approved Enterprise Lender Master = LENDER_MASTER_SEED_CATALOG (CO-LR-006 + CO-LR-008).",
+      "No additional lenders proposed beyond the approved 275 — PO may request later expansions separately.",
+      "Prisma LenderMasterClassification has no foreign_bank enum; Foreign Banks use categoryCode foreign_bank with classification=null."
+    ]
+  },
+  "before": {
+    "totalRows": 90,
+    "nonDeleted": 90
+  },
+  "phase2": {
+    "categoriesCreated": 1,
+    "lendersCreated": 192,
+    "linkedExistingNonProvisional": 83,
+    "fillMissingMetaUpdates": 83,
+    "skipped": 0,
+    "createdCodes": [
+      "STANDARD_CHARTERED",
+      "HSBC",
+      "DBS_INDIA",
+      "DEUTSCHE_BANK",
+      "BANK_OF_AMERICA",
+      "CITIBANK",
+      "SHINHAN_BANK",
+      "STATE_BANK_MAURITIUS",
+      "DOHA_BANK",
+      "DHANLAXMI_BANK",
+      "LAXMI_VILAS",
+      "FINCARE_SFB",
+      "INDIABULLS_HOUSING",
+      "DHFL_LEGACY",
+      "GRUH_FINANCE",
+      "RELIANCE_HOME",
+      "TATA_HOUSING",
+      "VASTU_HOUSING",
+      "CLIX_HOUSING",
+      "FULLERTON_INDIA_CREDIT",
+      "FULLERTON_INDIA_HOME",
+      "ICICI_HOME_FINANCE",
+      "KOTAK_MAHINDRA_PRIME",
+      "INDIA_HOME_LOAN",
+      "RELIANCE_NIPPON",
+      "SATIN_HOUSING",
+      "CENTRUM_HOUSING",
+      "EASY_HOME_FINANCE",
+      "NORD_HOUSING",
+      "ALTUM_CREDO",
+      "VARTHANA",
+      "HDFC_CREDILA",
+      "INCRED",
+      "LENDINGKART",
+      "CAPITAL_FLOAT",
+      "NEOGROWTH",
+      "INDIFI",
+      "FLEXILOANS",
+      "KREDITBEE",
+      "MONEYTAP",
+      "EARLYSALARY",
+      "CASHE",
+      "NAVI",
+      "PAYU_FINANCE",
+      "AMAZON_PAY_LATER",
+      "SIMPL",
+      "LAZY_PAY",
+      "SLICE",
+      "UNI_CARDS",
+      "CRED_AVENUE"
+    ],
+    "createdCodesTotal": 192,
+    "stillMissingExactCodes": 0,
+    "catalogSatisfiedApprox": 275
+  },
+  "phase3": {
+    "organizationId": "cmrtlilr60001weys1xv2uu5t",
+    "actorId": "cmrtliln30000weys6c2ljzy8",
+    "seedTag": "seed:co-prog-004",
+    "lendersScanned": 282,
+    "capabilityFilled": 0,
+    "capabilityNormalized": 83,
+    "capabilitySkipped": 192,
+    "programsCreated": 1573,
+    "programsSkipped": 0,
+    "programsMissingLender": 0
+  },
+  "phase6": {
+    "presentationDuplicateFamilies": 9,
+    "duplicateFamilies": [
+      {
+        "family": "lender:bajaj",
+        "survivor": "cmrusophn003jwe60hymttfjn",
+        "members": [
+          {
+            "id": "cmrusophn003jwe60hymttfjn",
+            "code": "BAJAJ",
+            "displayName": "Bajaj Housing Finance",
+            "provisional": false
+          },
+          {
+            "id": "cms4cn7yv002bwen44z7wjg6l",
+            "code": "BAJAJ_HOUSING",
+            "displayName": "Bajaj Housing Finance",
+            "provisional": false
+          }
+        ]
+      },
+      {
+        "family": "lender:sbi",
+        "survivor": "cmrusopva003rwe60cjyga2va",
+        "members": [
+          {
+            "id": "cfad8cfb2ac7ed62bc57def10",
+            "code": "LND-P2A-SBI",
+            "displayName": "SBI",
+            "provisional": true
+          },
+          {
+            "id": "cmrusopva003rwe60cjyga2va",
+            "code": "SBI",
+            "displayName": "State Bank of India",
+            "provisional": false
+          }
+        ]
+      },
+      {
+        "family": "lender:icici",
+        "survivor": "cmrusopoe003nwe60331ytwfx",
+        "members": [
+          {
+            "id": "ce391b1b814fa3394bd1c2ef3",
+            "code": "LND-P2A-ICICI",
+            "displayName": "ICICI",
+            "provisional": true
+          },
+          {
+            "id": "cmrusopoe003nwe60331ytwfx",
+            "code": "ICICI",
+            "displayName": "ICICI Bank",
+            "provisional": false
+          }
+        ]
+      },
+      {
+        "family": "lender:abhyudaya",
+        "survivor": "cms4cnrmq0047wen4n1pdo8xw",
+        "members": [
+          {
+            "id": "cms0zhb6r0009we64kj1kyk9h",
+            "code": "BF_ABHYUDAYA_COOPERATIVE",
+            "displayName": "Abhyudaya Cooperative Bank",
+            "provisional": true
+          },
+          {
+            "id": "cms4cnrmq0047wen4n1pdo8xw",
+            "code": "ABHYUDAYA",
+            "displayName": "Abhyudaya Cooperative Bank",
+            "provisional": false
+          }
+        ]
+      },
+      {
+        "family": "lender:pnb",
+        "survivor": "cms4cn7f30029wen4i24wovpa",
+        "members": [
+          {
+            "id": "cms4cml070005wen4713bpnwd",
+            "code": "PNB",
+            "displayName": "Punjab National Bank",
+            "provisional": false
+          },
+          {
+            "id": "cms4cn7f30029wen4i24wovpa",
+            "code": "PNB_HOUSING",
+            "displayName": "PNB Housing Finance",
+            "provisional": false
+          }
+        ]
+      },
+      {
+        "family": "lender:hdfc",
+        "survivor": "cmrusopl1003lwe601zac0dvs",
+        "members": [
+          {
+            "id": "cmrusopl1003lwe601zac0dvs",
+            "code": "HDFC",
+            "displayName": "HDFC Bank",
+            "provisional": false
+          },
+          {
+            "id": "c816bc12a4722e2603a9d5a2b",
+            "code": "LND-P2A-HDFC",
+            "displayName": "HDFC",
+            "provisional": true
+          }
+        ]
+      },
+      {
+        "family": "lender:bandhan",
+        "survivor": "cms4cmym7001dwen4yy0kag4p",
+        "members": [
+          {
+            "id": "cms4cmym7001dwen4yy0kag4p",
+            "code": "BANDHAN",
+            "displayName": "Bandhan Bank",
+            "provisional": false
+          },
+          {
+            "id": "cms8hqvzg004hwed8c21xvesr",
+            "code": "BANDHAN_FINANCIAL",
+            "displayName": "Bandhan Financial Services",
+            "provisional": false
+          }
+        ]
+      },
+      {
+        "family": "lender:iifl",
+        "survivor": "cms4cnkdf003jwen4s4uw7m1s",
+        "members": [
+          {
+            "id": "cms4cnb9c002nwen43l915ak6",
+            "code": "IIFL_HOME",
+            "displayName": "IIFL Home Finance",
+            "provisional": false
+          },
+          {
+            "id": "cms4cnkdf003jwen4s4uw7m1s",
+            "code": "IIFL_FINANCE",
+            "displayName": "IIFL Finance",
+            "provisional": false
+          }
+        ]
+      },
+      {
+        "family": "lender:sundaram",
+        "survivor": "cms8hqoiu0039wed8rlyqc8ou",
+        "members": [
+          {
+            "id": "cms4cnf2t0031wen4t89wf2y3",
+            "code": "SUNDARAM_HOME",
+            "displayName": "Sundaram Home Finance",
+            "provisional": false
+          },
+          {
+            "id": "cms8hqoiu0039wed8rlyqc8ou",
+            "code": "SUNDARAM_FINANCE",
+            "displayName": "Sundaram Finance",
+            "provisional": false
+          }
+        ]
+      }
+    ],
+    "note": "Physical merge blocked — CO-LR-008 presentation survivors only."
+  },
+  "after": {
+    "nonDeleted": 282,
+    "uiVisiblePublishedActive": 276,
+    "uiVisibleAfterPresentationDedupe": 271,
+    "lendersWithPrograms": 277,
+    "catalogCodeRowsWithPrograms": 275,
+    "catalogSize": 275,
+    "missingExactCatalogCodes": []
+  },
+  "expectations": {
+    "approvedMaster": 275,
+    "liveRegistryTarget": "≥275 non-deleted including catalogue coverage",
+    "missingExactCodesTarget": 0,
+    "programmeCoverageNote": "100% of catalogue-matched lenders should have ≥1 programme after apply"
+  }
+}

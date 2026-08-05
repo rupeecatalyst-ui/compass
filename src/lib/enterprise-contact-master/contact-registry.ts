@@ -170,6 +170,8 @@ export function registerProgressiveLoanContact(input: {
   createdBy: string;
   ownerName?: string;
   personalEmail?: string;
+  /** CO-ID-001 — default customer; WP onboarding may pass partner. */
+  roles?: EcmContactRole[];
 }): EcmContact {
   const contact = registerEcmContact({
     name: input.name,
@@ -177,7 +179,7 @@ export function registerProgressiveLoanContact(input: {
     personalEmail: input.personalEmail,
     createdBy: input.createdBy,
     ownerName: input.ownerName,
-    roles: ["customer"],
+    roles: input.roles?.length ? input.roles : ["customer"],
     progressiveKind: input.kind,
     status: "provisional",
   });

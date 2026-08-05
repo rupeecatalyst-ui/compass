@@ -128,7 +128,7 @@ export function EditDealDialog({
       interestRate: roi ? Number(roi) : null,
       tenure: tenure ? Number(tenure) : null,
       requireProgram: true,
-      requireInvoiceParty: true,
+      requireInvoiceParty: false,
     });
     if (validation.length) {
       setIssues(validation.map((v) => v.message));
@@ -262,7 +262,8 @@ export function EditDealDialog({
           <InvoicePartyField
             invoicePartyId={invoicePartyId}
             invoicePartyLabel={invoicePartyLabel}
-            required
+            required={false}
+            hint="Optional until accounting actions — Lender Pipeline is not blocked."
             onChange={(next) => {
               setInvoicePartyId(
                 next.invoicePartyId || next.commissionAccountingPayeeId || "",

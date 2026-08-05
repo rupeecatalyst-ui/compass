@@ -23,7 +23,7 @@ export function WorkspaceExitNav({
     <div
       className={cn(
         "flex flex-wrap items-center justify-between gap-2",
-        appearance === "default" && "border-b border-border/60 bg-muted/20 px-3 py-1.5 sm:px-4",
+        appearance === "default" && "border-b border-border/60 bg-muted/20 px-2.5 py-1 sm:px-3",
         appearance === "mission-control" && "border-b border-zinc-800/80 px-1 pb-2",
         className,
       )}

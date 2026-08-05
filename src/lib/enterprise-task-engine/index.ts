@@ -9,15 +9,27 @@ export { runEteFoundationValidation } from "./foundation-validation";
 export { getEteFrameworkVersion, getEteRegistrySnapshot } from "./registry-snapshot";
 export {
   completeEteTask,
+  cancelEteSeries,
   deleteEteTask,
   deriveEteTaskColour,
   escalateEteOverdueTasks,
   escalateEteTask,
+  listEteSeriesOccurrences,
   listEteTasks,
   patchEteTask,
   registerEteTask,
   reopenEteTask,
 } from "./task-registry";
+export {
+  buildNextOccurrenceDraft,
+  coerceEteRecurrence,
+  computeNextOccurrenceDueOn,
+  describeEteRecurrence,
+  isRecurringTask,
+  resolveReminderAt,
+  shouldSpawnNextOccurrence,
+  validateEteRecurrenceRule,
+} from "./recurrence-engine";
 export {
   registerChanakyaTaskMonitoring,
   listChanakyaMonitoredTasks,
@@ -44,7 +56,8 @@ export {
   type TaskTimelineColumnId,
   type TaskPostponeNotification,
 } from "./task-workspace";
-export { buildMyWorkView, listTasksForEntity } from "./my-work";
+export { buildMyWorkView, listTasksForEntity, sameAssigneeRef } from "./my-work";
+export { ensureEnterpriseTasksDemoSeed } from "./demo-seed";
 export {
   generateTasksForBusinessEvent,
   type GenerateTasksForEventInput,

@@ -21,7 +21,8 @@ import {
   listEcmRelationshipsTo,
   upsertEcmContactRelationship,
 } from "./contact-relationships";
-import { getEcmContactAssignedRoles, listEcmContacts, updateEcmContact } from "./contact-registry";
+import { getEcmContactAssignedRoles, listEcmContacts } from "./contact-registry";
+import { persistUpdateEcmContact } from "@/lib/enterprise-persistence/ecm-persist";
 
 /** Organizational Location keys on roleProfiles.lender_employee (Structure 1) */
 export const ECM_BANKER_ORG_KEYS = {
@@ -32,7 +33,34 @@ export const ECM_BANKER_ORG_KEYS = {
   designation: "designation",
   officialMobile: "officialMobile",
   officialEmail: "officialEmail",
+  /** CSV of Enterprise Product Master codes — additive; empty = no mapping yet */
+  productsHandled: "productsHandled",
 } as const;
+
+/** Parse Products Handled CSV (or JSON array string) → product codes. */
+export function parseBankerProductsHandled(raw?: string | null): string[] {
+  const s = (raw ?? "").trim();
+  if (!s) return [];
+  if (s.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(s) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed.map((x) => String(x).trim()).filter(Boolean);
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return s
+    .split(/[,;|]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+/** Serialize product codes for roleProfiles string map (backward compatible CSV). */
+export function serializeBankerProductsHandled(codes: string[]): string {
+  return [...new Set(codes.map((c) => c.trim()).filter(Boolean))].join(",");
+}
 
 /**
  * Denormalized UI cache only — source of truth for reporting is Contact Relationships.
@@ -78,11 +106,52 @@ export function getEcmBankerOrgPlacement(contact: EcmContact): EcmBankerOrgPlace
   };
 }
 
-export function formatEcmBankerOrgPath(placement: EcmBankerOrgPlacement): string {
+/** ECM Bankers bound to an Enterprise Lender Registry institution UUID (or legacy code/label). */
+export function listEcmBankersForInstitution(institutionId: string): EcmContact[] {
+  const id = institutionId.trim();
+  if (!id) return [];
+  return listEcmContacts().filter((c) => {
+    if (c.status === "archived") return false;
+    if (!getEcmContactAssignedRoles(c).includes("lender_employee")) return false;
+    const p = getEcmBankerProfile(c);
+    const keys = [p.institution, p.institutionLabel, p.lenderName]
+      .map((x) => (x ?? "").trim().toLowerCase())
+      .filter(Boolean);
+    const want = id.toLowerCase();
+    return keys.includes(want);
+  });
+}
+
+/**
+ * Product codes handled by bankers per institution (from roleProfiles.productsHandled).
+ * Additive index for Directory filters — never invents products outside ECM profiles.
+ */
+export function buildInstitutionBankerProductIndex(): Map<string, string[]> {
+  const map = new Map<string, Set<string>>();
+  for (const c of listEcmContacts()) {
+    if (c.status === "archived") continue;
+    if (!getEcmContactAssignedRoles(c).includes("lender_employee")) continue;
+    const p = getEcmBankerProfile(c);
+    const institution = p.institution?.trim();
+    if (!institution) continue;
+    const codes = parseBankerProductsHandled(p.productsHandled);
+    if (codes.length === 0) continue;
+    const set = map.get(institution) ?? new Set<string>();
+    for (const code of codes) set.add(code);
+    map.set(institution, set);
+  }
+  return new Map([...map.entries()].map(([k, v]) => [k, [...v]]));
+}
+
+export function formatEcmBankerOrgPath(
+  placement: EcmBankerOrgPlacement,
+  labelHints?: { institutionLabel?: string },
+): string {
+  const institutionDisplay =
+    labelHints?.institutionLabel?.trim() ||
+    (placement.institutionId ? placement.institutionId : undefined);
   const parts = [
-    placement.institutionId
-      ? getEcmMasterLabel("lender", placement.institutionId)
-      : undefined,
+    institutionDisplay,
     placement.regionId ? getEcmMasterLabel("region", placement.regionId) : undefined,
     placement.cityId ? getEcmMasterLabel("city", placement.cityId) : undefined,
     placement.branchId ? getEcmMasterLabel("branch", placement.branchId) : undefined,
@@ -182,14 +251,15 @@ export function listEcmBankerDirectReports(managerContactId: string): EcmContact
 
 /**
  * Set/clear Banker Reporting Manager:
- * - Persists generic `reports_to` relationship (SSOT)
+ * - Persists generic `reports_to` relationship (SSOT session)
  * - Syncs denormalized cache on banker role profile for UI/MIR display
+ * - CO-BUG-ELD-CONTACT — profile cache is Prisma-persisted via persistUpdateEcmContact
  */
-export function setBankerReportingManager(input: {
+export async function setBankerReportingManager(input: {
   bankerContactId: string;
   manager: EcmContact | null;
   actorId: string;
-}): EcmContact {
+}): Promise<EcmContact> {
   if (input.manager) {
     upsertEcmContactRelationship({
       fromContactId: input.bankerContactId,
@@ -219,7 +289,7 @@ export function setBankerReportingManager(input: {
     delete profile.reportingManagerName;
   }
 
-  return updateEcmContact(
+  return persistUpdateEcmContact(
     input.bankerContactId,
     {
       roleProfiles: {

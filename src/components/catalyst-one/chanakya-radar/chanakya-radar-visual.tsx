@@ -12,10 +12,7 @@ import {
   chanakyaRadarRingGuideRadii,
   placeChanakyaRadarBlips,
 } from "@/lib/chanakya-radar/place-blips";
-import {
-  OperationalMovementFeed,
-  useOperationalMovements,
-} from "@/components/catalyst-one/chanakya-radar/operational-movement-feed";
+import { RadarStatusScrollCard } from "@/components/catalyst-one/chanakya-radar/radar-status-scroll-card";
 import { cn } from "@/lib/utils";
 
 interface ChanakyaRadarVisualProps {
@@ -26,6 +23,7 @@ interface ChanakyaRadarVisualProps {
   selectedRowId?: string | null;
   onBlipClick?: (row: ChanakyaRadarDealRow) => void;
   onBlipDoubleClick?: (row: ChanakyaRadarDealRow) => void;
+  onDealOpen?: (row: ChanakyaRadarDealRow) => void;
   hoverSummary: {
     healthScore: number;
     direction: string;
@@ -38,10 +36,38 @@ interface ChanakyaRadarVisualProps {
 const CX = CHANAKYA_RADAR_PLACEMENT.centerX;
 const CY = CHANAKYA_RADAR_PLACEMENT.centerY;
 
+function DealInsightPanel({ row }: { row: ChanakyaRadarDealRow }) {
+  return (
+    <div className="w-[240px] rounded-lg border border-zinc-600/80 bg-zinc-950/98 px-3 py-2 text-left shadow-2xl backdrop-blur">
+      <p className="truncate text-[12px] font-semibold tracking-tight text-zinc-100">{row.dealId}</p>
+      <p className="mt-0.5 truncate text-[11px] text-zinc-300">{row.borrower}</p>
+      <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[10px] leading-snug">
+        <dt className="text-zinc-500">Product</dt>
+        <dd className="truncate text-right text-zinc-200">{row.product}</dd>
+        <dt className="text-zinc-500">Lender</dt>
+        <dd className="truncate text-right text-zinc-200">{row.lender}</dd>
+        <dt className="text-zinc-500">Stage</dt>
+        <dd className="truncate text-right text-zinc-200">{row.stageLabel}</dd>
+        <dt className="text-zinc-500">Sub Stage</dt>
+        <dd className="truncate text-right text-zinc-200">{row.subStageLabel || "—"}</dd>
+        <dt className="text-zinc-500">Days in Stage</dt>
+        <dd className="text-right tabular-nums text-zinc-200">{row.daysInStage}d</dd>
+        <dt className="text-zinc-500">Deal Health</dt>
+        <dd className="text-right tabular-nums text-emerald-300">{row.dealHealthScore}</dd>
+        <dt className="text-zinc-500">Classification</dt>
+        <dd className="truncate text-right font-medium text-zinc-100">{row.quadrantLabel}</dd>
+        <dt className="text-zinc-500">Reason</dt>
+        <dd className="text-right text-zinc-300">{row.classificationReason}</dd>
+        <dt className="text-zinc-500">CHANAKYA</dt>
+        <dd className="text-right text-sky-300/95">{row.recommendation}</dd>
+      </dl>
+    </div>
+  );
+}
+
 /**
- * CO-SPRINT-107 / 113 — Operational Radar visualization.
- * Colour = status · Ring = stage ageing · Vector = management focus.
- * Movement Feeds = recent operational transitions (outside dial, desktop+tablet).
+ * CO-CHANAKYA-RADAR-003 — Enterprise Deal Radar visualisation.
+ * Active Deals only · outside glass status cards · Average Deal Health centre.
  */
 export function ChanakyaRadarVisual({
   vector,
@@ -51,15 +77,12 @@ export function ChanakyaRadarVisual({
   selectedRowId = null,
   onBlipClick,
   onBlipDoubleClick,
+  onDealOpen,
 }: ChanakyaRadarVisualProps) {
   const [displayBearing, setDisplayBearing] = useState(vector.bearingDeg);
-  const [blipHover, setBlipHover] = useState<{
-    row: ChanakyaRadarDealRow;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [hoverRow, setHoverRow] = useState<ChanakyaRadarDealRow | null>(null);
+  const [blipAnchor, setBlipAnchor] = useState<{ x: number; y: number } | null>(null);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const movements = useOperationalMovements(rows);
 
   useEffect(() => {
     let frame = 0;
@@ -89,51 +112,87 @@ export function ChanakyaRadarVisual({
   const blips = useMemo(() => placeChanakyaRadarBlips(rows), [rows]);
   const ringGuides = useMemo(() => chanakyaRadarRingGuideRadii(), []);
 
+  const byQuadrant = useMemo(() => {
+    const map: Record<ChanakyaOperationalQuadrantId, ChanakyaRadarDealRow[]> = {
+      on_track: [],
+      follow_up_required: [],
+      needs_attention: [],
+      at_risk: [],
+    };
+    for (const row of rows) map[row.quadrant].push(row);
+    return map;
+  }, [rows]);
+
   const needleLen = 62;
   const needleRad = ((displayBearing - 90) * Math.PI) / 180;
   const nx = CX + needleLen * Math.cos(needleRad);
   const ny = CY + needleLen * Math.sin(needleRad);
 
-  const quadrantLabelClass =
-    "pointer-events-none max-w-[9rem] text-center text-[11px] font-semibold uppercase leading-tight tracking-[0.16em] md:text-[12px]";
-
-  /**
-   * Dial size is viewport-locked (not % of side columns) so Movement Feeds
-   * never shrink the Radar. Side columns are fixed width on md+.
-   */
   const dialSizeClass =
-    "size-[min(100%,min(calc(100vh-11rem),820px))] md:size-[min(calc(100vw-16rem),min(calc(100vh-11rem),820px))]";
+    "size-[min(100%,min(calc(100vh-12rem),760px))] md:size-[min(calc(100vw-26rem),min(calc(100vh-12rem),760px))]";
+
+  const openDeal = (row: ChanakyaRadarDealRow) => {
+    onDealOpen?.(row);
+  };
+
+  const handleBlipActivate = (row: ChanakyaRadarDealRow) => {
+    onBlipClick?.(row);
+    openDeal(row);
+  };
 
   return (
-    <div className="mx-auto flex w-full max-w-[min(100%,960px)] justify-center">
-      <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[auto_auto_auto] items-center justify-items-center gap-x-1 gap-y-1.5 md:grid-cols-[6.5rem_auto_6.5rem] md:gap-x-3 md:gap-y-2">
-        {/* Top — On Track; feed overlays gap (does not push dial down) */}
-        <div className="relative col-start-2 row-start-1 flex flex-col items-center">
-          <p className={cn(quadrantLabelClass, "text-emerald-400")}>On Track</p>
-          <div className="pointer-events-none absolute left-1/2 top-full z-[5] hidden -translate-x-1/2 md:block">
-            <OperationalMovementFeed destination="on_track" events={movements} />
-          </div>
-        </div>
-
-        {/* Left — Needs Attention */}
-        <div className="col-start-1 row-start-2 flex max-w-[4.5rem] flex-col items-center justify-center gap-1.5 self-center md:max-w-none md:gap-2">
-          <p className={cn(quadrantLabelClass, "text-orange-400")}>
-            Needs
-            <br />
-            Attention
-          </p>
-          <OperationalMovementFeed
-            destination="needs_attention"
-            events={movements}
-            compact
-            className="hidden md:block"
+    <div className="mx-auto w-full max-w-[min(100%,1180px)]">
+      <div
+        className={cn(
+          "grid w-full items-start justify-items-center gap-3",
+          "grid-cols-1",
+          "md:grid-cols-[minmax(9.75rem,11rem)_minmax(0,1fr)_minmax(9.75rem,11rem)]",
+          "md:grid-rows-[auto_auto]",
+          "md:gap-x-5 md:gap-y-4",
+        )}
+      >
+        {/* Top Left — ON TRACK */}
+        <div className="hidden md:flex md:col-start-1 md:row-start-1 md:justify-self-start">
+          <RadarStatusScrollCard
+            quadrant="on_track"
+            rows={byQuadrant.on_track}
+            selectedRowId={selectedRowId}
+            hoveredRowId={hoverRow?.id ?? null}
+            onRowClick={openDeal}
+            onRowHover={(row) => {
+              setHoverRow(row);
+              setBlipAnchor(null);
+            }}
+            onRowLeave={() => {
+              setHoverRow(null);
+              setBlipAnchor(null);
+            }}
           />
         </div>
 
-        {/* Dial — hero; size not driven by feed column width */}
+        {/* Top Right — FOLLOW-UP REQUIRED */}
+        <div className="hidden md:flex md:col-start-3 md:row-start-1 md:justify-self-end">
+          <RadarStatusScrollCard
+            quadrant="follow_up_required"
+            rows={byQuadrant.follow_up_required}
+            selectedRowId={selectedRowId}
+            hoveredRowId={hoverRow?.id ?? null}
+            onRowClick={openDeal}
+            onRowHover={(row) => {
+              setHoverRow(row);
+              setBlipAnchor(null);
+            }}
+            onRowLeave={() => {
+              setHoverRow(null);
+              setBlipAnchor(null);
+            }}
+          />
+        </div>
+
+        {/* Dial — hero */}
         <div
           className={cn(
-            "relative col-start-2 row-start-2 mx-auto aspect-square max-w-full",
+            "relative col-start-1 row-start-1 mx-auto aspect-square max-w-full md:col-start-2 md:row-span-2 md:row-start-1",
             dialSizeClass,
           )}
         >
@@ -264,18 +323,25 @@ export function ChanakyaRadarVisual({
                     e.stopPropagation();
                     if (clickTimer.current) clearTimeout(clickTimer.current);
                     clickTimer.current = setTimeout(() => {
-                      onBlipClick?.(b.row);
+                      handleBlipActivate(b.row);
                       clickTimer.current = null;
-                    }, 220);
+                    }, 180);
                   }}
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     if (clickTimer.current) clearTimeout(clickTimer.current);
                     clickTimer.current = null;
                     onBlipDoubleClick?.(b.row);
+                    if (!onBlipDoubleClick) openDeal(b.row);
                   }}
-                  onMouseEnter={() => setBlipHover({ row: b.row, x: b.x, y: b.y })}
-                  onMouseLeave={() => setBlipHover(null)}
+                  onMouseEnter={() => {
+                    setHoverRow(b.row);
+                    setBlipAnchor({ x: b.x, y: b.y });
+                  }}
+                  onMouseLeave={() => {
+                    setHoverRow(null);
+                    setBlipAnchor(null);
+                  }}
                 >
                   <circle cx={b.x} cy={b.y} r={9} fill="transparent" />
                   <circle
@@ -331,70 +397,97 @@ export function ChanakyaRadarVisual({
               className="fill-slate-400"
               style={{ fontSize: "5.5px", letterSpacing: "0.1em" }}
             >
-              AVG HEALTH
+              AVG DEAL HEALTH
             </text>
           </svg>
 
-          {blipHover ? (
+          {hoverRow && blipAnchor ? (
             <div
-              className="pointer-events-none absolute z-20 w-[220px] -translate-x-1/2 -translate-y-[112%] rounded-lg border border-zinc-600/80 bg-zinc-950/98 px-3 py-2 text-left shadow-2xl backdrop-blur"
+              className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-[108%]"
               style={{
-                left: `${(blipHover.x / 200) * 100}%`,
-                top: `${(blipHover.y / 200) * 100}%`,
+                left: `${(blipAnchor.x / 200) * 100}%`,
+                top: `${(blipAnchor.y / 200) * 100}%`,
               }}
             >
-              <p className="truncate text-[12px] font-semibold">{blipHover.row.borrower}</p>
-              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                {blipHover.row.product}
-              </p>
-              <p className="mt-0.5 truncate text-[10px] font-medium text-foreground/90">
-                {blipHover.row.lender && blipHover.row.lender !== "—"
-                  ? `${blipHover.row.lender} · ${blipHover.row.stageLabel}`
-                  : blipHover.row.stageLabel}
-              </p>
-              <dl className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
-                <dt className="text-muted-foreground">RM</dt>
-                <dd className="truncate text-right font-medium">{blipHover.row.assignedRm}</dd>
-                <dt className="text-muted-foreground">Days</dt>
-                <dd className="text-right font-medium tabular-nums">
-                  {blipHover.row.daysInStage}d
-                </dd>
-                <dt className="text-muted-foreground">Status</dt>
-                <dd className="text-right font-medium text-emerald-300">
-                  {blipHover.row.quadrantLabel}
-                </dd>
-                <dt className="text-muted-foreground">Daily work</dt>
-                <dd className="text-right font-medium">
-                  {blipHover.row.workedToday ? "✓ Worked today" : "Not yet today"}
-                </dd>
-              </dl>
+              <DealInsightPanel row={hoverRow} />
             </div>
           ) : null}
         </div>
 
-        {/* Right — Follow-up Required */}
-        <div className="col-start-3 row-start-2 flex max-w-[4.5rem] flex-col items-center justify-center gap-1.5 self-center md:max-w-none md:gap-2">
-          <p className={cn(quadrantLabelClass, "text-sky-400")}>
-            Follow-up
-            <br />
-            Required
-          </p>
-          <OperationalMovementFeed
-            destination="follow_up_required"
-            events={movements}
-            compact
-            className="hidden md:block"
+        {/* Bottom Left — NEEDS ATTENTION */}
+        <div className="hidden md:flex md:col-start-1 md:row-start-2 md:justify-self-start md:self-end">
+          <RadarStatusScrollCard
+            quadrant="needs_attention"
+            rows={byQuadrant.needs_attention}
+            selectedRowId={selectedRowId}
+            hoveredRowId={hoverRow?.id ?? null}
+            onRowClick={openDeal}
+            onRowHover={(row) => {
+              setHoverRow(row);
+              setBlipAnchor(null);
+            }}
+            onRowLeave={() => {
+              setHoverRow(null);
+              setBlipAnchor(null);
+            }}
           />
         </div>
 
-        {/* Bottom — At Risk; feed overlays gap above label */}
-        <div className="relative col-start-2 row-start-3 flex flex-col items-center">
-          <div className="pointer-events-none absolute bottom-full left-1/2 z-[5] mb-0.5 hidden -translate-x-1/2 md:block">
-            <OperationalMovementFeed destination="at_risk" events={movements} />
-          </div>
-          <p className={cn(quadrantLabelClass, "text-rose-400")}>At Risk</p>
+        {/* Bottom Right — AT RISK */}
+        <div className="hidden md:flex md:col-start-3 md:row-start-2 md:justify-self-end md:self-end">
+          <RadarStatusScrollCard
+            quadrant="at_risk"
+            rows={byQuadrant.at_risk}
+            selectedRowId={selectedRowId}
+            hoveredRowId={hoverRow?.id ?? null}
+            onRowClick={openDeal}
+            onRowHover={(row) => {
+              setHoverRow(row);
+              setBlipAnchor(null);
+            }}
+            onRowLeave={() => {
+              setHoverRow(null);
+              setBlipAnchor(null);
+            }}
+          />
+        </div>
+
+        {/* Tablet / narrow — compact 2×2 under dial */}
+        <div className="grid w-full max-w-lg grid-cols-2 gap-2 md:hidden">
+          {(
+            [
+              "on_track",
+              "follow_up_required",
+              "needs_attention",
+              "at_risk",
+            ] as ChanakyaOperationalQuadrantId[]
+          ).map((q) => (
+            <RadarStatusScrollCard
+              key={q}
+              quadrant={q}
+              rows={byQuadrant[q]}
+              selectedRowId={selectedRowId}
+              className="w-full max-w-none"
+              onRowClick={openDeal}
+              onRowHover={(row) => {
+                setHoverRow(row);
+                setBlipAnchor(null);
+              }}
+              onRowLeave={() => {
+                setHoverRow(null);
+                setBlipAnchor(null);
+              }}
+            />
+          ))}
         </div>
       </div>
+
+      {/* Card-hover insight (outside dial — no overlap) */}
+      {hoverRow && !blipAnchor ? (
+        <div className="pointer-events-none mt-2 flex justify-center md:mt-3">
+          <DealInsightPanel row={hoverRow} />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -352,6 +352,19 @@ export interface LoanLenderExecution {
   /** CO-ARCH-003 Phase 2B Sprint 2 — Selected commercial program id. */
   lenderProgramId?: string;
   lenderProgramLabel?: string;
+  /**
+   * CO-LR-013 — Linked Lender Sales Contact (ECM Banker) for this negotiation.
+   * Progressive enrichment: email may be completed at Disbursal.
+   */
+  lenderSalesContactId?: string;
+  lenderSalesContactName?: string;
+  lenderSalesContactMobile?: string;
+  lenderSalesContactDesignationId?: string;
+  lenderSalesContactDesignationLabel?: string;
+  lenderSalesContactOfficialEmail?: string;
+  /** Denormalized institution label at link time (display / reload). */
+  lenderSalesContactInstitutionId?: string;
+  lenderSalesContactInstitutionLabel?: string;
   /** True when case originated from Strategic Workspace shortlist. */
   fromStrategic?: boolean;
   /** Opportunity that shortlisted this lender. */
@@ -366,6 +379,13 @@ export interface LoanLenderExecution {
   /** UX-04 — Probability and primary lender signals. */
   probability?: LenderProbability;
   isPrimary?: boolean;
+  /**
+   * Enterprise Deal Registry priority (SSOT) — urgent | high | medium | low.
+   * Displayed on Lender Pipeline Kanban — not Success Probability.
+   */
+  dealPriority?: "urgent" | "high" | "medium" | "low" | string;
+  /** Enterprise Deal Registry healthScore 0–100 (SSOT). Null until health engine writes. */
+  dealHealthScore?: number | null;
   remarks?: string;
   /** UX-04D — Lost workflow */
   lostReason?: LenderLostReason;

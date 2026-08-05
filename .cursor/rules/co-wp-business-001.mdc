@@ -1,0 +1,25 @@
+---
+description: CO-WP-BUSINESS-001 — My Business Pipeline Workspace (PO architecture; no deploy until BAT)
+alwaysApply: true
+---
+
+# CO-WP-BUSINESS-001 — My Business Pipeline Workspace
+
+Status: **PO Architecture · Awaiting BAT** · Priority: **CRITICAL**  
+Docs: `docs/co-wp-business/CO-WP-BUSINESS-001-PIPELINE-WORKSPACE.md`
+
+## What shipped (local)
+
+- Catalyst One: `GET /api/partner/business-pipeline` projects pipeline cards, priorities, opportunities, NBA, filters, empty states
+- Wealth Partner App `/app/business` renders the Pipeline Workspace from that DTO only
+
+## Hard rules
+
+1. Companion never invents stages, health, NBA, or pipeline formulas.  
+2. Do **not** redesign frozen Opportunity / Customer journey modules for this sprint.  
+3. Do **not** begin Enterprise Experience Center / EEE.  
+4. **No Vercel deployment** until Product Owner BAT.  
+
+## BAT-002 relationship
+
+Explicit PO exception for this scoped Business Pipeline Workspace only.

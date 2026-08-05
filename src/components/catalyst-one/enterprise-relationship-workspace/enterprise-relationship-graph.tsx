@@ -17,6 +17,7 @@ import {
   Expand,
   Maximize2,
   Minimize2,
+  Plus,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -35,6 +36,8 @@ export interface EnterpriseRelationshipGraphProps {
   /** Collapse outer ring into summary chips when true */
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  /** Empty-state CTA when no explicit relationships exist */
+  onAddRelationship?: () => void;
 }
 
 function layoutRadial(
@@ -69,12 +72,14 @@ export function EnterpriseRelationshipGraph({
   className,
   collapsed = false,
   onCollapsedChange,
+  onAddRelationship,
 }: EnterpriseRelationshipGraphProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 720, h: 420 });
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const satelliteCount = nodes.filter((n) => !n.isCentre).length;
 
   useEffect(() => {
     const el = viewportRef.current;
@@ -129,7 +134,9 @@ export function EnterpriseRelationshipGraph({
             Relationship Network
           </p>
           <p className="text-[11px] text-zinc-500">
-            Contact at centre · click any node for details
+            {satelliteCount === 0
+              ? "Explicit relationships only · none defined yet"
+              : "Contact at centre · click any node for details"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1">
@@ -315,6 +322,31 @@ export function EnterpriseRelationshipGraph({
                   </span>
                 );
               })}
+          </div>
+        )}
+
+        {satelliteCount === 0 && (
+          <div className="pointer-events-none absolute inset-0 flex items-end justify-center pb-6">
+            <div className="pointer-events-auto mx-4 max-w-sm rounded-xl border border-zinc-700/80 bg-zinc-950/90 px-4 py-3 text-center shadow-lg backdrop-blur-sm">
+              <p className="text-sm font-medium text-zinc-100">
+                No relationships have been defined for this contact.
+              </p>
+              <p className="mt-1 text-[11px] text-zinc-500">
+                Only explicit Relationship Registry links appear here — never inferred roles or
+                placeholder nodes.
+              </p>
+              {onAddRelationship ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3 h-8 gap-1 rounded-md bg-teal-600 px-3 text-xs text-white hover:bg-teal-500"
+                  onClick={onAddRelationship}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Relationship
+                </Button>
+              ) : null}
+            </div>
           </div>
         )}
       </div>

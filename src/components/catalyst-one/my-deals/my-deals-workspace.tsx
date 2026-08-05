@@ -2,8 +2,8 @@
 
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Briefcase } from "lucide-react";
 import { OpportunityDealRegistry } from "@/components/catalyst-one/my-deals/opportunity-deal-registry";
+import { EnterpriseRegistryWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-registry-workspace-shell";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import {
   MY_DEALS_BUSINESS_TABS,
@@ -29,7 +29,6 @@ import { readMyDealsReturnState, rememberMyDealsReturnState } from "@/lib/my-dea
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
 import type { DealRegistryFilters, DealRegistryRow } from "@/types/deal-registry";
-import { WorkspaceExitNav } from "@/components/enterprise/navigation";
 import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
 import { cn } from "@/lib/utils";
 
@@ -192,109 +191,88 @@ export function MyDealsWorkspace() {
     setRegistryFilters(filters);
   }, []);
 
-  const opportunityCount = useMemo(() => {
-    const keys = new Set(
-      allRows.map((r) => r.opportunityId?.trim() || r.opportunityNumber || r.id),
-    );
-    return keys.size;
-  }, [allRows]);
-
   return (
-    <div
-      className="flex h-[calc(100vh-3.5rem)] flex-col gap-0 overflow-hidden"
+    <EnterpriseRegistryWorkspaceShell
+      title={MY_DEALS_OFFICIAL_NAME}
+      subtitle="Enterprise Deal Registry"
+      count={allRows.length}
+      countNoun="Deals"
+      breadcrumbs={buildSimpleWorkspaceBreadcrumbs(MY_DEALS_OFFICIAL_NAME)}
       data-sprint="CO-SPRINT-120"
-      data-incident="CO-P0-001"
-      data-deal-source={readSource}
+      data-surface="deal-registry"
+      statusSlot={
+        <span
+          className={cn(
+            "rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+            readSource === "enterprise_deal"
+              ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
+              : readSource === "local_fallback"
+                ? "bg-amber-500/15 text-amber-900 dark:text-amber-200"
+                : "bg-muted text-muted-foreground",
+          )}
+          title={readError ?? undefined}
+        >
+          {sourceLabel}
+        </span>
+      }
+      banner={
+        <>
+          {readError && readSource === "local_fallback" ? (
+            <p className="shrink-0 text-[11px] text-amber-800 dark:text-amber-200" role="status">
+              Enterprise Deal API unavailable — showing local cache. {readError}
+            </p>
+          ) : null}
+          <div className="flex shrink-0 flex-wrap gap-0.5 border-b border-border pb-1">
+            {MY_DEALS_BUSINESS_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setBusinessTab(tab.id)}
+                className={cn(
+                  "rounded px-2 py-0.5 text-[11px] font-medium transition-colors",
+                  businessTab === tab.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  !tab.live && "opacity-70",
+                )}
+              >
+                {tab.label}
+                {!tab.live ? (
+                  <span className="ml-1 text-[9px] uppercase tracking-wide opacity-80">Soon</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </>
+      }
     >
-      <WorkspaceExitNav
-        breadcrumbs={buildSimpleWorkspaceBreadcrumbs(MY_DEALS_OFFICIAL_NAME)}
-        className="shrink-0"
-      />
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden px-2.5 py-1.5 md:px-3 md:py-2">
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <Briefcase className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            <h1 className="truncate text-sm font-semibold tracking-tight md:text-[15px]">
-              {MY_DEALS_OFFICIAL_NAME}
-            </h1>
-            <span className="hidden text-[11px] text-muted-foreground sm:inline">
-              · Enterprise Deal Registry
-            </span>
-            <span
-              className={cn(
-                "rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
-                readSource === "enterprise_deal"
-                  ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
-                  : readSource === "local_fallback"
-                    ? "bg-amber-500/15 text-amber-900 dark:text-amber-200"
-                    : "bg-muted text-muted-foreground",
-              )}
-              title={readError ?? undefined}
-            >
-              {sourceLabel}
-            </span>
-          </div>
-          <p className="text-[11px] tabular-nums text-muted-foreground">
-            {opportunityCount} opportunities · {allRows.length} deals
-          </p>
-        </header>
-
-        {readError && readSource === "local_fallback" ? (
-          <p className="shrink-0 text-[11px] text-amber-800 dark:text-amber-200" role="status">
-            Enterprise Deal API unavailable — showing local cache. {readError}
-          </p>
-        ) : null}
-
-        <div className="flex shrink-0 flex-wrap gap-0.5 border-b border-border pb-1">
-          {MY_DEALS_BUSINESS_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setBusinessTab(tab.id)}
-              className={cn(
-                "rounded px-2 py-0.5 text-[11px] font-medium transition-colors",
-                businessTab === tab.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                !tab.live && "opacity-70",
-              )}
-            >
-              {tab.label}
-              {!tab.live ? (
-                <span className="ml-1 text-[9px] uppercase tracking-wide opacity-80">Soon</span>
-              ) : null}
-            </button>
-          ))}
+      {businessTab === "loans" ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <OpportunityDealRegistry
+            rows={allRows}
+            currentRm={currentRm}
+            initialScope={initialScope}
+            initialSearch={initialSearch}
+            initialGrossStage={initialGrossStage}
+            onFiltersChanged={handleFiltersChanged}
+            onOpenOpportunity={(group) =>
+              void openLoanWorkspaceForOpportunity(router, group)
+            }
+          />
         </div>
-
-        {businessTab === "loans" ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <OpportunityDealRegistry
-              rows={allRows}
-              currentRm={currentRm}
-              initialScope={initialScope}
-              initialSearch={initialSearch}
-              initialGrossStage={initialGrossStage}
-              onFiltersChanged={handleFiltersChanged}
-              onOpenOpportunity={(group) =>
-                void openLoanWorkspaceForOpportunity(router, group)
-              }
-            />
+      ) : (
+        <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
+          <div>
+            <p className="text-sm font-medium">
+              {MY_DEALS_BUSINESS_TABS.find((t) => t.id === businessTab)?.label} registry
+            </p>
+            <p className="mt-1 max-w-sm text-[12px] text-muted-foreground">
+              This business vertical will use the same Enterprise Deal Registry pattern when
+              enabled. Loans is live today.
+            </p>
           </div>
-        ) : (
-          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
-            <div>
-              <p className="text-sm font-medium">
-                {MY_DEALS_BUSINESS_TABS.find((t) => t.id === businessTab)?.label} registry
-              </p>
-              <p className="mt-1 max-w-sm text-[12px] text-muted-foreground">
-                This business vertical will use the same Enterprise Deal Registry pattern when
-                enabled. Loans is live today.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </EnterpriseRegistryWorkspaceShell>
   );
 }

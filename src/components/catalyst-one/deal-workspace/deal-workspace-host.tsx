@@ -12,9 +12,7 @@ import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-
 import { EntityTasksPanel } from "@/components/catalyst-one/tasks/entity-tasks-panel";
 import { EnterpriseWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-workspace-shell";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
-import { WorkspaceExitNav } from "@/components/enterprise/navigation";
 import { DealExecutiveHeader } from "@/components/catalyst-one/deal-workspace/deal-executive-header";
-import { DealPipelineSectionHeader } from "@/components/catalyst-one/deal-workspace/deal-pipeline-section-header";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import {
   identifyLenderAsEnterpriseDeal,
@@ -24,7 +22,11 @@ import {
 } from "@/lib/enterprise-deal/deal-pipeline-runtime";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import { deriveDealExecutiveIntelligence } from "@/lib/deal-workspace/derive-deal-executive-intelligence";
-import { DEAL_WORKSPACE_PAD_X, DEAL_WORKSPACE_CHROME } from "@/constants/deal-workspace-layout";
+import {
+  DEAL_WORKSPACE_PAD_X,
+  DEAL_WORKSPACE_CHROME,
+  DEAL_WORKSPACE_HOST_FILL,
+} from "@/constants/deal-workspace-layout";
 import { ROUTES } from "@/constants/routes";
 import { WORKSPACE_CLOSE } from "@/constants/workspace-navigation";
 import { useWorkspaceClose } from "@/hooks/use-workspace-close";
@@ -193,8 +195,22 @@ export function DealWorkspaceHost() {
       program: { id: string; label?: string | null };
       expectedLoanAmount?: number;
       caseSubStage?: string;
+      lenderSalesContact: {
+        contactId: string;
+        contactName: string;
+        mobile?: string;
+        designationId?: string;
+        designationLabel?: string;
+        officialEmail?: string;
+        institutionId?: string;
+        institutionLabel?: string;
+      };
     }) => {
       if (!runtime) return;
+      if (!input.lenderSalesContact?.contactId?.trim()) {
+        toast.error("Lender Sales Contact is mandatory.");
+        return;
+      }
       setSaving(true);
       try {
         const updated = await identifyLenderAsEnterpriseDeal({
@@ -207,6 +223,7 @@ export function DealWorkspaceHost() {
           expectedLoanAmount: input.expectedLoanAmount,
           caseSubStage: input.caseSubStage,
           identifiedBy: runtime.context.relationshipManager || "RM",
+          lenderSalesContact: input.lenderSalesContact,
         });
         setRuntime(updated);
         const newest =
@@ -345,51 +362,31 @@ export function DealWorkspaceHost() {
   const { context, lenders, siblingDeals } = runtime;
 
   return (
-    <div className="-mx-4 flex min-h-0 flex-col md:-mx-6 lg:-mx-8">
+    <div className={cn("-mx-4 md:-mx-6 lg:-mx-8", DEAL_WORKSPACE_HOST_FILL)}>
       <EnterpriseWorkspaceShell
-        scrollMode="document"
-        collapseOnScroll
+        scrollMode="locked-split"
+        collapseOnScroll={false}
+        className="min-h-0 flex-1"
         chromeClassName={DEAL_WORKSPACE_CHROME}
+        bodyClassName="min-h-0 flex-1 overflow-hidden"
         chrome={
-          <>
-            <WorkspaceExitNav
-              breadcrumbs={[
-                { title: "My Deals", href: ROUTES.MY_DEALS },
-                { title: "Deal Workspace" },
-              ]}
-              className={cn(
-                "!border-b border-border/60 !bg-muted/20 !py-1.5",
-                DEAL_WORKSPACE_PAD_X,
-              )}
-            />
-            <DealExecutiveHeader
-              runtime={runtime}
-              activeDeal={activeDeal}
-              intelligence={intelligence}
-              saving={saving || closeApi.saving}
-              onSave={handleSave}
-              onMyDeals={goMyDeals}
-              onClose={closeApi.requestClose}
-              onTimelineNote={(title, description) => {
-                toast.message(title, { description });
-              }}
-              onOpportunityHealthClick={() => {
-                toast.message("Opportunity Health breakdown", {
-                  description:
-                    "Detailed factor breakdown opens in a later sprint. Current score reflects Deal Pipeline progress.",
-                });
-              }}
-            />
-          </>
-        }
-      >
-        <div
-          className={cn(
-            "space-y-2 py-3 pb-6",
-            DEAL_WORKSPACE_PAD_X,
-          )}
-        >
-          <DealPipelineSectionHeader
+          <DealExecutiveHeader
+            runtime={runtime}
+            activeDeal={activeDeal}
+            intelligence={intelligence}
+            saving={saving || closeApi.saving}
+            onSave={handleSave}
+            onMyDeals={goMyDeals}
+            onClose={closeApi.requestClose}
+            onTimelineNote={(title, description) => {
+              toast.message(title, { description });
+            }}
+            onOpportunityHealthClick={() => {
+              toast.message("Opportunity Health breakdown", {
+                description:
+                  "Detailed factor breakdown opens in a later sprint. Current score reflects Deal Pipeline progress.",
+              });
+            }}
             dealCount={siblingDeals.length}
             onIdentifyLender={() => setLenderAddOpen(true)}
             onViewOptions={() =>
@@ -405,76 +402,86 @@ export function DealWorkspaceHost() {
               })
             }
           />
-          <LenderPipelineBoard
-            context={context}
-            cases={lenders}
-            updatedBy={context.relationshipManager || "RM"}
-            addOpen={lenderAddOpen}
-            onAddOpenChange={setLenderAddOpen}
-            onIdentifyLender={handleIdentifyLender}
-            onActiveCaseChange={handleActiveCaseChange}
-            onRemoveDeal={async (dealId) => {
-              if (!runtime) return;
-              setSaving(true);
-              try {
-                const updated = await removeLenderPipelineDeal(runtime, dealId, {
-                  reason: "kanban_pipeline_remove",
-                });
-                if (updated.siblingDeals.length === 0 || updated.lenders.length === 0) {
-                  toast.success("Lender deal deleted.");
-                  router.push(WORKSPACE_CLOSE.MY_DEALS);
-                  return;
-                }
-                setRuntime(updated);
-                setActiveDealId(updated.deal.id);
-                toast.success("Lender deal deleted.");
-                const { tracePipelineDrag } = await import(
-                  "@/lib/enterprise-deal/pipeline-drag-trace"
-                );
-                tracePipelineDrag("delete_render_complete", {
-                  dealId,
-                  remaining: updated.siblingDeals.length,
-                  surface: "deal_workspace_host",
-                });
-                if (updated.deal.id !== dealIdParam) {
-                  const oppQs = opportunityIdParam
-                    ? `?opportunityId=${encodeURIComponent(opportunityIdParam)}`
-                    : "";
-                  router.replace(
-                    `${ROUTES.DEALS}/${encodeURIComponent(updated.deal.id)}${oppQs}`,
-                  );
-                }
-              } catch (err) {
-                toast.error(
-                  err instanceof Error ? err.message : "Failed to delete lender deal",
-                );
+        }
+      >
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 flex-col gap-1 overflow-hidden py-1",
+            DEAL_WORKSPACE_PAD_X,
+          )}
+        >
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <LenderPipelineBoard
+              context={context}
+              cases={lenders}
+              updatedBy={context.relationshipManager || "RM"}
+              addOpen={lenderAddOpen}
+              onAddOpenChange={setLenderAddOpen}
+              onIdentifyLender={handleIdentifyLender}
+              onActiveCaseChange={handleActiveCaseChange}
+              onRemoveDeal={async (dealId) => {
+                if (!runtime) return;
+                setSaving(true);
                 try {
-                  await reloadRuntime(runtime.deal.id);
-                } catch {
-                  /* keep current UI */
+                  const updated = await removeLenderPipelineDeal(runtime, dealId, {
+                    reason: "kanban_pipeline_remove",
+                  });
+                  if (updated.siblingDeals.length === 0 || updated.lenders.length === 0) {
+                    toast.success("Lender deal deleted.");
+                    router.push(WORKSPACE_CLOSE.MY_DEALS);
+                    return;
+                  }
+                  setRuntime(updated);
+                  setActiveDealId(updated.deal.id);
+                  toast.success("Lender deal deleted.");
+                  const { tracePipelineDrag } = await import(
+                    "@/lib/enterprise-deal/pipeline-drag-trace"
+                  );
+                  tracePipelineDrag("delete_render_complete", {
+                    dealId,
+                    remaining: updated.siblingDeals.length,
+                    surface: "deal_workspace_host",
+                  });
+                  if (updated.deal.id !== dealIdParam) {
+                    const oppQs = opportunityIdParam
+                      ? `?opportunityId=${encodeURIComponent(opportunityIdParam)}`
+                      : "";
+                    router.replace(
+                      `${ROUTES.DEALS}/${encodeURIComponent(updated.deal.id)}${oppQs}`,
+                    );
+                  }
+                } catch (err) {
+                  toast.error(
+                    err instanceof Error ? err.message : "Failed to delete lender deal",
+                  );
+                  try {
+                    await reloadRuntime(runtime.deal.id);
+                  } catch {
+                    /* keep current UI */
+                  }
+                  throw err;
+                } finally {
+                  setSaving(false);
                 }
-                throw err;
-              } finally {
-                setSaving(false);
-              }
-            }}
-            onChange={(next) => {
-              setRuntime((prev) => (prev ? { ...prev, lenders: next } : prev));
-              void persistLenders(next);
-            }}
-            onTimeline={(note) => {
-              toast.message(note);
-            }}
-          />
+              }}
+              onChange={(next) => {
+                setRuntime((prev) => (prev ? { ...prev, lenders: next } : prev));
+                void persistLenders(next);
+              }}
+              onTimeline={(note) => {
+                toast.message(note);
+              }}
+            />
+          </div>
           {/* CO-PERF-002 — Lazy secondary module: tasks load only when expanded */}
-          <details className="mt-3 rounded-lg border border-border/60 bg-card/40 open:pb-2">
-            <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+          <details className="shrink-0 rounded-md border border-border/60 bg-card/40 open:pb-1">
+            <summary className="cursor-pointer list-none px-2 py-1 text-[10px] font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
               Tasks & follow-ups
               <span className="ml-2 font-normal text-muted-foreground/80">
                 (opens on demand)
               </span>
             </summary>
-            <div className="px-2 pb-2">
+            <div className="max-h-40 overflow-y-auto px-2 pb-1">
               <EntityTasksPanel
                 className="mt-1"
                 compact

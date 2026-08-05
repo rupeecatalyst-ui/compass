@@ -1,26 +1,20 @@
 /**
- * CF-CHANAKYA-006 — Derive personalized, context-aware briefing cards.
- * Prompt 011 — visual priority hierarchy (1 Immediate · 2 Operational · 3 Informational).
+ * CF-CHANAKYA-006 / CO-CHANAKYA-007 — Personalized briefing from live Enterprise SSOTs.
+ *
+ * Read-path only. Never uses mock priority items, demo loan highlights, or
+ * hardcoded pipeline statistics. Empty live books produce honest empty copy.
  */
 
 import { ROUTES } from "@/constants/routes";
 import { buildElwWorkspaceHref } from "@/constants/enterprise-lender-workspace";
-import {
-  dashboardTasks,
-  executiveKpis,
-  focusTiles,
-  pendingApprovals,
-} from "@/data/catalyst-one/dashboard";
-import {
-  MOCK_PRIORITY_ITEMS,
-  MOCK_RECOMMENDATIONS,
-  MOCK_RISKS,
-} from "@/modules/intelligence/services/mock-data";
+import { composeBusinessIntelligenceSnapshot } from "@/lib/enterprise-business-intelligence";
+import { loadEbiDataContext } from "@/lib/enterprise-business-intelligence/snapshot";
+import { listEcmContacts, listProvisionalContactGaps } from "@/lib/enterprise-contact-master";
+import { buildChanakyaWorkloadInsights } from "@/lib/enterprise-task-engine/workload-intelligence";
 import type {
   ChanakyaBriefingCard,
   ChanakyaBriefingDashboardModel,
 } from "@/types/chanakya-briefing-dashboard";
-import { listEcmContacts, listProvisionalContactGaps } from "@/lib/enterprise-contact-master";
 import { pickDailyWisdom } from "./wisdom";
 
 function provisionalContactBriefing(): { count: number; gapSample: string } {
@@ -43,55 +37,76 @@ function timeSalutation(date = new Date()): string {
   return "Good evening";
 }
 
-function topPriorityFocus() {
-  return (
-    focusTiles.find((t) => t.urgency === "critical") ??
-    focusTiles[0]!
-  );
+function formatInrCr(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "₹0";
+  const cr = value / 10_000_000;
+  if (cr >= 1) return `₹${cr.toFixed(1)} Cr`;
+  if (value >= 100_000) return `₹${(value / 100_000).toFixed(1)} L`;
+  return `₹${Math.round(value).toLocaleString("en-IN")}`;
 }
 
-function overdueTaskCount(): number {
-  return dashboardTasks.filter((t) => t.bucket === "overdue").length;
-}
-
-function dueTodayTaskCount(): number {
-  return dashboardTasks.filter((t) => t.bucket === "today").length;
-}
-
-/** Build the nine briefing cards — each with one deep-linked action. */
+/** Build briefing cards from live EBI · ETE · ECM — no mock operational facts. */
 export function deriveChanakyaBriefingDashboard(input: {
   firstName: string;
 }): ChanakyaBriefingDashboardModel {
   const firstName = input.firstName.trim() || "there";
   const salutation = timeSalutation();
-  const priorityFocus = topPriorityFocus();
-  const topPriority = MOCK_PRIORITY_ITEMS[0]!;
-  const topRecommendation = MOCK_RECOMMENDATIONS[0]!;
-  const topRisk = MOCK_RISKS[0]!;
-  const pendingTaskKpi = executiveKpis.find((k) => k.id === "tasks_due");
-  const pipelineKpi = executiveKpis.find((k) => k.id === "total_pipeline");
-  const overdue = overdueTaskCount();
-  const dueToday = dueTodayTaskCount();
   const wisdom = pickDailyWisdom();
   const provisionalBrief = provisionalContactBriefing();
+  const snap = composeBusinessIntelligenceSnapshot();
+  const ctx = loadEbiDataContext();
+  const workload = buildChanakyaWorkloadInsights().slice(0, 3);
+  const rows = ctx.radar.rows;
+  const liveTrusted = ctx.isLiveTrusted;
+
+  const criticalRow = rows.find((r) => r.quadrant === "at_risk");
+  const atRiskCount = rows.filter((r) => r.quadrant === "at_risk").length;
+  const followUps = rows.filter((r) => r.quadrant === "follow_up_required").length;
+  const overdue = snap.operational.overdueTasks;
+  const dueToday = snap.operational.tasksDueToday;
+  const activeDeals = snap.executive.activeDeals;
+  const pipeline = snap.executive.pipelineValue;
+  const topWorkload = workload[0];
+
+  const lenderCounts = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.lender) continue;
+    if (r.quadrant === "at_risk" || r.quadrant === "needs_attention") {
+      lenderCounts.set(r.lender, (lenderCounts.get(r.lender) ?? 0) + 1);
+    }
+  }
+  const topLender = [...lenderCounts.entries()].sort((a, b) => b[1] - a[1])[0];
 
   const cards: ChanakyaBriefingCard[] = [
     {
       id: "priority_actions",
       title: "Priority Actions",
-      headline: `${firstName}, start here.`,
-      insight: `${topPriority.title} — ${topPriority.description}`,
-      reason: `Flagged as ${topPriority.level} priority; ${priorityFocus.label} also needs attention (${priorityFocus.count} files).`,
-      actionLabel: "Open Priority Queue",
-      actionHref: priorityFocus.href,
+      headline: liveTrusted
+        ? criticalRow
+          ? `${firstName}, start with ${criticalRow.borrower}.`
+          : `${firstName}, no critical live Deal risks right now.`
+        : `${firstName}, live Deal intelligence is hydrating.`,
+      insight: liveTrusted
+        ? criticalRow
+          ? `${criticalRow.borrower} is at risk on the live Deal book.`
+          : topWorkload
+            ? topWorkload.text
+            : "No urgent live priority items from Deal Registry or ETE."
+        : "CHANAKYA advises from the Enterprise Deal Registry once hydrated — demo or stale local books are not used.",
+      reason: "Derived from live Radar / Deal Registry and ETE workload (CO-CHANAKYA-007).",
+      actionLabel: criticalRow ? "Open My Deals" : "Open Tasks",
+      actionHref: criticalRow ? ROUTES.MY_DEALS : ROUTES.TASKS,
       priority: 1,
     },
     {
       id: "pending_tasks",
       title: "Pending Tasks",
-      headline: `You have ${pendingTaskKpi?.value ?? "17"} tasks on your plate.`,
-      insight: `${overdue} overdue and ${dueToday} due today — including lender follow-ups and document collection.`,
-      reason: "Task backlog is above your usual daily band; clearing overdue items protects pipeline velocity.",
+      headline:
+        overdue + dueToday > 0
+          ? `You have ${overdue + dueToday} live task signal${overdue + dueToday === 1 ? "" : "s"}.`
+          : `Your live task board is clear, ${firstName}.`,
+      insight: `${overdue} overdue and ${dueToday} due today — from Enterprise Task Engine.`,
+      reason: "ETE is the only task SSOT for CHANAKYA briefing.",
       actionLabel: "Review Pending Tasks",
       actionHref: `${ROUTES.TASKS}?filter=due`,
       priority: 1,
@@ -99,9 +114,17 @@ export function deriveChanakyaBriefingDashboard(input: {
     {
       id: "risk_watch",
       title: "Risk Watch",
-      headline: `${topRisk.title}`,
-      insight: topRisk.description,
-      reason: `${topRisk.impact} — ${topRisk.mitigation}`,
+      headline: liveTrusted
+        ? atRiskCount > 0
+          ? `${atRiskCount} live deal${atRiskCount === 1 ? "" : "s"} at risk.`
+          : "No at-risk deals in the live registry."
+        : "Live risk signals unavailable until Deal Registry hydrate.",
+      insight: liveTrusted
+        ? criticalRow
+          ? `${criticalRow.borrower} needs attention before SLA deterioration.`
+          : "Portfolio risk band is clear on current live Deals."
+        : "No relevant live enterprise risk information is available.",
+      reason: "Radar quadrant at_risk from live Deal projections only.",
       actionLabel: "Review Risk Cases",
       actionHref: `${ROUTES.MY_DEALS}?filter=risk`,
       priority: 1,
@@ -116,7 +139,7 @@ export function deriveChanakyaBriefingDashboard(input: {
       insight:
         provisionalBrief.count > 0
           ? `Pending: ${provisionalBrief.gapSample}. Loan journeys continue — Chanakya reminds you before these fields matter.`
-          : "Borrower and partner profiles look healthy. Progressive Contact Creation keeps journeys moving when details are still pending.",
+          : "Borrower and partner profiles look healthy on the live Contact registry.",
       reason:
         "Progressive Contact Creation: missing supporting Contact data must never block the Loan Journey — guidance and readiness only.",
       actionLabel: "Review Provisional Contacts",
@@ -126,32 +149,46 @@ export function deriveChanakyaBriefingDashboard(input: {
     {
       id: "opportunity_watch",
       title: "Opportunity Watch",
-      headline: "3 opportunities need your attention today.",
-      insight: `${demoLoanFileRowsHighlight()} — Compass signals show momentum or stall risk.`,
-      reason: "Opportunity Compass flagged movement or inactivity on files in your active portfolio.",
-      actionLabel: "Open Opportunity Compass",
-      actionHref: ROUTES.OPPORTUNITY_COMPASS,
+      headline: liveTrusted
+        ? `${activeDeals} live deal${activeDeals === 1 ? "" : "s"} · ${followUps} follow-up${followUps === 1 ? "" : "s"}.`
+        : "Live Opportunity / Deal watch pending hydrate.",
+      insight: liveTrusted
+        ? `${snap.executive.activeOpportunities} opportunity signal${snap.executive.activeOpportunities === 1 ? "" : "s"} and ${snap.operational.inactiveOpportunities} inactive in the live book.`
+        : "No relevant live Opportunity information is available.",
+      reason: "EBI executive KPIs composed from live Deal DAL + Radar SSOT.",
+      actionLabel: "Open My Opportunities",
+      actionHref: ROUTES.MY_OPPORTUNITIES,
       priority: 2,
     },
     {
       id: "lender_intelligence",
       title: "Lender Intelligence",
-      headline: "HDFC is leading your lender race this week.",
-      insight: "Login WIP on 4 files with HDFC; Axis and ICICI cases are awaiting banker acknowledgment.",
-      reason: "Lender execution data shows HDFC with highest momentum — protect the primary path first.",
-      actionLabel: "Open Lender Workspace",
-      actionHref: buildElwWorkspaceHref("hdfc", {
-        from: "dashboard",
-        returnTo: ROUTES.DASHBOARD,
-      }),
+      headline: topLender
+        ? `${topLender[0]} leads attention on your live book.`
+        : "No lender escalation signals in the live Deal book.",
+      insight: topLender
+        ? `${topLender[1]} deal${topLender[1] === 1 ? "" : "s"} need attention with ${topLender[0]}.`
+        : "Lender execution looks stable on current live Deals.",
+      reason: "Aggregated from live Radar rows — never demo lender races.",
+      actionLabel: topLender ? "Open Lender Workspace" : "Open Lenders",
+      actionHref: topLender
+        ? buildElwWorkspaceHref(topLender[0].toLowerCase().replace(/\s+/g, "-"), {
+            from: "dashboard",
+            returnTo: ROUTES.DASHBOARD,
+          })
+        : ROUTES.LENDERS,
       priority: 2,
     },
     {
       id: "business_health",
       title: "Business Health",
-      headline: `${pipelineKpi?.value ?? "₹42.8 Cr"} active pipeline — stable with attention areas.`,
-      insight: `${pipelineKpi?.subValue ?? "148 active files"} · revenue trend ${pipelineKpi?.trend?.label ?? "+12% vs last month"}.`,
-      reason: "Portfolio health is within normal bands, but disbursement and credit queues need same-day action.",
+      headline: liveTrusted
+        ? `${formatInrCr(pipeline)} active pipeline — ${snap.health.status}.`
+        : "Business health awaits live Deal hydrate.",
+      insight: liveTrusted
+        ? `${activeDeals} active deal${activeDeals === 1 ? "" : "s"} · health ${snap.health.overallScore}.`
+        : "No relevant live pipeline statistics are available.",
+      reason: "EBI business health score (single formula SSOT).",
       actionLabel: "View Business Pipeline",
       actionHref: ROUTES.CHANAKYA_RADAR,
       priority: 3,
@@ -159,11 +196,15 @@ export function deriveChanakyaBriefingDashboard(input: {
     {
       id: "recommendations",
       title: "Recommendations",
-      headline: topRecommendation.title,
-      insight: `${topRecommendation.reason} Expected outcome: ${topRecommendation.expectedOutcome}`,
-      reason: `CHANAKYA confidence ${topRecommendation.confidence}% — highest-impact next move for ${firstName} today.`,
-      actionLabel: "Act on Recommendation",
-      actionHref: ROUTES.OPPORTUNITY_WORKSPACE,
+      headline: snap.insights[0]?.text ?? `No live recommendations yet, ${firstName}.`,
+      insight:
+        snap.insights[0]?.reason ??
+        (liveTrusted
+          ? "CHANAKYA has no additional live executive insight beyond the cards above."
+          : "No relevant live enterprise information is available."),
+      reason: "Chanakya executive insights from EBI compose — observation + reason only.",
+      actionLabel: "Open Mission Control",
+      actionHref: ROUTES.MISSION_CONTROL,
       priority: 3,
     },
     {
@@ -171,7 +212,7 @@ export function deriveChanakyaBriefingDashboard(input: {
       title: "Daily Wisdom",
       headline: `Today's counsel, ${firstName}.`,
       insight: `"${wisdom.quote}" ${wisdom.actionHint}`,
-      reason: "CHANAKYA shares one operational principle each day — tied to your live portfolio context.",
+      reason: "Operational principle — not a substitute for live Deal facts.",
       actionLabel: wisdom.label,
       actionHref: wisdom.href,
       priority: 3,
@@ -187,10 +228,4 @@ export function deriveChanakyaBriefingDashboard(input: {
     generatedAt: new Date().toISOString(),
     cards,
   };
-}
-
-function demoLoanFileRowsHighlight(): string {
-  const urgent = pendingApprovals[0];
-  if (!urgent) return "Active files across pre-login and credit stages";
-  return `${urgent.customerName} (${urgent.product}) in ${urgent.stage} — ageing ${urgent.ageing}`;
 }

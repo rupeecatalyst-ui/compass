@@ -37,7 +37,8 @@ export function validateDocumentFile(file: File): FileValidationResult {
 
   return {
     ok: false,
-    reason: "Unsupported file type. Use PDF, images, Office documents, CSV, or ZIP.",
+    reason:
+      "Unsupported file type. Use PDF, images, Office documents, CSV, ZIP, or audio (WebM, M4A, MP3, WAV, OGG).",
   };
 }
 

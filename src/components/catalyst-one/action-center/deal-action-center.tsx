@@ -12,12 +12,19 @@ import { ActionCenter } from "@/components/catalyst-one/action-center/action-cen
 import { EnterpriseOutboxProvider } from "@/components/catalyst-one/action-center/enterprise-outbox-provider";
 import { EmailContextWorkspace } from "@/components/catalyst-one/action-center/workspaces/email-context-workspace";
 import { WhatsAppContextWorkspace } from "@/components/catalyst-one/action-center/workspaces/whatsapp-context-workspace";
+import { EnterpriseActivityComposer } from "@/components/catalyst-one/action-center/workspaces/enterprise-activity-composer";
 import { DEAL_REFERENCE_ACTION_IDS } from "@/constants/enterprise-action-center";
 import {
   preferredDealParticipantId,
   resolveDealCommunicationParticipants,
 } from "@/lib/enterprise-action-center";
 import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
+import {
+  INVOICE_PARTY_ACTION_CENTER_ACTION,
+  INVOICE_PARTY_ACTION_CENTER_TITLE,
+  INVOICE_PARTY_READINESS_HINT,
+} from "@/constants/invoice-party";
+import { deriveDealReadiness } from "@/lib/deal-workspace/deal-workflow-validation";
 import type { DealPipelineRuntime } from "@/types/deal-pipeline-runtime";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import type {
@@ -51,6 +58,7 @@ export function DealActionCenter({
 }) {
   const [emailOpen, setEmailOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [editing, setEditing] = useState<OutboxMessage | null>(null);
   const [preferredRecipientId, setPreferredRecipientId] = useState<string | undefined>();
 
@@ -85,6 +93,30 @@ export function DealActionCenter({
 
   const stageLabel = activeDeal.subStage || activeDeal.grossStage || "Lender Pipeline";
   const product = activeDeal.productLabel || runtime.context.loanProduct;
+
+  const readinessNotices = useMemo(() => {
+    const snapshot = deriveDealReadiness({
+      customerName: customerName,
+      loanProduct: product,
+      lenderId: activeDeal.lenderId,
+      lenderProgramId: activeDeal.lenderProgramId,
+      grossStage: activeDeal.grossStage,
+      invoicePartyId: activeDeal.invoicePartyId,
+      commissionAccountingPayeeId: activeDeal.commissionAccountingPayeeId,
+      includeAccountingReadiness: true,
+    });
+    return snapshot.warnings
+      .filter((w) => w.categoryId === "accounting")
+      .map((w) => ({
+        title: INVOICE_PARTY_ACTION_CENTER_TITLE,
+        detail: INVOICE_PARTY_READINESS_HINT,
+        actionLabel: w.actionLabel ?? INVOICE_PARTY_ACTION_CENTER_ACTION,
+        onAction: () =>
+          toast.message(INVOICE_PARTY_ACTION_CENTER_TITLE, {
+            description: `${INVOICE_PARTY_READINESS_HINT} Use ${INVOICE_PARTY_ACTION_CENTER_ACTION} from Accounting Master on the Deal. Lender Pipeline stage moves are not blocked.`,
+          }),
+      }));
+  }, [activeDeal, customerName, product]);
 
   const openEmailFor = useCallback(
     (target?: (typeof EMAIL_TARGET_MAP)[ActionCenterActionId]) => {
@@ -132,6 +164,10 @@ export function DealActionCenter({
         toast.message("Open Document Center from the journey to manage Deal documents.");
         return;
       }
+      if (id === "add_activity") {
+        setActivityOpen(true);
+        return;
+      }
       toast.message(`${id.replace(/_/g, " ")} will open as a Context Workspace in a later sprint.`);
     },
     [openEmailFor],
@@ -167,6 +203,7 @@ export function DealActionCenter({
         enabledActionIds={[...DEAL_REFERENCE_ACTION_IDS]}
         onAction={onAction}
         className={className}
+        readinessNotices={readinessNotices}
       />
 
       <EmailContextWorkspace
@@ -205,6 +242,31 @@ export function DealActionCenter({
         rm={activeDeal.relationshipManagerName || runtime.context.relationshipManager}
         participants={participants}
         editingMessage={editing?.channel === "whatsapp" ? editing : null}
+      />
+
+      <EnterpriseActivityComposer
+        open={activityOpen}
+        onOpenChange={setActivityOpen}
+        composer={{
+          contextType: "deal",
+          contextId: activeDeal.id,
+          entityLabel,
+          dealId: activeDeal.id,
+          opportunityId: activeDeal.opportunityId ?? runtime.context.opportunityId ?? null,
+          contactId: null,
+          loanFileId: null,
+          product,
+          stage: stageLabel,
+          customerName,
+        }}
+        actorUserId="session-user"
+        actorLabel={activeDeal.relationshipManagerName || "RM"}
+        onSaved={() =>
+          onTimelineNote?.(
+            "Conversation activity saved",
+            "Voice or typed activity recorded via Enterprise Activity Composer.",
+          )
+        }
       />
     </EnterpriseOutboxProvider>
   );

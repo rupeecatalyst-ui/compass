@@ -175,31 +175,40 @@ function wiringChecks() {
   const constants = readFileSync(resolve(root, files.constants), "utf8");
   check(
     "T4",
-    "Required stage is configurable constant (not hard-coded gate only)",
+    "Required stage is configurable constant (readiness threshold)",
     constants.includes("INVOICE_PARTY_REQUIRED_FROM_STAGE"),
   );
   check(
     "T4",
-    "Approved Chanakya validation message present",
+    "Approved Invoice Party validation message present",
     constants.includes(
       "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.",
     ),
+  );
+  check(
+    "T4",
+    "CO-DWS-001 — pipeline progression never blocked by Invoice Party",
+    constants.includes("invoicePartyRequiredToProgressTo") &&
+      constants.includes("return false") &&
+      constants.includes("assertInvoicePartyForAccountingOperation"),
   );
 
   const pipeline = readFileSync(resolve(root, files.pipeline), "utf8");
   check(
     "T4",
-    "Lender Pipeline uses configurable Invoice Party gate",
-    pipeline.includes("invoicePartyRequiredToProgressTo") &&
-      pipeline.includes("INVOICE_PARTY_REQUIRED_MESSAGE"),
+    "Invoice Party SSOT still referenced from commercial/constants (not stage-hard-coded)",
+    constants.includes("INVOICE_PARTY_REQUIRED_MESSAGE"),
   );
+  // pipeline file historically gated stages — CO-DWS-001 may leave unused imports; constants own the gate policy
+  void pipeline;
 
   const assertSrc = readFileSync(resolve(root, files.assert), "utf8");
   check(
     "T4",
-    "Deal transition assert uses Invoice Party Master id",
-    assertSrc.includes("assertInvoicePartyForDealStage") &&
-      assertSrc.includes("INVOICE_PARTY_REQUIRED"),
+    "Deal Invoice Party assert is accounting-only (pipeline assert is no-op)",
+    assertSrc.includes("assertInvoicePartyForAccountingOperation") &&
+      assertSrc.includes("Intentionally empty") &&
+      assertSrc.includes("INVOICE_PARTY_REQUIRED_FOR_ACCOUNTING"),
   );
 }
 
@@ -471,75 +480,63 @@ async function main() {
     dealsForOpp.every((d) => d.opportunityId === opportunity.id),
   );
 
-  // ---- TEST 4: Chanakya validation (mirrors SSOT — no path-alias imports) ----
+  // ---- TEST 4: Invoice Party (CO-DWS-001 — pipeline never blocked; accounting may block) ----
   const INVOICE_PARTY_REQUIRED_MESSAGE =
     "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.";
-  const STAGE_ORDER = [
-    "raw_lead",
-    "pre_login",
-    "logged_in",
-    "credit_wip",
-    "soft_approved",
-    "final_approved",
-    "closure_wip",
-    "won",
-  ];
-  function normalizeStage(stage) {
-    const s = String(stage).trim().toLowerCase().replace(/\s+/g, "_");
-    const aliases = {
-      logged_in_wip: "logged_in",
-      login: "logged_in",
-      credit: "credit_wip",
-      sanction: "soft_approved",
-      soft_approval: "soft_approved",
-      disbursement: "closure_wip",
-      disbursed: "closure_wip",
-    };
-    return aliases[s] || s;
+  function assertInvoicePartyForDealStage(_input) {
+    // CO-DWS-001 no-op — mirrors server/services/enterprise-deal/deal-invoice-party.ts
   }
-  function invoicePartyRequiredToProgressTo(toStage) {
-    const from = "logged_in"; // INVOICE_PARTY_REQUIRED_FROM_STAGE
-    return STAGE_ORDER.indexOf(normalizeStage(toStage)) > STAGE_ORDER.indexOf(from);
-  }
-  function assertInvoicePartyForDealStage(input) {
-    if (!invoicePartyRequiredToProgressTo(input.toGrossStage)) return;
+  function assertInvoicePartyForAccountingOperation(input) {
     if (!String(input.invoicePartyId || "").trim()) {
       const err = new Error(INVOICE_PARTY_REQUIRED_MESSAGE);
-      err.code = "INVOICE_PARTY_REQUIRED";
+      err.code = "INVOICE_PARTY_REQUIRED_FOR_ACCOUNTING";
       throw err;
     }
   }
-  let blocked = false;
-  let blockMessage = "";
+  let pipelineBlocked = false;
   try {
     assertInvoicePartyForDealStage({
       toGrossStage: "soft_approved",
       invoicePartyId: dealWithout.invoicePartyId,
     });
-  } catch (err) {
-    blocked = true;
-    blockMessage = err?.message || String(err);
+  } catch {
+    pipelineBlocked = true;
   }
-  check("T4", "Chanakya blocks progression beyond Logged In without Invoice Party", blocked);
   check(
     "T4",
-    "Correct validation message appears",
+    "CO-DWS-001 — Lender Pipeline progression is NOT blocked without Invoice Party",
+    !pipelineBlocked,
+  );
+
+  let accountingBlocked = false;
+  let blockMessage = "";
+  try {
+    assertInvoicePartyForAccountingOperation({
+      invoicePartyId: dealWithout.invoicePartyId,
+    });
+  } catch (err) {
+    accountingBlocked = true;
+    blockMessage = err?.message || String(err);
+  }
+  check("T4", "Accounting operations block without Invoice Party", accountingBlocked);
+  check(
+    "T4",
+    "Correct accounting validation message appears",
     blockMessage === INVOICE_PARTY_REQUIRED_MESSAGE,
     blockMessage.slice(0, 120),
   );
 
   let allowed = true;
   try {
-    assertInvoicePartyForDealStage({
-      toGrossStage: "soft_approved",
+    assertInvoicePartyForAccountingOperation({
       invoicePartyId: dealWith.invoicePartyId,
     });
   } catch {
     allowed = false;
   }
-  check("T4", "Validation clears when Invoice Party assigned — progression allowed", allowed);
+  check("T4", "Accounting validation clears when Invoice Party assigned", allowed);
 
-  // Persist assignment on previously empty deal and re-check
+  // Persist assignment on previously empty deal and re-check (test-only fixture rows)
   await prisma.enterpriseDeal.update({
     where: { id: dealWithout.id },
     data: {
@@ -553,16 +550,14 @@ async function main() {
   const afterAssign = await prisma.enterpriseDeal.findUnique({ where: { id: dealWithout.id } });
   let allowedAfter = true;
   try {
-    assertInvoicePartyForDealStage({
-      toGrossStage: "soft_approved",
+    assertInvoicePartyForAccountingOperation({
       invoicePartyId: afterAssign.invoicePartyId,
     });
   } catch {
     allowedAfter = false;
   }
-  check("T4", "After assigning Invoice Party, Deal can proceed", allowedAfter);
+  check("T4", "After assigning Invoice Party, accounting operations allowed", allowedAfter);
 
-  // Soft at logged_in itself should NOT hard-block (beyond gate)
   let loggedInOk = true;
   try {
     assertInvoicePartyForDealStage({
@@ -574,7 +569,7 @@ async function main() {
   }
   check(
     "T4",
-    "Configured stage semantics: Logged In itself not hard-blocked (beyond-stage gate)",
+    "Pipeline stage moves remain unblocked at Logged In without Invoice Party",
     loggedInOk,
   );
 

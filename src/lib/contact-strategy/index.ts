@@ -18,11 +18,19 @@ export type {
   RicRelationship,
 } from "./ric-types";
 
+/** @deprecated CO-UX-013 — mock dataset quarantined; use live-registry. */
 export {
   RIC_MOCK_CONTACTS,
   RIC_MOCK_RELATIONSHIPS,
   getRicContactById,
   listRicFirstLevel,
 } from "./ric-mock-data";
+
+export {
+  ecmContactToRicContact,
+  getNetworkContactById,
+  listNetworkFirstLevel,
+  listNetworkWorkspaceContacts,
+} from "./live-registry";
 
 export { buildRicRadialLayout } from "./ric-layout";

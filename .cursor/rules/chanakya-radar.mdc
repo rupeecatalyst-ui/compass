@@ -36,13 +36,14 @@ No search field. No extra controls below the header.
 
 ## Radar container
 
-- Row 1: `Operational Radar · N Opportunities` + scope select (top-right)
+- Row 1: `Operational Radar · N Active Deals` + scope select (top-right)
 - Row 2: `Direction | Concern | Trend`
 - Visual begins immediately below that header
 
 ## Architecture
 
-- Opportunity Preview = right slide-over; never permanently shrinks Radar
+- Deal Workspace is the click target from Radar points / status rows (not Opportunity Workspace)
+- Opportunity Preview may remain as secondary sheet chrome; never permanently shrinks Radar
 ## CO-SPRINT-108 — Daily Work Completion Indicator
 
 - **Business Status** = dot colour (quadrant). Independent of daily work.
@@ -66,22 +67,59 @@ No search field. No extra controls below the header.
 - Matrix retired; Kanban cards never draggable
 - Quadrants: On Track (N) · Follow-up Required (E) · At Risk (S) · Needs Attention (W)
 
-## CO-SPRINT-113 — Operational Movement Feeds
+## CO-MC-001 — Enterprise Activity Intelligence
 
-Mission Control has three complementary dimensions:
+CHANAKYA Radar v2.0 calculation enhancement (UI frozen — dial unchanged).
 
-1. **Radar** — current portfolio position
-2. **Movement Feeds** — recent operational state transitions (borrower + colour only)
-3. **Operational Vector** — management focus
+- **Engine SSOT:** `src/lib/enterprise-activity-intelligence/`
+- **Config:** `src/constants/enterprise-activity-intelligence/`
+- **Types:** `src/types/enterprise-activity-intelligence.ts`
+- Meaningful activities reuse `CHANAKYA_RADAR_MEANINGFUL_WORK_ACTIVITIES` + non-operational exclusions (view/open never counts).
+- Every active Deal gets an **Activity Momentum Score** and **Transaction Activity State**:
+  Active Today · Recently Active · Healthy Waiting · Needs Follow-up · At Risk.
+- **Healthy Waiting** (within expected lender/legal/ops/customer TAT) must **not** reduce Radar classification or Deal Health.
+- Momentum blends into Deal Health and Operational Vector attention / Trend via `classifyOperationalDeal` + `buildChanakyaRadarDashboard`.
+- Do not reimplement Activity Momentum in UI, Mission Control, or EBI — consume Radar / Activity Intelligence SSOT only.
 
-Rules:
+## CO-CHANAKYA-RADAR-003 — Enterprise Deal Radar
 
-- Feeds sit in whitespace around the dial (Top/Left/Right/Bottom). Never overlap or shrink the Radar.
-- Content: borrower name + colour transition only (no amounts, dates, stages, lenders).
-- Event-driven via `syncOperationalMovements` — first observation baselines; empty feeds are valid.
-- Animate bottom → top once, then consume (no historical replay loop).
-- Desktop/tablet: show feeds. Mobile: hide feeds.
-- SSOT: `src/lib/chanakya-radar/operational-movement.ts` · UI: `operational-movement-feed.tsx`
+CHANAKYA Radar is the **Executive Operational Deal Radar** — Active Deals only (not customers / opportunities).
+
+### Active Deals only
+
+Exclude Lost · Disbursed · Cancelled · Withdrawn · Archived (and terminal lender books). Terminal Deals must never appear on the dial, status cards, Average Deal Health, or CHANAKYA operational analytics.
+
+SSOT filter: `isLiveActiveLoanFile` / `listActiveRadarDealFiles`.
+
+### Decision Engine
+
+Multi-parameter classification (`classifyOperationalDeal`) — not a single Health Score gate.
+
+Signals include stage / sub-stage, ageing, tasks, documents, SLA / delay, blockers.
+
+Categories: On Track · Needs Attention · Follow-up Required · At Risk.
+
+Thresholds: `CHANAKYA_RADAR_CLASSIFICATION_THRESHOLDS` (configurable SSOT — no UI hardcoding).
+
+### Layout
+
+- Radar dial is the hero — nothing overlaps it; generous breathing space.
+- Four outside premium glass status cards (~25% denser than prior feeds):
+  - Top Left — ON TRACK
+  - Top Right — FOLLOW-UP REQUIRED
+  - Bottom Left — NEEDS ATTENTION
+  - Bottom Right — AT RISK
+- Continuous bottom→top auto-scroll; no scrollbar; no manual scroll.
+- Rows: Deal Reference · Customer · Product · Lender · Current Stage.
+- Hover (point or row): Deal Ref · Customer · Product · Lender · Stage · Sub Stage · Days in Stage · Deal Health · Classification · Reason · CHANAKYA Recommendation.
+- Click point or row → Deal Workspace (`buildDealWorkspaceHref`).
+- Centre score = **Average Deal Health** (mean of active-deal health scores only).
+
+UI: `radar-status-scroll-card.tsx` · `chanakya-radar-visual.tsx`
+
+## CO-SPRINT-113 — Operational Movement Feeds (superseded UI)
+
+Legacy movement-feed primitives remain for demo/history; **Radar UI uses status cards (003)**. Movement pipeline may still sync quadrant transitions for analytics.
 
 ## CO-SPRINT-113A — Developer Demonstration Mode
 

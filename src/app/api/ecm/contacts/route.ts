@@ -1,6 +1,7 @@
 import {
   errorResponse,
   fromAuthError,
+  jsonResponse,
   requireAccessToken,
   successResponse,
   withOpsRoute,
@@ -12,6 +13,12 @@ import {
 } from "@/lib/enterprise-persistence/server";
 import { recordBusinessAudit } from "@/lib/ops";
 import { ecmContactService } from "@server/services/ecm/contact.service";
+import {
+  EcmContactActiveExistsError,
+  EcmContactSoftDeletedError,
+  ECM_CONTACT_ACTIVE_EXISTS,
+  ECM_CONTACT_SOFT_DELETED,
+} from "@server/services/ecm/contact-identity-errors";
 import type { ApiResponse } from "@/types/api";
 import type { EcmContactQuery, EcmContactRole, EcmContactStatus } from "@/types/enterprise-contact-master";
 
@@ -19,6 +26,55 @@ function persistenceGuard() {
   if (!isEnterprisePersistencePrisma()) {
     throw new Error("ECM REST API requires ENTERPRISE_PERSISTENCE_MODE=prisma");
   }
+}
+
+function identityConflictResponse(
+  err: EcmContactActiveExistsError | EcmContactSoftDeletedError,
+  correlationId: string,
+) {
+  if (err instanceof EcmContactSoftDeletedError) {
+    return jsonResponse(
+      {
+        success: false,
+        error: {
+          code: ECM_CONTACT_SOFT_DELETED,
+          message:
+            "A previously deleted Contact was found. Restore it to preserve Enterprise history.",
+          statusCode: 409,
+          correlationId,
+          softDeletedContact: {
+            contactId: err.snapshot.contactId,
+            name: err.snapshot.name,
+            mobilePrimary: err.snapshot.mobilePrimary,
+            deletedAt: err.snapshot.deletedAt,
+            deletedBy: err.snapshot.deletedBy,
+            deletionReason: err.snapshot.deletionReason,
+          },
+        },
+      },
+      409,
+      correlationId,
+    );
+  }
+
+  return jsonResponse(
+    {
+      success: false,
+      error: {
+        code: ECM_CONTACT_ACTIVE_EXISTS,
+        message: "An active Contact already exists for this mobile number.",
+        statusCode: 409,
+        correlationId,
+        activeContact: {
+          contactId: err.snapshot.contactId,
+          name: err.snapshot.name,
+          mobilePrimary: err.snapshot.mobilePrimary,
+        },
+      },
+    },
+    409,
+    correlationId,
+  );
 }
 
 export async function GET(request: Request) {
@@ -37,9 +93,12 @@ export async function GET(request: Request) {
       roles: url.searchParams.get("roles")?.split(",").filter(Boolean) as EcmContactRole[] | undefined,
       createdFrom: url.searchParams.get("createdFrom") ?? undefined,
       createdTo: url.searchParams.get("createdTo") ?? undefined,
+      institutionKeys: url.searchParams.get("institutionKeys")?.split("|").filter(Boolean),
+      skipTotal: url.searchParams.get("skipTotal") === "1",
     };
     const result = await ecmContactService.query(query);
-    await syncEcmPortsFromPrisma();
+    // CO-BUG-LSC-LOOKUP — Do NOT sync full registry (pageSize 5000) on every list GET.
+    // That rehydrate was multiplying LSC latency into client timeouts. Mutations still sync.
     return successResponse(result);
   } catch (err) {
     if (typeof err === "object" && err !== null && "status" in err) {
@@ -71,6 +130,7 @@ export async function POST(request: Request) {
           state: body.state,
           roles: body.roles,
           primaryRole: body.primaryRole,
+          roleProfiles: body.roleProfiles,
           status: body.status as EcmContactStatus | undefined,
           ownerName: body.ownerName,
           ownerId: body.ownerId,
@@ -99,8 +159,18 @@ export async function POST(request: Request) {
             endpoint: "/api/ecm/contacts",
           });
         }
+        if (
+          err instanceof EcmContactSoftDeletedError ||
+          err instanceof EcmContactActiveExistsError
+        ) {
+          return identityConflictResponse(err, correlationId);
+        }
         const message = err instanceof Error ? err.message : "Failed to create contact";
-        return errorResponse(400, "ECM_CREATE_FAILED", message, undefined, {
+        const safe =
+          /P2002|prisma|unique constraint|SQL/i.test(message)
+            ? "This mobile number is already linked to an Enterprise Contact. Search the registry or restore a deleted Contact."
+            : message;
+        return errorResponse(400, "ECM_CREATE_FAILED", safe, undefined, {
           correlationId,
           module: "Customer",
           action: "create",

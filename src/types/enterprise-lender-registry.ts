@@ -27,7 +27,9 @@ export type LenderMasterClassification =
   | "housing_finance_company"
   | "nbfc"
   | "cooperative_bank"
-  | "payments_bank";
+  | "payments_bank"
+  /** CO-LM-003 — Foreign Bank (Soft Go-Live / catalog). Prisma column may be null until enum migration. */
+  | "foreign_bank";
 
 /** Human labels for CO-ARCH-004 master classification. */
 export const LENDER_MASTER_CLASSIFICATION_LABELS: Record<
@@ -41,15 +43,18 @@ export const LENDER_MASTER_CLASSIFICATION_LABELS: Record<
   nbfc: "NBFC",
   cooperative_bank: "Cooperative Bank",
   payments_bank: "Payments Bank",
+  foreign_bank: "Foreign Bank",
 };
 
 export type LenderContactDepartment =
   | "relationship_manager"
   | "credit"
+  | "sales"
   | "operations"
   | "legal"
   | "technical"
   | "escalation"
+  | "regional_head"
   | "other";
 
 export type LenderDocumentKind =
@@ -201,6 +206,10 @@ export interface LenderMasterSnapshot {
   classification?: LenderMasterClassification | null;
   institutionCategory: LenderInstitutionCategory;
   website?: string | null;
+  /** CO-LW-005 — Official logo / brand asset. */
+  logoUrl?: string | null;
+  /** CO-LW-005 — Marketing brand name. */
+  brandName?: string | null;
   customerCarePhone?: string | null;
   customerCareEmail?: string | null;
   headquartersLabel?: string | null;
@@ -442,6 +451,8 @@ export interface UpdateLenderProgramInput {
 }
 
 export interface CreateLenderContactInput {
+  /** When set during replace, preserves the existing Prisma contact id. */
+  id?: string;
   lenderId: string;
   name: string;
   designation?: string;
@@ -455,6 +466,8 @@ export interface CreateLenderContactInput {
 }
 
 export interface CreateLenderDocumentInput {
+  /** When set during replace, preserves the existing Prisma document id. */
+  id?: string;
   lenderId: string;
   kind: LenderDocumentKind;
   title: string;

@@ -1,0 +1,55 @@
+# Enterprise Identity Model (CO-ID-001) — FROZEN
+
+Status: **ENTERPRISE APPROVED** · Constitutional · Applies to every Catalyst One module
+
+## Principle
+
+The **Enterprise Contact Registry** (`/contacts`) is the **only** identity creation SSOT for Persons.
+
+The **Enterprise Company Registry** is the identity SSOT for Organisations.
+
+No business module may create a Person or Organisation identity independently.
+
+## Model
+
+```text
+Enterprise Contact Registry
+        ↓
+  Master Identity
+        ↓
+  Additive Business Roles
+```
+
+Examples: Customer · Wealth Partner · Employee · Vendor · Lender Contact · Guarantor · Director · Authorised Signatory
+
+**One Contact → many roles.** Never duplicate identities.
+
+## Wealth Partner
+
+1. Search / create Contact in ECM (identity).  
+2. **Onboard Wealth Partner** from Wealth Partner Registry.  
+3. Select Contact → create commercial WP profile only.  
+4. Assign ECM `partner` role (additive).  
+
+WP Registry owns: commercial, territory, KYC, documents, agreements, commission, performance — **not** identity.
+
+## Forbidden
+
+- Creating a Wealth Partner (or Customer / Employee / Vendor) that invents a parallel person record  
+- Duplicate Contacts for the same natural person to hold different roles  
+- Module-local “partner contact” stores  
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Constants | `src/constants/enterprise-identity-model/` |
+| Types | `src/types/enterprise-identity-model.ts` |
+| Derive roles | `src/lib/enterprise-identity-model/` |
+| Contact Party Registry | `.cursor/rules/enterprise-contact-registry.mdc` |
+| WP relationship | `.cursor/rules/enterprise-wealth-partner.mdc` |
+| Docs | `docs/co-id-001/` |
+
+## Future registries
+
+Customer · Employee · Vendor · Lender Contacts · Guarantors · future partners — **all extend Contact**. None create identities.

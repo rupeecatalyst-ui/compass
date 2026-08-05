@@ -6,7 +6,7 @@ export const ELW_ORIGIN_LABELS: Record<ElwOriginSurface, string> = {
   life: "LIFE · Link to Lender",
   loan_files: "Loan Workspace",
   dashboard: "Dashboard",
-  lenders: "Lender Master",
+  lenders: "Lending Programs",
   search: "Search",
   contacts: "Contacts",
   pipeline: "CHANAKYA Radar",

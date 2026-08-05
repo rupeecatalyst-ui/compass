@@ -6,8 +6,6 @@ import {
 } from "@/components/catalyst-one/opportunity-workspace/providers/workspace-placeholder-provider";
 import { loadDealsSync, updateDeal } from "@/lib/enterprise-deal/deal-data-access";
 import { getInitialLoanFiles } from "@/data/catalyst-one/loan-files";
-import { buildLenderMasterSnapshot } from "@/lib/enterprise-lender-registry/auto-populate";
-import { localLenderRegistryStore } from "@/lib/enterprise-lender-registry/local-store";
 import {
   isStrategicShortlistAtLimit,
   isStrategicShortlistLimitError,
@@ -24,48 +22,21 @@ export interface ElwSelectLenderResult {
 }
 
 function resolveMasterFromProfile(profile: ElwLenderProfile) {
-  const registry =
-    localLenderRegistryStore.getLender(profile.lenderId) ??
-    localLenderRegistryStore
-      .queryLenders({ pageSize: 5000 })
-      .items.find(
-        (l) =>
-          l.code === profile.code ||
-          (l.displayName || l.label).toLowerCase() === profile.name.toLowerCase(),
-      );
-  if (!registry) {
-    return {
-      lender: profile.displayName || profile.name,
-      lenderRef: profile.lenderRef,
-      lenderCode: profile.code,
-      lenderLegalName: profile.legalName || profile.name,
-      lenderDisplayName: profile.displayName || profile.name,
-      lenderClassification: profile.classification,
-      lenderInstitutionCategory: profile.institutionCategory,
-      lenderWebsite: profile.website,
-      lenderCustomerCarePhone: profile.customerCarePhone,
-      lenderCustomerCareEmail: profile.customerCareEmail,
-      lenderHeadquarters: profile.headquartersCity,
-      lenderRegistryId: profile.lenderId,
-    };
-  }
-  const snapshot = buildLenderMasterSnapshot(
-    registry,
-    localLenderRegistryStore.listContacts(registry.id),
-  );
+  // CO-LENDER-SSOT-REMEDIATE-001 — use ELR identity already on the profile.
+  // Soft Go-Live local store is not a selection SSOT.
   return {
-    lender: snapshot.displayName,
-    lenderRef: profile.lenderRef || `lender:${snapshot.lenderCode}`,
-    lenderCode: snapshot.lenderCode,
-    lenderLegalName: snapshot.legalName,
-    lenderDisplayName: snapshot.displayName,
-    lenderClassification: snapshot.classification ?? undefined,
-    lenderInstitutionCategory: snapshot.institutionCategory,
-    lenderWebsite: snapshot.website ?? undefined,
-    lenderCustomerCarePhone: snapshot.customerCarePhone ?? undefined,
-    lenderCustomerCareEmail: snapshot.customerCareEmail ?? undefined,
-    lenderHeadquarters: snapshot.headquartersLabel ?? undefined,
-    lenderRegistryId: snapshot.lenderId,
+    lender: profile.displayName || profile.name,
+    lenderRef: profile.lenderRef || `lender:${profile.lenderId}`,
+    lenderCode: profile.code,
+    lenderLegalName: profile.legalName || profile.name,
+    lenderDisplayName: profile.displayName || profile.name,
+    lenderClassification: profile.classification,
+    lenderInstitutionCategory: profile.institutionCategory,
+    lenderWebsite: profile.website,
+    lenderCustomerCarePhone: profile.customerCarePhone,
+    lenderCustomerCareEmail: profile.customerCareEmail,
+    lenderHeadquarters: profile.headquartersCity,
+    lenderRegistryId: profile.lenderId,
   };
 }
 

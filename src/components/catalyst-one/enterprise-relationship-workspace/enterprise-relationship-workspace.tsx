@@ -70,14 +70,15 @@ export function EnterpriseRelationshipWorkspace({
   const types = getEnabledErwRelationshipTypes();
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className={cn("flex min-h-full flex-1 flex-col space-y-3", className)}>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-teal-400/90">
             Enterprise Relationship Workspace
           </p>
           <p className="text-[11px] text-zinc-500">
-            360° ecosystem for {contact.name} · graph is the navigation hub
+            Explicit Relationship Registry for {contact.name} · never inferred from roles or
+            mappings
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -261,8 +262,8 @@ export function EnterpriseRelationshipWorkspace({
         </div>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)]">
-        <div className="min-h-[380px] rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)]">
+        <div className="flex min-h-[min(52vh,420px)] flex-col rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
           <EnterpriseRelationshipGraph
             nodes={model.nodes}
             edges={model.edges}
@@ -271,6 +272,8 @@ export function EnterpriseRelationshipWorkspace({
             onSelectNode={setSelectedNodeId}
             collapsed={collapsed}
             onCollapsedChange={setCollapsed}
+            onAddRelationship={onAddRelationship}
+            className="min-h-0 flex-1"
           />
         </div>
         <ErwRelationshipDetailsPanel

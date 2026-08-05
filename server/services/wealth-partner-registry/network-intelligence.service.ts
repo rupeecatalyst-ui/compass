@@ -17,6 +17,7 @@ import {
   buildWealthPartnerWorkspaceHref,
   wealthPartnerTypeLabel,
 } from "@/constants/enterprise-wealth-partner-registry";
+import { wealthPartnerBatExclusionWhere } from "@/constants/enterprise-wealth-partner-bat";
 import type {
   EnterpriseWealthPartnerRecord,
   WealthPartnerNetworkFilterOptions,
@@ -440,6 +441,7 @@ export async function buildWealthPartnerNetworkIntelligence(
             where: {
               organizationId,
               isDeleted: false,
+              ...wealthPartnerBatExclusionWhere(),
               OR: [
                 ...(contactIds.length ? [{ contactId: { in: contactIds } }] : []),
                 ...(companyIds.length ? [{ companyId: { in: companyIds } }] : []),

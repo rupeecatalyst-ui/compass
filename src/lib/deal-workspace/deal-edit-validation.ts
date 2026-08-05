@@ -1,7 +1,8 @@
 /**
- * CO-ARCH-003 Phase 2B Sprint 2 — Deal edit / progression validation.
+ * CO-ARCH-003 Phase 2B Sprint 2 / CO-DWS-001 / CO-BUG-001 — Deal edit validation.
+ * Invoice Party is NEVER validated here — use assertInvoicePartyForAccountingOperation
+ * for invoice / commission / payment / posting only.
  */
-import { isInvoicePartyComplete } from "@/constants/invoice-party";
 
 export type DealEditValidationInput = {
   lenderId?: string | null;
@@ -13,6 +14,9 @@ export type DealEditValidationInput = {
   interestRate?: number | null;
   tenure?: number | null;
   requireProgram?: boolean;
+  /**
+   * @deprecated CO-BUG-001 — ignored. Invoice Party is not validated on Deal edit/save.
+   */
   requireInvoiceParty?: boolean;
 };
 
@@ -37,20 +41,7 @@ export function validateDealEditFields(
       message: "Select a Lender Program belonging to the chosen Lender.",
     });
   }
-  if (input.requireInvoiceParty !== false) {
-    if (
-      !isInvoicePartyComplete({
-        invoicePartyId: input.invoicePartyId,
-        commissionAccountingPayeeId: input.commissionAccountingPayeeId,
-      })
-    ) {
-      issues.push({
-        field: "invoicePartyId",
-        message:
-          "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.",
-      });
-    }
-  }
+  // CO-BUG-001 — requireInvoiceParty intentionally ignored (no accounting gate on Deal edit).
   const amount = input.requestedAmount ?? input.loanAmount;
   if (amount == null || !(Number(amount) > 0)) {
     issues.push({

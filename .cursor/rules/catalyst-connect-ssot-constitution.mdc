@@ -1,0 +1,68 @@
+---
+description: Catalyst Connect (Wealth Partner App) — SSOT constitution; presentation layer only
+alwaysApply: true
+---
+
+# Catalyst Connect — Product Owner Constitution (FROZEN)
+
+**Catalyst Connect** = Wealth Partner App.  
+**Catalyst One** = Enterprise Operating System · **SSOT**.
+
+## Final Product Principle (Frozen)
+
+Catalyst Connect must **never** duplicate business logic, customer onboarding flows, product configuration, or document rules.
+
+It is a **simplified presentation layer** that inherits product definitions, validations, recommendations, and document requirements from Catalyst One.
+
+The only difference between the two platforms is **permissions — not process**.
+
+## Hard rules
+
+1. **SSOT** — Every product / borrower journey consumes Catalyst One **Initial Data Collection** config (forms, fields, order, mandatory, validations, help text, defaults, conditional visibility, recommendations, LOD, opportunity workflow). No parallel Connect loan forms or rules.
+2. **No independent fields** — Never hardcode PAN, Company Name, DOB, or any field unless Catalyst One Initial Data Collection config exposes it.
+3. **Journey sync** — Product → Borrower Type → Dynamic Initial Data → Product Questions → Recommendations → Required Documents → Upload → Opportunity Creation. Post-create credit/lender/internal ops stay **Catalyst One only** — never expose to Wealth Partners.
+4. **Documents** — LOD from Catalyst One only. Simple Upload + status. No partner-driven categorization / folders.
+5. **Source attribution (Frozen)** — Source is **never editable / never shown**. Auto-derive from authenticated Wealth Partner (partner id, name, type, org, branch/territory, hierarchy).
+6. **System-derived** — Never ask for Source, Partner ID/Name, Org, Branch, Territory, RM, Commission, Role, Permissions. Partner enters **customer** information only.
+7. **Digital Visiting Card** — Primary header shortcut (beside Profile) + Profile access. Content/branding from Catalyst One.
+8. **Enterprise design** — Connect = guided acquisition. One = enterprise engines (policy, workflow, credit, documents, ops).
+9. **Recommendations (CO-WP-REC-001)** — After IDC, invoke Catalyst One Recommendation Engine via Partner Gateway. Display customer-friendly cards only. Never recalculate in Connect. Never expose Credit Workbench, Credit Score, Risk Engine, Policy Engine, or internal lender scoring.
+10. **List of Documents (CO-WP-LOD-001)** — LOD from Catalyst One EDIE only (product · borrower · recommendation context · enterprise product config). Simple Upload / Replace / Preview / Status / Missing. Never partner-chosen categories or Connect-local checklists.
+
+## Initial Data Collection SSOT
+
+| Concern | Path |
+|---------|------|
+| Types | `src/types/enterprise-initial-data-collection.ts` |
+| Catalog | `src/constants/enterprise-initial-data-collection/` |
+| Resolve | `src/lib/enterprise-initial-data-collection/` |
+| Partner API | `GET /api/partner/opportunity-journey/config` |
+| Docs | `docs/catalyst-connect/CATALYST-CONNECT-IDC-SYNC.md` |
+
+## Recommendation Engine SSOT
+
+| Concern | Path |
+|---------|------|
+| Registry ranker | `src/lib/enterprise-lender-registry/recommend-from-registry.ts` |
+| Partner projection | `src/lib/enterprise-partner-recommendations/` |
+| Presentation | `src/constants/enterprise-partner-recommendations/` |
+| Partner API | `GET /api/partner/opportunities/:id/recommendations` |
+| Docs | `docs/catalyst-connect/CATALYST-CONNECT-RECOMMENDATION-SYNC.md` |
+
+## List of Documents SSOT
+
+| Concern | Path |
+|---------|------|
+| EDIE LOD | `src/lib/document-requests/generate-lod.ts` |
+| Partner projection | `src/lib/enterprise-partner-lod/` |
+| Presentation | `src/constants/enterprise-partner-lod/` |
+| Partner API | `GET/POST /api/partner/opportunities/:id/documents` |
+| Docs | `docs/catalyst-connect/CATALYST-CONNECT-LOD-SYNC.md` |
+
+## Agent behaviour
+
+- Do **not** invent Connect-local masters, LODs, recommendation formulas, or business rules.
+- Prefer Partner Gateway DTOs / journey config APIs from Catalyst One.
+- New Connect UI must remain a projection of Enterprise configuration.
+- Field add/remove/change belongs **only** in Enterprise IDC catalog — never in Wealth Partner App source.
+- Recommendation cards/copy belong **only** in Catalyst One presentation constants / engine projection.

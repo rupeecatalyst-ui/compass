@@ -1,5 +1,5 @@
 /**
- * CO-WP-001 — Wealth Partner Registry client API.
+ * CO-WP-001 / CO-WP-006 — Wealth Partner Registry client API.
  */
 
 import { authenticatedJsonFetch } from "@/lib/api-client";
@@ -9,6 +9,7 @@ import type {
   CreateWealthPartnerInput,
   CreateWealthPartnerNetworkMemberInput,
   EnterpriseWealthPartnerRecord,
+  ExistingWealthPartnerSummary,
   UpdateWealthPartnerInput,
   WealthPartnerListQuery,
   WealthPartnerListResult,
@@ -19,6 +20,50 @@ import type {
   EnterpriseWealthPartnerCommissionRecord,
   EnterpriseWealthPartnerNetworkMemberRecord,
 } from "@/types/enterprise-wealth-partner-registry";
+
+export class WealthPartnerApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly existingWealthPartner?: ExistingWealthPartnerSummary;
+
+  constructor(input: {
+    message: string;
+    status: number;
+    code?: string;
+    existingWealthPartner?: ExistingWealthPartnerSummary;
+  }) {
+    super(input.message);
+    this.name = "WealthPartnerApiError";
+    this.status = input.status;
+    this.code = input.code;
+    this.existingWealthPartner = input.existingWealthPartner;
+  }
+}
+
+function parseExistingPartner(raw: unknown): ExistingWealthPartnerSummary | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.partnerId !== "string" || typeof o.code !== "string") return undefined;
+  return {
+    partnerId: o.partnerId,
+    code: o.code,
+    displayName: String(o.displayName ?? o.code),
+    status: String(o.status ?? "active"),
+    lifecycleStatus: String(o.lifecycleStatus ?? "onboarding"),
+    operationalStatus:
+      o.operationalStatus === null || o.operationalStatus === undefined
+        ? null
+        : String(o.operationalStatus),
+    createdAt: String(o.createdAt ?? ""),
+    identityKind: String(o.identityKind ?? "contact"),
+    reason:
+      o.reason === "orphan_identity_missing" ||
+      o.reason === "soft_deleted_recovered" ||
+      o.reason === "duplicate_code_retry"
+        ? o.reason
+        : "already_registered",
+  };
+}
 
 async function wpFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const method = init?.method ?? "GET";
@@ -52,7 +97,12 @@ async function wpFetch<T>(url: string, init?: RequestInit): Promise<T> {
       message,
       body,
     });
-    throw new Error(message);
+    throw new WealthPartnerApiError({
+      message,
+      status: res.status,
+      code: body?.error?.code,
+      existingWealthPartner: parseExistingPartner(body?.error?.existingWealthPartner),
+    });
   }
   console.info("[wealth-partner-registry:client] success", {
     endpoint: url,
@@ -71,7 +121,34 @@ export const wealthPartnerApiClient = {
     if (query.partnerType) params.set("partnerType", String(query.partnerType));
     if (query.identityKind) params.set("identityKind", String(query.identityKind));
     if (query.status) params.set("status", String(query.status));
+    if (query.contactId) params.set("contactId", query.contactId);
+    if (query.companyId) params.set("companyId", query.companyId);
     return wpFetch(`/api/wealth-partner-registry/partners?${params.toString()}`);
+  },
+
+  async findByIdentity(identity: {
+    contactId?: string | null;
+    companyId?: string | null;
+  }): Promise<EnterpriseWealthPartnerRecord | null> {
+    if (identity.contactId) {
+      const result = await this.queryPartners({
+        page: 1,
+        pageSize: 1,
+        contactId: identity.contactId,
+        partnerType: "all",
+      });
+      return result.items[0] ?? null;
+    }
+    if (identity.companyId) {
+      const result = await this.queryPartners({
+        page: 1,
+        pageSize: 1,
+        companyId: identity.companyId,
+        partnerType: "all",
+      });
+      return result.items[0] ?? null;
+    }
+    return null;
   },
 
   async createPartner(
@@ -146,5 +223,31 @@ export const wealthPartnerApiClient = {
       method: "POST",
       body: JSON.stringify(input),
     });
+  },
+
+  /** CO-WP-007 — Legal Docket generate / lifecycle / registry link. */
+  async runLegalDocketAction(
+    partnerId: string,
+    input: {
+      action: string;
+      documentId?: string | null;
+      documentRegistryLinks?: Array<{
+        documentId: string;
+        documentRegistryRecordId: string;
+      }>;
+    },
+  ): Promise<WealthPartnerWorkspaceBundle> {
+    return wpFetch(`/api/wealth-partner-registry/partners/${partnerId}/legal-docket`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  async getLegalCompliance(partnerId: string): Promise<{
+    legalCompliance: WealthPartnerWorkspaceBundle["legalCompliance"];
+    partnerId: string;
+    partnerCode: string;
+  }> {
+    return wpFetch(`/api/wealth-partner-registry/partners/${partnerId}/legal-docket`);
   },
 };

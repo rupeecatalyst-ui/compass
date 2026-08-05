@@ -49,6 +49,17 @@ function buildSnapshot(
           opportunityId: owned.opportunityId ?? opportunity.id,
           expectedLoanAmount: owned.expectedLoanAmount,
           product: owned.product,
+          lenderSalesContactId: owned.lenderSalesContactId ?? null,
+          lenderSalesContactName: owned.lenderSalesContactName ?? null,
+          lenderSalesContactMobile: owned.lenderSalesContactMobile ?? null,
+          lenderSalesContactDesignationId: owned.lenderSalesContactDesignationId ?? null,
+          lenderSalesContactDesignationLabel:
+            owned.lenderSalesContactDesignationLabel ?? null,
+          lenderSalesContactOfficialEmail: owned.lenderSalesContactOfficialEmail ?? null,
+          lenderSalesContactInstitutionId:
+            owned.lenderSalesContactInstitutionId ?? null,
+          lenderSalesContactInstitutionLabel:
+            owned.lenderSalesContactInstitutionLabel ?? null,
         },
       ]
     : [];

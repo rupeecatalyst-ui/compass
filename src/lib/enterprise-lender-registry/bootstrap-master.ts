@@ -1,11 +1,12 @@
 /**
- * CO-ARCH-004 — Bootstrap master seed into Soft Go-Live local registry.
+ * CO-ARCH-004 / CO-LM-003 — Bootstrap master seed into Soft Go-Live local registry.
  * Idempotent by seedKey tag; allocates immutable LND codes; merges duplicates.
  */
 import {
   CO_ARCH_004_MASTER_SEED_VERSION,
   LENDER_MASTER_SEED_CATALOG,
 } from "@/constants/enterprise-lender-registry/master-seed-catalog";
+import { normalizeSupportedProductCodes } from "@/constants/enterprise-lender-registry/baseline-commercial-program-seed";
 import { isImmutableLenderCode } from "@/lib/enterprise-lender-registry/codes";
 import { localLenderRegistryStore } from "@/lib/enterprise-lender-registry/local-store";
 import type { LenderMergeReport } from "@/lib/enterprise-lender-registry/merge";
@@ -28,6 +29,16 @@ export interface LenderMasterBootstrapResult {
 
 const SEED_TAG_PREFIX = "seed:";
 
+const CATEGORY_SEEDS: ReadonlyArray<{ code: string; label: string; sortOrder: number }> = [
+  { code: "bank", label: "Bank", sortOrder: 1 },
+  { code: "nbfc", label: "NBFC", sortOrder: 2 },
+  { code: "hfc", label: "HFC", sortOrder: 3 },
+  { code: "fintech", label: "Fintech", sortOrder: 4 },
+  { code: "cooperative", label: "Cooperative", sortOrder: 5 },
+  { code: "other", label: "Other", sortOrder: 6 },
+  { code: "foreign_bank", label: "Foreign Bank", sortOrder: 7 },
+];
+
 function allLenders(includeDeleted = false): EnterpriseLenderRecord[] {
   return localLenderRegistryStore.queryLenders({
     pageSize: 5000,
@@ -38,15 +49,20 @@ function allLenders(includeDeleted = false): EnterpriseLenderRecord[] {
 function findBySeedKey(
   lenders: EnterpriseLenderRecord[],
   seedKey: string,
+  displayName: string,
+  aliases: string[],
 ): EnterpriseLenderRecord | undefined {
   const tag = `${SEED_TAG_PREFIX}${seedKey}`;
-  return lenders.find(
-    (l) =>
-      !l.isDeleted &&
-      ((l.tags ?? []).includes(tag) ||
-        normalizeLoose(l.shortName) === normalizeLoose(seedKey) ||
-        normalizeLoose(l.displayName) === normalizeLoose(seedKey)),
+  const nameKeys = new Set(
+    [seedKey, displayName, ...aliases].map((s) => normalizeLoose(s)).filter(Boolean),
   );
+  return lenders.find((l) => {
+    if (l.isDeleted) return false;
+    if ((l.tags ?? []).includes(tag)) return true;
+    if (normalizeLoose(l.shortName) === normalizeLoose(seedKey)) return true;
+    const keys = [l.displayName, l.label, l.legalName, ...(l.aliases ?? [])].map(normalizeLoose);
+    return keys.some((k) => nameKeys.has(k));
+  });
 }
 
 function normalizeLoose(value?: string | null) {
@@ -62,12 +78,42 @@ export function bootstrapLenderMaster(actor = "co-arch-004"): LenderMasterBootst
   let updated = 0;
   let codesAssigned = 0;
 
-  const categories = localLenderRegistryStore.listCategories();
-  const categoryId = categories[0]?.id ?? "elcat-general";
+  const categoryIds = new Map<string, string>();
+  for (const cat of CATEGORY_SEEDS) {
+    const row = localLenderRegistryStore.ensureCategory({
+      code: cat.code,
+      label: cat.label,
+      sortOrder: cat.sortOrder,
+      actor,
+    });
+    categoryIds.set(cat.code.toUpperCase(), row.id);
+    categoryIds.set(cat.code.toLowerCase(), row.id);
+  }
+
+  const fallbackCategoryId =
+    categoryIds.get("bank") ??
+    localLenderRegistryStore.listCategories()[0]?.id ??
+    "elcat-general";
 
   for (const seed of LENDER_MASTER_SEED_CATALOG) {
-    const existing = findBySeedKey(allLenders(), seed.seedKey);
+    const existing = findBySeedKey(
+      allLenders(),
+      seed.seedKey,
+      seed.displayName,
+      seed.aliases,
+    );
     const tag = `${SEED_TAG_PREFIX}${seed.seedKey}`;
+    const categoryCode = (seed.categoryCode ?? seed.institutionCategory).toLowerCase();
+    const categoryId =
+      categoryIds.get(categoryCode) ??
+      categoryIds.get(categoryCode.toUpperCase()) ??
+      fallbackCategoryId;
+
+    const tags = [
+      tag,
+      `co-arch-004-v${CO_ARCH_004_MASTER_SEED_VERSION}`,
+      ...(seed.defaultRecord ? ["default_record", "co-lm-003"] : []),
+    ];
 
     if (!existing) {
       localLenderRegistryStore.createLender({
@@ -80,13 +126,14 @@ export function bootstrapLenderMaster(actor = "co-arch-004"): LenderMasterBootst
         institutionCategory: seed.institutionCategory,
         classification: seed.classification,
         website: seed.website,
+        logoUrl: seed.logoUrl,
         headquartersLabel: seed.headquartersLabel,
         customerCarePhone: seed.customerCarePhone,
         customerCareEmail: seed.customerCareEmail,
         rbiRegulated: seed.rbiRegulated ?? true,
         panIndia: seed.panIndia ?? true,
-        productsSupported: seed.productsSupported,
-        tags: [tag, `co-arch-004-v${CO_ARCH_004_MASTER_SEED_VERSION}`],
+        productsSupported: normalizeSupportedProductCodes(seed.productsSupported),
+        tags,
         lifecycleStatus: "active",
         operationalStatus: "active",
         status: "active",
@@ -98,7 +145,14 @@ export function bootstrapLenderMaster(actor = "co-arch-004"): LenderMasterBootst
       continue;
     }
 
+    const existingSupported = [...(existing.productsSupported ?? [])];
+    const nextSupported =
+      existingSupported.length === 0
+        ? normalizeSupportedProductCodes(seed.productsSupported)
+        : normalizeSupportedProductCodes(existingSupported);
+
     localLenderRegistryStore.updateLender(existing.id, {
+      categoryId,
       label: seed.displayName,
       legalName: seed.legalName,
       displayName: seed.displayName,
@@ -111,13 +165,14 @@ export function bootstrapLenderMaster(actor = "co-arch-004"): LenderMasterBootst
       institutionCategory: seed.institutionCategory,
       classification: seed.classification,
       website: seed.website ?? existing.website,
+      logoUrl: seed.logoUrl ?? existing.logoUrl,
       headquartersLabel: seed.headquartersLabel ?? existing.headquartersLabel,
       customerCarePhone: seed.customerCarePhone ?? existing.customerCarePhone,
       customerCareEmail: seed.customerCareEmail ?? existing.customerCareEmail,
       rbiRegulated: seed.rbiRegulated ?? true,
       panIndia: seed.panIndia ?? existing.panIndia,
-      productsSupported: seed.productsSupported,
-      tags: Array.from(new Set([...(existing.tags ?? []), tag])),
+      productsSupported: nextSupported,
+      tags: Array.from(new Set([...(existing.tags ?? []), ...tags])),
       lifecycleStatus: existing.lifecycleStatus === "retired" ? "retired" : "active",
       operationalStatus:
         existing.operationalStatus === "inactive" ? "active" : existing.operationalStatus,

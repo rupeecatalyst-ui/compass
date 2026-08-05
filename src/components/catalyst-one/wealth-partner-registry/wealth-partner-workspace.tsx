@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 /**
- * CO-WP-001 — Wealth Partner Workspace (10 tabs).
+ * CO-WP-001 â€” Wealth Partner Workspace (10 tabs).
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -22,6 +22,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LiveEntityMasterSearch } from "@/components/catalyst-one/shared/live-entity-master-search";
 import { WealthPartnerNetworkIntelligence } from "@/components/catalyst-one/wealth-partner-registry/wealth-partner-network-intelligence";
+import { WealthPartnerLegalCompliancePanel } from "@/components/catalyst-one/wealth-partner-registry/wealth-partner-legal-compliance-panel";
+import { WealthPartnerActivationPanel } from "@/components/catalyst-one/enterprise-invitation-engine/wealth-partner-activation-panel";
 import {
   WEALTH_PARTNER_NETWORK_RELATIONSHIP_TYPES,
   WEALTH_PARTNER_TYPE_OPTIONS,
@@ -80,7 +82,7 @@ export function WealthPartnerWorkspace({ partnerId }: WealthPartnerWorkspaceProp
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Opening Wealth Partner Workspace…
+        Opening Wealth Partner Workspaceâ€¦
       </div>
     );
   }
@@ -113,9 +115,9 @@ export function WealthPartnerWorkspace({ partnerId }: WealthPartnerWorkspaceProp
             {partner.displayName}
           </h1>
           <p className="text-xs text-muted-foreground">
-            {partner.code} · {wealthPartnerTypeLabel(partner.partnerType)} ·{" "}
+            {partner.code} Â· {wealthPartnerTypeLabel(partner.partnerType)} Â·{" "}
             {partner.identityKind === "contact" ? "Contact" : "Company"} identity
-            {partner.identityLabel ? ` · ${partner.identityLabel}` : ""}
+            {partner.identityLabel ? ` Â· ${partner.identityLabel}` : ""}
           </p>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={() => void refresh()}>
@@ -147,14 +149,18 @@ export function WealthPartnerWorkspace({ partnerId }: WealthPartnerWorkspaceProp
           <Kpi title="Deals" value={String(businessSourcing.totalDealsGenerated)} />
           <Kpi title="Disbursement" value={formatInr(businessSourcing.totalDisbursement)} />
           <Kpi title="Conversion" value={`${businessSourcing.conversionRatio}%`} />
+          <WealthPartnerActivationPanel
+            partnerId={partnerId}
+            partnerEmail={partner.email}
+          />
           <Card className="sm:col-span-2 lg:col-span-4">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Partner snapshot</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
-              <Row label="Mobile" value={partner.mobile ?? "—"} />
-              <Row label="Email" value={partner.email ?? "—"} />
-              <Row label="City" value={partner.cityLabel ?? "—"} />
+              <Row label="Mobile" value={partner.mobile ?? "â€”"} />
+              <Row label="Email" value={partner.email ?? "â€”"} />
+              <Row label="City" value={partner.cityLabel ?? "â€”"} />
               <Row label="Lifecycle" value={partner.lifecycleStatus} />
               <Row label="Network members" value={String(bundle.network.length)} />
               <Row label="Commission plans" value={String(bundle.commissions.length)} />
@@ -267,10 +273,10 @@ export function WealthPartnerWorkspace({ partnerId }: WealthPartnerWorkspaceProp
       ) : null}
 
       {tab === "compliance" ? (
-        <ComplianceTab
+        <WealthPartnerLegalCompliancePanel
           partnerId={partnerId}
-          partner={partner}
-          onSaved={refresh}
+          bundle={bundle}
+          onChanged={refresh}
         />
       ) : null}
 
@@ -497,7 +503,7 @@ function CommissionTab({
         <h3 className="text-sm font-semibold">Commercial Profile</h3>
         <p className="mt-1 text-[11px] text-muted-foreground">
           Percentage of Rupee Catalyst revenue shared with this Wealth Partner by Participation
-          Role. Users never enter commission % on Opportunities — values resolve automatically.
+          Role. Users never enter commission % on Opportunities â€” values resolve automatically.
         </p>
       </div>
       <div className="grid max-w-2xl gap-3 rounded-xl border p-4 sm:grid-cols-2">
@@ -626,10 +632,10 @@ function BankingTab({
         {bundle.bankAccounts.map((b) => (
           <div key={b.id} className="rounded-lg border px-3 py-2 text-sm">
             <p className="font-medium">
-              {b.bankName} {b.isPrimary ? "· Primary" : ""}
+              {b.bankName} {b.isPrimary ? "Â· Primary" : ""}
             </p>
             <p className="text-xs text-muted-foreground">
-              {b.accountName} · ****{b.accountNumber.slice(-4)} · {b.ifsc}
+              {b.accountName} Â· ****{b.accountNumber.slice(-4)} Â· {b.ifsc}
             </p>
           </div>
         ))}
@@ -691,7 +697,7 @@ function NetworkTab({
 
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Add network members as relationships to Contact / Company masters — duplicates are never
+          Add network members as relationships to Contact / Company masters â€” duplicates are never
           created. The Business Network above refreshes after each add.
         </p>
         <div className="grid max-w-2xl gap-3 rounded-xl border p-4">
@@ -815,72 +821,3 @@ function NetworkTab({
   );
 }
 
-function ComplianceTab({
-  partnerId,
-  partner,
-  onSaved,
-}: {
-  partnerId: string;
-  partner: WealthPartnerWorkspaceBundle["partner"];
-  onSaved: () => Promise<void>;
-}) {
-  const existing = (partner.complianceJson ?? {}) as Record<string, string>;
-  const [kycStatus, setKycStatus] = useState(existing.kycStatus ?? "pending");
-  const [agreementStatus, setAgreementStatus] = useState(existing.agreementStatus ?? "pending");
-  const [notes, setNotes] = useState(existing.notes ?? "");
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    setSaving(true);
-    try {
-      await wealthPartnerApiClient.updatePartner(partnerId, {
-        complianceJson: { kycStatus, agreementStatus, notes },
-      });
-      toast.success("Compliance saved.");
-      await onSaved();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="max-w-xl space-y-3">
-      <div className="space-y-1.5">
-        <Label>KYC Status</Label>
-        <Select value={kycStatus} onValueChange={setKycStatus}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="complete">Complete</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Agreement Status</Label>
-        <Select value={agreementStatus} onValueChange={setAgreementStatus}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="signed">Signed</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Notes</Label>
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
-      </div>
-      <Button type="button" size="sm" disabled={saving} onClick={() => void save()}>
-        Save Compliance
-      </Button>
-    </div>
-  );
-}

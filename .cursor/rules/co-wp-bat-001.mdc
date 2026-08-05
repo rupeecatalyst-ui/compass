@@ -1,0 +1,12 @@
+---
+description: CO-WP-BAT-001 — superseded by CO-WP-BAT-002 integrated freeze; retained for history
+alwaysApply: false
+---
+
+# CO-WP-BAT-001 — Historical BAT freeze (superseded)
+
+**Superseded by:** `.cursor/rules/co-wp-bat-002.mdc` (CO-WP-BAT-002 Integrated BAT).
+
+Original BAT URLs and notes remain in `docs/co-wp-bat/CO-WP-BAT-001-REVIEW-BUILD.md`.
+
+Do not use this rule for agent stop conditions — follow **CO-WP-BAT-002**.

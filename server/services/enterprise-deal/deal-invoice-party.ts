@@ -1,10 +1,12 @@
 /**
- * CO-ARCH-003 Phase 2B Sprint 1 — Invoice Party (Deal attribute) rules.
- * Required stage is configurable via INVOICE_PARTY_REQUIRED_FROM_STAGE — not hard-coded here.
+ * CO-ARCH-003 Phase 2B Sprint 1 / CO-DWS-001 / CO-DWS-001C — Invoice Party rules.
+ * Lender Pipeline transitions are never blocked by Invoice Party / Accounting.
+ * Accounting operations use assertInvoicePartyForAccountingOperation only.
  */
 import { DealValidationError } from "@server/services/enterprise-deal/deal-validation";
 import {
   INVOICE_PARTY_REQUIRED_MESSAGE,
+  assertInvoicePartyForAccountingOperation as assertPartyAccountingClient,
   invoicePartyRequiredToProgressTo,
   isInvoicePartyComplete,
   isValidInvoicePartyType,
@@ -17,30 +19,37 @@ export {
   isValidInvoicePartyType,
 };
 
-/** Blocks Deal pipeline advance beyond the configured Invoice Party stage. */
-export function assertInvoicePartyForDealStage(input: {
+/**
+ * @deprecated CO-DWS-001 — no-op for Lender Pipeline. Kept for call-site compatibility.
+ * Prefer assertInvoicePartyForAccountingOperation.
+ */
+export function assertInvoicePartyForDealStage(_input: {
   toGrossStage: string;
   invoicePartyId?: string | null;
-  /** @deprecated legacy */
   commissionAccountingPayeeId?: string | null;
 }) {
-  if (!invoicePartyRequiredToProgressTo(input.toGrossStage)) return;
-  if (
-    !isInvoicePartyComplete({
-      invoicePartyId: input.invoicePartyId,
-      commissionAccountingPayeeId: input.commissionAccountingPayeeId,
-    })
-  ) {
+  // Intentionally empty — Invoice Party must not block stage movement.
+}
+
+/** Hard gate for accounting workflows only. */
+export function assertInvoicePartyForAccountingOperation(input: {
+  invoicePartyId?: string | null;
+  commissionAccountingPayeeId?: string | null;
+  operation?: string;
+}) {
+  try {
+    assertPartyAccountingClient(input);
+  } catch {
     throw new DealValidationError(
       INVOICE_PARTY_REQUIRED_MESSAGE,
-      "INVOICE_PARTY_REQUIRED",
+      "INVOICE_PARTY_REQUIRED_FOR_ACCOUNTING",
     );
   }
 }
 
 /** @deprecated */
 export const COMMISSION_PAYER_REQUIRED_MESSAGE = INVOICE_PARTY_REQUIRED_MESSAGE;
-/** @deprecated */
+/** @deprecated — no-op */
 export const assertCommissionPayerForDealStage = assertInvoicePartyForDealStage;
 /** @deprecated */
 export const dealStageRequiresCommissionPayer = invoicePartyRequiredToProgressTo;

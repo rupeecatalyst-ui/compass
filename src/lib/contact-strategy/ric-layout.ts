@@ -1,5 +1,6 @@
 /**
  * CO-FOUNDATION-010 — Automatic first-level radial layout for RIC.
+ * Coordinates are centred on (0,0) so React Flow fitView centres the graph in-viewport.
  */
 
 import type { RicContact, RicRelationship } from "./ric-types";
@@ -19,9 +20,9 @@ export interface RicLayoutEdge {
   label?: string;
 }
 
-const CENTRE_X = 420;
-const CENTRE_Y = 280;
-const RADIUS = 220;
+const CENTRE_X = 0;
+const CENTRE_Y = 0;
+const RADIUS = 240;
 
 export function buildRicRadialLayout(
   centre: RicContact,

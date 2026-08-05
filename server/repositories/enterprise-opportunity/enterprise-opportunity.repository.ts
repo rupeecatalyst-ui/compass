@@ -321,8 +321,11 @@ export class EnterpriseOpportunityRepository {
             OR: [
               { opportunityNumber: { contains: query.q, mode: "insensitive" } },
               { primaryContactName: { contains: query.q, mode: "insensitive" } },
+              { primaryContactMobile: { contains: query.q, mode: "insensitive" } },
               { companyName: { contains: query.q, mode: "insensitive" } },
               { productLabel: { contains: query.q, mode: "insensitive" } },
+              { productCode: { contains: query.q, mode: "insensitive" } },
+              { relationshipManagerName: { contains: query.q, mode: "insensitive" } },
               { sourceCode: { contains: query.q, mode: "insensitive" } },
             ],
           }

@@ -1,0 +1,31 @@
+---
+description: CO-WP-JOURNEY-001D — Enterprise dynamic sections; companion renders only; no deploy
+alwaysApply: true
+---
+
+# CO-WP-JOURNEY-001D — Enterprise Dynamic Sections
+
+Status: **COMPLETE (local)** · **NO DEPLOY** · Await Product Owner BAT  
+Docs: `docs/co-wp-journey/CO-WP-JOURNEY-001D-DYNAMIC-SECTIONS.md`
+
+## Principles
+
+1. Opportunity Details are **section-based**, not a flat field list.  
+2. Section name, order, visibility, mandatory flags, and fields come from Catalyst One journey config.  
+3. Wealth Partner **renders** sections (collapse, completion %, jump) — does not own section definitions.  
+4. Do **not** redesign the Opportunity Journey path.  
+5. **Do not deploy** unless Product Owner authorises.
+
+## SSOT
+
+| Concern | Path |
+|--------|------|
+| Section DTO | `src/types/enterprise-partner-opportunity-journey.ts` (`PartnerJourneySectionDef`) |
+| Config seed | `server/services/partner-gateway/partner-opportunity-journey-config.service.ts` (`detailSections`) |
+| WP UI | `JourneySectionStack` · `CreateOpportunityScreen` details step |
+
+## Forbidden
+
+- Hardcoded section catalogues in Wealth Partner  
+- Business validation invented in the companion  
+- EEE / Experience Center  

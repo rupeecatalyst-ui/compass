@@ -106,6 +106,8 @@ export interface ElwRegistryEntry {
   lastPolicyUpdate?: string;
   primaryContactName?: string;
   logoInitials?: string;
+  /** CO-LW-005 — Official logo from Lender Registry branding. */
+  logoUrl?: string | null;
 }
 
 export type ElwRelationshipStatus = "active" | "building" | "onboarding" | "dormant";

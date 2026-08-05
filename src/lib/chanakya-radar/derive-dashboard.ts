@@ -18,12 +18,15 @@ import {
   classifyDealHealth,
   listActiveRadarLenders,
 } from "./derive-radar";
+import { classifyOperationalDeal } from "./classify-operational-deal";
 import {
   computeOperationalVector,
   quadrantLabel,
   type OperationalVectorResult,
 } from "./operational-vector";
 import { hasMeaningfulWorkToday } from "./daily-work";
+import { activityAttentionMultiplier } from "@/lib/enterprise-activity-intelligence";
+import type { TransactionActivityStateId } from "@/types/enterprise-activity-intelligence";
 
 export interface ChanakyaRadarDealRow {
   /** Stable Radar identity — prefer Enterprise Deal UUID (one blip per Deal). */
@@ -46,6 +49,8 @@ export interface ChanakyaRadarDealRow {
   quadrant: ChanakyaOperationalQuadrantId;
   quadrantLabel: string;
   stageLabel: string;
+  /** Current sub-stage / hold reason when available. */
+  subStageLabel: string;
   lender: string;
   lastActivity: string;
   lastActivityLabel: string;
@@ -53,10 +58,27 @@ export interface ChanakyaRadarDealRow {
   daysInStage: number;
   /** CO-SPRINT-108 — Daily Work ✓ (meaningful Operational Work today). Independent of Business Status. */
   workedToday: boolean;
+  /**
+   * CO-MC-001 — Activity Momentum Score (0–100).
+   * Feeds Operational Vector trend / attention; not a separate dial UI.
+   */
+  activityMomentumScore: number;
+  /** CO-MC-001 — Transaction Activity State. */
+  activityState: TransactionActivityStateId;
+  activityStateLabel: string;
+  activityMomentumTrend: "improving" | "stable" | "declining";
+  /** CO-MC-001 — Legitimate wait; must not reduce Radar score. */
+  isHealthyWaiting: boolean;
   pendingDocs: number;
   openTasks: number;
   priority: string;
   status: string;
+  /** CO-CHANAKYA-RADAR-003 — per-deal health (feeds Average Deal Health). */
+  dealHealthScore: number;
+  /** Why CHANAKYA placed this Deal in its operational classification. */
+  classificationReason: string;
+  /** Next best action from Decision Engine. */
+  recommendation: string;
 }
 
 export interface ChanakyaRadarKpiCard {
@@ -150,24 +172,15 @@ function taskDueToday(file: LoanFile): boolean {
 
 /**
  * Map legacy Deal Health buckets → four operational quadrants.
+ * Prefer classifyOperationalDeal for new paths (CO-CHANAKYA-RADAR-003).
  */
 export function mapHealthToQuadrant(
   health: ReturnType<typeof classifyDealHealth>["health"],
   file: LoanFile,
 ): ChanakyaOperationalQuadrantId | null {
+  // Multi-parameter engine is SSOT for Radar classification.
   if (health === "completed") return null;
-  if (health === "at_risk" || health === "on_hold") return "at_risk";
-  if (health === "on_track") return "on_track";
-  if (health === "dormant") return "follow_up_required";
-  if (health === "needs_attention") {
-    // Soft blockers with open follow-ups lean East (blue)
-    if (taskDueToday(file) || openTaskCount(file) > 0 || pendingDocCount(file) > 0) {
-      return "follow_up_required";
-    }
-    return "needs_attention";
-  }
-  if (health === "follow_up_required") return "follow_up_required";
-  return "needs_attention";
+  return classifyOperationalDeal(file).quadrant;
 }
 
 function dealWeight(file: LoanFile, quadrant: ChanakyaOperationalQuadrantId): number {
@@ -202,6 +215,7 @@ function attentionImpactWeight(
   quadrant: ChanakyaOperationalQuadrantId,
   daysInStage: number,
   workedToday: boolean,
+  activityMultiplier = 1,
 ): number {
   const base = dealWeight(file, quadrant);
   const days = Math.max(daysInStage, daysSince(lastActivityIso(file)), 0);
@@ -220,10 +234,18 @@ function attentionImpactWeight(
           ? 1.55
           : 0.12;
   const workedDamp = workedToday ? 0.45 : 1;
-  return Math.max(0.05, base * slaBoost * actionBoost * quadrantPull * workedDamp);
+  return Math.max(
+    0.05,
+    base * slaBoost * actionBoost * quadrantPull * workedDamp * activityMultiplier,
+  );
 }
 
-function momentumOf(file: LoanFile): "improving" | "stable" | "declining" {
+function momentumOf(
+  file: LoanFile,
+  activityTrend?: "improving" | "stable" | "declining",
+): "improving" | "stable" | "declining" {
+  // CO-MC-001 — Activity Momentum Trend is SSOT when available.
+  if (activityTrend) return activityTrend;
   const idle = daysSince(lastActivityIso(file));
   if (isActivityToday(lastActivityIso(file)) || idle <= 1) return "improving";
   if (idle >= 7 || file.isDelayed || file.status === "at_risk") return "declining";
@@ -257,12 +279,13 @@ function radarDealStageLabel(
 }
 
 export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow | null {
-  const classified = classifyDealHealth(file);
-  const quadrant = mapHealthToQuadrant(classified.health, file);
-  if (!quadrant) return null;
+  if (!file?.id || file.archived) return null;
+  if (file.stage === "won" || file.status === "completed") return null;
+  const classified = classifyOperationalDeal(file);
+  const quadrant = classified.quadrant;
 
   const last = lastActivityIso(file);
-  const idle = daysSince(last);
+  const idle = classified.signals.idleDays;
   const amount = file.requiredAmount || file.loanAmount || 0;
   /** CO-UX-022 — One Radar card = one Enterprise Deal → that Deal’s lender only. */
   const lead = resolveRadarDealLender(file);
@@ -286,17 +309,26 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
     assignedRm: file.relationshipManager || "—",
     quadrant,
     quadrantLabel: quadrantLabel(quadrant),
-    stageLabel: radarDealStageLabel(file, lead),
+    stageLabel: classified.signals.stageLabel || radarDealStageLabel(file, lead),
+    subStageLabel: classified.signals.subStageLabel,
     lender: lead?.lender || file.lender || "—",
     lastActivity: last,
     lastActivityLabel: formatWhen(last),
     idleDays: idle,
-    daysInStage: file.daysInStage ?? idle,
+    daysInStage: classified.signals.daysInStage,
     workedToday: hasMeaningfulWorkToday(file),
-    pendingDocs: pendingDocCount(file),
-    openTasks: openTaskCount(file),
+    activityMomentumScore: classified.activityIntelligence.momentumScore,
+    activityState: classified.activityIntelligence.state,
+    activityStateLabel: classified.activityIntelligence.stateLabel,
+    activityMomentumTrend: classified.activityIntelligence.momentumTrend,
+    isHealthyWaiting: classified.activityIntelligence.isHealthyWaiting,
+    pendingDocs: classified.signals.pendingDocs,
+    openTasks: classified.signals.openTasks,
     priority: file.priority,
     status: file.status,
+    dealHealthScore: classified.dealHealthScore,
+    classificationReason: classified.classificationReason,
+    recommendation: classified.recommendation,
   };
 }
 
@@ -317,19 +349,34 @@ export function buildChanakyaRadarDashboard(files: LoanFile[]): ChanakyaRadarDas
         row.quadrant,
         row.daysInStage,
         row.workedToday,
+        activityAttentionMultiplier({
+          isHealthyWaiting: row.isHealthyWaiting,
+          momentumScore: row.activityMomentumScore,
+        }),
       ),
-      momentum: momentumOf(file),
+      momentum: momentumOf(file, row.activityMomentumTrend),
     };
   });
 
-  const vector = computeOperationalVector(vectorInputs);
+  const vectorBase = computeOperationalVector(vectorInputs);
+  /** CO-CHANAKYA-RADAR-003 — Average Deal Health = mean of active-deal health scores only. */
+  const avgDealHealth =
+    rows.length > 0
+      ? Math.round(
+          rows.reduce((sum, row) => sum + row.dealHealthScore, 0) / rows.length,
+        )
+      : 100;
+  const vector: OperationalVectorResult = {
+    ...vectorBase,
+    healthScore: Math.min(100, Math.max(0, avgDealHealth)),
+  };
   const total = rows.length || 1;
 
   const kpis: ChanakyaRadarKpiCard[] = CHANAKYA_RADAR_QUADRANTS.map((q) => {
     const inQ = rows.filter((r) => r.quadrant === q.id);
     const movedToday = inQ.filter((r) => r.workedToday).length;
-    // Net daily movement: activity today minus stalled (idle ≥ 5) share as negative signal
-    const stalled = inQ.filter((r) => r.idleDays >= 5).length;
+    // Net daily movement: activity today minus neglected stalled (Healthy Waiting excluded)
+    const stalled = inQ.filter((r) => r.idleDays >= 5 && !r.isHealthyWaiting).length;
     const dailyMovement = movedToday - Math.min(stalled, movedToday + 2);
     return {
       id: q.id,
@@ -342,6 +389,16 @@ export function buildChanakyaRadarDashboard(files: LoanFile[]): ChanakyaRadarDas
   });
 
   const movedTodayCount = rows.filter((r) => r.workedToday).length;
+  const avgMomentum =
+    rows.length > 0
+      ? Math.round(
+          rows.reduce((s, r) => s + r.activityMomentumScore, 0) / rows.length,
+        )
+      : 100;
+  const healthyWaitingCount = rows.filter((r) => r.isHealthyWaiting).length;
+  const needsFollowUpCount = rows.filter(
+    (r) => r.activityState === "needs_follow_up",
+  ).length;
   const approvalsPending = rows.filter(
     (r) =>
       r.stageLabel.includes("soft approved") ||
@@ -349,7 +406,10 @@ export function buildChanakyaRadarDashboard(files: LoanFile[]): ChanakyaRadarDas
       /soft_approved|credit_wip/.test(fileById.get(r.fileId)?.stage ?? ""),
   ).length;
   const docsPending = rows.filter((r) => r.pendingDocs > 0).length;
-  const stalled = rows.filter((r) => r.idleDays >= 7).length;
+  // CO-MC-001 — stalled = neglect, not Healthy Waiting
+  const stalled = rows.filter(
+    (r) => r.idleDays >= 7 && !r.isHealthyWaiting,
+  ).length;
   const highValueCutoff =
     [...rows].sort((a, b) => b.loanAmount - a.loanAmount)[Math.max(0, Math.floor(rows.length * 0.25))]
       ?.loanAmount ?? 0;
@@ -363,10 +423,18 @@ export function buildChanakyaRadarDashboard(files: LoanFile[]): ChanakyaRadarDas
 
   const intelligence: ChanakyaRadarIntelligenceItem[] = [
     {
+      id: "activity_momentum",
+      label: "Activity Momentum",
+      value: avgMomentum,
+      hint: `Healthy Waiting ${healthyWaitingCount} · Needs Follow-up ${needsFollowUpCount}`,
+      tone:
+        avgMomentum >= 70 ? "success" : avgMomentum >= 45 ? "warning" : "danger",
+    },
+    {
       id: "moved",
       label: "Files moved today",
       value: movedTodayCount,
-      hint: "Timeline activity recorded today",
+      hint: "Meaningful operational activity today",
       tone: "success",
     },
     {

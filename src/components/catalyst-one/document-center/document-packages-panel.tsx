@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * CO-DOC-003 — Document Packages panel (folder uploads) in Document Center.
- * Coexists with individual file uploads; does not replace Upload Files.
+ * CO-DOC-005 — Enterprise Document Package Registry panel.
+ * Coexists with Upload Files; packages are first-class durable entities (local cache + server).
  */
 
 import { useMemo, useRef, useState } from "react";
@@ -12,7 +12,9 @@ import {
   Download,
   Eye,
   FolderOpen,
+  History,
   Loader2,
+  Pencil,
   Plus,
   Replace,
   Trash2,
@@ -24,8 +26,11 @@ import {
   appendDocumentPackageTimeline,
   deleteDocumentPackageWithContents,
   downloadDocumentPackageAsZip,
+  listDocumentPackageTimeline,
   markDocumentPackageOpened,
   removeDocumentIdFromPackage,
+  renameDocumentPackage,
+  syncDocumentPackageToServer,
 } from "@/lib/document-package";
 import {
   canDeleteDocuments,
@@ -39,6 +44,7 @@ import {
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { DocumentPackageRecord } from "@/types/document-package";
 import type { DocumentRegistryRecord, DocumentUploadProgress } from "@/types/document-registry";
@@ -67,6 +73,25 @@ function statusLabel(status: DocumentPackageRecord["status"]) {
   }
 }
 
+function storageLabel(status: DocumentPackageRecord["storageStatus"]) {
+  switch (status) {
+    case "local_authoring":
+      return "Local cache";
+    case "durable_metadata":
+      return "Durable metadata";
+    case "durable_inline":
+      return "Durable inline";
+    case "durable_object":
+      return "Large-file path";
+    case "mixed":
+      return "Mixed storage";
+    case "pending_migration":
+      return "Pending migration";
+    default:
+      return status;
+  }
+}
+
 export function DocumentPackagesPanel({
   packages,
   recordsById,
@@ -90,7 +115,10 @@ export function DocumentPackagesPanel({
 }) {
   const { user } = useAuthContext();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [timelineId, setTimelineId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const addInputRef = useRef<HTMLInputElement | null>(null);
   const addTargetRef = useRef<string | null>(null);
 
@@ -116,12 +144,24 @@ export function DocumentPackagesPanel({
     }
     setBusyId(pkg.id);
     try {
-      const result = await downloadDocumentPackageAsZip(pkg.id);
+      const result = await downloadDocumentPackageAsZip(pkg.id, uploaderName);
       if (!result.ok) toast.error(result.reason);
       else toast.success(`Downloaded ${result.filename}`);
     } finally {
       setBusyId(null);
     }
+  };
+
+  const saveRename = (pkg: DocumentPackageRecord) => {
+    const next = renameDocumentPackage(pkg.id, renameValue, uploaderName);
+    if (!next) {
+      toast.error("Enter a valid package name.");
+      return;
+    }
+    void syncDocumentPackageToServer(next);
+    setRenameId(null);
+    toast.success("Package renamed.");
+    onRefresh();
   };
 
   const addMore = (pkg: DocumentPackageRecord) => {
@@ -221,18 +261,20 @@ export function DocumentPackagesPanel({
       />
       <div className="border-b border-border/60 pb-2">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-teal-700 dark:text-teal-300">
-          Document Packages
+          Enterprise Document Package Registry
         </p>
         <p className="text-sm font-semibold tracking-tight">Uploaded folders</p>
         <p className="text-[11px] text-muted-foreground">
-          Folder uploads appear as packages. Individual file uploads remain in the registry below.
+          First-class packages. Child files load when a folder is opened. Upload Files remains unchanged.
         </p>
       </div>
 
       <ul className="space-y-2">
         {visible.map((pkg) => {
           const expanded = openId === pkg.id;
+          const showTimeline = timelineId === pkg.id;
           const busy = busyId === pkg.id;
+          const timeline = showTimeline ? listDocumentPackageTimeline(pkg.id).slice(0, 12) : [];
           return (
             <li
               key={pkg.id}
@@ -242,7 +284,25 @@ export function DocumentPackagesPanel({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <FolderOpen className="h-4 w-4 shrink-0 text-teal-700" />
-                    <p className="truncate text-sm font-semibold">{pkg.folderName}</p>
+                    {renameId === pkg.id ? (
+                      <div className="flex min-w-0 flex-1 items-center gap-1">
+                        <Input
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          className="h-8 max-w-xs text-sm"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveRename(pkg);
+                            if (e.key === "Escape") setRenameId(null);
+                          }}
+                        />
+                        <Button type="button" size="sm" className="h-8" onClick={() => saveRename(pkg)}>
+                          Save
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="truncate text-sm font-semibold">{pkg.folderName}</p>
+                    )}
                     <Badge
                       variant="outline"
                       className={cn(
@@ -254,11 +314,15 @@ export function DocumentPackagesPanel({
                     >
                       {statusLabel(pkg.status)}
                     </Badge>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {storageLabel(pkg.storageStatus || "local_authoring")}
+                    </Badge>
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {pkg.fileCount} file{pkg.fileCount === 1 ? "" : "s"} ·{" "}
                     {formatDocumentFileSize(pkg.totalSizeBytes)} · {pkg.uploadedBy} ·{" "}
                     {formatDate(pkg.uploadedAt)}
+                    {pkg.updatedAt ? ` · Updated ${formatDate(pkg.updatedAt)}` : ""}
                   </p>
                   {pkg.status === "uploading" ? (
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -297,7 +361,32 @@ export function DocumentPackagesPanel({
                     ) : (
                       <Download className="mr-1 h-3.5 w-3.5" />
                     )}
-                    Download Folder
+                    Download Package
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-[11px]"
+                    onClick={() => {
+                      setRenameId(pkg.id);
+                      setRenameValue(pkg.folderName);
+                    }}
+                  >
+                    <Pencil className="mr-1 h-3.5 w-3.5" />
+                    Rename
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-[11px]"
+                    onClick={() =>
+                      setTimelineId((prev) => (prev === pkg.id ? null : pkg.id))
+                    }
+                  >
+                    <History className="mr-1 h-3.5 w-3.5" />
+                    Timeline
                   </Button>
                   <Button
                     type="button"
@@ -308,7 +397,7 @@ export function DocumentPackagesPanel({
                     onClick={() => addMore(pkg)}
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />
-                    Add More Files
+                    Add Files
                   </Button>
                   <Button
                     type="button"
@@ -327,6 +416,28 @@ export function DocumentPackagesPanel({
                   </Button>
                 </div>
               </div>
+
+              {showTimeline ? (
+                <div className="border-t border-border/50 px-3 py-2">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Package timeline
+                  </p>
+                  <ul className="space-y-1">
+                    {timeline.map((entry) => (
+                      <li key={entry.id} className="text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground">{entry.title}</span>
+                        {" · "}
+                        {entry.description}
+                        {" · "}
+                        {formatDate(entry.occurredOn)}
+                      </li>
+                    ))}
+                    {!timeline.length ? (
+                      <li className="text-[11px] text-muted-foreground">No timeline events yet.</li>
+                    ) : null}
+                  </ul>
+                </div>
+              ) : null}
 
               {expanded ? (
                 <div className="border-t border-border/50 px-3 py-2">

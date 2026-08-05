@@ -1,0 +1,49 @@
+---
+description: Enterprise BAT Security Policy — no credential discovery, chat, or logging
+alwaysApply: true
+---
+
+# Catalyst One — Enterprise BAT Security Policy
+
+**Status:** PERMANENT · Applies to Catalyst One, Wealth Partner App, and all future enterprise applications  
+**Supersedes:** Any prior testing instructions that requested credentials in chat or allowed auth probing
+
+## Hard rules
+
+1. **Never request production (or any environment) credentials inside the chat.**
+2. **Never print, log, echo, or store passwords** in prompts, markdown files, conversation text, scripts output, or reports.
+3. Authenticated BAT must use **only** the designated BAT account configured by the Product Owner through secure environment variables or local secrets:
+
+   - `CATALYST_BAT_URL`
+   - `CATALYST_BAT_EMAIL`
+   - `CATALYST_BAT_PASSWORD`
+
+4. If these environment variables are **not** configured, **stop immediately** and report exactly:
+
+   > BAT credentials are not configured. Authenticated certification cannot continue.
+
+   Do **not** ask for credentials in chat.
+
+5. **Never probe authentication.**
+   - Never try multiple emails
+   - Never try multiple passwords
+   - Never perform credential discovery
+   - Never iterate credential candidates against login endpoints
+
+6. Every authenticated certification must produce:
+
+   - Login PASS
+   - Feature Tested
+   - Save PASS
+   - Reload PASS
+   - Logout PASS
+   - Login Again PASS
+   - Persistence PASS
+
+7. If any step fails, **stop** the certification and produce an **RCA** — do not attempt workarounds or alternate credentials.
+
+## Agent behaviour
+
+- When BAT is requested: check env var *presence* only (boolean), never print values.
+- Missing vars → stop with the mandated message; no chat prompts for secrets.
+- Scripts/tools that login must read solely from `CATALYST_BAT_*` (or Product Owner–designated secure secrets), never from argv password lists or hardcoded pairs.

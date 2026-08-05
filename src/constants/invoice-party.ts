@@ -8,23 +8,29 @@
  */
 
 import {
-  isStageAtOrBeyond,
-  isStageBeyond,
   migrateLegacyStage,
 } from "@/constants/loan-stage-master";
 import type { PipelineStage } from "@/types/catalyst-one";
 
+/** Non-blocking Action Center / readiness copy (CO-DWS-001C). */
+export const INVOICE_PARTY_READINESS_HINT =
+  "Invoice Party has not yet been configured.";
+
+export const INVOICE_PARTY_ACTION_CENTER_TITLE = "Accounting Setup Pending";
+
+export const INVOICE_PARTY_ACTION_CENTER_ACTION = "Configure Invoice Party";
+
 /**
- * Configurable business stage that requires an Invoice Party.
- * Change this constant (future: Administration / EDL-backed config) to move the gate —
- * do not hard-code stage checks in UI or services.
- *
- * Semantics:
- * - At this stage and beyond → Invoice Party is required in Deal Workspace (UI).
- * - Progression *beyond* this stage is blocked until Invoice Party is assigned.
+ * @deprecated CO-BUG-001 — Invoice Party is never stage-gated for Lender Pipeline / Deal Save.
+ * Kept for historical imports only. Prefer Action Center advisory when opening Accounting actions.
  */
 export const INVOICE_PARTY_REQUIRED_FROM_STAGE: PipelineStage = "logged_in";
 
+/**
+ * Hard-gate copy for Accounting operations ONLY
+ * (invoice generation · commission booking · payment entry · accounting posting).
+ * Must never appear as a Lender Pipeline / Deal Save / stage-transition error.
+ */
 export const INVOICE_PARTY_REQUIRED_MESSAGE =
   "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.";
 
@@ -88,23 +94,21 @@ export function normalizeInvoicePartyStage(stage: string): PipelineStage {
   return migrateLegacyStage(s);
 }
 
-/** UI: show / require Invoice Party at configured stage and beyond. */
-export function requiresInvoiceParty(stage: string | PipelineStage): boolean {
-  return isStageAtOrBeyond(
-    normalizeInvoicePartyStage(String(stage)),
-    INVOICE_PARTY_REQUIRED_FROM_STAGE,
-  );
+/**
+ * CO-BUG-001 — Always false.
+ * Invoice Party must never be treated as required for Deal Workspace, Save, Auto-Save,
+ * stage transition, or Lender Pipeline update. Action Center may still show advisory copy.
+ */
+export function requiresInvoiceParty(_stage?: string | PipelineStage): boolean {
+  return false;
 }
 
 /**
- * Hard gate: target stage is beyond the configured required-from stage.
- * Used by Chanakya / Deal transitions / Lender Pipeline.
+ * @deprecated CO-DWS-001 / CO-BUG-001 — Pipeline progression must never be blocked by Invoice Party.
+ * Always returns false. Use assertInvoicePartyForAccountingOperation for accounting gates.
  */
-export function invoicePartyRequiredToProgressTo(toStage: string | PipelineStage): boolean {
-  return isStageBeyond(
-    normalizeInvoicePartyStage(String(toStage)),
-    INVOICE_PARTY_REQUIRED_FROM_STAGE,
-  );
+export function invoicePartyRequiredToProgressTo(_toStage: string | PipelineStage): boolean {
+  return false;
 }
 
 /** Complete when Accounting Invoice Party Master id is assigned on the Deal. */
@@ -116,6 +120,18 @@ export function isInvoicePartyComplete(input: {
   return Boolean(
     input.invoicePartyId?.trim() || input.commissionAccountingPayeeId?.trim(),
   );
+}
+
+/**
+ * CO-DWS-001 — Hard gate for accounting workflows only.
+ * Call from invoice generation, commission booking, payment entry, accounting posting.
+ */
+export function assertInvoicePartyForAccountingOperation(input: {
+  invoicePartyId?: string | null;
+  commissionAccountingPayeeId?: string | null;
+}): void {
+  if (isInvoicePartyComplete(input)) return;
+  throw new Error(INVOICE_PARTY_REQUIRED_MESSAGE);
 }
 
 /** @deprecated Use INVOICE_PARTY_TYPES — commercial payee type alias (no intermediary). */

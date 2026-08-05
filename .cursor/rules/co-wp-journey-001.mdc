@@ -1,0 +1,32 @@
+---
+description: CO-WP-JOURNEY-001 — PO reviews complete user journeys; New Opportunity first
+alwaysApply: true
+---
+
+# CO-WP-JOURNEY-001 — User Journey Completion
+
+Status: **Product Owner Review Mode**  
+Docs: `docs/co-wp-journey/CO-WP-JOURNEY-001-NEW-OPPORTUNITY.md`
+
+## Principle
+
+Product Owner reviews are based on **complete user journeys** (entry → exit), not isolated modules or screens.
+
+## Required in every major journey
+
+- Seamless navigation between steps  
+- Natural data flow across the journey  
+- Empty · loading · validation · error handling  
+- Visual consistency within the journey  
+
+## First journey: New Opportunity
+
+Business Home → Customer → Product → Details → Documents → Activities → Save Draft / Submit → Loan File → Timeline
+
+## Agent behaviour
+
+- Do **not** redesign.  
+- Do **not** add unrelated features.  
+- Close continuity gaps and broken transitions only.  
+- Do **not** deploy until Product Owner BAT / approval.  
+- Do **not** start EEE / Experience Center in journey continuity passes.

@@ -21,6 +21,7 @@ const EVENT_TONE: Record<EdcEventType, EnterpriseCardTone> = {
   document_upload: "cyan",
   document_verification: "emerald",
   workflow: "violet",
+  conversation_activity: "blue",
 };
 
 function seedDialogueIfEmpty() {

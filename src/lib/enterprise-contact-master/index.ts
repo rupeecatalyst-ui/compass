@@ -33,6 +33,14 @@ export {
 } from "./duplicate-check";
 export type { EcmDuplicateCheckInput, EcmDuplicateMatch, EcmDuplicateMatchField } from "./duplicate-check";
 export {
+  ECM_CONTACT_ACTIVE_EXISTS,
+  ECM_CONTACT_SOFT_DELETED,
+  EcmContactActiveExistsClientError,
+  EcmContactSoftDeletedClientError,
+  isEcmContactActiveExistsClientError,
+  isEcmContactSoftDeletedClientError,
+} from "./contact-identity";
+export {
   getEcmContactRegistryVersion,
   notifyEcmContactRegistryChanged,
   subscribeEcmContactRegistry,
@@ -60,12 +68,16 @@ export {
 } from "./contact-relationships";
 export {
   buildEcmBankerReportingChain,
+  buildInstitutionBankerProductIndex,
   formatEcmBankerOrgPath,
   getEcmBankerOrgPlacement,
   getEcmBankerProfile,
   getEcmBankerReportingManagerId,
   listEcmBankerDirectReports,
+  listEcmBankersForInstitution,
+  parseBankerProductsHandled,
   searchEcmContactsForReportingManager,
+  serializeBankerProductsHandled,
   setBankerReportingManager,
   ECM_BANKER_ORG_KEYS,
   ECM_BANKER_PROFILE_KEYS,

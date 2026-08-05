@@ -1,5 +1,7 @@
 /**
  * CO-ARCH-004 — Indian lending institution master seed (minimum baseline + nationally relevant).
+ * CO-LR-006 — Merged with comprehensive expansion catalogue (idempotent seedKeys).
+ * CO-LR-008 — Gap-fill for Product Owner master population (idempotent seedKeys).
  * Codes are allocated at bootstrap as LND000001…; seedKey is stable for idempotent upsert.
  */
 import type {
@@ -7,8 +9,15 @@ import type {
   LenderMasterClassification,
   LenderRegistryProductCode,
 } from "@/types/enterprise-lender-registry";
+import { getLenderBrandingBySeedKey } from "./branding-catalog";
+import { buildCoLr006LenderMasterEntries } from "./master-seed-catalog-co-lr-006";
+import { buildCoLr008LenderMasterEntries } from "./master-seed-catalog-co-lr-008";
 
-export const CO_ARCH_004_MASTER_SEED_VERSION = 1;
+export const CO_ARCH_004_MASTER_SEED_VERSION = 4;
+/** CO-LR-006 — production-ready comprehensive master seed revision. */
+export const CO_LR_006_CATALOG_VERSION = 1;
+/** CO-LR-008 — master population gap-fill revision. */
+export const CO_LR_008_CATALOG_VERSION = 1;
 
 export interface LenderMasterSeedEntry {
   /** Stable idempotent key (not the enterprise LND code). */
@@ -19,7 +28,22 @@ export interface LenderMasterSeedEntry {
   aliases: string[];
   classification: LenderMasterClassification;
   institutionCategory: LenderInstitutionCategory;
+  /**
+   * Enterprise Lender Category code (SSOT for registry filters).
+   * Defaults to institutionCategory when omitted.
+   * CO-LM-003 — Foreign Banks use `foreign_bank`.
+   */
+  categoryCode?: string;
+  /** CO-LM-003 — default master seed row (always present in every environment). */
+  defaultRecord?: boolean;
   website?: string;
+  /**
+   * CO-LW-005 — Official marketing brand name (defaults to displayName).
+   * Logo / brand asset live on `logoUrl` — never hardcode in UI.
+   */
+  brandName?: string;
+  /** CO-LW-005 — Official logo / brand asset URL (verified only). */
+  logoUrl?: string;
   headquartersLabel?: string;
   customerCarePhone?: string;
   customerCareEmail?: string;
@@ -1056,7 +1080,142 @@ const PAYMENTS: LenderMasterSeedEntry[] = [
   }),
 ];
 
-export const LENDER_MASTER_SEED_CATALOG: LenderMasterSeedEntry[] = [
+/**
+ * CO-LM-003 — Default Foreign Banks (approved list only — do not add more here without Product Architecture).
+ * Lender Category = Foreign Bank. institutionCategory remains `bank` (Prisma enum; no migration).
+ */
+const FOREIGN_BANKS: LenderMasterSeedEntry[] = [
+  entry({
+    seedKey: "standard_chartered",
+    legalName: "Standard Chartered Bank",
+    displayName: "Standard Chartered Bank",
+    shortName: "StanChart",
+    aliases: [
+      "Standard Chartered",
+      "SCB",
+      "Standard Chartered Bank India",
+      "Standard Chartered Bank Ltd",
+    ],
+    classification: "foreign_bank",
+    institutionCategory: "bank",
+    categoryCode: "foreign_bank",
+    defaultRecord: true,
+    website: "https://www.sc.com/in",
+    headquartersLabel: "Mumbai",
+  }),
+  entry({
+    seedKey: "hsbc",
+    legalName: "The Hongkong and Shanghai Banking Corporation Limited",
+    displayName: "HSBC Bank",
+    shortName: "HSBC",
+    aliases: ["HSBC", "HSBC Bank India", "HSBC India", "Hongkong and Shanghai Banking Corporation"],
+    classification: "foreign_bank",
+    institutionCategory: "bank",
+    categoryCode: "foreign_bank",
+    defaultRecord: true,
+    website: "https://www.hsbc.co.in",
+    headquartersLabel: "Mumbai",
+  }),
+  entry({
+    seedKey: "dbs_india",
+    legalName: "DBS Bank India Limited",
+    displayName: "DBS Bank India",
+    shortName: "DBS",
+    aliases: ["DBS", "DBS Bank", "DBS India", "Development Bank of Singapore"],
+    classification: "foreign_bank",
+    institutionCategory: "bank",
+    categoryCode: "foreign_bank",
+    defaultRecord: true,
+    website: "https://www.dbs.com/in",
+    headquartersLabel: "Mumbai",
+  }),
+  entry({
+    seedKey: "deutsche_bank",
+    legalName: "Deutsche Bank AG",
+    displayName: "Deutsche Bank",
+    shortName: "Deutsche",
+    aliases: ["Deutsche Bank AG", "Deutsche Bank India", "DB"],
+    classification: "foreign_bank",
+    institutionCategory: "bank",
+    categoryCode: "foreign_bank",
+    defaultRecord: true,
+    website: "https://www.deutschebank.co.in",
+    headquartersLabel: "Mumbai",
+  }),
+  entry({
+    seedKey: "bank_of_america",
+    legalName: "Bank of America, National Association",
+    displayName: "Bank of America",
+    shortName: "BofA",
+    aliases: ["Bank of America N.A.", "BoA", "BofA", "Bank of America India"],
+    classification: "foreign_bank",
+    institutionCategory: "bank",
+    categoryCode: "foreign_bank",
+    defaultRecord: true,
+    website: "https://www.bankofamerica.com",
+    headquartersLabel: "Mumbai",
+  }),
+  entry({
+    seedKey: "citibank",
+    legalName: "Citibank N.A.",
+    displayName: "Citibank",
+    shortName: "Citi",
+    aliases: ["Citi", "Citibank India", "Citibank N.A.", "Citibank NA"],
+    classification: "foreign_bank",
+    institutionCategory: "bank",
+    categoryCode: "foreign_bank",
+    defaultRecord: true,
+    website: "https://www.online.citibank.co.in",
+    headquartersLabel: "Mumbai",
+  }),
+  entry({
+    seedKey: "shinhan_bank",
+    legalName: "Shinhan Bank",
+    displayName: "Shinhan Bank",
+    shortName: "Shinhan",
+    aliases: ["Shinhan", "Shinhan Bank India", "Shinhan Bank Ltd"],
+    classification: "foreign_bank",
+    institutionCategory: "bank",
+    categoryCode: "foreign_bank",
+    defaultRecord: true,
+    website: "https://www.shinhan.com",
+    headquartersLabel: "Mumbai",
+  }),
+  entry({
+    seedKey: "state_bank_mauritius",
+    legalName: "SBM Bank (India) Limited",
+    displayName: "State Bank of Mauritius",
+    shortName: "SBM",
+    aliases: [
+      "SBM",
+      "SBM Bank",
+      "SBM Bank India",
+      "State Bank of Mauritius Ltd",
+      "SBM Bank (India)",
+    ],
+    classification: "foreign_bank",
+    institutionCategory: "bank",
+    categoryCode: "foreign_bank",
+    defaultRecord: true,
+    website: "https://www.sbmbank.co.in",
+    headquartersLabel: "Mumbai",
+  }),
+  entry({
+    seedKey: "doha_bank",
+    legalName: "Doha Bank Q.P.S.C.",
+    displayName: "Doha Bank",
+    shortName: "Doha",
+    aliases: ["Doha Bank India", "Doha Bank QPSC", "Doha Bank Ltd"],
+    classification: "foreign_bank",
+    institutionCategory: "bank",
+    categoryCode: "foreign_bank",
+    defaultRecord: true,
+    website: "https://in.dohabank.com",
+    headquartersLabel: "Mumbai",
+  }),
+];
+
+const BASELINE_LENDER_MASTER_SEED_CATALOG: LenderMasterSeedEntry[] = [
   ...PUBLIC_SECTOR,
   ...PRIVATE_SECTOR,
   ...SMALL_FINANCE,
@@ -1064,7 +1223,32 @@ export const LENDER_MASTER_SEED_CATALOG: LenderMasterSeedEntry[] = [
   ...NBFC,
   ...COOPERATIVE,
   ...PAYMENTS,
+  ...FOREIGN_BANKS,
 ];
+
+export const LENDER_MASTER_SEED_CATALOG: LenderMasterSeedEntry[] = (() => {
+  const afterLr006 = [
+    ...BASELINE_LENDER_MASTER_SEED_CATALOG,
+    ...buildCoLr006LenderMasterEntries(BASELINE_LENDER_MASTER_SEED_CATALOG),
+  ];
+  const merged = [...afterLr006, ...buildCoLr008LenderMasterEntries(afterLr006)];
+  /** CO-LW-005 — attach verified brand assets (logo only when curated). */
+  return merged.map((seed) => {
+    const brand = getLenderBrandingBySeedKey(seed.seedKey);
+    if (!brand) {
+      return {
+        ...seed,
+        brandName: seed.brandName ?? seed.displayName,
+      };
+    }
+    return {
+      ...seed,
+      brandName: brand.brandName || seed.displayName,
+      website: seed.website || brand.website,
+      ...(brand.logoUrl ? { logoUrl: brand.logoUrl } : {}),
+    };
+  });
+})();
 
 export function countLenderMasterSeedByClassification(): Record<
   LenderMasterClassification,
@@ -1078,9 +1262,27 @@ export function countLenderMasterSeedByClassification(): Record<
     nbfc: 0,
     cooperative_bank: 0,
     payments_bank: 0,
+    foreign_bank: 0,
   };
   for (const row of LENDER_MASTER_SEED_CATALOG) {
     counts[row.classification] += 1;
   }
   return counts;
+}
+
+/** CO-LM-003 — approved default Foreign Bank seed keys (exactly nine). */
+export const CO_LM_003_FOREIGN_BANK_SEED_KEYS = [
+  "standard_chartered",
+  "hsbc",
+  "dbs_india",
+  "deutsche_bank",
+  "bank_of_america",
+  "citibank",
+  "shinhan_bank",
+  "state_bank_mauritius",
+  "doha_bank",
+] as const;
+
+export function listDefaultForeignBankSeeds(): LenderMasterSeedEntry[] {
+  return LENDER_MASTER_SEED_CATALOG.filter((l) => l.categoryCode === "foreign_bank");
 }

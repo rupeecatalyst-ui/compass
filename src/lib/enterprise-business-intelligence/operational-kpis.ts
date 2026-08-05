@@ -12,7 +12,10 @@ export function deriveOperationalKpis(ctx: EbiDataContext): EbiOperationalKpis {
     (t) => isOpenTask(t) && taskColumn(t) === "due_today",
   ).length;
 
-  const inactiveOpportunities = ctx.radar.rows.filter((r) => r.idleDays >= 5).length;
+  // CO-MC-001 — inactive = operational neglect, not Healthy Waiting
+  const inactiveOpportunities = ctx.radar.rows.filter(
+    (r) => r.idleDays >= 5 && !r.isHealthyWaiting,
+  ).length;
   const dealsAwaitingDocuments = ctx.radar.rows.filter((r) => r.pendingDocs > 0).length;
   const dealsAwaitingLenderAction = ctx.radar.rows.filter(
     (r) =>

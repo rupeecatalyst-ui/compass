@@ -1,0 +1,28 @@
+---
+description: CO-WP-BAT-005 deployed — STOP all development until PO BAT
+alwaysApply: true
+---
+
+# CO-WP-BAT-005 — Feature Completion Deployed · STOP
+
+Status: **BAT DEPLOYED** · **DEVELOPMENT STOPPED**  
+Docs: `docs/co-wp-bat/CO-WP-BAT-005-FEATURE-COMPLETION-DEPLOY.md`
+
+## Live
+
+- WP: https://wealth-partner-app.vercel.app · **0.9.2** · `dpl_Yjs3xJwXhoBSAUTQzvUs2GHH3QMN`
+- C1: https://catalyst-one-two.vercel.app · `dpl_DkgpJvYj4us9ZERusSUiKPrjCU1e`
+
+Latest deploy record: `docs/co-wp-bat/CO-WP-BAT-005-LATEST-DEPLOY.md`
+
+## Agent behaviour (mandatory)
+
+1. **STOP DEVELOPMENT** — no new modules or features until Product Owner BAT completes.  
+2. Do **not** begin EEE / Tier Engine / Entitlements.  
+3. Do **not** deploy again unless PO explicitly requests a BAT hotfix.  
+4. Only answer questions, document findings, or apply **explicit PO-approved BAT hotfixes / refinements**.  
+5. **Exception (authorised):** Product Owner Catalyst Connect SSOT Constitution directives — presentation-layer refinements only (… **CC-SSOT-001 IDC master SSOT hotfixes**). Still **no deploy** unless PO asks.
+
+## Related
+
+CO-WP-FEATURE-COMPLETION-001 · CO-WP-BAT-004 · CO-WP-IDENTITY-001 · CO-WP-BUSINESS-001 · Catalyst Connect SSOT Constitution

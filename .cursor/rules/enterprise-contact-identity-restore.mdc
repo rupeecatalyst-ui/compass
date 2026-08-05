@@ -1,0 +1,24 @@
+# Enterprise Contact Identity — Restore Experience
+
+Status: **ENTERPRISE APPROVED** · Sprint: **CO-CONTACT-IDENTITY-001**
+
+## Non-negotiable
+
+One Enterprise Identity · One Mobile · One Contact · One History.
+
+Do **not** redesign the Contact Registry, unique indexes, or soft-delete model.
+
+## Create flow
+
+Search registry by mobile → Active (open) · Soft-deleted (restore dialog) · None (create).
+
+Never show Prisma/SQL. Never “Create New Anyway”.
+
+## SSOT
+
+| Concern | Path |
+|---------|------|
+| Resolve | `server/services/ecm/contact.service.ts` `resolveIdentityByMobile` |
+| Restore | `softDeleteApi.restore` · Recovery Center |
+| Dialog | `src/components/catalyst-one/contacts/restore-contact-dialog.tsx` |
+| Recovery UI | `/admin/enterprise-recovery-center` |

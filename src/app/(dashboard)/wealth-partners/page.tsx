@@ -1,11 +1,10 @@
 import { Suspense } from "react";
-import { PageHeader } from "@/components/design-system/page-header";
 import { WealthPartnerRegistryView } from "@/components/catalyst-one/wealth-partner-registry";
-import { WorkspaceExitNav } from "@/components/enterprise/navigation";
+import { EnterpriseRegistryWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-registry-workspace-shell";
 import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
-/** CO-WP-001 — Enterprise Wealth Partner Registry (operational desk). */
+/** CO-WP-001 — Enterprise Wealth Partner Registry (operational desk). CO-UX-016 shell. */
 export default function WealthPartnersPage() {
   return (
     <Suspense
@@ -17,17 +16,15 @@ export default function WealthPartnersPage() {
         />
       }
     >
-      <div className="space-y-3">
-        <WorkspaceExitNav
-          breadcrumbs={buildSimpleWorkspaceBreadcrumbs("Wealth Partners")}
-          className="-mx-4 sm:-mx-6"
-        />
-        <PageHeader
-          title="Enterprise Wealth Partner Registry"
-          description="Business relationships with Rupee Catalyst — built on Contact or Company identity. Not a profession master."
-        />
+      <EnterpriseRegistryWorkspaceShell
+        title="Wealth Partners"
+        subtitle="Business relationships"
+        breadcrumbs={buildSimpleWorkspaceBreadcrumbs("Wealth Partners")}
+        data-surface="wealth-partner-registry"
+        data-sprint="CO-UX-016"
+      >
         <WealthPartnerRegistryView />
-      </div>
+      </EnterpriseRegistryWorkspaceShell>
     </Suspense>
   );
 }

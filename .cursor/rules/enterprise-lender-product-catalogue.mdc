@@ -1,0 +1,26 @@
+# Enterprise Lender Product Catalogue (CO-LM-004)
+
+Status: **ENTERPRISE APPROVED** · Commercial offer catalogue SSOT
+
+## Principle
+
+Lender–product commercial offers (`LENDERS_BY_PRODUCT`) are **Enterprise Master Data**.
+
+They must **never** reside in marketing websites, landing pages, or `src/lib/site.ts`.
+
+## SSOT
+
+| Concern | Path |
+|---------|------|
+| Types | `src/types/enterprise-lender-product-catalogue.ts` |
+| Catalogue | `src/constants/enterprise-lender-product-catalogue/` |
+| Lib facade | `src/lib/enterprise-lender-product-catalogue/` |
+
+## Consumers
+
+Enterprise Lender Directory · Insights / Mission Control · (legacy marketing Eligibility Gate may import the enterprise SSOT only)
+
+## Forbidden
+
+- Defining a parallel `LENDERS_BY_PRODUCT` in `site.ts` or COMPASS UI helpers
+- Recalculating offer rates outside this catalogue for the same published rows

@@ -52,10 +52,16 @@ export type EnterpriseDealApiRecord = {
   invoicePartySpecify?: string | null;
   invoicePartyContactId?: string | null;
   invoicePartyId?: string | null;
+  /** @deprecated legacy bridge — prefer invoicePartyId */
+  commissionAccountingPayeeId?: string | null;
   priority?: string;
+  isUrgent?: boolean;
   stageEnteredAt?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
+  /** Deal Health Score (0–100) from Enterprise Deal Registry — null until computed. */
+  healthScore?: number | null;
+  healthBand?: string | null;
   /** Deal snapshot — may include lenders[] for Pipeline rehydrate. */
   snapshot?: unknown;
 };
@@ -168,6 +174,8 @@ export const enterpriseDealApiClient = {
     pageSize?: number;
     archived?: boolean;
     productFamily?: string;
+    /** Free-text: deal number, customer, lender, product, RM, opportunity */
+    q?: string;
     /** CO-PERF-002 — Phase 1 registry paint */
     view?: "summary" | "full";
   } = {}): Promise<{ items: EnterpriseDealApiRecord[]; total: number; view?: string }> {
@@ -180,6 +188,7 @@ export const enterpriseDealApiClient = {
     if (query.archived === false) params.set("archived", "false");
     if (query.archived === true) params.set("archived", "true");
     if (query.productFamily) params.set("productFamily", query.productFamily);
+    if (query.q?.trim()) params.set("q", query.q.trim());
     if (query.view) params.set("view", query.view);
     const page = await dealFetch<{
       items: EnterpriseDealApiRecord[];

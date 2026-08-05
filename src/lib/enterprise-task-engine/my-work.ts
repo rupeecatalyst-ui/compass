@@ -6,11 +6,21 @@ import type { EteMyWorkView, EteTask } from "@/types/enterprise-task-engine";
 import { listEteTasks } from "./task-registry";
 import { columnForTask, resolveWorkType, resolveTaskStatus } from "./task-workspace";
 
+/**
+ * Normalize employee:/user: refs so Planner, My Work, and Task lists
+ * agree on the same assignee identity.
+ */
+export function sameAssigneeRef(a: string | undefined, b: string | undefined): boolean {
+  if (!a?.trim() || !b?.trim()) return false;
+  const na = a.replace(/^user:/, "").replace(/^employee:/, "").trim();
+  const nb = b.replace(/^user:/, "").replace(/^employee:/, "").trim();
+  if (!na || !nb) return false;
+  return a === b || na === nb || a === `user:${nb}` || a === `employee:${nb}` || b === `user:${na}` || b === `employee:${na}`;
+}
+
+/** @deprecated Prefer sameAssigneeRef */
 function sameUser(a: string | undefined, b: string): boolean {
-  if (!a) return false;
-  const na = a.replace(/^user:/, "").replace(/^employee:/, "");
-  const nb = b.replace(/^user:/, "").replace(/^employee:/, "");
-  return a === b || na === nb || a === `user:${nb}` || a === `employee:${nb}`;
+  return sameAssigneeRef(a, b);
 }
 
 function isOpen(task: EteTask): boolean {
@@ -23,9 +33,9 @@ function isCompleted(task: EteTask): boolean {
 
 export function buildMyWorkView(userRef: string): EteMyWorkView {
   const all = listEteTasks();
-  const assignedToMe = all.filter((t) => sameUser(t.assigneeRef, userRef));
+  const assignedToMe = all.filter((t) => sameAssigneeRef(t.assigneeRef, userRef));
   const assignedByMe = all.filter(
-    (t) => sameUser(t.assignedByRef, userRef) || sameUser(t.createdBy, userRef),
+    (t) => sameAssigneeRef(t.assignedByRef, userRef) || sameAssigneeRef(t.createdBy, userRef),
   );
 
   const openMine = assignedToMe.filter(isOpen);

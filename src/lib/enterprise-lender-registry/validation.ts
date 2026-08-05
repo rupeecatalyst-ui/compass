@@ -39,6 +39,7 @@ export function validateLenderMaster(
     nbfc: 0,
     cooperative_bank: 0,
     payments_bank: 0,
+    foreign_bank: 0,
     unclassified: 0,
   };
 

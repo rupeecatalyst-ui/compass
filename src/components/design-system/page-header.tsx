@@ -5,16 +5,49 @@ interface PageHeaderProps {
   description?: string;
   actions?: React.ReactNode;
   className?: string;
+  /** `registry` = CO-UX-016 compact Enterprise Registry chrome */
+  density?: "default" | "registry";
 }
 
-export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  className,
+  density = "default",
+}: PageHeaderProps) {
+  const compact = density === "registry";
   return (
-    <div className={cn("flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between", className)}>
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+    <div
+      className={cn(
+        "flex flex-col sm:flex-row sm:items-center sm:justify-between",
+        compact ? "gap-1.5" : "gap-4",
+        className,
+      )}
+    >
+      <div className={cn(compact ? "space-y-0" : "space-y-1")}>
+        <h1
+          className={cn(
+            "font-semibold tracking-tight",
+            compact ? "text-sm md:text-[15px]" : "text-2xl",
+          )}
+        >
+          {title}
+        </h1>
+        {description && (
+          <p
+            className={cn(
+              "text-muted-foreground",
+              compact ? "hidden text-[11px] sm:block" : "text-sm",
+            )}
+          >
+            {description}
+          </p>
+        )}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className={cn("flex items-center", compact ? "gap-1.5" : "gap-2")}>{actions}</div>
+      )}
     </div>
   );
 }

@@ -18,10 +18,12 @@
 | **ADR-019 Implementation Programme** | `docs/co-arch-003/CO-ARCH-ADR-019-IMPLEMENTATION-PROGRAMME.md` — **APPROVED · Roadmap CERTIFIED · FROZEN** · Implementation **NOT YET AUTHORISED** · Wave 1 needs separate PO authorisation |
 | Implementation Lifecycle (until Go-Live) | `.cursor/rules/implementation-lifecycle-pre-golive.mdc` |
 | Enterprise Health Check template | `docs/governance/ENTERPRISE-HEALTH-CHECK-TEMPLATE.md` |
+| **CO-ARCH-002 Enterprise Data Protection** (FROZEN) | `docs/governance/CO-ARCH-002-ENTERPRISE-DATA-PROTECTION.md` · `.cursor/rules/enterprise-data-protection-co-arch-002.mdc` |
 
 ## Standing constraints
 
 - **Constitutional Health Check** before any production code — stop and report on conflict; never silent architectural change.  
+- **CO-ARCH-002:** READ · EXTEND · NEVER DESTROY enterprise data unless Product Owner explicitly authorises.  
 - Cite the **Enterprise Architecture Baseline** in future Architecture Reviews and Wave plans.  
 - ADR-018 remains **frozen** as certified.  
 - ADR-019 architecture is **frozen**; implementation requires a **separate** roadmap + Wave 1 Product Owner approval.  

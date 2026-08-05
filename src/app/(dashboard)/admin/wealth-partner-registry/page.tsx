@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import { PageHeader } from "@/components/design-system/page-header";
 import { WealthPartnerRegistryView } from "@/components/catalyst-one/wealth-partner-registry";
+import { EnterpriseRegistryWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-registry-workspace-shell";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
-/** CO-WP-001 — Admin entry → same registry desk. */
+/** CO-WP-001 — Admin entry → same registry desk. CO-UX-016. */
 export default function AdminWealthPartnerRegistryPage() {
   return (
     <Suspense
@@ -15,13 +15,14 @@ export default function AdminWealthPartnerRegistryPage() {
         />
       }
     >
-      <div className="space-y-3">
-        <PageHeader
-          title="Wealth Partner Registry"
-          description="Administration master for Enterprise Wealth Partners (CO-WP-001)."
-        />
+      <EnterpriseRegistryWorkspaceShell
+        title="Wealth Partners"
+        subtitle="Administration master"
+        data-surface="wealth-partner-registry-admin"
+        data-sprint="CO-UX-016"
+      >
         <WealthPartnerRegistryView />
-      </div>
+      </EnterpriseRegistryWorkspaceShell>
     </Suspense>
   );
 }

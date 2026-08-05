@@ -5,9 +5,17 @@ import { usePathname } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import {
   buildChanakyaLiveIntelligenceMessages,
+  resolveChanakyaLiveEntityFromLocation,
   resolveChanakyaLiveIntelligenceWorkspace,
 } from "@/lib/chanakya-live-intelligence";
-import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
+import {
+  hydrateLiveOpportunities,
+} from "@/lib/chanakya-live-intelligence/live-ssot";
+import {
+  hydrateRadarDealFiles,
+  subscribeRadarDealSource,
+} from "@/lib/chanakya-radar/radar-deal-source";
+import { subscribeOpportunitiesUpdated } from "@/lib/enterprise-opportunity/opportunity-data-sync";
 import { cn } from "@/lib/utils";
 import type { ChanakyaLiveIntelligenceMessage } from "@/types/chanakya-live-intelligence";
 
@@ -27,36 +35,62 @@ function ensureTickerKeyframes() {
   document.head.appendChild(style);
 }
 
+function readLocationSearch(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.search.replace(/^\?/, "");
+}
+
 function useLiveIntelligenceMessages(
   messagesProp: ChanakyaLiveIntelligenceMessage[] | undefined,
   pathname: string,
 ) {
   const [tick, setTick] = useState(0);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (messagesProp) return;
-    const bump = () => setTick((t) => t + 1);
-    const unsub = subscribeLoanFilesUpdated(bump);
+    let cancelled = false;
+    const bump = () => {
+      if (!cancelled) {
+        setSearch(readLocationSearch());
+        setTick((t) => t + 1);
+      }
+    };
+
+    setSearch(readLocationSearch());
+
+    // CO-CHANAKYA-007 — hydrate live Deal + Opportunity registries before advising.
+    void hydrateRadarDealFiles().then(bump).catch(() => bump());
+    void hydrateLiveOpportunities().then(bump).catch(() => bump());
+
+    const unsubDeals = subscribeRadarDealSource(bump);
+    const unsubOpps = subscribeOpportunitiesUpdated(bump);
     window.addEventListener("storage", bump);
+    window.addEventListener("popstate", bump);
     const interval = window.setInterval(bump, 60_000);
     return () => {
-      unsub();
+      cancelled = true;
+      unsubDeals();
+      unsubOpps();
       window.removeEventListener("storage", bump);
+      window.removeEventListener("popstate", bump);
       window.clearInterval(interval);
     };
-  }, [messagesProp]);
+  }, [messagesProp, pathname]);
 
   return useMemo(() => {
     if (messagesProp) return messagesProp;
     void tick;
     const workspace = resolveChanakyaLiveIntelligenceWorkspace(pathname);
-    return buildChanakyaLiveIntelligenceMessages(workspace);
-  }, [messagesProp, pathname, tick]);
+    const entity = resolveChanakyaLiveEntityFromLocation(pathname, search);
+    return buildChanakyaLiveIntelligenceMessages(workspace, { entity });
+  }, [messagesProp, pathname, search, tick]);
 }
 
 /**
  * EUX-007 — CHANAKYA Live Intelligence Bar (Enterprise Header).
  * Single reusable component. Passive ticker; detail via CHANAKYA AI button.
+ * CO-CHANAKYA-007 — messages hydrate from live Enterprise SSOTs only.
  */
 export function ChanakyaLiveIntelligenceBar({
   messages: messagesProp,

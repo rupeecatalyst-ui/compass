@@ -1,0 +1,46 @@
+<!doctype html>
+<html><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<style>
+:root { --bottomnav-h: 64px; --safe-bottom: 0px; --shell-max: 480px; --color-surface-canvas:#0f1413; --color-surface-elevated:#1a2220; --color-text-primary:#eef3f1; --color-border-subtle:#2a3532; }
+html,body{margin:0;background:#0c1010;color:var(--color-text-primary);font-family:system-ui}
+.app-frame.shell{min-height:100dvh;max-width:var(--shell-max);margin:0 auto;background:var(--color-surface-canvas);position:relative;
+  height:100dvh;max-height:100dvh;overflow:hidden;display:flex;flex-direction:column;padding-bottom:calc(var(--bottomnav-h) + var(--safe-bottom))}
+.shell-main{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding:12px}
+.home-dash{display:flex;flex-direction:column;gap:12px}
+.card{border:1px solid var(--color-border-subtle);border-radius:14px;padding:16px;background:var(--color-surface-elevated);min-height:120px}
+.featured{min-height:280px;background:linear-gradient(160deg,#1a5c57,#1a2220)}
+.bottom-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:min(100%,var(--shell-max));height:calc(var(--bottomnav-h) + var(--safe-bottom));
+  display:grid;grid-template-columns:repeat(5,1fr);background:rgba(26,34,32,.94);border-top:1px solid var(--color-border-subtle);z-index:30}
+.bn{display:grid;place-items:center;font-size:10px;opacity:.8}
+</style></head><body>
+<div class="app-frame shell">
+  <main class="shell-main">
+    <div class="home-dash">
+      <div class="card featured">Featured Cards</div>
+      <div class="card">Business Snapshot</div>
+      <div class="card">Quick Actions</div>
+      <div class="card">Recent Activity</div>
+      <div class="card">Notifications</div>
+      <div class="card" style="min-height:220px">Lower section reachable via scroll</div>
+    </div>
+  </main>
+  <nav class="bottom-nav"><div class="bn">Home</div><div class="bn">Biz</div><div class="bn">+</div><div class="bn">Alerts</div><div class="bn">More</div></nav>
+</div>
+<script>
+window.__metrics = (()=>{
+  const shell=document.querySelector('.shell');
+  const main=document.querySelector('.shell-main');
+  const before=main.scrollTop; main.scrollTop=600; const after=main.scrollTop; main.scrollTop=0;
+  return {
+    canScroll: main.scrollHeight > main.clientHeight + 8,
+    scrolled: after > 40,
+    navFixed: getComputedStyle(document.querySelector('.bottom-nav')).position==='fixed',
+    shellH: shell.clientHeight,
+    mainScrollH: main.scrollHeight,
+    mainClientH: main.clientHeight,
+    vh: innerHeight
+  };
+})();
+</script>
+</body></html>

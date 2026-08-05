@@ -1,0 +1,26 @@
+---
+description: CO-WP-CUSTOMER-001 — Lightweight Customer Workspace; ECR SSOT; no Connect customer DB; no deploy
+alwaysApply: true
+---
+
+# CO-WP-CUSTOMER-001 — Lightweight Customer Workspace
+
+Status: **COMPLETE (local)** · **NO DEPLOY** · Extends JOURNEY-003  
+Docs: `docs/catalyst-connect/CATALYST-CONNECT-CUSTOMER-WORKSPACE.md`
+
+## Principles
+
+1. Customer identity from **Enterprise Customer Registry** (ECM Contact).  
+2. Connect **renders** Partner Customer DTOs only — no local customer database.  
+3. Sections: Profile · Contact · Active/Previous Opportunities · Documents · Notes · Tasks · Follow-up · Communication.  
+4. Do **not** modify frozen Opportunity Creation / Opportunity Workspace without PO instruction.  
+5. Do **not** deploy unless Product Owner authorises.
+
+## SSOT
+
+| Concern | Path |
+|--------|------|
+| DTO | `src/types/enterprise-partner-customer-workspace.ts` |
+| Compose | `server/services/partner-gateway/partner-customer-workspace.compose.ts` |
+| API | `GET /api/partner/customers` · `GET /api/partner/customers/:id` |
+| WP | `CustomerWorkspaceScreen` · `CustomerPanels` |

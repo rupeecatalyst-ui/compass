@@ -3,6 +3,8 @@
  * Wealth Partner is a business relationship on top of Contact or Company identity.
  */
 
+import type { WealthPartnerLegalComplianceProjection } from "@/types/enterprise-wealth-partner-legal-docket";
+
 export type WealthPartnerIdentityKind = "contact" | "company";
 
 export type WealthPartnerLifecycleStatus =
@@ -173,6 +175,33 @@ export interface WealthPartnerListQuery {
   status?: RegistryStatusLite | "all" | string;
   enabled?: boolean;
   includeDeleted?: boolean;
+  /** CO-WP-006 — exact Contact identity lookup */
+  contactId?: string;
+  /** CO-WP-006 — exact Company identity lookup */
+  companyId?: string;
+  /**
+   * CO-WP-102B — When false/omitted, BAT demo partners (WPDEMO001) are excluded
+   * from operational registry lists / analytics feeds. Admin may pass true to manage.
+   */
+  includeBatDemo?: boolean;
+}
+
+/** CO-WP-001 / CO-WP-006 — summary returned when Contact/Company already has a WP. */
+export interface ExistingWealthPartnerSummary {
+  partnerId: string;
+  code: string;
+  displayName: string;
+  partnerType?: string | null;
+  status: string;
+  lifecycleStatus: string;
+  operationalStatus?: string | null;
+  createdAt: string;
+  identityKind: WealthPartnerIdentityKind | string;
+  reason:
+    | "already_registered"
+    | "soft_deleted_recovered"
+    | "orphan_identity_missing"
+    | "duplicate_code_retry";
 }
 
 export interface WealthPartnerListResult {
@@ -300,6 +329,8 @@ export interface WealthPartnerWorkspaceBundle {
       createdAt: string;
     }>;
   };
+  /** CO-WP-007 — Legal & Compliance Docket projection (complianceJson + compose). */
+  legalCompliance?: WealthPartnerLegalComplianceProjection;
 }
 
 /** CO-WP-003 — Network Intelligence (read-only projection). */

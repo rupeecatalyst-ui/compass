@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, MoreHorizontal } from "lucide-react";
+import { ROUTES } from "@/constants/routes";
 import { LenderLogo } from "@/components/catalyst-one/shared/lender-logo";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { Button } from "@/components/ui/button";
@@ -30,7 +32,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChanakyaLenderLoginProbeDialog } from "@/components/catalyst-one/execution/chanakya-lender-login-probe-dialog";
-import { LenderStrategyDrawer } from "@/components/catalyst-one/execution/lender-strategy-drawer";
+import { DealControlPanel } from "@/components/catalyst-one/execution/deal-control-panel";
+import {
+  EnterpriseStageTransitionDialog,
+  type EnterpriseStageTransitionConfirm,
+} from "@/components/catalyst-one/shared/enterprise-stage-transition-dialog";
+import { lenderSubStageLabel } from "@/constants/enterprise-stage-transition";
+import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
+import { EDC_EVENT_TYPES } from "@/constants/enterprise-dialogue-center/lifecycle";
+import { saveConversationActivity } from "@/lib/enterprise-conversation-intelligence";
 import { tracePipelineDrag } from "@/lib/enterprise-deal/pipeline-drag-trace";
 import {
   buildLenderLoginProbePatch,
@@ -46,6 +56,9 @@ import {
   LENDER_CASE_STAGE_LABELS,
   LENDER_LOST_REASONS,
   LENDER_PROBABILITY_LABELS,
+  dealHealthScoreKanbanTone,
+  dealPriorityKanbanTone,
+  formatKanbanCardDate,
   isPreExecutionStage,
   normalizeLenderCaseStage,
 } from "@/constants/lender-pipeline";
@@ -57,7 +70,15 @@ import type {
   LoanLenderExecution,
 } from "@/types/catalyst-one";
 import { EnterpriseLenderSearch } from "@/components/catalyst-one/shared/enterprise-lender-search";
+import { LenderSalesContactCapture } from "@/components/catalyst-one/execution/lender-sales-contact-capture";
 import { rememberDealLender } from "@/lib/deal-workspace/recent-deal-lenders";
+import {
+  enrichLenderSalesContactOfficialEmail,
+  LENDER_SALES_CONTACT_DISBURSAL_EMAIL_MESSAGE,
+  salesContactHasOfficialEmail,
+  type LenderSalesContactLink,
+} from "@/lib/lender-sales-contact";
+import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import type { DealPipelineContext } from "@/types/deal-pipeline-runtime";
 import type { EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
@@ -109,6 +130,17 @@ export function LenderPipelineBoard({
     program: EnterpriseLenderProgramRecord;
     expectedLoanAmount?: number;
     caseSubStage?: string;
+    /** CO-LR-013 — Mandatory Sales Contact (Banker). */
+    lenderSalesContact: {
+      contactId: string;
+      contactName: string;
+      mobile?: string;
+      designationId?: string;
+      designationLabel?: string;
+      officialEmail?: string;
+      institutionId?: string;
+      institutionLabel?: string;
+    };
   }) => Promise<void>;
   /** CO-UX-015 — notify when operator focuses a lender card (Action Center context). */
   onActiveCaseChange?: (caseExecution: LoanLenderExecution) => void;
@@ -119,6 +151,7 @@ export function LenderPipelineBoard({
   onRemoveDeal?: (dealId: string, card: LoanLenderExecution) => Promise<void>;
 }) {
   const loan = context;
+  const router = useRouter();
   const [dragOverStage, setDragOverStage] = useState<LenderCaseStage | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [addOpenInternal, setAddOpenInternal] = useState(false);
@@ -141,12 +174,16 @@ export function LenderPipelineBoard({
   const [pendingProgram, setPendingProgram] = useState<EnterpriseLenderProgramRecord | null>(
     null,
   );
+  const [pendingSalesContact, setPendingSalesContact] =
+    useState<LenderSalesContactLink | null>(null);
 
   const [disbursementCase, setDisbursementCase] = useState<WorkflowCase | null>(null);
   const [lostCase, setLostCase] = useState<WorkflowCase | null>(null);
   const [holdCase, setHoldCase] = useState<WorkflowCase | null>(null);
   const [loginProbeCase, setLoginProbeCase] = useState<WorkflowCase | null>(null);
   const [strategyCase, setStrategyCase] = useState<LoanLenderExecution | null>(null);
+  /** CO-WF-006 — guided mid-stage transition dialog */
+  const [transitionCase, setTransitionCase] = useState<WorkflowCase | null>(null);
 
   const focusCase = (c: LoanLenderExecution | undefined | null) => {
     if (!c) return;
@@ -174,7 +211,10 @@ export function LenderPipelineBoard({
     revenue: 0,
     invoiceRaised: false,
     paymentStatus: "pending" as LenderPaymentStatus,
+    officialEmail: "",
   });
+  const [disbursementEmailRequired, setDisbursementEmailRequired] = useState(false);
+  const [disbursementBusy, setDisbursementBusy] = useState(false);
 
   const [lostReason, setLostReason] = useState<LenderLostReason>("rejected");
   const [holdForm, setHoldForm] = useState({ holdReason: "", holdReviewDate: "" });
@@ -245,6 +285,14 @@ export function LenderPipelineBoard({
 
     if (stage === "disbursed") {
       tracePipelineDrag("stage_validation", { gate: "disbursement_dialog", caseId, stage });
+      const linked =
+        (c.lenderSalesContactId
+          ? findOperationalEcmContactById(c.lenderSalesContactId)
+          : null) ?? null;
+      const needsEmail =
+        Boolean(c.lenderSalesContactId) && !salesContactHasOfficialEmail(linked) &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.lenderSalesContactOfficialEmail ?? "");
+      setDisbursementEmailRequired(needsEmail);
       setDisbursementCase({ ...c, targetStage: stage });
       setDisbursementForm({
         disbursementDate: new Date().toISOString().slice(0, 10),
@@ -255,6 +303,10 @@ export function LenderPipelineBoard({
         revenue: c.revenue ?? 0,
         invoiceRaised: c.invoiceRaised ?? false,
         paymentStatus: c.paymentStatus ?? "pending",
+        officialEmail:
+          linked?.officialEmail?.trim() ||
+          c.lenderSalesContactOfficialEmail?.trim() ||
+          "",
       });
       setDragOverStage(null);
       setDraggingId(null);
@@ -289,10 +341,85 @@ export function LenderPipelineBoard({
       return;
     }
 
-    // CO-UX-001 — Payee / Invoice Party is Accounting Stage — never block Pipeline drag.
+    // CO-UX-001 / CO-DWS-001C — Payee / Invoice Party is Accounting only — never block Pipeline drag.
+
+    // CO-WF-006 — Guide → Recommend → Confirm for mid-stage moves (special gates keep their dialogs).
+    if (normalizeLenderCaseStage(c.caseStage) !== stage) {
+      tracePipelineDrag("stage_validation", { gate: "enterprise_transition_dialog", caseId, stage });
+      setTransitionCase({ ...c, targetStage: stage });
+      setDragOverStage(null);
+      setDraggingId(null);
+      return;
+    }
 
     tracePipelineDrag("apply_move", { caseId, from: c.caseStage, to: stage });
     applyMove(caseId, stage);
+  };
+
+  const confirmEnterpriseTransition = async (result: EnterpriseStageTransitionConfirm) => {
+    if (!transitionCase) return;
+    const caseId = transitionCase.id;
+    applyMove(caseId, transitionCase.targetStage, {
+      caseSubStage: result.toSubStageId ?? undefined,
+      remarks: result.reason || transitionCase.remarks,
+    });
+
+    const dealId = transitionCase.enterpriseDealId || transitionCase.id;
+    const oppId = transitionCase.opportunityId || loan.opportunityId;
+    try {
+      appendEdcTimelineEntry({
+        contextRef: {
+          type: oppId ? "opportunity" : "deal",
+          id: oppId || dealId,
+        },
+        eventType: EDC_EVENT_TYPES.STAGE_CHANGE,
+        title: `Stage: ${LENDER_CASE_STAGE_LABELS[normalizeLenderCaseStage(result.fromStage)] ?? result.fromStage} → ${result.toStageLabel}`,
+        description: [
+          `Previous sub-stage: ${lenderSubStageLabel(result.fromStage, result.fromSubStage) || "Not Specified"}`,
+          `New sub-stage: ${result.toSubStageLabel || "Not Specified"}`,
+          result.reason ? `Reason: ${result.reason}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        actorId: updatedBy,
+        expandablePayload: {
+          previousStage: result.fromStage,
+          newStage: result.toStage,
+          previousSubStage: result.fromSubStage,
+          newSubStage: result.toSubStageId,
+          dealId,
+          opportunityId: oppId,
+          reason: result.reason,
+          source: "CO-WF-006",
+        },
+      });
+    } catch {
+      /* timeline must not block transition */
+    }
+
+    if (result.reason.trim()) {
+      try {
+        await saveConversationActivity({
+          composer: {
+            contextType: oppId ? "opportunity" : "deal",
+            contextId: oppId || dealId,
+            entityLabel: transitionCase.lender,
+            opportunityId: oppId ?? null,
+            dealId,
+          },
+          channel: "typed_note",
+          title: `Stage transition · ${result.toStageLabel}`,
+          bodyText: result.reason,
+          actorUserId: updatedBy,
+          actorLabel: updatedBy,
+        });
+      } catch {
+        /* activity optional relative to stage move */
+      }
+    }
+
+    setTransitionCase(null);
+    toast.success(`Moved to ${result.toStageLabel}${result.toSubStageLabel ? ` · ${result.toSubStageLabel}` : ""}`);
   };
 
   const submitAddCase = () => {
@@ -302,6 +429,10 @@ export function LenderPipelineBoard({
     }
     if (!pendingProgram) {
       toast.error("Select a Lender Program belonging to the chosen Lender.");
+      return;
+    }
+    if (!pendingSalesContact?.contactId) {
+      toast.error("Select or create a Lender Sales Contact before identifying the lender.");
       return;
     }
     const displayName = pendingLender.displayName || pendingLender.label;
@@ -314,6 +445,7 @@ export function LenderPipelineBoard({
       setAddDialogOpen(false);
       setPendingLender(null);
       setPendingProgram(null);
+      setPendingSalesContact(null);
       setAddForm({
         lender: "",
         expectedLoanAmount: loan.requiredAmount,
@@ -331,6 +463,16 @@ export function LenderPipelineBoard({
             program: pendingProgram,
             expectedLoanAmount: addForm.expectedLoanAmount,
             caseSubStage: addForm.caseSubStage || undefined,
+            lenderSalesContact: {
+              contactId: pendingSalesContact.contactId,
+              contactName: pendingSalesContact.contactName,
+              mobile: pendingSalesContact.mobile,
+              designationId: pendingSalesContact.designationId,
+              designationLabel: pendingSalesContact.designationLabel,
+              officialEmail: pendingSalesContact.officialEmail,
+              institutionId: pendingSalesContact.institutionId,
+              institutionLabel: pendingSalesContact.institutionLabel,
+            },
           });
           rememberDealLender({
             id: pendingLender.id,
@@ -338,7 +480,7 @@ export function LenderPipelineBoard({
             code: pendingLender.code,
           });
           onTimeline(
-            `Enterprise Deal created: ${displayName} · Program ${pendingProgram.label}`,
+            `Enterprise Deal created: ${displayName} · Program ${pendingProgram.label} · Sales Contact ${pendingSalesContact.contactName}`,
           );
           finishClose();
         } catch (err) {
@@ -367,6 +509,14 @@ export function LenderPipelineBoard({
       lenderRegistryId: pendingLender.id,
       lenderProgramId: pendingProgram.id,
       lenderProgramLabel: pendingProgram.label,
+      lenderSalesContactId: pendingSalesContact.contactId,
+      lenderSalesContactName: pendingSalesContact.contactName,
+      lenderSalesContactMobile: pendingSalesContact.mobile,
+      lenderSalesContactDesignationId: pendingSalesContact.designationId,
+      lenderSalesContactDesignationLabel: pendingSalesContact.designationLabel,
+      lenderSalesContactOfficialEmail: pendingSalesContact.officialEmail,
+      lenderSalesContactInstitutionId: pendingSalesContact.institutionId,
+      lenderSalesContactInstitutionLabel: pendingSalesContact.institutionLabel,
       status: "active",
       caseStage: "identified",
       caseSubStage: addForm.caseSubStage || undefined,
@@ -395,7 +545,7 @@ export function LenderPipelineBoard({
     onTimeline(
       `Lender identified: ${next.lender} · Program ${pendingProgram.label}${
         next.lenderCode ? ` (${next.lenderCode})` : ""
-      }`,
+      } · Sales Contact ${pendingSalesContact.contactName}`,
     );
     finishClose();
   };
@@ -492,22 +642,72 @@ export function LenderPipelineBoard({
 
   const confirmDisbursement = () => {
     if (!disbursementCase) return;
-    // CO-ARCH-005 — EDIE gate is LoanFile-shaped; Deal path records invoice intent without LoanFile.
-    // Full Deal-native EDIE evaluation is a follow-on; do not revive LoanFile for this gate.
-    if (disbursementForm.invoiceRaised) {
-      toast.message("Invoice marked — complete EDIE compliance from Mission Control if required.");
-    }
-    applyMove(disbursementCase.id, "disbursed", {
-      disbursementDate: disbursementForm.disbursementDate,
-      disbursedAmount: disbursementForm.disbursedAmount,
-      finalRoi: disbursementForm.finalRoi,
-      finalTenure: disbursementForm.finalTenure,
-      processingFee: disbursementForm.processingFee,
-      revenue: disbursementForm.revenue,
-      invoiceRaised: disbursementForm.invoiceRaised,
-      paymentStatus: disbursementForm.paymentStatus,
-    });
-    setDisbursementCase(null);
+    void (async () => {
+      setDisbursementBusy(true);
+      try {
+        let salesEmail = disbursementForm.officialEmail.trim();
+        const contactId = disbursementCase.lenderSalesContactId?.trim();
+
+        if (contactId) {
+          const linked = findOperationalEcmContactById(contactId);
+          const hasEmail =
+            salesContactHasOfficialEmail(linked) ||
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+              disbursementCase.lenderSalesContactOfficialEmail ?? "",
+            );
+          if (!hasEmail) {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(salesEmail)) {
+              toast.error(LENDER_SALES_CONTACT_DISBURSAL_EMAIL_MESSAGE);
+              setDisbursementEmailRequired(true);
+              return;
+            }
+            // Progressive enrichment — update existing ECM contact (never create another).
+            const updated = await enrichLenderSalesContactOfficialEmail(
+              contactId,
+              salesEmail,
+              updatedBy,
+            );
+            salesEmail =
+              updated.officialEmail?.trim() ||
+              updated.roleProfiles?.lender_employee?.officialEmail?.trim() ||
+              salesEmail;
+          } else {
+            salesEmail =
+              linked?.officialEmail?.trim() ||
+              disbursementCase.lenderSalesContactOfficialEmail?.trim() ||
+              salesEmail;
+          }
+        }
+
+        // CO-ARCH-005 — EDIE gate is LoanFile-shaped; Deal path records invoice intent without LoanFile.
+        if (disbursementForm.invoiceRaised) {
+          toast.message(
+            "Invoice marked — complete EDIE compliance from Mission Control if required.",
+          );
+        }
+        applyMove(disbursementCase.id, "disbursed", {
+          disbursementDate: disbursementForm.disbursementDate,
+          disbursedAmount: disbursementForm.disbursedAmount,
+          finalRoi: disbursementForm.finalRoi,
+          finalTenure: disbursementForm.finalTenure,
+          processingFee: disbursementForm.processingFee,
+          revenue: disbursementForm.revenue,
+          invoiceRaised: disbursementForm.invoiceRaised,
+          paymentStatus: disbursementForm.paymentStatus,
+          ...(contactId && salesEmail
+            ? { lenderSalesContactOfficialEmail: salesEmail }
+            : {}),
+        });
+        setDisbursementCase(null);
+        setDisbursementEmailRequired(false);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : LENDER_SALES_CONTACT_DISBURSAL_EMAIL_MESSAGE,
+        );
+      } finally {
+        setDisbursementBusy(false);
+      }
+    })();
   };
 
   const confirmLost = () => {
@@ -532,9 +732,9 @@ export function LenderPipelineBoard({
   };
 
   return (
-    <div className="min-h-0 space-y-2">
-      {/* CO-UX-020 / CO-UX-021 — Kanban primary surface; left edge inherits DEAL_WORKSPACE_PAD_X from host. */}
-      <div className="h-[calc(100vh-11.5rem)] min-h-[520px] overflow-x-auto overflow-y-hidden scrollbar-thin">
+    <div className="flex h-full min-h-0 flex-col space-y-2">
+      {/* CO-UX-022 — Kanban fills remaining viewport; columns scroll independently; chrome stays fixed. */}
+      <div className="h-full min-h-0 flex-1 overflow-x-auto overflow-y-hidden scrollbar-thin">
         <div className="flex h-full w-full min-w-max gap-2 pb-1 pr-1">
           {LENDER_CASE_STAGES.map((col) => {
             const colCases = casesByStage.get(col.id) ?? [];
@@ -587,6 +787,19 @@ export function LenderPipelineBoard({
                           focusCase(c);
                           setStrategyCase(c);
                         }}
+                        onOpenWorkspace={() => {
+                          const dealId = c.enterpriseDealId || c.id;
+                          if (!dealId || dealId.startsWith("pending-") || dealId.startsWith("lcase-")) {
+                            toast.error("Deal Workspace is not available until the Deal is saved.");
+                            return;
+                          }
+                          const opp = loan.opportunityId
+                            ? `?opportunityId=${encodeURIComponent(loan.opportunityId)}`
+                            : "";
+                          router.push(
+                            `${ROUTES.DEALS}/${encodeURIComponent(dealId)}${opp}`,
+                          );
+                        }}
                         onOpenDocuments={
                           onOpenLenderDocuments
                             ? () => {
@@ -627,7 +840,15 @@ export function LenderPipelineBoard({
       </div>
 
       {/* Identify Additional Lender — enterprise search + program (Phase 2B Sprint 2) */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+      <Dialog
+        open={addDialogOpen}
+        onOpenChange={(open) => {
+          setAddDialogOpen(open);
+          if (!open) {
+            setPendingSalesContact(null);
+          }
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-sm">
@@ -645,12 +866,22 @@ export function LenderPipelineBoard({
               onSelect={({ lender, program }) => {
                 setPendingLender(lender);
                 setPendingProgram(program ?? null);
+                setPendingSalesContact(null);
                 setAddForm((f) => ({
                   ...f,
                   lender: lender.displayName || lender.label,
                 }));
               }}
               requireProgram
+            />
+            <LenderSalesContactCapture
+              lenderId={pendingLender?.id}
+              lenderName={pendingLender?.displayName || pendingLender?.label}
+              lenderCode={pendingLender?.code}
+              productCode={pendingProgram?.productCode ?? loan.productCode}
+              value={pendingSalesContact}
+              onChange={setPendingSalesContact}
+              actorId={updatedBy}
             />
             <div>
               <Label className="text-[10px] uppercase text-muted-foreground">Expected Loan Amount</Label>
@@ -692,13 +923,15 @@ export function LenderPipelineBoard({
               type="button"
               size="sm"
               onClick={submitAddCase}
-              disabled={!pendingLender || !pendingProgram}
+              disabled={!pendingLender || !pendingProgram || !pendingSalesContact?.contactId}
               title={
                 !pendingLender
                   ? "Select a lender from the Enterprise Lender Registry that is not already on this Opportunity"
                   : !pendingProgram
                     ? "Select a lender program"
-                    : undefined
+                    : !pendingSalesContact?.contactId
+                      ? "Select or create a Lender Sales Contact"
+                      : undefined
               }
             >
               Identify Lender
@@ -707,13 +940,42 @@ export function LenderPipelineBoard({
         </DialogContent>
       </Dialog>
 
-      <LenderStrategyDrawer
+      <DealControlPanel
         open={Boolean(strategyCase)}
         onOpenChange={(open) => {
           if (!open) setStrategyCase(null);
         }}
         caseExecution={strategyCase}
+        context={loan}
         productFallback={loan.loanProduct}
+        actorUserId={updatedBy}
+        onPatch={(caseId, patch) => {
+          const next = cases.map((c) =>
+            c.id === caseId
+              ? {
+                  ...c,
+                  ...patch,
+                  updatedBy,
+                  updatedAt: nowIso(),
+                }
+              : c,
+          );
+          onChange(next);
+          setStrategyCase((prev) =>
+            prev && prev.id === caseId
+              ? {
+                  ...prev,
+                  ...patch,
+                  updatedBy,
+                  updatedAt: nowIso(),
+                }
+              : prev,
+          );
+          const label = patch.caseStage
+            ? `Deal control updated · ${cases.find((c) => c.id === caseId)?.lender ?? caseId} → ${LENDER_CASE_STAGE_LABELS[normalizeLenderCaseStage(patch.caseStage)]}`
+            : `Deal control updated · ${cases.find((c) => c.id === caseId)?.lender ?? caseId}`;
+          onTimeline(label);
+        }}
       />
 
       <ChanakyaLenderLoginProbeDialog
@@ -726,6 +988,47 @@ export function LenderPipelineBoard({
         onComplete={confirmLoginProbe}
       />
 
+      {/* CO-WF-006 — Guided stage transition (mid-stage Kanban moves) */}
+      <EnterpriseStageTransitionDialog
+        open={Boolean(transitionCase)}
+        onOpenChange={(open) => {
+          if (!open) setTransitionCase(null);
+        }}
+        engine="lender_pipeline"
+        fromStage={normalizeLenderCaseStage(transitionCase?.caseStage)}
+        fromStageLabel={
+          LENDER_CASE_STAGE_LABELS[normalizeLenderCaseStage(transitionCase?.caseStage)] ??
+          "Current"
+        }
+        fromSubStage={transitionCase?.caseSubStage}
+        toStage={transitionCase?.targetStage ?? "identified"}
+        toStageLabel={
+          transitionCase
+            ? LENDER_CASE_STAGE_LABELS[transitionCase.targetStage]
+            : "Next"
+        }
+        recommendContext={{
+          pendingDocumentCount: 0,
+          pendingTaskCount: 0,
+        }}
+        activityComposer={{
+          contextType: loan.opportunityId ? "opportunity" : "deal",
+          contextId:
+            loan.opportunityId ||
+            transitionCase?.enterpriseDealId ||
+            transitionCase?.id ||
+            loan.dealId,
+          entityLabel: transitionCase?.lender || loan.customerName || "Deal",
+          opportunityId: loan.opportunityId ?? transitionCase?.opportunityId ?? null,
+          dealId: transitionCase?.enterpriseDealId || transitionCase?.id || loan.dealId,
+          customerName: loan.customerName,
+          stage: transitionCase?.targetStage,
+        }}
+        actorUserId={updatedBy}
+        actorLabel={updatedBy}
+        onConfirm={confirmEnterpriseTransition}
+      />
+
       {/* Disbursement workflow */}
       <Dialog open={Boolean(disbursementCase)} onOpenChange={(o) => !o && setDisbursementCase(null)}>
         <DialogContent className="sm:max-w-lg">
@@ -733,6 +1036,42 @@ export function LenderPipelineBoard({
             <DialogTitle className="text-sm">Disbursement Details — {disbursementCase?.lender}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2 sm:grid-cols-2">
+            {disbursementCase?.lenderSalesContactId ? (
+              <div className="sm:col-span-2 rounded-md border border-border bg-muted/20 px-2.5 py-2">
+                <p className="text-[10px] uppercase text-muted-foreground">Sales Contact</p>
+                <p className="text-xs font-medium">
+                  {disbursementCase.lenderSalesContactName || "Linked contact"}
+                  {disbursementCase.lenderSalesContactMobile
+                    ? ` · ${disbursementCase.lenderSalesContactMobile}`
+                    : ""}
+                </p>
+                {disbursementEmailRequired ? (
+                  <div className="mt-2 space-y-1">
+                    <Label className="text-[11px] text-destructive">
+                      Official Email Address *
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      {LENDER_SALES_CONTACT_DISBURSAL_EMAIL_MESSAGE}
+                    </p>
+                    <Input
+                      type="email"
+                      className="h-8 text-xs"
+                      value={disbursementForm.officialEmail}
+                      onChange={(e) =>
+                        setDisbursementForm((f) => ({ ...f, officialEmail: e.target.value }))
+                      }
+                      placeholder="name@lender.com"
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {disbursementForm.officialEmail ||
+                      disbursementCase.lenderSalesContactOfficialEmail ||
+                      "Official email on file"}
+                  </p>
+                )}
+              </div>
+            ) : null}
             <Field label="Disbursement Date *">
               <Input
                 type="date"
@@ -803,7 +1142,14 @@ export function LenderPipelineBoard({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={() => setDisbursementCase(null)}>Cancel</Button>
-            <Button type="button" size="sm" onClick={confirmDisbursement}>Complete Disbursement</Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={disbursementBusy}
+              onClick={confirmDisbursement}
+            >
+              {disbursementBusy ? "Saving…" : "Complete Disbursement"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -883,6 +1229,31 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function resolveStageExpectedDate(
+  stage: LenderCaseStage,
+  caseExecution: LoanLenderExecution,
+): { label: string; value: string } | null {
+  const login = formatKanbanCardDate(caseExecution.loginDate);
+  const disbursement = formatKanbanCardDate(caseExecution.disbursementDate);
+  if (
+    stage === "identified" ||
+    stage === "prelogin" ||
+    stage === "logged_in_wip"
+  ) {
+    return login ? { label: "Expected Login", value: login } : null;
+  }
+  if (
+    stage === "soft_approved" ||
+    stage === "final_approved" ||
+    stage === "closure_wip"
+  ) {
+    return disbursement
+      ? { label: "Expected Disbursement", value: disbursement }
+      : null;
+  }
+  return null;
+}
+
 function LenderCaseKanbanCard({
   context: loan,
   stageLabel,
@@ -896,6 +1267,7 @@ function LenderCaseKanbanCard({
   onProbabilityChange,
   onStartLogin,
   onViewStrategy,
+  onOpenWorkspace,
   onOpenDocuments,
   onReorderUp,
   onReorderDown,
@@ -913,6 +1285,7 @@ function LenderCaseKanbanCard({
   onProbabilityChange: (p: LenderProbability) => void;
   onStartLogin: () => void;
   onViewStrategy: () => void;
+  onOpenWorkspace: () => void;
   onOpenDocuments?: () => void;
   onReorderUp: () => void;
   onReorderDown: () => void;
@@ -920,14 +1293,16 @@ function LenderCaseKanbanCard({
   const stage = normalizeLenderCaseStage(caseExecution.caseStage);
   const identified = stage === "identified";
   const product = caseExecution.product ?? loan.loanProduct;
-  const identifiedBy = caseExecution.identifiedBy ?? caseExecution.createdBy ?? "—";
-  const identifiedDate = (caseExecution.identifiedAt ?? caseExecution.createdAt)
-    ? new Date(caseExecution.identifiedAt ?? caseExecution.createdAt).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
+  const salesContactName = caseExecution.lenderSalesContactName?.trim() || "";
+  const internalRm = loan.relationshipManager?.trim() || "—";
+  const health = dealHealthScoreKanbanTone(caseExecution.dealHealthScore);
+  const priorityTone = dealPriorityKanbanTone(caseExecution.dealPriority);
+  const updatedLabel = formatKanbanCardDate(caseExecution.updatedAt) || "—";
+  const expectedDate = resolveStageExpectedDate(stage, caseExecution);
+  const subStage =
+    lenderSubStageLabel(stage, caseExecution.caseSubStage) ||
+    caseExecution.caseSubStage ||
+    "—";
 
   return (
     <div
@@ -938,18 +1313,32 @@ function LenderCaseKanbanCard({
       className={cn(
         "cursor-grab active:cursor-grabbing rounded-md border border-border bg-card/95",
         "border-l-[3px] shadow-sm transition-all hover:border-primary/30 hover:shadow-md",
-        "p-1.5",
+        /* ~35–40% taller information density — width unchanged */
+        "p-2",
       )}
       style={{ borderLeftColor: stageColor }}
     >
+      {/* HEADER — Institution · Product · Deal Score */}
       <div className="flex items-start justify-between gap-1">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <LenderLogo lender={caseExecution.lender} size="lg" className="rounded-md shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[13px] font-bold leading-tight truncate text-foreground">
+        <div className="flex min-w-0 flex-1 items-start gap-1.5">
+          <LenderLogo lender={caseExecution.lender} size="lg" className="mt-0.5 shrink-0 rounded-md" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-bold leading-tight text-foreground">
               {caseExecution.lender}
             </p>
-            <p className="text-[9px] text-muted-foreground truncate">{product}</p>
+            <p className="truncate text-[10px] font-medium leading-snug text-foreground/80">
+              {product || "Product not specified"}
+            </p>
+            <p
+              className={cn(
+                "mt-0.5 flex items-center gap-1 text-[11px] font-semibold tabular-nums",
+                health.className,
+              )}
+              title="Deal Health Score (Enterprise Deal Registry)"
+            >
+              <span className={cn("inline-block h-1.5 w-1.5 rounded-full", health.dot)} />
+              {health.label}
+            </p>
           </div>
         </div>
 
@@ -973,7 +1362,10 @@ function LenderCaseKanbanCard({
                   Start Login
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={(e) => (e.preventDefault(), onViewStrategy())}>
-                  View Strategy
+                  Deal Control
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => (e.preventDefault(), onOpenWorkspace())}>
+                  Workspace
                 </DropdownMenuItem>
                 {onOpenDocuments ? (
                   <DropdownMenuItem onClick={(e) => (e.preventDefault(), onOpenDocuments())}>
@@ -991,7 +1383,10 @@ function LenderCaseKanbanCard({
             ) : (
               <>
                 <DropdownMenuItem onClick={(e) => (e.preventDefault(), onViewStrategy())}>
-                  View Strategy
+                  Deal Control
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => (e.preventDefault(), onOpenWorkspace())}>
+                  Workspace
                 </DropdownMenuItem>
                 {onOpenDocuments ? (
                   <DropdownMenuItem onClick={(e) => (e.preventDefault(), onOpenDocuments())}>
@@ -1006,7 +1401,7 @@ function LenderCaseKanbanCard({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <div className="px-2 py-1.5">
-              <p className="text-[10px] uppercase text-muted-foreground mb-1">Success Probability</p>
+              <p className="mb-1 text-[10px] uppercase text-muted-foreground">Success Probability</p>
               <Select value={probability} onValueChange={(v) => onProbabilityChange(v as LenderProbability)}>
                 <SelectTrigger className="h-7 text-[10px]">
                   <SelectValue />
@@ -1043,107 +1438,114 @@ function LenderCaseKanbanCard({
         </DropdownMenu>
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-0.5">
+      {/* CURRENT STATUS — Stage · Sub-stage */}
+      <div className="mt-2 space-y-0.5">
+        <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Status
+        </p>
+        <div className="flex flex-wrap items-center gap-1">
+          <Badge
+            variant="outline"
+            className="h-4 px-1.5 text-[9px] font-semibold"
+            style={{ borderColor: stageColor, color: stageColor }}
+          >
+            {stageLabel}
+          </Badge>
+          <span className="truncate text-[10px] font-medium text-foreground" title={subStage}>
+            {subStage}
+          </span>
+        </div>
+      </div>
+
+      {/* OPERATIONAL — Lender Sales Contact · Internal RM */}
+      <div className="mt-2 space-y-1 text-[10px] leading-snug">
+        <div className="min-w-0">
+          <p className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Lender Sales Contact
+          </p>
+          {salesContactName ? (
+            <p className="truncate font-medium text-foreground">{salesContactName}</p>
+          ) : (
+            <p className="flex items-center gap-1 font-medium text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
+              Not Assigned
+            </p>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Internal RM
+          </p>
+          <p className="truncate font-medium text-foreground">{internalRm}</p>
+        </div>
+      </div>
+
+      {/* TIMELINE — Last Updated · stage expected date (collapsed on tablet) */}
+      <div className="mt-2 space-y-0.5 text-[10px] leading-snug max-md:block md:hidden lg:block">
+        <p>
+          <span className="text-muted-foreground">Updated </span>
+          <span className="font-medium text-foreground">{updatedLabel}</span>
+        </p>
+        {expectedDate ? (
+          <p>
+            <span className="text-muted-foreground">{expectedDate.label} </span>
+            <span className="font-medium text-foreground">{expectedDate.value}</span>
+          </p>
+        ) : null}
+      </div>
+
+      {/* PRIORITY */}
+      <div className="mt-2 flex items-center gap-1">
         <Badge
           variant="outline"
-          className="h-3.5 px-1 text-[8px] border font-medium"
-          style={{ borderColor: stageColor, color: stageColor }}
+          className={cn("h-4 px-1.5 text-[9px] font-semibold", priorityTone.className)}
         >
-          {stageLabel}
+          {priorityTone.label}
         </Badge>
         {caseExecution.strategicRank != null ? (
-          <Badge variant="outline" className="h-3.5 px-1 text-[8px] border border-indigo-500/30 text-indigo-700">
+          <Badge variant="outline" className="h-4 px-1.5 text-[8px] border-indigo-500/30 text-indigo-700">
             Rank #{caseExecution.strategicRank}
           </Badge>
         ) : null}
       </div>
 
-      <div className="mt-1 space-y-0 text-[9px] text-muted-foreground leading-snug">
-        {caseExecution.expectedRoi != null ? (
-          <p>Expected ROI {caseExecution.expectedRoi}%</p>
-        ) : null}
-        {caseExecution.reasonForRecommendation ? (
-          <p className="line-clamp-2 text-foreground/80">{caseExecution.reasonForRecommendation}</p>
-        ) : caseExecution.specialNotes ? (
-          <p className="line-clamp-2 text-foreground/80">{caseExecution.specialNotes}</p>
-        ) : null}
-        <p>
-          Identified by {identifiedBy} · {identifiedDate}
-        </p>
-      </div>
-
-      {identified ? (
-        <div className="mt-1.5 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+      {/* QUICK ACTIONS — Deal Control + Workspace */}
+      <div className="mt-2 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+        {identified ? (
           <Button type="button" size="sm" className="h-6 px-1.5 text-[9px]" onClick={onStartLogin}>
             Start Login
           </Button>
+        ) : null}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-6 px-1.5 text-[9px]"
+          onClick={onViewStrategy}
+        >
+          Deal Control
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-6 px-1.5 text-[9px]"
+          onClick={onOpenWorkspace}
+        >
+          Workspace
+        </Button>
+        {onOpenDocuments ? (
           <Button
             type="button"
             size="sm"
             variant="outline"
             className="h-6 px-1.5 text-[9px]"
-            onClick={onViewStrategy}
+            onClick={onOpenDocuments}
           >
-            View Strategy
+            Documents
           </Button>
-          {onOpenDocuments ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-6 px-1.5 text-[9px]"
-              onClick={onOpenDocuments}
-            >
-              Documents
-            </Button>
-          ) : null}
-          {removeEnabled ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-6 px-1.5 text-[9px] text-destructive"
-              onClick={onRemove}
-            >
-              Remove
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled
-              className="h-6 px-1.5 text-[9px] text-muted-foreground"
-              title="Deal deletion is currently unavailable."
-            >
-              Delete unavailable
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="mt-1.5 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-6 px-1.5 text-[9px]"
-            onClick={onViewStrategy}
-          >
-            View Strategy
-          </Button>
-          {onOpenDocuments ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-6 px-1.5 text-[9px]"
-              onClick={onOpenDocuments}
-            >
-              Documents
-            </Button>
-          ) : null}
-        </div>
-      )}
+        ) : null}
+      </div>
     </div>
   );
 }

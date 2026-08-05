@@ -11,6 +11,7 @@
  */
 
 import {
+  CHANAKYA_RADAR_CLASSIFICATION_THRESHOLDS,
   CHANAKYA_RADAR_QUADRANTS,
   type ChanakyaCompassDirectionId,
   type ChanakyaHealthTrendId,
@@ -47,10 +48,7 @@ export interface OperationalVectorResult {
 }
 
 const QUADRANT_SCORE: Record<ChanakyaOperationalQuadrantId, number> = {
-  on_track: 92,
-  follow_up_required: 62,
-  needs_attention: 48,
-  at_risk: 18,
+  ...CHANAKYA_RADAR_CLASSIFICATION_THRESHOLDS.healthScoreByQuadrant,
 };
 
 const BEARING: Record<ChanakyaOperationalQuadrantId, number> = {

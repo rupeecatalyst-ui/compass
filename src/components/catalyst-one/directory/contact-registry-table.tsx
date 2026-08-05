@@ -32,6 +32,7 @@ import {
   uniqueContactStates,
 } from "@/lib/enterprise-contact-registry";
 import { downloadCsv } from "@/lib/loan-files-utils";
+import { formatEnterpriseRegistryCounter } from "@/constants/enterprise-registry-workspace";
 import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import type { EcmCompany } from "@/types/enterprise-company-master";
 import type { EcmContact, EcmContactRole, EcmContactStatus } from "@/types/enterprise-contact-master";
@@ -547,10 +548,10 @@ export function ContactRegistryTable({
 
   const entityLabel =
     filters.entityFilter === "all"
-      ? "entries"
+      ? "Contacts"
       : filters.entityFilter === "individuals"
-        ? "individuals"
-        : "companies";
+        ? "Contacts"
+        : "Companies";
 
   const selectClass = "h-7 w-[118px] rounded-sm text-[11px]";
   const controlH = "h-7 rounded-sm text-[11px]";
@@ -826,11 +827,14 @@ export function ContactRegistryTable({
         storageKey="catalyst.ecm.contact-registry.v3"
         userId={user?.id}
         density="dense"
+        fillViewport
         columns={columns}
         rows={pageRows}
         rowKey={(row) => row.id}
         emptyMessage="No entries match the current filters."
-        toolbarLabel={`Contact Registry · ${filteredSorted.length} ${entityLabel}`}
+        toolbarLabel={formatEnterpriseRegistryCounter(entityLabel, filteredSorted.length, {
+          ofTotal: allRows.length,
+        })}
         sortColumnId={sortColumnId}
         sortDirection={sortDir}
         onSort={handleSort}

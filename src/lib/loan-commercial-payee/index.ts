@@ -5,7 +5,6 @@
  */
 
 import {
-  INVOICE_PARTY_REQUIRED_MESSAGE,
   getInvoicePartyTypeLabel,
   isInvoicePartyComplete as isMasterInvoicePartyComplete,
   requiresInvoiceParty,
@@ -27,12 +26,12 @@ export const requiresCommercialPayee = requiresInvoiceParty;
 /** @deprecated */
 export const requiresCommissionPayer = requiresInvoiceParty;
 
+/** CO-BUG-001 — Invoice Party is never locked by pipeline stage. */
 export function isInvoicePartyLocked(
-  stage: PipelineStage | string,
-  opts?: { allowAuthorizedEdit?: boolean },
+  _stage?: PipelineStage | string,
+  _opts?: { allowAuthorizedEdit?: boolean },
 ): boolean {
-  if (opts?.allowAuthorizedEdit) return false;
-  return requiresInvoiceParty(stage);
+  return false;
 }
 
 /** @deprecated */

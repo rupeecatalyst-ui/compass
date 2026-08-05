@@ -9,10 +9,12 @@ const LENDER_CATEGORY_SEED: LenderRegistryPortOption[] = [
   { id: "nbfc", label: "NBFC", sortOrder: 2, enabled: true, source: "constants" },
   { id: "hfc", label: "HFC", sortOrder: 3, enabled: true, source: "constants" },
   { id: "cooperative", label: "Cooperative", sortOrder: 4, enabled: true, source: "constants" },
+  { id: "foreign_bank", label: "Foreign Bank", sortOrder: 5, enabled: true, source: "constants" },
 ];
 
 function inferCategoryId(lenderId: string, meta?: Record<string, string>): string {
   const label = (meta?.category ?? lenderId).toLowerCase();
+  if (label.includes("foreign")) return "foreign_bank";
   if (label.includes("hfc") || label.includes("housing")) return "hfc";
   if (label.includes("nbfc") || label.includes("finance")) return "nbfc";
   if (label.includes("cooperative")) return "cooperative";

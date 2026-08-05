@@ -264,13 +264,13 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     section: "overview",
     guidanceTitle: "Invoice Party",
     mentorMessage:
-      "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.",
+      "Accounting Ready: This Deal does not have an Invoice Party assigned. Configure Invoice Party from the Accounting Master before invoice generation or commission booking. Lender Pipeline work can continue.",
     detailedGuidance:
       "Invoice Party identifies the organization against whom Rupee Catalyst raises its commission invoice for this Deal — often a lender, DSA, or channel partner. It is not the loan disbursement beneficiary. Choose only from Accounting → Invoice Party Master; Contact Registry is not used for this Deal field.",
     bestPractice:
       "Ask Accounting to add missing Invoice Parties to the Master before Login progression.",
     recommendedNextStep:
-      "Select an Accounting Invoice Party Master record on the Deal before moving past the configured stage.",
+      "Select an Accounting Invoice Party Master record before invoice generation or commission booking. Lender Pipeline is not blocked.",
     relatedWorkflow: "Logged In → Soft Approval",
     relatedRegistry: "Accounting Invoice Party Master · Enterprise Contact Registry (link only)",
     relatedEnterpriseEngine: "Deal Registry · Accounting",
@@ -308,7 +308,7 @@ export const CHANAKYA_GUIDE_REPOSITORY: ChanakyaGuideEntry[] = [
     bestPractice:
       "Search by lender name (e.g. Bank of Baroda). Confirm Program after switching Lender. Do not expect product-based filtering on this dialog.",
     recommendedNextStep:
-      "Identify Lender → select Program → assign Invoice Party → continue pipeline stages.",
+      "Identify Lender → select Program → continue pipeline stages. Configure Invoice Party from Action Center when accounting is needed (does not block pipeline).",
     relatedWorkflow: "Identify Lender → Logged In",
     relatedRegistry: "Enterprise Lender Registry",
     relatedEnterpriseEngine: "Lender Pipeline · Deal Registry",

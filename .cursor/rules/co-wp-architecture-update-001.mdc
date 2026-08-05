@@ -1,0 +1,106 @@
+---
+description: CO-WP-ARCHITECTURE-UPDATE-001 — EEE roadmap (DO NOT IMPLEMENT)
+alwaysApply: true
+---
+
+# CO-WP-ARCHITECTURE-UPDATE-001 — Roadmap Alignment
+
+Status: **PRODUCT OWNER ARCHITECTURE DIRECTION**  
+**Implementation Status: DO NOT IMPLEMENT**  
+Purpose: Roadmap alignment only — no code, no module start, no Business work.
+
+## Architectural update
+
+After Product Owner review, the Wealth Partner App roadmap matured beyond the original plan.
+
+This is an **architecture update only**. **No implementation is authorised.**
+
+## Important change
+
+Although **Home** is functionally complete and awaiting Product Owner certification, the next engineering priority will **NOT** automatically be the **Business** module.
+
+A new Enterprise module must be **designed** before Business implementation begins.
+
+## New Enterprise module
+
+| | |
+|--|--|
+| **Name** | Enterprise Experience Engine (**EEE**) |
+| **Location** | **Catalyst One** |
+| **Not** | Wealth Partner App |
+
+### Purpose
+
+EEE becomes the publishing and experience orchestration layer for the entire Rupee Catalyst ecosystem.
+
+The Wealth Partner App **never owns business content**.  
+It **renders** Enterprise Experiences created inside Catalyst One.
+
+### EEE will eventually control
+
+Hero Carousel · Recommended Actions · Today’s Highlights · Business Feed · Notifications · Personalised Greetings · Campaigns · Training · Marketing Creatives · Product Workspaces · Digital Toolkit · Recognition · CEO Messages · Festival Messages · Future Enterprise Experiences
+
+## Product Workspace (constitutional)
+
+Every financial product eventually opens into an **Enterprise Product Workspace**.
+
+Examples: Home Loan · LAP · Business Loan · Mutual Fund · Insurance · Fixed Deposit · future products.
+
+**Never hardcode product pages** in the Wealth Partner App.
+
+Catalyst One owns: Banner · Description · Product Benefits · Documents · Lenders · Interest Rates · Marketing · Training · Calculators · FAQs · CTA.
+
+The app renders.
+
+## Partner Entitlements
+
+Product availability is managed **entirely from Catalyst One**.
+
+Examples: Loans · Mutual Funds · Insurance · Fixed Deposits · Bonds · PMS · AIF.
+
+Every Wealth Partner has **configurable product access**.  
+The app must **never hardcode product visibility**.
+
+## Partner Tier Engine
+
+Partner Tier is **NOT** manually assigned.
+
+Tier is calculated automatically from **configurable product-wise targets** assigned during onboarding.
+
+Targets may differ by: City · Product Specialisation · Partner Type · Business Model.
+
+Catalyst One calculates: Product Achievement · Overall Achievement · Tier · Progress.
+
+The Wealth Partner App **only displays** the results.
+
+## Next design activity
+
+Before Business Module implementation begins, Product Owner intends to **design the Enterprise Experience Engine architecture**.
+
+- Do **not** begin implementing EEE.  
+- Do **not** modify Business.  
+- Treat this as the **updated Enterprise roadmap** only.  
+- Await further Product Owner instructions before the next implementation phase.
+
+## Current status
+
+| Item | Status |
+|------|--------|
+| **Home Module** | Implementation Complete · Awaiting Product Owner Review and Certification |
+| **Business Module** | **ON HOLD** |
+| **Enterprise Experience Engine** | Architecture Design Pending |
+
+## Agent behaviour
+
+1. Do **not** implement EEE, Product Workspace pages, Entitlements UI, or Tier Engine.  
+2. Do **not** start or expand the Business module.  
+3. Do **not** treat MODE-003 “next module = Business” as automatic — Business remains **ON HOLD** until PO authorises after EEE design.  
+4. Home stays in PO certification / refinement lane only unless PO directs otherwise.  
+5. When documenting or planning, cite this update and `docs/co-wp-architecture/CO-WP-ARCHITECTURE-UPDATE-001.md`.
+
+## Related
+
+- Docs: `docs/co-wp-architecture/CO-WP-ARCHITECTURE-UPDATE-001.md`
+- Cadence: `.cursor/rules/co-wp-development-mode-003.mdc` (module cadence; Business start gated by this update)
+- Companion: `.cursor/rules/enterprise-wealth-partner-app.mdc`
+- UX: `.cursor/rules/wealth-partner-app-ux-constitution.mdc`

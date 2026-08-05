@@ -4,6 +4,7 @@
  * CO-UX-020 — Opportunity-grouped Enterprise Deal Registry (virtualised).
  * Registry = compact scan. Collapsed by default. Operational intelligence on expand only.
  * Not a dashboard. No nested scroll inside row cards.
+ * CO-UX-DEAL-ROW — Brief / Workspace explicit actions (no hidden chevrons).
  */
 
 import {
@@ -16,7 +17,7 @@ import {
   type KeyboardEvent,
   type UIEvent,
 } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, LayoutDashboard } from "lucide-react";
 import { LoanJourneyProgressCapsule } from "@/components/catalyst-one/my-deals/loan-journey-progress-capsule";
 import {
   deriveJourneyProgressSegments,
@@ -24,6 +25,7 @@ import {
 } from "@/constants/enterprise-deal-journey-progress";
 import type { OpportunityRegistryGroup } from "@/lib/my-deals/group-opportunities";
 import type { OpportunityHealthBand } from "@/lib/my-deals/derive-opportunity-executive-summary";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { DealRegistryRow } from "@/types/deal-registry";
 
@@ -278,6 +280,7 @@ function OpportunityGroupBlock({
         selected && "border-teal-700/60",
         group.needsAttention && "border-l-2 border-l-amber-500",
       )}
+      onFocusCapture={onFocus}
     >
       {/* Collapsed / always-visible compact summary */}
       <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-transparent px-2">
@@ -289,30 +292,10 @@ function OpportunityGroupBlock({
           className="h-3.5 w-3.5 shrink-0 rounded border-zinc-600 bg-zinc-900"
           aria-label={`Select ${group.opportunityNumber}`}
         />
-        <button
-          type="button"
-          className="shrink-0 text-zinc-500 hover:text-zinc-200"
-          aria-expanded={expanded}
-          aria-label={expanded ? "Collapse" : "Expand operational intelligence"}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleExpand();
-          }}
-        >
-          <span className="inline-block w-3 text-[10px] font-bold">
-            {expanded ? "▼" : "▶"}
-          </span>
-        </button>
 
-        <button
-          type="button"
-          onClick={onOpen}
-          onFocus={onFocus}
-          className="group/opp flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none"
-          aria-label={`Open Deal Workspace for ${group.borrowerName}`}
-        >
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           <div className="min-w-0 flex-[1.2]">
-            <p className="truncate text-[13px] font-semibold text-zinc-100 group-hover/opp:text-white">
+            <p className="truncate text-[13px] font-semibold text-zinc-100">
               {group.borrowerName}
             </p>
             <p className="truncate text-[10px] text-zinc-500">
@@ -352,16 +335,52 @@ function OpportunityGroupBlock({
               <span className="text-[10px] text-zinc-600">+{ex.lenderChips.length - 3}</span>
             ) : null}
           </div>
+        </div>
 
-          <p className="hidden w-[7.5rem] shrink-0 truncate text-right text-[10px] text-zinc-500 lg:block">
-            {group.assignedRm !== "—" ? group.assignedRm : "—"}
-          </p>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className={cn(
+              "h-7 gap-1 rounded-full border-amber-500/45 bg-amber-500/15 px-2.5 text-[11px] font-semibold text-amber-100",
+              "hover:bg-amber-500/25 hover:text-amber-50",
+              expanded && "border-amber-400/70 bg-amber-500/25",
+            )}
+            aria-expanded={expanded}
+            aria-label={expanded ? "Collapse brief" : `Open brief for ${group.borrowerName}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand();
+            }}
+          >
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 transition-transform",
+                expanded && "rotate-180",
+              )}
+              aria-hidden
+            />
+            Brief
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 gap-1 rounded-full bg-teal-600 px-2.5 text-[11px] font-semibold text-white hover:bg-teal-500"
+            aria-label={`Open Deal Workspace for ${group.borrowerName}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen();
+            }}
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" aria-hidden />
+            Workspace
+          </Button>
+        </div>
 
-          <ChevronRight
-            className="h-4 w-4 shrink-0 text-zinc-600 transition-transform group-hover/opp:translate-x-0.5 group-hover/opp:text-teal-400"
-            aria-hidden
-          />
-        </button>
+        <p className="hidden w-[7rem] shrink-0 truncate text-right text-[10px] text-zinc-500 xl:block">
+          {group.assignedRm !== "—" ? group.assignedRm : "—"}
+        </p>
       </div>
 
       {/* Expanded — operational intelligence (no nested scroll) */}

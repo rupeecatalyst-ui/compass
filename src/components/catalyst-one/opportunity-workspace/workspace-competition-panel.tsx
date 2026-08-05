@@ -5,7 +5,7 @@ import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  listPublishedLenderOptionsAsync,
+  listCanonicalEnterpriseLenderOptionsAsync,
   type PublishedLenderOption,
 } from "@/lib/enterprise-lender-registry/published-directory";
 import {
@@ -24,7 +24,7 @@ import { OwGlassPanel } from "./workspace-design";
 
 /**
  * Competition tab — Chanakya question + lender capture.
- * CO-LENDER-003 — search Published Enterprise Lender Registry (same SSOT as Manual / LIFE).
+ * CO-LENDER-003 / CO-LR-008 — canonical Enterprise Lender Registry only (same SSOT as Manual / LIFE).
  */
 export function WorkspaceCompetitionPanel() {
   const { opportunityId, refresh } = useOpportunityWorkspace();
@@ -53,7 +53,7 @@ export function WorkspaceCompetitionPanel() {
     }
   }, [state?.answer, state?.lenders?.length]);
 
-  // CO-LENDER-003 — same async Published directory as Manual Recommendation / LIFE.
+  // CO-LR-008 — canonical Registry API only (no Soft Go-Live / local lists).
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 200);
     return () => window.clearTimeout(t);
@@ -69,7 +69,7 @@ export function WorkspaceCompetitionPanel() {
     let cancelled = false;
     setCatalogLoading(true);
     setCatalogError(null);
-    void listPublishedLenderOptionsAsync(debouncedSearch || undefined)
+    void listCanonicalEnterpriseLenderOptionsAsync(debouncedSearch || undefined)
       .then((rows) => {
         if (cancelled) return;
         setCatalog(rows);
@@ -80,7 +80,7 @@ export function WorkspaceCompetitionPanel() {
         setCatalogError(
           err instanceof Error ? err.message : "Could not load Enterprise Lender Registry.",
         );
-        console.error("[CO-QA-003] published lender search failed", err);
+        console.error("[CO-LR-008] canonical lender search failed", err);
       })
       .finally(() => {
         if (!cancelled) setCatalogLoading(false);

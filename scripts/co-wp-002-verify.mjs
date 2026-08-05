@@ -20,7 +20,8 @@ const routeUtils = mustExist(
   "src/app/api/wealth-partner-registry/_lib/route-utils.ts",
 );
 mustInclude(routeUtils, "WEALTH_PARTNER_SCHEMA_REQUIRED", "route-utils");
-mustInclude(routeUtils, "Contact already converted", "route-utils");
+mustInclude(routeUtils, "WEALTH_PARTNER_ALREADY_REGISTERED", "route-utils");
+mustInclude(routeUtils, "WEALTH_PARTNER_CODE_COLLISION", "route-utils");
 mustInclude(routeUtils, "logWealthPartnerError", "route-utils");
 mustInclude(routeUtils, "Unable to save Wealth Partner", "route-utils");
 
@@ -32,7 +33,9 @@ const service = mustExist(
   "server/services/wealth-partner-registry/wealth-partner-registry.service.ts",
 );
 mustInclude(service, "Wealth Partner Type is required", "service");
-mustInclude(service, "Contact already converted into a Wealth Partner", "service");
+mustInclude(service, "This Contact is already an active Wealth Partner", "service");
+mustInclude(service, "Selected Contact not found", "service");
+mustInclude(service, "WealthPartnerAlreadyExistsError", "service");
 
 const partnersRoute = mustExist(
   "src/app/api/wealth-partner-registry/partners/route.ts",

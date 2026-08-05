@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { TaskEngineWorkspace } from "@/components/catalyst-one/tasks/task-engine-workspace";
+import { EnterpriseTasksWorkspace } from "@/components/catalyst-one/tasks/enterprise-tasks-workspace";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
 export default function TasksPage() {
@@ -8,12 +8,12 @@ export default function TasksPage() {
       fallback={
         <ChanakyaLoadingExperience
           module="tasks"
-          statusLabel="Preparing Task Engine..."
+          statusLabel="Preparing Tasks Workspace..."
           density="panel"
         />
       }
     >
-      <TaskEngineWorkspace />
+      <EnterpriseTasksWorkspace />
     </Suspense>
   );
 }

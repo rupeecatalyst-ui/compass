@@ -8,9 +8,10 @@ import type {
   UpdateWealthPartnerInput,
   WealthPartnerListQuery,
 } from "@/types/enterprise-wealth-partner-registry";
+import { wealthPartnerBatExclusionWhere } from "@/constants/enterprise-wealth-partner-bat";
 import {
   allocateNextCommissionCode,
-  allocateNextWealthPartnerCode,
+  allocateUniqueWealthPartnerCode,
 } from "./codes";
 import {
   mapActivity,
@@ -32,6 +33,7 @@ export const wealthPartnerRegistryRepository = {
     const where: Prisma.EnterpriseWealthPartnerWhereInput = {
       organizationId,
       isDeleted: query.includeDeleted ? undefined : false,
+      ...(query.includeBatDemo ? {} : wealthPartnerBatExclusionWhere()),
     };
     if (query.partnerType && query.partnerType !== "all") {
       where.partnerType = query.partnerType;
@@ -44,6 +46,12 @@ export const wealthPartnerRegistryRepository = {
     }
     if (typeof query.enabled === "boolean") {
       where.enabled = query.enabled;
+    }
+    if (query.contactId?.trim()) {
+      where.contactId = query.contactId.trim();
+    }
+    if (query.companyId?.trim()) {
+      where.companyId = query.companyId.trim();
     }
     if (query.search?.trim()) {
       const q = query.search.trim();
@@ -93,52 +101,168 @@ export const wealthPartnerRegistryRepository = {
     if (identity.contactId) where.contactId = identity.contactId;
     else if (identity.companyId) where.companyId = identity.companyId;
     else return null;
-    const row = await prisma.enterpriseWealthPartner.findFirst({ where });
+    const row = await prisma.enterpriseWealthPartner.findFirst({
+      where,
+      orderBy: { createdAt: "asc" },
+    });
     return row ? mapWealthPartner(row) : null;
   },
 
-  async createPartner(organizationId: string, input: CreateWealthPartnerInput) {
-    const code = await allocateNextWealthPartnerCode(organizationId);
-    const displayName =
-      input.displayName?.trim() ||
-      input.identityLabel?.trim() ||
-      code;
-    const row = await prisma.$transaction(async (tx) => {
-      const created = await tx.enterpriseWealthPartner.create({
-        data: {
-          organizationId,
-          code,
-          displayName,
-          partnerType: input.partnerType,
-          identityKind: input.identityKind,
-          contactId: input.identityKind === "contact" ? input.contactId ?? null : null,
-          companyId: input.identityKind === "company" ? input.companyId ?? null : null,
-          identityLabel: input.identityLabel ?? null,
-          pan: input.pan ?? null,
-          gstin: input.gstin ?? null,
-          email: input.email ?? null,
-          mobile: input.mobile ?? null,
-          cityLabel: input.cityLabel ?? null,
-          stateLabel: input.stateLabel ?? null,
-          website: input.website ?? null,
-          notes: input.notes ?? null,
-          createdBy: input.createdBy,
-          modifiedBy: input.createdBy,
-        },
-      });
-      await tx.enterpriseWealthPartnerActivity.create({
-        data: {
-          organizationId,
-          wealthPartnerId: created.id,
-          activityType: "created",
-          title: "Wealth Partner created",
-          detail: `${created.code} · ${created.partnerType}`,
-          actorUserId: input.createdBy,
-        },
-      });
-      return created;
+  /** Soft-deleted WP for the same Contact/Company — candidate for safe restore. */
+  async findSoftDeletedByIdentity(
+    organizationId: string,
+    identity: { contactId?: string | null; companyId?: string | null },
+  ) {
+    const where: Prisma.EnterpriseWealthPartnerWhereInput = {
+      organizationId,
+      isDeleted: true,
+    };
+    if (identity.contactId) where.contactId = identity.contactId;
+    else if (identity.companyId) where.companyId = identity.companyId;
+    else return null;
+    const row = await prisma.enterpriseWealthPartner.findFirst({
+      where,
+      orderBy: { updatedAt: "desc" },
+    });
+    return row ? mapWealthPartner(row) : null;
+  },
+
+  async restoreSoftDeletedPartner(
+    organizationId: string,
+    partnerId: string,
+    actorUserId: string,
+  ) {
+    const existing = await prisma.enterpriseWealthPartner.findFirst({
+      where: { id: partnerId, organizationId, isDeleted: true },
+    });
+    if (!existing) return null;
+    const row = await prisma.enterpriseWealthPartner.update({
+      where: { id: partnerId },
+      data: {
+        isDeleted: false,
+        modifiedBy: actorUserId,
+        versionNumber: { increment: 1 },
+      },
+    });
+    await prisma.enterpriseWealthPartnerActivity.create({
+      data: {
+        organizationId,
+        wealthPartnerId: partnerId,
+        activityType: "relationship_recovered",
+        title: "Wealth Partner relationship recovered",
+        detail: "Soft-deleted Wealth Partner restored during conversion.",
+        actorUserId,
+        payload: { reason: "soft_deleted_recovered" },
+      },
     });
     return mapWealthPartner(row);
+  },
+
+  async recordPartnerActivity(
+    organizationId: string,
+    wealthPartnerId: string,
+    input: {
+      activityType: string;
+      title: string;
+      detail?: string | null;
+      actorUserId?: string | null;
+      payload?: Record<string, unknown> | null;
+    },
+  ) {
+    await prisma.enterpriseWealthPartnerActivity.create({
+      data: {
+        organizationId,
+        wealthPartnerId,
+        activityType: input.activityType,
+        title: input.title,
+        detail: input.detail ?? null,
+        actorUserId: input.actorUserId ?? null,
+        payload: (input.payload ?? undefined) as Prisma.InputJsonValue | undefined,
+      },
+    });
+  },
+
+  /**
+   * CO-WP-006 — allocate code with retry on unique (org, code) collision.
+   * Never fail conversion solely because of code generation race.
+   */
+  async createPartner(organizationId: string, input: CreateWealthPartnerInput) {
+    const displayNameBase =
+      input.displayName?.trim() || input.identityLabel?.trim() || "";
+    const maxAttempts = 8;
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const { code, collisionRetries } =
+          await allocateUniqueWealthPartnerCode(organizationId);
+        const displayName = displayNameBase || code;
+        const row = await prisma.$transaction(async (tx) => {
+          const created = await tx.enterpriseWealthPartner.create({
+            data: {
+              organizationId,
+              code,
+              displayName,
+              partnerType: input.partnerType,
+              identityKind: input.identityKind,
+              contactId:
+                input.identityKind === "contact" ? input.contactId ?? null : null,
+              companyId:
+                input.identityKind === "company" ? input.companyId ?? null : null,
+              identityLabel: input.identityLabel ?? null,
+              pan: input.pan ?? null,
+              gstin: input.gstin ?? null,
+              email: input.email ?? null,
+              mobile: input.mobile ?? null,
+              cityLabel: input.cityLabel ?? null,
+              stateLabel: input.stateLabel ?? null,
+              website: input.website ?? null,
+              notes: input.notes ?? null,
+              createdBy: input.createdBy,
+              modifiedBy: input.createdBy,
+            },
+          });
+          await tx.enterpriseWealthPartnerActivity.create({
+            data: {
+              organizationId,
+              wealthPartnerId: created.id,
+              activityType: "created",
+              title: "Wealth Partner created",
+              detail:
+                collisionRetries > 0
+                  ? `${created.code} · ${created.partnerType} · Wealth Partner code collision detected. A new code has been generated.`
+                  : `${created.code} · ${created.partnerType}`,
+              actorUserId: input.createdBy,
+              payload:
+                collisionRetries > 0
+                  ? { collisionRetries, codeAllocated: created.code }
+                  : undefined,
+            },
+          });
+          return created;
+        });
+        return mapWealthPartner(row);
+      } catch (err) {
+        lastErr = err;
+        const code =
+          typeof err === "object" && err !== null && "code" in err
+            ? String((err as { code?: string }).code ?? "")
+            : "";
+        const target = (() => {
+          if (typeof err !== "object" || err === null || !("meta" in err)) return "";
+          const meta = (err as { meta?: { target?: unknown } }).meta;
+          if (Array.isArray(meta?.target)) return meta.target.join(",");
+          return String(meta?.target ?? "");
+        })();
+        const isCodeCollision =
+          code === "P2002" &&
+          (/code/i.test(target) || target === "" || /organizationId/i.test(target));
+        if (isCodeCollision && attempt < maxAttempts - 1) continue;
+        throw err;
+      }
+    }
+    throw lastErr instanceof Error
+      ? lastErr
+      : new Error("Unable to generate a unique Wealth Partner code.");
   },
 
   async updatePartner(

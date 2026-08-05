@@ -1,0 +1,6 @@
+export {
+  ENTERPRISE_IDC_VERSION,
+  ENTERPRISE_IDC_CUSTOMER_CAPTURE,
+  ENTERPRISE_IDC_DETAIL_SECTIONS,
+  getEnterpriseIdcCatalog,
+} from "./catalog";

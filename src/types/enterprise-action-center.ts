@@ -37,7 +37,9 @@ export type ActionCenterActionId =
   | "schedule_meeting"
   | "internal_chat"
   | "share_documents"
-  | "request_documents";
+  | "request_documents"
+  /** CO-VOICE-002 — ECIE Enterprise Activity Composer */
+  | "add_activity";
 
 export type CommunicationRecipientType =
   | "customer"

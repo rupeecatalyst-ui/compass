@@ -1,6 +1,15 @@
 /**
  * Opportunity Document Requests — constants (workflow only).
+ * CO-ECC-001 — Outbound email identity resolves via Communication Profile CUSTOMERS
+ * (event: document_request). Templates must not embed a From: address.
  */
+
+import { ECC_EMAIL_TEMPLATE_PROFILE_REFS } from "@/constants/enterprise-communication-center";
+import { getCommunicationProfileSeed } from "@/constants/enterprise-communication-center/profiles";
+
+/** Template → Communication Profile binding (never a literal sender email). */
+export const DOCUMENT_REQUEST_COMMUNICATION_REF =
+  ECC_EMAIL_TEMPLATE_PROFILE_REFS.document_request_customer;
 
 export const DOCUMENT_REQUESTS_STORAGE_KEY = "catalyst.opportunity.document-requests.v1";
 export const DOCUMENT_REQUESTS_UPDATED_EVENT = "catalyst:document-requests-updated";
@@ -52,6 +61,9 @@ export function buildDocumentRequestEmailBody(vars: {
   opportunityReference: string;
   uploadUrl: string;
 }): string {
+  const customersProfile = getCommunicationProfileSeed(
+    DOCUMENT_REQUEST_COMMUNICATION_REF.profileCode,
+  );
   return `Dear ${vars.customerName}
 
 Application Summary
@@ -91,7 +103,8 @@ Documents received through these channels will also be attached to your Opportun
 
 Thank you.
 
-Team Rupee Catalyst`;
+${customersProfile.signature}
+${customersProfile.footer}`;
 }
 
 export function buildDocumentRequestWhatsAppBody(vars: {

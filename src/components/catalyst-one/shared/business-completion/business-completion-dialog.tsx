@@ -11,7 +11,7 @@ import {
 import type { OccupancyMasterEntry } from "@/constants/occupancy-master";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
-import { OrganizationRegistrySelect } from "@/components/catalyst-one/shared/organization-registry-select";
+import { EnterpriseLenderRegistrySelect } from "@/components/catalyst-one/shared/enterprise-lender-registry-select";
 import { OccupancySelect } from "@/components/catalyst-one/shared/occupancy-select";
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
 import { CommercialPayeeField } from "@/components/catalyst-one/shared/commercial-payee-field";
@@ -108,20 +108,12 @@ export function BusinessCompletionDialog({
   const handleSubmit = async () => {
     if (!request) return;
     for (const field of request.fields) {
+      // CO-BUG-001 — Invoice Party / commercial_payee never blocks Save & Continue.
+      // Accounting hard-gates use assertInvoicePartyForAccountingOperation only.
+      if (field.control === "commercial_payee") continue;
       const v = values[field.fieldKey];
       if (field.required !== false && (v === undefined || v === null || String(v).trim() === "")) {
         setNudge(`I still need ${field.label} before I can continue.`);
-        return;
-      }
-      if (
-        field.control === "commercial_payee" &&
-        !String(
-          values.invoicePartyId ?? values.commissionAccountingPayeeId ?? "",
-        ).trim()
-      ) {
-        setNudge(
-          "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding.",
-        );
         return;
       }
     }
@@ -189,6 +181,11 @@ export function BusinessCompletionDialog({
                 }
                 loanProduct={loanProduct}
                 productOptions={productOptions}
+                btInstitutionName={
+                  typeof values.btInstitutionName === "string"
+                    ? values.btInstitutionName
+                    : undefined
+                }
                 onChange={(next) => setField(field.fieldKey, next)}
                 onCommercialPayee={(next) => {
                   const id =
@@ -268,6 +265,7 @@ function CompletionFieldControl({
   accountingPayeeLabel,
   loanProduct,
   productOptions,
+  btInstitutionName,
   onChange,
   onCommercialPayee,
   onLendingTypeChange,
@@ -281,6 +279,7 @@ function CompletionFieldControl({
   accountingPayeeLabel?: string;
   loanProduct?: string;
   productOptions: readonly string[];
+  btInstitutionName?: string;
   onChange: (value: string | number | undefined) => void;
   onCommercialPayee: (next: {
     invoicePartyId?: string | null;
@@ -387,9 +386,11 @@ function CompletionFieldControl({
       )}
 
       {field.control === "bt_institution" && (
-        <OrganizationRegistrySelect
+        <EnterpriseLenderRegistrySelect
           value={typeof value === "string" ? value : undefined}
-          onSelect={(org) => onBtInstitution(org.id, org.name)}
+          selectedName={btInstitutionName}
+          onSelect={(lender) => onBtInstitution(lender.id, lender.name)}
+          placeholder="Search Current Lending Institution…"
         />
       )}
 

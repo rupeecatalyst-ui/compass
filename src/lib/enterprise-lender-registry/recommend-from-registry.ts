@@ -5,9 +5,11 @@
 import { ensureLenderMasterBootstrapped } from "@/lib/enterprise-lender-registry/bootstrap-master";
 import {
   isCanonicalDealLenderOption,
+  listCanonicalEnterpriseLenderOptionsAsync,
   listPublishedLenderOptions,
   type PublishedLenderOption,
 } from "@/lib/enterprise-lender-registry/published-directory";
+import { dedupeLendersForSelection } from "@/lib/enterprise-lender-registry/presentation-canonical";
 import type { LoanFile } from "@/types/catalyst-one";
 
 export type RegistryLenderRecommendation = {
@@ -114,6 +116,7 @@ function starsFromRank(rank: number, confidencePct: number): number {
 /**
  * Rank Published + Active lenders from Enterprise Lender Registry.
  * Unpublished lenders are never included.
+ * CO-LR-008 — presentation-dedupe warm session (sync); prefer async API for AI / LIFE.
  */
 export function recommendPublishedLendersFromRegistry(input: {
   file: LoanFile;
@@ -125,11 +128,50 @@ export function recommendPublishedLendersFromRegistry(input: {
   const limit = input.limit ?? 8;
   // Prefer warm session only when it already holds canonical API rows; otherwise empty
   // until async Manual / Move paths hydrate from Prisma.
-  const options = listPublishedLenderOptions().filter(isCanonicalDealLenderOption);
+  const options = dedupeLendersForSelection(
+    listPublishedLenderOptions()
+      .filter(isCanonicalDealLenderOption)
+      .map((o) => ({
+        ...o,
+        label: (o.displayName || o.code || "").trim() || o.id,
+      })),
+  );
   if (options.length === 0) return [];
+  return scoreAndRank(options, input.file, limit);
+}
 
+/** CO-LR-008 — AI / Chanakya recommendations from Prisma Registry only (browser / employee UI). */
+export async function recommendPublishedLendersFromRegistryAsync(input: {
+  file: LoanFile;
+  limit?: number;
+}): Promise<RegistryLenderRecommendation[]> {
+  const limit = input.limit ?? 8;
+  const options = await listCanonicalEnterpriseLenderOptionsAsync();
+  if (options.length === 0) return [];
+  return recommendPublishedLendersFromOptions(options, input);
+}
+
+/**
+ * CO-WP-LENDER-API-002 — Rank from pre-loaded Registry options.
+ * Partner Gateway must supply options via Prisma (never relative /api/lender-registry HTTP).
+ */
+export function recommendPublishedLendersFromOptions(
+  options: PublishedLenderOption[],
+  input: { file: LoanFile; limit?: number },
+): RegistryLenderRecommendation[] {
+  const limit = input.limit ?? 8;
+  const canonical = options.filter(isCanonicalDealLenderOption);
+  if (canonical.length === 0) return [];
+  return scoreAndRank(canonical, input.file, limit);
+}
+
+function scoreAndRank(
+  options: PublishedLenderOption[],
+  file: LoanFile,
+  limit: number,
+): RegistryLenderRecommendation[] {
   const scored = options.map((lender) => {
-    const { score, reason } = scoreLender(lender, input.file);
+    const { score, reason } = scoreLender(lender, file);
     return { lender, score, reason };
   });
 

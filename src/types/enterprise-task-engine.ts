@@ -84,9 +84,60 @@ export type EtePredefinedDescription =
   | "Custom";
 
 export interface EteTaskRecurrence {
-  frequency: "daily" | "weekly" | "monthly" | "none";
-  interval?: number;
+  frequency: EteRecurrenceFrequency;
+  /** Every N units (days / weeks). Default 1. */
+  interval: number;
+  /** Weekly — selected weekdays */
+  weekdays?: EteWeekdayCode[];
+  /** Monthly mode */
+  monthlyMode?: EteMonthlyMode;
+  /** Same-weekday monthly: First / Third / Last … */
+  weekdayOrdinal?: EteWeekdayOrdinal;
+  weekday?: EteWeekdayCode;
+  /** Same-date monthly / quarterly / half-yearly / yearly day-of-month (1–31) */
+  dayOfMonth?: number;
+  end: EteRecurrenceEnd;
+  /** Relative reminder before each occurrence due */
+  reminderOffset?: EteReminderOffset;
 }
+
+/**
+ * @deprecated Legacy stub — prefer full `EteTaskRecurrence` with `end`.
+ * Kept so older in-memory rows with frequency "none" still type-check.
+ */
+export type EteLegacyRecurrenceFrequency = EteRecurrenceFrequency | "none";
+
+export type EteScheduleKind = "one_time" | "recurring";
+
+export type EteRecurrenceFrequency =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "quarterly"
+  | "half_yearly"
+  | "yearly";
+
+export type EteWeekdayCode = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+export type EteMonthlyMode = "same_date" | "same_weekday";
+
+export type EteWeekdayOrdinal = "first" | "second" | "third" | "fourth" | "last";
+
+export type EteRecurrenceEndMode = "forever" | "after_count" | "on_date";
+
+export type EteRecurrenceEnd =
+  | { mode: "forever" }
+  | { mode: "after_count"; count: number }
+  | { mode: "on_date"; endOn: string };
+
+export type EteReminderOffset =
+  | "none"
+  | "at_due"
+  | "15_minutes"
+  | "1_hour"
+  | "1_day";
+
+export type EteSeriesStatus = "active" | "ended" | "cancelled";
 
 export interface EteEntityReference {
   kind: EteEntityKind;
@@ -100,7 +151,17 @@ export interface EteTask {
   assigneeRef: string;
   opportunityRef?: string;
   dueOn?: string;
+  /** One-Time (default) vs Recurring series. */
+  scheduleKind?: EteScheduleKind;
   recurrence?: EteTaskRecurrence;
+  /** Shared id across all occurrences in a recurring series. */
+  seriesId?: string;
+  /** First occurrence task id (series root). */
+  seriesRootTaskId?: string;
+  /** 1-based occurrence index within the series. */
+  occurrenceNumber?: number;
+  /** Series lifecycle — set on open/root occurrences. */
+  seriesStatus?: EteSeriesStatus;
   predefinedDescription: EtePredefinedDescription;
   description?: string;
   coOwnerRefs: string[];

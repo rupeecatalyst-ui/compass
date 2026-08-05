@@ -19,13 +19,21 @@ import {
 } from "@/lib/universal-guided-journey";
 import {
   checkEcmContactDuplicates,
+  isEcmContactActiveExistsClientError,
+  isEcmContactSoftDeletedClientError,
   isEcmDuplicateContactError,
   normalizeEcmMobile,
   normalizePersonName,
   type EcmDuplicateMatchField,
 } from "@/lib/enterprise-contact-master";
 import { persistRegisterEcmContact } from "@/lib/enterprise-persistence";
-import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
+import { ecmApiClient } from "@/lib/enterprise-persistence/ecm-api-client";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import type {
+  EcmContact,
+  EcmContactIdentitySnapshot,
+  EcmContactRole,
+} from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -34,6 +42,7 @@ import { useChanakyaGreeting } from "@/hooks/use-chanakya-greeting";
 import { UgjShell } from "@/components/catalyst-one/universal-guided-journey";
 import type { ContactCreationIntentResult } from "@/components/catalyst-one/contacts/contact-creation-intent-screen";
 import { PotentialDuplicateContactDialog } from "@/components/catalyst-one/contacts/potential-duplicate-contact-dialog";
+import { RestoreContactDialog } from "@/components/catalyst-one/contacts/restore-contact-dialog";
 
 interface QuickContactCreationWizardProps {
   open: boolean;
@@ -91,6 +100,9 @@ export function QuickContactCreationWizard({
   const [duplicate, setDuplicate] = useState<EcmContact | null>(null);
   const [dupField, setDupField] = useState<EcmDuplicateMatchField | null>(null);
   const [dupOpen, setDupOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoreSnapshot, setRestoreSnapshot] =
+    useState<EcmContactIdentitySnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [animKey, setAnimKey] = useState(0);
@@ -128,6 +140,8 @@ export function QuickContactCreationWizard({
     setDuplicate(null);
     setDupField(null);
     setDupOpen(false);
+    setRestoreOpen(false);
+    setRestoreSnapshot(null);
     setError(null);
     setCreating(false);
     setAnimKey(0);
@@ -269,6 +283,24 @@ export function QuickContactCreationWizard({
             }
           : null;
 
+      // CO-CONTACT-IDENTITY-001 — search registry before create.
+      if (isEnterprisePersistencePrisma()) {
+        const identity = await ecmApiClient.lookupContactIdentity(digits);
+        if (identity.status === "active" && identity.contact) {
+          setDuplicate(identity.contact);
+          setDupField("mobile");
+          setDupOpen(true);
+          setCreating(false);
+          return;
+        }
+        if (identity.status === "soft_deleted" && identity.snapshot) {
+          setRestoreSnapshot(identity.snapshot);
+          setRestoreOpen(true);
+          setCreating(false);
+          return;
+        }
+      }
+
       const created = await persistRegisterEcmContact({
         name: normalizedName,
         mobilePrimary: digits,
@@ -299,16 +331,34 @@ export function QuickContactCreationWizard({
         });
         clearUgjSession(sessionId);
       }
-      // Conversation complete → transition into Contact Workspace
       onCreated(created);
     } catch (e) {
-      if (isEcmDuplicateContactError(e)) {
+      if (isEcmContactSoftDeletedClientError(e)) {
+        setRestoreSnapshot(e.snapshot);
+        setRestoreOpen(true);
+        setError(null);
+      } else if (isEcmContactActiveExistsClientError(e)) {
+        try {
+          const existing = await ecmApiClient.getContact(e.snapshot.contactId);
+          setDuplicate(existing);
+          setDupField("mobile");
+          setDupOpen(true);
+          setError(null);
+        } catch {
+          setError("An active Contact already exists for this mobile number.");
+        }
+      } else if (isEcmDuplicateContactError(e)) {
         setDuplicate(e.match);
         setDupField(e.matchField);
         setDupOpen(true);
         setError(null);
       } else {
-        setError(e instanceof Error ? e.message : "Could not create contact.");
+        const msg = e instanceof Error ? e.message : "Could not create contact.";
+        setError(
+          /P2002|prisma|SQL/i.test(msg)
+            ? "This mobile number is already linked to an Enterprise Contact."
+            : msg,
+        );
       }
       setCreating(false);
     }
@@ -586,6 +636,23 @@ export function QuickContactCreationWizard({
         setDupOpen(false);
         onOpenChange(false);
         onOpenExisting(existing);
+      }}
+    />
+    <RestoreContactDialog
+      open={restoreOpen}
+      onOpenChange={setRestoreOpen}
+      snapshot={restoreSnapshot}
+      onRestored={(contactId) => {
+        void (async () => {
+          try {
+            const restored = await ecmApiClient.getContact(contactId);
+            setRestoreOpen(false);
+            onOpenChange(false);
+            onOpenExisting(restored);
+          } catch {
+            onOpenChange(false);
+          }
+        })();
       }}
     />
     </>

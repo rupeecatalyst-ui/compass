@@ -3,6 +3,11 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { EnterpriseFinancialInput } from "@/components/catalyst-one/shared/enterprise-financial-input";
+import {
+  absoluteRupeesFromStoredString,
+  absoluteRupeesToStoredString,
+} from "@/lib/enterprise-financial-input";
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
 import { getProposalButtonLabel } from "@/lib/chanakya-phase5-intelligence";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
@@ -185,11 +190,15 @@ export function EcwLeftPanel({
                 verify figures while editing this form.
               </p>
               <Field label="Stated Monthly Income">
-                <Input
-                  className="h-8 text-xs"
-                  value={stated.statedIncomeMonthly ?? ""}
-                  onChange={(e) => onStatedChange({ statedIncomeMonthly: e.target.value })}
-                  placeholder="e.g. 1,85,000"
+                <EnterpriseFinancialInput
+                  value={absoluteRupeesFromStoredString(stated.statedIncomeMonthly)}
+                  onChange={(absolute) =>
+                    onStatedChange({
+                      statedIncomeMonthly: absoluteRupeesToStoredString(absolute),
+                    })
+                  }
+                  placeholder="e.g. 1.85"
+                  defaultUnit="lakh"
                 />
               </Field>
               <Field label="Stated Obligations / EMIs">
@@ -220,11 +229,13 @@ export function EcwLeftPanel({
                 Business figures reused from Business Profile / Opportunity Setup — verify against the open document.
               </p>
               <Field label="Annual Turnover (from profile)">
-                <Input
-                  className="h-8 text-xs"
-                  value={stated.statedTurnover ?? ""}
-                  onChange={(e) => onStatedChange({ statedTurnover: e.target.value })}
-                  placeholder="Prefilled when available"
+                <EnterpriseFinancialInput
+                  value={absoluteRupeesFromStoredString(stated.statedTurnover)}
+                  onChange={(absolute) =>
+                    onStatedChange({ statedTurnover: absoluteRupeesToStoredString(absolute) })
+                  }
+                  placeholder="e.g. 2.5"
+                  defaultUnit="crore"
                 />
               </Field>
               <Field label="Business Vintage (years)">
@@ -265,11 +276,15 @@ export function EcwLeftPanel({
                 />
               </Field>
               <Field label="Stated Property Value">
-                <Input
-                  className="h-8 text-xs"
-                  value={stated.statedPropertyValue ?? ""}
-                  onChange={(e) => onStatedChange({ statedPropertyValue: e.target.value })}
-                  placeholder="Approx. market value"
+                <EnterpriseFinancialInput
+                  value={absoluteRupeesFromStoredString(stated.statedPropertyValue)}
+                  onChange={(absolute) =>
+                    onStatedChange({
+                      statedPropertyValue: absoluteRupeesToStoredString(absolute),
+                    })
+                  }
+                  placeholder="e.g. 1.2"
+                  defaultUnit="crore"
                 />
               </Field>
               <Field label="Stated Property Location">

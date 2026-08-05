@@ -168,7 +168,7 @@ export function EnterpriseLenderSearch({
 
             search: q || undefined,
 
-            pageSize: 120,
+            pageSize: 5000,
 
           });
 
@@ -550,7 +550,7 @@ export function EnterpriseLenderSearch({
 
             <ul className="divide-y divide-border/60">
 
-              {displayLenders.slice(0, 40).map((l) => {
+              {displayLenders.map((l) => {
 
                 const active =
 

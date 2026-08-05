@@ -1,10 +1,11 @@
+/**
+ * Map the current route to a Live Intelligence workspace context.
+ * EUX-007 / CO-CHANAKYA-007 — messages must be relevant to the current workspace.
+ */
+
 import { ROUTES } from "@/constants/routes";
 import type { ChanakyaLiveIntelligenceWorkspace } from "@/types/chanakya-live-intelligence";
 
-/**
- * Map the current route to a Live Intelligence workspace context.
- * EUX-007 — messages must be relevant to the current workspace.
- */
 export function resolveChanakyaLiveIntelligenceWorkspace(
   pathname: string | null | undefined,
 ): ChanakyaLiveIntelligenceWorkspace {
@@ -23,18 +24,28 @@ export function resolveChanakyaLiveIntelligenceWorkspace(
     return "contacts";
   }
   if (
+    path === ROUTES.MY_OPPORTUNITIES ||
+    path.startsWith(`${ROUTES.MY_OPPORTUNITIES}/`) ||
     path === ROUTES.OPPORTUNITY_WORKSPACE ||
-    path.startsWith(`${ROUTES.OPPORTUNITY_WORKSPACE}/`)
+    path.startsWith(`${ROUTES.OPPORTUNITY_WORKSPACE}/`) ||
+    path === ROUTES.LEAD_INFORMATION ||
+    path.startsWith(`${ROUTES.LEAD_INFORMATION}/`) ||
+    path === ROUTES.OPPORTUNITY_COMPASS ||
+    path.startsWith(`${ROUTES.OPPORTUNITY_COMPASS}/`)
   ) {
     return "opportunities";
+  }
+  /** My Deals registry — deal book signals (distinct from loan_files workspace). */
+  if (path === ROUTES.MY_DEALS || path.startsWith(`${ROUTES.MY_DEALS}/`)) {
+    return "my_deals";
   }
   if (
     path === ROUTES.DEALS ||
     path.startsWith(`${ROUTES.DEALS}/`) ||
     path === ROUTES.LOAN_FILES ||
     path.startsWith(`${ROUTES.LOAN_FILES}/`) ||
-    path === ROUTES.MY_DEALS ||
-    path.startsWith(`${ROUTES.MY_DEALS}/`)
+    path === ROUTES.LOAN_JOURNEY ||
+    path.startsWith(`${ROUTES.LOAN_JOURNEY}/`)
   ) {
     return "loan_files";
   }
@@ -58,9 +69,39 @@ export function resolveChanakyaLiveIntelligenceWorkspace(
   if (path === ROUTES.HORIZON || path.startsWith(`${ROUTES.HORIZON}/`)) {
     return "horizon";
   }
-  if (path === ROUTES.MY_DEALS || path.startsWith(`${ROUTES.MY_DEALS}/`)) {
-    return "my_deals";
-  }
 
   return "default";
+}
+
+/** Extract current Deal / Opportunity entity ids from route + query (read-only). */
+export function resolveChanakyaLiveEntityFromLocation(
+  pathname: string | null | undefined,
+  search?: string | null,
+): {
+  dealId?: string;
+  opportunityId?: string;
+  fileId?: string;
+} {
+  const path = pathname || "/";
+  const params = new URLSearchParams(search || "");
+  const opportunityId =
+    params.get("opportunityId") ||
+    params.get("opportunity") ||
+    undefined;
+  const fileId = params.get("file") || params.get("fileId") || undefined;
+
+  const dealMatch = path.match(/^\/deals\/([^/]+)/);
+  if (dealMatch?.[1]) {
+    return {
+      dealId: decodeURIComponent(dealMatch[1]),
+      opportunityId: opportunityId || undefined,
+      fileId: fileId || undefined,
+    };
+  }
+
+  return {
+    dealId: params.get("dealId") || undefined,
+    opportunityId: opportunityId || undefined,
+    fileId: fileId || undefined,
+  };
 }

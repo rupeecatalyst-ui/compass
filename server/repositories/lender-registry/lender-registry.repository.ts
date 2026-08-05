@@ -394,7 +394,8 @@ export class LenderRegistryRepository {
 
     const page = Math.max(1, query.page ?? 1);
 
-    const pageSize = Math.min(200, Math.max(1, query.pageSize ?? 100));
+    // CO-LENDER-SSOT-REMEDIATE-001 — selection may request full registry (≤5000).
+    const pageSize = Math.min(5000, Math.max(1, query.pageSize ?? 100));
 
     const where: Prisma.EnterpriseLenderWhereInput = {
 
@@ -602,6 +603,8 @@ export class LenderRegistryRepository {
         headquartersLabel: input.headquartersLabel,
 
         website: input.website,
+
+        logoUrl: input.logoUrl,
 
         tags: input.tags === null ? Prisma.JsonNull : input.tags,
         productsSupported:
@@ -896,39 +899,40 @@ export class LenderRegistryRepository {
 
 
     const row = await prisma.enterpriseLenderProgram.create({
-
       data: {
-
         organizationId,
-
         lenderId: input.lenderId,
-
         productId: input.productId,
-
+        productCode: input.productCode?.trim() || null,
         code,
-
         label: input.label.trim(),
-
         description: input.description?.trim(),
-
+        borrowerType: input.borrowerType?.trim() || null,
+        employmentType: input.employmentType?.trim() || null,
+        roiPercent: input.roiPercent ?? null,
+        minRoiPercent: input.minRoiPercent ?? null,
+        maxRoiPercent: input.maxRoiPercent ?? null,
+        processingFeeLabel: input.processingFeeLabel?.trim() || null,
+        processingFeePct: input.processingFeePct ?? null,
+        maxFundingAmount: input.maxFundingAmount ?? null,
+        maxLtvPercent: input.maxLtvPercent ?? null,
+        maxTenureMonths: input.maxTenureMonths ?? null,
+        minCibil: input.minCibil ?? null,
+        minIncomeAmount: input.minIncomeAmount ?? null,
+        eligibleStates: input.eligibleStates ?? undefined,
+        eligibleCities: input.eligibleCities ?? undefined,
+        averageTatDays: input.averageTatDays ?? null,
+        remarks: input.remarks?.trim() || null,
         lifecycleStatus: input.lifecycleStatus ?? "draft",
-
         status: input.status ?? "draft",
-
         enabled: input.enabled ?? true,
-
         notes: input.notes?.trim(),
-
         createdBy: input.createdBy,
-
         modifiedBy: input.createdBy,
-
       },
-
     });
 
     return mapProgramRow(row);
-
   }
 
 
@@ -940,52 +944,50 @@ export class LenderRegistryRepository {
       where: { id },
 
       data: {
-
         label: input.label?.trim(),
-
         description: input.description,
-
         lenderId: input.lenderId,
-
         productId: input.productId,
-
+        productCode: input.productCode === undefined ? undefined : input.productCode,
+        borrowerType: input.borrowerType,
+        employmentType: input.employmentType,
+        roiPercent: input.roiPercent,
+        minRoiPercent: input.minRoiPercent,
+        maxRoiPercent: input.maxRoiPercent,
+        processingFeeLabel: input.processingFeeLabel,
+        processingFeePct: input.processingFeePct,
+        maxFundingAmount: input.maxFundingAmount,
+        maxLtvPercent: input.maxLtvPercent,
+        maxTenureMonths: input.maxTenureMonths,
+        minCibil: input.minCibil,
+        minIncomeAmount: input.minIncomeAmount,
+        eligibleStates:
+          input.eligibleStates === undefined
+            ? undefined
+            : input.eligibleStates === null
+              ? Prisma.JsonNull
+              : input.eligibleStates,
+        eligibleCities:
+          input.eligibleCities === undefined
+            ? undefined
+            : input.eligibleCities === null
+              ? Prisma.JsonNull
+              : input.eligibleCities,
+        averageTatDays: input.averageTatDays,
+        remarks: input.remarks,
         lifecycleStatus: input.lifecycleStatus,
-
         status: input.status,
-
         enabled: input.enabled,
-
         notes: input.notes,
-
         modifiedBy: input.modifiedBy,
-
         versionNumber: {
-
-          increment:
-
-            input.label ||
-
-            input.status ||
-
-            input.enabled !== undefined ||
-
-            input.lifecycleStatus
-
-              ? 1
-
-              : 0,
-
+          increment: 1,
         },
-
       },
-
     });
 
     return mapProgramRow(row);
-
   }
-
-
 
   async setProgramStatus(
 

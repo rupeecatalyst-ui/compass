@@ -20,7 +20,17 @@ export function signRefreshToken(payload: TokenPayload): string {
 }
 
 export function verifyAccessToken(token: string): TokenPayload {
-  return jwt.verify(token, serverEnv.JWT_SECRET) as TokenPayload;
+  const payload = jwt.verify(token, serverEnv.JWT_SECRET) as TokenPayload & {
+    aud?: string | string[];
+    typ?: string;
+  };
+  /** CO-WP-102A — Partner tokens must not authenticate employee APIs. */
+  const aud = payload.aud;
+  const audList = Array.isArray(aud) ? aud : aud ? [aud] : [];
+  if (audList.includes("wealth_partner_app") || payload.typ === "partner_access") {
+    throw new Error("Partner token cannot access employee APIs");
+  }
+  return payload;
 }
 
 export function verifyRefreshToken(token: string): TokenPayload {

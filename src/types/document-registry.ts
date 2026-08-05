@@ -47,7 +47,9 @@ export type DocumentRegistryUploadSource =
   | "whatsapp"
   | "api"
   /** CO-DOC-003 — file ingested as part of a Document Package (folder upload). */
-  | "folder_package";
+  | "folder_package"
+  /** CO-VOICE-002 — ECIE Activity Composer audio capture. */
+  | "conversation_activity";
 
 export interface DocumentRegistryRecord {
   id: string;

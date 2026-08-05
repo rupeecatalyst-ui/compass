@@ -4,7 +4,7 @@
  */
 
 import { STORAGE_KEYS } from "@/constants/animations";
-import { ELW_HIERARCHY_STORAGE_KEY } from "@/constants/enterprise-lender-workspace";
+import { RETIRED_ELW_HIERARCHY_STORAGE_KEY } from "@/lib/enterprise-lender-workspace/hierarchy";
 import { EUM_STORAGE_KEY } from "@/constants/enterprise-user-management";
 import { ORG_DOC_STORAGE_KEY } from "@/constants/organization-documents";
 import { SDE_STORAGE_KEY } from "@/constants/system-driven-enterprise";
@@ -17,7 +17,8 @@ const DEMO_BUSINESS_STORAGE_KEYS = [
   // business data (localStorage metadata + IndexedDB blobs), not demo seeds.
   // Prior inclusion of DOCUMENT_REGISTRY_STORAGE_KEY wiped OPP uploads on every
   // dashboard mount when demo seeds are disabled (prisma / Vercel) → Files=0.
-  ELW_HIERARCHY_STORAGE_KEY,
+  // CO-LENDER-HIERARCHY-REMEDIATION-001 — purge retired hierarchy localStorage only.
+  RETIRED_ELW_HIERARCHY_STORAGE_KEY,
   EUM_STORAGE_KEY,
   ORG_DOC_STORAGE_KEY,
   SDE_STORAGE_KEY,

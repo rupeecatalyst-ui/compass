@@ -1,0 +1,39 @@
+---
+description: CO-WP-JOURNEY-001C — Enterprise Opportunity Journey alignment; no deploy; await BAT
+alwaysApply: true
+---
+
+# CO-WP-JOURNEY-001C — Enterprise Opportunity Journey Alignment
+
+Status: **ALIGNMENT COMPLETE** · **NO DEPLOY** · Await Product Owner BAT  
+Docs: `docs/co-wp-journey/CO-WP-JOURNEY-001C-ENTERPRISE-ALIGNMENT.md`
+
+## Authorisation
+
+Product Owner Architecture Alignment supersedes CO-WP-BAT-001 freeze **only** for this alignment work.  
+BAT freeze remains for unrelated feature work.
+
+## Principles (frozen)
+
+1. Wealth Partner is an **Enterprise Companion** — presentation + Partner session + secure API only.  
+2. Catalyst One owns masters, rules, registries, workflow, notifications, events, audit.  
+3. **Never** hardcode dropdown / master values in WP when Enterprise config can supply them.  
+4. Mandatory **Borrower Type** (`individual` | `company`) immediately after Customer.  
+5. Journey path unchanged — only Enterprise alignment of sequence, terminology, and fields.  
+6. **Do not deploy** unless Product Owner explicitly requests.
+
+## SSOT
+
+| Concern | Path |
+|--------|------|
+| Journey config service | `server/services/partner-gateway/partner-opportunity-journey-config.service.ts` |
+| Config API | `GET /api/partner/opportunity-journey/config` |
+| DTO types | `src/types/enterprise-partner-opportunity-journey.ts` |
+| WP render | `CreateOpportunityScreen` + `JourneyConfigFields` |
+
+## Forbidden
+
+- Parallel Opportunity masters in WP  
+- Business processing / workflow in companion  
+- EEE / Experience Center implementation  
+- Silent Opportunity Registry dual-write without cutover programme  

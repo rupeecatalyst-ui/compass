@@ -1,6 +1,8 @@
 /**
- * CO-FOUNDATION-010 — RIC mock dataset (~20 contacts, ~40 relationships).
- * No database. No APIs.
+ * CO-FOUNDATION-010 — RIC mock dataset (DEV / historical only).
+ *
+ * CO-UX-013 — Production Network Workspace MUST NOT import this module.
+ * Live path: `live-registry.ts` (Enterprise Contact Registry + ECM relationships).
  */
 
 import type { RicContact, RicRelationship } from "./ric-types";

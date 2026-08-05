@@ -114,13 +114,32 @@ export const CHANAKYA_RADAR_MEANINGFUL_WORK_ACTIVITIES: ChanakyaRadarMeaningfulW
       id: "call_completed",
       label: "Call completed",
       enabled: true,
-      matchPatterns: ["call completed", "call —", "phone call", "outbound call"],
+      matchPatterns: [
+        "call completed",
+        "call —",
+        "phone call",
+        "outbound call",
+        "call log",
+        "logged call",
+      ],
     },
     {
       id: "customer_meeting",
       label: "Customer meeting logged",
       enabled: true,
-      matchPatterns: ["meeting", "customer visit", "site visit"],
+      matchPatterns: ["meeting", "customer visit", "site visit", "customer interaction"],
+    },
+    {
+      id: "banker_interaction",
+      label: "Banker interaction",
+      enabled: true,
+      matchPatterns: [
+        "banker",
+        "lender call",
+        "rm call with lender",
+        "credit manager",
+        "banker interaction",
+      ],
     },
     {
       id: "note_added",
@@ -132,31 +151,87 @@ export const CHANAKYA_RADAR_MEANINGFUL_WORK_ACTIVITIES: ChanakyaRadarMeaningfulW
       id: "follow_up_completed",
       label: "Follow-up completed",
       enabled: true,
-      matchPatterns: ["follow-up", "follow up", "followup"],
+      matchPatterns: ["follow-up", "follow up", "followup", "follow-up logged"],
+    },
+    {
+      id: "document_approved",
+      label: "Document approved",
+      enabled: true,
+      matchPatterns: [
+        "document approved",
+        "document verified",
+        "docs verified",
+        "verification complete",
+      ],
     },
     {
       id: "document_uploaded",
       label: "Document uploaded",
       enabled: true,
-      matchPatterns: ["document", "upload", "checklist"],
+      matchPatterns: ["document uploaded", "upload", "checklist", "document received"],
     },
     {
       id: "workflow_stage_updated",
       label: "Workflow stage updated",
       enabled: true,
-      matchPatterns: ["stage", "workflow", "status change", "moved to"],
+      matchPatterns: ["stage changed", "stage", "workflow", "status change", "moved to"],
+    },
+    {
+      id: "workflow_substage_updated",
+      label: "Sub-stage updated",
+      enabled: true,
+      matchPatterns: ["sub-stage", "substage", "sub stage"],
     },
     {
       id: "task_completed",
       label: "Task completed",
       enabled: true,
-      matchPatterns: ["task activity", "task completed", "task closed"],
+      matchPatterns: ["task activity", "task completed", "task closed", "task done"],
     },
     {
       id: "communication_sent",
       label: "Customer communication sent",
       enabled: true,
-      matchPatterns: ["email sent", "whatsapp sent", "sms sent"],
+      matchPatterns: [
+        "email sent",
+        "whatsapp sent",
+        "sms sent",
+        "email interaction",
+        "whatsapp interaction",
+      ],
+    },
+    {
+      id: "approval_completed",
+      label: "Approval completed",
+      enabled: true,
+      matchPatterns: [
+        "approval completed",
+        "soft approved",
+        "final approved",
+        "approval received",
+      ],
+    },
+    {
+      id: "ai_recommendation_accepted",
+      label: "AI recommendation accepted",
+      enabled: true,
+      matchPatterns: [
+        "ai recommendation accepted",
+        "chanakya recommendation accepted",
+        "accepted recommendation",
+      ],
+    },
+    {
+      id: "assignment_changed",
+      label: "Assignment changed",
+      enabled: true,
+      matchPatterns: [
+        "assignment changed",
+        "reassigned",
+        "owner changed",
+        "rm assigned",
+        "assigned to",
+      ],
     },
     {
       id: "lender_pipeline_updated",
@@ -331,8 +406,89 @@ export type ChanakyaRadarViewId = "matrix" | "kanban" | "dashboard";
 
 export const CHANAKYA_RADAR_FILTER_ALL = "all";
 
-export const CHANAKYA_RADAR_EXCLUDED_LENDER_STAGES = new Set(["lost"]);
-export const CHANAKYA_RADAR_EXCLUDED_PROBABILITIES = new Set(["rejected", "withdrawn"]);
+export const CHANAKYA_RADAR_EXCLUDED_LENDER_STAGES = new Set(["lost", "disbursed"]);
+export const CHANAKYA_RADAR_EXCLUDED_PROBABILITIES = new Set([
+  "rejected",
+  "withdrawn",
+]);
+
+/**
+ * CO-CHANAKYA-RADAR-003 — Terminal Deal stages (never on Radar / avg health).
+ * Enterprise Configuration — do not hardcode in UI.
+ */
+export const CHANAKYA_RADAR_EXCLUDED_DEAL_STAGES = new Set([
+  "lost",
+  "disbursed",
+  "cancelled",
+  "withdrawn",
+  "archived",
+  "won", // disbursed projection on LoanFile
+  "completed",
+]);
+
+/**
+ * CO-CHANAKYA-RADAR-003 — Multi-parameter operational classification thresholds.
+ * Tunable from Catalyst One configuration (constants SSOT — no UI hardcoding).
+ */
+export const CHANAKYA_RADAR_CLASSIFICATION_THRESHOLDS = {
+  atRisk: {
+    minIdleDays: 10,
+    minTerminalLenders: 2,
+    minOverdueTasks: 2,
+    criticalAgeingDays: 31,
+    maxDocumentCompleteness: 0.35,
+  },
+  needsAttention: {
+    minIdleDays: 5,
+    minPendingDocs: 2,
+    minOpenTasks: 2,
+    elevatedAgeingDays: 8,
+  },
+  followUpRequired: {
+    minOpenTasks: 1,
+    minPendingDocs: 1,
+    customerIdleDays: 3,
+    taskDueToday: true,
+  },
+  /** Deal Health score anchors by classification (Average Deal Health SSOT inputs). */
+  healthScoreByQuadrant: {
+    on_track: 92,
+    follow_up_required: 62,
+    needs_attention: 48,
+    at_risk: 18,
+  } as Record<ChanakyaOperationalQuadrantId, number>,
+} as const;
+
+/** Quadrant card chrome for outside status lists (CO-CHANAKYA-RADAR-003). */
+export const CHANAKYA_RADAR_STATUS_CARD_META: Record<
+  ChanakyaOperationalQuadrantId,
+  { emoji: string; title: string; accentClass: string; borderClass: string }
+> = {
+  on_track: {
+    emoji: "🟢",
+    title: "ON TRACK",
+    accentClass: "text-emerald-300",
+    borderClass: "border-emerald-500/35",
+  },
+  follow_up_required: {
+    emoji: "🔵",
+    title: "FOLLOW-UP REQUIRED",
+    accentClass: "text-sky-300",
+    borderClass: "border-sky-500/35",
+  },
+  needs_attention: {
+    emoji: "🟡",
+    title: "NEEDS ATTENTION",
+    accentClass: "text-amber-300",
+    borderClass: "border-amber-500/35",
+  },
+  at_risk: {
+    emoji: "🔴",
+    title: "AT RISK",
+    accentClass: "text-rose-300",
+    borderClass: "border-rose-500/35",
+  },
+};
 
 /** Legacy column defs — map dormant → follow_up for old helpers. */
 export interface ChanakyaRadarColumnDef {

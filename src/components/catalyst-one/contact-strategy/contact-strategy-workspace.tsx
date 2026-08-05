@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/design-system/page-header";
 import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contact-workspace-modal";
+import { EnterpriseActivityComposer } from "@/components/catalyst-one/action-center/workspaces/enterprise-activity-composer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -21,21 +21,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listOperationalEcmContacts } from "@/lib/enterprise-registry";
+import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import { useEnterpriseRegistry } from "@/hooks/use-enterprise-registry";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import {
   CONTACT_STRATEGY_ACTIVITY_OPTIONS,
-  CONTACT_STRATEGY_VISIBLE_DAYS,
   activityTypeLabel,
   listActiveContactStrategyActions,
   logContactStrategyAction,
   type ContactStrategyAction,
   type ContactStrategyActivityType,
 } from "@/lib/contact-strategy";
-import { getRicContactById } from "@/lib/contact-strategy/ric-mock-data";
-import type { RicContact } from "@/lib/contact-strategy/ric-types";
-import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
+import { listConversationActivitiesByContext as listEcieActivities } from "@/lib/enterprise-conversation-intelligence";
+import {
+  getNetworkContactById,
+  listNetworkFirstLevel,
+} from "@/lib/contact-strategy/live-registry";
+import type { EcmContact } from "@/types/enterprise-contact-master";
 import { cn } from "@/lib/utils";
 import { RelationshipIntelligenceCanvas } from "./relationship-intelligence-canvas";
 import { StrategicContactPool } from "./strategic-contact-pool";
@@ -44,78 +46,23 @@ function daysRemaining(expiresAt: string): number {
   return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000));
 }
 
-function ricCategoryToRole(category: RicContact["category"]): EcmContactRole {
-  switch (category) {
-    case "CA":
-      return "chartered_accountant";
-    case "Builder":
-      return "builder";
-    case "Bank":
-    case "NBFC":
-      return "lender_employee";
-    case "Lawyer":
-      return "partner";
-    case "Relationship Manager":
-      return "employee";
-    case "Valuer":
-      return "partner";
-    case "Customer":
-    default:
-      return "customer";
-  }
-}
-
-/** Build a display-only EcmContact from RIC mock for Contact Workspace open. */
-function ricToEcmContact(contact: RicContact): EcmContact {
-  const now = new Date().toISOString();
-  return {
-    id: contact.id,
-    name: contact.name,
-    mobilePrimary: "9000000000",
-    personalEmail: undefined,
-    officialEmail: undefined,
-    city: "Pune",
-    state: "Maharashtra",
-    country: "IN",
-    primaryRole: ricCategoryToRole(contact.category),
-    additionalRoles: [],
-    roles: [ricCategoryToRole(contact.category)],
-    enabled: true,
-    status: "active",
-    platformAccess: "no_access",
-    linkedUserId: null,
-    contactScore: contact.relationshipScore,
-    createdOn: now,
-    createdBy: "ric-mock",
-    modifiedOn: now,
-    modifiedBy: "ric-mock",
-    lastActiveOn: now,
-    strategicContact: true,
-    roleProfiles: {
-      [ricCategoryToRole(contact.category)]: {
-        firmName: contact.company,
-        designation: contact.businessRole,
-        institution: contact.company,
-      },
-    },
-  };
-}
-
 /**
- * CO-SPRINT-092 + CO-FOUNDATION-010 — Contact Strategy Workspace.
- * Left: Strategic Contact Pool · Centre: Relationship Intelligence Canvas · Right: Active actions.
+ * CO-UX-013 / CO-UX-014 — Contact Strategy / Network Workspace.
+ * Left: live Contact Registry · Centre: graph · Right: inspector + inline Activity Composer.
  */
 export function ContactStrategyWorkspace() {
   const { user } = useAuthContext();
   const { registryVersion } = useEnterpriseRegistry({ hydrateOnMount: true });
   const [tick, setTick] = useState(0);
-  const [dragOver, setDragOver] = useState(false);
   const [pending, setPending] = useState<{ id: string; name: string } | null>(null);
   const [activityType, setActivityType] = useState<ContactStrategyActivityType>("meeting");
-  const [notes, setNotes] = useState("");
+  /** Last chosen cycle type for optional relationship-cycle stamp after ECIE save. */
+  const [cycleActivityType, setCycleActivityType] =
+    useState<ContactStrategyActivityType>("meeting");
   const [centreContactId, setCentreContactId] = useState<string | null>(null);
   const [workspaceContact, setWorkspaceContact] = useState<EcmContact | null>(null);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const composerAnchorRef = useRef<HTMLDivElement | null>(null);
 
   const refresh = () => setTick((n) => n + 1);
 
@@ -125,116 +72,241 @@ export function ContactStrategyWorkspace() {
   }, []);
 
   const activeActions = useMemo(() => {
-    return listActiveContactStrategyActions();
+    return listActiveContactStrategyActions().filter((action) =>
+      centreContactId ? action.contactId === centreContactId : false,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, registryVersion]);
+  }, [tick, registryVersion, centreContactId]);
+
+  const recentActivities = useMemo(() => {
+    if (!centreContactId) return [];
+    return listEcieActivities("contact", centreContactId).slice(0, 5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, centreContactId]);
+
+  const selected = useMemo(() => {
+    if (!centreContactId) return null;
+    return getNetworkContactById(centreContactId) ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centreContactId, registryVersion]);
+
+  const neighbourCount = useMemo(() => {
+    if (!centreContactId) return 0;
+    return listNetworkFirstLevel(centreContactId).neighbours.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centreContactId, registryVersion]);
+
+  const focusComposer = (contact: { id: string; name: string }) => {
+    setCentreContactId(contact.id);
+    setCycleActivityType(activityType);
+    window.requestAnimationFrame(() => {
+      composerAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  };
 
   const openLog = (contact: { id: string; name: string }) => {
     setPending(contact);
     setActivityType("meeting");
-    setNotes("");
   };
 
-  const saveLog = () => {
+  const confirmCycleType = () => {
     if (!pending) return;
-    logContactStrategyAction({
-      contactId: pending.id,
-      contactName: pending.name,
-      activityType,
-      notes,
-      loggedBy: "RM",
-    });
-    toast.success(`${pending.name} · ${activityTypeLabel(activityType)} logged.`);
+    setCycleActivityType(activityType);
+    setCentreContactId(pending.id);
     setPending(null);
-    refresh();
+    toast.message("Use Meeting Notes & Conversations below to capture the discussion.");
+    window.requestAnimationFrame(() => {
+      composerAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
   };
 
   const openContactWorkspace = (contactId: string) => {
-    const ric = getRicContactById(contactId);
-    if (!ric) return;
-    const fromRegistry = listOperationalEcmContacts().find(
-      (c) => c.name.trim().toLowerCase() === ric.name.trim().toLowerCase(),
-    );
-    setWorkspaceContact(fromRegistry ?? ricToEcmContact(ric));
+    const fromRegistry = findOperationalEcmContactById(contactId);
+    if (!fromRegistry) {
+      toast.error("Contact not found in the Enterprise Contact Registry.");
+      return;
+    }
+    setWorkspaceContact(fromRegistry);
     setWorkspaceOpen(true);
   };
 
+  const onActivitySaved = () => {
+    if (!centreContactId || !selected) {
+      refresh();
+      return;
+    }
+    // Optional relationship-cycle stamp only — notes/transcript SSOT remains ECIE.
+    const latest = listEcieActivities("contact", centreContactId)[0];
+    logContactStrategyAction({
+      contactId: centreContactId,
+      contactName: selected.name,
+      activityType: cycleActivityType,
+      notes: latest?.transcriptText?.slice(0, 240) || latest?.bodyText?.slice(0, 240),
+      loggedBy:
+        [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+        user?.email ||
+        "RM",
+    });
+    refresh();
+  };
+
+  const inspectorOpen = Boolean(centreContactId && selected);
+
   return (
-    <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4">
+    <div className="flex h-[calc(100vh-5.5rem)] min-h-[28rem] flex-col gap-2">
       <PageHeader
         title="Contact Strategy"
-        description="Strategic relationship engagement — explore the Relationship Intelligence Canvas."
+        description="Live Enterprise relationship network — Contact Registry + ECM relationships only."
+        className="shrink-0 !mb-0"
       />
 
-      {/* LEFT 25% · CENTRE 50% · RIGHT 25% */}
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 gap-3",
+          inspectorOpen
+            ? "lg:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)_minmax(18rem,24rem)]"
+            : "lg:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)]",
+        )}
+      >
         <StrategicContactPool
           selectedId={centreContactId}
           onSelect={(contact) => setCentreContactId(contact.id)}
+          registryVersion={registryVersion}
         />
 
-        <section className="flex min-h-[420px] flex-col rounded-xl border border-border/70 bg-card">
-          <header className="border-b border-border/60 px-4 py-3">
-            <h2 className="text-sm font-semibold">Relationship Intelligence Canvas</h2>
-            <p className="text-[11px] text-muted-foreground">
-              First-level relationships only · click to recentre · double-click opens Contact Workspace.
-            </p>
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card">
+          <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Network Graph</h2>
+              <p className="truncate text-[11px] text-muted-foreground">
+                First-level live relationships · click to recentre · double-click opens Contact
+                Workspace
+              </p>
+            </div>
+            {selected ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 shrink-0 text-xs"
+                onClick={() => focusComposer({ id: selected.id, name: selected.name })}
+              >
+                Meeting notes
+              </Button>
+            ) : null}
           </header>
-          <div className="min-h-0 flex-1 p-3">
+          <div className="min-h-0 flex-1 p-2">
             <RelationshipIntelligenceCanvas
               centreContactId={centreContactId}
               onSelectContact={setCentreContactId}
               onOpenContactWorkspace={openContactWorkspace}
+              registryVersion={registryVersion}
             />
           </div>
         </section>
 
-        {/* RIGHT — existing Active Relationship Actions (intact) */}
-        <section
-          className={cn(
-            "flex min-h-[420px] flex-col rounded-xl border border-border/70 bg-card transition-colors",
-            dragOver && "border-primary/50 bg-primary/5",
-          )}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const contactId = e.dataTransfer.getData("text/plain");
-            const ric = getRicContactById(contactId);
-            if (ric) openLog({ id: ric.id, name: ric.name });
-          }}
-        >
-          <header className="border-b border-border/60 px-4 py-3">
-            <h2 className="text-sm font-semibold">Active Relationship Actions</h2>
-            <p className="text-[11px] text-muted-foreground">
-              Visible for {CONTACT_STRATEGY_VISIBLE_DAYS} days · CHANAKYA guidance area.
-            </p>
-          </header>
-          <div className="border-b border-border/40 bg-violet-500/5 px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-300/90">
-              CHANAKYA
-            </p>
-            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-              Nurture strategic relationships deliberately. Log meaningful interactions to keep the
-              cycle alive.
-            </p>
-          </div>
-          <div className="flex-1 space-y-2 overflow-y-auto p-3">
-            {activeActions.map((action) => (
-              <ActionCard key={action.id} action={action} />
-            ))}
-            {activeActions.length === 0 && (
-              <p className="px-2 py-10 text-center text-xs text-muted-foreground">
-                {dragOver ? "Drop here to log an interaction" : "No active relationship cycles."}
+        {inspectorOpen && selected ? (
+          <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card">
+            <header className="shrink-0 border-b border-border/60 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Selected entity
               </p>
-            )}
-          </div>
-        </section>
+              <h2 className="mt-0.5 text-sm font-semibold leading-snug">{selected.name}</h2>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {selected.category} · {selected.businessRole}
+              </p>
+              <p className="truncate text-[11px] text-muted-foreground">{selected.company}</p>
+            </header>
+            <div className="space-y-2 border-b border-border/50 px-3 py-2.5 text-[11px] text-muted-foreground">
+              <p>
+                Linked relationships ·{" "}
+                <span className="font-semibold text-foreground">{neighbourCount}</span>
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => openContactWorkspace(selected.id)}
+                >
+                  Open Contact
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={() => openLog({ id: selected.id, name: selected.name })}
+                >
+                  Log cycle
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-xs"
+                  onClick={() => setCentreContactId(null)}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-2.5">
+              <div ref={composerAnchorRef}>
+                <EnterpriseActivityComposer
+                  presentation="inline"
+                  heading="Meeting Notes & Conversations"
+                  composer={{
+                    contextType: "contact",
+                    contextId: selected.id,
+                    entityLabel: selected.name,
+                    contactId: selected.id,
+                    customerName: selected.name,
+                  }}
+                  actorUserId={user?.id ?? "session-user"}
+                  actorLabel={
+                    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+                    user?.email ||
+                    "RM"
+                  }
+                  onSaved={onActivitySaved}
+                />
+              </div>
+
+              {recentActivities.length > 0 ? (
+                <div className="space-y-1.5">
+                  <p className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Recent conversation activities
+                  </p>
+                  {recentActivities.map((activity) => (
+                    <article
+                      key={activity.id}
+                      className="rounded-lg border border-border/60 bg-background/70 p-2"
+                    >
+                      <p className="text-[11px] font-medium leading-snug">{activity.title}</p>
+                      <p className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">
+                        {(activity.transcriptText || activity.bodyText || "").trim() || "—"}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              <p className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Active cycles for this contact
+              </p>
+              {activeActions.map((action) => (
+                <ActionCard key={action.id} action={action} />
+              ))}
+              {activeActions.length === 0 ? (
+                <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+                  No active relationship cycles for this contact.
+                </p>
+              ) : null}
+            </div>
+          </aside>
+        ) : null}
       </div>
 
       <Dialog
@@ -245,9 +317,11 @@ export function ContactStrategyWorkspace() {
       >
         <DialogContent className="sm:max-w-md" allowOutsideClose>
           <DialogHeader>
-            <DialogTitle className="text-sm">Log relationship interaction</DialogTitle>
+            <DialogTitle className="text-sm">Log relationship cycle</DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground">{pending?.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {pending?.name} — choose cycle type, then capture notes with the Activity Composer.
+          </p>
           <div className="space-y-3 py-1">
             <div className="space-y-1.5">
               <Label className="text-[11px]">Activity</Label>
@@ -267,22 +341,13 @@ export function ContactStrategyWorkspace() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Notes (optional)</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="min-h-[72px] text-xs"
-                placeholder="Brief note about this interaction…"
-              />
-            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={() => setPending(null)}>
               Cancel
             </Button>
-            <Button type="button" size="sm" onClick={saveLog}>
-              Save
+            <Button type="button" size="sm" onClick={confirmCycleType}>
+              Continue to notes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -298,7 +363,7 @@ export function ContactStrategyWorkspace() {
           if (!open) setWorkspaceContact(null);
         }}
         onSaved={() => {
-          /* mock / display only */
+          refresh();
         }}
       />
     </div>
@@ -308,7 +373,7 @@ export function ContactStrategyWorkspace() {
 function ActionCard({ action }: { action: ContactStrategyAction }) {
   const remaining = daysRemaining(action.expiresAt);
   return (
-    <article className="rounded-lg border border-border/70 bg-background/80 p-3">
+    <article className="rounded-lg border border-border/70 bg-background/80 p-2.5">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold leading-snug">{action.contactName}</p>
         <span className="shrink-0 rounded-md border border-border/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -325,7 +390,9 @@ function ActionCard({ action }: { action: ContactStrategyAction }) {
           month: "short",
         })}
         {" · "}
-        {remaining === 0 ? "Expires today" : `${remaining} day${remaining === 1 ? "" : "s"} remaining`}
+        {remaining === 0
+          ? "Expires today"
+          : `${remaining} day${remaining === 1 ? "" : "s"} remaining`}
       </p>
     </article>
   );

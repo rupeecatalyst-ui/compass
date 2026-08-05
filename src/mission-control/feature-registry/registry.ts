@@ -19,6 +19,25 @@ const MODULES: MissionControlFeatureModule[] = [
       "CHANAKYA Radar — certified operational intelligence (Mission Control rail + primary /chanakya-radar)",
   },
   {
+    id: "mc-chanakya-intelligence",
+    displayName: "CHANAKYA Intelligence",
+    route: "/mission-control/chanakya-intelligence",
+    icon: "Sparkles",
+    permissions: [
+      {
+        id: "mc.chanakya-intelligence.view",
+        resource: "mission-control.chanakya-intelligence",
+        action: "view",
+      },
+    ],
+    featureFlag: "enabled",
+    version: "1.0.0",
+    status: "active",
+    dependencies: ["mc-chanakya-radar"],
+    description:
+      "CHANAKYA Intelligence — why the business is heading there (Galaxy · River · Heat · Pulse)",
+  },
+  {
     id: "mc-dashboard",
     displayName: "Dashboard",
     route: "/mission-control/dashboard",
@@ -32,7 +51,7 @@ const MODULES: MissionControlFeatureModule[] = [
   },
   {
     id: "mc-executive-briefing",
-    displayName: "Executive Briefing",
+    displayName: "Executive Dashboard",
     route: "/mission-control/executive-briefing",
     icon: "Briefcase",
     permissions: [{ id: "mc.briefing.view", resource: "mission-control.briefing", action: "view" }],
@@ -40,7 +59,7 @@ const MODULES: MissionControlFeatureModule[] = [
     version: "1.0.0",
     status: "active",
     dependencies: [],
-    description: "CHANAKYA Executive Decision Dashboard — primary Mission Control entry",
+    description: "Executive Dashboard — what are the numbers (Briefing implementation unchanged)",
   },
   {
     id: "mc-enterprise-intelligence",
@@ -258,10 +277,22 @@ export function listMissionControlNavModules(): MissionControlFeatureModule[] {
     .list()
     .filter((m) => !m.id.endsWith("-alias") && m.featureFlag === "enabled");
 
-  /** Executive Briefing first — primary Mission Control command surface. */
-  const briefing = modules.find((m) => m.id === "mc-executive-briefing");
-  const rest = modules.filter((m) => m.id !== "mc-executive-briefing");
-  return briefing ? [briefing, ...rest] : modules;
+  /**
+   * CO-MC-002 — Three primary executive tabs first:
+   * CHANAKYA Radar · CHANAKYA Intelligence · Executive Dashboard
+   */
+  const primaryOrder = [
+    "mc-chanakya-radar",
+    "mc-chanakya-intelligence",
+    "mc-executive-briefing",
+  ] as const;
+  const primary: MissionControlFeatureModule[] = [];
+  for (const id of primaryOrder) {
+    const mod = modules.find((m) => m.id === id);
+    if (mod) primary.push(mod);
+  }
+  const rest = modules.filter((m) => !(primaryOrder as readonly string[]).includes(m.id));
+  return [...primary, ...rest];
 }
 
 export function getMissionControlFeatureByRoute(

@@ -1,0 +1,16 @@
+---
+description: CO-WP-DEVELOPMENT-MODE-002 — SUPERSEDED by CO-WP-DEVELOPMENT-MODE-003
+alwaysApply: false
+---
+
+# CO-WP-DEVELOPMENT-MODE-002 — SUPERSEDED
+
+**Status:** SUPERSEDED · Do not apply as governing cadence  
+**Superseded by:** **CO-WP-DEVELOPMENT-MODE-003** (effective immediately)
+
+All agents and engineers must follow:
+
+- Rule: `.cursor/rules/co-wp-development-mode-003.mdc`
+- Docs: `docs/co-wp-development-mode/CO-WP-DEVELOPMENT-MODE-003.md`
+
+Historical note: MODE-002 introduced module-complete development. MODE-003 expands Definition of Done (skeletons, accessibility, error/unavailable), Product Workspace, Experience Engine, Zero Trust, and Certification → Freeze → Deploy cadence.

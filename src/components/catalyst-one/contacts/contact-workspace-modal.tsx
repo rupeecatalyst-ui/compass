@@ -52,11 +52,13 @@ import {
   getEcmBankerReportingManagerId,
   getEcmContactAssignedRoles,
   isEcmDuplicateContactError,
-  registerEcmContact,
   setBankerReportingManager,
-  updateEcmContact,
   type EcmDuplicateMatchField,
 } from "@/lib/enterprise-contact-master";
+import {
+  persistRegisterEcmContact,
+  persistUpdateEcmContact,
+} from "@/lib/enterprise-persistence";
 import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import type { EcmWorkspaceTab } from "@/lib/enterprise-contact-master";
 import { loadDealsSync } from "@/lib/enterprise-deal/deal-data-access";
@@ -76,8 +78,19 @@ import { ActiveOpportunityConflictDialog } from "@/components/catalyst-one/conta
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { ContactRoleChips } from "@/components/catalyst-one/contacts/contact-role-chips";
+import { ContactIdentityRolesSection } from "@/components/catalyst-one/contacts/contact-identity-roles-section";
+import { deriveContactIdentityRoles } from "@/lib/enterprise-identity-model";
 import { ChanakyaJourneyGuidanceCard } from "@/components/catalyst-one/contacts/chanakya-journey-guidance-card";
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
+import {
+  BankerBranchSelect,
+  BankerCitySelect,
+  BankerInstitutionSelect,
+  BankerProductsHandledMultiSelect,
+} from "@/components/catalyst-one/contacts/banker-lender-registry-fields";
+import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
+import { ensureTier2RegistryPortsHydrated } from "@/lib/enterprise-tier2-ports";
+import { isTier2RegistryPortRuntimeActive } from "@/constants/enterprise-master-data/dual-read";
 import { ReportingManagerPicker } from "@/components/catalyst-one/contacts/reporting-manager-picker";
 import { PotentialDuplicateContactDialog } from "@/components/catalyst-one/contacts/potential-duplicate-contact-dialog";
 import { Button } from "@/components/ui/button";
@@ -98,22 +111,102 @@ import { cn } from "@/lib/utils";
 
 export type ContactWorkspaceMode = "create" | "edit";
 
+function ContactWorkspaceEmptyState({
+  title,
+  description,
+  primaryActionLabel,
+  onPrimaryAction,
+  secondaryActionLabel,
+  onSecondaryAction,
+}: {
+  title: string;
+  description: string;
+  primaryActionLabel?: string;
+  onPrimaryAction?: () => void;
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="mx-auto max-w-md space-y-3">
+        <h3 className="text-base font-semibold tracking-tight text-zinc-50">{title}</h3>
+        <p className="text-sm leading-relaxed text-zinc-400">{description}</p>
+        {(primaryActionLabel && onPrimaryAction) ||
+        (secondaryActionLabel && onSecondaryAction) ? (
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+            {primaryActionLabel && onPrimaryAction ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 rounded-md bg-teal-600 px-3 text-xs text-white hover:bg-teal-500"
+                onClick={onPrimaryAction}
+              >
+                {primaryActionLabel}
+              </Button>
+            ) : null}
+            {secondaryActionLabel && onSecondaryAction ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-md border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-100 hover:bg-zinc-800"
+                onClick={onSecondaryAction}
+              >
+                {secondaryActionLabel}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function ContactEntityWorkspaceShell({
   title,
   description,
   actionLabel,
   onAction,
+  empty,
   children,
 }: {
   title: string;
   description: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** When set, fills the workspace with a centred empty state (does not collapse height). */
+  empty?: {
+    title: string;
+    description: string;
+    primaryActionLabel?: string;
+    onPrimaryAction?: () => void;
+    secondaryActionLabel?: string;
+    onSecondaryAction?: () => void;
+  };
   children?: ReactNode;
 }) {
+  if (empty) {
+    return (
+      <section className="flex min-h-full flex-1 flex-col rounded-xl border border-zinc-800 bg-zinc-900/40">
+        <div className="shrink-0 border-b border-zinc-800/80 px-4 py-3">
+          <h3 className="text-sm font-semibold tracking-tight text-zinc-50">{title}</h3>
+          <p className="mt-0.5 text-[11px] text-zinc-500">{description}</p>
+        </div>
+        <ContactWorkspaceEmptyState
+          title={empty.title}
+          description={empty.description}
+          primaryActionLabel={empty.primaryActionLabel}
+          onPrimaryAction={empty.onPrimaryAction}
+          secondaryActionLabel={empty.secondaryActionLabel}
+          onSecondaryAction={empty.onSecondaryAction}
+        />
+      </section>
+    );
+  }
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <section className="flex min-h-full flex-1 flex-col rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-zinc-50">{title}</h3>
           <p className="mt-0.5 text-[11px] text-zinc-500">{description}</p>
@@ -129,10 +222,14 @@ function ContactEntityWorkspaceShell({
           </Button>
         ) : null}
       </div>
-      <div className="mt-3">{children}</div>
-    </div>
+      <div className="mt-3 min-h-0 flex-1">{children}</div>
+    </section>
   );
 }
+
+/** Fixed enterprise Contact Workspace viewport — never shrinks with sparse tab content. */
+const CONTACT_WORKSPACE_DIALOG_CLASS =
+  "flex h-[min(92vh,900px)] max-h-[92vh] w-[min(1280px,96vw)] max-w-[1280px] flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-100 sm:rounded-2xl [&>button]:hidden";
 
 interface ContactWorkspaceModalProps {
   open: boolean;
@@ -258,13 +355,58 @@ function RoleFieldControl({
   field,
   value,
   parentValue,
+  cityValue,
+  institutionLabel,
   onChange,
 }: {
   field: EcmConfigurableField;
   value: string;
   parentValue?: string;
+  /** Banker city — used when cascading branch after institution. */
+  cityValue?: string;
+  institutionLabel?: string;
   onChange: (next: string, option?: EcmMasterOption) => void;
 }) {
+  // CO-BUG-005 — Banker Institution must bind Enterprise Lender Registry (UUID), not ECM catalog.
+  if (field.control === "master" && field.masterDomain === "lender") {
+    return (
+      <BankerInstitutionSelect
+        value={value}
+        selectedName={institutionLabel}
+        placeholder={field.placeholder ?? `Select ${field.label}`}
+        onChange={onChange}
+      />
+    );
+  }
+  if (field.control === "product_multi") {
+    return (
+      <BankerProductsHandledMultiSelect
+        value={value}
+        onChange={(next) => onChange(next)}
+      />
+    );
+  }
+  if (field.control === "master" && field.masterDomain === "city" && parentValue) {
+    return (
+      <BankerCitySelect
+        institutionId={parentValue}
+        value={value}
+        placeholder={field.placeholder ?? `Select ${field.label}`}
+        onChange={onChange}
+      />
+    );
+  }
+  if (field.control === "master" && field.masterDomain === "branch") {
+    return (
+      <BankerBranchSelect
+        institutionId={parentValue}
+        cityId={cityValue}
+        value={value}
+        placeholder={field.placeholder ?? `Select ${field.label}`}
+        onChange={onChange}
+      />
+    );
+  }
   if (field.control === "master" && field.masterDomain) {
     return (
       <EcmMasterSelect
@@ -359,6 +501,14 @@ export function ContactWorkspaceModal({
   const wasOpenRef = useRef(false);
   const hydratedIdRef = useRef<string | null>(null);
   const baselineRef = useRef("");
+
+  useEffect(() => {
+    if (!open) return;
+    void ensureEnterpriseRegistryHydrated(false).catch(() => undefined);
+    if (isTier2RegistryPortRuntimeActive()) {
+      void ensureTier2RegistryPortsHydrated(false).catch(() => undefined);
+    }
+  }, [open]);
 
   const identityPayload = () => ({
     name,
@@ -513,12 +663,12 @@ export function ContactWorkspaceModal({
     if (prev) goToStep(prev.id);
   };
 
-  const saveIdentity = (thenNext: boolean) => {
+  const saveIdentity = async (thenNext: boolean) => {
     setError(null);
     setSaving(true);
     try {
       if (awaitingFirstSave) {
-        const created = registerEcmContact({
+        const created = await persistRegisterEcmContact({
           ...identityPayload(),
           ownerName: "Platform Admin",
           createdBy: actorId,
@@ -536,7 +686,7 @@ export function ContactWorkspaceModal({
           setTab("identity");
         }
       } else if (active) {
-        const updated = updateEcmContact(
+        const updated = await persistUpdateEcmContact(
           active.id,
           {
             ...identityPayload(),
@@ -569,7 +719,7 @@ export function ContactWorkspaceModal({
     }
   };
 
-  const saveRoleStep = (roleCode: EcmContactRole, thenNext: boolean) => {
+  const saveRoleStep = async (roleCode: EcmContactRole, thenNext: boolean) => {
     if (!active) return;
     setSaving(true);
     setError(null);
@@ -580,13 +730,13 @@ export function ContactWorkspaceModal({
         profile.employeeCode = deriveEcmEmployeeCode(active.id);
       }
       const nextProfiles = { ...roleProfiles, [roleCode]: profile };
-      const patch: Parameters<typeof updateEcmContact>[1] = { roleProfiles: nextProfiles };
+      const patch: Record<string, unknown> = { roleProfiles: nextProfiles };
       // Keep Contact identity employment in sync when Borrower profile updates it (SSOT header)
       if (roleCode === "customer" && profile.employmentType) {
         patch.employmentType = profile.employmentType;
       }
       setRoleProfiles(nextProfiles);
-      const updated = updateEcmContact(active.id, patch, actorId);
+      const updated = await persistUpdateEcmContact(active.id, patch, actorId);
       hydrateFromContact(updated);
       onSaved(updated);
       const def = getEcmRoleDefinition(roleCode);
@@ -623,6 +773,16 @@ export function ContactWorkspaceModal({
         getEcmRoleWorkspaceTemplate(role)?.fields.filter((f) => f.parentFieldKey === key) ?? [];
       for (const dep of dependents) {
         current[dep.key] = "";
+      }
+      // CO-BUG-005 — Institution change clears City / Branch (Banker cascade).
+      if (role === "lender_employee" && key === "institution") {
+        current.city = "";
+        current.branch = "";
+        current.region = "";
+        if (option?.label) {
+          current.institutionLabel = option.label;
+          current.lenderName = option.label;
+        }
       }
       // CF-CDC-002 — drop values that are no longer relevant after the controlling field changes
       if (key === "employmentType") {
@@ -825,18 +985,24 @@ export function ContactWorkspaceModal({
     };
     const nextProfiles = { ...roleProfiles, [roleCode]: profile };
     setRoleProfiles(nextProfiles);
-    try {
-      const updated = updateEcmContact(active.id, { roleProfiles: nextProfiles }, actorId);
-      hydrateFromContact(updated);
-      onSaved(updated);
-    } catch {
-      /* journey ref is best-effort continuity marker */
-    }
+    void (async () => {
+      try {
+        const updated = await persistUpdateEcmContact(
+          active.id,
+          { roleProfiles: nextProfiles },
+          actorId,
+        );
+        hydrateFromContact(updated);
+        onSaved(updated);
+      } catch {
+        /* journey ref is best-effort continuity marker */
+      }
+    })();
   };
 
   const footerActions = (opts: {
-    onSave: () => void;
-    onSaveNext?: () => void;
+    onSave: () => void | Promise<void>;
+    onSaveNext?: () => void | Promise<void>;
     showFinish?: boolean;
   }) => {
     const isLast = stepIndex >= workspaceTabs.length - 1;
@@ -856,11 +1022,21 @@ export function ContactWorkspaceModal({
           {active ? "Previous" : "Cancel"}
         </Button>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={opts.onSave} disabled={saving}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void opts.onSave()}
+            disabled={saving}
+          >
             Save
           </Button>
           {!isLast && opts.onSaveNext && (
-            <Button type="button" className="gap-2" onClick={opts.onSaveNext} disabled={saving}>
+            <Button
+              type="button"
+              className="gap-2"
+              onClick={() => void opts.onSaveNext?.()}
+              disabled={saving}
+            >
               Save & Next
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -870,8 +1046,10 @@ export function ContactWorkspaceModal({
               type="button"
               className="gap-2"
               onClick={() => {
-                opts.onSave();
-                onOpenChange(false);
+                void (async () => {
+                  await opts.onSave();
+                  onOpenChange(false);
+                })();
               }}
               disabled={saving}
             >
@@ -895,7 +1073,10 @@ export function ContactWorkspaceModal({
           key={field.key}
           className={cn(
             "space-y-1",
-            (field.control === "textarea" || field.control === "contact_ref") && "md:col-span-2",
+            (field.control === "textarea" ||
+              field.control === "contact_ref" ||
+              field.control === "product_multi") &&
+              "md:col-span-2",
           )}
         >
           <Label className="text-[11px] font-medium text-muted-foreground">
@@ -910,24 +1091,40 @@ export function ContactWorkspaceModal({
               actorId={actorId}
               onChange={(picked) => {
                 if (!active) return;
-                try {
-                  const updated = setBankerReportingManager({
-                    bankerContactId: active.id,
-                    manager: picked,
-                    actorId,
-                  });
-                  hydrateFromContact(updated);
-                  onSaved(updated);
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Failed to link reporting manager");
-                }
+                void (async () => {
+                  try {
+                    const updated = await setBankerReportingManager({
+                      bankerContactId: active.id,
+                      manager: picked,
+                      actorId,
+                    });
+                    hydrateFromContact(updated);
+                    onSaved(updated);
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Failed to link reporting manager");
+                  }
+                })();
               }}
             />
           ) : (
             <RoleFieldControl
               field={field}
               value={values[field.key] ?? ""}
-              parentValue={field.parentFieldKey ? values[field.parentFieldKey] : undefined}
+              parentValue={
+                field.parentFieldKey
+                  ? values[field.parentFieldKey]
+                  : roleCode === "lender_employee" && field.key === "city"
+                    ? values.institution
+                    : undefined
+              }
+              cityValue={values.city}
+              institutionLabel={
+                field.masterDomain === "lender"
+                  ? values.institutionLabel ||
+                    values.lenderName ||
+                    values.institutionName
+                  : undefined
+              }
               onChange={(next, option) =>
                 setRoleField(roleCode, field.key, next, option, field.inheritMetaKeys)
               }
@@ -962,11 +1159,14 @@ export function ContactWorkspaceModal({
       isBanker && active ? buildEcmBankerReportingChain(active.id) : [];
     const bankerOrg =
       isBanker && active
-        ? formatEcmBankerOrgPath(getEcmBankerOrgPlacement({ ...active, roleProfiles }))
+        ? formatEcmBankerOrgPath(getEcmBankerOrgPlacement({ ...active, roleProfiles }), {
+            institutionLabel:
+              values.institutionLabel || values.lenderName || values.institutionName,
+          })
         : "—";
 
     return (
-      <div className="flex min-h-0 flex-col">
+      <div className="flex min-h-full flex-1 flex-col">
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pb-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -1058,7 +1258,7 @@ export function ContactWorkspaceModal({
             title="Business Profile Details"
             description={
               isBanker
-                ? "Institution, City, Branch, Designation, Official Mobile — asked once for this role."
+                ? "Institution, City, Branch, Designation, Products Handled, Official Mobile — asked once for this role."
                 : "Only the business details this role needs — asked once, reused across journeys."
             }
             badge={<MirStatusBadge complete={mirComplete} />}
@@ -1078,19 +1278,21 @@ export function ContactWorkspaceModal({
                 actorId={actorId}
                 onChange={(picked) => {
                   if (!active) return;
-                  try {
-                    const updated = setBankerReportingManager({
-                      bankerContactId: active.id,
-                      manager: picked,
-                      actorId,
-                    });
-                    hydrateFromContact(updated);
-                    onSaved(updated);
-                  } catch (e) {
-                    setError(
-                      e instanceof Error ? e.message : "Failed to link reporting manager",
-                    );
-                  }
+                  void (async () => {
+                    try {
+                      const updated = await setBankerReportingManager({
+                        bankerContactId: active.id,
+                        manager: picked,
+                        actorId,
+                      });
+                      hydrateFromContact(updated);
+                      onSaved(updated);
+                    } catch (e) {
+                      setError(
+                        e instanceof Error ? e.message : "Failed to link reporting manager",
+                      );
+                    }
+                  })();
                 }}
               />
               {bankerChain.length > 1 && (
@@ -1293,18 +1495,22 @@ export function ContactWorkspaceModal({
       setRoleProfiles(nextProfiles);
     }
     setRoles(nextRoles);
-    try {
-      const updated = updateEcmContact(
-        active.id,
-        { roles: nextRoles, roleProfiles: nextProfiles },
-        actorId,
-      );
-      hydrateFromContact(updated);
-      onSaved(updated);
-      setShowAddRole(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "I couldn't add that role just now. Please try again.");
-    }
+    void (async () => {
+      try {
+        const updated = await persistUpdateEcmContact(
+          active.id,
+          { roles: nextRoles, roleProfiles: nextProfiles },
+          actorId,
+        );
+        hydrateFromContact(updated);
+        onSaved(updated);
+        setShowAddRole(false);
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "I couldn't add that role just now. Please try again.",
+        );
+      }
+    })();
   };
 
   const identityForm = (compactCreate: boolean) => (
@@ -1456,12 +1662,31 @@ export function ContactWorkspaceModal({
         )}
 
                         {!compactCreate && (
-                          <div className="mt-3 space-y-1 md:col-span-2">
-                            <Label className="text-[11px]">Assigned Roles</Label>
-                            <ContactRoleChips roles={roles} size="sm" />
-                            <p className="text-[10px] text-muted-foreground">
-                              Compact chips only. Use + Add Role on the dashboard to assign more.
-                            </p>
+                          <div className="mt-3 space-y-3 md:col-span-2">
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Assigned Roles (ECM)</Label>
+                              <ContactRoleChips roles={roles} size="sm" />
+                              <p className="text-[10px] text-muted-foreground">
+                                Compact chips. Use + Add Role to assign more ECM roles.
+                              </p>
+                            </div>
+                            {active ? (
+                              <ContactIdentityRolesSection
+                                assignments={deriveContactIdentityRoles({
+                                  contact: {
+                                    roles: active.roles,
+                                    roleProfiles: active.roleProfiles,
+                                    createdBy: active.createdBy,
+                                    createdOn: active.createdOn,
+                                    modifiedBy: active.modifiedBy,
+                                    modifiedOn: active.modifiedOn,
+                                  },
+                                  hasWealthPartner: Boolean(
+                                    active.roleProfiles?.partner?.wealthPartnerId,
+                                  ),
+                                })}
+                              />
+                            ) : null}
                           </div>
                         )}
 
@@ -1543,11 +1768,7 @@ export function ContactWorkspaceModal({
           else closeApi.requestClose();
         }}
       >
-        <DialogContent
-          className={cn(
-            "flex max-h-[92vh] w-[min(1280px,96vw)] max-w-[1280px] flex-col gap-0 overflow-hidden border-zinc-800 bg-zinc-950 p-0 text-zinc-100 sm:rounded-2xl [&>button]:hidden",
-          )}
-        >
+        <DialogContent className={CONTACT_WORKSPACE_DIALOG_CLASS}>
           {!awaitingFirstSave && active ? (
             <>
               <div className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-4 py-2.5">
@@ -1748,11 +1969,12 @@ export function ContactWorkspaceModal({
                 </nav>
               </div>
 
-              {/* Primary workspace */}
-              <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-950">
-                <div className="space-y-2 px-4 py-3">
+              {/* Primary workspace — fixed viewport; only this region scrolls */}
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-950">
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <div className="flex min-h-full flex-col px-4 py-3">
                   {tab === "overview" && (
-                    <>
+                    <div className="flex min-h-full flex-1 flex-col space-y-2">
                       {showAddRole && (
                         <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2.5">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
@@ -1936,12 +2158,12 @@ export function ContactWorkspaceModal({
                             </table>
                         </div>
                       </div>
-                    </>
+                    </div>
                   )}
 
                   {tab === "identity" && (
-                    <div className="flex min-h-0 flex-col rounded-lg border border-zinc-800 bg-zinc-900/40">
-                      <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
+                    <div className="flex min-h-full flex-1 flex-col rounded-lg border border-zinc-800 bg-zinc-900/40">
+                      <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-2.5">
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
                             Edit Contact
@@ -1969,7 +2191,7 @@ export function ContactWorkspaceModal({
                           </p>
                         )}
                       </div>
-                      <div className="sticky bottom-0 z-10 flex flex-wrap gap-2 border-t border-zinc-800 bg-zinc-950/95 px-3 py-2.5 backdrop-blur">
+                      <div className="sticky bottom-0 z-10 flex shrink-0 flex-wrap gap-2 border-t border-zinc-800 bg-zinc-950/95 px-3 py-2.5 backdrop-blur">
                         <Button
                           type="button"
                           size="sm"
@@ -1996,22 +2218,37 @@ export function ContactWorkspaceModal({
                   )}
 
                   {tab === "relationships" && active && (
-                    <EnterpriseRelationshipWorkspace
-                      contact={active}
-                      onAddRelationship={() => setTab("companies")}
-                    />
+                    <div className="flex min-h-full flex-1 flex-col">
+                      <EnterpriseRelationshipWorkspace
+                        className="flex min-h-full flex-1 flex-col"
+                        contact={active}
+                        onAddRelationship={() => setTab("companies")}
+                      />
+                    </div>
                   )}
 
                   {tab === "companies" && active && (
-                    <ContactEntityWorkspaceShell
-                      title="Companies"
-                      description="Companies linked to this contact via the Company Registry."
-                      actionLabel="Open Directory"
-                      onAction={() => router.push(ROUTES.CONTACTS)}
-                    >
-                      {listContactCompanyLinks(active.id).length === 0 ? (
-                        <p className="text-sm text-zinc-500">No company links yet.</p>
-                      ) : (
+                    listContactCompanyLinks(active.id).length === 0 ? (
+                      <ContactEntityWorkspaceShell
+                        title="Companies"
+                        description="Companies linked to this contact via the Company Registry."
+                        empty={{
+                          title: "No Companies Linked",
+                          description:
+                            "This contact is not currently linked to any company in the Company Registry.",
+                          primaryActionLabel: "Add Relationship",
+                          onPrimaryAction: () => setTab("relationships"),
+                          secondaryActionLabel: "Open Directory",
+                          onSecondaryAction: () => router.push(ROUTES.CONTACTS),
+                        }}
+                      />
+                    ) : (
+                      <ContactEntityWorkspaceShell
+                        title="Companies"
+                        description="Companies linked to this contact via the Company Registry."
+                        actionLabel="Open Directory"
+                        onAction={() => router.push(ROUTES.CONTACTS)}
+                      >
                         <ul className="space-y-2">
                           {listContactCompanyLinks(active.id).map((link) => {
                             const company = getEcmCompany(link.companyId);
@@ -2033,96 +2270,117 @@ export function ContactWorkspaceModal({
                             );
                           })}
                         </ul>
-                      )}
-                    </ContactEntityWorkspaceShell>
+                      </ContactEntityWorkspaceShell>
+                    )
                   )}
 
                   {tab === "opportunities" && (
                     <ContactEntityWorkspaceShell
                       title="Opportunities"
                       description="Opportunity Workspace for journeys linked to this contact."
-                      actionLabel="Open Opportunities"
-                      onAction={() => router.push(ROUTES.OPPORTUNITY_WORKSPACE)}
-                    >
-                      <p className="text-sm text-zinc-500">
-                        Continue from Relationships or Role Dashboard into Opportunity Workspace —
-                        context is preserved from this contact.
-                      </p>
-                    </ContactEntityWorkspaceShell>
+                      empty={{
+                        title: "No Linked Opportunities",
+                        description:
+                          "This contact is not currently linked to any Loan Opportunities.",
+                        primaryActionLabel: "Create Opportunity",
+                        onPrimaryAction: () => void handleStartLoanJourney(),
+                        secondaryActionLabel: "Open Opportunities",
+                        onSecondaryAction: () => router.push(ROUTES.MY_OPPORTUNITIES),
+                      }}
+                    />
                   )}
 
                   {tab === "loans" && active && (
-                    <ContactEntityWorkspaceShell
-                      title="Loans"
-                      description="Deals linked to this contact."
-                      actionLabel="Open My Deals"
-                      onAction={() => router.push(ROUTES.MY_DEALS)}
-                    >
-                      {findActiveLoanForContact(active) ? (
+                    findActiveLoanForContact(active) ? (
+                      <ContactEntityWorkspaceShell
+                        title="Loans"
+                        description="Deals linked to this contact."
+                        actionLabel="Open My Deals"
+                        onAction={() => router.push(ROUTES.MY_DEALS)}
+                      >
                         <p className="text-sm text-zinc-200">
                           Active deal found · continue execution from Deal Workspace.
                         </p>
-                      ) : (
-                        <p className="text-sm text-zinc-500">No active Deals for this contact.</p>
-                      )}
-                    </ContactEntityWorkspaceShell>
+                      </ContactEntityWorkspaceShell>
+                    ) : (
+                      <ContactEntityWorkspaceShell
+                        title="Loans"
+                        description="Deals linked to this contact."
+                        empty={{
+                          title: "No Active Loans",
+                          description:
+                            "This contact is not currently linked to any Loan Opportunities.",
+                          primaryActionLabel: "Open My Deals",
+                          onPrimaryAction: () => router.push(ROUTES.MY_DEALS),
+                          secondaryActionLabel: "Create Opportunity",
+                          onSecondaryAction: () => void handleStartLoanJourney(),
+                        }}
+                      />
+                    )
                   )}
 
                   {tab === "investments" && (
                     <ContactEntityWorkspaceShell
                       title="Investments"
                       description="Investment relationships for this contact."
-                      actionLabel="Open Investments"
-                      onAction={() => router.push(ROUTES.INVESTMENTS)}
-                    >
-                      <p className="text-sm text-zinc-500">
-                        Investment product line workspace — linked via Relationships when available.
-                      </p>
-                    </ContactEntityWorkspaceShell>
+                      empty={{
+                        title: "No Investments",
+                        description:
+                          "This contact is not currently linked to any investment relationships.",
+                        primaryActionLabel: "Open Investments",
+                        onPrimaryAction: () => router.push(ROUTES.INVESTMENTS),
+                      }}
+                    />
                   )}
 
                   {tab === "documents" && (
                     <ContactEntityWorkspaceShell
                       title="Documents"
                       description="Document Center for this contact’s journeys."
-                      actionLabel="Open Document Center"
-                      onAction={() => router.push(ROUTES.DOCUMENT_CENTER)}
-                    >
-                      <p className="text-sm text-zinc-500">
-                        Open Document Center from an active loan or opportunity for full checklist
-                        execution.
-                      </p>
-                    </ContactEntityWorkspaceShell>
+                      empty={{
+                        title: "No Documents in Context",
+                        description:
+                          "Open Document Center from an active opportunity or deal for checklist execution.",
+                        primaryActionLabel: "Open Document Center",
+                        onPrimaryAction: () => router.push(ROUTES.DOCUMENT_CENTER),
+                      }}
+                    />
                   )}
 
                   {tab === "communication" && (
                     <ContactEntityWorkspaceShell
                       title="Communication"
                       description="Communication Hub for this contact."
-                      actionLabel="Open Communication"
-                      onAction={() => router.push(ROUTES.COMMUNICATION)}
-                    >
-                      <p className="text-sm text-zinc-500">
-                        Relationship-aware communication templates filter by recipient and journey
-                        context.
-                      </p>
-                    </ContactEntityWorkspaceShell>
+                      empty={{
+                        title: "No Communications Yet",
+                        description:
+                          "Relationship-aware templates will appear here when communication history is available.",
+                        primaryActionLabel: "Open Communication",
+                        onPrimaryAction: () => router.push(ROUTES.COMMUNICATION),
+                      }}
+                    />
                   )}
 
                   {tab === "timeline" && (
                     <ContactEntityWorkspaceShell
                       title="Timeline"
                       description="Dialogue and activity timeline for this contact."
-                      actionLabel="Open Timeline"
-                      onAction={() => router.push(ROUTES.DIALOGUE)}
-                    >
-                      <p className="text-sm text-zinc-500">
-                        Timeline entries accumulate from relationships, loans, and communications.
-                      </p>
-                    </ContactEntityWorkspaceShell>
+                      empty={{
+                        title: "No Timeline Activity",
+                        description:
+                          "Timeline entries accumulate from relationships, loans, and communications.",
+                        primaryActionLabel: "Open Timeline",
+                        onPrimaryAction: () => router.push(ROUTES.DIALOGUE),
+                      }}
+                    />
                   )}
 
-                  {currentStep?.kind === "role" && renderRolePanel(currentStep)}
+                  {currentStep?.kind === "role" && (
+                    <div className="flex min-h-full flex-1 flex-col">
+                      {renderRolePanel(currentStep)}
+                    </div>
+                  )}
+                  </div>
                 </div>
               </div>
             </>

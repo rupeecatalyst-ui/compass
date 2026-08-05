@@ -38,7 +38,14 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     customerSegment: ["salaried", "self_employed", "nri"],
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "HOUSING_LOANS",
-    aliases: ["home_loan", "HL"],
+    aliases: [
+      "home_loan",
+      "HL",
+      "HL_STD",
+      "HOME-LOAN",
+      "home-loan",
+      "prod_001",
+    ],
   },
   {
     code: "HOME_LOAN_BT",
@@ -49,7 +56,7 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     customerSegment: ["salaried", "self_employed", "nri"],
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "HOUSING_LOANS",
-    aliases: ["home_loan_bt"],
+    aliases: ["home_loan_bt", "HOME-LOAN-BT"],
   },
   {
     code: "LAP",
@@ -60,7 +67,12 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     customerSegment: ["salaried", "self_employed", "business"],
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "SECURED_LOANS",
-    aliases: ["lap", "loan_against_property"],
+    aliases: [
+      "lap",
+      "loan_against_property",
+      "LAP_STD",
+      "loan-against-property",
+    ],
   },
   {
     code: "COMM_PURCHASE",
@@ -97,7 +109,7 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     customerSegment: ["business", "msme", "company"],
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "MSME_LOANS",
-    aliases: ["working_capital", "WORKING_CAPITAL"],
+    aliases: ["working_capital", "WORKING_CAPITAL", "WC_STD", "working-capital"],
   },
   {
     code: "WORKING_CAPITAL_UNSECURED",
@@ -118,7 +130,15 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     customerSegment: ["business", "msme", "company"],
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "UNSECURED_LOANS",
-    aliases: ["business_loan", "BUSINESS_LOAN", "UNSECURED_BUSINESS_LOAN", "business_loan_unsecured"],
+    aliases: [
+      "business_loan",
+      "BUSINESS_LOAN",
+      "UNSECURED_BUSINESS_LOAN",
+      "business_loan_unsecured",
+      "BL_STD",
+      "BUSINESS-LOAN",
+      "business-loan",
+    ],
   },
   {
     code: "CONSTRUCTION_FINANCE",
@@ -161,7 +181,18 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     customerSegment: ["salaried", "professional"],
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "UNSECURED_LOANS",
-    aliases: ["personal_loan"],
+    aliases: ["personal_loan", "PL_STD", "PERSONAL-LOAN", "personal-loan"],
+  },
+  {
+    code: "GOLD_LOAN",
+    label: "Gold Loan",
+    description: "Loan against gold jewellery / ornaments (retail).",
+    sortOrder: 125,
+    isSecured: true,
+    customerSegment: ["salaried", "self_employed", "business", "all"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "SECURED_LOANS",
+    aliases: ["gold_loan", "GL"],
   },
   {
     code: "EDUCATION_LOAN",
@@ -172,7 +203,7 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     customerSegment: ["salaried", "all"],
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "UNSECURED_LOANS",
-    aliases: ["education_loan"],
+    aliases: ["education_loan", "EDUCATION-LOAN"],
   },
   {
     code: "DOCTOR_LOAN",
@@ -194,6 +225,139 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "PROFESSIONAL_LOANS",
   },
+  // CO-LR-006 — expanded Product Programme catalogue for Lender × Product matrix
+  {
+    code: "MSME_LOAN",
+    label: "MSME Loan",
+    description: "Term / working facilities for Micro, Small and Medium Enterprises.",
+    sortOrder: 160,
+    isSecured: false,
+    customerSegment: ["business", "msme"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "MSME_LOANS",
+    aliases: ["msme_loan", "msme", "sme_loan"],
+  },
+  {
+    code: "CASH_CREDIT",
+    label: "Cash Credit",
+    description: "Working capital cash credit facility.",
+    sortOrder: 170,
+    isSecured: true,
+    customerSegment: ["business", "msme", "company"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "MSME_LOANS",
+    aliases: ["cash_credit", "cc"],
+  },
+  {
+    code: "OVERDRAFT",
+    label: "Overdraft",
+    description: "Overdraft facility against current account / securities.",
+    sortOrder: 180,
+    isSecured: true,
+    customerSegment: ["business", "salaried", "company"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "MSME_LOANS",
+    aliases: ["overdraft", "od"],
+  },
+  {
+    code: "SUPPLY_CHAIN_FINANCE",
+    label: "Supply Chain Finance",
+    description: "Buyer / supplier supply-chain financing programmes.",
+    sortOrder: 190,
+    isSecured: false,
+    customerSegment: ["business", "company"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "CORPORATE_LOANS",
+    aliases: ["supply_chain_finance", "scf"],
+  },
+  {
+    code: "INVOICE_FINANCING",
+    label: "Invoice Financing",
+    description: "Finance against trade invoices / receivables.",
+    sortOrder: 200,
+    isSecured: false,
+    customerSegment: ["business", "msme", "company"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "MSME_LOANS",
+    aliases: ["invoice_financing", "invoice_discounting"],
+  },
+  {
+    code: "BILL_DISCOUNTING",
+    label: "Bill Discounting",
+    description: "Discounting of trade bills / negotiable instruments.",
+    sortOrder: 210,
+    isSecured: false,
+    customerSegment: ["business", "company"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "CORPORATE_LOANS",
+    aliases: ["bill_discounting"],
+  },
+  {
+    code: "MACHINERY_FINANCE",
+    label: "Machinery Finance",
+    description: "Term finance for industrial / business machinery.",
+    sortOrder: 220,
+    isSecured: true,
+    customerSegment: ["business", "msme", "company"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "MSME_LOANS",
+    aliases: ["machinery_finance", "machine_loan"],
+  },
+  {
+    code: "EQUIPMENT_FINANCE",
+    label: "Equipment Finance",
+    description: "Finance for plant and equipment.",
+    sortOrder: 230,
+    isSecured: true,
+    customerSegment: ["business", "msme", "company"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "MSME_LOANS",
+    aliases: ["equipment_finance"],
+  },
+  {
+    code: "VEHICLE_LOAN",
+    label: "Vehicle Loan",
+    description: "Retail passenger vehicle financing.",
+    sortOrder: 240,
+    isSecured: true,
+    customerSegment: ["salaried", "self_employed", "business"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "SECURED_LOANS",
+    aliases: ["vehicle_loan", "auto_loan", "car_loan"],
+  },
+  {
+    code: "COMMERCIAL_VEHICLE_LOAN",
+    label: "Commercial Vehicle Loan",
+    description: "Commercial vehicle / fleet financing.",
+    sortOrder: 250,
+    isSecured: true,
+    customerSegment: ["business", "msme", "self_employed"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "SECURED_LOANS",
+    aliases: ["commercial_vehicle_loan", "cv_loan"],
+  },
+  {
+    code: "TRADE_FINANCE",
+    label: "Trade Finance",
+    description: "Letter of credit, bank guarantees and trade facilities.",
+    sortOrder: 260,
+    isSecured: false,
+    customerSegment: ["business", "company"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "CORPORATE_LOANS",
+    aliases: ["trade_finance"],
+  },
+  {
+    code: "EXPORT_FINANCE",
+    label: "Export Finance",
+    description: "Pre / post shipment export credit facilities.",
+    sortOrder: 270,
+    isSecured: false,
+    customerSegment: ["business", "company"],
+    categoryCode: "LOAN_PRODUCTS",
+    groupCode: "CORPORATE_LOANS",
+    aliases: ["export_finance", "export_credit"],
+  },
 ];
 
 export function listCanonicalProductOptions(enabledOnly = true) {
@@ -206,25 +370,68 @@ export function listCanonicalProductOptions(enabledOnly = true) {
   })).filter((p) => (enabledOnly ? p.enabled : true));
 }
 
+/** Normalize product codes for equality (hyphen and underscore are equivalent). */
+export function normalizeProductCodeKey(raw: string): string {
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^A-Z0-9_]/g, "");
+}
+
 /** Resolve any legacy / alias code to the canonical Product Master code. */
 export function resolveCanonicalProductCode(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null;
-  const normalized = raw
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^A-Z0-9_-]/g, "");
+  const normalized = normalizeProductCodeKey(raw);
   for (const entry of CANONICAL_PRODUCT_MASTER_SEED) {
-    if (entry.code === normalized) return entry.code;
-    if (entry.aliases?.some((a) => a.toUpperCase().replace(/\s+/g, "_") === normalized)) {
+    if (normalizeProductCodeKey(entry.code) === normalized) return entry.code;
+    if (entry.aliases?.some((a) => normalizeProductCodeKey(a) === normalized)) {
       return entry.code;
     }
   }
   return normalized;
 }
 
+/** Label key for uniqueness — prevents duplicate dropdown rows with the same display name. */
+export function normalizeProductLabelKey(label: string): string {
+  return label.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export function getCanonicalProductByCode(code: string | null | undefined) {
   const resolved = resolveCanonicalProductCode(code);
   if (!resolved) return null;
-  return CANONICAL_PRODUCT_MASTER_SEED.find((p) => p.code === resolved) ?? null;
+  return (
+    CANONICAL_PRODUCT_MASTER_SEED.find(
+      (p) => normalizeProductCodeKey(p.code) === normalizeProductCodeKey(resolved),
+    ) ?? null
+  );
+}
+
+/**
+ * CO-PR-004 — Selection / matrix family key.
+ * Collapses legacy Product Library / ECM codes onto their canonical Product Master entry
+ * (e.g. HL_STD + HOME_LOAN, BL_STD + BUSINESS_LOAN_UNSECURED) without mutating rows.
+ * Distinct canonical variants (Working Capital Secured vs Unsecured) stay separate.
+ */
+export function resolveProductSelectionFamilyKey(input: {
+  code: string;
+  label?: string | null;
+}): string {
+  const canonical = getCanonicalProductByCode(input.code);
+  if (canonical) return `canon:${normalizeProductCodeKey(canonical.code)}`;
+  const label = input.label?.trim();
+  if (label) return `label:${normalizeProductLabelKey(label)}`;
+  return `code:${normalizeProductCodeKey(input.code)}`;
+}
+
+/** True when two product codes represent the same selection family. */
+export function productCodesShareSelectionFamily(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  if (!a?.trim() || !b?.trim()) return false;
+  if (normalizeProductCodeKey(a) === normalizeProductCodeKey(b)) return true;
+  const fa = resolveProductSelectionFamilyKey({ code: a });
+  const fb = resolveProductSelectionFamilyKey({ code: b });
+  return fa === fb;
 }

@@ -163,7 +163,7 @@ export function ErwRelationshipGrid({
             {rows.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-3 py-8 text-center text-zinc-500">
-                  No relationships match the current filters.
+                  No relationships have been defined for this contact.
                 </td>
               </tr>
             )}

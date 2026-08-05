@@ -1,0 +1,33 @@
+---
+description: CO-WP-FEATURE-COMPLETION-001 — Complete existing features only; no new modules
+alwaysApply: true
+---
+
+# CO-WP-FEATURE-COMPLETION-001
+
+Status: **Product Owner Direction** · Effective immediately  
+Deploy: **Only after Product Owner approval**
+
+## Mandate
+
+Stop creating new modules. Complete existing features only.
+
+## Priority order
+
+1. Professional Identity Card (flagship)
+2. Home
+3. Business
+4. Customer Workspace
+5. Opportunity Workspace
+
+## Definition of complete (every screen)
+
+- Every button / navigation / interaction / animation works
+- Meaningful empty states · premium loading states
+- Remove placeholder behaviour where the feature can be completed today
+
+## Forbidden
+
+- New modules
+- EEE / Tier Engine / Entitlements (unless PO reopens)
+- Deploy without PO approval

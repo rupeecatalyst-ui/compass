@@ -24,9 +24,11 @@ import {
   type EnterpriseContactOption,
 } from "./contacts";
 import type { EcmCompany } from "@/types/enterprise-company-master";
+import type { EcmContact, EcmContactRole } from "@/types/enterprise-contact-master";
+import { findOperationalEcmContactById } from "./contacts";
 
 /** Session cache only — no registryVersion bump (read/hydrate path). */
-function syncContactsToCache(contacts: Parameters<typeof toContactPickerOption>[0][]): void {
+function syncContactsToCache(contacts: EcmContact[]): void {
   for (const c of contacts) {
     getEcmPorts().contacts.save(c);
   }
@@ -42,34 +44,65 @@ function syncCompaniesToCache(companies: EcmCompany[]): void {
 /** Search contacts — API in prisma mode, memory SSOT otherwise. */
 export async function liveSearchOperationalContacts(
   query: string,
-  opts?: { pageSize?: number; roles?: import("@/types/enterprise-contact-master").EcmContactRole[] },
+  opts?: { pageSize?: number; roles?: EcmContactRole[] },
 ): Promise<EnterpriseContactOption[]> {
+  const contacts = await liveSearchOperationalEcmContacts(query, opts);
+  return contacts.map(toContactPickerOption);
+}
+
+/**
+ * Full ECM Contact rows from live registry (SSOT).
+ * Prefer this when callers need roleProfiles / institution fields (e.g. Lender Sales Contact).
+ */
+export async function liveSearchOperationalEcmContacts(
+  query: string,
+  opts?: { pageSize?: number; roles?: EcmContactRole[] },
+): Promise<EcmContact[]> {
   const q = query.trim();
   const pageSize = opts?.pageSize ?? 25;
   const roles = opts?.roles;
 
   if (!isEnterprisePersistencePrisma()) {
-    const rows = searchOperationalContacts(q);
-    const filtered = roles?.length
-      ? rows.filter((c) => c.roles?.some((r) => roles.includes(r)))
-      : rows;
-    return filtered.slice(0, pageSize);
+    const rows = searchOperationalContacts(q, roles?.length ? { roles } : undefined);
+    return rows
+      .slice(0, pageSize)
+      .map((o) => findOperationalEcmContactById(o.id))
+      .filter((c): c is EcmContact => Boolean(c));
   }
 
-  const result = await ecmApiClient.queryContacts({
-    search: q || undefined,
-    page: 1,
-    pageSize,
-    status: "all",
-    sortBy: "modifiedOn",
-    sortDir: "desc",
-    ...(roles?.length ? { roles } : {}),
-  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = await Promise.race([
+      ecmApiClient.queryContacts({
+        search: q || undefined,
+        page: 1,
+        pageSize,
+        status: "all",
+        sortBy: "modifiedOn",
+        sortDir: "desc",
+        ...(roles?.length ? { roles } : {}),
+      }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                "Enterprise Contact Registry request timed out. Retry or check network.",
+              ),
+            ),
+          12_000,
+        );
+      }),
+    ]);
 
-  syncContactsToCache(result.items);
-  return result.items
-    .filter((c) => c.enabled !== false && c.status !== "archived")
-    .map(toContactPickerOption);
+    const items = result.items.filter(
+      (c) => c.enabled !== false && c.status !== "archived",
+    );
+    syncContactsToCache(items);
+    return items;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /** Search companies — API in prisma mode, memory SSOT otherwise. */
@@ -95,6 +128,50 @@ export async function liveSearchOperationalCompanies(
   return result.items
     .filter((c) => c.enabled !== false && c.status !== "archived")
     .map(toCompanyPickerOption);
+}
+
+/**
+ * List active contacts for a role (paginated). Prefer institution-scoped
+ * `queryContacts({ institutionKeys })` for Lender Sales Contact — full-role
+ * pagination is for admin desks only and must stay bounded.
+ */
+export async function liveListAllEcmContactsByRole(
+  role: EcmContactRole,
+  opts?: { pageSize?: number; maxPages?: number },
+): Promise<EcmContact[]> {
+  if (!isEnterprisePersistencePrisma()) {
+    throw new Error(
+      "Enterprise Contact Registry requires ENTERPRISE_PERSISTENCE_MODE=prisma for live lookup.",
+    );
+  }
+
+  const pageSize = Math.min(Math.max(opts?.pageSize ?? 100, 25), 200);
+  const maxPages = Math.min(opts?.maxPages ?? 3, 5);
+  const all: EcmContact[] = [];
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (page <= maxPages && all.length < total) {
+    const result = await ecmApiClient.queryContacts({
+      page,
+      pageSize,
+      status: "all",
+      sortBy: "name",
+      sortDir: "asc",
+      roles: [role],
+      skipTotal: page > 1,
+    });
+    total = typeof result.total === "number" ? result.total : result.items.length;
+    const batch = (result.items ?? []).filter(
+      (c) => c.enabled !== false && c.status !== "archived",
+    );
+    all.push(...batch);
+    if (batch.length === 0 || batch.length < pageSize) break;
+    page += 1;
+  }
+
+  syncContactsToCache(all);
+  return all;
 }
 
 /** Warm picker caches from PostgreSQL (called when Loan Journey opens). */

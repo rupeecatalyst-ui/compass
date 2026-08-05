@@ -1,11 +1,12 @@
 "use client";
 
 /**
- * CO-WP-001 — Create Wealth Partner wizard.
+ * CO-WP-001 / CO-WP-006 — Create Wealth Partner wizard.
  * Search Contact / Company → Convert → Select Type → Open Workspace.
+ * Already-registered Contacts open the existing Wealth Partner (no dead-end toast).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Building2, UserRound } from "lucide-react";
 import { toast } from "sonner";
@@ -33,9 +34,15 @@ import { ProgressiveCompanyCreateModal } from "@/components/catalyst-one/compani
 import {
   WEALTH_PARTNER_TYPE_OPTIONS,
   buildWealthPartnerWorkspaceHref,
+  wealthPartnerTypeLabel,
 } from "@/constants/enterprise-wealth-partner-registry";
-import { wealthPartnerApiClient } from "@/lib/enterprise-wealth-partner-registry";
+import { WEALTH_PARTNER_ONBOARD_COPY } from "@/constants/enterprise-identity-model";
+import {
+  WealthPartnerApiError,
+  wealthPartnerApiClient,
+} from "@/lib/enterprise-wealth-partner-registry";
 import type {
+  ExistingWealthPartnerSummary,
   WealthPartnerIdentityKind,
   WealthPartnerTypeCode,
 } from "@/types/enterprise-wealth-partner-registry";
@@ -45,18 +52,34 @@ interface CreateWealthPartnerWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
+  /** Called when an existing WP should be highlighted in the registry list. */
+  onOpenExisting?: (partner: ExistingWealthPartnerSummary) => void;
+}
+
+function formatCreatedAt(iso: string) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export function CreateWealthPartnerWizard({
   open,
   onOpenChange,
   onCreated,
+  onOpenExisting,
 }: CreateWealthPartnerWizardProps) {
   const router = useRouter();
   const [identityKind, setIdentityKind] = useState<WealthPartnerIdentityKind>("contact");
   const [selected, setSelected] = useState<EntityMasterOption | null>(null);
   const [partnerType, setPartnerType] = useState<WealthPartnerTypeCode | "">("");
   const [saving, setSaving] = useState(false);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [existing, setExisting] = useState<ExistingWealthPartnerSummary | null>(null);
   const [createContactOpen, setCreateContactOpen] = useState(false);
   const [createCompanyOpen, setCreateCompanyOpen] = useState(false);
   const [createQuery, setCreateQuery] = useState("");
@@ -66,14 +89,68 @@ export function CreateWealthPartnerWizard({
     setSelected(null);
     setPartnerType("");
     setSaving(false);
+    setLookupLoading(false);
+    setExisting(null);
     setCreateContactOpen(false);
     setCreateCompanyOpen(false);
     setCreateQuery("");
   }
 
+  useEffect(() => {
+    if (!open || !selected?.id) {
+      setExisting(null);
+      return;
+    }
+    let cancelled = false;
+    setLookupLoading(true);
+    void (async () => {
+      try {
+        const found = await wealthPartnerApiClient.findByIdentity({
+          contactId: identityKind === "contact" ? selected.id : null,
+          companyId: identityKind === "company" ? selected.id : null,
+        });
+        if (cancelled) return;
+        if (found) {
+          setExisting({
+            partnerId: found.id,
+            code: found.code,
+            displayName: found.displayName,
+            partnerType: found.partnerType,
+            status: found.status,
+            lifecycleStatus: found.lifecycleStatus,
+            operationalStatus: found.operationalStatus,
+            createdAt: found.createdAt,
+            identityKind: found.identityKind,
+            reason: "already_registered",
+          });
+        } else {
+          setExisting(null);
+        }
+      } catch {
+        if (!cancelled) setExisting(null);
+      } finally {
+        if (!cancelled) setLookupLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selected?.id, identityKind]);
+
+  function openExistingPartner(partner: ExistingWealthPartnerSummary) {
+    onOpenExisting?.(partner);
+    onOpenChange(false);
+    reset();
+    router.push(buildWealthPartnerWorkspaceHref(partner.partnerId));
+  }
+
   async function handleCreate() {
     if (!selected?.id) {
       toast.error("Select a Contact or Company from the Enterprise Registry.");
+      return;
+    }
+    if (existing) {
+      openExistingPartner(existing);
       return;
     }
     if (!partnerType) {
@@ -96,11 +173,21 @@ export function CreateWealthPartnerWizard({
       reset();
       router.push(buildWealthPartnerWorkspaceHref(created.id));
     } catch (err) {
+      if (err instanceof WealthPartnerApiError && err.existingWealthPartner) {
+        setExisting(err.existingWealthPartner);
+        toast.message("Already registered", {
+          description: err.message,
+        });
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Could not create Wealth Partner.");
     } finally {
       setSaving(false);
     }
   }
+
+  const convertDisabled =
+    saving || lookupLoading || !selected || (!existing && !partnerType);
 
   return (
     <>
@@ -113,10 +200,9 @@ export function CreateWealthPartnerWizard({
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create Wealth Partner</DialogTitle>
+            <DialogTitle>{WEALTH_PARTNER_ONBOARD_COPY.wizardTitle}</DialogTitle>
             <DialogDescription>
-              Convert an existing Contact or Company into a Wealth Partner relationship. Master
-              identity stays in Contact / Company registries.
+              {WEALTH_PARTNER_ONBOARD_COPY.wizardDescription}
             </DialogDescription>
           </DialogHeader>
 
@@ -130,6 +216,7 @@ export function CreateWealthPartnerWizard({
                 onClick={() => {
                   setIdentityKind("contact");
                   setSelected(null);
+                  setExisting(null);
                 }}
               >
                 <UserRound className="h-3.5 w-3.5" />
@@ -143,6 +230,7 @@ export function CreateWealthPartnerWizard({
                 onClick={() => {
                   setIdentityKind("company");
                   setSelected(null);
+                  setExisting(null);
                 }}
               >
                 <Building2 className="h-3.5 w-3.5" />
@@ -152,7 +240,9 @@ export function CreateWealthPartnerWizard({
 
             <div className="space-y-1.5">
               <Label>
-                Search Enterprise {identityKind === "contact" ? "Contact" : "Company"} Registry
+                {identityKind === "contact"
+                  ? WEALTH_PARTNER_ONBOARD_COPY.searchLabel
+                  : "Search Enterprise Company Registry"}
               </Label>
               <LiveEntityMasterSearch
                 key={identityKind}
@@ -168,7 +258,9 @@ export function CreateWealthPartnerWizard({
                 onSelect={(opt) => setSelected(opt)}
                 allowCreateNew
                 createNewLabel={
-                  identityKind === "contact" ? "Create New Contact" : "Create New Company"
+                  identityKind === "contact"
+                    ? WEALTH_PARTNER_ONBOARD_COPY.createContactCta
+                    : "Create New Company"
                 }
                 onCreateNew={(q) => {
                   setCreateQuery(q);
@@ -179,42 +271,104 @@ export function CreateWealthPartnerWizard({
               {selected ? (
                 <p className={cn("text-xs text-muted-foreground")}>
                   Selected: <span className="font-medium text-foreground">{selected.label}</span>
+                  {lookupLoading ? " · Checking registry…" : null}
                 </p>
               ) : null}
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Wealth Partner Type</Label>
-              <Select
-                value={partnerType}
-                onValueChange={(v) => setPartnerType(v as WealthPartnerTypeCode)}
+            {existing ? (
+              <div
+                className="space-y-2 rounded-lg border border-amber-500/35 bg-amber-500/5 px-3 py-3"
+                data-wp="already-registered"
+                role="status"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {WEALTH_PARTNER_TYPE_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <p className="text-sm font-semibold text-foreground">
+                  {identityKind === "company"
+                    ? "This Company is already registered as a Wealth Partner."
+                    : WEALTH_PARTNER_ONBOARD_COPY.alreadyRegistered}
+                </p>
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                  <dt className="text-muted-foreground">Status</dt>
+                  <dd className="capitalize">
+                    {existing.lifecycleStatus}
+                    {existing.status ? ` · ${existing.status}` : ""}
+                    {existing.operationalStatus
+                      ? ` · ${existing.operationalStatus}`
+                      : ""}
+                  </dd>
+                  <dt className="text-muted-foreground">Wealth Partner Code</dt>
+                  <dd className="font-mono font-medium">{existing.code}</dd>
+                  <dt className="text-muted-foreground">Type</dt>
+                  <dd className="font-medium">
+                    {existing.partnerType
+                      ? wealthPartnerTypeLabel(String(existing.partnerType))
+                      : "—"}
+                  </dd>
+                  <dt className="text-muted-foreground">Created Date</dt>
+                  <dd>{formatCreatedAt(existing.createdAt)}</dd>
+                  <dt className="text-muted-foreground">Name</dt>
+                  <dd className="font-medium">{existing.displayName}</dd>
+                </dl>
+                {existing.reason === "orphan_identity_missing" ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    The linked Contact/Company row may be missing. Do not create another Wealth
+                    Partner — open the existing record instead.
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => openExistingPartner(existing)}
+                  >
+                    Open Wealth Partner
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>Wealth Partner Type</Label>
+                <Select
+                  value={partnerType}
+                  onValueChange={(v) => setPartnerType(v as WealthPartnerTypeCode)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WEALTH_PARTNER_TYPE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              type="button"
-              disabled={saving || !selected || !partnerType}
-              onClick={() => void handleCreate()}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Convert to Wealth Partner
-            </Button>
+            {!existing ? (
+              <Button
+                type="button"
+                disabled={convertDisabled}
+                onClick={() => void handleCreate()}
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {WEALTH_PARTNER_ONBOARD_COPY.convertCta}
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -224,6 +378,7 @@ export function CreateWealthPartnerWizard({
         onOpenChange={setCreateContactOpen}
         initialName={createQuery}
         participantKind="other"
+        identityIntent="wealth_partner_onboarding"
         onCreated={(contact) => {
           setSelected({
             id: contact.id,

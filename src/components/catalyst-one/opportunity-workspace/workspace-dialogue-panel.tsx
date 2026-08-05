@@ -37,7 +37,7 @@ const FILTER_EVENTS: Record<Exclude<DialogueFilter, "all">, EdcEventType[]> = {
   tasks: ["task"],
   documents: ["document_upload", "document_verification"],
   workflow: ["workflow", "stage_change", "sub_stage_change", "progress"],
-  communication: ["email", "notification", "internal_message"],
+  communication: ["email", "notification", "internal_message", "conversation_activity"],
 };
 
 const FILTERS: DialogueFilter[] = ["all", "tasks", "documents", "workflow", "communication"];

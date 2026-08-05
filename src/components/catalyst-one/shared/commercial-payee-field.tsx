@@ -19,7 +19,7 @@ import {
   type InvoicePartyRecord,
 } from "@/lib/invoice-party/invoice-party-api-client";
 import type { LoanCommercialPayeeType } from "@/constants/invoice-party";
-import { INVOICE_PARTY_REQUIRED_MESSAGE } from "@/constants/invoice-party";
+import { INVOICE_PARTY_READINESS_HINT } from "@/constants/invoice-party";
 import { cn } from "@/lib/utils";
 
 export type InvoicePartyChange = {
@@ -59,6 +59,7 @@ export function InvoicePartyField({
   readOnly = false,
   required = false,
   error,
+  hint,
   className,
   compact = false,
   label = "Invoice Party",
@@ -69,6 +70,8 @@ export function InvoicePartyField({
   readOnly?: boolean;
   required?: boolean;
   error?: string | null;
+  /** CO-DWS-001 — non-blocking readiness hint */
+  hint?: string | null;
   className?: string;
   compact?: boolean;
   label?: string;
@@ -174,6 +177,7 @@ export function InvoicePartyField({
       <p className="text-[10px] text-muted-foreground">
         Curated Invoice Parties from Accounting Master only.
       </p>
+      {hint && !error ? <p className="text-[11px] text-amber-800 dark:text-amber-200">{hint}</p> : null}
       {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
     </div>
   );
@@ -187,15 +191,18 @@ export function LoginStageInvoicePartyPanel({
   invoicePartyLabel,
   onChange,
   readOnly,
-  required,
-  error,
+  required = false,
+  error = null,
+  hint,
 }: {
   invoicePartyId?: string | null;
   invoicePartyLabel?: string | null;
   onChange: (next: InvoicePartyChange) => void;
   readOnly?: boolean;
+  /** CO-BUG-001 / CO-DWS-001 — ignored for error display; Invoice Party never hard-gates pipeline UI. */
   required?: boolean;
   error?: string | null;
+  hint?: string | null;
 }) {
   return (
     <section className="rounded-xl border border-cyan-500/25 bg-cyan-950/20 px-3 py-3">
@@ -205,7 +212,8 @@ export function LoginStageInvoicePartyPanel({
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Against whom should Rupee Catalyst raise its commission invoice for this Deal? Select from
-          Accounting Invoice Party Master.
+          Accounting Invoice Party Master. Optional for Lender Pipeline — required only for accounting
+          actions.
         </p>
       </header>
       <InvoicePartyField
@@ -214,7 +222,13 @@ export function LoginStageInvoicePartyPanel({
         onChange={onChange}
         readOnly={readOnly}
         required={required}
-        error={error ?? (required && !invoicePartyId ? INVOICE_PARTY_REQUIRED_MESSAGE : null)}
+        error={error}
+        hint={
+          hint ??
+          (!invoicePartyId
+            ? `${INVOICE_PARTY_READINESS_HINT} Optional for Lender Pipeline — required only for accounting actions.`
+            : undefined)
+        }
       />
     </section>
   );

@@ -1,4 +1,5 @@
 import { ELW_DEFAULT_PRODUCTS } from "@/constants/enterprise-lender-workspace";
+import { resolveLenderBranding } from "@/lib/enterprise-lender-registry/branding";
 import { listElwRegistryEntries } from "./derive-profile";
 import type {
   ElwLenderLandingCard,
@@ -35,11 +36,14 @@ export function listElwLandingCards(): ElwLenderLandingCard[] {
       ? [entry.headquartersCity, "Pune", "Bengaluru"].slice(0, entry.contactCount > 0 ? 3 : 1)
       : ["Mumbai", "Delhi NCR"];
 
+    const branding = resolveLenderBranding({ displayName: entry.name });
+
     return {
       lenderId: entry.lenderId,
       lenderRef: entry.lenderRef,
-      name: entry.name,
-      logoInitials: initials(entry.name) || "LN",
+      name: branding.brandName || entry.name,
+      logoInitials: initials(branding.brandName || entry.name) || "LN",
+      logoUrl: branding.logoUrl,
       productsOffered: products,
       citiesCovered: cities,
       relationshipStatus: statusFor(entry.contactCount),

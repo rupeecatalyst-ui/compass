@@ -18,7 +18,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { ERW_COLOUR_FAMILY_TOKENS } from "@/constants/enterprise-relationship-workspace";
 import { buildRicRadialLayout } from "@/lib/contact-strategy/ric-layout";
-import { listRicFirstLevel } from "@/lib/contact-strategy/ric-mock-data";
+import { listNetworkFirstLevel } from "@/lib/contact-strategy/live-registry";
 import { RicFlowNode, type RicFlowNodeData } from "./ric-flow-node";
 
 const nodeTypes = { ricContact: RicFlowNode };
@@ -27,10 +27,12 @@ function CanvasInner({
   centreContactId,
   onSelectContact,
   onOpenContactWorkspace,
+  registryVersion,
 }: {
   centreContactId: string | null;
   onSelectContact: (id: string) => void;
   onOpenContactWorkspace: (id: string) => void;
+  registryVersion?: number;
 }) {
   const { fitView } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<RicFlowNodeData>>([]);
@@ -38,8 +40,9 @@ function CanvasInner({
 
   const graph = useMemo(() => {
     if (!centreContactId) return null;
-    return listRicFirstLevel(centreContactId);
-  }, [centreContactId]);
+    return listNetworkFirstLevel(centreContactId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centreContactId, registryVersion]);
 
   useEffect(() => {
     if (!graph?.centre) {
@@ -82,8 +85,8 @@ function CanvasInner({
     setNodes(nextNodes);
     setEdges(nextEdges);
     const t = window.setTimeout(() => {
-      void fitView({ padding: 0.28, duration: 450 });
-    }, 40);
+      void fitView({ padding: 0.12, duration: 380, maxZoom: 1.15, minZoom: 0.35 });
+    }, 30);
     return () => window.clearTimeout(t);
   }, [graph, setNodes, setEdges, fitView]);
 
@@ -98,14 +101,24 @@ function CanvasInner({
 
   if (!centreContactId) {
     return (
-      <div className="flex h-full min-h-[420px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-slate-950/40">
-        <p className="text-sm text-slate-400">Select a Strategic Contact</p>
+      <div className="flex h-full min-h-0 items-center justify-center rounded-xl border border-dashed border-white/10 bg-slate-950/40">
+        <p className="text-sm text-slate-400">Select a contact from the registry</p>
+      </div>
+    );
+  }
+
+  if (!graph?.centre) {
+    return (
+      <div className="flex h-full min-h-0 items-center justify-center rounded-xl border border-dashed border-amber-500/30 bg-slate-950/40">
+        <p className="max-w-sm px-4 text-center text-sm text-amber-200/90">
+          This contact is not in the live Enterprise Contact Registry.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="h-full min-h-[420px] overflow-hidden rounded-xl border border-white/10 bg-[#070b14]">
+    <div className="h-full min-h-0 overflow-hidden rounded-xl border border-white/10 bg-[#070b14]">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -115,7 +128,8 @@ function CanvasInner({
         onNodeDoubleClick={onNodeDoubleClick}
         nodeTypes={nodeTypes}
         fitView
-        minZoom={0.4}
+        fitViewOptions={{ padding: 0.12, maxZoom: 1.15 }}
+        minZoom={0.35}
         maxZoom={1.6}
         proOptions={{ hideAttribution: true }}
         colorMode="dark"
@@ -140,6 +154,7 @@ export function RelationshipIntelligenceCanvas(props: {
   centreContactId: string | null;
   onSelectContact: (id: string) => void;
   onOpenContactWorkspace: (id: string) => void;
+  registryVersion?: number;
 }) {
   return (
     <ReactFlowProvider>

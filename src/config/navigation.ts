@@ -38,6 +38,8 @@ import {
   Gauge,
   Handshake,
   Eraser,
+  Mail,
+  History,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
@@ -128,6 +130,7 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY },
   { title: "Enterprise Asset Library", href: ROUTES.ADMIN_ENTERPRISE_ASSETS },
   { title: "Enterprise Decision Ledger", href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER },
+  { title: "Enterprise Recovery Center", href: ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER },
   { title: "Foundation Libraries", href: ROUTES.ADMIN_FOUNDATION_LIBRARIES },
   { title: "Universal Guided Journey", href: ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY },
   { title: "CHANAKYA Identity", href: ROUTES.ADMIN_CHANAKYA_ENTERPRISE_IDENTITY },
@@ -141,11 +144,12 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION },
   { title: "Production Reset", href: ROUTES.ADMIN_PRODUCTION_RESET },
   { title: "Enterprise Metrics", href: ROUTES.ADMIN_ENTERPRISE_METRICS },
+  { title: "Enterprise Communication", href: ROUTES.ADMIN_ENTERPRISE_COMMUNICATION },
 ];
 /**
  * Primary domain navigation — Column 1 (Architecture Freeze + CO-ARCH-003).
  * Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Journey · Investments ·
- * Tasks · Documents · Lenders · Accounting · Mission Control · Horizon · Administration · Settings
+ * Tasks · Documents · Enterprise Lender Directory · Accounting · Mission Control · Horizon · Administration · Settings
  * Mission Control primary href = Executive Briefing (Radar remains a separate primary item).
  * CO-SPRINT-111: Administration is a single entry → Administration Console (not an expandable tree).
  * CO-ARCH-003: My Opportunities = Opportunity Registry; My Deals = Deal Registry.
@@ -172,7 +176,7 @@ export const primaryDomainNavigation: NavGroup = {
       href: buildDashboardHref(ROUTES.DOCUMENT_CENTER),
       icon: FileStack,
     },
-    { title: "Lenders", href: ROUTES.LENDERS, icon: Building2 },
+    { title: "Enterprise Lender Directory", href: ROUTES.LENDERS, icon: Building2 },
     { title: "Wealth Partners", href: ROUTES.WEALTH_PARTNERS, icon: Handshake },
     { title: "Accounting", href: ROUTES.ACCOUNTING, icon: Calculator },
     /**
@@ -329,6 +333,7 @@ export const adminConsoleNavigation: NavGroup = {
     { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY, icon: Package },
     { title: "Enterprise Asset Library", href: ROUTES.ADMIN_ENTERPRISE_ASSETS, icon: Boxes },
     { title: "Enterprise Decision Ledger", href: ROUTES.ADMIN_ENTERPRISE_DECISION_LEDGER, icon: Scale },
+    { title: "Enterprise Recovery Center", href: ROUTES.ADMIN_ENTERPRISE_RECOVERY_CENTER, icon: History },
     { title: "Foundation Libraries", href: ROUTES.ADMIN_FOUNDATION_LIBRARIES, icon: BookMarked },
     { title: "Universal Guided Journey", href: ROUTES.ADMIN_UNIVERSAL_GUIDED_JOURNEY, icon: MessageSquareHeart },
     { title: "CHANAKYA Identity", href: ROUTES.ADMIN_CHANAKYA_ENTERPRISE_IDENTITY, icon: Sparkles },
@@ -336,12 +341,14 @@ export const adminConsoleNavigation: NavGroup = {
     { title: "Credit Knowledge Framework", href: ROUTES.ADMIN_CREDIT_KNOWLEDGE_FRAMEWORK, icon: BookMarked },
     { title: "Credit & Risk Engine", href: ROUTES.ADMIN_CREDIT_RISK_ENGINE, icon: Scale },
     { title: "Architecture", href: ROUTES.ADMIN_ARCHITECTURE, icon: Network },
+    { title: "Universal 360° Framework", href: ROUTES.ADMIN_ENTERPRISE_360, icon: LayoutDashboard },
     { title: "Workflow Engine", href: ROUTES.ADMIN_WORKFLOW_ENGINE, icon: GitBranch },
     { title: "ECG", href: ROUTES.ADMIN_ECG, icon: SlidersHorizontal },
     { title: "System Modes", href: ROUTES.ADMIN_SYSTEM_MODES, icon: ToggleLeft },
     { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION, icon: Info },
     { title: "Production Reset", href: ROUTES.ADMIN_PRODUCTION_RESET, icon: Eraser },
     { title: "Enterprise Metrics", href: ROUTES.ADMIN_ENTERPRISE_METRICS, icon: BarChart3 },
+    { title: "Enterprise Communication", href: ROUTES.ADMIN_ENTERPRISE_COMMUNICATION, icon: Mail },
     { title: "Enterprise Intelligence", href: ROUTES.REPORTS, icon: BarChart3 },
   ],
 };

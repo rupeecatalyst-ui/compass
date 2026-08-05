@@ -91,6 +91,11 @@ const buildIdentity = resolveBuildIdentityEnv();
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  /** CO-DEPLOY-BAT-008 / CO-LENDER-HIERARCHY-REMEDIATION-001 — Cap workers on Vercel 8GB builders to avoid OOM SIGKILL. */
+  experimental: {
+    cpus: 1,
+    webpackMemoryOptimizations: true,
+  },
   serverExternalPackages: ["bcryptjs", "jsonwebtoken", "@prisma/client"],
   env: {
     CATALYST_DEMO_SEEDS_ENABLED: demoSeedsEnabled,

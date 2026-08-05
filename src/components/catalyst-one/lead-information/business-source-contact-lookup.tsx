@@ -18,6 +18,11 @@ import { liveSearchOperationalContacts } from "@/lib/enterprise-registry/live-se
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { listLoanJourneySourceContacts } from "@/lib/enterprise-registry/legacy-loan-journey";
 import { wealthPartnerApiClient } from "@/lib/enterprise-wealth-partner-registry";
+import {
+  deriveAgreementRuntimeStatus,
+  getLegalDocketFromCompliance,
+  resolveWealthPartnerOpportunitySelectability,
+} from "@/lib/enterprise-wealth-partner-legal-docket";
 import { cn } from "@/lib/utils";
 
 export type SourceContactSelection = {
@@ -94,21 +99,36 @@ export function BusinessSourceContactLookupField({
             string,
             { contactId: string | null; partnerType: string | null }
           >();
-          setOptions(
-            result.items.map((p) => {
-              meta.set(p.id, {
-                contactId: p.contactId,
-                partnerType: p.partnerType,
-              });
-              return {
-                id: p.id,
-                label: p.displayName,
-                sublabel: [p.code, wealthPartnerTypeLabel(p.partnerType)]
-                  .filter(Boolean)
-                  .join(" · "),
-              };
-            }),
-          );
+          const options: EntityMasterOption[] = [];
+          for (const p of result.items) {
+            const docket = getLegalDocketFromCompliance(p.complianceJson);
+            const agreementStatus = deriveAgreementRuntimeStatus(docket.agreement);
+            const select = resolveWealthPartnerOpportunitySelectability({
+              lifecycleStatus: p.lifecycleStatus,
+              operationalStatus: p.operationalStatus,
+              agreementStatus,
+            });
+            // CO-WP-007 — Expired / Suspended not selectable for new Opportunities.
+            if (select.selectability === "not_selectable") continue;
+            meta.set(p.id, {
+              contactId: p.contactId,
+              partnerType: p.partnerType,
+            });
+            options.push({
+              id: p.id,
+              label: p.displayName,
+              sublabel: [
+                p.code,
+                wealthPartnerTypeLabel(p.partnerType),
+                select.selectability === "selectable_with_warning"
+                  ? "⚠ Renewal Due"
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+            });
+          }
+          setOptions(options);
           setWpMeta(meta);
           return;
         }

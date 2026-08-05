@@ -1,4 +1,7 @@
-import { LENDERS_BY_PRODUCT, type LenderOffer } from "@/lib/site";
+import {
+  lenderOffersForProductSlug,
+  type LenderOffer,
+} from "@/lib/enterprise-lender-product-catalogue";
 import { getProductByName } from "@/constants/product-master";
 import { getPublishedPolicies } from "@/lib/credit-risk-engine/policy-store";
 import { normalizeLenderCaseStage } from "@/constants/lender-pipeline";
@@ -209,7 +212,7 @@ function stageIndex(stage: LenderCaseStage): number {
 
 export function resolveProductRoiScale(loan: LoanFile): ProductRoiScale {
   const slug = productSlug(loan.loanProduct);
-  const offers = LENDERS_BY_PRODUCT[slug] ?? [];
+  const offers = lenderOffersForProductSlug(slug);
   const product = getProductByName(loan.loanProduct);
   const policies = getPublishedPolicies().filter(
     (p) =>
@@ -260,7 +263,7 @@ export function buildLenderRoiProfiles(
   scale: ProductRoiScale,
 ): LenderRoiProfile[] {
   const slug = productSlug(loan.loanProduct);
-  const offers = LENDERS_BY_PRODUCT[slug] ?? [];
+  const offers = lenderOffersForProductSlug(slug);
   const active = cases.filter((c) => c.status !== "closed");
 
   const profiles: LenderRoiProfile[] = active.map((c) => {

@@ -27,6 +27,7 @@ import {
 } from "@/lib/my-opportunities/opportunity-registry";
 import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import { opportunityBusinessSourceLabel } from "@/constants/opportunity-business-source";
+import { formatEnterpriseRegistryCounter } from "@/constants/enterprise-registry-workspace";
 import {
   EMPTY_OPPORTUNITY_REGISTRY_FILTERS,
   OPPORTUNITY_REGISTRY_PAGE_SIZES,
@@ -314,7 +315,7 @@ export function OpportunityRegistryTable({
             value={filters.search}
             onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
             placeholder="Search opportunity, customer, product, source…"
-            className="h-8 pl-7 text-xs"
+            className="h-7 pl-7 text-[11px]"
             aria-label="Enterprise search opportunities"
           />
         </div>
@@ -322,18 +323,18 @@ export function OpportunityRegistryTable({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 gap-1 text-xs"
+          className="h-7 gap-1 text-[11px]"
           onClick={() => setFiltersOpen((o) => !o)}
         >
           <Filter className="h-3.5 w-3.5" />
-          Filters
+          More Filters
         </Button>
         {hasActiveFilters ? (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 gap-1 text-xs"
+            className="h-7 gap-1 text-[11px]"
             onClick={() => setFilters(EMPTY_OPPORTUNITY_REGISTRY_FILTERS)}
           >
             <FilterX className="h-3.5 w-3.5" />
@@ -344,7 +345,7 @@ export function OpportunityRegistryTable({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 gap-1 text-xs"
+          className="h-7 gap-1 text-[11px]"
           onClick={onRefresh}
           disabled={loading}
         >
@@ -414,6 +415,7 @@ export function OpportunityRegistryTable({
         storageKey="catalyst.my-opportunities.registry.v3"
         userId={user?.id}
         density="dense"
+        fillViewport
         columns={columns}
         rows={pageRows}
         rowKey={(row) => row.id}
@@ -422,7 +424,9 @@ export function OpportunityRegistryTable({
             ? "Loading opportunities…"
             : "No opportunities found. Create one from Contacts → Start Journey."
         }
-        toolbarLabel={`Opportunity Registry · ${filtered.length} opportunities`}
+        toolbarLabel={formatEnterpriseRegistryCounter("Opportunities", filtered.length, {
+          ofTotal: allRows.length,
+        })}
         sortColumnId={sortColumnId}
         sortDirection={sortDir}
         onSort={handleSort}

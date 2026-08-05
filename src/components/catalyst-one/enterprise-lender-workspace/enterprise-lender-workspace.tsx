@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -15,6 +15,7 @@ import {
   ELW_OFFICIAL_NAME,
   ELW_PRODUCT_POLICY_SECTIONS,
 } from "@/constants/enterprise-lender-workspace";
+import type { EldEmployeeWorkspaceSectionId } from "@/constants/enterprise-lender-directory";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,11 +29,22 @@ import {
   getElwOriginLabel,
   parseElwOriginFromSearchParams,
 } from "@/lib/enterprise-lender-workspace";
-import { deriveElwHierarchy } from "@/lib/enterprise-lender-workspace/hierarchy";
+import { composeHierarchyForLender } from "@/lib/enterprise-lender-workspace/hierarchy";
+import {
+  composeEldLenderEmployeeRows,
+  loadEldLenderEmployeeContacts,
+} from "@/lib/enterprise-lender-directory";
+import { subscribeEcmContactRegistry } from "@/lib/enterprise-contact-master";
+import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
+import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
+import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
+import { useProductMasterOptions } from "@/lib/enterprise-product-master";
+import type { EldLenderEmployeeRow } from "@/types/enterprise-lender-directory-ops";
+import { EldLenderEmployeeSlideOver } from "@/components/catalyst-one/enterprise-lender-directory/eld-employee-slide-over";
 import { toast } from "sonner";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
-import { ElwHierarchyChart } from "./elw-hierarchy-chart";
+import { EldHierarchyChart } from "./eld-hierarchy-chart";
 
 export interface EnterpriseLenderWorkspaceProps {
   lenderId: string;
@@ -60,10 +72,18 @@ export function EnterpriseLenderWorkspace({
   const searchParams = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [notes, setNotes] = useState("");
-  const [hierarchyTick, setHierarchyTick] = useState(0);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [employees, setEmployees] = useState<EldLenderEmployeeRow[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<EldLenderEmployeeRow | null>(null);
+  const [employeeOpen, setEmployeeOpen] = useState(false);
+  const [employeeSection, setEmployeeSection] =
+    useState<EldEmployeeWorkspaceSectionId>("profile");
+  const [employeeEditing, setEmployeeEditing] = useState(false);
   const [activeProductId, setActiveProductId] = useState(
     initialProductId ?? ELW_DEFAULT_PRODUCTS[0].id,
   );
+  const { options: productOptions } = useProductMasterOptions(true);
+  const productKey = productOptions.map((p) => p.code).join("|");
 
   const origin = useMemo(
     () => parseElwOriginFromSearchParams(searchParams),
@@ -72,10 +92,42 @@ export function EnterpriseLenderWorkspace({
 
   const profile = useMemo(() => deriveElwLenderProfile(lenderId), [lenderId]);
 
-  const hierarchy = useMemo(() => {
-    void hierarchyTick;
-    return deriveElwHierarchy(lenderId);
-  }, [lenderId, hierarchyTick]);
+  const reloadEmployees = useCallback(async () => {
+    await ensureEnterpriseRegistryHydrated(false).catch(() => undefined);
+    const [contacts, lendersResult, dealsResult] = await Promise.all([
+      loadEldLenderEmployeeContacts(),
+      lenderRegistryClient.queryLenders({
+        status: "active",
+        enabled: true,
+        pageSize: 500,
+      }),
+      enterpriseDealApiClient
+        .searchDeals({ archived: false, pageSize: 200, view: "full" })
+        .catch(() => ({ items: [] as Awaited<
+          ReturnType<typeof enterpriseDealApiClient.searchDeals>
+        >["items"] })),
+    ]);
+    setEmployees(
+      composeEldLenderEmployeeRows({
+        contacts,
+        lenders: lendersResult.items ?? [],
+        deals: dealsResult.items ?? [],
+        productOptions,
+      }),
+    );
+  }, [productOptions]);
+
+  useEffect(() => {
+    void reloadEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- productKey stabilizes options
+  }, [lenderId, reloadToken, productKey]);
+
+  useEffect(() => subscribeEcmContactRegistry(() => setReloadToken((n) => n + 1)), []);
+
+  const forest = useMemo(
+    () => composeHierarchyForLender(lenderId, employees),
+    [lenderId, employees],
+  );
 
   const products = useMemo(() => {
     if (!profile) return [...ELW_DEFAULT_PRODUCTS];
@@ -316,14 +368,30 @@ export function EnterpriseLenderWorkspace({
         </div>
       </section>
 
-      {/* SECTION 4 — Relationship Hierarchy */}
+      {/* SECTION 4 — Relationship Hierarchy (ECM projection) */}
       <section className="rounded-2xl border border-border/70 bg-gradient-to-b from-card to-muted/20 p-5 shadow-sm">
-        <ElwHierarchyChart
+        <EldHierarchyChart
           lenderId={lenderId}
-          nodes={hierarchy}
-          onChanged={() => setHierarchyTick((t) => t + 1)}
+          lenderName={profile.name}
+          forest={forest}
+          onOpenEmployee={(emp, opts) => {
+            setSelectedEmployee(emp);
+            setEmployeeSection(opts?.section ?? "profile");
+            setEmployeeEditing(Boolean(opts?.editing));
+            setEmployeeOpen(true);
+          }}
+          onChanged={() => setReloadToken((n) => n + 1)}
         />
       </section>
+
+      <EldLenderEmployeeSlideOver
+        open={employeeOpen}
+        onOpenChange={setEmployeeOpen}
+        row={selectedEmployee}
+        initialSection={employeeSection}
+        initialEditing={employeeEditing}
+        onSaved={() => setReloadToken((n) => n + 1)}
+      />
     </div>
   );
 }

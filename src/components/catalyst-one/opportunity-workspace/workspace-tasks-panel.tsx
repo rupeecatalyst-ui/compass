@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ETE_PREDEFINED_DESCRIPTIONS, ETE_TASK_TYPES } from "@/constants/enterprise-task-engine";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
+import { getStoredUser } from "@/lib/auth";
 import {
   deriveEteTaskColour,
   escalateEteOverdueTasks,
@@ -36,6 +37,11 @@ import {
 
 const PREDEFINED = Object.values(ETE_PREDEFINED_DESCRIPTIONS);
 
+function defaultAssigneeRef(): string {
+  const user = getStoredUser();
+  return user?.id ? `user:${user.id}` : "employee:rm-001";
+}
+
 export function WorkspaceTasksPanel() {
   const {
     opportunityId,
@@ -46,7 +52,7 @@ export function WorkspaceTasksPanel() {
     markTaskReopened,
   } = useOpportunityWorkspace();
   const [title, setTitle] = useState("");
-  const [assignee, setAssignee] = useState("employee:rm-001");
+  const [assignee, setAssignee] = useState(defaultAssigneeRef);
   const [predefined, setPredefined] = useState<EtePredefinedDescription>(
     ETE_PREDEFINED_DESCRIPTIONS.CALL_CUSTOMER,
   );
@@ -105,13 +111,19 @@ export function WorkspaceTasksPanel() {
     setError(null);
     try {
       const taskTitle = title.trim() || predefined;
+      let dueIso = dueOn ? new Date(dueOn).toISOString() : undefined;
+      if (!dueIso) {
+        const fallback = new Date();
+        fallback.setHours(17, 0, 0, 0);
+        dueIso = fallback.toISOString();
+      }
       const task = registerEteTask({
         taskType: ETE_TASK_TYPES.OPPORTUNITY,
         assigneeRef: assignee,
         opportunityRef: opportunityId,
         predefinedDescription: predefined,
         description: taskTitle,
-        dueOn: dueOn ? new Date(dueOn).toISOString() : undefined,
+        dueOn: dueIso,
         reportingManagerRef: "employee:mgr-001",
         createdBy: "workspace",
       });

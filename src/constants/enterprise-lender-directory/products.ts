@@ -3,7 +3,7 @@
 export interface ElwDirectoryProduct {
   id: string;
   label: string;
-  /** Key into marketing LENDERS_BY_PRODUCT when available */
+  /** Key into Enterprise Lender Product Catalogue (`LENDERS_BY_PRODUCT`) when available */
   offerSlug?: string;
 }
 

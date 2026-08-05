@@ -1,0 +1,56 @@
+# CO-WP-CONSTITUTION-001 — Enterprise Companion Application Principle
+
+Status: **NON-NEGOTIABLE** · **FORMALLY APPROVED — frozen** (2026-07-31)  
+Precedence: Highest for Wealth Partner App engineering. Permanent.
+
+## Rule
+
+The Wealth Partner App is an **Enterprise Companion Application**.  
+It is **NOT** an independent business application.
+
+**Catalyst One THINKS. The Wealth Partner App PRESENTS.**
+
+Catalyst One is the only Enterprise Operating System and owns all business intelligence, rules, calculations, workflows, registries, documents, activities, commissions, communications, credit logic, lender policies, approval logic, and reporting calculations.
+
+## Wealth Partner App may own only
+
+User Experience · Mobile Experience · Presentation · Navigation · Secure Session · Device Notifications · Camera · File Upload UI · Offline UI (if approved).
+
+**No business logic.**
+
+## Strictly prohibited (never calculate in the app)
+
+Commission · Payout · Revenue · Profit · ROI · FOIR · DBR · Eligibility · Credit Score · Lender Recommendation · Workflow Decisions · Stage Progression · Incentives · Commercial Splits · Business KPIs · Document Validation Rules.
+
+These values **always** come from Catalyst One.
+
+## Request flow (no exceptions)
+
+```text
+Wealth Partner App → Partner API Gateway → Catalyst One Enterprise Services → Enterprise DTO → App renders
+```
+
+API principle: App **requests**. Catalyst One **decides**. App **displays**. Nothing more.
+
+Never use employee APIs. Never recreate registries. Never trust client-side filtering for access control.
+
+## PR rejection gate (mandatory)
+
+Every Wealth Partner App PR must answer:
+
+1. Business logic duplicated? → if YES, **REJECT**  
+2. Calculation performed in the app? → if YES, **REJECT**  
+3. Enterprise Registry recreated? → if YES, **REJECT**  
+4. Data from Catalyst One Enterprise APIs? → if NO, **REJECT**
+
+## Availability principle (NON-NEGOTIABLE)
+
+If Catalyst One were turned off, the Wealth Partner App should have **almost nothing meaningful to do** except allow the user to **log in** and display that **enterprise services are unavailable**.
+
+Never present fabricated, demo-as-truth, or locally calculated business results when Catalyst One is unreachable.
+
+## Canonical documents
+
+- WP App: `C:\Wealth Partner App\docs\CO-WP-CONSTITUTION-001-enterprise-companion-application-principle.md`
+- Catalyst One: `docs/co-wp-constitution-001/CO-WP-CONSTITUTION-001-ENTERPRISE-COMPANION-APPLICATION-PRINCIPLE.md`
+- Companion alignment: `.cursor/rules/enterprise-wealth-partner-app.mdc`

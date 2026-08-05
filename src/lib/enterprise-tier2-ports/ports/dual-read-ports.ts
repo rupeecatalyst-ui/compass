@@ -9,7 +9,8 @@
  */
 
 import { isTier2RegistryPortRuntimeActive } from "@/constants/enterprise-master-data/dual-read";
-
+import { dedupeProductOptionsForSelection } from "@/lib/enterprise-product-master/dedupe-selection";
+import { dedupeLendersForSelection } from "@/lib/enterprise-lender-registry/presentation-canonical";
 import type {
 
   DocumentRegistryPort,
@@ -165,13 +166,22 @@ export const dualReadProductRegistryPort: ProductRegistryPort = {
   },
 
   listProducts(groupId) {
-
-    const constants = constantsProductRegistryPort.listProducts(groupId);
-
     const database = groupId ? getProductCache(groupId) : getAllProductCache();
 
-    return mergeOptions(constants, database, isTier2RegistryPortRuntimeActive());
+    // CO-BUG-002 / CO-PR-004 — When Tier-2 runtime is active, Product Registry (DB) is the sole SSOT.
+    // Do not concatenate Product Library / ECM constant catalogues (different codes, same labels).
+    // Presentation dedupe by canonical family only — never mutate Product Master rows.
+    if (isTier2RegistryPortRuntimeActive()) {
+      return dedupeProductOptionsForSelection(
+        database.map((option) => ({
+          ...option,
+          code: option.id,
+          enabled: option.enabled !== false,
+        })),
+      ) as unknown as ProductRegistryPortOption[];
+    }
 
+    return constantsProductRegistryPort.listProducts(groupId);
   },
 
   getProductLabel(id) {
@@ -261,13 +271,42 @@ export const dualReadLenderRegistryPort: LenderRegistryPort = {
   },
 
   listLenders(categoryId) {
-
     const constants = constantsLenderRegistryPort.listLenders(categoryId);
-
     const database = categoryId ? getLenderCache(categoryId) : getAllLenderCache();
 
-    return mergeOptions(constants, database, isTier2RegistryPortRuntimeActive());
+    // CO-LR-008 — when Tier-2 runtime is active, Registry (DB) is the sole SSOT.
+    // Presentation dedupe by identity family — never mutate lender rows.
+    if (isTier2RegistryPortRuntimeActive()) {
+      const forSelection = database.map((option) => ({
+        ...option,
+        label: option.label,
+        code: option.meta?.code ?? option.id,
+        displayName: option.label,
+        enabled: option.enabled !== false,
+      }));
+      const survivors = dedupeLendersForSelection(forSelection);
+      const byId = new Map(database.map((option) => [option.id, option]));
+      return survivors.map((survivor) => {
+        const orig =
+          (survivor.id ? byId.get(survivor.id) : undefined) ??
+          byId.get(String(survivor.code ?? ""));
+        return {
+          id: orig?.id ?? survivor.id ?? String(survivor.code ?? ""),
+          label: survivor.displayName || survivor.label,
+          parentId: orig?.parentId,
+          meta: orig?.meta,
+          enabled: survivor.enabled !== false,
+          sortOrder: survivor.sortOrder ?? orig?.sortOrder,
+          source: (orig?.source ?? "database") as LenderRegistryPortOption["source"],
+          categoryId: orig?.categoryId,
+          lenderId: orig?.lenderId,
+          institutionCategory: orig?.institutionCategory,
+          lifecycleStatus: orig?.lifecycleStatus,
+        };
+      });
+    }
 
+    return mergeOptions(constants, database, isTier2RegistryPortRuntimeActive());
   },
 
   listPrograms(lenderId) {

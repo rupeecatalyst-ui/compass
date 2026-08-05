@@ -3,6 +3,10 @@ export {
   listCanonicalProductOptions,
   resolveCanonicalProductCode,
   getCanonicalProductByCode,
+  normalizeProductCodeKey,
+  normalizeProductLabelKey,
+  resolveProductSelectionFamilyKey,
+  productCodesShareSelectionFamily,
   type CanonicalProductMasterEntry,
   type ProductCustomerSegment,
 } from "./canonical-catalog";

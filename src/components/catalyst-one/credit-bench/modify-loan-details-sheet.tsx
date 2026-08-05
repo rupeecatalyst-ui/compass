@@ -9,8 +9,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EnterpriseFinancialInput } from "@/components/catalyst-one/shared/enterprise-financial-input";
+import {
+  absoluteRupeesFromStoredString,
+  absoluteRupeesToStoredString,
+} from "@/lib/enterprise-financial-input";
 import {
   Select,
   SelectContent,
@@ -38,7 +42,6 @@ import {
   type LeadInformationFormState,
 } from "@/constants/lead-information-workspace";
 import { useProductMasterOptions } from "@/lib/enterprise-product-master";
-import { OPPORTUNITY_FIELD_NOT_SPECIFIED } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import {
   buildLeadInformationPatchBody,
   formFromOpportunity,
@@ -233,12 +236,13 @@ export function ModifyLoanDetailsSheet({
                   </Select>
                 </Field>
                 <Field label="Required Amount (₹)" required error={errors.requestedAmount}>
-                  <Input
-                    className="h-9"
-                    inputMode="numeric"
-                    placeholder={OPPORTUNITY_FIELD_NOT_SPECIFIED}
-                    value={form.requestedAmount}
-                    onChange={(e) => patchForm("requestedAmount", e.target.value)}
+                  <EnterpriseFinancialInput
+                    value={absoluteRupeesFromStoredString(form.requestedAmount)}
+                    onChange={(absolute) =>
+                      patchForm("requestedAmount", absoluteRupeesToStoredString(absolute))
+                    }
+                    placeholder="e.g. 45"
+                    defaultUnit="lakh"
                   />
                 </Field>
                 <Field label="Lending Type" required error={errors.lendingType}>

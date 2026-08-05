@@ -43,6 +43,91 @@ export const LENDER_PROBABILITY_LABELS: Record<LenderProbability, string> = {
   withdrawn: "Withdrawn",
 };
 
+/** Deal Registry priority → Kanban badge (SSOT display only). */
+export const DEAL_PRIORITY_KANBAN_LABELS: Record<string, string> = {
+  urgent: "Very High",
+  very_high: "Very High",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
+export function dealPriorityKanbanTone(priority?: string | null): {
+  label: string;
+  className: string;
+} {
+  const key = (priority ?? "medium").trim().toLowerCase();
+  const label = DEAL_PRIORITY_KANBAN_LABELS[key] ?? "Medium";
+  if (key === "urgent" || key === "very_high") {
+    return {
+      label,
+      className: "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300",
+    };
+  }
+  if (key === "high") {
+    return {
+      label,
+      className: "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200",
+    };
+  }
+  if (key === "low") {
+    return {
+      label,
+      className: "border-slate-400/40 bg-slate-500/10 text-slate-600 dark:text-slate-300",
+    };
+  }
+  return {
+    label: DEAL_PRIORITY_KANBAN_LABELS.medium,
+    className: "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+  };
+}
+
+/** Deal Health Score tone — Green ≥80 · Amber 60–79 · Red &lt;60. */
+export function dealHealthScoreKanbanTone(score: number | null | undefined): {
+  label: string;
+  className: string;
+  dot: string;
+} {
+  if (typeof score !== "number" || Number.isNaN(score)) {
+    return {
+      label: "—",
+      className: "text-muted-foreground",
+      dot: "bg-muted-foreground/50",
+    };
+  }
+  const label = `${Math.round(score)}%`;
+  if (score >= 80) {
+    return {
+      label,
+      className: "text-emerald-700 dark:text-emerald-300",
+      dot: "bg-emerald-500",
+    };
+  }
+  if (score >= 60) {
+    return {
+      label,
+      className: "text-amber-700 dark:text-amber-300",
+      dot: "bg-amber-500",
+    };
+  }
+  return {
+    label,
+    className: "text-red-700 dark:text-red-300",
+    dot: "bg-red-500",
+  };
+}
+
+export function formatKanbanCardDate(iso?: string | null): string {
+  if (!iso?.trim()) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 const LEGACY_STAGE_MAP: Record<string, LenderCaseStage> = {
   // Legacy PipelineStage → canonical LenderCaseStage (read-only normalize)
   raw_lead: "identified",

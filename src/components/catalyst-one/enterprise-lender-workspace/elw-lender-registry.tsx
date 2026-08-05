@@ -306,7 +306,7 @@ export function ElwLenderRegistry() {
   const activeProduct = ELW_DIRECTORY_PRODUCTS.find((p) => p.id === productId);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 flex min-h-0 flex-1 flex-col">
       <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
         Read-only comparison of{" "}
         <span className="font-medium text-foreground">published commercial programs</span> only.
@@ -546,14 +546,16 @@ export function ElwLenderRegistry() {
       </div>
 
       <EnterpriseDataGrid
+        className="min-h-0 flex-1"
         storageKey="catalyst.elw.lender-directory.v3"
         userId={user?.id}
-        density="compact"
+        density="dense"
+        fillViewport
         columns={columns}
         rows={pageRows}
         rowKey={(row) => row.id}
         emptyMessage={`No published commercial programs for ${activeProduct?.label ?? "this product"}.`}
-        toolbarLabel={`${activeProduct?.label ?? "Programs"} · ${filteredSorted.length} published program${filteredSorted.length === 1 ? "" : "s"}`}
+        toolbarLabel={`${activeProduct?.label ?? "Programs"} (${filteredSorted.length})`}
         sortColumnId={sort.field === "default" ? "roi" : Object.entries(SCORE_FIELD).find(([, f]) => f === sort.field)?.[0]}
         sortDirection={sort.field === "default" ? "asc" : sort.direction}
         onSort={handleSort}
@@ -565,6 +567,7 @@ export function ElwLenderRegistry() {
             }),
           );
         }}
+        maxHeightClassName="h-full max-h-none min-h-0 flex-1"
         toolbarActions={
           <>
             <p className="hidden text-[10px] text-muted-foreground xl:block">

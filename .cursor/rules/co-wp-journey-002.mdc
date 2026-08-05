@@ -1,0 +1,37 @@
+---
+description: CO-WP-JOURNEY-002 — Opportunity Workspace; presentation only; no deploy; no Customer Workspace
+alwaysApply: true
+---
+
+# CO-WP-JOURNEY-002 — Enterprise Opportunity Workspace
+
+Status: **CERTIFIED** · **FROZEN** · **NO DEPLOY**  
+Docs: `docs/co-wp-journey/CO-WP-JOURNEY-002-OPPORTUNITY-WORKSPACE.md`
+
+## Agent behaviour
+
+1. Do **NOT** modify Opportunity Workspace shell/tabs (`OpportunityDetailScreen`, `OpportunityPanels`, workspace header) unless Product Owner explicitly instructs.  
+2. Customer Workspace is **CO-WP-JOURNEY-003** — separate programme.  
+3. Do **not** begin Document Workspace / Activity Workspace from here.
+
+## Principles (frozen)
+
+1. Post-create primary desk = **Opportunity Workspace** (one connected surface + tabs).  
+2. Companion **renders** Partner Opportunity Detail / workspace projection DTOs only.  
+3. Catalyst One owns Registry · Workflow · Timeline · Documents · Activities · Participants · Notes · Communication · Audit · Next Best Action.  
+
+## SSOT
+
+| Concern | Path |
+|--------|------|
+| Workspace DTO fields | `src/types/enterprise-partner-business.ts` |
+| Projection enrich | `partner-business.service.ts` → `applyWorkspaceProjection` |
+| WP shell | `OpportunityDetailScreen` · `OpportunityWorkspaceHeader` |
+| Tabs | `OpportunityPanels.tsx` |
+
+## Forbidden
+
+- Lender offer / sanction business logic in WP  
+- Messaging / Communication Hub logic in WP  
+- Customer Workspace edits under this sprint id  
+- Creation Journey edits without PO instruction  

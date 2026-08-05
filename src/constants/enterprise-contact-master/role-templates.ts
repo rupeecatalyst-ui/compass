@@ -15,7 +15,14 @@ import {
   isEcmResidentStatusVariantsEnabled,
 } from "./enterprise-features";
 
-export type EcmFieldControl = "text" | "master" | "number" | "textarea" | "contact_ref";
+export type EcmFieldControl =
+  | "text"
+  | "master"
+  | "number"
+  | "textarea"
+  | "contact_ref"
+  /** Multi product codes from Enterprise Product Master (CSV in profile string map). */
+  | "product_multi";
 
 /** Information ownership class — enterprise design principle CF-CDC-002. */
 export type EcmFieldDataClass =
@@ -582,19 +589,22 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         dataClass: "role",
         owner: "Banker Role",
         why: "Org location: Institution → Region → City → Branch.",
-        helpText: "Lender Master. Org path: Institution → Region → City → Branch.",
+        helpText:
+          "Enterprise Lender Registry (active lenders). Org path: Institution → City → Branch.",
       },
       {
         key: "city",
         label: "City",
         control: "master",
         masterDomain: "city",
+        parentFieldKey: "institution",
         mandatory: true,
         sortOrder: 2,
         visible: true,
         dataClass: "role",
         owner: "Banker Role",
-        why: "Banker operating city.",
+        why: "Banker operating city — filtered from lender coverage when available.",
+        helpText: "Cities from Enterprise Lender Registry coverage, else City Master.",
       },
       {
         key: "branch",
@@ -625,11 +635,24 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
           "Job title only (e.g. Relationship Executive … National Manager). Reporting depth is derived from Reporting Manager links — never hardcoded.",
       },
       {
+        key: "productsHandled",
+        label: "Products Handled",
+        control: "product_multi",
+        mandatory: false,
+        sortOrder: 5,
+        visible: true,
+        dataClass: "role",
+        owner: "Banker Role",
+        why: "Products this banker manages — drives Lender Directory / product filters.",
+        helpText:
+          "Multi-select from Enterprise Product Master. One banker may handle multiple products.",
+      },
+      {
         key: "officialMobile",
         label: "Official Mobile",
         control: "text",
         mandatory: true,
-        sortOrder: 5,
+        sortOrder: 6,
         visible: true,
         dataClass: "role",
         owner: "Banker Role",
@@ -641,7 +664,7 @@ export const ECM_ROLE_WORKSPACE_TEMPLATES: readonly EcmRoleWorkspaceTemplate[] =
         label: "Reporting Manager",
         control: "contact_ref",
         mandatory: false,
-        sortOrder: 6,
+        sortOrder: 7,
         visible: true,
         dataClass: "role",
         owner: "Banker Role",

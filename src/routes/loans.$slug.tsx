@@ -10,7 +10,8 @@ import {
 import { EligibilityGate } from "@/components/site/EligibilityGate";
 import { HLBTComparisonHero, HLBTCalculators } from "@/components/site/HLBTSuite";
 import { RelatedBlogs } from "@/components/site/RelatedBlogs";
-import { productBySlug, PRODUCTS, ELIGIBILITY_GATE_SLUGS, type Product } from "@/lib/site";
+import { productBySlug, PRODUCTS, type Product } from "@/lib/site";
+import { ELIGIBILITY_GATE_SLUGS } from "@/lib/enterprise-lender-product-catalogue";
 
 export const Route = createFileRoute("/loans/$slug")({
   head: ({ params }) => {

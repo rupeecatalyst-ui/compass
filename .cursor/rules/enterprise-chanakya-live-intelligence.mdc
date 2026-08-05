@@ -1,0 +1,39 @@
+# Enterprise CHANAKYA — Live Intelligence Only (CO-CHANAKYA-007)
+
+Status: **ENTERPRISE APPROVED** · Frozen · Read-path constitution  
+Sprint foundation: **CO-CHANAKYA-007**
+
+## Constitutional principles
+
+1. CHANAKYA operational advice is a **projection** of live Enterprise SSOTs — never a second datastore.
+2. **Consume:** Deal Registry (DAL) · Opportunity Registry · Document Registry · ETE · EBI · ECM.
+3. **Never** invent advice from deleted, archived, inactive, demo, seed, fixture, or unhydrated local fallback books when Enterprise Deal Registry is operational.
+4. Workspace context (module + entity) scopes messaging before answering.
+5. If no live data exists, state that clearly — do not recall historical or demo facts.
+6. **Production Data Protection:** read-path only — no delete, truncate, reset, or mutation of business records.
+
+## SSOT paths
+
+| Concern | Path |
+|---|---|
+| Live filters / trust gate | `src/lib/chanakya-live-intelligence/live-ssot.ts` |
+| Header ticker compose | `src/lib/chanakya-live-intelligence/build-messages.ts` |
+| Workspace resolve | `src/lib/chanakya-live-intelligence/resolve-workspace.ts` |
+| Hydrate UI | `src/components/enterprise/chanakya-live-intelligence/bar.tsx` |
+| Briefing | `src/lib/chanakya-briefing-dashboard/derive-briefing.ts` |
+| Intelligence service | `src/modules/intelligence/services/chanakya.service.ts` |
+| Docs | `docs/co-chanakya-007/CO-CHANAKYA-007-LIVE-INTELLIGENCE-READINESS-REPORT.md` |
+
+## Forbidden
+
+- Citing soft-deleted / archived Deals or Opportunities as active
+- Serving `MOCK_*` / dashboard demo KPIs when demo seeds are disabled
+- Using `local_fallback` LoanFile books for advice while Deal Registry is operational
+- Parallel metric formulas for ticker / briefing / Mission Control counters
+
+## Related
+
+- `eux-007-chanakya-live-intelligence-header.mdc`
+- `enterprise-metric-single-implementation.mdc`
+- `enterprise-business-intelligence.mdc`
+- `chanakya-operating-principles.mdc`

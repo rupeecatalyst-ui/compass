@@ -7,6 +7,7 @@ import { EnterpriseOutboxProvider } from "@/components/catalyst-one/action-cente
 import { EmailContextWorkspace } from "@/components/catalyst-one/action-center/workspaces/email-context-workspace";
 import { WhatsAppContextWorkspace } from "@/components/catalyst-one/action-center/workspaces/whatsapp-context-workspace";
 import { DocumentsContextWorkspace } from "@/components/catalyst-one/action-center/workspaces/documents-context-workspace";
+import { EnterpriseActivityComposer } from "@/components/catalyst-one/action-center/workspaces/enterprise-activity-composer";
 import { LOAN_REFERENCE_ACTION_IDS } from "@/constants/enterprise-action-center";
 import { resolveLoanCommunicationParticipants } from "@/lib/enterprise-action-center";
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
@@ -31,6 +32,7 @@ export function LoanActionCenter({
   const [emailOpen, setEmailOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [editing, setEditing] = useState<OutboxMessage | null>(null);
 
   const participants = useMemo(
@@ -46,6 +48,7 @@ export function LoanActionCenter({
     if (id === "send_email") setEmailOpen(true);
     else if (id === "send_whatsapp") setWhatsappOpen(true);
     else if (id === "upload_documents") setDocsOpen(true);
+    else if (id === "add_activity") setActivityOpen(true);
   }, []);
 
   const onEditOutbox = useCallback((message: OutboxMessage) => {
@@ -121,6 +124,30 @@ export function LoanActionCenter({
         onDocumentsChange={onDocumentsChange}
         onTimelineNote={onTimelineNote}
         opportunityId={loan.enterpriseOpportunityId || null}
+      />
+
+      <EnterpriseActivityComposer
+        open={activityOpen}
+        onOpenChange={setActivityOpen}
+        composer={{
+          contextType: "loan",
+          contextId: loan.id,
+          entityLabel,
+          loanFileId: loan.id,
+          opportunityId: loan.enterpriseOpportunityId || null,
+          contactId: null,
+          product: loan.loanProduct,
+          stage: stageLabel,
+          customerName: loan.customerName,
+        }}
+        actorUserId="session-user"
+        actorLabel={loan.relationshipManager || "RM"}
+        onSaved={() =>
+          onTimelineNote?.(
+            "Conversation activity saved",
+            "Voice or typed activity recorded via Enterprise Activity Composer.",
+          )
+        }
       />
     </EnterpriseOutboxProvider>
   );

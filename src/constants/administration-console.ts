@@ -272,6 +272,14 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         href: ROUTES.ADMIN_REFERENCE_MASTERS,
         keywords: ["reference", "master", "lookup", "city", "industry", "employment", "source"],
       },
+      {
+        id: "geography-regions",
+        title: "Geography · Regions",
+        description:
+          "Enterprise Region Master — North, South, East, West (SSOT for Region dropdowns).",
+        href: ROUTES.ADMIN_GEOGRAPHY_REGIONS,
+        keywords: ["region", "geography", "north", "south", "east", "west", "master"],
+      },
     ],
   },
   {
@@ -281,10 +289,10 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
     modules: [
       {
         id: "lenders-ops",
-        title: "Lenders Comparison",
-        description: "Read-only comparison of published lender programs (not a maintenance screen).",
+        title: "Enterprise Lender Directory",
+        description: "Operational lender directory — search, compare, open workspace (not a maintenance screen).",
         href: ROUTES.LENDERS,
-        keywords: ["lender", "nbfc", "bank", "compare"],
+        keywords: ["lender", "nbfc", "bank", "compare", "directory"],
       },
       {
         id: "lender-registry-maint",
@@ -373,6 +381,14 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         keywords: ["atlas", "architecture", "health"],
       },
       {
+        id: "enterprise-360",
+        title: "Universal 360° Framework",
+        description:
+          "CO-360-001 — Enterprise 360° Workspace framework (Registry SSOT · Workspace operations).",
+        href: ROUTES.ADMIN_ENTERPRISE_360,
+        keywords: ["360", "workspace", "customer", "lender", "wealth partner"],
+      },
+      {
         id: "decision-ledger",
         title: "Enterprise Decision Ledger",
         description: "Governed decision records across the enterprise.",
@@ -452,6 +468,22 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
           "snapshot",
           "health score",
           "dashboard",
+        ],
+      },
+      {
+        id: "enterprise-communication",
+        title: "Enterprise Communication Center",
+        description:
+          "Communication Profiles, sender identities, SMTP configuration, and event → profile mapping.",
+        href: ROUTES.ADMIN_ENTERPRISE_COMMUNICATION,
+        keywords: [
+          "email",
+          "sender",
+          "smtp",
+          "communication profile",
+          "champion",
+          "connect",
+          "outbound",
         ],
       },
     ],

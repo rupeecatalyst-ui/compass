@@ -129,24 +129,36 @@ type SnapshotKpiId =
   | "avg_health"
   | "conversion";
 
+function openDealWorkspace(
+  router: ReturnType<typeof useRouter>,
+  row: ChanakyaRadarDealRow,
+) {
+  const opportunityId = row.opportunityNumber || undefined;
+  if (opportunityId) {
+    setActiveOpportunityContext({
+      fileId: row.fileId,
+      opportunityId,
+      customerName: row.borrower,
+      product: row.product,
+      label: row.dealId || opportunityId,
+    });
+  }
+  router.push(
+    buildDealWorkspaceHref({
+      dealId: row.enterpriseDealId,
+      fileId: row.fileId,
+      opportunityId,
+      tab: "lenders",
+    }),
+  );
+}
+
+/** @deprecated CO-CHANAKYA-RADAR-003 — Radar opens Deal Workspace, not Opportunity Workspace. */
 function openOpportunityWorkspace(
   router: ReturnType<typeof useRouter>,
   row: ChanakyaRadarDealRow,
 ) {
-  const opportunityId = row.opportunityNumber || row.dealId;
-  setActiveOpportunityContext({
-    fileId: row.fileId,
-    opportunityId,
-    customerName: row.borrower,
-    product: row.product,
-    label: opportunityId,
-  });
-  router.push(
-    buildJourneyHref(ROUTES.OPPORTUNITY_WORKSPACE, {
-      fileId: row.fileId,
-      opportunityId,
-    }),
-  );
+  openDealWorkspace(router, row);
 }
 
 function openActiveWorkspace(
@@ -373,7 +385,7 @@ export function ChanakyaRadarWorkspace() {
   }[] = [
     {
       id: "total",
-      label: "Total Opportunities",
+      label: "Total Active Deals",
       value: model.activeCount,
       pct: 100,
       tone: "#22C55E",
@@ -486,7 +498,15 @@ export function ChanakyaRadarWorkspace() {
 
   const handleBlipDoubleClick = useCallback(
     (row: ChanakyaRadarDealRow) => {
-      openOpportunityWorkspace(router, row);
+      openDealWorkspace(router, row);
+    },
+    [router],
+  );
+
+  const handleDealOpen = useCallback(
+    (row: ChanakyaRadarDealRow) => {
+      setSelectedFileId(row.fileId);
+      openDealWorkspace(router, row);
     },
     [router],
   );
@@ -560,8 +580,8 @@ export function ChanakyaRadarWorkspace() {
                     Operational Radar
                     <span className="mx-1.5 font-normal text-zinc-600">·</span>
                     <span className="tabular-nums text-zinc-300">
-                      {model.activeCount} Opportunit
-                      {model.activeCount === 1 ? "y" : "ies"}
+                      {model.activeCount} Active Deal
+                      {model.activeCount === 1 ? "" : "s"}
                     </span>
                   </h1>
                   {scopeSelect}
@@ -614,6 +634,7 @@ export function ChanakyaRadarWorkspace() {
                   selectedRowId={selectedFileId}
                   onBlipClick={handleBlipClick}
                   onBlipDoubleClick={handleBlipDoubleClick}
+                  onDealOpen={handleDealOpen}
                   hoverSummary={model.hoverSummary}
                 />
               </div>

@@ -69,6 +69,13 @@ export {
 } from "./derive-dashboard";
 
 export {
+  classifyOperationalDeal,
+  collectDealOperationalSignals,
+  type DealOperationalClassification,
+  type DealOperationalSignals,
+} from "./classify-operational-deal";
+
+export {
   CHANAKYA_RADAR_DEAL_CONSUMER,
   hydrateRadarDealFiles,
   listActiveRadarDealFiles,

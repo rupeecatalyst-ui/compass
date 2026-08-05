@@ -684,15 +684,16 @@ function LoanWorkspaceModalContent({
                           draft.commissionAccountingPayeeLabel ??
                           draft.commercialPayeeSpecify
                         }
-                        required={requiresInvoiceParty(draft.stage)}
+                        required={false}
                         readOnly={isInvoicePartyLocked(draft.stage, {
                           allowAuthorizedEdit: true,
                         })}
-                        error={
+                        error={null}
+                        hint={
                           requiresInvoiceParty(draft.stage) &&
                           !(draft.invoicePartyId ?? draft.commissionAccountingPayeeId)
-                            ? "This Deal does not have an Invoice Party assigned. Please select an Invoice Party from the Accounting Master before proceeding."
-                            : null
+                            ? "Accounting Ready: assign Invoice Party before invoice/commission actions — does not block Lender Pipeline."
+                            : undefined
                         }
                         onChange={(next) =>
                           patch({

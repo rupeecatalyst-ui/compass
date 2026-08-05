@@ -134,6 +134,8 @@ export async function POST(request: Request) {
 
         website: body.website ? String(body.website) : undefined,
 
+        logoUrl: body.logoUrl ? String(body.logoUrl) : undefined,
+
         tags: Array.isArray(body.tags) ? body.tags.map(String) : undefined,
 
         sortOrder: body.sortOrder !== undefined ? Number(body.sortOrder) : undefined,

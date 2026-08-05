@@ -93,6 +93,9 @@ export async function PATCH(request: Request, context: RouteContext) {
           state: body.state,
           roles: body.roles as EcmContactRole[] | undefined,
           primaryRole: body.primaryRole as EcmContactRole | undefined,
+          roleProfiles: body.roleProfiles as
+            | Partial<Record<EcmContactRole, Record<string, string>>>
+            | undefined,
           status: body.status as EcmContactStatus | undefined,
           ownerName: body.ownerName,
           ownerId: body.ownerId,

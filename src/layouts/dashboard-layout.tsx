@@ -15,6 +15,7 @@ import { pageVariants } from "@/lib/animations";
 import { purgeClientDemoBusinessDataIfNeeded } from "@/lib/demo-seed";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { isEnterpriseRegistryDocumentScrollPath, isEnterpriseRegistryFullWidthPath } from "@/constants/enterprise-registry-workspace";
 import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
@@ -45,7 +46,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     void import("@/lib/enterprise-tier0-cache").then((m) => m.warmTier0EnterpriseCache());
   }, []);
 
+  const isRegistryFullWidth = isEnterpriseRegistryFullWidthPath(pathname);
+  const isRegistryDocumentScroll = isEnterpriseRegistryDocumentScrollPath(pathname);
+
   const isFullWidth =
+    isRegistryFullWidth ||
     pathname.startsWith("/loan-files") ||
     pathname.startsWith("/deals") ||
     pathname === "/admin" ||
@@ -53,13 +58,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     pathname.startsWith("/admin/credit-risk-engine") ||
     pathname.startsWith("/admin/architecture") ||
     pathname.startsWith("/admin/workflow-engine") ||
-    pathname.startsWith("/admin/product-library") ||
     pathname.startsWith("/admin/enterprise-assets") ||
     pathname === "/dashboard" ||
-    pathname === "/chanakya-radar" ||
-    pathname === "/my-deals" ||
-    pathname === "/pipeline" ||
-    pathname === "/customers";
+    pathname === "/chanakya-radar";
+
+  const isLockedFillDesk =
+    (isRegistryFullWidth && !isRegistryDocumentScroll) ||
+    pathname.startsWith("/loan-files") ||
+    pathname.startsWith("/deals") ||
+    pathname.startsWith("/admin/credit-risk-engine");
 
   return (
     <AuthGuard>
@@ -67,16 +74,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <AppSidebar onSearchClick={() => setOpen(true)} />
         <ContextNavigationPanel />
         <MobileNav />
-        <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <AppTopbar onSearchClick={() => setOpen(true)} />
           <DevelopmentOnlyDemoBanner />
           <main
             className={cn(
-              "min-h-0 flex-1 overflow-y-auto scrollbar-thin",
-              pathname.startsWith("/loan-files") && "overflow-hidden",
-              pathname.startsWith("/deals") && "overflow-hidden",
-              pathname === "/my-deals" && "overflow-hidden",
-              pathname.startsWith("/admin/credit-risk-engine") && "overflow-hidden",
+              "min-h-0 flex-1 scrollbar-thin",
+              isLockedFillDesk ? "overflow-hidden" : "overflow-y-auto",
             )}
           >
             <motion.div
@@ -85,21 +89,28 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               animate="animate"
               transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
               className={cn(
-                "container mx-auto p-4 md:p-6 lg:p-8",
-                !isFullWidth && "max-w-7xl",
+                !isFullWidth && "container mx-auto max-w-7xl p-4 md:p-6 lg:p-8",
                 isFullWidth &&
-                  (pathname.startsWith("/loan-files") || pathname.startsWith("/deals")) &&
-                  "max-w-none h-full p-0 md:p-0 lg:p-0",
+                  !isRegistryFullWidth &&
+                  !pathname.startsWith("/loan-files") &&
+                  !pathname.startsWith("/deals") &&
+                  !pathname.startsWith("/admin/credit-risk-engine") &&
+                  "mx-auto w-full max-w-none p-4 md:p-6 lg:p-8",
                 isFullWidth &&
-                  pathname.startsWith("/admin/credit-risk-engine") &&
-                  "max-w-none h-full p-0 md:p-0 lg:p-0",
-                isFullWidth &&
-                  (pathname === "/dashboard" ||
-                    pathname === "/chanakya-radar" ||
-                    pathname === "/my-deals" ||
-                    pathname === "/pipeline" ||
-                    pathname === "/customers") &&
-                  "max-w-none",
+                  (pathname.startsWith("/loan-files") ||
+                    pathname.startsWith("/deals") ||
+                    pathname.startsWith("/admin/credit-risk-engine")) &&
+                  "h-full max-w-none p-0 md:p-0 lg:p-0",
+                /* CO-UX-DATAGRID-001 — registries: full width; shell owns 16–24px margins */
+                /* CO-DOCS-BAT-001 — document-scroll registries must not lock h-full (page scroll). */
+                isRegistryFullWidth &&
+                  cn(
+                    "w-full max-w-none p-0 md:p-0 lg:p-0",
+                    !isRegistryDocumentScroll && "h-full",
+                  ),
+                (pathname === "/dashboard" || pathname === "/chanakya-radar") &&
+                  !isRegistryFullWidth &&
+                  "mx-auto w-full max-w-none p-4 md:p-6 lg:p-8",
               )}
             >
               {children}

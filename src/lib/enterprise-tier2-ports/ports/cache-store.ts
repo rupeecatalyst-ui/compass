@@ -60,17 +60,38 @@ function toDocumentTypeOption(
 function toLenderOption(
   record: Pick<
     EnterpriseLenderRecord,
-    "code" | "label" | "sortOrder" | "enabled" | "categoryId" | "institutionCategory"
+    | "id"
+    | "code"
+    | "label"
+    | "displayName"
+    | "sortOrder"
+    | "enabled"
+    | "categoryId"
+    | "institutionCategory"
+    | "coverageCities"
+    | "branchCoverage"
+    | "cityReferenceId"
   >,
   categoryCode?: string,
 ): LenderRegistryPortOption {
   return {
-    id: record.code,
-    label: record.label,
+    // CO-BUG-005 — Option id must be Enterprise Lender Registry UUID (same as Identify Lender / Banker link).
+    id: record.id,
+    label: record.displayName?.trim() || record.label,
     sortOrder: record.sortOrder,
     enabled: record.enabled,
     categoryId: categoryCode,
     institutionCategory: record.institutionCategory,
+    meta: {
+      code: record.code,
+      ...(record.cityReferenceId ? { cityReferenceId: record.cityReferenceId } : {}),
+      ...(record.coverageCities?.length
+        ? { coverageCities: record.coverageCities.join("|") }
+        : {}),
+      ...(record.branchCoverage?.length
+        ? { branchCoverage: record.branchCoverage.join("|") }
+        : {}),
+    },
     source: "database",
   };
 }
@@ -199,7 +220,6 @@ export function setLenderRegistryCache(input: {
   lenderPrograms.clear();
 
   const categoryIdToCode = new Map(input.categories.map((c) => [c.id, c.code]));
-  const lenderIdToCode = new Map(input.lenders.map((l) => [l.id, l.code]));
 
   lenderCategories.push(
     ...input.categories
@@ -215,18 +235,19 @@ export function setLenderRegistryCache(input: {
   }
 
   for (const program of input.programs.filter((p) => !p.isDeleted && p.status === "active" && p.enabled)) {
-    const lenderCode = lenderIdToCode.get(program.lenderId) ?? program.lenderId;
-    const bucket = lenderPrograms.get(lenderCode) ?? [];
+    const lenderKey = program.lenderId;
+    const bucket = lenderPrograms.get(lenderKey) ?? [];
     bucket.push({
-      id: program.code,
+      id: program.id,
       label: program.label,
-      lenderId: lenderCode,
-      parentId: lenderCode,
+      lenderId: lenderKey,
+      parentId: lenderKey,
       lifecycleStatus: program.lifecycleStatus,
       enabled: program.enabled,
+      meta: { code: program.code },
       source: "database",
     });
-    lenderPrograms.set(lenderCode, bucket);
+    lenderPrograms.set(lenderKey, bucket);
   }
 }
 

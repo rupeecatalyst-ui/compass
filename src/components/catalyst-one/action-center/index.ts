@@ -7,4 +7,5 @@ export { DealActionCenter } from "./deal-action-center";
 export { EmailContextWorkspace } from "./workspaces/email-context-workspace";
 export { WhatsAppContextWorkspace } from "./workspaces/whatsapp-context-workspace";
 export { DocumentsContextWorkspace } from "./workspaces/documents-context-workspace";
-
+export { EnterpriseActivityComposer } from "./workspaces/enterprise-activity-composer";
+

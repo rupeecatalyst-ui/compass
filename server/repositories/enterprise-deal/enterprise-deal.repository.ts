@@ -552,6 +552,8 @@ export class EnterpriseDealRepository {
           { primaryContactMobile: { contains: q, mode: "insensitive" } },
           { productLabel: { contains: q, mode: "insensitive" } },
           { productCode: { contains: q, mode: "insensitive" } },
+          { primaryCounterpartyName: { contains: q, mode: "insensitive" } },
+          { relationshipManagerName: { contains: q, mode: "insensitive" } },
         ],
       });
     }

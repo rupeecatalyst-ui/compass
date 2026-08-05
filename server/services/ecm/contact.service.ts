@@ -1,9 +1,18 @@
 import type { EcmContactRole, EcmContactStatus } from "@/types/enterprise-contact-master";
-import type { EcmContactQuery } from "@/types/enterprise-contact-master";
+import type {
+  EcmContactIdentityLookupResult,
+  EcmContactQuery,
+} from "@/types/enterprise-contact-master";
 import { computeEcmContactScore } from "@/lib/enterprise-contact-master/contact-score";
 import { normalizePersonName } from "@/lib/enterprise-contact-master/name-normalize";
+import { mergePartnerRoleOntoContact } from "@/lib/enterprise-identity-model";
 import { ecmContactRepository } from "@server/repositories/ecm/contact.repository";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
+import {
+  EcmContactActiveExistsError,
+  EcmContactSoftDeletedError,
+  toIdentitySnapshot,
+} from "./contact-identity-errors";
 
 export type RegisterContactInput = {
   name: string;
@@ -22,6 +31,7 @@ export type RegisterContactInput = {
   employmentType?: string;
   roles?: EcmContactRole[];
   primaryRole?: EcmContactRole;
+  roleProfiles?: Partial<Record<EcmContactRole, Record<string, string>>>;
   status?: EcmContactStatus;
   ownerName?: string;
   ownerId?: string;
@@ -38,6 +48,10 @@ function syncRoles(input: RegisterContactInput) {
   };
 }
 
+function normalizeMobile(mobile: string): string {
+  return mobile.replace(/\D/g, "").trim() || mobile.trim();
+}
+
 export class EcmContactService {
   async query(query: EcmContactQuery = {}) {
     const organizationId = await resolvePilotOrganizationId();
@@ -48,14 +62,47 @@ export class EcmContactService {
     return ecmContactRepository.findById(id);
   }
 
+  /**
+   * CO-CONTACT-IDENTITY-001 — Search registry by mobile before create.
+   * Active → open existing · Soft-deleted → restore · None → create.
+   */
+  async resolveIdentityByMobile(mobilePrimary: string): Promise<EcmContactIdentityLookupResult> {
+    const organizationId = await resolvePilotOrganizationId();
+    const mobile = normalizeMobile(mobilePrimary);
+    if (!mobile) {
+      return { status: "none" };
+    }
+
+    const identity = await ecmContactRepository.findIdentityByMobile(organizationId, mobile);
+    if (!identity) return { status: "none" };
+
+    if (identity.isDeleted) {
+      return {
+        status: "soft_deleted",
+        contact: identity,
+        snapshot: toIdentitySnapshot(identity),
+      };
+    }
+
+    return {
+      status: "active",
+      contact: identity,
+      snapshot: toIdentitySnapshot(identity),
+    };
+  }
+
   async register(input: RegisterContactInput) {
     const organizationId = await resolvePilotOrganizationId();
-    const mobile = input.mobilePrimary.trim();
+    const mobile = normalizeMobile(input.mobilePrimary);
     if (!mobile) throw new Error("Mobile is required.");
 
-    const duplicate = await ecmContactRepository.findByMobile(organizationId, mobile);
-    if (duplicate) {
-      throw new Error(`Contact with mobile ${mobile} already exists.`);
+    // CO-CONTACT-IDENTITY-001 — never INSERT when any identity exists for this mobile.
+    const identity = await ecmContactRepository.findIdentityByMobile(organizationId, mobile);
+    if (identity) {
+      if (identity.isDeleted) {
+        throw new EcmContactSoftDeletedError(toIdentitySnapshot(identity));
+      }
+      throw new EcmContactActiveExistsError(toIdentitySnapshot(identity));
     }
 
     const roleFields = syncRoles(input);
@@ -75,6 +122,7 @@ export class EcmContactService {
       dateOfBirth: input.dateOfBirth?.trim(),
       employmentType: input.employmentType?.trim(),
       ...roleFields,
+      roleProfiles: input.roleProfiles,
       status: input.status ?? "provisional",
       ownerName: input.ownerName,
       ownerId: input.ownerId,
@@ -93,7 +141,28 @@ export class EcmContactService {
       status: draft.status,
     });
 
-    return ecmContactRepository.create({ ...draft, contactScore: score });
+    try {
+      return await ecmContactRepository.create({ ...draft, contactScore: score });
+    } catch (err) {
+      // Safety net: unique constraint race / unexpected soft-deleted row.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("P2002") || msg.toLowerCase().includes("unique")) {
+        const again = await ecmContactRepository.findIdentityByMobile(organizationId, mobile);
+        if (again?.isDeleted) {
+          throw new EcmContactSoftDeletedError(toIdentitySnapshot(again));
+        }
+        if (again) {
+          throw new EcmContactActiveExistsError(toIdentitySnapshot(again));
+        }
+        throw new EcmContactSoftDeletedError({
+          contactId: "",
+          name: "Existing Contact",
+          mobilePrimary: mobile,
+          status: "archived",
+        });
+      }
+      throw err;
+    }
   }
 
   async update(
@@ -102,6 +171,7 @@ export class EcmContactService {
       enabled?: boolean;
       status?: EcmContactStatus;
       strategicContact?: boolean;
+      roleProfiles?: Partial<Record<EcmContactRole, Record<string, string>>>;
     },
     actorId: string,
   ) {
@@ -109,10 +179,20 @@ export class EcmContactService {
     if (!existing) throw new Error("Contact not found.");
 
     const organizationId = await resolvePilotOrganizationId();
-    const nextMobile = patch.mobilePrimary?.trim() ?? existing.mobilePrimary;
+    const nextMobile = patch.mobilePrimary
+      ? normalizeMobile(patch.mobilePrimary)
+      : existing.mobilePrimary;
     if (nextMobile !== existing.mobilePrimary) {
-      const dup = await ecmContactRepository.findByMobile(organizationId, nextMobile);
-      if (dup && dup.id !== id) throw new Error(`Mobile ${nextMobile} is already in use.`);
+      const identity = await ecmContactRepository.findIdentityByMobile(
+        organizationId,
+        nextMobile,
+      );
+      if (identity && identity.id !== id) {
+        if (identity.isDeleted) {
+          throw new EcmContactSoftDeletedError(toIdentitySnapshot(identity));
+        }
+        throw new EcmContactActiveExistsError(toIdentitySnapshot(identity));
+      }
     }
 
     const roleFields = patch.roles || patch.primaryRole ? syncRoles({ ...existing, ...patch, createdBy: actorId }) : {
@@ -121,10 +201,16 @@ export class EcmContactService {
       additionalRoles: existing.additionalRoles,
     };
 
+    const nextRoleProfiles =
+      patch.roleProfiles !== undefined
+        ? { ...(existing.roleProfiles ?? {}), ...patch.roleProfiles }
+        : existing.roleProfiles;
+
     const merged = {
       ...existing,
       ...patch,
       ...roleFields,
+      roleProfiles: nextRoleProfiles,
       name: patch.name ? normalizePersonName(patch.name) : existing.name,
       modifiedBy: actorId,
     };
@@ -147,6 +233,7 @@ export class EcmContactService {
       primaryRole: roleFields.primaryRole,
       roles: roleFields.roles,
       additionalRoles: roleFields.additionalRoles,
+      roleProfiles: nextRoleProfiles,
       status: patch.status ?? existing.status,
       ownerName: patch.ownerName ?? existing.ownerName,
       ownerId: patch.ownerId ?? existing.ownerId,
@@ -155,6 +242,35 @@ export class EcmContactService {
       contactScore,
       modifiedBy: actorId,
     });
+  }
+
+  /**
+   * CO-ID-001 — Additive partner role when Wealth Partner profile is created.
+   * Never creates a second Contact identity.
+   */
+  async assignPartnerRoleForWealthPartner(input: {
+    contactId: string;
+    actorUserId: string;
+    wealthPartnerId: string;
+    wealthPartnerCode: string;
+  }) {
+    const existing = await ecmContactRepository.findById(input.contactId);
+    if (!existing) return null;
+    const merged = mergePartnerRoleOntoContact({
+      existingRoles: existing.roles,
+      existingProfiles: existing.roleProfiles,
+      actorUserId: input.actorUserId,
+      wealthPartnerId: input.wealthPartnerId,
+      wealthPartnerCode: input.wealthPartnerCode,
+    });
+    return this.update(
+      input.contactId,
+      {
+        roles: merged.roles,
+        roleProfiles: merged.roleProfiles,
+      },
+      input.actorUserId,
+    );
   }
 
   async archive(id: string, actorId: string) {

@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { useEnterpriseCompanies } from "@/hooks/use-enterprise-registry";
 import {
   findOperationalCompanyById,
-  searchOperationalCompanies,
+  liveSearchOperationalCompanies,
 } from "@/lib/enterprise-registry";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ interface OrganizationRegistrySelectProps {
   className?: string;
 }
 
-/** Searchable institution picker — Enterprise Company Registry (CO-HOTFIX-006). */
+/** Searchable institution picker — live Enterprise Company Registry (SSOT). */
 export function OrganizationRegistrySelect({
   value,
   onSelect,
@@ -32,6 +32,9 @@ export function OrganizationRegistrySelect({
   className,
 }: OrganizationRegistrySelectProps) {
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<OrganizationRegistryEntry[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const { registryVersion } = useEnterpriseCompanies({ hydrateOnMount: true });
 
   const selected = useMemo(() => {
@@ -45,13 +48,45 @@ export function OrganizationRegistrySelect({
     };
   }, [value, registryVersion]);
 
-  const results = useMemo(() => {
-    void registryVersion;
-    return searchOperationalCompanies(query).map((c) => ({
-      id: c.id,
-      name: c.label,
-      type: c.constitution ?? "COMPANY",
-    }));
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResults([]);
+      setSearching(false);
+      setSearchError(null);
+      return;
+    }
+    let cancelled = false;
+    const handle = window.setTimeout(() => {
+      setSearching(true);
+      setSearchError(null);
+      void (async () => {
+        try {
+          const rows = await liveSearchOperationalCompanies(q, { pageSize: 25 });
+          if (cancelled) return;
+          setResults(
+            rows.map((c) => ({
+              id: c.id,
+              name: c.label,
+              type: c.constitution ?? "COMPANY",
+            })),
+          );
+        } catch (e) {
+          if (!cancelled) {
+            setResults([]);
+            setSearchError(
+              e instanceof Error ? e.message : "Company Registry search failed.",
+            );
+          }
+        } finally {
+          if (!cancelled) setSearching(false);
+        }
+      })();
+    }, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
   }, [query, registryVersion]);
 
   return (
@@ -64,7 +99,13 @@ export function OrganizationRegistrySelect({
       />
       {query.length > 0 && (
         <div className="max-h-36 overflow-y-auto rounded-md border border-border bg-popover shadow-sm">
-          {results.length === 0 ? (
+          {searchError ? (
+            <p className="px-3 py-2 text-xs text-destructive">{searchError}</p>
+          ) : searching ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground">
+              Searching Enterprise Company Registry…
+            </p>
+          ) : results.length === 0 ? (
             <p className="px-3 py-2 text-xs text-muted-foreground">No institution found.</p>
           ) : (
             results.map((org) => (
@@ -80,44 +121,22 @@ export function OrganizationRegistrySelect({
                   value === org.id && "bg-muted/40",
                 )}
               >
-                <Check
-                  className={cn(
-                    "h-3.5 w-3.5 shrink-0",
-                    value === org.id ? "opacity-100" : "opacity-0",
-                  )}
-                />
-                <span className="flex-1">{org.name}</span>
-                <span className="text-[10px] uppercase text-muted-foreground">{org.type}</span>
+                {value === org.id ? (
+                  <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                ) : (
+                  <span className="w-3.5" />
+                )}
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{org.name}</span>
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {org.type}
+                  </span>
+                </span>
               </button>
             ))
           )}
         </div>
       )}
-      {selected && !query && (
-        <p className="text-[10px] text-muted-foreground">
-          Selected: {selected.name} ({selected.type})
-        </p>
-      )}
     </div>
   );
-}
-
-/** @deprecated Use searchOperationalCompanies from enterprise-registry */
-export function searchOrganizationRegistry(query: string): OrganizationRegistryEntry[] {
-  return searchOperationalCompanies(query).map((c) => ({
-    id: c.id,
-    name: c.label,
-    type: c.constitution ?? "COMPANY",
-  }));
-}
-
-/** @deprecated Use findOperationalCompanyById from enterprise-registry */
-export function getOrganizationById(id: string): OrganizationRegistryEntry | undefined {
-  const row = findOperationalCompanyById(id);
-  if (!row) return undefined;
-  return {
-    id: row.id,
-    name: row.companyName,
-    type: row.constitution?.toUpperCase() ?? "COMPANY",
-  };
 }

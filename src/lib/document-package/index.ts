@@ -1,8 +1,9 @@
 /**
- * CO-DOC-003 — Document Package operations over Document Registry SSOT.
+ * CO-DOC-005 — Document Package Registry operations (over Document Registry binary sink).
  */
 
 import {
+  DOCUMENT_PACKAGE_INLINE_MAX_BYTES,
   deriveFolderNameFromFiles,
   packageRelativePath,
 } from "@/constants/document-package";
@@ -10,6 +11,7 @@ import {
   deleteDocumentFromRegistry,
   downloadDocumentFromRegistry,
   getDocumentBlob,
+  getDocumentPreviewUrl,
   getDocumentRegistryRecord,
   uploadDocumentToRegistry,
 } from "@/lib/document-registry";
@@ -17,6 +19,7 @@ import type { DocumentEntityLinks, DocumentUploadProgress } from "@/types/docume
 import type {
   DocumentPackageLinks,
   DocumentPackageRecord,
+  DocumentPackageStorageStatus,
 } from "@/types/document-package";
 import {
   appendDocumentPackageTimeline,
@@ -26,8 +29,10 @@ import {
   getDocumentPackage,
   softDeleteDocumentPackage,
   removeDocumentIdFromPackage,
+  renameDocumentPackage,
   updateDocumentPackage,
 } from "./store";
+import { syncDocumentPackageToServer } from "./server-sync";
 import { buildStoreZipBlob, triggerBlobDownload } from "./zip";
 
 export {
@@ -40,13 +45,31 @@ export {
   subscribeDocumentPackagesUpdated,
   updateDocumentPackage,
   removeDocumentIdFromPackage,
+  renameDocumentPackage,
+  reconstructPackagesFromRegistryRecords,
+  mergeDurablePackagesIntoLocalCache,
 } from "./store";
+
+export {
+  syncDocumentPackageToServer,
+  hydrateDocumentPackagesFromServer,
+  searchDocumentPackages,
+} from "./server-sync";
 
 export type FolderUploadItem = {
   file: File;
   typeRef: string;
   categoryLabel: string;
 };
+
+function resolveStorageStatus(files: File[]): DocumentPackageStorageStatus {
+  if (!files.length) return "durable_metadata";
+  const anyLarge = files.some((f) => f.size > DOCUMENT_PACKAGE_INLINE_MAX_BYTES);
+  const anySmall = files.some((f) => f.size > 0 && f.size <= DOCUMENT_PACKAGE_INLINE_MAX_BYTES);
+  if (anyLarge && anySmall) return "mixed";
+  if (anyLarge) return "durable_object"; // architecture-ready — blob remains IndexedDB until object store cutover
+  return "durable_inline";
+}
 
 export async function uploadFolderAsDocumentPackage(input: {
   files: FolderUploadItem[];
@@ -68,6 +91,8 @@ export async function uploadFolderAsDocumentPackage(input: {
       customerId: input.links.customerId,
       participantId: input.links.participantId,
       documentScope: input.links.documentScope,
+      parentEntityType: "opportunity",
+      parentEntityId: input.links.opportunityId || input.links.loanFileId,
     },
   });
 
@@ -75,6 +100,7 @@ export async function uploadFolderAsDocumentPackage(input: {
   let success = 0;
   let failed = 0;
   let lastError: string | null = null;
+  const storageStatus = resolveStorageStatus(input.files.map((f) => f.file));
 
   for (let i = 0; i < input.files.length; i++) {
     const item = input.files[i]!;
@@ -137,14 +163,20 @@ export async function uploadFolderAsDocumentPackage(input: {
 
   const status =
     failed === 0 ? "complete" : success === 0 ? "partial" : "partial";
-  const finalized = finalizeDocumentPackage(pkg.id, status, lastError) ?? getDocumentPackage(pkg.id)!;
+  const finalized =
+    finalizeDocumentPackage(pkg.id, status, lastError, storageStatus) ??
+    getDocumentPackage(pkg.id)!;
   appendDocumentPackageTimeline({
     packageId: pkg.id,
     eventType: "folder_uploaded",
     description: `Folder “${folderName}” uploaded — ${success} file(s)${failed ? `, ${failed} failed` : ""}.`,
     actorId: input.uploadedBy,
-    metadata: { success, failed, fileCount: total },
+    metadata: { success, failed, fileCount: total, storageStatus },
   });
+
+  // Durable registry sync (best-effort until migration applied).
+  void syncDocumentPackageToServer(finalized);
+
   input.onProgress?.({
     phase: failed && !success ? "error" : "complete",
     percent: 100,
@@ -155,7 +187,7 @@ export async function uploadFolderAsDocumentPackage(input: {
     fileIndex: total,
     fileTotal: total,
   });
-  return finalized;
+  return getDocumentPackage(pkg.id) ?? finalized;
 }
 
 export async function addFilesToDocumentPackage(input: {
@@ -209,14 +241,17 @@ export async function addFilesToDocumentPackage(input: {
       });
       done += 1;
     } catch {
-      /* continue remaining */
+      /* continue */
     }
   }
-  return finalizeDocumentPackage(pkg.id, done > 0 ? "complete" : "partial");
+  const next = finalizeDocumentPackage(pkg.id, done > 0 ? "complete" : "partial");
+  if (next) void syncDocumentPackageToServer(next);
+  return next;
 }
 
 export async function downloadDocumentPackageAsZip(
   packageId: string,
+  actorId?: string,
 ): Promise<{ ok: true; filename: string } | { ok: false; reason: string }> {
   const pkg = getDocumentPackage(packageId);
   if (!pkg || pkg.status === "deleted") {
@@ -243,27 +278,13 @@ export async function downloadDocumentPackageAsZip(
   const zip = buildStoreZipBlob(entries);
   const filename = `${pkg.folderName.replace(/[^\w.-]+/g, "_") || "document-package"}.zip`;
   triggerBlobDownload(zip, filename);
+  appendDocumentPackageTimeline({
+    packageId: pkg.id,
+    eventType: "package_downloaded",
+    description: `Package “${pkg.folderName}” downloaded.`,
+    actorId: actorId || pkg.uploadedBy,
+  });
   return { ok: true, filename };
-}
-
-/** Fallback: download each file individually when ZIP is undesirable. */
-export async function downloadDocumentPackageFilesIndividually(
-  packageId: string,
-): Promise<number> {
-  const pkg = getDocumentPackage(packageId);
-  if (!pkg) return 0;
-  let n = 0;
-  for (const docId of pkg.documentIds) {
-    const record = getDocumentRegistryRecord(docId);
-    if (!record || record.status === "deleted") continue;
-    try {
-      await downloadDocumentFromRegistry(record);
-      n += 1;
-    } catch {
-      /* skip missing blobs */
-    }
-  }
-  return n;
 }
 
 export async function deleteDocumentPackageWithContents(input: {
@@ -292,10 +313,12 @@ export async function deleteDocumentPackageWithContents(input: {
   softDeleteDocumentPackage(input.packageId);
   appendDocumentPackageTimeline({
     packageId: input.packageId,
-    eventType: "folder_deleted",
+    eventType: "package_deleted",
     description: `Folder “${pkg.folderName}” deleted.`,
     actorId: input.actorId,
   });
+  const deleted = getDocumentPackage(input.packageId);
+  if (deleted) void syncDocumentPackageToServer({ ...deleted, status: "deleted" });
   return true;
 }
 
@@ -306,4 +329,24 @@ export function markDocumentPackageOpened(packageId: string, actorId: string) {
     description: "Folder opened in Document Workspace.",
     actorId,
   });
+}
+
+/** CO-DOC-005 — Preview always via Document Registry record → blobId. */
+export async function previewDocumentRegistryRecord(
+  recordId: string,
+  actorId?: string,
+): Promise<string | null> {
+  const record = getDocumentRegistryRecord(recordId);
+  if (!record || record.status === "deleted") return null;
+  const url = await getDocumentPreviewUrl(record);
+  if (url && record.links.packageId && actorId) {
+    appendDocumentPackageTimeline({
+      packageId: record.links.packageId,
+      eventType: "preview_opened",
+      description: `Preview opened for ${record.displayName}.`,
+      actorId,
+      metadata: { documentId: record.id },
+    });
+  }
+  return url;
 }

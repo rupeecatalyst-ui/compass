@@ -1,27 +1,37 @@
 # Enterprise Wealth Partner Registry (CO-WP-001+)
 
-Status: **ENTERPRISE APPROVED** · Additive module · Contact/Company remain identity SSOTs
+Status: **ENTERPRISE APPROVED** · Additive module · Contact/Company remain identity SSOTs  
+**CO-ID-001:** Wealth Partner never creates Person/Organisation identity. Onboard from Contact Registry only.  
+**CO-WP-007:** Legal & Compliance Docket is the standard onboarding/legal framework; documents generated from SSOT templates; Document Registry remains binary SSOT.
 
 ## Principles
 
 1. Wealth Partner is a **business relationship**, not a profession.
 2. Identity is exactly one of **Contact** or **Company** (ECM masters unchanged).
 3. Network members are **relationships only** — never duplicate Contacts/Companies.
-4. Documents are **referenced** from Contact/Company — never duplicated.
+4. Documents are **referenced** from Contact/Company / Document Registry — never duplicated under WP.
 5. Business Sourcing KPIs are **read-only** projections over Opportunities/Deals — never write those registries.
 6. Do **not** migrate historical production data into this module.
 7. **CO-WP-003 Network Intelligence** is a visualization over relationship records + read-only Opportunity/Deal aggregates. It must not modify the Commission Engine, Contacts, Companies, Opportunities, or Deals.
+8. **CO-ID-001 Onboard flow:** Search Contact → (optional Create Contact in ECM) → Create Wealth Partner Profile → assign additive `partner` role. WP owns commercial / KYC / commission only.
+9. **CO-WP-007 Legal Docket:** Auto-generate 12-document pack from Enterprise templates + merge fields. Persist docket state in `complianceJson` (no parallel legal tables without Architecture approval). Agreement validity years come from Organisation Policy (`WEALTH_PARTNER_LEGAL_ORG_POLICY`), not hardcoded UI. Expired / Suspended partners are not selectable for new Opportunities; Renewal Due is selectable with warning.
 
 ## SSOT
 
 | Concern | Path |
 |---------|------|
 | Types | `src/types/enterprise-wealth-partner-registry.ts` |
+| Legal Docket types | `src/types/enterprise-wealth-partner-legal-docket.ts` |
 | Constants | `src/constants/enterprise-wealth-partner-registry/` |
+| Legal Docket constants / org policy | `src/constants/enterprise-wealth-partner-legal-docket/` |
+| Legal Docket compose / templates | `src/lib/enterprise-wealth-partner-legal-docket/` |
+| Identity model | `src/constants/enterprise-identity-model/` · `.cursor/rules/enterprise-identity-model.mdc` |
 | Service | `server/services/wealth-partner-registry/` |
+| Legal Docket API | `POST/GET /api/wealth-partner-registry/partners/:id/legal-docket` |
 | Network Intelligence | `server/services/wealth-partner-registry/network-intelligence.service.ts` |
 | Network Intelligence API | `GET /api/wealth-partner-registry/partners/:id/network-intelligence` |
 | Network UI | `src/components/catalyst-one/wealth-partner-registry/wealth-partner-network-intelligence.tsx` |
+| Legal & Compliance UI | `src/components/catalyst-one/wealth-partner-registry/wealth-partner-legal-compliance-panel.tsx` |
 | API | `/api/wealth-partner-registry/**` |
 | Ops registry | `/wealth-partners` |
 | Workspace | `/wealth-partners/:id/workspace` |

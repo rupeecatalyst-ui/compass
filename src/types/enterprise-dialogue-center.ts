@@ -3,8 +3,6 @@
  * Unified timeline for opportunity / loan / customer context events.
  */
 
-export type EdcContextType = "opportunity" | "loan" | "customer" | "lender_program";
-
 export type EdcEventType =
   | "stage_change"
   | "sub_stage_change"
@@ -15,7 +13,18 @@ export type EdcEventType =
   | "internal_message"
   | "document_upload"
   | "document_verification"
-  | "workflow";
+  | "workflow"
+  /** CO-VOICE-002 — ECIE conversation / voice activity. */
+  | "conversation_activity";
+
+export type EdcContextType =
+  | "opportunity"
+  | "loan"
+  | "customer"
+  | "lender_program"
+  | "deal"
+  | "contact"
+  | "task";
 
 export interface EdcContextRef {
   type: EdcContextType;

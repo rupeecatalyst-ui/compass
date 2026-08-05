@@ -12,9 +12,13 @@ import { ContactWorkspaceModal } from "@/components/catalyst-one/contacts/contac
 import { QuickContactCreationWizard } from "@/components/catalyst-one/contacts/quick-contact-creation-wizard";
 import { CompanyWorkspaceModal } from "@/components/catalyst-one/companies/company-workspace-modal";
 import { ContactRegistryTable } from "@/components/catalyst-one/directory/contact-registry-table";
+import { EnterpriseRegistryWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-registry-workspace-shell";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
+import { ENTERPRISE_REGISTRY_ACTION_BTN_CLASS } from "@/constants/enterprise-registry-workspace";
+import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
+import { cn } from "@/lib/utils";
 import {
   listEcmContacts,
   queryEcmContacts,
@@ -193,54 +197,46 @@ function ContactsRegistryInner() {
   };
 
   return (
-    <div
-      className="flex h-[calc(100vh-3.5rem)] flex-col gap-0 overflow-hidden"
-      data-sprint="BAT-016"
-      data-surface="contacts-workspace"
-    >
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border/70 px-2.5 py-1.5 md:px-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold tracking-tight md:text-[15px]">
-            Contacts
-          </h1>
-          <p className="hidden text-[11px] text-muted-foreground sm:block">
-            Enterprise Contact Registry — individuals and companies.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {isEnterprisePersistencePrisma() ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-7 gap-1 px-2 text-[11px]"
-              disabled={hydrating}
-              onClick={() => void reloadFromDatabase()}
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${hydrating ? "animate-spin" : ""}`} />
-              {hydrating ? "Loading…" : "Reload"}
+    <>
+      <EnterpriseRegistryWorkspaceShell
+        title="Contacts"
+        subtitle="Individuals and companies"
+        count={contacts.length + companies.length}
+        countNoun="Contacts"
+        breadcrumbs={buildSimpleWorkspaceBreadcrumbs("Contacts")}
+        data-surface="contacts-workspace"
+        data-sprint="BAT-016"
+        actions={
+          <>
+            {isEnterprisePersistencePrisma() ? (
+              <Button
+                type="button"
+                variant="outline"
+                className={ENTERPRISE_REGISTRY_ACTION_BTN_CLASS}
+                disabled={hydrating}
+                onClick={() => void reloadFromDatabase()}
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", hydrating && "animate-spin")} />
+                {hydrating ? "Loading…" : "Reload"}
+              </Button>
+            ) : null}
+            <Button type="button" onClick={openCreate} className={ENTERPRISE_REGISTRY_ACTION_BTN_CLASS}>
+              <Plus className="h-3.5 w-3.5" />
+              Add Contact
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            onClick={openCreate}
-            className="h-7 gap-1 px-2.5 text-[11px]"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Contact
-          </Button>
-          <Button asChild variant="outline" className="h-7 rounded-md px-2.5 text-[11px]">
-            <Link href={ROUTES.CONTACT_STRATEGY}>Contact Strategy</Link>
-          </Button>
-        </div>
-      </header>
-
-      {hydrateError ? (
-        <div className="shrink-0 border-b border-destructive/40 bg-destructive/5 px-3 py-1.5 text-[11px] text-destructive">
-          {hydrateError}
-        </div>
-      ) : null}
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2.5 py-1.5 md:px-3 md:py-2">
+            <Button asChild variant="outline" className={ENTERPRISE_REGISTRY_ACTION_BTN_CLASS}>
+              <Link href={ROUTES.CONTACT_STRATEGY}>Contact Strategy</Link>
+            </Button>
+          </>
+        }
+        banner={
+          hydrateError ? (
+            <div className="shrink-0 border border-destructive/40 bg-destructive/5 px-2.5 py-1 text-[11px] text-destructive">
+              {hydrateError}
+            </div>
+          ) : null
+        }
+      >
         <ContactRegistryTable
           contacts={contacts}
           companies={companies}
@@ -250,7 +246,7 @@ function ContactsRegistryInner() {
           highlightSearch={registryHighlight}
           onHighlightApplied={() => setRegistryHighlight(undefined)}
         />
-      </div>
+      </EnterpriseRegistryWorkspaceShell>
 
       <ContactCreationIntentScreen
         open={intentOpen}
@@ -334,7 +330,7 @@ function ContactsRegistryInner() {
           }
         }}
       />
-    </div>
+    </>
   );
 }
 

@@ -11,6 +11,16 @@ import { recordEteAudit } from "./audit-integration";
 import { getEtePorts } from "./composition";
 import { deriveEteTaskColour, validateEteTask } from "./validation-engine";
 import {
+  buildNextOccurrenceDraft,
+  coerceEteRecurrence,
+  computeNextOccurrenceDueOn,
+  isRecurringTask,
+  occurrenceDueKey,
+  resolveReminderAt,
+  shouldSpawnNextOccurrence,
+  validateEteRecurrenceRule,
+} from "./recurrence-engine";
+import {
   pushTaskLifecycleNotification,
   taskTitle,
 } from "./task-workspace";
@@ -81,9 +91,44 @@ export function registerEteTask(
   const validation = validateEteTask(withContext);
   if (!validation.valid) throw new Error(validation.issues.map((i) => i.message).join("; "));
 
+  const scheduleKind = withContext.scheduleKind ?? "one_time";
+  let recurrence = coerceEteRecurrence(withContext.recurrence) ?? undefined;
+  if (scheduleKind === "recurring") {
+    const recurrenceError = validateEteRecurrenceRule(recurrence, withContext.dueOn);
+    if (recurrenceError) throw new Error(recurrenceError);
+    if (recurrence && withContext.dueOn) {
+      const due = new Date(withContext.dueOn);
+      recurrence = {
+        ...recurrence,
+        dayOfMonth: recurrence.dayOfMonth ?? due.getDate(),
+        weekday: recurrence.weekday ?? undefined,
+      };
+      if (!withContext.reminderAt && recurrence.reminderOffset) {
+        withContext.reminderAt = resolveReminderAt(
+          withContext.dueOn,
+          recurrence.reminderOffset,
+        );
+      }
+    }
+  } else {
+    recurrence = undefined;
+  }
+
   const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  const isSeriesStart = scheduleKind === "recurring" && !withContext.seriesId;
   const task: EteTask = {
     ...withContext,
+    scheduleKind,
+    recurrence,
+    seriesId: scheduleKind === "recurring" ? withContext.seriesId ?? id : undefined,
+    seriesRootTaskId:
+      scheduleKind === "recurring"
+        ? withContext.seriesRootTaskId ?? withContext.seriesId ?? id
+        : undefined,
+    occurrenceNumber:
+      scheduleKind === "recurring" ? withContext.occurrenceNumber ?? 1 : undefined,
+    seriesStatus: scheduleKind === "recurring" ? withContext.seriesStatus ?? "active" : undefined,
     coOwnerRefs: input.coOwnerRefs ?? [],
     escalated: false,
     colourStatus: deriveEteTaskColour(input.dueOn),
@@ -91,12 +136,19 @@ export function registerEteTask(
     title: input.title ?? input.predefinedDescription,
     workType: withContext.workType,
     status: withContext.status,
-    id: crypto.randomUUID(),
+    id,
     enabled: true,
     createdOn: now,
     modifiedBy: input.createdBy,
     modifiedOn: now,
   };
+
+  // Ensure root points at itself when this is the first occurrence.
+  if (isSeriesStart) {
+    task.seriesId = id;
+    task.seriesRootTaskId = id;
+    task.occurrenceNumber = 1;
+  }
 
   getEtePorts().tasks.save(task);
   recordEteAudit({
@@ -104,7 +156,9 @@ export function registerEteTask(
     entityType: "task",
     action: "created",
     actorId: input.createdBy,
-    remarks: `ETE task ${task.predefinedDescription}`,
+    remarks: task.seriesId
+      ? `ETE task ${task.predefinedDescription} · series ${task.seriesId} · occ ${task.occurrenceNumber}`
+      : `ETE task ${task.predefinedDescription}`,
   });
 
   tryAppendEdcTaskEntry({
@@ -203,6 +257,10 @@ export function patchEteTask(
       | "contactId"
       | "lenderId"
       | "documentId"
+      | "recurrence"
+      | "reminderAt"
+      | "scheduleKind"
+      | "seriesStatus"
     >
   >,
   actorId: string,
@@ -238,6 +296,40 @@ export function completeEteTask(
   const existing = getEtePorts().tasks.findById(taskId);
   if (!existing) throw new Error(`ETE task not found: ${taskId}`);
   const now = new Date().toISOString();
+
+  let seriesStatus = existing.seriesStatus;
+  let spawned: EteTask | null = null;
+
+  if (shouldSpawnNextOccurrence(existing) && existing.dueOn && existing.seriesId) {
+    const rule = coerceEteRecurrence(existing.recurrence)!;
+    const nextDue = computeNextOccurrenceDueOn(rule, existing.dueOn);
+    if (nextDue) {
+      const nextOcc = (existing.occurrenceNumber ?? 1) + 1;
+      if (rule.end.mode === "after_count" && nextOcc > rule.end.count) {
+        seriesStatus = "ended";
+      } else {
+        const dueKey = occurrenceDueKey(nextDue);
+        const alreadyOpen = getEtePorts()
+          .tasks.list()
+          .some(
+            (t) =>
+              t.seriesId === existing.seriesId &&
+              t.enabled &&
+              t.status !== "completed" &&
+              t.dueOn &&
+              occurrenceDueKey(t.dueOn) === dueKey,
+          );
+        if (!alreadyOpen) {
+          spawned = registerEteTask(buildNextOccurrenceDraft(existing, nextDue, actorId));
+        }
+      }
+    } else {
+      seriesStatus = "ended";
+    }
+  } else if (isRecurringTask(existing) && !shouldSpawnNextOccurrence(existing)) {
+    seriesStatus = "ended";
+  }
+
   const updated: EteTask = {
     ...existing,
     enabled: false,
@@ -248,12 +340,15 @@ export function completeEteTask(
     completedBy: actorId,
     modifiedBy: actorId,
     modifiedOn: now,
+    seriesStatus,
   };
   getEtePorts().tasks.save(updated);
   tryAppendEdcTaskEntry({
     taskId,
     title: "Task completed",
-    description: `${taskTitle(existing)}${completionNotes ? ` · ${completionNotes}` : ""}`,
+    description: `${taskTitle(existing)}${completionNotes ? ` · ${completionNotes}` : ""}${
+      spawned ? ` · next occurrence scheduled ${spawned.dueOn?.slice(0, 10) ?? ""}` : ""
+    }`,
     actorId,
     opportunityRef: existing.opportunityRef,
   });
@@ -261,9 +356,40 @@ export function completeEteTask(
     kind: "completed",
     taskId,
     taskName: taskTitle(existing),
-    message: `Task completed${completionNotes ? `: ${completionNotes}` : ""}`,
+    message: spawned
+      ? `Occurrence completed · next due ${spawned.dueOn?.slice(0, 10) ?? ""}`
+      : `Task completed${completionNotes ? `: ${completionNotes}` : ""}`,
     assigneeRef: existing.assigneeRef,
   });
+  return updated;
+}
+
+/** List all occurrences for a recurring series (history + open). */
+export function listEteSeriesOccurrences(seriesId: string): EteTask[] {
+  return listEteTasks()
+    .filter((t) => t.seriesId === seriesId)
+    .sort((a, b) => (a.occurrenceNumber ?? 0) - (b.occurrenceNumber ?? 0));
+}
+
+/** Cancel remaining open occurrences in a series (does not rewrite history). */
+export function cancelEteSeries(seriesId: string, actorId: string): EteTask[] {
+  const now = new Date().toISOString();
+  const updated: EteTask[] = [];
+  for (const task of getEtePorts().tasks.list()) {
+    if (task.seriesId !== seriesId) continue;
+    if (task.status === "completed") continue;
+    const next: EteTask = {
+      ...task,
+      enabled: false,
+      status: "cancelled",
+      seriesStatus: "cancelled",
+      chanakyaMonitoring: false,
+      modifiedBy: actorId,
+      modifiedOn: now,
+    };
+    getEtePorts().tasks.save(next);
+    updated.push(next);
+  }
   return updated;
 }
 

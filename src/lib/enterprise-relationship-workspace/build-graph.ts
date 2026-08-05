@@ -1,6 +1,7 @@
 /**
- * Build Enterprise Relationship Graph models from existing Contact / Company registries.
- * UI-only projection — does not mutate backend business logic.
+ * Build Enterprise Relationship Graph models from explicit relationship records only.
+ * CO-BUG-ERW-NETWORK — Relationship Network visualises the Relationship Registry,
+ * never roles, illustrative seeds, lender mappings, or loan/opportunity inference.
  */
 
 import {
@@ -9,6 +10,7 @@ import {
   ERW_LINKED_RECORD_KINDS,
   ERW_RELATIONSHIP_STATUS_LABELS,
   getErwRelationshipType,
+  isErwNetworkEcosystemCode,
   mapLegacyRelationCodeToErw,
   resolveErwColourFamily,
   type ErwColourFamily,
@@ -16,7 +18,6 @@ import {
   type ErwRelationshipStatus,
 } from "@/constants/enterprise-relationship-workspace";
 import { ECM_COMPANY_RELATION_ROLE_LABELS } from "@/constants/enterprise-company-master";
-import { getEcmRoleLabel } from "@/constants/enterprise-contact-master";
 import { ROUTES } from "@/constants/routes";
 import {
   getEcmContact,
@@ -28,7 +29,6 @@ import {
   listContactCompanyLinks,
 } from "@/lib/enterprise-company-master";
 import { loadLoanFiles } from "@/lib/loan-files-storage";
-import { listLoanStructureRelationshipsForContact } from "@/lib/loan-structure";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import type {
   ErwGraphEdge,
@@ -61,10 +61,18 @@ function loanLinkedForContact(contact: EcmContact): ErwLinkedRecordCount[] {
       return { ...row, count: loans.length, href: ROUTES.MY_DEALS };
     }
     if (row.kind === "opportunities") {
-      return { ...row, count: loans.length > 0 ? Math.min(loans.length, 2) : 0, href: ROUTES.OPPORTUNITY_WORKSPACE };
+      return {
+        ...row,
+        count: loans.length > 0 ? Math.min(loans.length, 2) : 0,
+        href: ROUTES.OPPORTUNITY_WORKSPACE,
+      };
     }
     if (row.kind === "documents") {
-      return { ...row, count: loans.length > 0 ? loans.length + 1 : 0, href: ROUTES.DOCUMENT_CENTER };
+      return {
+        ...row,
+        count: loans.length > 0 ? loans.length + 1 : 0,
+        href: ROUTES.DOCUMENT_CENTER,
+      };
     }
     if (row.kind === "tasks") {
       return { ...row, count: loans.some((l) => !l.archived) ? 1 : 0, href: ROUTES.TASKS };
@@ -117,75 +125,55 @@ function pushNode(
   });
 }
 
-function roleProjectionNodes(contact: EcmContact): ErwGraphNode[] {
-  const out: ErwGraphNode[] = [];
-  for (const role of contact.roles ?? []) {
-    const erwCode = mapLegacyRelationCodeToErw(role);
-    const def = getErwRelationshipType(erwCode);
-    if (!def || role === "customer") continue;
-    const profile = contact.roleProfiles?.[role] ?? {};
-    out.push({
-      id: `role:${contact.id}:${role}`,
-      isCentre: false,
-      name: profile.firmName || getEcmRoleLabel(role),
-      entityType: def.defaultEntityType,
-      relationshipTypeCode: erwCode,
-      relationshipTypeLabel: def.label,
-      colourFamily: def.colourFamily,
-      status: "active",
-      navigateWorkspace: role === "builder" || role === "partner" ? "other" : "contact",
-      detail: {
-        designation: getEcmRoleLabel(role),
-        pan: contact.pan,
-        dateSince: contact.createdOn?.slice(0, 10),
-        notes: profile.specialization || profile.primaryMarket || profile.channelType,
-      },
-      linkedRecords: emptyLinked().map((r) =>
-        r.kind === "communication" ? { ...r, count: 1 } : r,
-      ),
-    });
-  }
-  return out;
-}
-
+/**
+ * Explicit Contact↔Company links from Company Registry (director, partner, etc.).
+ * Only ecosystem-eligible relation roles are projected.
+ */
 function companyLinkNodes(contact: EcmContact): ErwGraphNode[] {
   const links = listContactCompanyLinks(contact.id);
-  return links.map((link) => {
-    const company = getEcmCompany(link.companyId);
-    const erwCode = mapLegacyRelationCodeToErw(link.relationRole);
-    const def = getErwRelationshipType(erwCode);
-    const label =
-      def?.label ??
-      ECM_COMPANY_RELATION_ROLE_LABELS[link.relationRole] ??
-      link.relationRole;
-    return {
-      id: `company-link:${link.id}`,
-      isCentre: false,
-      name: company?.companyName || "Company",
-      entityType: "company" as const,
-      relationshipTypeCode: erwCode,
-      relationshipTypeLabel: label,
-      colourFamily: resolveErwColourFamily(erwCode),
-      status: (link.status === "active" ? "active" : "inactive") as ErwRelationshipStatus,
-      navigateHref: undefined,
-      navigateWorkspace: "company" as const,
-      detail: {
-        designation: label,
-        pan: company?.pan,
-        gstin: company?.gst,
-        roc: company?.cin,
-        dateSince: link.createdOn?.slice(0, 10),
-        location: company?.registeredAddress,
-      },
-      linkedRecords: emptyLinked().map((r) => {
-        if (r.kind === "documents") return { ...r, count: 2 };
-        if (r.kind === "opportunities") return { ...r, count: 1 };
-        return r;
-      }),
-    };
-  });
+  return links
+    .filter((link) => isErwNetworkEcosystemCode(link.relationRole))
+    .map((link) => {
+      const company = getEcmCompany(link.companyId);
+      const erwCode = mapLegacyRelationCodeToErw(link.relationRole);
+      const def = getErwRelationshipType(erwCode);
+      const label =
+        def?.label ??
+        ECM_COMPANY_RELATION_ROLE_LABELS[link.relationRole] ??
+        link.relationRole;
+      return {
+        id: `company-link:${link.id}`,
+        isCentre: false,
+        name: company?.companyName || "Company",
+        entityType: "company" as const,
+        relationshipTypeCode: erwCode,
+        relationshipTypeLabel: label,
+        colourFamily: resolveErwColourFamily(erwCode),
+        status: (link.status === "active" ? "active" : "inactive") as ErwRelationshipStatus,
+        navigateHref: undefined,
+        navigateWorkspace: "company" as const,
+        detail: {
+          designation: label,
+          pan: company?.pan,
+          gstin: company?.gst,
+          roc: company?.cin,
+          dateSince: link.createdOn?.slice(0, 10),
+          location: company?.registeredAddress,
+        },
+        linkedRecords: emptyLinked().map((r) => {
+          if (r.kind === "documents") return { ...r, count: 2 };
+          if (r.kind === "opportunities") return { ...r, count: 1 };
+          return r;
+        }),
+      };
+    });
 }
 
+/**
+ * Explicit Contact↔Contact edges from ECM Relationship Registry.
+ * Org-hierarchy / commercial codes (reports_to → Bank RM, etc.) are excluded.
+ * Prefer meta.erwRelationshipCode when present (explicit ecosystem type).
+ */
 function ecmRelationshipNodes(contactId: string): ErwGraphNode[] {
   const directed = [
     ...listEcmRelationshipsFrom(contactId),
@@ -197,10 +185,18 @@ function ecmRelationshipNodes(contactId: string): ErwGraphNode[] {
   for (const rel of directed) {
     if (seen.has(rel.id)) continue;
     seen.add(rel.id);
+
+    const explicitCode =
+      rel.meta?.erwRelationshipCode?.trim() ||
+      rel.meta?.relationshipTypeCode?.trim() ||
+      rel.relationshipType;
+    if (!isErwNetworkEcosystemCode(explicitCode)) continue;
+
     const otherId = rel.fromContactId === contactId ? rel.toContactId : rel.fromContactId;
     const other = getEcmContact(otherId);
     if (!other) continue;
-    const erwCode = mapLegacyRelationCodeToErw(rel.relationshipType);
+
+    const erwCode = mapLegacyRelationCodeToErw(explicitCode);
     const def = getErwRelationshipType(erwCode);
     nodes.push({
       id: `ecm-rel:${rel.id}`,
@@ -226,175 +222,37 @@ function ecmRelationshipNodes(contactId: string): ErwGraphNode[] {
   return nodes;
 }
 
-/** Illustrative ecosystem when the contact has sparse live links — presentation only. */
-function illustrativeEcosystem(contact: EcmContact): ErwGraphNode[] {
-  const seed: Array<{
-    key: string;
-    name: string;
-    code: string;
-    entityType: ErwEntityType;
-    status?: ErwRelationshipStatus;
-    detail?: ErwGraphNode["detail"];
-  }> = [
-    {
-      key: "family-spouse",
-      name: "Family · Spouse",
-      code: "spouse",
-      entityType: "individual",
-      detail: { designation: "Spouse", dateSince: "2018-03-12" },
-    },
-    {
-      key: "ca",
-      name: "Rao & Associates",
-      code: "chartered_accountant",
-      entityType: "individual",
-      status: "pending_verification",
-      detail: { designation: "Chartered Accountant", pan: "AABCR1234F" },
-    },
-    {
-      key: "builder",
-      name: "Skyline Developers",
-      code: "builder",
-      entityType: "organisation",
-      detail: { designation: "Preferred Builder", location: "Pune" },
-    },
-    {
-      key: "bank",
-      name: "HDFC Bank · RM",
-      code: "bank_rm",
-      entityType: "lender",
-      detail: { designation: "Relationship Manager", mobile: "+91 98XXXX1212" },
-    },
-    {
-      key: "lawyer",
-      name: "Mehta Legal",
-      code: "lawyer",
-      entityType: "individual",
-      detail: { designation: "Legal Counsel" },
-    },
-    {
-      key: "guarantor",
-      name: "Co-guarantor",
-      code: "guarantor",
-      entityType: "individual",
-      detail: { designation: "Guarantor", ownershipPct: "—" },
-    },
-    {
-      key: "company",
-      name: `${contact.name.split(" ")[0] ?? "Family"} Holdings`,
-      code: "director",
-      entityType: "company",
-      detail: {
-        designation: "Managing Director",
-        ownershipPct: "40%",
-        gstin: "27AABCU9603R1ZM",
-        roc: "U72900PN2019PTC123456",
-      },
-    },
-    {
-      key: "wealth",
-      name: "Wealth Partner",
-      code: "wealth_partner",
-      entityType: "individual",
-      detail: { designation: "Wealth Partner" },
-    },
-  ];
-
-  return seed.map((s) => {
-    const def = getErwRelationshipType(s.code)!;
-    return {
-      id: `illustrative:${contact.id}:${s.key}`,
-      isCentre: false,
-      name: s.name,
-      entityType: s.entityType,
-      relationshipTypeCode: s.code,
-      relationshipTypeLabel: def.label,
-      colourFamily: def.colourFamily,
-      status: s.status ?? "active",
-      navigateWorkspace: s.entityType === "company" ? "company" : "other",
-      detail: s.detail ?? {},
-      linkedRecords: emptyLinked().map((r) => {
-        if (r.kind === "opportunities" && s.code === "director") return { ...r, count: 2 };
-        if (r.kind === "loans" && (s.code === "guarantor" || s.code === "bank_rm"))
-          return { ...r, count: 1 };
-        if (r.kind === "documents") return { ...r, count: s.code === "chartered_accountant" ? 3 : 1 };
-        return r;
-      }),
-      isIllustrative: true,
-    };
-  });
-}
-
-function loanStructureLinkNodes(contactId: string): ErwGraphNode[] {
-  return listLoanStructureRelationshipsForContact(contactId).map((link) => {
-    const erwCode = mapLegacyRelationCodeToErw(link.erwRelationshipCode || link.roleCode);
-    const def = getErwRelationshipType(erwCode);
-    const other =
-      link.toEntityType === "individual" ? getEcmContact(link.toEntityId) : undefined;
-    return {
-      id: `loan-structure:${link.id}`,
-      isCentre: false,
-      name: link.toName || other?.name || "Participant",
-      entityType: link.toEntityType === "company" ? "company" : "individual",
-      relationshipTypeCode: erwCode,
-      relationshipTypeLabel: def?.label ?? link.roleCode,
-      colourFamily: resolveErwColourFamily(erwCode),
-      status: "active" as const,
-      navigateWorkspace: link.toEntityType === "company" ? "company" : "contact",
-      detail: {
-        designation: def?.label ?? link.roleCode,
-        mobile: other?.mobilePrimary,
-        email: other?.personalEmail || other?.officialEmail,
-        pan: other?.pan,
-        dateSince: link.updatedOn?.slice(0, 10),
-        notes: `Linked via Loan Structure · ${link.loanFileId.slice(0, 8)}`,
-      },
-      linkedRecords: other ? loanLinkedForContact(other) : emptyLinked(),
-    };
-  });
-}
-
 export function buildContactRelationshipGraph(contact: EcmContact): ErwGraphModel {
   const centre = centreNode(contact);
   const nodes = new Map<string, ErwGraphNode>();
   const edges: ErwGraphEdge[] = [];
   nodes.set(centre.id, centre);
 
-  const live = [
-    ...companyLinkNodes(contact),
-    ...ecmRelationshipNodes(contact.id),
-    ...roleProjectionNodes(contact),
-    ...loanStructureLinkNodes(contact.id),
-  ];
+  // Explicit registry edges only — never roles, illustrative seeds, or loan/opportunity inference.
+  const live = [...companyLinkNodes(contact), ...ecmRelationshipNodes(contact.id)];
 
   for (const node of live) {
     pushNode(nodes, edges, centre.id, node);
   }
 
-  const liveSatelliteCount = [...nodes.values()].filter((n) => !n.isCentre).length;
-  if (liveSatelliteCount < 4) {
-    for (const node of illustrativeEcosystem(contact)) {
-      pushNode(nodes, edges, centre.id, node);
-    }
-  }
-
   const satellites = [...nodes.values()].filter((n) => !n.isCentre);
   const tickerHints: string[] = [];
-  const pending = satellites.filter((n) => n.status === "pending_verification");
-  if (pending.length) {
-    tickerHints.push(
-      `${pending[0].relationshipTypeLabel} relationship requires verification.`,
-    );
-  }
-  const oppCount = satellites.reduce(
-    (sum, n) => sum + (n.linkedRecords.find((r) => r.kind === "opportunities")?.count ?? 0),
-    0,
-  );
-  if (oppCount > 0) tickerHints.push(`${oppCount} opportunities linked across the network.`);
-  const director = satellites.find((n) => n.relationshipTypeCode === "director");
-  if (director) tickerHints.push(`Director relationship updated · ${director.name}.`);
-  if (tickerHints.length === 0) {
-    tickerHints.push(`${satellites.length} relationships in this contact ecosystem.`);
+  if (satellites.length === 0) {
+    tickerHints.push("No relationships have been defined for this contact.");
+  } else {
+    const pending = satellites.filter((n) => n.status === "pending_verification");
+    if (pending.length) {
+      tickerHints.push(
+        `${pending[0].relationshipTypeLabel} relationship requires verification.`,
+      );
+    }
+    const director = satellites.find((n) => n.relationshipTypeCode === "director");
+    if (director) tickerHints.push(`Director relationship · ${director.name}.`);
+    if (tickerHints.length === 0) {
+      tickerHints.push(
+        `${satellites.length} explicit relationship${satellites.length === 1 ? "" : "s"} in the registry.`,
+      );
+    }
   }
 
   return {

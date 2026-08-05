@@ -1,0 +1,49 @@
+# Enterprise Tasks Workspace — Platform Constitution
+
+Status: **ENTERPRISE APPROVED** · Canonical Tasks + Planner desk  
+Sprint foundation: **CO-TASKS-PLANNER-001** · UX: **CO-TASKS-PLANNER-001A** · Density: **CO-TASKS-PLANNER-002** · Workspace: **CO-TASKS-PLANNER-003**
+
+## Constitutional principles
+
+1. **One left-nav item:** Tasks (`/tasks`). Never add a separate Planner nav item.
+2. **ETE is the only task engine.** Planner does not invent a parallel task store.
+3. **Planner is a projection of the Enterprise Task Registry only** — Agenda / Day / Week / Month are calendar presentations of ETE tasks with due dates. Do not merge parallel Meeting/Reminder task stores into Planner events.
+4. UI consumes **DTOs only** — compose in `src/lib/enterprise-tasks-workspace` and `src/lib/enterprise-planner`.
+5. **Drag-and-drop reschedule** updates ETE `dueOn` + audit + dialogue timeline — never duplicates records.
+6. **Shared schedule colour system** (Completed · Scheduled · Due Today · Due Tomorrow · Overdue · Cancelled) across Tasks and Planner.
+7. External calendar sync (Google / Outlook) is **reserved** — do not implement until authorised.
+8. **Agenda section order:** Today → Tomorrow → This Week → Overdue → Upcoming.
+9. **Calendar-first density (002):** compact header · CHANAKYA LIVE single-strip ticker · metrics as lightweight toolbar · maximise Planner calendar height.
+10. **Actionable workspace (003):** date-cell create intents · activity context menu · day overflow panel · Search / Filter / My–Team scope — all write through ETE.
+
+## Primary tabs
+
+| Tab | Role |
+|-----|------|
+| **Tasks** (default) | Execution — buckets, CRUD, bulk actions |
+| **Planner** | Operational scheduling — Agenda / Day / Week / Month |
+
+Deep-link: `?tab=planner` · `?view=agenda|day|week|month`
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Workspace UI | `src/components/catalyst-one/tasks/enterprise-tasks-workspace.tsx` |
+| CHANAKYA LIVE ticker | `planner-chanakya-live-ticker.tsx` · `chanakya-live-ticker.ts` |
+| Event card / preview | `planner-event-card.tsx` · `planner-event-preview.tsx` |
+| Date create / day panel | `planner-date-create-menu.tsx` · `planner-day-activities-panel.tsx` |
+| Create intents | `src/constants/enterprise-planner/create-intents.ts` |
+| Schedule intelligence | `src/lib/enterprise-planner/schedule-intelligence.ts` |
+| Compose | `src/lib/enterprise-tasks-workspace/` · `src/lib/enterprise-planner/` |
+| Reschedule | `src/lib/enterprise-planner/reschedule.ts` |
+| Types | `src/types/enterprise-tasks-workspace.ts` · `src/types/enterprise-planner.ts` |
+| Task engine | `src/lib/enterprise-task-engine/` (unchanged ownership) |
+
+## Forbidden
+
+- Left-nav “Planner” or Calendar module  
+- Parallel task / reminder engines bypassing ETE  
+- Business formulas inside React components  
+- Duplicate task records on drag  
+- Tall summary KPI card grids above the Planner calendar  

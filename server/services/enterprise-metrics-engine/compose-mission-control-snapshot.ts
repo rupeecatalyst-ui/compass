@@ -5,6 +5,7 @@
 
 import { buildChanakyaRadarDashboard } from "@/lib/chanakya-radar/derive-dashboard";
 import type { ChanakyaRadarDashboardModel } from "@/lib/chanakya-radar/derive-dashboard";
+import { listActiveRadarDealFiles } from "@/lib/chanakya-radar/radar-deal-source";
 import { deriveBusinessHealthScore } from "@/lib/enterprise-business-intelligence/business-health";
 import { deriveChanakyaExecutiveInsights } from "@/lib/enterprise-business-intelligence/chanakya-insights";
 import { deriveExecutiveKpis } from "@/lib/enterprise-business-intelligence/executive-kpis";
@@ -98,9 +99,9 @@ export function composeMissionControlExecutiveSnapshot(input: {
   version?: string;
 }): MissionControlExecutiveSnapshotPayload {
   const asOf = new Date().toISOString();
-  const files: LoanFile[] = input.deals
-    .map((d) => mapEnterpriseDealToLoanFileStub(d))
-    .filter((f) => !f.archived);
+  const files: LoanFile[] = listActiveRadarDealFiles(
+    input.deals.map((d) => mapEnterpriseDealToLoanFileStub(d)),
+  );
 
   const radar = buildChanakyaRadarDashboard(files);
   const ctx: EbiDataContext = {
@@ -109,6 +110,7 @@ export function composeMissionControlExecutiveSnapshot(input: {
     radar,
     eteReport: emptyEteReport(asOf),
     tasks: [],
+    isLiveTrusted: true,
   };
 
   const executive = deriveExecutiveKpis(ctx);

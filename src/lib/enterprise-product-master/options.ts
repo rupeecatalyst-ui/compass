@@ -1,26 +1,26 @@
 /**
  * CO-ADMIN-005 — Client product master options (registry-first, canonical fallback).
+ * CO-BUG-002 / CO-PR-004 — Selection lists dedupe by canonical family without mutating rows.
  */
 import { getAccessToken } from "@/lib/api-client";
 import {
   listCanonicalProductOptions,
   resolveCanonicalProductCode,
 } from "@/constants/enterprise-product-master";
+import {
+  dedupeProductOptionsForSelection,
+  type ProductSelectionOption,
+} from "@/lib/enterprise-product-master/dedupe-selection";
 
-export type ProductMasterOption = {
-  code: string;
-  label: string;
-  isSecured?: boolean | null;
-  sortOrder?: number;
-  enabled?: boolean;
-  id?: string;
-};
+export type ProductMasterOption = ProductSelectionOption;
+
+export { dedupeProductOptionsForSelection };
 
 let cache: { at: number; options: ProductMasterOption[] } | null = null;
 const CACHE_MS = 15 * 60 * 1000; // CO-PERF-002 Tier-0 — products are relatively static
 
 export function getFallbackProductMasterOptions(): ProductMasterOption[] {
-  return listCanonicalProductOptions(true);
+  return dedupeProductOptionsForSelection(listCanonicalProductOptions(true));
 }
 
 export async function fetchProductMasterOptions(opts?: {
@@ -29,7 +29,10 @@ export async function fetchProductMasterOptions(opts?: {
 }): Promise<ProductMasterOption[]> {
   const enabledOnly = opts?.enabledOnly !== false;
   if (!opts?.force && cache && Date.now() - cache.at < CACHE_MS) {
-    return enabledOnly ? cache.options.filter((o) => o.enabled !== false) : cache.options;
+    const cached = enabledOnly
+      ? cache.options.filter((o) => o.enabled !== false)
+      : cache.options;
+    return dedupeProductOptionsForSelection(cached);
   }
 
   try {
@@ -38,6 +41,7 @@ export async function fetchProductMasterOptions(opts?: {
       pageSize: "200",
       sortBy: "sortOrder",
       sortDir: "asc",
+      presentation: "canonical",
       ...(enabledOnly ? { enabled: "true" } : {}),
     });
     const res = await fetch(`/api/product-registry/products?${qs}`, {
@@ -62,8 +66,9 @@ export async function fetchProductMasterOptions(opts?: {
           enabled: p.enabled,
         }),
       );
-      cache = { at: Date.now(), options };
-      return options;
+      const unique = dedupeProductOptionsForSelection(options);
+      cache = { at: Date.now(), options: unique };
+      return unique;
     }
   } catch {
     /* fall through */

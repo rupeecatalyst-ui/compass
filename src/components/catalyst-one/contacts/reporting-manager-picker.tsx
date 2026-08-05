@@ -1,13 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+/**
+ * Banker Reporting Manager picker — Enterprise Contact Registry (SSOT).
+ * CO-LOOKUP-SSOT — live ECM search + durable create (no memory-only path).
+ */
+
+import { useEffect, useMemo, useState } from "react";
 import { Check, Plus, Search, UserRound, X } from "lucide-react";
-import {
-  normalizePersonName,
-  registerEcmContact,
-} from "@/lib/enterprise-contact-master";
+import { normalizePersonName } from "@/lib/enterprise-contact-master";
+import { persistRegisterEcmContact } from "@/lib/enterprise-persistence/ecm-persist";
 import { useEnterpriseRegistry } from "@/hooks/use-enterprise-registry";
-import { findOperationalEcmContactById, searchOperationalContacts } from "@/lib/enterprise-registry";
+import {
+  findOperationalEcmContactById,
+  liveSearchOperationalEcmContacts,
+} from "@/lib/enterprise-registry";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,34 +39,65 @@ export function ReportingManagerPicker({
 }: ReportingManagerPickerProps) {
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newMobile, setNewMobile] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const { registryVersion } = useEnterpriseRegistry({ hydrateOnMount: true });
+  const [results, setResults] = useState<EcmContact[]>([]);
+  const { registryVersion, refresh } = useEnterpriseRegistry({ hydrateOnMount: true });
 
-  const results = useMemo(() => {
-    void registryVersion;
+  useEffect(() => {
     const q = query.trim();
-    if (!q) return [];
-    return searchOperationalContacts(q, { roles: ["lender_employee"] })
-      .filter((c) => c.id !== excludeContactId)
-      .slice(0, 12)
-      .map((c) => findOperationalEcmContactById(c.id))
-      .filter((c): c is EcmContact => Boolean(c));
+    if (!q) {
+      setResults([]);
+      setSearchError(null);
+      return;
+    }
+    let cancelled = false;
+    const handle = window.setTimeout(() => {
+      setSearching(true);
+      setSearchError(null);
+      void (async () => {
+        try {
+          const rows = await liveSearchOperationalEcmContacts(q, {
+            pageSize: 25,
+            roles: ["lender_employee"],
+          });
+          if (!cancelled) {
+            setResults(rows.filter((c) => c.id !== excludeContactId).slice(0, 12));
+          }
+        } catch (e) {
+          if (!cancelled) {
+            setResults([]);
+            setSearchError(
+              e instanceof Error ? e.message : "Enterprise Contact Registry search failed.",
+            );
+          }
+        } finally {
+          if (!cancelled) setSearching(false);
+        }
+      })();
+    }, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
   }, [query, excludeContactId, registryVersion]);
 
-  const createBasic = () => {
+  const createBasic = async () => {
     setError(null);
     const name = normalizePersonName(newName);
     if (!name) {
       setError("Name is mandatory.");
       return;
     }
+    setBusy(true);
     try {
       const mobile = newMobile.trim();
-      // Optional mobile — use unique placeholder so Contact SSOT remains valid without trapping the user
-      const created = registerEcmContact({
+      const created = await persistRegisterEcmContact({
         name,
         mobilePrimary: mobile || `9${String(Date.now()).slice(-9)}`,
         personalEmail: newEmail.trim() || undefined,
@@ -68,6 +105,7 @@ export function ReportingManagerPicker({
         createdBy: actorId,
         ownerName: "Platform Admin",
       });
+      await refresh(true);
       onChange(created);
       setCreating(false);
       setNewName("");
@@ -76,6 +114,8 @@ export function ReportingManagerPicker({
       setQuery("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create contact.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -125,12 +165,20 @@ export function ReportingManagerPicker({
           </div>
           {!query.trim() && (
             <p className="text-[11px] text-zinc-500">
-              Lookup existing Contact, or create a basic Contact below.
+              Lookup Enterprise Contact Registry, or create a basic Contact below.
             </p>
           )}
           {query.trim() && (
             <div className="max-h-36 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950">
-              {results.length === 0 ? (
+              {searchError ? (
+                <p className="px-2.5 py-2 text-xs text-destructive">
+                  Enterprise Contact Registry unavailable. {searchError}
+                </p>
+              ) : searching ? (
+                <p className="px-2.5 py-2 text-xs text-zinc-500">
+                  Searching Enterprise Contact Registry…
+                </p>
+              ) : results.length === 0 ? (
                 <p className="px-2.5 py-2 text-xs text-zinc-500">
                   No match. Create a basic Contact below and link immediately.
                 </p>
@@ -207,14 +255,21 @@ export function ReportingManagerPicker({
               </div>
               {error && <p className="text-xs text-destructive">{error}</p>}
               <div className="flex gap-2">
-                <Button type="button" size="sm" className="h-7 rounded-md" onClick={createBasic}>
-                  Create & Link
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 rounded-md"
+                  disabled={busy}
+                  onClick={() => void createBasic()}
+                >
+                  {busy ? "Saving…" : "Create & Link"}
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
                   className="h-7 rounded-md text-zinc-400"
+                  disabled={busy}
                   onClick={() => {
                     setCreating(false);
                     setError(null);

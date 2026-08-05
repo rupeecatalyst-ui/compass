@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import type { EnterpriseGridColumnDef } from "./types";
 import { buildEnterpriseGridStorageKey } from "./storage-key";
 import { useEnterpriseGridPreferences } from "./use-enterprise-grid-preferences";
+import { ENTERPRISE_REGISTRY_TABLE_MIN_WIDTH_CLASS } from "@/constants/enterprise-registry-workspace";
 
 export type EnterpriseGridSortDirection = "asc" | "desc";
 
@@ -58,9 +59,14 @@ interface EnterpriseDataGridProps<T> {
   onSort?: (columnId: string) => void;
   maxHeightClassName?: string;
   /**
+   * When true, table body fills remaining flex height instead of a capped max-height.
+   * Prefer inside EnterpriseRegistryWorkspaceShell.
+   */
+  fillViewport?: boolean;
+  /**
    * Table min-width class (Enterprise Table Standard).
-   * Default matches Opportunity / Deal registries (`min-w-[1280px]`).
-   * Narrower operational tables (e.g. Document Center checklists) may override.
+   * CO-UX-DATAGRID-001 — default is fluid full width (no forced 1280px H-scroll).
+   * Narrow operational tables may still pass an explicit min-width override.
    */
   tableMinWidthClassName?: string;
   /**
@@ -88,7 +94,8 @@ export function EnterpriseDataGrid<T>({
   sortDirection = "asc",
   onSort,
   maxHeightClassName,
-  tableMinWidthClassName = "min-w-[1280px]",
+  fillViewport = false,
+  tableMinWidthClassName = ENTERPRISE_REGISTRY_TABLE_MIN_WIDTH_CLASS,
   density = "default",
 }: EnterpriseDataGridProps<T>) {
   const compact = density === "compact" || density === "dense";
@@ -100,12 +107,12 @@ export function EnterpriseDataGrid<T>({
   const scrollMax =
     maxHeightClassName ??
     (dense
-      ? "max-h-[min(82vh,960px)]"
+      ? "max-h-[min(88vh,1100px)]"
       : compact
-        ? "max-h-[min(78vh,900px)]"
+        ? "max-h-[min(84vh,1000px)]"
         : "max-h-[min(70vh,720px)]");
   const cellPad = dense ? "px-2 py-0.5" : compact ? "px-2 py-1" : "px-3 py-2.5";
-  const headPad = dense ? "px-2 py-1" : compact ? "px-2 py-1.5" : "px-3 py-2.5";
+  const headPad = dense ? "px-2 py-0.5" : compact ? "px-2 py-1" : "px-3 py-2.5";
   const bodyText = dense
     ? "text-[11px] leading-[1.15rem]"
     : compact
@@ -136,15 +143,23 @@ export function EnterpriseDataGrid<T>({
     <div
       className={cn(
         "flex min-h-0 flex-col",
+        fillViewport && "flex-1",
         dense ? "gap-1" : compact ? "gap-1.5" : "gap-3",
         className,
       )}
     >
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-1.5">
+      <div
+        className={cn(
+          "flex shrink-0 flex-wrap items-center justify-between gap-1.5",
+          "sticky top-0 z-30 bg-background/95 py-0.5 backdrop-blur supports-[backdrop-filter]:bg-background/85",
+        )}
+      >
         <p
           className={cn(
-            "font-medium uppercase tracking-[0.12em] text-muted-foreground",
-            dense || compact ? "text-[10px]" : "text-xs tracking-[0.14em]",
+            "font-medium text-muted-foreground",
+            dense || compact
+              ? "text-[11px] normal-case tracking-normal"
+              : "text-xs uppercase tracking-[0.14em]",
           )}
         >
           {toolbarLabel}
@@ -230,11 +245,11 @@ export function EnterpriseDataGrid<T>({
 
       <div
         className={cn(
-          "min-h-0 overflow-auto border bg-card",
+          "min-h-0 w-full min-w-0 overflow-auto border bg-card",
           compact
             ? "rounded-sm border-slate-300 dark:border-zinc-700"
             : "rounded-xl border-border/80 shadow-sm shadow-black/[0.02]",
-          scrollMax,
+          fillViewport ? "flex-1" : scrollMax,
         )}
       >
         <table

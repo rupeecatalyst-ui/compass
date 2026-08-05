@@ -1,19 +1,25 @@
 "use client";
 
 /**
- * Enterprise Lender Registry select — active lenders only.
- * SSOT: lenderRegistryClient /api/lender-registry (no hardcoded names).
+ * Enterprise Lender Registry select — server-side search over full ELR.
+ * CO-LENDER-SSOT-REMEDIATE-001: no Soft Go-Live, no pageSize-200 / max-8 caps.
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
-import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
+import { Check, Loader2, RefreshCw } from "lucide-react";
 import {
-  ENTERPRISE_SEARCH_DROPDOWN_LIST_CLASS,
+  ELR_SELECTION_DROPDOWN_LIST_CLASS,
+} from "@/constants/enterprise-lender-registry/selection";
+import {
   ENTERPRISE_SEARCH_DROPDOWN_PANEL_CLASS,
-  ENTERPRISE_SEARCH_MAX_RESULTS,
 } from "@/constants/enterprise-search-autocomplete";
+import {
+  getEnterpriseLenderForSelection,
+  lenderDisplayName,
+  searchEnterpriseLendersForSelection,
+} from "@/lib/enterprise-lender-registry/selection-client";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
 
@@ -21,16 +27,6 @@ export type EnterpriseLenderRegistryOption = {
   id: string;
   name: string;
 };
-
-function lenderDisplayName(lender: EnterpriseLenderRecord): string {
-  return (
-    lender.displayName?.trim() ||
-    lender.legalName?.trim() ||
-    lender.label?.trim() ||
-    lender.shortName?.trim() ||
-    lender.code
-  );
-}
 
 interface EnterpriseLenderRegistrySelectProps {
   value?: string;
@@ -40,7 +36,7 @@ interface EnterpriseLenderRegistrySelectProps {
   placeholder?: string;
   className?: string;
   inputClassName?: string;
-  /** Optional override for result list height (default: enterprise max-h-40). */
+  /** Optional override for result list height. */
   listMaxHeightClassName?: string;
 }
 
@@ -48,7 +44,7 @@ export function EnterpriseLenderRegistrySelect({
   value,
   selectedName,
   onSelect,
-  placeholder = "Search existing lender…",
+  placeholder = "Search Enterprise Lender Registry…",
   className,
   inputClassName,
   listMaxHeightClassName,
@@ -58,38 +54,65 @@ export function EnterpriseLenderRegistrySelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lenders, setLenders] = useState<EnterpriseLenderRecord[]>([]);
+  const [resolvedLabel, setResolvedLabel] = useState<string | undefined>(selectedName);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    setResolvedLabel(selectedName);
+  }, [selectedName, value]);
+
+  useEffect(() => {
+    if (!value) return;
     let cancelled = false;
     void (async () => {
-      setLoading(true);
-      setError(null);
       try {
-        const result = await lenderRegistryClient.queryLenders({
-          page: 1,
-          pageSize: 200,
-          status: "active",
-          enabled: true,
-          lifecycleStatus: "active",
-        });
-        if (cancelled) return;
-        setLenders(result.items ?? []);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Could not load lenders");
-          setLenders([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+        const row = await getEnterpriseLenderForSelection(value);
+        if (cancelled || !row) return;
+        setResolvedLabel(lenderDisplayName(row));
+      } catch {
+        /* keep selectedName fallback */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const handle = window.setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      void (async () => {
+        try {
+          const result = await searchEnterpriseLendersForSelection({
+            search: query.trim() || undefined,
+          });
+          if (cancelled) return;
+          setLenders(result.items);
+          setError(null);
+        } catch (err) {
+          if (cancelled) return;
+          setLenders([]);
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Enterprise Lender Registry unavailable.",
+          );
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+    }, query.trim() ? 180 : 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [open, query, reloadKey]);
 
   const selectedFromList = useMemo(
     () => (value ? lenders.find((l) => l.id === value) : undefined),
@@ -97,34 +120,10 @@ export function EnterpriseLenderRegistrySelect({
   );
   const selectedLabel =
     (selectedFromList ? lenderDisplayName(selectedFromList) : undefined) ||
-    selectedName?.trim() ||
+    resolvedLabel?.trim() ||
     undefined;
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const active = lenders.filter((l) => !l.isDeleted && l.enabled && l.status === "active");
-    if (!q) return active.slice(0, ENTERPRISE_SEARCH_MAX_RESULTS * 3);
-    return active
-      .filter((l) => {
-        const hay = [
-          l.label,
-          l.displayName,
-          l.legalName,
-          l.shortName,
-          l.code,
-          ...(l.aliases ?? []),
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return hay.includes(q);
-      })
-      .slice(0, ENTERPRISE_SEARCH_MAX_RESULTS);
-  }, [lenders, query]);
-
   const searching = open || query.trim().length > 0;
-  /** Open on focus so changing an existing selection needs minimal typing/mouse travel. */
-  const showList = open;
   const displayValue = searching ? query : selectedLabel ?? "";
 
   const closeList = () => {
@@ -157,16 +156,14 @@ export function EnterpriseLenderRegistrySelect({
         <Input
           ref={inputRef}
           role="combobox"
-          aria-expanded={showList}
+          aria-expanded={open}
           aria-controls={listId}
           className={cn("h-8 pr-8 text-xs", inputClassName)}
           placeholder={loading ? "Loading lenders…" : placeholder}
           value={displayValue}
           autoComplete="off"
-          disabled={loading && lenders.length === 0}
           onChange={(e) => {
-            const next = e.target.value;
-            setQuery(next);
+            setQuery(e.target.value);
             setOpen(true);
           }}
           onFocus={() => {
@@ -178,59 +175,86 @@ export function EnterpriseLenderRegistrySelect({
           <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
         ) : null}
       </div>
-      {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
-      {showList ? (
+
+      {open ? (
         <div
           id={listId}
           role="listbox"
-          className={cn(ENTERPRISE_SEARCH_DROPDOWN_PANEL_CLASS, "z-[80]")}
-          data-surface="enterprise-search-autocomplete"
+          className={cn(ENTERPRISE_SEARCH_DROPDOWN_PANEL_CLASS, "z-[60]")}
         >
-          <div
-            className={cn(
-              ENTERPRISE_SEARCH_DROPDOWN_LIST_CLASS,
-              listMaxHeightClassName,
-            )}
-          >
-            {filtered.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-muted-foreground">
-                {loading ? "Loading active lenders…" : "No active lender found."}
-              </p>
-            ) : (
-              filtered.map((lender) => {
+          {error ? (
+            <div className="space-y-2 p-3 text-xs">
+              <p className="text-destructive">{error}</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => setReloadKey((k) => k + 1)}
+              >
+                <RefreshCw className="h-3 w-3" />
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <ul
+              className={cn(
+                listMaxHeightClassName ?? ELR_SELECTION_DROPDOWN_LIST_CLASS,
+                "py-1",
+              )}
+            >
+              {loading && lenders.length === 0 ? (
+                <li className="px-3 py-2 text-xs text-muted-foreground">
+                  Searching Enterprise Lender Registry…
+                </li>
+              ) : null}
+              {!loading && lenders.length === 0 ? (
+                <li className="px-3 py-2 text-xs text-muted-foreground">
+                  {query.trim()
+                    ? "No matching lender in Enterprise Lender Registry."
+                    : "No active lenders in Enterprise Lender Registry."}
+                </li>
+              ) : null}
+              {lenders.map((lender) => {
                 const name = lenderDisplayName(lender);
+                const selected = value === lender.id;
                 return (
-                  <button
-                    key={lender.id}
-                    type="button"
-                    role="option"
-                    aria-selected={value === lender.id}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      onSelect({ id: lender.id, name });
-                      closeList();
-                      window.requestAnimationFrame(() => inputRef.current?.focus());
-                    }}
-                    className={cn(
-                      "flex w-full items-start gap-2 px-3 py-2 text-left text-xs hover:bg-muted/60",
-                      value === lender.id && "bg-muted/40",
-                    )}
-                  >
-                    <Check
+                  <li key={lender.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
                       className={cn(
-                        "mt-0.5 h-3.5 w-3.5 shrink-0",
-                        value === lender.id ? "opacity-100" : "opacity-0",
+                        "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground",
+                        selected && "bg-accent/60 text-accent-foreground",
                       )}
-                    />
-                    <span className="min-w-0 flex-1 break-words leading-snug">{name}</span>
-                    <span className="mt-0.5 shrink-0 font-mono text-[10px] text-muted-foreground">
-                      {lender.code}
-                    </span>
-                  </button>
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        onSelect({ id: lender.id, name });
+                        setResolvedLabel(name);
+                        closeList();
+                      }}
+                    >
+                      <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
+                      {lender.code ? (
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                          {lender.code}
+                        </span>
+                      ) : null}
+                      {selected ? (
+                        <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      ) : null}
+                    </button>
+                  </li>
                 );
-              })
-            )}
-          </div>
+              })}
+            </ul>
+          )}
+          {!error && lenders.length > 0 ? (
+            <p className="border-t border-border px-3 py-1 text-[10px] text-muted-foreground">
+              {lenders.length} lender{lenders.length === 1 ? "" : "s"} · Enterprise Lender Registry
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

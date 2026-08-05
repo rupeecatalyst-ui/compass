@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import { categoryToPolicySection } from "@/constants/policy-rule-sections";
 import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import {
-  getActiveLenders,
   savePolicyDraft,
   transitionPolicyStatus,
 } from "@/lib/credit-risk-engine/policy-store";
+import { searchActiveLenders } from "@/lib/deal-workspace/lender-program-api";
 import { POLICY_RULE_CATEGORY_PAIRS } from "@/constants/policy-rule-sections";
 import { getRuleById } from "@/lib/credit-risk-engine/rule-store";
 import type { CreditRiskPolicySummary, PolicyRuleReference, PolicyRuleSectionId } from "@/types/credit-risk-engine";
@@ -45,14 +45,49 @@ interface PolicyBuilderFormProps {
   initialRuleRefs?: PolicyRuleReference[];
 }
 
+type LenderOption = { id: string; name: string; code: string };
+
 export function PolicyBuilderForm({ initialPolicy, initialRuleRefs = [] }: PolicyBuilderFormProps) {
   const router = useRouter();
-  const lenders = getActiveLenders();
+  const [lenders, setLenders] = useState<LenderOption[]>([]);
+  const [lendersLoading, setLendersLoading] = useState(true);
+  const [lendersError, setLendersError] = useState<string | null>(null);
   const { options: productMasterOptions } = useProductMasterOptions(true);
   const products = productMasterOptions.map((p) => ({
     id: p.code,
     name: p.label,
   }));
+
+  useEffect(() => {
+    let cancelled = false;
+    setLendersLoading(true);
+    setLendersError(null);
+    void searchActiveLenders({ pageSize: 200 })
+      .then((rows) => {
+        if (cancelled) return;
+        setLenders(
+          rows.map((l) => ({
+            id: l.id,
+            name: l.displayName || l.legalName || l.shortName || l.code || l.id,
+            code: l.code || l.id,
+          })),
+        );
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setLenders([]);
+          setLendersError(
+            e instanceof Error ? e.message : "Enterprise Lender Registry unavailable.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLendersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<PolicyRuleSectionId>("financial");
@@ -212,14 +247,39 @@ export function PolicyBuilderForm({ initialPolicy, initialRuleRefs = [] }: Polic
               />
             </Field>
             <Field label="Lender" required>
-              <Select value={form.lenderId} onValueChange={(v) => setForm({ ...form, lenderId: v })}>
-                <SelectTrigger><SelectValue placeholder="Select lender" /></SelectTrigger>
+              <Select
+                value={form.lenderId}
+                onValueChange={(v) => setForm({ ...form, lenderId: v })}
+                disabled={lendersLoading || Boolean(lendersError)}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      lendersLoading
+                        ? "Loading lenders…"
+                        : lendersError
+                          ? "Lender Registry unavailable"
+                          : "Select lender"
+                    }
+                  />
+                </SelectTrigger>
                 <SelectContent>
                   {lenders.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {lendersError ? (
+                <p className="mt-1 text-[11px] text-destructive">
+                  Enterprise Lender Registry: {lendersError}
+                </p>
+              ) : (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Enterprise Lender Registry (SSOT)
+                </p>
+              )}
             </Field>
             <Field label="Product" required>
               <Select value={form.productId} onValueChange={(v) => setForm({ ...form, productId: v })}>

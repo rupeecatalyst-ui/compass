@@ -273,9 +273,21 @@ function OpportunityWorkspaceShell() {
     : selectedLender
       ? "In Strategy"
       : "Planning";
+  /**
+   * CO-UX-012 — Primary page heading is Borrower / Customer Name (Registry SSOT).
+   * Never use the journey stage label ("LIFE") as the workspace title.
+   * Individual → primary contact name · Company → company name.
+   */
+  const borrowerIdentity = useMemo(
+    () => resolveOpportunityBorrowerIdentity(registryOpportunity),
+    [registryOpportunity],
+  );
+  const headerBorrowerName =
+    borrowerIdentity.displayName.trim() ||
+    contact?.name?.trim() ||
+    "";
   /** Compact Opportunity Header — single information row (Registry SSOT only). */
   const identityLine = [
-    contact?.name ? `Customer ${contact.name}` : null,
     opportunityNumber ? `Opportunity ${opportunityNumber}` : null,
     productLabel ? `Product ${productLabel}` : null,
     loanAmountLabel ? `Amount ${loanAmountLabel}` : null,
@@ -397,11 +409,12 @@ function OpportunityWorkspaceShell() {
         hidePhaseReadiness
         opportunityWorkspaceStage="strategy_workbench"
         scrollMode="document"
-        title={contact?.name ?? "LIFE"}
+        title={headerBorrowerName || "Not Specified"}
+        titleFullyVisible
         identityLine={identityLine || undefined}
         context={{
           opportunity: opportunityNumber,
-          customer: contact?.name,
+          customer: headerBorrowerName || undefined,
           product: productLabel,
           amount: loanAmountLabel,
           stage: strategicStatus,
@@ -420,7 +433,10 @@ function OpportunityWorkspaceShell() {
                 contactId: contact?.id ?? null,
                 fileId: activeLoan?.id ?? null,
                 dealId: activeLoan?.enterpriseDealId ?? null,
-                borrowerName: contact?.name ?? activeLoan?.customerName ?? null,
+                borrowerName:
+                  headerBorrowerName ||
+                  activeLoan?.customerName ||
+                  null,
                 loanProduct: productLabel || activeLoan?.loanProduct || null,
                 lenderName: activeLoan?.lender || null,
               }}
@@ -428,10 +444,12 @@ function OpportunityWorkspaceShell() {
             <AnalyzeDealTriggerButton onClick={() => setAnalyzeDealOpen(true)} />
             <OpportunityActionCenter
               entityId={opportunityId}
-              entityLabel={`${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
+              entityLabel={`${headerBorrowerName || "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
               product={productLabel}
               stage={stageLabel}
               canEditContact={Boolean(contact)}
+              customerName={headerBorrowerName || contact?.name}
+              contactId={contact?.id ?? null}
               onOpenCreditWorkbench={() => router.push(creditHref)}
               onOpenLoanWorkspace={() => {
                 adviseDocumentReadiness("open Loan Workspace", () => {
@@ -445,6 +463,7 @@ function OpportunityWorkspaceShell() {
                 setEditOpen(true);
               }}
               onUploadDocuments={() => openTab("documents")}
+              onActivitySaved={() => refresh()}
             />
             <LoanStructureCommandControl
               file={activeLoan}
@@ -646,7 +665,7 @@ function OpportunityWorkspaceShell() {
       <AnalyzeDealWorkspace
         open={analyzeDealOpen}
         onOpenChange={setAnalyzeDealOpen}
-        opportunityLabel={`${contact?.name ?? "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
+        opportunityLabel={`${headerBorrowerName || "Opportunity"} · ${opportunity?.opportunityCode ?? opportunityId}`}
         defaultProductLabel={productLabel}
         defaultProductId={
           productLabel?.toLowerCase().includes("lap") ||

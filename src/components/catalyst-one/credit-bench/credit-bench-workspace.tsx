@@ -66,6 +66,11 @@ import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EnterpriseFinancialInput } from "@/components/catalyst-one/shared/enterprise-financial-input";
+import {
+  absoluteRupeesFromStoredString,
+  absoluteRupeesToStoredString,
+} from "@/lib/enterprise-financial-input";
 import {
   Select,
   SelectContent,
@@ -618,16 +623,18 @@ export function CreditBenchWorkspace() {
                 {editingFinancial ? (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Stated Monthly Income">
-                      <Input
-                        className="h-9 text-sm"
-                        value={(stated.statedIncomeMonthly ?? "").replace(/^override:/, "")}
-                        onChange={(e) =>
+                      <EnterpriseFinancialInput
+                        value={absoluteRupeesFromStoredString(stated.statedIncomeMonthly)}
+                        onChange={(absolute) =>
                           setStated((p) => ({
                             ...p,
-                            statedIncomeMonthly: `override:${e.target.value}`,
+                            statedIncomeMonthly: absoluteRupeesToStoredString(absolute, {
+                              overridePrefix: true,
+                            }),
                           }))
                         }
-                        placeholder="e.g. 1,85,000"
+                        placeholder="e.g. 1.85"
+                        defaultUnit="lakh"
                       />
                     </Field>
                     <Field label="Stated Obligations / EMIs">
@@ -705,12 +712,16 @@ export function CreditBenchWorkspace() {
                       </Select>
                     </Field>
                     <Field label="Stated Annual Turnover">
-                      <Input
-                        className="h-9 text-sm"
-                        value={stated.statedTurnover ?? ""}
-                        onChange={(e) =>
-                          setStated((p) => ({ ...p, statedTurnover: e.target.value }))
+                      <EnterpriseFinancialInput
+                        value={absoluteRupeesFromStoredString(stated.statedTurnover)}
+                        onChange={(absolute) =>
+                          setStated((p) => ({
+                            ...p,
+                            statedTurnover: absoluteRupeesToStoredString(absolute),
+                          }))
                         }
+                        placeholder="e.g. 2.5"
+                        defaultUnit="crore"
                       />
                     </Field>
                     <Field label="Business Vintage (years)">
@@ -811,13 +822,16 @@ export function CreditBenchWorkspace() {
                       />
                     </Field>
                     <Field label="Property Value">
-                      <Input
-                        className="h-9 text-sm"
-                        value={stated.statedPropertyValue ?? ""}
-                        onChange={(e) =>
-                          setStated((p) => ({ ...p, statedPropertyValue: e.target.value }))
+                      <EnterpriseFinancialInput
+                        value={absoluteRupeesFromStoredString(stated.statedPropertyValue)}
+                        onChange={(absolute) =>
+                          setStated((p) => ({
+                            ...p,
+                            statedPropertyValue: absoluteRupeesToStoredString(absolute),
+                          }))
                         }
-                        placeholder="Approx. market value"
+                        placeholder="e.g. 1.2"
+                        defaultUnit="crore"
                       />
                     </Field>
                     <Field label="Property Location">

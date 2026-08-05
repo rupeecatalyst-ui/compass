@@ -10,6 +10,7 @@ import type {
   LenderRegistryProductCode,
 } from "@/types/enterprise-lender-registry";
 import { mapDirectoryProductIdToRegistryCode } from "@/lib/enterprise-lender-registry/map-to-directory";
+import { normalizeSupportedProductCodes } from "@/constants/enterprise-lender-registry/baseline-commercial-program-seed";
 
 export function isPublishedCommercialProgram(
   program: EnterpriseLenderProgramRecord,
@@ -40,7 +41,7 @@ export function countLendersSupportingDirectoryProduct(
   if (!code) return 0;
   return lenders.filter((l) => {
     if (l.isDeleted || !l.enabled) return false;
-    return (l.productsSupported ?? []).includes(code);
+    return normalizeSupportedProductCodes(l.productsSupported ?? []).includes(code);
   }).length;
 }
 
@@ -181,7 +182,9 @@ export function buildCommercialProgramValidationReport(
 export function supportedProductOptionsForLender(
   lender: EnterpriseLenderRecord | null | undefined,
 ): Array<{ code: LenderRegistryProductCode; label: string }> {
-  const supported = new Set(lender?.productsSupported ?? []);
+  const supported = new Set(
+    normalizeSupportedProductCodes(lender?.productsSupported ?? []),
+  );
   return LENDER_REGISTRY_PRODUCT_OPTIONS.filter((p) => supported.has(p.code)).map(
     (p) => ({ code: p.code, label: p.label }),
   );

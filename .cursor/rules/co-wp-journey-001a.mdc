@@ -1,0 +1,26 @@
+---
+description: CO-WP-JOURNEY-001A — New Opportunity UX refinement (not redesign); no deploy
+alwaysApply: true
+---
+
+# CO-WP-JOURNEY-001A — Journey UX Refinement
+
+Status: **UX Refinement** · Priority CRITICAL  
+Docs: `docs/co-wp-journey/CO-WP-JOURNEY-001A-UX-REFINEMENT.md`
+
+## Scope
+
+Refine the **New Opportunity Journey** for premium mobile feel:
+
+Progress rail · Save & Exit · Resume draft · Review · Ask Saarthi · Dynamic product details · Health % · Sticky actions · Autosave toast · Success celebration
+
+## Forbidden
+
+- Redesign the journey  
+- Change navigation architecture  
+- Add new modules  
+- Deploy without Product Owner BAT  
+
+## Related
+
+CO-WP-JOURNEY-001 · CO-WP-DEVELOPMENT-WAVE-001

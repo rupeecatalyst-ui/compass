@@ -19,6 +19,7 @@ import {
 import { DocumentReadinessDrawer } from "@/components/catalyst-one/document-center/document-readiness-drawer";
 import { DocumentRegistryPanel } from "@/components/catalyst-one/document-center/document-registry-panel";
 import { DocumentPackagesPanel } from "@/components/catalyst-one/document-center/document-packages-panel";
+import { DocumentRegistryRecordPreviewDialog } from "@/components/catalyst-one/document-center/document-registry-record-preview-dialog";
 import { DocumentCategoriesTable } from "@/components/catalyst-one/document-center/document-categories-table";
 import { DocumentOtherDocumentsTable } from "@/components/catalyst-one/document-center/document-other-documents-table";
 import { DocumentUploadProgressBar } from "@/components/catalyst-one/document-center/document-upload-zone";
@@ -147,6 +148,7 @@ export function DocumentCenterWorkspace() {
   const [attachmentsTypeRef, setAttachmentsTypeRef] = useState<string | null>(null);
   const [attachmentsLabel, setAttachmentsLabel] = useState("");
   const [otherDocs, setOtherDocs] = useState<OtherDocumentEntry[]>([]);
+  const [registryPreviewId, setRegistryPreviewId] = useState<string | null>(null);
 
   const scrollRoot = useRef<HTMLDivElement | null>(null);
   const scrollPos = useRef(0);
@@ -219,6 +221,12 @@ export function DocumentCenterWorkspace() {
       });
       if (cancelled) return;
       if (n > 0) setRegistryTick((t) => t + 1);
+      const { hydrateDocumentPackagesFromServer } = await import("@/lib/document-package");
+      const p = await hydrateDocumentPackagesFromServer({
+        opportunityId: registryListKeys.opportunityId!,
+      });
+      if (cancelled) return;
+      if (p > 0) setPackageTick((t) => t + 1);
     });
     return () => {
       cancelled = true;
@@ -802,7 +810,7 @@ export function DocumentCenterWorkspace() {
   }
 
   return (
-    <div className="-mx-4 flex min-h-0 flex-col md:-mx-6 lg:-mx-8">
+    <div className="flex w-full min-h-0 flex-col">
       <LeadOpportunityJourneyChrome
         moduleId="document_center"
         density="compact"
@@ -1037,7 +1045,7 @@ export function DocumentCenterWorkspace() {
               refreshRegistry();
               setPackageTick((t) => t + 1);
             }}
-            onPreviewRecord={(record) => openViewer(record.typeRef)}
+            onPreviewRecord={(record) => setRegistryPreviewId(record.id)}
             onReplaceRecord={(record) =>
               promptUpload(record.typeRef, record.categoryLabel, record.id)
             }
@@ -1088,6 +1096,15 @@ export function DocumentCenterWorkspace() {
         onNavigate={(typeRef) => setViewerTypeRef(typeRef)}
         onReplace={(item) => uploadDocument(item.folderId ?? item.typeRef, item.label)}
         onShowHistory={(item) => setHistoryTypeRef(item.typeRef)}
+      />
+
+      <DocumentRegistryRecordPreviewDialog
+        open={Boolean(registryPreviewId)}
+        recordId={registryPreviewId}
+        actorId={uploaderName}
+        onOpenChange={(open) => {
+          if (!open) setRegistryPreviewId(null);
+        }}
       />
 
       <DocumentVersionHistoryDrawer

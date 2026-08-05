@@ -23,7 +23,12 @@ export async function GET(_request: Request, context: RouteContext) {
     const { productId } = await context.params;
     const record = await productRegistryService.getProductById(productId);
     if (!record) return notFound("Product not found");
-    return successResponse(record);
+    const peers = await productRegistryService.queryProducts({ pageSize: 500, status: "all" });
+    const { classifyProductsForPresentation } = await import(
+      "@/lib/enterprise-product-master/presentation-canonical"
+    );
+    const classified = classifyProductsForPresentation(peers.items).find((p) => p.id === productId);
+    return successResponse(classified ?? record);
   } catch (err) {
     const mapped = mapRouteError(err);
     if (mapped.status === 401) {
@@ -40,6 +45,11 @@ export async function PATCH(request: Request, context: RouteContext) {
     requireProductRegistryAdmin(actor);
     const { productId } = await context.params;
     const body = await request.json();
+
+    const { assertProductIsCanonicalForAdminMutation } = await import(
+      "@/lib/enterprise-product-master/presentation-guards"
+    );
+    await assertProductIsCanonicalForAdminMutation(productId);
 
     const updated = await productRegistryService.updateProduct(
       productId,
@@ -88,8 +98,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (mapped.status === 401 || mapped.status === 403) {
       return fromAuthError(mapped as { status: number; body: ApiResponse<unknown> });
     }
+    const statusCode =
+      typeof err === "object" && err !== null && "statusCode" in err
+        ? Number((err as { statusCode: number }).statusCode)
+        : 400;
+    const code =
+      typeof err === "object" && err !== null && "code" in err
+        ? String((err as { code: string }).code)
+        : "PRODUCT_UPDATE_FAILED";
     const message = err instanceof Error ? err.message : "Failed to update product";
-    return errorResponse(400, "PRODUCT_UPDATE_FAILED", message);
+    return errorResponse(statusCode, code, message);
   }
 }
 
@@ -100,6 +118,11 @@ export async function DELETE(request: Request, context: RouteContext) {
     requireProductRegistryAdmin(actor);
     const { productId } = await context.params;
     const body = await request.json().catch(() => ({}));
+
+    const { assertProductIsCanonicalForAdminMutation } = await import(
+      "@/lib/enterprise-product-master/presentation-guards"
+    );
+    await assertProductIsCanonicalForAdminMutation(productId);
 
     const deleted = await productRegistryService.softDeleteProduct(
       productId,
@@ -113,7 +136,15 @@ export async function DELETE(request: Request, context: RouteContext) {
     if (mapped.status === 401 || mapped.status === 403) {
       return fromAuthError(mapped as { status: number; body: ApiResponse<unknown> });
     }
+    const statusCode =
+      typeof err === "object" && err !== null && "statusCode" in err
+        ? Number((err as { statusCode: number }).statusCode)
+        : 400;
+    const code =
+      typeof err === "object" && err !== null && "code" in err
+        ? String((err as { code: string }).code)
+        : "PRODUCT_DELETE_FAILED";
     const message = err instanceof Error ? err.message : "Failed to delete product";
-    return errorResponse(400, "PRODUCT_DELETE_FAILED", message);
+    return errorResponse(statusCode, code, message);
   }
 }

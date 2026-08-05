@@ -1,0 +1,31 @@
+# Enterprise Lender Ecosystem — Live Data Protection (CO-LENDER-ECOSYSTEM-001)
+
+Status: **ENTERPRISE APPROVED** · Priority: **P0** · Scope: Lender Ecosystem activation
+
+## Principle
+
+Existing Enterprise Lender Ecosystem data is **LIVE BUSINESS DATA**.
+
+Activation must **never** destroy, reset, or rewrite existing records merely to make development easier.
+
+## Forbidden (without explicit Product Owner written approval)
+
+- Delete / truncate / reset / re-seed / overwrite / recreate / rename / hard-delete existing:
+  - Lenders · Lending Programs · Products · Product↔Lender mappings
+  - Lender contacts · Lender documents · Policies · Document checklists
+- Orphan foreign keys or corrupt IDs
+- Production Reset, Soft Go-Live bootstrap, Tier-2 seed, baseline program seed, LR-010 `--apply`, or `co-lender-activate-operational --apply` as part of “activation”
+- Using localStorage or in-memory stores as the **source of truth** when `ENTERPRISE_PERSISTENCE_MODE=prisma`
+
+## Required
+
+- Schema changes via **additive migrations** only
+- Preserve existing IDs and relationships
+- Soft-delete only for user-removed contacts/documents (never hard-delete live lenders/programs for activation)
+- Persist mappings through Enterprise Registries (Prisma)
+
+## Related
+
+- Docs: `docs/co-lender-ecosystem-001/`
+- Registry: `src/lib/enterprise-lender-registry/` · `server/services/lender-registry/`
+- Portal: `src/lib/lender-program-portal/`

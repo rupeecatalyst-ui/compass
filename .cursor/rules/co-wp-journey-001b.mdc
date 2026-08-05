@@ -1,0 +1,17 @@
+---
+description: CO-WP-JOURNEY-001B — Business experience UX refinement; no redesign; no deploy
+alwaysApply: true
+---
+
+# CO-WP-JOURNEY-001B — Business Experience Refinement
+
+Status: **UX & Business Flow Refinement** · Priority CRITICAL  
+Docs: `docs/co-wp-journey/CO-WP-JOURNEY-001B-BUSINESS-EXPERIENCE.md`
+
+## Focus
+
+Quick vs Detailed entry · smart customer search (presentation) · product cards · draft saved sheet · RC-OPP reference · journey header · premium empty/success states.
+
+## Forbidden
+
+Redesign · new architecture · Enterprise business logic · deploy without PO BAT.

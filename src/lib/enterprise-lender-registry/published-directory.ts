@@ -1,15 +1,13 @@
 /**
- * CO-ARCH-004 / CO-LENDER-ARCH-001 / CO-LENDER-ARCH-002 — Published lender directory SSOT.
+ * CO-ARCH-004 / CO-LENDER-SSOT-REMEDIATE-001 — Published lender directory SSOT.
  *
  * Published (business visibility) = status active + enabled + lifecycleStatus active
  *   (+ operationalStatus active when present).
  *
- * Soft Go-Live (browser) and Prisma API may assign different primary keys for the same
- * master lender. Selection + Move to Deal MUST merge both and resolve by canonical
- * identity (code / seed key / name / aliases), preferring the API id for Deal.lenderId FK.
+ * Selection / Deal / Partner paths use Enterprise Lender Registry API (Prisma) ONLY.
+ * Soft Go-Live localStorage is not a selection source of truth.
  */
 import {
-  localLenderRegistryStore,
   subscribeLenderRegistryUpdated,
 } from "@/lib/enterprise-lender-registry/local-store";
 import type { EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
@@ -21,7 +19,7 @@ import {
   setPublishedLendersInflight,
   invalidatePublishedLendersSession,
 } from "@/lib/enterprise-session/published-lenders-session";
-import { ensureLenderMasterBootstrapped } from "@/lib/enterprise-lender-registry/bootstrap-master";
+import { dedupeLendersForSelection } from "@/lib/enterprise-lender-registry/presentation-canonical";
 
 let lenderInvalidateWired = false;
 function wireLenderSessionInvalidation(): void {
@@ -40,6 +38,10 @@ export interface PublishedLenderOption {
   classification?: string | null;
   institutionCategory: string;
   website?: string | null;
+  /** CO-LW-005 — Official logo / brand asset from Lender Registry. */
+  logoUrl?: string | null;
+  /** CO-LW-005 — Marketing brand name (defaults to displayName). */
+  brandName?: string | null;
   headquartersLabel?: string | null;
   customerCarePhone?: string | null;
   customerCareEmail?: string | null;
@@ -164,6 +166,8 @@ function toOption(
     classification: lender.classification,
     institutionCategory: lender.institutionCategory,
     website: lender.website,
+    logoUrl: lender.logoUrl ?? null,
+    brandName: lender.displayName || lender.label,
     headquartersLabel: lender.headquartersLabel,
     customerCarePhone: lender.customerCarePhone,
     customerCareEmail: lender.customerCareEmail,
@@ -197,78 +201,11 @@ function identityKeys(opt: PublishedLenderOption): string[] {
   return Array.from(keys);
 }
 
-function optionsOverlap(a: PublishedLenderOption, b: PublishedLenderOption): boolean {
-  const aKeys = new Set(identityKeys(a));
-  return identityKeys(b).some((k) => aKeys.has(k));
-}
-
-/**
- * Prefer API row for Deal FK; keep Soft Go-Live fields when richer.
- */
-function mergeOptions(
-  apiOpts: PublishedLenderOption[],
-  localOpts: PublishedLenderOption[],
-): PublishedLenderOption[] {
-  const merged: PublishedLenderOption[] = [];
-  const usedLocal = new Set<string>();
-
-  for (const api of apiOpts) {
-    const local = localOpts.find((l) => optionsOverlap(api, l));
-    if (local) {
-      usedLocal.add(local.id);
-      merged.push({
-        ...api,
-        source: "merged",
-        localId: local.id,
-        seedKey: api.seedKey || local.seedKey,
-        aliases: Array.from(
-          new Set([...(api.aliases ?? []), ...(local.aliases ?? []), local.code]),
-        ),
-        shortName: api.shortName || local.shortName,
-        website: api.website || local.website,
-        headquartersLabel: api.headquartersLabel || local.headquartersLabel,
-      });
-    } else {
-      merged.push(api);
-    }
-  }
-
-  for (const local of localOpts) {
-    if (usedLocal.has(local.id)) continue;
-    if (merged.some((m) => optionsOverlap(m, local))) continue;
-    merged.push(local);
-  }
-
-  return merged.sort((a, b) => a.displayName.localeCompare(b.displayName));
-}
-
-function publishedQuery() {
-  // CO-PERF-001 — Cap Soft Go-Live local query (was 5000). API path already uses 200.
-  return {
-    pageSize: 200 as const,
-    status: "active" as const,
-    enabled: true,
-    lifecycleStatus: "active" as const,
-  };
-}
-
-function listLocalPublished(search?: string): PublishedLenderOption[] {
-  if (typeof window !== "undefined") {
-    ensureLenderMasterBootstrapped();
-  }
-  const { items } = localLenderRegistryStore.queryLenders({
-    ...publishedQuery(),
-    pageSize: 200,
-    search: search?.trim() || undefined,
-  });
-  return items.filter(isLenderPublishedAndActive).map((l) => toOption(l, "local"));
-}
-
 async function listApiPublished(search?: string): Promise<PublishedLenderOption[]> {
   const q = search?.trim();
   const params = new URLSearchParams({
     page: "1",
-    pageSize: "200",
+    pageSize: "5000",
     status: "active",
     enabled: "true",
     lifecycleStatus: "active",
@@ -304,30 +241,26 @@ async function listApiPublished(search?: string): Promise<PublishedLenderOption[
     .map((l) => toOption(l, "api"));
 }
 
-/** Sync Soft Go-Live published lenders — prefers warm Enterprise Session snapshot. */
+/**
+ * Sync published lenders — API session cache only.
+ * Soft Go-Live is NOT a selection source (CO-LENDER-SSOT-REMEDIATE-001).
+ * Prefer listPublishedLenderOptionsAsync / listCanonicalEnterpriseLenderOptionsAsync.
+ */
 export function listPublishedLenderOptions(): PublishedLenderOption[] {
   wireLenderSessionInvalidation();
   const warm = peekPublishedLendersSession();
   if (warm && warm.length > 0) return warm;
-  return listLocalPublished().sort((a, b) =>
-    a.displayName.localeCompare(b.displayName),
-  );
+  return [];
 }
 
 /**
- * CO-LENDER-ARCH-002 / CO-ARCH-002 — Union of API + Soft Go-Live Published lenders.
- * Session-cached (TTL) + single-flight per search key.
- *
- * Do NOT use for Manual Recommendation / Move to Deal selection UI (CO-BUG-011).
- * Those must call listCanonicalEnterpriseLenderOptionsAsync (API / Prisma only).
+ * CO-LENDER-SSOT-REMEDIATE-001 — Published lenders from Enterprise Lender Registry API only.
+ * No Soft Go-Live merge. Throws when the registry is unavailable.
  */
 export async function listPublishedLenderOptionsAsync(
   search?: string,
 ): Promise<PublishedLenderOption[]> {
   wireLenderSessionInvalidation();
-  if (typeof window !== "undefined") {
-    ensureLenderMasterBootstrapped();
-  }
 
   const warm = peekPublishedLendersSession(search);
   if (warm) return warm;
@@ -336,28 +269,10 @@ export async function listPublishedLenderOptionsAsync(
   if (pending) return pending;
 
   const request = (async () => {
-    let apiOpts: PublishedLenderOption[] = [];
-    let apiError: Error | null = null;
-    try {
-      apiOpts = await listApiPublished(search);
-    } catch (err) {
-      apiError = err instanceof Error ? err : new Error(String(err));
-      console.error("[CO-QA-003] lender registry API failed during published merge", err);
-    }
-    const localOpts = listLocalPublished(search);
-    let merged: PublishedLenderOption[];
-    if (apiOpts.length === 0) {
-      merged = localOpts.sort((a, b) => a.displayName.localeCompare(b.displayName));
-      if (apiError && localOpts.length === 0) {
-        throw apiError;
-      }
-    } else if (localOpts.length === 0) {
-      merged = apiOpts.sort((a, b) => a.displayName.localeCompare(b.displayName));
-    } else {
-      merged = mergeOptions(apiOpts, localOpts);
-    }
-    putPublishedLendersSession(merged, search);
-    return merged;
+    const apiOpts = await listApiPublished(search);
+    const sorted = apiOpts.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    putPublishedLendersSession(sorted, search);
+    return sorted;
   })();
 
   return setPublishedLendersInflight(search, request);
@@ -372,8 +287,19 @@ export async function listCanonicalEnterpriseLenderOptionsAsync(
   search?: string,
 ): Promise<PublishedLenderOption[]> {
   const apiOpts = await listApiPublished(search);
-  return apiOpts
-    .filter(isCanonicalDealLenderOption)
+  // CO-LR-008 — presentation canonicalisation only (preserve survivor Registry ids).
+  const canonical = dedupeLendersForSelection(
+    apiOpts
+      .filter(isCanonicalDealLenderOption)
+      .map((o) => ({
+        ...o,
+        label: (o.displayName || o.code || "").trim() || o.id,
+        displayName: (o.displayName || o.code || "").trim() || o.id,
+        legalName: (o.legalName || o.displayName || o.code || "").trim() || o.id,
+        source: "api" as const,
+      })),
+  );
+  return canonical
     .map((o) => ({
       ...o,
       displayName: (o.displayName || o.code || "").trim() || o.id,

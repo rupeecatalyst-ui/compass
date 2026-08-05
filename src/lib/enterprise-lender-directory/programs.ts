@@ -5,7 +5,11 @@
 
 import { ELW_DIRECTORY_PRODUCTS } from "@/constants/enterprise-lender-directory";
 import { normalizeLenderId } from "@/constants/enterprise-lender-workspace";
-import { LENDERS_BY_PRODUCT, type LenderOffer } from "@/lib/site";
+import {
+  hasLenderProductCatalogue,
+  lenderOffersForProductSlug,
+  type LenderOffer,
+} from "@/lib/enterprise-lender-product-catalogue";
 import type {
   ElwLenderProgramRow,
   LenderEmploymentSegment,
@@ -174,8 +178,8 @@ function syntheticOffers(productId: string): LenderOffer[] {
 function offersForProduct(productId: string): { label: string; offers: LenderOffer[] } {
   const product = ELW_DIRECTORY_PRODUCTS.find((p) => p.id === productId);
   const label = product?.label ?? productId;
-  if (product?.offerSlug && LENDERS_BY_PRODUCT[product.offerSlug]) {
-    return { label, offers: LENDERS_BY_PRODUCT[product.offerSlug]! };
+  if (product?.offerSlug && hasLenderProductCatalogue(product.offerSlug)) {
+    return { label, offers: lenderOffersForProductSlug(product.offerSlug) };
   }
   return { label, offers: syntheticOffers(productId) };
 }

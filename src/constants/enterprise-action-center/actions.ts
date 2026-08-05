@@ -98,6 +98,13 @@ export const ACTION_CENTER_CATALOG: Array<
     entityTypes: ["loan"],
   },
   {
+    id: "add_activity",
+    label: "Add Activity",
+    description: "Log a typed or voice conversation activity without leaving this workspace.",
+    group: "communication",
+    entityTypes: ["loan", "opportunity", "customer"],
+  },
+  {
     id: "upload_documents",
     label: "Upload Documents",
     description: "Collect and update the transaction document checklist in place.",
@@ -178,6 +185,7 @@ export const ACTION_CENTER_CATALOG: Array<
 
 /** Reference implementation actions available in Loan Workspace. */
 export const LOAN_REFERENCE_ACTION_IDS = [
+  "add_activity",
   "send_email",
   "send_whatsapp",
   "upload_documents",
@@ -188,6 +196,7 @@ export const LOAN_REFERENCE_ACTION_IDS = [
  * Email targets are enabled; future channels appear in catalog as Coming soon.
  */
 export const DEAL_REFERENCE_ACTION_IDS = [
+  "add_activity",
   "email_lender",
   "email_customer",
   "email_partner",
@@ -199,6 +208,7 @@ export const DEAL_REFERENCE_ACTION_IDS = [
 
 /** Strategic Workspace — Action Center as primary entry (nav + contacts). */
 export const OPPORTUNITY_REFERENCE_ACTION_IDS = [
+  "add_activity",
   "open_credit_workbench",
   "open_loan_workspace",
   "add_contact",

@@ -149,7 +149,47 @@ export function createSearchProvider(): SearchProvider {
         moduleIds: filter.sourceModules.length ? filter.sourceModules : undefined,
       });
       const filtered = applyCenterFilters(entities, filter);
-      return projectSearchEntitiesToResults(filtered).map(toUiResult);
+      const results = projectSearchEntitiesToResults(filtered).map(toUiResult);
+
+      // CO-DOC-005 — live Document Package Registry hits (Package name / file / parent / uploader)
+      const q = filter.query.trim();
+      const allowPackages =
+        Boolean(q) &&
+        (filter.categoryId === "all" || filter.categoryId === "documents");
+      if (allowPackages && typeof window !== "undefined") {
+        try {
+          const { searchDocumentPackages } = await import("@/lib/document-package");
+          const { buildJourneyHref } = await import(
+            "@/constants/lead-opportunity-journey"
+          );
+          const { ROUTES } = await import("@/constants/routes");
+          const packages = await searchDocumentPackages(q);
+          for (const pkg of packages) {
+            results.push({
+              id: `doc-pkg:${pkg.id}`,
+              title: pkg.folderName,
+              subtitle: pkg.matchHint || `Uploaded by ${pkg.uploadedBy}`,
+              category: "documents",
+              summary: `Document Package · ${pkg.uploadedBy}${
+                pkg.opportunityId ? ` · ${pkg.opportunityId}` : ""
+              }`,
+              sourceModule: "Document Package Registry",
+              lastUpdated: new Date().toISOString(),
+              icon: "FolderOpen",
+              navigateAction: {
+                label: "Open Document Center",
+                href: buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
+                  opportunityId: pkg.opportunityId,
+                }),
+              },
+            });
+          }
+        } catch {
+          /* package search is best-effort */
+        }
+      }
+
+      return results;
     },
   };
 }

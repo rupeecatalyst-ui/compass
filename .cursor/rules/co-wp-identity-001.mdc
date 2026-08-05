@@ -1,0 +1,27 @@
+---
+description: CO-WP-IDENTITY-001 — Professional Identity Card (PO design; no deploy until BAT)
+alwaysApply: true
+---
+
+# CO-WP-IDENTITY-001 — Professional Identity Card
+
+Status: **PO Design · Awaiting BAT** · Priority: **CRITICAL**  
+Docs: `docs/co-wp-identity/CO-WP-IDENTITY-001-PROFESSIONAL-IDENTITY-CARD.md`
+
+## What shipped (local)
+
+- Catalyst One projects Professional Identity DTO on `GET /api/partner/home` → `visitingCard`
+- Wealth Partner App renders flip card (front / back) with official Rupee Catalyst logo
+- Authorised products · tier · branding · back copy · future placeholders come from Enterprise only
+
+## Hard rules
+
+1. Rupee Catalyst logo is mandatory and must use the official asset — never redraw.  
+2. Companion never hardcodes authorised products.  
+3. Do **not** implement Partner Tier Engine or Partner Entitlements in this sprint — DTO projection only.  
+4. **No Vercel deployment** until Product Owner BAT.  
+5. Do not reopen frozen JOURNEY-001 / 002 / 003 for this work.
+
+## BAT-002 relationship
+
+Explicit PO exception to CO-WP-BAT-002 freeze for this scoped identity card only. Broader freeze otherwise remains.

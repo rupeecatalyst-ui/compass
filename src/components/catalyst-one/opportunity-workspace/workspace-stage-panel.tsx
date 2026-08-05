@@ -1,17 +1,20 @@
 "use client";
 
+/**
+ * CO-WF-006 — Opportunity Workspace stage panel with Enterprise Transition Dialog.
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  EnterpriseStageTransitionDialog,
+  type EnterpriseStageTransitionConfirm,
+} from "@/components/catalyst-one/shared/enterprise-stage-transition-dialog";
+import { eoleSubStageLabel } from "@/constants/enterprise-stage-transition";
+import { EOLE_DEFAULT_STAGES } from "@/constants/enterprise-opportunity-lifecycle-engine/pipeline-stages";
 import { advanceEwoeWorkflowStage } from "@/lib/enterprise-workflow-orchestration-engine";
+import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
+import { EDC_EVENT_TYPES } from "@/constants/enterprise-dialogue-center/lifecycle";
 import { displayOpportunityRequirementStageLabel } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
@@ -35,6 +38,14 @@ const EOLE_ACTION_BY_STAGE: Record<string, string> = {
   disbursement: "full_disburse",
 };
 
+function eoleStageLabel(code: string): string {
+  return (
+    EOLE_DEFAULT_STAGES.find((s) => s.stageCode === code)?.stageName ??
+    STAGE_OPTIONS_PLACEHOLDER.find((s) => s.code === code)?.label ??
+    displayOpportunityRequirementStageLabel(code)
+  );
+}
+
 export function WorkspaceStagePanel() {
   const {
     opportunityId,
@@ -47,6 +58,9 @@ export function WorkspaceStagePanel() {
     overdueTaskCount,
   } = useOpportunityWorkspace();
   const [, bump] = useState(0);
+  const [transitionOpen, setTransitionOpen] = useState(false);
+  const [pendingToStage, setPendingToStage] = useState<string>("lender_review");
+  const [currentSubStage, setCurrentSubStage] = useState<string | null>(null);
 
   const draft = useMemo(
     () => (opportunityId ? getStagePlaceholderDraft(opportunityId) : null),
@@ -67,76 +81,84 @@ export function WorkspaceStagePanel() {
     overdueTaskCount,
   };
 
+  const openTransition = (toStageCode: string) => {
+    if (!opportunityId) return;
+    setPendingToStage(toStageCode);
+    placeholderOpenStageDialog(opportunityId, stageCode);
+    placeholderUpdateStageDraft(opportunityId, { nextStageCode: toStageCode });
+    placeholderEvaluateStageTransition(opportunityId, toStageCode, stageCtx);
+    setTransitionOpen(true);
+    sync();
+  };
+
   useEffect(() => {
     if (!opportunityId) return;
     if (getQuickIntent(opportunityId) !== "open_stage_dialog") return;
     placeholderConsumeQuickIntent(opportunityId);
-    placeholderOpenStageDialog(opportunityId, stageCode);
-    placeholderEvaluateStageTransition(
-      opportunityId,
-      getStagePlaceholderDraft(opportunityId).nextStageCode,
-      stageCtx,
+    openTransition(
+      getStagePlaceholderDraft(opportunityId).nextStageCode || "lender_review",
     );
-    sync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opportunityId, refreshKey]);
 
-  const advanceViaEwoe = (toStageCode: string, eoleAction: string) => {
+  const commitTransition = async (result: EnterpriseStageTransitionConfirm) => {
     if (!opportunityId) return;
-    const evalResult = placeholderEvaluateStageTransition(opportunityId, toStageCode, stageCtx);
-    if (!evalResult.allowed) {
-      placeholderOpenStageDialog(opportunityId, stageCode);
-      placeholderUpdateStageDraft(opportunityId, { nextStageCode: toStageCode });
-      const d = getStagePlaceholderDraft(opportunityId);
-      d.validationMessage = `Transition blocked: ${evalResult.missing.join("; ")}`;
-      d.missingRequirements = evalResult.missing;
-      sync();
-      return;
-    }
-    advanceEwoeWorkflowStage({
-      opportunityId,
-      toStageCode,
-      reason: `Stage change · ${eoleAction}`,
-      actorId: "workspace",
-      syncEole: false,
+    const reason = result.reason.trim() || "Confirmed via Enterprise Stage Transition";
+    placeholderUpdateStageDraft(opportunityId, {
+      nextStageCode: result.toStage,
+      remarks: reason,
     });
-    changeStage(eoleAction, toStageCode);
-    refresh();
-  };
-
-  const onConfirmDialog = () => {
-    if (!opportunityId) return;
     const confirmed = placeholderConfirmStageDialog(opportunityId, stageCtx);
     if (!confirmed) {
-      sync();
-      return;
+      const draftNow = getStagePlaceholderDraft(opportunityId);
+      throw new Error(draftNow.validationMessage || "Unable to confirm stage transition.");
     }
-    const action = EOLE_ACTION_BY_STAGE[confirmed.nextStageCode] ?? "submit_to_lender";
+
+    const action = EOLE_ACTION_BY_STAGE[result.toStage] ?? "submit_to_lender";
     advanceEwoeWorkflowStage({
       opportunityId,
-      toStageCode: confirmed.nextStageCode,
-      reason: confirmed.remarks || `Stage dialog · ${confirmed.nextStageCode}`,
+      toStageCode: result.toStage,
+      reason,
       actorId: "workspace",
       syncEole: false,
     });
-    changeStage(action, confirmed.nextStageCode);
+    changeStage(action, result.toStage);
+    setCurrentSubStage(result.toSubStageId);
+
+    try {
+      appendEdcTimelineEntry({
+        contextRef: { type: "opportunity", id: opportunityId },
+        eventType: EDC_EVENT_TYPES.STAGE_CHANGE,
+        title: `Stage: ${eoleStageLabel(result.fromStage)} → ${result.toStageLabel}`,
+        description: [
+          `Previous sub-stage: ${eoleSubStageLabel(result.fromStage, result.fromSubStage) || "Not Specified"}`,
+          `New sub-stage: ${result.toSubStageLabel || "Not Specified"}`,
+          `Reason: ${reason}`,
+        ].join(" · "),
+        actorId: "workspace",
+        expandablePayload: {
+          previousStage: result.fromStage,
+          newStage: result.toStage,
+          previousSubStage: result.fromSubStage,
+          newSubStage: result.toSubStageId,
+          opportunityId,
+          reason,
+          source: "CO-WF-006",
+        },
+      });
+    } catch {
+      /* non-blocking */
+    }
+
     sync();
   };
-
-  const evaluation = opportunityId
-    ? placeholderEvaluateStageTransition(
-        opportunityId,
-        draft?.nextStageCode ?? "lender_review",
-        stageCtx,
-      )
-    : null;
 
   return (
     <OwGlassPanel>
       <OwPanelHeader
         title="Change Stage"
         badge={displayOpportunityRequirementStageLabel(stageCode)}
-        description="EOLE lifecycle + EWOE orchestration (Dialogue + validations)"
+        description="Guide · Recommend · Confirm · Record (EOLE + EWOE + ECIE)"
       />
 
       <div className="mb-3 grid gap-2 rounded-xl border border-white/10 bg-zinc-950/40 p-3 text-xs">
@@ -144,6 +166,12 @@ export function WorkspaceStagePanel() {
           <span className="text-muted-foreground">Current stage</span>
           <span className="font-medium capitalize">
             {displayOpportunityRequirementStageLabel(stageCode)}
+          </span>
+        </div>
+        <div className="flex justify-between gap-2">
+          <span className="text-muted-foreground">Current sub-stage</span>
+          <span className="font-medium">
+            {eoleSubStageLabel(stageCode, currentSubStage) || "Not Specified"}
           </span>
         </div>
         <div className="flex justify-between gap-2">
@@ -160,121 +188,55 @@ export function WorkspaceStagePanel() {
         <Button
           size="sm"
           variant="secondary"
-          onClick={() => {
-            if (!opportunityId) return;
-            placeholderOpenStageDialog(opportunityId, stageCode);
-            placeholderEvaluateStageTransition(
-              opportunityId,
-              getStagePlaceholderDraft(opportunityId).nextStageCode,
-              stageCtx,
-            );
-            sync();
-          }}
+          onClick={() => openTransition(draft?.nextStageCode || "lender_review")}
         >
-          Open stage dialog
+          Open transition dialog
         </Button>
-        <Button
-          size="sm"
-          onClick={() => advanceViaEwoe("lender_review", "submit_to_lender")}
-        >
+        <Button size="sm" onClick={() => openTransition("lender_review")}>
           Submit to lender
         </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => advanceViaEwoe("approved", "approve")}
-        >
+        <Button size="sm" variant="secondary" onClick={() => openTransition("approved")}>
           Approve
         </Button>
       </div>
 
-      {draft?.open && (
-        <div className="mt-4 space-y-3 rounded-xl border border-teal-500/25 bg-teal-500/5 p-3">
-          <div className="space-y-1.5">
-            <Label>Possible next stages</Label>
-            <Select
-              value={draft.nextStageCode}
-              onValueChange={(v) => {
-                if (!opportunityId) return;
-                placeholderUpdateStageDraft(opportunityId, { nextStageCode: v });
-                placeholderEvaluateStageTransition(opportunityId, v, stageCtx);
-                sync();
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STAGE_OPTIONS_PLACEHOLDER.map((s) => (
-                  <SelectItem key={s.code} value={s.code}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {draft?.validationMessage && !transitionOpen ? (
+        <p className="mt-2 text-xs text-destructive">{draft.validationMessage}</p>
+      ) : null}
 
-          <div className="rounded-lg border border-white/10 bg-background/40 p-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Transition rules
-            </p>
-            <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
-              {(draft.transitionRules ?? evaluation?.rules ?? []).map((r) => (
-                <li key={r}>· {r}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="rounded-lg border border-white/10 bg-background/40 p-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Mandatory requirements / missing validations
-            </p>
-            {(draft.missingRequirements ?? evaluation?.missing ?? []).length === 0 ? (
-              <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-300">
-                All mandatory checks currently pass
-              </p>
-            ) : (
-              <ul className="mt-1 space-y-0.5 text-[11px] text-rose-600 dark:text-rose-300">
-                {(draft.missingRequirements ?? evaluation?.missing ?? []).map((m) => (
-                  <li key={m}>· {m}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Remarks</Label>
-            <Input
-              value={draft.remarks}
-              placeholder="Required for audit trail"
-              onChange={(e) => {
-                if (!opportunityId) return;
-                placeholderUpdateStageDraft(opportunityId, { remarks: e.target.value });
-                sync();
-              }}
-            />
-          </div>
-          {draft.validationMessage && (
-            <p className="text-xs text-destructive">{draft.validationMessage}</p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={onConfirmDialog}>
-              Confirm
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                if (!opportunityId) return;
-                placeholderCancelStageDialog(opportunityId);
-                sync();
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
+      <EnterpriseStageTransitionDialog
+        open={transitionOpen}
+        onOpenChange={(open) => {
+          setTransitionOpen(open);
+          if (!open && opportunityId) {
+            placeholderCancelStageDialog(opportunityId);
+            sync();
+          }
+        }}
+        engine="opportunity_eole"
+        fromStage={stageCode}
+        fromStageLabel={eoleStageLabel(stageCode)}
+        fromSubStage={currentSubStage}
+        toStage={pendingToStage}
+        toStageLabel={eoleStageLabel(pendingToStage)}
+        recommendContext={{
+          pendingDocumentCount: Math.max(
+            0,
+            (documentStats.requiredDocs?.length ?? 0) - (documentStats.verified?.size ?? 0),
+          ),
+          pendingTaskCount: overdueTaskCount,
+        }}
+        activityComposer={{
+          contextType: "opportunity",
+          contextId: opportunityId || "opportunity",
+          entityLabel: "Opportunity",
+          opportunityId: opportunityId ?? null,
+          stage: pendingToStage,
+        }}
+        actorUserId="workspace"
+        actorLabel="Workspace"
+        onConfirm={commitTransition}
+      />
     </OwGlassPanel>
   );
 }

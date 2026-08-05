@@ -1,16 +1,29 @@
 import { prisma } from "@server/lib/prisma";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import { wealthPartnerRegistryRepository } from "@server/repositories/wealth-partner-registry";
+import { ecmContactService } from "@server/services/ecm/contact.service";
 import {
   WEALTH_PARTNER_BUSINESS_SOURCING_DEFINITION,
   WEALTH_PARTNER_DOCUMENTS_NOTE,
   WEALTH_PARTNER_TYPE_OPTIONS,
 } from "@/constants/enterprise-wealth-partner-registry";
+import { isBatIsolatedWealthPartner } from "@/constants/enterprise-wealth-partner-bat";
+import {
+  advanceWealthPartnerLegalClock,
+  applyWealthPartnerLegalLifecycle,
+  composeWealthPartnerLegalCompliance,
+  generateWealthPartnerLegalDocket,
+  getLegalDocketFromCompliance,
+  mergeComplianceJson,
+} from "@/lib/enterprise-wealth-partner-legal-docket";
+import type { WealthPartnerLegalLifecycleAction } from "@/types/enterprise-wealth-partner-legal-docket";
 import type {
   CreateWealthPartnerBankAccountInput,
   CreateWealthPartnerCommissionInput,
   CreateWealthPartnerInput,
   CreateWealthPartnerNetworkMemberInput,
+  EnterpriseWealthPartnerRecord,
+  ExistingWealthPartnerSummary,
   UpdateWealthPartnerInput,
   WealthPartnerBusinessSourcingKpis,
   WealthPartnerListQuery,
@@ -22,6 +35,52 @@ export class WealthPartnerValidationError extends Error {
     super(message);
     this.name = "WealthPartnerValidationError";
   }
+}
+
+function assertNotBatIsolatedPartner(partner: {
+  code?: string | null;
+  profileJson?: unknown;
+}) {
+  if (isBatIsolatedWealthPartner(partner)) {
+    throw new WealthPartnerValidationError(
+      "BAT / UAT Demo Wealth Partners are excluded from commissions, network mutations, and business operations.",
+    );
+  }
+}
+
+/** CO-WP-006 — Contact/Company already has a Wealth Partner (structured). */
+export class WealthPartnerAlreadyExistsError extends Error {
+  readonly code = "WEALTH_PARTNER_ALREADY_REGISTERED" as const;
+  readonly existing: ExistingWealthPartnerSummary;
+
+  constructor(existing: ExistingWealthPartnerSummary, message?: string) {
+    const identityLabel =
+      existing.identityKind === "company" ? "Company" : "Contact";
+    super(
+      message ??
+        `This ${identityLabel} is already an active Wealth Partner.`,
+    );
+    this.name = "WealthPartnerAlreadyExistsError";
+    this.existing = existing;
+  }
+}
+
+function toExistingSummary(
+  partner: EnterpriseWealthPartnerRecord,
+  reason: ExistingWealthPartnerSummary["reason"],
+): ExistingWealthPartnerSummary {
+  return {
+    partnerId: partner.id,
+    code: partner.code,
+    displayName: partner.displayName,
+    partnerType: partner.partnerType,
+    status: partner.status,
+    lifecycleStatus: partner.lifecycleStatus,
+    operationalStatus: partner.operationalStatus,
+    createdAt: partner.createdAt,
+    identityKind: partner.identityKind,
+    reason,
+  };
 }
 
 function assertIdentity(input: {
@@ -59,6 +118,17 @@ export class WealthPartnerRegistryService {
     return wealthPartnerRegistryRepository.getById(await this.orgId(), id);
   }
 
+  /** CO-WP-006 — pre-convert / registry lookup by Contact or Company. */
+  async findByIdentity(identity: {
+    contactId?: string | null;
+    companyId?: string | null;
+  }) {
+    return wealthPartnerRegistryRepository.findActiveByIdentity(
+      await this.orgId(),
+      identity,
+    );
+  }
+
   async createPartner(input: CreateWealthPartnerInput) {
     assertIdentity(input);
     if (!input.partnerType?.trim()) {
@@ -73,48 +143,54 @@ export class WealthPartnerRegistryService {
       );
     }
     const organizationId = await this.orgId();
+    const identity = {
+      contactId: input.identityKind === "contact" ? input.contactId : null,
+      companyId: input.identityKind === "company" ? input.companyId : null,
+    };
 
-    const existing = await wealthPartnerRegistryRepository.findActiveByIdentity(
-      organizationId,
-      {
-        contactId: input.identityKind === "contact" ? input.contactId : null,
-        companyId: input.identityKind === "company" ? input.companyId : null,
-      },
-    );
-    if (existing) {
-      throw new WealthPartnerValidationError(
-        input.identityKind === "contact"
-          ? `Contact already converted into a Wealth Partner (${existing.code}).`
-          : `Company already converted into a Wealth Partner (${existing.code}).`,
-      );
-    }
+    // CO-WP-001 validation order:
+    // 1) Contact/Company exists → 2) active WP relationship → 3) unique code → 4) create/restore
+    let contactRow: {
+      id: string;
+      name: string;
+      mobilePrimary: string | null;
+      personalEmail: string | null;
+      city: string | null;
+      state: string | null;
+      pan: string | null;
+    } | null = null;
+    let companyRow: {
+      id: string;
+      companyName: string;
+      pan: string | null;
+      gst: string | null;
+      website: string | null;
+    } | null = null;
 
     if (input.identityKind === "contact" && input.contactId) {
-      const contact = await prisma.ecmContact.findFirst({
+      contactRow = await prisma.ecmContact.findFirst({
         where: {
           id: input.contactId,
           organizationId,
           isDeleted: false,
         },
-        select: { id: true, name: true, mobilePrimary: true, personalEmail: true, city: true, state: true, pan: true },
+        select: {
+          id: true,
+          name: true,
+          mobilePrimary: true,
+          personalEmail: true,
+          city: true,
+          state: true,
+          pan: true,
+        },
       });
-      if (!contact) {
-        throw new WealthPartnerValidationError("Contact not found in Enterprise Contact Registry.");
+      if (!contactRow) {
+        throw new WealthPartnerValidationError("Selected Contact not found.");
       }
-      return wealthPartnerRegistryRepository.createPartner(organizationId, {
-        ...input,
-        displayName: input.displayName?.trim() || contact.name,
-        identityLabel: input.identityLabel ?? contact.name,
-        mobile: input.mobile ?? contact.mobilePrimary,
-        email: input.email ?? contact.personalEmail,
-        cityLabel: input.cityLabel ?? contact.city,
-        stateLabel: input.stateLabel ?? contact.state,
-        pan: input.pan ?? contact.pan,
-      });
     }
 
     if (input.identityKind === "company" && input.companyId) {
-      const company = await prisma.ecmCompany.findFirst({
+      companyRow = await prisma.ecmCompany.findFirst({
         where: {
           id: input.companyId,
           organizationId,
@@ -128,18 +204,133 @@ export class WealthPartnerRegistryService {
           website: true,
         },
       });
-      if (!company) {
-        throw new WealthPartnerValidationError(
-          "Company not found in Enterprise Company Registry.",
-        );
+      if (!companyRow) {
+        throw new WealthPartnerValidationError("Selected Company not found.");
       }
+    }
+
+    const existing = await wealthPartnerRegistryRepository.findActiveByIdentity(
+      organizationId,
+      identity,
+    );
+    if (existing) {
+      let reason: ExistingWealthPartnerSummary["reason"] = "already_registered";
+      if (input.identityKind === "contact" && existing.contactId) {
+        const contact = await prisma.ecmContact.findFirst({
+          where: { id: existing.contactId, organizationId },
+          select: { id: true, isDeleted: true },
+        });
+        if (!contact || contact.isDeleted) {
+          reason = "orphan_identity_missing";
+        }
+      }
+      if (input.identityKind === "company" && existing.companyId) {
+        const company = await prisma.ecmCompany.findFirst({
+          where: { id: existing.companyId, organizationId },
+          select: { id: true, isDeleted: true },
+        });
+        if (!company || company.isDeleted) {
+          reason = "orphan_identity_missing";
+        }
+      }
+
+      await wealthPartnerRegistryRepository.recordPartnerActivity(
+        organizationId,
+        existing.id,
+        {
+          activityType: "conversion_duplicate_detected",
+          title: "Conversion attempted — already registered",
+          detail: `${existing.code} · ${input.identityKind}`,
+          actorUserId: input.createdBy,
+          payload: {
+            reason,
+            contactId: identity.contactId,
+            companyId: identity.companyId,
+          },
+        },
+      );
+
+      const message =
+        reason === "orphan_identity_missing"
+          ? input.identityKind === "contact"
+            ? "This Contact is linked to a Wealth Partner whose Contact registry row is missing or deleted. Open the existing Wealth Partner — do not create another."
+            : "This Company is linked to a Wealth Partner whose Company registry row is missing or deleted. Open the existing Wealth Partner — do not create another."
+          : input.identityKind === "contact"
+            ? "This Contact is already an active Wealth Partner."
+            : "This Company is already an active Wealth Partner.";
+
+      throw new WealthPartnerAlreadyExistsError(
+        toExistingSummary(existing, reason),
+        message,
+      );
+    }
+
+    const softDeleted =
+      await wealthPartnerRegistryRepository.findSoftDeletedByIdentity(
+        organizationId,
+        identity,
+      );
+    if (softDeleted) {
+      // Soft-deleted relationship: reactivate — never create a second WP for same identity.
+      const restored =
+        await wealthPartnerRegistryRepository.restoreSoftDeletedPartner(
+          organizationId,
+          softDeleted.id,
+          input.createdBy,
+        );
+      if (restored) {
+        return restored;
+      }
+    }
+
+    if (input.identityKind === "contact" && contactRow) {
+      const created = await wealthPartnerRegistryRepository.createPartner(organizationId, {
+        ...input,
+        displayName: input.displayName?.trim() || contactRow.name,
+        identityLabel: input.identityLabel ?? contactRow.name,
+        mobile: input.mobile ?? contactRow.mobilePrimary,
+        email: input.email ?? contactRow.personalEmail,
+        cityLabel: input.cityLabel ?? contactRow.city,
+        stateLabel: input.stateLabel ?? contactRow.state,
+        pan: input.pan ?? contactRow.pan,
+      });
+      // CO-ID-001 — additive partner role on Contact (identity SSOT); WP is commercial only.
+      try {
+        await ecmContactService.assignPartnerRoleForWealthPartner({
+          contactId: contactRow.id,
+          actorUserId: input.createdBy,
+          wealthPartnerId: created.id,
+          wealthPartnerCode: created.code,
+        });
+      } catch (err) {
+        console.warn("[wealth-partner-registry] partner role assignment skipped", {
+          contactId: contactRow.id,
+          partnerId: created.id,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+      await wealthPartnerRegistryRepository.recordPartnerActivity(
+        organizationId,
+        created.id,
+        {
+          activityType: "wealth_partner_created",
+          title: "Wealth Partner profile created",
+          detail: `Identity Contact ${contactRow.id} · role partner assigned`,
+          actorUserId: input.createdBy,
+          payload: { contactId: contactRow.id, identityModel: "CO-ID-001" },
+        },
+      );
+      return created;
+    }
+
+    if (input.identityKind === "company" && companyRow) {
       return wealthPartnerRegistryRepository.createPartner(organizationId, {
         ...input,
-        displayName: input.displayName?.trim() || company.companyName,
-        identityLabel: input.identityLabel ?? company.companyName,
-        pan: input.pan ?? company.pan,
-        gstin: input.gstin ?? company.gst,
-        website: input.website ?? company.website,
+        displayName: input.displayName?.trim() || companyRow.companyName,
+        identityLabel: input.identityLabel ?? companyRow.companyName,
+        pan: input.pan ?? companyRow.pan,
+        gstin: input.gstin ?? companyRow.gst,
+        website: input.website ?? companyRow.website,
       });
     }
 
@@ -176,6 +367,7 @@ export class WealthPartnerRegistryService {
     if (!partner) {
       throw new WealthPartnerValidationError("Wealth Partner not found.");
     }
+    assertNotBatIsolatedPartner(partner);
     return wealthPartnerRegistryRepository.addNetworkMember(
       organizationId,
       partnerId,
@@ -195,6 +387,7 @@ export class WealthPartnerRegistryService {
     if (!partner) {
       throw new WealthPartnerValidationError("Wealth Partner not found.");
     }
+    assertNotBatIsolatedPartner(partner);
     if (!input.label?.trim()) {
       throw new WealthPartnerValidationError("Commission label is required.");
     }
@@ -218,6 +411,7 @@ export class WealthPartnerRegistryService {
     if (!partner) {
       throw new WealthPartnerValidationError("Wealth Partner not found.");
     }
+    assertNotBatIsolatedPartner(partner);
     if (!input.accountName?.trim() || !input.bankName?.trim() || !input.accountNumber?.trim() || !input.ifsc?.trim()) {
       throw new WealthPartnerValidationError(
         "Account name, bank name, account number, and IFSC are required.",
@@ -243,6 +437,9 @@ export class WealthPartnerRegistryService {
     );
     if (!partner) {
       throw new WealthPartnerValidationError("Wealth Partner not found.");
+    }
+    if (isBatIsolatedWealthPartner(partner)) {
+      return emptySourcing();
     }
 
     const opportunityWhere =
@@ -400,6 +597,158 @@ export class WealthPartnerRegistryService {
     };
   }
 
+  private bankSummaryForPartner(
+    accounts: Awaited<
+      ReturnType<typeof wealthPartnerRegistryRepository.listBankAccounts>
+    >,
+  ): string {
+    if (!accounts.length) return "Not Specified";
+    return accounts
+      .map(
+        (a) =>
+          `${a.accountName} · ${a.bankName} · ****${a.accountNumber.slice(-4)} · ${a.ifsc}${
+            a.isPrimary ? " (Primary)" : ""
+          }`,
+      )
+      .join("; ");
+  }
+
+  /** CO-WP-007 — read-only Legal Compliance projection (advances clock in-memory only). */
+  composeLegalCompliance(
+    partner: EnterpriseWealthPartnerRecord,
+    bankSummary?: string | null,
+  ) {
+    void bankSummary;
+    const docket = advanceWealthPartnerLegalClock(
+      getLegalDocketFromCompliance(partner.complianceJson),
+    );
+    return composeWealthPartnerLegalCompliance({ partner, docket });
+  }
+
+  /**
+   * CO-WP-007 — Generate / lifecycle Legal Docket.
+   * Persists only into complianceJson + activity timeline (no migrations / no live ETD rewrite).
+   */
+  async runLegalDocketAction(
+    partnerId: string,
+    input: {
+      action: WealthPartnerLegalLifecycleAction | "generate_docket" | "renew_reactivate";
+      actorUserId: string;
+      documentId?: string | null;
+      documentRegistryLinks?: Array<{ documentId: string; documentRegistryRecordId: string }>;
+    },
+  ): Promise<WealthPartnerWorkspaceBundle> {
+    const organizationId = await this.orgId();
+    const partner = await wealthPartnerRegistryRepository.getById(
+      organizationId,
+      partnerId,
+    );
+    if (!partner) {
+      throw new WealthPartnerValidationError("Wealth Partner not found.");
+    }
+
+    const bankAccounts = await wealthPartnerRegistryRepository.listBankAccounts(
+      organizationId,
+      partnerId,
+    );
+    const bankSummary = this.bankSummaryForPartner(bankAccounts);
+    let docket = advanceWealthPartnerLegalClock(
+      getLegalDocketFromCompliance(partner.complianceJson),
+    );
+
+    if (input.action === "generate_docket" || input.action === "renew_reactivate") {
+      const hasPrior = docket.agreement.versionNumber > 0;
+      docket = generateWealthPartnerLegalDocket({
+        partner,
+        bankSummary,
+        actorUserId: input.actorUserId,
+        previous:
+          input.action === "renew_reactivate" || hasPrior ? docket : null,
+      });
+    } else if (input.action === "link_registry") {
+      // Registry id stamping only — no lifecycle transition.
+      if (!input.documentRegistryLinks?.length) {
+        throw new WealthPartnerValidationError(
+          "link_registry requires documentRegistryLinks.",
+        );
+      }
+    } else {
+      docket = applyWealthPartnerLegalLifecycle({
+        docket,
+        action: input.action,
+        actorUserId: input.actorUserId,
+        partner,
+        bankSummary,
+        documentId: input.documentId,
+      });
+    }
+
+    if (input.documentRegistryLinks?.length) {
+      const linkMap = new Map(
+        input.documentRegistryLinks.map((l) => [l.documentId, l.documentRegistryRecordId]),
+      );
+      docket = {
+        ...docket,
+        documents: docket.documents.map((d) => {
+          const regId = linkMap.get(d.id);
+          return regId ? { ...d, documentRegistryRecordId: regId } : d;
+        }),
+      };
+      if (input.action === "link_registry") {
+        docket = {
+          ...docket,
+          audit: [
+            ...docket.audit,
+            {
+              id: `aud_${Date.now().toString(36)}`,
+              action: "generated",
+              at: new Date().toISOString(),
+              actorUserId: input.actorUserId,
+              detail: `Linked ${input.documentRegistryLinks.length} document(s) to Enterprise Document Registry`,
+            },
+          ],
+        };
+      }
+    }
+
+    const complianceJson = mergeComplianceJson(partner.complianceJson, {
+      legalDocket: docket,
+      notes:
+        typeof (partner.complianceJson as { notes?: string } | null)?.notes === "string"
+          ? (partner.complianceJson as { notes?: string }).notes
+          : undefined,
+      kycStatus:
+        typeof (partner.complianceJson as { kycStatus?: string } | null)?.kycStatus ===
+        "string"
+          ? (partner.complianceJson as { kycStatus?: string }).kycStatus
+          : undefined,
+    });
+
+    await wealthPartnerRegistryRepository.updatePartner(organizationId, partnerId, {
+      complianceJson,
+      modifiedBy: input.actorUserId,
+    });
+
+    await wealthPartnerRegistryRepository.recordPartnerActivity(
+      organizationId,
+      partnerId,
+      {
+        activityType: `legal_${input.action}`,
+        title: `Legal Docket · ${input.action.replace(/_/g, " ")}`,
+        detail: `Agreement ${docket.agreement.version} · status ${docket.agreement.status}`,
+        actorUserId: input.actorUserId,
+        payload: {
+          action: input.action,
+          agreementVersion: docket.agreement.version,
+          agreementStatus: docket.agreement.status,
+          documentCount: docket.documents.filter((d) => d.status !== "archived").length,
+        },
+      },
+    );
+
+    return this.getWorkspace(partnerId);
+  }
+
   async getWorkspace(partnerId: string): Promise<WealthPartnerWorkspaceBundle> {
     const organizationId = await this.orgId();
     const partner = await wealthPartnerRegistryRepository.getById(
@@ -441,6 +790,11 @@ export class WealthPartnerRegistryService {
         }).catch(() => []),
       ]);
 
+    const legalCompliance = this.composeLegalCompliance(
+      partner,
+      this.bankSummaryForPartner(bankAccounts),
+    );
+
     return {
       partner,
       network,
@@ -463,6 +817,7 @@ export class WealthPartnerRegistryService {
           createdAt: d.createdAt.toISOString(),
         })),
       },
+      legalCompliance,
     };
   }
 }

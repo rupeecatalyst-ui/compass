@@ -19,6 +19,7 @@ import {
   Settings,
   Shield,
   SlidersHorizontal,
+  Sparkles,
   Terminal,
   type LucideIcon,
 } from "lucide-react";
@@ -29,6 +30,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard,
   Briefcase,
   Radar,
+  Sparkles,
   Bell,
   Search,
   Shield,

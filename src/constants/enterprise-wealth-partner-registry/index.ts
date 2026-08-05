@@ -61,7 +61,7 @@ export const WEALTH_PARTNER_WORKSPACE_TABS = [
   { id: "performance", label: "Performance" },
   { id: "business-sourcing", label: "Business Sourcing" },
   { id: "network", label: "Network" },
-  { id: "compliance", label: "Compliance" },
+  { id: "compliance", label: "Legal & Compliance" },
   { id: "activity", label: "Activity Timeline" },
 ] as const;
 

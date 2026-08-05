@@ -3,9 +3,8 @@
 import { Building2 } from "lucide-react";
 import { OccupancySelect } from "@/components/catalyst-one/shared/occupancy-select";
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
-import { Input } from "@/components/ui/input";
+import { EnterpriseFinancialInput } from "@/components/catalyst-one/shared/enterprise-financial-input";
 import { Label } from "@/components/ui/label";
-import { formatINRInput, parseINRInput } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
 import type { PropertyType } from "@/constants/loan-stage-master";
 import {
@@ -75,15 +74,11 @@ export function PropertyInformationCard({
         )}
 
         <PropertyField label="Approximate Property Value (₹)" className="sm:col-span-2 lg:col-span-1">
-          <Input
-            className="h-8 text-xs"
-            inputMode="numeric"
-            placeholder="e.g. 75,00,000"
-            value={formatINRInput(values.approxPropertyValue)}
-            onChange={(e) => {
-              const amount = parseINRInput(e.target.value);
-              onApproxPropertyValueChange(amount > 0 ? amount : undefined);
-            }}
+          <EnterpriseFinancialInput
+            value={values.approxPropertyValue}
+            onChange={onApproxPropertyValueChange}
+            placeholder="e.g. 75"
+            defaultUnit="lakh"
           />
         </PropertyField>
 

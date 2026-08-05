@@ -2,7 +2,10 @@ import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistenc
 import { errorResponse } from "@/lib/api/auth-route-utils";
 import type { ApiResponse } from "@/types/api";
 import { prisma } from "@server/lib/prisma";
-import { WealthPartnerValidationError } from "@server/services/wealth-partner-registry";
+import {
+  WealthPartnerAlreadyExistsError,
+  WealthPartnerValidationError,
+} from "@server/services/wealth-partner-registry";
 
 export function wealthPartnerPersistenceGuard() {
   if (!isEnterprisePersistencePrisma()) {
@@ -50,6 +53,8 @@ export function parseListQuery(url: URL): {
   partnerType: string;
   identityKind: "contact" | "company" | "all";
   status: string;
+  contactId?: string;
+  companyId?: string;
 } {
   const page = Number(url.searchParams.get("page") ?? "1");
   const pageSize = Number(url.searchParams.get("pageSize") ?? "50");
@@ -65,6 +70,8 @@ export function parseListQuery(url: URL): {
     partnerType: url.searchParams.get("partnerType") ?? "all",
     identityKind,
     status: url.searchParams.get("status") ?? "all",
+    contactId: url.searchParams.get("contactId") ?? undefined,
+    companyId: url.searchParams.get("companyId") ?? undefined,
   };
 }
 
@@ -86,10 +93,23 @@ function prismaErrorMeta(err: unknown): {
 }
 
 /**
- * Map Prisma / infra failures to actionable Wealth Partner messages (CO-WP-002).
+ * Map Prisma / infra failures to actionable Wealth Partner messages (CO-WP-002 / CO-WP-006).
  * Never return the opaque "Wealth Partner request failed" without a cause.
  */
 export function mapRouteError(err: unknown) {
+  if (err instanceof WealthPartnerAlreadyExistsError) {
+    return {
+      status: 409,
+      body: {
+        success: false,
+        error: {
+          code: "WEALTH_PARTNER_ALREADY_REGISTERED",
+          message: err.message,
+          existingWealthPartner: err.existing,
+        },
+      } satisfies ApiResponse<unknown>,
+    };
+  }
   if (err instanceof WealthPartnerValidationError) {
     return {
       status: 400,
@@ -116,7 +136,7 @@ export function mapRouteError(err: unknown) {
     };
   }
 
-  const { code: prismaCode, message } = prismaErrorMeta(err);
+  const { code: prismaCode, message, meta } = prismaErrorMeta(err);
 
   if (
     prismaCode === "P2021" ||
@@ -151,14 +171,21 @@ export function mapRouteError(err: unknown) {
   }
 
   if (prismaCode === "P2002") {
+    const target = Array.isArray(meta?.target)
+      ? meta.target.join(",")
+      : String(meta?.target ?? "");
+    const isCodeCollision = /code/i.test(target) || target === "";
     return {
       status: 409,
       body: {
         success: false,
         error: {
-          code: "WEALTH_PARTNER_DUPLICATE",
-          message:
-            "Contact already converted into a Wealth Partner (or a duplicate Wealth Partner code exists).",
+          code: isCodeCollision
+            ? "WEALTH_PARTNER_CODE_COLLISION"
+            : "WEALTH_PARTNER_DUPLICATE",
+          message: isCodeCollision
+            ? "Wealth Partner code collision detected. Retry conversion — a unique code will be generated automatically."
+            : "A unique Wealth Partner constraint was violated. Open the existing partner from the Registry if this Contact was already converted.",
         },
       } satisfies ApiResponse<unknown>,
     };

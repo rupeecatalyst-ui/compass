@@ -32,7 +32,10 @@ import {
   subscribeLenderRegistryUpdated,
 } from "@/lib/enterprise-lender-registry";
 import { bootstrapLenderMaster } from "@/lib/enterprise-lender-registry/bootstrap-master";
+import { seedBaselineCommercialProgramsLocal } from "@/lib/enterprise-lender-registry/seed-baseline-programs";
 import { canMaintainEnterpriseLenderRegistry } from "@/lib/enterprise-lender-registry/permissions";
+import { authenticatedJsonFetch } from "@/lib/api-client";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import {
   buildCommercialProgramValidationReport,
   buildLenderRegistryAdminDashboardMetrics,
@@ -64,6 +67,7 @@ export function LenderRegistryAdminWorkspace() {
   const [programWizardOpen, setProgramWizardOpen] = useState(false);
   const [programWizardLenderId, setProgramWizardLenderId] = useState<string | undefined>();
   const [showValidation, setShowValidation] = useState(false);
+  const [seedingPrograms, setSeedingPrograms] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,11 +119,50 @@ export function LenderRegistryAdminWorkspace() {
         [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "admin",
       );
       toast.success(
-        `Master seed v${result.seedVersion}: +${result.created} lenders, ${result.updated} updated. Programs are never auto-created.`,
+        `Master seed v${result.seedVersion}: +${result.created} lenders, ${result.updated} updated.`,
       );
       void load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Master seed failed");
+    }
+  }
+
+  async function runBaselineProgramSeed() {
+    setSeedingPrograms(true);
+    try {
+      const actor =
+        [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "admin";
+      if (isEnterprisePersistencePrisma()) {
+        const res = await authenticatedJsonFetch("/api/lender-registry/seed-baseline-programs", {
+          method: "POST",
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.success) {
+          const msg =
+            (typeof body?.error?.message === "string" && body.error.message) ||
+            "Baseline program seed failed. Soft Go-Live local fallback is disabled.";
+          throw new Error(msg);
+        }
+        const r = body.data as {
+          programsCreated: number;
+          programsSkipped: number;
+          capabilityFilled: number;
+          capabilityNormalized: number;
+        };
+        toast.success(
+          `Baseline programs: +${r.programsCreated} created, ${r.programsSkipped} skipped · capability +${r.capabilityFilled} / normalized ${r.capabilityNormalized}.`,
+        );
+      } else {
+        const local = seedBaselineCommercialProgramsLocal(actor);
+        toast.success(
+          `Baseline programs (local): +${local.programsCreated} created, ${local.programsSkipped} skipped · capability +${local.capabilityFilled}.`,
+        );
+      }
+      void load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Baseline program seed failed");
+    } finally {
+      setSeedingPrograms(false);
     }
   }
 
@@ -129,19 +172,30 @@ export function LenderRegistryAdminWorkspace() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col gap-1 overflow-hidden px-2 py-1 md:px-2.5 md:py-1.5">
       <PageHeader
+        density="registry"
         title="Lender Registry"
-        description="CO-ARCH-005 — Lender identity (SSOT) · Supported Products (capability) · Commercial Programs (intentional) · Published Programs (comparison only)."
+        description="Identity · capabilities · commercial programs"
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" asChild>
-              <a href={ROUTES.LENDERS}>Open comparison (read-only)</a>
+          <div className="flex flex-wrap gap-1.5">
+            <Button type="button" variant="outline" size="sm" className="h-7 text-[11px]" asChild>
+              <a href={ROUTES.LENDERS}>Open comparison</a>
             </Button>
             {canMaintain ? (
               <>
-                <Button type="button" variant="outline" size="sm" onClick={runMasterBootstrap}>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-[11px]" onClick={runMasterBootstrap}>
                   Seed / Refresh Master
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  disabled={seedingPrograms}
+                  onClick={() => void runBaselineProgramSeed()}
+                >
+                  {seedingPrograms ? "Seeding…" : "Seed Programs"}
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => openProgramWizard()}>
                   <Plus className="mr-1 h-4 w-4" /> New Product Program
@@ -161,23 +215,21 @@ export function LenderRegistryAdminWorkspace() {
         </Card>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <MetricCard label="Total Lenders" value={metrics.totalLenders} />
-        <MetricCard label="Supported Products" value={metrics.supportedProductAssignments} hint="Capability assignments" />
-        <MetricCard label="Commercial Programs" value={metrics.commercialPrograms} />
-        <MetricCard label="Published Programs" value={metrics.publishedPrograms} />
-        <MetricCard label="Draft Programs" value={metrics.draftPrograms} />
-        <MetricCard
-          label="Awaiting Approval"
-          value={metrics.programsAwaitingApproval}
-        />
+      <div className="grid shrink-0 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
+        <MetricCard label="Lenders" value={metrics.totalLenders} />
+        <MetricCard label="Capabilities" value={metrics.supportedProductAssignments} hint="Product assignments" />
+        <MetricCard label="Programs" value={metrics.commercialPrograms} />
+        <MetricCard label="Published" value={metrics.publishedPrograms} />
+        <MetricCard label="Draft" value={metrics.draftPrograms} />
+        <MetricCard label="Awaiting" value={metrics.programsAwaitingApproval} />
       </div>
 
-      <Card className="space-y-2 p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto">
+      <Card className="space-y-2 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-semibold">Enterprise Validation Report</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm font-semibold">Validation</p>
+            <p className="text-[11px] text-muted-foreground">
               Master quality {masterQuality.passed ? "PASS" : "REVIEW"} ·{" "}
               {programValidation.lendersWithCapabilityButZeroPrograms.length} lenders with
               capability but zero programs · {programValidation.unpublishedPrograms.length}{" "}
@@ -320,8 +372,9 @@ export function LenderRegistryAdminWorkspace() {
               ) : lenders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-sm text-muted-foreground">
-                    No lenders yet. Click <strong>Seed / Refresh Master</strong> for identity masters
-                    only — then use <strong>New Product Program</strong> to configure commercials.
+                    No lenders yet. Click <strong>Seed / Refresh Master</strong>, then{" "}
+                    <strong>Seed Default Programs</strong> for baseline capability + commercial
+                    programs — admins retain full control afterward.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -415,6 +468,8 @@ export function LenderRegistryAdminWorkspace() {
         </div>
       </Card>
 
+      </div>
+
       <NewLenderWizard
         open={lenderWizardOpen}
         onOpenChange={setLenderWizardOpen}
@@ -441,9 +496,9 @@ function MetricCard({
   hint?: string;
 }) {
   return (
-    <Card className="p-3">
+    <Card className="p-2">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold tabular-nums">{value}</p>
+      <p className="text-lg font-semibold tabular-nums leading-tight">{value}</p>
       {hint ? <p className="text-[10px] text-muted-foreground">{hint}</p> : null}
     </Card>
   );

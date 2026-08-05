@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, FileText, Building2, Search, User } from "lucide-react";
+import { Clock, FileText, Building2, FolderOpen, Search, User } from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -35,6 +35,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const { user } = useAuthContext();
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
+  const [packageResults, setPackageResults] = useState<
+    Array<{ id: string; title: string; subtitle: string; href: string }>
+  >([]);
 
   const showOrganizationRoutes = user?.role && hasAnyRole(user.role, [ROLES.SUPER_ADMIN]);
 
@@ -42,6 +45,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const q = query.trim();
     if (!q) {
       setSearchResults([]);
+      setPackageResults([]);
       return;
     }
 
@@ -51,6 +55,30 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         setSearchResults(searchGlobal(q));
       }
     });
+    // CO-DOC-005 — Document Package Registry (name / file / opportunity / uploader)
+    void Promise.all([
+      import("@/lib/document-package"),
+      import("@/constants/lead-opportunity-journey"),
+      import("@/constants/routes"),
+    ]).then(([{ searchDocumentPackages }, { buildJourneyHref }, { ROUTES }]) =>
+      searchDocumentPackages(q).then((items) => {
+        if (cancelled) return;
+        setPackageResults(
+          items.map((pkg) => ({
+            id: pkg.id,
+            title: pkg.folderName,
+            subtitle:
+              pkg.matchHint ||
+              `Document Package · ${pkg.uploadedBy}${
+                pkg.opportunityId ? ` · ${pkg.opportunityId}` : ""
+              }`,
+            href: buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
+              opportunityId: pkg.opportunityId,
+            }),
+          })),
+        );
+      }),
+    );
 
     return () => {
       cancelled = true;
@@ -61,6 +89,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     onOpenChange(false);
     setQuery("");
     setSearchResults([]);
+    setPackageResults([]);
     router.push(href);
   };
 
@@ -85,6 +114,21 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 ) : (
                   <User className="mr-2 h-4 w-4" />
                 )}
+                <div className="flex flex-col">
+                  <span>{result.title}</span>
+                  <span className="text-xs text-muted-foreground">{result.subtitle}</span>
+                </div>
+                <CommandShortcut>↵</CommandShortcut>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {query.trim() && packageResults.length > 0 && (
+          <CommandGroup heading="Document Packages">
+            {packageResults.map((result) => (
+              <CommandItem key={`doc-pkg-${result.id}`} onSelect={() => navigate(result.href)}>
+                <FolderOpen className="mr-2 h-4 w-4" />
                 <div className="flex flex-col">
                   <span>{result.title}</span>
                   <span className="text-xs text-muted-foreground">{result.subtitle}</span>

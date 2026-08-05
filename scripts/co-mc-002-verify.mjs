@@ -1,66 +1,66 @@
 /**
- * CO-MC-002 — Static verify for Mission Control Enterprise Intelligence.
- * Run: node scripts/co-mc-002-verify.mjs
+ * CO-MC-002 — CHANAKYA Intelligence (static verify).
+ * Additive Mission Control module — Radar / Executive Briefing implementations untouched.
  */
 
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
-const exists = (rel) => fs.existsSync(path.join(root, rel));
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-for (const rel of [
-  "src/constants/mission-control-enterprise-intelligence.ts",
-  "src/types/mission-control-enterprise-intelligence.ts",
-  "src/lib/mission-control-enterprise-intelligence/derive-sections.ts",
-  "src/mission-control/enterprise-intelligence/EnterpriseIntelligencePlatform.tsx",
-  "docs/co-mc-002/CO-MC-002-MISSION-CONTROL-ENTERPRISE-INTELLIGENCE-READINESS-REPORT.md",
-]) {
-  assert.ok(exists(rel), `missing ${rel}`);
+function read(rel) {
+  return readFileSync(join(root, rel), "utf8");
 }
 
-const constants = read("src/constants/mission-control-enterprise-intelligence.ts");
-assert.match(constants, /MISSION_CONTROL_ANALYTICS_REFRESH_CRON/);
-assert.match(constants, /30 20 \* \* \*/);
-assert.match(constants, /executive_summary/);
-assert.match(constants, /ai_executive/);
-assert.match(constants, /wealth_partner/);
+function mustExist(rel) {
+  assert.ok(existsSync(join(root, rel)), `Missing: ${rel}`);
+}
 
-const compose = read(
-  "server/services/enterprise-metrics-engine/compose-mission-control-snapshot.ts",
-);
-assert.match(compose, /deriveMissionControlEnterpriseIntelligence/);
-assert.match(compose, /intelligence/);
-assert.match(compose, /CO-MC-002/);
+mustExist("src/lib/chanakya-intelligence/index.ts");
+mustExist("src/mission-control/chanakya-intelligence/ChanakyaIntelligencePage.tsx");
+mustExist("src/app/(mission-control)/mission-control/chanakya-intelligence/page.tsx");
+mustExist("src/constants/chanakya-intelligence/index.ts");
+mustExist("src/types/chanakya-intelligence.ts");
 
-const eme = read("server/services/enterprise-metrics-engine/index.ts");
-assert.match(eme, /opportunities:/);
-assert.match(eme, /composeMissionControlExecutiveSnapshot/);
+const compose = read("src/lib/chanakya-intelligence/index.ts");
+assert.match(compose, /buildChanakyaRadarDashboard/);
+assert.match(compose, /composeChanakyaIntelligenceModel/);
+assert.match(compose, /activityMomentumScore/);
+assert.match(compose, /galaxy/);
+assert.match(compose, /river/);
+assert.match(compose, /heat/);
+assert.match(compose, /pulse/);
 
-const services = read("src/mission-control/executive-briefing/services.ts");
-assert.match(services, /enterpriseIntelligence/);
-assert.match(services, /intelligence/);
-assert.ok(
-  !/deriveMissionControlEnterpriseIntelligence\s*\(/.test(services),
-  "MC page must not derive intelligence live",
-);
-assert.ok(
-  !/composeMissionControlExecutiveSnapshot\s*\(/.test(services),
-  "MC page must not compose snapshot live",
-);
+const page = read("src/mission-control/chanakya-intelligence/ChanakyaIntelligencePage.tsx");
+assert.match(page, /Galaxy View|ci-galaxy|createChanakyaIntelligenceWidgets/);
+assert.match(page, /WidgetRenderer/);
 
-const page = read("src/mission-control/executive-briefing/ExecutiveBriefingPage.tsx");
-assert.match(page, /EnterpriseIntelligencePlatform/);
-assert.ok(!/BusinessPerformanceSection/.test(page), "two-column Business Performance must be retired from primary layout");
-assert.ok(!/lg:grid-cols-2/.test(page));
+const registry = read("src/mission-control/feature-registry/registry.ts");
+assert.match(registry, /mc-chanakya-intelligence/);
+assert.match(registry, /CHANAKYA Intelligence/);
+assert.match(registry, /mc-chanakya-radar/);
+assert.match(registry, /Executive Dashboard/);
+assert.match(registry, /primaryOrder/);
 
-assert.match(read("vercel.json"), /30 20 \* \* \*/);
-assert.match(
-  read("src/constants/mission-control-snapshot.ts"),
-  /30 20 \* \* \*/,
-);
+const routes = read("src/constants/routes.ts");
+assert.match(routes, /MISSION_CONTROL_CHANAKYA_INTELLIGENCE/);
 
-console.log("CO-MC-002 Mission Control Enterprise Intelligence verify: PASS");
+const rail = read("src/mission-control/shell/navigation-rail.tsx");
+assert.match(rail, /Sparkles/);
+
+// Additive: Radar workspace and Executive Briefing page must still exist unchanged as modules
+mustExist("src/components/catalyst-one/chanakya-radar/chanakya-radar-workspace.tsx");
+mustExist("src/mission-control/executive-briefing/ExecutiveBriefingPage.tsx");
+
+const widgets = read("src/mission-control/chanakya-intelligence/widget-registry.ts");
+assert.match(widgets, /ci-galaxy-view/);
+assert.match(widgets, /ci-river-flow/);
+assert.match(widgets, /ci-heat-map/);
+assert.match(widgets, /ci-pulse-monitor/);
+
+console.log("CO-MC-002 verify: PASS");
+console.log("  CHANAKYA Intelligence 2×2 registered in Mission Control");
+console.log("  Primary tabs: Radar · Intelligence · Executive Dashboard");
+console.log("  Consumes Radar + Activity Intelligence (no parallel formulas)");

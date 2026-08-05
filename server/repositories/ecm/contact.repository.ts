@@ -1,4 +1,5 @@
 import { prisma } from "@server/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import type { EcmContactQuery } from "@/types/enterprise-contact-master";
 import {
   mapPrismaContactToDomain,
@@ -25,6 +26,21 @@ export class EcmContactRepository {
     return row ? mapPrismaContactToDomain(row) : null;
   }
 
+  /**
+   * CO-CONTACT-IDENTITY-001 — Resolve any Contact for mobile (including soft-deleted).
+   * Does not change uniqueness; used for restore / open-existing UX only.
+   */
+  async findIdentityByMobile(organizationId: string, mobilePrimary: string) {
+    const row = await prisma.ecmContact.findFirst({
+      where: {
+        organizationId,
+        mobilePrimary,
+      },
+      orderBy: [{ isDeleted: "asc" }, { updatedAt: "desc" }],
+    });
+    return row ? mapPrismaContactToDomain(row) : null;
+  }
+
   /** Exact official-email match (case-insensitive). Prefer over fuzzy search for dedupe. */
   async findByOfficialEmail(organizationId: string, officialEmail: string) {
     const email = officialEmail.trim();
@@ -41,9 +57,25 @@ export class EcmContactRepository {
 
   async query(organizationId: string, query: EcmContactQuery = {}) {
     const page = Math.max(1, query.page ?? 1);
-    const pageSize = query.pageSize ?? 100;
+    const pageSize = Math.min(Math.max(query.pageSize ?? 100, 1), 500);
     const search = query.search?.trim();
     const status = query.status ?? "all";
+    const institutionKeys = (query.institutionKeys ?? [])
+      .map((k) => k.trim())
+      .filter(Boolean);
+
+    // Institution-scoped Banker lookup uses JSON path SQL (role_profiles) —
+    // Prisma JsonFilter equals is case-sensitive and cannot OR across aliases cleanly.
+    if (institutionKeys.length > 0) {
+      return this.queryByInstitutionKeys(organizationId, {
+        ...query,
+        page,
+        pageSize,
+        search,
+        status,
+        institutionKeys,
+      });
+    }
 
     const where: NonNullable<Parameters<typeof prisma.ecmContact.findMany>[0]>["where"] = {
       organizationId,
@@ -102,21 +134,143 @@ export class EcmContactRepository {
                 ? "name"
                 : "updatedAt";
 
-    const [total, rows] = await prisma.$transaction([
-      prisma.ecmContact.count({ where }),
-      prisma.ecmContact.findMany({
-        where,
-        orderBy: { [orderByField]: sortDir },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ]);
+    const skip = (page - 1) * pageSize;
+    const rows = await prisma.ecmContact.findMany({
+      where,
+      orderBy: { [orderByField]: sortDir },
+      skip,
+      take: pageSize,
+    });
+
+    let total: number;
+    if (query.skipTotal) {
+      total = skip + rows.length + (rows.length === pageSize ? 1 : 0);
+    } else {
+      total = await prisma.ecmContact.count({ where });
+    }
 
     return {
       items: rows.map(mapPrismaContactToDomain),
       total,
       page,
       pageSize,
+    };
+  }
+
+  /**
+   * CO-BUG-LSC-LOOKUP — Fast institution-scoped Contact query.
+   * Filters role_profiles.lender_employee.{institution,institutionLabel,lenderName}
+   * so LSC never paginates the full banker table client-side.
+   */
+  private async queryByInstitutionKeys(
+    organizationId: string,
+    query: EcmContactQuery & {
+      page: number;
+      pageSize: number;
+      search?: string;
+      status: NonNullable<EcmContactQuery["status"]>;
+      institutionKeys: string[];
+    },
+  ) {
+    const keyVariants = [
+      ...new Set(
+        query.institutionKeys.flatMap((k) => {
+          const raw = k.trim();
+          if (!raw) return [];
+          return [raw, raw.toLowerCase()];
+        }),
+      ),
+    ];
+
+    const institutionOr: Prisma.EcmContactWhereInput[] = keyVariants.flatMap((key) => {
+      const clauses: Prisma.EcmContactWhereInput[] = [
+        { roleProfiles: { path: ["lender_employee", "institution"], equals: key } },
+        { roleProfiles: { path: ["lender_employee", "institutionLabel"], equals: key } },
+        { roleProfiles: { path: ["lender_employee", "lenderName"], equals: key } },
+      ];
+      if (key.length >= 3) {
+        clauses.push(
+          {
+            roleProfiles: {
+              path: ["lender_employee", "institutionLabel"],
+              string_contains: key,
+            },
+          },
+          {
+            roleProfiles: {
+              path: ["lender_employee", "lenderName"],
+              string_contains: key,
+            },
+          },
+        );
+      }
+      return clauses;
+    });
+
+    const andClauses: Prisma.EcmContactWhereInput[] = [{ OR: institutionOr }];
+
+    const where: Prisma.EcmContactWhereInput = {
+      organizationId,
+      isDeleted: false,
+      roles: { hasSome: query.roles?.length ? query.roles : ["lender_employee"] },
+      AND: andClauses,
+    };
+
+    if (query.status === "active") {
+      where.status = { not: "archived" };
+      where.enabled = true;
+    } else if (query.status !== "all") {
+      where.status = query.status;
+    }
+
+    if (query.search?.trim()) {
+      const search = query.search.trim();
+      andClauses.push({
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { mobilePrimary: { contains: search } },
+          { mobileSecondary: { contains: search } },
+          { personalEmail: { contains: search, mode: "insensitive" } },
+          { officialEmail: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    const sortBy = query.sortBy ?? "name";
+    const sortDir = query.sortDir ?? "asc";
+    const orderByField =
+      sortBy === "modifiedOn"
+        ? "updatedAt"
+        : sortBy === "createdOn"
+          ? "createdAt"
+          : sortBy === "lastActiveOn"
+            ? "lastActiveAt"
+            : sortBy === "contactScore"
+              ? "contactScore"
+              : sortBy === "name"
+                ? "name"
+                : "updatedAt";
+
+    const skip = (query.page - 1) * query.pageSize;
+    const rows = await prisma.ecmContact.findMany({
+      where,
+      orderBy: { [orderByField]: sortDir },
+      skip,
+      take: query.pageSize,
+    });
+
+    let total: number;
+    if (query.skipTotal) {
+      total = skip + rows.length + (rows.length === query.pageSize ? 1 : 0);
+    } else {
+      total = await prisma.ecmContact.count({ where });
+    }
+
+    return {
+      items: rows.map(mapPrismaContactToDomain),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
     };
   }
 

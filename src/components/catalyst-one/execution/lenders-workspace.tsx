@@ -13,13 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ExecutionWorkspaceShell } from "@/components/catalyst-one/execution/execution-workspace-shell";
+import { EnterpriseLenderRegistrySelect } from "@/components/catalyst-one/shared/enterprise-lender-registry-select";
 import { cn } from "@/lib/utils";
 import type { LoanLenderExecution, LenderExecutionStatus } from "@/types/catalyst-one";
 import { loanManagers } from "@/data/catalyst-one/loan-files";
 import {
-  findPublishedLenderByDisplayName,
-  listPublishedLenderDisplayNames,
-  listPublishedLenderDisplayNamesAsync,
+  listPublishedLenderOptionsAsync,
+  type PublishedLenderOption,
 } from "@/lib/enterprise-lender-registry/published-directory";
 
 function nowIso() {
@@ -43,19 +43,28 @@ export function LendersWorkspace({
 }) {
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
-  const [registryNames, setRegistryNames] = useState<string[]>([]);
+  const [registryById, setRegistryById] = useState<Map<string, PublishedLenderOption>>(
+    () => new Map(),
+  );
+  const [draftLenderId, setDraftLenderId] = useState("");
+  const [draftLenderName, setDraftLenderName] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    void listPublishedLenderDisplayNamesAsync().then((names) => {
-      if (!cancelled && names.length) setRegistryNames(names);
-    });
+    void listPublishedLenderOptionsAsync()
+      .then((opts) => {
+        if (cancelled) return;
+        setRegistryById(new Map(opts.map((o) => [o.id, o])));
+      })
+      .catch(() => {
+        if (!cancelled) setRegistryById(new Map());
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
   const [draft, setDraft] = useState<Partial<LoanLenderExecution>>({
-    lender: listPublishedLenderDisplayNames()[0] ?? "",
     branch: "",
     relationshipManager: loanManagers[0] ?? "",
     loginDate: new Date().toISOString().slice(0, 10),
@@ -64,7 +73,6 @@ export function LendersWorkspace({
     caseSubStage: "",
     remarks: "",
   });
-  const lenderOptions = registryNames;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -88,23 +96,23 @@ export function LendersWorkspace({
   const statusLabel = lenders.length === 0 ? "No lender assigned" : `${lenders.filter((l) => l.status === "active").length} active`;
 
   const addLender = () => {
-    if (!draft.lender) return;
+    if (!draftLenderId) return;
     const ts = nowIso();
-    const published = findPublishedLenderByDisplayName(draft.lender);
+    const published = registryById.get(draftLenderId);
     const lender: LoanLenderExecution = {
       id: newId("lnd"),
-      lender: published?.displayName ?? draft.lender,
-      lenderRef: published ? `lender:${published.code}` : undefined,
+      lender: published?.displayName ?? draftLenderName,
+      lenderRef: published ? `lender:${published.id}` : `lender:${draftLenderId}`,
       lenderCode: published?.code,
       lenderLegalName: published?.legalName,
-      lenderDisplayName: published?.displayName,
+      lenderDisplayName: published?.displayName ?? draftLenderName,
       lenderClassification: published?.classification ?? undefined,
       lenderInstitutionCategory: published?.institutionCategory,
       lenderWebsite: published?.website ?? undefined,
       lenderCustomerCarePhone: published?.customerCarePhone ?? undefined,
       lenderCustomerCareEmail: published?.customerCareEmail ?? undefined,
       lenderHeadquarters: published?.headquartersLabel ?? undefined,
-      lenderRegistryId: published?.id,
+      lenderRegistryId: published?.id ?? draftLenderId,
       branch: draft.branch?.trim() || published?.headquartersLabel || undefined,
       relationshipManager: draft.relationshipManager?.trim() || undefined,
       loginDate: draft.loginDate?.trim() || undefined,
@@ -122,6 +130,8 @@ export function LendersWorkspace({
       `Lender assigned: ${lender.lender}${lender.lenderCode ? ` (${lender.lenderCode})` : ""}${lender.applicationNumber ? ` · Ref ${lender.applicationNumber}` : ""}`,
     );
     setAdding(false);
+    setDraftLenderId("");
+    setDraftLenderName("");
   };
 
   const markClosed = (id: string) => {
@@ -166,14 +176,15 @@ export function LendersWorkspace({
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Lender *">
-              <Select value={draft.lender ?? ""} onValueChange={(v) => setDraft((d) => ({ ...d, lender: v }))}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {lenderOptions.map((l) => (
-                    <SelectItem key={l} value={l} className="text-xs">{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <EnterpriseLenderRegistrySelect
+                value={draftLenderId || undefined}
+                selectedName={draftLenderName || undefined}
+                onSelect={(lender) => {
+                  setDraftLenderId(lender.id);
+                  setDraftLenderName(lender.name);
+                }}
+                placeholder="Search Enterprise Lender Registry…"
+              />
             </Field>
             <Field label="Branch">
               <Input className="h-8 text-xs" value={draft.branch ?? ""} onChange={(e) => setDraft((d) => ({ ...d, branch: e.target.value }))} />

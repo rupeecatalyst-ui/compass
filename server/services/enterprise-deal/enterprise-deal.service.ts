@@ -32,7 +32,6 @@ import {
   validateStageTransition,
 } from "@server/services/enterprise-deal/deal-validation";
 import {
-  assertInvoicePartyForDealStage,
   isValidInvoicePartyType,
 } from "@server/services/enterprise-deal/deal-invoice-party";
 import { prisma } from "@server/lib/prisma";
@@ -586,10 +585,9 @@ export class EnterpriseDealService {
       allowSkip: Boolean(input.allowSkip),
     });
 
-    assertInvoicePartyForDealStage({
-      toGrossStage,
-      invoicePartyId: deal.invoicePartyId,
-    });
+    // CO-DWS-001 / CO-DWS-001C — Invoice Party does not block Lender Pipeline stage movement.
+    // Accounting Setup Pending is Action Center / readiness only.
+    // Accounting operations must call assertInvoicePartyForAccountingOperation.
 
     const updated = await enterpriseDealRepository.transitionDeal({
       organizationId,

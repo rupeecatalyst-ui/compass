@@ -1,13 +1,27 @@
+/**
+ * EUX-007 / CO-CHANAKYA-007 — Contextual Live Intelligence messages.
+ *
+ * Read-path only. Consumes live Deal / Opportunity / Document / ETE SSOTs.
+ * Never invents deleted, demo, or cached historical operational facts.
+ */
+
 import {
   buildChanakyaRadarDashboard,
   type ChanakyaRadarDealRow,
   type ChanakyaRadarIntelligenceItem,
 } from "@/lib/chanakya-radar/derive-dashboard";
 import { loadRadarDealFilesSync } from "@/lib/chanakya-radar/radar-deal-source";
+import {
+  getLiveOpportunitiesSync,
+  resolveLiveDealPortfolio,
+  scopeLiveDealPortfolioToEntity,
+  type ChanakyaLiveEntityRef,
+  type LiveDealPortfolio,
+} from "@/lib/chanakya-live-intelligence/live-ssot";
+import { getAllDocumentRegistryRecords } from "@/lib/document-registry";
 import { listEcmContacts } from "@/lib/enterprise-contact-master";
-import { listEteTasks } from "@/lib/enterprise-task-engine/task-registry";
-import { columnForTask } from "@/lib/enterprise-task-engine/task-workspace";
 import { buildChanakyaWorkloadInsights } from "@/lib/enterprise-task-engine/workload-intelligence";
+import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import type {
   ChanakyaLiveIntelligenceMessage,
   ChanakyaLiveIntelligenceWorkspace,
@@ -21,12 +35,12 @@ function loop(
     return [
       {
         id: "empty",
-        text: "CHANAKYA is monitoring — no urgent signals right now.",
+        text: "No relevant live enterprise information is available.",
         tone: "success",
       },
       {
         id: "empty-loop",
-        text: "CHANAKYA is monitoring — no urgent signals right now.",
+        text: "No relevant live enterprise information is available.",
         tone: "success",
       },
     ];
@@ -36,6 +50,21 @@ function loop(
 
 function quiet(text: string): ChanakyaLiveIntelligenceMessage[] {
   return loop([{ id: "quiet", text, tone: "success" }]);
+}
+
+const NO_LIVE =
+  "No relevant live enterprise information is available for this workspace.";
+
+function dealBookWorkspaces(workspace: ChanakyaLiveIntelligenceWorkspace): boolean {
+  return (
+    workspace === "mission_control" ||
+    workspace === "radar" ||
+    workspace === "my_deals" ||
+    workspace === "loan_files" ||
+    workspace === "documents" ||
+    workspace === "lenders" ||
+    workspace === "default"
+  );
 }
 
 /** Mission Control / Radar — SSOT via buildChanakyaRadarDashboard (no duplicate formulas). */
@@ -60,7 +89,7 @@ export function buildMissionControlLiveMessages(
   if (sla > 0) {
     items.push({
       id: "sla",
-      text: `${sla} opportunit${sla === 1 ? "y has" : "ies have"} crossed SLA.`,
+      text: `${sla} deal${sla === 1 ? " has" : "s have"} crossed SLA.`,
       tone: "danger",
     });
   }
@@ -87,7 +116,7 @@ export function buildMissionControlLiveMessages(
   if (worked > 0) {
     items.push({
       id: "worked",
-      text: `${worked} opportunit${worked === 1 ? "y was" : "ies were"} worked today.`,
+      text: `${worked} deal${worked === 1 ? " was" : "s were"} worked today.`,
       tone: "success",
     });
   }
@@ -111,7 +140,7 @@ export function buildMissionControlLiveMessages(
     });
   }
 
-  return loop(items);
+  return items.length ? loop(items) : quiet(NO_LIVE);
 }
 
 function buildContactsLiveMessages(): ChanakyaLiveIntelligenceMessage[] {
@@ -220,6 +249,28 @@ function buildLoanFilesLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveI
 
 function buildDocumentsLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveIntelligenceMessage[] {
   const items: ChanakyaLiveIntelligenceMessage[] = [];
+
+  /** Prefer Document Registry (excludes deleted/archived) over LoanFile checklist projections. */
+  const registryActive = getAllDocumentRegistryRecords().filter((r) => r.status === "active");
+  const registryUnverified = registryActive.filter((r) => !r.verifiedAt);
+
+  if (registryActive.length > 0) {
+    if (registryUnverified.length > 0) {
+      items.push({
+        id: "reg-pending",
+        text: `${registryUnverified.length} live document${registryUnverified.length === 1 ? "" : "s"} awaiting verification.`,
+        tone: "warning",
+      });
+    } else {
+      items.push({
+        id: "reg-clear",
+        text: `${registryActive.length} active document${registryActive.length === 1 ? "" : "s"} on file — registry is current.`,
+        tone: "success",
+      });
+    }
+    return loop(items);
+  }
+
   const pending = rows.filter((r) => r.pendingDocs > 0);
   if (pending.length > 0) {
     items.push({
@@ -243,9 +294,7 @@ function buildDocumentsLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveI
       tone: "success",
     });
   }
-  return items.length
-    ? loop(items)
-    : quiet("Document center is clear — no missing package signals.");
+  return items.length ? loop(items) : quiet(NO_LIVE);
 }
 
 function buildTasksLiveMessages(): ChanakyaLiveIntelligenceMessage[] {
@@ -282,29 +331,125 @@ function buildLendersLiveMessages(rows: ChanakyaRadarDealRow[]): ChanakyaLiveInt
       tone: "warning",
     });
   }
-  return items.length
-    ? loop(items)
-    : quiet("Lender book is stable — no escalation signals.");
+  return items.length ? loop(items) : quiet("Lender book is stable — no escalation signals.");
 }
 
-function buildOpportunitiesLiveMessages(
-  rows: ChanakyaRadarDealRow[],
-): ChanakyaLiveIntelligenceMessage[] {
-  return buildMissionControlLiveMessages(rows, []);
+function buildOpportunitiesLiveMessages(): ChanakyaLiveIntelligenceMessage[] {
+  const { items: opps, hydrated } = getLiveOpportunitiesSync();
+  if (!hydrated) {
+    return quiet("Loading live Opportunity Registry signals…");
+  }
+  if (opps.length === 0) {
+    return quiet(NO_LIVE);
+  }
+
+  const items: ChanakyaLiveIntelligenceMessage[] = [];
+  items.push({
+    id: "opp-count",
+    text: `${opps.length} active opportunit${opps.length === 1 ? "y" : "ies"} in the live registry.`,
+    tone: "info",
+  });
+
+  const onHold = opps.filter((o) => (o.lifecycleStatus || "").toLowerCase() === "on_hold").length;
+  if (onHold > 0) {
+    items.push({
+      id: "opp-hold",
+      text: `${onHold} opportunit${onHold === 1 ? "y is" : "ies are"} on hold.`,
+      tone: "warning",
+    });
+  }
+
+  const requirement = opps.filter(
+    (o) => (o.lifecycleStatus || "").toLowerCase() === "requirement_captured",
+  ).length;
+  if (requirement > 0) {
+    items.push({
+      id: "opp-req",
+      text: `${requirement} opportunit${requirement === 1 ? "y has" : "ies have"} requirement captured.`,
+      tone: "success",
+    });
+  }
+
+  const active = getActiveOpportunityContext();
+  if (active?.opportunityId) {
+    const match = opps.find(
+      (o) =>
+        o.id === active.opportunityId ||
+        o.opportunityNumber === active.opportunityReference ||
+        o.opportunityNumber === active.opportunityId,
+    );
+    if (match) {
+      const label =
+        match.primaryContactName ||
+        match.companyName ||
+        match.opportunityNumber ||
+        "Current Opportunity";
+      items.push({
+        id: "opp-active",
+        text: `Open context: ${label}${match.productLabel ? ` · ${match.productLabel}` : ""}.`,
+        tone: "info",
+      });
+    } else {
+      items.push({
+        id: "opp-active-missing",
+        text: "Active Opportunity context is not present in the live registry.",
+        tone: "warning",
+      });
+    }
+  }
+
+  return loop(items);
 }
+
+export type BuildChanakyaLiveIntelligenceOptions = {
+  portfolio?: LiveDealPortfolio;
+  entity?: ChanakyaLiveEntityRef | null;
+};
 
 /**
  * Resolve contextual Live Intelligence messages for a workspace.
  * Loan-linked contexts reuse Radar SSOT rows — no parallel metric engines.
+ * CO-CHANAKYA-007 — refuses untrusted local/demo fallback when Registry is operational.
  */
 export function buildChanakyaLiveIntelligenceMessages(
   workspace: ChanakyaLiveIntelligenceWorkspace,
+  options?: BuildChanakyaLiveIntelligenceOptions,
 ): ChanakyaLiveIntelligenceMessage[] {
   try {
     if (workspace === "contacts") return buildContactsLiveMessages();
     if (workspace === "tasks") return buildTasksLiveMessages();
+    if (workspace === "opportunities") return buildOpportunitiesLiveMessages();
+    if (workspace === "accounting") {
+      return quiet("Accounting signals monitor live ledgers — open CHANAKYA for detail.");
+    }
+    if (workspace === "horizon") {
+      return quiet("Horizon outlook monitors live forecasts — open CHANAKYA for detail.");
+    }
 
-    const model = buildChanakyaRadarDashboard(loadRadarDealFilesSync().files);
+    const base =
+      options?.portfolio ?? resolveLiveDealPortfolio(loadRadarDealFilesSync());
+    const active = getActiveOpportunityContext();
+    const entity: ChanakyaLiveEntityRef = {
+      dealId: options?.entity?.dealId,
+      fileId: options?.entity?.fileId,
+      opportunityId:
+        options?.entity?.opportunityId ||
+        (workspace === "loan_files" ? active?.opportunityId : undefined),
+    };
+    const portfolio =
+      workspace === "loan_files"
+        ? scopeLiveDealPortfolioToEntity(base, entity)
+        : base;
+
+    if (!portfolio.isLiveTrusted) {
+      return quiet(portfolio.reason || NO_LIVE);
+    }
+
+    if (dealBookWorkspaces(workspace) && portfolio.files.length === 0) {
+      return quiet(portfolio.reason || NO_LIVE);
+    }
+
+    const model = buildChanakyaRadarDashboard(portfolio.files);
     const { rows, intelligence } = model;
 
     switch (workspace) {
@@ -313,18 +458,12 @@ export function buildChanakyaLiveIntelligenceMessages(
       case "my_deals":
       case "default":
         return buildMissionControlLiveMessages(rows, intelligence);
-      case "opportunities":
-        return buildOpportunitiesLiveMessages(rows);
       case "loan_files":
         return buildLoanFilesLiveMessages(rows);
       case "documents":
         return buildDocumentsLiveMessages(rows);
       case "lenders":
         return buildLendersLiveMessages(rows);
-      case "accounting":
-        return quiet("Accounting signals are monitoring — open CHANAKYA for detail.");
-      case "horizon":
-        return quiet("Horizon outlook is monitoring — open CHANAKYA for detail.");
       default:
         return buildMissionControlLiveMessages(rows, intelligence);
     }

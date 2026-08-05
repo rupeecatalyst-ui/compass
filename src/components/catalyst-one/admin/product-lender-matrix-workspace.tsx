@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * CO-ADMIN-005 — Product × Lender matrix (no hardcoding).
+ * CO-ADMIN-005 / CO-PR-004 — Product × Lender matrix (no hardcoding).
+ * Columns are canonical-family deduped; checkboxes treat legacy alias codes as selected.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/design-system/page-header";
+import { productCodesShareSelectionFamily } from "@/constants/enterprise-product-master";
 
 type MatrixProduct = { id: string; code: string; label: string; isSecured?: boolean | null };
 type MatrixLender = {
@@ -19,6 +21,10 @@ type MatrixLender = {
   institutionCategory: string;
   productsSupported: string[];
 };
+
+function lenderSupportsProduct(lender: MatrixLender, productCode: string): boolean {
+  return lender.productsSupported.some((c) => productCodesShareSelectionFamily(c, productCode));
+}
 
 export function ProductLenderMatrixWorkspace() {
   const [products, setProducts] = useState<MatrixProduct[]>([]);
@@ -51,9 +57,11 @@ export function ProductLenderMatrixWorkspace() {
   }, [load]);
 
   const toggle = async (lender: MatrixLender, productCode: string, checked: boolean) => {
-    const next = checked
-      ? [...new Set([...lender.productsSupported, productCode])]
-      : lender.productsSupported.filter((c) => c !== productCode);
+    // Drop all alias/family codes for this product, then optionally add the canonical code.
+    const withoutFamily = lender.productsSupported.filter(
+      (c) => !productCodesShareSelectionFamily(c, productCode),
+    );
+    const next = checked ? [...new Set([...withoutFamily, productCode])] : withoutFamily;
     setSavingId(lender.lenderId);
     setError(null);
     try {
@@ -83,10 +91,10 @@ export function ProductLenderMatrixWorkspace() {
   };
 
   return (
-    <div className="mx-auto max-w-[96rem] space-y-4 px-4 py-6">
+    <div className="w-full max-w-none space-y-4 px-4 py-4 md:px-5 lg:px-6">
       <PageHeader
         title="Product–Lender Matrix"
-        description="Configure which lenders offer which products. Changes apply immediately to Deal eligibility — no deployment required."
+        description="Configure which lenders offer which products. Columns show each Enterprise Product once (canonical family). Changes apply immediately to Deal eligibility."
         actions={
           <Button type="button" size="sm" onClick={() => void load()} disabled={loading}>
             Refresh
@@ -104,7 +112,7 @@ export function ProductLenderMatrixWorkspace() {
             <tr className="border-b">
               <th className="sticky left-0 bg-background p-2 font-medium">Lender</th>
               {products.map((p) => (
-                <th key={p.code} className="max-w-[6rem] p-2 font-medium" title={p.label}>
+                <th key={p.code} className="max-w-[6rem] p-2 font-medium" title={`${p.label} (${p.code})`}>
                   <span className="line-clamp-2">{p.label}</span>
                 </th>
               ))}
@@ -120,7 +128,7 @@ export function ProductLenderMatrixWorkspace() {
                   </div>
                 </td>
                 {products.map((p) => {
-                  const on = lender.productsSupported.includes(p.code);
+                  const on = lenderSupportsProduct(lender, p.code);
                   return (
                     <td key={p.code} className="p-2 text-center">
                       <Checkbox

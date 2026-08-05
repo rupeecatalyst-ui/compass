@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Target } from "lucide-react";
 import { OpportunityRegistryTable } from "@/components/catalyst-one/my-opportunities/opportunity-registry-table";
-import { WorkspaceExitNav } from "@/components/enterprise/navigation";
+import { EnterpriseRegistryWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-registry-workspace-shell";
 import {
   MY_OPPORTUNITIES_OFFICIAL_NAME,
   MY_OPPORTUNITIES_SUBTITLE,
@@ -274,63 +273,49 @@ export function MyOpportunitiesWorkspace() {
   );
 
   return (
-    <div
-      className="flex h-[calc(100vh-3.5rem)] flex-col gap-0 overflow-hidden"
-      data-sprint="CO-ARCH-003"
+    <EnterpriseRegistryWorkspaceShell
+      title={MY_OPPORTUNITIES_OFFICIAL_NAME}
+      subtitle={MY_OPPORTUNITIES_SUBTITLE}
+      count={rows.length}
+      countNoun="Opportunities"
+      breadcrumbs={buildSimpleWorkspaceBreadcrumbs(MY_OPPORTUNITIES_OFFICIAL_NAME)}
       data-surface="opportunity-registry"
-    >
-      <WorkspaceExitNav
-        breadcrumbs={buildSimpleWorkspaceBreadcrumbs(MY_OPPORTUNITIES_OFFICIAL_NAME)}
-        className="shrink-0"
-      />
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden px-2.5 py-1.5 md:px-3 md:py-2">
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <Target className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            <h1 className="truncate text-sm font-semibold tracking-tight md:text-[15px]">
-              {MY_OPPORTUNITIES_OFFICIAL_NAME}
-            </h1>
-            <span className="hidden text-[11px] text-muted-foreground sm:inline">
-              · {MY_OPPORTUNITIES_SUBTITLE}
-            </span>
-            <span
-              className={cn(
-                "rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
-                error
-                  ? "bg-amber-500/15 text-amber-900 dark:text-amber-200"
-                  : "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
-              )}
-              title={error ?? undefined}
-            >
-              {sourceLabel}
-            </span>
-          </div>
-          <p className="text-[11px] tabular-nums text-muted-foreground">
-            {rows.length} opportunities
-          </p>
-        </header>
-
-        {error ? (
+      data-sprint="CO-ARCH-003"
+      statusSlot={
+        <span
+          className={cn(
+            "rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+            error
+              ? "bg-amber-500/15 text-amber-900 dark:text-amber-200"
+              : "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
+          )}
+          title={error ?? undefined}
+        >
+          {sourceLabel}
+        </span>
+      }
+      banner={
+        error ? (
           <p className="shrink-0 text-[11px] text-amber-800 dark:text-amber-200" role="status">
             Opportunity Registry unavailable — {error}
           </p>
-        ) : null}
-
-        <OpportunityRegistryTable
-          rows={rows}
-          loading={loading}
-          listContextLabel={listContextLabel}
-          onClearListContext={listContextLabel ? clearListContext : undefined}
-          onOpenOpportunity={(row) => openOpportunityWorkspace(router, row)}
-          onEditOpportunity={(row) => editOpportunityWorkspace(router, row)}
-          onDeleteOpportunity={handleDeleteOpportunity}
-          onAssignUsers={handleAssignUsers}
-          onRefresh={() => {
-            notifyOpportunitiesUpdated();
-            refresh();
-          }}
-        />
-      </div>
-    </div>
+        ) : null
+      }
+    >
+      <OpportunityRegistryTable
+        rows={rows}
+        loading={loading}
+        listContextLabel={listContextLabel}
+        onClearListContext={listContextLabel ? clearListContext : undefined}
+        onOpenOpportunity={(row) => openOpportunityWorkspace(router, row)}
+        onEditOpportunity={(row) => editOpportunityWorkspace(router, row)}
+        onDeleteOpportunity={handleDeleteOpportunity}
+        onAssignUsers={handleAssignUsers}
+        onRefresh={() => {
+          notifyOpportunitiesUpdated();
+          refresh();
+        }}
+      />
+    </EnterpriseRegistryWorkspaceShell>
   );
 }

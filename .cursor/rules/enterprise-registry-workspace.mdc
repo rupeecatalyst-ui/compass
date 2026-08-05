@@ -1,0 +1,31 @@
+# Enterprise Registry Workspace Layout — Platform Standard
+
+Status: **ENTERPRISE APPROVED** · Sprint foundation: **CO-UX-016**
+
+## Constitutional principles
+
+1. Registry pages are **data-centric** — maximise visible rows.
+2. Shared chrome only — `EnterpriseRegistryWorkspaceShell`.
+3. Presentation densification must **never** change registry ownership, APIs, permissions, or business logic.
+4. Counters are concise: `Contacts (29)` — never shouty uppercase banners.
+5. Search / filter toolbar stays sticky; the grid scrolls independently.
+
+## SSOT paths
+
+| Concern | Path |
+|---|---|
+| Shell | `src/components/catalyst-one/shared/enterprise-registry-workspace-shell.tsx` |
+| Tokens / counter helper | `src/constants/enterprise-registry-workspace.ts` |
+| Table density | `src/components/catalyst-one/enterprise-grid/enterprise-data-grid.tsx` (`fillViewport`, sticky toolbar) |
+| Docs | `docs/co-ux-016/CO-UX-016-REGISTRY-WORKSPACE-OPTIMISATION-REPORT.md` |
+
+## Forbidden
+
+- Page-specific oversized headers that push the table below the fold  
+- Parallel registry chrome families  
+- Changing filter semantics / query ownership to “save space”
+
+## Related
+
+- `workspace-layout-architecture.mdc` (Registry vs Workspace vs Dashboard)
+- `enterprise-screen-ux-standard.mdc`

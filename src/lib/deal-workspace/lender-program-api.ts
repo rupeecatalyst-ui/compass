@@ -26,13 +26,13 @@ export async function searchActiveLenders(opts?: {
 }): Promise<EnterpriseLenderRecord[]> {
   const params = new URLSearchParams({
     page: "1",
-    pageSize: String(opts?.pageSize ?? 200),
+    pageSize: String(opts?.pageSize ?? 5000),
     status: "active",
     enabled: "true",
     lifecycleStatus: "active",
   });
   if (opts?.search?.trim()) params.set("search", opts.search.trim());
-  const data = await apiFetch<{ items: EnterpriseLenderRecord[] }>(
+  const data = await apiFetch<{ items: EnterpriseLenderRecord[]; total: number }>(
     `/api/lender-registry/lenders?${params}`,
   );
   return data.items ?? [];

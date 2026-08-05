@@ -62,13 +62,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { searchAssignableUsers, type AssignableUserOption } from "@/lib/assigned-users";
 import { cn } from "@/lib/utils";
-import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { TaskCommitmentDialog } from "@/components/catalyst-one/tasks/task-commitment-dialog";
 import { TaskDetailDrawer } from "@/components/catalyst-one/tasks/task-detail-drawer";
 import { MyWorkPanel } from "@/components/catalyst-one/tasks/my-work-panel";
 import { TaskReportsPanel } from "@/components/catalyst-one/tasks/task-reports-panel";
 import { ChanakyaMark } from "@/components/layout/chanakya-mark";
+import { ensureEnterpriseTasksDemoSeed } from "@/lib/enterprise-task-engine";
 
 const PREDEFINED = Object.values(ETE_PREDEFINED_DESCRIPTIONS);
 
@@ -103,150 +104,7 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 function seedEnterpriseTasksIfEmpty() {
-  if (!isDemoSeedEnabled()) return;
-  if (listEteTasks().length > 0) return;
-  const now = Date.now();
-  const iso = (offsetMs: number) => new Date(now + offsetMs).toISOString();
-
-  const seeds: Parameters<typeof registerEteTask>[0][] = [
-    {
-      taskType: ETE_TASK_TYPES.OPPORTUNITY,
-      category: "workflow",
-      assigneeRef: "employee:rm-001",
-      opportunityRef: "opp-demo-001",
-      entityKind: "Opportunity",
-      entityId: "opp-demo-001",
-      title: "Follow-up Documents",
-      workType: "Document Collection",
-      status: "open",
-      predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.FOLLOW_UP_DOCUMENTS,
-      dueOn: iso(2 * 60 * 60 * 1000),
-      reportingManagerRef: "employee:mgr-001",
-      assignedByRef: "employee:mgr-001",
-      borrowerName: "Priya Nair",
-      loanProduct: "Home Loan",
-      lenderName: "HDFC Bank",
-      grossStage: "Document Center",
-      priority: "high",
-      createdBy: "system",
-    },
-    {
-      taskType: ETE_TASK_TYPES.OPPORTUNITY,
-      category: "workflow",
-      assigneeRef: "employee:rm-001",
-      opportunityRef: "opp-demo-002",
-      entityKind: "Opportunity",
-      entityId: "opp-demo-002",
-      title: "Follow-up Lender",
-      workType: "Lender Call",
-      status: "open",
-      predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.FOLLOW_UP_LENDER,
-      dueOn: iso(-26 * 60 * 60 * 1000),
-      reportingManagerRef: "employee:mgr-001",
-      assignedByRef: "employee:mgr-001",
-      borrowerName: "Arjun Mehta",
-      loanProduct: "LAP",
-      lenderName: "ICICI Bank",
-      grossStage: "Lender Pipeline",
-      priority: "high",
-      createdBy: "system",
-    },
-    {
-      taskType: ETE_TASK_TYPES.OPPORTUNITY,
-      category: "workflow",
-      assigneeRef: "employee:rm-001",
-      opportunityRef: "opp-demo-003",
-      entityKind: "Opportunity",
-      entityId: "opp-demo-003",
-      title: "Customer Meeting",
-      workType: "Customer Call",
-      status: "open",
-      predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.CUSTOMER_MEETING,
-      dueOn: iso(26 * 60 * 60 * 1000),
-      assignedByRef: "employee:mgr-001",
-      borrowerName: "Sneha Kapoor",
-      loanProduct: "Personal Loan",
-      grossStage: "Opportunity Workspace",
-      priority: "medium",
-      createdBy: "system",
-    },
-    {
-      taskType: ETE_TASK_TYPES.OPPORTUNITY,
-      category: "workflow",
-      assigneeRef: "employee:ops-001",
-      opportunityRef: "opp-demo-004",
-      entityKind: "Opportunity",
-      entityId: "opp-demo-004",
-      title: "Verify CIBIL",
-      workType: "Verification",
-      status: "open",
-      predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.VERIFY_CIBIL,
-      dueOn: iso(4 * 24 * 60 * 60 * 1000),
-      assignedByRef: "employee:mgr-001",
-      borrowerName: "Vikram Shah",
-      loanProduct: "Home Loan BT",
-      lenderName: "SBI",
-      grossStage: "Credit Workbench",
-      priority: "medium",
-      createdBy: "system",
-    },
-    {
-      taskType: ETE_TASK_TYPES.INDEPENDENT,
-      category: "general",
-      assigneeRef: "employee:ops-001",
-      entityKind: "Workflow",
-      entityId: "org-ops",
-      title: "Weekly ops standup prep",
-      workType: "Internal Review",
-      status: "open",
-      predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.INTERNAL_REVIEW,
-      description: "Weekly ops standup prep",
-      dueOn: iso(10 * 24 * 60 * 60 * 1000),
-      department: "Operations",
-      assignedByRef: "employee:mgr-001",
-      priority: "low",
-      createdBy: "system",
-    },
-    {
-      taskType: ETE_TASK_TYPES.INDEPENDENT,
-      category: "general",
-      assigneeRef: "employee:hr-001",
-      predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.CUSTOM,
-      description: "HR policy walkthrough",
-      dueOn: iso(20 * 24 * 60 * 60 * 1000),
-      department: "HR",
-      assignedByRef: "employee:mgr-001",
-      priority: "medium",
-      createdBy: "system",
-    },
-    {
-      taskType: ETE_TASK_TYPES.INDEPENDENT,
-      category: "general",
-      assigneeRef: "employee:ops-001",
-      predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.GENERAL,
-      description: "Office administration — vendor invoice",
-      dueOn: iso(40 * 24 * 60 * 60 * 1000),
-      department: "Administration",
-      assignedByRef: "employee:mgr-001",
-      priority: "low",
-      createdBy: "system",
-    },
-    {
-      taskType: ETE_TASK_TYPES.INDEPENDENT,
-      category: "general",
-      assigneeRef: "employee:rm-001",
-      predefinedDescription: ETE_PREDEFINED_DESCRIPTIONS.CUSTOM,
-      description: "Compliance checklist Q2",
-      department: "Compliance",
-      assignedByRef: "employee:mgr-001",
-      priority: "high",
-      createdBy: "system",
-    },
-  ];
-
-  for (const seed of seeds) {
-    registerEteTask(seed);
-  }
+  ensureEnterpriseTasksDemoSeed();
 }
 
 /**
@@ -273,7 +131,10 @@ export function TaskEngineWorkspace() {
   const boardScrollRef = useRef<HTMLDivElement>(null);
 
   const [taskType, setTaskType] = useState<EteTask["taskType"]>(ETE_TASK_TYPES.INDEPENDENT);
-  const [assignee, setAssignee] = useState("employee:rm-001");
+  const [assignee, setAssignee] = useState("");
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUserOption[]>([]);
+  const [assigneesLoading, setAssigneesLoading] = useState(false);
+  const [assigneesError, setAssigneesError] = useState<string | null>(null);
   const [predefined, setPredefined] = useState<EteTask["predefinedDescription"]>(
     ETE_PREDEFINED_DESCRIPTIONS.CALL_CUSTOMER,
   );
@@ -292,6 +153,38 @@ export function TaskEngineWorkspace() {
     refresh();
     refreshTaskDueReminders(listEteTasks());
   }, []);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    let cancelled = false;
+    setAssigneesLoading(true);
+    setAssigneesError(null);
+    void searchAssignableUsers("")
+      .then((rows) => {
+        if (cancelled) return;
+        setAssignableUsers(rows);
+        setAssignee((prev) => {
+          if (prev && rows.some((u) => `user:${u.id}` === prev || u.id === prev)) {
+            return prev.startsWith("user:") ? prev : `user:${prev}`;
+          }
+          return rows[0] ? `user:${rows[0].id}` : "";
+        });
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setAssignableUsers([]);
+          setAssigneesError(
+            e instanceof Error ? e.message : "Enterprise Employee Registry unavailable.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAssigneesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [createOpen]);
 
   const insights = useMemo(() => {
     const workload = buildChanakyaWorkloadInsights("employee:rm-001").map((i) => i.text);
@@ -466,6 +359,10 @@ export function TaskEngineWorkspace() {
 
   const onCreate = () => {
     setCreateError(null);
+    if (!assignee.trim()) {
+      setCreateError("Assignee is required (Enterprise Employee Registry).");
+      return;
+    }
     try {
       const isWorkflow = taskType === ETE_TASK_TYPES.OPPORTUNITY;
       registerEteTask({
@@ -913,16 +810,38 @@ export function TaskEngineWorkspace() {
             )}
             <div className="space-y-1.5">
               <Label>Assignee</Label>
-              <Select value={assignee} onValueChange={setAssignee}>
+              <Select
+                value={assignee || undefined}
+                onValueChange={setAssignee}
+                disabled={assigneesLoading || Boolean(assigneesError)}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue
+                    placeholder={
+                      assigneesLoading
+                        ? "Loading employees…"
+                        : assigneesError
+                          ? "Employee Registry unavailable"
+                          : "Select assignee"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="employee:rm-001">Rahul Sharma</SelectItem>
-                  <SelectItem value="employee:ops-001">Ops Desk</SelectItem>
-                  <SelectItem value="employee:hr-001">HR Desk</SelectItem>
+                  {assignableUsers.map((u) => (
+                    <SelectItem key={u.id} value={`user:${u.id}`}>
+                      {u.fullName}
+                      {u.email ? ` · ${u.email}` : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {assigneesError ? (
+                <p className="text-[11px] text-destructive">{assigneesError}</p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Enterprise Employee Registry (SSOT)
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Due</Label>

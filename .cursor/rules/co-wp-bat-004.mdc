@@ -1,0 +1,25 @@
+---
+description: CO-WP-BAT-004 hotfix deployed; STOP features — await PO BAT
+alwaysApply: true
+---
+
+# CO-WP-BAT-004 — Hotfix Deployed · AWAITING PO BAT
+
+Status: **DEPLOYED** · **NO FURTHER FEATURE DEVELOPMENT**  
+Docs: `docs/co-wp-bat/CO-WP-BAT-004-DEPLOYED.md`
+
+## Live
+
+- WP: https://wealth-partner-app.vercel.app · **0.9.1** · `dpl_7dqF3G6LAwid8pLqJZ8xTAVeGy1c`
+- C1: https://catalyst-one-two.vercel.app · `dpl_BVfT8N4ZBK5jDw74qLi7rMFQfrqg`
+
+## Included
+
+Placeholder persistence · Premium Opportunity recovery · Navigation resolution
+
+## Agent behaviour
+
+1. **STOP** — no new modules or features until Product Owner BAT completes.  
+2. Do **not** begin EEE / Tier Engine / Entitlements.  
+3. Do **not** deploy again unless PO requests an explicit BAT hotfix.  
+4. Only answer questions, document findings, or apply **explicit PO-approved BAT hotfixes**.

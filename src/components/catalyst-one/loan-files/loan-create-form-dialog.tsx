@@ -28,7 +28,6 @@ import {
 import { CUSTOMER_SEED } from "@/data/catalyst-one/customer-seed";
 import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { loanManagers } from "@/data/catalyst-one/loan-files";
-import { listPublishedLenderDisplayNames } from "@/lib/enterprise-lender-registry/published-directory";
 import {
   mapContactOptionsToParticipantEntities,
   syncParticipantLegacyFields,
@@ -572,7 +571,7 @@ export function LoanCreateFormDialog({
         loanAmount: values.requiredAmount,
         requiredAmount: values.requiredAmount,
         approxCibilScore: values.approxCibilScore,
-        lender: listPublishedLenderDisplayNames()[0] ?? "State Bank of India",
+        lender: "",
         relationshipManager: values.relationshipManager,
         priority: values.priority,
         loginDate: new Date(values.loginDate).toISOString(),

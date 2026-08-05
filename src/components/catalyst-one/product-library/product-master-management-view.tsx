@@ -211,13 +211,18 @@ export function ProductMasterManagementView() {
   return (
     <ProductLibraryShell
       title="Product Master"
-      description="Maintain enterprise products without code changes. Dropdowns across Opportunity and Deal consume this master."
+      description="Canonical Enterprise Products only. Historical duplicate rows remain in the database for compatibility and are hidden from this maintenance screen."
       showSearch
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search code, name, description…"
     >
       <div className="space-y-4">
+        <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          CO-PR-005 — Administrators manage <strong className="text-foreground">canonical</strong>{" "}
+          Products only. Legacy / Historical duplicates are not selectable and do not appear in
+          selectors or the Product–Lender Matrix.
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select
             value={enabledFilter}
@@ -417,6 +422,7 @@ export function ProductMasterManagementView() {
                 <TableHead>Order</TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Presentation</TableHead>
                 <TableHead>Secured</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Segment</TableHead>
@@ -429,6 +435,15 @@ export function ProductMasterManagementView() {
                   <TableCell className="text-xs">{row.sortOrder}</TableCell>
                   <TableCell className="font-mono text-xs">{row.code}</TableCell>
                   <TableCell className="text-xs font-medium">{row.label}</TableCell>
+                  <TableCell>
+                    <StatusPill
+                      variant={
+                        row.presentationRole === "legacy" ? "warning" : "info"
+                      }
+                    >
+                      {row.presentationBadge ?? "Canonical"}
+                    </StatusPill>
+                  </TableCell>
                   <TableCell className="text-xs">
                     {row.isSecured === true ? "Secured" : row.isSecured === false ? "Unsecured" : "—"}
                   </TableCell>
@@ -441,6 +456,10 @@ export function ProductMasterManagementView() {
                     {(row.customerSegment ?? []).join(", ") || "—"}
                   </TableCell>
                   <TableCell className="space-x-1 text-right">
+                    {row.presentationRole === "legacy" ? (
+                      <span className="text-[10px] text-muted-foreground">Not editable</span>
+                    ) : (
+                    <>
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(row)}>
                       Edit
                     </Button>
@@ -484,6 +503,8 @@ export function ProductMasterManagementView() {
                     >
                       Archive
                     </Button>
+                    </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

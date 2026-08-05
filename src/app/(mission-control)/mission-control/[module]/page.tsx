@@ -3,7 +3,12 @@ import { MissionControlWorkspaceScaffold } from "@/mission-control/app";
 import { listMissionControlNavModules } from "@/mission-control/feature-registry";
 
 /** Routes owned by dedicated App Router pages (not the dynamic scaffold). */
-const DEDICATED_SLUGS = new Set(["executive-briefing", "situation-room", "alert-center"]);
+const DEDICATED_SLUGS = new Set([
+  "executive-briefing",
+  "situation-room",
+  "alert-center",
+  "chanakya-intelligence",
+]);
 
 const MODULE_SLUGS = listMissionControlNavModules()
   .map((m) => m.route.replace(/^\/mission-control\/?/, "") || "dashboard")

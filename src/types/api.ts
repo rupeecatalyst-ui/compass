@@ -13,6 +13,33 @@ export interface ApiError {
   statusCode?: number;
   /** CO-OPS-002 — request correlation for production diagnostics */
   correlationId?: string;
+  /** CO-WP-006 — existing Wealth Partner when conversion is blocked */
+  existingWealthPartner?: {
+    partnerId: string;
+    code: string;
+    displayName: string;
+    status: string;
+    lifecycleStatus: string;
+    operationalStatus?: string | null;
+    createdAt: string;
+    identityKind: string;
+    reason?: string;
+  };
+  /** CO-CONTACT-IDENTITY-001 — soft-deleted Contact found for mobile */
+  softDeletedContact?: {
+    contactId: string;
+    name: string;
+    mobilePrimary: string;
+    deletedAt?: string;
+    deletedBy?: string;
+    deletionReason?: string;
+  };
+  /** CO-CONTACT-IDENTITY-001 — active Contact already exists for mobile */
+  activeContact?: {
+    contactId: string;
+    name: string;
+    mobilePrimary: string;
+  };
 }
 
 export interface ApiMeta {

@@ -38,6 +38,7 @@ const CLASSIFICATION_TO_INSTITUTION: Record<
   nbfc: "nbfc",
   cooperative_bank: "cooperative",
   payments_bank: "fintech",
+  foreign_bank: "bank",
 };
 
 const STEPS = [
@@ -206,8 +207,13 @@ export function NewLenderWizard({ open, onOpenChange, onCompleted }: Props) {
   async function persist(mode: "draft" | "publish" | "archive") {
     setBusy(true);
     try {
-      const categories = lenderRegistryClient.listCategories();
-      const categoryId = categories[0]?.id ?? "elcat-general";
+      const categories = await lenderRegistryClient.listCategoriesAsync();
+      const categoryId = categories[0]?.id;
+      if (!categoryId) {
+        throw new Error(
+          "No Enterprise Lender category available. Create a category in Lender Registry Admin first.",
+        );
+      }
       const institutionCategory = CLASSIFICATION_TO_INSTITUTION[classification];
 
       const { record: lender } = await lenderRegistryClient.createLender(
@@ -517,11 +523,14 @@ export function NewLenderWizard({ open, onOpenChange, onCompleted }: Props) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="relationship_manager">Relationship Manager</SelectItem>
-                        <SelectItem value="credit">Credit</SelectItem>
+                        <SelectItem value="credit">Credit Manager</SelectItem>
+                        <SelectItem value="sales">Sales Manager</SelectItem>
                         <SelectItem value="operations">Operations</SelectItem>
                         <SelectItem value="legal">Legal</SelectItem>
                         <SelectItem value="technical">Technical</SelectItem>
                         <SelectItem value="escalation">Escalation</SelectItem>
+                        <SelectItem value="regional_head">Regional Head</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </Field>

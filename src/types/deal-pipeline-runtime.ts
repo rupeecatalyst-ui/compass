@@ -46,10 +46,26 @@ export type DealSnapshotLender = {
   name?: string;
   status?: string;
   caseStage?: string;
+  /** CO-WF-006 — Sub-stage visible on Kanban */
+  caseSubStage?: string | null;
   lenderRegistryId?: string | null;
   lenderRef?: string | null;
   isPrimary?: boolean;
   opportunityId?: string | null;
   expectedLoanAmount?: number;
   product?: string;
+  /** CO-LR-013 — ECM Banker (Sales) contact linked to this lender negotiation. */
+  lenderSalesContactId?: string | null;
+  lenderSalesContactName?: string | null;
+  lenderSalesContactMobile?: string | null;
+  lenderSalesContactDesignationId?: string | null;
+  lenderSalesContactDesignationLabel?: string | null;
+  lenderSalesContactOfficialEmail?: string | null;
+  lenderSalesContactInstitutionId?: string | null;
+  lenderSalesContactInstitutionLabel?: string | null;
+  /** CO-UX-017 — operational dates / priority on derived lender snapshot */
+  loginDate?: string | null;
+  disbursementDate?: string | null;
+  probability?: string | null;
+  relationshipManager?: string | null;
 };

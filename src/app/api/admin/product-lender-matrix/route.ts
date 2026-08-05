@@ -1,5 +1,6 @@
 /**
- * CO-ADMIN-005 — Product × Lender matrix (capability mapping via productsSupported).
+ * CO-ADMIN-005 / CO-PR-004 — Product × Lender matrix (capability mapping via productsSupported).
+ * Product columns are presentation-deduped by canonical family — no Product row mutation.
  */
 import {
   errorResponse,
@@ -13,6 +14,8 @@ import { resolvePilotOrganizationId } from "@server/repositories/ecm/organizatio
 import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
 import { productRegistryService } from "@server/services/product-registry/product-registry.service";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { dedupeProductOptionsForSelection } from "@/lib/enterprise-product-master/dedupe-selection";
+import { resolveProductSelectionFamilyKey } from "@/constants/enterprise-product-master";
 
 function guard() {
   if (!isEnterprisePersistencePrisma()) {
@@ -40,6 +43,19 @@ export async function GET(request: Request) {
       sortDir: "asc",
     });
 
+    // CO-PR-004 — one column per business product (canonical family). Historical
+    // duplicate Product Master rows remain in DB; matrix does not mutate them.
+    const uniqueProducts = dedupeProductOptionsForSelection(
+      products.items.map((p) => ({
+        id: p.id,
+        code: p.code,
+        label: p.label,
+        isSecured: p.isSecured,
+        sortOrder: p.sortOrder ?? 0,
+        enabled: p.enabled !== false,
+      })),
+    );
+
     const matrix = lenders.items.map((lender) => ({
       lenderId: lender.id,
       lenderCode: lender.code,
@@ -49,7 +65,7 @@ export async function GET(request: Request) {
     }));
 
     return successResponse({
-      products: products.items.map((p) => ({
+      products: uniqueProducts.map((p) => ({
         id: p.id,
         code: p.code,
         label: p.label,
@@ -86,10 +102,23 @@ export async function PUT(request: Request) {
       return errorResponse(400, "INVALID_BODY", "lenderId and productCodes[] required");
     }
 
+    // CO-PR-004 — collapse alias duplicates in the saved list; keep submitted Registry codes
+    // (do not rewrite to canonical codes that may not exist as DB rows).
+    const seenFamilies = new Set<string>();
+    const normalizedCodes: string[] = [];
+    for (const raw of productCodes) {
+      const code = String(raw || "").trim();
+      if (!code) continue;
+      const family = resolveProductSelectionFamilyKey({ code });
+      if (seenFamilies.has(family)) continue;
+      seenFamilies.add(family);
+      normalizedCodes.push(code);
+    }
+
     const updated = await lenderRegistryService.updateLender(
       lenderId,
       {
-        productsSupported: productCodes,
+        productsSupported: normalizedCodes,
         modifiedBy: actor.userId,
       },
       undefined,
@@ -100,7 +129,7 @@ export async function PUT(request: Request) {
     const products = await prisma.enterpriseProduct.findMany({
       where: {
         organizationId,
-        code: { in: productCodes },
+        code: { in: normalizedCodes },
         isDeleted: false,
       },
       select: { id: true, code: true, label: true },
@@ -121,7 +150,10 @@ export async function PUT(request: Request) {
             lenderId,
             productId: product.id,
             productCode: product.code,
-            code: `PRG_${lenderId.slice(-6)}_${product.code}`.toUpperCase().replace(/[^A-Z0-9_]/g, "").slice(0, 48),
+            code: `PRG_${lenderId.slice(-6)}_${product.code}`
+              .toUpperCase()
+              .replace(/[^A-Z0-9_]/g, "")
+              .slice(0, 48),
             label: `${product.label} Program`,
             lifecycleStatus: "active",
             status: "active",

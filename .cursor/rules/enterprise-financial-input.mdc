@@ -1,0 +1,32 @@
+# Enterprise Financial Input — Platform Standard
+
+Status: **ENTERPRISE APPROVED** · Sprint foundation: **CO-UX-015**
+
+## Constitutional principles
+
+1. **One** shared monetary entry component — `EnterpriseFinancialInput`.
+2. Users enter **magnitude + unit** (Thousand / Lakh / Crore) — never count zeros.
+3. Storage remains **absolute rupees** (numeric). UI conversion only.
+4. Do **not** change schema, APIs, or calculation engines for unit presentation.
+5. `INRCurrencyInput` is a thin alias — do not fork a second amount editor.
+
+## SSOT paths
+
+| Concern | Path |
+|---|---|
+| Component | `src/components/catalyst-one/shared/enterprise-financial-input.tsx` |
+| Alias | `src/components/catalyst-one/shared/inr-currency-input.tsx` |
+| Helpers | `src/lib/enterprise-financial-input/` |
+| Constants | `src/constants/enterprise-financial-input.ts` |
+| Docs | `docs/co-ux-015/CO-UX-015-ENTERPRISE-FINANCIAL-INPUT-REPORT.md` |
+
+## Forbidden
+
+- Parallel `parseINRInput` editors for new monetary fields  
+- Storing unit separately in the database  
+- Re-implementing Crore/Lakh math inside screens or calculators  
+
+## Related
+
+- `enterprise-metric-single-implementation.mdc` (amounts feed metrics — formulas stay SSOT)
+- `data-integrity-analytics-standard.mdc`

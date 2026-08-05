@@ -223,12 +223,22 @@ model Organization {
   lenderProgramDialogueMessages      LenderProgramDialogueMessage[]
   /// CO-DOC-002 — Durable Opportunity Document Registry (metadata + optional content)
   enterpriseTransactionDocuments     EnterpriseTransactionDocument[]
+  /// CO-DOC-005 — Enterprise Document Package Registry (additive; migration pending approval)
+  enterpriseDocumentPackages         EnterpriseDocumentPackage[]
   /// CO-WP-001 — Enterprise Wealth Partner Registry (additive; Contact/Company remain identity SSOT)
   enterpriseWealthPartners                 EnterpriseWealthPartner[]
   enterpriseWealthPartnerNetworkMembers    EnterpriseWealthPartnerNetworkMember[]
   enterpriseWealthPartnerCommissions       EnterpriseWealthPartnerCommission[]
   enterpriseWealthPartnerBankAccounts      EnterpriseWealthPartnerBankAccount[]
   enterpriseWealthPartnerActivities        EnterpriseWealthPartnerActivity[]
+  /// CO-INV-001 — Enterprise Invitation Engine
+  enterpriseInvitations                    EnterpriseInvitation[]
+  enterpriseInvitationAudits               EnterpriseInvitationAudit[]
+  enterpriseCommunicationConfigs           EnterpriseCommunicationConfig[]
+  /// CO-ECC-001 — Enterprise Communication Center profiles
+  enterpriseCommunicationProfiles          EnterpriseCommunicationProfile[]
+  /// CO-VOICE-002 — ECIE Enterprise Activity Registry (transcripts; audio in Document Registry)
+  enterpriseConversationActivities         EnterpriseConversationActivity[]
 
   @@map("organizations")
 }
@@ -955,10 +965,14 @@ enum LenderMasterClassification {
 enum LenderContactDepartment {
   relationship_manager
   credit
+  /// CO-LENDER-ECOSYSTEM-001 — Sales Manager (additive; existing rows unchanged)
+  sales
   operations
   legal
   technical
   escalation
+  /// CO-LENDER-ECOSYSTEM-001 — Regional Head (additive)
+  regional_head
   other
 }
 
@@ -2357,6 +2371,60 @@ model EnterpriseTransactionDocument {
   @@map("enterprise_transaction_documents")
 }
 
+/// CO-DOC-005 — Durable Document Package Registry (folder uploads).
+/// Child binaries remain EnterpriseTransactionDocument / client Document Registry.
+/// package_id columns on ETD are prepared in migration SQL; stamped via documentIds JSON until activated.
+model EnterpriseDocumentPackage {
+  id                 String   @id @default(cuid())
+  organizationId     String   @map("organization_id")
+  clientPackageId    String?  @map("client_package_id")
+  opportunityId      String   @map("opportunity_id")
+  loanFileId         String?  @map("loan_file_id")
+  folderName         String   @map("folder_name")
+  status             String   @default("complete")
+  storageStatus      String   @default("durable_metadata") @map("storage_status")
+  fileCount          Int      @default(0) @map("file_count")
+  totalSizeBytes     Int      @default(0) @map("total_size_bytes")
+  uploadedBy         String   @map("uploaded_by")
+  createdBy          String   @map("created_by")
+  version            Int      @default(1)
+  participantId      String?  @map("participant_id")
+  documentScope      String?  @map("document_scope")
+  contactId          String?  @map("contact_id")
+  customerId         String?  @map("customer_id")
+  parentEntityType   String?  @map("parent_entity_type")
+  parentEntityId     String?  @map("parent_entity_id")
+  documentIdsJson    Json?    @map("document_ids_json")
+  relativePathsJson  Json?    @map("relative_paths_json")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  audits       EnterpriseDocumentPackageAudit[]
+
+  @@unique([organizationId, clientPackageId], map: "edp_org_client_package_key")
+  @@index([organizationId, opportunityId], map: "edp_org_opp_idx")
+  @@index([organizationId, folderName], map: "edp_org_name_idx")
+  @@map("enterprise_document_packages")
+}
+
+model EnterpriseDocumentPackageAudit {
+  id           String   @id @default(cuid())
+  organizationId String @map("organization_id")
+  packageId    String   @map("package_id")
+  eventType    String   @map("event_type")
+  title        String
+  description  String   @db.Text
+  actorId      String   @map("actor_id")
+  metadataJson Json?    @map("metadata_json")
+  occurredOn   DateTime @default(now()) @map("occurred_on")
+
+  package EnterpriseDocumentPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@index([packageId, occurredOn], map: "edpa_package_occurred_idx")
+  @@map("enterprise_document_package_audits")
+}
+
 // =============================================================================
 // CO-WP-001 — Enterprise Wealth Partner Registry
 // Additive module. Contact / Company remain master identity SSOTs.
@@ -2572,5 +2640,184 @@ model EnterpriseWealthPartnerActivity {
 
   @@index([organizationId, wealthPartnerId, createdAt(sort: Desc)], map: "ewpa_org_partner_created_idx")
   @@map("enterprise_wealth_partner_activities")
+}
+
+/// CO-VOICE-002 Wave 1 — ECIE Enterprise Activity Registry (transcript + metadata).
+/// Audio binaries remain in Document Registry (audioDocumentId).
+model EnterpriseConversationActivity {
+  id                 String    @id @default(cuid())
+  organizationId     String    @map("organization_id")
+  activityCode       String    @map("activity_code")
+  contextType        String    @map("context_type")
+  contextId          String    @map("context_id")
+  opportunityId      String?   @map("opportunity_id")
+  dealId             String?   @map("deal_id")
+  contactId          String?   @map("contact_id")
+  loanFileId         String?   @map("loan_file_id")
+  channel            String    @default("typed_note")
+  status             String    @default("saved")
+  title              String
+  bodyText           String?   @map("body_text") @db.Text
+  transcriptText     String?   @map("transcript_text") @db.Text
+  transcriptRaw      String?   @map("transcript_raw") @db.Text
+  transcriptLanguage String    @default("unknown") @map("transcript_language")
+  sttProvider        String    @default("none") @map("stt_provider")
+  audioDocumentId    String?   @map("audio_document_id")
+  durationMs         Int?      @map("duration_ms")
+  recordedByUserId   String    @map("recorded_by_user_id")
+  recordedByLabel    String?   @map("recorded_by_label")
+  recordedAt         DateTime  @map("recorded_at")
+  savedAt            DateTime? @map("saved_at")
+  edcTimelineEntryId String?   @map("edc_timeline_entry_id")
+  createdBy          String?   @map("created_by")
+  updatedBy          String?   @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  isDeleted          Boolean   @default(false) @map("is_deleted")
+  deletedAt          DateTime? @map("deleted_at")
+  deletedBy          String?   @map("deleted_by")
+  deletionReason     String?   @map("deletion_reason") @db.Text
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, activityCode], map: "eca_org_code_uidx")
+  @@index([organizationId, contextType, contextId, recordedAt(sort: Desc)], map: "eca_org_ctx_recorded_idx")
+  @@index([organizationId, opportunityId], map: "eca_org_opp_idx")
+  @@index([organizationId, dealId], map: "eca_org_deal_idx")
+  @@map("enterprise_conversation_activities")
+}
+
+// =============================================================================
+// CO-INV-001 — Enterprise Invitation Engine (reusable; Wealth Partner first)
+// =============================================================================
+
+enum EnterpriseInvitationStatus {
+  draft
+  link_generated
+  invite_sent
+  activated
+  expired
+  cancelled
+}
+
+enum EnterpriseInvitationInviteeKind {
+  wealth_partner
+  internal_employee
+  customer
+  lender_user
+  channel_partner
+  referral_partner
+}
+
+enum EnterpriseInvitationAuditEvent {
+  link_generated
+  invite_sent
+  resent
+  activated
+  cancelled
+  expired
+}
+
+/// Org-scoped transactional email sender — never hardcode From: in application logic.
+model EnterpriseCommunicationConfig {
+  id                       String   @id @default(cuid())
+  organizationId           String   @unique @map("organization_id")
+  defaultSenderDisplayName String   @map("default_sender_display_name")
+  defaultSenderEmail       String   @map("default_sender_email")
+  supportContactEmail      String   @map("support_contact_email")
+  supportContactPhone      String?  @map("support_contact_phone")
+  modifiedBy               String   @map("modified_by")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@map("enterprise_communication_configs")
+}
+
+/// CO-ECC-001 — Named Communication Profiles (CHANNEL_PARTNERS, CUSTOMERS, …).
+model EnterpriseCommunicationProfile {
+  id                     String   @id @default(cuid())
+  organizationId         String   @map("organization_id")
+  profileCode            String   @map("profile_code")
+  displayName            String   @map("display_name")
+  senderEmail            String   @map("sender_email")
+  replyToEmail           String?  @map("reply_to_email")
+  smtpProvider           String   @default("none") @map("smtp_provider")
+  smtpHost               String?  @map("smtp_host")
+  smtpPort               Int?     @map("smtp_port")
+  smtpUsername           String?  @map("smtp_username")
+  /// Opaque credential storage — never expose via API responses.
+  smtpPasswordEnc        String?  @map("smtp_password_enc") @db.Text
+  signature              String?  @db.Text
+  footer                 String?  @db.Text
+  logoUrl                String?  @map("logo_url")
+  supportEmail           String?  @map("support_email")
+  supportPhone           String?  @map("support_phone")
+  usedForJson            Json?    @map("used_for_json")
+  active                 Boolean  @default(true)
+  modifiedBy             String   @map("modified_by")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, profileCode], map: "ecp_org_code_uidx")
+  @@index([organizationId, active], map: "ecp_org_active_idx")
+  @@map("enterprise_communication_profiles")
+}
+
+model EnterpriseInvitation {
+  id                   String                           @id @default(cuid())
+  organizationId       String                           @map("organization_id")
+  inviteeKind          EnterpriseInvitationInviteeKind  @map("invitee_kind")
+  entityId             String                           @map("entity_id")
+  entityLabel          String?                          @map("entity_label")
+  recipientEmail       String                           @map("recipient_email")
+  recipientName        String                           @map("recipient_name")
+  status               EnterpriseInvitationStatus       @default(draft)
+  /// Public activation token (opaque). Never log full value after issue.
+  token                String                           @unique
+  tokenHash            String                           @map("token_hash")
+  expiresAt            DateTime                         @map("expires_at")
+  activatedAt          DateTime?                        @map("activated_at")
+  cancelledAt          DateTime?                        @map("cancelled_at")
+  cancelledBy          String?                          @map("cancelled_by")
+  maxUses              Int                              @default(1) @map("max_uses")
+  useCount             Int                              @default(0) @map("use_count")
+  previousInvitationId String?                          @map("previous_invitation_id")
+  redirectTarget       String                           @default("catalyst_connect") @map("redirect_target")
+  customRedirectUrl    String?                          @map("custom_redirect_url")
+  lastSentAt           DateTime?                        @map("last_sent_at")
+  deliveryMode         String?                          @map("delivery_mode")
+  createdBy            String                           @map("created_by")
+  modifiedBy           String                           @map("modified_by")
+  createdAt            DateTime                         @default(now()) @map("created_at")
+  updatedAt            DateTime                         @updatedAt @map("updated_at")
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  audits       EnterpriseInvitationAudit[]
+
+  @@index([organizationId, inviteeKind, entityId, status], map: "einv_org_kind_entity_status_idx")
+  @@index([organizationId, expiresAt], map: "einv_org_expires_idx")
+  @@index([organizationId, recipientEmail], map: "einv_org_email_idx")
+  @@map("enterprise_invitations")
+}
+
+model EnterpriseInvitationAudit {
+  id             String                         @id @default(cuid())
+  organizationId String                         @map("organization_id")
+  invitationId   String                         @map("invitation_id")
+  eventType      EnterpriseInvitationAuditEvent @map("event_type")
+  actorUserId    String?                        @map("actor_user_id")
+  actorLabel     String                         @map("actor_label")
+  detail         String?                        @db.Text
+  createdAt      DateTime                       @default(now()) @map("created_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invitation   EnterpriseInvitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, invitationId, createdAt(sort: Desc)], map: "einv_audit_org_inv_idx")
+  @@map("enterprise_invitation_audits")
 }
 
