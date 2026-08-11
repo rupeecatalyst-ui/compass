@@ -46,7 +46,8 @@ Message: `feat: Enterprise Foundation v2.0 + Mission Control architecture freeze
 **Primary checkpoint (application + docs + verify scripts):**  
 `9d934e6435c371c37954313ecb581a7dd8a14eab`
 
-*(This report file may land in a follow-up docs commit on the same branch; primary application checkpoint SHA above is authoritative for the verified working tree.)*
+**Report commit (this document):**  
+`de0aaf9da3f9863a6c9d05c4156de7599d59f44d`
 
 ---
 
