@@ -52,6 +52,7 @@ export async function GET(request: Request) {
       });
       return successResponse({ item: active });
     }
+    const orderByParam = url.searchParams.get("orderBy");
     const result = await enterpriseOpportunityService.searchOpportunities({
       q: url.searchParams.get("q") ?? undefined,
       primaryContactId,
@@ -65,6 +66,12 @@ export async function GET(request: Request) {
         | "other"
         | null) ?? undefined,
       freshLoginToday: url.searchParams.get("freshLogin") === "today",
+      createdFrom: url.searchParams.get("createdFrom") ?? undefined,
+      createdTo: url.searchParams.get("createdTo") ?? undefined,
+      orderBy:
+        orderByParam === "createdAt" || orderByParam === "updatedAt"
+          ? orderByParam
+          : undefined,
       limit: url.searchParams.get("limit")
         ? Number(url.searchParams.get("limit"))
         : undefined,

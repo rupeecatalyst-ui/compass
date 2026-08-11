@@ -1,6 +1,8 @@
 /**
- * CO-SPRINT-119 — Placeholder adapters for modules not yet on Prisma.
+ * CO-SPRINT-119 / CO-ORG-002 — Placeholder adapters for modules without durable Prisma SSOT yet.
  * Recovery Center lists them; delete/restore/purge return not-implemented.
+ *
+ * Replaced by real adapters (CO-ORG-002): opportunities, loan_files (deals), documents (org docs).
  */
 
 import type {
@@ -41,9 +43,6 @@ function stubAdapter(module: SoftDeleteModuleId): SoftDeleteModuleAdapter {
   };
 }
 
-export const opportunitySoftDeleteAdapter = stubAdapter("opportunities");
-export const loanFileSoftDeleteAdapter = stubAdapter("loan_files");
-export const documentSoftDeleteAdapter = stubAdapter("documents");
 export const taskSoftDeleteAdapter = stubAdapter("tasks");
 export const noteSoftDeleteAdapter = stubAdapter("notes");
 export const workflowSoftDeleteAdapter = stubAdapter("workflow_instances");

@@ -50,8 +50,8 @@ const panel = read(
   "src/components/catalyst-one/document-center/document-packages-panel.tsx",
 );
 assert.match(panel, /Open Folder/);
-assert.match(panel, /Download Folder/);
-assert.match(panel, /Add More Files/);
+assert.match(panel, /Download Package/);
+assert.match(panel, /Add Files/);
 
 console.log("CO-DOC-003 Document Package Upload verify: PASS");
 console.log("NOTE: Migration is prepared only — do not execute without Product Owner approval.");

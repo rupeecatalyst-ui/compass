@@ -1,0 +1,507 @@
+{
+  "sprint": "CO-WP-ACCESS-004",
+  "generatedAt": "2026-08-09T10:08:18.777Z",
+  "baseUrl": "https://catalyst-one-two.vercel.app",
+  "authMode": "login",
+  "evidence": {
+    "baseUrl": "https://catalyst-one-two.vercel.app",
+    "authMode": "login",
+    "partners": {
+      "A": {
+        "id": "cmsljyws50005weeka0js9u4t",
+        "userId": "cmsljys0w0000weekptm7a73d",
+        "email": "wp-access-cert-a@rupeecatalyst.com"
+      },
+      "B": {
+        "id": "cmsljyzhu0009weekfeq2rsv9",
+        "userId": "cmsljyta30001weekar90g8gk",
+        "email": "wp-access-cert-b@rupeecatalyst.com"
+      }
+    },
+    "opportunities": {
+      "A_referral": "cmslmw6tw0001wedstfh9lyit",
+      "A_joint_override": "cmslmw7h50003wedsia9d68u6",
+      "A_viewonly": "cmslmw84w0005wedsr5mf7sde",
+      "B_solo": "cmslmw8rd0007wedsfl10u7j2"
+    },
+    "deals": {
+      "A": "cmslmw9oj0009wedsy9l1hwgs",
+      "B": "cmslmwam6000bwedswbic0i8x"
+    },
+    "http": [
+      {
+        "method": "POST",
+        "path": "/api/partner/auth/login",
+        "status": 200,
+        "ok": true,
+        "code": null,
+        "email": "wp-access-cert-a@rupeecatalyst.com"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/auth/login",
+        "status": 200,
+        "ok": true,
+        "code": null,
+        "email": "wp-access-cert-b@rupeecatalyst.com"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslmw6tw0001wedstfh9lyit",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslmw8rd0007wedsfl10u7j2",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslmw8rd0007wedsfl10u7j2",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslmw6tw0001wedstfh9lyit",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/partner/opportunities/cmslmw8rd0007wedsfl10u7j2",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslmw6tw0001wedstfh9lyit",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/partner/opportunities/cmslmw6tw0001wedstfh9lyit",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/opportunities/cmslmw6tw0001wedstfh9lyit/submit",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/opportunities/cmslmw6tw0001wedstfh9lyit/activities",
+        "status": 201,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslmw7h50003wedsia9d68u6",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/partner/opportunities/cmslmw7h50003wedsia9d68u6",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/partner/opportunities/cmslmw7h50003wedsia9d68u6",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslmw84w0005wedsr5mf7sde",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslmw8rd0007wedsfl10u7j2",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslmw6tw0001wedstfh9lyit",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/cmslmw9oj0009wedsy9l1hwgs",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/cmslmwam6000bwedswbic0i8x",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/cmslmw9oj0009wedsy9l1hwgs",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/deals/cmslmw9oj0009wedsy9l1hwgs/activities",
+        "status": 201,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/cmslmw9oj0009wedsy9l1hwgs",
+        "status": 200,
+        "ok": true,
+        "code": null
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/partner/deals/cmslmw9oj0009wedsy9l1hwgs",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/does-not-exist-xyz",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/does-not-exist-xyz",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/opportunities/cmslmw6tw0001wedstfh9lyit/activities",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/auth/me",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/opportunities/cmslmw6tw0001wedstfh9lyit/documents",
+        "status": 403,
+        "ok": false,
+        "code": "FORBIDDEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "status": 200,
+        "ok": true,
+        "code": null,
+        "email": "wp-access-cert-admin@rupeecatalyst.com"
+      }
+    ],
+    "httpStatusCounts": {
+      "401": 1,
+      "403": 14,
+      "2xx": 18,
+      "other": 0
+    }
+  },
+  "findings": [
+    {
+      "id": "AUTH_MODE",
+      "result": "PASS",
+      "detail": "partner+admin tokens via HTTP login against https://catalyst-one-two.vercel.app (mode=login)",
+      "severity": "info"
+    },
+    {
+      "id": "HTTP_HEALTH",
+      "result": "PASS",
+      "detail": "status=200 body={\"success\":true,\"data\":{\"status\":\"ok\",\"service\":\"partner_gateway\",\"timestamp\":\"2026-08-09T10:02:30.394Z\",\"persistence\":\"prisma\"}}",
+      "severity": "info"
+    },
+    {
+      "id": "FIXTURE_PARTNERS",
+      "result": "PASS",
+      "detail": "A=cmsljyws50005weeka0js9u4t B=cmsljyzhu0009weekfeq2rsv9",
+      "severity": "info"
+    },
+    {
+      "id": "FIXTURE_DEALS",
+      "result": "PASS",
+      "detail": "dealA=cmslmw9oj0009wedsy9l1hwgs dealB=cmslmwam6000bwedswbic0i8x",
+      "severity": "info"
+    },
+    {
+      "id": "PARTNER_A_AUTH",
+      "result": "PASS",
+      "detail": "status=200 partnerId=cmsljyws50005weeka0js9u4t",
+      "severity": "info"
+    },
+    {
+      "id": "PARTNER_B_AUTH",
+      "result": "PASS",
+      "detail": "status=200 partnerId=cmsljyzhu0009weekfeq2rsv9",
+      "severity": "info"
+    },
+    {
+      "id": "CROSS_A_GET_OWN",
+      "result": "PASS",
+      "detail": "status=200 expected∈[200] Partner A own opp",
+      "severity": "info"
+    },
+    {
+      "id": "CROSS_A_GET_B",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403] Partner A must not read Partner B",
+      "severity": "info"
+    },
+    {
+      "id": "CROSS_B_GET_OWN",
+      "result": "PASS",
+      "detail": "status=200 expected∈[200] Partner B own opp",
+      "severity": "info"
+    },
+    {
+      "id": "CROSS_B_GET_A",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403] Partner B must not read Partner A",
+      "severity": "info"
+    },
+    {
+      "id": "CROSS_A_PATCH_B",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403] cross-partner mutation",
+      "severity": "info"
+    },
+    {
+      "id": "REFERRAL_EFFECTIVE",
+      "result": "PASS",
+      "detail": "{\"view\":true,\"create\":true,\"edit\":false,\"stage_change\":false,\"document_upload\":false,\"document_edit\":false,\"activity_add\":true}",
+      "severity": "info"
+    },
+    {
+      "id": "REFERRAL_EDIT_DENIED",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403]",
+      "severity": "info"
+    },
+    {
+      "id": "REFERRAL_STAGE_DENIED",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403]",
+      "severity": "info"
+    },
+    {
+      "id": "REFERRAL_ACTIVITY_ALLOWED",
+      "result": "PASS",
+      "detail": "status=201 expected∈[200,201]",
+      "severity": "info"
+    },
+    {
+      "id": "ACTIVITY_SSOT",
+      "result": "PASS",
+      "detail": "noteId=cmslmylio0005l204l7qqwskw entity=opportunity:cmslmw6tw0001wedstfh9lyit earId=cmslmyn7s0007l204q8ffjwpf",
+      "severity": "info"
+    },
+    {
+      "id": "JOINT_OVERRIDE_EFFECTIVE",
+      "result": "PASS",
+      "detail": "{\"view\":true,\"create\":true,\"edit\":true,\"stage_change\":true,\"document_upload\":true,\"document_edit\":false,\"activity_add\":true}",
+      "severity": "info"
+    },
+    {
+      "id": "JOINT_EDIT_ALLOWED",
+      "result": "PASS",
+      "detail": "status=200 expected∈[200]",
+      "severity": "info"
+    },
+    {
+      "id": "JOINT_EDIT_REVOKED_403",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403]",
+      "severity": "info"
+    },
+    {
+      "id": "OVERRIDE_SCOPE_A3_VIEWONLY",
+      "result": "PASS",
+      "detail": "{\"view\":true,\"create\":true,\"edit\":false,\"stage_change\":false,\"document_upload\":false,\"document_edit\":false,\"activity_add\":true}",
+      "severity": "info"
+    },
+    {
+      "id": "SOLO_EFFECTIVE",
+      "result": "PASS",
+      "detail": "{\"view\":true,\"create\":true,\"edit\":true,\"stage_change\":true,\"document_upload\":true,\"document_edit\":false,\"activity_add\":true}",
+      "severity": "info"
+    },
+    {
+      "id": "SOLO_NOT_UNRESTRICTED",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403]",
+      "severity": "info"
+    },
+    {
+      "id": "DEAL_A_GET_OWN",
+      "result": "PASS",
+      "detail": "status=200 expected∈[200]",
+      "severity": "info"
+    },
+    {
+      "id": "DEAL_A_GET_B",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403]",
+      "severity": "info"
+    },
+    {
+      "id": "DEAL_B_GET_A",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403]",
+      "severity": "info"
+    },
+    {
+      "id": "DEAL_LIST_A",
+      "result": "PASS",
+      "detail": "status=200 expected∈[200]",
+      "severity": "info"
+    },
+    {
+      "id": "DEAL_LIST_OWNERSHIP",
+      "result": "PASS",
+      "detail": "count=5",
+      "severity": "info"
+    },
+    {
+      "id": "DEAL_ACTIVITY",
+      "result": "PASS",
+      "detail": "status=201 expected∈[200,201,403]",
+      "severity": "info"
+    },
+    {
+      "id": "DEAL_EDIT_REFERRAL_DENIED",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403]",
+      "severity": "info"
+    },
+    {
+      "id": "FORGED_OPP_ID",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403,404]",
+      "severity": "info"
+    },
+    {
+      "id": "FORGED_DEAL_ID",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403,404]",
+      "severity": "info"
+    },
+    {
+      "id": "FORGED_PARTNER_ID_BODY",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403]",
+      "severity": "info"
+    },
+    {
+      "id": "FORGED_PARTNER_TOKEN_CLAIM",
+      "result": "PASS",
+      "detail": "status=401 partnerId=n/a (tampered JWT, no local secret mint)",
+      "severity": "info"
+    },
+    {
+      "id": "UNAUTHORIZED_DOC_UPLOAD",
+      "result": "PASS",
+      "detail": "status=403 expected∈[403,400]",
+      "severity": "info"
+    },
+    {
+      "id": "ADMIN_AUTH",
+      "result": "PASS",
+      "detail": "status=200 email=wp-access-cert-admin@rupeecatalyst.com",
+      "severity": "info"
+    },
+    {
+      "id": "ADMIN_EFFECTIVE_GET",
+      "result": "PASS",
+      "detail": "status=200 expected∈[200]",
+      "severity": "info"
+    },
+    {
+      "id": "ADMIN_SAVE_PROFILE",
+      "result": "PASS",
+      "detail": "status=200 expected∈[200]",
+      "severity": "info"
+    },
+    {
+      "id": "AUDIT_PERSISTENCE",
+      "result": "PASS",
+      "detail": "auditCount=5 latest=profile_updated",
+      "severity": "info"
+    },
+    {
+      "id": "OWNERSHIP_SOURCE_WP",
+      "result": "PASS",
+      "detail": "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t",
+      "severity": "info"
+    },
+    {
+      "id": "WP_APP_WIRING",
+      "result": "PASS",
+      "detail": "presentation consumes Gateway entitlements; security remains Gateway",
+      "severity": "info"
+    }
+  ],
+  "summary": {
+    "pass": 40,
+    "fail": 0,
+    "partial": 0,
+    "criticalFails": 0,
+    "httpStatusCounts": {
+      "401": 1,
+      "403": 14,
+      "2xx": 18,
+      "other": 0
+    }
+  }
+}

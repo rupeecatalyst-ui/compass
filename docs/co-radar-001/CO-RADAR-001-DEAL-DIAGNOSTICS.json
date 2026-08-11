@@ -1,0 +1,39 @@
+{
+  "auditId": "CO-RADAR-001",
+  "generatedAt": "2026-08-06T19:43:01.784Z",
+  "nature": "read_only_forensic_diagnostic",
+  "dataSource": {
+    "consumer": "chanakya_radar",
+    "source": "local_fallback",
+    "fileCount": 0
+  },
+  "portfolio": {
+    "activeDealCount": 0,
+    "averageDealHealthDisplayed": 100,
+    "averageDealHealthMeanOfRows": null,
+    "quadrantCounts": {
+      "on_track": 0,
+      "follow_up_required": 0,
+      "needs_attention": 0,
+      "at_risk": 0
+    },
+    "pctAtRisk": 0,
+    "emptyTimelineCount": 0,
+    "noMeaningfulActivity30dCount": 0,
+    "atRiskWithActivityStateAtRisk": 0
+  },
+  "formulaNotes": {
+    "healthScoreByQuadrant": {
+      "on_track": 92,
+      "follow_up_required": 62,
+      "needs_attention": 48,
+      "at_risk": 18
+    },
+    "blend": {
+      "maxAdj": 12,
+      "neutralScore": 55
+    },
+    "expectedFloorWhenAllAtRiskLowMomentum": 6
+  },
+  "deals": []
+}

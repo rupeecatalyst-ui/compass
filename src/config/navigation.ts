@@ -104,10 +104,14 @@ export const organizationChildren: NavSubItem[] = [
   { title: "Company Profile", href: ROUTES.ORGANIZATION_COMPANY_PROFILE },
   { title: "Directors", href: ROUTES.ORGANIZATION_DIRECTORS },
   { title: "Corporate Repository", href: ROUTES.ORGANIZATION_CORPORATE_REPOSITORY },
+  { title: "Corporate Compliance Center", href: ROUTES.ORGANIZATION_COMPLIANCE_CENTER },
   { title: "Organization Documents", href: ROUTES.ORGANIZATION_DOCUMENTS },
   { title: "Bank Accounts", href: ROUTES.ORGANIZATION_BANK_ACCOUNTS },
   { title: "Digital Signatures", href: ROUTES.ORGANIZATION_DIGITAL_SIGNATURES },
   { title: "Company Seal", href: ROUTES.ORGANIZATION_COMPANY_SEAL },
+  { title: "Business Configuration", href: ROUTES.ORGANIZATION_BUSINESS_CONFIG },
+  { title: "Organization Settings", href: ROUTES.ORGANIZATION_SETTINGS },
+  { title: "Organization Security", href: ROUTES.ORGANIZATION_SECURITY },
 ];
 
 /**
@@ -123,6 +127,10 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Wealth Partner Registry", href: ROUTES.ADMIN_WEALTH_PARTNER_REGISTRY },
   { title: "Enterprise Master Data", href: ROUTES.ADMIN_ENTERPRISE_MDM },
   { title: "Product–Lender Matrix", href: ROUTES.ADMIN_PRODUCT_LENDER_MATRIX },
+  { title: "Home Loan Lender Priority", href: ROUTES.ADMIN_HOME_LOAN_LENDER_PRIORITY },
+  { title: "LAP & Commercial Purchase Priority", href: ROUTES.ADMIN_PRODUCT_LENDER_PRIORITY },
+  { title: "Personal Loan Lender Priority", href: ROUTES.ADMIN_PERSONAL_LOAN_LENDER_PRIORITY },
+  { title: "UBL Lender Priority", href: ROUTES.ADMIN_UBL_LENDER_PRIORITY },
   { title: "Lender Program Portal", href: ROUTES.ADMIN_LENDER_PROGRAM_PORTAL },
   { title: "Lookup Masters", href: ROUTES.ADMIN_REFERENCE_MASTERS },
   { title: "Product Programs", href: ROUTES.ADMIN_PRODUCT_PROGRAMS },
@@ -144,6 +152,8 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION },
   { title: "Production Reset", href: ROUTES.ADMIN_PRODUCTION_RESET },
   { title: "Enterprise Metrics", href: ROUTES.ADMIN_ENTERPRISE_METRICS },
+  { title: "Partner Access & Entitlements", href: ROUTES.ADMIN_PARTNER_ENTITLEMENTS },
+  { title: "Shadow Mode Dashboard", href: ROUTES.ADMIN_SHADOW_MODE_DASHBOARD },
   { title: "Enterprise Communication", href: ROUTES.ADMIN_ENTERPRISE_COMMUNICATION },
 ];
 /**
@@ -315,10 +325,14 @@ export const organizationNavigation: NavGroup = {
     { title: "Company Profile", href: ROUTES.ORGANIZATION_COMPANY_PROFILE, icon: Building2 },
     { title: "Directors", href: ROUTES.ORGANIZATION_DIRECTORS, icon: Users },
     { title: "Corporate Repository", href: ROUTES.ORGANIZATION_CORPORATE_REPOSITORY, icon: FolderOpen },
+    { title: "Corporate Compliance Center", href: ROUTES.ORGANIZATION_COMPLIANCE_CENTER, icon: Shield },
     { title: "Organization Documents", href: ROUTES.ORGANIZATION_DOCUMENTS, icon: FileStack },
     { title: "Bank Accounts", href: ROUTES.ORGANIZATION_BANK_ACCOUNTS, icon: Landmark },
     { title: "Digital Signatures", href: ROUTES.ORGANIZATION_DIGITAL_SIGNATURES, icon: PenLine },
     { title: "Company Seal", href: ROUTES.ORGANIZATION_COMPANY_SEAL, icon: Stamp },
+    { title: "Business Configuration", href: ROUTES.ORGANIZATION_BUSINESS_CONFIG, icon: Briefcase },
+    { title: "Organization Settings", href: ROUTES.ORGANIZATION_SETTINGS, icon: Settings },
+    { title: "Organization Security", href: ROUTES.ORGANIZATION_SECURITY, icon: Shield },
   ],
 };
 
@@ -348,6 +362,8 @@ export const adminConsoleNavigation: NavGroup = {
     { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION, icon: Info },
     { title: "Production Reset", href: ROUTES.ADMIN_PRODUCTION_RESET, icon: Eraser },
     { title: "Enterprise Metrics", href: ROUTES.ADMIN_ENTERPRISE_METRICS, icon: BarChart3 },
+    { title: "Partner Access & Entitlements", href: ROUTES.ADMIN_PARTNER_ENTITLEMENTS, icon: Shield },
+    { title: "Shadow Mode Dashboard", href: ROUTES.ADMIN_SHADOW_MODE_DASHBOARD, icon: Radar },
     { title: "Enterprise Communication", href: ROUTES.ADMIN_ENTERPRISE_COMMUNICATION, icon: Mail },
     { title: "Enterprise Intelligence", href: ROUTES.REPORTS, icon: BarChart3 },
   ],
@@ -437,7 +453,8 @@ export const systemAdministrationCommandPaletteRoutes = [
   { title: "Communication", href: ROUTES.COMMUNICATION, icon: Megaphone },
   { title: "Workflow (EWOE)", href: ROUTES.WORKFLOW, icon: Workflow },
   { title: "Experience Console (EEI)", href: ROUTES.DECISIONS, icon: Brain },
-  { title: "AI Assistant", href: ROUTES.AI_ASSISTANT, icon: Bot },
+  { title: "SARATHI", href: ROUTES.SARATHI, icon: Bot },
+  { title: "SARATHI Wealth Partner", href: ROUTES.SARATHI_WEALTH_PARTNER, icon: Bot },
 ];
 
 /** Flatten nav for command palette (primary + supporting modules) */

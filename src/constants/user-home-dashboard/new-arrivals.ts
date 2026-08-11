@@ -24,6 +24,7 @@ export const NEW_ARRIVALS_DATE_PRESETS: ReadonlyArray<{
   days?: number;
 }> = [
   { id: "today", label: "Today" },
+  { id: "last_3", label: "Last 3 Days", days: 3 },
   { id: "last_7", label: "Last 7 Days", days: 7 },
   { id: "last_30", label: "Last 30 Days", days: 30 },
   { id: "last_90", label: "Last 90 Days", days: 90 },
@@ -31,7 +32,21 @@ export const NEW_ARRIVALS_DATE_PRESETS: ReadonlyArray<{
   { id: "custom", label: "Custom Date Range" },
 ] as const;
 
-export const NEW_ARRIVALS_DEFAULT_PRESET: NewArrivalsDatePresetId = "last_30";
+/** CO-C1-DASH-001 — command-center default */
+export const NEW_ARRIVALS_DEFAULT_PRESET: NewArrivalsDatePresetId = "today";
+
+/** Compact presets for New Opportunities / New Arrivals pulse (PO hierarchy). */
+export const COMMAND_CENTER_DATE_PRESETS: ReadonlyArray<{
+  id: NewArrivalsDatePresetId;
+  label: string;
+  days?: number;
+}> = [
+  { id: "today", label: "Today" },
+  { id: "last_3", label: "Last 3 Days", days: 3 },
+  { id: "last_7", label: "Last 7 Days", days: 7 },
+  { id: "last_30", label: "Last 30 Days", days: 30 },
+  { id: "custom", label: "Custom Range" },
+] as const;
 
 /**
  * Config-driven KPI cards. Enable/disable or append without redesigning the section.

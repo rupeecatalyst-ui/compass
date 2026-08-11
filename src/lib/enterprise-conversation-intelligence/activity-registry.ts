@@ -1,7 +1,9 @@
 /**
- * CO-VOICE-002 — Enterprise Activity Registry (in-memory port + event bus).
- * Durable rows also POST to /api/enterprise-conversation-activities when authenticated.
- * Session map only — never a browser durable store (ADR-021).
+ * CO-VOICE-002 — Conversation Activity Registry (ECIE).
+ * Scoped to conversation / voice / typed-note transcripts (ADR-021).
+ * Universal operational chronology SSOT is CO-ORG-003 Enterprise Activity Registry.
+ * Durable conversation rows also POST to /api/enterprise-conversation-activities when authenticated.
+ * Session map only — never a browser durable store.
  */
 
 import { ECIE_ACTIVITY_UPDATED_EVENT } from "@/constants/enterprise-conversation-intelligence";

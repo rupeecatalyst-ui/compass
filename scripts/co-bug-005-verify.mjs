@@ -46,5 +46,8 @@ assert.match(masters, /Empty Tier-2 cache must not block/);
 const template = read("src/constants/enterprise-contact-master/role-templates.ts");
 assert.match(template, /Enterprise Lender Registry/);
 assert.match(template, /parentFieldKey: \"institution\"/);
+assert.match(template, /Institution → Region → City → Branch/);
+assert.match(template, /key: \"region\"/);
+assert.match(template, /mandatory: true/);
 
 console.log("CO-BUG-005 verify: PASS");

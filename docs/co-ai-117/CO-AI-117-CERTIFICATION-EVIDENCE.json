@@ -1,0 +1,219 @@
+{
+  "certificationId": "eai_cert_62102714-6bed-4872-90c7-e0f23146ec6b",
+  "sprint": "AI-17 / CO-AI-117",
+  "generatedAt": "2026-08-06T11:01:29.817Z",
+  "frameworkVersionUnderCertification": "1.17.0-ai16",
+  "nature": "certification_only_no_new_features",
+  "governingStandards": {
+    "enterpriseAiConstitution": "docs/enterprise-ai/ENTERPRISE-AI-CONSTITUTION.md",
+    "sarathiBible": "docs/sarathi/SARATHI-BIBLE-V1.md",
+    "freeze": "docs/enterprise-ai/ENTERPRISE-AI-GOVERNING-STANDARDS-FREEZE.md"
+  },
+  "businessCases": [
+    {
+      "id": "balance_transfer",
+      "passed": true,
+      "blocked": false,
+      "facingPreview": "Let's reduce your borrowing cost.\nBalance Transfer moves your loan."
+    },
+    {
+      "id": "home_loan",
+      "passed": true,
+      "blocked": false,
+      "facingPreview": "Buying a home matters.\nLet's explore your options."
+    },
+    {
+      "id": "lap",
+      "passed": true,
+      "blocked": false,
+      "facingPreview": "Let's support your business growth.\nI can explain lending concepts."
+    },
+    {
+      "id": "business_loan",
+      "passed": true,
+      "blocked": false,
+      "facingPreview": "Let's grow your business finance.\nI can explain lending concepts."
+    },
+    {
+      "id": "working_capital",
+      "passed": true,
+      "blocked": false,
+      "facingPreview": "Let's strengthen your cash flow.\nI can explain lending concepts."
+    },
+    {
+      "id": "personal_loan",
+      "passed": true,
+      "blocked": false,
+      "facingPreview": "Let's review personal loan options.\nI can explain lending concepts."
+    },
+    {
+      "id": "loan_advisory",
+      "passed": true,
+      "blocked": false,
+      "facingPreview": "Buying a home matters.\nLet's explore your options."
+    },
+    {
+      "id": "outside_domain",
+      "passed": true,
+      "blocked": true,
+      "facingPreview": "I'm not trained for this subject."
+    }
+  ],
+  "existingSuiteEvidence": [
+    {
+      "name": "conversation_experience",
+      "passed": true,
+      "durationMs": 78,
+      "errors": [],
+      "warnings": [],
+      "details": {
+        "conversationExperienceVersion": "1.0.0-ai11",
+        "outsideBlocked": true,
+        "firstFacingPreview": "Let's reduce your borrowing cost.\nBalance Transfer moves your loan.",
+        "historyLength": 4,
+        "suggestedCount": 5,
+        "proposalCount": 4,
+        "proposalStatuses": [
+          "draft",
+          "draft",
+          "draft",
+          "draft"
+        ],
+        "sessionContinued": true
+      }
+    },
+    {
+      "name": "voice",
+      "passed": true,
+      "durationMs": 94,
+      "errors": [],
+      "warnings": [],
+      "details": {
+        "voiceEngineVersion": "1.0.0-ai13",
+        "languages": [
+          "en",
+          "hi",
+          "mr"
+        ],
+        "sttProviderId": "eai.stt.stub",
+        "ttsProviderId": "eai.tts.stub",
+        "vadProviderId": "eai.vad.stub",
+        "outsideBlocked": true,
+        "btFacingPreview": "आइए आपकी उधारी लागत कम करें।\nबैलेंस ट्रांसफर आपका लोन स्थानांतरित करता है।",
+        "streamEventCount": 10,
+        "historyLength": 4,
+        "recovered": true,
+        "mrOk": true
+      }
+    },
+    {
+      "name": "multilingual",
+      "passed": true,
+      "durationMs": 53,
+      "errors": [],
+      "warnings": [],
+      "details": {
+        "multilingualEngineVersion": "1.0.0-ai14",
+        "languages": [
+          "en",
+          "hi",
+          "mr"
+        ],
+        "meaningKey": "outside_domain.not_trained_for_subject",
+        "enOutside": "I'm not trained for this subject.",
+        "hiOutside": "मैं इस विषय के लिए प्रशिक्षित नहीं हूँ।",
+        "btFacingPreview": "आइए आपकी उधारी लागत कम करें।\nबैलेंस ट्रांसफर आपका लोन स्थानांतरित करता है।",
+        "mrPreferred": "mr",
+        "mixedCanonicalPreview": "Mujhe Balance Transfer chahiye EMI kam karni hai\nEMI"
+      }
+    },
+    {
+      "name": "memory",
+      "passed": true,
+      "durationMs": 71,
+      "errors": [],
+      "warnings": [],
+      "details": {
+        "conversationMemoryEngineVersion": "1.0.0-ai15",
+        "memoryId": "eai_mem_bbbe1d69-30d3-4d2e-8376-6834b2f80845",
+        "factCount": 19,
+        "consultationCount": 2,
+        "preferenceCount": 2,
+        "recommendationCount": 6,
+        "proposalCount": 4,
+        "confidence": {
+          "band": "high",
+          "scoreHint": 75,
+          "reasons": [
+            "19 active known fact(s)",
+            "15 outstanding question(s)",
+            "Prior recommendations retained"
+          ],
+          "factCount": 19,
+          "openQuestionCount": 15,
+          "expiredEntryCount": 0
+        },
+        "auditActions": [
+          "set_preference",
+          "upsert_fact",
+          "record_consultation",
+          "record_outstanding_question",
+          "record_recommendation",
+          "record_action_proposal",
+          "refresh_from_turn",
+          "validate_memory"
+        ],
+        "outsideBlocked": true
+      }
+    },
+    {
+      "name": "validation_performance_ai16",
+      "passed": true,
+      "durationMs": 129,
+      "errors": [],
+      "warnings": [],
+      "details": {
+        "validationPerformanceVersion": "1.0.0-ai16",
+        "suiteCount": 13,
+        "failedSuites": [],
+        "latencyP95Ms": 6,
+        "loadThroughputPerSec": 285.71,
+        "estimatedOutputTokens": 17,
+        "contextUsedChars": 1399,
+        "securityFindingCount": 0,
+        "reportId": "eai_perf_532de837-75c1-4499-8574-908f4520d6a4"
+      }
+    },
+    {
+      "name": "wealth_partner_behaviour",
+      "passed": true,
+      "durationMs": 19,
+      "errors": [],
+      "warnings": [],
+      "details": {
+        "wealthPartnerBehaviourVersion": "1.0.0-ai12",
+        "activation": {
+          "packId": "sarathi_wealth_partner",
+          "lifecycle": "active",
+          "audience": "partner",
+          "capabilityThemeCount": 6,
+          "activatedAt": "2026-08-06T11:01:29.662Z"
+        },
+        "themeCount": 6,
+        "partnerBtTone": "BT opportunity identified.\nConfirm outstanding and EMI.",
+        "historyLength": 4,
+        "facingPreview": "BT opportunity identified.\nConfirm outstanding and EMI.",
+        "proposalCount": 5
+      }
+    }
+  ],
+  "passed": true,
+  "summary": {
+    "businessPassed": 8,
+    "businessTotal": 8,
+    "suitesPassed": 6,
+    "suitesTotal": 6,
+    "failedBusinessIds": [],
+    "failedSuiteNames": []
+  }
+}

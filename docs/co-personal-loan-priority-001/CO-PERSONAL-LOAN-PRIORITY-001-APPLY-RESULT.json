@@ -1,0 +1,272 @@
+{
+  "sprint": "CO-PERSONAL-LOAN-PRIORITY-001",
+  "principle": "PERSONAL LOAN PRIORITY = RANKING ONLY · PRIORITY ≠ ELIGIBILITY · PRIORITY ≠ MAPPING · PRIORITY ≠ WHITELIST",
+  "productMaster": {
+    "productId": "cms7h8uzb001fld04qr6rkuuh",
+    "productCode": "PERSONAL_LOAN",
+    "productLabel": "Personal Loan"
+  },
+  "productFamily": "PERSONAL_LOAN",
+  "before": {
+    "totalLenders": 283,
+    "personalLoanEligible": 197,
+    "enabledTrue": 280,
+    "matrixFingerprint": "fcd7e625b246ab1f751b82891ff10fbd3322f4644520d38c94cf0583fb8f3829"
+  },
+  "after": {
+    "totalLenders": 283,
+    "personalLoanEligible": 197,
+    "enabledTrue": 280,
+    "matrixFingerprint": "fcd7e625b246ab1f751b82891ff10fbd3322f4644520d38c94cf0583fb8f3829"
+  },
+  "integrity": {
+    "lenderCountUnchanged": true,
+    "personalLoanEligibleUnchanged": true,
+    "enabledUnchanged": true,
+    "matrixUnchanged": true,
+    "priorityCount": 11,
+    "priorityUnique": true,
+    "allPriorityPlMapped": true,
+    "noNewLenders": true,
+    "noDeletedLenders": true,
+    "noEligibilityCreated": true,
+    "noProgramsModified": true
+  },
+  "priorityTable": [
+    {
+      "priority": 1,
+      "institution": "ICICI Bank",
+      "lenderId": "cmrusopoe003nwe60331ytwfx",
+      "lenderCode": "ICICI",
+      "institutionType": "private_sector_bank",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 2,
+      "institution": "HDFC Bank",
+      "lenderId": "cmrusopl1003lwe601zac0dvs",
+      "lenderCode": "HDFC",
+      "institutionType": "private_sector_bank",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 3,
+      "institution": "Axis Bank",
+      "lenderId": "cmrusopch003hwe60phw80i5i",
+      "lenderCode": "AXIS",
+      "institutionType": "private_sector_bank",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 4,
+      "institution": "IDFC FIRST Bank",
+      "lenderId": "cms4cmsbt000rwen4q9tdyqfh",
+      "lenderCode": "IDFC_FIRST",
+      "institutionType": "private_sector_bank",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 5,
+      "institution": "Kotak Mahindra Bank",
+      "lenderId": "cmrusoprt003pwe60kshcazu7",
+      "lenderCode": "KOTAK",
+      "institutionType": "private_sector_bank",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 6,
+      "institution": "RBL Bank",
+      "lenderId": "cms4cmu8v000xwen4q8migqib",
+      "lenderCode": "RBL",
+      "institutionType": "private_sector_bank",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 7,
+      "institution": "DCB Bank",
+      "lenderId": "cms4cmwz20017wen412c85bwt",
+      "lenderCode": "DCB",
+      "institutionType": "private_sector_bank",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 8,
+      "institution": "Aditya Birla Finance",
+      "lenderId": "cms4cngrl0037wen43lkirriv",
+      "lenderCode": "ADITYA_BIRLA_FINANCE",
+      "institutionType": "nbfc",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 9,
+      "institution": "Federal Bank",
+      "lenderId": "cms4cmsvt000twen4qf3d6wok",
+      "lenderCode": "FEDERAL",
+      "institutionType": "private_sector_bank",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 10,
+      "institution": "Bajaj Finance",
+      "lenderId": "cms4cnfmd0033wen4dd25gl97",
+      "lenderCode": "BAJAJ_FINANCE",
+      "institutionType": "nbfc",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 11,
+      "institution": "Yes Bank",
+      "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+      "lenderCode": "YES",
+      "institutionType": "private_sector_bank",
+      "personalLoanMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    }
+  ],
+  "remainingEligibleCount": 186,
+  "exceptions": [],
+  "identityResolution": [
+    {
+      "assignedPriority": 1,
+      "institutionName": "ICICI Bank",
+      "lenderId": "cmrusopoe003nwe60331ytwfx",
+      "lenderCode": "ICICI",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "ICICI Bank"
+    },
+    {
+      "assignedPriority": 2,
+      "institutionName": "HDFC Bank",
+      "lenderId": "cmrusopl1003lwe601zac0dvs",
+      "lenderCode": "HDFC",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "HDFC Bank"
+    },
+    {
+      "assignedPriority": 3,
+      "institutionName": "Axis Bank",
+      "lenderId": "cmrusopch003hwe60phw80i5i",
+      "lenderCode": "AXIS",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "Axis Bank"
+    },
+    {
+      "assignedPriority": 4,
+      "institutionName": "IDFC FIRST Bank",
+      "lenderId": "cms4cmsbt000rwen4q9tdyqfh",
+      "lenderCode": "IDFC_FIRST",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "IDFC FIRST Bank"
+    },
+    {
+      "assignedPriority": 5,
+      "institutionName": "Kotak Mahindra Bank",
+      "lenderId": "cmrusoprt003pwe60kshcazu7",
+      "lenderCode": "KOTAK",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "Kotak Mahindra Bank"
+    },
+    {
+      "assignedPriority": 6,
+      "institutionName": "RBL Bank",
+      "lenderId": "cms4cmu8v000xwen4q8migqib",
+      "lenderCode": "RBL",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "RBL Bank"
+    },
+    {
+      "assignedPriority": 7,
+      "institutionName": "DCB Bank",
+      "lenderId": "cms4cmwz20017wen412c85bwt",
+      "lenderCode": "DCB",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "DCB Bank"
+    },
+    {
+      "assignedPriority": 8,
+      "institutionName": "Aditya Birla Finance",
+      "lenderId": "cms4cngrl0037wen43lkirriv",
+      "lenderCode": "ADITYA_BIRLA_FINANCE",
+      "institutionType": "nbfc",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "Aditya Birla Finance"
+    },
+    {
+      "assignedPriority": 9,
+      "institutionName": "Federal Bank",
+      "lenderId": "cms4cmsvt000twen4qf3d6wok",
+      "lenderCode": "FEDERAL",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "Federal Bank"
+    },
+    {
+      "assignedPriority": 10,
+      "institutionName": "Bajaj Finance",
+      "lenderId": "cms4cnfmd0033wen4dd25gl97",
+      "lenderCode": "BAJAJ_FINANCE",
+      "institutionType": "nbfc",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "Bajaj Finance"
+    },
+    {
+      "assignedPriority": 11,
+      "institutionName": "Yes Bank",
+      "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+      "lenderCode": "YES",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "personalLoanMappingStatus": "Yes",
+      "requestedName": "Yes Bank"
+    }
+  ]
+}

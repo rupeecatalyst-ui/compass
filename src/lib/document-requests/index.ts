@@ -46,3 +46,10 @@ export {
   recordCustomerPortalUpload,
   newSecureUploadToken,
 } from "./store";
+export {
+  resolveProgramLod,
+  normalizeProgramLodRequirements,
+  listEdieDocumentTypeOptions,
+  type ProgramLodRequirement,
+  type ResolvedProgramLodItem,
+} from "./resolve-program-lod";

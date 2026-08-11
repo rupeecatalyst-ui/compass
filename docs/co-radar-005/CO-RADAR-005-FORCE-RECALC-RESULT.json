@@ -1,0 +1,43 @@
+{
+  "run": {
+    "id": "cmskjwwri0001wewoewbwq6f3",
+    "runType": "force_recalculate",
+    "category": "nightly",
+    "status": "succeeded",
+    "dryRun": false,
+    "triggerSource": "co-radar-005-force",
+    "actorUserId": "co-radar-005",
+    "eventKey": null,
+    "recordsProcessed": 43,
+    "snapshotsWritten": 16,
+    "failures": 0,
+    "durationMs": 15438,
+    "errorMessage": null,
+    "startedAt": "2026-08-08T15:51:27.194Z",
+    "completedAt": "2026-08-08T15:51:42.629Z",
+    "summary": {
+      "notes": [
+        "Deal health proxy written from daysInStage (EME Phase 1)."
+      ],
+      "dryRun": false,
+      "dealCount": 14,
+      "metricKeys": [
+        "mission_control.executive_snapshot",
+        "mission_control.radar_dashboard"
+      ],
+      "opportunityCount": 15
+    }
+  },
+  "live": {
+    "asOf": "2026-08-08T15:51:29.659Z",
+    "category": "live",
+    "todaysOpportunities": 0,
+    "todaysLogins": 0,
+    "todaysDisbursements": 0,
+    "pendingTasks": 0,
+    "overdueTasks": 0,
+    "unreadNotifications": null,
+    "onlineUsers": null
+  },
+  "dashboardCached": false
+}

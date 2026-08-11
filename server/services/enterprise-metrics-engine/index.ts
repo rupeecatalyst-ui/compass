@@ -31,6 +31,7 @@ import { FRESH_LOGIN_DEAL_STAGES } from "@/constants/opportunity-business-source
 import { deriveDashboardVisualAnalytics } from "@/lib/user-home-dashboard/visual-analytics/derive-dashboard-visual-analytics";
 import { serializeOpportunity } from "@server/services/enterprise-opportunity/opportunity-serialize";
 import { serializeDeal } from "@server/services/enterprise-deal/deal-serialize";
+import { enterpriseDealService } from "@server/services/enterprise-deal/enterprise-deal.service";
 import type {
   EmeAdminStatus,
   EmeComputeOptions,
@@ -593,6 +594,11 @@ export class EnterpriseMetricsEngineService {
           /* skip MC on narrow event refresh unless explicitly requested */
         } else {
           try {
+            // CO-RADAR-005 — batch-load Enterprise Deal Timeline SSOT into Radar projection.
+            const timelinesByDealId = await enterpriseDealService.listTimelinesForDeals(
+              dealApi.map((d) => d.id),
+              50,
+            );
             const mc = composeMissionControlExecutiveSnapshot({
               deals: dealApi as never,
               opportunities: oppApi.map((o) => ({
@@ -610,6 +616,7 @@ export class EnterpriseMetricsEngineService {
                 primaryContactName: o.primaryContactName,
                 companyName: o.companyName,
               })),
+              timelinesByDealId: timelinesByDealId as never,
             });
             if (keysWanted.has(EME_MISSION_CONTROL_SNAPSHOT_KEY) || input.runType !== "event_refresh") {
               writes.push({
@@ -632,7 +639,12 @@ export class EnterpriseMetricsEngineService {
                 periodKey: EME_PERIOD_LATEST,
                 numericValue: mc.radar.summary.healthScore,
                 payload: mc.radar,
-                sourceModules: ["buildChanakyaRadarDashboard", "CO-ARCH-007"],
+                sourceModules: [
+                  "buildChanakyaRadarDashboard",
+                  "CO-ARCH-007",
+                  "EnterpriseDealTimelineEvent",
+                  "CO-RADAR-005",
+                ],
               });
             }
           } catch (err) {

@@ -10,6 +10,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LenderPipelineBoard } from "@/components/catalyst-one/execution/lender-pipeline-board";
 import { EntityTasksPanel } from "@/components/catalyst-one/tasks/entity-tasks-panel";
+import { TransactionActivityTimeline } from "@/components/catalyst-one/transaction-activity-timeline";
 import { EnterpriseWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-workspace-shell";
 import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
 import { DealExecutiveHeader } from "@/components/catalyst-one/deal-workspace/deal-executive-header";
@@ -53,6 +54,8 @@ export function DealWorkspaceHost() {
   const [lenderAddOpen, setLenderAddOpen] = useState(false);
   /** Action Center follows the focused lender Deal. */
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
+  /** CO-C1-DIALOGUE-002A — load EAR timeline only when expanded (progressive). */
+  const [timelineOpen, setTimelineOpen] = useState(false);
 
   const reloadRuntime = useCallback(async (dealId: string) => {
     const next = await loadDealPipelineRuntime(dealId);
@@ -473,6 +476,48 @@ export function DealWorkspaceHost() {
               }}
             />
           </div>
+          {/* CO-C1-DIALOGUE-002A — EAR Activity Timeline (lazy; no sibling leakage) */}
+          <details
+            className="shrink-0 rounded-md border border-teal-500/25 bg-card/40 open:pb-1"
+            onToggle={(e) => setTimelineOpen((e.target as HTMLDetailsElement).open)}
+          >
+            <summary className="cursor-pointer list-none px-2 py-1.5 text-[11px] font-semibold text-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+              Activity Timeline
+              <span className="ml-2 font-normal text-muted-foreground">
+                What happened on this Deal · expand to load
+              </span>
+            </summary>
+            <div className="max-h-72 overflow-y-auto px-2 pb-2">
+              <TransactionActivityTimeline
+                compact
+                active={timelineOpen}
+                scope={{
+                  mode: "deal",
+                  dealId: activeDealId || dealIdParam,
+                  opportunityId:
+                    opportunityIdParam ||
+                    runtime?.deal?.opportunityId ||
+                    null,
+                }}
+                notesContext={
+                  activeDealId || dealIdParam
+                    ? {
+                        workspaceKind: "deal",
+                        entityKind: "deal",
+                        entityId: activeDealId || dealIdParam,
+                        dealId: activeDealId || dealIdParam,
+                        opportunityId:
+                          opportunityIdParam ||
+                          runtime?.deal?.opportunityId ||
+                          null,
+                      }
+                    : undefined
+                }
+                title="Deal history"
+                description="This Deal plus shared Opportunity events. Sibling lender deals are excluded."
+              />
+            </div>
+          </details>
           {/* CO-PERF-002 — Lazy secondary module: tasks load only when expanded */}
           <details className="shrink-0 rounded-md border border-border/60 bg-card/40 open:pb-1">
             <summary className="cursor-pointer list-none px-2 py-1 text-[10px] font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">

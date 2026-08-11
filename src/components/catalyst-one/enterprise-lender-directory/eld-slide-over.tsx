@@ -24,6 +24,7 @@ import { subscribeEcmContactRegistry } from "@/lib/enterprise-contact-master";
 import {
   composeEldLenderEmployeeRows,
   composeEldLenderHierarchyForest,
+  composeEldLenderChanakyaInsights,
   filterEmployeesForInstitution,
   loadEldLenderEmployeeContacts,
 } from "@/lib/enterprise-lender-directory";
@@ -31,6 +32,9 @@ import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
 import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
+import { useWorkspaceClose } from "@/hooks/use-workspace-close";
+import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
+import { ROUTES } from "@/constants/routes";
 import type { EnterpriseLenderDirectoryRow } from "@/types/enterprise-lender-directory-ops";
 import type { EldLenderEmployeeRow } from "@/types/enterprise-lender-directory-ops";
 import type {
@@ -48,6 +52,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+
+function displayMetric(value: string | number | null | undefined): string {
+  if (value == null) return "Not available";
+  const s = String(value).trim();
+  if (!s || s === "Not Specified") return "Not available";
+  return s;
+}
 
 function telHref(mobile?: string | null) {
   const digits = (mobile ?? "").replace(/\D/g, "");
@@ -84,11 +96,38 @@ export function EnterpriseLenderDirectorySlideOver({
   const [employeeSection, setEmployeeSection] =
     useState<EldEmployeeWorkspaceSectionId>("profile");
   const [employeeEditing, setEmployeeEditing] = useState(false);
+  /** Hierarchy Create/Assign/RM dialog open — disable parent Escape so dialog owns dismiss. */
+  const [hierarchyNestedOpen, setHierarchyNestedOpen] = useState(false);
   const { options: productOptions } = useProductMasterOptions(true);
 
   const lenderId = row?.lenderId ?? null;
   const lenderName = row?.lenderName ?? "Lender";
   const productKey = productOptions.map((p) => p.code).join("|");
+
+  const dismissWorkspace = useCallback(() => {
+    setEmployeeOpen(false);
+    setSelectedEmployee(null);
+    setEmployeeEditing(false);
+    setHierarchyNestedOpen(false);
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  const {
+    requestClose,
+    confirmOpen,
+    setConfirmOpen,
+    handleDiscard,
+    handleSaveAndClose,
+    saving: closeSaving,
+  } = useWorkspaceClose({
+    onClose: dismissWorkspace,
+    hasUnsavedChanges: employeeOpen && employeeEditing,
+    enableEscapeKey: open && !employeeOpen && !hierarchyNestedOpen,
+    onSaveAndClose: async () => {
+      // Employee Save & Exit is owned by employee slide-over; block parent close while dirty.
+      return false;
+    },
+  });
 
   useEffect(() => {
     if (!open) setTab("summary");
@@ -170,6 +209,11 @@ export function EnterpriseLenderDirectorySlideOver({
     return { ...f, lenderId };
   }, [employees, lenderId]);
 
+  const chanakyaInsights = useMemo(() => {
+    if (!row) return [];
+    return composeEldLenderChanakyaInsights({ row, employees, programs });
+  }, [row, employees, programs]);
+
   const filteredContacts = useMemo(() => {
     const q = contactQuery.trim().toLowerCase();
     if (!q) return employees;
@@ -194,16 +238,26 @@ export function EnterpriseLenderDirectorySlideOver({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) {
+            requestClose();
+            return;
+          }
+          onOpenChange(true);
+        }}
+      >
         <SheetContent
           side="right"
-          allowOutsideClose
+          allowOutsideClose={!(employeeOpen && employeeEditing)}
+          hideCloseButton
           className={cn(
             "flex h-full w-full flex-col gap-0 border-l border-border/60 bg-background p-0 shadow-2xl",
             "z-[95] duration-[250ms] data-[state=open]:duration-[250ms] data-[state=closed]:duration-200",
             "sm:max-w-[min(100vw,70vw)] md:max-w-[65vw]",
           )}
-          overlayClassName="bg-black/40 duration-200"
+          overlayClassName="z-[94] bg-black/40 duration-200"
         >
           <SheetHeader className="shrink-0 space-y-1 border-b border-border/60 px-4 py-3 text-left">
             <div className="flex items-start justify-between gap-3">
@@ -220,16 +274,45 @@ export function EnterpriseLenderDirectorySlideOver({
                   panel
                 </SheetDescription>
               </div>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 shrink-0"
-                onClick={() => onOpenChange(false)}
-                aria-label="Close lender workspace"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={() => {
+                    setReloadToken((n) => n + 1);
+                  }}
+                >
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    requestClose();
+                  }}
+                >
+                  Save & Exit
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 shrink-0"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    requestClose();
+                  }}
+                  aria-label="Close lender workspace"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div className="flex flex-wrap gap-1 pt-1">
               {ELD_WORKSPACE_TABS.map((t) => (
@@ -256,17 +339,18 @@ export function EnterpriseLenderDirectorySlideOver({
             ) : tab === "summary" ? (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {[
-                  { label: "Active Opportunities", value: String(row.activeOpportunities) },
-                  { label: "Active Deals", value: String(row.activeDeals) },
-                  { label: "Pipeline Value", value: row.maxLoanAmountLabel },
-                  { label: "Average TAT", value: row.averageTatLabel },
-                  { label: "Home Loan ROI", value: row.homeLoanRoiLabel },
-                  { label: "BT ROI", value: row.balanceTransferRoiLabel },
-                  { label: "Max LTV", value: row.maxLtvLabel },
-                  { label: "Min CIBIL", value: row.minCibilLabel },
+                  { label: "Active Opportunities", value: displayMetric(row.activeOpportunities) },
+                  { label: "Active Deals", value: displayMetric(row.activeDeals) },
+                  { label: "Pipeline Value", value: displayMetric(row.maxLoanAmountLabel) },
+                  { label: "Average TAT", value: displayMetric(row.averageTatLabel) },
+                  { label: "Home Loan ROI", value: displayMetric(row.homeLoanRoiLabel) },
+                  { label: "BT ROI", value: displayMetric(row.balanceTransferRoiLabel) },
+                  { label: "Max LTV", value: displayMetric(row.maxLtvLabel) },
+                  { label: "Min CIBIL", value: displayMetric(row.minCibilLabel) },
+                  { label: "Max FOIR", value: displayMetric(row.foirLabel) },
                   {
                     label: "Lender Employees",
-                    value: String(employees.length),
+                    value: displayMetric(employees.length),
                   },
                 ].map((k) => (
                   <div
@@ -280,43 +364,94 @@ export function EnterpriseLenderDirectorySlideOver({
                   </div>
                 ))}
                 <p className="sm:col-span-2 lg:col-span-4 text-[11px] text-muted-foreground">
-                  Employees, Hierarchy, and Contacts project from Enterprise Contact Registry
-                  (lender_employee). Sanctions and disbursements appear when Deal Registry metrics
-                  are linked.
+                  Metrics project from Enterprise Lender Registry programmes + Deal Registry
+                  counts. Missing values show as Not available — never demo numbers.
                 </p>
               </div>
             ) : tab === "products" ? (
               <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Published programmes from Enterprise Lender Program registry.
+                  </p>
+                  <Button asChild size="sm" variant="outline" className="h-7 text-[10px]">
+                    <Link href={ROUTES.ADMIN_PRODUCT_PROGRAMS}>Open Product Programs</Link>
+                  </Button>
+                </div>
                 {programs.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No published product programmes for this lender.
                   </p>
                 ) : (
-                  programs.map((p) => (
-                    <article
-                      key={p.id}
-                      className="rounded-lg border border-border/60 bg-card px-3 py-2"
-                    >
-                      <p className="text-sm font-semibold">{p.label}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        {[
-                          p.productCode,
-                          p.roiPercent != null ? `ROI ${p.roiPercent}%` : null,
-                          p.maxLtvPercent != null ? `LTV ${p.maxLtvPercent}%` : null,
-                          p.minCibil != null ? `CIBIL ${p.minCibil}` : null,
-                          p.averageTatDays != null ? `TAT ${p.averageTatDays}d` : null,
-                          p.processingFeeLabel,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      {p.remarks || p.notes ? (
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {p.remarks || p.notes}
-                        </p>
-                      ) : null}
-                    </article>
-                  ))
+                  programs.map((p) => {
+                    const docs = Array.isArray(p.requiredDocuments)
+                      ? p.requiredDocuments
+                      : (p.requiredDocumentTypeIds ?? []).map((typeRef) => ({
+                          typeRef,
+                          mandatory: true,
+                        }));
+                    return (
+                      <article
+                        key={p.id}
+                        className="rounded-lg border border-border/60 bg-card px-3 py-2"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold">{p.label}</p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              {[
+                                p.productCode,
+                                p.employmentType ? `Employment · ${p.employmentType}` : null,
+                                p.roiPercent != null ? `ROI ${p.roiPercent}%` : null,
+                                p.processingFeeLabel ||
+                                  (p.processingFeePct != null
+                                    ? `PF ${p.processingFeePct}%`
+                                    : null),
+                                p.maxLtvPercent != null ? `LTV ${p.maxLtvPercent}%` : null,
+                                p.maxTenureMonths != null
+                                  ? `Tenure ${p.maxTenureMonths}m`
+                                  : null,
+                                p.minCibil != null ? `CIBIL ${p.minCibil}` : null,
+                                p.maxFoirPercent != null ? `FOIR ${p.maxFoirPercent}%` : null,
+                                p.maxDbrPercent != null ? `DBR ${p.maxDbrPercent}%` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              Policy ·{" "}
+                              {p.creditRiskPolicyRef?.trim() || "Not available"}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              Documents ·{" "}
+                              {docs.length === 0
+                                ? "Not available"
+                                : docs
+                                    .map(
+                                      (d) =>
+                                        `${"typeRef" in d ? d.typeRef : String(d)}${
+                                          "mandatory" in d && d.mandatory === false
+                                            ? " (optional)"
+                                            : ""
+                                        }`,
+                                    )
+                                    .join(", ")}
+                            </p>
+                          </div>
+                          <Button asChild size="sm" variant="ghost" className="h-7 text-[10px]">
+                            <Link href={`${ROUTES.ADMIN_PRODUCT_PROGRAMS}?programId=${p.id}`}>
+                              Edit programme
+                            </Link>
+                          </Button>
+                        </div>
+                        {p.remarks || p.notes ? (
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {p.remarks || p.notes}
+                          </p>
+                        ) : null}
+                      </article>
+                    );
+                  })
                 )}
               </div>
             ) : tab === "hierarchy" ? (
@@ -327,15 +462,28 @@ export function EnterpriseLenderDirectorySlideOver({
                   forest={forest}
                   onOpenEmployee={openEmployee}
                   onChanged={() => setReloadToken((n) => n + 1)}
+                  onNestedUiOpenChange={setHierarchyNestedOpen}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">Hierarchy unavailable.</p>
               )
             ) : tab === "contacts" ? (
               <div className="space-y-2">
-                <p className="text-[11px] text-muted-foreground">
-                  Same Enterprise Contact Registry as Employees / Hierarchy (role lender_employee).
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Same Enterprise Contact Registry as Employees / Hierarchy (role
+                    lender_employee).
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[10px]"
+                    onClick={() => setTab("hierarchy")}
+                  >
+                    Assign / Create Employee
+                  </Button>
+                </div>
                 <input
                   className="h-8 w-full rounded-md border border-border/60 bg-background px-2 text-xs"
                   placeholder="Search employees…"
@@ -450,12 +598,20 @@ export function EnterpriseLenderDirectorySlideOver({
             ) : tab === "opportunities" ? (
               <div className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">
-                  Current pipeline by lender employee (Deal Registry). Directory lender count:{" "}
-                  <span className="font-semibold text-foreground">{row.activeOpportunities}</span>.
+                  Lender-linked Deals from Enterprise Deal Registry (post lender assignment).
+                  Directory Opportunity count:{" "}
+                  <span className="font-semibold text-foreground">
+                    {displayMetric(row.activeOpportunities)}
+                  </span>
+                  . Deal count:{" "}
+                  <span className="font-semibold text-foreground">
+                    {displayMetric(row.activeDeals)}
+                  </span>
+                  .
                 </p>
                 {employees.flatMap((e) => e.pipeline).length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No active deals currently linked to employees of this lender.
+                    No active Deals currently linked to employees of this lender.
                   </p>
                 ) : (
                   employees.flatMap((e) =>
@@ -501,22 +657,57 @@ export function EnterpriseLenderDirectorySlideOver({
                 )}
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
-                <Sparkles className="mb-2 h-4 w-4 text-teal-600" />
-                Chanakya insights for this lender bind when advisory providers are linked —
-                employee and deal facts above remain the operational SSOT.
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">
+                  Chanakya insights are derived from Directory, Programme, and Contact Registry
+                  facts only — no fabricated Radar scores.
+                </p>
+                {chanakyaInsights.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                    <Sparkles className="mb-2 h-4 w-4 text-teal-600" />
+                    No actionable Chanakya observations for this lender yet. Link employees,
+                    publish programmes, or grow Deal pipeline to surface insights.
+                  </div>
+                ) : (
+                  chanakyaInsights.map((insight) => (
+                    <article
+                      key={insight.id}
+                      className="rounded-lg border border-border/60 bg-card px-3 py-2"
+                    >
+                      <p className="text-sm font-semibold">{insight.headline}</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">{insight.body}</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Source · {insight.source}
+                      </p>
+                    </article>
+                  ))
+                )}
               </div>
             )}
           </div>
         </SheetContent>
       </Sheet>
 
+      <UnsavedChangesDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onDiscard={handleDiscard}
+        onSaveAndClose={() => void handleSaveAndClose()}
+        saving={closeSaving}
+        contentClassName="z-[110]"
+        overlayClassName="z-[110]"
+      />
+
       <EldLenderEmployeeSlideOver
         open={employeeOpen}
-        onOpenChange={setEmployeeOpen}
+        onOpenChange={(next) => {
+          setEmployeeOpen(next);
+          if (!next) setEmployeeEditing(false);
+        }}
         row={selectedEmployee}
         initialSection={employeeSection}
         initialEditing={employeeEditing}
+        onEditingChange={setEmployeeEditing}
         onSaved={() => setReloadToken((n) => n + 1)}
       />
     </>

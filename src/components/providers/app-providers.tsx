@@ -8,6 +8,7 @@ import { GlobalChanakyaProvider } from "@/components/layout/global-chanakya-prov
 import { GlobalChanakyaDrawer } from "@/components/layout/global-chanakya-assistant";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { EnterpriseNotificationHost } from "@/components/catalyst-one/enterprise-notification-engine";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
               <TooltipProvider delayDuration={0}>
                 {children}
                 <GlobalChanakyaDrawer />
+                <EnterpriseNotificationHost />
                 <Toaster richColors closeButton position="top-right" />
               </TooltipProvider>
             </GlobalChanakyaProvider>

@@ -1,8 +1,10 @@
 /**
  * Customer Portal upload engine — single ingestion channel into Enterprise Document Registry.
  * Updates Document Requests, Opportunity timeline, and RM notification simulation.
+ * CO-DOC-ARCH-001 — DIRECT channel → uploadSource customer_portal (same Document SSOT).
  */
 
+import { toDocumentUploadSource } from "@/constants/document-intake";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
 import { simulateEnceCommunication } from "@/lib/enterprise-notification-communication-engine";
 import {
@@ -14,6 +16,8 @@ import { runCustomerPortalVirusScan } from "@/lib/document-requests/virus-scan-h
 import { recordCustomerPortalUpload } from "@/lib/document-requests/store";
 import type { DocumentRequestItemState, DocumentRequestUploadSession } from "@/types/document-requests";
 import type { DocumentRegistryRecord } from "@/types/document-registry";
+
+const DIRECT_UPLOAD_SOURCE = toDocumentUploadSource("DIRECT");
 
 export type CustomerPortalUploadResult =
   | { ok: true; record: DocumentRegistryRecord; replaced: boolean }
@@ -113,7 +117,7 @@ export async function ingestCustomerPortalDocument(input: {
       typeRef: item.typeRef,
       categoryLabel: item.label,
       uploadedBy: session.customerName || "Customer",
-      uploadSource: "customer_portal",
+      uploadSource: DIRECT_UPLOAD_SOURCE,
       links: {
         opportunityId: session.opportunityId,
         documentScope: "shared",

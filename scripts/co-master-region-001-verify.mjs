@@ -113,8 +113,20 @@ assertIncludes(
     "getEnterpriseRegionStateCodes",
     "normalizeEnterpriseRegionId",
     "Select Region first",
+    "Select City first",
   ],
   "city-branch-cascade",
+);
+
+// Contact Role Workspace must pass regionId (CO-CONTACT-REGION-001)
+assertIncludes(
+  "src/components/catalyst-one/contacts/contact-workspace-modal.tsx",
+  [
+    'regionId={roleCode === "lender_employee" ? values.region : undefined}',
+    "BankerCitySelect",
+    "BankerBranchSelect",
+  ],
+  "contact-role-workspace-region",
 );
 
 // 4) Admin Geography → Regions

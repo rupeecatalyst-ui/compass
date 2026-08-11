@@ -53,6 +53,18 @@ export const wealthPartnerRegistryRepository = {
     if (query.companyId?.trim()) {
       where.companyId = query.companyId.trim();
     }
+    if (query.createdFrom || query.createdTo) {
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (query.createdFrom?.trim()) {
+        const from = new Date(query.createdFrom.trim());
+        if (!Number.isNaN(from.getTime())) createdAt.gte = from;
+      }
+      if (query.createdTo?.trim()) {
+        const to = new Date(query.createdTo.trim());
+        if (!Number.isNaN(to.getTime())) createdAt.lte = to;
+      }
+      if (Object.keys(createdAt).length) where.createdAt = createdAt;
+    }
     if (query.search?.trim()) {
       const q = query.search.trim();
       where.OR = [

@@ -1,0 +1,24 @@
+{
+  "auditId": "CO-RADAR-001",
+  "generatedAt": "2026-08-06T11:18:27.866Z",
+  "mathematicalFloor": 6,
+  "simulations": {
+    "emptyTimelineDealRegistryStub": {
+      "quadrant": "at_risk",
+      "dealHealthScore": 6,
+      "activityState": "at_risk",
+      "momentum": 9,
+      "daysSinceMeaningful": 999,
+      "reason": "Activity Intelligence: critically delayed operational freshness",
+      "timelineLen": 0
+    },
+    "meaningfulCallToday": {
+      "quadrant": "on_track",
+      "dealHealthScore": 99,
+      "activityState": "active_today",
+      "momentum": 82,
+      "daysSinceMeaningful": 0,
+      "reason": "Meaningful operational activity recorded today"
+    }
+  }
+}

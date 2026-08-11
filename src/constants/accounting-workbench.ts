@@ -18,7 +18,8 @@ export type AccountingWorkbenchId =
   | "gst_tax"
   | "invoice_party_master"
   | "payee_master"
-  | "reports";
+  | "reports"
+  | "notes";
 
 export interface AccountingWorkbenchDef {
   id: AccountingWorkbenchId;
@@ -68,6 +69,11 @@ export const ACCOUNTING_WORKBENCHES: readonly AccountingWorkbenchDef[] = [
     id: "reports",
     label: "Reports",
     description: "Reports Workbench — revenue, profitability, and MIS",
+  },
+  {
+    id: "notes",
+    label: "Notes",
+    description: "Enterprise Business Notes for Accounting Workspace",
   },
 ] as const;
 

@@ -6,6 +6,7 @@ import {
 } from "@/lib/api/partner-route-utils";
 import { partnerNotificationCenterService } from "@server/services/partner-gateway/partner-notification-center.service";
 import { PartnerGatewayError } from "@server/services/partner-gateway/partner-binding.service";
+import { runWithPartnerRequestMemo } from "@server/services/partner-gateway/partner-request-memo";
 
 type Ctx = { params: Promise<{ notificationId: string }> };
 
@@ -25,9 +26,8 @@ export async function POST(request: Request, context: Ctx) {
     if (body.action && body.action !== "mark_read") {
       throw new PartnerGatewayError("Unsupported action", "BAD_REQUEST", 400);
     }
-    const center = await partnerNotificationCenterService.markRead(
-      actor.userId,
-      notificationId.trim(),
+    const center = await runWithPartnerRequestMemo(() =>
+      partnerNotificationCenterService.markRead(actor.userId, notificationId.trim()),
     );
     return partnerSuccess(request, center);
   } catch (err) {

@@ -1,0 +1,211 @@
+{
+  "sprint": "CO-HL-PROGRAM-003",
+  "productFamily": "HOME_LOAN",
+  "before": {
+    "totalLenders": 283,
+    "homeLoanEligible": 195,
+    "enabledTrue": 280,
+    "matrixFingerprint": "fcd7e625b246ab1f751b82891ff10fbd3322f4644520d38c94cf0583fb8f3829"
+  },
+  "after": {
+    "totalLenders": 283,
+    "homeLoanEligible": 195,
+    "enabledTrue": 280,
+    "matrixFingerprint": "fcd7e625b246ab1f751b82891ff10fbd3322f4644520d38c94cf0583fb8f3829"
+  },
+  "integrity": {
+    "lenderCountUnchanged": true,
+    "homeLoanEligibleUnchanged": true,
+    "enabledUnchanged": true,
+    "matrixUnchanged": true,
+    "priorityCount": 21,
+    "priorityUnique": true
+  },
+  "priorityTable": [
+    {
+      "priority": 1,
+      "institution": "Central Bank of India",
+      "lenderId": "cms4cmnqu000fwen42ygnftpi",
+      "lenderCode": "CBI",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 2,
+      "institution": "HSBC Bank",
+      "lenderId": "cms8hq4540005wed8g8qwfida",
+      "lenderCode": "HSBC",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 3,
+      "institution": "HDFC Bank",
+      "lenderId": "cmrusopl1003lwe601zac0dvs",
+      "lenderCode": "HDFC",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 4,
+      "institution": "Shinhan Bank",
+      "lenderId": "cms8hq6hx000fwed8xiqblfnz",
+      "lenderCode": "SHINHAN_BANK",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 5,
+      "institution": "State Bank of India",
+      "lenderId": "cmrusopva003rwe60cjyga2va",
+      "lenderCode": "SBI",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 6,
+      "institution": "Bank of India",
+      "lenderId": "cms4cmn6x000dwen4ppiw05e0",
+      "lenderCode": "BOI",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 7,
+      "institution": "Axis Bank",
+      "lenderId": "cmrusopch003hwe60phw80i5i",
+      "lenderCode": "AXIS",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 8,
+      "institution": "ICICI Bank",
+      "lenderId": "cmrusopoe003nwe60331ytwfx",
+      "lenderCode": "ICICI",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 9,
+      "institution": "Bajaj Housing Finance",
+      "lenderId": "cms4cn7yv002bwen44z7wjg6l",
+      "lenderCode": "BAJAJ_HOUSING",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 10,
+      "institution": "Bank of Baroda",
+      "lenderId": "cms4cmkgh0003wen4racfsmj4",
+      "lenderCode": "BOB",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 11,
+      "institution": "Federal Bank",
+      "lenderId": "cms4cmsvt000twen4qf3d6wok",
+      "lenderCode": "FEDERAL",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 12,
+      "institution": "IIFL Home Finance",
+      "lenderId": "cms4cnb9c002nwen43l915ak6",
+      "lenderCode": "IIFL_HOME",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 13,
+      "institution": "Kotak Mahindra Bank",
+      "lenderId": "cmrusoprt003pwe60kshcazu7",
+      "lenderCode": "KOTAK",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 14,
+      "institution": "LIC Housing Finance",
+      "lenderId": "cms4cn6vi0027wen4a2xv1vsq",
+      "lenderCode": "LIC_HFL",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 15,
+      "institution": "Piramal Housing Finance",
+      "lenderId": "cms4cndg1002vwen4eqlooub2",
+      "lenderCode": "PIRAMAL_HOUSING",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 16,
+      "institution": "PNB Housing Finance",
+      "lenderId": "cms4cn7f30029wen4i24wovpa",
+      "lenderCode": "PNB_HOUSING",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 17,
+      "institution": "Saraswat Cooperative Bank",
+      "lenderId": "cms4cnp84003zwen42y73iquu",
+      "lenderCode": "SARASWAT",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 18,
+      "institution": "South Indian Bank",
+      "lenderId": "cms4cmusj000zwen4x47m61qh",
+      "lenderCode": "SIB",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 19,
+      "institution": "Standard Chartered Bank",
+      "lenderId": "cms8hq3nz0003wed804dmj3ou",
+      "lenderCode": "STANDARD_CHARTERED",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 20,
+      "institution": "Tata Capital Housing Finance",
+      "lenderId": "cms4cnbsz002pwen4ahfno9va",
+      "lenderCode": "TATA_CAPITAL_HFL",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "priority": 21,
+      "institution": "Yes Bank",
+      "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+      "lenderCode": "YES",
+      "status": "active",
+      "enabled": true
+    }
+  ],
+  "duplicateResolution": {
+    "centralBankOfIndia": {
+      "selected": "CBI",
+      "rejected": "BF_CENTRAL",
+      "reason": "CBI is the canonical public_sector_bank record with HOME_LOAN product codes aligned to the live matrix majority; BF_CENTRAL remains HL-eligible under Other Home Loan Lenders."
+    },
+    "bajajHousingFinance": {
+      "selected": "BAJAJ_HOUSING",
+      "rejected": "BAJAJ",
+      "reason": "BAJAJ_HOUSING is the canonical housing_finance_company record with HOME_LOAN codes; BAJAJ remains HL-eligible under Other Home Loan Lenders."
+    },
+    "stateBankOfIndia": {
+      "selected": "SBI",
+      "rejected": "LND-P2A-SBI",
+      "reason": "Only SBI (State Bank of India) is Home Loan–mapped. LND-P2A-SBI has productsSupported=null and is not HL-eligible, so it cannot receive HL priority."
+    }
+  }
+}

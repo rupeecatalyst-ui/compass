@@ -1,0 +1,3131 @@
+{
+  "sprint": "CO-HL-PROGRAM-001",
+  "productFamily": "HOME_LOAN",
+  "source": "Enterprise Lender Registry ┬╖ productsSupported (ProductΓÇôLender Matrix)",
+  "totalEnabledLenders": 280,
+  "homeLoanMappedCount": 195,
+  "sort": "Institution Name ascending",
+  "note": "Home Loan selection priority not set yet ΓÇö awaiting Product Owner order.",
+  "lenders": [
+    {
+      "listOrder": 1,
+      "lenderId": "cms4cn922002fwen4g8fbotm7",
+      "lenderCode": "AAVAS",
+      "institutionName": "Aavas Financiers",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Aavas ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 2,
+      "lenderId": "cms4cnrmq0047wen4n1pdo8xw",
+      "lenderCode": "ABHYUDAYA",
+      "institutionName": "Abhyudaya Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Abhyudaya ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 3,
+      "lenderId": "cms4cngrl0037wen43lkirriv",
+      "lenderCode": "ADITYA_BIRLA_FINANCE",
+      "institutionName": "Aditya Birla Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "ABFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 4,
+      "lenderId": "cms4cnccj002rwen4y76rmxjc",
+      "lenderCode": "ADITYA_BIRLA_HOUSING",
+      "institutionName": "Aditya Birla Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "ABHFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 5,
+      "lenderId": "cms8hr4d6005vwed8h58r47l8",
+      "lenderCode": "AHMEDABAD_DIST",
+      "institutionName": "Ahmedabad DCCB",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "ADCC Bank ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 6,
+      "lenderId": "cms8hqezk001pwed86myx2xve",
+      "lenderCode": "ALTUM_CREDO",
+      "institutionName": "Altum Credo",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Altum Credo ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 7,
+      "lenderId": "cms8hrhhd007nwed8s7hwpzeh",
+      "lenderCode": "ANDHRA_PRAGATHI",
+      "institutionName": "Andhra Pragathi Grameena Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "APGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 8,
+      "lenderId": "cms8hrtgh009lwed8ie46fy06",
+      "lenderCode": "ANDHRA_STATE_COOP",
+      "institutionName": "AP State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "APCOB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 9,
+      "lenderId": "cms8hr20d005hwed8z2wsfvao",
+      "lenderCode": "APNA_SAHAKARI",
+      "institutionName": "Apna Sahakari Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Apna Sahakari ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 10,
+      "lenderId": "cms4cndzn002xwen4p9q2yisd",
+      "lenderCode": "APTUS",
+      "institutionName": "Aptus Value Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Aptus ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 11,
+      "lenderId": "cms8hrn1l008jwed8ykf8z6bq",
+      "lenderCode": "ARUNACHAL_RURAL",
+      "institutionName": "Arunachal Pradesh Rural Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "APRB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 12,
+      "lenderId": "cms8hrik5007twed8zpzffykz",
+      "lenderCode": "ARYA_VART",
+      "institutionName": "Aryavart Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Aryavart ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 13,
+      "lenderId": "cms8hrl0q0087wed8garh8uh0",
+      "lenderCode": "ASSAM_GRAMIN",
+      "institutionName": "Assam Gramin Vikash Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "AGVB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 14,
+      "lenderId": "cms4cn0sw001lwen4gdbtp9n1",
+      "lenderCode": "AU_SFB",
+      "institutionName": "AU Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "AU SFB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 15,
+      "lenderId": "cmrusopch003hwe60phw80i5i",
+      "lenderCode": "AXIS",
+      "institutionName": "Axis Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Axis ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 16,
+      "lenderId": "cms4cnfmd0033wen4dd25gl97",
+      "lenderCode": "BAJAJ_FINANCE",
+      "institutionName": "Bajaj Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Bajaj Finance ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 17,
+      "lenderId": "cms4cn7yv002bwen44z7wjg6l",
+      "lenderCode": "BAJAJ_HOUSING",
+      "institutionName": "Bajaj Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Bajaj HFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 18,
+      "lenderId": "cmrusophn003jwe60hymttfjn",
+      "lenderCode": "BAJAJ",
+      "institutionName": "Bajaj Housing Finance",
+      "institutionType": "hfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Home Loan Program"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 19,
+      "lenderId": "cms4cmym7001dwen4yy0kag4p",
+      "lenderCode": "BANDHAN",
+      "institutionName": "Bandhan Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Bandhan ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 20,
+      "lenderId": "cms8hq5jy000bwed8cw15ailo",
+      "lenderCode": "BANK_OF_AMERICA",
+      "institutionName": "Bank of America",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "BofA ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 21,
+      "lenderId": "cms4cmkgh0003wen4racfsmj4",
+      "lenderCode": "BOB",
+      "institutionName": "Bank of Baroda",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "BoB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 22,
+      "lenderId": "cms4cmn6x000dwen4ppiw05e0",
+      "lenderCode": "BOI",
+      "institutionName": "Bank of India",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "BoI ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 23,
+      "lenderId": "cms4cmpds000lwen4uwizbmrj",
+      "lenderCode": "BOM",
+      "institutionName": "Bank of Maharashtra",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "BoM ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 24,
+      "lenderId": "cms8hr7h1006dwed8sffs0yn3",
+      "lenderCode": "BARCLAYS",
+      "institutionName": "Barclays Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Barclays ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 25,
+      "lenderId": "cms8hrh5a007lwed88ridyam5",
+      "lenderCode": "BARODA_UP_GRAMIN",
+      "institutionName": "Baroda UP Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Baroda UP ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 26,
+      "lenderId": "cms8hrcez006xwed8u8up0x9i",
+      "lenderCode": "BANK_OF_BAHRAIN",
+      "institutionName": "BBK",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "BBK ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 27,
+      "lenderId": "cms4cns8a0049wen434kaf4h7",
+      "lenderCode": "BHARAT_COOP",
+      "institutionName": "Bharat Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Bharat Coop ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 28,
+      "lenderId": "cms8hrq2n0091wed8wtpasqlz",
+      "lenderCode": "BIHAR_STATE_COOP",
+      "institutionName": "Bihar State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "BSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 29,
+      "lenderId": "cms8hr7y5006fwed8w8xgj1ls",
+      "lenderCode": "BNP_PARIBAS",
+      "institutionName": "BNP Paribas",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "BNP Paribas ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 30,
+      "lenderId": "cms8hr2oj005lwed8wvtp4r26",
+      "lenderCode": "BOMBAY_MERC",
+      "institutionName": "Bombay Mercantile Co-op Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "BMCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 31,
+      "lenderId": "cms4cnej5002zwen430ybcgrk",
+      "lenderCode": "CAN_FIN",
+      "institutionName": "Can Fin Homes",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Can Fin ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 32,
+      "lenderId": "cms4cmljv0007wen4xa9hgtpl",
+      "lenderCode": "CANARA",
+      "institutionName": "Canara Bank",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Canara ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 33,
+      "lenderId": "cms4cn4mv001zwen42nlml0pc",
+      "lenderCode": "CAPITAL_SFB",
+      "institutionName": "Capital Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Capital SFB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 34,
+      "lenderId": "cms4cnlkp003nwen4eywper25",
+      "lenderCode": "CAPRI_GLOBAL",
+      "institutionName": "Capri Global",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Capri ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 35,
+      "lenderId": "cms0zh7lo0005we64kzu4jay1",
+      "lenderCode": "BF_CENTRAL",
+      "institutionName": "Central Bank of India",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Home Loan Program"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 36,
+      "lenderId": "cms4cmnqu000fwen42ygnftpi",
+      "lenderCode": "CBI",
+      "institutionName": "Central Bank of India",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "CBI ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 37,
+      "lenderId": "cms8hqdy7001jwed845jhmr40",
+      "lenderCode": "CENTRUM_HOUSING",
+      "institutionName": "Centrum Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Centrum HFC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 38,
+      "lenderId": "cms8hrqr70095wed8jmesmbgc",
+      "lenderCode": "CHHATTISGARH_RAJYA",
+      "institutionName": "Chhattisgarh Rajya Sahakari Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "CG Rajya Bank ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 39,
+      "lenderId": "cms4cnhyz003bwen45z3id9dm",
+      "lenderCode": "CHOLA",
+      "institutionName": "Cholamandalam Investment & Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Chola ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 40,
+      "lenderId": "cms8hq60x000dwed8rmrvt41d",
+      "lenderCode": "CITIBANK",
+      "institutionName": "Citibank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Citi ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 41,
+      "lenderId": "cms8hr5pz0063wed8u7ts8ymh",
+      "lenderCode": "CITIZEN_CREDIT",
+      "institutionName": "Citizen Credit Co-op Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Citizen Credit ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 42,
+      "lenderId": "cms4cmwfb0015wen4tjpqtz8y",
+      "lenderCode": "CUB",
+      "institutionName": "City Union Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "CUB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 43,
+      "lenderId": "cms8hqb0z0013wed859qo9skj",
+      "lenderCode": "CLIX_HOUSING",
+      "institutionName": "Clix Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Clix HFC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 44,
+      "lenderId": "cms4cnptn0041wen4c63jdpf6",
+      "lenderCode": "COSMOS",
+      "institutionName": "Cosmos Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Cosmos ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 45,
+      "lenderId": "cms8hr8fa006hwed82t5kadwt",
+      "lenderCode": "CREDIT_AGRICOLE",
+      "institutionName": "Credit Agricole CIB",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "CACIB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 46,
+      "lenderId": "cms4cmy2i001bwen46gohs72s",
+      "lenderCode": "CSB",
+      "institutionName": "CSB Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "CSB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 47,
+      "lenderId": "cms8hrcw2006zwed8msy5qbbw",
+      "lenderCode": "CTBC_BANK",
+      "institutionName": "CTBC Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "CTBC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 48,
+      "lenderId": "cms8hq4m00007wed8nyf40466",
+      "lenderCode": "DBS_INDIA",
+      "institutionName": "DBS Bank India",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "DBS ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 49,
+      "lenderId": "cms4cmwz20017wen412c85bwt",
+      "lenderCode": "DCB",
+      "institutionName": "DCB Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "DCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 50,
+      "lenderId": "cms8hq5320009wed8mkd9nu57",
+      "lenderCode": "DEUTSCHE_BANK",
+      "institutionName": "Deutsche Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Deutsche ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 51,
+      "lenderId": "cms8hq7zb000lwed8e6wredb5",
+      "lenderCode": "DHANLAXMI_BANK",
+      "institutionName": "Dhanlaxmi Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Dhanlaxmi ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 52,
+      "lenderId": "cms8hq9bx000twed8euca2a8j",
+      "lenderCode": "DHFL_LEGACY",
+      "institutionName": "DHFL (Legacy)",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "DHFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 53,
+      "lenderId": "cms8hq7ib000jwed8kuyd0g4a",
+      "lenderCode": "DOHA_BANK",
+      "institutionName": "Doha Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Doha ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 54,
+      "lenderId": "cms8hr6260065wed8v75ropll",
+      "lenderCode": "DOMBIVLI_NAGARI",
+      "institutionName": "Dombivli Nagari Sahakari Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "DNS Bank ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 55,
+      "lenderId": "cms8hqeam001lwed8t4z8lfjf",
+      "lenderCode": "EASY_HOME_FINANCE",
+      "institutionName": "Easy Home Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Easy Home ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 56,
+      "lenderId": "cms4cnm68003pwen4f9zoqxtd",
+      "lenderCode": "EDELWEISS",
+      "institutionName": "Edelweiss Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Edelweiss ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 57,
+      "lenderId": "cms8hrazz006rwed8e1oyj9gr",
+      "lenderCode": "EMIRATES_NBD",
+      "institutionName": "Emirates NBD",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "ENBD ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 58,
+      "lenderId": "cms4cn1ci001nwen42wevago5",
+      "lenderCode": "EQUITAS_SFB",
+      "institutionName": "Equitas Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Equitas ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 59,
+      "lenderId": "cms4cn2zy001twen4cilgo0iu",
+      "lenderCode": "ESAF_SFB",
+      "institutionName": "ESAF Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "ESAF ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 60,
+      "lenderId": "cms8hr0o30059wed87zifv6sk",
+      "lenderCode": "EXIM_BANK",
+      "institutionName": "EXIM Bank",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "EXIM ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 61,
+      "lenderId": "cms4cmsvt000twen4qf3d6wok",
+      "lenderCode": "FEDERAL",
+      "institutionName": "Federal Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Federal ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 62,
+      "lenderId": "cms8hq8ng000pwed8yg2iip3s",
+      "lenderCode": "FINCARE_SFB",
+      "institutionName": "Fincare Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Fincare SFB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 63,
+      "lenderId": "cms8hrab3006pwed8hjuecqdp",
+      "lenderCode": "FIRST_ABU_DHABI",
+      "institutionName": "First Abu Dhabi Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "FAB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 64,
+      "lenderId": "cms8hqbd30015wed8kt2jn0n4",
+      "lenderCode": "FULLERTON_INDIA_CREDIT",
+      "institutionName": "Fullerton India",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Fullerton ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 65,
+      "lenderId": "cms8hqbp90017wed8jsdj6ewo",
+      "lenderCode": "FULLERTON_INDIA_HOME",
+      "institutionName": "Fullerton India Home Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Fullerton Home ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 66,
+      "lenderId": "cms4cnap4002lwen446g7ksa4",
+      "lenderCode": "GIC_HOUSING",
+      "institutionName": "GIC Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "GICHFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 67,
+      "lenderId": "cms8hrnpm008nwed8zumtql0k",
+      "lenderCode": "GOA_STATE_COOP",
+      "institutionName": "Goa State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "GSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 68,
+      "lenderId": "cms4cncw9002twen4ix8wilkp",
+      "lenderCode": "GODREJ_HOUSING",
+      "institutionName": "Godrej Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Godrej HFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 69,
+      "lenderId": "cms8hr4p9005xwed8g4tk7dtx",
+      "lenderCode": "GREATER_BOMBAY",
+      "institutionName": "Greater Bombay Co-op Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "GBCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 70,
+      "lenderId": "cms8hq9o3000vwed8m34wlxdy",
+      "lenderCode": "GRUH_FINANCE",
+      "institutionName": "GRUH Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "GRUH ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 71,
+      "lenderId": "cms8hr1ob005fwed8ygtzuvdh",
+      "lenderCode": "GS_MAHANAGAR",
+      "institutionName": "GS Mahanagar Co-op Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "GS Mahanagar ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 72,
+      "lenderId": "cms8hro1u008pwed8hfvhgrgh",
+      "lenderCode": "GUJARAT_STATE_COOP",
+      "institutionName": "Gujarat State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "GSC Bank ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 73,
+      "lenderId": "cms8hrrrn009bwed88bs1w4ip",
+      "lenderCode": "HARYANA_STATE_COOP",
+      "institutionName": "Haryana State Co-op Apex Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "HARCO Bank ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 74,
+      "lenderId": "cms8hru7f009pwed8w8c1qs28",
+      "lenderCode": "HDB_FINANCIAL",
+      "institutionName": "HDB Financial Services",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "HDBFS ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 75,
+      "lenderId": "cmrusopl1003lwe601zac0dvs",
+      "lenderCode": "HDFC",
+      "institutionName": "HDFC Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "HDFC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 76,
+      "lenderId": "cms8hqfnz001twed80g0fuwf9",
+      "lenderCode": "HDFC_CREDILA",
+      "institutionName": "HDFC Credila",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Credila ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 77,
+      "lenderId": "cms4cnoly003xwen4muehb0ef",
+      "lenderCode": "HERO_FINCORP",
+      "institutionName": "Hero FinCorp",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Hero FinCorp ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 78,
+      "lenderId": "cms4cnnzf003vwen43xt306wy",
+      "lenderCode": "HINDUJA_LEYLAND",
+      "institutionName": "Hinduja Leyland Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "HLF ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 79,
+      "lenderId": "cms4cn8ij002dwen4qj89x7pn",
+      "lenderCode": "HOME_FIRST",
+      "institutionName": "Home First Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Home First ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 80,
+      "lenderId": "cms8hrkcc0083wed86rf4n0q8",
+      "lenderCode": "HIMACHAL_GRAMIN",
+      "institutionName": "HP Gramin Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "HPGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 81,
+      "lenderId": "cms8hrsg3009fwed8ue7spag5",
+      "lenderCode": "HIMACHAL_STATE_COOP",
+      "institutionName": "HP State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "HPSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 82,
+      "lenderId": "cms8hq4540005wed8g8qwfida",
+      "lenderCode": "HSBC",
+      "institutionName": "HSBC Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "HSBC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 83,
+      "lenderId": "cms8hr754006bwed89gn7lao1",
+      "lenderCode": "ICHALKARANJI",
+      "institutionName": "Ichalkaranji Merchants Co-op Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "IMCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 84,
+      "lenderId": "cmrusopoe003nwe60331ytwfx",
+      "lenderCode": "ICICI",
+      "institutionName": "ICICI Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "ICICI ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 85,
+      "lenderId": "cms8hqc1h0019wed8ajjnhvxf",
+      "lenderCode": "ICICI_HOME_FINANCE",
+      "institutionName": "ICICI Home Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "ICICI HFC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 86,
+      "lenderId": "cms4cmz5s001fwen4lcqhnj8z",
+      "lenderCode": "IDBI",
+      "institutionName": "IDBI Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "IDBI ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 87,
+      "lenderId": "cms4cmsbt000rwen4q9tdyqfh",
+      "lenderCode": "IDFC_FIRST",
+      "institutionName": "IDFC FIRST Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "IDFC FIRST ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 88,
+      "lenderId": "cms4cnkdf003jwen4s4uw7m1s",
+      "lenderCode": "IIFL_FINANCE",
+      "institutionName": "IIFL Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "IIFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 89,
+      "lenderId": "cms4cnb9c002nwen43l915ak6",
+      "lenderCode": "IIFL_HOME",
+      "institutionName": "IIFL Home Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "IIFL Home ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 90,
+      "lenderId": "cms8hqcps001dwed84ok4zmvw",
+      "lenderCode": "INDIA_HOME_LOAN",
+      "institutionName": "India Home Loan",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "IHL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 91,
+      "lenderId": "cms4cn9lo002hwen4qnj4kuul",
+      "lenderCode": "INDIA_SHELTER",
+      "institutionName": "India Shelter Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "India Shelter ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 92,
+      "lenderId": "cms4cmmnb000bwen4yc37vp41",
+      "lenderCode": "INDIAN_BANK",
+      "institutionName": "Indian Bank",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Indian Bank ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 93,
+      "lenderId": "cms4cmoag000hwen46kqfky1h",
+      "lenderCode": "IOB",
+      "institutionName": "Indian Overseas Bank",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "IOB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 94,
+      "lenderId": "cms4cmrsd000pwen4n938ri4v",
+      "lenderCode": "INDUSIND",
+      "institutionName": "IndusInd Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "IndusInd ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 95,
+      "lenderId": "cms8hrywa00afwed8aop436bb",
+      "lenderCode": "ICBC",
+      "institutionName": "Industrial & Commercial Bank of China (ICBC)",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "ICBC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 96,
+      "lenderId": "cms8hrdcx0071wed845cfp65y",
+      "lenderCode": "INDUSTRIAL_BANK_KOREA",
+      "institutionName": "Industrial Bank of Korea",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "IBK ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 97,
+      "lenderId": "cms8hrxy300abwed8usffskjj",
+      "lenderCode": "JP_MORGAN",
+      "institutionName": "J.P. Morgan Chase Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "J.P. Morgan ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 98,
+      "lenderId": "cms8hr6gn0067wed8icfe21bu",
+      "lenderCode": "JALGAON_JANATA",
+      "institutionName": "Jalgaon Janata Sahakari Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "JJSB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 99,
+      "lenderId": "cms4cmzpd001hwen4fn4vpxz5",
+      "lenderCode": "JKB",
+      "institutionName": "Jammu & Kashmir Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "J&K Bank ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 100,
+      "lenderId": "cms4cn2gg001rwen4t5dwmg0k",
+      "lenderCode": "JANA_SFB",
+      "institutionName": "Jana Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Jana ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 101,
+      "lenderId": "cms8hrqet0093wed8jgmnpg9l",
+      "lenderCode": "JHARKHAND_STATE_COOP",
+      "institutionName": "Jharkhand State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "JSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 102,
+      "lenderId": "cms8hr3cn005pwed86ff81ru3",
+      "lenderCode": "KALUPUR",
+      "institutionName": "Kalupur Commercial Co-op Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Kalupur ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 103,
+      "lenderId": "cms8hr6sy0069wed8kivgzl4q",
+      "lenderCode": "KARAD_URBAN",
+      "institutionName": "Karad Urban Co-op Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Karad UCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 104,
+      "lenderId": "cms4cmvc40011wen4mz5p47ew",
+      "lenderCode": "KARNATAKA",
+      "institutionName": "Karnataka Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "KBL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 105,
+      "lenderId": "cms8hroq2008twed8yz2o56eo",
+      "lenderCode": "KARNATAKA_STATE_COOP",
+      "institutionName": "Karnataka State Co-op Apex Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "KSC Apex ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 106,
+      "lenderId": "cms8hri80007rwed8c3r1dfvl",
+      "lenderCode": "KARNATAKA_VIKAS",
+      "institutionName": "Karnataka Vikas Grameena Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "KVGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 107,
+      "lenderId": "cms4cmvvn0013wen4i8tb6bzn",
+      "lenderCode": "KVB",
+      "institutionName": "Karur Vysya Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "KVB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 108,
+      "lenderId": "cms8hrdu30073wed86tdbfs2k",
+      "lenderCode": "KEB_HANA",
+      "institutionName": "KEB Hana Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "KEB Hana ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 109,
+      "lenderId": "cms8hrgt7007jwed84zxayeaz",
+      "lenderCode": "KERALA_GRAMIN",
+      "institutionName": "Kerala Gramin Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "KGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 110,
+      "lenderId": "cms8hrped008xwed89rzzvfmg",
+      "lenderCode": "KERALA_STATE_COOP",
+      "institutionName": "Kerala State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "KSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 111,
+      "lenderId": "cmrusoprt003pwe60kshcazu7",
+      "lenderCode": "KOTAK",
+      "institutionName": "Kotak Mahindra Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Kotak ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 112,
+      "lenderId": "cms4cnhcu0039wen4z8cd7mva",
+      "lenderCode": "LT_FINANCE",
+      "institutionName": "L&T Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "L&T Finance ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 113,
+      "lenderId": "cms8hq8bi000nwed8hipls2f3",
+      "lenderCode": "LAXMI_VILAS",
+      "institutionName": "Lakshmi Vilas Bank (Legacy)",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "LVB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 114,
+      "lenderId": "cms4cn6vi0027wen4a2xv1vsq",
+      "lenderCode": "LIC_HFL",
+      "institutionName": "LIC Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "LIC HFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 115,
+      "lenderId": "cms8hrjbj007xwed83925asbm",
+      "lenderCode": "MADHYA_PRADESH_GRAMIN",
+      "institutionName": "Madhya Pradesh Gramin Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "MPGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 116,
+      "lenderId": "cms8hrody008rwed8i70mighs",
+      "lenderCode": "MAHARASHTRA_STATE_COOP",
+      "institutionName": "Maharashtra State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "MSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 117,
+      "lenderId": "cms4cnikz003dwen4ivq9dwsy",
+      "lenderCode": "MAHINDRA_FINANCE",
+      "institutionName": "Mahindra Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Mahindra Finance ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 118,
+      "lenderId": "cms8hrm0w008dwed8d8c0mh4p",
+      "lenderCode": "MANIPUR_RURAL",
+      "institutionName": "Manipur Rural Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "MRB Manipur ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 119,
+      "lenderId": "cms8hrzde00ahwed8jhyto8um",
+      "lenderCode": "MASHREQ_BANK",
+      "institutionName": "Mashreq Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Mashreq ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 120,
+      "lenderId": "cms8hrlcu0089wed83043cbko",
+      "lenderCode": "MEGHALAYA_RURAL",
+      "institutionName": "Meghalaya Rural Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "MRB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 121,
+      "lenderId": "cms8hr3ox005rwed85i2ht19j",
+      "lenderCode": "MEHSANA_URBAN",
+      "institutionName": "Mehsana Urban Co-op Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Mehsana UCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 122,
+      "lenderId": "cms8hrmd3008fwed8kd55zdw4",
+      "lenderCode": "MIZORAM_RURAL",
+      "institutionName": "Mizoram Rural Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "MzRB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 123,
+      "lenderId": "cms8hr9de006lwed8h35dlwln",
+      "lenderCode": "MIZUHO",
+      "institutionName": "Mizuho Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Mizuho ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 124,
+      "lenderId": "cms8hqxz5004twed8gi9una78",
+      "lenderCode": "MOTILAL_OSWAL",
+      "institutionName": "Motilal Oswal Credit",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "MOFSL Credit ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 125,
+      "lenderId": "cms8hrr3d0097wed8y7lgw9qn",
+      "lenderCode": "MADHYA_PRADESH_STATE_COOP",
+      "institutionName": "MP State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "MPSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 126,
+      "lenderId": "cms8hr8wh006jwed876rv2dco",
+      "lenderCode": "MUFG_BANK",
+      "institutionName": "MUFG Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "MUFG ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 127,
+      "lenderId": "cms8hrmpd008hwed8thdnawp4",
+      "lenderCode": "NAGALAND_RURAL",
+      "institutionName": "Nagaland Rural Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "NRB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 128,
+      "lenderId": "cms4cn08y001jwen42hvxrs0e",
+      "lenderCode": "NAINITAL",
+      "institutionName": "Nainital Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Nainital ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 129,
+      "lenderId": "cms8hr104005bwed8h1pubbcn",
+      "lenderCode": "NHB",
+      "institutionName": "National Housing Bank",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "NHB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 130,
+      "lenderId": "cms8hr2ct005jwed8m8a1p200",
+      "lenderCode": "NEW_INDIA_COOP",
+      "institutionName": "New India Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "New India Coop ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 131,
+      "lenderId": "cms4cnr100045wen40lyv32tq",
+      "lenderCode": "NKGSB",
+      "institutionName": "NKGSB Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "NKGSB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 132,
+      "lenderId": "cms8hqen1001nwed8j2r16o64",
+      "lenderCode": "NORD_HOUSING",
+      "institutionName": "Nord Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Nord HFC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 133,
+      "lenderId": "cms4cn58j0021wen4gffag33l",
+      "lenderCode": "NESFB",
+      "institutionName": "North East Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "NESFB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 134,
+      "lenderId": "cms8hrgh4007hwed8o56n5lzv",
+      "lenderCode": "ODISHA_GRAMYA",
+      "institutionName": "Odisha Gramya Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "OGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 135,
+      "lenderId": "cms4cnkz5003lwen4jfhr97rd",
+      "lenderCode": "PIRAMAL_FINANCE",
+      "institutionName": "Piramal Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Piramal Finance ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 136,
+      "lenderId": "cms4cndg1002vwen4eqlooub2",
+      "lenderCode": "PIRAMAL_HOUSING",
+      "institutionName": "Piramal Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Piramal HFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 137,
+      "lenderId": "cms8hr51j005zwed8xax2hpk6",
+      "lenderCode": "PUNJAB_MAHARASHTRA",
+      "institutionName": "PMC Bank (Legacy)",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "PMC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 138,
+      "lenderId": "cms4cn7f30029wen4i24wovpa",
+      "lenderCode": "PNB_HOUSING",
+      "institutionName": "PNB Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "PNB Housing ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 139,
+      "lenderId": "cms4cnjs5003hwen4fdzqoebf",
+      "lenderCode": "POONAWALLA",
+      "institutionName": "Poonawalla Fincorp",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Poonawalla ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 140,
+      "lenderId": "cms8hrizb007vwed8vovtraf6",
+      "lenderCode": "PRATHAMA_UP",
+      "institutionName": "Prathama UP Gramin Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Prathama UP ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 141,
+      "lenderId": "cms4cmpxm000nwen466wwhm7o",
+      "lenderCode": "PSB",
+      "institutionName": "Punjab & Sind Bank",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "PSB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 142,
+      "lenderId": "cms8hrk010081wed8vk427w6w",
+      "lenderCode": "PUNJAB_GRAMIN",
+      "institutionName": "Punjab Gramin Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "PGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 143,
+      "lenderId": "cms4cml070005wen4713bpnwd",
+      "lenderCode": "PNB",
+      "institutionName": "Punjab National Bank",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "PNB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 144,
+      "lenderId": "cms8hrs3w009dwed8bflex5g4",
+      "lenderCode": "PUNJAB_STATE_COOP",
+      "institutionName": "Punjab State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "PSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 145,
+      "lenderId": "cms8hrbh1006twed8nlqa8nkx",
+      "lenderCode": "QATAR_NATIONAL",
+      "institutionName": "QNB",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "QNB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 146,
+      "lenderId": "cms8hr30l005nwed8j38xuwra",
+      "lenderCode": "RAJARAMBAPU",
+      "institutionName": "Rajarambapu Sahakari Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Rajarambapu ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 147,
+      "lenderId": "cms8hrjns007zwed8ysynj636",
+      "lenderCode": "RAJASTHAN_MARUDHARA",
+      "institutionName": "Rajasthan Marudhara Gramin Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "RMGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 148,
+      "lenderId": "cms8hrrfn0099wed8rt3wyxr0",
+      "lenderCode": "RAJASTHAN_STATE_COOP",
+      "institutionName": "Rajasthan State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "RSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 149,
+      "lenderId": "cms8hr40y005twed8dwyswnp9",
+      "lenderCode": "RAJKOT_NAGRIK",
+      "institutionName": "Rajkot Nagrik Sahakari Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "RNSB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 150,
+      "lenderId": "cms4cmu8v000xwen4q8migqib",
+      "lenderCode": "RBL",
+      "institutionName": "RBL Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "RBL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 151,
+      "lenderId": "cms8hqa0c000xwed86h1eo5mc",
+      "lenderCode": "RELIANCE_HOME",
+      "institutionName": "Reliance Home Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "RHF ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 152,
+      "lenderId": "cms8hqd1r001fwed8ye44xx5k",
+      "lenderCode": "RELIANCE_NIPPON",
+      "institutionName": "Reliance Nippon Housing",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "RNAM HFC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 153,
+      "lenderId": "cms4cna5e002jwen4ugus668w",
+      "lenderCode": "REPCO",
+      "institutionName": "Repco Home Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Repco ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 154,
+      "lenderId": "cms8hq8zn000rwed8nutmly0r",
+      "lenderCode": "INDIABULLS_HOUSING",
+      "institutionName": "Sammaan Capital (Indiabulls Housing)",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Sammaan Capital ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 155,
+      "lenderId": "cms4cnp84003zwen42y73iquu",
+      "lenderCode": "SARASWAT",
+      "institutionName": "Saraswat Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Saraswat ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 156,
+      "lenderId": "cms8hqdlz001hwed8mwc1kieq",
+      "lenderCode": "SATIN_HOUSING",
+      "institutionName": "Satin Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Satin HFC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 157,
+      "lenderId": "cms8hrg4x007fwed85bnip015",
+      "lenderCode": "SBI_CARDS",
+      "institutionName": "SBI Cards",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "SBI Cards ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 158,
+      "lenderId": "cms8hrbxv006vwed86rlqljas",
+      "lenderCode": "BANK_OF_NOVA_SCOTIA",
+      "institutionName": "Scotiabank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Scotiabank ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 159,
+      "lenderId": "cms4cnqfh0043wen468bfvh10",
+      "lenderCode": "SVC",
+      "institutionName": "Shamrao Vithal Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "SVC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 160,
+      "lenderId": "cms8hq6hx000fwed8xiqblfnz",
+      "lenderCode": "SHINHAN_BANK",
+      "institutionName": "Shinhan Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Shinhan ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 161,
+      "lenderId": "cms4cn5s60023wen4wkvadipu",
+      "lenderCode": "SHIVALIK_SFB",
+      "institutionName": "Shivalik Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Shivalik ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 162,
+      "lenderId": "cms4cnj6n003fwen42uyrgovo",
+      "lenderCode": "SHRIRAM_FINANCE",
+      "institutionName": "Shriram Finance",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Shriram ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 163,
+      "lenderId": "cms8hr9u1006nwed8m1mpmogv",
+      "lenderCode": "SUMITOMO_MITSUI",
+      "institutionName": "SMBC",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "SMBC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 164,
+      "lenderId": "cms8hqswj003zwed82nroc47c",
+      "lenderCode": "SMFG_INDIA",
+      "institutionName": "SMFG India Credit",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "SMFG ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 165,
+      "lenderId": "cms8hryfe00adwed8epdmpjou",
+      "lenderCode": "SOCIETE_GENERALE",
+      "institutionName": "Soci├⌐t├⌐ G├⌐n├⌐rale",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "SocGen ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 166,
+      "lenderId": "cms4cmusj000zwen4x47m61qh",
+      "lenderCode": "SIB",
+      "institutionName": "South Indian Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "SIB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 167,
+      "lenderId": "cms8hq3nz0003wed804dmj3ou",
+      "lenderCode": "STANDARD_CHARTERED",
+      "institutionName": "Standard Chartered Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "StanChart ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 168,
+      "lenderId": "cmrusopva003rwe60cjyga2va",
+      "lenderCode": "SBI",
+      "institutionName": "State Bank of India",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "SBI ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 169,
+      "lenderId": "cms8hq716000hwed8zahv9olh",
+      "lenderCode": "STATE_BANK_MAURITIUS",
+      "institutionName": "State Bank of Mauritius",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "SBM ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 170,
+      "lenderId": "cms8hrndq008lwed8msxbqlhq",
+      "lenderCode": "SIKKIM_STATE",
+      "institutionName": "State Bank of Sikkim",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "SBS ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 171,
+      "lenderId": "cms4cnf2t0031wen4t89wf2y3",
+      "lenderCode": "SUNDARAM_HOME",
+      "institutionName": "Sundaram Home Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Sundaram Home ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 172,
+      "lenderId": "cms4cn3ji001vwen4cagyq7za",
+      "lenderCode": "SURYODAY_SFB",
+      "institutionName": "Suryoday Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Suryoday ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 173,
+      "lenderId": "cms4cmxiq0019wen4e5ol0z0d",
+      "lenderCode": "TMB",
+      "institutionName": "Tamilnad Mercantile Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "TMB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 174,
+      "lenderId": "cms4cng5z0035wen4tirf9gtk",
+      "lenderCode": "TATA_CAPITAL",
+      "institutionName": "Tata Capital",
+      "institutionType": "nbfc",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Tata Capital ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 175,
+      "lenderId": "cms4cnbsz002pwen4ahfno9va",
+      "lenderCode": "TATA_CAPITAL_HFL",
+      "institutionName": "Tata Capital Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Tata Capital HFL ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 176,
+      "lenderId": "cms8hqacl000zwed8djxc7j9k",
+      "lenderCode": "TATA_HOUSING",
+      "institutionName": "Tata Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Tata Housing ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 177,
+      "lenderId": "cms8hrhtn007pwed8ztkjr692",
+      "lenderCode": "TELANGANA_GRAMIN",
+      "institutionName": "Telangana Grameena Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "TGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 178,
+      "lenderId": "cms8hrtv5009nwed8eev9hfuv",
+      "lenderCode": "TELANGANA_STATE_COOP",
+      "institutionName": "Telangana State Co-op Apex Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "TSCAB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 179,
+      "lenderId": "cms8hqr7x003pwed88gu3r0pi",
+      "lenderCode": "TIRUPATI_URBAN",
+      "institutionName": "Tirupati Urban Co-op Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "TUCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 180,
+      "lenderId": "cms8hr1cd005dwed84mwk8f2w",
+      "lenderCode": "TJSB",
+      "institutionName": "TJSB Sahakari Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "TJSB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 181,
+      "lenderId": "cms8hrp29008vwed84v8vvzrb",
+      "lenderCode": "TAMILNADU_STATE_COOP",
+      "institutionName": "TNSC Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "TNSC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 182,
+      "lenderId": "cms8hrlox008bwed8ra0sxvqt",
+      "lenderCode": "TRIPURA_GRAMIN",
+      "institutionName": "Tripura Gramin Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "TGB Tripura ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 183,
+      "lenderId": "cms4cmou6000jwen4z4e6t25z",
+      "lenderCode": "UCO",
+      "institutionName": "UCO Bank",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "UCO ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 184,
+      "lenderId": "cms4cn1w4001pwen4zpbally2",
+      "lenderCode": "UJJIVAN_SFB",
+      "institutionName": "Ujjivan Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Ujjivan ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 185,
+      "lenderId": "cms4cmm3o0009wen4yhucbia9",
+      "lenderCode": "UNION",
+      "institutionName": "Union Bank of India",
+      "institutionType": "public_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Union ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 186,
+      "lenderId": "cms4cn6bs0025wen42dd7eggm",
+      "lenderCode": "UNITY_SFB",
+      "institutionName": "Unity Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Unity ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 187,
+      "lenderId": "cms8hrt4c009jwed8u2aeojok",
+      "lenderCode": "UP_STATE_COOP",
+      "institutionName": "UP Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "UPCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 188,
+      "lenderId": "cms4cn43c001xwen4ihd9730u",
+      "lenderCode": "UTKARSH_SFB",
+      "institutionName": "Utkarsh Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Utkarsh ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 189,
+      "lenderId": "cms8hrkoh0085wed80sv3josv",
+      "lenderCode": "UTTARAKHAND_GRAMIN",
+      "institutionName": "Uttarakhand Gramin Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "UGB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 190,
+      "lenderId": "cms8hrss3009hwed8gymo3967",
+      "lenderCode": "UTTARAKHAND_STATE_COOP",
+      "institutionName": "Uttarakhand State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "USCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 191,
+      "lenderId": "cms8hqaor0011wed8zfke5cxx",
+      "lenderCode": "VASTU_HOUSING",
+      "institutionName": "Vastu Housing Finance",
+      "institutionType": "housing_finance_company",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Vastu HFC ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 192,
+      "lenderId": "cms8hrpqm008zwed8q4lkquis",
+      "lenderCode": "WEST_BENGAL_STATE_COOP",
+      "institutionName": "West Bengal State Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "WBSCB ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 193,
+      "lenderId": "cms8hreb20075wed8xqluqzza",
+      "lenderCode": "WOORI_BANK",
+      "institutionName": "Woori Bank",
+      "institutionType": "bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Woori ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 194,
+      "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+      "lenderCode": "YES",
+      "institutionName": "Yes Bank",
+      "institutionType": "private_sector_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Yes ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    },
+    {
+      "listOrder": 195,
+      "lenderId": "cms8hr5dr0061wed8ehmcu173",
+      "lenderCode": "ZOROASTRIAN",
+      "institutionName": "Zoroastrian Co-operative Bank",
+      "institutionType": "cooperative_bank",
+      "status": "active",
+      "activeInactive": "Active",
+      "homeLoanMapped": "Yes",
+      "existingHomeLoanPrograms": [
+        "Zoroastrian Bank ΓÇö Home Loan"
+      ],
+      "existingHomeLoanProgramCount": 1,
+      "lenderMasterPriorityField": 50,
+      "homeLoanSelectionPriority": null
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+# SARATHI Bible v1.0 — Behaviour Constitution
+
+Status: **FROZEN**  
+SSOT: `src/constants/enterprise-ai-platform/sarathi-bible.ts` · `docs/sarathi/SARATHI-BIBLE-V1.md`
+
+## Mandatory
+
+1. SARATHI is financial-domain only — never general-purpose.  
+2. Domain Boundary Engine decides membership; LLM never decides alone.  
+3. Outside / unknown → exactly `I'm not trained for this subject.` (no LLM, no knowledge).  
+4. Enterprise reads only via Read Connectors / SSOT projections — never Prisma, never write.  
+5. No raw entities in Context Packages or Tool payloads.  
+6. Side effects only via Action Proposals (non-executing until approved executors).  
+7. Tone Library owns emotional messaging; Micro Communication shapes facing length.  
+8. Policy Gate is mandatory before reasoning.  
+9. Enterprise engines own FOIR / DBR / eligibility / policy / pricing.
+
+## Agent behaviour
+
+When implementing SARATHI or Enterprise AI features, verify commandments SB-01…SB-10.  
+Do not introduce parallel assistants, prompt-only domain gates, or write paths that bypass Action Proposals.

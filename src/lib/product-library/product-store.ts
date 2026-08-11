@@ -1,3 +1,7 @@
+/**
+ * CO-ORG-002 — seed/demo store; NOT operational SSOT under prisma. Do not expand.
+ * Enterprise Product Registry (Prisma / Product Master) is the live SSOT.
+ */
 import { DEFAULT_PRODUCT_AUDIT_TRAIL } from "@/data/catalyst-one/product-library/product-audit-seed";
 import { DEFAULT_PLATFORM_COMPOSITION_CATALOG } from "@/data/catalyst-one/product-library/platform-composition-catalog-seed";
 import { DEFAULT_PRODUCT_CATEGORIES } from "@/data/catalyst-one/product-library/product-categories-seed";

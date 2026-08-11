@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { CustomerHealthBadge } from "@/components/catalyst-one/customers/customer-health-badge";
+import { BusinessNotesActionButton } from "@/components/catalyst-one/enterprise-business-notes";
 import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +112,14 @@ export function CustomerWorkspaceStickyHeader({
           <FilePlus className="h-3.5 w-3.5 mr-1" />
           Add Loan
         </Button>
+        <BusinessNotesActionButton
+          context={{
+            workspaceKind: "customer",
+            entityKind: "contact",
+            entityId: customer.id,
+            contactId: customer.id,
+          }}
+        />
         <CreateTaskActionButton
           context={{
             contactId: customer.id,

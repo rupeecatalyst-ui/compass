@@ -165,34 +165,11 @@ export function ensureC360PlaceholderSeed(
       mobile: r.mobile,
     }));
 
-  b.bankAccounts = [
-    {
-      id: crypto.randomUUID(),
-      bankName: "HDFC Bank",
-      accountNumberMasked: "XXXXXX4321",
-      ifsc: "HDFC0001234",
-      primary: true,
-    },
-  ];
+  b.bankAccounts = [];
 
-  const credit = seed.creditScore ?? 720;
-  b.financial = {
-    estimatedIncome: 1200000,
-    estimatedObligations: 240000,
-    netSurplus: 960000,
-    creditScore: credit,
-    refreshedOn: new Date().toISOString(),
-  };
+  b.financial = null;
 
-  b.opportunities = [
-    {
-      id: `opp-stub-${customerId.slice(0, 6)}`,
-      title: "Home loan follow-up",
-      stage: "processing",
-      archived: false,
-      createdOn: new Date().toISOString(),
-    },
-  ];
+  b.opportunities = [];
 }
 
 export function getC360Bucket(customerId: string): Bucket {
@@ -347,17 +324,20 @@ export function c360DeleteBank(customerId: string, id: string): void {
 /* —— Financial —— */
 export function c360RefreshFinancial(customerId: string, creditScore?: number): C360FinancialSnapshot {
   const b = bucket(customerId);
-  const baseIncome = 900000 + Math.round(Math.random() * 600000);
-  const obligations = Math.round(baseIncome * 0.2);
+  // CO-ORG-004 — never invent income/obligations via Math.random
+  const prior = b.financial;
   const snap: C360FinancialSnapshot = {
-    estimatedIncome: baseIncome,
-    estimatedObligations: obligations,
-    netSurplus: baseIncome - obligations,
-    creditScore: creditScore ?? b.financial?.creditScore ?? 700,
+    estimatedIncome: prior?.estimatedIncome ?? 0,
+    estimatedObligations: prior?.estimatedObligations ?? 0,
+    netSurplus: prior?.netSurplus ?? 0,
+    creditScore: creditScore ?? prior?.creditScore ?? 0,
     refreshedOn: new Date().toISOString(),
   };
   b.financial = snap;
-  status(customerId, "Financial snapshot refreshed (placeholder)");
+  status(
+    customerId,
+    "Financial snapshot refresh — figures retained only when previously captured (no invent)",
+  );
   return snap;
 }
 

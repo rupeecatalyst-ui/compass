@@ -1,5 +1,7 @@
 /**
  * CO-WP-102 — Partner authentication service (Enterprise Identity → Partner UUID).
+ * CO-WP-PERF-005 — reuse login user for binding; attach entitlements via the same
+ * authoritative resolver; parallel refresh-token write + entitlement resolve.
  */
 import { prisma, isDatabaseAvailable } from "@server/lib/prisma";
 import { comparePassword } from "@server/utils/password";
@@ -14,11 +16,45 @@ import {
   PartnerGatewayError,
   resolvePartnerBindingForUser,
   toPartnerSessionDto,
+  type PartnerBindingUser,
 } from "./partner-binding.service";
-import type { PartnerAuthTokensDto, PartnerHealthDto } from "@/types/enterprise-partner-gateway";
+import { partnerEntitlementsService } from "@server/services/partner-entitlements";
+import type {
+  PartnerAuthTokensDto,
+  PartnerHealthDto,
+  PartnerSessionDto,
+} from "@/types/enterprise-partner-gateway";
 
-async function issuePartnerSession(userId: string): Promise<PartnerAuthTokensDto> {
-  const binding = await resolvePartnerBindingForUser(userId);
+async function attachPartnerEntitlements(
+  session: PartnerSessionDto,
+  binding: {
+    partner: { id: string; organizationId: string };
+  },
+): Promise<void> {
+  try {
+    const effective = await partnerEntitlementsService.resolveForPartner({
+      wealthPartnerId: binding.partner.id,
+      organizationId: binding.partner.organizationId,
+    });
+    session.entitlements = {
+      executionMode: effective.executionMode,
+      source: effective.source,
+      permissions: effective.permissions,
+      modules: effective.modules,
+      templateCode: effective.templateCode,
+    };
+  } catch {
+    /* entitlements optional on session until migration applied */
+  }
+}
+
+async function issuePartnerSession(
+  userId: string,
+  opts?: { preloadedUser?: PartnerBindingUser },
+): Promise<PartnerAuthTokensDto> {
+  const binding = await resolvePartnerBindingForUser(userId, {
+    preloadedUser: opts?.preloadedUser,
+  });
   const claims = {
     userId: binding.user.id,
     email: binding.user.email,
@@ -29,22 +65,25 @@ async function issuePartnerSession(userId: string): Promise<PartnerAuthTokensDto
   };
   const accessToken = signPartnerAccessToken(claims);
   const refreshToken = signPartnerRefreshToken(claims);
+  const session = toPartnerSessionDto(binding);
 
-  if (isDatabaseAvailable()) {
-    await prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
-        userId: binding.user.id,
-        expiresAt: getRefreshExpiryDate(),
-      },
-    });
-  }
+  const persistRefresh = isDatabaseAvailable()
+    ? prisma.refreshToken.create({
+        data: {
+          token: refreshToken,
+          userId: binding.user.id,
+          expiresAt: getRefreshExpiryDate(),
+        },
+      })
+    : Promise.resolve(null);
+
+  await Promise.all([persistRefresh, attachPartnerEntitlements(session, binding)]);
 
   return {
     accessToken,
     refreshToken,
     expiresIn: serverEnv.JWT_EXPIRES_IN,
-    session: toPartnerSessionDto(binding),
+    session,
   };
 }
 
@@ -83,7 +122,16 @@ export const partnerAuthService = {
       throw new PartnerGatewayError("Invalid email or password", "INVALID_CREDENTIALS", 401);
     }
 
-    return issuePartnerSession(user.id);
+    return issuePartnerSession(user.id, {
+      preloadedUser: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        isActive: user.isActive,
+      },
+    });
   },
 
   async refresh(refreshToken: string): Promise<PartnerAuthTokensDto> {
@@ -123,7 +171,9 @@ export const partnerAuthService = {
     if (binding.partner.id !== partnerId) {
       throw new PartnerGatewayError("Access denied", "FORBIDDEN", 403);
     }
-    return toPartnerSessionDto(binding);
+    const session = toPartnerSessionDto(binding);
+    await attachPartnerEntitlements(session, binding);
+    return session;
   },
 };
 

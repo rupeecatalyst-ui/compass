@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * CO-BUG-005 — Banker Institution / City / Branch bound to Enterprise Lender Registry.
- * Institution SSOT = lenderRegistryClient (UUID id). Not ECM lender catalog / empty Tier-2 cache.
+ * CO-BUG-005 / CO-CONTACT-REGION-001 — Banker Institution / Region / City / Branch
+ * bound to Enterprise Lender Registry + Enterprise Region Master.
+ * Cascade: Institution → Region → City → Branch.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -181,17 +182,6 @@ export function BankerCitySelect({
 
   const regionNorm = normalizeEnterpriseRegionId(regionId);
 
-  const coverageOptions = useMemo((): EcmMasterOption[] => {
-    const cities = (lender?.coverageCities ?? []).map((c) => c.trim()).filter(Boolean);
-    if (cities.length === 0) return [];
-    return cities.map((label, idx) => ({
-      id: slugify(label) || `city-${idx}`,
-      label,
-      enabled: true,
-      sortOrder: idx + 1,
-    }));
-  }, [lender]);
-
   const masterCityOptions = useMemo(() => {
     const all = listEcmMasterOptions("city");
     if (!regionNorm) return all;
@@ -204,6 +194,34 @@ export function BankerCitySelect({
       return false;
     });
   }, [regionNorm]);
+
+  /** Lender coverage cities, filtered by selected Region when master metadata allows. */
+  const coverageOptions = useMemo((): EcmMasterOption[] => {
+    const cities = (lender?.coverageCities ?? []).map((c) => c.trim()).filter(Boolean);
+    if (cities.length === 0) return [];
+    const mapped = cities.map((label, idx) => ({
+      id: slugify(label) || `city-${idx}`,
+      label,
+      enabled: true,
+      sortOrder: idx + 1,
+    }));
+    if (!regionNorm) return mapped;
+    const stateCodes = new Set(getEnterpriseRegionStateCodes(regionNorm));
+    const masterAll = listEcmMasterOptions("city");
+    return mapped.filter((o) => {
+      const master = masterAll.find(
+        (m) =>
+          m.id === o.id ||
+          m.label.trim().toLowerCase() === o.label.trim().toLowerCase(),
+      );
+      if (!master) return true;
+      if (isOtherOptionSafe(master)) return true;
+      const metaRegion = normalizeEnterpriseRegionId(master.meta?.region);
+      if (metaRegion) return metaRegion === regionNorm;
+      if (master.parentId && stateCodes.has(master.parentId)) return true;
+      return false;
+    });
+  }, [lender, regionNorm]);
 
   if (!institutionId?.trim()) {
     return (
@@ -224,7 +242,7 @@ export function BankerCitySelect({
         options={coverageOptions}
         placeholder={placeholder ?? "Select city"}
         onChange={onChange}
-        emptyHint="No city in lender coverage."
+        emptyHint="No city in lender coverage for this region."
       />
     );
   }
@@ -311,6 +329,12 @@ export function BankerBranchSelect({
   if (!regionNorm) {
     return (
       <p className="text-xs text-muted-foreground">Select Region first.</p>
+    );
+  }
+
+  if (!cityId?.trim()) {
+    return (
+      <p className="text-xs text-muted-foreground">Select City first.</p>
     );
   }
 

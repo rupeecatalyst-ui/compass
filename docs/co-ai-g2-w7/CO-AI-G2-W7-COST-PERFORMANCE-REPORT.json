@@ -1,0 +1,84 @@
+{
+  "reportId": "eao_perf_report_2e5f0fbe-96be-4b29-98c5-6692e16bfd9a",
+  "version": "1.0.0-g2-w7",
+  "title": "CO-AI-G2-W7 Cost & Performance — Optimization Report",
+  "metrics": {
+    "sampleCount": 3,
+    "averageResponseTimeMs": 1673.3,
+    "averageLatencyMs": 1673.3,
+    "averageTokens": 134,
+    "averageInputTokens": 73,
+    "averageOutputTokens": 61,
+    "estimatedCostUsdTotal": 0.000385,
+    "estimatedCostUsdAverage": 0,
+    "averageToolCalls": 2,
+    "averageContextSizeChars": 7866.7,
+    "averageMemorySizeChars": 3833.3,
+    "p95LatencyMs": 3100,
+    "providerUsage": [
+      {
+        "providerId": "eao.shadow.stub",
+        "configVersion": "g2-w1.stub.1",
+        "invocationCount": 2,
+        "totalLatencyMs": 3520,
+        "totalEstimatedTokens": 379,
+        "totalEstimatedCostUsd": 0.000357
+      },
+      {
+        "providerId": "eao.model.future",
+        "configVersion": "future.1",
+        "invocationCount": 1,
+        "totalLatencyMs": 1500,
+        "totalEstimatedTokens": 23,
+        "totalEstimatedCostUsd": 0.000028
+      }
+    ]
+  },
+  "optimizations": [
+    {
+      "area": "Latency",
+      "severity": "warn",
+      "observation": "Avg response time 1673.3ms",
+      "recommendation": "Monitor provider latency; consider lighter prompts for simple turns later"
+    },
+    {
+      "area": "Tokens",
+      "severity": "info",
+      "observation": "Average tokens 134",
+      "recommendation": "Maintain token budgets in Orchestrator request assembly"
+    },
+    {
+      "area": "Cost",
+      "severity": "info",
+      "observation": "Avg estimated cost $0 / turn (heuristic pricing)",
+      "recommendation": "Replace heuristic rates with provider invoices when available"
+    },
+    {
+      "area": "Tool Calls",
+      "severity": "info",
+      "observation": "Average tool calls 2",
+      "recommendation": "Keep propose-only side effects; prefer compute_only engines"
+    },
+    {
+      "area": "Context Size",
+      "severity": "info",
+      "observation": "Avg context 7866.7 chars",
+      "recommendation": "Continue freshness + relevance checks (W5)"
+    },
+    {
+      "area": "Memory Size",
+      "severity": "info",
+      "observation": "Avg memory payload 3833.3 chars",
+      "recommendation": "Keep consultation memory distinct from CRM SSOT"
+    },
+    {
+      "area": "Provider Usage",
+      "severity": "info",
+      "observation": "2 providers observed",
+      "recommendation": "Compare cost/latency by provider before selecting production default"
+    }
+  ],
+  "generatedAt": "2026-08-06T19:14:08.015Z",
+  "runtimeUnoptimized": true,
+  "customerIsolated": true
+}

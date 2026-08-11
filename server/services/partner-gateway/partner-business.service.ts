@@ -1,11 +1,17 @@
 /**
- * CO-WP-DEVELOPMENT-WAVE-001 / CO-WP-JOURNEY-001C / CO-WP-JOURNEY-002 — Partner Business placeholder.
+ * CO-WP-INT-001 — Partner Opportunity / Deal operational integration.
  *
- * PLACEHOLDER DTOs only — not Opportunity Registry SSOT.
- * JOURNEY-002 enriches workspace projection fields on get/create/patch/submit.
+ * Authorization & business SSOT: Enterprise Opportunity Registry (sourceWealthPartnerId).
+ * Placeholder store: presentation enrichment only — never authorizes and never wins over Registry writes.
  */
 import { prisma, isDatabaseAvailable } from "@server/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { normalizeEcmMobile } from "@/lib/enterprise-contact-master";
+import {
+  ecmCanonicalMobilePrimary,
+  ecmContactRepository,
+  ecmMobileLookupCandidates,
+} from "@server/repositories/ecm/contact.repository";
 import type {
   PartnerBusinessHubDto,
   PartnerBusinessPipelineBucketId,
@@ -42,17 +48,39 @@ import {
 } from "./partner-customer-workspace.compose";
 import { buildPartnerOpportunityJourneyConfig } from "./partner-opportunity-journey-config.service";
 import {
+  invalidatePartnerPipelineCache,
+  readPartnerPipelineCache,
+  writePartnerPipelineCache,
+} from "./partner-pipeline-cache";
+import { memoPartnerPipeline } from "./partner-request-memo";
+import {
   listPartnerLodMissingLabels,
   projectPartnerOpportunityLod,
 } from "@/lib/enterprise-partner-lod";
 import {
+  createUnclassifiedDocumentTypeRef,
+  isUnclassifiedDocumentTypeRef,
+} from "@/constants/document-intake";
+import {
   PartnerGatewayError,
   resolvePartnerBindingForUser,
 } from "./partner-binding.service";
+import { partnerEntitlementsService } from "@server/services/partner-entitlements";
+import { partnerOwnershipService, type OwnedOpportunityRow } from "@server/services/partner-gateway/partner-ownership.service";
+import { enterpriseOpportunityRepository } from "@server/repositories/enterprise-opportunity";
+import { enterpriseBusinessNotesService } from "@server/services/enterprise-business-notes/enterprise-business-notes.service";
+import {
+  listPartnerOpportunityDocuments,
+  listPartnerVisibleOpportunityNotes,
+  softDeletePartnerOpportunityDocument,
+  upsertPartnerOpportunityDocument,
+} from "@server/services/partner-gateway/partner-ssot-projections";
+import type { PartnerEntitlementAction } from "@/constants/enterprise-partner-entitlements";
+import type { PartnerEffectiveEntitlements } from "@/types/enterprise-partner-entitlements";
 
 const DTO_SOURCE = "placeholder_partner_business" as const;
 const DTO_NOTICE =
-  "PLACEHOLDER Enterprise DTO — replace with Partner Opportunity Registry projection without redesign.";
+  "Partner projection enriched for Connect UX — Opportunity Registry remains the business SSOT.";
 
 /** CO-WP-BAT-004 — Durable placeholder slice inside Wealth Partner profileJson. */
 const PLACEHOLDER_PROFILE_KEY = "partnerBusinessPlaceholder" as const;
@@ -78,6 +106,259 @@ const stores = new Map<string, Store>();
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+/** Parse partner amount labels (₹ / commas) into Registry requestedAmount. */
+function parseRequestedAmount(label?: string | null): number | null {
+  if (!label) return null;
+  const raw = label.trim();
+  if (!raw || /^not\s*specified$/i.test(raw)) return null;
+  const cleaned = raw.replace(/[₹,\s]/g, "").replace(/inr/gi, "");
+  const n = Number(cleaned);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n);
+}
+
+function mapRegistryLifecycleToPartner(life: string, stage: string): {
+  lifecycleStatus: string;
+  stageLabel: string;
+} {
+  const l = (life || "").toLowerCase();
+  const s = (stage || "").toLowerCase();
+  if (l === "dialogue" || s === "lead_creation" || l === "draft") {
+    return { lifecycleStatus: "draft", stageLabel: "Draft" };
+  }
+  if (l === "requirement_captured" || s === "requirement_captured") {
+    return { lifecycleStatus: "active", stageLabel: "Requirement Captured" };
+  }
+  return {
+    lifecycleStatus: life || "active",
+    stageLabel: stage || "In Progress",
+  };
+}
+
+function formatAmountLabel(amount: { toString(): string } | number | null | undefined): string {
+  if (amount == null) return "Not Specified";
+  const n = typeof amount === "number" ? amount : Number(amount.toString());
+  if (!Number.isFinite(n)) return "Not Specified";
+  return `₹${Math.round(n).toLocaleString("en-IN")}`;
+}
+
+/**
+ * CO-WP-INT-001 / CO-WP-INT-003 — Resolve or create ECM Contact (progressive: name + mobile).
+ * Idempotent on (organizationId, mobile): reuse existing Contact; never invent partner-local contacts.
+ * Does not overwrite canonical Contact attributes on reuse.
+ */
+async function resolveOrCreatePartnerContact(input: {
+  organizationId: string;
+  actorUserId: string;
+  displayName: string;
+  mobile: string;
+  city?: string | null;
+  preferredContactId?: string | null;
+}): Promise<{ id: string; name: string; mobile: string; city: string | null }> {
+  const name = input.displayName.trim();
+  if (!name) {
+    throw new PartnerGatewayError("Customer name is required", "VALIDATION", 400);
+  }
+  const rawMobile = input.mobile.trim();
+  if (!rawMobile || /^notspecified$/i.test(rawMobile.replace(/\s/g, ""))) {
+    throw new PartnerGatewayError(
+      "Customer mobile is required to create an Opportunity",
+      "VALIDATION",
+      400,
+    );
+  }
+
+  const canonicalMobile = ecmCanonicalMobilePrimary(rawMobile);
+  const digits = normalizeEcmMobile(rawMobile);
+  if (!digits || digits.length < 10) {
+    throw new PartnerGatewayError(
+      "Enter a valid customer mobile number (at least 10 digits).",
+      "VALIDATION",
+      400,
+    );
+  }
+
+  const toDto = (row: {
+    id: string;
+    name: string;
+    mobilePrimary: string;
+    city: string | null;
+  }) => ({
+    id: row.id,
+    name: row.name,
+    mobile: row.mobilePrimary,
+    city: row.city,
+  });
+
+  if (input.preferredContactId && !input.preferredContactId.startsWith("cust-ph-")) {
+    const existing = await prisma.ecmContact.findFirst({
+      where: {
+        id: input.preferredContactId,
+        organizationId: input.organizationId,
+        isDeleted: false,
+      },
+      select: { id: true, name: true, mobilePrimary: true, city: true },
+    });
+    if (existing) return toDto(existing);
+  }
+
+  async function findExistingIncludingDeleted() {
+    const identity = await ecmContactRepository.findIdentityByMobile(
+      input.organizationId,
+      canonicalMobile,
+    );
+    if (!identity) return null;
+    const row = await prisma.ecmContact.findUnique({
+      where: { id: identity.id },
+      select: {
+        id: true,
+        name: true,
+        mobilePrimary: true,
+        city: true,
+        isDeleted: true,
+      },
+    });
+    return row;
+  }
+
+  async function reuseOrRestore(
+    row: {
+      id: string;
+      name: string;
+      mobilePrimary: string;
+      city: string | null;
+      isDeleted: boolean;
+    },
+  ) {
+    // Soft-deleted rows still hold the unique (org, mobile) key — restore minimally, do not overwrite profile.
+    if (row.isDeleted) {
+      const restored = await prisma.ecmContact.update({
+        where: { id: row.id },
+        data: {
+          isDeleted: false,
+          deletedAt: null,
+          deletedBy: null,
+          deletionReason: null,
+          modifiedBy: input.actorUserId,
+        },
+        select: { id: true, name: true, mobilePrimary: true, city: true },
+      });
+      return toDto(restored);
+    }
+    return toDto(row);
+  }
+
+  const found = await findExistingIncludingDeleted();
+  if (found) return reuseOrRestore(found);
+
+  try {
+    const created = await prisma.ecmContact.create({
+      data: {
+        organizationId: input.organizationId,
+        name,
+        mobilePrimary: canonicalMobile,
+        city: input.city?.trim() || null,
+        primaryRole: "customer",
+        roles: ["customer"],
+        additionalRoles: [],
+        status: "provisional",
+        platformAccess: "no_access",
+        createdBy: input.actorUserId,
+        modifiedBy: input.actorUserId,
+      },
+      select: { id: true, name: true, mobilePrimary: true, city: true },
+    });
+    return toDto(created);
+  } catch (err) {
+    // Concurrent create race — unique (organization_id, mobile_primary) is the final guard.
+    const isUnique =
+      err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
+    const msg = err instanceof Error ? err.message : String(err);
+    if (
+      isUnique ||
+      msg.includes("Unique constraint") ||
+      msg.toLowerCase().includes("mobile_primary")
+    ) {
+      const again = await findExistingIncludingDeleted();
+      if (again) return reuseOrRestore(again);
+      // Rare: unique hit on a presentation variant not in candidates — scan last-10.
+      const last10 = digits.slice(-10);
+      const fallback = await prisma.ecmContact.findFirst({
+        where: {
+          organizationId: input.organizationId,
+          OR: ecmMobileLookupCandidates(last10).map((m) => ({ mobilePrimary: m })),
+        },
+        orderBy: [{ isDeleted: "asc" }, { updatedAt: "desc" }],
+        select: {
+          id: true,
+          name: true,
+          mobilePrimary: true,
+          city: true,
+          isDeleted: true,
+        },
+      });
+      if (fallback) return reuseOrRestore(fallback);
+      throw new PartnerGatewayError(
+        "An existing customer contact could not be resolved for this mobile. Please retry or select the customer from search.",
+        "CONTACT_RESOLVE_FAILED",
+        409,
+      );
+    }
+    throw err;
+  }
+}
+
+function skeletonDetailFromOwned(
+  owned: OwnedOpportunityRow,
+  partner: { id: string; displayName: string; organizationId: string },
+): PartnerOpportunityDetailDto {
+  const mapped = mapRegistryLifecycleToPartner(owned.lifecycleStatus, owned.requirementStage);
+  const createdAt = owned.createdAt.toISOString();
+  return {
+    opportunityId: owned.id,
+    reference: owned.opportunityNumber,
+    customerId: owned.primaryContactId || "",
+    customerDisplayName:
+      owned.primaryContactName || owned.companyName || "Not Specified",
+    productCode: owned.productCode,
+    productLabel: owned.productLabel || "Not Specified",
+    requiredAmountLabel: formatAmountLabel(owned.requestedAmount),
+    stageLabel: mapped.stageLabel,
+    lifecycleStatus: mapped.lifecycleStatus,
+    ownerLabel: partner.displayName,
+    updatedAt: owned.updatedAt.toISOString(),
+    createdAt,
+    summary: "Projected from Enterprise Opportunity Registry.",
+    dtoSource: "enterprise_opportunity_registry",
+    dtoNotice: DTO_NOTICE,
+    documents: [],
+    activities: [],
+    timeline: [],
+    loanFile: {
+      available: false,
+      fileId: null,
+      fileReference: null,
+      stageLabel: null,
+      lenderLabel: null,
+      amountLabel: null,
+      statusLabel: "Not attached",
+      message: "Deal / Loan File attaches after lender identification in Catalyst One.",
+      dtoSource: "enterprise_opportunity_registry",
+      dtoNotice: DTO_NOTICE,
+    },
+    sourceAttribution: {
+      sourcePartnerId: partner.id,
+      sourcePartnerName: partner.displayName,
+      sourcePartnerCode: null,
+      sourceType: "wealth_partner",
+      organizationId: partner.organizationId,
+      branchLabel: null,
+      territoryLabel: null,
+      hiddenFromPartnerUi: true,
+    },
+  };
 }
 
 function nextOpportunityReference(storeSize: number): string {
@@ -547,15 +828,9 @@ function tryReconstructSeedOpportunity(
   return null;
 }
 
-function mergeDeterministicSeeds(partnerId: string, store: Store): void {
-  for (let i = 0; i < 6; i += 1) {
-    const legacyId = seedOpportunityId(partnerId, i);
-    const modernId = `opp-seed-${i}`;
-    if (!store.opportunities.has(legacyId) && !store.opportunities.has(modernId)) {
-      const row = seedOpportunity(partnerId, i);
-      store.opportunities.set(row.opportunityId, row);
-    }
-  }
+function mergeDeterministicSeeds(_partnerId: string, _store: Store): void {
+  // CO-ORG-004 — do not invent partner opportunities / customers as production truth.
+  // Partner Business must project Opportunity Registry / EAR — seeds retired.
 }
 
 async function readPersistedPlaceholder(partnerId: string): Promise<PersistedPlaceholderSlice | null> {
@@ -611,6 +886,9 @@ async function ensureStore(partnerId: string): Promise<Store> {
     const persisted = await readPersistedPlaceholder(partnerId);
     if (persisted?.customers?.length) {
       store.customers = persisted.customers;
+    } else {
+      // CO-ORG-004 — no seed customer invent when empty
+      store.customers = [];
     }
     for (const opp of persisted?.opportunities ?? []) {
       if (opp?.opportunityId) store.opportunities.set(opp.opportunityId, opp);
@@ -935,59 +1213,161 @@ async function resolvePartner(userId: string) {
   return binding.partner.id;
 }
 
+async function resolvePartnerContext(userId: string) {
+  const binding = await resolvePartnerBindingForUser(userId);
+  return {
+    partnerId: binding.partner.id,
+    organizationId: binding.partner.organizationId,
+    partnerDisplayName: binding.partner.displayName,
+    userDisplayName: `${binding.user.firstName} ${binding.user.lastName}`.trim() || binding.user.email,
+    userId: binding.user.id,
+  };
+}
+
+async function assertPartnerAction(
+  userId: string,
+  action: PartnerEntitlementAction,
+  entity?: { entityKind: "opportunity" | "deal"; entityId: string },
+): Promise<{ partnerId: string; organizationId: string; entitlements: PartnerEffectiveEntitlements }> {
+  const ctx = await resolvePartnerContext(userId);
+  const entitlements = await partnerEntitlementsService.assertEntitlement({
+    wealthPartnerId: ctx.partnerId,
+    organizationId: ctx.organizationId,
+    action,
+    entityKind: entity?.entityKind ?? null,
+    entityId: entity?.entityId ?? null,
+  });
+  return { partnerId: ctx.partnerId, organizationId: ctx.organizationId, entitlements };
+}
+
+/**
+ * CO-WP-ACCESS-001A — Production auth: Registry ownership then entitlement.
+ * Placeholder store may enrich projection but cannot authorize.
+ */
+async function assertOwnedOpportunityAction(
+  userId: string,
+  action: PartnerEntitlementAction,
+  opportunityRef: string,
+) {
+  const ctx = await resolvePartnerContext(userId);
+  const owned = await partnerOwnershipService.requireOwnedOpportunity({
+    organizationId: ctx.organizationId,
+    wealthPartnerId: ctx.partnerId,
+    opportunityRef,
+  });
+  const entitlements = await partnerEntitlementsService.assertEntitlement({
+    wealthPartnerId: ctx.partnerId,
+    organizationId: ctx.organizationId,
+    action,
+    entityKind: "opportunity",
+    entityId: owned.id,
+  });
+  return { ...ctx, owned, entitlements };
+}
+
+function projectOwnedSummary(
+  row: Awaited<ReturnType<typeof partnerOwnershipService.listOwnedOpportunities>>[number],
+): PartnerOpportunitySummaryDto {
+  return {
+    opportunityId: row.id,
+    reference: row.opportunityNumber,
+    customerDisplayName:
+      row.primaryContactName || row.companyName || "Not Specified",
+    productLabel: row.productLabel || "Not Specified",
+    requiredAmountLabel: row.requestedAmount
+      ? String(row.requestedAmount)
+      : "Not Specified",
+    stageLabel: row.requirementStage,
+    lifecycleStatus: row.lifecycleStatus,
+    updatedAt: row.updatedAt.toISOString(),
+    dtoSource: "enterprise_opportunity_registry",
+  };
+}
+
 function requireDetail(userId: string, opportunityId: string): Promise<{
   partnerId: string;
   store: Store;
   detail: PartnerOpportunityDetailDto;
+  owned: OwnedOpportunityRow;
 }> {
   return (async () => {
-    const partnerId = await resolvePartner(userId);
-    const store = await ensureStore(partnerId);
-    const id = decodeURIComponent(opportunityId || "").trim();
+    const ctx = await resolvePartnerContext(userId);
+    const owned = await partnerOwnershipService.requireOwnedOpportunity({
+      organizationId: ctx.organizationId,
+      wealthPartnerId: ctx.partnerId,
+      opportunityRef: opportunityId,
+    });
+    const store = await ensureStore(ctx.partnerId);
+    const id = owned.id;
     let detail = store.opportunities.get(id);
     if (!detail) {
-      const reconstructed = tryReconstructSeedOpportunity(partnerId, id);
-      if (reconstructed) {
-        store.opportunities.set(reconstructed.opportunityId, reconstructed);
-        await persistStore(partnerId, store);
-        detail = reconstructed;
-      }
-    }
-    if (!detail) {
-      throw new PartnerGatewayError("Opportunity not found", "NOT_FOUND", 404);
+      detail = skeletonDetailFromOwned(owned, {
+        id: ctx.partnerId,
+        displayName: ctx.partnerDisplayName,
+        organizationId: ctx.organizationId,
+      });
+      store.opportunities.set(id, detail);
+      // Memory warm only — Registry remains SSOT (CO-PERF: avoid durable write on read).
+      stores.set(ctx.partnerId, store);
+    } else {
+      const mapped = mapRegistryLifecycleToPartner(
+        owned.lifecycleStatus,
+        owned.requirementStage,
+      );
+      detail = {
+        ...detail,
+        opportunityId: owned.id,
+        reference: owned.opportunityNumber,
+        productCode: owned.productCode ?? detail.productCode,
+        productLabel: owned.productLabel || detail.productLabel,
+        requiredAmountLabel:
+          owned.requestedAmount != null
+            ? formatAmountLabel(owned.requestedAmount)
+            : detail.requiredAmountLabel,
+        customerDisplayName:
+          owned.primaryContactName ||
+          owned.companyName ||
+          detail.customerDisplayName,
+        stageLabel: mapped.stageLabel,
+        lifecycleStatus: mapped.lifecycleStatus,
+        updatedAt: owned.updatedAt.toISOString(),
+        dtoSource: "enterprise_opportunity_registry",
+      };
+      store.opportunities.set(id, detail);
+      stores.set(ctx.partnerId, store);
     }
     if (!detail.timeline) detail.timeline = [];
-    return { partnerId, store, detail };
+    return { partnerId: ctx.partnerId, store, detail, owned };
   })();
 }
 
 export const partnerBusinessService = {
   async getHub(userId: string): Promise<PartnerBusinessHubDto> {
-    const partnerId = await resolvePartner(userId);
-    const store = await ensureStore(partnerId);
-    // CO-PERF — Hub read must not persist on every open.
-    stores.set(partnerId, store);
-    const details = [...store.opportunities.values()].map(applyHealth);
-    const items = details
-      .map(toSummary)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    const draft = details
-      .filter((d) => d.lifecycleStatus === "draft")
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    await assertPartnerAction(userId, "view");
+    const ctx = await resolvePartnerContext(userId);
+    const owned = await partnerOwnershipService.listOwnedOpportunities({
+      organizationId: ctx.organizationId,
+      wealthPartnerId: ctx.partnerId,
+    });
+    const items = owned.map(projectOwnedSummary);
+    const draft = owned
+      .filter((d) => ["dialogue", "draft"].includes((d.lifecycleStatus || "").toLowerCase()))
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
     return {
-      partnerId,
+      partnerId: ctx.partnerId,
       title: "Business",
       subtitle: "Your opportunities",
       opportunityCount: items.length,
       opportunities: items,
       resumeDraft: draft
         ? {
-            opportunityId: draft.opportunityId,
-            customerDisplayName: draft.customerDisplayName,
-            productLabel: draft.productLabel,
-            updatedAt: draft.updatedAt,
-            completionPercent: draft.completionPercent ?? 0,
-            continueDeepLink: `/app/opportunities/${draft.opportunityId}`,
+            opportunityId: draft.id,
+            customerDisplayName:
+              draft.primaryContactName || draft.companyName || "Not Specified",
+            productLabel: draft.productLabel || "Not Specified",
+            updatedAt: draft.updatedAt.toISOString(),
+            completionPercent: 0,
+            continueDeepLink: `/app/opportunities/${draft.id}`,
           }
         : null,
       emptyState: {
@@ -996,52 +1376,205 @@ export const partnerBusinessService = {
         ctaLabel: "New Opportunity",
         ctaDeepLink: "/app/opportunities/new",
       },
-      dtoSource: DTO_SOURCE,
+      dtoSource: "enterprise_opportunity_registry",
       dtoNotice: DTO_NOTICE,
     };
   },
 
-  /** CO-WP-BUSINESS-001 — My Business Pipeline Workspace aggregate. */
+  /** CO-WP-INT-001 — My Business Pipeline from owned Opportunity Registry rows. */
   async getBusinessPipeline(userId: string): Promise<PartnerBusinessPipelineDto> {
-    const partnerId = await resolvePartner(userId);
-    const store = await ensureStore(partnerId);
-    // CO-PERF — Read path must not write. Keep memory warm only.
-    stores.set(partnerId, store);
-    const details = [...store.opportunities.values()].map((d) =>
-      applyHealth({
-        ...d,
-        documents: [...(d.documents ?? [])],
-        activities: [...(d.activities ?? [])],
-        timeline: [...(d.timeline ?? [])],
-      }),
-    );
-    return buildBusinessPipelineDto(partnerId, details, store.customers);
+    await assertPartnerAction(userId, "view");
+    const ctx = await resolvePartnerContext(userId);
+
+    return memoPartnerPipeline(ctx.partnerId, async () => {
+      const cached = readPartnerPipelineCache(ctx.partnerId);
+      if (cached) return cached;
+
+      const owned = await partnerOwnershipService.listOwnedOpportunities({
+        organizationId: ctx.organizationId,
+        wealthPartnerId: ctx.partnerId,
+      });
+      const store = await ensureStore(ctx.partnerId);
+      const details: PartnerOpportunityDetailDto[] = [];
+      for (const row of owned) {
+        let detail = store.opportunities.get(row.id);
+        if (!detail) {
+          detail = skeletonDetailFromOwned(row, {
+            id: ctx.partnerId,
+            displayName: ctx.partnerDisplayName,
+            organizationId: ctx.organizationId,
+          });
+          store.opportunities.set(row.id, detail);
+        } else {
+          const mapped = mapRegistryLifecycleToPartner(
+            row.lifecycleStatus,
+            row.requirementStage,
+          );
+          detail = {
+            ...detail,
+            opportunityId: row.id,
+            reference: row.opportunityNumber,
+            productLabel: row.productLabel || detail.productLabel,
+            productCode: row.productCode ?? detail.productCode,
+            requiredAmountLabel:
+              row.requestedAmount != null
+                ? formatAmountLabel(row.requestedAmount)
+                : detail.requiredAmountLabel,
+            customerDisplayName:
+              row.primaryContactName || row.companyName || detail.customerDisplayName,
+            stageLabel: mapped.stageLabel,
+            lifecycleStatus: mapped.lifecycleStatus,
+            updatedAt: row.updatedAt.toISOString(),
+            dtoSource: "enterprise_opportunity_registry",
+          };
+          store.opportunities.set(row.id, detail);
+        }
+        details.push(applyHealth(detail));
+      }
+      stores.set(ctx.partnerId, store);
+      const dto = buildBusinessPipelineDto(ctx.partnerId, details, store.customers);
+      writePartnerPipelineCache(ctx.partnerId, dto);
+      return dto;
+    });
+  },
+
+  /**
+   * CO-WP-PERF-002 — Home desk: reuse pipeline store details (no docs/notes re-hydrate).
+   */
+  async listCachedOpportunityDetailsForHome(
+    userId: string,
+    opportunityIds: string[],
+  ): Promise<PartnerOpportunityDetailDto[]> {
+    const ctx = await resolvePartnerContext(userId);
+    const store = await ensureStore(ctx.partnerId);
+    const out: PartnerOpportunityDetailDto[] = [];
+    for (const id of opportunityIds) {
+      const detail = store.opportunities.get(id);
+      if (detail) out.push(detail);
+    }
+    return out;
   },
 
   async listOpportunities(userId: string): Promise<PartnerOpportunitySummaryDto[]> {
-    const hub = await this.getHub(userId);
-    return hub.opportunities;
+    const ctx = await resolvePartnerContext(userId);
+    await assertPartnerAction(userId, "view");
+    const owned = await partnerOwnershipService.listOwnedOpportunities({
+      organizationId: ctx.organizationId,
+      wealthPartnerId: ctx.partnerId,
+    });
+    return owned.map(projectOwnedSummary);
   },
 
   async getOpportunity(userId: string, opportunityId: string): Promise<PartnerOpportunityDetailDto> {
-    const { detail } = await requireDetail(userId, opportunityId);
-    return applyHealth(detail);
+    const { owned, entitlements, partnerId, organizationId, partnerDisplayName } =
+      await assertOwnedOpportunityAction(userId, "view", opportunityId);
+
+    // Enrichment from partner projection store when present — ownership already proven via Registry.
+    const store = await ensureStore(partnerId);
+    let detail = store.opportunities.get(owned.id);
+    if (!detail) {
+      detail = skeletonDetailFromOwned(owned, {
+        id: partnerId,
+        displayName: partnerDisplayName,
+        organizationId,
+      });
+      store.opportunities.set(owned.id, detail);
+      stores.set(partnerId, store);
+    } else {
+      const mapped = mapRegistryLifecycleToPartner(
+        owned.lifecycleStatus,
+        owned.requirementStage,
+      );
+      detail = {
+        ...detail,
+        opportunityId: owned.id,
+        reference: owned.opportunityNumber,
+        customerId: owned.primaryContactId || detail.customerId || "",
+        customerDisplayName:
+          owned.primaryContactName || owned.companyName || detail.customerDisplayName,
+        productCode: owned.productCode ?? detail.productCode,
+        productLabel: owned.productLabel || detail.productLabel,
+        requiredAmountLabel:
+          owned.requestedAmount != null
+            ? formatAmountLabel(owned.requestedAmount)
+            : detail.requiredAmountLabel,
+        stageLabel: mapped.stageLabel,
+        lifecycleStatus: mapped.lifecycleStatus,
+        updatedAt: owned.updatedAt.toISOString(),
+        dtoSource: "enterprise_opportunity_registry",
+      };
+      store.opportunities.set(owned.id, detail);
+    }
+
+    // CO-WP-INT-002 — hydrate Documents + Activity from enterprise SSOTs (not placeholder).
+    const [documents, notes] = await Promise.all([
+      listPartnerOpportunityDocuments({
+        organizationId: owned.organizationId,
+        opportunityId: owned.id,
+      }),
+      listPartnerVisibleOpportunityNotes({
+        opportunityId: owned.id,
+        contactId: owned.primaryContactId,
+      }),
+    ]);
+    detail.documents = documents;
+    detail.activities = notes.activities;
+    detail.noteEntries = notes.noteEntries;
+    detail.lod = projectPartnerOpportunityLod(detail);
+
+    const hydrated = applyHealth(detail);
+    store.opportunities.set(owned.id, hydrated);
+    stores.set(partnerId, store);
+    return {
+      ...hydrated,
+      opportunityId: owned.id,
+      reference: owned.opportunityNumber,
+      entitlements: {
+        executionMode: entitlements.executionMode,
+        source: entitlements.source,
+        permissions: entitlements.permissions,
+        modules: entitlements.modules,
+      },
+    };
   },
 
+  /** CO-WP-INT-002 — Customer search from owned Opportunity primary contacts (ECM). */
   async searchCustomers(
     userId: string,
     query: string,
   ): Promise<PartnerCustomerSearchHitDto[]> {
-    const partnerId = await resolvePartner(userId);
-    const store = await ensureStore(partnerId);
+    await assertPartnerAction(userId, "view");
+    const ctx = await resolvePartnerContext(userId);
+    const owned = await partnerOwnershipService.listOwnedCustomerIds({
+      organizationId: ctx.organizationId,
+      wealthPartnerId: ctx.partnerId,
+    });
     const q = query.trim().toLowerCase();
-    if (!q) return store.customers;
-    return store.customers.filter(
-      (c) =>
-        c.displayName.toLowerCase().includes(q) ||
-        c.mobile.replace(/\s/g, "").includes(q.replace(/\s/g, "")) ||
-        (c.city ?? "").toLowerCase().includes(q),
-    );
+    const qDigits = query.replace(/\D/g, "");
+    const hits: PartnerCustomerSearchHitDto[] = [];
+    for (const row of owned) {
+      const ecm = await loadEcmContactForPartner(row.customerId);
+      const displayName = ecm?.name || row.displayName || "Not Specified";
+      const mobile = ecm?.mobilePrimary || row.mobile || "";
+      const city = ecm?.city || row.city || null;
+      if (q) {
+        const mobileDigits = mobile.replace(/\D/g, "");
+        const match =
+          displayName.toLowerCase().includes(q) ||
+          mobile.toLowerCase().includes(q) ||
+          (qDigits.length >= 3 && mobileDigits.includes(qDigits)) ||
+          (city ?? "").toLowerCase().includes(q);
+        if (!match) continue;
+      }
+      hits.push({
+        customerId: row.customerId,
+        displayName,
+        mobile,
+        city,
+        dtoSource: "enterprise_customer_registry",
+      });
+    }
+    return hits;
   },
 
   /**
@@ -1182,32 +1715,127 @@ export const partnerBusinessService = {
     userId: string,
     input: PartnerOpportunityCreateInput,
   ): Promise<PartnerOpportunityDetailDto> {
+    await assertPartnerAction(userId, "create");
     const binding = await resolvePartnerBindingForUser(userId);
     const partner = binding.partner;
     const partnerId = partner.id;
+    invalidatePartnerPipelineCache(partnerId);
     const store = await ensureStore(partnerId);
     const intent = input.intent === "submit" ? "submit" : "draft";
-    const customer =
-      store.customers.find((c) => c.customerId === input.customerId) ??
-      ({
-        customerId: input.customerId || `cust-ph-${Date.now()}`,
-        displayName: input.customerDisplayName?.trim() || "New Customer",
-        mobile: input.customerMobile?.trim() || "Not Specified",
-        city: input.customerCity?.trim() || null,
-        dtoSource: DTO_SOURCE,
-      } satisfies PartnerCustomerSearchHitDto);
+    const displayName = input.customerDisplayName?.trim() || "";
+    const mobile = input.customerMobile?.trim() || "";
+    const city = input.customerCity?.trim() || null;
 
+    // CO-WP-INT-002 — preferred customer must already be partner-owned (search hits),
+    // otherwise create a new ECM contact (do not attach another partner's customer).
+    const preferredId = input.customerId?.trim() || null;
+    if (preferredId) {
+      try {
+        await partnerOwnershipService.requireOwnedCustomer({
+          organizationId: partner.organizationId,
+          wealthPartnerId: partner.id,
+          customerId: preferredId,
+        });
+      } catch {
+        throw new PartnerGatewayError(
+          "Customer not found or access denied",
+          "FORBIDDEN",
+          403,
+        );
+      }
+    }
+
+    const contact = await resolveOrCreatePartnerContact({
+      organizationId: partner.organizationId,
+      actorUserId: userId,
+      displayName: displayName || "Partner Customer",
+      mobile,
+      city,
+      preferredContactId: preferredId,
+    });
+
+    const customer: PartnerCustomerSearchHitDto = {
+      customerId: contact.id,
+      displayName: contact.name,
+      mobile: contact.mobile,
+      city: contact.city,
+      dtoSource: "enterprise_opportunity_registry",
+    };
     if (!store.customers.some((c) => c.customerId === customer.customerId)) {
       store.customers.unshift(customer);
     }
 
-    const createdAt = nowIso();
-    const opportunityId = `opp-ph-${partnerId.slice(0, 8)}-${Date.now()}`;
     const isSubmit = intent === "submit";
     const primaryBorrowerKind = input.primaryBorrowerKind
       ? assertOpportunityPrimaryBorrowerKind(input.primaryBorrowerKind)
       : null;
-    /** Catalyst Connect constitution §5 — Source never partner-editable; stamped here. */
+    const requestedAmount = parseRequestedAmount(input.requiredAmountLabel);
+
+    // CO-WP-INT-001 — Opportunity Registry is the create SSOT (sourceWealthPartnerId ownership).
+    const registryRow = await enterpriseOpportunityRepository.createOpportunity({
+      organizationId: partner.organizationId,
+      productFamily: "lending",
+      productCode: input.productCode?.trim() || null,
+      productLabel: input.productLabel?.trim() || null,
+      requirementStage: isSubmit ? "requirement_captured" : "lead_creation",
+      lifecycleStatus: isSubmit ? "requirement_captured" : "dialogue",
+      primaryBorrowerKind: primaryBorrowerKind === "company" ? "company" : "individual",
+      primaryContactId: contact.id,
+      primaryContactName: contact.name,
+      primaryContactMobile: contact.mobile,
+      cityLabel: contact.city,
+      requestedAmount,
+      sourceCode: "wealth_partner",
+      sourceWealthPartnerId: partner.id,
+      participationRole: "referral",
+      snapshot: {
+        partnerCreated: true,
+        partnerNotes: input.notes?.trim() || null,
+        partnerBorrowerFields: input.borrowerFields ?? null,
+        partnerProductFields: input.productFields ?? null,
+      },
+      actorUserId: userId,
+    });
+
+    // CO-NOTIFICATION-001 — notify internal users; partner excluded (own activity)
+    try {
+      const { enterpriseNotificationService } = await import(
+        "@server/services/enterprise-notification/enterprise-notification.service"
+      );
+      const { eneEventTitle } = await import(
+        "@/constants/enterprise-notification-engine"
+      );
+      const amount =
+        requestedAmount != null
+          ? `₹${Number(requestedAmount).toLocaleString("en-IN")}`
+          : null;
+      await enterpriseNotificationService.fanOutBestEffort({
+        organizationId: partner.organizationId,
+        eventType: "OPPORTUNITY_CREATED",
+        sourceEventId: registryRow.id,
+        sourceSystem: "opportunity",
+        title: eneEventTitle("OPPORTUNITY_CREATED"),
+        body: [contact.name, input.productLabel?.trim() || "Product", amount]
+          .filter(Boolean)
+          .join(" · "),
+        description: `Source: Wealth Partner · ${partner.displayName}`,
+        actorUserId: userId,
+        actorName: partner.displayName,
+        opportunityId: registryRow.id,
+        contactId: contact.id,
+        customerName: contact.name,
+        productLabel: input.productLabel?.trim() || null,
+        amountLabel: amount,
+        href: `/opportunities?opportunityId=${encodeURIComponent(registryRow.id)}`,
+        sourceWealthPartnerId: partner.id,
+        actorIsPartner: true,
+      });
+    } catch {
+      /* fail-open */
+    }
+
+    const createdAt = registryRow.createdAt.toISOString();
+    const opportunityId = registryRow.id;
     const sourceAttribution = {
       sourcePartnerId: partner.id,
       sourcePartnerName: partner.displayName,
@@ -1220,12 +1848,15 @@ export const partnerBusinessService = {
     };
     const detail: PartnerOpportunityDetailDto = {
       opportunityId,
-      reference: nextOpportunityReference(store.opportunities.size + 145),
-      customerId: customer.customerId,
-      customerDisplayName: customer.displayName,
+      reference: registryRow.opportunityNumber,
+      customerId: contact.id,
+      customerDisplayName: contact.name,
       productCode: input.productCode?.trim() || null,
       productLabel: input.productLabel?.trim() || "Not Specified",
-      requiredAmountLabel: input.requiredAmountLabel?.trim() || "Not Specified",
+      requiredAmountLabel:
+        requestedAmount != null
+          ? formatAmountLabel(requestedAmount)
+          : input.requiredAmountLabel?.trim() || "Not Specified",
       stageLabel: isSubmit ? "Requirement Captured" : "Draft",
       lifecycleStatus: isSubmit ? "active" : "draft",
       ownerLabel: "You",
@@ -1237,9 +1868,9 @@ export const partnerBusinessService = {
       productFields: input.productFields ?? {},
       sourceAttribution,
       summary: isSubmit
-        ? "Submitted via Partner Business placeholder API. Not persisted to Opportunity Registry SSOT."
-        : "Saved as draft via Partner Business placeholder API. Not persisted to Opportunity Registry SSOT.",
-      dtoSource: DTO_SOURCE,
+        ? "Submitted via Partner Gateway — owned on Opportunity Registry."
+        : "Draft via Partner Gateway — owned on Opportunity Registry.",
+      dtoSource: "enterprise_opportunity_registry",
       dtoNotice: DTO_NOTICE,
       documents: [],
       activities: [
@@ -1249,20 +1880,18 @@ export const partnerBusinessService = {
           kindLabel: "System",
           occurredAt: createdAt,
           body: isSubmit
-            ? "Opportunity submitted to Rupee Catalyst for enterprise processing."
-            : `${customer.displayName} · ${input.productLabel?.trim() || "Opportunity"} draft started.`,
-          dtoSource: DTO_SOURCE,
+            ? "Opportunity submitted to Rupee Catalyst."
+            : "Opportunity draft created on Enterprise Opportunity Registry.",
+          dtoSource: "enterprise_opportunity_registry",
         },
       ],
       timeline: [
         {
           eventId: `${opportunityId}-tl-1`,
-          title: isSubmit ? "Opportunity submitted" : "Draft saved",
+          title: isSubmit ? "Opportunity submitted" : "Opportunity created",
           occurredAt: createdAt,
-          body: primaryBorrowerKind
-            ? `New Opportunity journey · Primary Borrower: ${primaryBorrowerKind}.`
-            : "New Opportunity journey continued from Business Home.",
-          dtoSource: DTO_SOURCE,
+          body: "Recorded on Enterprise Opportunity Registry.",
+          dtoSource: "enterprise_opportunity_registry",
         },
       ],
       loanFile: {
@@ -1273,8 +1902,8 @@ export const partnerBusinessService = {
         lenderLabel: null,
         amountLabel: null,
         statusLabel: "Not attached",
-        message: "Loan File attaches after Move to Deal in Catalyst One.",
-        dtoSource: DTO_SOURCE,
+        message: "Deal / Loan File attaches after lender identification in Catalyst One.",
+        dtoSource: "enterprise_opportunity_registry",
         dtoNotice: DTO_NOTICE,
       },
     };
@@ -1290,9 +1919,64 @@ export const partnerBusinessService = {
     opportunityId: string,
     input: PartnerOpportunityPatchInput,
   ): Promise<PartnerOpportunityDetailDto> {
-    const { partnerId, store, detail } = await requireDetail(userId, opportunityId);
+    const { owned } = await assertOwnedOpportunityAction(userId, "edit", opportunityId);
+    const { partnerId, store, detail } = await requireDetail(userId, owned.id);
+    invalidatePartnerPipelineCache(partnerId);
+
+    const requestedAmount =
+      input.requiredAmountLabel !== undefined
+        ? parseRequestedAmount(input.requiredAmountLabel)
+        : undefined;
+
+    // CO-WP-INT-001 — Registry write first (SSOT). Placeholder mirrors for Connect UX only.
+    const existing = await enterpriseOpportunityRepository.findById(
+      owned.organizationId,
+      owned.id,
+    );
+    const prevSnap =
+      existing?.snapshot &&
+      typeof existing.snapshot === "object" &&
+      !Array.isArray(existing.snapshot)
+        ? (existing.snapshot as Record<string, unknown>)
+        : {};
+    await enterpriseOpportunityRepository.updateOpportunity(owned.organizationId, owned.id, {
+      productCode:
+        input.productCode !== undefined ? input.productCode.trim() || null : undefined,
+      productLabel: input.productLabel !== undefined ? input.productLabel : undefined,
+      requestedAmount: requestedAmount === undefined ? undefined : requestedAmount,
+      primaryContactName:
+        input.borrowerFields?.fullName?.trim() ||
+        input.borrowerFields?.customerName?.trim() ||
+        undefined,
+      primaryContactMobile:
+        input.borrowerFields?.mobile?.trim() ||
+        input.borrowerFields?.mobilePrimary?.trim() ||
+        undefined,
+      cityLabel:
+        input.borrowerFields?.city?.trim() ||
+        input.productFields?.propertyCity?.trim() ||
+        undefined,
+      snapshot: {
+        ...prevSnap,
+        partnerNotes: input.notes !== undefined ? input.notes : detail.notes ?? null,
+        partnerBorrowerFields:
+          input.borrowerFields !== undefined
+            ? input.borrowerFields
+            : detail.borrowerFields ?? null,
+        partnerProductFields:
+          input.productFields !== undefined
+            ? input.productFields
+            : detail.productFields ?? null,
+        partnerPatchedAt: nowIso(),
+      },
+      updatedBy: userId,
+    });
+
     if (input.requiredAmountLabel !== undefined) {
-      detail.requiredAmountLabel = input.requiredAmountLabel.trim() || "Not Specified";
+      detail.requiredAmountLabel =
+        requestedAmount != null
+          ? formatAmountLabel(requestedAmount)
+          : input.requiredAmountLabel.trim() || "Not Specified";
     }
     if (input.notes !== undefined) detail.notes = input.notes;
     if (input.productFields !== undefined) detail.productFields = input.productFields;
@@ -1303,6 +1987,8 @@ export const partnerBusinessService = {
       detail.primaryBorrowerKind = assertOpportunityPrimaryBorrowerKind(input.primaryBorrowerKind);
     }
     detail.updatedAt = nowIso();
+    detail.dtoSource = "enterprise_opportunity_registry";
+    detail.summary = "Updated on Enterprise Opportunity Registry.";
     const touchedCustomer =
       input.borrowerFields !== undefined || input.primaryBorrowerKind !== undefined;
     if (touchedCustomer) {
@@ -1313,8 +1999,7 @@ export const partnerBusinessService = {
         "Customer details on this Opportunity were updated.",
       );
     }
-    // Autosave / draft progress stays internal — not partner Activity Timeline.
-    pushTimeline(detail, "Progress saved", "Autosave / draft update.");
+    pushTimeline(detail, "Progress saved", "Saved to Enterprise Opportunity Registry.");
     const hydrated = applyHealth(detail);
     store.opportunities.set(opportunityId, hydrated);
     await persistStore(partnerId, store);
@@ -1325,16 +2010,44 @@ export const partnerBusinessService = {
     userId: string,
     opportunityId: string,
   ): Promise<PartnerOpportunityDetailDto> {
-    const { partnerId, store, detail } = await requireDetail(userId, opportunityId);
-    if (detail.lifecycleStatus !== "draft") {
+    const { owned } = await assertOwnedOpportunityAction(
+      userId,
+      "stage_change",
+      opportunityId,
+    );
+    const { partnerId, store, detail } = await requireDetail(userId, owned.id);
+    invalidatePartnerPipelineCache(partnerId);
+    const alreadyCaptured =
+      owned.lifecycleStatus === "requirement_captured" ||
+      owned.requirementStage === "requirement_captured" ||
+      detail.lifecycleStatus === "active";
+    if (alreadyCaptured && detail.lifecycleStatus !== "draft") {
       return detail;
     }
+
+    // CO-WP-INT-001 — Stage change persists to Opportunity Registry (canonical stages).
+    await enterpriseOpportunityRepository.updateOpportunity(owned.organizationId, owned.id, {
+      lifecycleStatus: "requirement_captured",
+      requirementStage: "requirement_captured",
+      updatedBy: userId,
+    });
+
     detail.lifecycleStatus = "active";
     detail.stageLabel = "Requirement Captured";
     detail.summary =
-      "Submitted via Partner Business placeholder API. Not persisted to Opportunity Registry SSOT.";
-    pushActivity(detail, "Submitted", "Opportunity", "Opportunity submitted to Rupee Catalyst for enterprise processing.");
-    pushTimeline(detail, "Opportunity submitted", "Journey moved from Draft to active.");
+      "Submitted via Partner Gateway — Requirement Captured on Opportunity Registry.";
+    detail.dtoSource = "enterprise_opportunity_registry";
+    pushActivity(
+      detail,
+      "Submitted",
+      "Opportunity",
+      "Opportunity submitted to Rupee Catalyst for enterprise processing.",
+    );
+    pushTimeline(
+      detail,
+      "Opportunity submitted",
+      "Lifecycle moved to Requirement Captured on Enterprise Opportunity Registry.",
+    );
     emitEnterpriseSubmitEvents(detail);
     const hydrated = applyHealth(detail);
     store.opportunities.set(opportunityId, hydrated);
@@ -1347,40 +2060,68 @@ export const partnerBusinessService = {
     opportunityId: string,
     input: PartnerOpportunityDocumentUploadInput,
   ): Promise<PartnerOpportunityDetailDto> {
-    const { partnerId, store, detail } = await requireDetail(userId, opportunityId);
-    const typeRef = input.typeRef?.trim();
-    if (!typeRef) {
-      throw new PartnerGatewayError(
-        "Document typeRef is required — upload against the Enterprise LOD checklist only.",
-        "VALIDATION",
-        400,
-      );
-    }
-
-    const lod = projectPartnerOpportunityLod(detail);
-    const lodItem = lod.items.find((i) => i.typeRef === typeRef);
-    if (!lodItem) {
-      throw new PartnerGatewayError(
-        "Document type is not on the Enterprise required list for this Opportunity.",
-        "VALIDATION",
-        400,
-      );
-    }
-
-    const title = input.title?.trim() || input.fileName?.trim() || lodItem.label;
+    const { owned, userDisplayName } = await assertOwnedOpportunityAction(
+      userId,
+      "document_upload",
+      opportunityId,
+    );
     const replaceId = input.replaceDocumentId?.trim();
-    let documents = [...(detail.documents ?? [])];
     if (replaceId) {
-      documents = documents.filter((d) => d.documentId !== replaceId);
-    } else if (!input.append) {
-      documents = documents.filter((d) => d.typeRef !== typeRef);
+      await assertOwnedOpportunityAction(userId, "document_edit", owned.id);
+    }
+    const { partnerId, store, detail } = await requireDetail(userId, owned.id);
+    const typeRefIn = input.typeRef?.trim() || "";
+    const modeIn = (input.intakeMode || "").trim().toLowerCase();
+    const lod = projectPartnerOpportunityLod(detail);
+    const lodItem = typeRefIn
+      ? lod.items.find((i) => i.typeRef === typeRefIn)
+      : undefined;
+
+    /** CO-WP-DOC-002 — freeform inbox/additional vs checklist requirement upload. */
+    const isFreeform =
+      modeIn === "inbox" ||
+      modeIn === "additional" ||
+      (!typeRefIn && modeIn !== "requirement") ||
+      isUnclassifiedDocumentTypeRef(typeRefIn);
+
+    if (!isFreeform) {
+      if (!typeRefIn) {
+        throw new PartnerGatewayError(
+          "Document typeRef is required when uploading against a pending requirement.",
+          "VALIDATION",
+          400,
+        );
+      }
+      if (!lodItem) {
+        throw new PartnerGatewayError(
+          "Document type is not on the Enterprise required list for this Opportunity.",
+          "VALIDATION",
+          400,
+        );
+      }
     }
 
+    const typeRef = isFreeform
+      ? isUnclassifiedDocumentTypeRef(typeRefIn)
+        ? typeRefIn
+        : createUnclassifiedDocumentTypeRef()
+      : typeRefIn;
+
+    const categoryLabel = isFreeform
+      ? modeIn === "additional"
+        ? "Additional document"
+        : "Customer document"
+      : lodItem!.label;
+
+    const title =
+      input.title?.trim() ||
+      input.fileName?.trim() ||
+      (isFreeform ? categoryLabel : lodItem!.label);
     const sizeBytes =
       typeof input.sizeBytes === "number" && Number.isFinite(input.sizeBytes)
         ? Math.max(0, Math.round(input.sizeBytes))
-        : null;
-    if (sizeBytes != null && sizeBytes > 8 * 1024 * 1024) {
+        : 0;
+    if (sizeBytes > 8 * 1024 * 1024) {
       throw new PartnerGatewayError(
         "Each file must be 8 MB or smaller.",
         "VALIDATION",
@@ -1388,65 +2129,60 @@ export const partnerBusinessService = {
       );
     }
 
-    let previewDataUrl: string | null = null;
-    const rawContent = input.contentBase64?.trim();
-    if (rawContent) {
-      const asDataUrl = rawContent.startsWith("data:")
-        ? rawContent
-        : `data:${input.mimeType || "application/octet-stream"};base64,${rawContent}`;
-      // Keep small previews only (images) to avoid blowing Partner profile JSON.
-      const mime = (input.mimeType || "").toLowerCase();
-      if (mime.startsWith("image/") && asDataUrl.length <= 350_000) {
-        previewDataUrl = asDataUrl;
-      }
-    }
-
-    const doc: PartnerOpportunityDocumentDto = {
-      documentId: `${opportunityId}-doc-${Date.now()}`,
-      title,
-      statusLabel: "Uploaded",
-      categoryLabel: lodItem.label,
+    // CO-WP-INT-002 / CO-DOC-ARCH-001 — Durable Opportunity Document Center (same SSOT).
+    await upsertPartnerOpportunityDocument({
+      organizationId: owned.organizationId,
+      opportunityId: owned.id,
+      opportunityNumber: owned.opportunityNumber,
+      contactId: owned.primaryContactId,
       typeRef,
+      categoryLabel,
+      title,
       fileName: input.fileName?.trim() || title,
-      mimeType: input.mimeType?.trim() || null,
+      mimeType: input.mimeType?.trim() || "application/octet-stream",
       sizeBytes,
-      previewDataUrl,
-      uploadedByLabel: "Wealth Partner",
-      updatedAt: nowIso(),
-      dtoSource: DTO_SOURCE,
-    };
-    detail.documents = [doc, ...documents];
+      contentBase64: input.contentBase64?.trim() || null,
+      replaceDocumentId: replaceId || null,
+      uploadedBy: userDisplayName || userId,
+    });
+
     const replaced = Boolean(replaceId);
+    const labelForActivity = isFreeform ? title : lodItem!.label;
     pushActivity(
       detail,
       replaced ? "Document Replaced" : "Document Uploaded",
       "Document",
-      `${lodItem.label}${input.fileName ? ` (${input.fileName})` : ""} ${replaced ? "replaced" : "uploaded"}.`,
+      `${labelForActivity}${input.fileName ? ` (${input.fileName})` : ""} ${replaced ? "replaced" : "uploaded"}.`,
     );
     pushTimeline(
       detail,
       "Document uploaded",
-      `${lodItem.label}${input.fileName ? ` (${input.fileName})` : ""} added via Enterprise LOD.`,
+      isFreeform
+        ? `${labelForActivity}${input.fileName ? ` (${input.fileName})` : ""} received via Wealth Partner Document Inbox (awaiting Catalyst One review).`
+        : `${labelForActivity}${input.fileName ? ` (${input.fileName})` : ""} added for Enterprise LOD item (awaiting Catalyst One review).`,
     );
     if (detail.stageLabel === "Draft" || detail.stageLabel === "Requirement Captured") {
       detail.stageLabel = "Documents";
     }
-    const hydrated = applyHealth(detail);
-    store.opportunities.set(opportunityId, hydrated);
+    store.opportunities.set(owned.id, applyHealth(detail));
     await persistStore(partnerId, store);
-    return hydrated;
+    return this.getOpportunity(userId, owned.id);
   },
 
   /**
-   * Remove an LOD upload before enterprise submit only.
-   * Never invents checklist types — deletes only a Partner-uploaded stub matched by documentId.
+   * Soft-delete a partner-visible upload on an owned Opportunity (Document Registry).
    */
   async deleteDocument(
     userId: string,
     opportunityId: string,
     documentId: string,
   ): Promise<PartnerOpportunityDetailDto> {
-    const { partnerId, store, detail } = await requireDetail(userId, opportunityId);
+    const { owned } = await assertOwnedOpportunityAction(
+      userId,
+      "document_edit",
+      opportunityId,
+    );
+    const { partnerId, store, detail } = await requireDetail(userId, owned.id);
     if ((detail.lifecycleStatus || "").toLowerCase() !== "draft") {
       throw new PartnerGatewayError(
         "Documents can only be deleted before the Opportunity is submitted.",
@@ -1458,26 +2194,30 @@ export const partnerBusinessService = {
     if (!id) {
       throw new PartnerGatewayError("documentId is required.", "VALIDATION", 400);
     }
-    const existing = (detail.documents ?? []).find((d) => d.documentId === id);
-    if (!existing) {
-      throw new PartnerGatewayError("Document not found on this Opportunity.", "NOT_FOUND", 404);
+
+    const removed = await softDeletePartnerOpportunityDocument({
+      organizationId: owned.organizationId,
+      opportunityId: owned.id,
+      documentId: id,
+    });
+    if (!removed) {
+      throw new PartnerGatewayError(
+        "Document not found on this Opportunity.",
+        "NOT_FOUND",
+        404,
+      );
     }
-    detail.documents = (detail.documents ?? []).filter((d) => d.documentId !== id);
+
     pushActivity(
       detail,
       "Document Removed",
       "Document",
       "Partner removed upload before enterprise submission.",
     );
-    pushTimeline(
-      detail,
-      "Document removed",
-      `${existing.categoryLabel || existing.title} removed before submission.`,
-    );
-    const hydrated = applyHealth(detail);
-    store.opportunities.set(opportunityId, hydrated);
+    pushTimeline(detail, "Document removed", "Upload removed from Enterprise Document Registry.");
+    store.opportunities.set(owned.id, applyHealth(detail));
     await persistStore(partnerId, store);
-    return hydrated;
+    return this.getOpportunity(userId, owned.id);
   },
 
   async listDocuments(
@@ -1502,6 +2242,53 @@ export const partnerBusinessService = {
     return detail.activities;
   },
 
+  /**
+   * CO-WP-ACCESS-001 / CO-WP-INT-002 — Activity / Notepad independent from EDIT.
+   * Writes Enterprise Business Notes (SSOT). Reads hydrate from the same SSOT.
+   */
+  async addActivity(
+    userId: string,
+    opportunityId: string,
+    input: { title?: string; body: string; kindLabel?: string },
+  ): Promise<PartnerOpportunityDetailDto> {
+    const { owned, partnerId, partnerDisplayName, userDisplayName } =
+      await assertOwnedOpportunityAction(userId, "activity_add", opportunityId);
+    const body = (input.body || "").trim();
+    if (!body) {
+      throw new PartnerGatewayError("Activity body is required", "VALIDATION", 400);
+    }
+    const title = (input.title || "").trim() || "Notepad";
+    const kindLabel = (input.kindLabel || "").trim() || "Notepad";
+
+    const note = await enterpriseBusinessNotesService.create(
+      {
+        body: `${body}\n— ${userDisplayName} · Partner ${partnerDisplayName} (${partnerId})`,
+        category: "general",
+        workspaceKind: "opportunity",
+        entityKind: "opportunity",
+        entityId: owned.id,
+        opportunityId: owned.id,
+        contactId: owned.primaryContactId,
+      },
+      { userId, displayName: userDisplayName },
+    );
+    if (!note) {
+      throw new PartnerGatewayError(
+        enterpriseBusinessNotesService.isDurable()
+          ? "Failed to persist activity to Enterprise Business Notes"
+          : "Partner Activity requires ENTERPRISE_PERSISTENCE_MODE=prisma",
+        "PERSISTENCE_FAILED",
+        enterpriseBusinessNotesService.isDurable() ? 500 : 503,
+      );
+    }
+
+    const { store, detail } = await requireDetail(userId, owned.id);
+    pushActivity(detail, title, kindLabel, body);
+    store.opportunities.set(owned.id, applyHealth(detail));
+    await persistStore(partnerId, store);
+    return this.getOpportunity(userId, owned.id);
+  },
+
   async listTimeline(
     userId: string,
     opportunityId: string,
@@ -1518,41 +2305,35 @@ export const partnerBusinessService = {
     return detail.loanFile;
   },
 
-  /** CO-WP-JOURNEY-003 / CO-WP-CUSTOMER-001 — Customer directory (ECR enrichment). */
+  /** CO-WP-INT-002 — Customer directory from owned Opportunity primary contacts (ECM). */
   async listCustomerDirectory(userId: string): Promise<PartnerCustomerDirectoryDto> {
-    const partnerId = await resolvePartner(userId);
-    const store = await ensureStore(partnerId);
+    await assertPartnerAction(userId, "view");
+    const ctx = await resolvePartnerContext(userId);
+    const owned = await partnerOwnershipService.listOwnedCustomerIds({
+      organizationId: ctx.organizationId,
+      wealthPartnerId: ctx.partnerId,
+    });
     const customers = await Promise.all(
-      store.customers.map(async (c) => {
-        const ecm = await loadEcmContactForPartner(c.customerId);
-        const opps = [...store.opportunities.values()].filter((o) => o.customerId === c.customerId);
-        const active = opps.filter(
-          (o) =>
-            !["won", "lost", "disbursed", "closed", "cancelled"].includes(
-              (o.lifecycleStatus || "").toLowerCase(),
-            ) && !(o.stageLabel || "").toLowerCase().includes("disbursed"),
-        ).length;
-        const last = opps
-          .map((o) => o.updatedAt)
-          .sort()
-          .at(-1);
+      owned.map(async (row) => {
+        const ecm = await loadEcmContactForPartner(row.customerId);
         return {
-          customerId: c.customerId,
-          displayName: ecm?.name || c.displayName,
-          mobile: ecm?.mobilePrimary || c.mobile,
-          city: ecm?.city || c.city,
+          customerId: row.customerId,
+          displayName: ecm?.name || row.displayName || "Not Specified",
+          mobile: ecm?.mobilePrimary || row.mobile || "",
+          city: ecm?.city || row.city,
           customerTypeLabel: ecm ? "Customer" : "Individual",
-          activeOpportunityCount: active || opps.length,
-          relationshipHealthLabel: active > 0 ? "On track" : "New",
-          lastInteractionAt: last || ecm?.lastActiveOn || nowIso(),
-          dtoSource: DTO_SOURCE,
+          activeOpportunityCount: row.activeOpportunityCount || row.opportunityCount,
+          relationshipHealthLabel:
+            row.activeOpportunityCount > 0 ? "On track" : "New",
+          lastInteractionAt: row.lastUpdatedAt.toISOString(),
+          dtoSource: "enterprise_customer_registry" as const,
         };
       }),
     );
     return {
-      partnerId,
+      partnerId: ctx.partnerId,
       title: "Customers",
-      subtitle: "Enterprise Customer Registry projection — Connect does not store customers.",
+      subtitle: "Enterprise Customer Registry projection — partners see only sourced customers.",
       customers,
       emptyState: {
         title: "No customers yet",
@@ -1560,51 +2341,72 @@ export const partnerBusinessService = {
         ctaLabel: "New Opportunity",
         ctaDeepLink: "/app/opportunities/new",
       },
-      dtoSource: DTO_SOURCE,
+      dtoSource: "enterprise_customer_registry",
       dtoNotice:
-        "Customer identity is owned by the Enterprise Customer Registry. Catalyst Connect is presentation only.",
+        "Customer identity is owned by the Enterprise Customer Registry. Visibility is partner-scoped via Opportunity sourcing.",
     };
   },
 
-  /** CO-WP-CUSTOMER-001 — Lightweight Customer Workspace from Enterprise Customer Registry. */
+  /** CO-WP-INT-002 — Customer workspace; cross-partner access → 403. */
   async getCustomerWorkspace(
     userId: string,
     customerId: string,
   ): Promise<PartnerCustomerWorkspaceDto> {
+    await assertPartnerAction(userId, "view");
     const binding = await resolvePartnerBindingForUser(userId);
     const partnerId = binding.partner.id;
-    const store = await ensureStore(partnerId);
-    const customer = store.customers.find((c) => c.customerId === customerId);
-    const ecm = await loadEcmContactForPartner(customerId);
+    const organizationId = binding.partner.organizationId;
 
-    if (!customer && !ecm) {
-      throw new PartnerGatewayError("Customer not found", "NOT_FOUND", 404);
-    }
-
-    const fallback = customer ?? {
+    await partnerOwnershipService.requireOwnedCustomer({
+      organizationId,
+      wealthPartnerId: partnerId,
       customerId,
-      displayName: ecm!.name,
-      mobile: ecm!.mobilePrimary,
-      city: ecm!.city ?? null,
-      dtoSource: DTO_SOURCE,
+    });
+
+    const ecm = await loadEcmContactForPartner(customerId);
+    const fallback = {
+      customerId,
+      displayName: ecm?.name || "Not Specified",
+      mobile: ecm?.mobilePrimary || "",
+      city: ecm?.city ?? null,
+      dtoSource: "enterprise_customer_registry" as const,
     };
 
-    // Ensure directory can resolve this ECR customer on next list
-    if (!customer && ecm && !store.customers.some((c) => c.customerId === customerId)) {
-      store.customers.unshift(fallback);
-      await persistStore(partnerId, store);
-    }
-
-    const opps = [...store.opportunities.values()]
-      .filter((o) => o.customerId === customerId)
-      .map((o) =>
-        applyHealth({
-          ...o,
-          documents: [...o.documents],
-          activities: [...o.activities],
-          timeline: [...o.timeline],
+    // Opportunities for this customer from Registry ownership (not placeholder Map).
+    const ownedOpps = await partnerOwnershipService.listOwnedOpportunities({
+      organizationId,
+      wealthPartnerId: partnerId,
+    });
+    const linked = ownedOpps.filter((o) => o.primaryContactId === customerId);
+    const store = await ensureStore(partnerId);
+    const opps = [];
+    for (const row of linked) {
+      let detail = store.opportunities.get(row.id);
+      if (!detail) {
+        detail = skeletonDetailFromOwned(row, {
+          id: partnerId,
+          displayName: binding.partner.displayName,
+          organizationId,
+        });
+        store.opportunities.set(row.id, detail);
+      }
+      const notes = await listPartnerVisibleOpportunityNotes({
+        opportunityId: row.id,
+        contactId: customerId,
+      });
+      detail = {
+        ...detail,
+        customerId,
+        activities: notes.activities,
+        noteEntries: notes.noteEntries,
+        documents: await listPartnerOpportunityDocuments({
+          organizationId,
+          opportunityId: row.id,
         }),
-      );
+      };
+      opps.push(applyHealth(detail));
+    }
+    stores.set(partnerId, store);
 
     return composePartnerCustomerWorkspace({
       customerId,

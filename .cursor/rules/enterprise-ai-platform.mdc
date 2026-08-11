@@ -1,0 +1,83 @@
+# Enterprise AI Platform — Platform Constitution
+
+Status: **ENTERPRISE APPROVED** · Sprints: **AI-1** … **AI-12 (Wealth Partner Behaviour Pack)**  
+Behaviour Constitution: **SARATHI Bible v1.0**
+
+## Governing standards (FROZEN — Product Owner mandatory)
+
+All remaining AI sprints are governed by:
+
+1. **Enterprise AI Constitution** — `docs/enterprise-ai/ENTERPRISE-AI-CONSTITUTION.md`  
+2. **SARATHI Bible v1.0** — `docs/sarathi/SARATHI-BIBLE-V1.md`
+
+**No sprint may modify, override, weaken, or bypass these documents** unless the Product Owner explicitly instructs otherwise.  
+Every implementation must remain compliant.  
+Freeze notice: `docs/enterprise-ai/ENTERPRISE-AI-GOVERNING-STANDARDS-FREEZE.md`  
+Agent rule: `.cursor/rules/enterprise-ai-governing-standards.mdc`
+
+## Constitutional principles (excerpt)
+
+1. Persona-agnostic platform with Behaviour Packs.  
+2. **Enterprise engines decide; LLM / FDI / Advisory explain.**  
+3. Policy Gate + Domain Boundary govern conversational requests.  
+4. SARATHI Bible — financial domain only; outside → `I'm not trained for this subject.`  
+5. Enterprise Read Connectors are the only approved AI entry into enterprise data — READ ONLY.  
+6. **Financial Decision Intelligence** recommends and explains — never calculates FOIR/DBR/eligibility/pricing/approvals.  
+7. **Advisory Reasoning** answers “What advice should SARATHI provide?” — never replaces enterprise calculations.  
+8. **Planner** answers “What information is still required?” and “What should happen next?” — never executes.  
+9. **Consultation Intelligence** transforms conversations into structured Consultation Objects — never CRM / workflow.  
+10. **Lead Intelligence** converts consultations into ranked Action Proposal recommendations — never creates CRM records.  
+11. **Explainability & Trust** makes every recommendation explainable — never fabricates reasons; never hides uncertainty.  
+12. **Conversation Experience (AI-11)** is the first customer-facing SARATHI surface — text only; every turn via the platform.  
+13. **Wealth Partner Behaviour Pack (AI-12)** reuses the platform — never a second AI; partner tone is professional/advisory; customer-facing tone is forbidden for partners.  
+14. Action Proposals are the only path toward CRM/workflow side effects.  
+15. Tone Library + Partner Tone Library + Micro Communication shape facing text (Response Composer only).
+
+## SSOT paths
+
+| Concern | Path |
+|---|---|
+| Enterprise AI Constitution | `docs/enterprise-ai/ENTERPRISE-AI-CONSTITUTION.md` |
+| Governing freeze | `docs/enterprise-ai/ENTERPRISE-AI-GOVERNING-STANDARDS-FREEZE.md` |
+| Wealth Partner Behaviour Pack | `src/lib/enterprise-ai-platform/wealth-partner-behaviour/` |
+| Partner Tone Library | `src/constants/enterprise-ai-platform/partner-tone-library.ts` |
+| Conversation Experience | `src/lib/enterprise-ai-platform/conversation-experience/` |
+| SARATHI UI | `src/components/catalyst-one/sarathi/` · `/sarathi` · `/sarathi/wealth-partner` |
+| SARATHI Bible | `src/constants/enterprise-ai-platform/sarathi-bible.ts` · `docs/sarathi/SARATHI-BIBLE-V1.md` |
+| Docs | `docs/co-ai-112/` · `docs/co-ai-111/` · `docs/sarathi/` · `docs/enterprise-ai/` |
+
+## Out of scope until later sprints
+
+Streaming product UI polish · Voice cloning · Emotion detection · CRM/Workflow **execution** · Product Ranking UI
+
+## AI-13 note
+
+**Voice interface** is Product Owner–authorized for CO-AI-113 as another channel only.  
+Conversation intelligence remains Policy Gate · Context · Planner · Advisory · FDI · platform engines.  
+See `docs/co-ai-113/`.
+
+## AI-14 note
+
+**Multilingual Intelligence** (CO-AI-114) localises conversation surfaces for `en` · `hi` · `mr`.  
+Detection · preference · mixed-language · translation · tone/micro/domain localisation.  
+Outside-domain refusal keeps **identical meaning** across languages; English remains canonical SSOT.  
+Behaviour engines unchanged. See `docs/co-ai-114/`.
+
+## AI-15 note
+
+**Enterprise Conversation Memory & Learning** (CO-AI-115) enhances long-term continuity.  
+Controlled + auditable only — **never** automatic online learning; **never** modifies enterprise rules.  
+See `docs/co-ai-115/`.
+
+## AI-16 note
+
+**Enterprise AI Validation & Performance** (CO-AI-116) validates the complete platform.  
+Performance · security · Domain Boundary · Policy Gate · Tool Bus · Behaviour harnesses.  
+Does not modify enterprise rules. See `docs/co-ai-116/`.
+
+## AI-17 note
+
+**Production Readiness · Final Certification** (CO-AI-117) is **documentation / evidence only**.  
+No new features · no architecture changes · no redesign · no new engine package.  
+Certifies baseline framework `1.17.0-ai16`. See `docs/co-ai-117/`.  
+Production Release only after Product Owner approval + Go-Live Checklist.

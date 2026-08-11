@@ -42,6 +42,7 @@ async function parse<T>(res: Response): Promise<T> {
 export const lenderProgramPortalClient = {
   async createInvite(input: {
     lenderId: string;
+    productIds: string[];
     ttlDays?: number;
     maxUses?: number | null;
     notes?: string;
@@ -57,6 +58,18 @@ export const lenderProgramPortalClient = {
     const res = await authenticatedJsonFetch("/api/admin/lender-program-portal/invites");
     const data = await parse<{ items: LenderProgramPortalInvite[] }>(res);
     return data.items;
+  },
+
+  async listMatrixProductsForLender(
+    lenderId: string,
+  ): Promise<Array<{ productId: string; productCode: string; productLabel: string }>> {
+    const res = await authenticatedJsonFetch(
+      `/api/admin/lender-program-portal/invites?matrixLenderId=${encodeURIComponent(lenderId)}`,
+    );
+    const data = await parse<{
+      products: Array<{ productId: string; productCode: string; productLabel: string }>;
+    }>(res);
+    return data.products;
   },
 
   async revokeInvite(inviteId: string, reason?: string): Promise<void> {
@@ -110,7 +123,7 @@ export const lenderProgramPortalPublicClient = {
     expiresAt: string;
     otpRequired: boolean;
     otpVerified: boolean;
-    products: Array<{ code: string; label: string }>;
+    products: Array<{ productId?: string; code: string; label: string }>;
   }> {
     const res = await fetch(
       `/api/lender-program-portal/${encodeURIComponent(token)}`,

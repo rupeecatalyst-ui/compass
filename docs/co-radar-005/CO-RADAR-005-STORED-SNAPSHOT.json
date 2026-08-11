@@ -1,0 +1,87 @@
+{
+  "metricKey": "mission_control.radar_dashboard",
+  "asOf": "2026-08-08T15:51:29.659Z",
+  "createdAt": "2026-07-27T19:51:15.583Z",
+  "numericValue": 50,
+  "sourceModules": [
+    "buildChanakyaRadarDashboard",
+    "EnterpriseDeal",
+    "EnterpriseDealTimelineEvent",
+    "CO-RADAR-005"
+  ],
+  "healthScore": 50,
+  "direction": "South-West",
+  "dealCount": 10,
+  "quadrantCounts": {
+    "at_risk": 2,
+    "on_track": 3,
+    "needs_attention": 5
+  },
+  "kpiCards": [
+    {
+      "id": "on_track",
+      "tone": "#22C55E",
+      "count": 3,
+      "label": "On Track",
+      "percentage": 30,
+      "dailyMovement": 0
+    },
+    {
+      "id": "follow_up_required",
+      "tone": "#3B82F6",
+      "count": 0,
+      "label": "Follow-up Required",
+      "percentage": 0,
+      "dailyMovement": 0
+    },
+    {
+      "id": "at_risk",
+      "tone": "#EF4444",
+      "count": 2,
+      "label": "At Risk",
+      "percentage": 20,
+      "dailyMovement": -2
+    },
+    {
+      "id": "needs_attention",
+      "tone": "#F59E0B",
+      "count": 5,
+      "label": "Needs Attention",
+      "percentage": 50,
+      "dailyMovement": -2
+    }
+  ],
+  "rowCount": 10,
+  "sampleRows": [
+    {
+      "dealHealthScore": 97,
+      "quadrant": "on_track",
+      "idleDays": 3,
+      "activityState": "healthy_waiting"
+    },
+    {
+      "dealHealthScore": 38,
+      "quadrant": "needs_attention",
+      "idleDays": 8,
+      "activityState": "needs_follow_up"
+    },
+    {
+      "dealHealthScore": 38,
+      "quadrant": "needs_attention",
+      "idleDays": 8,
+      "activityState": "needs_follow_up"
+    },
+    {
+      "dealHealthScore": 38,
+      "quadrant": "needs_attention",
+      "idleDays": 8,
+      "activityState": "needs_follow_up"
+    },
+    {
+      "dealHealthScore": 7,
+      "quadrant": "at_risk",
+      "idleDays": 11,
+      "activityState": "at_risk"
+    }
+  ]
+}

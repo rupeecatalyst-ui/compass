@@ -1,5 +1,6 @@
 /**
- * CO-WP-102 — Partner route helpers (CORS + Zero-Trust requirePartnerAccessToken).
+ * CO-WP-102 / CO-WP-ACCESS-001 — Partner route helpers
+ * (CORS + Zero-Trust token + entitlement gate re-exports).
  */
 import { NextResponse } from "next/server";
 import {
@@ -11,6 +12,11 @@ import { PARTNER_DEFAULT_ALLOWED_ORIGINS } from "@/constants/enterprise-partner-
 import { verifyPartnerAccessToken } from "@server/services/partner-gateway/partner-token.service";
 import type { PartnerTokenPayload } from "@/types/enterprise-partner-gateway";
 import { PartnerGatewayError } from "@server/services/partner-gateway/partner-auth.service";
+
+export {
+  requirePartnerEntitlement,
+  assertTokenPartnerIdentity,
+} from "@server/services/partner-gateway/partner-entitlement-gate";
 
 function allowedOrigins(): string[] {
   const fromEnv = (process.env.PARTNER_APP_ORIGINS ?? "")

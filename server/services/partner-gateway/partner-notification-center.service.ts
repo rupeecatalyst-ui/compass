@@ -1,5 +1,7 @@
 /**
  * CO-WP-NOTIFY-001 — Partner Notification Center service.
+ * CO-WP-PERF-005 — Center path reuses pipeline store projections (Home parity):
+ * no N× getOpportunity hydrate, no searchCustomers(""), no duplicate ECM fan-out.
  */
 
 import { prisma, isDatabaseAvailable } from "@server/lib/prisma";
@@ -8,15 +10,17 @@ import { PARTNER_NOTIFICATION_READ_STATE_KEY } from "@/constants/enterprise-part
 import { PARTNER_HOME_FEED_CATALOG } from "@/constants/enterprise-partner-home";
 import type { PartnerNotificationCenterDto } from "@/types/enterprise-partner-notification-center";
 import type { PartnerHomeNotificationDto } from "@/types/enterprise-partner-gateway";
+import type { PartnerOpportunityDetailDto } from "@/types/enterprise-partner-business";
 import {
   PartnerGatewayError,
   resolvePartnerBindingForUser,
 } from "./partner-binding.service";
 import { partnerBusinessService } from "./partner-business.service";
-import { loadEcmContactForPartner } from "./partner-customer-workspace.compose";
+import { partnerOwnershipService } from "./partner-ownership.service";
 import {
   buildPartnerNotificationCenterDto,
   projectPartnerNotifications,
+  type PartnerNotificationBirthdayContact,
 } from "./partner-notification-center.compose";
 
 type ReadState = { readIds: string[] };
@@ -61,20 +65,63 @@ async function saveReadState(partnerId: string, readIds: Set<string>): Promise<v
   });
 }
 
-async function loadOpportunityDetails(userId: string, limit = 40) {
+/**
+ * Opportunity details for notifications — pipeline store only (no docs/notes hydrate).
+ */
+async function loadOpportunityDetailsForNotifications(
+  userId: string,
+  limit = 40,
+): Promise<PartnerOpportunityDetailDto[]> {
   try {
     const pipeline = await partnerBusinessService.getBusinessPipeline(userId);
-    const rows = pipeline.opportunities.slice(0, Math.max(1, limit));
-    const details = await Promise.all(
-      rows.map(async (row) => {
-        try {
-          return await partnerBusinessService.getOpportunity(userId, row.opportunityId);
-        } catch {
-          return null;
-        }
-      }),
-    );
-    return details.filter(Boolean) as NonNullable<(typeof details)[number]>[];
+    const ids = pipeline.opportunities
+      .slice(0, Math.max(1, limit))
+      .map((row) => row.opportunityId)
+      .filter(Boolean);
+    if (ids.length === 0) return [];
+    return partnerBusinessService.listCachedOpportunityDetailsForHome(userId, ids);
+  } catch {
+    return [];
+  }
+}
+
+/** Birthday enrichment — one batched ECM read for owned customer ids (no searchCustomers). */
+async function loadBirthdayContacts(input: {
+  organizationId: string;
+  wealthPartnerId: string;
+  limit?: number;
+}): Promise<PartnerNotificationBirthdayContact[]> {
+  if (!isDatabaseAvailable()) return [];
+  try {
+    const owned = await partnerOwnershipService.listOwnedCustomerIds({
+      organizationId: input.organizationId,
+      wealthPartnerId: input.wealthPartnerId,
+      limit: input.limit ?? 40,
+    });
+    const ids = owned
+      .slice(0, Math.max(1, input.limit ?? 40))
+      .map((c) => c.customerId)
+      .filter(Boolean);
+    if (ids.length === 0) return [];
+
+    const rows = await prisma.ecmContact.findMany({
+      where: {
+        id: { in: ids },
+        isDeleted: false,
+        dateOfBirth: { not: null },
+      },
+      select: {
+        id: true,
+        name: true,
+        dateOfBirth: true,
+      },
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      dateOfBirth: r.dateOfBirth ?? undefined,
+    }));
   } catch {
     return [];
   }
@@ -96,32 +143,88 @@ function campaignAnnouncementsFromExperience() {
   }));
 }
 
+function withUpdatedReadFlags(
+  center: PartnerNotificationCenterDto,
+  readIds: Set<string>,
+): PartnerNotificationCenterDto {
+  const items = center.items.map((item) => ({
+    ...item,
+    read: readIds.has(item.id),
+  }));
+  return {
+    ...center,
+    items,
+    unreadCount: items.filter((i) => !i.read).length,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 export const partnerNotificationCenterService = {
   async getCenter(userId: string): Promise<PartnerNotificationCenterDto> {
     const binding = await resolvePartnerBindingForUser(userId);
     const partnerId = binding.partner.id;
-    const readIds = await loadReadState(partnerId);
-    const opportunities = await loadOpportunityDetails(userId);
-    let customers: Awaited<ReturnType<typeof partnerBusinessService.searchCustomers>> = [];
-    try {
-      customers = await partnerBusinessService.searchCustomers(userId, "");
-    } catch {
-      customers = [];
-    }
+    const organizationId = binding.partner.organizationId;
 
-    const ecmContacts = await Promise.all(
-      customers.slice(0, 40).map((c) => loadEcmContactForPartner(c.customerId)),
-    );
+    const [readIds, opportunities, ecmContacts, eneItems] = await Promise.all([
+      loadReadState(partnerId),
+      loadOpportunityDetailsForNotifications(userId, 40),
+      loadBirthdayContacts({ organizationId, wealthPartnerId: partnerId, limit: 40 }),
+      (async () => {
+        try {
+          const { enterpriseNotificationService } = await import(
+            "@server/services/enterprise-notification/enterprise-notification.service"
+          );
+          return enterpriseNotificationService.listForPartner({
+            organizationId,
+            partnerId,
+            limit: 40,
+          });
+        } catch {
+          return [];
+        }
+      })(),
+    ]);
 
-    const items = projectPartnerNotifications({
+    const projected = projectPartnerNotifications({
       opportunities,
-      customers,
+      customers: [],
       ecmContacts,
       partnerProfileJson:
         (binding.partner.profileJson as Record<string, unknown> | null) ?? null,
       campaignAnnouncements: campaignAnnouncementsFromExperience(),
       readIds,
     });
+
+    // CO-NOTIFICATION-001 — merge Gateway-authorized ENE partner rows (never unrestricted)
+    const eneMapped = eneItems.map((n, index) => {
+      const deepLink = n.dealId
+        ? `/app/deals/${encodeURIComponent(n.dealId)}`
+        : n.opportunityId
+          ? `/app/opportunities/${encodeURIComponent(n.opportunityId)}`
+          : "/app/notifications";
+      return {
+        id: n.id,
+        kind: "opportunity_update" as const,
+        kindLabel: "Opportunity update",
+        title: n.title,
+        body: n.body,
+        priority: "high" as const,
+        read: n.readState === "READ" || readIds.has(n.id),
+        deepLink,
+        occurredAt: n.occurredAt,
+        theme: "teal",
+        icon: "bell",
+        category: "opportunity",
+        sortOrder: index,
+        eventSource: "enterprise_notification_engine",
+      };
+    });
+
+    const byId = new Map<string, (typeof projected)[number]>();
+    for (const item of [...eneMapped, ...projected]) byId.set(item.id, item);
+    const items = [...byId.values()].sort(
+      (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+    );
 
     return buildPartnerNotificationCenterDto(items);
   },
@@ -133,11 +236,11 @@ export const partnerNotificationCenterService = {
 
   /**
    * CO-PERF — Home-only notification projection.
-   * Avoids full Notification Center cost (ECM×40 + second opportunity fan-out).
+   * Avoids full Notification Center cost (ECM scan + opportunity fan-out).
    */
   async listForHomeFast(
     userId: string,
-    preloadedOpportunities?: Awaited<ReturnType<typeof loadOpportunityDetails>>,
+    preloadedOpportunities?: PartnerOpportunityDetailDto[],
   ): Promise<PartnerHomeNotificationDto[]> {
     const binding = await resolvePartnerBindingForUser(userId);
     const partnerId = binding.partner.id;
@@ -145,7 +248,7 @@ export const partnerNotificationCenterService = {
       loadReadState(partnerId),
       preloadedOpportunities
         ? Promise.resolve(preloadedOpportunities)
-        : loadOpportunityDetails(userId, 12),
+        : loadOpportunityDetailsForNotifications(userId, 12),
     ]);
 
     const items = projectPartnerNotifications({
@@ -176,6 +279,19 @@ export const partnerNotificationCenterService = {
   async markRead(userId: string, notificationId: string): Promise<PartnerNotificationCenterDto> {
     const binding = await resolvePartnerBindingForUser(userId);
     const partnerId = binding.partner.id;
+    const organizationId = binding.partner.organizationId;
+    try {
+      const { enterpriseNotificationService } = await import(
+        "@server/services/enterprise-notification/enterprise-notification.service"
+      );
+      await enterpriseNotificationService.markReadForPartner({
+        id: notificationId,
+        partnerId,
+        organizationId,
+      });
+    } catch {
+      /* projected ids still use profileJson read state */
+    }
     const center = await this.getCenter(userId);
     const hit = center.items.find((i) => i.id === notificationId);
     if (!hit) {
@@ -184,7 +300,7 @@ export const partnerNotificationCenterService = {
     const readIds = await loadReadState(partnerId);
     readIds.add(notificationId);
     await saveReadState(partnerId, readIds);
-    return this.getCenter(userId);
+    return withUpdatedReadFlags(center, readIds);
   },
 
   async markAllRead(userId: string): Promise<PartnerNotificationCenterDto> {
@@ -194,6 +310,6 @@ export const partnerNotificationCenterService = {
     const readIds = await loadReadState(partnerId);
     for (const item of center.items) readIds.add(item.id);
     await saveReadState(partnerId, readIds);
-    return this.getCenter(userId);
+    return withUpdatedReadFlags(center, readIds);
   },
 };

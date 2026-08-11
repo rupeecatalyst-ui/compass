@@ -1,0 +1,3938 @@
+{
+  "sprint": "CO-LAP-PROGRAM-001",
+  "productFamily": "LAP",
+  "source": "Enterprise Lender Registry · productsSupported (Product–Lender Matrix) — independent of HOME_LOAN",
+  "readOnly": true,
+  "dataModified": false,
+  "lapProductMaster": [
+    {
+      "id": "cmrusok5d000nwe60ustevx6i",
+      "code": "LAP_STD",
+      "label": "Loan Against Property",
+      "status": "active",
+      "enabled": true,
+      "lifecycleStatus": "published"
+    },
+    {
+      "id": "cmrusol1t0015we60srmgtbnc",
+      "code": "LAP",
+      "label": "Loan Against Property",
+      "status": "active",
+      "enabled": true,
+      "lifecycleStatus": "published"
+    }
+  ],
+  "totalEnabledLenders": 280,
+  "lapEligibleCount": 160,
+  "sort": "Institution Name ascending",
+  "currentPriorityStatus": "No LAP priority assigned in this discovery step",
+  "lenders": [
+    {
+      "listOrder": 1,
+      "institutionName": "Aavas Financiers",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cn922002fwen4g8fbotm7",
+      "lenderCode": "AAVAS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Aavas — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 2,
+      "institutionName": "Abhyudaya Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "lenderId": "cms4cnrmq0047wen4n1pdo8xw",
+      "lenderCode": "ABHYUDAYA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Abhyudaya — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 3,
+      "institutionName": "Aditya Birla Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cngrl0037wen43lkirriv",
+      "lenderCode": "ADITYA_BIRLA_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "ABFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 4,
+      "institutionName": "Aditya Birla Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cnccj002rwen4y76rmxjc",
+      "lenderCode": "ADITYA_BIRLA_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "ABHFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 5,
+      "institutionName": "Altum Credo",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqezk001pwed86myx2xve",
+      "lenderCode": "ALTUM_CREDO",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Altum Credo — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 6,
+      "institutionName": "Annapurna Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqun80049wed8rdykrel2",
+      "lenderCode": "ANNAPURNA_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Annapurna — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 7,
+      "institutionName": "Aptus Value Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cndzn002xwen4p9q2yisd",
+      "lenderCode": "APTUS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Aptus — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 8,
+      "institutionName": "Arohan",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqwbc004jwed8y0s4uj1c",
+      "lenderCode": "AROHAN",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Arohan — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 9,
+      "institutionName": "Asirvad Micro Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqwn2004lwed8swo6uu50",
+      "lenderCode": "ASIRVAD",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Asirvad — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 10,
+      "institutionName": "AU Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn0sw001lwen4gdbtp9n1",
+      "lenderCode": "AU_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "AU SFB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 11,
+      "institutionName": "Axis Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cmrusopch003hwe60phw80i5i",
+      "lenderCode": "AXIS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Axis — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 12,
+      "institutionName": "Aye Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqtwo0045wed8j2q5135d",
+      "lenderCode": "AYE_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Aye — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 13,
+      "institutionName": "Bajaj Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnfmd0033wen4dd25gl97",
+      "lenderCode": "BAJAJ_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Bajaj Finance — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 14,
+      "institutionName": "Bajaj Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cn7yv002bwen44z7wjg6l",
+      "lenderCode": "BAJAJ_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Bajaj HFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": true,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 15,
+      "institutionName": "Bajaj Housing Finance",
+      "institutionType": "hfc",
+      "lenderId": "cmrusophn003jwe60hymttfjn",
+      "lenderCode": "BAJAJ",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Loan Against Property Program"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": true,
+      "productsSupported": [
+        "HOME-LOAN",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 16,
+      "institutionName": "Bandhan Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmym7001dwen4yy0kag4p",
+      "lenderCode": "BANDHAN",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Bandhan — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 17,
+      "institutionName": "Bandhan Financial Services",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqvzg004hwed8c21xvesr",
+      "lenderCode": "BANDHAN_FINANCIAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Bandhan FS — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 18,
+      "institutionName": "Bank of America",
+      "institutionType": "bank",
+      "lenderId": "cms8hq5jy000bwed8cw15ailo",
+      "lenderCode": "BANK_OF_AMERICA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "BofA — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 19,
+      "institutionName": "Bank of Baroda",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmkgh0003wen4racfsmj4",
+      "lenderCode": "BOB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "BoB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 20,
+      "institutionName": "Bank of India",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmn6x000dwen4ppiw05e0",
+      "lenderCode": "BOI",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "BoI — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 21,
+      "institutionName": "Bank of Maharashtra",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmpds000lwen4uwizbmrj",
+      "lenderCode": "BOM",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "BoM — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 22,
+      "institutionName": "Barclays Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hr7h1006dwed8sffs0yn3",
+      "lenderCode": "BARCLAYS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Barclays — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 23,
+      "institutionName": "BBK",
+      "institutionType": "bank",
+      "lenderId": "cms8hrcez006xwed8u8up0x9i",
+      "lenderCode": "BANK_OF_BAHRAIN",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "BBK — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 24,
+      "institutionName": "Belstar Microfinance",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqwz3004nwed8vkbk3y3m",
+      "lenderCode": "BELSTAR",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Belstar — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 25,
+      "institutionName": "Bharat Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "lenderId": "cms4cns8a0049wen434kaf4h7",
+      "lenderCode": "BHARAT_COOP",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Bharat Coop — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 26,
+      "institutionName": "BNP Paribas",
+      "institutionType": "bank",
+      "lenderId": "cms8hr7y5006fwed8w8xgj1ls",
+      "lenderCode": "BNP_PARIBAS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "BNP Paribas — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 27,
+      "institutionName": "Can Fin Homes",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cnej5002zwen430ybcgrk",
+      "lenderCode": "CAN_FIN",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Can Fin — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 28,
+      "institutionName": "Canara Bank",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmljv0007wen4xa9hgtpl",
+      "lenderCode": "CANARA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Canara — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 29,
+      "institutionName": "Capital Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn4mv001zwen42nlml0pc",
+      "lenderCode": "CAPITAL_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Capital SFB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 30,
+      "institutionName": "Capri Global",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnlkp003nwen4eywper25",
+      "lenderCode": "CAPRI_GLOBAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Capri — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 31,
+      "institutionName": "Central Bank of India",
+      "institutionType": "bank",
+      "lenderId": "cms0zh7lo0005we64kzu4jay1",
+      "lenderCode": "BF_CENTRAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Loan Against Property Program"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": true,
+      "productsSupported": [
+        "HL_STD",
+        "LAP_STD"
+      ]
+    },
+    {
+      "listOrder": 32,
+      "institutionName": "Central Bank of India",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmnqu000fwen42ygnftpi",
+      "lenderCode": "CBI",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "CBI — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": true,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 33,
+      "institutionName": "Centrum Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqdy7001jwed845jhmr40",
+      "lenderCode": "CENTRUM_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Centrum HFC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 34,
+      "institutionName": "Cholamandalam Investment & Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnhyz003bwen45z3id9dm",
+      "lenderCode": "CHOLA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Chola — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 35,
+      "institutionName": "Citibank",
+      "institutionType": "bank",
+      "lenderId": "cms8hq60x000dwed8rmrvt41d",
+      "lenderCode": "CITIBANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Citi — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 36,
+      "institutionName": "City Union Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmwfb0015wen4tjpqtz8y",
+      "lenderCode": "CUB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "CUB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 37,
+      "institutionName": "Clix Capital",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hrzug00ajwed8qwz7d961",
+      "lenderCode": "CLIX_CAPITAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Clix Capital — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 38,
+      "institutionName": "Clix Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqb0z0013wed859qo9skj",
+      "lenderCode": "CLIX_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Clix HFC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 39,
+      "institutionName": "Cosmos Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "lenderId": "cms4cnptn0041wen4c63jdpf6",
+      "lenderCode": "COSMOS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Cosmos — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 40,
+      "institutionName": "Credit Agricole CIB",
+      "institutionType": "bank",
+      "lenderId": "cms8hr8fa006hwed82t5kadwt",
+      "lenderCode": "CREDIT_AGRICOLE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "CACIB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 41,
+      "institutionName": "Credit Saison India",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hs06p00alwed8uj1in1tl",
+      "lenderCode": "CREDIT_SAISON",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Credit Saison — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 42,
+      "institutionName": "CreditAccess Grameen",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqvbi004dwed80z1ggcoa",
+      "lenderCode": "CREDITACCESS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "CA Grameen — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 43,
+      "institutionName": "CSB Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmy2i001bwen46gohs72s",
+      "lenderCode": "CSB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "CSB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 44,
+      "institutionName": "CTBC Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hrcw2006zwed8msy5qbbw",
+      "lenderCode": "CTBC_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "CTBC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 45,
+      "institutionName": "DBS Bank India",
+      "institutionType": "bank",
+      "lenderId": "cms8hq4m00007wed8nyf40466",
+      "lenderCode": "DBS_INDIA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "DBS — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 46,
+      "institutionName": "DCB Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmwz20017wen412c85bwt",
+      "lenderCode": "DCB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "DCB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 47,
+      "institutionName": "Deutsche Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hq5320009wed8mkd9nu57",
+      "lenderCode": "DEUTSCHE_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Deutsche — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 48,
+      "institutionName": "Dhanlaxmi Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms8hq7zb000lwed8e6wredb5",
+      "lenderCode": "DHANLAXMI_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Dhanlaxmi — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "CASH_CREDIT",
+        "OVERDRAFT",
+        "EDUCATION_LOAN",
+        "VEHICLE_LOAN",
+        "CONSTRUCTION_FINANCE",
+        "LRD",
+        "TRADE_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 49,
+      "institutionName": "DHFL (Legacy)",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hq9bx000twed8euca2a8j",
+      "lenderCode": "DHFL_LEGACY",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "DHFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 50,
+      "institutionName": "Doha Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hq7ib000jwed8kuyd0g4a",
+      "lenderCode": "DOHA_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Doha — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 51,
+      "institutionName": "Easy Home Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqeam001lwed8t4z8lfjf",
+      "lenderCode": "EASY_HOME_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Easy Home — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 52,
+      "institutionName": "Edelweiss Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnm68003pwen4f9zoqxtd",
+      "lenderCode": "EDELWEISS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Edelweiss — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 53,
+      "institutionName": "Electronica Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqskc003xwed8p4qh2rqw",
+      "lenderCode": "ELECTRONICA_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "EFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 54,
+      "institutionName": "Emirates NBD",
+      "institutionType": "bank",
+      "lenderId": "cms8hrazz006rwed8e1oyj9gr",
+      "lenderCode": "EMIRATES_NBD",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "ENBD — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 55,
+      "institutionName": "Equitas Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn1ci001nwen42wevago5",
+      "lenderCode": "EQUITAS_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Equitas — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 56,
+      "institutionName": "ESAF Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn2zy001twen4cilgo0iu",
+      "lenderCode": "ESAF_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "ESAF — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 57,
+      "institutionName": "EXIM Bank",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hr0o30059wed87zifv6sk",
+      "lenderCode": "EXIM_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "EXIM — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 58,
+      "institutionName": "Federal Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmsvt000twen4qf3d6wok",
+      "lenderCode": "FEDERAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Federal — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 59,
+      "institutionName": "First Abu Dhabi Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hrab3006pwed8hjuecqdp",
+      "lenderCode": "FIRST_ABU_DHABI",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "FAB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 60,
+      "institutionName": "Fullerton India",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqbd30015wed8kt2jn0n4",
+      "lenderCode": "FULLERTON_INDIA_CREDIT",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Fullerton — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "LAP",
+        "HOME_LOAN",
+        "VEHICLE_LOAN"
+      ]
+    },
+    {
+      "listOrder": 61,
+      "institutionName": "Fullerton India Home Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqbp90017wed8jsdj6ewo",
+      "lenderCode": "FULLERTON_INDIA_HOME",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Fullerton Home — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 62,
+      "institutionName": "Fusion Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqvnj004fwed8yqlkye36",
+      "lenderCode": "FUSION_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Fusion — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 63,
+      "institutionName": "GIC Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cnap4002lwen446g7ksa4",
+      "lenderCode": "GIC_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "GICHFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 64,
+      "institutionName": "Godrej Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cncw9002twen4ix8wilkp",
+      "lenderCode": "GODREJ_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Godrej HFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 65,
+      "institutionName": "GRUH Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hq9o3000vwed8m34wlxdy",
+      "lenderCode": "GRUH_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "GRUH — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 66,
+      "institutionName": "HDB Financial Services",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hru7f009pwed8w8c1qs28",
+      "lenderCode": "HDB_FINANCIAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "HDBFS — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "LAP",
+        "HOME_LOAN",
+        "VEHICLE_LOAN"
+      ]
+    },
+    {
+      "listOrder": 67,
+      "institutionName": "HDFC Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cmrusopl1003lwe601zac0dvs",
+      "lenderCode": "HDFC",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "HDFC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 68,
+      "institutionName": "HDFC Credila",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqfnz001twed80g0fuwf9",
+      "lenderCode": "HDFC_CREDILA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Credila — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "LAP",
+        "HOME_LOAN",
+        "VEHICLE_LOAN"
+      ]
+    },
+    {
+      "listOrder": 69,
+      "institutionName": "Hero FinCorp",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnoly003xwen4muehb0ef",
+      "lenderCode": "HERO_FINCORP",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Hero FinCorp — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 70,
+      "institutionName": "Hinduja Leyland Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnnzf003vwen43xt306wy",
+      "lenderCode": "HINDUJA_LEYLAND",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "HLF — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 71,
+      "institutionName": "Home First Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cn8ij002dwen4qj89x7pn",
+      "lenderCode": "HOME_FIRST",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Home First — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 72,
+      "institutionName": "HSBC Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hq4540005wed8g8qwfida",
+      "lenderCode": "HSBC",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "HSBC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 73,
+      "institutionName": "ICICI Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cmrusopoe003nwe60331ytwfx",
+      "lenderCode": "ICICI",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "ICICI — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 74,
+      "institutionName": "ICICI Home Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqc1h0019wed8ajjnhvxf",
+      "lenderCode": "ICICI_HOME_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "ICICI HFC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 75,
+      "institutionName": "IDBI Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmz5s001fwen4lcqhnj8z",
+      "lenderCode": "IDBI",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "IDBI — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 76,
+      "institutionName": "IDFC FIRST Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmsbt000rwen4q9tdyqfh",
+      "lenderCode": "IDFC_FIRST",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "IDFC FIRST — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 77,
+      "institutionName": "IIFL Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnkdf003jwen4s4uw7m1s",
+      "lenderCode": "IIFL_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "IIFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 78,
+      "institutionName": "IIFL Home Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cnb9c002nwen43l915ak6",
+      "lenderCode": "IIFL_HOME",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "IIFL Home — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 79,
+      "institutionName": "IIFL Samasta",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqmu5002zwed8kjxf93xs",
+      "lenderCode": "IIFL_SAMASTA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Samasta — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 80,
+      "institutionName": "India Home Loan",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqcps001dwed84ok4zmvw",
+      "lenderCode": "INDIA_HOME_LOAN",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "IHL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 81,
+      "institutionName": "India Shelter Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cn9lo002hwen4qnj4kuul",
+      "lenderCode": "INDIA_SHELTER",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "India Shelter — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 82,
+      "institutionName": "Indian Bank",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmmnb000bwen4yc37vp41",
+      "lenderCode": "INDIAN_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Indian Bank — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 83,
+      "institutionName": "Indian Overseas Bank",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmoag000hwen46kqfky1h",
+      "lenderCode": "IOB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "IOB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 84,
+      "institutionName": "IndusInd Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmrsd000pwen4n938ri4v",
+      "lenderCode": "INDUSIND",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "IndusInd — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 85,
+      "institutionName": "Industrial & Commercial Bank of China (ICBC)",
+      "institutionType": "bank",
+      "lenderId": "cms8hrywa00afwed8aop436bb",
+      "lenderCode": "ICBC",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "ICBC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 86,
+      "institutionName": "Industrial Bank of Korea",
+      "institutionType": "bank",
+      "lenderId": "cms8hrdcx0071wed845cfp65y",
+      "lenderCode": "INDUSTRIAL_BANK_KOREA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "IBK — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 87,
+      "institutionName": "IOC Finance Desk",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqo6l0037wed888q4kyv0",
+      "lenderCode": "IOCL_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "IOC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 88,
+      "institutionName": "J.P. Morgan Chase Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hrxy300abwed8usffskjj",
+      "lenderCode": "JP_MORGAN",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "J.P. Morgan — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 89,
+      "institutionName": "Jammu & Kashmir Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmzpd001hwen4fn4vpxz5",
+      "lenderCode": "JKB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "J&K Bank — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 90,
+      "institutionName": "Jana Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn2gg001rwen4t5dwmg0k",
+      "lenderCode": "JANA_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Jana — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 91,
+      "institutionName": "JM Financial Credit",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqxn5004rwed8p99aqq5i",
+      "lenderCode": "JM_FINANCIAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "JM Financial — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 92,
+      "institutionName": "Karnataka Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmvc40011wen4mz5p47ew",
+      "lenderCode": "KARNATAKA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "KBL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 93,
+      "institutionName": "Karur Vysya Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmvvn0013wen4i8tb6bzn",
+      "lenderCode": "KVB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "KVB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 94,
+      "institutionName": "KEB Hana Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hrdu30073wed86tdbfs2k",
+      "lenderCode": "KEB_HANA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "KEB Hana — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 95,
+      "institutionName": "Kinara Capital",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqtkm0043wed83cuyruqa",
+      "lenderCode": "KINARA_CAPITAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Kinara — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 96,
+      "institutionName": "Kotak Mahindra Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cmrusoprt003pwe60kshcazu7",
+      "lenderCode": "KOTAK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Kotak — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 97,
+      "institutionName": "L&T Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnhcu0039wen4z8cd7mva",
+      "lenderCode": "LT_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "L&T Finance — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 98,
+      "institutionName": "Lakshmi Vilas Bank (Legacy)",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms8hq8bi000nwed8hipls2f3",
+      "lenderCode": "LAXMI_VILAS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "LVB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "CASH_CREDIT",
+        "OVERDRAFT",
+        "EDUCATION_LOAN",
+        "VEHICLE_LOAN",
+        "CONSTRUCTION_FINANCE",
+        "LRD",
+        "TRADE_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 99,
+      "institutionName": "LIC Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cn6vi0027wen4a2xv1vsq",
+      "lenderCode": "LIC_HFL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "LIC HFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 100,
+      "institutionName": "Mahindra Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnikz003dwen4ivq9dwsy",
+      "lenderCode": "MAHINDRA_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Mahindra Finance — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 101,
+      "institutionName": "Mashreq Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hrzde00ahwed8jhyto8um",
+      "lenderCode": "MASHREQ_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Mashreq — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 102,
+      "institutionName": "Mizuho Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hr9de006lwed8h35dlwln",
+      "lenderCode": "MIZUHO",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Mizuho — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 103,
+      "institutionName": "Motilal Oswal Credit",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqxz5004twed8gi9una78",
+      "lenderCode": "MOTILAL_OSWAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "MOFSL Credit — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "LAP",
+        "HOME_LOAN",
+        "VEHICLE_LOAN"
+      ]
+    },
+    {
+      "listOrder": 104,
+      "institutionName": "MUFG Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hr8wh006jwed876rv2dco",
+      "lenderCode": "MUFG_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "MUFG — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 105,
+      "institutionName": "Muthoot Microfin",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqxb6004pwed8f16xf0t0",
+      "lenderCode": "MUTHOOT_MICROFIN",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Muthoot Microfin — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 106,
+      "institutionName": "NABARD",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hr0c20057wed8w9xo4lr0",
+      "lenderCode": "NABARD",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "NABARD — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 107,
+      "institutionName": "Nainital Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cn08y001jwen42hvxrs0e",
+      "lenderCode": "NAINITAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Nainital — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 108,
+      "institutionName": "Namdev Finvest",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hs0uu00apwed87if2z0ua",
+      "lenderCode": "NAMDEV_FINVEST",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Namdev — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 109,
+      "institutionName": "National Housing Bank",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hr104005bwed8h1pubbcn",
+      "lenderCode": "NHB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "NHB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 110,
+      "institutionName": "NKGSB Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "lenderId": "cms4cnr100045wen40lyv32tq",
+      "lenderCode": "NKGSB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "NKGSB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 111,
+      "institutionName": "Nord Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqen1001nwed8j2r16o64",
+      "lenderCode": "NORD_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Nord HFC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 112,
+      "institutionName": "North East Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn58j0021wen4gffag33l",
+      "lenderCode": "NESFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "NESFB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 113,
+      "institutionName": "Northern Arc",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqs89003vwed8ci29xcex",
+      "lenderCode": "NORTHERN_ARC",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Northern Arc — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 114,
+      "institutionName": "Piramal Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnkz5003lwen4jfhr97rd",
+      "lenderCode": "PIRAMAL_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Piramal Finance — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 115,
+      "institutionName": "Piramal Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cndg1002vwen4eqlooub2",
+      "lenderCode": "PIRAMAL_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Piramal HFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 116,
+      "institutionName": "PNB Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cn7f30029wen4i24wovpa",
+      "lenderCode": "PNB_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "PNB Housing — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 117,
+      "institutionName": "Poonawalla Fincorp",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnjs5003hwen4fdzqoebf",
+      "lenderCode": "POONAWALLA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Poonawalla — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 118,
+      "institutionName": "Punjab & Sind Bank",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmpxm000nwen466wwhm7o",
+      "lenderCode": "PSB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "PSB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 119,
+      "institutionName": "Punjab National Bank",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cml070005wen4713bpnwd",
+      "lenderCode": "PNB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "PNB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 120,
+      "institutionName": "QNB",
+      "institutionType": "bank",
+      "lenderId": "cms8hrbh1006twed8nlqa8nkx",
+      "lenderCode": "QATAR_NATIONAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "QNB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 121,
+      "institutionName": "RBL Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmu8v000xwen4q8migqib",
+      "lenderCode": "RBL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "RBL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 122,
+      "institutionName": "Reliance Home Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqa0c000xwed86h1eo5mc",
+      "lenderCode": "RELIANCE_HOME",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "RHF — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 123,
+      "institutionName": "Reliance Nippon Housing",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqd1r001fwed8ye44xx5k",
+      "lenderCode": "RELIANCE_NIPPON",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "RNAM HFC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 124,
+      "institutionName": "Repco Home Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cna5e002jwen4ugus668w",
+      "lenderCode": "REPCO",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Repco — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 125,
+      "institutionName": "Sammaan Capital (Indiabulls Housing)",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hq8zn000rwed8nutmly0r",
+      "lenderCode": "INDIABULLS_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Sammaan Capital — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 126,
+      "institutionName": "Saraswat Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "lenderId": "cms4cnp84003zwen42y73iquu",
+      "lenderCode": "SARASWAT",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Saraswat — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 127,
+      "institutionName": "Satin Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqdlz001hwed8mwc1kieq",
+      "lenderCode": "SATIN_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Satin HFC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 128,
+      "institutionName": "SBI Cards",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hrg4x007fwed85bnip015",
+      "lenderCode": "SBI_CARDS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "SBI Cards — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "LAP",
+        "HOME_LOAN",
+        "VEHICLE_LOAN"
+      ]
+    },
+    {
+      "listOrder": 129,
+      "institutionName": "Scotiabank",
+      "institutionType": "bank",
+      "lenderId": "cms8hrbxv006vwed86rlqljas",
+      "lenderCode": "BANK_OF_NOVA_SCOTIA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Scotiabank — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 130,
+      "institutionName": "Shamrao Vithal Cooperative Bank",
+      "institutionType": "cooperative_bank",
+      "lenderId": "cms4cnqfh0043wen468bfvh10",
+      "lenderCode": "SVC",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "SVC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 131,
+      "institutionName": "Shinhan Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hq6hx000fwed8xiqblfnz",
+      "lenderCode": "SHINHAN_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Shinhan — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 132,
+      "institutionName": "Shivalik Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn5s60023wen4wkvadipu",
+      "lenderCode": "SHIVALIK_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Shivalik — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 133,
+      "institutionName": "Shriram Finance",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cnj6n003fwen42uyrgovo",
+      "lenderCode": "SHRIRAM_FINANCE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Shriram — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 134,
+      "institutionName": "SIDBI",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqzzs0055wed8y0ymyp4g",
+      "lenderCode": "SIDBI",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "SIDBI — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 135,
+      "institutionName": "SMBC",
+      "institutionType": "bank",
+      "lenderId": "cms8hr9u1006nwed8m1mpmogv",
+      "lenderCode": "SUMITOMO_MITSUI",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "SMBC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 136,
+      "institutionName": "SMFG India Credit",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqswj003zwed82nroc47c",
+      "lenderCode": "SMFG_INDIA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "SMFG — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "LAP",
+        "HOME_LOAN",
+        "VEHICLE_LOAN"
+      ]
+    },
+    {
+      "listOrder": 137,
+      "institutionName": "Société Générale",
+      "institutionType": "bank",
+      "lenderId": "cms8hryfe00adwed8epdmpjou",
+      "lenderCode": "SOCIETE_GENERALE",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "SocGen — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 138,
+      "institutionName": "South Indian Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmusj000zwen4x47m61qh",
+      "lenderCode": "SIB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "SIB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 139,
+      "institutionName": "Spandana Sphoorty",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hquzd004bwed8xvfo4w28",
+      "lenderCode": "SPANDANA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Spandana — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 140,
+      "institutionName": "Standard Chartered Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hq3nz0003wed804dmj3ou",
+      "lenderCode": "STANDARD_CHARTERED",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "StanChart — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 141,
+      "institutionName": "State Bank of India",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cmrusopva003rwe60cjyga2va",
+      "lenderCode": "SBI",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "SBI — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 142,
+      "institutionName": "State Bank of Mauritius",
+      "institutionType": "bank",
+      "lenderId": "cms8hq716000hwed8zahv9olh",
+      "lenderCode": "STATE_BANK_MAURITIUS",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "SBM — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 143,
+      "institutionName": "Sundaram Home Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cnf2t0031wen4t89wf2y3",
+      "lenderCode": "SUNDARAM_HOME",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Sundaram Home — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 144,
+      "institutionName": "Suryoday Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn3ji001vwen4cagyq7za",
+      "lenderCode": "SURYODAY_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Suryoday — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 145,
+      "institutionName": "Svatantra",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqu8o0047wed8y00zs6wm",
+      "lenderCode": "SVATANTRA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Svatantra — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 146,
+      "institutionName": "Tamilnad Mercantile Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmxiq0019wen4e5ol0z0d",
+      "lenderCode": "TMB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "TMB — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 147,
+      "institutionName": "Tata Capital",
+      "institutionType": "nbfc",
+      "lenderId": "cms4cng5z0035wen4tirf9gtk",
+      "lenderCode": "TATA_CAPITAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Tata Capital — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "listOrder": 148,
+      "institutionName": "Tata Capital Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms4cnbsz002pwen4ahfno9va",
+      "lenderCode": "TATA_CAPITAL_HFL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Tata Capital HFL — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 149,
+      "institutionName": "Tata Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqacl000zwed8djxc7j9k",
+      "lenderCode": "TATA_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Tata Housing — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 150,
+      "institutionName": "UCO Bank",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmou6000jwen4z4e6t25z",
+      "lenderCode": "UCO",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "UCO — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "COMM_PURCHASE"
+      ]
+    },
+    {
+      "listOrder": 151,
+      "institutionName": "UGRO Capital",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqrjx003rwed8dkqgycob",
+      "lenderCode": "UGRO_CAPITAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "UGRO — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 152,
+      "institutionName": "Ujjivan Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn1w4001pwen4zpbally2",
+      "lenderCode": "UJJIVAN_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Ujjivan — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 153,
+      "institutionName": "Union Bank of India",
+      "institutionType": "public_sector_bank",
+      "lenderId": "cms4cmm3o0009wen4yhucbia9",
+      "lenderCode": "UNION",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Union — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 154,
+      "institutionName": "Unity Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn6bs0025wen42dd7eggm",
+      "lenderCode": "UNITY_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Unity — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 155,
+      "institutionName": "Utkarsh Small Finance Bank",
+      "institutionType": "small_finance_bank",
+      "lenderId": "cms4cn43c001xwen4ihd9730u",
+      "lenderCode": "UTKARSH_SFB",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Utkarsh — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "listOrder": 156,
+      "institutionName": "Varthana",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqfbp001rwed84wnony7q",
+      "lenderCode": "VARTHANA",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Varthana — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 157,
+      "institutionName": "Vastu Housing Finance",
+      "institutionType": "housing_finance_company",
+      "lenderId": "cms8hqaor0011wed8zfke5cxx",
+      "lenderCode": "VASTU_HOUSING",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Vastu HFC — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "CONSTRUCTION_FINANCE",
+        "LRD"
+      ]
+    },
+    {
+      "listOrder": 158,
+      "institutionName": "Vivriti Capital",
+      "institutionType": "nbfc",
+      "lenderId": "cms8hqrw4003twed8trtn5mrs",
+      "lenderCode": "VIVRITI_CAPITAL",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Vivriti — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "BUSINESS_LOAN_UNSECURED",
+        "MSME_LOAN",
+        "WORKING_CAPITAL_SECURED",
+        "INVOICE_FINANCING",
+        "MACHINERY_FINANCE",
+        "EQUIPMENT_FINANCE",
+        "LAP"
+      ]
+    },
+    {
+      "listOrder": 159,
+      "institutionName": "Woori Bank",
+      "institutionType": "bank",
+      "lenderId": "cms8hreb20075wed8xqluqzza",
+      "lenderCode": "WOORI_BANK",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Woori — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "TRADE_FINANCE",
+        "EXPORT_FINANCE",
+        "PROJECT_FINANCE"
+      ]
+    },
+    {
+      "listOrder": 160,
+      "institutionName": "Yes Bank",
+      "institutionType": "private_sector_bank",
+      "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+      "lenderCode": "YES",
+      "activeInactive": "Active",
+      "status": "active",
+      "lapMapped": "Yes",
+      "existingLapPrograms": [
+        "Yes — Loan Against Property (LAP)"
+      ],
+      "existingLapProgramCount": 1,
+      "currentPriority": null,
+      "duplicateNameDifferentRecord": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    }
+  ],
+  "duplicateNameRecords": [
+    {
+      "institutionName": "Bajaj Housing Finance",
+      "lenderId": "cms4cn7yv002bwen44z7wjg6l",
+      "lenderCode": "BAJAJ_HOUSING",
+      "institutionType": "housing_finance_company",
+      "activeInactive": "Active",
+      "lapMapped": "Yes"
+    },
+    {
+      "institutionName": "Bajaj Housing Finance",
+      "lenderId": "cmrusophn003jwe60hymttfjn",
+      "lenderCode": "BAJAJ",
+      "institutionType": "hfc",
+      "activeInactive": "Active",
+      "lapMapped": "Yes"
+    },
+    {
+      "institutionName": "Central Bank of India",
+      "lenderId": "cms0zh7lo0005we64kzu4jay1",
+      "lenderCode": "BF_CENTRAL",
+      "institutionType": "bank",
+      "activeInactive": "Active",
+      "lapMapped": "Yes"
+    },
+    {
+      "institutionName": "Central Bank of India",
+      "lenderId": "cms4cmnqu000fwen42ygnftpi",
+      "lenderCode": "CBI",
+      "institutionType": "public_sector_bank",
+      "activeInactive": "Active",
+      "lapMapped": "Yes"
+    }
+  ]
+}

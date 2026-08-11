@@ -2,7 +2,8 @@ import type { DashboardDateRange } from "@/lib/dashboard-date-utils";
 import { formatINRCompact } from "@/lib/format-currency";
 
 export function scaleCount(base: number, scaleFactor: number): number {
-  return Math.max(1, Math.round(base * scaleFactor));
+  // CO-ORG-004 — never invent a floor of 1 when scaled count is zero
+  return Math.max(0, Math.round(base * scaleFactor));
 }
 
 export function scaleCurrency(baseCr: number, scaleFactor: number): string {

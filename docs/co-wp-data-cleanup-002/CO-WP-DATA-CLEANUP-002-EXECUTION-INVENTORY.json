@@ -1,0 +1,598 @@
+{
+  "sprint": "CO-WP-DATA-CLEANUP-002",
+  "generatedAt": "2026-08-10T10:09:21.089Z",
+  "mode": "SOFT_ARCHIVE_AUTHORIZED",
+  "mutations": [
+    {
+      "step": 1,
+      "entity": "EnterpriseBusinessNote",
+      "count": 6,
+      "ids": [
+        "cmslkvku20001weu82tjymnvi",
+        "cmslkwq8v0005weu8edqm8xkj",
+        "cmslmkkw90007l804ke3kacer",
+        "cmslmnhly000bl8049nxbu5ch",
+        "cmslmylio0005l204l7qqwskw",
+        "cmsln1m2r0009l204r34pm6mt"
+      ]
+    },
+    {
+      "step": 2,
+      "entity": "EnterpriseTransactionDocument",
+      "count": 0,
+      "ids": [],
+      "note": "None found"
+    },
+    {
+      "step": 3,
+      "entity": "EnterpriseDeal",
+      "count": 10,
+      "ids": [
+        "cmsljz4jm000jweekoky7s9p0",
+        "cmsljz5wv000lweek9wghsq92",
+        "cmslkujir0009wez4pmtj0zn4",
+        "cmslkuksr000bwez41a1l3ost",
+        "cmslm0vud0009wedsqzpr6qaw",
+        "cmslm0wta000bwedsjbqstus1",
+        "cmslmiagj0009wem8x5w1av2q",
+        "cmslmiblg000bwem8jtx8ub42",
+        "cmslmw9oj0009wedsy9l1hwgs",
+        "cmslmwam6000bwedswbic0i8x"
+      ]
+    },
+    {
+      "step": 4,
+      "entity": "EnterpriseOpportunity",
+      "count": 20,
+      "ids": [
+        "cmsljz1ep000bweekeln9ikg7",
+        "cmsljz25h000dweekzqxd1223",
+        "cmsljz2vh000fweek0rzpd2qj",
+        "cmsljz3l8000hweeklhv65sg4",
+        "cmslkuflz0001wez4el74xaym",
+        "cmslkugod0003wez48oa4pt5x",
+        "cmslkuhgs0005wez48r5c7xbs",
+        "cmslkuib70007wez493u9c0uf",
+        "cmslm0svo0001wedsvmh3chmz",
+        "cmslm0tlg0003wedsm35w17xy",
+        "cmslm0u8z0005wedsrp8vcvph",
+        "cmslm0uwe0007wedstm3wsuct",
+        "cmslmi70n0001wem8pdysew0w",
+        "cmslmi7tr0003wem8cwf3jo32",
+        "cmslmi8ha0005wem8vr0r2up1",
+        "cmslmi9ca0007wem8wwx4zgig",
+        "cmslmw6tw0001wedstfh9lyit",
+        "cmslmw7h50003wedsia9d68u6",
+        "cmslmw84w0005wedsr5mf7sde",
+        "cmslmw8rd0007wedsfl10u7j2"
+      ]
+    }
+  ],
+  "exceptions": [],
+  "stopped": false,
+  "A_targetIdsBeforeCleanup": {
+    "opportunities": [
+      {
+        "id": "cmsljz1ep000bweekeln9ikg7",
+        "opportunityNumber": "OPP-2026-000061",
+        "customer": "Cert A Referral Customer",
+        "product": "Cert A Referral",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmsljz25h000dweekzqxd1223",
+        "opportunityNumber": "OPP-2026-000062",
+        "customer": "Cert A Override Edit Customer",
+        "product": "Cert A Override Edit",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmsljz2vh000fweek0rzpd2qj",
+        "opportunityNumber": "OPP-2026-000063",
+        "customer": "Cert A ViewOnly Customer",
+        "product": "Cert A ViewOnly",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmsljz3l8000hweeklhv65sg4",
+        "opportunityNumber": "OPP-2026-000064",
+        "customer": "Cert B Solo Customer",
+        "product": "Cert B Solo",
+        "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslkuflz0001wez4el74xaym",
+        "opportunityNumber": "OPP-2026-000065",
+        "customer": "Cert A Referral Customer",
+        "product": "Cert A Referral",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslkugod0003wez48oa4pt5x",
+        "opportunityNumber": "OPP-2026-000066",
+        "customer": "Cert A Override Edit Customer",
+        "product": "Cert A Override Edit",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslkuhgs0005wez48r5c7xbs",
+        "opportunityNumber": "OPP-2026-000067",
+        "customer": "Cert A ViewOnly Customer",
+        "product": "Cert A ViewOnly",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslkuib70007wez493u9c0uf",
+        "opportunityNumber": "OPP-2026-000068",
+        "customer": "Cert B Solo Customer",
+        "product": "Cert B Solo",
+        "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslm0svo0001wedsvmh3chmz",
+        "opportunityNumber": "OPP-2026-000069",
+        "customer": "Cert A Referral Customer",
+        "product": "Cert A Referral",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslm0tlg0003wedsm35w17xy",
+        "opportunityNumber": "OPP-2026-000070",
+        "customer": "Cert A Override Edit Customer",
+        "product": "Cert A Override Edit",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslm0u8z0005wedsrp8vcvph",
+        "opportunityNumber": "OPP-2026-000071",
+        "customer": "Cert A ViewOnly Customer",
+        "product": "Cert A ViewOnly",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslm0uwe0007wedstm3wsuct",
+        "opportunityNumber": "OPP-2026-000072",
+        "customer": "Cert B Solo Customer",
+        "product": "Cert B Solo",
+        "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmi70n0001wem8pdysew0w",
+        "opportunityNumber": "OPP-2026-000073",
+        "customer": "Cert A Referral Customer",
+        "product": "Cert A Referral",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmi7tr0003wem8cwf3jo32",
+        "opportunityNumber": "OPP-2026-000074",
+        "customer": "Cert A Override Edit Customer",
+        "product": "Cert A Override Edit",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmi8ha0005wem8vr0r2up1",
+        "opportunityNumber": "OPP-2026-000075",
+        "customer": "Cert A ViewOnly Customer",
+        "product": "Cert A ViewOnly",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmi9ca0007wem8wwx4zgig",
+        "opportunityNumber": "OPP-2026-000076",
+        "customer": "Cert B Solo Customer",
+        "product": "Cert B Solo",
+        "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmw6tw0001wedstfh9lyit",
+        "opportunityNumber": "OPP-2026-000077",
+        "customer": "Cert A Referral Customer",
+        "product": "Cert A Referral",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmw7h50003wedsia9d68u6",
+        "opportunityNumber": "OPP-2026-000078",
+        "customer": "Cert A Override Edit Customer",
+        "product": "Cert A Override Edit",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmw84w0005wedsr5mf7sde",
+        "opportunityNumber": "OPP-2026-000079",
+        "customer": "Cert A ViewOnly Customer",
+        "product": "Cert A ViewOnly",
+        "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmw8rd0007wedsfl10u7j2",
+        "opportunityNumber": "OPP-2026-000080",
+        "customer": "Cert B Solo Customer",
+        "product": "Cert B Solo",
+        "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "isDeleted": false
+      }
+    ],
+    "deals": [
+      {
+        "id": "cmsljz4jm000jweekoky7s9p0",
+        "dealNumber": "DEAL-2026-000085",
+        "opportunityId": "cmsljz1ep000bweekeln9ikg7",
+        "productLabel": "Cert Deal A",
+        "isDeleted": false
+      },
+      {
+        "id": "cmsljz5wv000lweek9wghsq92",
+        "dealNumber": "DEAL-2026-000086",
+        "opportunityId": "cmsljz3l8000hweeklhv65sg4",
+        "productLabel": "Cert Deal B",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslkujir0009wez4pmtj0zn4",
+        "dealNumber": "DEAL-2026-000087",
+        "opportunityId": "cmslkuflz0001wez4el74xaym",
+        "productLabel": "Cert Deal A",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslkuksr000bwez41a1l3ost",
+        "dealNumber": "DEAL-2026-000088",
+        "opportunityId": "cmslkuib70007wez493u9c0uf",
+        "productLabel": "Cert Deal B",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslm0vud0009wedsqzpr6qaw",
+        "dealNumber": "DEAL-2026-000089",
+        "opportunityId": "cmslm0svo0001wedsvmh3chmz",
+        "productLabel": "Cert Deal A",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslm0wta000bwedsjbqstus1",
+        "dealNumber": "DEAL-2026-000090",
+        "opportunityId": "cmslm0uwe0007wedstm3wsuct",
+        "productLabel": "Cert Deal B",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmiagj0009wem8x5w1av2q",
+        "dealNumber": "DEAL-2026-000091",
+        "opportunityId": "cmslmi70n0001wem8pdysew0w",
+        "productLabel": "Cert Deal A",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmiblg000bwem8jtx8ub42",
+        "dealNumber": "DEAL-2026-000092",
+        "opportunityId": "cmslmi9ca0007wem8wwx4zgig",
+        "productLabel": "Cert Deal B",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmw9oj0009wedsy9l1hwgs",
+        "dealNumber": "DEAL-2026-000093",
+        "opportunityId": "cmslmw6tw0001wedstfh9lyit",
+        "productLabel": "Cert Deal A",
+        "isDeleted": false
+      },
+      {
+        "id": "cmslmwam6000bwedswbic0i8x",
+        "dealNumber": "DEAL-2026-000094",
+        "opportunityId": "cmslmw8rd0007wedsfl10u7j2",
+        "productLabel": "Cert Deal B",
+        "isDeleted": false
+      }
+    ],
+    "alreadySoftDeletedOpps": [],
+    "alreadySoftDeletedDeals": []
+  },
+  "D_dependentRecordsFound": {
+    "businessNotes": [
+      {
+        "id": "cmslkvku20001weu82tjymnvi",
+        "opportunityId": "cmslkuflz0001wez4el74xaym",
+        "dealId": null,
+        "entityId": "cmslkuflz0001wez4el74xaym",
+        "entityKind": "opportunity",
+        "category": "general",
+        "createdAt": "2026-08-09T09:06:10.874Z"
+      },
+      {
+        "id": "cmslkwq8v0005weu8edqm8xkj",
+        "opportunityId": "cmslkuflz0001wez4el74xaym",
+        "dealId": "cmslkujir0009wez4pmtj0zn4",
+        "entityId": "cmslkujir0009wez4pmtj0zn4",
+        "entityKind": "deal",
+        "category": "general",
+        "createdAt": "2026-08-09T09:07:04.543Z"
+      },
+      {
+        "id": "cmslmkkw90007l804ke3kacer",
+        "opportunityId": "cmslmi70n0001wem8pdysew0w",
+        "dealId": null,
+        "entityId": "cmslmi70n0001wem8pdysew0w",
+        "entityKind": "opportunity",
+        "category": "general",
+        "createdAt": "2026-08-09T09:53:36.757Z"
+      },
+      {
+        "id": "cmslmnhly000bl8049nxbu5ch",
+        "opportunityId": "cmslmi70n0001wem8pdysew0w",
+        "dealId": "cmslmiagj0009wem8x5w1av2q",
+        "entityId": "cmslmiagj0009wem8x5w1av2q",
+        "entityKind": "deal",
+        "category": "general",
+        "createdAt": "2026-08-09T09:55:52.678Z"
+      },
+      {
+        "id": "cmslmylio0005l204l7qqwskw",
+        "opportunityId": "cmslmw6tw0001wedstfh9lyit",
+        "dealId": null,
+        "entityId": "cmslmw6tw0001wedstfh9lyit",
+        "entityKind": "opportunity",
+        "category": "general",
+        "createdAt": "2026-08-09T10:04:30.960Z"
+      },
+      {
+        "id": "cmsln1m2r0009l204r34pm6mt",
+        "opportunityId": "cmslmw6tw0001wedstfh9lyit",
+        "dealId": "cmslmw9oj0009wedsy9l1hwgs",
+        "entityId": "cmslmw9oj0009wedsy9l1hwgs",
+        "entityKind": "deal",
+        "category": "general",
+        "createdAt": "2026-08-09T10:06:51.651Z"
+      }
+    ],
+    "documents": [],
+    "dealChildCounts": {
+      "enterpriseDealTask": 0,
+      "enterpriseDealActivity": 0,
+      "enterpriseDealNote": 0,
+      "enterpriseDealTimelineEvent": 0,
+      "enterpriseDealParticipant": 0,
+      "enterpriseDealDocumentLink": 0
+    }
+  },
+  "E_auditRecordsPreserved": {
+    "before": 28,
+    "after": 28,
+    "delta": 0,
+    "deleted": false
+  },
+  "F_userPartnerReview": {
+    "partners": [
+      {
+        "id": "cmsljyws50005weeka0js9u4t",
+        "code": "WPACERTA",
+        "displayName": "WP Access Cert Partner A",
+        "email": "wp-access-cert-a@rupeecatalyst.com",
+        "isDeleted": false,
+        "lifecycleStatus": "active",
+        "operationalStatus": "active",
+        "contactId": "cmsljyvi20003weeky9he935i"
+      },
+      {
+        "id": "cmsljyzhu0009weekfeq2rsv9",
+        "code": "WPACERTB",
+        "displayName": "WP Access Cert Partner B",
+        "email": "wp-access-cert-b@rupeecatalyst.com",
+        "isDeleted": false,
+        "lifecycleStatus": "active",
+        "operationalStatus": "active",
+        "contactId": "cmsljyxlm0007weekgxvzvy80"
+      }
+    ],
+    "users": [
+      {
+        "id": "cmsljys0w0000weekptm7a73d",
+        "email": "wp-access-cert-a@rupeecatalyst.com",
+        "role": "VIEWER",
+        "isActive": true,
+        "firstName": "Cert",
+        "lastName": "PartnerA"
+      },
+      {
+        "id": "cmsljyta30001weekar90g8gk",
+        "email": "wp-access-cert-b@rupeecatalyst.com",
+        "role": "VIEWER",
+        "isActive": true,
+        "firstName": "Cert",
+        "lastName": "PartnerB"
+      },
+      {
+        "id": "cmsln2zkj000mwedshzmujj0p",
+        "email": "wp-access-cert-admin@rupeecatalyst.com",
+        "role": "SUPER_ADMIN",
+        "isActive": true,
+        "firstName": "Cert",
+        "lastName": "AccessAdmin"
+      }
+    ],
+    "remainingActiveOpportunitiesOwnedByCertPartners": [],
+    "genuineBusinessDataOnCertPartners": false,
+    "recommendation": "No active Opportunities remain on WPACERTA/B. Partners/users may be deactivated or retained for future regression — PO decision required. NOT mutated by this sprint.",
+    "actionTaken": "NONE — awaiting Product Owner decision"
+  },
+  "B_recordsActuallyRemovedArchived": {
+    "businessNotes": 6,
+    "documents": 0,
+    "deals": 10,
+    "opportunities": 20,
+    "opportunityIds": [
+      "cmsljz1ep000bweekeln9ikg7",
+      "cmsljz25h000dweekzqxd1223",
+      "cmsljz2vh000fweek0rzpd2qj",
+      "cmsljz3l8000hweeklhv65sg4",
+      "cmslkuflz0001wez4el74xaym",
+      "cmslkugod0003wez48oa4pt5x",
+      "cmslkuhgs0005wez48r5c7xbs",
+      "cmslkuib70007wez493u9c0uf",
+      "cmslm0svo0001wedsvmh3chmz",
+      "cmslm0tlg0003wedsm35w17xy",
+      "cmslm0u8z0005wedsrp8vcvph",
+      "cmslm0uwe0007wedstm3wsuct",
+      "cmslmi70n0001wem8pdysew0w",
+      "cmslmi7tr0003wem8cwf3jo32",
+      "cmslmi8ha0005wem8vr0r2up1",
+      "cmslmi9ca0007wem8wwx4zgig",
+      "cmslmw6tw0001wedstfh9lyit",
+      "cmslmw7h50003wedsia9d68u6",
+      "cmslmw84w0005wedsr5mf7sde",
+      "cmslmw8rd0007wedsfl10u7j2"
+    ],
+    "dealIds": [
+      "cmsljz4jm000jweekoky7s9p0",
+      "cmsljz5wv000lweek9wghsq92",
+      "cmslkujir0009wez4pmtj0zn4",
+      "cmslkuksr000bwez41a1l3ost",
+      "cmslm0vud0009wedsqzpr6qaw",
+      "cmslm0wta000bwedsjbqstus1",
+      "cmslmiagj0009wem8x5w1av2q",
+      "cmslmiblg000bwem8jtx8ub42",
+      "cmslmw9oj0009wedsy9l1hwgs",
+      "cmslmwam6000bwedswbic0i8x"
+    ],
+    "noteIds": [
+      "cmslkvku20001weu82tjymnvi",
+      "cmslkwq8v0005weu8edqm8xkj",
+      "cmslmkkw90007l804ke3kacer",
+      "cmslmnhly000bl8049nxbu5ch",
+      "cmslmylio0005l204l7qqwskw",
+      "cmsln1m2r0009l204r34pm6mt"
+    ],
+    "documentIds": []
+  },
+  "C_recordsPreserved": {
+    "genuineOpportunityIds": [
+      "cms30bmw70003l8045fgp8fxt",
+      "cms4hcse70001jr04urhl505o",
+      "cms4inwtv0003l204obtd7aej",
+      "cms4jizy10001jq040bg0jvck",
+      "cms4lz8ej0001l904p93fkmpj",
+      "cms4xga830001jp04b82pks91",
+      "cms5rfw3w000djr048gj333wz",
+      "cms5uczxg0007jl04qyidpz4e",
+      "cms6dcbol000jl604lflpf5u4",
+      "cms8p29ia0009l404xituyxd2",
+      "cms90sah20005le04haa4njd7",
+      "cmscz84fi0003kv0498qgxf8t",
+      "cmsel0lle0005lb04ncp4ez3f",
+      "cmsel9cmo0003l704tohqbu8z",
+      "cmsipb7hu0003l304f7yrz7p8",
+      "cmsmzda0e0003jx04uydtrfvj"
+    ],
+    "genuineOpportunityCount": 16,
+    "genuineDealIds": [
+      "cms3na23f0001l40439vx7srt",
+      "cms4igc2h0003l504flt2sbev",
+      "cms5uh9ff0009jl04l4yydmux",
+      "cms5va9780001l50426gozpiy",
+      "cms8ibmw90001jx04zi2eg5dt",
+      "cms8ig0ls0001ld048o83tpcj",
+      "cms8iqwp50001l404fkw9yjss",
+      "cms8peta10017l504kzyi8l0w",
+      "cms8q5k8n0003jr04jysiaj8b",
+      "cms8r71vm0003k0049q2zzfiy",
+      "cms915gvb0001jg044je81d3v",
+      "cmsd27ui50001kz04qam4a1c8",
+      "cmsh9h5sp0003l704nwll3bmt",
+      "cmshcwqor0001ji043rveqix4"
+    ],
+    "genuineDealCount": 14,
+    "partnerEntitlementAudits": 28,
+    "certUsersAndPartners": "unchanged (review only)"
+  },
+  "G_beforeAfterCounts": {
+    "opportunitiesActive": {
+      "before": 36,
+      "after": 16,
+      "expectedAfter": 16
+    },
+    "dealsActive": {
+      "before": 24,
+      "after": 14,
+      "expectedDelta": -10
+    },
+    "targetOppsStillActive": 0,
+    "targetDealsStillActive": 0,
+    "certFingerprintStillActive": 0
+  },
+  "H_integrityVerification": {
+    "targetOppsAllSoftDeleted": true,
+    "targetDealsAllSoftDeleted": true,
+    "archivedOpportunitySample": [
+      {
+        "id": "cmslm0svo0001wedsvmh3chmz",
+        "isDeleted": true,
+        "archived": true,
+        "deletionReason": "CO-WP-DATA-CLEANUP-002: soft-archive ACCESS certification test fixture"
+      },
+      {
+        "id": "cmslm0tlg0003wedsm35w17xy",
+        "isDeleted": true,
+        "archived": true,
+        "deletionReason": "CO-WP-DATA-CLEANUP-002: soft-archive ACCESS certification test fixture"
+      },
+      {
+        "id": "cmslm0u8z0005wedsrp8vcvph",
+        "isDeleted": true,
+        "archived": true,
+        "deletionReason": "CO-WP-DATA-CLEANUP-002: soft-archive ACCESS certification test fixture"
+      }
+    ],
+    "archivedDealSample": [
+      {
+        "id": "cmsljz4jm000jweekoky7s9p0",
+        "isDeleted": true,
+        "archived": true,
+        "deletionReason": "CO-WP-DATA-CLEANUP-002: soft-archive ACCESS certification test fixture"
+      },
+      {
+        "id": "cmsljz5wv000lweek9wghsq92",
+        "isDeleted": true,
+        "archived": true,
+        "deletionReason": "CO-WP-DATA-CLEANUP-002: soft-archive ACCESS certification test fixture"
+      },
+      {
+        "id": "cmslkujir0009wez4pmtj0zn4",
+        "isDeleted": true,
+        "archived": true,
+        "deletionReason": "CO-WP-DATA-CLEANUP-002: soft-archive ACCESS certification test fixture"
+      }
+    ],
+    "opportunityRegistryHealthy": true,
+    "dealRegistryHealthy": true
+  },
+  "I_genuineDataProtection": {
+    "genuineOpportunityCountBefore": 16,
+    "genuineOpportunityCountAfter": 16,
+    "genuineOpportunityFingerprintMatch": true,
+    "genuineDealFingerprintMatch": true,
+    "genuineOpportunityIdsUnchanged": true,
+    "entitlementAuditsNotDecreased": true
+  },
+  "J_exceptions": [],
+  "status": "SUCCESS"
+}

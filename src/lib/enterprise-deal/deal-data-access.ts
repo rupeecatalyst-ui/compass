@@ -112,13 +112,28 @@ async function loadEnterpriseAsLoanFiles(): Promise<LoanFile[]> {
   });
   const local = loadLoanFiles();
   const localById = new Map(local.map((f) => [f.id, f]));
-  return page.items
-    .filter((d) => !d.isDeleted && !d.archived)
-    .map((d) => {
-      const legacyId = d.legacyLoanFileId ?? d.id;
-      const localFile = localById.get(legacyId);
-      return mapEnterpriseDealToLoanFileStub(d, localFile);
-    });
+  const deals = page.items.filter((d) => !d.isDeleted && !d.archived);
+  // CO-RADAR-003 — hydrate Enterprise Deal Timeline Registry (never leave timeline: []).
+  let timelinesByDeal: Awaited<
+    ReturnType<typeof enterpriseDealApiClient.listTimelinesForDeals>
+  > = {};
+  try {
+    timelinesByDeal = await enterpriseDealApiClient.listTimelinesForDeals(
+      deals.map((d) => d.id),
+      50,
+    );
+  } catch {
+    timelinesByDeal = {};
+  }
+  return deals.map((d) => {
+    const legacyId = d.legacyLoanFileId ?? d.id;
+    const localFile = localById.get(legacyId);
+    return mapEnterpriseDealToLoanFileStub(
+      d,
+      localFile,
+      timelinesByDeal[d.id] ?? [],
+    );
+  });
 }
 
 /**

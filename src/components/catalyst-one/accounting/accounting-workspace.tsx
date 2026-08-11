@@ -7,12 +7,17 @@ import {
 } from "@/components/enterprise/workspace-layout";
 import { EnterpriseWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-workspace-shell";
 import { WorkspaceExitNav } from "@/components/enterprise/navigation";
+import {
+  BusinessNotesActionButton,
+  EnterpriseBusinessNotesPanel,
+} from "@/components/catalyst-one/enterprise-business-notes";
 import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
 import {
   DEFAULT_ACCOUNTING_WORKBENCH,
   type AccountingWorkbenchId,
 } from "@/constants/accounting-workbench";
 import {
+  ACCOUNTING_SSOT_PENDING_MESSAGE,
   getAccountingWorkspaceModel,
   type AccountingInvoice,
 } from "@/lib/accounting-workspace";
@@ -29,6 +34,9 @@ import {
 import { InvoicePartyMasterWorkbench } from "./invoice-party-master-workbench";
 import { ChanakyaFinancialInsights } from "./chanakya-financial-insights";
 import { InvoiceWorkspaceSheet } from "./invoice-workspace-sheet";
+
+/** Org-scoped accounting desk entity id for Business Notes (module-level). */
+const ACCOUNTING_NOTES_ENTITY_ID = "accounting-workspace";
 
 /**
  * CO-SPRINT-097 — Accounting Workspace
@@ -130,11 +138,19 @@ export function AccountingWorkspace() {
                     Accounting Workspace
                   </h1>
                   <p className="text-[11px] text-muted-foreground sm:text-xs">
-                    Enterprise financial headquarters — select a workbench to operate.
+                    {ACCOUNTING_SSOT_PENDING_MESSAGE}
                   </p>
                 </div>
               }
-              actions={<span className="sr-only">Accounting Workspace</span>}
+              actions={
+                <BusinessNotesActionButton
+                  context={{
+                    workspaceKind: "accounting",
+                    entityKind: "organization",
+                    entityId: ACCOUNTING_NOTES_ENTITY_ID,
+                  }}
+                />
+              }
             />
             <div data-layer="workspace_navigation">
               <AccountingWorkbenchNav active={workbench} onChange={setWorkbench} />
@@ -187,6 +203,23 @@ export function AccountingWorkspace() {
             ) : null}
             {workbench === "reports" ? (
               <AccountingReportsWorkbench summary={seed.summary} />
+            ) : null}
+            {workbench === "notes" ? (
+              <div className="rounded-xl border border-border bg-card p-4">
+                <h2 className="mb-1 text-sm font-semibold text-foreground">
+                  Business Notes
+                </h2>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Official accounting desk notes — Enterprise Activity Registry chronology.
+                </p>
+                <EnterpriseBusinessNotesPanel
+                  context={{
+                    workspaceKind: "accounting",
+                    entityKind: "organization",
+                    entityId: ACCOUNTING_NOTES_ENTITY_ID,
+                  }}
+                />
+              </div>
             ) : null}
           </div>
           <aside className="lg:sticky lg:top-[4.5rem] lg:self-start">

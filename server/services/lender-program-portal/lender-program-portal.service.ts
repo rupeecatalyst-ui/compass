@@ -35,6 +35,14 @@ import {
   listProgramDialogueMessages,
   resolveAssignedRmParticipant,
 } from "./dialogue";
+import {
+  assertProductsInMatrix,
+  inviteAllowsProductCode,
+  listInviteProductRows,
+  normalizeInviteProductIds,
+  resolveMatrixProductsForLender,
+  type InviteProductSnapshot,
+} from "./invite-products";
 
 function createId() {
   return randomUUID().replace(/-/g, "");
@@ -58,6 +66,7 @@ function serializeInvite(
     createdAt: Date;
   },
   lenderName?: string,
+  products: InviteProductSnapshot[] = [],
 ): LenderProgramPortalInvite {
   return {
     id: row.id,
@@ -76,6 +85,11 @@ function serializeInvite(
     mobileOtpVerifiedAt: row.mobileOtpVerifiedAt?.toISOString() ?? null,
     portalPath: buildLenderProgramPortalPath(row.token),
     createdAt: row.createdAt.toISOString(),
+    products: products.map((p) => ({
+      productId: p.productId,
+      productCode: p.productCode,
+      productLabel: p.productLabel,
+    })),
   };
 }
 
@@ -222,8 +236,19 @@ function assertInviteUsable(invite: {
 }
 
 export const lenderProgramPortalService = {
+  /** Products currently mapped to a lender in the Product–Lender Matrix (for invite create UI). */
+  async listMatrixProductsForLender(lenderId: string) {
+    const organizationId = await resolvePilotOrganizationId();
+    return resolveMatrixProductsForLender({
+      db: prisma,
+      organizationId,
+      lenderId,
+    });
+  },
+
   async createInvite(input: {
     lenderId: string;
+    productIds: string[];
     ttlDays?: number;
     maxUses?: number | null;
     notes?: string;
@@ -235,27 +260,61 @@ export const lenderProgramPortalService = {
     if (!lender || lender.organizationId !== organizationId) {
       throw Object.assign(new Error("Lender not found."), { statusCode: 404 });
     }
-    const token = generateLenderProgramPortalToken();
-    const row = await prisma.lenderProgramPortalInvite.create({
-      data: {
-        id: createId(),
-        organizationId,
-        lenderId: lender.id,
-        token,
-        status: "active",
-        expiresAt: inviteExpiresAt(
-          input.ttlDays ?? LENDER_PROGRAM_PORTAL_DEFAULT_TTL_DAYS,
-        ),
-        maxUses: input.maxUses ?? null,
-        createdBy: input.actorName || input.actorUserId,
-        notes: input.notes?.trim() || null,
-      },
-    });
-    await audit(organizationId, "invite_created", input.actorName, {
+    const productIds = normalizeInviteProductIds(input.productIds);
+    const selected = await assertProductsInMatrix({
+      db: prisma,
+      organizationId,
       lenderId: lender.id,
-      expiresAt: row.expiresAt.toISOString(),
-    }, { inviteId: row.id });
-    return serializeInvite(row, lenderLabel(lender));
+      productIds,
+    });
+
+    const token = generateLenderProgramPortalToken();
+    const row = await prisma.$transaction(async (tx) => {
+      const invite = await tx.lenderProgramPortalInvite.create({
+        data: {
+          id: createId(),
+          organizationId,
+          lenderId: lender.id,
+          token,
+          status: "active",
+          expiresAt: inviteExpiresAt(
+            input.ttlDays ?? LENDER_PROGRAM_PORTAL_DEFAULT_TTL_DAYS,
+          ),
+          maxUses: input.maxUses ?? null,
+          createdBy: input.actorName || input.actorUserId,
+          notes: input.notes?.trim() || null,
+        },
+      });
+      let sortOrder = 0;
+      for (const product of selected) {
+        await tx.lenderProgramPortalInviteProduct.create({
+          data: {
+            organizationId,
+            inviteId: invite.id,
+            productId: product.productId,
+            productCode: product.productCode,
+            productLabel: product.productLabel,
+            sortOrder,
+          },
+        });
+        sortOrder += 1;
+      }
+      return invite;
+    });
+
+    await audit(
+      organizationId,
+      "invite_created",
+      input.actorName,
+      {
+        lenderId: lender.id,
+        expiresAt: row.expiresAt.toISOString(),
+        productIds: selected.map((p) => p.productId),
+        productCodes: selected.map((p) => p.productCode),
+      },
+      { inviteId: row.id },
+    );
+    return serializeInvite(row, lenderLabel(lender), selected);
   },
 
   async listInvites() {
@@ -264,6 +323,16 @@ export const lenderProgramPortalService = {
       where: { organizationId },
       orderBy: { createdAt: "desc" },
       take: 200,
+      include: {
+        products: {
+          orderBy: [{ sortOrder: "asc" }, { productLabel: "asc" }],
+          select: {
+            productId: true,
+            productCode: true,
+            productLabel: true,
+          },
+        },
+      },
     });
     const lenders = await prisma.enterpriseLender.findMany({
       where: { organizationId, id: { in: [...new Set(rows.map((r) => r.lenderId))] } },
@@ -272,7 +341,9 @@ export const lenderProgramPortalService = {
     const nameById = new Map<string, string | undefined>(
       lenders.map((l) => [l.id, lenderLabel(l)]),
     );
-    return rows.map((r) => serializeInvite(r, nameById.get(r.lenderId)));
+    return rows.map((r) =>
+      serializeInvite(r, nameById.get(r.lenderId), r.products),
+    );
   },
 
   async revokeInvite(inviteId: string, actorName: string, reason?: string) {
@@ -291,7 +362,8 @@ export const lenderProgramPortalService = {
       },
     });
     await audit(organizationId, "invite_revoked", actorName, { reason }, { inviteId: row.id });
-    return serializeInvite(updated);
+    const products = await listInviteProductRows(prisma, updated.id);
+    return serializeInvite(updated, undefined, products);
   },
 
   async resolveToken(token: string) {
@@ -304,21 +376,15 @@ export const lenderProgramPortalService = {
     }
     assertInviteUsable(invite);
     const lender = await lenderRegistryRepository.findLenderById(invite.lenderId);
-    const productsSupported = Array.isArray(lender?.productsSupported)
-      ? (lender!.productsSupported as string[])
-      : typeof lender?.productsSupported === "string"
-        ? (() => {
-            try {
-              return JSON.parse(lender.productsSupported as string) as string[];
-            } catch {
-              return [];
-            }
-          })()
-        : [];
-    const products = productsSupported.map((code) => ({
-      code,
-      label: code.replace(/_/g, " "),
-    }));
+    const inviteProducts = await listInviteProductRows(prisma, invite.id);
+    if (inviteProducts.length === 0) {
+      throw Object.assign(
+        new Error(
+          "This invitation has no product scope. Contact the administrator to issue a new multi-product invitation.",
+        ),
+        { statusCode: 403, code: "INVITE_PRODUCT_SCOPE_MISSING" },
+      );
+    }
     return {
       inviteId: invite.id,
       lenderId: invite.lenderId,
@@ -326,17 +392,12 @@ export const lenderProgramPortalService = {
       expiresAt: invite.expiresAt.toISOString(),
       otpRequired: true,
       otpVerified: Boolean(invite.otpVerifiedAt),
-      products:
-        products.length > 0
-          ? products
-          : [
-              { code: "HOME_LOAN", label: "Home Loan" },
-              { code: "LAP", label: "Loan Against Property" },
-              { code: "BUSINESS_LOAN", label: "Business Loan" },
-              { code: "WORKING_CAPITAL", label: "Working Capital" },
-              { code: "COMM_PURCHASE", label: "Commercial Purchase" },
-              { code: "PERSONAL_LOAN", label: "Personal Loan" },
-            ],
+      /** Explicit invitation products only — never live Matrix expansion. */
+      products: inviteProducts.map((p) => ({
+        productId: p.productId,
+        code: p.productCode,
+        label: p.productLabel,
+      })),
     };
   },
 
@@ -517,6 +578,25 @@ export const lenderProgramPortalService = {
       );
     }
 
+    const inviteProducts = await listInviteProductRows(prisma, invite.id);
+    if (inviteProducts.length === 0) {
+      throw Object.assign(
+        new Error(
+          "This invitation has no product scope. Contact the administrator to issue a new invitation.",
+        ),
+        { statusCode: 403, code: "INVITE_PRODUCT_SCOPE_MISSING" },
+      );
+    }
+    const scopedProduct = inviteAllowsProductCode(inviteProducts, input.productCode);
+    if (!scopedProduct) {
+      throw Object.assign(
+        new Error(
+          "Selected product is not authorized for this invitation.",
+        ),
+        { statusCode: 403, code: "PRODUCT_NOT_IN_INVITE_SCOPE" },
+      );
+    }
+
     const lender = await lenderRegistryRepository.findLenderById(invite.lenderId);
     const lenderName = lenderLabel(lender) || "Lender";
     const { contact, created: contactCreated } = await resolveOrCreateLenderRepresentativeContact({
@@ -526,13 +606,13 @@ export const lenderProgramPortalService = {
       verifier: { ...verifier, lenderName },
     });
 
-    const template = resolveProgramTemplateForProductCode(input.productCode);
-    const productLabel = template.label;
+    const template = resolveProgramTemplateForProductCode(scopedProduct.productCode);
+    const productLabel = scopedProduct.productLabel || template.label;
     const existing = await prisma.enterpriseLenderProgram.findFirst({
       where: {
         organizationId,
         lenderId: invite.lenderId,
-        productCode: input.productCode,
+        productCode: scopedProduct.productCode,
         isDeleted: false,
         status: "active",
         enabled: true,
@@ -594,7 +674,7 @@ export const lenderProgramPortalService = {
       actorId: contact.id,
       actorName: verifier.employeeName,
       actorRole: "Lender Representative",
-      payload: { productCode: input.productCode },
+      payload: { productCode: scopedProduct.productCode, productId: scopedProduct.productId },
     });
 
     const row = await prisma.lenderProgramSubmission.create({
@@ -603,7 +683,8 @@ export const lenderProgramPortalService = {
         organizationId,
         inviteId: invite.id,
         lenderId: invite.lenderId,
-        productCode: input.productCode,
+        productCode: scopedProduct.productCode,
+        productId: scopedProduct.productId,
         templateKey: template.key,
         programName: input.programName.trim() || String(input.payload.programName || "Program"),
         status: "pending_review",
@@ -639,7 +720,8 @@ export const lenderProgramPortalService = {
       "submission_created",
       verifier.employeeName,
       {
-        productCode: input.productCode,
+        productCode: scopedProduct.productCode,
+        productId: scopedProduct.productId,
         programName: row.programName,
         ecmContactId: contact.id,
         dialogueThreadId: thread.id,
@@ -903,6 +985,14 @@ export const lenderProgramPortalService = {
       typeof payload.minCibil === "number"
         ? payload.minCibil
         : Number.parseInt(String(payload.minCibil ?? ""), 10) || null;
+    const maxFoir =
+      typeof payload.maxFoir === "number"
+        ? payload.maxFoir
+        : Number.parseFloat(String(payload.maxFoir ?? "")) || null;
+    const maxDbr =
+      typeof payload.maxDbr === "number"
+        ? payload.maxDbr
+        : Number.parseFloat(String(payload.maxDbr ?? "")) || null;
     const maxTenure =
       typeof payload.maxTenureMonths === "number"
         ? payload.maxTenureMonths
@@ -911,6 +1001,16 @@ export const lenderProgramPortalService = {
       typeof payload.ltvPercent === "number"
         ? payload.ltvPercent
         : Number.parseFloat(String(payload.ltvPercent ?? "")) || null;
+
+    const requiredDocsRaw = payload.requiredDocuments;
+    const requiredDocumentTypeIds = Array.isArray(requiredDocsRaw)
+      ? requiredDocsRaw.map((x) => String(x).trim()).filter(Boolean)
+      : typeof requiredDocsRaw === "string"
+        ? requiredDocsRaw
+            .split(/[,;\n]/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined;
 
     if (row.previousProgramId) {
       await lenderRegistryService.deactivateProgram(
@@ -935,6 +1035,13 @@ export const lenderProgramPortalService = {
         maxTenureMonths: maxTenure ?? undefined,
         minCibil: minCibil ?? undefined,
         minIncomeAmount: minIncome ?? undefined,
+        maxFoirPercent: maxFoir ?? undefined,
+        maxDbrPercent: maxDbr ?? undefined,
+        requiredDocumentTypeIds,
+        employmentType:
+          typeof payload.eligibleCustomerType === "string"
+            ? payload.eligibleCustomerType
+            : undefined,
         remarks: typeof payload.remarks === "string" ? payload.remarks : undefined,
         notes:
           typeof payload.specialConditions === "string"

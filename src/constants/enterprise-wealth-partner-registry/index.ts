@@ -74,6 +74,58 @@ export function wealthPartnerTypeLabel(code: string): string {
   );
 }
 
+/**
+ * CO-WP-OPP-REFINEMENT-001 — Canonical lifecycle labels (Registry terminology).
+ * Lifecycle SSOT: WealthPartnerLifecycleStatus (draft | onboarding | active | suspended | retired).
+ */
+export const WEALTH_PARTNER_LIFECYCLE_LABELS: Record<string, string> = {
+  draft: "Draft",
+  onboarding: "Onboarding",
+  active: "Active",
+  suspended: "Suspended",
+  retired: "Retired",
+};
+
+export function wealthPartnerLifecycleLabel(lifecycleStatus: string): string {
+  const key = String(lifecycleStatus || "").toLowerCase();
+  return WEALTH_PARTNER_LIFECYCLE_LABELS[key] ?? lifecycleStatus;
+}
+
+/**
+ * Lifecycles allowed to appear as Opportunity Business Source (Source Name).
+ * Payout / commercial eligibility remains separate (commercialStatus + Commission Engine).
+ */
+export const WEALTH_PARTNER_OPPORTUNITY_SOURCE_LIFECYCLES = [
+  "draft",
+  "onboarding",
+  "active",
+] as const;
+
+export type WealthPartnerOpportunitySourceLifecycle =
+  (typeof WEALTH_PARTNER_OPPORTUNITY_SOURCE_LIFECYCLES)[number];
+
+export function isWealthPartnerOpportunitySourceLifecycle(
+  lifecycleStatus: string,
+): lifecycleStatus is WealthPartnerOpportunitySourceLifecycle {
+  return (WEALTH_PARTNER_OPPORTUNITY_SOURCE_LIFECYCLES as readonly string[]).includes(
+    String(lifecycleStatus || "").toLowerCase(),
+  );
+}
+
+/** RegistryStatus values excluded from Opportunity Source Name lookup. */
+export const WEALTH_PARTNER_SOURCE_EXCLUDED_REGISTRY_STATUSES = [
+  "inactive",
+  "archived",
+] as const;
+
+export function isWealthPartnerRegistryStatusSourceExcluded(
+  status: string,
+): boolean {
+  return (WEALTH_PARTNER_SOURCE_EXCLUDED_REGISTRY_STATUSES as readonly string[]).includes(
+    String(status || "").toLowerCase(),
+  );
+}
+
 export function buildWealthPartnerWorkspaceHref(partnerId: string): string {
   return `${ROUTES.WEALTH_PARTNERS}/${encodeURIComponent(partnerId)}/workspace`;
 }

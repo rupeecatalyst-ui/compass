@@ -45,6 +45,7 @@ export function WorkspaceOverviewPanel({
         <div className="mt-2 flex flex-wrap gap-2">
           {(
             [
+              ["timeline", "Activity Timeline"],
               ["customer", "Customer Profile"],
               ["requirement", "Requirement"],
               ["product", "Solution Design"],

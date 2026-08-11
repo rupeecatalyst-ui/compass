@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { resolvePolicyForProgram } from "@/lib/enterprise-lender-registry/resolve-program-policy";
 import {
   Dialog,
   DialogContent,
@@ -509,6 +510,18 @@ export function LenderPipelineBoard({
       lenderRegistryId: pendingLender.id,
       lenderProgramId: pendingProgram.id,
       lenderProgramLabel: pendingProgram.label,
+      ...(() => {
+        const r = resolvePolicyForProgram({ program: pendingProgram });
+        return {
+          creditRiskPolicyRef:
+            r.policy?.policyId ?? pendingProgram.creditRiskPolicyRef ?? undefined,
+          creditRiskPolicyLabel: r.policy
+            ? `${r.policy.policyName} (${r.policy.policyCode})`
+            : pendingProgram.creditRiskPolicyRef
+              ? `Policy ref: ${pendingProgram.creditRiskPolicyRef}`
+              : undefined,
+        };
+      })(),
       lenderSalesContactId: pendingSalesContact.contactId,
       lenderSalesContactName: pendingSalesContact.contactName,
       lenderSalesContactMobile: pendingSalesContact.mobile,

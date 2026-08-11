@@ -346,7 +346,7 @@ export class EnterpriseDealRepository {
     occurredAt?: Date;
     payload?: Prisma.InputJsonValue;
   }) {
-    return prisma.enterpriseDealTimelineEvent.create({
+    const row = await prisma.enterpriseDealTimelineEvent.create({
       data: {
         organizationId: input.organizationId,
         dealId: input.dealId,
@@ -357,6 +357,105 @@ export class EnterpriseDealRepository {
         payload: input.payload ?? undefined,
       },
     });
+
+    // CO-ORG-003 — dual-write Deal Timeline → Enterprise Activity Registry
+    try {
+      const { enterpriseActivityService } = await import(
+        "@server/services/enterprise-activity/enterprise-activity.service"
+      );
+      const isStage =
+        input.eventType.includes("stage") || input.eventType.includes("Stage");
+      await enterpriseActivityService.emitBestEffort({
+        eventKind: isStage ? "stage_change" : "workflow",
+        sourceSystem: "deal_timeline",
+        sourceEventId: row.id,
+        title: input.summary,
+        summary: input.eventType,
+        payload: {
+          dealEventType: input.eventType,
+          dealId: input.dealId,
+        },
+        dealId: input.dealId,
+        actorUserId: input.actorUserId ?? null,
+        occurredAt: row.occurredAt,
+      });
+    } catch {
+      /* fail-open */
+    }
+
+    // CO-NOTIFICATION-001 — stage / workflow toast fan-out
+    try {
+      const isStage =
+        input.eventType.includes("stage") || input.eventType.includes("Stage");
+      if (isStage) {
+        const { enterpriseNotificationService } = await import(
+          "@server/services/enterprise-notification/enterprise-notification.service"
+        );
+        const { eneEventTitle } = await import(
+          "@/constants/enterprise-notification-engine"
+        );
+        const deal = await prisma.enterpriseDeal.findFirst({
+          where: { id: input.dealId, organizationId: input.organizationId },
+          select: {
+            opportunityId: true,
+            primaryContactName: true,
+            productLabel: true,
+          },
+        });
+        const opp = deal?.opportunityId
+          ? await prisma.enterpriseOpportunity.findFirst({
+              where: { id: deal.opportunityId },
+              select: { sourceWealthPartnerId: true, primaryContactName: true },
+            })
+          : null;
+        const payload =
+          input.payload && typeof input.payload === "object" && !Array.isArray(input.payload)
+            ? (input.payload as Record<string, unknown>)
+            : {};
+        const fromStage =
+          typeof payload.fromStage === "string"
+            ? payload.fromStage
+            : typeof payload.previousStage === "string"
+              ? payload.previousStage
+              : null;
+        const toStage =
+          typeof payload.toStage === "string"
+            ? payload.toStage
+            : typeof payload.newStage === "string"
+              ? payload.newStage
+              : null;
+        await enterpriseNotificationService.fanOutBestEffort({
+          organizationId: input.organizationId,
+          eventType: "DEAL_STAGE_CHANGED",
+          sourceEventId: row.id,
+          sourceSystem: "deal_timeline",
+          title: eneEventTitle("DEAL_STAGE_CHANGED"),
+          body: [
+            opp?.primaryContactName || deal?.primaryContactName || "Customer",
+            deal?.productLabel || "Deal",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          description: input.summary,
+          actorUserId: input.actorUserId ?? null,
+          opportunityId: deal?.opportunityId ?? null,
+          dealId: input.dealId,
+          customerName: opp?.primaryContactName || deal?.primaryContactName || null,
+          previousValue: fromStage,
+          newValue: toStage,
+          href: `/deals/${encodeURIComponent(input.dealId)}${
+            deal?.opportunityId
+              ? `?opportunityId=${encodeURIComponent(deal.opportunityId)}`
+              : ""
+          }`,
+          sourceWealthPartnerId: opp?.sourceWealthPartnerId ?? null,
+        });
+      }
+    } catch {
+      /* fail-open */
+    }
+
+    return row;
   }
 
   /** ARB A1 — append historical snapshot (never mutate prior versions). */
@@ -494,6 +593,30 @@ export class EnterpriseDealRepository {
       orderBy: { occurredAt: "desc" },
       take,
     });
+  }
+
+  /** CO-RADAR-003 — batch timeline load for Radar / DAL hydrate (newest first per deal). */
+  async listTimelinesForDeals(
+    organizationId: string,
+    dealIds: string[],
+    takePerDeal = 50,
+  ) {
+    const ids = [...new Set(dealIds.filter(Boolean))];
+    if (ids.length === 0) return [] as Awaited<ReturnType<typeof prisma.enterpriseDealTimelineEvent.findMany>>;
+    const rows = await prisma.enterpriseDealTimelineEvent.findMany({
+      where: { organizationId, dealId: { in: ids } },
+      orderBy: { occurredAt: "desc" },
+    });
+    // Cap per deal after fetch (keeps query simple; Radar books are small).
+    const counts = new Map<string, number>();
+    const capped = [];
+    for (const row of rows) {
+      const n = counts.get(row.dealId) ?? 0;
+      if (n >= takePerDeal) continue;
+      counts.set(row.dealId, n + 1);
+      capped.push(row);
+    }
+    return capped;
   }
 
   async listSnapshots(organizationId: string, dealId: string, take = 50) {

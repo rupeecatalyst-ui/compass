@@ -352,6 +352,9 @@ export interface LoanLenderExecution {
   /** CO-ARCH-003 Phase 2B Sprint 2 — Selected commercial program id. */
   lenderProgramId?: string;
   lenderProgramLabel?: string;
+  /** CO-MASTER-002 — CRE policy resolved from selected program */
+  creditRiskPolicyRef?: string;
+  creditRiskPolicyLabel?: string;
   /**
    * CO-LR-013 — Linked Lender Sales Contact (ECM Banker) for this negotiation.
    * Progressive enrichment: email may be completed at Disbursal.

@@ -284,15 +284,36 @@ export class EnterpriseOpportunityRepository {
     requirementStage?: string;
     lifecycleStatus?: OpportunityLifecycleStatus;
     sourceCode?: string;
+    /** CO-WP-ACCESS-001A — partner ownership filter */
+    sourceWealthPartnerId?: string;
     /** CO-UX-006 — filter by Fresh Login KPI bucket */
     sourceBucket?: "direct" | "channel_partner" | "referral" | "other";
     /** Distinct Opportunity IDs (e.g. Fresh Login today) */
     opportunityIds?: string[];
+    /** CO-C1-DASH-001 — inclusive createdAt bounds (ISO / Date) */
+    createdFrom?: Date | string;
+    createdTo?: Date | string;
+    /** Default updatedAt desc; use createdAt for New Opportunities feed */
+    orderBy?: "updatedAt" | "createdAt";
     limit?: number;
     offset?: number;
   }) {
     const limit = Math.min(Math.max(query.limit ?? 50, 1), 200);
     const offset = Math.max(query.offset ?? 0, 0);
+
+    const createdAtFilter: Prisma.DateTimeFilter | undefined = (() => {
+      if (!query.createdFrom && !query.createdTo) return undefined;
+      const filter: Prisma.DateTimeFilter = {};
+      if (query.createdFrom) {
+        const d = new Date(query.createdFrom);
+        if (!Number.isNaN(d.getTime())) filter.gte = d;
+      }
+      if (query.createdTo) {
+        const d = new Date(query.createdTo);
+        if (!Number.isNaN(d.getTime())) filter.lte = d;
+      }
+      return Object.keys(filter).length ? filter : undefined;
+    })();
 
     const where: Prisma.EnterpriseOpportunityWhereInput = {
       organizationId,
@@ -302,9 +323,13 @@ export class EnterpriseOpportunityRepository {
       ...(query.requirementStage ? { requirementStage: query.requirementStage } : {}),
       ...(query.lifecycleStatus ? { lifecycleStatus: query.lifecycleStatus } : {}),
       ...(query.sourceCode ? { sourceCode: query.sourceCode } : {}),
+      ...(query.sourceWealthPartnerId
+        ? { sourceWealthPartnerId: query.sourceWealthPartnerId }
+        : {}),
       ...(query.opportunityIds
         ? { id: { in: query.opportunityIds.length ? query.opportunityIds : ["__none__"] } }
         : {}),
+      ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
       ...(query.sourceBucket && !query.sourceCode
         ? query.sourceBucket === "other"
           ? {
@@ -332,10 +357,12 @@ export class EnterpriseOpportunityRepository {
         : {}),
     };
 
+    const orderField = query.orderBy === "createdAt" ? "createdAt" : "updatedAt";
+
     const [items, total] = await Promise.all([
       prisma.enterpriseOpportunity.findMany({
         where,
-        orderBy: { updatedAt: "desc" },
+        orderBy: { [orderField]: "desc" },
         take: limit,
         skip: offset,
       }),

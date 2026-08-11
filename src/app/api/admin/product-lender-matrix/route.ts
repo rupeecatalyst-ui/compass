@@ -121,10 +121,10 @@ export async function PUT(request: Request) {
         productsSupported: normalizedCodes,
         modifiedBy: actor.userId,
       },
-      undefined,
+      actor.userId,
     );
 
-    // Ensure programs exist for newly linked product codes (lightweight)
+    // Ensure programs exist for newly linked product codes (audited via createProgram)
     const organizationId = await resolvePilotOrganizationId();
     const products = await prisma.enterpriseProduct.findMany({
       where: {
@@ -144,24 +144,24 @@ export async function PUT(request: Request) {
         },
       });
       if (!existing) {
-        await prisma.enterpriseLenderProgram.create({
-          data: {
-            organizationId,
+        const code = `PRG_${lenderId.slice(-6)}_${product.code}`
+          .toUpperCase()
+          .replace(/[^A-Z0-9_]/g, "")
+          .slice(0, 48);
+        await lenderRegistryService.createProgram(
+          {
             lenderId,
             productId: product.id,
             productCode: product.code,
-            code: `PRG_${lenderId.slice(-6)}_${product.code}`
-              .toUpperCase()
-              .replace(/[^A-Z0-9_]/g, "")
-              .slice(0, 48),
+            code,
             label: `${product.label} Program`,
             lifecycleStatus: "active",
             status: "active",
             enabled: true,
             createdBy: actor.userId,
-            modifiedBy: actor.userId,
           },
-        });
+          actor.userId,
+        );
       }
     }
 

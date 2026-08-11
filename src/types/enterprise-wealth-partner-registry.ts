@@ -184,6 +184,9 @@ export interface WealthPartnerListQuery {
    * from operational registry lists / analytics feeds. Admin may pass true to manage.
    */
   includeBatDemo?: boolean;
+  /** CO-C1-DASH-001 — inclusive createdAt range (ISO or YYYY-MM-DD) */
+  createdFrom?: string;
+  createdTo?: string;
 }
 
 /** CO-WP-001 / CO-WP-006 — summary returned when Contact/Company already has a WP. */

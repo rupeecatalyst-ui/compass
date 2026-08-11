@@ -1,0 +1,1148 @@
+{
+  "auditId": "CO-RADAR-002",
+  "nature": "diagnosis_only_no_fixes",
+  "generatedAt": "2026-08-06T19:52:29.138Z",
+  "observedSymptoms": {
+    "avgDealHealth": 6,
+    "activeDeals": 12,
+    "atRisk": 12,
+    "onTrack": 0,
+    "followUpRequired": 0,
+    "needsAttention": 0
+  },
+  "workstationHydrate": {
+    "source": "local_fallback",
+    "fileCount": 0
+  },
+  "dbMeta": {
+    "attempted": true,
+    "dealCount": 14,
+    "timelineEventCount": 44,
+    "dealsWithTimelineEvents": 14,
+    "error": null,
+    "dealSummaries": [
+      {
+        "id": "cms8peta10017l504kzyi8l0w",
+        "dealNumber": "DEAL-2026-000078",
+        "customerName": "Amol Thorat",
+        "grossStage": "closure_wip",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 8,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms8ibmw90001jx04zi2eg5dt",
+        "dealNumber": "DEAL-2026-000075",
+        "customerName": "Pioneer Insurance & Reinsurance Brokers Private Limited",
+        "grossStage": "closure_wip",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 4,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms3na23f0001l40439vx7srt",
+        "dealNumber": "DEAL-2026-000071",
+        "customerName": "Priyesh Jain",
+        "grossStage": "lost",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 3,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms8r71vm0003k0049q2zzfiy",
+        "dealNumber": "DEAL-2026-000080",
+        "customerName": "Priyesh Jain",
+        "grossStage": "soft_approved",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 2,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms8q5k8n0003jr04jysiaj8b",
+        "dealNumber": "DEAL-2026-000079",
+        "customerName": "Saral Saraf",
+        "grossStage": "lost",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 2,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms8ig0ls0001ld048o83tpcj",
+        "dealNumber": "DEAL-2026-000076",
+        "customerName": "Saral Saraf",
+        "grossStage": "closure_wip",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 5,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms5uh9ff0009jl04l4yydmux",
+        "dealNumber": "DEAL-2026-000073",
+        "customerName": "Nine Rivers Capital Holdings Pvt. Ltd",
+        "grossStage": "disbursed",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 5,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms4igc2h0003l504flt2sbev",
+        "dealNumber": "DEAL-2026-000072",
+        "customerName": "Pratik Bhati",
+        "grossStage": "login",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 2,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms5va9780001l50426gozpiy",
+        "dealNumber": "DEAL-2026-000074",
+        "customerName": "Suebel Seals Interational Private Limited",
+        "grossStage": "login",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 1,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms8iqwp50001l404fkw9yjss",
+        "dealNumber": "DEAL-2026-000077",
+        "customerName": "Pioneer Insurance & Reinsurance Brokers Private Limited",
+        "grossStage": "logged_in_wip",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 1,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cms915gvb0001jg044je81d3v",
+        "dealNumber": "DEAL-2026-000081",
+        "customerName": "Pioneer Investcorp Ltd",
+        "grossStage": "logged_in_wip",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 1,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cmsd27ui50001kz04qam4a1c8",
+        "dealNumber": "DEAL-2026-000082",
+        "customerName": "Vinit Didwania",
+        "grossStage": "closure_wip",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 4,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cmsh9h5sp0003l704nwll3bmt",
+        "dealNumber": "DEAL-2026-000083",
+        "customerName": "Harpreetsingh Dua",
+        "grossStage": "logged_in_wip",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 1,
+        "stubTimelineLen": 0
+      },
+      {
+        "id": "cmshcwqor0001ji043rveqix4",
+        "dealNumber": "DEAL-2026-000084",
+        "customerName": "Shaurya Malwa",
+        "grossStage": "disbursed",
+        "operationalStatus": "on_track",
+        "timelineEventsInDb": 5,
+        "stubTimelineLen": 0
+      }
+    ]
+  },
+  "reconstructedPopulation": false,
+  "reconstructionNote": "CRITICAL: DB has EnterpriseDealTimelineEvent rows but mapEnterpriseDealToLoanFileStub projects timeline:[]. Radar Activity Intelligence never sees Deal timeline events.",
+  "portfolioResult": {
+    "activeDealCount": 14,
+    "averageDealHealthDisplayed": 6,
+    "averageDealHealthMeanOfRows": 6,
+    "quadrantCounts": {
+      "on_track": 0,
+      "follow_up_required": 0,
+      "needs_attention": 0,
+      "at_risk": 14
+    },
+    "scoreHistogram": {
+      "6": 14
+    }
+  },
+  "formula": {
+    "dealHealthScale": "0–100 (not 0–10)",
+    "averageMethod": "round(mean(dealHealthScore of each active Radar row)); overrides Operational Vector weighted health",
+    "perDeal": "classify → quadrant anchor → blend with Activity Momentum (±12); Healthy Waiting blocks negative blend",
+    "healthScoreByQuadrant": {
+      "on_track": 92,
+      "follow_up_required": 62,
+      "needs_attention": 48,
+      "at_risk": 18
+    },
+    "activityMomentumWeights": {
+      "recency": 0.35,
+      "frequency": 0.25,
+      "significance": 0.2,
+      "timelineAdherence": 0.2
+    },
+    "blend": {
+      "maxAdj": 12,
+      "neutralScore": 55
+    },
+    "mathematicalFloorAtRiskLowMomentum": 6,
+    "penaltiesCumulative": "Classification gates are OR (first At Risk match wins). Activity blend is a single additive adjustment (±12), not stacked sub-penalties on Deal Health. Momentum state caps apply before blend.",
+    "missingActivitiesForceZero": "No — missing meaningful activity does NOT force score to 0. It forces activity.state=at_risk → quadrant At Risk → floor of 6 (18−12).",
+    "stubTimelineAlwaysEmpty": "mapEnterpriseDealToLoanFileStub hardcodes timeline: [] — Deal Registry timeline events are not projected into Radar inputs."
+  },
+  "bankReasonablenessVerdict": "No. A real bank would not treat 100% of an active book as At Risk with Average Deal Health 6 as operational truth when the measurement path treats missing/unprojected meaningful activity as critical neglect. Mathematically consistent with code; unreasonable as business classification.",
+  "deals": [
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000078",
+      "fileId": "cms8peta10017l504kzyi8l0w",
+      "enterpriseDealId": "cms8peta10017l504kzyi8l0w",
+      "borrower": "Amol Thorat",
+      "stage": "closure_wip",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 6,
+          "idleForClass": 6,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000075",
+      "fileId": "cms8ibmw90001jx04zi2eg5dt",
+      "enterpriseDealId": "cms8ibmw90001jx04zi2eg5dt",
+      "borrower": "Pioneer Insurance & Reinsurance Brokers Private Limited",
+      "stage": "closure_wip",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 6,
+          "idleForClass": 6,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000071",
+      "fileId": "cms3na23f0001l40439vx7srt",
+      "enterpriseDealId": "cms3na23f0001l40439vx7srt",
+      "borrower": "Priyesh Jain",
+      "stage": "pre_login",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 9,
+          "idleForClass": 9,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000080",
+      "fileId": "cms8r71vm0003k0049q2zzfiy",
+      "enterpriseDealId": "cms8r71vm0003k0049q2zzfiy",
+      "borrower": "Priyesh Jain",
+      "stage": "soft_approved",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 6,
+          "idleForClass": 6,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000079",
+      "fileId": "cms8q5k8n0003jr04jysiaj8b",
+      "enterpriseDealId": "cms8q5k8n0003jr04jysiaj8b",
+      "borrower": "Saral Saraf",
+      "stage": "pre_login",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 6,
+          "idleForClass": 6,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000076",
+      "fileId": "cms8ig0ls0001ld048o83tpcj",
+      "enterpriseDealId": "cms8ig0ls0001ld048o83tpcj",
+      "borrower": "Saral Saraf",
+      "stage": "closure_wip",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 6,
+          "idleForClass": 6,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000073",
+      "fileId": "cms5uh9ff0009jl04l4yydmux",
+      "enterpriseDealId": "cms5uh9ff0009jl04l4yydmux",
+      "borrower": "Nine Rivers Capital Holdings Pvt. Ltd",
+      "stage": "won",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 8,
+          "idleForClass": 8,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000072",
+      "fileId": "cms4igc2h0003l504flt2sbev",
+      "enterpriseDealId": "cms4igc2h0003l504flt2sbev",
+      "borrower": "Pratik Bhati",
+      "stage": "logged_in",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 9,
+          "idleForClass": 9,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000074",
+      "fileId": "cms5va9780001l50426gozpiy",
+      "enterpriseDealId": "cms5va9780001l50426gozpiy",
+      "borrower": "Suebel Seals Interational Private Limited",
+      "stage": "logged_in",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 8,
+          "idleForClass": 8,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000077",
+      "fileId": "cms8iqwp50001l404fkw9yjss",
+      "enterpriseDealId": "cms8iqwp50001l404fkw9yjss",
+      "borrower": "Pioneer Insurance & Reinsurance Brokers Private Limited",
+      "stage": "logged_in",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 6,
+          "idleForClass": 6,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000081",
+      "fileId": "cms915gvb0001jg044je81d3v",
+      "enterpriseDealId": "cms915gvb0001jg044je81d3v",
+      "borrower": "Pioneer Investcorp Ltd",
+      "stage": "logged_in",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 6,
+          "idleForClass": 6,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000082",
+      "fileId": "cmsd27ui50001kz04qam4a1c8",
+      "enterpriseDealId": "cmsd27ui50001kz04qam4a1c8",
+      "borrower": "Vinit Didwania",
+      "stage": "closure_wip",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 3,
+          "idleForClass": 3,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000083",
+      "fileId": "cmsh9h5sp0003l704nwll3bmt",
+      "enterpriseDealId": "cmsh9h5sp0003l704nwll3bmt",
+      "borrower": "Harpreetsingh Dua",
+      "stage": "logged_in",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 0,
+          "idleForClass": 0,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    },
+    {
+      "sourceNote": "prisma_mapEnterpriseDealToLoanFileStub_timeline_always_empty",
+      "dealNumber": "DEAL-2026-000084",
+      "fileId": "cmshcwqor0001ji043rveqix4",
+      "enterpriseDealId": "cmshcwqor0001ji043rveqix4",
+      "borrower": "Shaurya Malwa",
+      "stage": "won",
+      "operationalStatus": "on_track",
+      "currentHealthScore": 6,
+      "scoreScale": "0–100",
+      "rawCalculation": {
+        "step1_quadrant": "at_risk",
+        "step2_quadrantAnchor": 18,
+        "step3_activityMomentumRawApprox": 9.4,
+        "step4_activityMomentumAfterStateCaps": 9,
+        "step5_blendAdj": -12.27,
+        "step6_final": "clamp(0..100, round(18 + -12.27)) = 6"
+      },
+      "scoringComponents": {
+        "activityMomentum": {
+          "recency": 8,
+          "frequency": 0,
+          "significance": 18,
+          "timelineAdherence": 15,
+          "weights": {
+            "recency": 0.35,
+            "frequency": 0.25,
+            "significance": 0.2,
+            "timelineAdherence": 0.2
+          },
+          "momentumScore": 9,
+          "state": "at_risk"
+        },
+        "quadrantAnchor": 18,
+        "note": "Stage/Docs/Timeline/Risk are classification gates — not additive Deal Health subtotals.",
+        "classificationSignals": {
+          "daysInStage": 0,
+          "idleDaysAnyTimeline": 0,
+          "idleForClass": 0,
+          "pendingDocs": 0,
+          "openTasks": 0,
+          "overdueTasks": 0,
+          "documentCompleteness": 1,
+          "terminalLenders": 0,
+          "activeLenders": 1,
+          "onHold": false,
+          "delayed": false,
+          "atRiskFlag": false,
+          "daysSinceMeaningfulActivity": 999,
+          "timelineEventCount": 0,
+          "meaningfulEventCount30d": 0
+        }
+      },
+      "penaltiesApplied": [
+        "Activity at_risk: momentum capped ≤32",
+        "Activity blend penalty -12.27 (momentum 9 vs neutral 55)"
+      ],
+      "bonusesApplied": [],
+      "finalClassification": "at_risk",
+      "classificationReason": "Activity Intelligence: critically delayed operational freshness",
+      "whyAtRisk": {
+        "triggersMatched": [
+          "activity.state === at_risk"
+        ],
+        "primaryExplanation": "No meaningful timeline activity (daysSinceMeaningful=999) → Activity Intelligence state=at_risk → Decision Engine forces At Risk → health floor 6."
+      },
+      "recommendation": "Escalate executive follow-up today — clear the blocker or open an alternate lender path."
+    }
+  ]
+}

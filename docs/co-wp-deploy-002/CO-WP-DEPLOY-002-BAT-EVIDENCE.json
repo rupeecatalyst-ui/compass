@@ -1,0 +1,142 @@
+{
+  "sprint": "CO-WP-DEPLOY-002",
+  "baseUrl": "https://catalyst-one-two.vercel.app",
+  "startedAt": "2026-08-10T12:39:36.805Z",
+  "tests": [
+    {
+      "id": "login",
+      "result": "PASS",
+      "detail": "partner=WPDEMO001 id=cms9apix90003wejcooyto6ij"
+    },
+    {
+      "id": "1-existing-mobile-opp",
+      "result": "PASS",
+      "detail": "status=201 opp=cmsn7yg510009jt04p7fxfurp customerId=cmsn7ue5k0005l404r4q5eod4 expectedContact=cmsn7ue5k0005l404r4q5eod4",
+      "status": 201,
+      "opportunityId": "cmsn7yg510009jt04p7fxfurp",
+      "customerId": "cmsn7ue5k0005l404r4q5eod4"
+    },
+    {
+      "id": "2-alt-format-reuse",
+      "result": "PASS",
+      "detail": "status=201 mobile=+91 98201 43570 customerId=cmsn7ue5k0005l404r4q5eod4 expected=cmsn7ue5k0005l404r4q5eod4",
+      "status": 201,
+      "customerId": "cmsn7ue5k0005l404r4q5eod4",
+      "opportunityId": "cmsn7yvcq000bjt041sww7v23"
+    },
+    {
+      "id": "3-new-mobile-create",
+      "result": "PASS",
+      "detail": "status=201 customerId=cmsn7z7te000djt046iyuqrst newMobile=9865625870",
+      "status": 201,
+      "customerId": "cmsn7z7te000djt046iyuqrst",
+      "opportunityId": "cmsn7zaqg000hjt04ifmg44vv"
+    },
+    {
+      "id": "4-no-duplicate-contact",
+      "result": "PASS",
+      "detail": "sameLast10Count=1 ids=cmsn7ue5k0005l404r4q5eod4",
+      "candidateCount": 1,
+      "uniqueIds": [
+        "cmsn7ue5k0005l404r4q5eod4"
+      ]
+    },
+    {
+      "id": "5-primaryContactId",
+      "result": "PASS",
+      "detail": "opp=cmsn7yg510009jt04p7fxfurp primaryContactId=cmsn7ue5k0005l404r4q5eod4 expected=cmsn7ue5k0005l404r4q5eod4"
+    },
+    {
+      "id": "6-sourceWealthPartnerId",
+      "result": "PASS",
+      "detail": "opp=cmsn7yg510009jt04p7fxfurp sourceWealthPartnerId=cms9apix90003wejcooyto6ij expected=cms9apix90003wejcooyto6ij"
+    },
+    {
+      "id": "7-attrs-not-overwritten",
+      "result": "PASS",
+      "detail": "beforeName=Anek Agrawal afterName=Anek Agrawal mobile=9820143570",
+      "before": {
+        "id": "cmsn7ue5k0005l404r4q5eod4",
+        "name": "Anek Agrawal",
+        "personalEmail": "anekagrawal@bdo.in",
+        "officialEmail": null,
+        "city": null,
+        "mobilePrimary": "9820143570",
+        "updatedAt": "2026-08-10T12:37:10.975Z"
+      },
+      "after": {
+        "id": "cmsn7ue5k0005l404r4q5eod4",
+        "name": "Anek Agrawal",
+        "personalEmail": "anekagrawal@bdo.in",
+        "officialEmail": null,
+        "city": null,
+        "mobilePrimary": "9820143570"
+      }
+    },
+    {
+      "id": "8-entitlement-unauth",
+      "result": "PASS",
+      "detail": "unauthenticated POST status=401 expected=401"
+    },
+    {
+      "id": "9-cross-partner-invalid-token",
+      "result": "PASS",
+      "detail": "invalid token GET status=401 expected=401"
+    },
+    {
+      "id": "wp-app-shell",
+      "result": "PASS",
+      "detail": "wealth-partner-app status=200"
+    }
+  ],
+  "proofs": {
+    "session": {
+      "partnerId": "cms9apix90003wejcooyto6ij",
+      "partnerCode": "WPDEMO001",
+      "partnerDisplayName": "Wealth Partner Demo",
+      "email": "wp-bat@rupeecatalyst.com"
+    },
+    "existingContact": {
+      "id": "cmsn7ue5k0005l404r4q5eod4",
+      "name": "Anek Agrawal",
+      "personalEmail": "anekagrawal@bdo.in",
+      "officialEmail": null,
+      "city": null,
+      "mobilePrimary": "9820143570",
+      "updatedAt": "2026-08-10T12:37:10.975Z"
+    },
+    "existingMobileOpp": {
+      "opportunityId": "cmsn7yg510009jt04p7fxfurp",
+      "customerId": "cmsn7ue5k0005l404r4q5eod4",
+      "primaryContactId": "cmsn7ue5k0005l404r4q5eod4"
+    },
+    "altFormatOpp": {
+      "opportunityId": "cmsn7yvcq000bjt041sww7v23",
+      "customerId": "cmsn7ue5k0005l404r4q5eod4",
+      "mobileSubmitted": "+91 98201 43570"
+    },
+    "newMobileOpp": {
+      "opportunityId": "cmsn7zaqg000hjt04ifmg44vv",
+      "customerId": "cmsn7z7te000djt046iyuqrst",
+      "mobile": "9865625870"
+    },
+    "contactReuse": {
+      "uniqueIds": [
+        "cmsn7ue5k0005l404r4q5eod4"
+      ],
+      "expected": "cmsn7ue5k0005l404r4q5eod4"
+    },
+    "opportunityDb": {
+      "id": "cmsn7yg510009jt04p7fxfurp",
+      "primaryContactId": "cmsn7ue5k0005l404r4q5eod4",
+      "sourceWealthPartnerId": "cms9apix90003wejcooyto6ij",
+      "opportunityNumber": "OPP-2026-000082"
+    }
+  },
+  "finishedAt": "2026-08-10T12:40:47.601Z",
+  "summary": {
+    "total": 11,
+    "failed": 0,
+    "passed": 11
+  }
+}

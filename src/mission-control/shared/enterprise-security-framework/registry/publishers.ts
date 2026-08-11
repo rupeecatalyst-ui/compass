@@ -250,289 +250,44 @@ export const PLACEHOLDER_SECURITY_PUBLISHERS: readonly SecurityPublisher[] = [
 ];
 
 export function createPlaceholderSecurityEvents(): SecurityEventContract[] {
-  const now = Date.now();
-  return [
-    {
-      id: "sevt-session-anomaly",
-      title: "Anomalous session pattern",
-      summary: "Placeholder session anomaly for framework event bus.",
-      categoryId: "sessions",
-      severity: "high",
-      lifecycle: "detected",
-      publisherId: "security-operations",
-      sourceModule: "Session Monitor",
-      occurredAt: new Date(now - 12 * 60000).toISOString(),
-      relatedSessionId: "sess-anomaly-1",
-    },
-    {
-      id: "sevt-mfa-coverage",
-      title: "MFA coverage drift signal",
-      summary: "Placeholder MFA domain signal — no challenge issued.",
-      categoryId: "mfa",
-      severity: "medium",
-      lifecycle: "acknowledged",
-      publisherId: "identity-fabric",
-      sourceModule: "Identity Fabric",
-      occurredAt: new Date(now - 45 * 60000).toISOString(),
-    },
-    {
-      id: "sevt-policy-review",
-      title: "Privileged access review due",
-      summary: "Placeholder authorization review cue.",
-      categoryId: "permissions",
-      severity: "medium",
-      lifecycle: "detected",
-      publisherId: "access-governance",
-      sourceModule: "Access Governance",
-      occurredAt: new Date(now - 3 * 3600000).toISOString(),
-    },
-    {
-      id: "sevt-threat-probe",
-      title: "Suspicious probe pattern",
-      summary: "Placeholder threat detection event.",
-      categoryId: "threat_detection",
-      severity: "critical",
-      lifecycle: "investigating",
-      publisherId: "threat-detection",
-      sourceModule: "Threat Detection",
-      occurredAt: new Date(now - 8 * 60000).toISOString(),
-      relatedThreatId: "sthreat-probe",
-      routeHint: "/mission-control/alert-center",
-    },
-  ];
+  // CO-ORG-004
+  return [];
 }
 
-export function createPlaceholderSecurityThreats(): SecurityThreat[] {
-  const now = Date.now();
-  return [
-    {
-      id: "sthreat-probe",
-      title: "Edge probe cluster",
-      summary: "Placeholder threat — detection pipeline not connected.",
-      severity: "critical",
-      category: "Network",
-      status: "open",
-      sourceModule: "Threat Detection",
-      publisherId: "threat-detection",
-      detectedAt: new Date(now - 8 * 60000).toISOString(),
-      recommendedAction: "Review related timeline events (placeholder).",
-      routeHint: "/mission-control/alert-center",
-    },
-    {
-      id: "sthreat-session",
-      title: "Credential stuffing watch",
-      summary: "Identity-adjacent threat signal for executive visibility.",
-      severity: "high",
-      category: "Identity",
-      status: "watching",
-      sourceModule: "Identity Fabric",
-      publisherId: "identity-fabric",
-      detectedAt: new Date(now - 90 * 60000).toISOString(),
-      recommendedAction: "Monitor authentication domain (no enforcement).",
-    },
-  ];
+export function createPlaceholderSecurityThreats() {
+  // CO-ORG-004
+  return [];
 }
 
 export function createPlaceholderSecuritySessions(): SecuritySession[] {
-  const now = Date.now();
-  return [
-    {
-      id: "sess-nominal-1",
-      principalHint: "ops.lead@placeholder",
-      state: "active",
-      deviceHint: "Managed workstation",
-      locationHint: "IN-West",
-      startedAt: new Date(now - 2 * 3600000).toISOString(),
-      lastSeenAt: new Date(now - 5 * 60000).toISOString(),
-      riskLabel: "Low",
-      publisherId: "security-operations",
-    },
-    {
-      id: "sess-anomaly-1",
-      principalHint: "contractor@placeholder",
-      state: "anomalous",
-      deviceHint: "Unrecognized device",
-      locationHint: "Unknown",
-      startedAt: new Date(now - 40 * 60000).toISOString(),
-      lastSeenAt: new Date(now - 10 * 60000).toISOString(),
-      riskLabel: "Elevated",
-      publisherId: "security-operations",
-    },
-  ];
+  // CO-ORG-004
+  return [];
 }
 
 export function createPlaceholderSecurityPermissions(): SecurityPermission[] {
-  return [
-    {
-      id: "perm-soc-view",
-      resource: "mission-control.security",
-      action: "view",
-      effect: "allow",
-      description: "View Security Operations Center",
-      scopeHint: "mission-control",
-      publisherId: "access-governance",
-    },
-    {
-      id: "perm-breakglass-activate",
-      resource: "security.break_glass",
-      action: "activate",
-      effect: "audit_only",
-      description: "Break-glass activation — not executable in this sprint",
-      publisherId: "security-operations",
-    },
-    {
-      id: "perm-session-revoke",
-      resource: "security.sessions",
-      action: "revoke",
-      effect: "deny",
-      description: "Session revocation deferred — contract only",
-      publisherId: "access-governance",
-    },
-  ];
+  // CO-ORG-004
+  return [];
 }
 
 export function createPlaceholderComplianceSnapshot(): SecurityComplianceSnapshot {
+  // CO-ORG-004 — no invented control %
   return {
     id: "comp-snap-default",
-    overallHealth: "watch",
-    overallLabel: "Watch",
-    controlsPassingLabel: "86% placeholder",
-    openFindingsLabel: "4 open",
-    nextReviewLabel: "In 12 days",
+    overallHealth: "unknown",
+    overallLabel: "Not assessed",
+    controlsPassingLabel: "—",
+    openFindingsLabel: "—",
+    nextReviewLabel: "—",
     summary:
-      "Compliance posture for executive awareness. No control evaluation or audit runs.",
+      "Compliance posture awaits control evaluation SSOT. Invented passing % removed (CO-ORG-004).",
     asOf: new Date().toISOString(),
-    controls: [
-      {
-        id: "ctrl-access-review",
-        name: "Privileged access review",
-        frameworkHint: "Internal baseline",
-        status: "failing",
-        findingCount: 2,
-        publisherId: "access-governance",
-        summary: "Review backlog placeholder",
-      },
-      {
-        id: "ctrl-mfa-coverage",
-        name: "MFA coverage",
-        frameworkHint: "Internal baseline",
-        status: "not_assessed",
-        findingCount: 1,
-        publisherId: "identity-fabric",
-      },
-      {
-        id: "ctrl-audit-retention",
-        name: "Audit retention",
-        frameworkHint: "Internal baseline",
-        status: "passing",
-        findingCount: 0,
-        publisherId: "compliance",
-      },
-      {
-        id: "ctrl-breakglass",
-        name: "Break-glass documentation",
-        frameworkHint: "Internal baseline",
-        status: "passing",
-        findingCount: 0,
-        publisherId: "security-operations",
-      },
-    ],
+    controls: [],
   };
 }
 
 export function createPlaceholderDomainSignals(): SecurityDomainSignal[] {
-  return [
-    {
-      id: "identity",
-      title: "Identity",
-      health: "watch",
-      severity: "medium",
-      summary: "Directory posture placeholder — no identity engine binding.",
-      signalLabel: "2 reviews pending",
-      publisherIds: ["identity-fabric", "customer-360"],
-    },
-    {
-      id: "authentication",
-      title: "Authentication",
-      health: "healthy",
-      severity: "low",
-      summary: "Sign-in pathways represented for executive awareness only.",
-      signalLabel: "Nominal",
-      publisherIds: ["identity-fabric"],
-    },
-    {
-      id: "authorization",
-      title: "Authorization",
-      health: "healthy",
-      severity: "info",
-      summary: "Permission topology placeholder — enforcement deferred.",
-      signalLabel: "Policy map ready",
-      publisherIds: ["access-governance"],
-    },
-    {
-      id: "mfa",
-      title: "MFA",
-      health: "watch",
-      severity: "medium",
-      summary: "MFA coverage signals only — no challenge execution.",
-      signalLabel: "Coverage watch",
-      publisherIds: ["identity-fabric"],
-    },
-    {
-      id: "sessions",
-      title: "Sessions",
-      health: "elevated",
-      severity: "high",
-      summary: "Active session overview — no revocation here.",
-      signalLabel: "3 anomalous",
-      publisherIds: ["security-operations"],
-    },
-    {
-      id: "permissions",
-      title: "Permissions",
-      health: "healthy",
-      severity: "low",
-      summary: "Role and grant surface architecture — no live evaluation.",
-      signalLabel: "Stable",
-      publisherIds: ["access-governance"],
-    },
-    {
-      id: "break_glass",
-      title: "Break Glass",
-      health: "healthy",
-      severity: "info",
-      summary: "Emergency access readiness — no break-glass activation.",
-      signalLabel: "Idle",
-      publisherIds: ["security-operations"],
-    },
-    {
-      id: "audit",
-      title: "Audit",
-      health: "watch",
-      severity: "medium",
-      summary: "Audit trail awareness — no audit execution.",
-      signalLabel: "Pipeline ready",
-      publisherIds: ["compliance", "mission-control"],
-    },
-    {
-      id: "compliance",
-      title: "Compliance",
-      health: "watch",
-      severity: "medium",
-      summary: "Control status placeholders for executive review.",
-      signalLabel: "4 findings open",
-      publisherIds: ["compliance"],
-    },
-    {
-      id: "threat_detection",
-      title: "Threat Detection",
-      health: "elevated",
-      severity: "high",
-      summary: "Detection signals for the SOC — no sensor APIs.",
-      signalLabel: "2 active threats",
-      publisherIds: ["threat-detection"],
-    },
-  ];
+  // CO-ORG-004 — no invented domain health
+  return [];
 }
 
 export function createSecurityPublisherRegistry(

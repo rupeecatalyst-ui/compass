@@ -1,0 +1,58 @@
+---
+description: SARATHI Product Vision Reset — consultant conversation, not chatbot/questionnaire
+alwaysApply: true
+---
+
+# SARATHI Product Vision (CO-SARATHI-VISION-001)
+
+Status: **PRODUCT OWNER APPROVED** · Experience vision  
+SSOT: `docs/co-sarathi-vision-001/CO-SARATHI-VISION-001-PRODUCT-VISION-RESET.md`  
+Bible (unchanged): `.cursor/rules/sarathi-bible.mdc`
+
+## Target
+
+SARATHI is a **natural, real-time loan consultation** — like an experienced Rupee Catalyst consultant.
+
+It must **not** behave like a chatbot, questionnaire, or banking FAQ.
+
+Success: in a short loan consultation, the customer should struggle to tell human consultant vs SARATHI.
+
+## Mandatory experience principles
+
+1. **Understand the customer** — data collection is not the objective.  
+2. **Free-flowing conversation** — never feel like a form.  
+3. **Voice first** — STT → conversation → enterprise context/knowledge → LLM reasoning → TTS is the primary design goal; keyboard is secondary.  
+4. **LLM leads dialogue** — what to ask next, whether to ask, whether to educate, whether enough is known, how to explain naturally.  
+5. **Enterprise owns truth** — products, lender rules, policy, customer context, business actions, guardrails.  
+6. **No templates** — no fixed question sequences; wording may vary; facts stay consistent.  
+7. **Consultant tone** — professional, patient, clear, helpful; never robotic, sales-driven, or verbose.
+
+## Do not weaken the Bible
+
+Vision does **not** override SB-01…SB-10: Domain Boundary, Policy Gate, Read Connectors, Action Proposals, Tone/Micro rules, and engine-owned calculations remain mandatory.
+
+## Frozen architecture principle (ADR-022 / CO-ARCH-RESET-001)
+
+**Status:** Architecture **FROZEN** · Implementation **NOT authorised**
+
+- Conversation ownership → **Conversational Reasoning Model**
+- Business authority → **Catalyst One via Enterprise AI Orchestrator**
+- Orchestrator must **never** replace conversational reasoning
+- Reasoning model must **never** bypass enterprise governance
+- Planner is demoted to gap/readiness instrumentation — **not** the dialogue brain
+- Planner is **not removed** — repositioned as **Consultation Readiness Engine (CRE)**
+- Enterprise engines remain **SSOT** for calculations, eligibility, product rules, credit policies, workflow, CRM, audit, business actions
+- Phase **2A Consultant Benchmark** is mandatory before Hybrid Cutover
+- G1 (contracts) may proceed when authorised; G2+ require separate PO authorisation
+
+SSOT: `docs/adr/ADR-022-enterprise-ai-orchestrator-conversational-reasoning.md`  
+Roadmap: `docs/co-arch-reset-001/CO-ARCH-RESET-001-MIGRATION-ROADMAP.md`
+
+## Agent behaviour
+
+- Prefer conversation experience work that reduces questionnaire/chatbot feel.  
+- Do **not** expand fixed question banks, form wizards, or FAQ-style SARATHI flows.  
+- **WAVE-1 (approved historically):** Retire questionnaire UX — no welcome/mid-chat chips, no summary confirm form.  
+- Do **not** expand planner-led facing as the product dialogue path (conflicts with ADR-022).  
+- Do **not** implement Orchestrator cutover, reasoning-model integration, or Voice-First programme waves until Product Owner **authorises that wave** (ADR-022 alone is not implementation license).  
+- When in conflict between interim UX helpers and this vision / ADR-022, **prefer the frozen architecture**.

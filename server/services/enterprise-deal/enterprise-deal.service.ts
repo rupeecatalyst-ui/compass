@@ -31,6 +31,7 @@ import {
   assertRowVersion,
   validateStageTransition,
 } from "@server/services/enterprise-deal/deal-validation";
+import { canonicalizeDealPipelineStage } from "@server/services/enterprise-deal/deal-stage-rules";
 import {
   isValidInvoicePartyType,
 } from "@server/services/enterprise-deal/deal-invoice-party";
@@ -72,7 +73,10 @@ export class EnterpriseDealService {
     const opportunityId = assertNonEmpty(body.opportunityId, "opportunityId");
     const lenderId = assertNonEmpty(body.lenderId, "lenderId");
     const productFamily = assertProductFamily(body.productFamily);
-    const grossStage = assertNonEmpty(body.grossStage, "grossStage");
+    // CO-DEAL-PIPELINE-TRANSITION-002 — Canonicalize create stage (never invent Logged In – WIP).
+    const grossStage = canonicalizeDealPipelineStage(
+      assertNonEmpty(body.grossStage, "grossStage"),
+    );
 
     const input: CreateEnterpriseDealInput = {
       organizationId,
@@ -204,6 +208,56 @@ export class EnterpriseDealService {
     } catch {
       /* Opportunity sync is advisory for Deal create */
     }
+
+    // CO-NOTIFICATION-001 — Deal created fan-out
+    try {
+      const { enterpriseNotificationService } = await import(
+        "@server/services/enterprise-notification/enterprise-notification.service"
+      );
+      const { eneEventTitle } = await import(
+        "@/constants/enterprise-notification-engine"
+      );
+      const opp = await prisma.enterpriseOpportunity.findFirst({
+        where: { id: opportunityId, organizationId },
+        select: {
+          primaryContactName: true,
+          sourceWealthPartnerId: true,
+          productLabel: true,
+        },
+      });
+      const actor = await prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { firstName: true, lastName: true },
+      });
+      const actorName = actor
+        ? [actor.firstName, actor.lastName].filter(Boolean).join(" ")
+        : null;
+      await enterpriseNotificationService.fanOutBestEffort({
+        organizationId,
+        eventType: "DEAL_CREATED",
+        sourceEventId: deal.id,
+        sourceSystem: "deal",
+        title: eneEventTitle("DEAL_CREATED"),
+        body: [
+          opp?.primaryContactName || deal.primaryContactName || "Customer",
+          deal.productLabel || opp?.productLabel || "Deal",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        description: actorName ? `Created by ${actorName}` : null,
+        actorUserId,
+        actorName,
+        opportunityId,
+        dealId: deal.id,
+        customerName: opp?.primaryContactName || deal.primaryContactName || null,
+        productLabel: deal.productLabel || opp?.productLabel || null,
+        href: `/deals/${encodeURIComponent(deal.id)}?opportunityId=${encodeURIComponent(opportunityId)}`,
+        sourceWealthPartnerId: opp?.sourceWealthPartnerId ?? null,
+      });
+    } catch {
+      /* fail-open */
+    }
+
     return serializeDeal(deal);
   }
 
@@ -628,6 +682,25 @@ export class EnterpriseDealService {
     await enterpriseDealRepository.requireDeal(organizationId, dealId);
     const rows = await enterpriseDealRepository.listTimeline(organizationId, dealId, take);
     return rows.map(serializeTimelineEvent);
+  }
+
+  /** CO-RADAR-003 — batch Deal Timeline for Radar / DAL projections. */
+  async listTimelinesForDeals(dealIds: string[], takePerDeal = 50) {
+    const organizationId = await this.orgId();
+    const ids = [...new Set(dealIds.filter(Boolean))];
+    if (ids.length === 0) return {} as Record<string, ReturnType<typeof serializeTimelineEvent>[]>;
+    const rows = await enterpriseDealRepository.listTimelinesForDeals(
+      organizationId,
+      ids,
+      takePerDeal,
+    );
+    const byDeal: Record<string, ReturnType<typeof serializeTimelineEvent>[]> = {};
+    for (const id of ids) byDeal[id] = [];
+    for (const row of rows) {
+      const list = byDeal[row.dealId] ?? (byDeal[row.dealId] = []);
+      list.push(serializeTimelineEvent(row));
+    }
+    return byDeal;
   }
 
   async listSnapshots(dealId: string) {

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SARATHI — Natural Conversation Demo (CO-SARATHI-UX-002)</title>
+    <style>
+      :root {
+        --ink: #14201b;
+        --mist: #f4f7f5;
+        --teal: #0f766e;
+        --card: #ffffff;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: linear-gradient(160deg, #e8f0ec, #f7f5f0);
+        color: var(--ink);
+        min-height: 100vh;
+      }
+      main {
+        max-width: 420px;
+        margin: 2rem auto;
+        background: var(--mist);
+        border-radius: 20px;
+        border: 1px solid #d5e0da;
+        padding: 1rem 1.1rem 1.25rem;
+        box-shadow: 0 12px 40px rgba(20, 32, 27, 0.08);
+      }
+      h1 {
+        font-family: Georgia, "Times New Roman", serif;
+        font-weight: 500;
+        margin: 0;
+        font-size: 1.6rem;
+      }
+      .tag {
+        color: #5b6b64;
+        font-size: 0.85rem;
+        margin: 0.2rem 0 1rem;
+      }
+      .log {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        min-height: 280px;
+      }
+      .bubble {
+        max-width: 88%;
+        padding: 0.65rem 0.85rem;
+        border-radius: 16px;
+        font-size: 0.95rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+      }
+      .user {
+        align-self: flex-end;
+        background: var(--teal);
+        color: #fff;
+        border-bottom-right-radius: 6px;
+      }
+      .bot {
+        align-self: flex-start;
+        background: var(--card);
+        border: 1px solid #d7e2dc;
+        border-bottom-left-radius: 6px;
+      }
+      .bot small {
+        display: block;
+        letter-spacing: 0.14em;
+        font-size: 0.65rem;
+        color: var(--teal);
+        margin-bottom: 0.25rem;
+        font-weight: 700;
+      }
+      .think {
+        align-self: flex-start;
+        display: inline-flex;
+        gap: 0.45rem;
+        align-items: center;
+        background: var(--card);
+        border: 1px solid #d7e2dc;
+        border-radius: 16px;
+        padding: 0.55rem 0.85rem;
+        color: #5b6b64;
+        font-size: 0.8rem;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--teal);
+        opacity: 0.7;
+        animation: pulse 1s infinite;
+      }
+      .dot:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .dot:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.35;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      .cursor {
+        display: inline-block;
+        width: 2px;
+        height: 0.95em;
+        background: var(--teal);
+        margin-left: 2px;
+        vertical-align: middle;
+        animation: pulse 0.9s infinite;
+      }
+      button {
+        margin-top: 1rem;
+        width: 100%;
+        border: 0;
+        border-radius: 999px;
+        padding: 0.75rem 1rem;
+        background: var(--ink);
+        color: #fff;
+        font-size: 0.95rem;
+        cursor: pointer;
+      }
+      .note {
+        margin-top: 0.75rem;
+        font-size: 0.75rem;
+        color: #6a7872;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>SARATHI</h1>
+      <p class="tag">Natural Conversation Experience demo</p>
+      <div class="log" id="log"></div>
+      <button type="button" id="run">Play after scenario</button>
+      <p class="note">
+        Screen-record this page for an “after” clip, then capture the live
+        /sarathi desk for Product Owner review.
+      </p>
+    </main>
+    <script>
+      const log = document.getElementById("log");
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      function add(cls, html) {
+        const el = document.createElement("div");
+        el.className = "bubble " + cls;
+        el.innerHTML = html;
+        log.appendChild(el);
+        return el;
+      }
+
+      async function streamInto(el, text) {
+        el.innerHTML = "<small>SARATHI</small>";
+        const p = document.createElement("span");
+        el.appendChild(p);
+        const cursor = document.createElement("span");
+        cursor.className = "cursor";
+        el.appendChild(cursor);
+        const parts = text.match(/\S+\s*/g) || [text];
+        let acc = "";
+        for (const part of parts) {
+          acc += part;
+          p.textContent = acc;
+          await sleep(28 + Math.random() * 24);
+        }
+        cursor.remove();
+      }
+
+      async function play() {
+        log.innerHTML = "";
+        add("user", "I need a Loan Against Property.");
+        const think = document.createElement("div");
+        think.className = "think";
+        think.innerHTML =
+          '<span class="dot"></span><span class="dot"></span><span class="dot"></span><span id="lbl">SARATHI is thinking…</span>';
+        log.appendChild(think);
+        const lbl = think.querySelector("#lbl");
+        await sleep(500);
+        lbl.textContent = "Understanding your requirement…";
+        await sleep(550);
+        lbl.textContent = "Reviewing available information…";
+        await sleep(500);
+        think.remove();
+        const bot = add("bot", "");
+        await streamInto(
+          bot,
+          "I'd be happy to help. May I know what you intend to use the funds for?",
+        );
+      }
+
+      document.getElementById("run").addEventListener("click", play);
+      play();
+    </script>
+  </body>
+</html>

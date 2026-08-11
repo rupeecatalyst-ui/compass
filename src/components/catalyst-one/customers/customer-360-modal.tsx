@@ -5,7 +5,7 @@ import { Customer360OperationalSections } from "@/components/catalyst-one/custom
 import { CustomerAuditTrail } from "@/components/catalyst-one/customers/customer-audit-trail";
 import { CustomerDocumentsPanel } from "@/components/catalyst-one/customers/customer-documents-panel";
 import { CustomerLoanPortfolio } from "@/components/catalyst-one/customers/customer-loan-portfolio";
-import { CustomerNotesPanel } from "@/components/catalyst-one/customers/customer-notes-panel";
+import { EnterpriseBusinessNotesPanel } from "@/components/catalyst-one/enterprise-business-notes";
 import { CustomerRelationshipSummary } from "@/components/catalyst-one/customers/customer-relationship-summary";
 import { CustomerTasksPanel } from "@/components/catalyst-one/customers/customer-tasks-panel";
 import { CustomerTimelineFeed } from "@/components/catalyst-one/customers/customer-timeline-feed";
@@ -174,7 +174,6 @@ function Customer360ModalContent({
   const scrollRef = useRef<HTMLDivElement>(null);
   const { error } = useToast();
   const [loanCreateOpen, setLoanCreateOpen] = useState(false);
-  const [newNote, setNewNote] = useState("");
   const [portfolioFilter, setPortfolioFilter] = useState<"all" | "active" | "closed">("all");
   const [opsRefreshKey, setOpsRefreshKey] = useState(0);
 
@@ -213,51 +212,14 @@ function Customer360ModalContent({
           : completed
         : allLoans;
 
-  const handleAddNote = () => {
-    if (!newNote.trim()) return;
-    const note = {
-      id: `note-${Date.now()}`,
-      content: newNote.trim(),
-      createdAt: new Date().toISOString(),
-      createdBy: customer.relationshipManager,
-      pinned: false,
-    };
-    updateCustomer(customer.id, { notes: [note, ...customer.notes] });
-    setNewNote("");
-    feedback.noteSaved();
-  };
-
-  const hasUnsavedChanges = newNote.trim().length > 0;
+  const hasUnsavedChanges = false;
 
   const closeApi = useWorkspaceClose({
     onClose: closeCustomer,
     hasUnsavedChanges,
-    onSaveAndClose: async () => {
-      if (newNote.trim()) handleAddNote();
-    },
+    onSaveAndClose: async () => undefined,
     enableEscapeKey: false,
   });
-
-  const handleTogglePin = (noteId: string) => {
-    updateCustomer(customer.id, {
-      notes: customer.notes.map((n) =>
-        n.id === noteId ? { ...n, pinned: !n.pinned } : n,
-      ),
-    });
-  };
-
-  const handleEditNote = (noteId: string, content: string) => {
-    updateCustomer(customer.id, {
-      notes: customer.notes.map((n) => (n.id === noteId ? { ...n, content } : n)),
-    });
-    feedback.noteSaved();
-  };
-
-  const handleDeleteNote = (noteId: string) => {
-    updateCustomer(customer.id, {
-      notes: customer.notes.filter((n) => n.id !== noteId),
-    });
-  };
 
   const handleUploadDocument = () => {
     const doc = {
@@ -392,9 +354,7 @@ function Customer360ModalContent({
             onClose={closeCustomer}
             closeApi={closeApi}
             hasUnsavedChanges={hasUnsavedChanges}
-            onSaveAndClose={async () => {
-              if (newNote.trim()) handleAddNote();
-            }}
+            onSaveAndClose={async () => undefined}
           />
           <CustomerWorkspaceStickyHeader
             customer={customer}
@@ -536,14 +496,18 @@ function Customer360ModalContent({
                 </TabsContent>
 
                 <TabsContent value="notes" className="mt-4">
-                  <CustomerNotesPanel
-                    customer={customer}
-                    newNote={newNote}
-                    onNewNoteChange={setNewNote}
-                    onSaveNote={handleAddNote}
-                    onTogglePin={handleTogglePin}
-                    onEditNote={handleEditNote}
-                    onDeleteNote={handleDeleteNote}
+                  <EnterpriseBusinessNotesPanel
+                    context={{
+                      workspaceKind: "customer",
+                      entityKind: "contact",
+                      entityId: customer.id,
+                      contactId: customer.id,
+                    }}
+                    query={{
+                      contactId: customer.id,
+                      entityKind: "contact",
+                      entityId: customer.id,
+                    }}
                   />
                 </TabsContent>
 

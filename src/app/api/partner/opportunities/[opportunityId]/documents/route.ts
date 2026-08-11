@@ -13,8 +13,9 @@ type Ctx = { params: Promise<{ opportunityId: string }> };
 const MAX_BYTES = 8 * 1024 * 1024;
 
 /**
- * CO-WP-LOD-001 / CO-WP-UPLOAD-001 — Enterprise LOD documents for Catalyst Connect.
+ * CO-WP-LOD-001 / CO-WP-UPLOAD-001 / CO-WP-DOC-002 — Partner Document Inbox + LOD.
  * Accepts JSON or multipart (camera / gallery / drag-drop files). No folder trees.
+ * Freeform inbox uploads omit typeRef (or use intakeMode=inbox|additional).
  */
 export async function OPTIONS(request: Request) {
   return partnerOptionsResponse(request);
@@ -37,13 +38,18 @@ async function readUploadInput(request: Request): Promise<PartnerOpportunityDocu
   const contentType = (request.headers.get("content-type") || "").toLowerCase();
   if (contentType.includes("multipart/form-data")) {
     const form = await request.formData();
-    const typeRef = String(form.get("typeRef") || "").trim();
+    const typeRef = String(form.get("typeRef") || "").trim() || undefined;
+    const intakeRaw = String(form.get("intakeMode") || "").trim().toLowerCase();
+    const intakeMode =
+      intakeRaw === "inbox" || intakeRaw === "additional" || intakeRaw === "requirement"
+        ? intakeRaw
+        : undefined;
     const replaceDocumentId = String(form.get("replaceDocumentId") || "").trim() || undefined;
     const title = String(form.get("title") || "").trim() || undefined;
     const append = String(form.get("append") || "") === "1" || String(form.get("append") || "") === "true";
     const file = form.get("file");
     if (!(file instanceof File)) {
-      return { typeRef, title, replaceDocumentId, append };
+      return { typeRef, intakeMode, title, replaceDocumentId, append };
     }
     if (file.size > MAX_BYTES) {
       throw new PartnerGatewayError("Each file must be 8 MB or smaller.", "VALIDATION", 400);
@@ -52,6 +58,7 @@ async function readUploadInput(request: Request): Promise<PartnerOpportunityDocu
     const contentBase64 = `data:${file.type || "application/octet-stream"};base64,${buffer.toString("base64")}`;
     return {
       typeRef,
+      intakeMode,
       title: title || file.name,
       replaceDocumentId,
       append,

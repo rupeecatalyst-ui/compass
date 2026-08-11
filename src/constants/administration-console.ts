@@ -73,6 +73,13 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         keywords: ["filings", "artifacts"],
       },
       {
+        id: "compliance-center",
+        title: "Corporate Compliance Center",
+        description: "Enterprise compliance desk — entities, repositories, packages, and dispatch.",
+        href: ROUTES.ORGANIZATION_COMPLIANCE_CENTER,
+        keywords: ["compliance", "ccc", "dispatch", "packages", "legal entity"],
+      },
+      {
         id: "org-documents",
         title: "Organization Documents",
         description: "Organization-level document library and retention.",
@@ -99,6 +106,27 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         description: "Official seal assets and usage controls.",
         href: ROUTES.ORGANIZATION_COMPANY_SEAL,
         keywords: ["seal", "stamp"],
+      },
+      {
+        id: "business-config",
+        title: "Business Configuration",
+        description: "Products, branches, departments, and org hierarchy.",
+        href: ROUTES.ORGANIZATION_BUSINESS_CONFIG,
+        keywords: ["products", "branches", "hierarchy"],
+      },
+      {
+        id: "org-settings",
+        title: "Organization Settings",
+        description: "Working days, locale, currency, and holiday calendar.",
+        href: ROUTES.ORGANIZATION_SETTINGS,
+        keywords: ["calendar", "timezone", "holidays"],
+      },
+      {
+        id: "org-security",
+        title: "Organization Security",
+        description: "Feature flags, defaults, and branding overrides.",
+        href: ROUTES.ORGANIZATION_SECURITY,
+        keywords: ["security", "flags", "branding"],
       },
     ],
   },
@@ -263,6 +291,52 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         description: "Configure which lenders offer which products.",
         href: ROUTES.ADMIN_PRODUCT_LENDER_MATRIX,
         keywords: ["product", "lender", "matrix", "mapping", "offer"],
+      },
+      {
+        id: "home-loan-lender-priority",
+        title: "Home Loan Lender Priority",
+        description:
+          "CO-HL-PROGRAM-001 — Select and order Home Loan–eligible lenders from the live registry.",
+        href: ROUTES.ADMIN_HOME_LOAN_LENDER_PRIORITY,
+        keywords: ["home loan", "priority", "lender", "HL", "program"],
+      },
+      {
+        id: "product-lender-priority",
+        title: "LAP & Commercial Purchase Priority",
+        description:
+          "CO-PRODUCT-PRIORITY-004 — Product-specific lender ranking for LAP and Commercial Purchase (order only).",
+        href: ROUTES.ADMIN_PRODUCT_LENDER_PRIORITY,
+        keywords: [
+          "lap",
+          "commercial purchase",
+          "priority",
+          "lender",
+          "ranking",
+          "product",
+        ],
+      },
+      {
+        id: "personal-loan-lender-priority",
+        title: "Personal Loan Lender Priority",
+        description:
+          "CO-PERSONAL-LOAN-PRIORITY-001 — Select and order Personal Loan–eligible lenders (ranking only).",
+        href: ROUTES.ADMIN_PERSONAL_LOAN_LENDER_PRIORITY,
+        keywords: ["personal loan", "priority", "lender", "PL", "ranking"],
+      },
+      {
+        id: "ubl-lender-priority",
+        title: "UBL Lender Priority",
+        description:
+          "CO-UBL-PRIORITY-001 — Unsecured Business Loan lender ranking (order only; not a whitelist).",
+        href: ROUTES.ADMIN_UBL_LENDER_PRIORITY,
+        keywords: [
+          "ubl",
+          "unsecured business loan",
+          "priority",
+          "lender",
+          "ranking",
+          "business loan",
+        ],
       },
       {
         id: "reference-masters",
@@ -468,6 +542,39 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
           "snapshot",
           "health score",
           "dashboard",
+        ],
+      },
+      {
+        id: "partner-entitlements",
+        title: "Partner Access & Entitlements",
+        description:
+          "Wealth Partner templates, defaults, module/action rights, transaction overrides, and audit history.",
+        href: ROUTES.ADMIN_PARTNER_ENTITLEMENTS,
+        keywords: [
+          "wealth partner",
+          "entitlements",
+          "permissions",
+          "referral",
+          "joint execution",
+          "solo",
+          "partner gateway",
+          "access",
+        ],
+      },
+      {
+        id: "shadow-mode-dashboard",
+        title: "Shadow Mode Dashboard",
+        description:
+          "Product Owner review of Live SARATHI · Reasoning Model · Gold Standard with benchmark, policy, consultation, latency, and cost. Internal only.",
+        href: ROUTES.ADMIN_SHADOW_MODE_DASHBOARD,
+        keywords: [
+          "shadow mode",
+          "orchestrator",
+          "sarathi evaluation",
+          "benchmark",
+          "policy score",
+          "product owner",
+          "g2-w8",
         ],
       },
       {

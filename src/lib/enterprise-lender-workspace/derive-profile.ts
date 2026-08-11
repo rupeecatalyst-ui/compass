@@ -34,65 +34,43 @@ function contactsForLender(lenderRef: string): LifeLenderContact[] {
   );
 }
 
-function metricsFromContacts(contacts: LifeLenderContact[]): ElwLenderProfile["metrics"] {
-  const executorCount = contacts.filter((c) => c.lenderExecutor).length;
-  const base = 62 + Math.min(28, executorCount * 6 + contacts.length * 2);
+function metricsFromContacts(_contacts: LifeLenderContact[]): ElwLenderProfile["metrics"] {
+  void _contacts;
+  // CO-LENDER-WORKSPACE-001 — never invent success % / TAT / case counts.
   return {
-    successProbability: Math.min(94, base),
-    approvalRateLabel: `${Math.min(88, 58 + executorCount * 5)}%`,
-    averageTatDays: Math.max(4, 12 - executorCount),
-    activeCases: Math.max(1, executorCount * 3),
-    relationshipStrength:
-      executorCount >= 2 ? "strong" : executorCount === 1 ? "steady" : "building",
+    successProbability: 0,
+    approvalRateLabel: "Not available",
+    averageTatDays: 0,
+    activeCases: 0,
+    relationshipStrength: "building",
   };
 }
 
 function policyForLender(name: string): ElwLenderProfile["policy"] {
   return {
-    headline: `${name} · indicative policy posture for Relationship Managers`,
+    headline: `${name} · policy detail opens from Product Programs / Credit & Risk`,
     bullets: [
-      "Prefers complete income documentation before pre-login.",
-      "Metro and Tier-1 cities receive priority processing windows.",
-      "Relationship Managers should confirm product eligibility before login.",
-      "Policy variances require branch credit acknowledgement — not auto-approved.",
+      "Programme FOIR, DBR, commercials, and policy references are configured on Enterprise Lender Programs.",
+      "Do not treat this overview as a substitute for published programme policy.",
     ],
   };
 }
 
-function documentsForLender(lenderId: string): ElwLenderProfile["documents"] {
-  return [
-    {
-      id: `${lenderId}-doc-policy`,
-      title: "Product policy summary",
-      category: "Policy",
-      status: "available",
-    },
-    {
-      id: `${lenderId}-doc-checklist`,
-      title: "Document checklist — Home Loan",
-      category: "Checklist",
-      status: "available",
-    },
-    {
-      id: `${lenderId}-doc-tat`,
-      title: "TAT service commitment",
-      category: "Operations",
-      status: "request",
-    },
-  ];
+function documentsForLender(_lenderId: string): ElwLenderProfile["documents"] {
+  void _lenderId;
+  // Documents load from Lender Registry when the Directory workspace is used.
+  return [];
 }
 
 function chanakyaInsight(
   name: string,
   metrics: ElwLenderProfile["metrics"],
 ): ElwLenderProfile["chanakya"] {
+  void metrics;
   return {
-    headline: `${name} fits this workflow when documentation is ready.`,
-    body: `Success outlook around ${metrics.successProbability}% with ${metrics.relationshipStrength} relationship strength. Keep the conversation on timelines and eligibility — not product pitching.`,
-    recommendation:
-      metrics.relationshipStrength === "strong"
-        ? "Select this lender if the customer profile matches stated eligibility."
-        : "Review contacts and policy, then select consciously before login.",
+    headline: `${name} — open Directory Lender Workspace for operational Chanakya insights`,
+    body: "Insights are derived from Contact Registry, published programmes, and Deal pipeline facts. Fabricated success percentages are not shown.",
+    recommendation: "Use Assign / Create Employee and Product Programs to complete configuration.",
   };
 }
 

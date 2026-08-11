@@ -7,7 +7,7 @@ import {
   ELD_PINNED_STORAGE_KEY,
   ELD_RECENT_STORAGE_KEY,
 } from "@/constants/enterprise-lender-directory/ops";
-import { mapDirectoryProductIdToRegistryCode } from "@/lib/enterprise-lender-registry/map-to-directory";
+import { productCodesShareSelectionFamily } from "@/constants/enterprise-product-master";
 import type {
   EnterpriseLenderProgramRecord,
   EnterpriseLenderRecord,
@@ -59,7 +59,10 @@ function pickProgram(
   programs: EnterpriseLenderProgramRecord[],
   productCode: string,
 ): EnterpriseLenderProgramRecord | undefined {
-  return programs.find((p) => p.productCode === productCode && p.enabled);
+  return programs.find(
+    (p) =>
+      p.enabled && productCodesShareSelectionFamily(p.productCode, productCode),
+  );
 }
 
 function readJsonMap(key: string): Record<string, string> {
@@ -114,9 +117,8 @@ export function composeEnterpriseLenderDirectoryRows(input: {
     byLender.set(p.lenderId, list);
   }
 
-  const hlCode = mapDirectoryProductIdToRegistryCode("home-loan") ?? "home_loan";
-  const btCode =
-    mapDirectoryProductIdToRegistryCode("home-loan-balance-transfer") ?? "home_loan_bt";
+  const hlCode = "HOME_LOAN";
+  const btCode = "HOME_LOAN_BT";
 
   return input.lenders
     .filter((l) => !l.isDeleted && l.enabled)
@@ -176,7 +178,8 @@ export function composeEnterpriseLenderDirectoryRows(input: {
         maxLtvPercent: primary?.maxLtvPercent ?? null,
         maxLtvLabel:
           primary?.maxLtvPercent != null ? `${primary.maxLtvPercent}%` : "Not Specified",
-        foirLabel: "Not Specified",
+        foirLabel:
+          primary?.maxFoirPercent != null ? `${primary.maxFoirPercent}%` : "Not Specified",
         minCibil: primary?.minCibil ?? null,
         minCibilLabel:
           primary?.minCibil != null ? String(primary.minCibil) : "Not Specified",
@@ -225,12 +228,10 @@ export function filterEnterpriseLenderDirectoryRows(
     if (filters.category !== "all" && row.categoryId !== filters.category) return false;
     if (filters.region !== "all" && row.regionLabel !== filters.region) return false;
     if (filters.product !== "all") {
-      const code = mapDirectoryProductIdToRegistryCode(filters.product) ?? filters.product;
-      const hit = row.productsSupported.some(
-        (p) =>
-          p === code ||
-          p === filters.product ||
-          String(p).includes(filters.product.replace(/-/g, "_")),
+      // CO-MASTER-004 — match Product–Lender Matrix via Product Master family
+      // (HOME_LOAN ↔ home-loan ↔ HL_STD). Never compare display labels.
+      const hit = row.productsSupported.some((p) =>
+        productCodesShareSelectionFamily(p, filters.product),
       );
       if (!hit) return false;
     }

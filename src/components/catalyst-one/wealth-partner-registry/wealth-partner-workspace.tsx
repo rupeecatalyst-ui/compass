@@ -32,6 +32,7 @@ import {
   type WealthPartnerWorkspaceTabId,
 } from "@/constants/enterprise-wealth-partner-registry";
 import { ROUTES } from "@/constants/routes";
+import { WEALTH_PARTNER_WORKSPACE_PAGE_CLASS } from "@/constants/enterprise-registry-workspace";
 import { wealthPartnerApiClient } from "@/lib/enterprise-wealth-partner-registry";
 import type {
   WealthPartnerIdentityKind,
@@ -101,7 +102,12 @@ export function WealthPartnerWorkspace({ partnerId }: WealthPartnerWorkspaceProp
   const { partner, businessSourcing } = bundle;
 
   return (
-    <div className="space-y-4">
+    <div
+      className={cn(WEALTH_PARTNER_WORKSPACE_PAGE_CLASS)}
+      data-surface="wealth-partner-workspace"
+      data-sprint="CO-ECM-NETWORK-UI-002"
+      data-layout-mode="document"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link
@@ -689,15 +695,18 @@ function NetworkTab({
   }
 
   return (
-    <div className="space-y-6">
+    <div
+      className="space-y-6 overflow-visible pb-8"
+      data-network-tab="scroll-safe"
+    >
       <WealthPartnerNetworkIntelligence
         partnerId={partnerId}
         refreshToken={networkRefreshToken}
       />
 
-      <div className="space-y-3">
+      <div className="space-y-3 overflow-visible" data-network-add-form>
         <p className="text-xs text-muted-foreground">
-          Add network members as relationships to Contact / Company masters â€” duplicates are never
+          Add network members as relationships to Contact / Company masters — duplicates are never
           created. The Business Network above refreshes after each add.
         </p>
         <div className="grid max-w-2xl gap-3 rounded-xl border p-4">

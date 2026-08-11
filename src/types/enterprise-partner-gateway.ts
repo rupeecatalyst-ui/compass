@@ -28,6 +28,14 @@ export interface PartnerSessionDto {
   contactId: string | null;
   lifecycleStatus: string;
   operationalStatus: string;
+  /** CO-WP-ACCESS-001 — Partner-level effective entitlements (no transaction context). */
+  entitlements?: {
+    executionMode: string;
+    source: string;
+    permissions: Record<string, boolean>;
+    modules: Record<string, boolean>;
+    templateCode: string | null;
+  };
 }
 
 export interface PartnerAuthTokensDto {
@@ -536,6 +544,8 @@ export interface PartnerHomeExperienceMetaDto {
 export interface PartnerHomeDashboardDto {
   generatedAt: string;
   partnerId: string;
+  /** CO-WP-PERF-002 — progressive Home phase. */
+  homeLoadPhase?: "shell" | "desk";
   experience: PartnerHomeExperienceMetaDto;
   greeting: PartnerHomeGreetingDto;
   personalisationMeta: PartnerHomePersonalisationMetaDto;

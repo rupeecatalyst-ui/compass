@@ -4,6 +4,7 @@
  */
 
 import { PARTNER_LOD_ENGINE_VERSION, PARTNER_LOD_PRESENTATION } from "@/constants/enterprise-partner-lod";
+import { isUnclassifiedDocumentTypeRef } from "@/constants/document-intake";
 import {
   EdieLodCertificationError,
   generateOpportunityLod,
@@ -43,13 +44,24 @@ function mapTransactionType(
   return "fresh";
 }
 
+/**
+ * CO-WP-DOC-002 / CO-DOC-ARCH-001 — Upload ≠ verified ≠ requirement satisfied.
+ * Active partner uploads map to pending_verification until Catalyst One verifies.
+ */
 function statusFromUpload(statusLabel: string | undefined): PartnerLodItemStatus {
-  const s = (statusLabel || "").toLowerCase();
+  const s = (statusLabel || "").toLowerCase().trim();
   if (s.includes("reject")) return "rejected";
-  if (s.includes("re-upload") || s.includes("reupload")) return "re_upload_required";
-  if (s.includes("verif") || s.includes("pending")) return "pending_verification";
-  if (s.includes("upload") || s.includes("received") || s.includes("complete")) return "uploaded";
-  return "uploaded";
+  if (s.includes("re-upload") || s.includes("reupload") || s.includes("re_upload")) {
+    return "re_upload_required";
+  }
+  if (s === "verified" || s === "complete" || s === "accepted") return "uploaded";
+  if (s.includes("pending") || s.includes("under") || s.includes("review")) {
+    return "pending_verification";
+  }
+  if (s.includes("upload") || s.includes("received") || s === "active" || s === "") {
+    return "pending_verification";
+  }
+  return "pending_verification";
 }
 
 export type ProjectPartnerLodOptions = {
@@ -94,14 +106,13 @@ export function projectPartnerOpportunityLod(
 
     const docs = detail.documents ?? [];
     const items: PartnerLodItemDto[] = lodItems.map((item, index) => {
-      const match =
-        docs.find((d) => (d as { typeRef?: string }).typeRef === item.typeRef) ||
-        docs.find(
-          (d) =>
-            d.categoryLabel?.toLowerCase() === item.label.toLowerCase() ||
-            d.title?.toLowerCase() === item.label.toLowerCase() ||
-            d.title?.toLowerCase().includes(item.label.toLowerCase()),
-        );
+      /** Exact typeRef only — never fuzzy-match freeform inbox (doc:other:*) onto requirements. */
+      const match = docs.find(
+        (d) =>
+          Boolean(d.typeRef) &&
+          d.typeRef === item.typeRef &&
+          !isUnclassifiedDocumentTypeRef(d.typeRef),
+      );
 
       let status: PartnerLodItemStatus = "missing";
       if (match) status = statusFromUpload(match.statusLabel);
@@ -139,8 +150,8 @@ export function projectPartnerOpportunityLod(
     });
 
     const required = items.filter((i) => i.mandatory || i.critical).length || items.length;
-    const uploaded = items.filter((i) => i.status === "uploaded" || i.status === "pending_verification")
-      .length;
+    /** Requirement satisfied only after Catalyst One verification (status uploaded = verified path). */
+    const uploaded = items.filter((i) => i.status === "uploaded").length;
     const missing = items.filter((i) => i.missing).length;
     const rejected = items.filter((i) => i.status === "rejected").length;
     const pending = items.filter((i) => i.status === "pending_verification").length;

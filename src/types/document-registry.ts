@@ -39,6 +39,11 @@ export interface DocumentRegistryVersion {
   isCurrent: boolean;
 }
 
+/**
+ * Ingestion channel on the Enterprise Document Registry (single store).
+ * CO-DOC-ARCH-001 business channels map here — see `src/constants/document-intake/`:
+ * WALK_IN → manual_upload · DIRECT → customer_portal · WEALTH_PARTNER → wealth_partner
+ */
 export type DocumentRegistryUploadSource =
   | "customer_portal"
   | "lender_portal"
@@ -49,7 +54,9 @@ export type DocumentRegistryUploadSource =
   /** CO-DOC-003 — file ingested as part of a Document Package (folder upload). */
   | "folder_package"
   /** CO-VOICE-002 — ECIE Activity Composer audio capture. */
-  | "conversation_activity";
+  | "conversation_activity"
+  /** CO-DOC-ARCH-001 / Partner Gateway — Wealth Partner App intake. */
+  | "wealth_partner";
 
 export interface DocumentRegistryRecord {
   id: string;

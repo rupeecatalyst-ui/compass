@@ -1,0 +1,58 @@
+---
+description: Enterprise Activity Registry (EAR) — universal operational chronology SSOT
+alwaysApply: false
+---
+
+# Enterprise Activity Registry — Platform Constitution
+
+Status: **ENTERPRISE APPROVED** · Frozen · Canonical activity chronology  
+Sprint foundation: **CO-ORG-003**
+
+## Constitutional principles
+
+1. **EAR is the only** universal operational activity chronology SSOT in Catalyst One.
+2. Domain ledgers may remain authoritative **within their domain** (Deal Timeline, ECIE conversation transcripts, Org MDM events) and **must dual-write** into EAR.
+3. Cross-desk readers (Dashboard, Dialogue Center / OW Timeline, Organization Recent Activity, Mission Control Situation Room, future CHANAKYA chronology feeds) **consume EAR** — never invent parallel activity stores.
+4. Append-only. Idempotent on `(organizationId, sourceSystem, sourceEventId)`.
+5. Emitters are **fail-open** — never block Opportunity / Deal / Task / Document workflow.
+6. Cad-2026-001 — never invent business facts; uncaptured stays empty / Not Specified.
+7. Chanakya Activity Intelligence **formula** remains `computeEnterpriseActivityIntelligence` (CO-MC-001); EAR supplies chronology inputs, not a second score.
+
+## Event kinds
+
+`opportunity` · `dialogue` · `tasks` · `documents` · `stage_change` · `notes` · `communications` · `workflow` · `chanakya` · `mission_control`
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Types | `src/types/enterprise-activity-registry.ts` |
+| Constants | `src/constants/enterprise-activity-registry/` |
+| Client compose / emit | `src/lib/enterprise-activity-registry/` |
+| Prisma | `EnterpriseActivityEvent` → `enterprise_activity_events` |
+| Service | `server/services/enterprise-activity/enterprise-activity.service.ts` |
+| API | `GET/POST /api/enterprise-activity` |
+| Docs | `docs/co-org-003/` |
+
+## Naming clarification
+
+| Name | Scope |
+|------|--------|
+| **Enterprise Activity Registry (EAR)** | Universal chronology (CO-ORG-003) |
+| **Conversation Activity Registry (ECIE)** | Transcripts / voice / typed notes only (ADR-021) |
+| **EDC Timeline** | Projection / compose surface — dual-writes to EAR; hydrate from EAR |
+| **Deal Timeline** | Deal-domain append-only ledger — dual-writes to EAR |
+| **OrganizationActivityEvent** | Org MDM domain ledger — dual-writes to EAR |
+
+## Forbidden
+
+- New dashboard / Mission Control / Dialogue **placeholder** activity feeds as production truth  
+- Parallel “activity engines” that reimplement chronology outside EAR  
+- Expanding `EnterpriseConversationActivity` into universal activity storage  
+
+## Related
+
+- `enterprise-metric-single-implementation.mdc`
+- `enterprise-task-engine.mdc`
+- `chanakya-operating-principles.mdc`
+- ADR-021 (conversation intelligence)

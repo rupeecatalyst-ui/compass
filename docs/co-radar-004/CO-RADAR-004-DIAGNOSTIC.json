@@ -1,0 +1,579 @@
+{
+  "sprint": "CO-RADAR-004",
+  "diagnosticOnly": true,
+  "scoringUnchanged": true,
+  "generatedAt": "2026-08-08T13:28:11.364Z",
+  "gitHead": "95973c5",
+  "gitStatusRadar003Files": "M src/lib/enterprise-deal/deal-data-access.ts\n M src/lib/enterprise-deal/map-deal-to-loan-file.ts\n?? docs/co-radar-003/\n?? src/lib/enterprise-deal/enterprise-deal-activity-timeline.ts",
+  "aggregates": {
+    "totalDealsLoaded": 14,
+    "totalEnterpriseDealTimelineEventRecordsInDb": 630,
+    "timelineEventsForLoadedDeals": 51,
+    "activeRadarDeals": 10,
+    "dealsWithAtLeastOneTimelineEvent": 10,
+    "dealsWithZeroTimelineEvents": 0
+  },
+  "layerCounts": {
+    "A_postgresTimeline": 25,
+    "B_dalTimeline": 25,
+    "C_radarProjectionEme": 0,
+    "D_scoringInputEme": 0,
+    "E_activityEngineEme": 0,
+    "C_radarProjectionDalHydrated": 25,
+    "D_scoringInputDalHydrated": 25
+  },
+  "wiring": {
+    "liveRadarUiUsesCertifiedSnapshot": true,
+    "emeComposeOneArgStubNoTimeline": true,
+    "emeComposeLoadsTimelines": false,
+    "dalHydratesCoRadar003": true,
+    "activityTimelineModuleExists": true,
+    "coRadar003InLiveRadarChain": false,
+    "reason": "LIVE /chanakya-radar reads EME certified snapshot composed via mapEnterpriseDealToLoanFileStub(d) with no timeline arg. CO-RADAR-003 hydrate lives only on DAL loadEnterpriseAsLoanFiles."
+  },
+  "liveRadarKpis_emePath": {
+    "avgDealHealth": 6,
+    "activeCount": 10,
+    "direction": "South",
+    "trend": "Declining",
+    "atRisk": 10,
+    "atRiskPct": 100,
+    "onTrack": 0,
+    "needsAttention": 0,
+    "kpiCards": [
+      {
+        "id": "on_track",
+        "label": "On Track",
+        "count": 0,
+        "percentage": 0
+      },
+      {
+        "id": "follow_up_required",
+        "label": "Follow-up Required",
+        "count": 0,
+        "percentage": 0
+      },
+      {
+        "id": "at_risk",
+        "label": "At Risk",
+        "count": 10,
+        "percentage": 100
+      },
+      {
+        "id": "needs_attention",
+        "label": "Needs Attention",
+        "count": 0,
+        "percentage": 0
+      }
+    ]
+  },
+  "coRadar003Kpis_dalPath": {
+    "avgDealHealth": 56,
+    "activeCount": 10,
+    "direction": "South-West",
+    "trend": "Declining",
+    "atRisk": 2,
+    "atRiskPct": 20,
+    "onTrack": 4,
+    "needsAttention": 4,
+    "kpiCards": [
+      {
+        "id": "on_track",
+        "label": "On Track",
+        "count": 4,
+        "percentage": 40
+      },
+      {
+        "id": "follow_up_required",
+        "label": "Follow-up Required",
+        "count": 0,
+        "percentage": 0
+      },
+      {
+        "id": "at_risk",
+        "label": "At Risk",
+        "count": 2,
+        "percentage": 20
+      },
+      {
+        "id": "needs_attention",
+        "label": "Needs Attention",
+        "count": 4,
+        "percentage": 40
+      }
+    ]
+  },
+  "healthFloor6Count_eme": 10,
+  "healthFloor6Count_dal": 0,
+  "healthHistogramEme": {
+    "6": 10
+  },
+  "emptyTimelineInEmeProjection": 10,
+  "emptyTimelineInDalProjection": 0,
+  "perDealDb": [
+    {
+      "dealId": "cmsh9h5sp0003l704nwll3bmt",
+      "dealNumber": "DEAL-2026-000083",
+      "customer": "Saraswat Cooperative Bank",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 1,
+      "latestTimelineEvent": {
+        "eventType": "deal_created",
+        "summary": "Deal DEAL-2026-000083 created for lender SARASWAT",
+        "occurredAt": "2026-08-06T08:35:56.371Z"
+      }
+    },
+    {
+      "dealId": "cmsd27ui50001kz04qam4a1c8",
+      "dealNumber": "DEAL-2026-000082",
+      "customer": "HSBC Bank",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 4,
+      "latestTimelineEvent": {
+        "eventType": "stage_transition",
+        "summary": "Stage final_approved → closure_wip",
+        "occurredAt": "2026-08-06T06:35:57.530Z"
+      }
+    },
+    {
+      "dealId": "cms915gvb0001jg044je81d3v",
+      "dealNumber": "DEAL-2026-000081",
+      "customer": "Yes Bank",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 1,
+      "latestTimelineEvent": {
+        "eventType": "deal_created",
+        "summary": "Deal DEAL-2026-000081 created for lender YES",
+        "occurredAt": "2026-07-31T14:20:44.572Z"
+      }
+    },
+    {
+      "dealId": "cms8iqwp50001l404fkw9yjss",
+      "dealNumber": "DEAL-2026-000077",
+      "customer": "Credit Saison India",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 1,
+      "latestTimelineEvent": {
+        "eventType": "deal_created",
+        "summary": "Deal DEAL-2026-000077 created for lender CREDIT_SAISON",
+        "occurredAt": "2026-07-31T05:45:32.102Z"
+      }
+    },
+    {
+      "dealId": "cms5va9780001l50426gozpiy",
+      "dealNumber": "DEAL-2026-000074",
+      "customer": "HDFC Bank",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 1,
+      "latestTimelineEvent": {
+        "eventType": "deal_created",
+        "summary": "Deal DEAL-2026-000074 created for lender HDFC",
+        "occurredAt": "2026-07-29T09:13:11.619Z"
+      }
+    },
+    {
+      "dealId": "cms4igc2h0003l504flt2sbev",
+      "dealNumber": "DEAL-2026-000072",
+      "customer": "Bank of Baroda",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 2,
+      "latestTimelineEvent": {
+        "eventType": "deal_updated",
+        "summary": "Deal DEAL-2026-000072 updated",
+        "occurredAt": "2026-07-28T10:27:08.850Z"
+      }
+    },
+    {
+      "dealId": "cms8q5k8n0003jr04jysiaj8b",
+      "dealNumber": "DEAL-2026-000079",
+      "customer": "DBS Bank India",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 2,
+      "latestTimelineEvent": {
+        "eventType": "stage_transition",
+        "summary": "Stage logged_in_wip → lost",
+        "occurredAt": "2026-07-31T09:13:31.829Z"
+      }
+    },
+    {
+      "dealId": "cms8r71vm0003k0049q2zzfiy",
+      "dealNumber": "DEAL-2026-000080",
+      "customer": "Bank of Baroda",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 2,
+      "latestTimelineEvent": {
+        "eventType": "stage_transition",
+        "summary": "Stage logged_in_wip → soft_approved",
+        "occurredAt": "2026-07-31T09:42:22.446Z"
+      }
+    },
+    {
+      "dealId": "cms3na23f0001l40439vx7srt",
+      "dealNumber": "DEAL-2026-000071",
+      "customer": "Bajaj Housing Finance",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 3,
+      "latestTimelineEvent": {
+        "eventType": "stage_transition",
+        "summary": "Stage login → lost",
+        "occurredAt": "2026-07-31T09:42:54.290Z"
+      }
+    },
+    {
+      "dealId": "cms8peta10017l504kzyi8l0w",
+      "dealNumber": "DEAL-2026-000078",
+      "customer": "HSBC Bank",
+      "operationalStatus": "on_track",
+      "timelineEventCount": 8,
+      "latestTimelineEvent": {
+        "eventType": "deal_updated",
+        "summary": "Deal DEAL-2026-000078 updated",
+        "occurredAt": "2026-08-05T08:01:06.028Z"
+      }
+    }
+  ],
+  "projectionComparison": [
+    {
+      "dealId": "cmsh9h5sp0003l704nwll3bmt",
+      "dealNumber": "DEAL-2026-000083",
+      "customer": "—",
+      "dbTimelineCount": 1,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 1,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Deal created — workflow stage started — Deal DEAL-2026-000083 created for lender SARASWAT"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Deal created — workflow stage started — Deal DEAL-2026-000083 created for lender SARASWAT",
+        "at": "2026-08-06T08:35:56.371Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "healthy_waiting",
+        "momentumScore": 72,
+        "health": 97,
+        "classification": "on_track",
+        "quadrant": "on_track",
+        "reason": "Awaiting lender / bank TAT"
+      }
+    },
+    {
+      "dealId": "cmsd27ui50001kz04qam4a1c8",
+      "dealNumber": "DEAL-2026-000082",
+      "customer": "—",
+      "dbTimelineCount": 4,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 4,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Workflow stage changed — Stage final_approved → closure_wip",
+        "Workflow stage changed — Stage soft_approved → final_approved",
+        "Workflow stage changed — Stage logged_in_wip → soft_approved",
+        "Deal created — workflow stage started — Deal DEAL-2026-000082 created for lender HSBC"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Workflow stage changed — Stage final_approved → closure_wip",
+        "at": "2026-08-06T06:35:57.530Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "healthy_waiting",
+        "momentumScore": 82,
+        "health": 99,
+        "classification": "on_track",
+        "quadrant": "on_track",
+        "reason": "Awaiting legal / closure dependency"
+      }
+    },
+    {
+      "dealId": "cms915gvb0001jg044je81d3v",
+      "dealNumber": "DEAL-2026-000081",
+      "customer": "—",
+      "dbTimelineCount": 1,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 1,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Deal created — workflow stage started — Deal DEAL-2026-000081 created for lender YES"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Deal created — workflow stage started — Deal DEAL-2026-000081 created for lender YES",
+        "at": "2026-07-31T14:20:44.572Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "healthy_waiting",
+        "momentumScore": 72,
+        "health": 97,
+        "classification": "on_track",
+        "quadrant": "on_track",
+        "reason": "Awaiting lender / bank TAT"
+      }
+    },
+    {
+      "dealId": "cms8iqwp50001l404fkw9yjss",
+      "dealNumber": "DEAL-2026-000077",
+      "customer": "—",
+      "dbTimelineCount": 1,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 1,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Deal created — workflow stage started — Deal DEAL-2026-000077 created for lender CREDIT_SAISON"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Deal created — workflow stage started — Deal DEAL-2026-000077 created for lender CREDIT_SAISON",
+        "at": "2026-07-31T05:45:32.102Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "needs_follow_up",
+        "momentumScore": 18,
+        "health": 38,
+        "classification": "needs_attention",
+        "quadrant": "needs_attention",
+        "reason": "Sparse activity for 8 days"
+      }
+    },
+    {
+      "dealId": "cms5va9780001l50426gozpiy",
+      "dealNumber": "DEAL-2026-000074",
+      "customer": "—",
+      "dbTimelineCount": 1,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 1,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Deal created — workflow stage started — Deal DEAL-2026-000074 created for lender HDFC"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Deal created — workflow stage started — Deal DEAL-2026-000074 created for lender HDFC",
+        "at": "2026-07-29T09:13:11.619Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "at_risk",
+        "momentumScore": 15,
+        "health": 7,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      }
+    },
+    {
+      "dealId": "cms4igc2h0003l504flt2sbev",
+      "dealNumber": "DEAL-2026-000072",
+      "customer": "—",
+      "dbTimelineCount": 2,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 2,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Deal record updated — Deal DEAL-2026-000072 updated",
+        "Deal created — workflow stage started — Deal DEAL-2026-000072 created for lender BOB"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Deal record updated — Deal DEAL-2026-000072 updated",
+        "at": "2026-07-28T10:27:08.850Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "at_risk",
+        "momentumScore": 15,
+        "health": 7,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      }
+    },
+    {
+      "dealId": "cms8q5k8n0003jr04jysiaj8b",
+      "dealNumber": "DEAL-2026-000079",
+      "customer": "—",
+      "dbTimelineCount": 2,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 2,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Workflow stage changed — Stage logged_in_wip → lost",
+        "Deal created — workflow stage started — Deal DEAL-2026-000079 created for lender DBS_INDIA"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Workflow stage changed — Stage logged_in_wip → lost",
+        "at": "2026-07-31T09:13:31.829Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "needs_follow_up",
+        "momentumScore": 18,
+        "health": 38,
+        "classification": "needs_attention",
+        "quadrant": "needs_attention",
+        "reason": "Sparse activity for 8 days"
+      }
+    },
+    {
+      "dealId": "cms8r71vm0003k0049q2zzfiy",
+      "dealNumber": "DEAL-2026-000080",
+      "customer": "—",
+      "dbTimelineCount": 2,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 2,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Workflow stage changed — Stage logged_in_wip → soft_approved",
+        "Deal created — workflow stage started — Deal DEAL-2026-000080 created for lender BOB"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Workflow stage changed — Stage logged_in_wip → soft_approved",
+        "at": "2026-07-31T09:42:22.446Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "needs_follow_up",
+        "momentumScore": 18,
+        "health": 38,
+        "classification": "needs_attention",
+        "quadrant": "needs_attention",
+        "reason": "Sparse activity for 8 days"
+      }
+    },
+    {
+      "dealId": "cms3na23f0001l40439vx7srt",
+      "dealNumber": "DEAL-2026-000071",
+      "customer": "—",
+      "dbTimelineCount": 3,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 3,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Workflow stage changed — Stage login → lost",
+        "Deal record updated — Deal DEAL-2026-000071 updated",
+        "Deal created — workflow stage started — Deal DEAL-2026-000071 created for lender BAJAJ"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Workflow stage changed — Stage login → lost",
+        "at": "2026-07-31T09:42:54.290Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "needs_follow_up",
+        "momentumScore": 18,
+        "health": 38,
+        "classification": "needs_attention",
+        "quadrant": "needs_attention",
+        "reason": "Sparse activity for 8 days"
+      }
+    },
+    {
+      "dealId": "cms8peta10017l504kzyi8l0w",
+      "dealNumber": "DEAL-2026-000078",
+      "customer": "—",
+      "dbTimelineCount": 8,
+      "emeProjectionTimelineLength": 0,
+      "dalProjectionTimelineLength": 8,
+      "emeTimelineEventTypes": [],
+      "dalTimelineEventTypes": [
+        "Deal record updated — Deal DEAL-2026-000078 updated",
+        "Deal record updated — Deal DEAL-2026-000078 updated",
+        "Deal record updated — Deal DEAL-2026-000078 updated",
+        "Deal record updated — Deal DEAL-2026-000078 updated",
+        "Workflow stage changed — Stage final_approved → closure_wip"
+      ],
+      "emeLatestEvent": null,
+      "dalLatestEvent": {
+        "title": "Deal record updated — Deal DEAL-2026-000078 updated",
+        "at": "2026-08-05T08:01:06.028Z"
+      },
+      "eme": {
+        "activityState": "at_risk",
+        "momentumScore": 9,
+        "health": 6,
+        "classification": "at_risk",
+        "quadrant": "at_risk",
+        "reason": "Activity Intelligence: critically delayed operational freshness"
+      },
+      "dal": {
+        "activityState": "healthy_waiting",
+        "momentumScore": 72,
+        "health": 97,
+        "classification": "on_track",
+        "quadrant": "on_track",
+        "reason": "Awaiting legal / closure dependency"
+      }
+    }
+  ]
+}

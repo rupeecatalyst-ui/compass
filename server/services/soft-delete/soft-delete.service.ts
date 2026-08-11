@@ -12,11 +12,11 @@ import { softDeleteLedgerRepository } from "@server/repositories/soft-delete/led
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import { contactSoftDeleteAdapter } from "./adapters/contact.adapter";
 import { companySoftDeleteAdapter } from "./adapters/company.adapter";
+import { dealSoftDeleteAdapter } from "./adapters/deal.adapter";
+import { opportunitySoftDeleteAdapter } from "./adapters/opportunity.adapter";
+import { organizationDocumentSoftDeleteAdapter } from "./adapters/organization-document.adapter";
 import {
-  documentSoftDeleteAdapter,
-  loanFileSoftDeleteAdapter,
   noteSoftDeleteAdapter,
-  opportunitySoftDeleteAdapter,
   taskSoftDeleteAdapter,
   workflowSoftDeleteAdapter,
 } from "./adapters/stub.adapters";
@@ -32,8 +32,8 @@ const ADAPTERS: Record<SoftDeleteModuleId, SoftDeleteModuleAdapter> = {
   contacts: contactSoftDeleteAdapter,
   companies: companySoftDeleteAdapter,
   opportunities: opportunitySoftDeleteAdapter,
-  loan_files: loanFileSoftDeleteAdapter,
-  documents: documentSoftDeleteAdapter,
+  loan_files: dealSoftDeleteAdapter,
+  documents: organizationDocumentSoftDeleteAdapter,
   tasks: taskSoftDeleteAdapter,
   notes: noteSoftDeleteAdapter,
   workflow_instances: workflowSoftDeleteAdapter,

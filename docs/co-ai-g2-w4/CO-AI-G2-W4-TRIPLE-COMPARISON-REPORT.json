@@ -1,0 +1,253 @@
+{
+  "reportId": "eao_triple_suite_b58dcc62-841c-411d-8b89-662dfc291f24",
+  "title": "CO-AI-G2-W4 Triple Comparison — Internal Evaluation Suite",
+  "version": "1.0.0-g2-w4",
+  "comparisons": [
+    {
+      "comparisonId": "eao_triple_18a19e44-3e71-4c7b-9e20-397433075086",
+      "version": "1.0.0-g2-w4",
+      "customerUtterance": "How fast can I get a business loan?",
+      "productPath": "business_loan",
+      "matchedGold": {
+        "conversationId": "gold_bl_timeline",
+        "productLabel": "Business Loan",
+        "title": "Business loan speed",
+        "customerGoldText": "How fast can I get a business loan?",
+        "consultantGoldText": "With complete documents, some business loan cases can move quite quickly, although timelines depend on the lender and your profile. Is your business a proprietorship, partnership, or private limited?",
+        "matchScore": 1
+      },
+      "arms": [
+        {
+          "armId": "live_sarathi",
+          "label": "Current SARATHI",
+          "facingText": "With complete documents, some business loan cases can move quite quickly, although timelines depend on the lender and your profile. Is your business a proprietorship, partnership, or private limited?",
+          "score": 85.5,
+          "strengths": [
+            "Substantive reply length",
+            "Avoids banned generic chatbot phrasing",
+            "No invented EMI/rate/approval claims detected",
+            "Includes a follow-up question",
+            "Addresses a direct customer question with substance",
+            "Meaningful lexical alignment with gold standard"
+          ],
+          "weaknesses": [],
+          "deviationFromGold": 0,
+          "recommendation": "Strong consultant pattern — preserve answer-first and safety."
+        },
+        {
+          "armId": "reasoning_model",
+          "label": "Conversational Reasoning Model",
+          "facingText": "That's a fair question. Timelines and fit depend on your profile and documents — I won't invent numbers, but I can guide what typically matters next.",
+          "score": 77.4,
+          "strengths": [
+            "Substantive reply length",
+            "Avoids banned generic chatbot phrasing",
+            "No invented EMI/rate/approval claims detected",
+            "Addresses a direct customer question with substance"
+          ],
+          "weaknesses": [
+            "Missing a clear next question",
+            "Low lexical alignment with matched gold consultant reply"
+          ],
+          "deviationFromGold": 8.1,
+          "recommendation": "Advance with one high-value missing fact question after answering."
+        },
+        {
+          "armId": "gold_standard",
+          "label": "Gold Standard Consultation",
+          "facingText": "With complete documents, some business loan cases can move quite quickly, although timelines depend on the lender and your profile. Is your business a proprietorship, partnership, or private limited?",
+          "score": 85.5,
+          "strengths": [
+            "Substantive reply length",
+            "Avoids banned generic chatbot phrasing",
+            "No invented EMI/rate/approval claims detected",
+            "Includes a follow-up question",
+            "Addresses a direct customer question with substance",
+            "Meaningful lexical alignment with gold standard"
+          ],
+          "weaknesses": [],
+          "deviationFromGold": 0,
+          "recommendation": "Strong consultant pattern — preserve answer-first and safety."
+        }
+      ],
+      "score": 81.5,
+      "deviation": 4.1,
+      "strengths": [
+        "Substantive reply length",
+        "Avoids banned generic chatbot phrasing",
+        "Includes a follow-up question",
+        "Addresses a direct customer question with substance"
+      ],
+      "weaknesses": [
+        "Missing a clear next question",
+        "Low lexical alignment with matched gold consultant reply"
+      ],
+      "recommendation": "Live SARATHI currently closer to gold — keep live facing; use model for gap analysis only.",
+      "customerIsolated": true,
+      "comparedAt": "2026-08-06T19:21:28.035Z"
+    },
+    {
+      "comparisonId": "eao_triple_115adc3e-68ed-4317-ab32-430fac80a320",
+      "version": "1.0.0-g2-w4",
+      "customerUtterance": "I want to buy my first home — a ready flat in Pune.",
+      "productPath": "home_loan",
+      "matchedGold": {
+        "conversationId": "gold_hl_first_home",
+        "productLabel": "Home Loan",
+        "title": "First home — ready flat",
+        "customerGoldText": "I want to buy my first home — a ready flat in Pune.",
+        "consultantGoldText": "I'd be glad to help with your first home purchase in Pune. Before we go deeper, are you salaried or self-employed?",
+        "matchScore": 1
+      },
+      "arms": [
+        {
+          "armId": "live_sarathi",
+          "label": "Current SARATHI",
+          "facingText": "I'd be glad to help with your first home purchase in Pune. Before we go deeper, are you salaried or self-employed?",
+          "score": 78,
+          "strengths": [
+            "Substantive reply length",
+            "Avoids banned generic chatbot phrasing",
+            "No invented EMI/rate/approval claims detected",
+            "Includes a follow-up question",
+            "Meaningful lexical alignment with gold standard"
+          ],
+          "weaknesses": [],
+          "deviationFromGold": 0,
+          "recommendation": "Maintain current consultant posture."
+        },
+        {
+          "armId": "reasoning_model",
+          "label": "Conversational Reasoning Model",
+          "facingText": "Thank you for sharing that. To advise accurately, it helps to know which loan type you're exploring and roughly how much funding you need.",
+          "score": 70.9,
+          "strengths": [
+            "Substantive reply length",
+            "Avoids banned generic chatbot phrasing",
+            "No invented EMI/rate/approval claims detected"
+          ],
+          "weaknesses": [
+            "Missing a clear next question",
+            "Low lexical alignment with matched gold consultant reply"
+          ],
+          "deviationFromGold": 7.1,
+          "recommendation": "Advance with one high-value missing fact question after answering."
+        },
+        {
+          "armId": "gold_standard",
+          "label": "Gold Standard Consultation",
+          "facingText": "I'd be glad to help with your first home purchase in Pune. Before we go deeper, are you salaried or self-employed?",
+          "score": 78,
+          "strengths": [
+            "Substantive reply length",
+            "Avoids banned generic chatbot phrasing",
+            "No invented EMI/rate/approval claims detected",
+            "Includes a follow-up question",
+            "Meaningful lexical alignment with gold standard"
+          ],
+          "weaknesses": [],
+          "deviationFromGold": 0,
+          "recommendation": "Maintain current consultant posture."
+        }
+      ],
+      "score": 74.5,
+      "deviation": 3.6,
+      "strengths": [
+        "Substantive reply length",
+        "Avoids banned generic chatbot phrasing",
+        "Includes a follow-up question"
+      ],
+      "weaknesses": [
+        "Missing a clear next question",
+        "Low lexical alignment with matched gold consultant reply"
+      ],
+      "recommendation": "Live SARATHI currently closer to gold — keep live facing; use model for gap analysis only.",
+      "customerIsolated": true,
+      "comparedAt": "2026-08-06T19:21:28.035Z"
+    },
+    {
+      "comparisonId": "eao_triple_fa95b566-2291-4d0f-9d87-87bb267e77c4",
+      "version": "1.0.0-g2-w4",
+      "customerUtterance": "I want a home loan balance transfer to reduce my EMI.",
+      "productPath": "balance_transfer",
+      "matchedGold": {
+        "conversationId": "gold_bt_reduce_emi",
+        "productLabel": "Balance Transfer",
+        "title": "BT to reduce EMI",
+        "customerGoldText": "I want a home loan balance transfer to reduce my EMI.",
+        "consultantGoldText": "Balance transfer can help when your current rate or EMI is no longer competitive. Which bank is your current home loan with?",
+        "matchScore": 1
+      },
+      "arms": [
+        {
+          "armId": "live_sarathi",
+          "label": "Current SARATHI",
+          "facingText": "Let's explore your options. Share whatever feels useful next.",
+          "score": 53.1,
+          "strengths": [
+            "Substantive reply length",
+            "No invented EMI/rate/approval claims detected"
+          ],
+          "weaknesses": [
+            "Contains banned generic phrasing",
+            "Missing a clear next question",
+            "Low lexical alignment with matched gold consultant reply"
+          ],
+          "deviationFromGold": 22.5,
+          "recommendation": "Replace generic chatbot lines with answer-first, case-specific guidance."
+        },
+        {
+          "armId": "reasoning_model",
+          "label": "Conversational Reasoning Model",
+          "facingText": "Balance transfer can help when your current rate or EMI is no longer competitive. Which bank is your current home loan with?",
+          "score": 75.6,
+          "strengths": [
+            "Substantive reply length",
+            "Avoids banned generic chatbot phrasing",
+            "No invented EMI/rate/approval claims detected",
+            "Includes a follow-up question",
+            "Meaningful lexical alignment with gold standard"
+          ],
+          "weaknesses": [],
+          "deviationFromGold": 0,
+          "recommendation": "Maintain current consultant posture."
+        },
+        {
+          "armId": "gold_standard",
+          "label": "Gold Standard Consultation",
+          "facingText": "Balance transfer can help when your current rate or EMI is no longer competitive. Which bank is your current home loan with?",
+          "score": 75.6,
+          "strengths": [
+            "Substantive reply length",
+            "Avoids banned generic chatbot phrasing",
+            "No invented EMI/rate/approval claims detected",
+            "Includes a follow-up question",
+            "Meaningful lexical alignment with gold standard"
+          ],
+          "weaknesses": [],
+          "deviationFromGold": 0,
+          "recommendation": "Maintain current consultant posture."
+        }
+      ],
+      "score": 64.4,
+      "deviation": 11.3,
+      "strengths": [
+        "Substantive reply length",
+        "Avoids banned generic chatbot phrasing",
+        "Includes a follow-up question"
+      ],
+      "weaknesses": [
+        "Contains banned generic phrasing",
+        "Missing a clear next question",
+        "Low lexical alignment with matched gold consultant reply"
+      ],
+      "recommendation": "Reasoning model outperforms live on this turn — candidate insight for future Hybrid (not customer-visible).",
+      "customerIsolated": true,
+      "comparedAt": "2026-08-06T19:21:28.036Z"
+    }
+  ],
+  "suiteScore": 73.5,
+  "suiteDeviation": 6.3,
+  "generatedAt": "2026-08-06T19:21:28.036Z",
+  "customerIsolated": true
+}

@@ -1,0 +1,160 @@
+1. Aavas Financiers | HFC | AAVAS | cms4cn922002fwen4g8fbotm7 | Active | LAP Mapped: Yes | Programs: Aavas — Loan Against Property (LAP) | Priority: —
+2. Abhyudaya Cooperative Bank | Cooperative Bank | ABHYUDAYA | cms4cnrmq0047wen4n1pdo8xw | Active | LAP Mapped: Yes | Programs: Abhyudaya — Loan Against Property (LAP) | Priority: —
+3. Aditya Birla Finance | NBFC | ADITYA_BIRLA_FINANCE | cms4cngrl0037wen43lkirriv | Active | LAP Mapped: Yes | Programs: ABFL — Loan Against Property (LAP) | Priority: —
+4. Aditya Birla Housing Finance | HFC | ADITYA_BIRLA_HOUSING | cms4cnccj002rwen4y76rmxjc | Active | LAP Mapped: Yes | Programs: ABHFL — Loan Against Property (LAP) | Priority: —
+5. Altum Credo | HFC | ALTUM_CREDO | cms8hqezk001pwed86myx2xve | Active | LAP Mapped: Yes | Programs: Altum Credo — Loan Against Property (LAP) | Priority: —
+6. Annapurna Finance | NBFC | ANNAPURNA_FINANCE | cms8hqun80049wed8rdykrel2 | Active | LAP Mapped: Yes | Programs: Annapurna — Loan Against Property (LAP) | Priority: —
+7. Aptus Value Housing Finance | HFC | APTUS | cms4cndzn002xwen4p9q2yisd | Active | LAP Mapped: Yes | Programs: Aptus — Loan Against Property (LAP) | Priority: —
+8. Arohan | NBFC | AROHAN | cms8hqwbc004jwed8y0s4uj1c | Active | LAP Mapped: Yes | Programs: Arohan — Loan Against Property (LAP) | Priority: —
+9. Asirvad Micro Finance | NBFC | ASIRVAD | cms8hqwn2004lwed8swo6uu50 | Active | LAP Mapped: Yes | Programs: Asirvad — Loan Against Property (LAP) | Priority: —
+10. AU Small Finance Bank | SFB | AU_SFB | cms4cn0sw001lwen4gdbtp9n1 | Active | LAP Mapped: Yes | Programs: AU SFB — Loan Against Property (LAP) | Priority: —
+11. Axis Bank | Private Bank | AXIS | cmrusopch003hwe60phw80i5i | Active | LAP Mapped: Yes | Programs: Axis — Loan Against Property (LAP) | Priority: —
+12. Aye Finance | NBFC | AYE_FINANCE | cms8hqtwo0045wed8j2q5135d | Active | LAP Mapped: Yes | Programs: Aye — Loan Against Property (LAP) | Priority: —
+13. Bajaj Finance | NBFC | BAJAJ_FINANCE | cms4cnfmd0033wen4dd25gl97 | Active | LAP Mapped: Yes | Programs: Bajaj Finance — Loan Against Property (LAP) | Priority: —
+14. Bajaj Housing Finance | HFC | BAJAJ_HOUSING | cms4cn7yv002bwen44z7wjg6l | Active | LAP Mapped: Yes | Programs: Bajaj HFL — Loan Against Property (LAP) | Priority: —  [DUPLICATE NAME — DIFFERENT RECORD]
+15. Bajaj Housing Finance | HFC | BAJAJ | cmrusophn003jwe60hymttfjn | Active | LAP Mapped: Yes | Programs: Loan Against Property Program | Priority: —  [DUPLICATE NAME — DIFFERENT RECORD]
+16. Bandhan Bank | Private Bank | BANDHAN | cms4cmym7001dwen4yy0kag4p | Active | LAP Mapped: Yes | Programs: Bandhan — Loan Against Property (LAP) | Priority: —
+17. Bandhan Financial Services | NBFC | BANDHAN_FINANCIAL | cms8hqvzg004hwed8c21xvesr | Active | LAP Mapped: Yes | Programs: Bandhan FS — Loan Against Property (LAP) | Priority: —
+18. Bank of America | Bank | BANK_OF_AMERICA | cms8hq5jy000bwed8cw15ailo | Active | LAP Mapped: Yes | Programs: BofA — Loan Against Property (LAP) | Priority: —
+19. Bank of Baroda | Public Bank | BOB | cms4cmkgh0003wen4racfsmj4 | Active | LAP Mapped: Yes | Programs: BoB — Loan Against Property (LAP) | Priority: —
+20. Bank of India | Public Bank | BOI | cms4cmn6x000dwen4ppiw05e0 | Active | LAP Mapped: Yes | Programs: BoI — Loan Against Property (LAP) | Priority: —
+21. Bank of Maharashtra | Public Bank | BOM | cms4cmpds000lwen4uwizbmrj | Active | LAP Mapped: Yes | Programs: BoM — Loan Against Property (LAP) | Priority: —
+22. Barclays Bank | Bank | BARCLAYS | cms8hr7h1006dwed8sffs0yn3 | Active | LAP Mapped: Yes | Programs: Barclays — Loan Against Property (LAP) | Priority: —
+23. BBK | Bank | BANK_OF_BAHRAIN | cms8hrcez006xwed8u8up0x9i | Active | LAP Mapped: Yes | Programs: BBK — Loan Against Property (LAP) | Priority: —
+24. Belstar Microfinance | NBFC | BELSTAR | cms8hqwz3004nwed8vkbk3y3m | Active | LAP Mapped: Yes | Programs: Belstar — Loan Against Property (LAP) | Priority: —
+25. Bharat Cooperative Bank | Cooperative Bank | BHARAT_COOP | cms4cns8a0049wen434kaf4h7 | Active | LAP Mapped: Yes | Programs: Bharat Coop — Loan Against Property (LAP) | Priority: —
+26. BNP Paribas | Bank | BNP_PARIBAS | cms8hr7y5006fwed8w8xgj1ls | Active | LAP Mapped: Yes | Programs: BNP Paribas — Loan Against Property (LAP) | Priority: —
+27. Can Fin Homes | HFC | CAN_FIN | cms4cnej5002zwen430ybcgrk | Active | LAP Mapped: Yes | Programs: Can Fin — Loan Against Property (LAP) | Priority: —
+28. Canara Bank | Public Bank | CANARA | cms4cmljv0007wen4xa9hgtpl | Active | LAP Mapped: Yes | Programs: Canara — Loan Against Property (LAP) | Priority: —
+29. Capital Small Finance Bank | SFB | CAPITAL_SFB | cms4cn4mv001zwen42nlml0pc | Active | LAP Mapped: Yes | Programs: Capital SFB — Loan Against Property (LAP) | Priority: —
+30. Capri Global | NBFC | CAPRI_GLOBAL | cms4cnlkp003nwen4eywper25 | Active | LAP Mapped: Yes | Programs: Capri — Loan Against Property (LAP) | Priority: —
+31. Central Bank of India | Bank | BF_CENTRAL | cms0zh7lo0005we64kzu4jay1 | Active | LAP Mapped: Yes | Programs: Loan Against Property Program | Priority: —  [DUPLICATE NAME — DIFFERENT RECORD]
+32. Central Bank of India | Public Bank | CBI | cms4cmnqu000fwen42ygnftpi | Active | LAP Mapped: Yes | Programs: CBI — Loan Against Property (LAP) | Priority: —  [DUPLICATE NAME — DIFFERENT RECORD]
+33. Centrum Housing Finance | HFC | CENTRUM_HOUSING | cms8hqdy7001jwed845jhmr40 | Active | LAP Mapped: Yes | Programs: Centrum HFC — Loan Against Property (LAP) | Priority: —
+34. Cholamandalam Investment & Finance | NBFC | CHOLA | cms4cnhyz003bwen45z3id9dm | Active | LAP Mapped: Yes | Programs: Chola — Loan Against Property (LAP) | Priority: —
+35. Citibank | Bank | CITIBANK | cms8hq60x000dwed8rmrvt41d | Active | LAP Mapped: Yes | Programs: Citi — Loan Against Property (LAP) | Priority: —
+36. City Union Bank | Private Bank | CUB | cms4cmwfb0015wen4tjpqtz8y | Active | LAP Mapped: Yes | Programs: CUB — Loan Against Property (LAP) | Priority: —
+37. Clix Capital | NBFC | CLIX_CAPITAL | cms8hrzug00ajwed8qwz7d961 | Active | LAP Mapped: Yes | Programs: Clix Capital — Loan Against Property (LAP) | Priority: —
+38. Clix Housing Finance | HFC | CLIX_HOUSING | cms8hqb0z0013wed859qo9skj | Active | LAP Mapped: Yes | Programs: Clix HFC — Loan Against Property (LAP) | Priority: —
+39. Cosmos Cooperative Bank | Cooperative Bank | COSMOS | cms4cnptn0041wen4c63jdpf6 | Active | LAP Mapped: Yes | Programs: Cosmos — Loan Against Property (LAP) | Priority: —
+40. Credit Agricole CIB | Bank | CREDIT_AGRICOLE | cms8hr8fa006hwed82t5kadwt | Active | LAP Mapped: Yes | Programs: CACIB — Loan Against Property (LAP) | Priority: —
+41. Credit Saison India | NBFC | CREDIT_SAISON | cms8hs06p00alwed8uj1in1tl | Active | LAP Mapped: Yes | Programs: Credit Saison — Loan Against Property (LAP) | Priority: —
+42. CreditAccess Grameen | NBFC | CREDITACCESS | cms8hqvbi004dwed80z1ggcoa | Active | LAP Mapped: Yes | Programs: CA Grameen — Loan Against Property (LAP) | Priority: —
+43. CSB Bank | Private Bank | CSB | cms4cmy2i001bwen46gohs72s | Active | LAP Mapped: Yes | Programs: CSB — Loan Against Property (LAP) | Priority: —
+44. CTBC Bank | Bank | CTBC_BANK | cms8hrcw2006zwed8msy5qbbw | Active | LAP Mapped: Yes | Programs: CTBC — Loan Against Property (LAP) | Priority: —
+45. DBS Bank India | Bank | DBS_INDIA | cms8hq4m00007wed8nyf40466 | Active | LAP Mapped: Yes | Programs: DBS — Loan Against Property (LAP) | Priority: —
+46. DCB Bank | Private Bank | DCB | cms4cmwz20017wen412c85bwt | Active | LAP Mapped: Yes | Programs: DCB — Loan Against Property (LAP) | Priority: —
+47. Deutsche Bank | Bank | DEUTSCHE_BANK | cms8hq5320009wed8mkd9nu57 | Active | LAP Mapped: Yes | Programs: Deutsche — Loan Against Property (LAP) | Priority: —
+48. Dhanlaxmi Bank | Private Bank | DHANLAXMI_BANK | cms8hq7zb000lwed8e6wredb5 | Active | LAP Mapped: Yes | Programs: Dhanlaxmi — Loan Against Property (LAP) | Priority: —
+49. DHFL (Legacy) | HFC | DHFL_LEGACY | cms8hq9bx000twed8euca2a8j | Active | LAP Mapped: Yes | Programs: DHFL — Loan Against Property (LAP) | Priority: —
+50. Doha Bank | Bank | DOHA_BANK | cms8hq7ib000jwed8kuyd0g4a | Active | LAP Mapped: Yes | Programs: Doha — Loan Against Property (LAP) | Priority: —
+51. Easy Home Finance | HFC | EASY_HOME_FINANCE | cms8hqeam001lwed8t4z8lfjf | Active | LAP Mapped: Yes | Programs: Easy Home — Loan Against Property (LAP) | Priority: —
+52. Edelweiss Finance | NBFC | EDELWEISS | cms4cnm68003pwen4f9zoqxtd | Active | LAP Mapped: Yes | Programs: Edelweiss — Loan Against Property (LAP) | Priority: —
+53. Electronica Finance | NBFC | ELECTRONICA_FINANCE | cms8hqskc003xwed8p4qh2rqw | Active | LAP Mapped: Yes | Programs: EFL — Loan Against Property (LAP) | Priority: —
+54. Emirates NBD | Bank | EMIRATES_NBD | cms8hrazz006rwed8e1oyj9gr | Active | LAP Mapped: Yes | Programs: ENBD — Loan Against Property (LAP) | Priority: —
+55. Equitas Small Finance Bank | SFB | EQUITAS_SFB | cms4cn1ci001nwen42wevago5 | Active | LAP Mapped: Yes | Programs: Equitas — Loan Against Property (LAP) | Priority: —
+56. ESAF Small Finance Bank | SFB | ESAF_SFB | cms4cn2zy001twen4cilgo0iu | Active | LAP Mapped: Yes | Programs: ESAF — Loan Against Property (LAP) | Priority: —
+57. EXIM Bank | NBFC | EXIM_BANK | cms8hr0o30059wed87zifv6sk | Active | LAP Mapped: Yes | Programs: EXIM — Loan Against Property (LAP) | Priority: —
+58. Federal Bank | Private Bank | FEDERAL | cms4cmsvt000twen4qf3d6wok | Active | LAP Mapped: Yes | Programs: Federal — Loan Against Property (LAP) | Priority: —
+59. First Abu Dhabi Bank | Bank | FIRST_ABU_DHABI | cms8hrab3006pwed8hjuecqdp | Active | LAP Mapped: Yes | Programs: FAB — Loan Against Property (LAP) | Priority: —
+60. Fullerton India | NBFC | FULLERTON_INDIA_CREDIT | cms8hqbd30015wed8kt2jn0n4 | Active | LAP Mapped: Yes | Programs: Fullerton — Loan Against Property (LAP) | Priority: —
+61. Fullerton India Home Finance | HFC | FULLERTON_INDIA_HOME | cms8hqbp90017wed8jsdj6ewo | Active | LAP Mapped: Yes | Programs: Fullerton Home — Loan Against Property (LAP) | Priority: —
+62. Fusion Finance | NBFC | FUSION_FINANCE | cms8hqvnj004fwed8yqlkye36 | Active | LAP Mapped: Yes | Programs: Fusion — Loan Against Property (LAP) | Priority: —
+63. GIC Housing Finance | HFC | GIC_HOUSING | cms4cnap4002lwen446g7ksa4 | Active | LAP Mapped: Yes | Programs: GICHFL — Loan Against Property (LAP) | Priority: —
+64. Godrej Housing Finance | HFC | GODREJ_HOUSING | cms4cncw9002twen4ix8wilkp | Active | LAP Mapped: Yes | Programs: Godrej HFL — Loan Against Property (LAP) | Priority: —
+65. GRUH Finance | HFC | GRUH_FINANCE | cms8hq9o3000vwed8m34wlxdy | Active | LAP Mapped: Yes | Programs: GRUH — Loan Against Property (LAP) | Priority: —
+66. HDB Financial Services | NBFC | HDB_FINANCIAL | cms8hru7f009pwed8w8c1qs28 | Active | LAP Mapped: Yes | Programs: HDBFS — Loan Against Property (LAP) | Priority: —
+67. HDFC Bank | Private Bank | HDFC | cmrusopl1003lwe601zac0dvs | Active | LAP Mapped: Yes | Programs: HDFC — Loan Against Property (LAP) | Priority: —
+68. HDFC Credila | NBFC | HDFC_CREDILA | cms8hqfnz001twed80g0fuwf9 | Active | LAP Mapped: Yes | Programs: Credila — Loan Against Property (LAP) | Priority: —
+69. Hero FinCorp | NBFC | HERO_FINCORP | cms4cnoly003xwen4muehb0ef | Active | LAP Mapped: Yes | Programs: Hero FinCorp — Loan Against Property (LAP) | Priority: —
+70. Hinduja Leyland Finance | NBFC | HINDUJA_LEYLAND | cms4cnnzf003vwen43xt306wy | Active | LAP Mapped: Yes | Programs: HLF — Loan Against Property (LAP) | Priority: —
+71. Home First Finance | HFC | HOME_FIRST | cms4cn8ij002dwen4qj89x7pn | Active | LAP Mapped: Yes | Programs: Home First — Loan Against Property (LAP) | Priority: —
+72. HSBC Bank | Bank | HSBC | cms8hq4540005wed8g8qwfida | Active | LAP Mapped: Yes | Programs: HSBC — Loan Against Property (LAP) | Priority: —
+73. ICICI Bank | Private Bank | ICICI | cmrusopoe003nwe60331ytwfx | Active | LAP Mapped: Yes | Programs: ICICI — Loan Against Property (LAP) | Priority: —
+74. ICICI Home Finance | HFC | ICICI_HOME_FINANCE | cms8hqc1h0019wed8ajjnhvxf | Active | LAP Mapped: Yes | Programs: ICICI HFC — Loan Against Property (LAP) | Priority: —
+75. IDBI Bank | Private Bank | IDBI | cms4cmz5s001fwen4lcqhnj8z | Active | LAP Mapped: Yes | Programs: IDBI — Loan Against Property (LAP) | Priority: —
+76. IDFC FIRST Bank | Private Bank | IDFC_FIRST | cms4cmsbt000rwen4q9tdyqfh | Active | LAP Mapped: Yes | Programs: IDFC FIRST — Loan Against Property (LAP) | Priority: —
+77. IIFL Finance | NBFC | IIFL_FINANCE | cms4cnkdf003jwen4s4uw7m1s | Active | LAP Mapped: Yes | Programs: IIFL — Loan Against Property (LAP) | Priority: —
+78. IIFL Home Finance | HFC | IIFL_HOME | cms4cnb9c002nwen43l915ak6 | Active | LAP Mapped: Yes | Programs: IIFL Home — Loan Against Property (LAP) | Priority: —
+79. IIFL Samasta | NBFC | IIFL_SAMASTA | cms8hqmu5002zwed8kjxf93xs | Active | LAP Mapped: Yes | Programs: Samasta — Loan Against Property (LAP) | Priority: —
+80. India Home Loan | HFC | INDIA_HOME_LOAN | cms8hqcps001dwed84ok4zmvw | Active | LAP Mapped: Yes | Programs: IHL — Loan Against Property (LAP) | Priority: —
+81. India Shelter Finance | HFC | INDIA_SHELTER | cms4cn9lo002hwen4qnj4kuul | Active | LAP Mapped: Yes | Programs: India Shelter — Loan Against Property (LAP) | Priority: —
+82. Indian Bank | Public Bank | INDIAN_BANK | cms4cmmnb000bwen4yc37vp41 | Active | LAP Mapped: Yes | Programs: Indian Bank — Loan Against Property (LAP) | Priority: —
+83. Indian Overseas Bank | Public Bank | IOB | cms4cmoag000hwen46kqfky1h | Active | LAP Mapped: Yes | Programs: IOB — Loan Against Property (LAP) | Priority: —
+84. IndusInd Bank | Private Bank | INDUSIND | cms4cmrsd000pwen4n938ri4v | Active | LAP Mapped: Yes | Programs: IndusInd — Loan Against Property (LAP) | Priority: —
+85. Industrial & Commercial Bank of China (ICBC) | Bank | ICBC | cms8hrywa00afwed8aop436bb | Active | LAP Mapped: Yes | Programs: ICBC — Loan Against Property (LAP) | Priority: —
+86. Industrial Bank of Korea | Bank | INDUSTRIAL_BANK_KOREA | cms8hrdcx0071wed845cfp65y | Active | LAP Mapped: Yes | Programs: IBK — Loan Against Property (LAP) | Priority: —
+87. IOC Finance Desk | NBFC | IOCL_FINANCE | cms8hqo6l0037wed888q4kyv0 | Active | LAP Mapped: Yes | Programs: IOC — Loan Against Property (LAP) | Priority: —
+88. J.P. Morgan Chase Bank | Bank | JP_MORGAN | cms8hrxy300abwed8usffskjj | Active | LAP Mapped: Yes | Programs: J.P. Morgan — Loan Against Property (LAP) | Priority: —
+89. Jammu & Kashmir Bank | Private Bank | JKB | cms4cmzpd001hwen4fn4vpxz5 | Active | LAP Mapped: Yes | Programs: J&K Bank — Loan Against Property (LAP) | Priority: —
+90. Jana Small Finance Bank | SFB | JANA_SFB | cms4cn2gg001rwen4t5dwmg0k | Active | LAP Mapped: Yes | Programs: Jana — Loan Against Property (LAP) | Priority: —
+91. JM Financial Credit | NBFC | JM_FINANCIAL | cms8hqxn5004rwed8p99aqq5i | Active | LAP Mapped: Yes | Programs: JM Financial — Loan Against Property (LAP) | Priority: —
+92. Karnataka Bank | Private Bank | KARNATAKA | cms4cmvc40011wen4mz5p47ew | Active | LAP Mapped: Yes | Programs: KBL — Loan Against Property (LAP) | Priority: —
+93. Karur Vysya Bank | Private Bank | KVB | cms4cmvvn0013wen4i8tb6bzn | Active | LAP Mapped: Yes | Programs: KVB — Loan Against Property (LAP) | Priority: —
+94. KEB Hana Bank | Bank | KEB_HANA | cms8hrdu30073wed86tdbfs2k | Active | LAP Mapped: Yes | Programs: KEB Hana — Loan Against Property (LAP) | Priority: —
+95. Kinara Capital | NBFC | KINARA_CAPITAL | cms8hqtkm0043wed83cuyruqa | Active | LAP Mapped: Yes | Programs: Kinara — Loan Against Property (LAP) | Priority: —
+96. Kotak Mahindra Bank | Private Bank | KOTAK | cmrusoprt003pwe60kshcazu7 | Active | LAP Mapped: Yes | Programs: Kotak — Loan Against Property (LAP) | Priority: —
+97. L&T Finance | NBFC | LT_FINANCE | cms4cnhcu0039wen4z8cd7mva | Active | LAP Mapped: Yes | Programs: L&T Finance — Loan Against Property (LAP) | Priority: —
+98. Lakshmi Vilas Bank (Legacy) | Private Bank | LAXMI_VILAS | cms8hq8bi000nwed8hipls2f3 | Active | LAP Mapped: Yes | Programs: LVB — Loan Against Property (LAP) | Priority: —
+99. LIC Housing Finance | HFC | LIC_HFL | cms4cn6vi0027wen4a2xv1vsq | Active | LAP Mapped: Yes | Programs: LIC HFL — Loan Against Property (LAP) | Priority: —
+100. Mahindra Finance | NBFC | MAHINDRA_FINANCE | cms4cnikz003dwen4ivq9dwsy | Active | LAP Mapped: Yes | Programs: Mahindra Finance — Loan Against Property (LAP) | Priority: —
+101. Mashreq Bank | Bank | MASHREQ_BANK | cms8hrzde00ahwed8jhyto8um | Active | LAP Mapped: Yes | Programs: Mashreq — Loan Against Property (LAP) | Priority: —
+102. Mizuho Bank | Bank | MIZUHO | cms8hr9de006lwed8h35dlwln | Active | LAP Mapped: Yes | Programs: Mizuho — Loan Against Property (LAP) | Priority: —
+103. Motilal Oswal Credit | NBFC | MOTILAL_OSWAL | cms8hqxz5004twed8gi9una78 | Active | LAP Mapped: Yes | Programs: MOFSL Credit — Loan Against Property (LAP) | Priority: —
+104. MUFG Bank | Bank | MUFG_BANK | cms8hr8wh006jwed876rv2dco | Active | LAP Mapped: Yes | Programs: MUFG — Loan Against Property (LAP) | Priority: —
+105. Muthoot Microfin | NBFC | MUTHOOT_MICROFIN | cms8hqxb6004pwed8f16xf0t0 | Active | LAP Mapped: Yes | Programs: Muthoot Microfin — Loan Against Property (LAP) | Priority: —
+106. NABARD | NBFC | NABARD | cms8hr0c20057wed8w9xo4lr0 | Active | LAP Mapped: Yes | Programs: NABARD — Loan Against Property (LAP) | Priority: —
+107. Nainital Bank | Private Bank | NAINITAL | cms4cn08y001jwen42hvxrs0e | Active | LAP Mapped: Yes | Programs: Nainital — Loan Against Property (LAP) | Priority: —
+108. Namdev Finvest | NBFC | NAMDEV_FINVEST | cms8hs0uu00apwed87if2z0ua | Active | LAP Mapped: Yes | Programs: Namdev — Loan Against Property (LAP) | Priority: —
+109. National Housing Bank | NBFC | NHB | cms8hr104005bwed8h1pubbcn | Active | LAP Mapped: Yes | Programs: NHB — Loan Against Property (LAP) | Priority: —
+110. NKGSB Cooperative Bank | Cooperative Bank | NKGSB | cms4cnr100045wen40lyv32tq | Active | LAP Mapped: Yes | Programs: NKGSB — Loan Against Property (LAP) | Priority: —
+111. Nord Housing Finance | HFC | NORD_HOUSING | cms8hqen1001nwed8j2r16o64 | Active | LAP Mapped: Yes | Programs: Nord HFC — Loan Against Property (LAP) | Priority: —
+112. North East Small Finance Bank | SFB | NESFB | cms4cn58j0021wen4gffag33l | Active | LAP Mapped: Yes | Programs: NESFB — Loan Against Property (LAP) | Priority: —
+113. Northern Arc | NBFC | NORTHERN_ARC | cms8hqs89003vwed8ci29xcex | Active | LAP Mapped: Yes | Programs: Northern Arc — Loan Against Property (LAP) | Priority: —
+114. Piramal Finance | NBFC | PIRAMAL_FINANCE | cms4cnkz5003lwen4jfhr97rd | Active | LAP Mapped: Yes | Programs: Piramal Finance — Loan Against Property (LAP) | Priority: —
+115. Piramal Housing Finance | HFC | PIRAMAL_HOUSING | cms4cndg1002vwen4eqlooub2 | Active | LAP Mapped: Yes | Programs: Piramal HFL — Loan Against Property (LAP) | Priority: —
+116. PNB Housing Finance | HFC | PNB_HOUSING | cms4cn7f30029wen4i24wovpa | Active | LAP Mapped: Yes | Programs: PNB Housing — Loan Against Property (LAP) | Priority: —
+117. Poonawalla Fincorp | NBFC | POONAWALLA | cms4cnjs5003hwen4fdzqoebf | Active | LAP Mapped: Yes | Programs: Poonawalla — Loan Against Property (LAP) | Priority: —
+118. Punjab & Sind Bank | Public Bank | PSB | cms4cmpxm000nwen466wwhm7o | Active | LAP Mapped: Yes | Programs: PSB — Loan Against Property (LAP) | Priority: —
+119. Punjab National Bank | Public Bank | PNB | cms4cml070005wen4713bpnwd | Active | LAP Mapped: Yes | Programs: PNB — Loan Against Property (LAP) | Priority: —
+120. QNB | Bank | QATAR_NATIONAL | cms8hrbh1006twed8nlqa8nkx | Active | LAP Mapped: Yes | Programs: QNB — Loan Against Property (LAP) | Priority: —
+121. RBL Bank | Private Bank | RBL | cms4cmu8v000xwen4q8migqib | Active | LAP Mapped: Yes | Programs: RBL — Loan Against Property (LAP) | Priority: —
+122. Reliance Home Finance | HFC | RELIANCE_HOME | cms8hqa0c000xwed86h1eo5mc | Active | LAP Mapped: Yes | Programs: RHF — Loan Against Property (LAP) | Priority: —
+123. Reliance Nippon Housing | HFC | RELIANCE_NIPPON | cms8hqd1r001fwed8ye44xx5k | Active | LAP Mapped: Yes | Programs: RNAM HFC — Loan Against Property (LAP) | Priority: —
+124. Repco Home Finance | HFC | REPCO | cms4cna5e002jwen4ugus668w | Active | LAP Mapped: Yes | Programs: Repco — Loan Against Property (LAP) | Priority: —
+125. Sammaan Capital (Indiabulls Housing) | HFC | INDIABULLS_HOUSING | cms8hq8zn000rwed8nutmly0r | Active | LAP Mapped: Yes | Programs: Sammaan Capital — Loan Against Property (LAP) | Priority: —
+126. Saraswat Cooperative Bank | Cooperative Bank | SARASWAT | cms4cnp84003zwen42y73iquu | Active | LAP Mapped: Yes | Programs: Saraswat — Loan Against Property (LAP) | Priority: —
+127. Satin Housing Finance | HFC | SATIN_HOUSING | cms8hqdlz001hwed8mwc1kieq | Active | LAP Mapped: Yes | Programs: Satin HFC — Loan Against Property (LAP) | Priority: —
+128. SBI Cards | NBFC | SBI_CARDS | cms8hrg4x007fwed85bnip015 | Active | LAP Mapped: Yes | Programs: SBI Cards — Loan Against Property (LAP) | Priority: —
+129. Scotiabank | Bank | BANK_OF_NOVA_SCOTIA | cms8hrbxv006vwed86rlqljas | Active | LAP Mapped: Yes | Programs: Scotiabank — Loan Against Property (LAP) | Priority: —
+130. Shamrao Vithal Cooperative Bank | Cooperative Bank | SVC | cms4cnqfh0043wen468bfvh10 | Active | LAP Mapped: Yes | Programs: SVC — Loan Against Property (LAP) | Priority: —
+131. Shinhan Bank | Bank | SHINHAN_BANK | cms8hq6hx000fwed8xiqblfnz | Active | LAP Mapped: Yes | Programs: Shinhan — Loan Against Property (LAP) | Priority: —
+132. Shivalik Small Finance Bank | SFB | SHIVALIK_SFB | cms4cn5s60023wen4wkvadipu | Active | LAP Mapped: Yes | Programs: Shivalik — Loan Against Property (LAP) | Priority: —
+133. Shriram Finance | NBFC | SHRIRAM_FINANCE | cms4cnj6n003fwen42uyrgovo | Active | LAP Mapped: Yes | Programs: Shriram — Loan Against Property (LAP) | Priority: —
+134. SIDBI | NBFC | SIDBI | cms8hqzzs0055wed8y0ymyp4g | Active | LAP Mapped: Yes | Programs: SIDBI — Loan Against Property (LAP) | Priority: —
+135. SMBC | Bank | SUMITOMO_MITSUI | cms8hr9u1006nwed8m1mpmogv | Active | LAP Mapped: Yes | Programs: SMBC — Loan Against Property (LAP) | Priority: —
+136. SMFG India Credit | NBFC | SMFG_INDIA | cms8hqswj003zwed82nroc47c | Active | LAP Mapped: Yes | Programs: SMFG — Loan Against Property (LAP) | Priority: —
+137. Société Générale | Bank | SOCIETE_GENERALE | cms8hryfe00adwed8epdmpjou | Active | LAP Mapped: Yes | Programs: SocGen — Loan Against Property (LAP) | Priority: —
+138. South Indian Bank | Private Bank | SIB | cms4cmusj000zwen4x47m61qh | Active | LAP Mapped: Yes | Programs: SIB — Loan Against Property (LAP) | Priority: —
+139. Spandana Sphoorty | NBFC | SPANDANA | cms8hquzd004bwed8xvfo4w28 | Active | LAP Mapped: Yes | Programs: Spandana — Loan Against Property (LAP) | Priority: —
+140. Standard Chartered Bank | Bank | STANDARD_CHARTERED | cms8hq3nz0003wed804dmj3ou | Active | LAP Mapped: Yes | Programs: StanChart — Loan Against Property (LAP) | Priority: —
+141. State Bank of India | Public Bank | SBI | cmrusopva003rwe60cjyga2va | Active | LAP Mapped: Yes | Programs: SBI — Loan Against Property (LAP) | Priority: —
+142. State Bank of Mauritius | Bank | STATE_BANK_MAURITIUS | cms8hq716000hwed8zahv9olh | Active | LAP Mapped: Yes | Programs: SBM — Loan Against Property (LAP) | Priority: —
+143. Sundaram Home Finance | HFC | SUNDARAM_HOME | cms4cnf2t0031wen4t89wf2y3 | Active | LAP Mapped: Yes | Programs: Sundaram Home — Loan Against Property (LAP) | Priority: —
+144. Suryoday Small Finance Bank | SFB | SURYODAY_SFB | cms4cn3ji001vwen4cagyq7za | Active | LAP Mapped: Yes | Programs: Suryoday — Loan Against Property (LAP) | Priority: —
+145. Svatantra | NBFC | SVATANTRA | cms8hqu8o0047wed8y00zs6wm | Active | LAP Mapped: Yes | Programs: Svatantra — Loan Against Property (LAP) | Priority: —
+146. Tamilnad Mercantile Bank | Private Bank | TMB | cms4cmxiq0019wen4e5ol0z0d | Active | LAP Mapped: Yes | Programs: TMB — Loan Against Property (LAP) | Priority: —
+147. Tata Capital | NBFC | TATA_CAPITAL | cms4cng5z0035wen4tirf9gtk | Active | LAP Mapped: Yes | Programs: Tata Capital — Loan Against Property (LAP) | Priority: —
+148. Tata Capital Housing Finance | HFC | TATA_CAPITAL_HFL | cms4cnbsz002pwen4ahfno9va | Active | LAP Mapped: Yes | Programs: Tata Capital HFL — Loan Against Property (LAP) | Priority: —
+149. Tata Housing Finance | HFC | TATA_HOUSING | cms8hqacl000zwed8djxc7j9k | Active | LAP Mapped: Yes | Programs: Tata Housing — Loan Against Property (LAP) | Priority: —
+150. UCO Bank | Public Bank | UCO | cms4cmou6000jwen4z4e6t25z | Active | LAP Mapped: Yes | Programs: UCO — Loan Against Property (LAP) | Priority: —
+151. UGRO Capital | NBFC | UGRO_CAPITAL | cms8hqrjx003rwed8dkqgycob | Active | LAP Mapped: Yes | Programs: UGRO — Loan Against Property (LAP) | Priority: —
+152. Ujjivan Small Finance Bank | SFB | UJJIVAN_SFB | cms4cn1w4001pwen4zpbally2 | Active | LAP Mapped: Yes | Programs: Ujjivan — Loan Against Property (LAP) | Priority: —
+153. Union Bank of India | Public Bank | UNION | cms4cmm3o0009wen4yhucbia9 | Active | LAP Mapped: Yes | Programs: Union — Loan Against Property (LAP) | Priority: —
+154. Unity Small Finance Bank | SFB | UNITY_SFB | cms4cn6bs0025wen42dd7eggm | Active | LAP Mapped: Yes | Programs: Unity — Loan Against Property (LAP) | Priority: —
+155. Utkarsh Small Finance Bank | SFB | UTKARSH_SFB | cms4cn43c001xwen4ihd9730u | Active | LAP Mapped: Yes | Programs: Utkarsh — Loan Against Property (LAP) | Priority: —
+156. Varthana | NBFC | VARTHANA | cms8hqfbp001rwed84wnony7q | Active | LAP Mapped: Yes | Programs: Varthana — Loan Against Property (LAP) | Priority: —
+157. Vastu Housing Finance | HFC | VASTU_HOUSING | cms8hqaor0011wed8zfke5cxx | Active | LAP Mapped: Yes | Programs: Vastu HFC — Loan Against Property (LAP) | Priority: —
+158. Vivriti Capital | NBFC | VIVRITI_CAPITAL | cms8hqrw4003twed8trtn5mrs | Active | LAP Mapped: Yes | Programs: Vivriti — Loan Against Property (LAP) | Priority: —
+159. Woori Bank | Bank | WOORI_BANK | cms8hreb20075wed8xqluqzza | Active | LAP Mapped: Yes | Programs: Woori — Loan Against Property (LAP) | Priority: —
+160. Yes Bank | Private Bank | YES | cms4cmtp4000vwen44q8r6ajy | Active | LAP Mapped: Yes | Programs: Yes — Loan Against Property (LAP) | Priority: —

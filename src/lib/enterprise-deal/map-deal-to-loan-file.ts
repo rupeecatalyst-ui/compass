@@ -12,6 +12,11 @@
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import { resolveDealStageProjection } from "@/lib/enterprise-deal/deal-stage-projection";
 import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
+import {
+  mapEnterpriseDealActivityTimelineToLoanFileEvents,
+  mergeLoanFileTimelines,
+  type EnterpriseDealActivityTimelineEvent,
+} from "@/lib/enterprise-deal/enterprise-deal-activity-timeline";
 import type {
   LendingType,
   LoanFile,
@@ -127,6 +132,8 @@ function projectLendersFromDeal(
 export function mapEnterpriseDealToLoanFileStub(
   deal: EnterpriseDealApiRecord & { snapshot?: unknown },
   local?: LoanFile | null,
+  /** CO-RADAR-003 — Enterprise Deal Timeline events (SSOT). Never leave Radar on timeline:[]. */
+  enterpriseTimelineEvents?: EnterpriseDealActivityTimelineEvent[] | null,
 ): LoanFile {
   const id = deal.legacyLoanFileId || local?.id || deal.id;
   // Amount from Deal Registry or local capture only — never invent 5_000_000.
@@ -140,6 +147,11 @@ export function mapEnterpriseDealToLoanFileStub(
   const borrower = resolveDealBorrowerIdentity(deal);
   const fallbackPartyId =
     borrower.partyEntityId || `deal-party-${deal.id}`;
+
+  const enterpriseTimeline = mapEnterpriseDealActivityTimelineToLoanFileEvents(
+    enterpriseTimelineEvents ?? [],
+  );
+  const timeline = mergeLoanFileTimelines(enterpriseTimeline, local?.timeline);
 
   const base: LoanFile = local
     ? { ...local }
@@ -221,6 +233,8 @@ export function mapEnterpriseDealToLoanFileStub(
     archived: deal.archived,
     isUrgent: deal.priority === "urgent" || base.isUrgent,
     isDelayed: deal.operationalStatus === "delayed" || base.isDelayed,
+    /** CO-RADAR-003 — Enterprise Deal Timeline Registry is operational activity SSOT */
+    timeline,
     lender: deal.primaryCounterpartyName || base.lender,
     ...(lenders ? { lenders } : {}),
     commercialPayee:

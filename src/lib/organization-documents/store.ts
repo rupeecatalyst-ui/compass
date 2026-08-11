@@ -1,13 +1,15 @@
 import {
   ORG_DOC_DEFAULT_TEMPLATE_TYPES,
-  ORG_DOC_STORAGE_KEY,
   ORG_DOC_SYSTEM_TYPES,
 } from "@/constants/organization-documents";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { isTier2RegistryPortRuntimeActive } from "@/constants/enterprise-master-data/dual-read";
 import {
   configureTier2RegistryPorts,
   getDocumentRegistryPort,
 } from "@/lib/enterprise-tier2-ports";
+import { organizationWorkspaceApi } from "@/lib/enterprise-organization-workspace";
+import type { OrganizationDocumentDto } from "@/types/enterprise-organization-workspace";
 import type {
   OrgDocCategoryId,
   OrgDocStatus,
@@ -15,55 +17,130 @@ import type {
   OrgDocumentFilters,
   OrgDocumentRecord,
   OrgDocumentVersion,
-  OrgDocumentsRegistrySnapshot,
 } from "@/types/organization-documents";
 
-const SCHEMA_VERSION = 1 as const;
-const MAX_PERSIST_BYTES = 2.5 * 1024 * 1024; // keep localStorage safe for certification demos
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
-function emptySnapshot(): OrgDocumentsRegistrySnapshot {
-  return {
-    documents: [],
-    templateTypes: ORG_DOC_DEFAULT_TEMPLATE_TYPES.map((t) => ({ ...t })),
-    schemaVersion: SCHEMA_VERSION,
-  };
-}
+export const ORG_DOCUMENTS_PERSISTENCE_REQUIRED_MESSAGE =
+  "Organization Documents require Enterprise persistence. Set ENTERPRISE_PERSISTENCE_MODE=prisma and apply the CO-ORG-001 migration.";
 
-function readSnapshot(): OrgDocumentsRegistrySnapshot {
-  if (typeof window === "undefined") return emptySnapshot();
-  try {
-    const raw = localStorage.getItem(ORG_DOC_STORAGE_KEY);
-    if (!raw) return emptySnapshot();
-    const parsed = JSON.parse(raw) as OrgDocumentsRegistrySnapshot;
-    if (!parsed || parsed.schemaVersion !== SCHEMA_VERSION) return emptySnapshot();
-    return {
-      documents: Array.isArray(parsed.documents) ? parsed.documents : [],
-      templateTypes: Array.isArray(parsed.templateTypes)
-        ? parsed.templateTypes
-        : ORG_DOC_DEFAULT_TEMPLATE_TYPES.map((t) => ({ ...t })),
-      schemaVersion: SCHEMA_VERSION,
-    };
-  } catch {
-    return emptySnapshot();
+type RegistryCache = {
+  documents: OrgDocumentRecord[];
+  templateTypes: OrgDocTypeDefinition[];
+  hydrated: boolean;
+};
+
+const cache: RegistryCache = {
+  documents: [],
+  templateTypes: ORG_DOC_DEFAULT_TEMPLATE_TYPES.map((t) => ({ ...t })),
+  hydrated: false,
+};
+
+let hydratePromise: Promise<void> | null = null;
+
+function assertPrismaMode(action: string) {
+  if (!isEnterprisePersistencePrisma()) {
+    throw new Error(`${ORG_DOCUMENTS_PERSISTENCE_REQUIRED_MESSAGE} (${action})`);
   }
 }
 
-function writeSnapshot(next: OrgDocumentsRegistrySnapshot) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(ORG_DOC_STORAGE_KEY, JSON.stringify(next));
-}
-
-function newId(prefix: string) {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function fileToDataUrl(file: File): Promise<string | null> {
-  if (file.size > MAX_PERSIST_BYTES) return Promise.resolve(null);
-  return new Promise((resolve) => {
+function fileToBase64(file: File): Promise<string> {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return Promise.reject(
+      new Error(`File exceeds ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB upload limit`),
+    );
+  }
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
-    reader.onerror = () => resolve(null);
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("Failed to read file"));
+        return;
+      }
+      resolve(reader.result);
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
+  });
+}
+
+function mapApiDocumentToRecord(doc: OrganizationDocumentDto): OrgDocumentRecord {
+  const versions: OrgDocumentVersion[] = doc.versions.map((v) => ({
+    id: v.id,
+    version: v.version,
+    originalFilename: v.originalFilename,
+    fileSizeBytes: v.fileSizeBytes,
+    mimeType: v.mimeType,
+    contentDataUrl: null,
+    uploadedBy: v.uploadedBy,
+    uploadedAt: v.uploadedAt,
+  }));
+
+  return {
+    id: doc.id,
+    originalFilename: doc.originalFilename,
+    categoryId: doc.categoryId,
+    documentTypeId: doc.documentTypeId,
+    documentTypeLabel: doc.documentTypeLabel,
+    uploadedBy: doc.uploadedBy,
+    uploadedAt: doc.uploadedAt,
+    updatedAt: doc.updatedAt,
+    version: doc.versionNumber,
+    fileSizeBytes: doc.fileSizeBytes,
+    mimeType: doc.mimeType,
+    status: doc.status,
+    tags: doc.tags,
+    versions,
+    contentDataUrl: doc.hasContent
+      ? organizationWorkspaceApi.fetchDocumentContentUrl(doc.id)
+      : null,
+    extensions: {},
+  };
+}
+
+function mapTemplateTypeToDefinition(
+  t: Awaited<ReturnType<typeof organizationWorkspaceApi.listTemplateTypes>>[number],
+): OrgDocTypeDefinition {
+  return {
+    id: t.id,
+    categoryId: "templates",
+    label: t.label,
+    sortOrder: t.sortOrder,
+    system: false,
+  };
+}
+
+export async function hydrateOrgDocumentsRegistry(force = false): Promise<void> {
+  assertPrismaMode("hydrate");
+  if (cache.hydrated && !force) return;
+  if (hydratePromise && !force) {
+    await hydratePromise;
+    return;
+  }
+
+  hydratePromise = (async () => {
+    const [documents, templateTypes] = await Promise.all([
+      organizationWorkspaceApi.listDocuments(),
+      organizationWorkspaceApi.listTemplateTypes(),
+    ]);
+    cache.documents = documents.map(mapApiDocumentToRecord);
+    cache.templateTypes =
+      templateTypes.length > 0
+        ? templateTypes.map(mapTemplateTypeToDefinition)
+        : ORG_DOC_DEFAULT_TEMPLATE_TYPES.map((t) => ({ ...t }));
+    cache.hydrated = true;
+  })();
+
+  try {
+    await hydratePromise;
+  } finally {
+    hydratePromise = null;
+  }
+}
+
+if (typeof window !== "undefined" && isEnterprisePersistencePrisma()) {
+  void hydrateOrgDocumentsRegistry().catch(() => {
+    // UI surfaces errors on mutation; initial hydrate may fail before auth is ready.
   });
 }
 
@@ -72,7 +149,7 @@ export function listOrgDocumentTypes(
   templateTypes?: OrgDocTypeDefinition[],
 ): OrgDocTypeDefinition[] {
   if (categoryId === "templates") {
-    const types = templateTypes ?? readSnapshot().templateTypes;
+    const types = templateTypes ?? cache.templateTypes;
     return [...types].sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
@@ -100,7 +177,7 @@ export function listOrgDocumentTypes(
 export function listAllOrgDocumentTypes(
   templateTypes?: OrgDocTypeDefinition[],
 ): OrgDocTypeDefinition[] {
-  const templates = templateTypes ?? readSnapshot().templateTypes;
+  const templates = templateTypes ?? cache.templateTypes;
 
   if (isTier2RegistryPortRuntimeActive()) {
     configureTier2RegistryPorts();
@@ -126,11 +203,13 @@ export function listAllOrgDocumentTypes(
 }
 
 export function getOrgDocuments(): OrgDocumentRecord[] {
-  return readSnapshot().documents;
+  if (!isEnterprisePersistencePrisma()) return [];
+  return cache.documents;
 }
 
 export function getOrgTemplateTypes(): OrgDocTypeDefinition[] {
-  return [...readSnapshot().templateTypes].sort((a, b) => a.sortOrder - b.sortOrder);
+  if (!isEnterprisePersistencePrisma()) return [];
+  return [...cache.templateTypes].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export function filterOrgDocuments(
@@ -168,46 +247,29 @@ export async function uploadOrgDocuments(input: {
   uploadedBy: string;
   tags?: string[];
 }): Promise<OrgDocumentRecord[]> {
-  const snap = readSnapshot();
-  const created: OrgDocumentRecord[] = [];
-  const now = new Date().toISOString();
+  assertPrismaMode("upload");
+  await hydrateOrgDocumentsRegistry(true);
 
-  for (const file of input.files) {
-    const contentDataUrl = await fileToDataUrl(file);
-    const version: OrgDocumentVersion = {
-      id: newId("odv"),
-      version: 1,
+  const files = await Promise.all(
+    input.files.map(async (file) => ({
       originalFilename: file.name,
-      fileSizeBytes: file.size,
+      contentBase64: await fileToBase64(file),
       mimeType: file.type || "application/octet-stream",
-      contentDataUrl,
-      uploadedBy: input.uploadedBy,
-      uploadedAt: now,
-    };
-    const record: OrgDocumentRecord = {
-      id: newId("odoc"),
-      originalFilename: file.name,
-      categoryId: input.categoryId,
-      documentTypeId: input.documentTypeId,
-      documentTypeLabel: input.documentTypeLabel,
-      uploadedBy: input.uploadedBy,
-      uploadedAt: now,
-      updatedAt: now,
-      version: 1,
       fileSizeBytes: file.size,
-      mimeType: file.type || "application/octet-stream",
-      status: "active",
-      tags: input.tags ?? [],
-      versions: [version],
-      contentDataUrl,
-      extensions: {},
-    };
-    created.push(record);
-    snap.documents.unshift(record);
-  }
+    })),
+  );
 
-  writeSnapshot(snap);
-  return created;
+  const created = await organizationWorkspaceApi.uploadDocuments({
+    files,
+    categoryId: input.categoryId,
+    documentTypeId: input.documentTypeId,
+    documentTypeLabel: input.documentTypeLabel,
+    tags: input.tags,
+  });
+
+  const records = created.map(mapApiDocumentToRecord);
+  cache.documents = [...records, ...cache.documents];
+  return records;
 }
 
 export async function replaceOrgDocument(
@@ -215,50 +277,39 @@ export async function replaceOrgDocument(
   file: File,
   uploadedBy: string,
 ): Promise<OrgDocumentRecord | null> {
-  const snap = readSnapshot();
-  const idx = snap.documents.findIndex((d) => d.id === documentId);
-  if (idx < 0) return null;
-  const current = snap.documents[idx]!;
-  const now = new Date().toISOString();
-  const nextVersion = current.version + 1;
-  const contentDataUrl = await fileToDataUrl(file);
-  const version: OrgDocumentVersion = {
-    id: newId("odv"),
-    version: nextVersion,
+  assertPrismaMode("replace");
+  await hydrateOrgDocumentsRegistry(true);
+
+  const contentBase64 = await fileToBase64(file);
+  const updated = await organizationWorkspaceApi.patchDocument(documentId, {
+    contentBase64,
     originalFilename: file.name,
-    fileSizeBytes: file.size,
     mimeType: file.type || "application/octet-stream",
-    contentDataUrl,
-    uploadedBy,
-    uploadedAt: now,
-  };
-  const updated: OrgDocumentRecord = {
-    ...current,
-    originalFilename: file.name,
     fileSizeBytes: file.size,
-    mimeType: file.type || "application/octet-stream",
-    version: nextVersion,
-    uploadedBy,
-    updatedAt: now,
-    contentDataUrl,
-    versions: [version, ...current.versions],
-    status: "active",
-  };
-  snap.documents[idx] = updated;
-  writeSnapshot(snap);
-  return updated;
+  });
+
+  const record = mapApiDocumentToRecord(updated);
+  cache.documents = cache.documents.map((d) => (d.id === documentId ? record : d));
+  return record;
 }
 
 export function archiveOrgDocuments(ids: string[]): number {
-  const snap = readSnapshot();
-  let n = 0;
+  assertPrismaMode("archive");
+  void organizationWorkspaceApi
+    .archiveDocuments(ids)
+    .then(async (n) => {
+      await hydrateOrgDocumentsRegistry(true);
+      return n;
+    })
+    .catch(() => undefined);
+
   const now = new Date().toISOString();
-  snap.documents = snap.documents.map((d) => {
+  let n = 0;
+  cache.documents = cache.documents.map((d) => {
     if (!ids.includes(d.id) || d.status === "archived") return d;
     n += 1;
     return { ...d, status: "archived" as OrgDocStatus, updatedAt: now };
   });
-  writeSnapshot(snap);
   return n;
 }
 
@@ -268,10 +319,15 @@ export function moveOrgDocumentsCategory(
   documentTypeId: string,
   documentTypeLabel: string,
 ): number {
-  const snap = readSnapshot();
-  let n = 0;
+  assertPrismaMode("move");
+  void organizationWorkspaceApi
+    .moveDocuments({ documentIds: ids, categoryId, documentTypeId, documentTypeLabel })
+    .then(async () => hydrateOrgDocumentsRegistry(true))
+    .catch(() => undefined);
+
   const now = new Date().toISOString();
-  snap.documents = snap.documents.map((d) => {
+  let n = 0;
+  cache.documents = cache.documents.map((d) => {
     if (!ids.includes(d.id)) return d;
     n += 1;
     return {
@@ -282,56 +338,65 @@ export function moveOrgDocumentsCategory(
       updatedAt: now,
     };
   });
-  writeSnapshot(snap);
   return n;
 }
 
 export function addOrgTemplateType(label: string): OrgDocTypeDefinition {
-  const snap = readSnapshot();
-  const maxOrder = snap.templateTypes.reduce((m, t) => Math.max(m, t.sortOrder), 0);
-  const type: OrgDocTypeDefinition = {
-    id: newId("tpl"),
+  assertPrismaMode("add template type");
+  void organizationWorkspaceApi
+    .createTemplateType(label)
+    .then(async (created) => {
+      cache.templateTypes.push(mapTemplateTypeToDefinition(created));
+    })
+    .catch(() => undefined);
+
+  const maxOrder = cache.templateTypes.reduce((m, t) => Math.max(m, t.sortOrder), 0);
+  const optimistic: OrgDocTypeDefinition = {
+    id: `pending_${Date.now()}`,
     categoryId: "templates",
     label: label.trim(),
     sortOrder: maxOrder + 1,
     system: false,
   };
-  snap.templateTypes.push(type);
-  writeSnapshot(snap);
-  return type;
+  cache.templateTypes.push(optimistic);
+  return optimistic;
 }
 
 export function updateOrgTemplateType(id: string, label: string): OrgDocTypeDefinition | null {
-  const snap = readSnapshot();
-  const idx = snap.templateTypes.findIndex((t) => t.id === id);
+  assertPrismaMode("update template type");
+  void organizationWorkspaceApi.updateTemplateType(id, label).catch(() => undefined);
+
+  const idx = cache.templateTypes.findIndex((t) => t.id === id);
   if (idx < 0) return null;
-  snap.templateTypes[idx] = { ...snap.templateTypes[idx]!, label: label.trim() };
-  writeSnapshot(snap);
-  return snap.templateTypes[idx]!;
+  cache.templateTypes[idx] = { ...cache.templateTypes[idx]!, label: label.trim() };
+  return cache.templateTypes[idx]!;
 }
 
 export function deleteOrgTemplateType(id: string): boolean {
-  const snap = readSnapshot();
-  const before = snap.templateTypes.length;
-  snap.templateTypes = snap.templateTypes.filter((t) => t.id !== id);
-  writeSnapshot(snap);
-  return snap.templateTypes.length < before;
+  assertPrismaMode("delete template type");
+  void organizationWorkspaceApi.deleteTemplateType(id).catch(() => undefined);
+
+  const before = cache.templateTypes.length;
+  cache.templateTypes = cache.templateTypes.filter((t) => t.id !== id);
+  return cache.templateTypes.length < before;
 }
 
 export function reorderOrgTemplateTypes(orderedIds: string[]): OrgDocTypeDefinition[] {
-  const snap = readSnapshot();
-  const byId = new Map(snap.templateTypes.map((t) => [t.id, t]));
+  assertPrismaMode("reorder template types");
+  void organizationWorkspaceApi.reorderTemplateTypes(orderedIds).then((next) => {
+    cache.templateTypes = next.map(mapTemplateTypeToDefinition);
+  });
+
+  const byId = new Map(cache.templateTypes.map((t) => [t.id, t]));
   const next: OrgDocTypeDefinition[] = [];
   orderedIds.forEach((id, i) => {
     const t = byId.get(id);
     if (t) next.push({ ...t, sortOrder: i + 1 });
   });
-  // append any missing
-  for (const t of snap.templateTypes) {
+  for (const t of cache.templateTypes) {
     if (!orderedIds.includes(t.id)) next.push({ ...t, sortOrder: next.length + 1 });
   }
-  snap.templateTypes = next;
-  writeSnapshot(snap);
+  cache.templateTypes = next;
   return getOrgTemplateTypes();
 }
 
@@ -340,4 +405,8 @@ export function buildOrgDocumentInternalLink(documentId: string): string {
     return `/organization/documents?doc=${documentId}`;
   }
   return `${window.location.origin}/organization/documents?doc=${documentId}`;
+}
+
+export function isOrgDocumentsPersistenceActive(): boolean {
+  return isEnterprisePersistencePrisma();
 }

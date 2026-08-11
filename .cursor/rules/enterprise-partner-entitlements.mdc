@@ -1,0 +1,44 @@
+# Wealth Partner Access & Entitlements (CO-WP-ACCESS-001)
+
+Status: **ENTERPRISE APPROVED (architecture)** · Development sprint — certification separate  
+Sprint foundation: **CO-WP-ACCESS-001**
+
+## Constitutional principles
+
+1. **Catalyst One decides** partner visibility and actions.
+2. **Partner Gateway enforces** authentication, partner identity, ownership, and effective entitlement.
+3. **Wealth Partner App presents** — never authorises independently.
+4. Do **not** create parallel partner Customer / Opportunity / Deal / Document / Activity stores for entitlements.
+5. **ACTIVITY_ADD / Notepad is independent of EDIT.**
+6. UI hiding is **not** authorization.
+
+## Execution modes
+
+| Mode | Default posture |
+|------|-----------------|
+| `referral` | View + Activity; no edit / stage / operational processing unless explicitly granted |
+| `joint_execution` | Configurable execution rights |
+| `solo` | Configurable execution rights within enterprise workflow |
+
+## Resolution order
+
+Template (by execution mode) → Partner profile → Transaction override
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Constants | `src/constants/enterprise-partner-entitlements/` |
+| Types | `src/types/enterprise-partner-entitlements.ts` |
+| Pure resolve | `src/lib/enterprise-partner-entitlements/resolve.ts` |
+| Service | `server/services/partner-entitlements/` |
+| Gateway gate | `server/services/partner-gateway/partner-entitlement-gate.ts` |
+| Admin UI | `/admin/partner-entitlements` |
+| Admin API | `/api/admin/partner-entitlements` |
+
+## Forbidden
+
+- Hardcoding partner permissions in React
+- Trusting client-supplied partner IDs / ownership / localStorage roles
+- Partner-only activity datastore
+- Exposing Credit Workbench / internal underwriting / other partners’ business via Partner APIs

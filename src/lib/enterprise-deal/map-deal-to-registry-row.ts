@@ -3,6 +3,10 @@
  * Used only when DEAL_REGISTRY_PORT_RUNTIME is ON.
  */
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
+import {
+  LENDER_CASE_STAGE_LABELS,
+  normalizeLenderCaseStage,
+} from "@/constants/lender-pipeline";
 import { formatINR } from "@/lib/format-currency";
 import { coalesceAssignedUsers, formatAssignedUsersLabel } from "@/lib/assigned-users";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
@@ -63,6 +67,11 @@ export function mapEnterpriseDealToDealRegistryRow(
   const amount = deal.requestedAmount ?? 0;
   const last = deal.updatedAt || deal.createdAt || "";
   const stage = resolveDealStageProjection(deal) || ("raw_lead" as PipelineStage);
+  const lenderStage = normalizeLenderCaseStage(deal.grossStage);
+  const stageLabel =
+    LENDER_CASE_STAGE_LABELS[lenderStage] ??
+    STAGE_LABELS[stage] ??
+    deal.grossStage;
   const rowId = deal.legacyLoanFileId || deal.id;
   const assignedUsers = coalesceAssignedUsers({
     lendingExtension: deal.lendingExtension,
@@ -112,7 +121,7 @@ export function mapEnterpriseDealToDealRegistryRow(
         ? (deal.lendingExtension as Record<string, unknown>)
         : null,
     grossStage: stage,
-    grossStageLabel: STAGE_LABELS[stage] ?? deal.grossStage,
+    grossStageLabel: stageLabel,
     subStage: deal.subStage || "—",
     selectedLender: deal.primaryCounterpartyName || "—",
     expectedRevenue,

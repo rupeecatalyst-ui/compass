@@ -1,0 +1,108 @@
+{
+  "sprint": "CO-WP-PERF-003",
+  "baseUrl": "https://catalyst-one-two.vercel.app",
+  "startedAt": "2026-08-11T08:47:13.714Z",
+  "timings": [
+    {
+      "label": "login",
+      "ms": 7446,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "label": "/api/partner/auth/me",
+      "ms": 7840,
+      "status": 200,
+      "ok": true,
+      "bytes": 838,
+      "serverTiming": null,
+      "homePhase": null
+    },
+    {
+      "label": "/api/partner/home?phase=shell",
+      "ms": 3499,
+      "status": 200,
+      "ok": true,
+      "bytes": 38388,
+      "serverTiming": "total;dur=3182",
+      "homePhase": "shell"
+    },
+    {
+      "label": "/api/partner/home?phase=desk",
+      "ms": 12995,
+      "status": 200,
+      "ok": true,
+      "bytes": 43772,
+      "serverTiming": "total;dur=12572",
+      "homePhase": "desk"
+    },
+    {
+      "label": "/api/partner/home",
+      "ms": 9735,
+      "status": 200,
+      "ok": true,
+      "bytes": 43772,
+      "serverTiming": "total;dur=9454",
+      "homePhase": "full"
+    },
+    {
+      "label": "/api/partner/business-pipeline",
+      "ms": 7852,
+      "status": 200,
+      "ok": true,
+      "bytes": 8124,
+      "serverTiming": "total;dur=7567",
+      "homePhase": null
+    },
+    {
+      "label": "/api/partner/notifications",
+      "ms": 45229,
+      "status": 200,
+      "ok": true,
+      "bytes": 4069,
+      "serverTiming": null,
+      "homePhase": null
+    },
+    {
+      "label": "/api/partner/business-pipeline#2",
+      "ms": 8662,
+      "status": 200,
+      "ok": true,
+      "bytes": 8124,
+      "serverTiming": "total;dur=8405"
+    }
+  ],
+  "cache": null,
+  "session": {
+    "partnerCode": "WPDEMO001",
+    "partnerDisplayName": "Wealth Partner Demo",
+    "partnerId": "cms9apix90003wejcooyto6ij"
+  },
+  "regression": [
+    {
+      "path": "/api/partner/deals",
+      "ms": 9931,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "path": "/api/partner/customers",
+      "ms": 13303,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "path": "/api/partner/opportunities",
+      "ms": 11809,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "path": "/api/partner/opportunity-journey/config",
+      "ms": 257,
+      "status": 200,
+      "ok": true
+    }
+  ],
+  "finishedAt": "2026-08-11T08:49:32.283Z"
+}

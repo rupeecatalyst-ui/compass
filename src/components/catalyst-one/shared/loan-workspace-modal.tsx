@@ -14,6 +14,10 @@ import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { syncLoanStructureRelationships } from "@/lib/loan-structure";
 import { useLoanJourneyEcm } from "@/hooks/use-loan-journey-ecm";
 import { LoanActionCenter } from "@/components/catalyst-one/action-center";
+import {
+  BusinessNotesActionButton,
+  EnterpriseBusinessNotesPanel,
+} from "@/components/catalyst-one/enterprise-business-notes";
 import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import {
   EnterpriseWorkspaceLayout,
@@ -1150,6 +1154,31 @@ function LoanWorkspaceModalContent({
               <FileTimeline events={draft.timeline} />
             </LoanWorkbenchSection>
           </TabsContent>
+
+          <TabsContent value="notes" className="mt-0">
+            <LoanWorkbenchSection
+              title="Business Notes"
+              description="Official enterprise notes for this deal — activity history & business context."
+            >
+              <EnterpriseBusinessNotesPanel
+                context={{
+                  workspaceKind: "lender_lifecycle",
+                  entityKind: "deal",
+                  entityId: draft.enterpriseDealId ?? draft.id,
+                  dealId: draft.enterpriseDealId ?? draft.id,
+                  opportunityId:
+                    opportunityId ?? draft.enterpriseOpportunityId ?? null,
+                  contactId: draft.sourceContactId ?? null,
+                  lenderName: draft.lender || null,
+                }}
+                query={{
+                  dealId: draft.enterpriseDealId ?? draft.id,
+                  entityKind: "deal",
+                  entityId: draft.enterpriseDealId ?? draft.id,
+                }}
+              />
+            </LoanWorkbenchSection>
+          </TabsContent>
     </div>
   );
 
@@ -1177,6 +1206,18 @@ function LoanWorkspaceModalContent({
             }
             actions={
               <>
+                <BusinessNotesActionButton
+                  context={{
+                    workspaceKind: "lender_lifecycle",
+                    entityKind: "deal",
+                    entityId: draft.enterpriseDealId ?? draft.id,
+                    dealId: draft.enterpriseDealId ?? draft.id,
+                    opportunityId:
+                      opportunityId ?? draft.enterpriseOpportunityId ?? null,
+                    contactId: draft.sourceContactId ?? null,
+                    lenderName: draft.lender || null,
+                  }}
+                />
                 <CreateTaskActionButton
                   context={{
                     dealId: draft.enterpriseDealId ?? draft.id,
@@ -1258,7 +1299,7 @@ function LoanWorkspaceModalContent({
         }
         navigation={
           <div className="flex items-center gap-2 border-b border-border/60 bg-background px-3 py-1 sm:px-4">
-            <TabsList className="grid h-auto flex-1 grid-cols-6 bg-muted/80 p-0.5">
+            <TabsList className="grid h-auto flex-1 grid-cols-7 bg-muted/80 p-0.5">
               <TabsTrigger value="overview" className="h-7 text-[11px]">
                 Overview
               </TabsTrigger>
@@ -1276,6 +1317,9 @@ function LoanWorkspaceModalContent({
               </TabsTrigger>
               <TabsTrigger value="timeline" className="h-7 text-[11px]">
                 Timeline
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="h-7 text-[11px]">
+                Notes
               </TabsTrigger>
             </TabsList>
             <Button

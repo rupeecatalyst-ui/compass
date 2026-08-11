@@ -1,0 +1,36 @@
+---
+description: Frozen Enterprise AI Constitution + SARATHI Bible v1.0 — mandatory for all remaining AI sprints
+alwaysApply: true
+---
+
+# Enterprise AI Governing Standards — FROZEN
+
+**Status:** PRODUCT OWNER MANDATORY COMPLIANCE · **FROZEN**  
+**Authority:** Product Owner  
+**Effective:** Immediately — all remaining AI sprints
+
+## Governing documents (immutable)
+
+| # | Document | Canonical path |
+|---|---|---|
+| 1 | **Enterprise AI Constitution** | `docs/enterprise-ai/ENTERPRISE-AI-CONSTITUTION.md` · rule `enterprise-ai-platform.mdc` |
+| 2 | **SARATHI Bible v1.0** | `docs/sarathi/SARATHI-BIBLE-V1.md` · `src/constants/enterprise-ai-platform/sarathi-bible.ts` |
+
+## Hard rules
+
+1. These documents **constitute the governing standards** for all remaining AI sprints.  
+2. **No sprint** may modify, override, weaken, or bypass them unless the Product Owner **explicitly** instructs otherwise.  
+3. Every AI implementation must remain **compliant** with both documents.  
+4. Do **not** edit the frozen document bodies to “fit” a sprint — change the sprint design instead.  
+5. Architecture / certification reports for future AI sprints must cite both documents and confirm compliance.  
+6. Constitutional Health Check for AI work: treat conflicts with these documents as **RED** until Product Owner resolution.
+
+## Agent behaviour
+
+- Before implementing any Enterprise AI / SARATHI / Behaviour Pack change: confirm compliance with both governing documents.  
+- If a request would alter, dilute, or circumvent either document → **STOP**, report the conflict, wait for Product Owner.  
+- Code SSOT for Bible commandments remains `sarathi-bible.ts` — keep in sync with `SARATHI-BIBLE-V1.md`; do not silently diverge.
+
+## Freeze notice
+
+`docs/enterprise-ai/ENTERPRISE-AI-GOVERNING-STANDARDS-FREEZE.md`

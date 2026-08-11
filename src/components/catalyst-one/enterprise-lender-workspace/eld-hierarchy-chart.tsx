@@ -4,9 +4,14 @@
  * CO-LENDER-HIERARCHY-REMEDIATION-001
  * Hierarchy chart — projection of ECM Lender Employees (reports_to).
  * No localStorage, demo seed, or hardcoded vacant ranks.
+ *
+ * CO-LENDER-WORKSPACE-001 (operational fix):
+ * Create/Assign dialogs must stack above Lender Workspace Sheet (z-[95]).
+ * Default Dialog z-50 opened invisibly under the sheet and Radix-modal-locked
+ * the surface — buttons appeared dead.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   GitBranch,
   Mail,
@@ -17,6 +22,12 @@ import {
   UserRound,
 } from "lucide-react";
 import { ReportingManagerPicker } from "@/components/catalyst-one/contacts/reporting-manager-picker";
+import {
+  BankerBranchSelect,
+  BankerCitySelect,
+} from "@/components/catalyst-one/contacts/banker-lender-registry-fields";
+import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
+import { LiveEntityMasterSearch } from "@/components/catalyst-one/shared/live-entity-master-search";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,10 +45,7 @@ import {
   createLenderEmployeeForInstitution,
 } from "@/lib/enterprise-lender-directory/hierarchy-actions";
 import { setBankerReportingManager } from "@/lib/enterprise-contact-master";
-import {
-  findOperationalEcmContactById,
-  liveSearchOperationalEcmContacts,
-} from "@/lib/enterprise-registry";
+import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import type { EldLenderEmployeeRow } from "@/types/enterprise-lender-directory-ops";
 import type {
   EldHierarchyEmployeeAction,
@@ -48,6 +56,9 @@ import type { EldEmployeeWorkspaceSectionId } from "@/constants/enterprise-lende
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+/** Above Lender Workspace Sheet (z-[95]) — keep overlay + content paired. */
+const HIERARCHY_DIALOG_Z = "z-[110]";
 
 function initials(name: string): string {
   return name
@@ -231,6 +242,7 @@ export function EldHierarchyChart({
   forest,
   onOpenEmployee,
   onChanged,
+  onNestedUiOpenChange,
 }: {
   lenderId: string;
   lenderName: string;
@@ -240,6 +252,8 @@ export function EldHierarchyChart({
     opts?: { section?: EldEmployeeWorkspaceSectionId; editing?: boolean },
   ) => void;
   onChanged: () => void;
+  /** Notify parent when Create/Assign/RM dialogs are open (disable Escape close). */
+  onNestedUiOpenChange?: (open: boolean) => void;
 }) {
   const { user } = useAuthContext();
   const actorId = user?.id || user?.email || "ui";
@@ -251,13 +265,21 @@ export function EldHierarchyChart({
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
-  const [assignQuery, setAssignQuery] = useState("");
-  const [assignResults, setAssignResults] = useState<EcmContact[]>([]);
+  const [designationId, setDesignationId] = useState("");
+  const [regionId, setRegionId] = useState("");
+  const [cityId, setCityId] = useState("");
+  const [branchId, setBranchId] = useState("");
   const [selectedAssign, setSelectedAssign] = useState<EcmContact | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const empty = forest.employeeCount === 0;
+  const nestedOpen = panelOpen || rmTarget != null;
+
+  useEffect(() => {
+    onNestedUiOpenChange?.(nestedOpen);
+    return () => onNestedUiOpenChange?.(false);
+  }, [nestedOpen, onNestedUiOpenChange]);
 
   const openAssign = (mode: AssignMode, manager: EcmContact | null) => {
     setPanelMode(mode);
@@ -265,8 +287,10 @@ export function EldHierarchyChart({
     setName("");
     setMobile("");
     setEmail("");
-    setAssignQuery("");
-    setAssignResults([]);
+    setDesignationId("");
+    setRegionId("");
+    setCityId("");
+    setBranchId("");
     setSelectedAssign(null);
     setError(null);
     setPanelOpen(true);
@@ -308,25 +332,6 @@ export function EldHierarchyChart({
     }
   };
 
-  const runSearch = (q: string) => {
-    setAssignQuery(q);
-    if (!q.trim()) {
-      setAssignResults([]);
-      return;
-    }
-    void (async () => {
-      try {
-        const rows = await liveSearchOperationalEcmContacts(q.trim(), {
-          pageSize: 20,
-          roles: ["lender_employee"],
-        });
-        setAssignResults(rows.slice(0, 10));
-      } catch {
-        setAssignResults([]);
-      }
-    })();
-  };
-
   const submitPanel = async () => {
     setBusy(true);
     setError(null);
@@ -336,8 +341,12 @@ export function EldHierarchyChart({
           name,
           mobile,
           email,
+          designationId: designationId || undefined,
           institutionId: lenderId,
           institutionLabel: lenderName,
+          regionId: regionId || undefined,
+          cityId: cityId || undefined,
+          branchId: branchId || undefined,
           reportingManager: managerForNew,
           actorId,
         });
@@ -438,7 +447,10 @@ export function EldHierarchyChart({
       )}
 
       <Dialog open={panelOpen} onOpenChange={setPanelOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent
+          className={cn("max-w-md", HIERARCHY_DIALOG_Z)}
+          overlayClassName={HIERARCHY_DIALOG_Z}
+        >
           <DialogHeader>
             <DialogTitle>
               {panelMode === "create" ? "Create Lender Employee" : "Assign Existing Employee"}
@@ -463,40 +475,83 @@ export function EldHierarchyChart({
                   <Label className="text-xs">Email (optional)</Label>
                   <Input value={email} onChange={(e) => setEmail(e.target.value)} className="h-9" />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Designation</Label>
+                  <EcmMasterSelect
+                    domain="designation"
+                    value={designationId}
+                    onChange={(id) => setDesignationId(id)}
+                    placeholder="Select designation"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Region</Label>
+                  <EcmMasterSelect
+                    domain="region"
+                    value={regionId}
+                    onChange={(id) => {
+                      setRegionId(id);
+                      setCityId("");
+                      setBranchId("");
+                    }}
+                    placeholder="Select region"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">City</Label>
+                  <BankerCitySelect
+                    institutionId={lenderId}
+                    regionId={regionId}
+                    value={cityId}
+                    onChange={(id) => {
+                      setCityId(id);
+                      setBranchId("");
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Branch</Label>
+                  <BankerBranchSelect
+                    institutionId={lenderId}
+                    regionId={regionId}
+                    cityId={cityId}
+                    value={branchId}
+                    onChange={(id) => setBranchId(id)}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Institution · <span className="font-medium text-foreground">{lenderName}</span>
+                </p>
               </>
             ) : (
               <div className="space-y-1.5">
-                <Label className="text-xs">Search lender employees</Label>
-                <Input
-                  value={assignQuery}
-                  onChange={(e) => runSearch(e.target.value)}
+                <Label className="text-xs">Search Enterprise Contact Registry</Label>
+                <LiveEntityMasterSearch
+                  kind="contact"
+                  warmOnMount
+                  allowCreateNew
+                  createNewLabel="Create New Employee"
                   placeholder="Type name or mobile…"
-                  className="h-9"
+                  selectedId={selectedAssign?.id}
+                  selectedLabel={selectedAssign?.name}
+                  onSelect={(option) => {
+                    const contact = findOperationalEcmContactById(option.id);
+                    if (!contact) {
+                      setError("Contact not found in Enterprise Contact Registry. Search again.");
+                      setSelectedAssign(null);
+                      return;
+                    }
+                    setError(null);
+                    setSelectedAssign(contact);
+                  }}
+                  onCreateNew={(query) => {
+                    openAssign("create", managerForNew);
+                    if (query.trim()) setName(query.trim());
+                  }}
                 />
-                {assignResults.length > 0 ? (
-                  <ul className="max-h-40 overflow-y-auto rounded-md border border-border/60">
-                    {assignResults.map((c) => (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          className={cn(
-                            "flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted/40",
-                            selectedAssign?.id === c.id && "bg-teal-500/10",
-                          )}
-                          onClick={() => setSelectedAssign(c)}
-                        >
-                          <span className="font-medium">{c.name}</span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {c.mobilePrimary || "—"}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
                 {selectedAssign ? (
                   <p className="text-[11px] text-muted-foreground">
-                    Selected · {selectedAssign.name}
+                    Selected · {selectedAssign.name} → assign to {lenderName}
                   </p>
                 ) : null}
               </div>
@@ -515,7 +570,10 @@ export function EldHierarchyChart({
       </Dialog>
 
       <Dialog open={rmTarget != null} onOpenChange={(o) => !o && setRmTarget(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent
+          className={cn("max-w-md", HIERARCHY_DIALOG_Z)}
+          overlayClassName={HIERARCHY_DIALOG_Z}
+        >
           <DialogHeader>
             <DialogTitle>Change Reporting Manager</DialogTitle>
             <DialogDescription>

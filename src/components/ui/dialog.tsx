@@ -34,10 +34,16 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     /** Prompt 019 — enterprise default is false (no accidental outside close). */
     allowOutsideClose?: boolean;
+    /**
+     * Optional overlay stacking class. Required when Dialog opens above an elevated
+     * Sheet/Drawer (e.g. Lender Workspace z-[95]) so the modal is visible and modal
+     * focus lock does not freeze the parent surface.
+     */
+    overlayClassName?: string;
   }
->(({ className, children, allowOutsideClose = false, onInteractOutside, onPointerDownOutside, ...props }, ref) => (
+>(({ className, children, allowOutsideClose = false, onInteractOutside, onPointerDownOutside, overlayClassName, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(

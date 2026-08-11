@@ -1,0 +1,15 @@
+WP / => 200
+WP /login => 200
+WP /app/home => 200
+WP /app/business => 200
+WP /app/deals => 200
+WP /app/customers => 200
+WP /app/documents => 200
+WP /app/commercials => 200
+WP /app/performance => 200
+WP /app/marketing => 200
+WP /app/saarthi => 200
+WP /app/notifications => 200
+WP /app/more => 200
+GW health => OK persistence=prisma
+GW auth invalid => 401 (expect 401)

@@ -1,0 +1,806 @@
+{
+  "sprint": "CO-UBL-PRIORITY-001",
+  "readOnly": true,
+  "ublProductMaster": [
+    {
+      "id": "cmrusokc4000rwe60vduvzymu",
+      "code": "BL_STD",
+      "label": "Business Loan",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "id": "cmrusokt60011we60sa1cq5mm",
+      "code": "BUSINESS-LOAN",
+      "label": "Business Loan",
+      "status": "active",
+      "enabled": true
+    },
+    {
+      "id": "cms7h8o3j0017ld04r3ga1q5x",
+      "code": "BUSINESS_LOAN_UNSECURED",
+      "label": "Business Loan (Unsecured)",
+      "status": "active",
+      "enabled": true
+    }
+  ],
+  "totals": {
+    "enabledLenders": 280,
+    "ublEligible": 236
+  },
+  "recommendations": [
+    {
+      "requestedRank": 1,
+      "requestedName": "Axis Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cmrusopch003hwe60phw80i5i",
+          "lenderCode": "AXIS",
+          "institutionName": "Axis Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cmrusopch003hwe60phw80i5i",
+        "lenderCode": "AXIS",
+        "institutionName": "Axis Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 2,
+      "requestedName": "Bajaj Finance",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cnfmd0033wen4dd25gl97",
+          "lenderCode": "BAJAJ_FINANCE",
+          "institutionName": "Bajaj Finance",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED",
+            "LAP",
+            "HOME_LOAN"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cnfmd0033wen4dd25gl97",
+        "lenderCode": "BAJAJ_FINANCE",
+        "institutionName": "Bajaj Finance",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED",
+          "LAP",
+          "HOME_LOAN"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 3,
+      "requestedName": "Clix Capital",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms8hrzug00ajwed8qwz7d961",
+          "lenderCode": "CLIX_CAPITAL",
+          "institutionName": "Clix Capital",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "BUSINESS_LOAN_UNSECURED",
+            "MSME_LOAN",
+            "WORKING_CAPITAL_SECURED",
+            "INVOICE_FINANCING",
+            "MACHINERY_FINANCE",
+            "EQUIPMENT_FINANCE",
+            "LAP"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms8hrzug00ajwed8qwz7d961",
+        "lenderCode": "CLIX_CAPITAL",
+        "institutionName": "Clix Capital",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "BUSINESS_LOAN_UNSECURED",
+          "MSME_LOAN",
+          "WORKING_CAPITAL_SECURED",
+          "INVOICE_FINANCING",
+          "MACHINERY_FINANCE",
+          "EQUIPMENT_FINANCE",
+          "LAP"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 4,
+      "requestedName": "Credit Saison India",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms8hs06p00alwed8uj1in1tl",
+          "lenderCode": "CREDIT_SAISON",
+          "institutionName": "Credit Saison India",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "BUSINESS_LOAN_UNSECURED",
+            "MSME_LOAN",
+            "WORKING_CAPITAL_SECURED",
+            "INVOICE_FINANCING",
+            "MACHINERY_FINANCE",
+            "EQUIPMENT_FINANCE",
+            "LAP"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms8hs06p00alwed8uj1in1tl",
+        "lenderCode": "CREDIT_SAISON",
+        "institutionName": "Credit Saison India",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "BUSINESS_LOAN_UNSECURED",
+          "MSME_LOAN",
+          "WORKING_CAPITAL_SECURED",
+          "INVOICE_FINANCING",
+          "MACHINERY_FINANCE",
+          "EQUIPMENT_FINANCE",
+          "LAP"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 5,
+      "requestedName": "DCB Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cmwz20017wen412c85bwt",
+          "lenderCode": "DCB",
+          "institutionName": "DCB Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cmwz20017wen412c85bwt",
+        "lenderCode": "DCB",
+        "institutionName": "DCB Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 6,
+      "requestedName": "Deutsche Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms8hq5320009wed8mkd9nu57",
+          "lenderCode": "DEUTSCHE_BANK",
+          "institutionName": "Deutsche Bank",
+          "institutionType": "bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms8hq5320009wed8mkd9nu57",
+        "lenderCode": "DEUTSCHE_BANK",
+        "institutionName": "Deutsche Bank",
+        "institutionType": "bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 7,
+      "requestedName": "Edelweiss Finance",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cnm68003pwen4f9zoqxtd",
+          "lenderCode": "EDELWEISS",
+          "institutionName": "Edelweiss Finance",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED",
+            "LAP",
+            "HOME_LOAN"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cnm68003pwen4f9zoqxtd",
+        "lenderCode": "EDELWEISS",
+        "institutionName": "Edelweiss Finance",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED",
+          "LAP",
+          "HOME_LOAN"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 8,
+      "requestedName": "SMFG India Credit",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms8hqswj003zwed82nroc47c",
+          "lenderCode": "SMFG_INDIA",
+          "institutionName": "SMFG India Credit",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "MSME_LOAN",
+            "LAP",
+            "HOME_LOAN",
+            "VEHICLE_LOAN"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms8hqswj003zwed82nroc47c",
+        "lenderCode": "SMFG_INDIA",
+        "institutionName": "SMFG India Credit",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "MSME_LOAN",
+          "LAP",
+          "HOME_LOAN",
+          "VEHICLE_LOAN"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 9,
+      "requestedName": "HDFC Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cmrusopl1003lwe601zac0dvs",
+          "lenderCode": "HDFC",
+          "institutionName": "HDFC Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cmrusopl1003lwe601zac0dvs",
+        "lenderCode": "HDFC",
+        "institutionName": "HDFC Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 10,
+      "requestedName": "HDB Financial Services",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms8hru7f009pwed8w8c1qs28",
+          "lenderCode": "HDB_FINANCIAL",
+          "institutionName": "HDB Financial Services",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "MSME_LOAN",
+            "LAP",
+            "HOME_LOAN",
+            "VEHICLE_LOAN"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms8hru7f009pwed8w8c1qs28",
+        "lenderCode": "HDB_FINANCIAL",
+        "institutionName": "HDB Financial Services",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "MSME_LOAN",
+          "LAP",
+          "HOME_LOAN",
+          "VEHICLE_LOAN"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 11,
+      "requestedName": "ICICI Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cmrusopoe003nwe60331ytwfx",
+          "lenderCode": "ICICI",
+          "institutionName": "ICICI Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cmrusopoe003nwe60331ytwfx",
+        "lenderCode": "ICICI",
+        "institutionName": "ICICI Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 12,
+      "requestedName": "Tata Capital Finance",
+      "hitCount": 2,
+      "hits": [
+        {
+          "lenderId": "cms4cng5z0035wen4tirf9gtk",
+          "lenderCode": "TATA_CAPITAL",
+          "institutionName": "Tata Capital",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED",
+            "LAP",
+            "HOME_LOAN"
+          ]
+        },
+        {
+          "lenderId": "cms4cnbsz002pwen4ahfno9va",
+          "lenderCode": "TATA_CAPITAL_HFL",
+          "institutionName": "Tata Capital Housing Finance",
+          "institutionType": "housing_finance_company",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "CONSTRUCTION_FINANCE"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cng5z0035wen4tirf9gtk",
+        "lenderCode": "TATA_CAPITAL",
+        "institutionName": "Tata Capital",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED",
+          "LAP",
+          "HOME_LOAN"
+        ]
+      },
+      "selectionReason": "MULTI_MATCH_SELECTED_TATA_CAPITAL",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 13,
+      "requestedName": "Standard Chartered Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms8hq3nz0003wed804dmj3ou",
+          "lenderCode": "STANDARD_CHARTERED",
+          "institutionName": "Standard Chartered Bank",
+          "institutionType": "bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms8hq3nz0003wed804dmj3ou",
+        "lenderCode": "STANDARD_CHARTERED",
+        "institutionName": "Standard Chartered Bank",
+        "institutionType": "bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 14,
+      "requestedName": "Yes Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+          "lenderCode": "YES",
+          "institutionName": "Yes Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+        "lenderCode": "YES",
+        "institutionName": "Yes Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 15,
+      "requestedName": "L&T Finance",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cnhcu0039wen4z8cd7mva",
+          "lenderCode": "LT_FINANCE",
+          "institutionName": "L&T Finance",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED",
+            "LAP",
+            "HOME_LOAN"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cnhcu0039wen4z8cd7mva",
+        "lenderCode": "LT_FINANCE",
+        "institutionName": "L&T Finance",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED",
+          "LAP",
+          "HOME_LOAN"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 16,
+      "requestedName": "IDFC FIRST Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cmsbt000rwen4q9tdyqfh",
+          "lenderCode": "IDFC_FIRST",
+          "institutionName": "IDFC FIRST Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cmsbt000rwen4q9tdyqfh",
+        "lenderCode": "IDFC_FIRST",
+        "institutionName": "IDFC FIRST Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    },
+    {
+      "requestedRank": 17,
+      "requestedName": "FlexiLoans",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms8hqhp40025wed8exph7i4r",
+          "lenderCode": "FLEXILOANS",
+          "institutionName": "FlexiLoans",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "ublMapped": true,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "MSME_LOAN",
+            "INVOICE_FINANCING"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms8hqhp40025wed8exph7i4r",
+        "lenderCode": "FLEXILOANS",
+        "institutionName": "FlexiLoans",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "ublMapped": true,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "MSME_LOAN",
+          "INVOICE_FINANCING"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH",
+      "canPersistPriority": true
+    }
+  ]
+}

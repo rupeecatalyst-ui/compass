@@ -13,4 +13,7 @@ export {
   deleteOrgTemplateType,
   reorderOrgTemplateTypes,
   buildOrgDocumentInternalLink,
+  hydrateOrgDocumentsRegistry,
+  isOrgDocumentsPersistenceActive,
+  ORG_DOCUMENTS_PERSISTENCE_REQUIRED_MESSAGE,
 } from "./store";

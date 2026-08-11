@@ -26,6 +26,7 @@ import {
 } from "./workspace-competition-panel";
 import { WorkspaceDeviationMitigantPanel } from "./workspace-deviation-mitigant-panel";
 import { WorkspaceNotesPanel } from "./workspace-notes-panel";
+import { WorkspaceDialoguePanel } from "./workspace-dialogue-panel";
 import { WorkspaceStrategicTabs } from "./workspace-strategic-tabs";
 import type { OwStrategicTabId } from "./strategic-tabs";
 import { getStrategicCompetition } from "@/lib/strategic-competition";
@@ -46,6 +47,7 @@ import {
   AnalyzeDealWorkspace,
 } from "@/components/catalyst-one/analyze-deal";
 import { LoanStructureCommandControl } from "@/components/catalyst-one/shared/loan-structure-drawer";
+import { BusinessNotesActionButton } from "@/components/catalyst-one/enterprise-business-notes";
 import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { EcmContact } from "@/types/enterprise-contact-master";
@@ -123,8 +125,8 @@ function OpportunityWorkspaceShell() {
       life: "funding_strategy",
       documents: "documents",
       tasks: "tasks",
-      dialogue: "notes",
-      timeline: "notes",
+      dialogue: "timeline",
+      timeline: "timeline",
       workflow: "workflow",
       stage: "requirement",
     };
@@ -427,6 +429,17 @@ function OpportunityWorkspaceShell() {
         onContinueOverride={handleMoveToDeal}
         headerActions={
           <div className="flex flex-wrap items-center justify-end gap-1">
+            <BusinessNotesActionButton
+              context={{
+                workspaceKind: "opportunity",
+                entityKind: "opportunity",
+                entityId: opportunityId || "unknown",
+                opportunityId: opportunityId || null,
+                contactId: contact?.id ?? null,
+                dealId: activeLoan?.enterpriseDealId ?? null,
+                lenderName: activeLoan?.lender || null,
+              }}
+            />
             <CreateTaskActionButton
               context={{
                 opportunityId: opportunityId || null,
@@ -550,6 +563,7 @@ function OpportunityWorkspaceShell() {
               {tab === "deviation_mitigant" && <WorkspaceDeviationMitigantPanel />}
               {tab === "funding_strategy" && <WorkspaceLifeStrategyBoard />}
               {tab === "notes" && <WorkspaceNotesPanel />}
+              {tab === "timeline" && <WorkspaceDialoguePanel />}
               {tab === "documents" && <WorkspaceDocumentsPanel />}
               {tab === "tasks" && <WorkspaceTasksPanel />}
               {tab === "workflow" && <WorkspaceWorkflowPanel />}

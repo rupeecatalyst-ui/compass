@@ -10,6 +10,15 @@ import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunit
 import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import type { LoanLenderExecution } from "@/types/catalyst-one";
 
+/**
+ * CO-DEAL-PIPELINE-TRANSITION-001 / 002 — Move to Deal / Identify Lender creates a Deal
+ * at canonical **Identified** (`identified`), never Logged In – WIP.
+ *
+ * Frozen pipeline: Identified ≠ Pre Login (`prelogin`). Pre Login is the next
+ * explicit step before Login → Logged In – WIP. Do not invent a new stage enum.
+ */
+export const MOVE_TO_DEAL_INITIAL_GROSS_STAGE = "identified" as const;
+
 export type CreateDealFromOpportunityInput = {
   opportunity: EnterpriseOpportunityApiRecord;
   lenderId: string;
@@ -30,6 +39,7 @@ function buildSnapshot(
   productLabel: string,
   amount: number | null,
   ownerLenderId: string,
+  initialGrossStage: string,
 ): Record<string, unknown> {
   // CO-ARCH-007 — Derived single-lender projection only (never multi-lender SSOT).
   const owned =
@@ -76,7 +86,7 @@ function buildSnapshot(
       mobile: opportunity.primaryContactMobile,
     },
     product: { label: productLabel },
-    stage: { grossStage: "logged_in_wip", subStage: null },
+    stage: { grossStage: initialGrossStage, subStage: null },
     amounts: { requiredAmount: amount, loanAmount: amount },
     lenders: single,
   };
@@ -109,10 +119,20 @@ export function buildDealCreateBodyFromOpportunity(
     input.customerName?.trim() || borrower.displayName || null;
   const partyId =
     input.customerId?.trim() || borrower.partyEntityId || null;
+  /**
+   * CO-DEAL-PIPELINE-TRANSITION-002 — Persist Identified only.
+   * Lender has been identified + Deal created ≠ lender has logged in.
+   * Ignore any stale caseStage (e.g. logged_in_wip) on this create path.
+   */
+  const initialGrossStage = MOVE_TO_DEAL_INITIAL_GROSS_STAGE;
+  const lendersAtIdentified = lenders.map((l) => ({
+    ...l,
+    caseStage: MOVE_TO_DEAL_INITIAL_GROSS_STAGE,
+  }));
 
   return {
     productFamily: "lending",
-    grossStage: "logged_in_wip",
+    grossStage: initialGrossStage,
     opportunityId: opportunity.id,
     lenderId,
     lenderProgramId: input.lenderProgramId ?? null,
@@ -140,7 +160,14 @@ export function buildDealCreateBodyFromOpportunity(
     priority: "medium",
     requestedAmount: amount,
     currencyCode: "INR",
-    snapshot: buildSnapshot(opportunity, lenders, productLabel, amount, lenderId),
+    snapshot: buildSnapshot(
+      opportunity,
+      lendersAtIdentified,
+      productLabel,
+      amount,
+      lenderId,
+      initialGrossStage,
+    ),
     primaryCounterpartyName: primary?.lender || lenderName || null,
   };
 }

@@ -6,6 +6,7 @@
  */
 import { isDatabaseAvailable } from "@server/lib/prisma";
 import { wealthPartnerTypeLabel } from "@/constants/enterprise-wealth-partner-registry";
+import { ensurePartnerOpportunityStoreForHome } from "./partner-home-desk-projection";
 import {
   PARTNER_HOME_EXPERIENCE_ENGINE,
   PARTNER_HOME_BUSINESS_FEED_META,
@@ -18,7 +19,6 @@ import {
   PARTNER_HOME_HIGHLIGHT_CATALOG,
   PARTNER_HOME_HIGHLIGHTS_META,
   PARTNER_HOME_MY_BUSINESS_TODAY_META,
-  PARTNER_HOME_NOTIFICATION_CATALOG,
   PARTNER_HOME_NOTIFICATIONS_META,
   PARTNER_HOME_PERSONALISATION_CATALOG,
   PARTNER_HOME_PERSONALISATION_META,
@@ -261,7 +261,11 @@ function givenNameFrom(
 }
 
 export const partnerHomeService = {
-  async getHomeDashboard(userId: string, partnerId: string): Promise<PartnerHomeDashboardDto> {
+  async getHomeDashboard(
+    userId: string,
+    partnerId: string,
+    opts?: { phase?: "shell" | "desk" | "full" },
+  ): Promise<PartnerHomeDashboardDto> {
     if (!isDatabaseAvailable()) {
       throw new PartnerGatewayError(
         "Enterprise services are currently unavailable.",
@@ -291,9 +295,9 @@ export const partnerHomeService = {
       satisfiedVisibilityRules: new Set<string>(),
     };
 
-    // CO-WP-COMMAND-001 + CO-WP-HOME-SNAPSHOT-001 + CO-PERF
-    // Single opportunity hydrate for notifications + command center + snapshot.
-    // Caps fan-out and avoids Notification Center ECM×40 on Home.
+    // CO-WP-COMMAND-001 + CO-WP-HOME-SNAPSHOT-001 + CO-WP-PERF-002
+    // Desk enrichment uses pipeline projection once (no ≤12× getOpportunity fan-out,
+    // no empty customer/ECM scan). Shell phase skips desk work for progressive paint.
     const HOME_OPP_LIMIT = 12;
     let commandCenter = composePartnerCommandCenter({
       opportunities: [],
@@ -309,55 +313,43 @@ export const partnerHomeService = {
       ReturnType<typeof partnerBusinessService.getOpportunity>
     >[] = [];
     let customerCount = 0;
-    try {
-      const pipeline = await partnerBusinessService.getBusinessPipeline(userId);
-      const opportunityIds = pipeline.opportunities
-        .slice(0, HOME_OPP_LIMIT)
-        .map((r) => r.opportunityId);
-      const [details, customerHits] = await Promise.all([
-        Promise.all(
-          opportunityIds.map(async (id) => {
-            try {
-              return await partnerBusinessService.getOpportunity(userId, id);
-            } catch {
-              return null;
-            }
-          }),
-        ),
-        partnerBusinessService.searchCustomers(userId, "").catch(() => []),
-      ]);
-      opportunities = details.filter(Boolean) as NonNullable<(typeof details)[number]>[];
-      customerCount = customerHits.length;
-      commandCenter = composePartnerCommandCenter({
-        opportunities,
-        partnerProfileJson: (partner.profileJson as Record<string, unknown> | null) ?? null,
-        givenName,
-      });
-      businessSnapshot = composePartnerBusinessSnapshot({
-        opportunities,
-        customerCount,
-        partnerProfileJson: (partner.profileJson as Record<string, unknown> | null) ?? null,
-      });
-    } catch {
-      // Keep empty Command Center + Snapshot — home must still load.
+    const loadPhase = opts?.phase ?? "full";
+    if (loadPhase !== "shell") {
+      try {
+        const pipeline = await partnerBusinessService.getBusinessPipeline(userId);
+        const opportunityIds = new Set(
+          pipeline.opportunities.slice(0, HOME_OPP_LIMIT).map((r) => r.opportunityId),
+        );
+        const desk = await ensurePartnerOpportunityStoreForHome(userId, opportunityIds);
+        opportunities = desk.opportunities;
+        customerCount = desk.customerCount;
+        commandCenter = composePartnerCommandCenter({
+          opportunities,
+          partnerProfileJson: (partner.profileJson as Record<string, unknown> | null) ?? null,
+          givenName,
+        });
+        businessSnapshot = composePartnerBusinessSnapshot({
+          opportunities,
+          customerCount,
+          partnerProfileJson: (partner.profileJson as Record<string, unknown> | null) ?? null,
+        });
+      } catch {
+        // Keep empty Command Center + Snapshot — home must still load.
+      }
     }
 
     let notifications: import("@/types/enterprise-partner-gateway").PartnerHomeNotificationDto[] =
       [];
-    try {
-      notifications = await partnerNotificationCenterService.listForHomeFast(
-        userId,
-        opportunities,
-      );
-    } catch {
-      notifications = [...PARTNER_HOME_NOTIFICATION_CATALOG]
-        .map((item, index) => {
-          const publishedAt =
-            item.publishedAt ??
-            new Date(Date.now() - (index + 1) * 2_700_000).toISOString();
-          return { ...item, publishedAt };
-        })
-        .sort((a, b) => a.sortOrder - b.sortOrder);
+    if (loadPhase !== "shell") {
+      try {
+        notifications = await partnerNotificationCenterService.listForHomeFast(
+          userId,
+          opportunities,
+        );
+      } catch {
+        // CO-WP-EXP-001 — never fall back to seed/mock notification catalogue.
+        notifications = [];
+      }
     }
     const unreadNotificationCount = notifications.filter((n) => !n.read).length;
 
@@ -495,6 +487,7 @@ export const partnerHomeService = {
     return {
       generatedAt: new Date().toISOString(),
       partnerId: partner.id,
+      homeLoadPhase: loadPhase === "shell" ? "shell" : "desk",
       experience: {
         source: PARTNER_HOME_EXPERIENCE_ENGINE.source,
         surface: PARTNER_HOME_EXPERIENCE_ENGINE.surface,

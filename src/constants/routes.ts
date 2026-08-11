@@ -80,16 +80,24 @@ export const ROUTES = {
   ACCOUNTING: "/accounting",
   REPORTS: "/reports",
   AI_ASSISTANT: "/ai-assistant",
+  /** CO-AI-111 — SARATHI Conversation Experience (text only) */
+  SARATHI: "/sarathi",
+  /** CO-AI-112 — SARATHI Wealth Partner Behaviour Pack desk */
+  SARATHI_WEALTH_PARTNER: "/sarathi/wealth-partner",
   SETTINGS: "/settings",
   DESIGN_SYSTEM: "/design-system",
   ORGANIZATION: "/organization",
   ORGANIZATION_COMPANY_PROFILE: "/organization/company-profile",
   ORGANIZATION_DIRECTORS: "/organization/directors",
   ORGANIZATION_CORPORATE_REPOSITORY: "/organization/corporate-repository",
+  ORGANIZATION_COMPLIANCE_CENTER: "/organization/compliance-center",
   ORGANIZATION_DOCUMENTS: "/organization/documents",
   ORGANIZATION_BANK_ACCOUNTS: "/organization/bank-accounts",
   ORGANIZATION_DIGITAL_SIGNATURES: "/organization/digital-signatures",
   ORGANIZATION_COMPANY_SEAL: "/organization/company-seal",
+  ORGANIZATION_BUSINESS_CONFIG: "/organization/business-config",
+  ORGANIZATION_SETTINGS: "/organization/settings",
+  ORGANIZATION_SECURITY: "/organization/security",
   /** CO-SPRINT-111 — Administration Console hub (Enterprise Configuration Console). */
   ADMIN: "/admin",
   ADMIN_ECG: "/admin/ecg",
@@ -100,6 +108,10 @@ export const ROUTES = {
   ADMIN_PRODUCTION_RESET: "/admin/production-reset",
   /** CO-PERF-001 — Enterprise Metrics Engine administration */
   ADMIN_ENTERPRISE_METRICS: "/admin/enterprise-metrics",
+  /** CO-WP-ACCESS-001 — Wealth Partner Access & Entitlements */
+  ADMIN_PARTNER_ENTITLEMENTS: "/admin/partner-entitlements",
+  /** CO-AI-G2-W8 — Shadow Mode Dashboard (Product Owner review only) */
+  ADMIN_SHADOW_MODE_DASHBOARD: "/admin/shadow-mode-dashboard",
   /** CO-ECC-001 — Enterprise Communication Center (profiles & sender identities) */
   ADMIN_ENTERPRISE_COMMUNICATION: "/admin/enterprise-communication",
   /** CO-360-001 — Universal 360° Workspace Framework (Admin demo / BAT) */
@@ -169,6 +181,14 @@ export const ROUTES = {
   ADMIN_WEALTH_PARTNER_REGISTRY: "/admin/wealth-partner-registry",
   /** CO-ADMIN-005 — Product × Lender offer matrix */
   ADMIN_PRODUCT_LENDER_MATRIX: "/admin/product-lender-matrix",
+  /** CO-HL-PROGRAM-001 — Home Loan eligible lenders + selection priority (PO desk) */
+  ADMIN_HOME_LOAN_LENDER_PRIORITY: "/admin/home-loan-lender-priority",
+  /** CO-PRODUCT-PRIORITY-004 — LAP + Commercial Purchase lender selection priority (PO desk) */
+  ADMIN_PRODUCT_LENDER_PRIORITY: "/admin/product-lender-priority",
+  /** CO-PERSONAL-LOAN-PRIORITY-001 — Personal Loan lender selection priority (PO desk) */
+  ADMIN_PERSONAL_LOAN_LENDER_PRIORITY: "/admin/personal-loan-lender-priority",
+  /** CO-UBL-PRIORITY-001 — Unsecured Business Loan lender selection priority (PO desk) */
+  ADMIN_UBL_LENDER_PRIORITY: "/admin/ubl-lender-priority",
   /** CO-LEND-001 — Lender Self-Service Program Portal (admin) */
   ADMIN_LENDER_PROGRAM_PORTAL: "/admin/lender-program-portal",
   ADMIN_FOUNDATION_LIBRARIES: "/admin/foundation-libraries",
@@ -232,6 +252,8 @@ export const PROTECTED_ROUTES = [
   ROUTES.ACCOUNTING,
   ROUTES.REPORTS,
   ROUTES.AI_ASSISTANT,
+  ROUTES.SARATHI,
+  ROUTES.SARATHI_WEALTH_PARTNER,
   ROUTES.SETTINGS,
   ROUTES.DESIGN_SYSTEM,
   ROUTES.ORGANIZATION,
@@ -239,15 +261,21 @@ export const PROTECTED_ROUTES = [
   ROUTES.ORGANIZATION_COMPANY_PROFILE,
   ROUTES.ORGANIZATION_DIRECTORS,
   ROUTES.ORGANIZATION_CORPORATE_REPOSITORY,
+  ROUTES.ORGANIZATION_COMPLIANCE_CENTER,
   ROUTES.ORGANIZATION_DOCUMENTS,
   ROUTES.ORGANIZATION_BANK_ACCOUNTS,
   ROUTES.ORGANIZATION_DIGITAL_SIGNATURES,
   ROUTES.ORGANIZATION_COMPANY_SEAL,
+  ROUTES.ORGANIZATION_BUSINESS_CONFIG,
+  ROUTES.ORGANIZATION_SETTINGS,
+  ROUTES.ORGANIZATION_SECURITY,
   ROUTES.ADMIN_ECG,
   ROUTES.ADMIN_SYSTEM_MODES,
   ROUTES.ADMIN_BUILD_INFORMATION,
   ROUTES.ADMIN_PRODUCTION_RESET,
   ROUTES.ADMIN_ENTERPRISE_METRICS,
+  ROUTES.ADMIN_PARTNER_ENTITLEMENTS,
+  ROUTES.ADMIN_SHADOW_MODE_DASHBOARD,
   ROUTES.ADMIN_ENTERPRISE_COMMUNICATION,
   ROUTES.ADMIN_USERS,
   ROUTES.ADMIN_ROLES_PERMISSIONS,
@@ -289,6 +317,10 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_PRODUCT_LIFECYCLE,
   ROUTES.ADMIN_PRODUCT_AUDIT,
   ROUTES.ADMIN_PRODUCT_LENDER_MATRIX,
+  ROUTES.ADMIN_HOME_LOAN_LENDER_PRIORITY,
+  ROUTES.ADMIN_PRODUCT_LENDER_PRIORITY,
+  ROUTES.ADMIN_PERSONAL_LOAN_LENDER_PRIORITY,
+  ROUTES.ADMIN_UBL_LENDER_PRIORITY,
   ROUTES.ADMIN_LENDER_PROGRAM_PORTAL,
   ROUTES.ADMIN_ENTERPRISE_MDM,
   ROUTES.ADMIN_PRODUCT_PROGRAMS,

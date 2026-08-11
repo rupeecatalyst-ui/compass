@@ -55,6 +55,8 @@ export function parseListQuery(url: URL): {
   status: string;
   contactId?: string;
   companyId?: string;
+  createdFrom?: string;
+  createdTo?: string;
 } {
   const page = Number(url.searchParams.get("page") ?? "1");
   const pageSize = Number(url.searchParams.get("pageSize") ?? "50");
@@ -72,6 +74,8 @@ export function parseListQuery(url: URL): {
     status: url.searchParams.get("status") ?? "all",
     contactId: url.searchParams.get("contactId") ?? undefined,
     companyId: url.searchParams.get("companyId") ?? undefined,
+    createdFrom: url.searchParams.get("createdFrom") ?? undefined,
+    createdTo: url.searchParams.get("createdTo") ?? undefined,
   };
 }
 

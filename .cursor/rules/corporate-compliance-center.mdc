@@ -1,0 +1,29 @@
+# Corporate Compliance Center (CO-CCC-001)
+
+Status: **ENTERPRISE FOUNDATION** · Organization domain · Sprint CO-CCC-001
+
+## Constitutional principles
+
+1. CCC is the **Organization-domain** compliance desk — **not** Opportunity Workspace / Document Center.
+2. **OrganizationDocument** is the **sole binary SSOT** for corporate documents. CCC repositories are filtered views + metadata workflows.
+3. Do **not** redesign Organization Workspace shells.
+4. Do **not** invent a second corporate document vault.
+5. Organization Documents remains the primary **authoring** surface; CCC enriches metadata, packages, and dispatch.
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Constants | `src/constants/corporate-compliance-center/` |
+| Types | `src/types/corporate-compliance-center.ts` |
+| Client | `src/lib/corporate-compliance-center/` |
+| UI | `src/components/catalyst-one/corporate-compliance-center/` |
+| Route | `/organization/compliance-center` |
+| APIs | `/api/organization/compliance-center/**` |
+| Docs | `docs/co-ccc-001/` |
+
+## Related
+
+- CO-ORG-001 Organization Workspace
+- Organization Documents Registry rule
+- Opportunity Document Center remains transaction-document SSOT (separate constitutional scope)

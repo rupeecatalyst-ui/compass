@@ -1,7 +1,7 @@
 /**
- * GO-LIVE P0 + CO-ARCH-004 — Enterprise Lender Registry local relational store.
- * Soft Go-Live SSOT when Prisma lender API is unavailable.
- * Same shape as API records — no duplicated lender rows across modules.
+ * GO-LIVE P0 + CO-ARCH-004 + CO-ORG-002 — Enterprise Lender Registry local relational store.
+ * Soft Go-Live SSOT only when persistence mode ≠ prisma.
+ * Never operational under prisma — use Prisma Enterprise Lender Registry APIs instead.
  */
 import { allocateLenderCode, isImmutableLenderCode } from "@/lib/enterprise-lender-registry/codes";
 import {
@@ -389,6 +389,13 @@ export const localLenderRegistryStore = {
       maxTenureMonths: input.maxTenureMonths ?? null,
       minCibil: input.minCibil ?? null,
       minIncomeAmount: input.minIncomeAmount ?? null,
+      maxFoirPercent: input.maxFoirPercent ?? null,
+      maxDbrPercent: input.maxDbrPercent ?? null,
+      minFundingAmount: input.minFundingAmount ?? null,
+      minAge: input.minAge ?? null,
+      maxAge: input.maxAge ?? null,
+      creditRiskPolicyRef: input.creditRiskPolicyRef ?? null,
+      requiredDocumentTypeIds: input.requiredDocumentTypeIds ?? [],
       eligibleStates: input.eligibleStates ?? [],
       eligibleCities: input.eligibleCities ?? [],
       averageTatDays: input.averageTatDays ?? null,

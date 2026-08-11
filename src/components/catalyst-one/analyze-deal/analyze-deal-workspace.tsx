@@ -19,7 +19,7 @@ import {
   shouldRevealLowScoreQuestions,
 } from "@/constants/analyze-deal";
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
-import { buildMockAnalyzeDealResult } from "@/lib/analyze-deal/mock-recommendations";
+import { buildEnterpriseAnalyzeDealResult } from "@/lib/analyze-deal/mock-recommendations";
 import type {
   AnalyzeDealInputs,
   AnalyzeDealLenderRecommendation,
@@ -275,7 +275,7 @@ export function AnalyzeDealWorkspace({
   const onAnalyze = () => {
     setAnalyzing(true);
     window.setTimeout(() => {
-      setResult(buildMockAnalyzeDealResult(inputs));
+      setResult(buildEnterpriseAnalyzeDealResult(inputs));
       setAnalyzing(false);
     }, 420);
   };

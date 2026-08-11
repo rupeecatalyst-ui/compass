@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 export type UnsavedChangesDialogVariant = "close" | "my-deals";
 
@@ -24,6 +25,9 @@ export interface UnsavedChangesDialogProps {
   saving?: boolean;
   /** close = Save & Close; my-deals = Save & Go (Chanakya confirm). */
   variant?: UnsavedChangesDialogVariant;
+  /** Elevate above nested Sheets (e.g. Lender Workspace z-[95]). */
+  contentClassName?: string;
+  overlayClassName?: string;
 }
 
 /**
@@ -38,6 +42,8 @@ export function UnsavedChangesDialog({
   onSaveAndClose,
   saving,
   variant = "close",
+  contentClassName,
+  overlayClassName,
 }: UnsavedChangesDialogProps) {
   const copy =
     variant === "my-deals"
@@ -58,7 +64,10 @@ export function UnsavedChangesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md [&>button]:hidden">
+      <DialogContent
+        className={cn("max-w-md [&>button]:hidden", contentClassName)}
+        overlayClassName={overlayClassName}
+      >
         <DialogHeader>
           <DialogTitle>{copy.title}</DialogTitle>
           <DialogDescription>{copy.description}</DialogDescription>

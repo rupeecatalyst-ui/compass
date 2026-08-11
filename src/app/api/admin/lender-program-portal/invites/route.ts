@@ -1,5 +1,5 @@
 /**
- * CO-LEND-001 — Admin: list / create program portal invites.
+ * CO-LEND-001 / CO-MASTER-005A — Admin: list / create program portal invites.
  */
 import {
   errorResponse,
@@ -7,7 +7,6 @@ import {
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
-import type { ApiResponse } from "@/types/api";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { lenderProgramPortalService } from "@server/services/lender-program-portal/lender-program-portal.service";
 
@@ -24,6 +23,13 @@ export async function GET(request: Request) {
   try {
     guard();
     requireAccessToken(request);
+    const url = new URL(request.url);
+    const matrixLenderId = url.searchParams.get("matrixLenderId")?.trim();
+    if (matrixLenderId) {
+      const products =
+        await lenderProgramPortalService.listMatrixProductsForLender(matrixLenderId);
+      return successResponse({ products });
+    }
     const items = await lenderProgramPortalService.listInvites();
     return successResponse({ items });
   } catch (err) {
@@ -43,6 +49,7 @@ export async function POST(request: Request) {
     const actor = requireAccessToken(request);
     const body = (await request.json()) as {
       lenderId?: string;
+      productIds?: string[];
       ttlDays?: number;
       maxUses?: number | null;
       notes?: string;
@@ -50,8 +57,16 @@ export async function POST(request: Request) {
     if (!body.lenderId?.trim()) {
       return errorResponse(400, "VALIDATION", "lenderId is required");
     }
+    if (!Array.isArray(body.productIds) || body.productIds.length === 0) {
+      return errorResponse(
+        400,
+        "PRODUCT_REQUIRED",
+        "Select at least one product for the invitation",
+      );
+    }
     const invite = await lenderProgramPortalService.createInvite({
       lenderId: body.lenderId.trim(),
+      productIds: body.productIds,
       ttlDays: body.ttlDays,
       maxUses: body.maxUses,
       notes: body.notes,

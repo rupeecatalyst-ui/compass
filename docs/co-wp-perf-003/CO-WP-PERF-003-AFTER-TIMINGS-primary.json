@@ -1,0 +1,103 @@
+{
+  "sprint": "CO-WP-PERF-003",
+  "baseUrl": "https://catalyst-one-two.vercel.app",
+  "startedAt": "2026-08-11T08:32:52.434Z",
+  "timings": [
+    {
+      "label": "login",
+      "ms": 7950,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "label": "/api/partner/auth/me",
+      "ms": 7825,
+      "status": 200,
+      "ok": true,
+      "bytes": 838,
+      "serverTiming": null,
+      "homePhase": null
+    },
+    {
+      "label": "/api/partner/home?phase=shell",
+      "ms": 3843,
+      "status": 200,
+      "ok": true,
+      "bytes": 38388,
+      "serverTiming": "total;dur=3584",
+      "homePhase": "shell"
+    },
+    {
+      "label": "/api/partner/home?phase=desk",
+      "ms": 11165,
+      "status": 200,
+      "ok": true,
+      "bytes": 43958,
+      "serverTiming": "total;dur=10717",
+      "homePhase": "desk"
+    },
+    {
+      "label": "/api/partner/home",
+      "ms": 10107,
+      "status": 200,
+      "ok": true,
+      "bytes": 43958,
+      "serverTiming": "total;dur=9666",
+      "homePhase": "full"
+    },
+    {
+      "label": "/api/partner/business-pipeline",
+      "ms": 7608,
+      "status": 200,
+      "ok": true,
+      "bytes": 8124,
+      "serverTiming": "total;dur=7349",
+      "homePhase": null
+    },
+    {
+      "label": "/api/partner/notifications",
+      "ms": 71845,
+      "status": 200,
+      "ok": true,
+      "bytes": 4069,
+      "serverTiming": null,
+      "homePhase": null
+    },
+    {
+      "label": "/api/partner/business-pipeline#2",
+      "ms": 10556,
+      "status": 200,
+      "ok": true,
+      "bytes": 8124,
+      "serverTiming": "total;dur=10270"
+    },
+    {
+      "label": "/api/partner/business-pipeline#after-mutation",
+      "ms": 9157,
+      "status": 200,
+      "ok": true,
+      "bytes": 8124
+    },
+    {
+      "label": "/api/partner/home?phase=desk#after-mutation",
+      "ms": 10243,
+      "status": 200,
+      "ok": true
+    }
+  ],
+  "cache": {
+    "action": "patched_existing",
+    "status": 403,
+    "opportunityId": "cmsnpr4g70003k004cslwizma",
+    "ok": false,
+    "pipelineAfterMs": 9157,
+    "homeAfterMs": 10243,
+    "opportunityVisibleInPipeline": true
+  },
+  "session": {
+    "partnerCode": "WPDEMO001",
+    "partnerDisplayName": "Wealth Partner Demo",
+    "partnerId": "cms9apix90003wejcooyto6ij"
+  },
+  "finishedAt": "2026-08-11T08:36:00.928Z"
+}

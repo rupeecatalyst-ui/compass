@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { OpportunityDealRegistry } from "@/components/catalyst-one/my-deals/opportunity-deal-registry";
+import { DealLenderJourneyBoard } from "@/components/catalyst-one/my-deals/deal-lender-journey-board";
 import { EnterpriseRegistryWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-registry-workspace-shell";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import {
@@ -19,7 +19,10 @@ import {
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { getRememberedDeal } from "@/lib/enterprise-deal/dual-write-store";
 import { bindSessionDeal } from "@/lib/enterprise-session";
-import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
+import {
+  buildDealWorkspaceHref,
+  buildOpportunityWorkspaceEntryHref,
+} from "@/lib/loan-journey/adr-018-routing";
 import { resolveCurrentRmName } from "@/lib/my-deals";
 import {
   pickPreferredDealForOpportunity,
@@ -33,14 +36,44 @@ import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-nav
 import { cn } from "@/lib/utils";
 
 /**
- * CO-UX-003 — Opportunity Summary → Loan Workspace only.
- * Preferred Deal (furthest journey) seeds workspace; all lenders managed inside.
+ * CO-C1-DEALS-JOURNEY-001 — Customer / Opportunity header → Opportunity Workspace.
  */
-async function openLoanWorkspaceForOpportunity(
+function openOpportunityWorkspace(
   router: ReturnType<typeof useRouter>,
   group: OpportunityRegistryGroup,
 ) {
-  const row = pickPreferredDealForOpportunity(group.deals);
+  const opportunityId = group.opportunityId?.trim();
+  if (!opportunityId) {
+    // No Opportunity id — fall back to preferred Deal Workspace (legacy rows).
+    void openDealWorkspace(
+      router,
+      pickPreferredDealForOpportunity(group.deals),
+      group,
+    );
+    return;
+  }
+  const preferred = group.deals[0];
+  setActiveOpportunityContext({
+    fileId: preferred?.id,
+    opportunityId,
+    customerName: group.borrowerName,
+    product: group.product,
+    label: group.opportunityNumber,
+  });
+  router.push(
+    buildOpportunityWorkspaceEntryHref({
+      id: opportunityId,
+      legacyLoanFileId: preferred?.id ?? null,
+    }),
+  );
+}
+
+/** Open exact lender Deal Workspace. */
+async function openDealWorkspace(
+  router: ReturnType<typeof useRouter>,
+  row: DealRegistryRow,
+  group: OpportunityRegistryGroup,
+) {
   const dealId = (await resolveEnterpriseDealId(row)) || row.id;
   let opportunityId = group.opportunityId?.trim() || row.opportunityId?.trim() || undefined;
   try {
@@ -80,8 +113,9 @@ async function resolveEnterpriseDealId(row: DealRegistryRow): Promise<string | n
 }
 
 /**
- * CO-SPRINT-098 / CO-ARCH-002-W4 / CO-UX-003 — Enterprise Deal Registry (Opportunity-grouped).
+ * CO-SPRINT-098 / CO-ARCH-002-W4 / CO-UX-003 — Enterprise Deal Registry.
  * CO-ARCH-005 — Enterprise Deal Registry only (no Soft Go-Live LoanFile list).
+ * CO-C1-DEALS-JOURNEY-001 — Lender Journey board replaces tabular grouped registry.
  */
 export function MyDealsWorkspace() {
   const router = useRouter();
@@ -194,12 +228,12 @@ export function MyDealsWorkspace() {
   return (
     <EnterpriseRegistryWorkspaceShell
       title={MY_DEALS_OFFICIAL_NAME}
-      subtitle="Enterprise Deal Registry"
+      subtitle="Lender Journey · Enterprise Deal Registry"
       count={allRows.length}
       countNoun="Deals"
       breadcrumbs={buildSimpleWorkspaceBreadcrumbs(MY_DEALS_OFFICIAL_NAME)}
-      data-sprint="CO-SPRINT-120"
-      data-surface="deal-registry"
+      data-sprint="CO-C1-DEALS-JOURNEY-001"
+      data-surface="deal-lender-journey"
       statusSlot={
         <span
           className={cn(
@@ -248,16 +282,15 @@ export function MyDealsWorkspace() {
     >
       {businessTab === "loans" ? (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <OpportunityDealRegistry
+          <DealLenderJourneyBoard
             rows={allRows}
             currentRm={currentRm}
             initialScope={initialScope}
             initialSearch={initialSearch}
             initialGrossStage={initialGrossStage}
             onFiltersChanged={handleFiltersChanged}
-            onOpenOpportunity={(group) =>
-              void openLoanWorkspaceForOpportunity(router, group)
-            }
+            onOpenOpportunity={(group) => openOpportunityWorkspace(router, group)}
+            onOpenDeal={(row, group) => void openDealWorkspace(router, row, group)}
           />
         </div>
       ) : (

@@ -1,0 +1,63 @@
+{
+  "snapshotId": "eao_shadow_dash_snap_34c62bbf-65bf-426e-a6db-466d8ed71ad7",
+  "version": "1.0.0-g2-w8",
+  "title": "CO-AI-G2-W8 Shadow Mode Dashboard — Product Owner Report",
+  "audience": "product_owner_only",
+  "customerAccess": false,
+  "customerIsolated": true,
+  "rows": [
+    {
+      "rowId": "eao_shadow_dash_e1ffba5e-7e2b-465a-afa4-14036d51f225",
+      "customerUtterance": "How fast can I get a business loan?",
+      "currentSarathiResponse": "With complete documents, some business loan cases can move quite quickly, although timelines depend on the lender and your profile. Is your business a proprietorship, partnership, or private limited?",
+      "reasoningModelResponse": "That's a fair question. Timelines and fit depend on your profile and documents — I won't invent numbers, but I can guide what typically matters next.",
+      "goldStandardResponse": "With complete documents, some business loan cases can move quite quickly, although timelines depend on the lender and your profile. Is your business a proprietorship, partnership, or private limited?",
+      "benchmarkScore": 81.5,
+      "policyScore": 91.8,
+      "consultationScore": 40,
+      "latencyMs": 980,
+      "estimatedCostUsd": 0.000062,
+      "productPath": "business_loan",
+      "recommendation": "Live SARATHI currently closer to gold — keep live facing; use model for gap analysis only.",
+      "comparedAt": "2026-08-06T19:21:27.217Z"
+    },
+    {
+      "rowId": "eao_shadow_dash_3260dc52-6ea8-49cc-babe-f8f7fa787eff",
+      "customerUtterance": "I want to buy my first home — a ready flat in Pune.",
+      "currentSarathiResponse": "I'd be glad to help with your first home purchase in Pune. Before we go deeper, are you salaried or self-employed?",
+      "reasoningModelResponse": "Thank you for sharing that. To advise accurately, it helps to know which loan type you're exploring and roughly how much funding you need.",
+      "goldStandardResponse": "I'd be glad to help with your first home purchase in Pune. Before we go deeper, are you salaried or self-employed?",
+      "benchmarkScore": 74.5,
+      "policyScore": 88,
+      "consultationScore": 55,
+      "latencyMs": 1120,
+      "estimatedCostUsd": 0.000059,
+      "productPath": "home_loan",
+      "recommendation": "Live SARATHI currently closer to gold — keep live facing; use model for gap analysis only.",
+      "comparedAt": "2026-08-06T19:21:27.219Z"
+    },
+    {
+      "rowId": "eao_shadow_dash_5b5077e5-dfcf-4da4-8d7d-21e64ec41f28",
+      "customerUtterance": "I want a home loan balance transfer to reduce my EMI.",
+      "currentSarathiResponse": "Let's explore your options. Share whatever feels useful next.",
+      "reasoningModelResponse": "Balance transfer can help when your current rate or EMI is no longer competitive. Which bank is your current home loan with?",
+      "goldStandardResponse": "Balance transfer can help when your current rate or EMI is no longer competitive. Which bank is your current home loan with?",
+      "benchmarkScore": 64.4,
+      "policyScore": 88,
+      "consultationScore": 45,
+      "latencyMs": 1450,
+      "estimatedCostUsd": 0.000054,
+      "productPath": "balance_transfer",
+      "recommendation": "Reasoning model outperforms live on this turn — candidate insight for future Hybrid (not customer-visible).",
+      "comparedAt": "2026-08-06T19:21:27.220Z"
+    }
+  ],
+  "averages": {
+    "benchmarkScore": 73.5,
+    "policyScore": 89.3,
+    "consultationScore": 46.7,
+    "latencyMs": 1183.3,
+    "estimatedCostUsd": 0.000058
+  },
+  "generatedAt": "2026-08-06T19:21:27.220Z"
+}

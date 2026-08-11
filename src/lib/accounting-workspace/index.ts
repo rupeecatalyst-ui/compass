@@ -11,4 +11,4 @@ export type {
   PayoutStatus,
 } from "./types";
 
-export { getAccountingWorkspaceModel } from "./mock-data";
+export { getAccountingWorkspaceModel, ACCOUNTING_SSOT_PENDING_MESSAGE } from "./mock-data";

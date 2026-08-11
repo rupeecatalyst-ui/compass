@@ -48,6 +48,21 @@ function ecmDomainOptions(domain: "constitution" | "industry"): { value: string;
   return listEcmMasterOptions(domain).map((o) => ({ value: o.id, label: o.label }));
 }
 
+/** ECM Occupation master — parentId = Employment Type (cascading select). */
+function ecmOccupationOptions(): { value: string; label: string; parentId?: string }[] {
+  const employmentParents = LEAD_INFORMATION_EMPLOYMENT_OPTIONS.map((o) => o.value);
+  const seen = new Set<string>();
+  const out: { value: string; label: string; parentId?: string }[] = [];
+  for (const parentId of employmentParents) {
+    for (const o of listEcmMasterOptions("occupation", parentId)) {
+      if (seen.has(o.id)) continue;
+      seen.add(o.id);
+      out.push({ value: o.id, label: o.label, parentId: o.parentId ?? parentId });
+    }
+  }
+  return out;
+}
+
 export { resolveProductFieldFamily };
 
 /**
@@ -167,6 +182,7 @@ export function buildPartnerOpportunityJourneyConfig(): PartnerOpportunityJourne
     products,
     optionSets: {
       employmentType: optionsFromPairs([...LEAD_INFORMATION_EMPLOYMENT_OPTIONS]),
+      occupation: ecmOccupationOptions(),
       constitution: ecmDomainOptions("constitution"),
       industry: ecmDomainOptions("industry"),
       lendingType: optionsFromPairs([...LEAD_INFORMATION_LENDING_TYPE_OPTIONS]),

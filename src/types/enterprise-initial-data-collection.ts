@@ -10,6 +10,8 @@ export type IdcControl = "text" | "textarea" | "select" | "number" | "city_searc
 export type IdcOption = {
   value: string;
   label: string;
+  /** Parent master id for cascading selects (e.g. occupation → employment type). */
+  parentId?: string;
 };
 
 /** Presentation validation — Partner UI enforces; never a parallel Connect rule set. */

@@ -1,0 +1,340 @@
+{
+  "sprint": "CO-WP-PERF-004",
+  "purpose": "diagnostic-only auth + notifications waterfall",
+  "baseUrl": "https://catalyst-one-two.vercel.app",
+  "email": "wp-bat@rupeecatalyst.com",
+  "startedAt": "2026-08-11T09:31:02.266Z",
+  "waterfall": {
+    "login": {
+      "coldMs": 8231,
+      "warmMs": 6373,
+      "deltaColdMinusWarmMs": 1858,
+      "sessionHasEntitlementsOnLogin": false
+    },
+    "me": {
+      "afterLoginMs": 8174,
+      "warmMs": 7931,
+      "afterGapMs": 8381,
+      "hasEntitlements": true
+    },
+    "home": {
+      "shellMs": 4116,
+      "deskMs": 12391,
+      "shellNotificationCount": 0,
+      "deskNotificationCount": 7,
+      "note": "Home uses /home phases; does not call GET /notifications"
+    },
+    "notifications": {
+      "coldMs": 45103,
+      "warmProbeMs": 45652,
+      "itemCount": 7,
+      "bytes": 4069
+    },
+    "decomposition": {
+      "pipeline1Ms": 7935,
+      "pipeline2Ms": 7696,
+      "pipelineTtlLikelyHit": false,
+      "customersSearchEmptyMs": 15124,
+      "opportunitySampleCount": 2,
+      "opportunitySequentialSumMs": 26331,
+      "opportunityParallelWallMs": 15666,
+      "opportunityAvgSequentialMs": 13166,
+      "projectedFanout40xAvgMs": 26331,
+      "arithmeticProxy": 38725,
+      "measuredNotificationsMs": 45103,
+      "residualMs": 6378
+    },
+    "networkBaseline": {
+      "healthMs": 280
+    }
+  },
+  "timings": [
+    {
+      "label": "login#cold",
+      "ms": 8231,
+      "status": 200,
+      "ok": true,
+      "bytes": 1451,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::x4l8h-1786440662978-952ca0c47028",
+        "xVercelCache": "MISS",
+        "cfCache": null,
+        "age": null
+      },
+      "session": {
+        "partnerId": "cms9apix90003wejcooyto6ij",
+        "partnerCode": "WPDEMO001",
+        "hasEntitlements": false,
+        "entitlementKeys": []
+      }
+    },
+    {
+      "label": "login#warm-immediate",
+      "ms": 6373,
+      "status": 200,
+      "ok": true,
+      "bytes": 1451,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::f4bl4-1786440670926-4643a4a3bb14",
+        "xVercelCache": "MISS",
+        "cfCache": null,
+        "age": null
+      },
+      "session": {
+        "partnerId": "cms9apix90003wejcooyto6ij",
+        "partnerCode": "WPDEMO001",
+        "hasEntitlements": false,
+        "entitlementKeys": []
+      }
+    },
+    {
+      "label": "/me#1-after-login",
+      "ms": 8174,
+      "status": 200,
+      "ok": true,
+      "bytes": 838,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::cgqlc-1786440677298-8d628549dd70",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      },
+      "hasEntitlements": true,
+      "modules": {
+        "home": true,
+        "business": true,
+        "customers": true,
+        "documents": true,
+        "saarthi": true,
+        "notifications": true,
+        "private": true,
+        "commercials": true,
+        "performance": true
+      }
+    },
+    {
+      "label": "/me#2-warm",
+      "ms": 7931,
+      "status": 200,
+      "ok": true,
+      "bytes": 838,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::2vp6n-1786440685474-a629aaf25e50",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      },
+      "hasEntitlements": true
+    },
+    {
+      "label": "auth/health",
+      "ms": 280,
+      "status": 404,
+      "ok": false,
+      "bytes": 14961,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::2vp6n-1786440693403-286c388a45e5",
+        "xVercelCache": "MISS",
+        "cfCache": null,
+        "age": "0"
+      }
+    },
+    {
+      "label": "home#shell",
+      "ms": 4116,
+      "status": 200,
+      "ok": true,
+      "bytes": 38388,
+      "headers": {
+        "serverTiming": "total;dur=3624",
+        "xVercelId": "bom1::iad1::2vp6n-1786440693684-5dad10c75dc4",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      },
+      "hasNotifications": true,
+      "notificationCount": 0,
+      "phase": null
+    },
+    {
+      "label": "home#desk",
+      "ms": 12391,
+      "status": 200,
+      "ok": true,
+      "bytes": 43772,
+      "headers": {
+        "serverTiming": "total;dur=11941",
+        "xVercelId": "bom1::iad1::cgqlc-1786440697798-7b8943e15830",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      },
+      "hasNotifications": true,
+      "notificationCount": 7
+    },
+    {
+      "label": "pipeline#1",
+      "ms": 7935,
+      "status": 200,
+      "ok": true,
+      "bytes": 8124,
+      "headers": {
+        "serverTiming": "total;dur=7662",
+        "xVercelId": "bom1::iad1::cgqlc-1786440710201-0cd14fd6849d",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      },
+      "opportunityCount": 2,
+      "opportunityIds": [
+        "cmsnpr4g70003k004cslwizma",
+        "cmsngr66g0003l104527gr6wy"
+      ]
+    },
+    {
+      "label": "pipeline#2-ttl-probe",
+      "ms": 7696,
+      "status": 200,
+      "ok": true,
+      "bytes": 8124,
+      "headers": {
+        "serverTiming": "total;dur=7452",
+        "xVercelId": "bom1::iad1::c67cz-1786440718125-c33179582014",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      },
+      "opportunityCount": 2
+    },
+    {
+      "label": "opportunity#cmsnpr4g70003k004cslwizma",
+      "opportunityId": "cmsnpr4g70003k004cslwizma",
+      "ms": 13705,
+      "status": 200,
+      "ok": true,
+      "bytes": 6796,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::4sq86-1786440725824-2638443753ad",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      }
+    },
+    {
+      "label": "opportunity#cmsngr66g0003l104527gr6wy",
+      "opportunityId": "cmsngr66g0003l104527gr6wy",
+      "ms": 12626,
+      "status": 200,
+      "ok": true,
+      "bytes": 12064,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::4sq86-1786440739526-08a32261235c",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      }
+    },
+    {
+      "label": "opportunities#parallel-fanout",
+      "ms": 15666,
+      "wallMs": 15666,
+      "results": [
+        {
+          "opportunityId": "cmsnpr4g70003k004cslwizma",
+          "ms": 14110,
+          "status": 200,
+          "bytes": 6796
+        },
+        {
+          "opportunityId": "cmsngr66g0003l104527gr6wy",
+          "ms": 15665,
+          "status": 200,
+          "bytes": 12064
+        }
+      ]
+    },
+    {
+      "label": "customers/search#empty",
+      "ms": 15124,
+      "status": 200,
+      "ok": true,
+      "bytes": 340,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::j9pzc-1786440767819-59bc696ce7f4",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      },
+      "customerCount": 2
+    },
+    {
+      "label": "notifications#1",
+      "ms": 45103,
+      "status": 200,
+      "ok": true,
+      "bytes": 4069,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::j9pzc-1786440782954-0720f68542f5",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      },
+      "itemCount": 7,
+      "unreadCount": 7,
+      "categories": [
+        "business",
+        "campaigns"
+      ]
+    },
+    {
+      "label": "notifications#2-warm-probe",
+      "ms": 45652,
+      "status": 200,
+      "ok": true,
+      "bytes": 4069,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::j9pzc-1786440829564-ed5fc642e205",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      },
+      "itemCount": 7
+    },
+    {
+      "label": "/me#3-after-gap",
+      "ms": 8381,
+      "status": 200,
+      "ok": true,
+      "bytes": 838,
+      "headers": {
+        "serverTiming": null,
+        "xVercelId": "bom1::iad1::hmnn2-1786440877228-a9d1f8fa9840",
+        "xVercelCache": "BYPASS",
+        "cfCache": null,
+        "age": null
+      }
+    }
+  ],
+  "notes": [
+    "Process-local pipeline TTL may miss across serverless isolates; pipeline#2 probes same-isolate TTL only.",
+    "Opportunity GETs are public API proxies for getOpportunity cost inside notifications getCenter.",
+    "customers/search?q= mirrors searchCustomers(\"\") used by getCenter; notifications also reloads ECM×40 after search."
+  ],
+  "session": {
+    "partnerId": "cms9apix90003wejcooyto6ij",
+    "partnerCode": "WPDEMO001",
+    "hasEntitlements": false,
+    "entitlementKeys": []
+  },
+  "finishedAt": "2026-08-11T09:34:45.186Z"
+}

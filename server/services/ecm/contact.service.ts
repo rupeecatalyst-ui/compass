@@ -48,8 +48,12 @@ function syncRoles(input: RegisterContactInput) {
   };
 }
 
+import { normalizeEcmMobile } from "@/lib/enterprise-contact-master";
+import { ecmCanonicalMobilePrimary } from "@server/repositories/ecm/contact.repository";
+
 function normalizeMobile(mobile: string): string {
-  return mobile.replace(/\D/g, "").trim() || mobile.trim();
+  // SSOT: same digit strip as `normalizeEcmMobile` / Partner Gateway contact resolve.
+  return ecmCanonicalMobilePrimary(mobile) || normalizeEcmMobile(mobile) || mobile.trim();
 }
 
 export class EcmContactService {

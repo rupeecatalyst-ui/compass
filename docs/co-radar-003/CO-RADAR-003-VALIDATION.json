@@ -1,0 +1,203 @@
+{
+  "auditId": "CO-RADAR-003",
+  "nature": "timeline_projection_fix_validation",
+  "scoringUnchanged": true,
+  "generatedAt": "2026-08-07T09:53:49.333Z",
+  "activeDealCount": 10,
+  "averageDealHealth": 86,
+  "quadrantCounts": {
+    "on_track": 8,
+    "follow_up_required": 0,
+    "needs_attention": 2,
+    "at_risk": 0
+  },
+  "emptyTimelineCount": 0,
+  "allAtRiskFloor6Regression": false,
+  "acceptance": {
+    "noDefaultEmptyTimeline": true,
+    "notUniversalAtRiskFloor": true,
+    "naturalDistribution": true
+  },
+  "deals": [
+    {
+      "dealNumber": "DEAL-2026-000078",
+      "borrower": "Amol Thorat",
+      "timelineEventsFound": 8,
+      "lastActivity": {
+        "title": "Deal record updated — Deal DEAL-2026-000078 updated",
+        "timestamp": "2026-08-05T08:01:06.028Z"
+      },
+      "activityHealth": {
+        "state": "healthy_waiting",
+        "momentumScore": 72,
+        "daysSinceMeaningful": 2
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 97,
+      "classification": "on_track",
+      "classificationReason": "Awaiting legal / closure dependency"
+    },
+    {
+      "dealNumber": "DEAL-2026-000071",
+      "borrower": "Priyesh Jain",
+      "timelineEventsFound": 3,
+      "lastActivity": {
+        "title": "Workflow stage changed — Stage login → lost",
+        "timestamp": "2026-07-31T09:42:54.290Z"
+      },
+      "activityHealth": {
+        "state": "healthy_waiting",
+        "momentumScore": 72,
+        "daysSinceMeaningful": 7
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 97,
+      "classification": "on_track",
+      "classificationReason": "Awaiting lender progression"
+    },
+    {
+      "dealNumber": "DEAL-2026-000080",
+      "borrower": "Priyesh Jain",
+      "timelineEventsFound": 2,
+      "lastActivity": {
+        "title": "Workflow stage changed — Stage logged_in_wip → soft_approved",
+        "timestamp": "2026-07-31T09:42:22.446Z"
+      },
+      "activityHealth": {
+        "state": "healthy_waiting",
+        "momentumScore": 72,
+        "daysSinceMeaningful": 7
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 97,
+      "classification": "on_track",
+      "classificationReason": "Awaiting lender progression"
+    },
+    {
+      "dealNumber": "DEAL-2026-000079",
+      "borrower": "Saral Saraf",
+      "timelineEventsFound": 2,
+      "lastActivity": {
+        "title": "Workflow stage changed — Stage logged_in_wip → lost",
+        "timestamp": "2026-07-31T09:13:31.829Z"
+      },
+      "activityHealth": {
+        "state": "healthy_waiting",
+        "momentumScore": 72,
+        "daysSinceMeaningful": 7
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 97,
+      "classification": "on_track",
+      "classificationReason": "Awaiting lender progression"
+    },
+    {
+      "dealNumber": "DEAL-2026-000072",
+      "borrower": "Pratik Bhati",
+      "timelineEventsFound": 2,
+      "lastActivity": {
+        "title": "Deal record updated — Deal DEAL-2026-000072 updated",
+        "timestamp": "2026-07-28T10:27:08.850Z"
+      },
+      "activityHealth": {
+        "state": "needs_follow_up",
+        "momentumScore": 18,
+        "daysSinceMeaningful": 9
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 38,
+      "classification": "needs_attention",
+      "classificationReason": "Sparse activity for 9 days"
+    },
+    {
+      "dealNumber": "DEAL-2026-000074",
+      "borrower": "Suebel Seals Interational Private Limited",
+      "timelineEventsFound": 1,
+      "lastActivity": {
+        "title": "Deal created — workflow stage started — Deal DEAL-2026-000074 created for lender HDFC",
+        "timestamp": "2026-07-29T09:13:11.619Z"
+      },
+      "activityHealth": {
+        "state": "needs_follow_up",
+        "momentumScore": 18,
+        "daysSinceMeaningful": 9
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 38,
+      "classification": "needs_attention",
+      "classificationReason": "Sparse activity for 9 days"
+    },
+    {
+      "dealNumber": "DEAL-2026-000077",
+      "borrower": "Pioneer Insurance & Reinsurance Brokers Private Limited",
+      "timelineEventsFound": 1,
+      "lastActivity": {
+        "title": "Deal created — workflow stage started — Deal DEAL-2026-000077 created for lender CREDIT_SAISON",
+        "timestamp": "2026-07-31T05:45:32.102Z"
+      },
+      "activityHealth": {
+        "state": "healthy_waiting",
+        "momentumScore": 72,
+        "daysSinceMeaningful": 7
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 97,
+      "classification": "on_track",
+      "classificationReason": "Awaiting lender / bank TAT"
+    },
+    {
+      "dealNumber": "DEAL-2026-000081",
+      "borrower": "Pioneer Investcorp Ltd",
+      "timelineEventsFound": 1,
+      "lastActivity": {
+        "title": "Deal created — workflow stage started — Deal DEAL-2026-000081 created for lender YES",
+        "timestamp": "2026-07-31T14:20:44.572Z"
+      },
+      "activityHealth": {
+        "state": "healthy_waiting",
+        "momentumScore": 72,
+        "daysSinceMeaningful": 6
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 97,
+      "classification": "on_track",
+      "classificationReason": "Awaiting lender / bank TAT"
+    },
+    {
+      "dealNumber": "DEAL-2026-000082",
+      "borrower": "Vinit Didwania",
+      "timelineEventsFound": 4,
+      "lastActivity": {
+        "title": "Workflow stage changed — Stage final_approved → closure_wip",
+        "timestamp": "2026-08-06T06:35:57.530Z"
+      },
+      "activityHealth": {
+        "state": "healthy_waiting",
+        "momentumScore": 87,
+        "daysSinceMeaningful": 1
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 100,
+      "classification": "on_track",
+      "classificationReason": "Awaiting legal / closure dependency"
+    },
+    {
+      "dealNumber": "DEAL-2026-000083",
+      "borrower": "Harpreetsingh Dua",
+      "timelineEventsFound": 1,
+      "lastActivity": {
+        "title": "Deal created — workflow stage started — Deal DEAL-2026-000083 created for lender SARASWAT",
+        "timestamp": "2026-08-06T08:35:56.371Z"
+      },
+      "activityHealth": {
+        "state": "healthy_waiting",
+        "momentumScore": 72,
+        "daysSinceMeaningful": 1
+      },
+      "operationalStatus": "on_track",
+      "radarHealth": 97,
+      "classification": "on_track",
+      "classificationReason": "Awaiting lender / bank TAT"
+    }
+  ]
+}

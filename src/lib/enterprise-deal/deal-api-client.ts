@@ -346,4 +346,50 @@ export const enterpriseDealApiClient = {
     ensureDealFetcherWired();
     return dealFetch("/api/enterprise-deals/today-new");
   },
+
+  /**
+   * CO-RADAR-003 — Batch Enterprise Deal Timeline (Activity Timeline SSOT).
+   */
+  async listTimelinesForDeals(
+    dealIds: string[],
+    takePerDeal = 50,
+  ): Promise<
+    Record<
+      string,
+      Array<{
+        id: string;
+        dealId: string;
+        eventType: string;
+        occurredAt: string;
+        summary: string;
+        actorUserId?: string | null;
+        payload?: unknown;
+        createdAt?: string;
+      }>
+    >
+  > {
+    ensureDealFetcherWired();
+    const ids = [...new Set(dealIds.filter(Boolean))].slice(0, 100);
+    if (ids.length === 0) return {};
+    const params = new URLSearchParams({
+      dealIds: ids.join(","),
+      takePerDeal: String(takePerDeal),
+    });
+    const result = await dealFetch<{
+      byDealId: Record<
+        string,
+        Array<{
+          id: string;
+          dealId: string;
+          eventType: string;
+          occurredAt: string;
+          summary: string;
+          actorUserId?: string | null;
+          payload?: unknown;
+          createdAt?: string;
+        }>
+      >;
+    }>(`/api/enterprise-deals/timelines?${params.toString()}`);
+    return result.byDealId ?? {};
+  },
 };

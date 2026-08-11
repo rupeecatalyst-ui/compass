@@ -38,6 +38,8 @@ import {
 import { EcmMasterSelect } from "@/components/catalyst-one/contacts/ecm-master-select";
 import { ReportingManagerPicker } from "@/components/catalyst-one/contacts/reporting-manager-picker";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import { useWorkspaceClose } from "@/hooks/use-workspace-close";
+import { UnsavedChangesDialog } from "@/components/catalyst-one/shared/unsaved-changes-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -139,6 +141,7 @@ export function EldLenderEmployeeSlideOver({
   onSaved,
   initialSection = "profile",
   initialEditing = false,
+  onEditingChange,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -147,6 +150,7 @@ export function EldLenderEmployeeSlideOver({
   onSaved?: () => void;
   initialSection?: EldEmployeeWorkspaceSectionId;
   initialEditing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
 }) {
   const { user } = useAuthContext();
   const [section, setSection] = useState<EldEmployeeWorkspaceSectionId>(initialSection);
@@ -154,6 +158,10 @@ export function EldLenderEmployeeSlideOver({
   const [draft, setDraft] = useState<EldEmployeeEditDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    onEditingChange?.(editing);
+  }, [editing, onEditingChange]);
 
   useEffect(() => {
     if (!open) {
@@ -197,8 +205,8 @@ export function EldLenderEmployeeSlideOver({
     setSaveError(null);
   };
 
-  const handleSave = async () => {
-    if (!row || !activeDraft) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!row || !activeDraft) return false;
     setSaving(true);
     setSaveError(null);
     try {
@@ -221,14 +229,33 @@ export function EldLenderEmployeeSlideOver({
       toast.success("Lender employee updated.");
       setEditing(false);
       onSaved?.();
+      return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unable to save lender employee.";
       setSaveError(msg);
       toast.error(msg);
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  const {
+    requestClose,
+    confirmOpen,
+    setConfirmOpen,
+    handleDiscard,
+    handleSaveAndClose,
+    saving: closeSaving,
+  } = useWorkspaceClose({
+    onClose: () => {
+      cancelEdit();
+      onOpenChange(false);
+    },
+    hasUnsavedChanges: editing,
+    enableEscapeKey: open,
+    onSaveAndClose: async () => handleSave(),
+  });
 
   const viewMobile = editing ? activeDraft?.mobile : row?.mobile;
   const viewEmail = editing ? activeDraft?.email : row?.email;
@@ -237,24 +264,27 @@ export function EldLenderEmployeeSlideOver({
   const wa = waHref(viewMobile);
 
   return (
+    <>
     <Sheet
       open={open}
       onOpenChange={(next) => {
-        if (!next && editing) {
-          cancelEdit();
+        if (!next) {
+          requestClose();
+          return;
         }
-        onOpenChange(next);
+        onOpenChange(true);
       }}
     >
       <SheetContent
         side="right"
         allowOutsideClose={!editing}
+        hideCloseButton
         className={cn(
           "flex h-full w-full flex-col gap-0 border-l border-border/60 bg-background p-0 shadow-2xl",
-          "z-[95] duration-[250ms] data-[state=open]:duration-[250ms] data-[state=closed]:duration-200",
+          "z-[100] duration-[250ms] data-[state=open]:duration-[250ms] data-[state=closed]:duration-200",
           "sm:max-w-[min(100vw,70vw)] md:max-w-[65vw]",
         )}
-        overlayClassName="bg-black/40 duration-200"
+        overlayClassName="z-[99] bg-black/40 duration-200"
       >
         <SheetHeader className="shrink-0 space-y-1 border-b border-border/60 px-4 py-3 text-left">
           <div className="flex items-start justify-between gap-3">
@@ -301,6 +331,16 @@ export function EldLenderEmployeeSlideOver({
                   >
                     {saving ? "Saving…" : "Save"}
                   </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 text-xs"
+                    disabled={saving || closeSaving}
+                    onClick={() => void handleSaveAndClose()}
+                  >
+                    Save & Exit
+                  </Button>
                 </>
               ) : (
                 <Button
@@ -320,10 +360,7 @@ export function EldLenderEmployeeSlideOver({
                 size="icon"
                 variant="ghost"
                 className="h-8 w-8 shrink-0"
-                onClick={() => {
-                  if (editing) cancelEdit();
-                  onOpenChange(false);
-                }}
+                onClick={() => requestClose()}
                 aria-label="Close employee workspace"
               >
                 <X className="h-4 w-4" />
@@ -371,6 +408,7 @@ export function EldLenderEmployeeSlideOver({
                             institutionId: id,
                             institutionLabel: option?.label || activeDraft.institutionLabel,
                             // Cascade clear location when transferring lenders
+                            regionId: "",
                             cityId: "",
                             branchId: "",
                           })
@@ -698,5 +736,13 @@ export function EldLenderEmployeeSlideOver({
         </div>
       </SheetContent>
     </Sheet>
+    <UnsavedChangesDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      onDiscard={handleDiscard}
+      onSaveAndClose={() => void handleSaveAndClose()}
+      saving={closeSaving || saving}
+    />
+    </>
   );
 }

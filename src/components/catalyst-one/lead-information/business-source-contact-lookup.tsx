@@ -12,7 +12,7 @@ import {
 import {
   resolveBusinessSourceContactLookup,
 } from "@/constants/opportunity-business-source";
-import { wealthPartnerTypeLabel } from "@/constants/enterprise-wealth-partner-registry";
+import { wealthPartnerTypeLabel, wealthPartnerLifecycleLabel } from "@/constants/enterprise-wealth-partner-registry";
 import { searchAssignableUsers } from "@/lib/assigned-users";
 import { liveSearchOperationalContacts } from "@/lib/enterprise-registry/live-search";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
@@ -90,10 +90,15 @@ export function BusinessSourceContactLookupField({
       setLoading(true);
       try {
         if (config.registry === "wealth_partner") {
+          /**
+           * CO-WP-OPP-REFINEMENT-001 — Do not restrict to RegistryStatus=active only.
+           * Include Draft / Onboarding / Active lifecycle partners; terminal states
+           * filtered via resolveWealthPartnerOpportunitySelectability.
+           */
           const result = await wealthPartnerApiClient.queryPartners({
             search: q.trim(),
             pageSize: 25,
-            status: "active",
+            enabled: true,
           });
           const meta = new Map<
             string,
@@ -107,17 +112,21 @@ export function BusinessSourceContactLookupField({
               lifecycleStatus: p.lifecycleStatus,
               operationalStatus: p.operationalStatus,
               agreementStatus,
+              registryStatus: p.status,
+              enabled: p.enabled,
             });
-            // CO-WP-007 — Expired / Suspended not selectable for new Opportunities.
+            // Expired / Suspended / Retired / Archived — not selectable for new Opportunities.
             if (select.selectability === "not_selectable") continue;
             meta.set(p.id, {
               contactId: p.contactId,
               partnerType: p.partnerType,
             });
+            const lifecycleLabel = wealthPartnerLifecycleLabel(p.lifecycleStatus);
             options.push({
               id: p.id,
               label: p.displayName,
               sublabel: [
+                lifecycleLabel,
                 p.code,
                 wealthPartnerTypeLabel(p.partnerType),
                 select.selectability === "selectable_with_warning"

@@ -1,0 +1,186 @@
+[
+  {
+    "label": "HL-first",
+    "rows": [
+      {
+        "user": "I want to buy my first home",
+        "facing": "I'm not trained for this subject.",
+        "blocked": true,
+        "proposals": []
+      },
+      {
+        "user": "I am salaried in Mumbai",
+        "facing": "I'm not trained for this subject.",
+        "blocked": true,
+        "proposals": []
+      },
+      {
+        "user": "Looking for about 60 lakh",
+        "facing": "I'm not trained for this subject.",
+        "blocked": true,
+        "proposals": []
+      },
+      {
+        "user": "Property is around 80 lakh",
+        "facing": "I'm not trained for this subject.",
+        "blocked": true,
+        "proposals": []
+      }
+    ]
+  },
+  {
+    "label": "outside-cricket",
+    "rows": [
+      {
+        "user": "Who will win the cricket match tomorrow?",
+        "facing": "I'm not trained for this subject.",
+        "blocked": true,
+        "proposals": []
+      }
+    ]
+  },
+  {
+    "label": "outside-politics",
+    "rows": [
+      {
+        "user": "What do you think about the election?",
+        "facing": "I'm not trained for this subject.",
+        "blocked": true,
+        "proposals": []
+      }
+    ]
+  },
+  {
+    "label": "LAP",
+    "rows": [
+      {
+        "user": "I need a Loan Against Property",
+        "facing": "Let me check a few details.\nIf you're comfortable sharing, which loan product interests you?",
+        "blocked": false,
+        "conf": 20,
+        "ready": false,
+        "milestones": [
+          "product"
+        ],
+        "proposals": [],
+        "plannerQ": "Which loan product interests you?"
+      },
+      {
+        "user": "Business expansion",
+        "facing": "Here is a clear next step.\nWhat amount are you looking for?",
+        "blocked": false,
+        "conf": 40,
+        "ready": false,
+        "milestones": [
+          "product",
+          "purpose"
+        ],
+        "proposals": [],
+        "plannerQ": "What amount are you looking for?"
+      },
+      {
+        "user": "Residential property",
+        "facing": "Preparing your recommendation.\nTake your time — I'm listening.",
+        "blocked": false,
+        "conf": 55,
+        "ready": false,
+        "milestones": [
+          "product",
+          "purpose",
+          "property_or_context"
+        ],
+        "proposals": [],
+        "plannerQ": "Do you have KYC documents ready?"
+      },
+      {
+        "user": "About 50 lakh",
+        "facing": "Thank you — I'm with you.\nShare whatever feels useful next.",
+        "blocked": false,
+        "conf": 90,
+        "ready": true,
+        "milestones": [
+          "product",
+          "purpose",
+          "funding",
+          "property_or_context",
+          "ready"
+        ],
+        "proposals": [],
+        "plannerQ": null
+      }
+    ]
+  },
+  {
+    "label": "BT-emit",
+    "rows": [
+      {
+        "user": "I want a Balance Transfer to reduce my EMI",
+        "facing": "Let me check a few details —\nwhat amount are you looking for?",
+        "blocked": false,
+        "conf": 20,
+        "ready": false,
+        "milestones": [
+          "product"
+        ],
+        "proposals": [],
+        "plannerQ": "What amount are you looking for?"
+      },
+      {
+        "user": "Current bank is HDFC",
+        "facing": "Here is a clear next step.\nIf you're comfortable sharing, what is your current EMI?",
+        "blocked": false,
+        "conf": 35,
+        "ready": false,
+        "milestones": [
+          "product",
+          "property_or_context"
+        ],
+        "proposals": [],
+        "plannerQ": "What is your current EMI?"
+      },
+      {
+        "user": "Outstanding about 25 lakh",
+        "facing": "Balance Transfer moves your loan.",
+        "blocked": false,
+        "conf": 55,
+        "ready": false,
+        "milestones": [
+          "product",
+          "funding",
+          "property_or_context"
+        ],
+        "proposals": [],
+        "plannerQ": "Do you have KYC documents ready?"
+      },
+      {
+        "user": "I am salaried",
+        "facing": "Based on what you've shared, here are\nsensible next steps to review.",
+        "blocked": false,
+        "conf": 80,
+        "ready": false,
+        "milestones": [
+          "product",
+          "funding",
+          "property_or_context",
+          "borrower",
+          "ready"
+        ],
+        "proposals": [
+          {
+            "kind": "request_documents",
+            "title": "Propose document request"
+          },
+          {
+            "kind": "create_opportunity",
+            "title": "Propose create opportunity"
+          },
+          {
+            "kind": "create_lead",
+            "title": "Propose create lead"
+          }
+        ],
+        "plannerQ": null
+      }
+    ]
+  }
+]

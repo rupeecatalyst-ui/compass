@@ -102,11 +102,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     pathname.startsWith("/admin/credit-risk-engine")) &&
                   "h-full max-w-none p-0 md:p-0 lg:p-0",
                 /* CO-UX-DATAGRID-001 — registries: full width; shell owns 16–24px margins */
-                /* CO-DOCS-BAT-001 — document-scroll registries must not lock h-full (page scroll). */
+                /* CO-DOCS-BAT-001 / CO-ECM-NETWORK-UI-002 — document-scroll: content height, never h-full clip. */
                 isRegistryFullWidth &&
                   cn(
                     "w-full max-w-none p-0 md:p-0 lg:p-0",
-                    !isRegistryDocumentScroll && "h-full",
+                    isRegistryDocumentScroll
+                      ? "min-h-min overflow-visible"
+                      : "h-full",
                   ),
                 (pathname === "/dashboard" || pathname === "/chanakya-radar") &&
                   !isRegistryFullWidth &&

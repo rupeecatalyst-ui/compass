@@ -1,8 +1,10 @@
 "use client";
 
 import { PRODUCT_LIFECYCLE_LABELS, PRODUCT_LIFECYCLE_ORDER } from "@/constants/product-library-lifecycle";
+import { isEnterprisePersistencePrisma } from "@/lib/enterprise-persistence";
 import { getProductsByLifecycleStatus } from "@/lib/product-library/product-store";
 import { ProductLibraryShell } from "@/components/catalyst-one/product-library/product-library-shell";
+import { ProductLibrarySsotCallout } from "@/components/catalyst-one/product-library/product-library-ssot-callout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusPill } from "@/components/design-system/status-pill";
 import type { ProductLifecycleStatus } from "@/types/product-library";
@@ -17,12 +19,16 @@ const LIFECYCLE_DESCRIPTIONS: Record<ProductLifecycleStatus, string> = {
 };
 
 export function ProductLifecycleView() {
+  const prismaMode = isEnterprisePersistencePrisma();
+
   return (
     <ProductLibraryShell
       title="Lifecycle"
       description="Governed product definition lifecycle — design-time only."
     >
       <div className="space-y-6">
+        <ProductLibrarySsotCallout />
+
         <Card className="glass-card border-border/60">
           <CardHeader>
             <CardTitle className="text-base">Lifecycle Pipeline</CardTitle>
@@ -42,7 +48,7 @@ export function ProductLifecycleView() {
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {PRODUCT_LIFECYCLE_ORDER.map((stage) => {
-            const products = getProductsByLifecycleStatus(stage);
+            const products = prismaMode ? [] : getProductsByLifecycleStatus(stage);
             return (
               <Card key={stage} className="glass-card border-border/60">
                 <CardHeader className="pb-2">

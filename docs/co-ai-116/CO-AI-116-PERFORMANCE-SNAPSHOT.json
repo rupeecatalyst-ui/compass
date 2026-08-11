@@ -1,0 +1,186 @@
+{
+  "reportId": "eai_perf_2fb57035-0e2c-43b5-bd47-fe65631f653b",
+  "generatedAt": "2026-08-06T10:48:34.414Z",
+  "frameworkVersion": "1.17.0-ai16",
+  "engineVersion": "1.0.0-ai16",
+  "overallPassed": true,
+  "suiteSummaries": [
+    {
+      "suiteId": "domain_boundary",
+      "passed": true,
+      "caseCount": 2,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 11
+    },
+    {
+      "suiteId": "policy_gate",
+      "passed": true,
+      "caseCount": 3,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 3
+    },
+    {
+      "suiteId": "tool_bus",
+      "passed": true,
+      "caseCount": 2,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 1
+    },
+    {
+      "suiteId": "context",
+      "passed": true,
+      "caseCount": 1,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 6
+    },
+    {
+      "suiteId": "behaviour",
+      "passed": true,
+      "caseCount": 3,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 31
+    },
+    {
+      "suiteId": "prompt_injection",
+      "passed": true,
+      "caseCount": 4,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 1
+    },
+    {
+      "suiteId": "security",
+      "passed": true,
+      "caseCount": 2,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 1
+    },
+    {
+      "suiteId": "failure_recovery",
+      "passed": true,
+      "caseCount": 3,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 13
+    },
+    {
+      "suiteId": "latency",
+      "passed": true,
+      "caseCount": 4,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 40
+    },
+    {
+      "suiteId": "token_optimisation",
+      "passed": true,
+      "caseCount": 1,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 6
+    },
+    {
+      "suiteId": "context_optimisation",
+      "passed": true,
+      "caseCount": 1,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 1
+    },
+    {
+      "suiteId": "load_testing",
+      "passed": true,
+      "caseCount": 1,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 14
+    },
+    {
+      "suiteId": "performance",
+      "passed": true,
+      "caseCount": 3,
+      "failedCount": 0,
+      "warningCount": 0,
+      "durationMs": 0
+    }
+  ],
+  "latency": {
+    "samples": [
+      {
+        "operation": "turn:I want a Balance Transfe",
+        "durationMs": 8
+      },
+      {
+        "operation": "turn:Home loan documents chec",
+        "durationMs": 26
+      },
+      {
+        "operation": "turn:What is loan eligibility",
+        "durationMs": 5
+      }
+    ],
+    "p50Ms": 8,
+    "p95Ms": 26,
+    "maxMs": 26,
+    "averageMs": 13,
+    "withinBudget": true,
+    "budgetMs": 5000
+  },
+  "tokenOptimisation": {
+    "approximateInputChars": 151,
+    "approximateOutputChars": 67,
+    "estimatedInputTokens": 38,
+    "estimatedOutputTokens": 17,
+    "recommendations": [
+      "Prefer curated Tone Library lines over long LLM prose",
+      "Keep Context Package under budget with domain priority truncation"
+    ],
+    "optimised": true
+  },
+  "contextOptimisation": {
+    "budgetChars": 12000,
+    "usedChars": 1399,
+    "truncated": false,
+    "domainsIncluded": [
+      "knowledge",
+      "loan",
+      "financial",
+      "conversation",
+      "customer",
+      "policy",
+      "product"
+    ],
+    "recommendations": [
+      "Retain conversation + product + knowledge domains first",
+      "Replace low-priority domains with summaries under pressure",
+      "Never include raw registry rows in Context Packages"
+    ],
+    "withinBudget": true
+  },
+  "loadTesting": {
+    "concurrency": 2,
+    "iterations": 4,
+    "successCount": 4,
+    "failureCount": 0,
+    "totalDurationMs": 14,
+    "throughputPerSec": 285.71,
+    "averageLatencyMs": 6
+  },
+  "securityFindings": [],
+  "recommendations": [
+    "Validation harness does not modify enterprise rules.",
+    "Latency budgets assume stub LLM providers.",
+    "Token estimates are heuristic (chars/4).",
+    "Prefer curated Tone Library lines over long LLM prose",
+    "Keep Context Package under budget with domain priority truncation",
+    "Retain conversation + product + knowledge domains first",
+    "Replace low-priority domains with summaries under pressure",
+    "Never include raw registry rows in Context Packages"
+  ]
+}

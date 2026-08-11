@@ -43,6 +43,10 @@ export function LenderProgramPortalAdminWorkspace() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<LenderProgramSubmission | null>(null);
   const [lenderId, setLenderId] = useState("");
+  const [productIds, setProductIds] = useState<string[]>([]);
+  const [matrixProducts, setMatrixProducts] = useState<
+    Array<{ productId: string; productCode: string; productLabel: string }>
+  >([]);
   const [ttlDays, setTtlDays] = useState("14");
   const [notes, setNotes] = useState("");
   const [comments, setComments] = useState("");
@@ -76,6 +80,24 @@ export function LenderProgramPortalAdminWorkspace() {
   }, [refresh]);
 
   useEffect(() => {
+    setProductIds([]);
+    setMatrixProducts([]);
+    if (!lenderId) return;
+    let cancelled = false;
+    void lenderProgramPortalClient
+      .listMatrixProductsForLender(lenderId)
+      .then((rows) => {
+        if (!cancelled) setMatrixProducts(rows);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lenderId]);
+
+  useEffect(() => {
     if (!selectedId) {
       setSelected(null);
       return;
@@ -100,13 +122,14 @@ export function LenderProgramPortalAdminWorkspace() {
   }, [selected]);
 
   const createInvite = async () => {
-    if (!lenderId) return;
+    if (!lenderId || productIds.length === 0) return;
     setBusy(true);
     setError(null);
     setCreatedLink(null);
     try {
       const invite = await lenderProgramPortalClient.createInvite({
         lenderId,
+        productIds,
         ttlDays: Number(ttlDays) || 14,
         notes: notes.trim() || undefined,
       });
@@ -118,6 +141,14 @@ export function LenderProgramPortalAdminWorkspace() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const toggleProduct = (productId: string) => {
+    setProductIds((prev) =>
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId],
+    );
   };
 
   const revoke = async (id: string) => {
@@ -205,7 +236,13 @@ export function LenderProgramPortalAdminWorkspace() {
             <h2 className="text-sm font-semibold">Generate secure program link</h2>
             <div className="space-y-1">
               <Label>Lender</Label>
-              <Select value={lenderId} onValueChange={setLenderId}>
+              <Select
+                value={lenderId}
+                onValueChange={(value) => {
+                  setLenderId(value);
+                  setCreatedLink(null);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select lender" />
                 </SelectTrigger>
@@ -219,6 +256,44 @@ export function LenderProgramPortalAdminWorkspace() {
               </Select>
             </div>
             <div className="space-y-1">
+              <Label>Products (Product–Lender Matrix)</Label>
+              {!lenderId ? (
+                <p className="text-xs text-muted-foreground">
+                  Select a lender first to load mapped products.
+                </p>
+              ) : matrixProducts.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No products mapped for this lender in the Product–Lender Matrix.
+                </p>
+              ) : (
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+                  {matrixProducts.map((p) => {
+                    const checked = productIds.includes(p.productId);
+                    return (
+                      <label
+                        key={p.productId}
+                        className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-xs hover:bg-muted/50"
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={checked}
+                          onChange={() => toggleProduct(p.productId)}
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">{p.productLabel}</span>
+                          <span className="ml-1 text-muted-foreground">({p.productCode})</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Minimum one product. Invitation scope is fixed at create time.
+              </p>
+            </div>
+            <div className="space-y-1">
               <Label>Link TTL (days)</Label>
               <Input value={ttlDays} onChange={(e) => setTtlDays(e.target.value)} />
             </div>
@@ -226,7 +301,10 @@ export function LenderProgramPortalAdminWorkspace() {
               <Label>Internal notes</Label>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
-            <Button disabled={busy || !lenderId} onClick={() => void createInvite()}>
+            <Button
+              disabled={busy || !lenderId || productIds.length === 0}
+              onClick={() => void createInvite()}
+            >
               {busy ? "Generating…" : "Generate secure URL"}
             </Button>
             {createdLink ? (
@@ -248,20 +326,30 @@ export function LenderProgramPortalAdminWorkspace() {
           <div className="space-y-2 rounded-xl border bg-card p-4">
             <h2 className="text-sm font-semibold">Active / recent invites</h2>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[640px] text-left text-xs">
                 <thead>
                   <tr className="border-b text-muted-foreground">
                     <th className="py-2 pr-2">Lender</th>
+                    <th className="py-2 pr-2">Product(s)</th>
                     <th className="py-2 pr-2">Status</th>
+                    <th className="py-2 pr-2">Created</th>
                     <th className="py-2 pr-2">Expires</th>
                     <th className="py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invites.map((inv) => (
-                    <tr key={inv.id} className="border-b border-border/60">
+                    <tr key={inv.id} className="border-b border-border/60 align-top">
                       <td className="py-2 pr-2">{inv.lenderName || inv.lenderId}</td>
+                      <td className="py-2 pr-2">
+                        {(inv.products ?? []).length > 0
+                          ? (inv.products ?? []).map((p) => p.productLabel).join(", ")
+                          : "—"}
+                      </td>
                       <td className="py-2 pr-2">{inv.status}</td>
+                      <td className="py-2 pr-2">
+                        {new Date(inv.createdAt).toLocaleDateString()}
+                      </td>
                       <td className="py-2 pr-2">
                         {new Date(inv.expiresAt).toLocaleDateString()}
                       </td>

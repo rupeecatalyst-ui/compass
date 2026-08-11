@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2026-08-10T10:31:56.620Z",
+  "summary": {
+    "A": true,
+    "B": true,
+    "C": true,
+    "D": true,
+    "E": true,
+    "F": "SKIPPED",
+    "G": "SKIPPED",
+    "H": true,
+    "I": true,
+    "J": true,
+    "K": true
+  },
+  "results": {
+    "A_wp_root": {
+      "status": 200,
+      "ok": true,
+      "json": {
+        "raw": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-s"
+      },
+      "text": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-s"
+    },
+    "B_wp_login": {
+      "status": 200,
+      "ok": true,
+      "json": {
+        "raw": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-s"
+      },
+      "text": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-s"
+    },
+    "C_gateway_health": {
+      "status": 200,
+      "ok": true,
+      "json": {
+        "success": true,
+        "data": {
+          "status": "ok",
+          "service": "partner_gateway",
+          "timestamp": "2026-08-10T10:31:48.988Z",
+          "persistence": "prisma"
+        }
+      },
+      "text": "{\"success\":true,\"data\":{\"status\":\"ok\",\"service\":\"partner_gateway\",\"timestamp\":\"2026-08-10T10:31:48.988Z\",\"persistence\":\"prisma\"}}"
+    },
+    "D_prisma_persistence": {
+      "persistence": "prisma",
+      "pass": true
+    },
+    "H_cert_a_login": {
+      "status": 401,
+      "ok": false,
+      "json": {
+        "success": false,
+        "error": {
+          "code": "INVALID_CREDENTIALS",
+          "message": "Invalid email or password",
+          "statusCode": 401,
+          "correlationId": "509c53a7-7bd8-46aa-a00f-b6d73059214e"
+        }
+      },
+      "text": "{\"success\":false,\"error\":{\"code\":\"INVALID_CREDENTIALS\",\"message\":\"Invalid email or password\",\"statusCode\":401,\"correlationId\":\"509c53a7-7bd8-46aa-a00f-b6d73059214e\"}}"
+    },
+    "H_cert_b_login": {
+      "status": 401,
+      "ok": false,
+      "json": {
+        "success": false,
+        "error": {
+          "code": "INVALID_CREDENTIALS",
+          "message": "Invalid email or password",
+          "statusCode": 401,
+          "correlationId": "731a554d-adc1-4b5d-8472-eb963ab66aa7"
+        }
+      },
+      "text": "{\"success\":false,\"error\":{\"code\":\"INVALID_CREDENTIALS\",\"message\":\"Invalid email or password\",\"statusCode\":401,\"correlationId\":\"731a554d-adc1-4b5d-8472-eb963ab66aa7\"}}"
+    },
+    "E_partner_auth_path": {
+      "status": 401,
+      "ok": false,
+      "json": {
+        "success": false,
+        "error": {
+          "code": "INVALID_CREDENTIALS",
+          "message": "Invalid email or password",
+          "statusCode": 401,
+          "correlationId": "50566dc6-6767-4cf8-9551-dd66f2063a60"
+        }
+      },
+      "text": "{\"success\":false,\"error\":{\"code\":\"INVALID_CREDENTIALS\",\"message\":\"Invalid email or password\",\"statusCode\":401,\"correlationId\":\"50566dc6-6767-4cf8-9551-dd66f2063a60\"}}"
+    },
+    "E_genuine_login": {
+      "skipped": true,
+      "reason": "SMOKE_PARTNER_EMAIL/PASSWORD not set — auth path checked via 401 invalid creds only"
+    },
+    "F_authorized_access": {
+      "skipped": true,
+      "reason": "No genuine partner token"
+    },
+    "G_unauthorized_403": {
+      "skipped": true,
+      "reason": "No genuine partner token"
+    },
+    "J_genuine_opportunities_http": {
+      "skipped": true,
+      "reason": "Verified via DB query below"
+    },
+    "I_suspended_cert_partners": {
+      "partners": [
+        {
+          "code": "WPACERTA",
+          "lifecycleStatus": "suspended",
+          "operationalStatus": "inactive",
+          "enabled": false,
+          "isDeleted": false
+        },
+        {
+          "code": "WPACERTB",
+          "lifecycleStatus": "suspended",
+          "operationalStatus": "inactive",
+          "enabled": false,
+          "isDeleted": false
+        }
+      ],
+      "allSuspended": true
+    },
+    "H_db_cert_users_inactive": {
+      "users": [
+        {
+          "email": "wp-access-cert-a@rupeecatalyst.com",
+          "isActive": false
+        },
+        {
+          "email": "wp-access-cert-b@rupeecatalyst.com",
+          "isActive": false
+        },
+        {
+          "email": "wp-access-cert-admin@rupeecatalyst.com",
+          "isActive": false
+        }
+      ],
+      "allInactive": true
+    },
+    "J_genuine_opportunities_db": {
+      "activeOpportunities": 16,
+      "expected": 16,
+      "pass": true
+    },
+    "K_no_active_cert_opps": {
+      "activeCertFingerprint": 0,
+      "activeOwnedByCertPartners": 0,
+      "pass": true
+    },
+    "auditPreserved": {
+      "count": 28
+    }
+  }
+}

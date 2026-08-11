@@ -17,7 +17,7 @@ const actions = [
   { label: "Start Loan Journey", icon: FilePlus, href: ROUTES.LOAN_JOURNEY },
   { label: "Add Customer", icon: UserPlus, href: ROUTES.CUSTOMERS },
   { label: "Upload Folder", icon: FolderUp, href: `${ROUTES.DOCUMENTS}?action=upload` },
-  { label: "Eligibility Calculator", icon: Calculator, href: `${ROUTES.AI_ASSISTANT}?tool=eligibility` },
+  { label: "Eligibility Calculator", icon: Calculator, href: ROUTES.SARATHI },
   { label: "Generate Report", icon: FileText, href: ROUTES.REPORTS },
   { label: "Create Invoice", icon: Receipt, href: `${ROUTES.ACCOUNTING}?action=invoice` },
 ];

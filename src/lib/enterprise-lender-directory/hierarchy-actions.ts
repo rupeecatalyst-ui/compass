@@ -23,6 +23,9 @@ export async function createLenderEmployeeForInstitution(input: {
   designationId?: string;
   institutionId: string;
   institutionLabel: string;
+  regionId?: string;
+  cityId?: string;
+  branchId?: string;
   reportingManager: EcmContact | null;
   actorId: string;
 }): Promise<EcmContact> {
@@ -47,6 +50,9 @@ export async function createLenderEmployeeForInstitution(input: {
         institutionLabel: input.institutionLabel.trim(),
         lenderName: input.institutionLabel.trim(),
         designation: input.designationId?.trim() || "",
+        region: input.regionId?.trim() || "",
+        city: input.cityId?.trim() || "",
+        branch: input.branchId?.trim() || "",
         officialMobile: mobile,
         officialEmail: input.email?.trim() || "",
       },
@@ -77,10 +83,23 @@ export async function assignExistingContactToInstitution(input: {
   const existing = findOperationalEcmContactById(input.contactId);
   if (!existing) throw new Error(`Contact not found: ${input.contactId}`);
 
+  const wantInstitution = input.institutionId.trim();
+  if (!wantInstitution) throw new Error("Institution is required.");
+
   const roles = new Set(getEcmContactAssignedRoles(existing));
-  roles.add("lender_employee");
   const profile = { ...getEcmBankerProfile(existing) };
-  profile.institution = input.institutionId.trim();
+  const currentInstitution = (profile.institution ?? "").trim();
+
+  // Prevent duplicate lender-employee associations for the same institution.
+  if (
+    roles.has("lender_employee") &&
+    currentInstitution.toLowerCase() === wantInstitution.toLowerCase()
+  ) {
+    throw new Error("This employee is already associated with this lender.");
+  }
+
+  roles.add("lender_employee");
+  profile.institution = wantInstitution;
   profile.institutionLabel = input.institutionLabel.trim();
   profile.lenderName = input.institutionLabel.trim();
 

@@ -18,8 +18,14 @@ export const SOFT_DELETE_MODULE_LABELS: Record<SoftDeleteModuleId, string> = {
   workflow_instances: "Workflow Instances",
 };
 
-/** Modules with live Prisma adapters in CO-SPRINT-119. */
-export const SOFT_DELETE_LIVE_MODULES: SoftDeleteModuleId[] = ["contacts", "companies"];
+/** Modules with live Prisma adapters in CO-SPRINT-119 / CO-ORG-002. */
+export const SOFT_DELETE_LIVE_MODULES: SoftDeleteModuleId[] = [
+  "contacts",
+  "companies",
+  "opportunities",
+  "loan_files",
+  "documents",
+];
 
 export const SOFT_DELETE_PURGE_CONFIRMATION_WORD = "DELETE";
 

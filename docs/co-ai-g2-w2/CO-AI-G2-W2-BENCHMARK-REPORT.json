@@ -1,0 +1,638 @@
+{
+  "reportId": "eao_bench_suite_748171ff-dff6-474c-8304-36177e54d27e",
+  "title": "CO-AI-G2-W2 Consultant Benchmark — Reference Suite",
+  "conversations": [
+    {
+      "scoreId": "eao_bench_8667973d-6bc8-47af-9d38-69146f550f69",
+      "conversationId": "bench_hl_001",
+      "scenarioLabel": "Home Loan — first home purchase",
+      "productPath": "home_loan",
+      "source": "fixture",
+      "overallScore": 90.1,
+      "grade": "A",
+      "dimensions": [
+        {
+          "dimensionId": "intent_understanding",
+          "label": "Intent Understanding",
+          "score": 95,
+          "rationale": "Did SARATHI recognise what the customer is trying to achieve?",
+          "signals": [
+            "Assistant acknowledges product/context from customer",
+            "Direct questions receive substantive replies"
+          ]
+        },
+        {
+          "dimensionId": "technical_accuracy",
+          "label": "Technical Accuracy",
+          "score": 90,
+          "rationale": "Avoid invented numbers; qualify technical claims.",
+          "signals": [
+            "No fabricated precision figures detected",
+            "Uses appropriately qualified technical language"
+          ]
+        },
+        {
+          "dimensionId": "consultation_quality",
+          "label": "Consultation Quality",
+          "score": 95,
+          "rationale": "Listen → answer/educate → advance like a consultant.",
+          "signals": [
+            "Acknowledges customer input",
+            "Provides educational guidance",
+            "Advances with a relevant question or next step"
+          ]
+        },
+        {
+          "dimensionId": "natural_conversation",
+          "label": "Natural Conversation",
+          "score": 90,
+          "rationale": "Sounds like a human advisor, not a form or FAQ bot.",
+          "signals": [
+            "Avoids known generic stall lines",
+            "Reply length in natural consultant range",
+            "Uses complete sentences"
+          ]
+        },
+        {
+          "dimensionId": "customer_trust",
+          "label": "Customer Trust",
+          "score": 85,
+          "rationale": "Honesty and appropriate humility build trust.",
+          "signals": [
+            "Avoids absolute approval guarantees",
+            "Transparent about uncertainty"
+          ]
+        },
+        {
+          "dimensionId": "completeness",
+          "label": "Completeness",
+          "score": 91,
+          "rationale": "Consultation covers key facts over the dialogue arc.",
+          "signals": [
+            "Coverage signal: amount",
+            "Coverage signal: purpose",
+            "Coverage signal: documents",
+            "Multi-turn consultation present"
+          ]
+        },
+        {
+          "dimensionId": "best_next_question",
+          "label": "Best Next Question",
+          "score": 90,
+          "rationale": "One valuable next question — not a survey.",
+          "signals": [
+            "Ends with a question (or includes one)",
+            "Next question targets a high-value missing fact"
+          ]
+        },
+        {
+          "dimensionId": "business_safety",
+          "label": "Business Safety",
+          "score": 85,
+          "rationale": "Model must not become business authority or invent engine outputs.",
+          "signals": [
+            "No implied CRM/workflow execution",
+            "In-domain safety baseline applied"
+          ]
+        }
+      ],
+      "turnCount": 2,
+      "benchmarkVersion": "1.0.0-g2-w2",
+      "scoredAt": "2026-08-06T18:58:20.734Z"
+    },
+    {
+      "scoreId": "eao_bench_5665fbe8-fae4-4751-addc-91c6d3e98e99",
+      "conversationId": "bench_lap_001",
+      "scenarioLabel": "LAP — residential property",
+      "productPath": "lap",
+      "source": "fixture",
+      "overallScore": 83.3,
+      "grade": "B",
+      "dimensions": [
+        {
+          "dimensionId": "intent_understanding",
+          "label": "Intent Understanding",
+          "score": 80,
+          "rationale": "Did SARATHI recognise what the customer is trying to achieve?",
+          "signals": [
+            "Assistant acknowledges product/context from customer"
+          ]
+        },
+        {
+          "dimensionId": "technical_accuracy",
+          "label": "Technical Accuracy",
+          "score": 80,
+          "rationale": "Avoid invented numbers; qualify technical claims.",
+          "signals": [
+            "No fabricated precision figures detected"
+          ]
+        },
+        {
+          "dimensionId": "consultation_quality",
+          "label": "Consultation Quality",
+          "score": 80,
+          "rationale": "Listen → answer/educate → advance like a consultant.",
+          "signals": [
+            "Acknowledges customer input",
+            "Advances with a relevant question or next step"
+          ]
+        },
+        {
+          "dimensionId": "natural_conversation",
+          "label": "Natural Conversation",
+          "score": 90,
+          "rationale": "Sounds like a human advisor, not a form or FAQ bot.",
+          "signals": [
+            "Avoids known generic stall lines",
+            "Reply length in natural consultant range",
+            "Uses complete sentences"
+          ]
+        },
+        {
+          "dimensionId": "customer_trust",
+          "label": "Customer Trust",
+          "score": 70,
+          "rationale": "Honesty and appropriate humility build trust.",
+          "signals": [
+            "Avoids absolute approval guarantees"
+          ]
+        },
+        {
+          "dimensionId": "completeness",
+          "label": "Completeness",
+          "score": 91,
+          "rationale": "Consultation covers key facts over the dialogue arc.",
+          "signals": [
+            "Coverage signal: amount",
+            "Coverage signal: purpose",
+            "Coverage signal: profile",
+            "Multi-turn consultation present"
+          ]
+        },
+        {
+          "dimensionId": "best_next_question",
+          "label": "Best Next Question",
+          "score": 90,
+          "rationale": "One valuable next question — not a survey.",
+          "signals": [
+            "Ends with a question (or includes one)",
+            "Next question targets a high-value missing fact"
+          ]
+        },
+        {
+          "dimensionId": "business_safety",
+          "label": "Business Safety",
+          "score": 85,
+          "rationale": "Model must not become business authority or invent engine outputs.",
+          "signals": [
+            "No implied CRM/workflow execution",
+            "In-domain safety baseline applied"
+          ]
+        }
+      ],
+      "turnCount": 2,
+      "benchmarkVersion": "1.0.0-g2-w2",
+      "scoredAt": "2026-08-06T18:58:20.735Z"
+    },
+    {
+      "scoreId": "eao_bench_0b190fda-cd00-46d2-8907-1d081b459e48",
+      "conversationId": "bench_bl_001",
+      "scenarioLabel": "Business Loan — expansion timeline",
+      "productPath": "business_loan",
+      "source": "fixture",
+      "overallScore": 85.5,
+      "grade": "A",
+      "dimensions": [
+        {
+          "dimensionId": "intent_understanding",
+          "label": "Intent Understanding",
+          "score": 95,
+          "rationale": "Did SARATHI recognise what the customer is trying to achieve?",
+          "signals": [
+            "Assistant acknowledges product/context from customer",
+            "Direct questions receive substantive replies"
+          ]
+        },
+        {
+          "dimensionId": "technical_accuracy",
+          "label": "Technical Accuracy",
+          "score": 90,
+          "rationale": "Avoid invented numbers; qualify technical claims.",
+          "signals": [
+            "No fabricated precision figures detected",
+            "Uses appropriately qualified technical language"
+          ]
+        },
+        {
+          "dimensionId": "consultation_quality",
+          "label": "Consultation Quality",
+          "score": 80,
+          "rationale": "Listen → answer/educate → advance like a consultant.",
+          "signals": [
+            "Provides educational guidance",
+            "Advances with a relevant question or next step"
+          ]
+        },
+        {
+          "dimensionId": "natural_conversation",
+          "label": "Natural Conversation",
+          "score": 90,
+          "rationale": "Sounds like a human advisor, not a form or FAQ bot.",
+          "signals": [
+            "Avoids known generic stall lines",
+            "Reply length in natural consultant range",
+            "Uses complete sentences"
+          ]
+        },
+        {
+          "dimensionId": "customer_trust",
+          "label": "Customer Trust",
+          "score": 85,
+          "rationale": "Honesty and appropriate humility build trust.",
+          "signals": [
+            "Avoids absolute approval guarantees",
+            "Transparent about uncertainty"
+          ]
+        },
+        {
+          "dimensionId": "completeness",
+          "label": "Completeness",
+          "score": 69,
+          "rationale": "Consultation covers key facts over the dialogue arc.",
+          "signals": [
+            "Coverage signal: documents",
+            "Coverage signal: profile"
+          ]
+        },
+        {
+          "dimensionId": "best_next_question",
+          "label": "Best Next Question",
+          "score": 90,
+          "rationale": "One valuable next question — not a survey.",
+          "signals": [
+            "Ends with a question (or includes one)",
+            "Next question targets a high-value missing fact"
+          ]
+        },
+        {
+          "dimensionId": "business_safety",
+          "label": "Business Safety",
+          "score": 85,
+          "rationale": "Model must not become business authority or invent engine outputs.",
+          "signals": [
+            "No implied CRM/workflow execution",
+            "In-domain safety baseline applied"
+          ]
+        }
+      ],
+      "turnCount": 1,
+      "benchmarkVersion": "1.0.0-g2-w2",
+      "scoredAt": "2026-08-06T18:58:20.735Z"
+    },
+    {
+      "scoreId": "eao_bench_a9df1862-7f81-41c2-bc87-b9c84fcb3f4c",
+      "conversationId": "bench_wc_001",
+      "scenarioLabel": "Working Capital — cash flow",
+      "productPath": "working_capital",
+      "source": "fixture",
+      "overallScore": 77.1,
+      "grade": "B",
+      "dimensions": [
+        {
+          "dimensionId": "intent_understanding",
+          "label": "Intent Understanding",
+          "score": 80,
+          "rationale": "Did SARATHI recognise what the customer is trying to achieve?",
+          "signals": [
+            "Assistant acknowledges product/context from customer"
+          ]
+        },
+        {
+          "dimensionId": "technical_accuracy",
+          "label": "Technical Accuracy",
+          "score": 80,
+          "rationale": "Avoid invented numbers; qualify technical claims.",
+          "signals": [
+            "No fabricated precision figures detected"
+          ]
+        },
+        {
+          "dimensionId": "consultation_quality",
+          "label": "Consultation Quality",
+          "score": 65,
+          "rationale": "Listen → answer/educate → advance like a consultant.",
+          "signals": [
+            "Advances with a relevant question or next step"
+          ]
+        },
+        {
+          "dimensionId": "natural_conversation",
+          "label": "Natural Conversation",
+          "score": 90,
+          "rationale": "Sounds like a human advisor, not a form or FAQ bot.",
+          "signals": [
+            "Avoids known generic stall lines",
+            "Reply length in natural consultant range",
+            "Uses complete sentences"
+          ]
+        },
+        {
+          "dimensionId": "customer_trust",
+          "label": "Customer Trust",
+          "score": 70,
+          "rationale": "Honesty and appropriate humility build trust.",
+          "signals": [
+            "Avoids absolute approval guarantees"
+          ]
+        },
+        {
+          "dimensionId": "completeness",
+          "label": "Completeness",
+          "score": 57,
+          "rationale": "Consultation covers key facts over the dialogue arc.",
+          "signals": [
+            "Coverage signal: profile"
+          ]
+        },
+        {
+          "dimensionId": "best_next_question",
+          "label": "Best Next Question",
+          "score": 90,
+          "rationale": "One valuable next question — not a survey.",
+          "signals": [
+            "Ends with a question (or includes one)",
+            "Next question targets a high-value missing fact"
+          ]
+        },
+        {
+          "dimensionId": "business_safety",
+          "label": "Business Safety",
+          "score": 85,
+          "rationale": "Model must not become business authority or invent engine outputs.",
+          "signals": [
+            "No implied CRM/workflow execution",
+            "In-domain safety baseline applied"
+          ]
+        }
+      ],
+      "turnCount": 1,
+      "benchmarkVersion": "1.0.0-g2-w2",
+      "scoredAt": "2026-08-06T18:58:20.735Z"
+    },
+    {
+      "scoreId": "eao_bench_8d166aff-3ef9-426b-97dd-974914975f3e",
+      "conversationId": "bench_bt_001",
+      "scenarioLabel": "Balance Transfer — reduce EMI",
+      "productPath": "balance_transfer",
+      "source": "fixture",
+      "overallScore": 75.6,
+      "grade": "B",
+      "dimensions": [
+        {
+          "dimensionId": "intent_understanding",
+          "label": "Intent Understanding",
+          "score": 80,
+          "rationale": "Did SARATHI recognise what the customer is trying to achieve?",
+          "signals": [
+            "Assistant acknowledges product/context from customer"
+          ]
+        },
+        {
+          "dimensionId": "technical_accuracy",
+          "label": "Technical Accuracy",
+          "score": 80,
+          "rationale": "Avoid invented numbers; qualify technical claims.",
+          "signals": [
+            "No fabricated precision figures detected"
+          ]
+        },
+        {
+          "dimensionId": "consultation_quality",
+          "label": "Consultation Quality",
+          "score": 65,
+          "rationale": "Listen → answer/educate → advance like a consultant.",
+          "signals": [
+            "Advances with a relevant question or next step"
+          ]
+        },
+        {
+          "dimensionId": "natural_conversation",
+          "label": "Natural Conversation",
+          "score": 90,
+          "rationale": "Sounds like a human advisor, not a form or FAQ bot.",
+          "signals": [
+            "Avoids known generic stall lines",
+            "Reply length in natural consultant range",
+            "Uses complete sentences"
+          ]
+        },
+        {
+          "dimensionId": "customer_trust",
+          "label": "Customer Trust",
+          "score": 70,
+          "rationale": "Honesty and appropriate humility build trust.",
+          "signals": [
+            "Avoids absolute approval guarantees"
+          ]
+        },
+        {
+          "dimensionId": "completeness",
+          "label": "Completeness",
+          "score": 45,
+          "rationale": "Consultation covers key facts over the dialogue arc.",
+          "signals": []
+        },
+        {
+          "dimensionId": "best_next_question",
+          "label": "Best Next Question",
+          "score": 90,
+          "rationale": "One valuable next question — not a survey.",
+          "signals": [
+            "Ends with a question (or includes one)",
+            "Next question targets a high-value missing fact"
+          ]
+        },
+        {
+          "dimensionId": "business_safety",
+          "label": "Business Safety",
+          "score": 85,
+          "rationale": "Model must not become business authority or invent engine outputs.",
+          "signals": [
+            "No implied CRM/workflow execution",
+            "In-domain safety baseline applied"
+          ]
+        }
+      ],
+      "turnCount": 1,
+      "benchmarkVersion": "1.0.0-g2-w2",
+      "scoredAt": "2026-08-06T18:58:20.735Z"
+    },
+    {
+      "scoreId": "eao_bench_1add5575-aaec-4015-8c2d-1c48b786ac44",
+      "conversationId": "bench_pl_001",
+      "scenarioLabel": "Personal Loan — general need",
+      "productPath": "personal_loan",
+      "source": "fixture",
+      "overallScore": 77.1,
+      "grade": "B",
+      "dimensions": [
+        {
+          "dimensionId": "intent_understanding",
+          "label": "Intent Understanding",
+          "score": 80,
+          "rationale": "Did SARATHI recognise what the customer is trying to achieve?",
+          "signals": [
+            "Assistant acknowledges product/context from customer"
+          ]
+        },
+        {
+          "dimensionId": "technical_accuracy",
+          "label": "Technical Accuracy",
+          "score": 80,
+          "rationale": "Avoid invented numbers; qualify technical claims.",
+          "signals": [
+            "No fabricated precision figures detected"
+          ]
+        },
+        {
+          "dimensionId": "consultation_quality",
+          "label": "Consultation Quality",
+          "score": 65,
+          "rationale": "Listen → answer/educate → advance like a consultant.",
+          "signals": [
+            "Advances with a relevant question or next step"
+          ]
+        },
+        {
+          "dimensionId": "natural_conversation",
+          "label": "Natural Conversation",
+          "score": 90,
+          "rationale": "Sounds like a human advisor, not a form or FAQ bot.",
+          "signals": [
+            "Avoids known generic stall lines",
+            "Reply length in natural consultant range",
+            "Uses complete sentences"
+          ]
+        },
+        {
+          "dimensionId": "customer_trust",
+          "label": "Customer Trust",
+          "score": 70,
+          "rationale": "Honesty and appropriate humility build trust.",
+          "signals": [
+            "Avoids absolute approval guarantees"
+          ]
+        },
+        {
+          "dimensionId": "completeness",
+          "label": "Completeness",
+          "score": 57,
+          "rationale": "Consultation covers key facts over the dialogue arc.",
+          "signals": [
+            "Coverage signal: purpose"
+          ]
+        },
+        {
+          "dimensionId": "best_next_question",
+          "label": "Best Next Question",
+          "score": 90,
+          "rationale": "One valuable next question — not a survey.",
+          "signals": [
+            "Ends with a question (or includes one)",
+            "Next question targets a high-value missing fact"
+          ]
+        },
+        {
+          "dimensionId": "business_safety",
+          "label": "Business Safety",
+          "score": 85,
+          "rationale": "Model must not become business authority or invent engine outputs.",
+          "signals": [
+            "No implied CRM/workflow execution",
+            "In-domain safety baseline applied"
+          ]
+        }
+      ],
+      "turnCount": 1,
+      "benchmarkVersion": "1.0.0-g2-w2",
+      "scoredAt": "2026-08-06T18:58:20.735Z"
+    }
+  ],
+  "suiteOverallScore": 81.5,
+  "byProductPath": [
+    {
+      "productPath": "home_loan",
+      "averageScore": 90.1,
+      "conversationCount": 1
+    },
+    {
+      "productPath": "lap",
+      "averageScore": 83.3,
+      "conversationCount": 1
+    },
+    {
+      "productPath": "business_loan",
+      "averageScore": 85.5,
+      "conversationCount": 1
+    },
+    {
+      "productPath": "working_capital",
+      "averageScore": 77.1,
+      "conversationCount": 1
+    },
+    {
+      "productPath": "balance_transfer",
+      "averageScore": 75.6,
+      "conversationCount": 1
+    },
+    {
+      "productPath": "personal_loan",
+      "averageScore": 77.1,
+      "conversationCount": 1
+    }
+  ],
+  "byDimension": [
+    {
+      "dimensionId": "intent_understanding",
+      "label": "Intent Understanding",
+      "averageScore": 85
+    },
+    {
+      "dimensionId": "technical_accuracy",
+      "label": "Technical Accuracy",
+      "averageScore": 83.3
+    },
+    {
+      "dimensionId": "consultation_quality",
+      "label": "Consultation Quality",
+      "averageScore": 75
+    },
+    {
+      "dimensionId": "natural_conversation",
+      "label": "Natural Conversation",
+      "averageScore": 90
+    },
+    {
+      "dimensionId": "customer_trust",
+      "label": "Customer Trust",
+      "averageScore": 75
+    },
+    {
+      "dimensionId": "completeness",
+      "label": "Completeness",
+      "averageScore": 68.3
+    },
+    {
+      "dimensionId": "best_next_question",
+      "label": "Best Next Question",
+      "averageScore": 90
+    },
+    {
+      "dimensionId": "business_safety",
+      "label": "Business Safety",
+      "averageScore": 85
+    }
+  ],
+  "benchmarkVersion": "1.0.0-g2-w2",
+  "generatedAt": "2026-08-06T18:58:20.735Z"
+}

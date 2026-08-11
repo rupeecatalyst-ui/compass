@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -7,14 +8,17 @@ import {
   ClipboardCheck,
   FileStack,
   Landmark,
+  Loader2,
   PenLine,
   Sparkles,
   Users,
 } from "lucide-react";
-import { organizationDashboardStats } from "@/data/catalyst-one/organization/dashboard";
+import { ROUTES } from "@/constants/routes";
+import { organizationWorkspaceApi } from "@/lib/enterprise-organization-workspace";
 import { Card, CardContent } from "@/components/ui/card";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { cn } from "@/lib/utils";
+import type { OrganizationDashboardStat } from "@/types/organization";
 
 const iconMap = {
   documents: FileStack,
@@ -33,6 +37,94 @@ const accentMap = {
 };
 
 export function OrganizationKpiGrid() {
+  const [stats, setStats] = useState<OrganizationDashboardStat[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [documents, directors, accounts, signatures] = await Promise.all([
+          organizationWorkspaceApi.listDocuments("active"),
+          organizationWorkspaceApi.listDirectors(),
+          organizationWorkspaceApi.listBankAccounts(),
+          organizationWorkspaceApi.listDigitalSignatures(),
+        ]);
+        if (cancelled) return;
+
+        const activeDirectors = directors.filter((d) => !d.isDeleted);
+        const activeAccounts = accounts.filter((a) => !a.isDeleted);
+        const activeSignatures = signatures.filter((s) => !s.isDeleted);
+        const expiringSoon = activeSignatures.filter((s) => s.status === "expiring").length;
+
+        setStats([
+          {
+            id: "corp-docs",
+            label: "Corporate Documents",
+            value: String(documents.length),
+            subValue: "Active in organization registry",
+            icon: "documents",
+            accent: "primary",
+            href: ROUTES.ORGANIZATION_CORPORATE_REPOSITORY,
+          },
+          {
+            id: "directors",
+            label: "Directors",
+            value: String(activeDirectors.length),
+            subValue: `${activeDirectors.filter((d) => d.status === "active").length} active`,
+            icon: "directors",
+            accent: "info",
+            href: ROUTES.ORGANIZATION_DIRECTORS,
+          },
+          {
+            id: "bank-accounts",
+            label: "Bank Accounts",
+            value: String(activeAccounts.length),
+            subValue: `${activeAccounts.filter((a) => a.isPrimary).length} primary`,
+            icon: "bank",
+            accent: "accent",
+            href: ROUTES.ORGANIZATION_BANK_ACCOUNTS,
+          },
+          {
+            id: "digital-signatures",
+            label: "Digital Signatures",
+            value: String(activeSignatures.length),
+            subValue:
+              expiringSoon > 0 ? `${expiringSoon} expiring soon` : "All signatures tracked",
+            icon: "signature",
+            accent: "warning",
+            href: ROUTES.ORGANIZATION_DIGITAL_SIGNATURES,
+          },
+        ]);
+      } catch {
+        if (!cancelled) setStats([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-4 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading KPIs…
+      </div>
+    );
+  }
+
+  if (stats.length === 0) {
+    return (
+      <p className="py-4 text-sm text-muted-foreground">
+        No organization KPIs available yet.
+      </p>
+    );
+  }
+
   return (
     <motion.div
       variants={staggerContainer}
@@ -40,7 +132,7 @@ export function OrganizationKpiGrid() {
       animate="animate"
       className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
     >
-      {organizationDashboardStats.map((stat) => {
+      {stats.map((stat) => {
         const Icon = iconMap[stat.icon as keyof typeof iconMap] ?? Building2;
         const accent = accentMap[stat.accent ?? "primary"];
         const content = (
@@ -76,7 +168,11 @@ export function OrganizationKpiGrid() {
         );
 
         return (
-          <motion.div key={stat.id} variants={staggerItem} whileHover={stat.href ? { scale: 1.01, y: -2 } : undefined}>
+          <motion.div
+            key={stat.id}
+            variants={staggerItem}
+            whileHover={stat.href ? { scale: 1.01, y: -2 } : undefined}
+          >
             {stat.href ? (
               <Link href={stat.href} className="block">
                 {content}

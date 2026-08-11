@@ -1,0 +1,172 @@
+{
+  "sprint": "CO-WP-PERF-005",
+  "baseUrl": "http://127.0.0.1:3000",
+  "startedAt": "2026-08-11T10:01:36.004Z",
+  "before": {
+    "source": "CO-WP-PERF-004 production (catalyst-one-two.vercel.app)",
+    "loginColdMs": 8231,
+    "loginWarmMs": 6373,
+    "meColdMs": 8174,
+    "meWarmMs": 7931,
+    "notificationsColdMs": 45103,
+    "notificationsWarmMs": 45652,
+    "homeShellMs": 4116,
+    "homeDeskMs": 12391,
+    "pipelineMs": 7935
+  },
+  "after": {
+    "loginColdMs": 2694,
+    "loginWarmMs": 2209,
+    "loginHasEntitlements": true,
+    "meColdMs": 1495,
+    "meWarmMs": 1321,
+    "notificationsColdMs": 1620,
+    "notificationsWarmMs": 1557,
+    "notificationItemCount": 7,
+    "homeShellMs": 1301,
+    "homeDeskMs": 3122,
+    "pipelineMs": 1346
+  },
+  "regression": {
+    "/api/partner/home?phase=shell": {
+      "ms": 941,
+      "status": 200,
+      "ok": true
+    },
+    "/api/partner/business-pipeline": {
+      "ms": 1697,
+      "status": 200,
+      "ok": true
+    },
+    "/api/partner/opportunities": {
+      "ms": 3880,
+      "status": 200,
+      "ok": true
+    },
+    "/api/partner/deals": {
+      "ms": 3231,
+      "status": 200,
+      "ok": true
+    },
+    "/api/partner/customers/search?q=": {
+      "ms": 4792,
+      "status": 200,
+      "ok": true
+    },
+    "/api/partner/documents": {
+      "ms": 337,
+      "status": 404,
+      "ok": false
+    },
+    "/api/partner/auth/me": {
+      "ms": 2582,
+      "status": 200,
+      "ok": true
+    }
+  },
+  "timings": [
+    {
+      "label": "login#cold",
+      "ms": 2694,
+      "status": 200,
+      "ok": true,
+      "serverTiming": "total;dur=2364",
+      "hasEntitlements": true,
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbXM5YTkxdGowMDAwd2V6d252cXdzZGNhIiwiZW1haWwiOiJ3cC1iYXRAcnVwZWVjYXRhbHlzdC5jb20iLCJyb2xlIjoiVklFV0VSIiwicGFydG5lcklkIjoiY21zOWFwaXg5MDAwM3dlamNvb3l0bzZpaiIsIm9yZ2FuaXphdGlvbklkIjoiY21ydGxpbHI2MDAwMXdleXMxeHYydXU1dCIsImNvbnRhY3RJZCI6ImNtczlhcGljZDAwMDF3ZWpjdXUzdHdyb2YiLCJ0eXAiOiJwYXJ0bmVyX2FjY2VzcyIsImlhdCI6MTc4NjQ0MjQ5OCwiZXhwIjoxNzg2NDQzMzk4LCJhdWQiOiJ3ZWFsdGhfcGFydG5lcl9hcHAifQ.ftbxvDEr_1gY9jA138HZ4WTxdwdAy_Ax2BkCcapl8Ak",
+      "session": {
+        "partnerCode": "WPDEMO001",
+        "partnerId": "cms9apix90003wejcooyto6ij",
+        "executionMode": "referral"
+      },
+      "error": null
+    },
+    {
+      "label": "login#warm",
+      "ms": 2209,
+      "status": 200,
+      "ok": true,
+      "serverTiming": "total;dur=2088",
+      "hasEntitlements": true,
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbXM5YTkxdGowMDAwd2V6d252cXdzZGNhIiwiZW1haWwiOiJ3cC1iYXRAcnVwZWVjYXRhbHlzdC5jb20iLCJyb2xlIjoiVklFV0VSIiwicGFydG5lcklkIjoiY21zOWFwaXg5MDAwM3dlamNvb3l0bzZpaiIsIm9yZ2FuaXphdGlvbklkIjoiY21ydGxpbHI2MDAwMXdleXMxeHYydXU1dCIsImNvbnRhY3RJZCI6ImNtczlhcGljZDAwMDF3ZWpjdXUzdHdyb2YiLCJ0eXAiOiJwYXJ0bmVyX2FjY2VzcyIsImlhdCI6MTc4NjQ0MjUwMCwiZXhwIjoxNzg2NDQzNDAwLCJhdWQiOiJ3ZWFsdGhfcGFydG5lcl9hcHAifQ.01gwioEn9ArbU75DgOGB5tiqurDzuu1jNQbz-eFC4EU",
+      "session": {
+        "partnerCode": "WPDEMO001",
+        "partnerId": "cms9apix90003wejcooyto6ij",
+        "executionMode": "referral"
+      },
+      "error": null
+    },
+    {
+      "label": "/me#1",
+      "ms": 1495,
+      "status": 200,
+      "ok": true,
+      "serverTiming": "total;dur=1368",
+      "hasEntitlements": true
+    },
+    {
+      "label": "/me#2",
+      "ms": 1321,
+      "status": 200,
+      "ok": true,
+      "serverTiming": "total;dur=1229"
+    },
+    {
+      "label": "home#shell",
+      "ms": 1301,
+      "status": 200,
+      "ok": true,
+      "bytes": 38388,
+      "serverTiming": "total;dur=904",
+      "itemCount": null
+    },
+    {
+      "label": "home#desk",
+      "ms": 3122,
+      "status": 200,
+      "ok": true,
+      "bytes": 43772,
+      "serverTiming": "total;dur=2915",
+      "itemCount": null
+    },
+    {
+      "label": "pipeline",
+      "ms": 1346,
+      "status": 200,
+      "ok": true,
+      "bytes": 8124,
+      "serverTiming": "total;dur=1221",
+      "itemCount": null
+    },
+    {
+      "label": "notifications#1",
+      "ms": 1620,
+      "status": 200,
+      "ok": true,
+      "bytes": 4107,
+      "serverTiming": "total;dur=1480",
+      "itemCount": 7
+    },
+    {
+      "label": "notifications#2",
+      "ms": 1557,
+      "status": 200,
+      "ok": true,
+      "bytes": 4107,
+      "serverTiming": "total;dur=1436",
+      "itemCount": 7
+    }
+  ],
+  "delta": {
+    "loginColdMs": 5537,
+    "loginWarmMs": 4164,
+    "meColdMs": 6679,
+    "meWarmMs": 6610,
+    "notificationsColdMs": 43483,
+    "notificationsWarmMs": 44095,
+    "homeShellMs": 2815,
+    "homeDeskMs": 9269,
+    "pipelineMs": 6589
+  },
+  "finishedAt": "2026-08-11T10:02:10.140Z",
+  "note": "AFTER measured against CERT_BASE_URL (local Gateway with PERF-005 code). BEFORE = PERF-004 production. No Vercel deploy in this sprint."
+}

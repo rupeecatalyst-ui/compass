@@ -143,6 +143,36 @@ export const enterpriseConversationActivityService = {
         savedAt: input.savedAt ? new Date(input.savedAt) : new Date(),
       },
     });
+
+    // CO-ORG-003 — dual-write conversation domain → EAR (idempotent by activity id)
+    try {
+      const { enterpriseActivityService } = await import(
+        "@server/services/enterprise-activity/enterprise-activity.service"
+      );
+      await enterpriseActivityService.emitBestEffort({
+        eventKind: "notes",
+        sourceSystem: "ecie",
+        sourceEventId: row.id,
+        title: row.title,
+        summary: (row.transcriptText ?? row.bodyText ?? "").slice(0, 280) || null,
+        payload: {
+          channel: row.channel,
+          contextType: row.contextType,
+          contextId: row.contextId,
+          edcTimelineEntryId: row.edcTimelineEntryId,
+        },
+        opportunityId: row.opportunityId,
+        dealId: row.dealId,
+        contactId: row.contactId,
+        documentId: row.audioDocumentId,
+        actorUserId: row.recordedByUserId,
+        actorName: row.recordedByLabel,
+        occurredAt: row.recordedAt,
+      });
+    } catch {
+      /* fail-open */
+    }
+
     return toDomain(row);
   },
 

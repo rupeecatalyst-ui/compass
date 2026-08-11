@@ -27,6 +27,7 @@ import type {
   LenderRegistryProductCode,
 } from "@/types/enterprise-lender-registry";
 import { cn } from "@/lib/utils";
+import { listSelectableCreditRiskPolicies } from "@/lib/enterprise-lender-registry/resolve-program-policy";
 
 const STEPS = [
   "Select Lender",
@@ -66,6 +67,13 @@ export function NewProductProgramWizard({
   const [maxTenureMonths, setMaxTenureMonths] = useState("");
   const [borrowerType, setBorrowerType] = useState("");
   const [employmentType, setEmploymentType] = useState("");
+  const [minCibil, setMinCibil] = useState("");
+  const [minIncomeAmount, setMinIncomeAmount] = useState("");
+  const [maxFoirPercent, setMaxFoirPercent] = useState("");
+  const [maxDbrPercent, setMaxDbrPercent] = useState("");
+  const [minFundingAmount, setMinFundingAmount] = useState("");
+  const [creditRiskPolicyRef, setCreditRiskPolicyRef] = useState("");
+  const [requiredDocumentTypes, setRequiredDocumentTypes] = useState("");
   const [averageTatDays, setAverageTatDays] = useState("");
   const [insuranceRequirement, setInsuranceRequirement] = useState("");
   const [eligibleStates, setEligibleStates] = useState("");
@@ -98,6 +106,13 @@ export function NewProductProgramWizard({
     setMaxTenureMonths("");
     setBorrowerType("");
     setEmploymentType("");
+    setMinCibil("");
+    setMinIncomeAmount("");
+    setMaxFoirPercent("");
+    setMaxDbrPercent("");
+    setMinFundingAmount("");
+    setCreditRiskPolicyRef("");
+    setRequiredDocumentTypes("");
     setAverageTatDays("");
     setInsuranceRequirement("");
     setEligibleStates("");
@@ -128,6 +143,16 @@ export function NewProductProgramWizard({
           processingFeePct: processingFeePct ? Number(processingFeePct) : undefined,
           maxLtvPercent: maxLtvPercent ? Number(maxLtvPercent) : undefined,
           maxTenureMonths: maxTenureMonths ? Number(maxTenureMonths) : undefined,
+          minCibil: minCibil ? Number(minCibil) : undefined,
+          minIncomeAmount: minIncomeAmount ? Number(minIncomeAmount) : undefined,
+          maxFoirPercent: maxFoirPercent ? Number(maxFoirPercent) : undefined,
+          maxDbrPercent: maxDbrPercent ? Number(maxDbrPercent) : undefined,
+          minFundingAmount: minFundingAmount ? Number(minFundingAmount) : undefined,
+          creditRiskPolicyRef: creditRiskPolicyRef.trim() || undefined,
+          requiredDocumentTypeIds: requiredDocumentTypes
+            .split(/[,;\n]/)
+            .map((s) => s.trim())
+            .filter(Boolean),
           averageTatDays: averageTatDays ? Number(averageTatDays) : undefined,
           eligibleStates: eligibleStates
             .split(",")
@@ -328,6 +353,75 @@ export function NewProductProgramWizard({
                   value={employmentType}
                   onChange={(e) => setEmploymentType(e.target.value)}
                   placeholder="salaried | self_employed"
+                />
+              </Field>
+              <Field label="Min CIBIL">
+                <Input
+                  type="number"
+                  value={minCibil}
+                  onChange={(e) => setMinCibil(e.target.value)}
+                  placeholder="e.g. 700"
+                />
+              </Field>
+              <Field label="Min Income (₹)">
+                <Input
+                  type="number"
+                  value={minIncomeAmount}
+                  onChange={(e) => setMinIncomeAmount(e.target.value)}
+                />
+              </Field>
+              <Field label="Max FOIR %">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={maxFoirPercent}
+                  onChange={(e) => setMaxFoirPercent(e.target.value)}
+                  placeholder="Frozen term · not DTI"
+                />
+              </Field>
+              <Field label="Max DBR %">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={maxDbrPercent}
+                  onChange={(e) => setMaxDbrPercent(e.target.value)}
+                  placeholder="Frozen term · not DTI"
+                />
+              </Field>
+              <Field label="Min Loan Amount (₹)">
+                <Input
+                  type="number"
+                  value={minFundingAmount}
+                  onChange={(e) => setMinFundingAmount(e.target.value)}
+                />
+              </Field>
+              <Field label="Credit & Risk Policy">
+                <Select
+                  value={creditRiskPolicyRef || "__none__"}
+                  onValueChange={(v) => setCreditRiskPolicyRef(v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Published CRE policy only" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    {listSelectableCreditRiskPolicies().map((p) => (
+                      <SelectItem key={p.policyId} value={p.policyId}>
+                        {p.policyName} ({p.policyCode})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field
+                label="Required Document Types (comma-separated codes)"
+                className="sm:col-span-2"
+              >
+                <Textarea
+                  value={requiredDocumentTypes}
+                  onChange={(e) => setRequiredDocumentTypes(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. PAN, AADHAAR, ITR, GST, BANK_STATEMENT"
                 />
               </Field>
               <Field label="Processing TAT (days)">

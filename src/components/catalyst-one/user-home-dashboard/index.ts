@@ -1,4 +1,11 @@
 export { UserHomeDashboard } from "./user-home-dashboard";
+export { NewOpportunitiesSection } from "./new-opportunities-section";
+export { NewArrivalsPulseSection } from "./new-arrivals-pulse-section";
+export { AttentionRequiredSection } from "./attention-required-section";
+export { MyAssignedDealsSection } from "./my-assigned-deals-section";
+export { MyPipelineSection } from "./my-pipeline-section";
+export { MyPerformanceSection } from "./my-performance-section";
+export { ChanakyaInsightsSection } from "./chanakya-insights-section";
 export { NewArrivalsSection } from "./new-arrivals-section";
 export { FreshLoginsSection } from "./fresh-logins-section";
 export { VisualAnalyticsPack } from "./visual-analytics-pack";

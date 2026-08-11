@@ -36,21 +36,64 @@ function displayNameFromUser(user: { firstName: string; lastName: string; email:
   return name || user.email;
 }
 
-/**
- * Zero-Trust resolve: Authenticated user → Contact link → Wealth Partner UUID.
- */
-export async function resolvePartnerBindingForUser(userId: string): Promise<{
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-    isActive: boolean;
-  };
+import { memoPartnerBinding } from "./partner-request-memo";
+
+export type PartnerBindingUser = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  isActive: boolean;
+};
+
+export type PartnerBindingResult = {
+  user: PartnerBindingUser;
   partner: PartnerRow;
   contactId: string | null;
-}> {
+};
+
+const userSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+  isActive: true,
+} as const;
+
+/**
+ * Zero-Trust resolve: Authenticated user → Contact link → Wealth Partner UUID.
+ * CO-WP-PERF-002 — request-scoped memo (same HTTP request only).
+ * CO-WP-PERF-005 — optional preloaded user skips duplicate user read; partner
+ * contact + activation lookups run concurrently when both may apply.
+ */
+export async function resolvePartnerBindingForUser(
+  userId: string,
+  opts?: { preloadedUser?: PartnerBindingUser },
+): Promise<PartnerBindingResult> {
+  return memoPartnerBinding(userId, () =>
+    resolvePartnerBindingForUserUncached(userId, opts),
+  );
+}
+
+async function findPartnerByActivation(userId: string): Promise<PartnerRow | null> {
+  return prisma.enterpriseWealthPartner.findFirst({
+    where: {
+      isDeleted: false,
+      profileJson: {
+        path: ["activation", "activatedUserId"],
+        equals: userId,
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
+async function resolvePartnerBindingForUserUncached(
+  userId: string,
+  opts?: { preloadedUser?: PartnerBindingUser },
+): Promise<PartnerBindingResult> {
   if (!isDatabaseAvailable()) {
     throw new PartnerGatewayError(
       "Enterprise services are currently unavailable.",
@@ -59,56 +102,59 @@ export async function resolvePartnerBindingForUser(userId: string): Promise<{
     );
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      role: true,
-      isActive: true,
-    },
-  });
+  const preloaded = opts?.preloadedUser;
+  let user: PartnerBindingUser | null =
+    preloaded && preloaded.id === userId ? preloaded : null;
+  let contacts: Array<{ id: string; organizationId: string }>;
+
+  if (user) {
+    contacts = await prisma.ecmContact.findMany({
+      where: { linkedUserId: userId, isDeleted: false },
+      select: { id: true, organizationId: true },
+    });
+  } else {
+    const [loadedUser, loadedContacts] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: userSelect,
+      }),
+      prisma.ecmContact.findMany({
+        where: { linkedUserId: userId, isDeleted: false },
+        select: { id: true, organizationId: true },
+      }),
+    ]);
+    user = loadedUser;
+    contacts = loadedContacts;
+  }
 
   if (!user || !user.isActive) {
     throw new PartnerGatewayError("Access denied", "FORBIDDEN", 403);
   }
-
-  const contacts = await prisma.ecmContact.findMany({
-    where: { linkedUserId: userId, isDeleted: false },
-    select: { id: true, organizationId: true },
-  });
 
   let partner: PartnerRow | null = null;
   let contactId: string | null = null;
 
   if (contacts.length > 0) {
     const contactIds = contacts.map((c) => c.id);
-    const byContact = await prisma.enterpriseWealthPartner.findFirst({
-      where: {
-        contactId: { in: contactIds },
-        isDeleted: false,
-      },
-      orderBy: { updatedAt: "desc" },
-    });
+    const [byContact, byActivation] = await Promise.all([
+      prisma.enterpriseWealthPartner.findFirst({
+        where: {
+          contactId: { in: contactIds },
+          isDeleted: false,
+        },
+        orderBy: { updatedAt: "desc" },
+      }),
+      findPartnerByActivation(userId),
+    ]);
     if (byContact) {
       partner = byContact;
       contactId = byContact.contactId;
+    } else if (byActivation) {
+      partner = byActivation;
+      contactId = byActivation.contactId;
     }
-  }
-
-  if (!partner) {
-    const byActivation = await prisma.enterpriseWealthPartner.findFirst({
-      where: {
-        isDeleted: false,
-        profileJson: {
-          path: ["activation", "activatedUserId"],
-          equals: userId,
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
+  } else {
+    const byActivation = await findPartnerByActivation(userId);
     if (byActivation) {
       partner = byActivation;
       contactId = byActivation.contactId;

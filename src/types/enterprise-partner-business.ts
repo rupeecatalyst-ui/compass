@@ -187,6 +187,13 @@ export type PartnerOpportunityDetailDto = PartnerOpportunitySummaryDto & {
   /** CO-WP-TIMELINE-001 — Partner-facing business milestones (hides internal stages). */
   businessTimeline?: import("@/types/enterprise-partner-business-timeline").PartnerBusinessTimelineDto;
   communicationReservedMessage?: string;
+  /** CO-WP-ACCESS-001 — Effective entitlements for this Opportunity (Partner App presentation). */
+  entitlements?: {
+    executionMode: string;
+    source: string;
+    permissions: Record<string, boolean>;
+    modules: Record<string, boolean>;
+  };
 };
 
 export type PartnerResumeDraftDto = {
@@ -251,8 +258,16 @@ export type PartnerOpportunityPatchInput = {
 };
 
 export type PartnerOpportunityDocumentUploadInput = {
-  /** Required — Enterprise LOD typeRef. Partner never invents categories. */
-  typeRef: string;
+  /**
+   * Enterprise LOD typeRef when uploading against a pending requirement.
+   * CO-WP-DOC-002 — omit (or use doc:other:*) for inbox / additional freeform intake.
+   */
+  typeRef?: string;
+  /**
+   * CO-WP-DOC-002 — inbox | additional | requirement.
+   * Default: requirement when typeRef is a checklist type; otherwise inbox.
+   */
+  intakeMode?: "inbox" | "additional" | "requirement";
   title?: string;
   /** When set, replaces an existing upload for the same typeRef. */
   replaceDocumentId?: string;

@@ -18,14 +18,25 @@ export const ENTERPRISE_REGISTRY_VIEWPORT_CLASS =
  * No viewport height lock; page scrolls naturally.
  */
 export const ENTERPRISE_REGISTRY_DOCUMENT_VIEWPORT_CLASS =
-  "flex w-full max-w-none min-h-0 flex-col gap-0";
+  "flex w-full max-w-none min-h-0 flex-col gap-0 overflow-visible";
 
 /** CO-UX-DATAGRID-001 — 16px mobile / 20px md / 24px lg side margins. */
 export const ENTERPRISE_REGISTRY_CONTENT_PAD_CLASS =
   "flex min-h-0 w-full max-w-none flex-1 flex-col gap-1 overflow-hidden px-4 py-1.5 md:px-5 md:py-2 lg:px-6";
 
+/**
+ * Shared document-scroll pad for registry shells (e.g. Lender Directory).
+ * Prefer WEALTH_PARTNER_WORKSPACE_PAGE_CLASS for Partner Workspace (no flex-1 fill trap).
+ */
 export const ENTERPRISE_REGISTRY_DOCUMENT_CONTENT_PAD_CLASS =
-  "flex w-full max-w-none min-h-0 flex-1 flex-col gap-1 px-4 py-1.5 md:px-5 md:py-2 lg:px-6";
+  "flex w-full max-w-none min-h-0 flex-1 flex-col gap-1 overflow-visible px-4 py-1.5 md:px-5 md:py-2 lg:px-6";
+
+/**
+ * CO-ECM-NETWORK-UI-002 — Wealth Partner Workspace page surface (tabs / Network).
+ * Natural document height — never flex-1 / min-h-0 fill contracts that clip the Add Member form.
+ */
+export const WEALTH_PARTNER_WORKSPACE_PAGE_CLASS =
+  "flex w-full max-w-none flex-col gap-4 overflow-visible px-4 py-1.5 pb-16 md:px-5 md:py-2 md:pb-20 lg:px-6";
 
 export const ENTERPRISE_REGISTRY_HEADER_CLASS =
   "flex shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5 pb-0.5";
@@ -86,6 +97,14 @@ export const ENTERPRISE_REGISTRY_DOCUMENT_SCROLL_PATH_PREFIXES = [
   "/document-center",
 ] as const;
 
+/**
+ * CO-ECM-NETWORK-UI-001 — Partner Workspace (tabs / Network form) needs natural page scroll.
+ * Exact `/wealth-partners` list remains locked-fill registry grid.
+ * Match: `/wealth-partners/:partnerId/workspace` (+ optional trailing segments).
+ */
+export const WEALTH_PARTNER_WORKSPACE_DOCUMENT_SCROLL_PATH_RE =
+  /^\/wealth-partners\/[^/]+\/workspace(?:\/|$)/;
+
 export function isEnterpriseRegistryFullWidthPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   const path = pathname.split("?")[0] || pathname;
@@ -102,9 +121,14 @@ export function isEnterpriseRegistryDocumentScrollPath(
 ): boolean {
   if (!pathname) return false;
   const path = pathname.split("?")[0] || pathname;
-  return ENTERPRISE_REGISTRY_DOCUMENT_SCROLL_PATH_PREFIXES.some(
-    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-  );
+  if (
+    ENTERPRISE_REGISTRY_DOCUMENT_SCROLL_PATH_PREFIXES.some(
+      (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+    )
+  ) {
+    return true;
+  }
+  return WEALTH_PARTNER_WORKSPACE_DOCUMENT_SCROLL_PATH_RE.test(path);
 }
 
 /**

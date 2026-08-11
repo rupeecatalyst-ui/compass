@@ -3,6 +3,7 @@ import type {
   OrgDocTypeDefinition,
 } from "@/types/organization-documents";
 
+/** @deprecated CO-ORG-001 — localStorage registry retired; durable Postgres via Organization Workspace API. */
 export const ORG_DOC_STORAGE_KEY = "catalyst.organization.documents.v1";
 
 export const ORG_DOC_CATEGORIES: OrgDocCategoryDefinition[] = [
@@ -56,10 +57,12 @@ export const ORG_DOC_SYSTEM_TYPES: OrgDocTypeDefinition[] = [
   { id: "legal_coi", categoryId: "legal", label: "Certificate of Incorporation", sortOrder: 1, system: true },
   { id: "legal_pan", categoryId: "legal", label: "PAN", sortOrder: 2, system: true },
   { id: "legal_gst", categoryId: "legal", label: "GST Certificate", sortOrder: 3, system: true },
-  { id: "legal_msme", categoryId: "legal", label: "MSME Certificate", sortOrder: 4, system: true },
-  { id: "legal_shops", categoryId: "legal", label: "Shops & Establishment", sortOrder: 5, system: true },
-  { id: "legal_ptax", categoryId: "legal", label: "Professional Tax", sortOrder: 6, system: true },
-  { id: "legal_iec", categoryId: "legal", label: "Import Export Code (IEC)", sortOrder: 7, system: true },
+  { id: "legal_cin", categoryId: "legal", label: "CIN Certificate", sortOrder: 4, system: true },
+  { id: "legal_rbi", categoryId: "legal", label: "RBI Registration", sortOrder: 5, system: true },
+  { id: "legal_msme", categoryId: "legal", label: "MSME Certificate", sortOrder: 6, system: true },
+  { id: "legal_shops", categoryId: "legal", label: "Shops & Establishment", sortOrder: 7, system: true },
+  { id: "legal_ptax", categoryId: "legal", label: "Professional Tax", sortOrder: 8, system: true },
+  { id: "legal_iec", categoryId: "legal", label: "Import Export Code (IEC)", sortOrder: 9, system: true },
   { id: "legal_other", categoryId: "legal", label: "Other", sortOrder: 99, system: true },
   // Banking & Finance
   { id: "bf_cheque", categoryId: "banking_finance", label: "Cancelled Cheque", sortOrder: 1, system: true },
@@ -103,3 +106,5 @@ export function formatOrgDocFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
+
+export { mapOrgDocCategoryToRepositoryKey, isFinancialDocumentType } from "@/constants/corporate-compliance-center";

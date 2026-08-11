@@ -1,0 +1,1732 @@
+{
+  "sprint": "CO-WP-DATA-CLEANUP-001",
+  "generatedAt": "2026-08-10T10:01:15.103Z",
+  "mode": "READ_ONLY_AUDIT",
+  "mutations": "NONE",
+  "fixtureFingerprint": {
+    "script": "scripts/co-wp-access-002-certify.mjs",
+    "customerNames": [
+      "Cert A Referral Customer",
+      "Cert A Override Edit Customer",
+      "Cert A ViewOnly Customer",
+      "Cert B Solo Customer"
+    ],
+    "productLabels": [
+      "Cert A Referral",
+      "Cert A Override Edit",
+      "Cert A ViewOnly",
+      "Cert B Solo"
+    ],
+    "mobile": "90000000001",
+    "snapshotCert": "CO-WP-ACCESS-002",
+    "partnerCodes": [
+      "WPACERTA",
+      "WPACERTB"
+    ],
+    "partnerEmails": [
+      "wp-access-cert-a@rupeecatalyst.com",
+      "wp-access-cert-b@rupeecatalyst.com"
+    ],
+    "evidencePartnerIds": [
+      "cmsljyws50005weeka0js9u4t",
+      "cmsljyzhu0009weekfeq2rsv9"
+    ],
+    "evidenceOpportunityIds": [
+      "cmslm0svo0001wedsvmh3chmz",
+      "cmslm0tlg0003wedsm35w17xy",
+      "cmslm0u8z0005wedsrp8vcvph",
+      "cmslm0uwe0007wedstm3wsuct",
+      "cmslmw6tw0001wedstfh9lyit",
+      "cmslmw7h50003wedsia9d68u6",
+      "cmslmw84w0005wedsr5mf7sde",
+      "cmslmw8rd0007wedsfl10u7j2"
+    ],
+    "evidenceDealIds": [
+      "cmslm0vud0009wedsqzpr6qaw",
+      "cmslm0wta000bwedsjbqstus1",
+      "cmslmw9oj0009wedsy9l1hwgs",
+      "cmslmwam6000bwedswbic0i8x"
+    ]
+  },
+  "counts": {
+    "A_totalOpportunities": 36,
+    "B_probableCertificationTestOpportunities": 20,
+    "C_genuineOpportunities": 16,
+    "D_unknownRequiresReview": 0
+  },
+  "certPartners": [
+    {
+      "id": "cmsljyws50005weeka0js9u4t",
+      "code": "WPACERTA",
+      "displayName": "WP Access Cert Partner A",
+      "email": "wp-access-cert-a@rupeecatalyst.com",
+      "organizationId": "cmrtlilr60001weys1xv2uu5t",
+      "contactId": "cmsljyvi20003weeky9he935i"
+    },
+    {
+      "id": "cmsljyzhu0009weekfeq2rsv9",
+      "code": "WPACERTB",
+      "displayName": "WP Access Cert Partner B",
+      "email": "wp-access-cert-b@rupeecatalyst.com",
+      "organizationId": "cmrtlilr60001weys1xv2uu5t",
+      "contactId": "cmsljyxlm0007weekgxvzvy80"
+    }
+  ],
+  "certUsers": [
+    {
+      "id": "cmsljys0w0000weekptm7a73d",
+      "email": "wp-access-cert-a@rupeecatalyst.com",
+      "firstName": "Cert",
+      "lastName": "PartnerA",
+      "role": "VIEWER",
+      "isActive": true
+    },
+    {
+      "id": "cmsljyta30001weekar90g8gk",
+      "email": "wp-access-cert-b@rupeecatalyst.com",
+      "firstName": "Cert",
+      "lastName": "PartnerB",
+      "role": "VIEWER",
+      "isActive": true
+    },
+    {
+      "id": "cmsln2zkj000mwedshzmujj0p",
+      "email": "wp-access-cert-admin@rupeecatalyst.com",
+      "firstName": "Cert",
+      "lastName": "AccessAdmin",
+      "role": "SUPER_ADMIN",
+      "isActive": true
+    }
+  ],
+  "candidateCleanupList": [
+    {
+      "opportunityId": "cmsljz1ep000bweekeln9ikg7",
+      "opportunityNumber": "OPP-2026-000061",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T08:40:52.635Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmsljz4jm000jweekoky7s9p0",
+          "dealNumber": "DEAL-2026-000085",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T08:40:56.770Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmsljz25h000dweekzqxd1223",
+      "opportunityNumber": "OPP-2026-000062",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T08:40:53.669Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmsljz2vh000fweek0rzpd2qj",
+      "opportunityNumber": "OPP-2026-000063",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T08:40:54.606Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmsljz3l8000hweeklhv65sg4",
+      "opportunityNumber": "OPP-2026-000064",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T08:40:55.532Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmsljz5wv000lweek9wghsq92",
+          "dealNumber": "DEAL-2026-000086",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T08:40:58.543Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslkuflz0001wez4el74xaym",
+      "opportunityNumber": "OPP-2026-000065",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:05:17.446Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslkujir0009wez4pmtj0zn4",
+          "dealNumber": "DEAL-2026-000087",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:05:22.515Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [
+        {
+          "id": "cmslkvku20001weu82tjymnvi",
+          "category": "general",
+          "entityKind": "opportunity",
+          "createdAt": "2026-08-09T09:06:10.874Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        },
+        {
+          "id": "cmslkwq8v0005weu8edqm8xkj",
+          "category": "general",
+          "entityKind": "deal",
+          "createdAt": "2026-08-09T09:07:04.543Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        }
+      ],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslkugod0003wez48oa4pt5x",
+      "opportunityNumber": "OPP-2026-000066",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:05:18.830Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslkuhgs0005wez48r5c7xbs",
+      "opportunityNumber": "OPP-2026-000067",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:05:19.852Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslkuib70007wez493u9c0uf",
+      "opportunityNumber": "OPP-2026-000068",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T09:05:20.852Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslkuksr000bwez41a1l3ost",
+          "dealNumber": "DEAL-2026-000088",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:05:24.171Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslm0svo0001wedsvmh3chmz",
+      "opportunityNumber": "OPP-2026-000069",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:38:14.193Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslm0vud0009wedsqzpr6qaw",
+          "dealNumber": "DEAL-2026-000089",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:38:18.037Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslm0tlg0003wedsm35w17xy",
+      "opportunityNumber": "OPP-2026-000070",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:38:15.124Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslm0u8z0005wedsrp8vcvph",
+      "opportunityNumber": "OPP-2026-000071",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:38:15.971Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslm0uwe0007wedstm3wsuct",
+      "opportunityNumber": "OPP-2026-000072",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T09:38:16.814Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslm0wta000bwedsjbqstus1",
+          "dealNumber": "DEAL-2026-000090",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:38:19.294Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmi70n0001wem8pdysew0w",
+      "opportunityNumber": "OPP-2026-000073",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:51:45.669Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslmiagj0009wem8x5w1av2q",
+          "dealNumber": "DEAL-2026-000091",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:51:50.131Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [
+        {
+          "id": "cmslmkkw90007l804ke3kacer",
+          "category": "general",
+          "entityKind": "opportunity",
+          "createdAt": "2026-08-09T09:53:36.757Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        },
+        {
+          "id": "cmslmnhly000bl8049nxbu5ch",
+          "category": "general",
+          "entityKind": "deal",
+          "createdAt": "2026-08-09T09:55:52.678Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        }
+      ],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmi7tr0003wem8cwf3jo32",
+      "opportunityNumber": "OPP-2026-000074",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:51:46.719Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmi8ha0005wem8vr0r2up1",
+      "opportunityNumber": "OPP-2026-000075",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:51:47.566Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmi9ca0007wem8wwx4zgig",
+      "opportunityNumber": "OPP-2026-000076",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T09:51:48.682Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslmiblg000bwem8jtx8ub42",
+          "dealNumber": "DEAL-2026-000092",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:51:51.513Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmw6tw0001wedstfh9lyit",
+      "opportunityNumber": "OPP-2026-000077",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T10:02:38.611Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslmw9oj0009wedsy9l1hwgs",
+          "dealNumber": "DEAL-2026-000093",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T10:02:42.307Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [
+        {
+          "id": "cmslmylio0005l204l7qqwskw",
+          "category": "general",
+          "entityKind": "opportunity",
+          "createdAt": "2026-08-09T10:04:30.960Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        },
+        {
+          "id": "cmsln1m2r0009l204r34pm6mt",
+          "category": "general",
+          "entityKind": "deal",
+          "createdAt": "2026-08-09T10:06:51.651Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        }
+      ],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmw7h50003wedsia9d68u6",
+      "opportunityNumber": "OPP-2026-000078",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T10:02:39.449Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmw84w0005wedsr5mf7sde",
+      "opportunityNumber": "OPP-2026-000079",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T10:02:40.304Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmw8rd0007wedsfl10u7j2",
+      "opportunityNumber": "OPP-2026-000080",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T10:02:41.113Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslmwam6000bwedswbic0i8x",
+          "dealNumber": "DEAL-2026-000094",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T10:02:43.518Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    }
+  ],
+  "unknownList": [],
+  "relatedTestDependencies": {
+    "deals": [
+      {
+        "id": "cmslmwam6000bwedswbic0i8x",
+        "dealNumber": "DEAL-2026-000094",
+        "opportunityId": "cmslmw8rd0007wedsfl10u7j2",
+        "productLabel": "Cert Deal B",
+        "createdAt": "2026-08-09T10:02:43.518Z"
+      },
+      {
+        "id": "cmslmw9oj0009wedsy9l1hwgs",
+        "dealNumber": "DEAL-2026-000093",
+        "opportunityId": "cmslmw6tw0001wedstfh9lyit",
+        "productLabel": "Cert Deal A",
+        "createdAt": "2026-08-09T10:02:42.307Z"
+      },
+      {
+        "id": "cmslmiblg000bwem8jtx8ub42",
+        "dealNumber": "DEAL-2026-000092",
+        "opportunityId": "cmslmi9ca0007wem8wwx4zgig",
+        "productLabel": "Cert Deal B",
+        "createdAt": "2026-08-09T09:51:51.513Z"
+      },
+      {
+        "id": "cmslmiagj0009wem8x5w1av2q",
+        "dealNumber": "DEAL-2026-000091",
+        "opportunityId": "cmslmi70n0001wem8pdysew0w",
+        "productLabel": "Cert Deal A",
+        "createdAt": "2026-08-09T09:51:50.131Z"
+      },
+      {
+        "id": "cmslm0wta000bwedsjbqstus1",
+        "dealNumber": "DEAL-2026-000090",
+        "opportunityId": "cmslm0uwe0007wedstm3wsuct",
+        "productLabel": "Cert Deal B",
+        "createdAt": "2026-08-09T09:38:19.294Z"
+      },
+      {
+        "id": "cmslm0vud0009wedsqzpr6qaw",
+        "dealNumber": "DEAL-2026-000089",
+        "opportunityId": "cmslm0svo0001wedsvmh3chmz",
+        "productLabel": "Cert Deal A",
+        "createdAt": "2026-08-09T09:38:18.037Z"
+      },
+      {
+        "id": "cmslkuksr000bwez41a1l3ost",
+        "dealNumber": "DEAL-2026-000088",
+        "opportunityId": "cmslkuib70007wez493u9c0uf",
+        "productLabel": "Cert Deal B",
+        "createdAt": "2026-08-09T09:05:24.171Z"
+      },
+      {
+        "id": "cmslkujir0009wez4pmtj0zn4",
+        "dealNumber": "DEAL-2026-000087",
+        "opportunityId": "cmslkuflz0001wez4el74xaym",
+        "productLabel": "Cert Deal A",
+        "createdAt": "2026-08-09T09:05:22.515Z"
+      },
+      {
+        "id": "cmsljz5wv000lweek9wghsq92",
+        "dealNumber": "DEAL-2026-000086",
+        "opportunityId": "cmsljz3l8000hweeklhv65sg4",
+        "productLabel": "Cert Deal B",
+        "createdAt": "2026-08-09T08:40:58.543Z"
+      },
+      {
+        "id": "cmsljz4jm000jweekoky7s9p0",
+        "dealNumber": "DEAL-2026-000085",
+        "opportunityId": "cmsljz1ep000bweekeln9ikg7",
+        "productLabel": "Cert Deal A",
+        "createdAt": "2026-08-09T08:40:56.770Z"
+      }
+    ],
+    "entitlementAuditSample": [
+      {
+        "id": "cmsln3g5y000fl204tdwuylbx",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljz8n2000nweekzi125xuo",
+        "reason": "Certification admin save reload",
+        "actorLabel": "Cert AccessAdmin",
+        "createdAt": "2026-08-09T10:08:17.303Z"
+      },
+      {
+        "id": "cmslmzoju000lweds5xvlbmjh",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_updated",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmslmweym000hweds76lfq5wn",
+        "reason": "Certification revoke EDIT on A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T10:05:21.546Z"
+      },
+      {
+        "id": "cmslmwf8c000jwedsmpsl44ab",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_created",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmslmweym000hweds76lfq5wn",
+        "reason": "Certification Joint override on Transaction A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T10:02:49.500Z"
+      },
+      {
+        "id": "cmslmwe0z000fwedsjx9d7ir1",
+        "wealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljzehx000tweeko5g64jhy",
+        "reason": "Certification Solo defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T10:02:47.940Z"
+      },
+      {
+        "id": "cmslmwcaf000dwedsc9hz2law",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljz8n2000nweekzi125xuo",
+        "reason": "Certification Referral defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T10:02:45.687Z"
+      },
+      {
+        "id": "cmslmlmim000lwem8u9nhjzmb",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_updated",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmslmigpb000hwem8b4lcyhqs",
+        "reason": "Certification revoke EDIT on A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:54:25.726Z"
+      },
+      {
+        "id": "cmslmih2e000jwem8i13v21gs",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_created",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmslmigpb000hwem8b4lcyhqs",
+        "reason": "Certification Joint override on Transaction A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:51:58.694Z"
+      },
+      {
+        "id": "cmslmifqm000fwem8c81pu0mp",
+        "wealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljzehx000tweeko5g64jhy",
+        "reason": "Certification Solo defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:51:56.974Z"
+      },
+      {
+        "id": "cmslmidpf000dwem8uuo7gevq",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljz8n2000nweekzi125xuo",
+        "reason": "Certification Referral defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:51:54.339Z"
+      },
+      {
+        "id": "cmslm180h000lwedstccxwpom",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_updated",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmslm11zx000hwedskl958wqo",
+        "reason": "Certification revoke EDIT on A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:38:33.809Z"
+      },
+      {
+        "id": "cmslm12c3000jwedshqv2dh62",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_created",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmslm11zx000hwedskl958wqo",
+        "reason": "Certification Joint override on Transaction A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:38:26.451Z"
+      },
+      {
+        "id": "cmslm10vt000fweds7vy0b25f",
+        "wealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljzehx000tweeko5g64jhy",
+        "reason": "Certification Solo defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:38:24.569Z"
+      },
+      {
+        "id": "cmslm0yjn000dwedsi2pbrlbg",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljz8n2000nweekzi125xuo",
+        "reason": "Certification Referral defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:38:21.539Z"
+      },
+      {
+        "id": "cmslkxfp00009weu8qzkb2ks3",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljz8n2000nweekzi125xuo",
+        "reason": "Certification admin save reload",
+        "actorLabel": "Business Certification Admin",
+        "createdAt": "2026-08-09T09:07:37.524Z"
+      },
+      {
+        "id": "cmslkvzd0000lwez4q9df8sps",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_updated",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmslkuqaz000hwez4gogtev6f",
+        "reason": "Certification revoke EDIT on A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:06:29.701Z"
+      },
+      {
+        "id": "cmslkuqmx000jwez4xbe7qrhe",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_created",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmslkuqaz000hwez4gogtev6f",
+        "reason": "Certification Joint override on Transaction A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:05:31.737Z"
+      },
+      {
+        "id": "cmslkupa9000fwez4mhooo209",
+        "wealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljzehx000tweeko5g64jhy",
+        "reason": "Certification Solo defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:05:29.986Z"
+      },
+      {
+        "id": "cmslkunbo000dwez4v3412zm8",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljz8n2000nweekzi125xuo",
+        "reason": "Certification Referral defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T09:05:27.444Z"
+      },
+      {
+        "id": "cmslk1wqi0001wef4tg9c0st1",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljz8n2000nweekzi125xuo",
+        "reason": "Certification admin save reload",
+        "actorLabel": "Business Certification Admin",
+        "createdAt": "2026-08-09T08:43:06.618Z"
+      },
+      {
+        "id": "cmslk0q4r0013weekcv9hf4r9",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_updated",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmsljzi8s000zweeks52ubntm",
+        "reason": "Certification revoke EDIT on A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T08:42:11.403Z"
+      },
+      {
+        "id": "cmsljzijn0011weekvlxm9ltn",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "transaction_override_created",
+        "targetKind": "transaction_entitlement",
+        "targetId": "cmsljzi8s000zweeks52ubntm",
+        "reason": "Certification Joint override on Transaction A2",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T08:41:14.915Z"
+      },
+      {
+        "id": "cmsljzh7v000xweekjlv011vh",
+        "wealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljzehx000tweeko5g64jhy",
+        "reason": "Certification Solo defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T08:41:13.195Z"
+      },
+      {
+        "id": "cmsljzf2w000vweekahuipavk",
+        "wealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+        "changeType": "profile_created",
+        "targetKind": "profile",
+        "targetId": "cmsljzehx000tweeko5g64jhy",
+        "reason": "Initialized from template SOLO_PARTNER",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T08:41:10.424Z"
+      },
+      {
+        "id": "cmsljzb71000rweek381beouy",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "profile_updated",
+        "targetKind": "profile",
+        "targetId": "cmsljz8n2000nweekzi125xuo",
+        "reason": "Certification Referral defaults",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T08:41:05.390Z"
+      },
+      {
+        "id": "cmsljz98t000pweekdf734k19",
+        "wealthPartnerId": "cmsljyws50005weeka0js9u4t",
+        "changeType": "profile_created",
+        "targetKind": "profile",
+        "targetId": "cmsljz8n2000nweekzi125xuo",
+        "reason": "Initialized from template REFERRAL_PARTNER",
+        "actorLabel": "CO-WP-ACCESS-002 Certifier",
+        "createdAt": "2026-08-09T08:41:02.861Z"
+      }
+    ],
+    "entitlementAuditCount": 25,
+    "note": "Documents/Activities listed per opportunity in candidateCleanupList.relatedDocuments / relatedActivitiesNotes"
+  },
+  "recommendedSafeCleanupSequence": [
+    "1. PO approve this audit report and candidate list",
+    "2. Soft-archive or delete Business Notes / activities linked only to cert opportunity IDs",
+    "3. Soft-archive or delete EnterpriseTransactionDocument rows linked only to cert opportunity IDs",
+    "4. Soft-archive or delete EnterpriseDeal rows linked only to cert opportunity IDs (or evidence deal IDs)",
+    "5. Soft-archive or delete EnterpriseOpportunity cert rows (snapshot.cert + name/label fingerprints)",
+    "6. Review Partner entitlement overrides/profiles for WPACERTA/B — retain templates; optionally reset cert partner profiles",
+    "7. Optionally deactivate cert users (wp-access-cert-*) — do NOT touch admin@compass.com",
+    "8. Optionally archive WPACERTA/B wealth partner rows AFTER confirming no genuine opps remain on those partner IDs",
+    "9. Re-run read-only audit to confirm residual = 0 cert fingerprints",
+    "10. NEVER run production-reset or truncate as part of this cleanup"
+  ],
+  "detailedCandidates": [
+    {
+      "opportunityId": "cmsljz1ep000bweekeln9ikg7",
+      "opportunityNumber": "OPP-2026-000061",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T08:40:52.635Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmsljz4jm000jweekoky7s9p0",
+          "dealNumber": "DEAL-2026-000085",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T08:40:56.770Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmsljz25h000dweekzqxd1223",
+      "opportunityNumber": "OPP-2026-000062",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T08:40:53.669Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmsljz2vh000fweek0rzpd2qj",
+      "opportunityNumber": "OPP-2026-000063",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T08:40:54.606Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmsljz3l8000hweeklhv65sg4",
+      "opportunityNumber": "OPP-2026-000064",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T08:40:55.532Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmsljz5wv000lweek9wghsq92",
+          "dealNumber": "DEAL-2026-000086",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T08:40:58.543Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslkuflz0001wez4el74xaym",
+      "opportunityNumber": "OPP-2026-000065",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:05:17.446Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslkujir0009wez4pmtj0zn4",
+          "dealNumber": "DEAL-2026-000087",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:05:22.515Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [
+        {
+          "id": "cmslkvku20001weu82tjymnvi",
+          "category": "general",
+          "entityKind": "opportunity",
+          "createdAt": "2026-08-09T09:06:10.874Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        },
+        {
+          "id": "cmslkwq8v0005weu8edqm8xkj",
+          "category": "general",
+          "entityKind": "deal",
+          "createdAt": "2026-08-09T09:07:04.543Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        }
+      ],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslkugod0003wez48oa4pt5x",
+      "opportunityNumber": "OPP-2026-000066",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:05:18.830Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslkuhgs0005wez48r5c7xbs",
+      "opportunityNumber": "OPP-2026-000067",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:05:19.852Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslkuib70007wez493u9c0uf",
+      "opportunityNumber": "OPP-2026-000068",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T09:05:20.852Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslkuksr000bwez41a1l3ost",
+          "dealNumber": "DEAL-2026-000088",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:05:24.171Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslm0svo0001wedsvmh3chmz",
+      "opportunityNumber": "OPP-2026-000069",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:38:14.193Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslm0vud0009wedsqzpr6qaw",
+          "dealNumber": "DEAL-2026-000089",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:38:18.037Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslm0tlg0003wedsm35w17xy",
+      "opportunityNumber": "OPP-2026-000070",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:38:15.124Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslm0u8z0005wedsrp8vcvph",
+      "opportunityNumber": "OPP-2026-000071",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:38:15.971Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslm0uwe0007wedstm3wsuct",
+      "opportunityNumber": "OPP-2026-000072",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T09:38:16.814Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslm0wta000bwedsjbqstus1",
+          "dealNumber": "DEAL-2026-000090",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:38:19.294Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmi70n0001wem8pdysew0w",
+      "opportunityNumber": "OPP-2026-000073",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:51:45.669Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslmiagj0009wem8x5w1av2q",
+          "dealNumber": "DEAL-2026-000091",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:51:50.131Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [
+        {
+          "id": "cmslmkkw90007l804ke3kacer",
+          "category": "general",
+          "entityKind": "opportunity",
+          "createdAt": "2026-08-09T09:53:36.757Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        },
+        {
+          "id": "cmslmnhly000bl8049nxbu5ch",
+          "category": "general",
+          "entityKind": "deal",
+          "createdAt": "2026-08-09T09:55:52.678Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        }
+      ],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmi7tr0003wem8cwf3jo32",
+      "opportunityNumber": "OPP-2026-000074",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:51:46.719Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmi8ha0005wem8vr0r2up1",
+      "opportunityNumber": "OPP-2026-000075",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T09:51:47.566Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmi9ca0007wem8wwx4zgig",
+      "opportunityNumber": "OPP-2026-000076",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T09:51:48.682Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslmiblg000bwem8jtx8ub42",
+          "dealNumber": "DEAL-2026-000092",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T09:51:51.513Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmw6tw0001wedstfh9lyit",
+      "opportunityNumber": "OPP-2026-000077",
+      "customer": "Cert A Referral Customer",
+      "customerId": null,
+      "product": "Cert A Referral",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T10:02:38.611Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslmw9oj0009wedsy9l1hwgs",
+          "dealNumber": "DEAL-2026-000093",
+          "productLabel": "Cert Deal A",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T10:02:42.307Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [
+        {
+          "id": "cmslmylio0005l204l7qqwskw",
+          "category": "general",
+          "entityKind": "opportunity",
+          "createdAt": "2026-08-09T10:04:30.960Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        },
+        {
+          "id": "cmsln1m2r0009l204r34pm6mt",
+          "category": "general",
+          "entityKind": "deal",
+          "createdAt": "2026-08-09T10:06:51.651Z",
+          "createdByUserId": "cmsljys0w0000weekptm7a73d"
+        }
+      ],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A Referral Customer\"",
+        "productLabel matches certify label \"Cert A Referral\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmw7h50003wedsia9d68u6",
+      "opportunityNumber": "OPP-2026-000078",
+      "customer": "Cert A Override Edit Customer",
+      "customerId": null,
+      "product": "Cert A Override Edit",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T10:02:39.449Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A Override Edit Customer\"",
+        "productLabel matches certify label \"Cert A Override Edit\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmw84w0005wedsr5mf7sde",
+      "opportunityNumber": "OPP-2026-000079",
+      "customer": "Cert A ViewOnly Customer",
+      "customerId": null,
+      "product": "Cert A ViewOnly",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyws50005weeka0js9u4t",
+      "createdAt": "2026-08-09T10:02:40.304Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert A ViewOnly Customer\"",
+        "productLabel matches certify label \"Cert A ViewOnly\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    },
+    {
+      "opportunityId": "cmslmw8rd0007wedsfl10u7j2",
+      "opportunityNumber": "OPP-2026-000080",
+      "customer": "Cert B Solo Customer",
+      "customerId": null,
+      "product": "Cert B Solo",
+      "source": "wealth_partner",
+      "sourceWealthPartnerId": "cmsljyzhu0009weekfeq2rsv9",
+      "createdAt": "2026-08-09T10:02:41.113Z",
+      "createdBy": "cmrtliln30000weys6c2ljzy8",
+      "relatedDeals": [
+        {
+          "id": "cmslmwam6000bwedswbic0i8x",
+          "dealNumber": "DEAL-2026-000094",
+          "productLabel": "Cert Deal B",
+          "grossStage": "identified",
+          "lenderId": "cms0zhb6r0009we64kj1kyk9h",
+          "createdAt": "2026-08-09T10:02:43.518Z"
+        }
+      ],
+      "relatedDocuments": [],
+      "relatedActivitiesNotes": [],
+      "evidenceOfTestOrigin": [
+        "Listed in committed ACCESS BAT evidence JSON",
+        "primaryContactName matches fixture pattern \"Cert B Solo Customer\"",
+        "productLabel matches certify label \"Cert B Solo\"",
+        "primaryContactMobile=90000000001 (certify fixture constant)",
+        "sourceWealthPartnerId=cmsljyzhu0009weekfeq2rsv9 is WPACERTA/B cert partner",
+        "snapshot.cert=CO-WP-ACCESS-002 (written by co-wp-access-002-certify.mjs)",
+        "sourceCode=wealth_partner (consistent with certify create)"
+      ],
+      "classification": "CERTIFICATION_TEST_DATA",
+      "confidence": "high",
+      "recommendedAction": "CANDIDATE for soft-archive/delete AFTER PO approval (children first)"
+    }
+  ]
+}

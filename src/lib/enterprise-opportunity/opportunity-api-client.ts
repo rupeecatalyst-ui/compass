@@ -318,6 +318,10 @@ export const enterpriseOpportunityApiClient = {
     sourceCode?: string;
     sourceBucket?: "direct" | "channel_partner" | "referral" | "other";
     freshLoginToday?: boolean;
+    /** CO-C1-DASH-001 — ISO timestamps; filters on createdAt only */
+    createdFrom?: string;
+    createdTo?: string;
+    orderBy?: "updatedAt" | "createdAt";
     limit?: number;
     offset?: number;
   } = {}): Promise<{
@@ -334,6 +338,9 @@ export const enterpriseOpportunityApiClient = {
     if (query.sourceCode) params.set("sourceCode", query.sourceCode);
     if (query.sourceBucket) params.set("sourceBucket", query.sourceBucket);
     if (query.freshLoginToday) params.set("freshLogin", "today");
+    if (query.createdFrom) params.set("createdFrom", query.createdFrom);
+    if (query.createdTo) params.set("createdTo", query.createdTo);
+    if (query.orderBy) params.set("orderBy", query.orderBy);
     params.set("limit", String(query.limit ?? 100));
     params.set("offset", String(query.offset ?? 0));
     return opportunityFetch(`/api/enterprise-opportunities?${params.toString()}`);

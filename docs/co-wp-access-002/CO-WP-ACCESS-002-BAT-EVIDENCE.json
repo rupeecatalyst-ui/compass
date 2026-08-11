@@ -1,0 +1,438 @@
+{
+  "sprint": "CO-WP-ACCESS-002",
+  "generatedAt": "2026-08-09T09:38:39.977Z",
+  "baseUrl": "https://catalyst-one-two.vercel.app",
+  "evidence": {
+    "baseUrl": "https://catalyst-one-two.vercel.app",
+    "partners": {
+      "A": {
+        "id": "cmsljyws50005weeka0js9u4t",
+        "userId": "cmsljys0w0000weekptm7a73d",
+        "email": "wp-access-cert-a@rupeecatalyst.com"
+      },
+      "B": {
+        "id": "cmsljyzhu0009weekfeq2rsv9",
+        "userId": "cmsljyta30001weekar90g8gk",
+        "email": "wp-access-cert-b@rupeecatalyst.com"
+      }
+    },
+    "opportunities": {
+      "A_referral": "cmslm0svo0001wedsvmh3chmz",
+      "A_joint_override": "cmslm0tlg0003wedsm35w17xy",
+      "A_viewonly": "cmslm0u8z0005wedsrp8vcvph",
+      "B_solo": "cmslm0uwe0007wedstm3wsuct"
+    },
+    "deals": {
+      "A": "cmslm0vud0009wedsqzpr6qaw",
+      "B": "cmslm0wta000bwedsjbqstus1"
+    },
+    "http": [
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslm0svo0001wedsvmh3chmz",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslm0uwe0007wedstm3wsuct",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslm0uwe0007wedstm3wsuct",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslm0svo0001wedsvmh3chmz",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/partner/opportunities/cmslm0uwe0007wedstm3wsuct",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslm0svo0001wedsvmh3chmz",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/partner/opportunities/cmslm0svo0001wedsvmh3chmz",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/opportunities/cmslm0svo0001wedsvmh3chmz/submit",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/opportunities/cmslm0svo0001wedsvmh3chmz/activities",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslm0tlg0003wedsm35w17xy",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/partner/opportunities/cmslm0tlg0003wedsm35w17xy",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/partner/opportunities/cmslm0tlg0003wedsm35w17xy",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslm0u8z0005wedsrp8vcvph",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslm0uwe0007wedstm3wsuct",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/cmslm0svo0001wedsvmh3chmz",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/cmslm0vud0009wedsqzpr6qaw",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/cmslm0wta000bwedsjbqstus1",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/cmslm0vud0009wedsqzpr6qaw",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/deals/cmslm0vud0009wedsqzpr6qaw/activities",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/cmslm0vud0009wedsqzpr6qaw",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/opportunities/does-not-exist-xyz",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/deals/does-not-exist-xyz",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/opportunities/cmslm0svo0001wedsvmh3chmz/activities",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "GET",
+        "path": "/api/partner/auth/me",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      },
+      {
+        "method": "POST",
+        "path": "/api/partner/opportunities/cmslm0svo0001wedsvmh3chmz/documents",
+        "status": 401,
+        "ok": false,
+        "code": "INVALID_TOKEN"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "HTTP_HEALTH",
+      "result": "PASS",
+      "detail": "status=200 body={\"success\":true,\"data\":{\"status\":\"ok\",\"service\":\"partner_gateway\",\"timestamp\":\"2026-08-09T09:38:05.064Z\",\"persistence\":\"prisma\"}}",
+      "severity": "info"
+    },
+    {
+      "id": "FIXTURE_PARTNERS",
+      "result": "PASS",
+      "detail": "A=cmsljyws50005weeka0js9u4t B=cmsljyzhu0009weekfeq2rsv9",
+      "severity": "info"
+    },
+    {
+      "id": "FIXTURE_DEALS",
+      "result": "PASS",
+      "detail": "dealA=cmslm0vud0009wedsqzpr6qaw dealB=cmslm0wta000bwedsjbqstus1",
+      "severity": "info"
+    },
+    {
+      "id": "CROSS_A_GET_OWN",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[200] Partner A own opp",
+      "severity": "critical"
+    },
+    {
+      "id": "CROSS_A_GET_B",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403] Partner A must not read Partner B",
+      "severity": "critical"
+    },
+    {
+      "id": "CROSS_B_GET_OWN",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[200] Partner B own opp",
+      "severity": "critical"
+    },
+    {
+      "id": "CROSS_B_GET_A",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403] Partner B must not read Partner A",
+      "severity": "critical"
+    },
+    {
+      "id": "CROSS_A_PATCH_B",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403] cross-partner mutation",
+      "severity": "critical"
+    },
+    {
+      "id": "REFERRAL_EFFECTIVE",
+      "result": "FAIL",
+      "detail": "{}",
+      "severity": "info"
+    },
+    {
+      "id": "REFERRAL_EDIT_DENIED",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403]",
+      "severity": "critical"
+    },
+    {
+      "id": "REFERRAL_STAGE_DENIED",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403]",
+      "severity": "critical"
+    },
+    {
+      "id": "REFERRAL_ACTIVITY_ALLOWED",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[200,201]",
+      "severity": "critical"
+    },
+    {
+      "id": "ACTIVITY_SSOT",
+      "result": "FAIL",
+      "detail": "Business Note not found",
+      "severity": "critical"
+    },
+    {
+      "id": "JOINT_OVERRIDE_EFFECTIVE",
+      "result": "FAIL",
+      "detail": "{}",
+      "severity": "info"
+    },
+    {
+      "id": "JOINT_EDIT_ALLOWED",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[200]",
+      "severity": "critical"
+    },
+    {
+      "id": "JOINT_EDIT_REVOKED_403",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403]",
+      "severity": "critical"
+    },
+    {
+      "id": "OVERRIDE_SCOPE_A3_VIEWONLY",
+      "result": "FAIL",
+      "detail": "{}",
+      "severity": "info"
+    },
+    {
+      "id": "SOLO_EFFECTIVE",
+      "result": "FAIL",
+      "detail": "{}",
+      "severity": "info"
+    },
+    {
+      "id": "SOLO_NOT_UNRESTRICTED",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403]",
+      "severity": "critical"
+    },
+    {
+      "id": "DEAL_A_GET_OWN",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[200]",
+      "severity": "critical"
+    },
+    {
+      "id": "DEAL_A_GET_B",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403]",
+      "severity": "critical"
+    },
+    {
+      "id": "DEAL_B_GET_A",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403]",
+      "severity": "critical"
+    },
+    {
+      "id": "DEAL_LIST_A",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[200]",
+      "severity": "critical"
+    },
+    {
+      "id": "DEAL_LIST_OWNERSHIP",
+      "result": "FAIL",
+      "detail": "count=0",
+      "severity": "info"
+    },
+    {
+      "id": "DEAL_ACTIVITY",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[200,201,403]",
+      "severity": "critical"
+    },
+    {
+      "id": "DEAL_EDIT_REFERRAL_DENIED",
+      "result": "PARTIAL",
+      "detail": "rowVersion missing on deal detail",
+      "severity": "info"
+    },
+    {
+      "id": "FORGED_OPP_ID",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403,404]",
+      "severity": "critical"
+    },
+    {
+      "id": "FORGED_DEAL_ID",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403,404]",
+      "severity": "critical"
+    },
+    {
+      "id": "FORGED_PARTNER_ID_BODY",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403]",
+      "severity": "critical"
+    },
+    {
+      "id": "FORGED_PARTNER_TOKEN_CLAIM",
+      "result": "FAIL",
+      "detail": "status=401 partnerId=undefined",
+      "severity": "info"
+    },
+    {
+      "id": "UNAUTHORIZED_DOC_UPLOAD",
+      "result": "FAIL",
+      "detail": "status=401 expected∈[403,400]",
+      "severity": "critical"
+    },
+    {
+      "id": "ADMIN_EFFECTIVE_GET",
+      "result": "FAIL",
+      "detail": "status=500 expected∈[200]",
+      "severity": "critical"
+    },
+    {
+      "id": "ADMIN_SAVE_PROFILE",
+      "result": "FAIL",
+      "detail": "status=500 expected∈[200]",
+      "severity": "critical"
+    },
+    {
+      "id": "AUDIT_PERSISTENCE",
+      "result": "PASS",
+      "detail": "auditCount=5 latest=transaction_override_updated",
+      "severity": "info"
+    },
+    {
+      "id": "OWNERSHIP_SOURCE_WP",
+      "result": "PASS",
+      "detail": "sourceWealthPartnerId=cmsljyws50005weeka0js9u4t",
+      "severity": "info"
+    },
+    {
+      "id": "WP_APP_WIRING",
+      "result": "PASS",
+      "detail": "presentation consumes Gateway entitlements; security remains Gateway",
+      "severity": "info"
+    }
+  ],
+  "summary": {
+    "pass": 6,
+    "fail": 29,
+    "partial": 1,
+    "criticalFails": 23
+  }
+}

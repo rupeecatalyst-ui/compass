@@ -496,7 +496,7 @@ export function WealthPartnerNetworkIntelligence({
           Building Business Network…
         </div>
       ) : bundle ? (
-        <div className="rounded-xl border bg-gradient-to-b from-muted/30 to-background p-4">
+      <div className="rounded-xl border bg-gradient-to-b from-muted/30 to-background p-4 overflow-visible">
           <NetworkTreeNode
             node={bundle.tree}
             depth={0}

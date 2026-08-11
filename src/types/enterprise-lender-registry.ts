@@ -244,6 +244,19 @@ export interface EnterpriseLenderProgramRecord {
   maxTenureMonths?: number | null;
   minCibil?: number | null;
   minIncomeAmount?: number | null;
+  /** CO-MASTER-001 — FOIR (frozen terminology; never DTI) */
+  maxFoirPercent?: number | null;
+  /** CO-MASTER-001 — DBR (frozen terminology; never DTI) */
+  maxDbrPercent?: number | null;
+  minFundingAmount?: number | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  /** Reference only — Credit & Risk / EPDE remains the decision engine */
+  creditRiskPolicyRef?: string | null;
+  /** Document type codes/ids — overlays EDIE / Document Registry (not a second repository) */
+  requiredDocumentTypeIds?: string[] | null;
+  /** CO-MASTER-002 — structured LOD requirements (mandatory/optional/applicability) */
+  requiredDocuments?: import("@/lib/document-requests/resolve-program-lod").ProgramLodRequirement[] | null;
   eligibleStates?: string[] | null;
   eligibleCities?: string[] | null;
   averageTatDays?: number | null;
@@ -410,6 +423,14 @@ export interface CreateLenderProgramInput {
   maxTenureMonths?: number;
   minCibil?: number;
   minIncomeAmount?: number;
+  maxFoirPercent?: number;
+  maxDbrPercent?: number;
+  minFundingAmount?: number;
+  minAge?: number;
+  maxAge?: number;
+  creditRiskPolicyRef?: string;
+  requiredDocumentTypeIds?: string[];
+  requiredDocuments?: import("@/lib/document-requests/resolve-program-lod").ProgramLodRequirement[];
   eligibleStates?: string[];
   eligibleCities?: string[];
   averageTatDays?: number;
@@ -439,6 +460,14 @@ export interface UpdateLenderProgramInput {
   maxTenureMonths?: number | null;
   minCibil?: number | null;
   minIncomeAmount?: number | null;
+  maxFoirPercent?: number | null;
+  maxDbrPercent?: number | null;
+  minFundingAmount?: number | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  creditRiskPolicyRef?: string | null;
+  requiredDocumentTypeIds?: string[] | null;
+  requiredDocuments?: import("@/lib/document-requests/resolve-program-lod").ProgramLodRequirement[] | null;
   eligibleStates?: string[] | null;
   eligibleCities?: string[] | null;
   averageTatDays?: number | null;

@@ -51,6 +51,14 @@ export function EnterpriseDecisionLedgerView() {
         }
       />
 
+      <div
+        role="status"
+        className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100"
+      >
+        EDL Phase 1 uses in-memory ports — not Postgres SSOT (CO-ORG-004). Do not treat this ledger as
+        durable production governance memory until Prisma ports are certified.
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div className="overflow-hidden rounded-xl border border-border/70">
           <div className="border-b border-border/60 bg-muted/20 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

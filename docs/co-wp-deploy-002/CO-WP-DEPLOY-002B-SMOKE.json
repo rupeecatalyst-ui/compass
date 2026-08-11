@@ -1,0 +1,16 @@
+﻿{
+  "sprint": "CO-WP-DEPLOY-002B",
+  "wpHome": { "url": "https://wealth-partner-app.vercel.app/", "status": 200 },
+  "wpLogin": { "url": "https://wealth-partner-app.vercel.app/login", "status": 200 },
+  "gatewayHealth": {
+    "url": "https://catalyst-one-two.vercel.app/api/partner/health",
+    "status": 200,
+    "persistence": "prisma"
+  },
+  "gatewayAuth": {
+    "url": "https://catalyst-one-two.vercel.app/api/partner/auth/login",
+    "status": 401,
+    "note": "invalid credentials — endpoint reachable"
+  },
+  "boot": "ok"
+}

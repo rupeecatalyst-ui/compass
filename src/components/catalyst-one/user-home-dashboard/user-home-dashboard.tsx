@@ -17,11 +17,15 @@ import {
 import { ROUTES } from "@/constants/routes";
 import { buildDashboardHref } from "@/lib/lead-opportunity-journey/active-context";
 import { canViewNewArrivalsKpis } from "@/lib/user-home-dashboard/new-arrivals";
-import { NewArrivalsSection } from "@/components/catalyst-one/user-home-dashboard/new-arrivals-section";
-import { FreshLoginsSection } from "@/components/catalyst-one/user-home-dashboard/fresh-logins-section";
-import { TodayNewCreationSection } from "@/components/catalyst-one/user-home-dashboard/today-new-creation-section";
+import { NewOpportunitiesSection } from "@/components/catalyst-one/user-home-dashboard/new-opportunities-section";
+import { NewArrivalsPulseSection } from "@/components/catalyst-one/user-home-dashboard/new-arrivals-pulse-section";
+import { AttentionRequiredSection } from "@/components/catalyst-one/user-home-dashboard/attention-required-section";
+import { MyAssignedDealsSection } from "@/components/catalyst-one/user-home-dashboard/my-assigned-deals-section";
+import { MyPipelineSection } from "@/components/catalyst-one/user-home-dashboard/my-pipeline-section";
+import { MyPerformanceSection } from "@/components/catalyst-one/user-home-dashboard/my-performance-section";
 import { VisualAnalyticsPack } from "@/components/catalyst-one/user-home-dashboard/visual-analytics-pack";
-import { RmWorkspacePack } from "@/components/catalyst-one/user-home-dashboard/rm-workspace-pack";
+import { ChanakyaInsightsSection } from "@/components/catalyst-one/user-home-dashboard/chanakya-insights-section";
+import { FreshLoginsSection } from "@/components/catalyst-one/user-home-dashboard/fresh-logins-section";
 import { EiPremiumCanvas } from "@/components/catalyst-one/executive-intelligence/ei-premium-canvas";
 import type { Role } from "@/constants/roles";
 
@@ -49,8 +53,9 @@ const SHELL_QUICK_ACTIONS = [
 ] as const;
 
 /**
- * CO-UX-115 / CO-BIZ-005 / CO-UX-006 Part 5 — User Home Dashboard.
- * Visual BI workspace: KPI strip → Visual Analytics → RM pack.
+ * CO-C1-DASH-001 — User Home operational command center.
+ * Hierarchy: New Opportunities → New Arrivals → Attention → Assigned Deals →
+ * Pipeline → Performance → Business Intelligence → CHANAKYA Insights.
  */
 export function UserHomeDashboard() {
   const { user } = useAuthContext();
@@ -58,13 +63,15 @@ export function UserHomeDashboard() {
     [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || "Colleague";
   const roleLabel = user?.role ? formatRoleLabel(String(user.role)) : "Team Member";
   const branchLabel = user?.department?.trim() || "Branch not set";
+  const showNewArrivals = canViewNewArrivalsKpis(user?.role as Role | undefined);
 
   return (
     <EiPremiumCanvas className="min-h-[calc(100vh-3.5rem)]">
       <div
-        className="mx-auto flex w-full max-w-7xl flex-col gap-5 p-4 md:gap-6 md:p-6"
+        className="mx-auto flex w-full max-w-[100rem] flex-col gap-6 p-4 md:gap-7 md:p-6"
         data-dashboard="user-home"
-        data-widget-slots="welcome,today_new_creation,fresh_logins,visual_analytics,new_arrivals,quick_actions,rm_workspace"
+        data-sprint="CO-C1-DASH-001"
+        data-widget-slots="welcome,new_opportunities,new_arrivals_pulse,attention_required,my_assigned_deals,my_pipeline,my_performance,visual_analytics,chanakya_insights"
         data-role-packs={USER_HOME_FUTURE_ROLE_PACKS.join(",")}
       >
         <header className="flex flex-wrap items-end justify-between gap-3">
@@ -74,7 +81,7 @@ export function UserHomeDashboard() {
               {greetingForNow()} {displayName}
             </h1>
             <p className="text-[12px] text-muted-foreground">
-              {roleLabel} · {branchLabel}
+              {roleLabel} · {branchLabel} · Operational command center
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -98,20 +105,38 @@ export function UserHomeDashboard() {
           </div>
         </header>
 
-        {/* Section A — Creation KPIs (Opportunity ≠ Deal) */}
-        <TodayNewCreationSection />
+        {/* 1 — New Opportunities */}
+        <NewOpportunitiesSection />
 
-        {/* Section A2 — Fresh Logins (login stage ≠ create) */}
-        <FreshLoginsSection />
+        {/* 2 — New Arrivals KPI pulse (RBAC) */}
+        {showNewArrivals ? <NewArrivalsPulseSection /> : null}
 
-        {/* Sections B–J — Visual Analytics */}
-        <VisualAnalyticsPack />
+        {/* 3 — Attention Required */}
+        <AttentionRequiredSection />
 
-        {canViewNewArrivalsKpis(user?.role as Role | undefined) ? <NewArrivalsSection /> : null}
+        {/* 4 — My Assigned Deals */}
+        <MyAssignedDealsSection />
 
-        <section aria-label="RM Workspace" data-widget-slot="rm_workspace">
-          <RmWorkspacePack />
+        {/* 5 — My Pipeline */}
+        <MyPipelineSection />
+
+        {/* 6 — My Performance */}
+        <MyPerformanceSection />
+
+        {/* 7 — Business Intelligence (analytics lower) */}
+        <section aria-label="Business Intelligence" data-widget-slot="visual_analytics" className="space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">Business Intelligence</h2>
+            <p className="text-[12px] text-muted-foreground">
+              Existing enterprise analytics — supporting the operational desk above.
+            </p>
+          </div>
+          <FreshLoginsSection />
+          <VisualAnalyticsPack />
         </section>
+
+        {/* 8 — CHANAKYA Insights */}
+        <ChanakyaInsightsSection />
       </div>
     </EiPremiumCanvas>
   );

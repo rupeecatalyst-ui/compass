@@ -129,9 +129,20 @@ function serialize(
 export const enterpriseTransactionDocumentService = {
   async upsert(input: DurableDocumentInput): Promise<DurableDocumentDto> {
     const organizationId = await resolvePilotOrganizationId();
+    return this.upsertForOrganization(organizationId, input);
+  },
+
+  /** CO-WP-INT-002 / multi-org — write against a known organization. */
+  async upsertForOrganization(
+    organizationId: string,
+    input: DurableDocumentInput,
+  ): Promise<DurableDocumentDto> {
     let contentBytes: Uint8Array | undefined;
     if (input.contentBase64) {
-      const buf = Buffer.from(input.contentBase64, "base64");
+      const raw = input.contentBase64.includes(",")
+        ? input.contentBase64.split(",").pop() || ""
+        : input.contentBase64;
+      const buf = Buffer.from(raw, "base64");
       if (buf.length > 0 && buf.length <= MAX_CONTENT_BYTES) {
         contentBytes = Uint8Array.from(buf);
       }
@@ -202,6 +213,14 @@ export const enterpriseTransactionDocumentService = {
     opts?: { includeContent?: boolean },
   ): Promise<DurableDocumentDto[]> {
     const organizationId = await resolvePilotOrganizationId();
+    return this.listByOpportunityForOrganization(organizationId, opportunityId, opts);
+  },
+
+  async listByOpportunityForOrganization(
+    organizationId: string,
+    opportunityId: string,
+    opts?: { includeContent?: boolean },
+  ): Promise<DurableDocumentDto[]> {
     const rows = await prisma.enterpriseTransactionDocument.findMany({
       where: {
         organizationId,
@@ -212,5 +231,28 @@ export const enterpriseTransactionDocumentService = {
       take: 500,
     });
     return rows.map((r) => serialize(r, Boolean(opts?.includeContent)));
+  },
+
+  /** Soft-delete a document that belongs to the opportunity (ownership checked by caller). */
+  async softDeleteForOrganization(input: {
+    organizationId: string;
+    opportunityId: string;
+    documentId: string;
+  }): Promise<boolean> {
+    const row = await prisma.enterpriseTransactionDocument.findFirst({
+      where: {
+        organizationId: input.organizationId,
+        opportunityId: input.opportunityId,
+        id: input.documentId,
+        status: { not: "deleted" },
+      },
+      select: { id: true },
+    });
+    if (!row) return false;
+    await prisma.enterpriseTransactionDocument.update({
+      where: { id: row.id },
+      data: { status: "deleted" },
+    });
+    return true;
   },
 };

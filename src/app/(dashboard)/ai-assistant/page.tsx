@@ -1,10 +1,7 @@
-import { ModulePlaceholder } from "@/components/catalyst-one/module-placeholder";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
 
+/** AI-11: AI Assistant placeholder replaced by SARATHI Conversation Experience. */
 export default function AiAssistantPage() {
-  return (
-    <ModulePlaceholder
-      title="AI Assistant"
-      description="Intelligent assistant for loan processing, document analysis, and operational insights."
-    />
-  );
+  redirect(ROUTES.SARATHI);
 }

@@ -1,7 +1,11 @@
 /**
  * EDC timeline registry.
+ * CO-ORG-003 — EDC is a projection / compose surface. Durable SSOT is EAR.
+ * Every append dual-writes to Enterprise Activity Registry (best-effort).
  */
 
+import { emitEnterpriseActivityBestEffort } from "@/lib/enterprise-activity-registry";
+import { mapEdcEntryToEarEmit } from "@/lib/enterprise-activity-registry/map-edc";
 import type { EdcTimelineEntry } from "@/types/enterprise-dialogue-center";
 import { recordEdcAudit } from "./audit-integration";
 import { getEdcPorts } from "./composition";
@@ -26,6 +30,14 @@ export function appendEdcTimelineEntry(
     actorId: input.actorId,
     remarks: `EDC ${entry.eventType}: ${entry.title}`,
   });
+
+  // CO-ORG-003 — never block dialogue/workflow on EAR persistence
+  try {
+    emitEnterpriseActivityBestEffort(mapEdcEntryToEarEmit(entry));
+  } catch {
+    /* ignore */
+  }
+
   return entry;
 }
 

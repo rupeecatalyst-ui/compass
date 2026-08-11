@@ -1,93 +1,25 @@
 /**
- * Phase 1 — mock Analyze Deal recommendations only.
- * No eligibility / credit / income engines.
+ * CO-ORG-004 — Analyze Deal result builder.
+ * Mock lender confidence % removed. Recommendations require Product–Lender Matrix
+ * + Credit & Risk Engine binding — return empty until those SSOTs are wired.
  */
 
 import type { AnalyzeDealInputs, AnalyzeDealResult } from "@/types/analyze-deal";
 
-export function buildMockAnalyzeDealResult(inputs: AnalyzeDealInputs): AnalyzeDealResult {
-  const productLabel = inputs.productLabel || "Home Loan";
-  const productId = inputs.productId || "home-loan";
-  const amountHint = inputs.requestedAmount ? ` · ₹${inputs.requestedAmount}` : "";
-
+export function buildEnterpriseAnalyzeDealResult(
+  _inputs: AnalyzeDealInputs,
+): AnalyzeDealResult {
   return {
     analyzedAt: new Date().toISOString(),
-    overallConfidencePct: 87,
+    overallConfidencePct: 0,
     improvementSuggestions: [
-      "Confirm income documentation pack before lender login.",
-      "Clarify existing EMI obligations with statements.",
-      "Align requested amount with indicative property value band.",
-      "Capture relationship manager preference for metro processing windows.",
+      "Lender recommendations require Product–Lender Matrix and Credit & Risk Engine — not yet bound to Analyze Deal.",
+      "Capture complete income / obligation inputs for when eligibility engines are connected.",
+      "Use Manual Recommendation / Lender Registry for operational lender selection today.",
     ],
-    recommendations: [
-      {
-        lenderId: "hdfc",
-        lenderName: "HDFC Bank",
-        logoInitials: "HD",
-        confidencePct: 92,
-        productId,
-        productLabel,
-        programLabel: "Standard Salaried Programme (placeholder)",
-        status: "strong_fit",
-        whyThisLender:
-          "Placeholder — strong metro coverage and relationship depth for this product segment. Credit Knowledge Framework will replace this narrative.",
-        improvements: [
-          "Complete KYC originals before pre-login.",
-          "Confirm branch preference for file ownership.",
-        ],
-        rm: {
-          name: "Priya Nair",
-          designation: "Relationship Manager",
-          mobile: "+91 98200 11223",
-          email: "priya.nair@hdfc.example",
-          photoInitials: "PN",
-        },
-      },
-      {
-        lenderId: "sbi",
-        lenderName: "State Bank of India",
-        logoInitials: "SB",
-        confidencePct: 84,
-        productId,
-        productLabel,
-        programLabel: "Home Advantage (placeholder)",
-        status: "good_fit",
-        whyThisLender:
-          "Placeholder — broad branch network and competitive TAT for documented salaried profiles. Policy detail arrives in Credit Knowledge Framework.",
-        improvements: [
-          "Verify property technical readiness early.",
-          "Share approximate CIBIL band with RM before login.",
-        ],
-        rm: {
-          name: "Rahul Deshmukh",
-          designation: "Relationship Manager",
-          mobile: "+91 98765 44321",
-          email: "rahul.deshmukh@sbi.example",
-          photoInitials: "RD",
-        },
-      },
-      {
-        lenderId: "bajaj",
-        lenderName: "Bajaj Housing Finance",
-        logoInitials: "BJ",
-        confidencePct: 78,
-        productId,
-        productLabel,
-        programLabel: "Flexi Home (placeholder)",
-        status: "review",
-        whyThisLender: `Placeholder — HFC alternative when bank programmes need a second path${amountHint}. Evaluation only — no eligibility engine in Phase 1.`,
-        improvements: [
-          "Review special conditions for self-employed categories.",
-          "Confirm city coverage for the customer residence.",
-        ],
-        rm: {
-          name: "Ananya Kapoor",
-          designation: "Relationship Manager",
-          mobile: "+91 97654 88990",
-          email: "ananya.kapoor@bajaj.example",
-          photoInitials: "AK",
-        },
-      },
-    ],
+    recommendations: [],
   };
 }
+
+/** @deprecated CO-ORG-004 — mock recommendations removed. */
+export const buildMockAnalyzeDealResult = buildEnterpriseAnalyzeDealResult;

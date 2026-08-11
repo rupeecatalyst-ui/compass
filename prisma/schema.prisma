@@ -217,6 +217,7 @@ model Organization {
   enterpriseMetricSnapshots          EnterpriseMetricSnapshot[]
   /// CO-LEND-001 — Lender Self-Service Program Portal
   lenderProgramPortalInvites         LenderProgramPortalInvite[]
+  lenderProgramPortalInviteProducts  LenderProgramPortalInviteProduct[]
   lenderProgramSubmissions           LenderProgramSubmission[]
   lenderProgramPortalAudits          LenderProgramPortalAudit[]
   lenderProgramDialogueThreads       LenderProgramDialogueThread[]
@@ -231,16 +232,652 @@ model Organization {
   enterpriseWealthPartnerCommissions       EnterpriseWealthPartnerCommission[]
   enterpriseWealthPartnerBankAccounts      EnterpriseWealthPartnerBankAccount[]
   enterpriseWealthPartnerActivities        EnterpriseWealthPartnerActivity[]
+  /// CO-WP-ACCESS-001 — Wealth Partner Access & Entitlements
+  partnerEntitlementTemplates              PartnerEntitlementTemplate[]
+  partnerEntitlementProfiles               PartnerEntitlementProfile[]
+  partnerTransactionEntitlements           PartnerTransactionEntitlement[]
+  partnerEntitlementAudits                 PartnerEntitlementAudit[]
   /// CO-INV-001 — Enterprise Invitation Engine
   enterpriseInvitations                    EnterpriseInvitation[]
   enterpriseInvitationAudits               EnterpriseInvitationAudit[]
   enterpriseCommunicationConfigs           EnterpriseCommunicationConfig[]
   /// CO-ECC-001 — Enterprise Communication Center profiles
   enterpriseCommunicationProfiles          EnterpriseCommunicationProfile[]
-  /// CO-VOICE-002 — ECIE Enterprise Activity Registry (transcripts; audio in Document Registry)
+  /// CO-VOICE-002 — ECIE conversation activity (transcripts; audio in Document Registry)
   enterpriseConversationActivities         EnterpriseConversationActivity[]
+  /// CO-ORG-003 — Enterprise Activity Registry (universal operational chronology SSOT)
+  enterpriseActivityEvents                 EnterpriseActivityEvent[]
+  /// CO-NOTIFICATION-001 — Enterprise Notification Engine (in-app delivery SSOT)
+  enterpriseNotifications                  EnterpriseNotification[]
+  /// CO-UX-021 — Enterprise Business Notes (official business chronology notes)
+  enterpriseBusinessNotes                  EnterpriseBusinessNote[]
+  /// CO-ORG-001 — Enterprise Organization Workspace (durable backend)
+  organizationWorkspaceProfile             OrganizationWorkspaceProfile?
+  organizationWorkspaceSettings            OrganizationWorkspaceSettings?
+  organizationBusinessConfig               OrganizationBusinessConfig?
+  organizationSecurityConfig               OrganizationSecurityConfig?
+  organizationDirectors                    OrganizationDirector[]
+  organizationBankAccounts                 OrganizationBankAccount[]
+  organizationDigitalSignatures            OrganizationDigitalSignature[]
+  organizationSeal                         OrganizationSeal?
+  organizationDocuments                    OrganizationDocument[]
+  organizationDocumentTemplateTypes        OrganizationDocumentTemplateType[]
+  organizationActivityEvents               OrganizationActivityEvent[]
+  organizationAuditEntries                 OrganizationAuditEntry[]
+  /// CO-HL-PROGRAM-001 — Product-scoped lender selection priority (does not mutate lender master)
+  enterpriseProductLenderPriorities        EnterpriseProductLenderPriority[]
+  /// CO-CCC-001 — Corporate Compliance Center
+  cccLegalEntities                         CccLegalEntity[]
+  cccInstitutionProfiles                   CccInstitutionProfile[]
+  cccInstitutionRequirements               CccInstitutionRequirement[]
+  cccDocumentPackageDefinitions            CccDocumentPackageDefinition[]
+  cccDocumentPackageInstances              CccDocumentPackageInstance[]
+  cccDispatches                            CccDispatch[]
 
   @@map("organizations")
+}
+
+/// CO-ORG-001 — Organization workspace company profile (1:1 org).
+model OrganizationWorkspaceProfile {
+  id                   String   @id @default(cuid())
+  organizationId       String   @unique @map("organization_id")
+  companyName          String   @map("company_name")
+  legalEntityName      String?  @map("legal_entity_name")
+  brandName            String   @map("brand_name")
+  logoInitials         String?  @map("logo_initials")
+  logoDocumentId       String?  @map("logo_document_id")
+  gst                  String   @default("")
+  pan                  String   @default("")
+  cin                  String   @default("")
+  msme                 String   @default("")
+  incorporationDate    String?  @map("incorporation_date")
+  incorporationDetails String?  @map("incorporation_details") @db.Text
+  registeredAddress    String?  @map("registered_address") @db.Text
+  corporateAddress     String?  @map("corporate_address") @db.Text
+  website              String   @default("")
+  phoneNumbersJson     Json     @default("[]") @map("phone_numbers_json")
+  officialEmailsJson   Json     @default("[]") @map("official_emails_json")
+  emailDomainsJson     Json     @default("[]") @map("email_domains_json")
+  socialLinksJson      Json     @default("{}") @map("social_links_json")
+  versionNumber        Int      @default(1) @map("version_number")
+  createdBy            String   @map("created_by")
+  modifiedBy           String   @map("modified_by")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@map("organization_workspace_profiles")
+}
+
+/// CO-ORG-001 — Organization workspace settings (1:1 org).
+model OrganizationWorkspaceSettings {
+  id                    String   @id @default(cuid())
+  organizationId        String   @unique @map("organization_id")
+  workingDaysJson       Json     @default("[]") @map("working_days_json")
+  workingHoursJson      Json     @default("{}") @map("working_hours_json")
+  holidayCalendarJson   Json     @default("[]") @map("holiday_calendar_json")
+  financialYearStartMonth Int    @default(4) @map("financial_year_start_month")
+  timeZone              String   @default("Asia/Kolkata") @map("time_zone")
+  currency              String   @default("INR")
+  numberFormat          String   @default("en-IN") @map("number_format")
+  dateFormat            String   @default("dd/MM/yyyy") @map("date_format")
+  versionNumber         Int      @default(1) @map("version_number")
+  createdBy             String   @map("created_by")
+  modifiedBy            String   @map("modified_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@map("organization_workspace_settings")
+}
+
+/// CO-ORG-001 — Organization business configuration (1:1 org).
+model OrganizationBusinessConfig {
+  id                  String   @id @default(cuid())
+  organizationId      String   @unique @map("organization_id")
+  businessType        String?  @map("business_type")
+  productsOfferedJson Json     @default("[]") @map("products_offered_json")
+  operatingStatesJson Json     @default("[]") @map("operating_states_json")
+  branchesJson        Json     @default("[]") @map("branches_json")
+  departmentsJson     Json     @default("[]") @map("departments_json")
+  teamsJson           Json     @default("[]") @map("teams_json")
+  designationsJson    Json     @default("[]") @map("designations_json")
+  rolesConfigJson     Json     @default("[]") @map("roles_config_json")
+  hierarchyJson       Json     @default("[]") @map("hierarchy_json")
+  versionNumber       Int      @default(1) @map("version_number")
+  createdBy           String   @map("created_by")
+  modifiedBy          String   @map("modified_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@map("organization_business_configs")
+}
+
+/// CO-ORG-001 — Organization security configuration (1:1 org).
+model OrganizationSecurityConfig {
+  id              String   @id @default(cuid())
+  organizationId  String   @unique @map("organization_id")
+  permissionsJson Json     @default("[]") @map("permissions_json")
+  featureFlagsJson Json    @default("{}") @map("feature_flags_json")
+  defaultsJson    Json     @default("{}") @map("defaults_json")
+  brandingJson    Json     @default("{}") @map("branding_json")
+  versionNumber   Int      @default(1) @map("version_number")
+  createdBy       String   @map("created_by")
+  modifiedBy      String   @map("modified_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@map("organization_security_configs")
+}
+
+/// CO-ORG-001 — Organization directors registry.
+model OrganizationDirector {
+  id                  String   @id @default(cuid())
+  organizationId      String   @map("organization_id")
+  name                String
+  designation         String   @default("")
+  din                 String   @default("")
+  pan                 String   @default("")
+  email               String   @default("")
+  mobile              String   @default("")
+  status              String   @default("active")
+  photographInitials  String   @default("") @map("photograph_initials")
+  address             String?  @db.Text
+  documentsJson       Json?    @map("documents_json")
+  sortOrder           Int      @default(0) @map("sort_order")
+  isDeleted           Boolean  @default(false) @map("is_deleted")
+  createdBy           String   @map("created_by")
+  modifiedBy          String   @map("modified_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, isDeleted], map: "org_directors_org_deleted_idx")
+  @@index([organizationId, sortOrder], map: "org_directors_org_sort_idx")
+  @@map("organization_directors")
+}
+
+/// CO-ORG-001 — Organization bank accounts.
+model OrganizationBankAccount {
+  id                       String   @id @default(cuid())
+  organizationId           String   @map("organization_id")
+  bank                     String
+  branch                   String   @default("")
+  accountNumber            String   @map("account_number")
+  ifsc                     String   @default("")
+  isCurrentAccount         Boolean  @default(true) @map("is_current_account")
+  cancelledChequeAvailable Boolean  @default(false) @map("cancelled_cheque_available")
+  isPrimary                Boolean  @default(false) @map("is_primary")
+  isDeleted                Boolean  @default(false) @map("is_deleted")
+  createdBy                String   @map("created_by")
+  modifiedBy               String   @map("modified_by")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, isDeleted], map: "org_bank_accounts_org_deleted_idx")
+  @@map("organization_bank_accounts")
+}
+
+/// CO-ORG-001 — Organization digital signatures.
+model OrganizationDigitalSignature {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  person         String
+  designation    String   @default("")
+  status         String   @default("active")
+  expiry         String   @default("")
+  initials       String   @default("")
+  isDeleted      Boolean  @default(false) @map("is_deleted")
+  createdBy      String   @map("created_by")
+  modifiedBy     String   @map("modified_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, isDeleted], map: "org_digital_signatures_org_deleted_idx")
+  @@map("organization_digital_signatures")
+}
+
+/// CO-ORG-001 — Organization seal (1:1 org).
+model OrganizationSeal {
+  id             String   @id @default(cuid())
+  organizationId String   @unique @map("organization_id")
+  lastUpdated    String?  @map("last_updated")
+  version        String?  @default("")
+  initials       String?  @default("")
+  documentId     String?  @map("document_id")
+  createdBy      String   @map("created_by")
+  modifiedBy     String   @map("modified_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@map("organization_seals")
+}
+
+/// CO-ORG-001 — Organization-scoped document registry.
+model OrganizationDocument {
+  id                        String    @id @default(cuid())
+  organizationId            String    @map("organization_id")
+  clientRecordId            String?   @map("client_record_id")
+  originalFilename          String    @map("original_filename")
+  displayName               String    @map("display_name")
+  categoryId                String    @map("category_id")
+  documentTypeId            String    @map("document_type_id")
+  documentTypeLabel         String    @map("document_type_label")
+  mimeType                  String    @map("mime_type")
+  fileSizeBytes             Int       @map("file_size_bytes")
+  status                    String    @default("active")
+  versionNumber             Int       @default(1) @map("version_number")
+  tagsJson                  Json?     @map("tags_json")
+  contentBytes              Bytes?    @map("content_bytes")
+  versionsJson              Json      @default("[]") @map("versions_json")
+  /// CO-CCC-001 — compliance metadata (OrganizationDocument remains binary SSOT)
+  legalEntityId             String?   @map("legal_entity_id")
+  repositoryKey             String?   @map("repository_key")
+  financialYear             String?   @map("financial_year")
+  isCurrentFinancialVersion Boolean   @default(false) @map("is_current_financial_version")
+  effectiveDate             DateTime? @map("effective_date")
+  expiryDate                DateTime? @map("expiry_date")
+  approvalStatus            String    @default("draft") @map("approval_status")
+  confidentiality           String    @default("internal")
+  supersededByDocumentId    String?   @map("superseded_by_document_id")
+  linkedPackageIdsJson      Json?     @map("linked_package_ids_json")
+  uploadedBy                String    @map("uploaded_by")
+  createdBy                 String    @map("created_by")
+  modifiedBy                String    @map("modified_by")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalEntity  CccLegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: SetNull)
+  dispatchItems CccDispatchItem[]
+
+  @@unique([organizationId, clientRecordId], map: "org_documents_org_client_key")
+  @@index([organizationId, status], map: "org_documents_org_status_idx")
+  @@index([organizationId, categoryId], map: "org_documents_org_category_idx")
+  @@index([organizationId, repositoryKey], map: "org_documents_org_repository_idx")
+  @@index([organizationId, legalEntityId], map: "org_documents_org_entity_idx")
+  @@index([organizationId, financialYear], map: "org_documents_org_fy_idx")
+  @@index([organizationId, approvalStatus], map: "org_documents_org_approval_idx")
+  @@index([organizationId, expiryDate], map: "org_documents_org_expiry_idx")
+  @@map("organization_documents")
+}
+
+/// CO-ORG-001 — Dynamic organization document template types.
+model OrganizationDocumentTemplateType {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  typeCode       String   @map("type_code")
+  label          String
+  sortOrder      Int      @default(0) @map("sort_order")
+  isDeleted      Boolean  @default(false) @map("is_deleted")
+  createdBy      String   @map("created_by")
+  modifiedBy     String   @map("modified_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, typeCode], map: "org_doc_template_org_code_key")
+  @@index([organizationId, isDeleted], map: "org_doc_template_org_deleted_idx")
+  @@map("organization_document_template_types")
+}
+
+/// CO-ORG-001 — Organization MDM activity feed (domain ledger; dual-writes to EAR).
+model OrganizationActivityEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  title          String
+  description    String?  @db.Text
+  eventType      String   @map("event_type")
+  entityType     String?  @map("entity_type")
+  entityId       String?  @map("entity_id")
+  actorUserId    String?  @map("actor_user_id")
+  actorName      String?  @map("actor_name")
+  occurredAt     DateTime @default(now()) @map("occurred_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, occurredAt(sort: Desc)], map: "org_activity_org_occurred_idx")
+  @@map("organization_activity_events")
+}
+
+/// CO-ORG-003 — Enterprise Activity Registry (append-only universal chronology SSOT).
+/// Domain ledgers (Deal Timeline, ECIE conversation, Org MDM) remain authoritative for their
+/// domains and emit into EAR. Cross-desk readers consume EAR only.
+model EnterpriseActivityEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+
+  eventKind      String   @map("event_kind")
+  sourceSystem   String   @map("source_system")
+  sourceEventId  String?  @map("source_event_id")
+
+  title          String
+  summary        String?  @db.Text
+  payload        Json?
+
+  opportunityId  String?  @map("opportunity_id")
+  dealId         String?  @map("deal_id")
+  contactId      String?  @map("contact_id")
+  taskId         String?  @map("task_id")
+  documentId     String?  @map("document_id")
+
+  actorUserId    String?  @map("actor_user_id")
+  actorName      String?  @map("actor_name")
+  occurredAt     DateTime @map("occurred_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, sourceSystem, sourceEventId], map: "ear_org_source_uidx")
+  @@index([organizationId, occurredAt(sort: Desc)], map: "ear_org_occurred_idx")
+  @@index([organizationId, opportunityId, occurredAt(sort: Desc)], map: "ear_org_opp_occurred_idx")
+  @@index([organizationId, dealId, occurredAt(sort: Desc)], map: "ear_org_deal_occurred_idx")
+  @@index([organizationId, contactId, occurredAt(sort: Desc)], map: "ear_org_contact_occurred_idx")
+  @@index([organizationId, eventKind, occurredAt(sort: Desc)], map: "ear_org_kind_occurred_idx")
+  @@map("enterprise_activity_events")
+}
+
+/// CO-NOTIFICATION-001 — Enterprise Notification Engine (per-recipient delivery ledger).
+/// Distinct from EAR chronology and ENCE outbound simulation.
+model EnterpriseNotification {
+  id                   String    @id @default(cuid())
+  organizationId       String    @map("organization_id")
+
+  eventType            String    @map("event_type")
+  dedupeKey            String    @map("dedupe_key")
+  sourceEventId        String    @map("source_event_id")
+  sourceSystem         String    @map("source_system")
+
+  title                String
+  body                 String    @db.Text
+  description          String?   @db.Text
+
+  actorUserId          String?   @map("actor_user_id")
+  actorName            String?   @map("actor_name")
+
+  recipientKind        String    @map("recipient_kind")
+  recipientUserId      String?   @map("recipient_user_id")
+  recipientPartnerId   String?   @map("recipient_partner_id")
+
+  opportunityId        String?   @map("opportunity_id")
+  dealId               String?   @map("deal_id")
+  contactId            String?   @map("contact_id")
+  customerName         String?   @map("customer_name")
+  productLabel         String?   @map("product_label")
+  amountLabel          String?   @map("amount_label")
+  previousValue        String?   @map("previous_value")
+  newValue             String?   @map("new_value")
+  href                 String
+
+  readState            String    @default("UNREAD") @map("read_state")
+  readAt               DateTime? @map("read_at")
+  occurredAt           DateTime  @map("occurred_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, dedupeKey], map: "ene_org_dedupe_uidx")
+  @@index([organizationId, recipientUserId, occurredAt(sort: Desc)], map: "ene_org_user_occurred_idx")
+  @@index([organizationId, recipientPartnerId, occurredAt(sort: Desc)], map: "ene_org_partner_occurred_idx")
+  @@index([organizationId, readState, occurredAt(sort: Desc)], map: "ene_org_read_occurred_idx")
+  @@map("enterprise_notifications")
+}
+
+/// CO-UX-021 — Enterprise Business Notes (official business context; soft-delete only).
+/// Emits into Enterprise Activity Registry on create / update. AI-ready context projection later.
+model EnterpriseBusinessNote {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+
+  body           String    @db.Text
+  category       String    @default("general")
+  workspaceKind  String    @map("workspace_kind")
+  entityKind     String    @map("entity_kind")
+  entityId       String    @map("entity_id")
+
+  opportunityId  String?   @map("opportunity_id")
+  dealId         String?   @map("deal_id")
+  contactId      String?   @map("contact_id")
+  lenderId       String?   @map("lender_id")
+  lenderName     String?   @map("lender_name")
+
+  isPinned       Boolean   @default(false) @map("is_pinned")
+  modificationHistory Json? @map("modification_history")
+
+  createdByUserId String   @map("created_by_user_id")
+  createdByName   String?  @map("created_by_name")
+  updatedByUserId String?  @map("updated_by_user_id")
+  updatedByName   String?  @map("updated_by_name")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  isDeleted       Boolean  @default(false) @map("is_deleted")
+  deletedAt       DateTime? @map("deleted_at")
+  deletedBy       String?  @map("deleted_by")
+  deletionReason  String?  @map("deletion_reason") @db.Text
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, entityKind, entityId, isDeleted, createdAt(sort: Desc)], map: "ebn_org_entity_idx")
+  @@index([organizationId, opportunityId, isDeleted, createdAt(sort: Desc)], map: "ebn_org_opp_idx")
+  @@index([organizationId, dealId, isDeleted, createdAt(sort: Desc)], map: "ebn_org_deal_idx")
+  @@index([organizationId, contactId, isDeleted, createdAt(sort: Desc)], map: "ebn_org_contact_idx")
+  @@index([organizationId, isPinned, isDeleted], map: "ebn_org_pinned_idx")
+  @@map("enterprise_business_notes")
+}
+
+/// CO-ORG-001 — Organization audit ledger.
+model OrganizationAuditEntry {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id")
+  previousValue  Json?    @map("previous_value")
+  newValue       Json?    @map("new_value")
+  actorUserId    String   @map("actor_user_id")
+  actorName      String?  @map("actor_name")
+  justification  String?  @db.Text
+  occurredAt     DateTime @default(now()) @map("occurred_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, occurredAt(sort: Desc)], map: "org_audit_org_occurred_idx")
+  @@map("organization_audit_entries")
+}
+
+/// CO-CCC-001 — Corporate Compliance Center legal entity registry.
+model CccLegalEntity {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  code           String
+  legalName      String   @map("legal_name")
+  brandName      String?  @map("brand_name")
+  gst            String?
+  pan            String?
+  cin            String?
+  tan            String?
+  status         String   @default("active")
+  isPrimary      Boolean  @default(false) @map("is_primary")
+  notes          String?  @db.Text
+  isDeleted      Boolean  @default(false) @map("is_deleted")
+  createdBy      String   @map("created_by")
+  modifiedBy     String   @map("modified_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  documents           OrganizationDocument[]
+  packageInstances    CccDocumentPackageInstance[]
+  dispatches          CccDispatch[]
+
+  @@unique([organizationId, code], map: "ccc_legal_entity_org_code_key")
+  @@index([organizationId, isDeleted], map: "ccc_legal_entity_org_deleted_idx")
+  @@map("ccc_legal_entities")
+}
+
+/// CO-CCC-001 — Institution profile (banks, NBFCs, regulators, etc.).
+model CccInstitutionProfile {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  name            String
+  institutionType String   @map("institution_type")
+  contactEmail    String?  @map("contact_email")
+  contactName     String?  @map("contact_name")
+  notes           String?  @db.Text
+  isDeleted       Boolean  @default(false) @map("is_deleted")
+  createdBy       String   @map("created_by")
+  modifiedBy      String   @map("modified_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  requirements CccInstitutionRequirement[]
+  dispatches   CccDispatch[]
+
+  @@index([organizationId, isDeleted], map: "ccc_institution_org_deleted_idx")
+  @@map("ccc_institution_profiles")
+}
+
+/// CO-CCC-001 — Institution document requirements.
+model CccInstitutionRequirement {
+  id                       String   @id @default(cuid())
+  organizationId           String   @map("organization_id")
+  institutionId            String   @map("institution_id")
+  documentTypeId           String   @map("document_type_id")
+  documentTypeLabel        String   @map("document_type_label")
+  categoryId               String?  @map("category_id")
+  repositoryKey            String?  @map("repository_key")
+  mandatory                Boolean  @default(true)
+  financialYearsRequiredJson Json   @default("[]") @map("financial_years_required_json")
+  renewalFrequencyMonths   Int?     @map("renewal_frequency_months")
+  notes                    String?  @db.Text
+  isDeleted                Boolean  @default(false) @map("is_deleted")
+  createdBy                String   @map("created_by")
+  modifiedBy               String   @map("modified_by")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  institution  CccInstitutionProfile @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, institutionId, isDeleted], map: "ccc_inst_req_org_inst_idx")
+  @@map("ccc_institution_requirements")
+}
+
+/// CO-CCC-001 — Document package definition (template).
+model CccDocumentPackageDefinition {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  code           String
+  name           String
+  description    String?  @db.Text
+  packageKind    String   @map("package_kind")
+  itemSpecsJson  Json     @default("[]") @map("item_specs_json")
+  isDeleted      Boolean  @default(false) @map("is_deleted")
+  createdBy      String   @map("created_by")
+  modifiedBy     String   @map("modified_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  instances    CccDocumentPackageInstance[]
+  dispatches   CccDispatch[]
+
+  @@unique([organizationId, code], map: "ccc_pkg_def_org_code_key")
+  @@index([organizationId, isDeleted], map: "ccc_pkg_def_org_deleted_idx")
+  @@map("ccc_document_package_definitions")
+}
+
+/// CO-CCC-001 — Built document package instance.
+model CccDocumentPackageInstance {
+  id                      String    @id @default(cuid())
+  organizationId          String    @map("organization_id")
+  definitionId            String    @map("definition_id")
+  legalEntityId           String?   @map("legal_entity_id")
+  name                    String
+  status                  String    @default("draft")
+  resolvedDocumentIdsJson Json      @default("[]") @map("resolved_document_ids_json")
+  versionNumber           Int       @default(1) @map("version_number")
+  builtAt                 DateTime? @map("built_at")
+  builtBy                 String?   @map("built_by")
+  createdBy               String    @map("created_by")
+  modifiedBy              String    @map("modified_by")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  definition   CccDocumentPackageDefinition @relation(fields: [definitionId], references: [id], onDelete: Restrict)
+  legalEntity  CccLegalEntity?              @relation(fields: [legalEntityId], references: [id], onDelete: SetNull)
+  dispatches   CccDispatch[]
+
+  @@index([organizationId, definitionId], map: "ccc_pkg_inst_org_def_idx")
+  @@map("ccc_document_package_instances")
+}
+
+/// CO-CCC-001 — Enterprise document dispatch (EDDE).
+model CccDispatch {
+  id                   String    @id @default(cuid())
+  organizationId       String    @map("organization_id")
+  legalEntityId        String?   @map("legal_entity_id")
+  institutionId        String?   @map("institution_id")
+  packageInstanceId    String?   @map("package_instance_id")
+  packageDefinitionId  String?   @map("package_definition_id")
+  recipientEmail       String    @map("recipient_email")
+  recipientName        String?   @map("recipient_name")
+  subject              String?
+  bodyPreview          String?   @map("body_preview") @db.Text
+  status               String    @default("draft")
+  sentAt               DateTime? @map("sent_at")
+  sentBy               String?   @map("sent_by")
+  deliveryStatus       String?   @map("delivery_status")
+  acknowledgementNote  String?   @map("acknowledgement_note") @db.Text
+  reminderHistoryJson  Json?     @map("reminder_history_json")
+  financialYear        String?   @map("financial_year")
+  createdBy            String    @map("created_by")
+  modifiedBy           String    @map("modified_by")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization      Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  legalEntity       CccLegalEntity?               @relation(fields: [legalEntityId], references: [id], onDelete: SetNull)
+  institution       CccInstitutionProfile?        @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  packageInstance   CccDocumentPackageInstance?   @relation(fields: [packageInstanceId], references: [id], onDelete: SetNull)
+  packageDefinition CccDocumentPackageDefinition? @relation(fields: [packageDefinitionId], references: [id], onDelete: SetNull)
+  items             CccDispatchItem[]
+
+  @@index([organizationId, status], map: "ccc_dispatch_org_status_idx")
+  @@index([organizationId, sentAt(sort: Desc)], map: "ccc_dispatch_org_sent_idx")
+  @@map("ccc_dispatches")
+}
+
+/// CO-CCC-001 — Dispatch line item (OrganizationDocument reference).
+model CccDispatchItem {
+  id                     String @id @default(cuid())
+  dispatchId             String @map("dispatch_id")
+  organizationDocumentId String @map("organization_document_id")
+  documentVersionNumber  Int    @map("document_version_number")
+  documentTypeLabel      String @map("document_type_label")
+  originalFilename       String @map("original_filename")
+
+  dispatch             CccDispatch          @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  organizationDocument OrganizationDocument @relation(fields: [organizationDocumentId], references: [id], onDelete: Restrict)
+
+  @@index([dispatchId], map: "ccc_dispatch_item_dispatch_idx")
+  @@map("ccc_dispatch_items")
 }
 
 /// Enterprise Contact Registry ? individuals (Directory Registry entity kind: contact).
@@ -819,6 +1456,8 @@ model EnterpriseProduct {
   lenderPrograms EnterpriseLenderProgram[]
   opportunities  EnterpriseOpportunity[]
   deals          EnterpriseDeal[]
+  /// CO-MASTER-005A — Lender Program Portal invite product scope
+  programPortalInviteProducts LenderProgramPortalInviteProduct[]
 
   @@unique([organizationId, code], map: "eprod_org_code_key")
   @@index([organizationId, categoryId, groupId, status, enabled], map: "eprod_org_cat_grp_status_idx")
@@ -1113,12 +1752,39 @@ model EnterpriseLender {
   /// CO-LEND-001
   programPortalInvites LenderProgramPortalInvite[]
   programSubmissions   LenderProgramSubmission[]
+  /// CO-HL-PROGRAM-001 — product-family selection priority rows
+  productLenderPriorities EnterpriseProductLenderPriority[]
 
   @@unique([organizationId, code], map: "elend_org_code_key")
   @@index([organizationId, categoryId, status, enabled], map: "elend_org_cat_status_idx")
   @@index([organizationId, lifecycleStatus, operationalStatus], map: "elend_org_lifecycle_ops_idx")
   @@index([organizationId, isDeleted], map: "elend_org_deleted_idx")
   @@map("enterprise_lenders")
+}
+
+/**
+ * CO-HL-PROGRAM-001 — Product-family lender selection priority.
+ * Separate from EnterpriseLender.priority / identity / Product–Lender mapping.
+ */
+model EnterpriseProductLenderPriority {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  /// Canonical selection family key, e.g. "HOME_LOAN" (not a lender/product identity mutation)
+  productFamily  String   @map("product_family")
+  lenderId       String   @map("lender_id")
+  /// 1 = highest priority for this product family
+  priorityRank   Int      @map("priority_rank")
+  createdBy      String   @map("created_by")
+  modifiedBy     String   @map("modified_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, productFamily, lenderId], map: "eplp_org_family_lender_key")
+  @@index([organizationId, productFamily, priorityRank], map: "eplp_org_family_rank_idx")
+  @@map("enterprise_product_lender_priorities")
 }
 
 model EnterpriseLenderProgram {
@@ -1142,6 +1808,16 @@ model EnterpriseLenderProgram {
   maxTenureMonths   Int?                         @map("max_tenure_months")
   minCibil          Int?                         @map("min_cibil")
   minIncomeAmount   Float?                       @map("min_income_amount")
+  /// CO-MASTER-001 — FOIR / DBR (frozen terminology; never DTI)
+  maxFoirPercent    Float?                       @map("max_foir_percent")
+  maxDbrPercent     Float?                       @map("max_dbr_percent")
+  minFundingAmount  Float?                       @map("min_funding_amount")
+  minAge            Int?                         @map("min_age")
+  maxAge            Int?                         @map("max_age")
+  /// Reference to Credit & Risk / EPDE policy identity (engine remains authoritative)
+  creditRiskPolicyRef String?                    @map("credit_risk_policy_ref")
+  /// Document type codes / ids for program LOD overlay (EDIE / Document Registry — not a second repo)
+  requiredDocumentTypeIds Json?                  @map("required_document_type_ids")
   eligibleStates    Json?                        @map("eligible_states")
   eligibleCities    Json?                        @map("eligible_cities")
   averageTatDays    Int?                         @map("average_tat_days")
@@ -2207,10 +2883,35 @@ model LenderProgramPortalInvite {
   organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   lender       EnterpriseLender          @relation(fields: [lenderId], references: [id], onDelete: Restrict)
   submissions  LenderProgramSubmission[]
+  /// CO-MASTER-005A — explicit invitation product scope (Option B)
+  products     LenderProgramPortalInviteProduct[]
 
   @@index([organizationId, lenderId, status], map: "lpp_invite_org_lender_status_idx")
   @@index([organizationId, expiresAt], map: "lpp_invite_org_expires_idx")
   @@map("lender_program_portal_invites")
+}
+
+/// CO-MASTER-005A — Invitation ↔ Product Master (one invite · one or more products).
+model LenderProgramPortalInviteProduct {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  inviteId       String   @map("invite_id")
+  productId      String   @map("product_id")
+  /// Snapshot of Product Master code at invite/backfill time (audit / portal display).
+  productCode    String   @map("product_code")
+  /// Snapshot of Product Master label at invite/backfill time.
+  productLabel   String   @map("product_label")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invite       LenderProgramPortalInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  product      EnterpriseProduct         @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([inviteId, productId], map: "lpp_invite_product_unique")
+  @@index([organizationId, inviteId], map: "lpp_invite_product_org_invite_idx")
+  @@index([organizationId, productId], map: "lpp_invite_product_org_product_idx")
+  @@map("lender_program_portal_invite_products")
 }
 
 /// Staging submission — never writes live EnterpriseLenderProgram until admin publish.
@@ -2519,6 +3220,10 @@ model EnterpriseWealthPartner {
   commissions    EnterpriseWealthPartnerCommission[]
   bankAccounts   EnterpriseWealthPartnerBankAccount[]
   activities     EnterpriseWealthPartnerActivity[]
+  /// CO-WP-ACCESS-001
+  entitlementProfile          PartnerEntitlementProfile?
+  transactionEntitlements     PartnerTransactionEntitlement[]
+  entitlementAudits           PartnerEntitlementAudit[]
 
   @@unique([organizationId, code], map: "ewp_org_code_key")
   @@index([organizationId, partnerType, isDeleted], map: "ewp_org_type_idx")
@@ -2819,5 +3524,107 @@ model EnterpriseInvitationAudit {
 
   @@index([organizationId, invitationId, createdAt(sort: Desc)], map: "einv_audit_org_inv_idx")
   @@map("enterprise_invitation_audits")
+}
+
+// =============================================================================
+// CO-WP-ACCESS-001 — Wealth Partner Access & Entitlements (Catalyst One SSOT)
+// =============================================================================
+
+/// Configurable entitlement templates (Referral / Joint / Solo defaults — editable).
+model PartnerEntitlementTemplate {
+  id               String   @id @default(cuid())
+  organizationId   String   @map("organization_id")
+  code             String
+  label            String
+  description      String?  @db.Text
+  executionMode    String   @map("execution_mode")
+  permissionsJson  Json     @map("permissions_json")
+  modulesJson      Json     @map("modules_json")
+  isSystem         Boolean  @default(false) @map("is_system")
+  enabled          Boolean  @default(true)
+  versionNumber    Int      @default(1) @map("version_number")
+  createdBy        String   @map("created_by")
+  modifiedBy       String   @map("modified_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  profiles     PartnerEntitlementProfile[]
+
+  @@unique([organizationId, code], map: "pet_org_code_uidx")
+  @@index([organizationId, enabled], map: "pet_org_enabled_idx")
+  @@map("partner_entitlement_templates")
+}
+
+/// Partner-level entitlement defaults (references template; stores effective partner map).
+model PartnerEntitlementProfile {
+  id                   String   @id @default(cuid())
+  organizationId       String   @map("organization_id")
+  wealthPartnerId      String   @unique @map("wealth_partner_id")
+  templateId           String?  @map("template_id")
+  defaultExecutionMode String   @default("referral") @map("default_execution_mode")
+  permissionsJson      Json     @map("permissions_json")
+  modulesJson          Json     @map("modules_json")
+  notes                String?  @db.Text
+  versionNumber        Int      @default(1) @map("version_number")
+  createdBy            String   @map("created_by")
+  modifiedBy           String   @map("modified_by")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  organization  Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  wealthPartner EnterpriseWealthPartner    @relation(fields: [wealthPartnerId], references: [id], onDelete: Cascade)
+  template      PartnerEntitlementTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, defaultExecutionMode], map: "pep_org_mode_idx")
+  @@map("partner_entitlement_profiles")
+}
+
+/// Transaction-level overrides (Opportunity / Deal) — no parallel partner business store.
+model PartnerTransactionEntitlement {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  wealthPartnerId String   @map("wealth_partner_id")
+  entityKind      String   @map("entity_kind")
+  entityId        String   @map("entity_id")
+  executionMode   String   @map("execution_mode")
+  permissionsJson Json     @map("permissions_json")
+  reason          String?  @db.Text
+  versionNumber   Int      @default(1) @map("version_number")
+  createdBy       String   @map("created_by")
+  modifiedBy      String   @map("modified_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization  Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  wealthPartner EnterpriseWealthPartner @relation(fields: [wealthPartnerId], references: [id], onDelete: Cascade)
+
+  @@unique([wealthPartnerId, entityKind, entityId], map: "pte_partner_entity_uidx")
+  @@index([organizationId, entityKind, entityId], map: "pte_org_entity_idx")
+  @@index([organizationId, wealthPartnerId], map: "pte_org_partner_idx")
+  @@map("partner_transaction_entitlements")
+}
+
+/// Persistent entitlement change audit (enterprise-grade).
+model PartnerEntitlementAudit {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  wealthPartnerId String?  @map("wealth_partner_id")
+  changeType      String   @map("change_type")
+  targetKind      String   @map("target_kind")
+  targetId        String   @map("target_id")
+  previousValue   Json?    @map("previous_value")
+  newValue        Json?    @map("new_value")
+  reason          String?  @db.Text
+  actorUserId     String   @map("actor_user_id")
+  actorLabel      String   @map("actor_label")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  organization  Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  wealthPartner EnterpriseWealthPartner? @relation(fields: [wealthPartnerId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, wealthPartnerId, createdAt(sort: Desc)], map: "pea_org_partner_created_idx")
+  @@index([organizationId, targetKind, targetId], map: "pea_org_target_idx")
+  @@map("partner_entitlement_audits")
 }
 

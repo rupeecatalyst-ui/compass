@@ -39,6 +39,12 @@ export type LenderProgramDocumentLink = {
 
 export type LenderProgramPayload = Record<string, string | number | boolean | null>;
 
+export type LenderProgramPortalInviteProduct = {
+  productId: string;
+  productCode: string;
+  productLabel: string;
+};
+
 export type LenderProgramPortalInvite = {
   id: string;
   lenderId: string;
@@ -56,6 +62,8 @@ export type LenderProgramPortalInvite = {
   mobileOtpVerifiedAt?: string | null;
   portalPath: string;
   createdAt: string;
+  /** CO-MASTER-005A — all invitation products (never first-only). */
+  products: LenderProgramPortalInviteProduct[];
 };
 
 export type LenderProgramDialogueMessage = {

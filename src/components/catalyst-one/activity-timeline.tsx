@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -7,12 +8,18 @@ import {
   Bot,
   FileText,
   ListTodo,
+  Loader2,
   UserPlus,
   Workflow,
 } from "lucide-react";
 import { activityTimeline } from "@/data/catalyst-one/dashboard";
 import { useDashboardFilter } from "@/hooks/use-dashboard-filter";
 import { filterActivityByRange } from "@/lib/dashboard-metrics";
+import {
+  listEnterpriseActivity,
+  mapEarEventToDashboardActivity,
+} from "@/lib/enterprise-activity-registry";
+import { isDemoSeedEnabled } from "@/lib/demo-seed";
 import { ROUTES } from "@/constants/routes";
 import { formatRelativeTime } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,8 +40,41 @@ const typeConfig: Record<
 
 export function ActivityTimeline() {
   const { dateRange } = useDashboardFilter();
-  const events = filterActivityByRange(activityTimeline, dateRange);
-  const displayEvents = events.length > 0 ? events : activityTimeline.slice(0, 5);
+  const [liveEvents, setLiveEvents] = useState<ActivityEvent[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const items = await listEnterpriseActivity({ limit: 40 });
+        if (cancelled) return;
+        setLiveEvents(items.map(mapEarEventToDashboardActivity));
+      } catch {
+        if (!cancelled) setLiveEvents([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fromEar = liveEvents ?? [];
+  const demoFallback =
+    isDemoSeedEnabled() && fromEar.length === 0
+      ? filterActivityByRange(activityTimeline, dateRange)
+      : [];
+  const events = fromEar.length > 0 ? filterActivityByRange(fromEar, dateRange) : demoFallback;
+  const displayEvents =
+    events.length > 0
+      ? events
+      : fromEar.length > 0
+        ? fromEar.slice(0, 5)
+        : demoFallback.slice(0, 5);
 
   return (
     <Card className="glass-card border-border/60 h-full">
@@ -42,7 +82,10 @@ export function ActivityTimeline() {
         <div className="flex items-start justify-between gap-2">
           <div>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>{dateRange.label}</CardDescription>
+            <CardDescription>
+              {dateRange.label}
+              {fromEar.length > 0 ? " · Enterprise Activity Registry" : ""}
+            </CardDescription>
           </div>
           <Link href={ROUTES.TASKS} className="text-xs font-medium text-primary hover:underline shrink-0">
             View all
@@ -50,52 +93,64 @@ export function ActivityTimeline() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="relative space-y-0">
-          {displayEvents.map((event, index) => {
-            const config = typeConfig[event.type];
-            const Icon = config.icon;
-            const isLast = index === displayEvents.length - 1;
+        {loading && liveEvents === null ? (
+          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading activity…
+          </div>
+        ) : displayEvents.length === 0 ? (
+          <p className="py-8 text-sm text-muted-foreground">
+            No enterprise activity recorded yet.
+          </p>
+        ) : (
+          <div className="relative space-y-0">
+            {displayEvents.map((event, index) => {
+              const config = typeConfig[event.type];
+              const Icon = config.icon;
+              const isLast = index === displayEvents.length - 1;
+              const href = event.href ?? config.href;
 
-            return (
-              <Link key={event.id} href={config.href} className="block group">
-                <motion.div
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="relative flex gap-4 pb-6 last:pb-0 group-hover:opacity-90"
-                >
-                  {!isLast && (
-                    <div className="absolute left-[19px] top-10 bottom-0 w-px bg-border" />
-                  )}
-                  <div
-                    className={cn(
-                      "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border",
-                      config.color,
-                    )}
+              return (
+                <Link key={event.id} href={href} className="block group">
+                  <motion.div
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="relative flex gap-4 pb-6 last:pb-0 group-hover:opacity-90"
                   >
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0 pt-0.5">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="text-sm font-medium group-hover:text-primary transition-colors">
-                        {event.title}
-                      </p>
-                      <time className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatRelativeTime(event.timestamp)}
-                      </time>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{event.description}</p>
-                    {event.actor && (
-                      <p className="mt-1.5 text-xs text-muted-foreground">
-                        by <span className="font-medium text-foreground">{event.actor}</span>
-                      </p>
+                    {!isLast && (
+                      <div className="absolute left-[19px] top-10 bottom-0 w-px bg-border" />
                     )}
-                  </div>
-                </motion.div>
-              </Link>
-            );
-          })}
-        </div>
+                    <div
+                      className={cn(
+                        "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border",
+                        config.color,
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="text-sm font-medium group-hover:text-primary transition-colors">
+                          {event.title}
+                        </p>
+                        <time className="text-xs text-muted-foreground whitespace-nowrap">
+                          {formatRelativeTime(event.timestamp)}
+                        </time>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">{event.description}</p>
+                      {event.actor && (
+                        <p className="mt-1.5 text-xs text-muted-foreground">
+                          by <span className="font-medium text-foreground">{event.actor}</span>
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

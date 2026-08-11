@@ -2,17 +2,23 @@
 
 export interface CompanyProfile {
   companyName: string;
+  legalEntityName?: string;
   brandName: string;
   gst: string;
   pan: string;
   cin: string;
   msme: string;
+  incorporationDate?: string;
+  incorporationDetails?: string;
   registeredAddress: string;
   corporateAddress: string;
   website: string;
   officialEmails: string[];
   phoneNumbers: string[];
+  emailDomains?: string[];
+  socialLinks?: Record<string, string>;
   logoInitials: string;
+  logoDocumentId?: string | null;
 }
 
 export type DirectorStatus = "active" | "inactive";

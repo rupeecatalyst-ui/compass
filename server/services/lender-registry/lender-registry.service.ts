@@ -35,37 +35,56 @@ import { lenderRegistryRepository } from "@server/repositories/lender-registry/l
 import { productRegistryRepository } from "@server/repositories/product-registry/product-registry.repository";
 
 import { enterpriseRegistryAuditService } from "@server/services/enterprise-registry/audit.service";
+import { validateProgramCreditRiskPolicyRef } from "@/lib/enterprise-lender-registry/resolve-program-policy";
+import { normalizeProgramLodRequirements } from "@/lib/document-requests/resolve-program-lod";
+
+function normalizeProgramLodInput(input: {
+  requiredDocuments?: unknown;
+  requiredDocumentTypeIds?: string[] | null;
+}): { requiredDocumentTypeIds?: unknown } {
+  if (input.requiredDocuments != null) {
+    const reqs = normalizeProgramLodRequirements(input.requiredDocuments);
+    return { requiredDocumentTypeIds: reqs.length ? reqs : [] };
+  }
+  if (input.requiredDocumentTypeIds != null) {
+    const reqs = normalizeProgramLodRequirements(input.requiredDocumentTypeIds);
+    return { requiredDocumentTypeIds: reqs.length ? reqs : input.requiredDocumentTypeIds };
+  }
+  return {};
+}
 
 
-
-function auditSnapshot(record: {
-
-  id: string;
-
-  code: string;
-
-  label: string;
-
-  status: RegistryStatus;
-
-  enabled: boolean;
-
-}) {
-
+function auditSnapshot(record: object) {
+  const r = record as Record<string, unknown>;
   return {
-
-    id: record.id,
-
-    code: record.code,
-
-    label: record.label,
-
-    status: record.status,
-
-    enabled: record.enabled,
-
+    id: r.id,
+    code: r.code,
+    label: r.label,
+    status: r.status,
+    enabled: r.enabled,
+    lifecycleStatus: r.lifecycleStatus ?? null,
+    lenderId: r.lenderId ?? null,
+    productId: r.productId ?? null,
+    productCode: r.productCode ?? null,
+    productsSupported: r.productsSupported ?? null,
+    roiPercent: r.roiPercent ?? null,
+    processingFeePct: r.processingFeePct ?? null,
+    maxLtvPercent: r.maxLtvPercent ?? null,
+    maxTenureMonths: r.maxTenureMonths ?? null,
+    minFundingAmount: r.minFundingAmount ?? null,
+    maxFundingAmount: r.maxFundingAmount ?? null,
+    minCibil: r.minCibil ?? null,
+    minIncomeAmount: r.minIncomeAmount ?? null,
+    maxFoirPercent: r.maxFoirPercent ?? null,
+    maxDbrPercent: r.maxDbrPercent ?? null,
+    minAge: r.minAge ?? null,
+    maxAge: r.maxAge ?? null,
+    employmentType: r.employmentType ?? null,
+    borrowerType: r.borrowerType ?? null,
+    creditRiskPolicyRef: r.creditRiskPolicyRef ?? null,
+    requiredDocumentTypeIds: r.requiredDocumentTypeIds ?? null,
+    requiredDocuments: r.requiredDocuments ?? null,
   };
-
 }
 
 
@@ -624,9 +643,16 @@ export class LenderRegistryService {
 
     if (duplicate) throw new Error(`Lender program "${input.code}" already exists.`);
 
+    const policyCheck = validateProgramCreditRiskPolicyRef(input.creditRiskPolicyRef);
+    if (!policyCheck.ok) throw new Error(policyCheck.error);
 
-
-    const created = await lenderRegistryRepository.createProgram(organizationId, input);
+    const lodNorm = normalizeProgramLodInput(input);
+    const created = await lenderRegistryRepository.createProgram(organizationId, {
+      ...input,
+      ...lodNorm,
+      requiredDocumentTypeIds:
+        (lodNorm.requiredDocumentTypeIds as never) ?? input.requiredDocumentTypeIds,
+    });
 
     await enterpriseRegistryAuditService.recordChange({
 
@@ -645,6 +671,8 @@ export class LenderRegistryService {
       actorUserId: input.createdBy,
 
       actorName,
+
+      reason: "lender_program_created",
 
     });
 
@@ -692,7 +720,18 @@ export class LenderRegistryService {
 
 
 
-    const updated = await lenderRegistryRepository.updateProgram(id, input);
+    if (input.creditRiskPolicyRef !== undefined) {
+      const policyCheck = validateProgramCreditRiskPolicyRef(input.creditRiskPolicyRef);
+      if (!policyCheck.ok) throw new Error(policyCheck.error);
+    }
+
+    const lodNorm = normalizeProgramLodInput(input);
+    const updated = await lenderRegistryRepository.updateProgram(id, {
+      ...input,
+      ...(lodNorm.requiredDocumentTypeIds !== undefined
+        ? { requiredDocumentTypeIds: lodNorm.requiredDocumentTypeIds as never }
+        : {}),
+    });
 
     await enterpriseRegistryAuditService.recordChange({
 
@@ -713,6 +752,8 @@ export class LenderRegistryService {
       actorUserId: input.modifiedBy,
 
       actorName,
+
+      reason: "lender_program_updated",
 
     });
 

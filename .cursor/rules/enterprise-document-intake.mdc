@@ -1,0 +1,59 @@
+---
+description: Enterprise Document Intake — multi-channel SSOT (CO-DOC-ARCH-001)
+alwaysApply: true
+---
+
+# Enterprise Document Intake — All Channels (CO-DOC-ARCH-001)
+
+Status: **ENTERPRISE APPROVED** · Frozen · Permanent platform architecture  
+Extends: Opportunity Document Center governance · CO-DOC-002 · Partner Gateway document projections
+
+## Constitutional principles
+
+1. **Catalyst One is the only Document SSOT.** One enterprise document architecture for all channels.
+2. **Multiple intake channels · one store.** Walk-in, Direct/COMPASS, Wealth Partner (and future channels) feed the same Enterprise Document Registry / `EnterpriseTransactionDocument`.
+3. **Source ≠ ownership.** `uploadSource` records where the file came from. Documents remain enterprise-owned.
+4. **Upload ≠ verified ≠ requirement satisfied.** Lifecycle stays on Catalyst One Document Requests / registry verification — never channel-specific status engines.
+5. **Requirements live in Catalyst One only.** LOD / EDIE / programme resolution must not be duplicated in COMPASS or Wealth Partner App.
+6. **External UIs are presentation/intake only.** Partner App and COMPASS project checklist + pending items; they do not own documents.
+
+## Canonical business channels → storage
+
+Reuse existing `DocumentRegistryUploadSource` (do **not** invent parallel document models).
+
+| Business channel | Storage `uploadSource` |
+|---|---|
+| `WALK_IN` | `manual_upload` |
+| `DIRECT` | `customer_portal` |
+| `WEALTH_PARTNER` | `wealth_partner` |
+
+Also retained for other ingestion paths: `lender_portal`, `email`, `whatsapp`, `api`, `folder_package`, `conversation_activity`.
+
+SSOT mapping: `src/constants/document-intake/`
+
+## Forbidden
+
+- `WealthPartnerDocument` / `CompassDocument` / `WalkInDocument` as separate SSOTs
+- Separate document DBs, checklists, status engines, or intelligence engines in COMPASS / WP
+- Hard-forcing external users to invent Deal IDs, lender programmes, or incorrect type/participant when unknown — prefer intake → Catalyst One classification/review
+- Bypassing Partner Gateway / customer-token / internal permission authorization
+
+## SSOT paths
+
+| Concern | Path |
+|---|---|
+| Registry types | `src/types/document-registry.ts` |
+| Client registry | `src/lib/document-registry/` |
+| Durable Postgres | `EnterpriseTransactionDocument` · `server/services/enterprise-transaction-documents/` |
+| LOD / requirements | `src/lib/document-requests/` · EDIE · `resolve-program-lod` |
+| Document Center UI | `src/components/catalyst-one/document-center/` |
+| Partner projection | Partner Gateway · `partner-ssot-projections.ts` |
+| Direct customer upload | `/document-upload/[token]` · `ingestCustomerPortalDocument` |
+| Channel map | `src/constants/document-intake/` |
+| Architecture doc | `docs/co-doc-arch-001/` |
+
+## Related
+
+- `opportunity-document-center-governance.mdc`
+- `enterprise-customer-engagement.mdc`
+- CAD-2026-001 (no fabricated document facts)

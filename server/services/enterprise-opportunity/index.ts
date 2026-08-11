@@ -431,6 +431,65 @@ export class EnterpriseOpportunityService {
 
     try {
       const created = await enterpriseOpportunityRepository.createOpportunity(input);
+      // CO-NOTIFICATION-001 — fan-out (actor excluded; manager/admins + partner ownership)
+      try {
+        const { enterpriseNotificationService } = await import(
+          "@server/services/enterprise-notification/enterprise-notification.service"
+        );
+        const { eneEventTitle } = await import(
+          "@/constants/enterprise-notification-engine"
+        );
+        const customerName =
+          (created as { primaryContactName?: string | null }).primaryContactName ||
+          "Customer";
+        const product =
+          (created as { productLabel?: string | null }).productLabel ||
+          (created as { productCode?: string | null }).productCode ||
+          "Product";
+        const reqAmt = (created as { requiredAmount?: number | null }).requiredAmount;
+        const amount =
+          reqAmt != null && Number.isFinite(Number(reqAmt))
+            ? `₹${Number(reqAmt).toLocaleString("en-IN")}`
+            : null;
+        const actor = actorUserId
+          ? await prisma.user.findUnique({
+              where: { id: actorUserId },
+              select: { firstName: true, lastName: true },
+            })
+          : null;
+        const actorName = actor
+          ? [actor.firstName, actor.lastName].filter(Boolean).join(" ")
+          : null;
+        const partnerId =
+          (created as { sourceWealthPartnerId?: string | null }).sourceWealthPartnerId ||
+          (body.sourceWealthPartnerId
+            ? String(body.sourceWealthPartnerId).trim()
+            : null);
+        await enterpriseNotificationService.fanOutBestEffort({
+          organizationId,
+          eventType: "OPPORTUNITY_CREATED",
+          sourceEventId: created.id,
+          sourceSystem: "opportunity",
+          title: eneEventTitle("OPPORTUNITY_CREATED"),
+          body: [customerName, product, amount].filter(Boolean).join(" · "),
+          description: actorName ? `Created by ${actorName}` : null,
+          actorUserId,
+          actorName,
+          opportunityId: created.id,
+          contactId: created.primaryContactId ?? null,
+          customerName,
+          productLabel: product,
+          amountLabel: amount,
+          href: `/opportunities?opportunityId=${encodeURIComponent(created.id)}`,
+          sourceWealthPartnerId: partnerId,
+          actorIsPartner: Boolean(
+            body.createdViaPartnerGateway === true ||
+              body.partnerActor === true,
+          ),
+        });
+      } catch {
+        /* fail-open */
+      }
       return serializeOpportunity(created);
     } catch (err) {
       if (!asDialogue && productUniquenessKey) {
@@ -853,6 +912,10 @@ export class EnterpriseOpportunityService {
     sourceBucket?: "direct" | "channel_partner" | "referral" | "other";
     opportunityIds?: string[];
     freshLoginToday?: boolean;
+    /** CO-C1-DASH-001 — filter by Opportunity createdAt (not updatedAt) */
+    createdFrom?: Date | string;
+    createdTo?: Date | string;
+    orderBy?: "updatedAt" | "createdAt";
     limit?: number;
     offset?: number;
   }) {

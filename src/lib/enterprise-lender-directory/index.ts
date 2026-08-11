@@ -41,3 +41,7 @@ export {
   assignExistingContactToInstitution,
   createLenderEmployeeForInstitution,
 } from "./hierarchy-actions";
+export {
+  composeEldLenderChanakyaInsights,
+  type EldLenderChanakyaInsight,
+} from "./compose-chanakya-insights";

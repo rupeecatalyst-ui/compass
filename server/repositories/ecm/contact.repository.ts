@@ -1,11 +1,38 @@
 import { prisma } from "@server/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import type { EcmContactQuery } from "@/types/enterprise-contact-master";
+import { normalizeEcmMobile } from "@/lib/enterprise-contact-master";
 import {
   mapPrismaContactToDomain,
   type ContactCreateData,
   type ContactUpdateData,
 } from "./mappers";
+
+/**
+ * Lookup variants for the same enterprise mobile identity.
+ * Reuses `normalizeEcmMobile` (digits only) — does not invent a second normalizer.
+ * Covers +91 / 91 / 0 / 10-digit presentation of the same number.
+ */
+export function ecmMobileLookupCandidates(mobilePrimary: string): string[] {
+  const raw = mobilePrimary.trim();
+  const digits = normalizeEcmMobile(raw);
+  const out = new Set<string>();
+  if (raw) out.add(raw);
+  if (digits) out.add(digits);
+  if (digits.length >= 10) {
+    const last10 = digits.slice(-10);
+    out.add(last10);
+    out.add(`91${last10}`);
+    out.add(`+91${last10}`);
+    out.add(`0${last10}`);
+  }
+  return [...out];
+}
+
+/** Persist form aligned with ECM register (digit strip via normalizeEcmMobile). */
+export function ecmCanonicalMobilePrimary(mobilePrimary: string): string {
+  return normalizeEcmMobile(mobilePrimary) || mobilePrimary.trim();
+}
 
 export class EcmContactRepository {
   async findById(id: string, opts?: { includeDeleted?: boolean }) {
@@ -16,12 +43,14 @@ export class EcmContactRepository {
   }
 
   async findByMobile(organizationId: string, mobilePrimary: string) {
+    const candidates = ecmMobileLookupCandidates(mobilePrimary);
     const row = await prisma.ecmContact.findFirst({
       where: {
         organizationId,
-        mobilePrimary,
         isDeleted: false,
+        mobilePrimary: { in: candidates },
       },
+      orderBy: { updatedAt: "desc" },
     });
     return row ? mapPrismaContactToDomain(row) : null;
   }
@@ -29,12 +58,14 @@ export class EcmContactRepository {
   /**
    * CO-CONTACT-IDENTITY-001 — Resolve any Contact for mobile (including soft-deleted).
    * Does not change uniqueness; used for restore / open-existing UX only.
+   * CO-WP-INT-003 — candidate variants so +91 / 91 / 10-digit resolve to one identity.
    */
   async findIdentityByMobile(organizationId: string, mobilePrimary: string) {
+    const candidates = ecmMobileLookupCandidates(mobilePrimary);
     const row = await prisma.ecmContact.findFirst({
       where: {
         organizationId,
-        mobilePrimary,
+        mobilePrimary: { in: candidates },
       },
       orderBy: [{ isDeleted: "asc" }, { updatedAt: "desc" }],
     });

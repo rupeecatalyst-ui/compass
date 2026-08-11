@@ -1,0 +1,535 @@
+{
+  "sprint": "CO-PRODUCT-PRIORITY-004",
+  "principle": "PRIORITY = ORDER · PRIORITY ≠ ELIGIBILITY · PRIORITY ≠ MAPPING · PRIORITY ≠ WHITELIST",
+  "identityValidation": [
+    {
+      "requestedRank": 1,
+      "requestedName": "Standard Chartered Bank",
+      "institutionName": "Standard Chartered Bank",
+      "lenderId": "cms8hq3nz0003wed804dmj3ou",
+      "lenderCode": "STANDARD_CHARTERED",
+      "institutionType": "bank",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "requestedRank": 2,
+      "requestedName": "Saraswat Cooperative Bank",
+      "institutionName": "Saraswat Cooperative Bank",
+      "lenderId": "cms4cnp84003zwen42y73iquu",
+      "lenderCode": "SARASWAT",
+      "institutionType": "cooperative_bank",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "requestedRank": 3,
+      "requestedName": "HDFC Bank",
+      "institutionName": "HDFC Bank",
+      "lenderId": "cmrusopl1003lwe601zac0dvs",
+      "lenderCode": "HDFC",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "requestedRank": 4,
+      "requestedName": "IndusInd Bank",
+      "institutionName": "IndusInd Bank",
+      "lenderId": "cms4cmrsd000pwen4n938ri4v",
+      "lenderCode": "INDUSIND",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "requestedRank": 5,
+      "requestedName": "Jio Financial Services",
+      "institutionName": "Jio Financial Services",
+      "lenderId": "cmsg6x2c10001wegs7bkdzt3k",
+      "lenderCode": "LND000001",
+      "institutionType": "nbfc",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": false,
+      "commercialPurchaseMapped": false,
+      "productsSupported": []
+    },
+    {
+      "requestedRank": 6,
+      "requestedName": "Kotak Mahindra Bank",
+      "institutionName": "Kotak Mahindra Bank",
+      "lenderId": "cmrusoprt003pwe60kshcazu7",
+      "lenderCode": "KOTAK",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "requestedRank": 7,
+      "requestedName": "Axis Bank",
+      "institutionName": "Axis Bank",
+      "lenderId": "cmrusopch003hwe60phw80i5i",
+      "lenderCode": "AXIS",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "requestedRank": 8,
+      "requestedName": "Yes Bank",
+      "institutionName": "Yes Bank",
+      "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+      "lenderCode": "YES",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "requestedRank": 9,
+      "requestedName": "Federal Bank",
+      "institutionName": "Federal Bank",
+      "lenderId": "cms4cmsvt000twen4qf3d6wok",
+      "lenderCode": "FEDERAL",
+      "institutionType": "private_sector_bank",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "requestedRank": 10,
+      "requestedName": "Piramal Finance",
+      "institutionName": "Piramal Finance",
+      "lenderId": "cms4cnkz5003lwen4jfhr97rd",
+      "lenderCode": "PIRAMAL_FINANCE",
+      "institutionType": "nbfc",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "requestedRank": 11,
+      "requestedName": "Deutsche Bank",
+      "institutionName": "Deutsche Bank",
+      "lenderId": "cms8hq5320009wed8mkd9nu57",
+      "lenderCode": "DEUTSCHE_BANK",
+      "institutionType": "bank",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "HOME_LOAN",
+        "HOME_LOAN_BT",
+        "LAP",
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED"
+      ]
+    },
+    {
+      "requestedRank": 12,
+      "requestedName": "Bajaj Finance",
+      "institutionName": "Bajaj Finance",
+      "lenderId": "cms4cnfmd0033wen4dd25gl97",
+      "lenderCode": "BAJAJ_FINANCE",
+      "institutionType": "nbfc",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    },
+    {
+      "requestedRank": 13,
+      "requestedName": "Aditya Birla Finance",
+      "institutionName": "Aditya Birla Finance",
+      "lenderId": "cms4cngrl0037wen43lkirriv",
+      "lenderCode": "ADITYA_BIRLA_FINANCE",
+      "institutionType": "nbfc",
+      "activeStatus": true,
+      "enabled": true,
+      "status": "active",
+      "lapMapped": true,
+      "commercialPurchaseMapped": false,
+      "productsSupported": [
+        "PERSONAL_LOAN",
+        "BUSINESS_LOAN_UNSECURED",
+        "WORKING_CAPITAL_SECURED",
+        "LAP",
+        "HOME_LOAN"
+      ]
+    }
+  ],
+  "sectionA_LAP": {
+    "productId": "cmrusol1t0015we60srmgtbnc",
+    "productCode": "LAP",
+    "productLabel": "Loan Against Property",
+    "totalLapEligible": 160,
+    "priorityAssigned": 12,
+    "priorityCandidatesNotMapped": [
+      {
+        "requestedRank": 5,
+        "requestedName": "Jio Financial Services",
+        "lenderCode": "LND000001",
+        "lenderId": "cmsg6x2c10001wegs7bkdzt3k",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED"
+      }
+    ],
+    "priorityTable": [
+      {
+        "priority": 1,
+        "institution": "Standard Chartered Bank",
+        "lenderId": "cms8hq3nz0003wed804dmj3ou",
+        "lenderCode": "STANDARD_CHARTERED",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 2,
+        "institution": "Saraswat Cooperative Bank",
+        "lenderId": "cms4cnp84003zwen42y73iquu",
+        "lenderCode": "SARASWAT",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 3,
+        "institution": "HDFC Bank",
+        "lenderId": "cmrusopl1003lwe601zac0dvs",
+        "lenderCode": "HDFC",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 4,
+        "institution": "IndusInd Bank",
+        "lenderId": "cms4cmrsd000pwen4n938ri4v",
+        "lenderCode": "INDUSIND",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 5,
+        "institution": "Kotak Mahindra Bank",
+        "lenderId": "cmrusoprt003pwe60kshcazu7",
+        "lenderCode": "KOTAK",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 6,
+        "institution": "Axis Bank",
+        "lenderId": "cmrusopch003hwe60phw80i5i",
+        "lenderCode": "AXIS",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 7,
+        "institution": "Yes Bank",
+        "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+        "lenderCode": "YES",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 8,
+        "institution": "Federal Bank",
+        "lenderId": "cms4cmsvt000twen4qf3d6wok",
+        "lenderCode": "FEDERAL",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 9,
+        "institution": "Piramal Finance",
+        "lenderId": "cms4cnkz5003lwen4jfhr97rd",
+        "lenderCode": "PIRAMAL_FINANCE",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 10,
+        "institution": "Deutsche Bank",
+        "lenderId": "cms8hq5320009wed8mkd9nu57",
+        "lenderCode": "DEUTSCHE_BANK",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 11,
+        "institution": "Bajaj Finance",
+        "lenderId": "cms4cnfmd0033wen4dd25gl97",
+        "lenderCode": "BAJAJ_FINANCE",
+        "status": "active",
+        "enabled": true
+      },
+      {
+        "priority": 12,
+        "institution": "Aditya Birla Finance",
+        "lenderId": "cms4cngrl0037wen43lkirriv",
+        "lenderCode": "ADITYA_BIRLA_FINANCE",
+        "status": "active",
+        "enabled": true
+      }
+    ],
+    "remainingEligibleCount": 148,
+    "persistenceResult": "OK"
+  },
+  "sectionB_CommercialPurchase": {
+    "productId": "cms7h885v000zld04kqn6imfc",
+    "productCode": "COMM_PURCHASE",
+    "productLabel": "Commercial Purchase",
+    "totalCommercialPurchaseEligible": 1,
+    "priorityAssigned": 0,
+    "priorityCandidatesNotMapped": [
+      {
+        "requestedRank": 1,
+        "requestedName": "Standard Chartered Bank",
+        "lenderCode": "STANDARD_CHARTERED",
+        "lenderId": "cms8hq3nz0003wed804dmj3ou",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 2,
+        "requestedName": "Saraswat Cooperative Bank",
+        "lenderCode": "SARASWAT",
+        "lenderId": "cms4cnp84003zwen42y73iquu",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 3,
+        "requestedName": "HDFC Bank",
+        "lenderCode": "HDFC",
+        "lenderId": "cmrusopl1003lwe601zac0dvs",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 4,
+        "requestedName": "IndusInd Bank",
+        "lenderCode": "INDUSIND",
+        "lenderId": "cms4cmrsd000pwen4n938ri4v",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 5,
+        "requestedName": "Jio Financial Services",
+        "lenderCode": "LND000001",
+        "lenderId": "cmsg6x2c10001wegs7bkdzt3k",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 6,
+        "requestedName": "Kotak Mahindra Bank",
+        "lenderCode": "KOTAK",
+        "lenderId": "cmrusoprt003pwe60kshcazu7",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 7,
+        "requestedName": "Axis Bank",
+        "lenderCode": "AXIS",
+        "lenderId": "cmrusopch003hwe60phw80i5i",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 8,
+        "requestedName": "Yes Bank",
+        "lenderCode": "YES",
+        "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 9,
+        "requestedName": "Federal Bank",
+        "lenderCode": "FEDERAL",
+        "lenderId": "cms4cmsvt000twen4qf3d6wok",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 10,
+        "requestedName": "Piramal Finance",
+        "lenderCode": "PIRAMAL_FINANCE",
+        "lenderId": "cms4cnkz5003lwen4jfhr97rd",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 11,
+        "requestedName": "Deutsche Bank",
+        "lenderCode": "DEUTSCHE_BANK",
+        "lenderId": "cms8hq5320009wed8mkd9nu57",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 12,
+        "requestedName": "Bajaj Finance",
+        "lenderCode": "BAJAJ_FINANCE",
+        "lenderId": "cms4cnfmd0033wen4dd25gl97",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      },
+      {
+        "requestedRank": 13,
+        "requestedName": "Aditya Birla Finance",
+        "lenderCode": "ADITYA_BIRLA_FINANCE",
+        "lenderId": "cms4cngrl0037wen43lkirriv",
+        "reason": "NOT CURRENTLY PRODUCT-MAPPED — PRIORITY NOT PERSISTED",
+        "note": "Priority pending until Product–Lender mapping exists"
+      }
+    ],
+    "priorityTable": [],
+    "remainingEligibleCount": 1,
+    "onlyEligibleLender": [
+      {
+        "lenderId": "cms4cmou6000jwen4z4e6t25z",
+        "lenderCode": "UCO",
+        "institutionName": "UCO Bank",
+        "note": "Remains under OTHER COMMERCIAL PURCHASE LENDERS (not in PO priority list)"
+      }
+    ],
+    "persistenceResult": "OK_EMPTY_NO_MAPPED_CANDIDATES"
+  },
+  "integrity": {
+    "lenderCountUnchanged": true,
+    "lapEligibleUnchanged": true,
+    "commercialPurchaseEligibleUnchanged": true,
+    "enabledUnchanged": true,
+    "matrixUnchanged": true,
+    "lapPriorityUnique": true,
+    "cpPriorityUnique": true,
+    "noNewLenders": true,
+    "noDeletedLenders": true,
+    "noEligibilityCreated": true,
+    "before": {
+      "totalLenders": 283,
+      "lapEligible": 160,
+      "commercialPurchaseEligible": 1,
+      "enabledTrue": 280,
+      "matrixFingerprint": "fcd7e625b246ab1f751b82891ff10fbd3322f4644520d38c94cf0583fb8f3829"
+    },
+    "after": {
+      "totalLenders": 283,
+      "lapEligible": 160,
+      "commercialPurchaseEligible": 1,
+      "enabledTrue": 280,
+      "matrixFingerprint": "fcd7e625b246ab1f751b82891ff10fbd3322f4644520d38c94cf0583fb8f3829"
+    }
+  }
+}

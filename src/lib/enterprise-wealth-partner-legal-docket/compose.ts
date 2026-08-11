@@ -91,18 +91,42 @@ export function resolveWealthPartnerOpportunitySelectability(input: {
   lifecycleStatus: string;
   operationalStatus: string;
   agreementStatus: WealthPartnerAgreementStatus;
+  /** Optional RegistryStatus (draft|active|inactive|archived). */
+  registryStatus?: string;
+  enabled?: boolean;
 }): {
   selectability: WealthPartnerOpportunitySelectability;
   message: string;
 } {
+  const lifecycle = String(input.lifecycleStatus || "").toLowerCase();
+  const registryStatus = String(input.registryStatus || "").toLowerCase();
+
+  if (input.enabled === false) {
+    return {
+      selectability: "not_selectable",
+      message: "Partner is disabled — not selectable for Opportunities.",
+    };
+  }
+  if (registryStatus === "archived" || registryStatus === "inactive") {
+    return {
+      selectability: "not_selectable",
+      message: `Registry status is ${registryStatus} — not selectable for Opportunities.`,
+    };
+  }
   if (
-    input.lifecycleStatus === "suspended" ||
+    lifecycle === "suspended" ||
     input.agreementStatus === "suspended" ||
     input.operationalStatus === "inactive"
   ) {
     return {
       selectability: "not_selectable",
       message: "Suspended — not selectable for Opportunities.",
+    };
+  }
+  if (lifecycle === "retired") {
+    return {
+      selectability: "not_selectable",
+      message: "Retired — not selectable for Opportunities.",
     };
   }
   if (input.agreementStatus === "expired") {
@@ -118,34 +142,42 @@ export function resolveWealthPartnerOpportunitySelectability(input: {
       message: "Renewal Due — selectable with warning until the agreement is renewed.",
     };
   }
-  if (
-    input.lifecycleStatus === "active" &&
-    (input.agreementStatus === "active" ||
+
+  /** CO-WP-OPP-REFINEMENT-001 — Draft / Onboarding may source Opportunities (not payout). */
+  if (lifecycle === "draft" || lifecycle === "onboarding") {
+    const label = lifecycle === "draft" ? "Draft" : "Onboarding";
+    return {
+      selectability: "selectable",
+      message: `${label} — selectable as Opportunity source. Payout remains subject to commercial / KYC eligibility.`,
+    };
+  }
+
+  if (lifecycle === "active") {
+    if (
+      input.agreementStatus === "active" ||
       input.agreementStatus === "not_started" ||
       input.agreementStatus === "generated" ||
       input.agreementStatus === "sent" ||
       input.agreementStatus === "partner_signed" ||
-      input.agreementStatus === "countersigned")
-  ) {
-    // Active partners remain selectable; incomplete docket is warning-level for ops, not a hard block
-    // unless expired/suspended per enterprise role rules.
-    if (input.agreementStatus === "active") {
+      input.agreementStatus === "countersigned"
+    ) {
+      if (input.agreementStatus === "active") {
+        return {
+          selectability: "selectable",
+          message: "Active — selectable for Opportunities.",
+        };
+      }
       return {
         selectability: "selectable",
-        message: "Active — selectable for Opportunities.",
+        message: "Active partner — Legal Docket pending completion (does not block sourcing).",
       };
     }
-    return {
-      selectability: "selectable",
-      message: "Active partner — Legal Docket pending completion (does not block sourcing).",
-    };
-  }
-  if (input.lifecycleStatus === "active") {
     return {
       selectability: "selectable",
       message: "Active — selectable for Opportunities.",
     };
   }
+
   return {
     selectability: "not_selectable",
     message: `Partner lifecycle is ${input.lifecycleStatus} — not selectable for new Opportunities.`,
@@ -155,7 +187,7 @@ export function resolveWealthPartnerOpportunitySelectability(input: {
 export function composeWealthPartnerLegalCompliance(input: {
   partner: Pick<
     EnterpriseWealthPartnerRecord,
-    "lifecycleStatus" | "operationalStatus"
+    "lifecycleStatus" | "operationalStatus" | "status" | "enabled"
   >;
   docket: WealthPartnerLegalDocketState;
   policy?: WealthPartnerLegalOrgPolicy;
@@ -176,6 +208,8 @@ export function composeWealthPartnerLegalCompliance(input: {
     lifecycleStatus: input.partner.lifecycleStatus,
     operationalStatus: input.partner.operationalStatus,
     agreementStatus,
+    registryStatus: input.partner.status,
+    enabled: input.partner.enabled,
   });
 
   const currentDocs = input.docket.documents.filter((d) => d.status !== "archived");

@@ -90,8 +90,10 @@ export const ENTERPRISE_IDC_DETAIL_SECTIONS: IdcSectionDef[] = [
       {
         key: "occupation",
         label: "Occupation",
-        control: "text",
+        control: "select",
         required: false,
+        optionSet: "occupation",
+        placeholder: "Search occupation…",
         helpText: "Profession or business activity.",
         displayOrder: 30,
         visibleWhenField: "employmentTypeCode",

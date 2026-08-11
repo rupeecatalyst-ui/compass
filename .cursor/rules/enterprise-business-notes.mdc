@@ -1,0 +1,43 @@
+---
+description: Enterprise Business Notes — official business context notes (not personal notepad)
+alwaysApply: false
+---
+
+# Enterprise Business Notes — Platform Constitution
+
+Status: **ENTERPRISE APPROVED** · Canonical business notes  
+Sprint foundation: **CO-UX-021**
+
+## Constitutional principles
+
+1. Business Notes are **official enterprise context** — not a personal notepad.
+2. Every saved note **dual-writes** into the **Enterprise Activity Registry** (`eventKind: notes`, `sourceSystem: business_notes`).
+3. Soft delete only — never permanent hard delete.
+4. One pinned note per entity scope (`entityKind` + `entityId`).
+5. AI-ready projection exists (`projectBusinessNotesForAiContext`) — **do not** implement Chanakya/SARATHI note reading in this sprint.
+6. Compact Notes icon in workspace headers — do **not** redesign Opportunity Workspace or Lender Lifecycle chrome.
+
+## SSOT paths
+
+| Concern | Path |
+|---------|------|
+| Types | `src/types/enterprise-business-notes.ts` |
+| Constants | `src/constants/enterprise-business-notes/` |
+| Client | `src/lib/enterprise-business-notes/` |
+| Prisma | `EnterpriseBusinessNote` → `enterprise_business_notes` |
+| Service | `server/services/enterprise-business-notes/` |
+| API | `GET/POST/PATCH /api/enterprise-business-notes` |
+| UI | `src/components/catalyst-one/enterprise-business-notes/` |
+
+## Forbidden
+
+- Parallel localStorage / profile-only note SSOTs for business workspaces  
+- Expanding unused `EnterpriseDealNote` as universal notes  
+- Hard delete of business notes  
+- Redesigning OW / Lender Lifecycle for Notes placement  
+
+## Related
+
+- `enterprise-activity-registry.mdc`
+- `enterprise-workspace-ux.mdc`
+- CAD-2026-001

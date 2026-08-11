@@ -1,0 +1,632 @@
+{
+  "sprint": "CO-PRODUCT-PRIORITY-004",
+  "readOnly": true,
+  "lapProductMaster": [
+    {
+      "id": "cmrusok5d000nwe60ustevx6i",
+      "code": "LAP_STD",
+      "label": "Loan Against Property",
+      "status": "active",
+      "enabled": true,
+      "lifecycleStatus": "published"
+    },
+    {
+      "id": "cmrusol1t0015we60srmgtbnc",
+      "code": "LAP",
+      "label": "Loan Against Property",
+      "status": "active",
+      "enabled": true,
+      "lifecycleStatus": "published"
+    }
+  ],
+  "commercialPurchaseProductMaster": [
+    {
+      "id": "cms7h885v000zld04kqn6imfc",
+      "code": "COMM_PURCHASE",
+      "label": "Commercial Purchase",
+      "status": "active",
+      "enabled": true,
+      "lifecycleStatus": "published"
+    }
+  ],
+  "totals": {
+    "enabledLenders": 280,
+    "lapEligible": 160,
+    "commercialPurchaseEligible": 1
+  },
+  "poOrder": [
+    "Standard Chartered Bank",
+    "Saraswat Cooperative Bank",
+    "HDFC Bank",
+    "IndusInd Bank",
+    "Jio Financial Services",
+    "Kotak Mahindra Bank",
+    "Axis Bank",
+    "Yes Bank",
+    "Federal Bank",
+    "Piramal Finance",
+    "Deutsche Bank",
+    "Bajaj Finance",
+    "Aditya Birla Finance"
+  ],
+  "recommendations": [
+    {
+      "requestedRank": 1,
+      "requestedName": "Standard Chartered Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms8hq3nz0003wed804dmj3ou",
+          "lenderCode": "STANDARD_CHARTERED",
+          "institutionName": "Standard Chartered Bank",
+          "institutionType": "bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms8hq3nz0003wed804dmj3ou",
+        "lenderCode": "STANDARD_CHARTERED",
+        "institutionName": "Standard Chartered Bank",
+        "institutionType": "bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 2,
+      "requestedName": "Saraswat Cooperative Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cnp84003zwen42y73iquu",
+          "lenderCode": "SARASWAT",
+          "institutionName": "Saraswat Cooperative Bank",
+          "institutionType": "cooperative_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cnp84003zwen42y73iquu",
+        "lenderCode": "SARASWAT",
+        "institutionName": "Saraswat Cooperative Bank",
+        "institutionType": "cooperative_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 3,
+      "requestedName": "HDFC Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cmrusopl1003lwe601zac0dvs",
+          "lenderCode": "HDFC",
+          "institutionName": "HDFC Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cmrusopl1003lwe601zac0dvs",
+        "lenderCode": "HDFC",
+        "institutionName": "HDFC Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 4,
+      "requestedName": "IndusInd Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cmrsd000pwen4n938ri4v",
+          "lenderCode": "INDUSIND",
+          "institutionName": "IndusInd Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cmrsd000pwen4n938ri4v",
+        "lenderCode": "INDUSIND",
+        "institutionName": "IndusInd Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 5,
+      "requestedName": "Jio Financial Services",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cmsg6x2c10001wegs7bkdzt3k",
+          "lenderCode": "LND000001",
+          "institutionName": "Jio Financial Services",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": false,
+          "commercialPurchaseMapped": false,
+          "productsSupported": []
+        }
+      ],
+      "selected": {
+        "lenderId": "cmsg6x2c10001wegs7bkdzt3k",
+        "lenderCode": "LND000001",
+        "institutionName": "Jio Financial Services",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": false,
+        "commercialPurchaseMapped": false,
+        "productsSupported": []
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 6,
+      "requestedName": "Kotak Mahindra Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cmrusoprt003pwe60kshcazu7",
+          "lenderCode": "KOTAK",
+          "institutionName": "Kotak Mahindra Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cmrusoprt003pwe60kshcazu7",
+        "lenderCode": "KOTAK",
+        "institutionName": "Kotak Mahindra Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 7,
+      "requestedName": "Axis Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cmrusopch003hwe60phw80i5i",
+          "lenderCode": "AXIS",
+          "institutionName": "Axis Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cmrusopch003hwe60phw80i5i",
+        "lenderCode": "AXIS",
+        "institutionName": "Axis Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 8,
+      "requestedName": "Yes Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+          "lenderCode": "YES",
+          "institutionName": "Yes Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+        "lenderCode": "YES",
+        "institutionName": "Yes Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 9,
+      "requestedName": "Federal Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cmsvt000twen4qf3d6wok",
+          "lenderCode": "FEDERAL",
+          "institutionName": "Federal Bank",
+          "institutionType": "private_sector_bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cmsvt000twen4qf3d6wok",
+        "lenderCode": "FEDERAL",
+        "institutionName": "Federal Bank",
+        "institutionType": "private_sector_bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 10,
+      "requestedName": "Piramal Finance",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cnkz5003lwen4jfhr97rd",
+          "lenderCode": "PIRAMAL_FINANCE",
+          "institutionName": "Piramal Finance",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED",
+            "LAP",
+            "HOME_LOAN"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cnkz5003lwen4jfhr97rd",
+        "lenderCode": "PIRAMAL_FINANCE",
+        "institutionName": "Piramal Finance",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED",
+          "LAP",
+          "HOME_LOAN"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 11,
+      "requestedName": "Deutsche Bank",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms8hq5320009wed8mkd9nu57",
+          "lenderCode": "DEUTSCHE_BANK",
+          "institutionName": "Deutsche Bank",
+          "institutionType": "bank",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "HOME_LOAN",
+            "HOME_LOAN_BT",
+            "LAP",
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms8hq5320009wed8mkd9nu57",
+        "lenderCode": "DEUTSCHE_BANK",
+        "institutionName": "Deutsche Bank",
+        "institutionType": "bank",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "HOME_LOAN",
+          "HOME_LOAN_BT",
+          "LAP",
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 12,
+      "requestedName": "Bajaj Finance",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cnfmd0033wen4dd25gl97",
+          "lenderCode": "BAJAJ_FINANCE",
+          "institutionName": "Bajaj Finance",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED",
+            "LAP",
+            "HOME_LOAN"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cnfmd0033wen4dd25gl97",
+        "lenderCode": "BAJAJ_FINANCE",
+        "institutionName": "Bajaj Finance",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED",
+          "LAP",
+          "HOME_LOAN"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    },
+    {
+      "requestedRank": 13,
+      "requestedName": "Aditya Birla Finance",
+      "hitCount": 1,
+      "hits": [
+        {
+          "lenderId": "cms4cngrl0037wen43lkirriv",
+          "lenderCode": "ADITYA_BIRLA_FINANCE",
+          "institutionName": "Aditya Birla Finance",
+          "institutionType": "nbfc",
+          "enabled": true,
+          "status": "active",
+          "active": true,
+          "lapMapped": true,
+          "commercialPurchaseMapped": false,
+          "productsSupported": [
+            "PERSONAL_LOAN",
+            "BUSINESS_LOAN_UNSECURED",
+            "WORKING_CAPITAL_SECURED",
+            "LAP",
+            "HOME_LOAN"
+          ]
+        }
+      ],
+      "selected": {
+        "lenderId": "cms4cngrl0037wen43lkirriv",
+        "lenderCode": "ADITYA_BIRLA_FINANCE",
+        "institutionName": "Aditya Birla Finance",
+        "institutionType": "nbfc",
+        "enabled": true,
+        "status": "active",
+        "active": true,
+        "lapMapped": true,
+        "commercialPurchaseMapped": false,
+        "productsSupported": [
+          "PERSONAL_LOAN",
+          "BUSINESS_LOAN_UNSECURED",
+          "WORKING_CAPITAL_SECURED",
+          "LAP",
+          "HOME_LOAN"
+        ]
+      },
+      "selectionReason": "SINGLE_MATCH"
+    }
+  ]
+}

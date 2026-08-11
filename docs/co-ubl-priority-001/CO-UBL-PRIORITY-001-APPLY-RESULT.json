@@ -1,0 +1,252 @@
+{
+  "sprint": "CO-UBL-PRIORITY-001",
+  "principle": "UBL PRIORITY = RANKING ONLY · PRIORITY ≠ ELIGIBILITY · PRIORITY ≠ MAPPING · PRIORITY ≠ WHITELIST",
+  "productMaster": {
+    "productId": "cms7h8o3j0017ld04r3ga1q5x",
+    "productCode": "BUSINESS_LOAN_UNSECURED",
+    "productLabel": "Business Loan (Unsecured)"
+  },
+  "productFamily": "BUSINESS_LOAN_UNSECURED",
+  "before": {
+    "totalLenders": 283,
+    "ublEligible": 236,
+    "enabledTrue": 280,
+    "matrixFingerprint": "fcd7e625b246ab1f751b82891ff10fbd3322f4644520d38c94cf0583fb8f3829"
+  },
+  "after": {
+    "totalLenders": 283,
+    "ublEligible": 236,
+    "enabledTrue": 280,
+    "matrixFingerprint": "fcd7e625b246ab1f751b82891ff10fbd3322f4644520d38c94cf0583fb8f3829"
+  },
+  "integrity": {
+    "lenderCountUnchanged": true,
+    "ublEligibleUnchanged": true,
+    "enabledUnchanged": true,
+    "matrixUnchanged": true,
+    "priorityCount": 17,
+    "priorityUnique": true,
+    "allPriorityUblMapped": true,
+    "noNewLenders": true,
+    "noDeletedLenders": true,
+    "noEligibilityCreated": true,
+    "noProgramsModified": true
+  },
+  "priorityTable": [
+    {
+      "priority": 1,
+      "requestedName": "Axis Bank",
+      "institution": "Axis Bank",
+      "lenderId": "cmrusopch003hwe60phw80i5i",
+      "lenderCode": "AXIS",
+      "institutionType": "private_sector_bank",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 2,
+      "requestedName": "Bajaj Finance",
+      "institution": "Bajaj Finance",
+      "lenderId": "cms4cnfmd0033wen4dd25gl97",
+      "lenderCode": "BAJAJ_FINANCE",
+      "institutionType": "nbfc",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 3,
+      "requestedName": "Clix Capital",
+      "institution": "Clix Capital",
+      "lenderId": "cms8hrzug00ajwed8qwz7d961",
+      "lenderCode": "CLIX_CAPITAL",
+      "institutionType": "nbfc",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 4,
+      "requestedName": "Credit Saison India",
+      "institution": "Credit Saison India",
+      "lenderId": "cms8hs06p00alwed8uj1in1tl",
+      "lenderCode": "CREDIT_SAISON",
+      "institutionType": "nbfc",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 5,
+      "requestedName": "DCB Bank",
+      "institution": "DCB Bank",
+      "lenderId": "cms4cmwz20017wen412c85bwt",
+      "lenderCode": "DCB",
+      "institutionType": "private_sector_bank",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 6,
+      "requestedName": "Deutsche Bank",
+      "institution": "Deutsche Bank",
+      "lenderId": "cms8hq5320009wed8mkd9nu57",
+      "lenderCode": "DEUTSCHE_BANK",
+      "institutionType": "bank",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 7,
+      "requestedName": "Edelweiss Finance",
+      "institution": "Edelweiss Finance",
+      "lenderId": "cms4cnm68003pwen4f9zoqxtd",
+      "lenderCode": "EDELWEISS",
+      "institutionType": "nbfc",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 8,
+      "requestedName": "SMFG India Credit",
+      "institution": "SMFG India Credit",
+      "lenderId": "cms8hqswj003zwed82nroc47c",
+      "lenderCode": "SMFG_INDIA",
+      "institutionType": "nbfc",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 9,
+      "requestedName": "HDFC Bank",
+      "institution": "HDFC Bank",
+      "lenderId": "cmrusopl1003lwe601zac0dvs",
+      "lenderCode": "HDFC",
+      "institutionType": "private_sector_bank",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 10,
+      "requestedName": "HDB Financial Services",
+      "institution": "HDB Financial Services",
+      "lenderId": "cms8hru7f009pwed8w8c1qs28",
+      "lenderCode": "HDB_FINANCIAL",
+      "institutionType": "nbfc",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 11,
+      "requestedName": "ICICI Bank",
+      "institution": "ICICI Bank",
+      "lenderId": "cmrusopoe003nwe60331ytwfx",
+      "lenderCode": "ICICI",
+      "institutionType": "private_sector_bank",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 12,
+      "requestedName": "Tata Capital Finance",
+      "institution": "Tata Capital",
+      "lenderId": "cms4cng5z0035wen4tirf9gtk",
+      "lenderCode": "TATA_CAPITAL",
+      "institutionType": "nbfc",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 13,
+      "requestedName": "Standard Chartered Bank",
+      "institution": "Standard Chartered Bank",
+      "lenderId": "cms8hq3nz0003wed804dmj3ou",
+      "lenderCode": "STANDARD_CHARTERED",
+      "institutionType": "bank",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 14,
+      "requestedName": "Yes Bank",
+      "institution": "Yes Bank",
+      "lenderId": "cms4cmtp4000vwen44q8r6ajy",
+      "lenderCode": "YES",
+      "institutionType": "private_sector_bank",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 15,
+      "requestedName": "L&T Finance",
+      "institution": "L&T Finance",
+      "lenderId": "cms4cnhcu0039wen4z8cd7mva",
+      "lenderCode": "LT_FINANCE",
+      "institutionType": "nbfc",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 16,
+      "requestedName": "IDFC FIRST Bank",
+      "institution": "IDFC FIRST Bank",
+      "lenderId": "cms4cmsbt000rwen4q9tdyqfh",
+      "lenderCode": "IDFC_FIRST",
+      "institutionType": "private_sector_bank",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    },
+    {
+      "priority": 17,
+      "requestedName": "FlexiLoans",
+      "institution": "FlexiLoans",
+      "lenderId": "cms8hqhp40025wed8exph7i4r",
+      "lenderCode": "FLEXILOANS",
+      "institutionType": "nbfc",
+      "ublMapped": "Yes",
+      "status": "active",
+      "enabled": true,
+      "active": true
+    }
+  ],
+  "remainingEligibleCount": 219,
+  "notMapped": [],
+  "identityNotes": [
+    {
+      "requestedName": "Tata Capital Finance",
+      "resolvedInstitutionName": "Tata Capital",
+      "lenderCode": "TATA_CAPITAL",
+      "lenderId": "cms4cng5z0035wen4tirf9gtk",
+      "note": "Live registry label is Tata Capital (not Tata Capital Finance). Used existing canonical record; no new lender created."
+    }
+  ]
+}

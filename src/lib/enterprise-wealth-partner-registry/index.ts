@@ -123,6 +123,8 @@ export const wealthPartnerApiClient = {
     if (query.status) params.set("status", String(query.status));
     if (query.contactId) params.set("contactId", query.contactId);
     if (query.companyId) params.set("companyId", query.companyId);
+    if (query.createdFrom) params.set("createdFrom", query.createdFrom);
+    if (query.createdTo) params.set("createdTo", query.createdTo);
     return wpFetch(`/api/wealth-partner-registry/partners?${params.toString()}`);
   },
 

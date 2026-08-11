@@ -37,8 +37,10 @@ import {
   filterOrgDocuments,
   getOrgDocuments,
   getOrgTemplateTypes,
+  hydrateOrgDocumentsRegistry,
   listOrgDocumentTypes,
   moveOrgDocumentsCategory,
+  ORG_DOCUMENTS_PERSISTENCE_REQUIRED_MESSAGE,
   reorderOrgTemplateTypes,
   replaceOrgDocument,
   updateOrgTemplateType,
@@ -130,6 +132,16 @@ export function OrganizationDocumentsWorkspace() {
 
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((t) => t + 1), []);
+
+  useEffect(() => {
+    void hydrateOrgDocumentsRegistry()
+      .then(() => refresh())
+      .catch((err) => {
+        toast.error(
+          err instanceof Error ? err.message : ORG_DOCUMENTS_PERSISTENCE_REQUIRED_MESSAGE,
+        );
+      });
+  }, [refresh]);
 
   const documents = useMemo(() => getOrgDocuments(), [tick]);
   const templateTypes = useMemo(() => getOrgTemplateTypes(), [tick]);

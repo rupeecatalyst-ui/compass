@@ -397,6 +397,13 @@ export function mapProgramRow(row: {
   maxTenureMonths?: number | null;
   minCibil?: number | null;
   minIncomeAmount?: number | null;
+  maxFoirPercent?: number | null;
+  maxDbrPercent?: number | null;
+  minFundingAmount?: number | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  creditRiskPolicyRef?: string | null;
+  requiredDocumentTypeIds?: unknown;
   eligibleStates?: unknown;
   eligibleCities?: unknown;
   averageTatDays?: number | null;
@@ -441,6 +448,41 @@ export function mapProgramRow(row: {
     maxTenureMonths: row.maxTenureMonths ?? null,
     minCibil: row.minCibil ?? null,
     minIncomeAmount: row.minIncomeAmount ?? null,
+    maxFoirPercent: row.maxFoirPercent ?? null,
+    maxDbrPercent: row.maxDbrPercent ?? null,
+    minFundingAmount: row.minFundingAmount ?? null,
+    minAge: row.minAge ?? null,
+    maxAge: row.maxAge ?? null,
+    creditRiskPolicyRef: row.creditRiskPolicyRef ?? null,
+    requiredDocumentTypeIds: jsonToStringArray((row.requiredDocumentTypeIds as never) ?? null),
+    requiredDocuments: (() => {
+      const raw = row.requiredDocumentTypeIds as unknown;
+      if (!Array.isArray(raw)) return null;
+      // Prefer structured objects when present; string[] still maps via typeIds
+      const structured = raw.filter((x) => x && typeof x === "object");
+      if (structured.length === 0) {
+        const ids = jsonToStringArray(raw as never);
+        return ids?.map((typeRef) => ({
+          typeRef,
+          mandatory: true,
+          active: true,
+          applicability: "all" as const,
+        })) ?? null;
+      }
+      return structured.map((item) => {
+        const row = item as Record<string, unknown>;
+        const typeRef = String(row.typeRef ?? row.code ?? "").trim();
+        const mandatory = row.mandatory !== false && row.optional !== true;
+        return {
+          typeRef,
+          mandatory,
+          optional: !mandatory,
+          applicability: (row.applicability as "all" | "salaried" | "self_employed" | "company") || "all",
+          active: row.active !== false,
+          label: typeof row.label === "string" ? row.label : undefined,
+        };
+      }).filter((r) => r.typeRef);
+    })(),
     eligibleStates: jsonToStringArray((row.eligibleStates as never) ?? null),
     eligibleCities: jsonToStringArray((row.eligibleCities as never) ?? null),
     averageTatDays: row.averageTatDays ?? null,

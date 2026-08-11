@@ -1,0 +1,236 @@
+1. Abhyudaya Cooperative Bank | Cooperative Bank | ABHYUDAYA | cms4cnrmq0047wen4n1pdo8xw | Active | Unsecured Business Loan Mapped: Yes | Programs: Abhyudaya — Business Loan (Unsecured) | Priority: —
+2. Aditya Birla Finance | NBFC | ADITYA_BIRLA_FINANCE | cms4cngrl0037wen43lkirriv | Active | Unsecured Business Loan Mapped: Yes | Programs: ABFL — Business Loan (Unsecured) | Priority: —
+3. Ahmedabad DCCB | Cooperative Bank | AHMEDABAD_DIST | cms8hr4d6005vwed8h58r47l8 | Active | Unsecured Business Loan Mapped: Yes | Programs: ADCC Bank — Business Loan (Unsecured) | Priority: —
+4. Amazon Pay Credit | NBFC | AMAZON_PAY_LATER | cms8hqk4d002jwed8k0rdwkfg | Active | Unsecured Business Loan Mapped: Yes | Programs: Amazon Pay — Business Loan (Unsecured) | Priority: —
+5. Andhra Pragathi Grameena Bank | Cooperative Bank | ANDHRA_PRAGATHI | cms8hrhhd007nwed8s7hwpzeh | Active | Unsecured Business Loan Mapped: Yes | Programs: APGB — Business Loan (Unsecured) | Priority: —
+6. Annapurna Finance | NBFC | ANNAPURNA_FINANCE | cms8hqun80049wed8rdykrel2 | Active | Unsecured Business Loan Mapped: Yes | Programs: Annapurna — Business Loan (Unsecured) | Priority: —
+7. AP State Co-operative Bank | Cooperative Bank | ANDHRA_STATE_COOP | cms8hrtgh009lwed8ie46fy06 | Active | Unsecured Business Loan Mapped: Yes | Programs: APCOB — Business Loan (Unsecured) | Priority: —
+8. Apna Sahakari Bank | Cooperative Bank | APNA_SAHAKARI | cms8hr20d005hwed8z2wsfvao | Active | Unsecured Business Loan Mapped: Yes | Programs: Apna Sahakari — Business Loan (Unsecured) | Priority: —
+9. Arohan | NBFC | AROHAN | cms8hqwbc004jwed8y0s4uj1c | Active | Unsecured Business Loan Mapped: Yes | Programs: Arohan — Business Loan (Unsecured) | Priority: —
+10. Arunachal Pradesh Rural Bank | Cooperative Bank | ARUNACHAL_RURAL | cms8hrn1l008jwed8ykf8z6bq | Active | Unsecured Business Loan Mapped: Yes | Programs: APRB — Business Loan (Unsecured) | Priority: —
+11. Aryavart Bank | Cooperative Bank | ARYA_VART | cms8hrik5007twed8zpzffykz | Active | Unsecured Business Loan Mapped: Yes | Programs: Aryavart — Business Loan (Unsecured) | Priority: —
+12. Asirvad Micro Finance | NBFC | ASIRVAD | cms8hqwn2004lwed8swo6uu50 | Active | Unsecured Business Loan Mapped: Yes | Programs: Asirvad — Business Loan (Unsecured) | Priority: —
+13. Assam Gramin Vikash Bank | Cooperative Bank | ASSAM_GRAMIN | cms8hrl0q0087wed8garh8uh0 | Active | Unsecured Business Loan Mapped: Yes | Programs: AGVB — Business Loan (Unsecured) | Priority: —
+14. AU Small Finance Bank | SFB | AU_SFB | cms4cn0sw001lwen4gdbtp9n1 | Active | Unsecured Business Loan Mapped: Yes | Programs: AU SFB — Business Loan (Unsecured) | Priority: —
+15. Axis Bank | Private Bank | AXIS | cmrusopch003hwe60phw80i5i | Active | Unsecured Business Loan Mapped: Yes | Programs: Axis — Business Loan (Unsecured) | Priority: —
+16. Aye Finance | NBFC | AYE_FINANCE | cms8hqtwo0045wed8j2q5135d | Active | Unsecured Business Loan Mapped: Yes | Programs: Aye — Business Loan (Unsecured) | Priority: —
+17. Bajaj Finance | NBFC | BAJAJ_FINANCE | cms4cnfmd0033wen4dd25gl97 | Active | Unsecured Business Loan Mapped: Yes | Programs: Bajaj Finance — Business Loan (Unsecured) | Priority: —
+18. Bandhan Bank | Private Bank | BANDHAN | cms4cmym7001dwen4yy0kag4p | Active | Unsecured Business Loan Mapped: Yes | Programs: Bandhan — Business Loan (Unsecured) | Priority: —
+19. Bandhan Financial Services | NBFC | BANDHAN_FINANCIAL | cms8hqvzg004hwed8c21xvesr | Active | Unsecured Business Loan Mapped: Yes | Programs: Bandhan FS — Business Loan (Unsecured) | Priority: —
+20. Bank of America | Bank | BANK_OF_AMERICA | cms8hq5jy000bwed8cw15ailo | Active | Unsecured Business Loan Mapped: Yes | Programs: BofA — Business Loan (Unsecured) | Priority: —
+21. Bank of Baroda | Public Bank | BOB | cms4cmkgh0003wen4racfsmj4 | Active | Unsecured Business Loan Mapped: Yes | Programs: BoB — Business Loan (Unsecured) | Priority: —
+22. Bank of India | Public Bank | BOI | cms4cmn6x000dwen4ppiw05e0 | Active | Unsecured Business Loan Mapped: Yes | Programs: BoI — Business Loan (Unsecured) | Priority: —
+23. Bank of Maharashtra | Public Bank | BOM | cms4cmpds000lwen4uwizbmrj | Active | Unsecured Business Loan Mapped: Yes | Programs: BoM — Business Loan (Unsecured) | Priority: —
+24. Barclays Bank | Bank | BARCLAYS | cms8hr7h1006dwed8sffs0yn3 | Active | Unsecured Business Loan Mapped: Yes | Programs: Barclays — Business Loan (Unsecured) | Priority: —
+25. Baroda UP Bank | Cooperative Bank | BARODA_UP_GRAMIN | cms8hrh5a007lwed88ridyam5 | Active | Unsecured Business Loan Mapped: Yes | Programs: Baroda UP — Business Loan (Unsecured) | Priority: —
+26. BBK | Bank | BANK_OF_BAHRAIN | cms8hrcez006xwed8u8up0x9i | Active | Unsecured Business Loan Mapped: Yes | Programs: BBK — Business Loan (Unsecured) | Priority: —
+27. Belstar Microfinance | NBFC | BELSTAR | cms8hqwz3004nwed8vkbk3y3m | Active | Unsecured Business Loan Mapped: Yes | Programs: Belstar — Business Loan (Unsecured) | Priority: —
+28. Berar Finance | NBFC | BERAR_FINANCE | cms8hqn670031wed84lhfs276 | Active | Unsecured Business Loan Mapped: Yes | Programs: Berar — Business Loan (Unsecured) | Priority: —
+29. Bharat Cooperative Bank | Cooperative Bank | BHARAT_COOP | cms4cns8a0049wen434kaf4h7 | Active | Unsecured Business Loan Mapped: Yes | Programs: Bharat Coop — Business Loan (Unsecured) | Priority: —
+30. BharatPe | NBFC | BHARATPE | cms8hrw8r00a1wed8h6lzlzrr | Active | Unsecured Business Loan Mapped: Yes | Programs: BharatPe — Business Loan (Unsecured) | Priority: —
+31. Bihar State Co-operative Bank | Cooperative Bank | BIHAR_STATE_COOP | cms8hrq2n0091wed8wtpasqlz | Active | Unsecured Business Loan Mapped: Yes | Programs: BSCB — Business Loan (Unsecured) | Priority: —
+32. BMW Financial Services | NBFC | BMW_FINANCIAL | cms8hqpv9003hwed80w7dmc3b | Active | Unsecured Business Loan Mapped: Yes | Programs: BMW FS — Business Loan (Unsecured) | Priority: —
+33. BNP Paribas | Bank | BNP_PARIBAS | cms8hr7y5006fwed8w8xgj1ls | Active | Unsecured Business Loan Mapped: Yes | Programs: BNP Paribas — Business Loan (Unsecured) | Priority: —
+34. Bombay Mercantile Co-op Bank | Cooperative Bank | BOMBAY_MERC | cms8hr2oj005lwed8wvtp4r26 | Active | Unsecured Business Loan Mapped: Yes | Programs: BMCB — Business Loan (Unsecured) | Priority: —
+35. Canara Bank | Public Bank | CANARA | cms4cmljv0007wen4xa9hgtpl | Active | Unsecured Business Loan Mapped: Yes | Programs: Canara — Business Loan (Unsecured) | Priority: —
+36. Capital Float | NBFC | CAPITAL_FLOAT | cms8hqgom001zwed8sxsyj686 | Active | Unsecured Business Loan Mapped: Yes | Programs: Capital Float — Business Loan (Unsecured) | Priority: —
+37. Capital Small Finance Bank | SFB | CAPITAL_SFB | cms4cn4mv001zwen42nlml0pc | Active | Unsecured Business Loan Mapped: Yes | Programs: Capital SFB — Business Loan (Unsecured) | Priority: —
+38. Capri Global | NBFC | CAPRI_GLOBAL | cms4cnlkp003nwen4eywper25 | Active | Unsecured Business Loan Mapped: Yes | Programs: Capri — Business Loan (Unsecured) | Priority: —
+39. CASHe | NBFC | CASHE | cms8hqj4c002dwed8rohax3cv | Active | Unsecured Business Loan Mapped: Yes | Programs: CASHe — Business Loan (Unsecured) | Priority: —
+40. Central Bank of India | Public Bank | CBI | cms4cmnqu000fwen42ygnftpi | Active | Unsecured Business Loan Mapped: Yes | Programs: CBI — Business Loan (Unsecured) | Priority: —
+41. Chhattisgarh Rajya Sahakari Bank | Cooperative Bank | CHHATTISGARH_RAJYA | cms8hrqr70095wed8jmesmbgc | Active | Unsecured Business Loan Mapped: Yes | Programs: CG Rajya Bank — Business Loan (Unsecured) | Priority: —
+42. Cholamandalam Investment & Finance | NBFC | CHOLA | cms4cnhyz003bwen45z3id9dm | Active | Unsecured Business Loan Mapped: Yes | Programs: Chola — Business Loan (Unsecured) | Priority: —
+43. Citibank | Bank | CITIBANK | cms8hq60x000dwed8rmrvt41d | Active | Unsecured Business Loan Mapped: Yes | Programs: Citi — Business Loan (Unsecured) | Priority: —
+44. Citizen Credit Co-op Bank | Cooperative Bank | CITIZEN_CREDIT | cms8hr5pz0063wed8u7ts8ymh | Active | Unsecured Business Loan Mapped: Yes | Programs: Citizen Credit — Business Loan (Unsecured) | Priority: —
+45. City Union Bank | Private Bank | CUB | cms4cmwfb0015wen4tjpqtz8y | Active | Unsecured Business Loan Mapped: Yes | Programs: CUB — Business Loan (Unsecured) | Priority: —
+46. Clix Capital | NBFC | CLIX_CAPITAL | cms8hrzug00ajwed8qwz7d961 | Active | Unsecured Business Loan Mapped: Yes | Programs: Clix Capital — Business Loan (Unsecured) | Priority: —
+47. Cosmos Cooperative Bank | Cooperative Bank | COSMOS | cms4cnptn0041wen4c63jdpf6 | Active | Unsecured Business Loan Mapped: Yes | Programs: Cosmos — Business Loan (Unsecured) | Priority: —
+48. CRED | NBFC | CRED_AVENUE | cms8hqlth002twed8g1ybhodn | Active | Unsecured Business Loan Mapped: Yes | Programs: CRED — Business Loan (Unsecured) | Priority: —
+49. Credit Agricole CIB | Bank | CREDIT_AGRICOLE | cms8hr8fa006hwed82t5kadwt | Active | Unsecured Business Loan Mapped: Yes | Programs: CACIB — Business Loan (Unsecured) | Priority: —
+50. Credit Saison India | NBFC | CREDIT_SAISON | cms8hs06p00alwed8uj1in1tl | Active | Unsecured Business Loan Mapped: Yes | Programs: Credit Saison — Business Loan (Unsecured) | Priority: —
+51. CreditAccess Grameen | NBFC | CREDITACCESS | cms8hqvbi004dwed80z1ggcoa | Active | Unsecured Business Loan Mapped: Yes | Programs: CA Grameen — Business Loan (Unsecured) | Priority: —
+52. CSB Bank | Private Bank | CSB | cms4cmy2i001bwen46gohs72s | Active | Unsecured Business Loan Mapped: Yes | Programs: CSB — Business Loan (Unsecured) | Priority: —
+53. CTBC Bank | Bank | CTBC_BANK | cms8hrcw2006zwed8msy5qbbw | Active | Unsecured Business Loan Mapped: Yes | Programs: CTBC — Business Loan (Unsecured) | Priority: —
+54. DBS Bank India | Bank | DBS_INDIA | cms8hq4m00007wed8nyf40466 | Active | Unsecured Business Loan Mapped: Yes | Programs: DBS — Business Loan (Unsecured) | Priority: —
+55. DCB Bank | Private Bank | DCB | cms4cmwz20017wen412c85bwt | Active | Unsecured Business Loan Mapped: Yes | Programs: DCB — Business Loan (Unsecured) | Priority: —
+56. Deutsche Bank | Bank | DEUTSCHE_BANK | cms8hq5320009wed8mkd9nu57 | Active | Unsecured Business Loan Mapped: Yes | Programs: Deutsche — Business Loan (Unsecured) | Priority: —
+57. Dhanlaxmi Bank | Private Bank | DHANLAXMI_BANK | cms8hq7zb000lwed8e6wredb5 | Active | Unsecured Business Loan Mapped: Yes | Programs: Dhanlaxmi — Business Loan (Unsecured) | Priority: —
+58. Doha Bank | Bank | DOHA_BANK | cms8hq7ib000jwed8kuyd0g4a | Active | Unsecured Business Loan Mapped: Yes | Programs: Doha — Business Loan (Unsecured) | Priority: —
+59. Dombivli Nagari Sahakari Bank | Cooperative Bank | DOMBIVLI_NAGARI | cms8hr6260065wed8v75ropll | Active | Unsecured Business Loan Mapped: Yes | Programs: DNS Bank — Business Loan (Unsecured) | Priority: —
+60. EarlySalary / Fibe | NBFC | EARLYSALARY | cms8hqirx002bwed8rsmor57j | Active | Unsecured Business Loan Mapped: Yes | Programs: Fibe — Business Loan (Unsecured) | Priority: —
+61. Edelweiss Finance | NBFC | EDELWEISS | cms4cnm68003pwen4f9zoqxtd | Active | Unsecured Business Loan Mapped: Yes | Programs: Edelweiss — Business Loan (Unsecured) | Priority: —
+62. Electronica Finance | NBFC | ELECTRONICA_FINANCE | cms8hqskc003xwed8p4qh2rqw | Active | Unsecured Business Loan Mapped: Yes | Programs: EFL — Business Loan (Unsecured) | Priority: —
+63. Emirates NBD | Bank | EMIRATES_NBD | cms8hrazz006rwed8e1oyj9gr | Active | Unsecured Business Loan Mapped: Yes | Programs: ENBD — Business Loan (Unsecured) | Priority: —
+64. Equitas Small Finance Bank | SFB | EQUITAS_SFB | cms4cn1ci001nwen42wevago5 | Active | Unsecured Business Loan Mapped: Yes | Programs: Equitas — Business Loan (Unsecured) | Priority: —
+65. ESAF Small Finance Bank | SFB | ESAF_SFB | cms4cn2zy001twen4cilgo0iu | Active | Unsecured Business Loan Mapped: Yes | Programs: ESAF — Business Loan (Unsecured) | Priority: —
+66. Escorts Finance | NBFC | ESCORTS_FINANCE | cms8hrvwh009zwed8jshgho02 | Active | Unsecured Business Loan Mapped: Yes | Programs: Escorts Finance — Business Loan (Unsecured) | Priority: —
+67. EXIM Bank | NBFC | EXIM_BANK | cms8hr0o30059wed87zifv6sk | Active | Unsecured Business Loan Mapped: Yes | Programs: EXIM — Business Loan (Unsecured) | Priority: —
+68. Federal Bank | Private Bank | FEDERAL | cms4cmsvt000twen4qf3d6wok | Active | Unsecured Business Loan Mapped: Yes | Programs: Federal — Business Loan (Unsecured) | Priority: —
+69. Fincare Small Finance Bank | SFB | FINCARE_SFB | cms8hq8ng000pwed8yg2iip3s | Active | Unsecured Business Loan Mapped: Yes | Programs: Fincare SFB — Business Loan (Unsecured) | Priority: —
+70. First Abu Dhabi Bank | Bank | FIRST_ABU_DHABI | cms8hrab3006pwed8hjuecqdp | Active | Unsecured Business Loan Mapped: Yes | Programs: FAB — Business Loan (Unsecured) | Priority: —
+71. FlexiLoans | NBFC | FLEXILOANS | cms8hqhp40025wed8exph7i4r | Active | Unsecured Business Loan Mapped: Yes | Programs: FlexiLoans — Business Loan (Unsecured) | Priority: —
+72. Ford Credit | NBFC | FORD_CREDIT | cms8hrvk9009xwed87bvgqcb0 | Active | Unsecured Business Loan Mapped: Yes | Programs: Ford Credit — Business Loan (Unsecured) | Priority: —
+73. Fullerton India | NBFC | FULLERTON_INDIA_CREDIT | cms8hqbd30015wed8kt2jn0n4 | Active | Unsecured Business Loan Mapped: Yes | Programs: Fullerton — Business Loan (Unsecured) | Priority: —
+74. Fusion Finance | NBFC | FUSION_FINANCE | cms8hqvnj004fwed8yqlkye36 | Active | Unsecured Business Loan Mapped: Yes | Programs: Fusion — Business Loan (Unsecured) | Priority: —
+75. Goa State Co-operative Bank | Cooperative Bank | GOA_STATE_COOP | cms8hrnpm008nwed8zumtql0k | Active | Unsecured Business Loan Mapped: Yes | Programs: GSCB — Business Loan (Unsecured) | Priority: —
+76. Greater Bombay Co-op Bank | Cooperative Bank | GREATER_BOMBAY | cms8hr4p9005xwed8g4tk7dtx | Active | Unsecured Business Loan Mapped: Yes | Programs: GBCB — Business Loan (Unsecured) | Priority: —
+77. GS Mahanagar Co-op Bank | Cooperative Bank | GS_MAHANAGAR | cms8hr1ob005fwed8ygtzuvdh | Active | Unsecured Business Loan Mapped: Yes | Programs: GS Mahanagar — Business Loan (Unsecured) | Priority: —
+78. Gujarat State Co-operative Bank | Cooperative Bank | GUJARAT_STATE_COOP | cms8hro1u008pwed8hfvhgrgh | Active | Unsecured Business Loan Mapped: Yes | Programs: GSC Bank — Business Loan (Unsecured) | Priority: —
+79. Haryana State Co-op Apex Bank | Cooperative Bank | HARYANA_STATE_COOP | cms8hrrrn009bwed88bs1w4ip | Active | Unsecured Business Loan Mapped: Yes | Programs: HARCO Bank — Business Loan (Unsecured) | Priority: —
+80. HDB Financial Services | NBFC | HDB_FINANCIAL | cms8hru7f009pwed8w8c1qs28 | Active | Unsecured Business Loan Mapped: Yes | Programs: HDBFS — Business Loan (Unsecured) | Priority: —
+81. HDFC Bank | Private Bank | HDFC | cmrusopl1003lwe601zac0dvs | Active | Unsecured Business Loan Mapped: Yes | Programs: HDFC — Business Loan (Unsecured) | Priority: —
+82. HDFC Credila | NBFC | HDFC_CREDILA | cms8hqfnz001twed80g0fuwf9 | Active | Unsecured Business Loan Mapped: Yes | Programs: Credila — Business Loan (Unsecured) | Priority: —
+83. Hero FinCorp | NBFC | HERO_FINCORP | cms4cnoly003xwen4muehb0ef | Active | Unsecured Business Loan Mapped: Yes | Programs: Hero FinCorp — Business Loan (Unsecured) | Priority: —
+84. Hinduja Leyland Finance | NBFC | HINDUJA_LEYLAND | cms4cnnzf003vwen43xt306wy | Active | Unsecured Business Loan Mapped: Yes | Programs: HLF — Business Loan (Unsecured) | Priority: —
+85. Honda Finance | NBFC | HONDA_FINANCE | cms8hruvt009twed8o4twfm2l | Active | Unsecured Business Loan Mapped: Yes | Programs: Honda Finance — Business Loan (Unsecured) | Priority: —
+86. HP Gramin Bank | Cooperative Bank | HIMACHAL_GRAMIN | cms8hrkcc0083wed86rf4n0q8 | Active | Unsecured Business Loan Mapped: Yes | Programs: HPGB — Business Loan (Unsecured) | Priority: —
+87. HP State Co-operative Bank | Cooperative Bank | HIMACHAL_STATE_COOP | cms8hrsg3009fwed8ue7spag5 | Active | Unsecured Business Loan Mapped: Yes | Programs: HPSCB — Business Loan (Unsecured) | Priority: —
+88. HSBC Bank | Bank | HSBC | cms8hq4540005wed8g8qwfida | Active | Unsecured Business Loan Mapped: Yes | Programs: HSBC — Business Loan (Unsecured) | Priority: —
+89. HUDCO | NBFC | HUDCO | cms8hqzbd0051wed887vi84vh | Active | Unsecured Business Loan Mapped: Yes | Programs: HUDCO — Business Loan (Unsecured) | Priority: —
+90. Hyundai Capital | NBFC | HYUNDAI_CAPITAL | cms8hrv82009vwed8e370jnpp | Active | Unsecured Business Loan Mapped: Yes | Programs: Hyundai Capital — Business Loan (Unsecured) | Priority: —
+91. Ichalkaranji Merchants Co-op Bank | Cooperative Bank | ICHALKARANJI | cms8hr754006bwed89gn7lao1 | Active | Unsecured Business Loan Mapped: Yes | Programs: IMCB — Business Loan (Unsecured) | Priority: —
+92. ICICI Bank | Private Bank | ICICI | cmrusopoe003nwe60331ytwfx | Active | Unsecured Business Loan Mapped: Yes | Programs: ICICI — Business Loan (Unsecured) | Priority: —
+93. IDBI Bank | Private Bank | IDBI | cms4cmz5s001fwen4lcqhnj8z | Active | Unsecured Business Loan Mapped: Yes | Programs: IDBI — Business Loan (Unsecured) | Priority: —
+94. IDFC FIRST Bank | Private Bank | IDFC_FIRST | cms4cmsbt000rwen4q9tdyqfh | Active | Unsecured Business Loan Mapped: Yes | Programs: IDFC FIRST — Business Loan (Unsecured) | Priority: —
+95. IFCI | NBFC | IFC_INDIA | cms8hqzni0053wed8bna44m99 | Active | Unsecured Business Loan Mapped: Yes | Programs: IFCI — Business Loan (Unsecured) | Priority: —
+96. IIFL Finance | NBFC | IIFL_FINANCE | cms4cnkdf003jwen4s4uw7m1s | Active | Unsecured Business Loan Mapped: Yes | Programs: IIFL — Business Loan (Unsecured) | Priority: —
+97. IIFL Samasta | NBFC | IIFL_SAMASTA | cms8hqmu5002zwed8kjxf93xs | Active | Unsecured Business Loan Mapped: Yes | Programs: Samasta — Business Loan (Unsecured) | Priority: —
+98. InCred | NBFC | INCRED | cms8hqg06001vwed89mwtsy4q | Active | Unsecured Business Loan Mapped: Yes | Programs: InCred — Business Loan (Unsecured) | Priority: —
+99. Indian Bank | Public Bank | INDIAN_BANK | cms4cmmnb000bwen4yc37vp41 | Active | Unsecured Business Loan Mapped: Yes | Programs: Indian Bank — Business Loan (Unsecured) | Priority: —
+100. Indian Overseas Bank | Public Bank | IOB | cms4cmoag000hwen46kqfky1h | Active | Unsecured Business Loan Mapped: Yes | Programs: IOB — Business Loan (Unsecured) | Priority: —
+101. Indifi | NBFC | INDIFI | cms8hqhd00023wed80fmkc38b | Active | Unsecured Business Loan Mapped: Yes | Programs: Indifi — Business Loan (Unsecured) | Priority: —
+102. IndusInd Bank | Private Bank | INDUSIND | cms4cmrsd000pwen4n938ri4v | Active | Unsecured Business Loan Mapped: Yes | Programs: IndusInd — Business Loan (Unsecured) | Priority: —
+103. Industrial & Commercial Bank of China (ICBC) | Bank | ICBC | cms8hrywa00afwed8aop436bb | Active | Unsecured Business Loan Mapped: Yes | Programs: ICBC — Business Loan (Unsecured) | Priority: —
+104. Industrial Bank of Korea | Bank | INDUSTRIAL_BANK_KOREA | cms8hrdcx0071wed845cfp65y | Active | Unsecured Business Loan Mapped: Yes | Programs: IBK — Business Loan (Unsecured) | Priority: —
+105. IOC Finance Desk | NBFC | IOCL_FINANCE | cms8hqo6l0037wed888q4kyv0 | Active | Unsecured Business Loan Mapped: Yes | Programs: IOC — Business Loan (Unsecured) | Priority: —
+106. IRFC | NBFC | IRFC | cms8hqyzc004zwed8ho4l7o12 | Active | Unsecured Business Loan Mapped: Yes | Programs: IRFC — Business Loan (Unsecured) | Priority: —
+107. J.P. Morgan Chase Bank | Bank | JP_MORGAN | cms8hrxy300abwed8usffskjj | Active | Unsecured Business Loan Mapped: Yes | Programs: J.P. Morgan — Business Loan (Unsecured) | Priority: —
+108. Jalgaon Janata Sahakari Bank | Cooperative Bank | JALGAON_JANATA | cms8hr6gn0067wed8icfe21bu | Active | Unsecured Business Loan Mapped: Yes | Programs: JJSB — Business Loan (Unsecured) | Priority: —
+109. Jammu & Kashmir Bank | Private Bank | JKB | cms4cmzpd001hwen4fn4vpxz5 | Active | Unsecured Business Loan Mapped: Yes | Programs: J&K Bank — Business Loan (Unsecured) | Priority: —
+110. Jana Small Finance Bank | SFB | JANA_SFB | cms4cn2gg001rwen4t5dwmg0k | Active | Unsecured Business Loan Mapped: Yes | Programs: Jana — Business Loan (Unsecured) | Priority: —
+111. Jharkhand State Co-operative Bank | Cooperative Bank | JHARKHAND_STATE_COOP | cms8hrqet0093wed8jgmnpg9l | Active | Unsecured Business Loan Mapped: Yes | Programs: JSCB — Business Loan (Unsecured) | Priority: —
+112. JM Financial Credit | NBFC | JM_FINANCIAL | cms8hqxn5004rwed8p99aqq5i | Active | Unsecured Business Loan Mapped: Yes | Programs: JM Financial — Business Loan (Unsecured) | Priority: —
+113. John Deere Financial | NBFC | JOHN_DEERE_FINANCIAL | cms8hqqjm003lwed8ncpoyjt4 | Active | Unsecured Business Loan Mapped: Yes | Programs: John Deere FS — Business Loan (Unsecured) | Priority: —
+114. Kalupur Commercial Co-op Bank | Cooperative Bank | KALUPUR | cms8hr3cn005pwed86ff81ru3 | Active | Unsecured Business Loan Mapped: Yes | Programs: Kalupur — Business Loan (Unsecured) | Priority: —
+115. Karad Urban Co-op Bank | Cooperative Bank | KARAD_URBAN | cms8hr6sy0069wed8kivgzl4q | Active | Unsecured Business Loan Mapped: Yes | Programs: Karad UCB — Business Loan (Unsecured) | Priority: —
+116. Karnataka Bank | Private Bank | KARNATAKA | cms4cmvc40011wen4mz5p47ew | Active | Unsecured Business Loan Mapped: Yes | Programs: KBL — Business Loan (Unsecured) | Priority: —
+117. Karnataka State Co-op Apex Bank | Cooperative Bank | KARNATAKA_STATE_COOP | cms8hroq2008twed8yz2o56eo | Active | Unsecured Business Loan Mapped: Yes | Programs: KSC Apex — Business Loan (Unsecured) | Priority: —
+118. Karnataka Vikas Grameena Bank | Cooperative Bank | KARNATAKA_VIKAS | cms8hri80007rwed8c3r1dfvl | Active | Unsecured Business Loan Mapped: Yes | Programs: KVGB — Business Loan (Unsecured) | Priority: —
+119. Karur Vysya Bank | Private Bank | KVB | cms4cmvvn0013wen4i8tb6bzn | Active | Unsecured Business Loan Mapped: Yes | Programs: KVB — Business Loan (Unsecured) | Priority: —
+120. KEB Hana Bank | Bank | KEB_HANA | cms8hrdu30073wed86tdbfs2k | Active | Unsecured Business Loan Mapped: Yes | Programs: KEB Hana — Business Loan (Unsecured) | Priority: —
+121. Kerala Gramin Bank | Cooperative Bank | KERALA_GRAMIN | cms8hrgt7007jwed84zxayeaz | Active | Unsecured Business Loan Mapped: Yes | Programs: KGB — Business Loan (Unsecured) | Priority: —
+122. Kerala State Co-operative Bank | Cooperative Bank | KERALA_STATE_COOP | cms8hrped008xwed89rzzvfmg | Active | Unsecured Business Loan Mapped: Yes | Programs: KSCB — Business Loan (Unsecured) | Priority: —
+123. Kinara Capital | NBFC | KINARA_CAPITAL | cms8hqtkm0043wed83cuyruqa | Active | Unsecured Business Loan Mapped: Yes | Programs: Kinara — Business Loan (Unsecured) | Priority: —
+124. Kosamattam Finance | NBFC | KOSAMATTAM | cms8hqnud0035wed89ogz2vxn | Active | Unsecured Business Loan Mapped: Yes | Programs: Kosamattam — Business Loan (Unsecured) | Priority: —
+125. Kotak Mahindra Bank | Private Bank | KOTAK | cmrusoprt003pwe60kshcazu7 | Active | Unsecured Business Loan Mapped: Yes | Programs: Kotak — Business Loan (Unsecured) | Priority: —
+126. Kotak Mahindra Prime | NBFC | KOTAK_MAHINDRA_PRIME | cms8hqcdp001bwed84y5qt16i | Active | Unsecured Business Loan Mapped: Yes | Programs: Kotak Prime — Business Loan (Unsecured) | Priority: —
+127. KreditBee | NBFC | KREDITBEE | cms8hqi1b0027wed8cbep796t | Active | Unsecured Business Loan Mapped: Yes | Programs: KreditBee — Business Loan (Unsecured) | Priority: —
+128. L&T Finance | NBFC | LT_FINANCE | cms4cnhcu0039wen4z8cd7mva | Active | Unsecured Business Loan Mapped: Yes | Programs: L&T Finance — Business Loan (Unsecured) | Priority: —
+129. Lakshmi Vilas Bank (Legacy) | Private Bank | LAXMI_VILAS | cms8hq8bi000nwed8hipls2f3 | Active | Unsecured Business Loan Mapped: Yes | Programs: LVB — Business Loan (Unsecured) | Priority: —
+130. LazyPay | NBFC | LAZY_PAY | cms8hqksu002nwed8du1vm56p | Active | Unsecured Business Loan Mapped: Yes | Programs: LazyPay — Business Loan (Unsecured) | Priority: —
+131. Lendingkart | NBFC | LENDINGKART | cms8hqgcf001xwed8dsbo19ph | Active | Unsecured Business Loan Mapped: Yes | Programs: Lendingkart — Business Loan (Unsecured) | Priority: —
+132. Madhya Pradesh Gramin Bank | Cooperative Bank | MADHYA_PRADESH_GRAMIN | cms8hrjbj007xwed83925asbm | Active | Unsecured Business Loan Mapped: Yes | Programs: MPGB — Business Loan (Unsecured) | Priority: —
+133. Maharashtra State Co-operative Bank | Cooperative Bank | MAHARASHTRA_STATE_COOP | cms8hrody008rwed8i70mighs | Active | Unsecured Business Loan Mapped: Yes | Programs: MSCB — Business Loan (Unsecured) | Priority: —
+134. Mahindra Finance | NBFC | MAHINDRA_FINANCE | cms4cnikz003dwen4ivq9dwsy | Active | Unsecured Business Loan Mapped: Yes | Programs: Mahindra Finance — Business Loan (Unsecured) | Priority: —
+135. Manappuram Finance | NBFC | MANAPPURAM | cms4cnndr003twen49zt4vnaj | Active | Unsecured Business Loan Mapped: Yes | Programs: Manappuram — Business Loan (Unsecured) | Priority: —
+136. Manipur Rural Bank | Cooperative Bank | MANIPUR_RURAL | cms8hrm0w008dwed8d8c0mh4p | Active | Unsecured Business Loan Mapped: Yes | Programs: MRB Manipur — Business Loan (Unsecured) | Priority: —
+137. Mashreq Bank | Bank | MASHREQ_BANK | cms8hrzde00ahwed8jhyto8um | Active | Unsecured Business Loan Mapped: Yes | Programs: Mashreq — Business Loan (Unsecured) | Priority: —
+138. Meghalaya Rural Bank | Cooperative Bank | MEGHALAYA_RURAL | cms8hrlcu0089wed83043cbko | Active | Unsecured Business Loan Mapped: Yes | Programs: MRB — Business Loan (Unsecured) | Priority: —
+139. Mehsana Urban Co-op Bank | Cooperative Bank | MEHSANA_URBAN | cms8hr3ox005rwed85i2ht19j | Active | Unsecured Business Loan Mapped: Yes | Programs: Mehsana UCB — Business Loan (Unsecured) | Priority: —
+140. Mercedes-Benz Financial Services | NBFC | MERCEDES_BENZ_FS | cms8hqpj4003fwed8gwk1yat2 | Active | Unsecured Business Loan Mapped: Yes | Programs: MBFS — Business Loan (Unsecured) | Priority: —
+141. Mizoram Rural Bank | Cooperative Bank | MIZORAM_RURAL | cms8hrmd3008fwed8kd55zdw4 | Active | Unsecured Business Loan Mapped: Yes | Programs: MzRB — Business Loan (Unsecured) | Priority: —
+142. Mizuho Bank | Bank | MIZUHO | cms8hr9de006lwed8h35dlwln | Active | Unsecured Business Loan Mapped: Yes | Programs: Mizuho — Business Loan (Unsecured) | Priority: —
+143. MoneyTap | NBFC | MONEYTAP | cms8hqidh0029wed84sfug16z | Active | Unsecured Business Loan Mapped: Yes | Programs: MoneyTap — Business Loan (Unsecured) | Priority: —
+144. Motilal Oswal Credit | NBFC | MOTILAL_OSWAL | cms8hqxz5004twed8gi9una78 | Active | Unsecured Business Loan Mapped: Yes | Programs: MOFSL Credit — Business Loan (Unsecured) | Priority: —
+145. MP State Co-operative Bank | Cooperative Bank | MADHYA_PRADESH_STATE_COOP | cms8hrr3d0097wed8y7lgw9qn | Active | Unsecured Business Loan Mapped: Yes | Programs: MPSCB — Business Loan (Unsecured) | Priority: —
+146. Mswipe | NBFC | MSWIPE | cms8hrxlt00a9wed85bbrzetc | Active | Unsecured Business Loan Mapped: Yes | Programs: Mswipe — Business Loan (Unsecured) | Priority: —
+147. MUFG Bank | Bank | MUFG_BANK | cms8hr8wh006jwed876rv2dco | Active | Unsecured Business Loan Mapped: Yes | Programs: MUFG — Business Loan (Unsecured) | Priority: —
+148. Muthoot Capital | NBFC | MUTHOOT_CAPITAL | cms8hqmhy002xwed8a8cpr6dx | Active | Unsecured Business Loan Mapped: Yes | Programs: Muthoot Capital — Business Loan (Unsecured) | Priority: —
+149. Muthoot Finance | NBFC | MUTHOOT | cms4cnmrv003rwen4127dugwy | Active | Unsecured Business Loan Mapped: Yes | Programs: Muthoot — Business Loan (Unsecured) | Priority: —
+150. Muthoot Fincorp | NBFC | MUTHOOT_FINCORP | cms8hqm5p002vwed88icftkcb | Active | Unsecured Business Loan Mapped: Yes | Programs: Muthoot Fincorp — Business Loan (Unsecured) | Priority: —
+151. Muthoot Microfin | NBFC | MUTHOOT_MICROFIN | cms8hqxb6004pwed8f16xf0t0 | Active | Unsecured Business Loan Mapped: Yes | Programs: Muthoot Microfin — Business Loan (Unsecured) | Priority: —
+152. NABARD | NBFC | NABARD | cms8hr0c20057wed8w9xo4lr0 | Active | Unsecured Business Loan Mapped: Yes | Programs: NABARD — Business Loan (Unsecured) | Priority: —
+153. Nagaland Rural Bank | Cooperative Bank | NAGALAND_RURAL | cms8hrmpd008hwed8thdnawp4 | Active | Unsecured Business Loan Mapped: Yes | Programs: NRB — Business Loan (Unsecured) | Priority: —
+154. Nainital Bank | Private Bank | NAINITAL | cms4cn08y001jwen42hvxrs0e | Active | Unsecured Business Loan Mapped: Yes | Programs: Nainital — Business Loan (Unsecured) | Priority: —
+155. Namdev Finvest | NBFC | NAMDEV_FINVEST | cms8hs0uu00apwed87if2z0ua | Active | Unsecured Business Loan Mapped: Yes | Programs: Namdev — Business Loan (Unsecured) | Priority: —
+156. Navi | NBFC | NAVI | cms8hqjgh002fwed8h8yzpae2 | Active | Unsecured Business Loan Mapped: Yes | Programs: Navi — Business Loan (Unsecured) | Priority: —
+157. NeoGrowth | NBFC | NEOGROWTH | cms8hqh0u0021wed883wmoo9q | Active | Unsecured Business Loan Mapped: Yes | Programs: NeoGrowth — Business Loan (Unsecured) | Priority: —
+158. New India Co-operative Bank | Cooperative Bank | NEW_INDIA_COOP | cms8hr2ct005jwed8m8a1p200 | Active | Unsecured Business Loan Mapped: Yes | Programs: New India Coop — Business Loan (Unsecured) | Priority: —
+159. NKGSB Cooperative Bank | Cooperative Bank | NKGSB | cms4cnr100045wen40lyv32tq | Active | Unsecured Business Loan Mapped: Yes | Programs: NKGSB — Business Loan (Unsecured) | Priority: —
+160. North East Small Finance Bank | SFB | NESFB | cms4cn58j0021wen4gffag33l | Active | Unsecured Business Loan Mapped: Yes | Programs: NESFB — Business Loan (Unsecured) | Priority: —
+161. Northern Arc | NBFC | NORTHERN_ARC | cms8hqs89003vwed8ci29xcex | Active | Unsecured Business Loan Mapped: Yes | Programs: Northern Arc — Business Loan (Unsecured) | Priority: —
+162. Odisha Gramya Bank | Cooperative Bank | ODISHA_GRAMYA | cms8hrgh4007hwed8o56n5lzv | Active | Unsecured Business Loan Mapped: Yes | Programs: OGB — Business Loan (Unsecured) | Priority: —
+163. Open | NBFC | OPEN_FINANCIAL | cms8hrwkz00a3wed8xn8qhhqh | Active | Unsecured Business Loan Mapped: Yes | Programs: Open — Business Loan (Unsecured) | Priority: —
+164. PayU Finance | NBFC | PAYU_FINANCE | cms8hqjsn002hwed8de8uj604 | Active | Unsecured Business Loan Mapped: Yes | Programs: PayU Finance — Business Loan (Unsecured) | Priority: —
+165. Pine Labs Capital | NBFC | PINE_LABS_CAPITAL | cms8hrx9c00a7wed8snf6gu60 | Active | Unsecured Business Loan Mapped: Yes | Programs: Pine Labs — Business Loan (Unsecured) | Priority: —
+166. Piramal Finance | NBFC | PIRAMAL_FINANCE | cms4cnkz5003lwen4jfhr97rd | Active | Unsecured Business Loan Mapped: Yes | Programs: Piramal Finance — Business Loan (Unsecured) | Priority: —
+167. PMC Bank (Legacy) | Cooperative Bank | PUNJAB_MAHARASHTRA | cms8hr51j005zwed8xax2hpk6 | Active | Unsecured Business Loan Mapped: Yes | Programs: PMC — Business Loan (Unsecured) | Priority: —
+168. Poonawalla Fincorp | NBFC | POONAWALLA | cms4cnjs5003hwen4fdzqoebf | Active | Unsecured Business Loan Mapped: Yes | Programs: Poonawalla — Business Loan (Unsecured) | Priority: —
+169. Power Finance Corporation | NBFC | PFC | cms8hqyn7004xwed8y7jf2wpw | Active | Unsecured Business Loan Mapped: Yes | Programs: PFC — Business Loan (Unsecured) | Priority: —
+170. Prathama UP Gramin Bank | Cooperative Bank | PRATHAMA_UP | cms8hrizb007vwed8vovtraf6 | Active | Unsecured Business Loan Mapped: Yes | Programs: Prathama UP — Business Loan (Unsecured) | Priority: —
+171. Protium | NBFC | PROTIUM | cms8hqt8o0041wed8hci3lu0r | Active | Unsecured Business Loan Mapped: Yes | Programs: Protium — Business Loan (Unsecured) | Priority: —
+172. Punjab & Sind Bank | Public Bank | PSB | cms4cmpxm000nwen466wwhm7o | Active | Unsecured Business Loan Mapped: Yes | Programs: PSB — Business Loan (Unsecured) | Priority: —
+173. Punjab Gramin Bank | Cooperative Bank | PUNJAB_GRAMIN | cms8hrk010081wed8vk427w6w | Active | Unsecured Business Loan Mapped: Yes | Programs: PGB — Business Loan (Unsecured) | Priority: —
+174. Punjab National Bank | Public Bank | PNB | cms4cml070005wen4713bpnwd | Active | Unsecured Business Loan Mapped: Yes | Programs: PNB — Business Loan (Unsecured) | Priority: —
+175. Punjab State Co-operative Bank | Cooperative Bank | PUNJAB_STATE_COOP | cms8hrs3w009dwed8bflex5g4 | Active | Unsecured Business Loan Mapped: Yes | Programs: PSCB — Business Loan (Unsecured) | Priority: —
+176. QNB | Bank | QATAR_NATIONAL | cms8hrbh1006twed8nlqa8nkx | Active | Unsecured Business Loan Mapped: Yes | Programs: QNB — Business Loan (Unsecured) | Priority: —
+177. Rajarambapu Sahakari Bank | Cooperative Bank | RAJARAMBAPU | cms8hr30l005nwed8j38xuwra | Active | Unsecured Business Loan Mapped: Yes | Programs: Rajarambapu — Business Loan (Unsecured) | Priority: —
+178. Rajasthan Marudhara Gramin Bank | Cooperative Bank | RAJASTHAN_MARUDHARA | cms8hrjns007zwed8ysynj636 | Active | Unsecured Business Loan Mapped: Yes | Programs: RMGB — Business Loan (Unsecured) | Priority: —
+179. Rajasthan State Co-operative Bank | Cooperative Bank | RAJASTHAN_STATE_COOP | cms8hrrfn0099wed8rt3wyxr0 | Active | Unsecured Business Loan Mapped: Yes | Programs: RSCB — Business Loan (Unsecured) | Priority: —
+180. Rajkot Nagrik Sahakari Bank | Cooperative Bank | RAJKOT_NAGRIK | cms8hr40y005twed8dwyswnp9 | Active | Unsecured Business Loan Mapped: Yes | Programs: RNSB — Business Loan (Unsecured) | Priority: —
+181. Razorpay Capital | NBFC | RAZORPAY_CAPITAL | cms8hrwx600a5wed8ytkeoh1v | Active | Unsecured Business Loan Mapped: Yes | Programs: Razorpay Capital — Business Loan (Unsecured) | Priority: —
+182. RBL Bank | Private Bank | RBL | cms4cmu8v000xwen4q8migqib | Active | Unsecured Business Loan Mapped: Yes | Programs: RBL — Business Loan (Unsecured) | Priority: —
+183. REC Limited | NBFC | REC_LIMITED | cms8hqyb4004vwed8uuyy9ki9 | Active | Unsecured Business Loan Mapped: Yes | Programs: REC — Business Loan (Unsecured) | Priority: —
+184. Saraswat Cooperative Bank | Cooperative Bank | SARASWAT | cms4cnp84003zwen42y73iquu | Active | Unsecured Business Loan Mapped: Yes | Programs: Saraswat — Business Loan (Unsecured) | Priority: —
+185. SBI Cards | NBFC | SBI_CARDS | cms8hrg4x007fwed85bnip015 | Active | Unsecured Business Loan Mapped: Yes | Programs: SBI Cards — Business Loan (Unsecured) | Priority: —
+186. Scotiabank | Bank | BANK_OF_NOVA_SCOTIA | cms8hrbxv006vwed86rlqljas | Active | Unsecured Business Loan Mapped: Yes | Programs: Scotiabank — Business Loan (Unsecured) | Priority: —
+187. Shamrao Vithal Cooperative Bank | Cooperative Bank | SVC | cms4cnqfh0043wen468bfvh10 | Active | Unsecured Business Loan Mapped: Yes | Programs: SVC — Business Loan (Unsecured) | Priority: —
+188. Shinhan Bank | Bank | SHINHAN_BANK | cms8hq6hx000fwed8xiqblfnz | Active | Unsecured Business Loan Mapped: Yes | Programs: Shinhan — Business Loan (Unsecured) | Priority: —
+189. Shivalik Small Finance Bank | SFB | SHIVALIK_SFB | cms4cn5s60023wen4wkvadipu | Active | Unsecured Business Loan Mapped: Yes | Programs: Shivalik — Business Loan (Unsecured) | Priority: —
+190. Shriram Finance | NBFC | SHRIRAM_FINANCE | cms4cnj6n003fwen42uyrgovo | Active | Unsecured Business Loan Mapped: Yes | Programs: Shriram — Business Loan (Unsecured) | Priority: —
+191. SIDBI | NBFC | SIDBI | cms8hqzzs0055wed8y0ymyp4g | Active | Unsecured Business Loan Mapped: Yes | Programs: SIDBI — Business Loan (Unsecured) | Priority: —
+192. Simpl | NBFC | SIMPL | cms8hqkgm002lwed8cjf470nt | Active | Unsecured Business Loan Mapped: Yes | Programs: Simpl — Business Loan (Unsecured) | Priority: —
+193. Slice | NBFC | SLICE | cms8hql53002pwed8yu1d3ga1 | Active | Unsecured Business Loan Mapped: Yes | Programs: Slice — Business Loan (Unsecured) | Priority: —
+194. SMBC | Bank | SUMITOMO_MITSUI | cms8hr9u1006nwed8m1mpmogv | Active | Unsecured Business Loan Mapped: Yes | Programs: SMBC — Business Loan (Unsecured) | Priority: —
+195. SMFG India Credit | NBFC | SMFG_INDIA | cms8hqswj003zwed82nroc47c | Active | Unsecured Business Loan Mapped: Yes | Programs: SMFG — Business Loan (Unsecured) | Priority: —
+196. Société Générale | Bank | SOCIETE_GENERALE | cms8hryfe00adwed8epdmpjou | Active | Unsecured Business Loan Mapped: Yes | Programs: SocGen — Business Loan (Unsecured) | Priority: —
+197. South Indian Bank | Private Bank | SIB | cms4cmusj000zwen4x47m61qh | Active | Unsecured Business Loan Mapped: Yes | Programs: SIB — Business Loan (Unsecured) | Priority: —
+198. Spandana Sphoorty | NBFC | SPANDANA | cms8hquzd004bwed8xvfo4w28 | Active | Unsecured Business Loan Mapped: Yes | Programs: Spandana — Business Loan (Unsecured) | Priority: —
+199. Srei Equipment Finance | NBFC | SREI_EQUIPMENT | cms8hqqvv003nwed8q9b0hp0l | Active | Unsecured Business Loan Mapped: Yes | Programs: Srei — Business Loan (Unsecured) | Priority: —
+200. Standard Chartered Bank | Bank | STANDARD_CHARTERED | cms8hq3nz0003wed804dmj3ou | Active | Unsecured Business Loan Mapped: Yes | Programs: StanChart — Business Loan (Unsecured) | Priority: —
+201. State Bank of India | Public Bank | SBI | cmrusopva003rwe60cjyga2va | Active | Unsecured Business Loan Mapped: Yes | Programs: SBI — Business Loan (Unsecured) | Priority: —
+202. State Bank of Mauritius | Bank | STATE_BANK_MAURITIUS | cms8hq716000hwed8zahv9olh | Active | Unsecured Business Loan Mapped: Yes | Programs: SBM — Business Loan (Unsecured) | Priority: —
+203. State Bank of Sikkim | Cooperative Bank | SIKKIM_STATE | cms8hrndq008lwed8msxbqlhq | Active | Unsecured Business Loan Mapped: Yes | Programs: SBS — Business Loan (Unsecured) | Priority: —
+204. Sundaram Finance | NBFC | SUNDARAM_FINANCE | cms8hqoiu0039wed8rlyqc8ou | Active | Unsecured Business Loan Mapped: Yes | Programs: Sundaram Finance — Business Loan (Unsecured) | Priority: —
+205. Suryoday Small Finance Bank | SFB | SURYODAY_SFB | cms4cn3ji001vwen4cagyq7za | Active | Unsecured Business Loan Mapped: Yes | Programs: Suryoday — Business Loan (Unsecured) | Priority: —
+206. Svatantra | NBFC | SVATANTRA | cms8hqu8o0047wed8y00zs6wm | Active | Unsecured Business Loan Mapped: Yes | Programs: Svatantra — Business Loan (Unsecured) | Priority: —
+207. Tamilnad Mercantile Bank | Private Bank | TMB | cms4cmxiq0019wen4e5ol0z0d | Active | Unsecured Business Loan Mapped: Yes | Programs: TMB — Business Loan (Unsecured) | Priority: —
+208. Tata Capital | NBFC | TATA_CAPITAL | cms4cng5z0035wen4tirf9gtk | Active | Unsecured Business Loan Mapped: Yes | Programs: Tata Capital — Business Loan (Unsecured) | Priority: —
+209. Tata Motors Finance | NBFC | TATA_MOTORS_FINANCE | cms8hqov0003bwed8lpcpp4ck | Active | Unsecured Business Loan Mapped: Yes | Programs: TMFL — Business Loan (Unsecured) | Priority: —
+210. Telangana Grameena Bank | Cooperative Bank | TELANGANA_GRAMIN | cms8hrhtn007pwed8ztkjr692 | Active | Unsecured Business Loan Mapped: Yes | Programs: TGB — Business Loan (Unsecured) | Priority: —
+211. Telangana State Co-op Apex Bank | Cooperative Bank | TELANGANA_STATE_COOP | cms8hrtv5009nwed8eev9hfuv | Active | Unsecured Business Loan Mapped: Yes | Programs: TSCAB — Business Loan (Unsecured) | Priority: —
+212. Thirumeni Finance | NBFC | THIRUMENI_FINANCE | cms8hqnib0033wed8rmy0kji9 | Active | Unsecured Business Loan Mapped: Yes | Programs: Thirumeni — Business Loan (Unsecured) | Priority: —
+213. Tirupati Urban Co-op Bank | Cooperative Bank | TIRUPATI_URBAN | cms8hqr7x003pwed88gu3r0pi | Active | Unsecured Business Loan Mapped: Yes | Programs: TUCB — Business Loan (Unsecured) | Priority: —
+214. TJSB Sahakari Bank | Cooperative Bank | TJSB | cms8hr1cd005dwed84mwk8f2w | Active | Unsecured Business Loan Mapped: Yes | Programs: TJSB — Business Loan (Unsecured) | Priority: —
+215. TNSC Bank | Cooperative Bank | TAMILNADU_STATE_COOP | cms8hrp29008vwed84v8vvzrb | Active | Unsecured Business Loan Mapped: Yes | Programs: TNSC — Business Loan (Unsecured) | Priority: —
+216. Toyota Financial Services | NBFC | TOYOTA_FINANCIAL | cms8hqp6w003dwed81w5oimm2 | Active | Unsecured Business Loan Mapped: Yes | Programs: TFS India — Business Loan (Unsecured) | Priority: —
+217. Tripura Gramin Bank | Cooperative Bank | TRIPURA_GRAMIN | cms8hrlox008bwed8ra0sxvqt | Active | Unsecured Business Loan Mapped: Yes | Programs: TGB Tripura — Business Loan (Unsecured) | Priority: —
+218. TVS Credit | NBFC | TVS_CREDIT | cms8hrujl009rwed8hdiy5acl | Active | Unsecured Business Loan Mapped: Yes | Programs: TVS Credit — Business Loan (Unsecured) | Priority: —
+219. UCO Bank | Public Bank | UCO | cms4cmou6000jwen4z4e6t25z | Active | Unsecured Business Loan Mapped: Yes | Programs: UCO — Business Loan (Unsecured) | Priority: —
+220. UGRO Capital | NBFC | UGRO_CAPITAL | cms8hqrjx003rwed8dkqgycob | Active | Unsecured Business Loan Mapped: Yes | Programs: UGRO — Business Loan (Unsecured) | Priority: —
+221. Ujjivan Small Finance Bank | SFB | UJJIVAN_SFB | cms4cn1w4001pwen4zpbally2 | Active | Unsecured Business Loan Mapped: Yes | Programs: Ujjivan — Business Loan (Unsecured) | Priority: —
+222. Uni | NBFC | UNI_CARDS | cms8hqlha002rwed864ilspm7 | Active | Unsecured Business Loan Mapped: Yes | Programs: Uni — Business Loan (Unsecured) | Priority: —
+223. Union Bank of India | Public Bank | UNION | cms4cmm3o0009wen4yhucbia9 | Active | Unsecured Business Loan Mapped: Yes | Programs: Union — Business Loan (Unsecured) | Priority: —
+224. Unity Small Finance Bank | SFB | UNITY_SFB | cms4cn6bs0025wen42dd7eggm | Active | Unsecured Business Loan Mapped: Yes | Programs: Unity — Business Loan (Unsecured) | Priority: —
+225. UP Co-operative Bank | Cooperative Bank | UP_STATE_COOP | cms8hrt4c009jwed8u2aeojok | Active | Unsecured Business Loan Mapped: Yes | Programs: UPCB — Business Loan (Unsecured) | Priority: —
+226. Utkarsh Small Finance Bank | SFB | UTKARSH_SFB | cms4cn43c001xwen4ihd9730u | Active | Unsecured Business Loan Mapped: Yes | Programs: Utkarsh — Business Loan (Unsecured) | Priority: —
+227. Uttarakhand Gramin Bank | Cooperative Bank | UTTARAKHAND_GRAMIN | cms8hrkoh0085wed80sv3josv | Active | Unsecured Business Loan Mapped: Yes | Programs: UGB — Business Loan (Unsecured) | Priority: —
+228. Uttarakhand State Co-operative Bank | Cooperative Bank | UTTARAKHAND_STATE_COOP | cms8hrss3009hwed8gymo3967 | Active | Unsecured Business Loan Mapped: Yes | Programs: USCB — Business Loan (Unsecured) | Priority: —
+229. Varthana | NBFC | VARTHANA | cms8hqfbp001rwed84wnony7q | Active | Unsecured Business Loan Mapped: Yes | Programs: Varthana — Business Loan (Unsecured) | Priority: —
+230. Vivriti Capital | NBFC | VIVRITI_CAPITAL | cms8hqrw4003twed8trtn5mrs | Active | Unsecured Business Loan Mapped: Yes | Programs: Vivriti — Business Loan (Unsecured) | Priority: —
+231. Volvo Financial Services | NBFC | VOLVO_FINANCIAL | cms8hqq7g003jwed8xtjlmlkn | Active | Unsecured Business Loan Mapped: Yes | Programs: Volvo FS — Business Loan (Unsecured) | Priority: —
+232. West Bengal State Co-operative Bank | Cooperative Bank | WEST_BENGAL_STATE_COOP | cms8hrpqm008zwed8q4lkquis | Active | Unsecured Business Loan Mapped: Yes | Programs: WBSCB — Business Loan (Unsecured) | Priority: —
+233. Woori Bank | Bank | WOORI_BANK | cms8hreb20075wed8xqluqzza | Active | Unsecured Business Loan Mapped: Yes | Programs: Woori — Business Loan (Unsecured) | Priority: —
+234. Yes Bank | Private Bank | YES | cms4cmtp4000vwen44q8r6ajy | Active | Unsecured Business Loan Mapped: Yes | Programs: Yes — Business Loan (Unsecured) | Priority: —
+235. ZipLoan | NBFC | ZIPLOAN | cms8hs0iu00anwed8ytdz5m3h | Active | Unsecured Business Loan Mapped: Yes | Programs: ZipLoan — Business Loan (Unsecured) | Priority: —
+236. Zoroastrian Co-operative Bank | Cooperative Bank | ZOROASTRIAN | cms8hr5dr0061wed8ehmcu173 | Active | Unsecured Business Loan Mapped: Yes | Programs: Zoroastrian Bank — Business Loan (Unsecured) | Priority: —

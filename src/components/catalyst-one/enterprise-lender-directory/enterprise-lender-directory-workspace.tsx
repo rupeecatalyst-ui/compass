@@ -8,12 +8,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Download, Search } from "lucide-react";
 import {
   ELD_CATEGORY_OPTIONS,
   ELD_LANDING_TABS,
   ELD_PAGE_SIZES,
-  ELW_DIRECTORY_PRODUCTS,
   type EldLandingTabId,
 } from "@/constants/enterprise-lender-directory";
 import { ROUTES } from "@/constants/routes";
@@ -28,6 +28,7 @@ import {
 } from "@/lib/enterprise-lender-directory";
 import { buildInstitutionBankerProductIndex } from "@/lib/enterprise-contact-master";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
+import { useProductMasterOptions } from "@/lib/enterprise-product-master";
 import {
   lenderRegistryClient,
   subscribeLenderRegistryUpdated,
@@ -78,6 +79,8 @@ const SORT_FIELD: Record<string, EnterpriseLenderDirectorySortMode> = {
 
 export function EnterpriseLenderDirectoryWorkspace() {
   const { user } = useAuthContext();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [landingTab, setLandingTab] = useState<EldLandingTabId>("lenders");
   const [rows, setRows] = useState<EnterpriseLenderDirectoryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,6 +92,7 @@ export function EnterpriseLenderDirectoryWorkspace() {
   const [pageSize, setPageSize] = useState<(typeof ELD_PAGE_SIZES)[number]>(25);
   const [selected, setSelected] = useState<EnterpriseLenderDirectoryRow | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const { options: productOptions } = useProductMasterOptions(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +160,27 @@ export function EnterpriseLenderDirectoryWorkspace() {
     setSelected(row);
     setPanelOpen(true);
   };
+
+  /** CO-LENDER-WORKSPACE-001 — deep-link `/lenders?workspace=<id>` and `/lenders/[id]/workspace`. */
+  useEffect(() => {
+    if (loading || rows.length === 0) return;
+    const workspaceId = searchParams.get("workspace")?.trim();
+    if (!workspaceId) return;
+    const match =
+      rows.find((r) => r.lenderId === workspaceId) ||
+      rows.find((r) => r.lenderId.toLowerCase() === workspaceId.toLowerCase()) ||
+      rows.find((r) =>
+        r.lenderName.toLowerCase().includes(workspaceId.toLowerCase()),
+      );
+    if (match) {
+      openLender(match);
+    }
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("workspace");
+    const qs = next.toString();
+    router.replace(qs ? `${ROUTES.LENDERS}?${qs}` : ROUTES.LENDERS, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once when rows ready
+  }, [loading, rows, searchParams]);
 
   const handleSort = (columnId: string) => {
     const field = SORT_FIELD[columnId];
@@ -413,8 +438,8 @@ export function EnterpriseLenderDirectoryWorkspace() {
             <SelectItem value="all" className="text-xs">
               All products
             </SelectItem>
-            {ELW_DIRECTORY_PRODUCTS.map((p) => (
-              <SelectItem key={p.id} value={p.id} className="text-xs">
+            {productOptions.map((p) => (
+              <SelectItem key={p.code} value={p.code} className="text-xs">
                 {p.label}
               </SelectItem>
             ))}

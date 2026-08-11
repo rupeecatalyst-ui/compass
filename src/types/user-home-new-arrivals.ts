@@ -7,6 +7,7 @@ import type { EcmContactRole } from "@/types/enterprise-contact-master";
 
 export type NewArrivalsDatePresetId =
   | "today"
+  | "last_3"
   | "last_7"
   | "last_30"
   | "last_90"

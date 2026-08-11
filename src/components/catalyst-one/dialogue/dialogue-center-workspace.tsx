@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { hydrateEdcFromEar } from "@/lib/enterprise-activity-registry";
 import { appendEdcTimelineEntry, listEdcTimeline } from "@/lib/enterprise-dialogue-center";
 import type { EdcEventType, EdcTimelineEntry } from "@/types/enterprise-dialogue-center";
 import { EnterpriseEngagementCard, type EnterpriseCardTone } from "@/components/catalyst-one/shared/enterprise-engagement-card";
@@ -59,9 +60,22 @@ export function DialogueCenterWorkspace({ contextId = "opp-demo-001" }: Dialogue
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    seedDialogueIfEmpty();
-    setEntries(listEdcTimeline());
-  }, []);
+    let cancelled = false;
+    async function boot() {
+      // CO-ORG-003 — Dialogue Center reads EAR via EDC projection hydrate
+      await hydrateEdcFromEar({
+        opportunityId: contextId.startsWith("opp") ? contextId : undefined,
+        limit: 100,
+      });
+      if (cancelled) return;
+      seedDialogueIfEmpty();
+      setEntries(listEdcTimeline());
+    }
+    void boot();
+    return () => {
+      cancelled = true;
+    };
+  }, [contextId]);
 
   const filtered = useMemo(
     () => entries.filter((e) => !contextId || e.contextRef.id === contextId),

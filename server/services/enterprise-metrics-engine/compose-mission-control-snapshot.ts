@@ -13,6 +13,7 @@ import { deriveOperationalKpis } from "@/lib/enterprise-business-intelligence/op
 import type { EbiDataContext } from "@/lib/enterprise-business-intelligence/snapshot";
 import { deriveTeamPerformance } from "@/lib/enterprise-business-intelligence/team-performance";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
+import type { EnterpriseDealActivityTimelineEvent } from "@/lib/enterprise-deal/enterprise-deal-activity-timeline";
 import { mapEnterpriseDealToLoanFileStub } from "@/lib/enterprise-deal/map-deal-to-loan-file";
 import { deriveMissionControlEnterpriseIntelligence } from "@/lib/mission-control-enterprise-intelligence";
 import type { LoanFile } from "@/types/catalyst-one";
@@ -97,10 +98,18 @@ export function composeMissionControlExecutiveSnapshot(input: {
   deals: EnterpriseDealApiRecord[];
   opportunities?: McComposeOpportunityLite[];
   version?: string;
+  /**
+   * CO-RADAR-005 — Enterprise Deal Timeline SSOT projected into Radar LoanFile stubs.
+   * Keyed by dealId. Missing keys → empty array (never invent events).
+   */
+  timelinesByDealId?: Record<string, EnterpriseDealActivityTimelineEvent[]>;
 }): MissionControlExecutiveSnapshotPayload {
   const asOf = new Date().toISOString();
+  const timelinesByDealId = input.timelinesByDealId ?? {};
   const files: LoanFile[] = listActiveRadarDealFiles(
-    input.deals.map((d) => mapEnterpriseDealToLoanFileStub(d)),
+    input.deals.map((d) =>
+      mapEnterpriseDealToLoanFileStub(d, null, timelinesByDealId[d.id] ?? []),
+    ),
   );
 
   const radar = buildChanakyaRadarDashboard(files);
@@ -143,7 +152,12 @@ export function composeMissionControlExecutiveSnapshot(input: {
     generatedAt: asOf,
     dashboard: radar,
     summary,
-    sourceModules: ["buildChanakyaRadarDashboard", "EnterpriseDeal"],
+    sourceModules: [
+      "buildChanakyaRadarDashboard",
+      "EnterpriseDeal",
+      "EnterpriseDealTimelineEvent",
+      "CO-RADAR-005",
+    ],
   };
 
   const intelligence = deriveMissionControlEnterpriseIntelligence({
@@ -193,7 +207,9 @@ export function composeMissionControlExecutiveSnapshot(input: {
       "deriveBusinessHealthScore",
       "deriveMissionControlEnterpriseIntelligence",
       "EnterpriseDeal",
+      "EnterpriseDealTimelineEvent",
       "EnterpriseOpportunity",
+      "CO-RADAR-005",
     ],
   };
 }

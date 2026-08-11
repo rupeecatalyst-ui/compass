@@ -192,100 +192,8 @@ function sampleWorkstreams(): Workstream[] {
 }
 
 function sampleInitiatives(): Initiative[] {
-  return [
-    {
-      id: "init-branch-west",
-      name: "West Region Branch Opening",
-      description: "Strategic initiative to open a new branch in the west region.",
-      owner: "Placeholder Owner",
-      priority: "high",
-      category: "Business Expansion",
-      status: "active",
-      health: "on_track",
-      progress: 38,
-      startDate: new Date(Date.now() - 45 * 86400000).toISOString(),
-      targetDate: new Date(Date.now() + 120 * 86400000).toISOString(),
-      tags: ["branch", "expansion", "fy26"],
-      notes: "Sequence facilities before hiring ramp.",
-      workstreams: sampleWorkstreams(),
-    },
-    {
-      id: "init-product-suite",
-      name: "Product Suite Refresh",
-      description: "Multi-quarter product development roadmap.",
-      owner: "Placeholder PM",
-      priority: "critical",
-      category: "Product Development",
-      status: "active",
-      health: "at_risk",
-      progress: 22,
-      startDate: new Date(Date.now() - 30 * 86400000).toISOString(),
-      targetDate: new Date(Date.now() + 180 * 86400000).toISOString(),
-      tags: ["product", "roadmap"],
-      notes: "Clarify success criteria before engineering commitment.",
-      workstreams: [
-        {
-          id: "ws-discovery",
-          name: "Discovery",
-          owner: "Placeholder Research",
-          health: "at_risk",
-          progress: 55,
-          milestoneCount: 1,
-          status: "active",
-          milestones: [
-            {
-              id: "ms-research",
-              name: "Research synthesis",
-              description: "Consolidate stakeholder interviews into actionable themes.",
-              status: "active",
-              progress: 70,
-              targetDate: new Date(Date.now() + 10 * 86400000).toISOString(),
-              activities: [
-                {
-                  id: "act-interviews",
-                  title: "Complete stakeholder interviews",
-                  description: "Finish remaining discovery conversations.",
-                  assignedTo: "Placeholder Research",
-                  priority: "high",
-                  status: "active",
-                  completion: 85,
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: "init-compliance",
-      name: "Compliance Initiative FY26",
-      description: "Organizational compliance uplift across operating units.",
-      owner: "Placeholder Compliance",
-      priority: "high",
-      category: "Compliance Programs",
-      status: "planned",
-      health: "unknown",
-      progress: 8,
-      targetDate: new Date(Date.now() + 200 * 86400000).toISOString(),
-      tags: ["compliance", "fy26"],
-      workstreams: [],
-    },
-    {
-      id: "init-tech-roadmap",
-      name: "Technology Roadmap FY26",
-      description: "Platform and infrastructure strategic roadmap.",
-      owner: "Placeholder CTO Office",
-      priority: "medium",
-      category: "Technology Roadmaps",
-      status: "active",
-      health: "on_track",
-      progress: 15,
-      startDate: new Date(Date.now() - 20 * 86400000).toISOString(),
-      targetDate: new Date(Date.now() + 240 * 86400000).toISOString(),
-      tags: ["technology", "platform"],
-      workstreams: [],
-    },
-  ];
+  // CO-ORG-004 — sample portfolio removed
+  return [];
 }
 
 function flattenWorkstreams(initiatives: Initiative[]): Workstream[] {
@@ -421,32 +329,7 @@ export function createMilestoneProvider(): MilestoneProvider {
       return flattenMilestones(sampleInitiatives());
     },
     async listUpcomingMilestones() {
-      return [
-        {
-          id: "ms-local-permit",
-          title: "Local permits secured",
-          initiativeTitle: "West Region Branch Opening",
-          targetDate: new Date(Date.now() + 14 * 86400000).toISOString(),
-          health: "at_risk",
-          progress: 30,
-        },
-        {
-          id: "ms-lease",
-          title: "Lease signed",
-          initiativeTitle: "West Region Branch Opening",
-          targetDate: new Date(Date.now() + 21 * 86400000).toISOString(),
-          health: "on_track",
-          progress: 45,
-        },
-        {
-          id: "ms-research",
-          title: "Research synthesis",
-          initiativeTitle: "Product Suite Refresh",
-          targetDate: new Date(Date.now() + 10 * 86400000).toISOString(),
-          health: "at_risk",
-          progress: 70,
-        },
-      ];
+      return [];
     },
   };
 }
@@ -454,7 +337,7 @@ export function createMilestoneProvider(): MilestoneProvider {
 export function createActivityProvider(): ActivityProvider {
   return {
     async listActivities() {
-      return flattenActivities(sampleInitiatives());
+      return [];
     },
   };
 }
@@ -462,22 +345,7 @@ export function createActivityProvider(): ActivityProvider {
 export function createWaitingProvider(): WaitingProvider {
   return {
     async listWaitingItems() {
-      return [
-        {
-          id: "wait-legal",
-          title: "Lease redlines",
-          waitingOn: "External counsel",
-          since: new Date(Date.now() - 2 * 86400000).toISOString(),
-          initiativeTitle: "West Region Branch Opening",
-        },
-        {
-          id: "wait-finance",
-          title: "Capex envelope confirmation",
-          waitingOn: "Finance leadership",
-          since: new Date(Date.now() - 5 * 86400000).toISOString(),
-          initiativeTitle: "West Region Branch Opening",
-        },
-      ];
+      return [];
     },
   };
 }
@@ -485,21 +353,7 @@ export function createWaitingProvider(): WaitingProvider {
 export function createParkingLotProvider(): ParkingLotProvider {
   return {
     async listParkingItems() {
-      return [
-        {
-          id: "park-branding",
-          title: "Branch brand kit variants",
-          notes: "Parked pending creative capacity",
-          parkedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-          initiativeTitle: "West Region Branch Opening",
-        },
-        {
-          id: "park-vendor",
-          title: "Secondary vendor shortlist",
-          parkedAt: new Date(Date.now() - 8 * 86400000).toISOString(),
-          initiativeTitle: "Product Suite Refresh",
-        },
-      ];
+      return [];
     },
   };
 }
@@ -507,22 +361,7 @@ export function createParkingLotProvider(): ParkingLotProvider {
 export function createTodayProvider(): TodayProvider {
   return {
     async listTodayFocus() {
-      return [
-        {
-          id: "focus-1",
-          title: "Assemble permit packet",
-          initiativeTitle: "West Region Branch Opening",
-          kind: "activity",
-          reason: "Unblocks local permit milestone",
-        },
-        {
-          id: "focus-2",
-          title: "Research synthesis",
-          initiativeTitle: "Product Suite Refresh",
-          kind: "milestone",
-          reason: "At-risk milestone this week",
-        },
-      ];
+      return [];
     },
   };
 }
@@ -530,93 +369,49 @@ export function createTodayProvider(): TodayProvider {
 export function createNotesProvider(): NotesProvider {
   return {
     async listNotes() {
-      return [
-        {
-          id: "note-1",
-          body: "Confirm west region launch sequencing with facilities before hiring ramp.",
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          initiativeTitle: "West Region Branch Opening",
-        },
-        {
-          id: "note-2",
-          body: "Product discovery needs clearer success criteria before engineering commitment.",
-          createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-          initiativeTitle: "Product Suite Refresh",
-        },
-      ];
+      return [];
     },
   };
 }
 
 export function createHorizonWorkspaceProvider(): HorizonWorkspaceProvider {
-  const portfolio = createPortfolioProvider();
-  const initiatives = createInitiativeProvider();
-  const waiting = createWaitingProvider();
-  const parking = createParkingLotProvider();
-  const today = createTodayProvider();
-  const milestones = createMilestoneProvider();
-  const notes = createNotesProvider();
-
+  // CO-ORG-004 — empty strategic portfolio until Horizon SSOT binds
   return {
     async getWorkspaceModel() {
-      const [
-        portfolioModel,
-        hierarchy,
-        initiativeList,
-        waitingOn,
-        parkingLot,
-        todayFocus,
-        upcoming,
-        notesList,
-      ] = await Promise.all([
-        portfolio.getPortfolio(),
-        initiatives.getHierarchy(),
-        initiatives.listInitiatives(),
-        waiting.listWaitingItems(),
-        parking.listParkingItems(),
-        today.listTodayFocus(),
-        milestones.listUpcomingMilestones(),
-        notes.listNotes(),
-      ]);
-
       return {
         mode: "strategic",
         modes: [
           {
             id: "operational",
             label: "Operational Mode",
-            description: "Near-term execution focus across active initiatives (UI only).",
+            description: "Near-term execution focus across active initiatives.",
           },
           {
             id: "strategic",
             label: "Strategic Mode",
-            description: "Long-horizon portfolio and initiative planning (UI only).",
+            description: "Long-horizon portfolio and initiative planning.",
           },
         ],
-        portfolio: portfolioModel,
-        hierarchy: [...hierarchy],
-        initiatives: [...initiativeList],
-        todayFocus: [...todayFocus],
-        upcomingMilestones: [...upcoming],
-        waitingOn: [...waitingOn],
-        parkingLot: [...parkingLot],
-        recentProgress: [
-          {
-            id: "prog-1",
-            title: "Survey photography uploaded",
-            detail: "Placeholder progress entry for site survey workstream.",
-            at: new Date(Date.now() - 6 * 3600000).toISOString(),
-            initiativeTitle: "West Region Branch Opening",
-          },
-          {
-            id: "prog-2",
-            title: "Discovery interviews completed",
-            detail: "Placeholder progress for product discovery.",
-            at: new Date(Date.now() - 30 * 3600000).toISOString(),
-            initiativeTitle: "Product Suite Refresh",
-          },
-        ] satisfies ProgressEntry[],
-        notes: [...notesList],
+        portfolio: {
+          id: "portfolio-empty",
+          name: "Enterprise Portfolio",
+          summary:
+            "Horizon portfolio awaits strategic planning SSOT. Sample initiatives removed (CO-ORG-004).",
+          initiativeCount: 0,
+          onTrackCount: 0,
+          atRiskCount: 0,
+          blockedCount: 0,
+          asOf: new Date().toISOString(),
+          initiatives: [],
+        },
+        hierarchy: [],
+        initiatives: [],
+        todayFocus: [],
+        upcomingMilestones: [],
+        waitingOn: [],
+        parkingLot: [],
+        recentProgress: [],
+        notes: [],
       };
     },
   };

@@ -919,6 +919,13 @@ export class LenderRegistryRepository {
         maxTenureMonths: input.maxTenureMonths ?? null,
         minCibil: input.minCibil ?? null,
         minIncomeAmount: input.minIncomeAmount ?? null,
+        maxFoirPercent: input.maxFoirPercent ?? null,
+        maxDbrPercent: input.maxDbrPercent ?? null,
+        minFundingAmount: input.minFundingAmount ?? null,
+        minAge: input.minAge ?? null,
+        maxAge: input.maxAge ?? null,
+        creditRiskPolicyRef: input.creditRiskPolicyRef?.trim() || null,
+        requiredDocumentTypeIds: input.requiredDocumentTypeIds ?? undefined,
         eligibleStates: input.eligibleStates ?? undefined,
         eligibleCities: input.eligibleCities ?? undefined,
         averageTatDays: input.averageTatDays ?? null,
@@ -961,6 +968,18 @@ export class LenderRegistryRepository {
         maxTenureMonths: input.maxTenureMonths,
         minCibil: input.minCibil,
         minIncomeAmount: input.minIncomeAmount,
+        maxFoirPercent: input.maxFoirPercent,
+        maxDbrPercent: input.maxDbrPercent,
+        minFundingAmount: input.minFundingAmount,
+        minAge: input.minAge,
+        maxAge: input.maxAge,
+        creditRiskPolicyRef: input.creditRiskPolicyRef,
+        requiredDocumentTypeIds:
+          input.requiredDocumentTypeIds === undefined
+            ? undefined
+            : input.requiredDocumentTypeIds === null
+              ? Prisma.JsonNull
+              : input.requiredDocumentTypeIds,
         eligibleStates:
           input.eligibleStates === undefined
             ? undefined

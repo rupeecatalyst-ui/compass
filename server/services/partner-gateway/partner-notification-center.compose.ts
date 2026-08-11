@@ -15,7 +15,12 @@ import type {
   PartnerNotificationKind,
   PartnerNotificationPriority,
 } from "@/types/enterprise-partner-notification-center";
-import type { EcmContact } from "@/types/enterprise-contact-master";
+/** Minimal ECM fields required for birthday notification projection. */
+export type PartnerNotificationBirthdayContact = {
+  id: string;
+  name: string;
+  dateOfBirth?: string;
+};
 
 function kindMeta(kind: PartnerNotificationKind) {
   return PARTNER_NOTIFICATION_KIND_META.find((k) => k.id === kind)!;
@@ -74,7 +79,7 @@ function birthdayWindow(dob: string | undefined, now = new Date()): "today" | "t
 export function projectPartnerNotifications(input: {
   opportunities: PartnerOpportunityDetailDto[];
   customers: PartnerCustomerSearchHitDto[];
-  ecmContacts?: Array<EcmContact | null>;
+  ecmContacts?: Array<PartnerNotificationBirthdayContact | null>;
   partnerProfileJson?: Record<string, unknown> | null;
   campaignAnnouncements?: Array<{
     id: string;

@@ -26,6 +26,8 @@ export type OwStrategicTabId =
  */
 export const OW_STRATEGIC_NAV: Array<{ id: OwStrategicTabId; label: string }> = [
   { id: "overview", label: "Overview" },
+  /** CO-C1-DIALOGUE-002A — early placement for discoverability */
+  { id: "timeline", label: "Activity Timeline" },
   { id: "customer", label: "Customer Profile" },
   { id: "requirement", label: "Requirement" },
   { id: "product", label: "Solution Design" },
@@ -95,9 +97,13 @@ export function getOwChanakyaTabGuidance(tab: OwStrategicTabId): {
       };
     case "timeline":
       return {
-        headline: "Timeline",
-        message: "Timeline for this opportunity lives in Loan Workspace.",
-        nudges: ["Open Loan Workspace after LIFE assignment and document gates."],
+        headline: "Activity Timeline",
+        message:
+          "Review the chronological work history for this Opportunity — notes, documents, tasks, and stage events.",
+        nudges: [
+          "Add a Business Note from this tab when you capture a customer discussion.",
+          "Deal-specific stage history also appears on the Deal Workspace timeline.",
+        ],
       };
     case "documents":
       return {

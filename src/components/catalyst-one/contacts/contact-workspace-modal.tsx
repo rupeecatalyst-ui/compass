@@ -355,6 +355,8 @@ function RoleFieldControl({
   field,
   value,
   parentValue,
+  institutionId,
+  regionId,
   cityValue,
   institutionLabel,
   onChange,
@@ -362,7 +364,9 @@ function RoleFieldControl({
   field: EcmConfigurableField;
   value: string;
   parentValue?: string;
-  /** Banker city — used when cascading branch after institution. */
+  /** CO-CONTACT-REGION-001 — Institution → Region → City → Branch */
+  institutionId?: string;
+  regionId?: string;
   cityValue?: string;
   institutionLabel?: string;
   onChange: (next: string, option?: EcmMasterOption) => void;
@@ -386,10 +390,11 @@ function RoleFieldControl({
       />
     );
   }
-  if (field.control === "master" && field.masterDomain === "city" && parentValue) {
+  if (field.control === "master" && field.masterDomain === "city") {
     return (
       <BankerCitySelect
-        institutionId={parentValue}
+        institutionId={institutionId}
+        regionId={regionId}
         value={value}
         placeholder={field.placeholder ?? `Select ${field.label}`}
         onChange={onChange}
@@ -399,7 +404,8 @@ function RoleFieldControl({
   if (field.control === "master" && field.masterDomain === "branch") {
     return (
       <BankerBranchSelect
-        institutionId={parentValue}
+        institutionId={institutionId}
+        regionId={regionId}
         cityId={cityValue}
         value={value}
         placeholder={field.placeholder ?? `Select ${field.label}`}
@@ -774,15 +780,22 @@ export function ContactWorkspaceModal({
       for (const dep of dependents) {
         current[dep.key] = "";
       }
-      // CO-BUG-005 — Institution change clears City / Branch (Banker cascade).
+      // CO-CONTACT-REGION-001 — Institution → Region → City → Branch cascade clears.
       if (role === "lender_employee" && key === "institution") {
+        current.region = "";
         current.city = "";
         current.branch = "";
-        current.region = "";
         if (option?.label) {
           current.institutionLabel = option.label;
           current.lenderName = option.label;
         }
+      }
+      if (role === "lender_employee" && key === "region") {
+        current.city = "";
+        current.branch = "";
+      }
+      if (role === "lender_employee" && key === "city") {
+        current.branch = "";
       }
       // CF-CDC-002 — drop values that are no longer relevant after the controlling field changes
       if (key === "employmentType") {
@@ -826,10 +839,7 @@ export function ContactWorkspaceModal({
         next.officialEmail = officialEmail || personalEmail;
         changed = true;
       }
-      if (!next.city && city) {
-        next.city = city;
-        changed = true;
-      }
+      // CO-CONTACT-REGION-001 — do not auto-fill City from Contact geo (bypasses Region cascade).
       if (active?.id) {
         const managerId = getEcmBankerReportingManagerId(active.id);
         if (managerId && next.reportingManagerContactId !== managerId) {
@@ -1111,12 +1121,12 @@ export function ContactWorkspaceModal({
               field={field}
               value={values[field.key] ?? ""}
               parentValue={
-                field.parentFieldKey
-                  ? values[field.parentFieldKey]
-                  : roleCode === "lender_employee" && field.key === "city"
-                    ? values.institution
-                    : undefined
+                field.parentFieldKey ? values[field.parentFieldKey] : undefined
               }
+              institutionId={
+                roleCode === "lender_employee" ? values.institution : undefined
+              }
+              regionId={roleCode === "lender_employee" ? values.region : undefined}
               cityValue={values.city}
               institutionLabel={
                 field.masterDomain === "lender"
@@ -1258,7 +1268,7 @@ export function ContactWorkspaceModal({
             title="Business Profile Details"
             description={
               isBanker
-                ? "Institution, City, Branch, Designation, Products Handled, Official Mobile — asked once for this role."
+                ? "Institution, Region, City, Branch, Designation, Products Handled, Official Mobile — asked once for this role."
                 : "Only the business details this role needs — asked once, reused across journeys."
             }
             badge={<MirStatusBadge complete={mirComplete} />}
