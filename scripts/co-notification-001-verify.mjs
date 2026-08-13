@@ -106,12 +106,28 @@ assert.match(partnerCenter, /enterprise_notification_engine/);
 const host = read(
   "src/components/catalyst-one/enterprise-notification-engine/enterprise-notification-host.tsx",
 );
-assert.match(host, /bottom-4 right-4/);
+assert.match(host, /bottom-\[max|bottom-4/);
 assert.match(host, /ENE_CHIME_PUBLIC_PATH/);
 assert.match(host, /Silent|BellOff/);
 assert.match(host, /BroadcastChannel|ENE_TAB_CHANNEL/);
 assert.match(host, /claimSoundLeadership|ENE_SOUND_LOCK_KEY/);
 assert.match(host, /ENE_TOAST_AUTO_DISMISS_MS/);
+
+// E2. CO-NOTIFICATION-001B — CHANAKYA visual identity (dark toast + approved portrait)
+assert.match(host, /ChanakyaAvatar/);
+assert.match(host, /CEI_OFFICIAL_TITLE/);
+assert.match(host, /CEI_OFFICIAL_SUBTITLE/);
+assert.match(host, /bg-\[#0f1419\]/);
+assert.match(host, /CEI_DEFAULT_AVATAR_PACK|data-ene-avatar/);
+assert.match(host, /safe-area-inset-bottom/);
+assert.ok(
+  existsSync(join(root, "public/images/chanakya-portrait.png")),
+  "Approved CHANAKYA portrait must exist",
+);
+assert.match(
+  read("src/constants/chanakya-enterprise-identity/avatar.ts"),
+  /portraitSrc:\s*"\/images\/chanakya-portrait\.png"/,
+);
 
 const providers = read("src/components/providers/app-providers.tsx");
 assert.match(providers, /EnterpriseNotificationHost/);

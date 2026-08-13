@@ -184,7 +184,9 @@ export interface EcmFixedWorkspaceTabDefinition {
 }
 
 export const ECM_FIXED_WORKSPACE_TABS: readonly EcmFixedWorkspaceTabDefinition[] = [
-  { id: "overview", label: "Overview", sortOrder: 0, placement: "before_roles" },
+  /** Primary Contact 360° relationship intelligence surface */
+  { id: "overview", label: "360°", sortOrder: 0, placement: "before_roles" },
+  { id: "timeline", label: "Activity", sortOrder: 5, placement: "before_roles" },
   { id: "relationships", label: "Relationships", sortOrder: 10, placement: "after_roles" },
   { id: "companies", label: "Companies", sortOrder: 20, placement: "after_roles" },
   { id: "opportunities", label: "Opportunities", sortOrder: 30, placement: "after_roles" },
@@ -192,7 +194,6 @@ export const ECM_FIXED_WORKSPACE_TABS: readonly EcmFixedWorkspaceTabDefinition[]
   { id: "investments", label: "Investments", sortOrder: 50, placement: "after_roles" },
   { id: "documents", label: "Documents", sortOrder: 60, placement: "after_roles" },
   { id: "communication", label: "Communication", sortOrder: 70, placement: "after_roles" },
-  { id: "timeline", label: "Timeline", sortOrder: 80, placement: "after_roles" },
 ];
 
 /** Identity edit surface — opened via Edit, not shown as a primary workspace tab. */

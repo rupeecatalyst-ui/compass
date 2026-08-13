@@ -92,3 +92,19 @@ export function excludeActorFromRecipients(
   if (!actor) return recipients;
   return recipients.filter((r) => !(r.kind === "user" && r.userId === actor));
 }
+
+/**
+ * Explicit assignee list — skips default manager/admin fan-out.
+ * Used by Marketing qualified-handoff alerts. Operational callers omit this path.
+ */
+export function buildExplicitAssigneeRecipients(userIds: string[]): ResolvedRecipient[] {
+  const seen = new Set<string>();
+  const out: ResolvedRecipient[] = [];
+  for (const raw of userIds) {
+    const userId = raw.trim();
+    if (!userId || seen.has(userId)) continue;
+    seen.add(userId);
+    out.push({ kind: "user", userId, reason: "explicit_assignee" });
+  }
+  return out;
+}

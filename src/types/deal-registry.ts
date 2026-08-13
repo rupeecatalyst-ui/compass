@@ -3,7 +3,12 @@
  */
 
 import type { AssignedUserRef } from "@/types/assigned-users";
-import type { LoanFilePriority, LoanFileStatus, PipelineStage } from "@/types/catalyst-one";
+import type {
+  LenderCaseStage,
+  LoanFilePriority,
+  LoanFileStatus,
+  PipelineStage,
+} from "@/types/catalyst-one";
 
 export interface DealRegistryRow {
   id: string;
@@ -26,7 +31,13 @@ export interface DealRegistryRow {
   assignedUsers: AssignedUserRef[];
   rowVersion?: number;
   lendingExtension?: Record<string, unknown> | null;
+  /**
+   * PipelineStage projection for legacy filters / LoanFile-shaped surfaces.
+   * Display and journey overlays must prefer `lenderCaseStage`.
+   */
   grossStage: PipelineStage;
+  /** Canonical LenderCaseStage from EnterpriseDeal.grossStage (SSOT for display). */
+  lenderCaseStage: LenderCaseStage;
   grossStageLabel: string;
   subStage: string;
   selectedLender: string;

@@ -88,10 +88,18 @@ export function TransactionActivityTimeline({
   const scopeKey =
     scope.mode === "opportunity"
       ? `opp:${scope.opportunityId}`
-      : `deal:${scope.dealId}:${scope.opportunityId || ""}`;
+      : scope.mode === "contact"
+        ? `contact:${scope.contactId}`
+        : scope.mode === "lender"
+          ? `lender:${scope.dealIds.join(",")}`
+          : `deal:${scope.dealId}:${scope.opportunityId || ""}`;
 
   const opportunityId =
-    scope.mode === "opportunity" ? scope.opportunityId : scope.opportunityId || null;
+    scope.mode === "opportunity"
+      ? scope.opportunityId
+      : scope.mode === "deal"
+        ? scope.opportunityId || null
+        : null;
   const dealId = scope.mode === "deal" ? scope.dealId : null;
   const mode = scope.mode;
 

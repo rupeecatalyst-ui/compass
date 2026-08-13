@@ -58,7 +58,7 @@ function countByJourney(rows: DealRegistryRow[]) {
   for (const row of rows) {
     const prog = deriveJourneyProgressSegments({
       pipelineStage: row.grossStage,
-      lenderCaseStage: row.grossStage,
+      lenderCaseStage: row.lenderCaseStage,
       status: String(row.status),
     });
     if (prog.overlay === "lost" || prog.overlay === "hold") {

@@ -3,6 +3,7 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  BookOpen,
   Building2,
   Shield,
   GitBranch,
@@ -29,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_ICONS: Record<AdministrationCategoryId, LucideIcon> = {
+  "user-manual": BookOpen,
   organization: Building2,
   "identity-access": Shield,
   workflow: GitBranch,
@@ -41,6 +43,8 @@ const CATEGORY_ICONS: Record<AdministrationCategoryId, LucideIcon> = {
 };
 
 const CATEGORY_ACCENT: Record<AdministrationCategoryId, string> = {
+  "user-manual":
+    "border-teal-500/40 hover:border-teal-500/60 hover:bg-teal-500/[0.07]",
   organization: "border-sky-500/35 hover:border-sky-500/55 hover:bg-sky-500/[0.06]",
   "identity-access":
     "border-violet-500/35 hover:border-violet-500/55 hover:bg-violet-500/[0.06]",
@@ -55,6 +59,7 @@ const CATEGORY_ACCENT: Record<AdministrationCategoryId, string> = {
 };
 
 const CATEGORY_ICON_TONE: Record<AdministrationCategoryId, string> = {
+  "user-manual": "bg-teal-500/15 text-teal-800 dark:text-teal-200",
   organization: "bg-sky-500/15 text-sky-800 dark:text-sky-200",
   "identity-access": "bg-violet-500/15 text-violet-800 dark:text-violet-200",
   workflow: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200",

@@ -98,8 +98,13 @@ export const ROUTES = {
   ORGANIZATION_BUSINESS_CONFIG: "/organization/business-config",
   ORGANIZATION_SETTINGS: "/organization/settings",
   ORGANIZATION_SECURITY: "/organization/security",
+  /** CO-C1-EMAIL-CONFIG-001 — Operational email (ECC) — not Marketing. */
+  ORGANIZATION_COMMUNICATION: "/organization/communication",
+  ORGANIZATION_COMMUNICATION_EMAIL: "/organization/communication/email",
   /** CO-SPRINT-111 — Administration Console hub (Enterprise Configuration Console). */
   ADMIN: "/admin",
+  /** CO-C1-ADMIN-USER-MANUAL-001 — Enterprise User Manual / Knowledge Center */
+  ADMIN_USER_MANUAL: "/admin/user-manual",
   ADMIN_ECG: "/admin/ecg",
   ADMIN_SYSTEM_MODES: "/admin/system-modes",
   /** CO-OPS-001 — Administrator Build Information (System). */
@@ -108,6 +113,18 @@ export const ROUTES = {
   ADMIN_PRODUCTION_RESET: "/admin/production-reset",
   /** CO-PERF-001 — Enterprise Metrics Engine administration */
   ADMIN_ENTERPRISE_METRICS: "/admin/enterprise-metrics",
+  /** CO-MARKETING-MKT-01 — Marketing Command Center (Enterprise Marketing Engine) */
+  ADMIN_MARKETING: "/admin/marketing",
+  ADMIN_MARKETING_CAMPAIGNS: "/admin/marketing/campaigns",
+  ADMIN_MARKETING_AUDIENCES: "/admin/marketing/audiences",
+  ADMIN_MARKETING_DATA_SOURCES: "/admin/marketing/data-sources",
+  ADMIN_MARKETING_CONTENT: "/admin/marketing/content",
+  ADMIN_MARKETING_ASSETS: "/admin/marketing/assets",
+  ADMIN_MARKETING_ENGAGEMENT: "/admin/marketing/engagement",
+  ADMIN_MARKETING_RESPONSES: "/admin/marketing/responses",
+  ADMIN_MARKETING_DELIVERABILITY: "/admin/marketing/deliverability",
+  ADMIN_MARKETING_ANALYTICS: "/admin/marketing/analytics",
+  ADMIN_MARKETING_SETTINGS: "/admin/marketing/settings",
   /** CO-WP-ACCESS-001 — Wealth Partner Access & Entitlements */
   ADMIN_PARTNER_ENTITLEMENTS: "/admin/partner-entitlements",
   /** CO-AI-G2-W8 — Shadow Mode Dashboard (Product Owner review only) */
@@ -269,11 +286,24 @@ export const PROTECTED_ROUTES = [
   ROUTES.ORGANIZATION_BUSINESS_CONFIG,
   ROUTES.ORGANIZATION_SETTINGS,
   ROUTES.ORGANIZATION_SECURITY,
+  ROUTES.ORGANIZATION_COMMUNICATION,
+  ROUTES.ORGANIZATION_COMMUNICATION_EMAIL,
   ROUTES.ADMIN_ECG,
   ROUTES.ADMIN_SYSTEM_MODES,
   ROUTES.ADMIN_BUILD_INFORMATION,
   ROUTES.ADMIN_PRODUCTION_RESET,
   ROUTES.ADMIN_ENTERPRISE_METRICS,
+  ROUTES.ADMIN_MARKETING,
+  ROUTES.ADMIN_MARKETING_CAMPAIGNS,
+  ROUTES.ADMIN_MARKETING_AUDIENCES,
+  ROUTES.ADMIN_MARKETING_DATA_SOURCES,
+  ROUTES.ADMIN_MARKETING_CONTENT,
+  ROUTES.ADMIN_MARKETING_ASSETS,
+  ROUTES.ADMIN_MARKETING_ENGAGEMENT,
+  ROUTES.ADMIN_MARKETING_RESPONSES,
+  ROUTES.ADMIN_MARKETING_DELIVERABILITY,
+  ROUTES.ADMIN_MARKETING_ANALYTICS,
+  ROUTES.ADMIN_MARKETING_SETTINGS,
   ROUTES.ADMIN_PARTNER_ENTITLEMENTS,
   ROUTES.ADMIN_SHADOW_MODE_DASHBOARD,
   ROUTES.ADMIN_ENTERPRISE_COMMUNICATION,

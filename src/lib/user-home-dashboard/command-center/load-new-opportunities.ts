@@ -38,6 +38,44 @@ function arrivalTimeLabel(iso: string): string {
   }
 }
 
+/** Created date only — e.g. 12 Aug 2026 */
+function createdDateLabel(iso: string): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "—";
+  }
+}
+
+/** Last Updated date + time — e.g. 12 Aug 2026, 10:16 PM */
+function lastUpdatedLabel(iso: string): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    const datePart = d.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    const timePart = d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${datePart}, ${timePart}`;
+  } catch {
+    return "—";
+  }
+}
+
 function sourceNameFromRecord(opp: {
   sourceCode?: string | null;
   sourceContactName?: string | null;
@@ -94,6 +132,9 @@ export async function loadNewOpportunitiesFeed(
       stageLabel: displayOpportunityRequirementStageLabel(opp.requirementStage || ""),
       assignedLabel: formatAssignedUsersLabel(assignedUsers) || "Unassigned",
       createdAt: opp.createdAt || "",
+      updatedAt: opp.updatedAt || "",
+      createdDateLabel: createdDateLabel(opp.createdAt || ""),
+      lastUpdatedLabel: lastUpdatedLabel(opp.updatedAt || ""),
       arrivalTimeLabel: arrivalTimeLabel(opp.createdAt || ""),
       attention,
       isNewIndicator,
@@ -101,8 +142,8 @@ export async function loadNewOpportunitiesFeed(
     };
   });
 
-  // Feed order: oldest → newest so newest enters at bottom of the ticker
-  rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  // CO-C1-REFINEMENTS-20260812 — newest-created first (createdAt, not updatedAt)
+  rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   return {
     rows,

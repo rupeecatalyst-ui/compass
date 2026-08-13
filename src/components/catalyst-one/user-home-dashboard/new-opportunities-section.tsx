@@ -72,14 +72,11 @@ function FeedRow({
       href={row.workspaceHref}
       onClick={onInteract}
       onFocus={onInteract}
-      className="block border-b border-border/60 px-3 py-2.5 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="block border-b border-border/60 px-3 py-1.5 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] tabular-nums text-muted-foreground">
-              {row.arrivalTimeLabel}
-            </span>
             {row.isNewIndicator ? (
               <span className="rounded border border-teal-600/40 bg-teal-600/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-800 dark:text-teal-200">
                 New
@@ -89,21 +86,26 @@ function FeedRow({
               ● {attention.label}
             </span>
           </div>
-          <p className="truncate text-sm font-semibold text-foreground">
+          <p className="truncate text-[13px] font-semibold leading-snug text-foreground">
             {row.customerName}
           </p>
-          <p className="truncate text-[12px] text-muted-foreground">
+          <p className="truncate text-[11px] text-muted-foreground">
             {row.opportunityNumber} · {row.product} ·{" "}
             {formatNewOpportunityAmount(row.requestedAmount)}
           </p>
-          <p className="truncate text-[12px] text-muted-foreground">
+          <p className="truncate text-[11px] text-muted-foreground">
             Source: {row.sourceLabel} · {row.sourceName}
           </p>
-          <p className="truncate text-[12px] text-muted-foreground">
+          <p className="truncate text-[11px] text-muted-foreground">
             Stage: {row.stageLabel} · Assigned: {row.assignedLabel}
           </p>
+          <p className="truncate text-[11px] tabular-nums text-muted-foreground">
+            Created: {row.createdDateLabel}
+            <span className="mx-1.5 text-border">·</span>
+            Last Updated: {row.lastUpdatedLabel}
+          </p>
         </div>
-        <span className="shrink-0 text-[12px] font-medium text-primary">Open →</span>
+        <span className="shrink-0 text-[11px] font-medium text-primary">Open →</span>
       </div>
     </Link>
   );
@@ -187,12 +189,12 @@ export function NewOpportunitiesSection() {
       aria-label="New Opportunities"
       data-widget-slot="new_opportunities"
       data-sprint="CO-C1-DASH-001"
-      className="space-y-3"
+      className="space-y-2"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-tight">New Opportunities</h2>
-          <p className="text-[12px] text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             Opportunities created in the selected period (createdAt — not last updated).
           </p>
         </div>
@@ -252,7 +254,7 @@ export function NewOpportunitiesSection() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         {[
           { label: "Total New Opportunities", value: summary.total },
           { label: "Unattended", value: summary.unattended },
@@ -261,44 +263,44 @@ export function NewOpportunitiesSection() {
         ].map((kpi) => (
           <div
             key={kpi.label}
-            className="rounded-xl border border-border/80 bg-card/60 px-3 py-2.5"
+            className="rounded-lg border border-border/80 bg-card/60 px-2.5 py-1.5"
           >
             {loading ? (
-              <span className="block h-7 w-12 animate-pulse rounded bg-muted" />
+              <span className="block h-6 w-10 animate-pulse rounded bg-muted" />
             ) : (
-              <p className="text-2xl font-semibold tabular-nums">{kpi.value}</p>
+              <p className="text-xl font-semibold tabular-nums leading-tight">{kpi.value}</p>
             )}
-            <p className="mt-0.5 text-[11px] text-muted-foreground">{kpi.label}</p>
+            <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{kpi.label}</p>
           </div>
         ))}
       </div>
 
       <div
-        className="overflow-hidden rounded-xl border border-border/80 bg-card/40"
+        className="overflow-hidden rounded-lg border border-border/80 bg-card/40"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
-        <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Live feed · {range.label}
           </p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[10px] text-muted-foreground">
             {paused ? "Paused" : "Auto-scroll"} · hover to pause
           </p>
         </div>
         <div
           ref={viewportRef}
-          className="max-h-[22rem] overflow-y-auto"
+          className="max-h-[13.5rem] overflow-y-auto"
           aria-live="polite"
         >
           {loading && rows.length === 0 ? (
-            <div className="space-y-2 p-3" aria-busy>
+            <div className="space-y-1.5 p-2" aria-busy>
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-16 animate-pulse rounded-lg bg-muted/60" />
+                <div key={i} className="h-12 animate-pulse rounded-md bg-muted/60" />
               ))}
             </div>
           ) : rows.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">
+            <p className="p-3 text-sm text-muted-foreground">
               No new Opportunities in this period.
             </p>
           ) : (

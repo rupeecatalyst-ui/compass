@@ -103,6 +103,15 @@ import { useWorkspaceClose } from "@/hooks/use-workspace-close";
 import { SoftDeleteConfirmDialog } from "@/components/enterprise/soft-delete/soft-delete-dialogs";
 import { EnterpriseRelationshipWorkspace } from "@/components/catalyst-one/enterprise-relationship-workspace";
 import { CreateTaskActionButton } from "@/components/catalyst-one/tasks/create-task-action-button";
+import { TransactionActivityTimeline } from "@/components/catalyst-one/transaction-activity-timeline/transaction-activity-timeline";
+import { AddExplicitRelationshipDialog } from "@/components/catalyst-one/contacts/add-explicit-relationship-dialog";
+import { Contact360IntelligencePanel } from "@/components/catalyst-one/contacts/contact-360-intelligence-panel";
+import {
+  composeContact360Snapshot,
+  formatContact360When,
+  type Contact360Snapshot,
+} from "@/lib/enterprise-contact-master/compose-contact-360";
+import { computeEcmContactScore } from "@/lib/enterprise-contact-master/contact-score";
 import { listContactCompanyLinks, getEcmCompany } from "@/lib/enterprise-company-master";
 import { ECM_COMPANY_RELATION_ROLE_LABELS } from "@/constants/enterprise-company-master";
 import { canSoftDelete, softDeleteApi } from "@/lib/enterprise-soft-delete";
@@ -118,6 +127,7 @@ function ContactWorkspaceEmptyState({
   onPrimaryAction,
   secondaryActionLabel,
   onSecondaryAction,
+  compact = false,
 }: {
   title: string;
   description: string;
@@ -125,20 +135,48 @@ function ContactWorkspaceEmptyState({
   onPrimaryAction?: () => void;
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
+  /** CO-C1-CONTACT-360-UX-REFINEMENT-002 — avoid full-viewport empty states */
+  compact?: boolean;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
-      <div className="mx-auto max-w-md space-y-3">
-        <h3 className="text-base font-semibold tracking-tight text-zinc-50">{title}</h3>
-        <p className="text-sm leading-relaxed text-zinc-400">{description}</p>
+    <div
+      className={cn(
+        "flex flex-col text-left",
+        compact
+          ? "items-start gap-1.5 px-3 py-2.5"
+          : "flex-1 items-center justify-center px-6 py-12 text-center",
+      )}
+    >
+      <div className={cn(compact ? "w-full space-y-1.5" : "mx-auto max-w-md space-y-3")}>
+        <h3
+          className={cn(
+            "font-semibold tracking-tight text-zinc-50",
+            compact ? "text-sm" : "text-base",
+          )}
+        >
+          {title}
+        </h3>
+        <p
+          className={cn(
+            "text-zinc-400",
+            compact ? "text-[11px] leading-snug" : "text-sm leading-relaxed",
+          )}
+        >
+          {description}
+        </p>
         {(primaryActionLabel && onPrimaryAction) ||
         (secondaryActionLabel && onSecondaryAction) ? (
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-2",
+              compact ? "justify-start pt-0.5" : "justify-center pt-2",
+            )}
+          >
             {primaryActionLabel && onPrimaryAction ? (
               <Button
                 type="button"
                 size="sm"
-                className="h-8 rounded-md bg-teal-600 px-3 text-xs text-white hover:bg-teal-500"
+                className="h-7 rounded-md bg-teal-600 px-2.5 text-xs text-white hover:bg-teal-500"
                 onClick={onPrimaryAction}
               >
                 {primaryActionLabel}
@@ -149,7 +187,7 @@ function ContactWorkspaceEmptyState({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 rounded-md border-zinc-700 bg-zinc-900 px-3 text-xs text-zinc-100 hover:bg-zinc-800"
+                className="h-7 rounded-md border-zinc-700 bg-zinc-900 px-2.5 text-xs text-zinc-100 hover:bg-zinc-800"
                 onClick={onSecondaryAction}
               >
                 {secondaryActionLabel}
@@ -174,7 +212,7 @@ function ContactEntityWorkspaceShell({
   description: string;
   actionLabel?: string;
   onAction?: () => void;
-  /** When set, fills the workspace with a centred empty state (does not collapse height). */
+  /** Compact empty — never fills the entire modal viewport (UX-REFINEMENT-002). */
   empty?: {
     title: string;
     description: string;
@@ -187,12 +225,13 @@ function ContactEntityWorkspaceShell({
 }) {
   if (empty) {
     return (
-      <section className="flex min-h-full flex-1 flex-col rounded-xl border border-zinc-800 bg-zinc-900/40">
-        <div className="shrink-0 border-b border-zinc-800/80 px-4 py-3">
+      <section className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900/40">
+        <div className="shrink-0 border-b border-zinc-800/80 px-3 py-2">
           <h3 className="text-sm font-semibold tracking-tight text-zinc-50">{title}</h3>
           <p className="mt-0.5 text-[11px] text-zinc-500">{description}</p>
         </div>
         <ContactWorkspaceEmptyState
+          compact
           title={empty.title}
           description={empty.description}
           primaryActionLabel={empty.primaryActionLabel}
@@ -205,7 +244,7 @@ function ContactEntityWorkspaceShell({
   }
 
   return (
-    <section className="flex min-h-full flex-1 flex-col rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+    <section className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
       <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-zinc-50">{title}</h3>
@@ -222,7 +261,7 @@ function ContactEntityWorkspaceShell({
           </Button>
         ) : null}
       </div>
-      <div className="mt-3 min-h-0 flex-1">{children}</div>
+      <div className="mt-2">{children}</div>
     </section>
   );
 }
@@ -486,7 +525,7 @@ export function ContactWorkspaceModal({
   const [roleProfiles, setRoleProfiles] = useState<
     Partial<Record<EcmContactRole, Record<string, string>>>
   >({});
-  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
+  const [, setCompletedSteps] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(initialTab);
   const [saving, setSaving] = useState(false);
@@ -504,6 +543,9 @@ export function ContactWorkspaceModal({
   } | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [showAddRole, setShowAddRole] = useState(false);
+  const [addRelationshipOpen, setAddRelationshipOpen] = useState(false);
+  const [contact360, setContact360] = useState<Contact360Snapshot | null>(null);
+  const [contact360Loading, setContact360Loading] = useState(false);
   const wasOpenRef = useRef(false);
   const hydratedIdRef = useRef<string | null>(null);
   const baselineRef = useRef("");
@@ -632,10 +674,6 @@ export function ContactWorkspaceModal({
 
   const stepIndex = workspaceTabs.findIndex((t) => t.id === tab);
   const currentStep = stepIndex >= 0 ? workspaceTabs[stepIndex] : undefined;
-  const progressPct =
-    workspaceTabs.length === 0
-      ? 0
-      : Math.round(((completedSteps.size || (active ? 1 : 0)) / workspaceTabs.length) * 100);
 
   const toggleRole = (role: EcmContactRole) => {
     setRoles((prev) => {
@@ -1434,6 +1472,34 @@ export function ContactWorkspaceModal({
     [assignedRoles, roleProfiles],
   );
 
+  const contactScoreValue = useMemo(() => {
+    if (!active) return null;
+    if (typeof active.contactScore === "number") return active.contactScore;
+    return computeEcmContactScore(active);
+  }, [active]);
+
+  useEffect(() => {
+    if (!open || !active?.id) {
+      setContact360(null);
+      return;
+    }
+    let cancelled = false;
+    setContact360Loading(true);
+    void composeContact360Snapshot(active)
+      .then((snap) => {
+        if (!cancelled) setContact360(snap);
+      })
+      .catch(() => {
+        if (!cancelled) setContact360(null);
+      })
+      .finally(() => {
+        if (!cancelled) setContact360Loading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, active]);
+
   const findActiveLoanForContact = (contact: EcmContact): LoanFile | undefined => {
     const digits = contact.mobilePrimary.replace(/\D/g, "");
     return loadDealsSync("loan_workspace").files.find((f) => {
@@ -1795,6 +1861,9 @@ export function ContactWorkspaceModal({
                         <DialogTitle className="truncate text-base font-semibold tracking-tight text-zinc-50">
                           {active.name}
                         </DialogTitle>
+                        <span className="rounded border border-teal-700/50 bg-teal-950/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-200">
+                          Contact 360°
+                        </span>
                         <span
                           className={cn(
                             "inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-medium",
@@ -1805,6 +1874,14 @@ export function ContactWorkspaceModal({
                         >
                           {active.status === "active" ? "Active" : "Archived"}
                         </span>
+                        <div className="flex items-center gap-2 rounded-md border border-amber-800/50 bg-amber-950/30 px-2 py-1">
+                          <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-200/90">
+                            Contact Score
+                          </span>
+                          <span className="text-sm font-semibold tabular-nums text-amber-100">
+                            {contactScoreValue ?? "—"}
+                          </span>
+                        </div>
                         <div className="min-w-[100px] max-w-[160px] flex-1">
                           <div className="mb-0.5 flex items-center justify-between text-[10px] text-zinc-400">
                             <span>Readiness</span>
@@ -1819,9 +1896,21 @@ export function ContactWorkspaceModal({
                         </div>
                       </div>
                       <DialogDescription className="sr-only">
-                        Contact Workspace — Enterprise Relationship Workspace
+                        Contact 360° — role-neutral relationship intelligence for this Contact
                       </DialogDescription>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-zinc-400">
+                        <span>
+                          <span className="text-zinc-500">Roles </span>
+                          <span className="text-zinc-200">
+                            {assignedRoles.map((r) => getEcmRoleLabel(r)).join(" · ") || "—"}
+                          </span>
+                        </span>
+                        <span className="truncate max-w-[200px]">
+                          <span className="text-zinc-500">Company </span>
+                          <span className="text-zinc-200">
+                            {contact360?.companyLabel || "—"}
+                          </span>
+                        </span>
                         <span>
                           <span className="text-zinc-500">ID </span>
                           <span className="font-mono text-zinc-300">{active.id.slice(0, 8)}…</span>
@@ -1846,6 +1935,22 @@ export function ContactWorkspaceModal({
                             {[active.city, active.state].filter(Boolean).join(", ") || "—"}
                           </span>
                         </span>
+                        <span>
+                          <span className="text-zinc-500">Owner </span>
+                          <span className="text-zinc-200">{active.ownerName || "—"}</span>
+                        </span>
+                        <span>
+                          <span className="text-zinc-500">Created </span>
+                          <span className="text-zinc-200">
+                            {formatContact360When(active.createdOn)}
+                          </span>
+                        </span>
+                        <span>
+                          <span className="text-zinc-500">Updated </span>
+                          <span className="text-zinc-200">
+                            {formatContact360When(active.modifiedOn)}
+                          </span>
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1862,7 +1967,7 @@ export function ContactWorkspaceModal({
                       type="button"
                       size="sm"
                       className="h-7 gap-1 rounded-md bg-teal-600 px-2 text-xs text-white hover:bg-teal-500"
-                      onClick={() => setTab("relationships")}
+                      onClick={() => setAddRelationshipOpen(true)}
                     >
                       <Plus className="h-3 w-3" />
                       Add Relationship
@@ -1984,7 +2089,7 @@ export function ContactWorkspaceModal({
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <div className="flex min-h-full flex-col px-4 py-3">
                   {tab === "overview" && (
-                    <div className="flex min-h-full flex-1 flex-col space-y-2">
+                    <div className="flex flex-col space-y-2">
                       {showAddRole && (
                         <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-2.5">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
@@ -2012,16 +2117,19 @@ export function ContactWorkspaceModal({
                         </div>
                       )}
 
-                      <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/60">
-                        <div className="border-b border-zinc-800 px-2.5 py-1.5">
-                          <h3 className="text-xs font-semibold tracking-tight text-zinc-100">
-                            Role Dashboard
-                          </h3>
-                          <p className="mt-0.5 text-[10px] text-zinc-500">
-                            Role Workspace and Business Journey are separate next steps — never a dead end.
-                          </p>
-                        </div>
-                        <div className="overflow-x-auto">
+                      <Contact360IntelligencePanel
+                        snapshot={contact360}
+                        loading={contact360Loading}
+                        onAddRelationship={() => setAddRelationshipOpen(true)}
+                        onOpenActivity={() => setTab("timeline")}
+                        roleWorkspaceSlot={
+                          <div className="overflow-x-auto">
+                            <div className="border-b border-zinc-800 px-2.5 py-1.5">
+                              <p className="text-[10px] text-zinc-500">
+                                Role Workspace and Business Journey remain available — secondary to
+                                relationship intelligence.
+                              </p>
+                            </div>
                             <table className="w-full min-w-[860px] text-left text-xs">
                               <thead className="bg-zinc-950/80 text-[10px] uppercase tracking-[0.1em] text-zinc-500">
                                 <tr>
@@ -2029,9 +2137,7 @@ export function ContactWorkspaceModal({
                                   <th className="px-2.5 py-1.5 font-medium">Status</th>
                                   <th className="px-2.5 py-1.5 font-medium">Completion</th>
                                   <th className="px-2.5 py-1.5 font-medium">Role Workspace</th>
-                                  <th className="px-2.5 py-1.5 font-medium">
-                                    Business Journey
-                                  </th>
+                                  <th className="px-2.5 py-1.5 font-medium">Business Journey</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -2166,8 +2272,9 @@ export function ContactWorkspaceModal({
                                 )}
                               </tbody>
                             </table>
-                        </div>
-                      </div>
+                          </div>
+                        }
+                      />
                     </div>
                   )}
 
@@ -2232,22 +2339,24 @@ export function ContactWorkspaceModal({
                       <EnterpriseRelationshipWorkspace
                         className="flex min-h-full flex-1 flex-col"
                         contact={active}
-                        onAddRelationship={() => setTab("companies")}
+                        onAddRelationship={() => setAddRelationshipOpen(true)}
                       />
                     </div>
                   )}
 
                   {tab === "companies" && active && (
-                    listContactCompanyLinks(active.id).length === 0 ? (
+                    listContactCompanyLinks(active.id).length === 0 &&
+                    !(contact360?.relationshipSections.find((s) => s.category === "companies")
+                      ?.items.length) ? (
                       <ContactEntityWorkspaceShell
                         title="Companies"
-                        description="Companies linked to this contact via the Company Registry."
+                        description="Companies linked to this contact via the Company Registry / Opportunities."
                         empty={{
-                          title: "No Companies Linked",
+                          title: "No linked companies",
                           description:
-                            "This contact is not currently linked to any company in the Company Registry.",
+                            "No company link derived yet. Add an explicit relationship only when it cannot be inferred.",
                           primaryActionLabel: "Add Relationship",
-                          onPrimaryAction: () => setTab("relationships"),
+                          onPrimaryAction: () => setAddRelationshipOpen(true),
                           secondaryActionLabel: "Open Directory",
                           onSecondaryAction: () => router.push(ROUTES.CONTACTS),
                         }}
@@ -2255,27 +2364,42 @@ export function ContactWorkspaceModal({
                     ) : (
                       <ContactEntityWorkspaceShell
                         title="Companies"
-                        description="Companies linked to this contact via the Company Registry."
-                        actionLabel="Open Directory"
-                        onAction={() => router.push(ROUTES.CONTACTS)}
+                        description="Companies linked to this contact via the Company Registry / Opportunities."
+                        actionLabel="Add Relationship"
+                        onAction={() => setAddRelationshipOpen(true)}
                       >
-                        <ul className="space-y-2">
+                        <ul className="space-y-1.5">
+                          {(
+                            contact360?.relationshipSections.find((s) => s.category === "companies")
+                              ?.items ?? []
+                          ).map((item) => (
+                            <li
+                              key={item.id}
+                              className="rounded-md border border-zinc-800 px-2.5 py-1.5"
+                            >
+                              <p className="text-sm font-medium text-zinc-100">{item.label}</p>
+                              <p className="text-[11px] text-zinc-500">{item.detail}</p>
+                            </li>
+                          ))}
                           {listContactCompanyLinks(active.id).map((link) => {
                             const company = getEcmCompany(link.companyId);
+                            const already =
+                              contact360?.relationshipSections
+                                .find((s) => s.category === "companies")
+                                ?.items.some((i) => i.id === `company:${link.id}`) ?? false;
+                            if (already) return null;
                             return (
                               <li
                                 key={link.id}
-                                className="flex items-center justify-between rounded-lg border border-zinc-800 px-3 py-2"
+                                className="rounded-md border border-zinc-800 px-2.5 py-1.5"
                               >
-                                <div>
-                                  <p className="text-sm font-medium text-zinc-100">
-                                    {company?.companyName ?? "Company"}
-                                  </p>
-                                  <p className="text-[11px] text-zinc-500">
-                                    {ECM_COMPANY_RELATION_ROLE_LABELS[link.relationRole] ??
-                                      link.relationRole}
-                                  </p>
-                                </div>
+                                <p className="text-sm font-medium text-zinc-100">
+                                  {company?.companyName ?? "Company"}
+                                </p>
+                                <p className="text-[11px] text-zinc-500">
+                                  {ECM_COMPANY_RELATION_ROLE_LABELS[link.relationRole] ??
+                                    link.relationRole}
+                                </p>
                               </li>
                             );
                           })}
@@ -2285,47 +2409,103 @@ export function ContactWorkspaceModal({
                   )}
 
                   {tab === "opportunities" && (
-                    <ContactEntityWorkspaceShell
-                      title="Opportunities"
-                      description="Opportunity Workspace for journeys linked to this contact."
-                      empty={{
-                        title: "No Linked Opportunities",
-                        description:
-                          "This contact is not currently linked to any Loan Opportunities.",
-                        primaryActionLabel: "Create Opportunity",
-                        onPrimaryAction: () => void handleStartLoanJourney(),
-                        secondaryActionLabel: "Open Opportunities",
-                        onSecondaryAction: () => router.push(ROUTES.MY_OPPORTUNITIES),
-                      }}
-                    />
+                    (contact360?.opportunities.length ?? 0) === 0 ? (
+                      <ContactEntityWorkspaceShell
+                        title="Opportunities"
+                        description="Opportunities linked to this contact (Opportunity Registry)."
+                        empty={{
+                          title: "No linked opportunities",
+                          description:
+                            "This contact is not currently the primary contact on any Opportunity.",
+                          primaryActionLabel: "Create Opportunity",
+                          onPrimaryAction: () => void handleStartLoanJourney(),
+                          secondaryActionLabel: "Open Opportunities",
+                          onSecondaryAction: () => router.push(ROUTES.MY_OPPORTUNITIES),
+                        }}
+                      />
+                    ) : (
+                      <ContactEntityWorkspaceShell
+                        title="Opportunities"
+                        description="Opportunities linked to this contact (Opportunity Registry)."
+                        actionLabel="Open Opportunities"
+                        onAction={() => router.push(ROUTES.MY_OPPORTUNITIES)}
+                      >
+                        <ul className="space-y-1.5">
+                          {contact360!.opportunities.map((o) => (
+                            <li
+                              key={o.id}
+                              className="flex items-center justify-between gap-2 rounded-md border border-zinc-800 px-2.5 py-1.5"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-zinc-100">
+                                  {o.opportunityNumber || o.id}
+                                </p>
+                                <p className="truncate text-[11px] text-zinc-500">
+                                  {[o.productLabel, o.lifecycleStatus || o.requirementStage]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 shrink-0 border-zinc-700 px-2 text-[11px]"
+                                onClick={() =>
+                                  router.push(
+                                    `${ROUTES.OPPORTUNITY_WORKSPACE}?opportunityId=${encodeURIComponent(o.id)}`,
+                                  )
+                                }
+                              >
+                                Open
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      </ContactEntityWorkspaceShell>
+                    )
                   )}
 
                   {tab === "loans" && active && (
-                    findActiveLoanForContact(active) ? (
+                    (contact360?.deals.length ?? 0) === 0 ? (
                       <ContactEntityWorkspaceShell
-                        title="Loans"
-                        description="Deals linked to this contact."
-                        actionLabel="Open My Deals"
-                        onAction={() => router.push(ROUTES.MY_DEALS)}
-                      >
-                        <p className="text-sm text-zinc-200">
-                          Active deal found · continue execution from Deal Workspace.
-                        </p>
-                      </ContactEntityWorkspaceShell>
-                    ) : (
-                      <ContactEntityWorkspaceShell
-                        title="Loans"
-                        description="Deals linked to this contact."
+                        title="Loans / Deals"
+                        description="Deals linked to this contact via Opportunity or primary contact."
                         empty={{
-                          title: "No Active Loans",
+                          title: "No linked deals",
                           description:
-                            "This contact is not currently linked to any Loan Opportunities.",
+                            "No Deal Registry rows currently resolve to this contact.",
                           primaryActionLabel: "Open My Deals",
                           onPrimaryAction: () => router.push(ROUTES.MY_DEALS),
                           secondaryActionLabel: "Create Opportunity",
                           onSecondaryAction: () => void handleStartLoanJourney(),
                         }}
                       />
+                    ) : (
+                      <ContactEntityWorkspaceShell
+                        title="Loans / Deals"
+                        description="Deals linked to this contact via Opportunity or primary contact."
+                        actionLabel="Open My Deals"
+                        onAction={() => router.push(ROUTES.MY_DEALS)}
+                      >
+                        <ul className="space-y-1.5">
+                          {contact360!.deals.map((d) => (
+                            <li
+                              key={d.id}
+                              className="rounded-md border border-zinc-800 px-2.5 py-1.5"
+                            >
+                              <p className="text-sm font-medium text-zinc-100">
+                                {d.dealNumber || d.id}
+                              </p>
+                              <p className="text-[11px] text-zinc-500">
+                                {[d.primaryCounterpartyName, d.grossStage]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      </ContactEntityWorkspaceShell>
                     )
                   )}
 
@@ -2334,7 +2514,7 @@ export function ContactWorkspaceModal({
                       title="Investments"
                       description="Investment relationships for this contact."
                       empty={{
-                        title: "No Investments",
+                        title: "No investments",
                         description:
                           "This contact is not currently linked to any investment relationships.",
                         primaryActionLabel: "Open Investments",
@@ -2344,43 +2524,103 @@ export function ContactWorkspaceModal({
                   )}
 
                   {tab === "documents" && (
-                    <ContactEntityWorkspaceShell
-                      title="Documents"
-                      description="Document Center for this contact’s journeys."
-                      empty={{
-                        title: "No Documents in Context",
-                        description:
-                          "Open Document Center from an active opportunity or deal for checklist execution.",
-                        primaryActionLabel: "Open Document Center",
-                        onPrimaryAction: () => router.push(ROUTES.DOCUMENT_CENTER),
-                      }}
-                    />
+                    (contact360?.relationshipSections.find((s) => s.category === "documents")
+                      ?.items.length ?? 0) === 0 ? (
+                      <ContactEntityWorkspaceShell
+                        title="Documents"
+                        description="Document Registry projection from linked Opportunities."
+                        empty={{
+                          title: "No documents in context",
+                          description:
+                            "Open Document Center from an active opportunity for checklist execution.",
+                          primaryActionLabel: "Open Document Center",
+                          onPrimaryAction: () => router.push(ROUTES.DOCUMENT_CENTER),
+                        }}
+                      />
+                    ) : (
+                      <ContactEntityWorkspaceShell
+                        title="Documents"
+                        description="Document Registry projection from linked Opportunities."
+                        actionLabel="Open Document Center"
+                        onAction={() => router.push(ROUTES.DOCUMENT_CENTER)}
+                      >
+                        <ul className="space-y-1.5">
+                          {contact360!.relationshipSections
+                            .find((s) => s.category === "documents")!
+                            .items.map((item) => (
+                              <li
+                                key={item.id}
+                                className="rounded-md border border-zinc-800 px-2.5 py-1.5"
+                              >
+                                <p className="text-sm font-medium text-zinc-100">{item.label}</p>
+                                <p className="text-[11px] text-zinc-500">{item.detail}</p>
+                              </li>
+                            ))}
+                        </ul>
+                      </ContactEntityWorkspaceShell>
+                    )
                   )}
 
                   {tab === "communication" && (
-                    <ContactEntityWorkspaceShell
-                      title="Communication"
-                      description="Communication Hub for this contact."
-                      empty={{
-                        title: "No Communications Yet",
-                        description:
-                          "Relationship-aware templates will appear here when communication history is available.",
-                        primaryActionLabel: "Open Communication",
-                        onPrimaryAction: () => router.push(ROUTES.COMMUNICATION),
+                    (contact360?.relationshipSections.find((s) => s.category === "communication")
+                      ?.items.length ?? 0) === 0 ? (
+                      <ContactEntityWorkspaceShell
+                        title="Communication"
+                        description="EAR communication / dialogue events stamped to this contact."
+                        empty={{
+                          title: "No communications yet",
+                          description:
+                            "Only events with contactId on EAR appear here — missing stamps are not invented.",
+                          primaryActionLabel: "Open Communication",
+                          onPrimaryAction: () => router.push(ROUTES.COMMUNICATION),
+                        }}
+                      />
+                    ) : (
+                      <ContactEntityWorkspaceShell
+                        title="Communication"
+                        description="EAR communication / dialogue events stamped to this contact."
+                        actionLabel="Open Communication"
+                        onAction={() => router.push(ROUTES.COMMUNICATION)}
+                      >
+                        <ul className="space-y-1.5">
+                          {contact360!.relationshipSections
+                            .find((s) => s.category === "communication")!
+                            .items.map((item) => (
+                              <li
+                                key={item.id}
+                                className="rounded-md border border-zinc-800 px-2.5 py-1.5"
+                              >
+                                <p className="text-sm font-medium text-zinc-100">{item.label}</p>
+                                <p className="text-[11px] text-zinc-500">{item.detail}</p>
+                              </li>
+                            ))}
+                        </ul>
+                      </ContactEntityWorkspaceShell>
+                    )
+                  )}
+
+                  {tab === "timeline" && active && (
+                    <TransactionActivityTimeline
+                      scope={{ mode: "contact", contactId: active.id }}
+                      notesContext={{
+                        entityId: active.id,
+                        workspaceKind: "customer",
+                        entityKind: "contact",
+                        contactId: active.id,
                       }}
+                      title="Activity"
+                      description="Complete chronological history for this Contact (EAR)."
+                      compact
                     />
                   )}
 
-                  {tab === "timeline" && (
+                  {tab === "timeline" && !active && (
                     <ContactEntityWorkspaceShell
-                      title="Timeline"
-                      description="Dialogue and activity timeline for this contact."
+                      title="Activity"
+                      description="Chronological history for this contact."
                       empty={{
-                        title: "No Timeline Activity",
-                        description:
-                          "Timeline entries accumulate from relationships, loans, and communications.",
-                        primaryActionLabel: "Open Timeline",
-                        onPrimaryAction: () => router.push(ROUTES.DIALOGUE),
+                        title: "No Contact Selected",
+                        description: "Save the Contact to load Activity from EAR.",
                       }}
                     />
                   )}
@@ -2446,6 +2686,19 @@ export function ContactWorkspaceModal({
           onSaved(existing);
         }}
       />
+
+      {active ? (
+        <AddExplicitRelationshipDialog
+          open={addRelationshipOpen}
+          onOpenChange={setAddRelationshipOpen}
+          fromContact={active}
+          actorId={actorId}
+          onSaved={() => {
+            void composeContact360Snapshot(active).then(setContact360).catch(() => undefined);
+            setTab("overview");
+          }}
+        />
+      ) : null}
 
       <ActiveOpportunityConflictDialog
         open={Boolean(activeOppConflict)}

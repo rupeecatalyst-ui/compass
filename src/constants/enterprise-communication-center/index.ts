@@ -4,3 +4,9 @@ export {
   ECC_EMAIL_TEMPLATE_PROFILE_REFS,
   resolveProfileCodeForEvent,
 } from "./events";
+export {
+  RUPEE_CATALYST_CORPORATE_BRAND,
+  OPERATIONAL_EMAIL_TEMPLATE_CATALOG,
+  type OperationalEmailTemplateCode,
+  type OperationalEmailTemplateDef,
+} from "./corporate-branding";

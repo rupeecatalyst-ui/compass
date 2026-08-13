@@ -10,6 +10,83 @@ import type {
 
 export const COMMUNICATION_TEMPLATE_REGISTRY: CommunicationTemplateDef[] = [
   {
+    id: "tpl-email-followup-login",
+    code: "EMAIL_FOLLOWUP_LOGIN",
+    name: "Follow-up — Login",
+    channel: "email",
+    recipientTypes: [
+      "customer",
+      "wealth_partner",
+      "lender_representative",
+      "relationship_manager",
+      "hybrid_employee",
+    ],
+    subject: "Follow-up — Login · {{customerName}} · {{product}}",
+    body: "Dear {{name}},\n\nFollowing up on login for {{customerName}}'s {{product}} ({{fileNumber}} / {{opportunityNumber}}).\nCurrent stage: {{stage}}.\nLender: {{lender}}.\n\nPlease share the latest login status at your earliest.\n\nRegards,\n{{rm}}",
+    recommended: true,
+  },
+  {
+    id: "tpl-email-followup-status",
+    code: "EMAIL_FOLLOWUP_STATUS",
+    name: "Follow-up — Status",
+    channel: "email",
+    recipientTypes: [
+      "customer",
+      "wealth_partner",
+      "lender_representative",
+      "relationship_manager",
+      "hybrid_employee",
+    ],
+    subject: "Follow-up — Status · {{customerName}} · {{fileNumber}}",
+    body: "Dear {{name}},\n\nRequesting a status update on {{customerName}} ({{product}} · {{fileNumber}}).\nOpportunity: {{opportunityNumber}}\nDeal: {{dealNumber}}\nCurrent stage: {{stage}}.\n\nThank you for your guidance.\n\n{{rm}}\nRupee Catalyst",
+  },
+  {
+    id: "tpl-email-followup-approval",
+    code: "EMAIL_FOLLOWUP_APPROVAL",
+    name: "Follow-up — Approval",
+    channel: "email",
+    recipientTypes: [
+      "customer",
+      "wealth_partner",
+      "lender_representative",
+      "relationship_manager",
+      "hybrid_employee",
+    ],
+    subject: "Follow-up — Approval · {{customerName}} · {{product}}",
+    body: "Dear {{name}},\n\nFollowing up on approval for {{customerName}}'s {{product}} application ({{fileNumber}}).\nCurrent stage: {{stage}}.\nLender: {{lender}}.\n\nPlease advise on next steps.\n\nRegards,\n{{rm}}",
+  },
+  {
+    id: "tpl-email-followup-disbursement",
+    code: "EMAIL_FOLLOWUP_DISBURSEMENT",
+    name: "Follow-up — Disbursement",
+    channel: "email",
+    recipientTypes: [
+      "customer",
+      "wealth_partner",
+      "lender_representative",
+      "relationship_manager",
+      "hybrid_employee",
+    ],
+    subject: "Follow-up — Disbursement · {{customerName}} · {{fileNumber}}",
+    body: "Dear {{name}},\n\nFollowing up on disbursement for {{customerName}} ({{product}} · {{fileNumber}}).\nCurrent stage: {{stage}}.\n\nPlease confirm the expected timeline.\n\nRegards,\n{{rm}}",
+  },
+  {
+    id: "tpl-email-followup-documents",
+    code: "EMAIL_FOLLOWUP_DOCUMENTS",
+    name: "Follow-up — Documents",
+    channel: "email",
+    recipientTypes: [
+      "customer",
+      "co_applicant",
+      "guarantor",
+      "wealth_partner",
+      "lender_representative",
+    ],
+    subject: "Follow-up — Documents · {{customerName}} · {{fileNumber}}",
+    body: "Dear {{name}},\n\nFollowing up on pending documents for {{customerName}}'s {{product}} ({{fileNumber}}).\nCurrent stage: {{stage}}.\n\nPlease share the outstanding items so we can continue processing.\n\nRegards,\n{{rm}}",
+    recommended: true,
+  },
+  {
     id: "tpl-email-customer-docs",
     code: "EMAIL_CUST_DOCS",
     name: "Document request — Customer",
@@ -55,7 +132,7 @@ export const COMMUNICATION_TEMPLATE_REGISTRY: CommunicationTemplateDef[] = [
     channel: "email",
     recipientTypes: ["lender_representative"],
     subject: "Deal {{fileNumber}} — {{customerName}} · {{product}}",
-    body: "Dear {{name}},\n\nPlease find context for deal {{fileNumber}}.\nCustomer: {{customerName}}\nProduct: {{product}}\nStage: {{stage}}\n\nWe look forward to your guidance.\n\n{{rm}}\nRupee Catalyst",
+    body: "Dear {{name}},\n\nPlease find context for deal {{fileNumber}}.\nCustomer: {{customerName}}\nProduct: {{product}}\nStage: {{stage}}\nOpportunity: {{opportunityNumber}}\nDeal: {{dealNumber}}\n\nWe look forward to your guidance.\n\n{{rm}}\nRupee Catalyst",
     recommended: true,
   },
   {
@@ -145,4 +222,3 @@ export function filterCommunicationTemplates(input: {
     return true;
   }).sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)));
 }
-

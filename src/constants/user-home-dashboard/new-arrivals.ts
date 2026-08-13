@@ -32,8 +32,8 @@ export const NEW_ARRIVALS_DATE_PRESETS: ReadonlyArray<{
   { id: "custom", label: "Custom Date Range" },
 ] as const;
 
-/** CO-C1-DASH-001 — command-center default */
-export const NEW_ARRIVALS_DEFAULT_PRESET: NewArrivalsDatePresetId = "today";
+/** CO-C1-REFINEMENTS-20260812 — Live Feed default = Last 7 Days (user may change). */
+export const NEW_ARRIVALS_DEFAULT_PRESET: NewArrivalsDatePresetId = "last_7";
 
 /** Compact presets for New Opportunities / New Arrivals pulse (PO hierarchy). */
 export const COMMAND_CENTER_DATE_PRESETS: ReadonlyArray<{

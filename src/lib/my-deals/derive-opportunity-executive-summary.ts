@@ -73,6 +73,7 @@ const BUCKET_LABEL: Record<DealStageBucketId, string> = {
 function dealBucket(row: DealRegistryRow): DealStageBucketId {
   const prog = deriveJourneyProgressSegments({
     pipelineStage: row.grossStage,
+    lenderCaseStage: row.lenderCaseStage,
     status: String(row.status),
   });
   if (prog.overlay === "hold") return "hold";

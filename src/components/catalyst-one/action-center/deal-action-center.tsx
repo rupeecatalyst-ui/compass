@@ -220,7 +220,10 @@ export function DealActionCenter({
         product={product}
         stage={stageLabel}
         customerName={customerName}
-        fileNumber={activeDeal.dealNumber}
+        fileNumber={activeDeal.fileNumber || activeDeal.dealNumber}
+        opportunityNumber={activeDeal.opportunityNumber || undefined}
+        dealNumber={activeDeal.dealNumber}
+        lender={lenderLabel}
         rm={activeDeal.relationshipManagerName || runtime.context.relationshipManager}
         participants={participants}
         preferredRecipientId={preferredRecipientId}

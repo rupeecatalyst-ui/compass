@@ -27,6 +27,7 @@ export const ENE_EVENT_TYPES = {
   TASK_ASSIGNED: "TASK_ASSIGNED",
   TASK_DUE: "TASK_DUE",
   IMPORTANT_WORKFLOW_ACTION: "IMPORTANT_WORKFLOW_ACTION",
+  MARKETING_QUALIFIED_HANDOFF: "MARKETING_QUALIFIED_HANDOFF",
 } as const satisfies Record<string, EnterpriseNotificationEventType>;
 
 export const ENE_SOURCE_SYSTEMS = {
@@ -38,6 +39,7 @@ export const ENE_SOURCE_SYSTEMS = {
   ETE: "ete",
   WORKFLOW: "workflow",
   CONTACT: "contact",
+  MARKETING: "marketing",
   MANUAL: "manual",
 } as const;
 
@@ -67,6 +69,8 @@ export function eneEventTitle(eventType: string): string {
       return "Task Assigned";
     case ENE_EVENT_TYPES.TASK_DUE:
       return "Task Due";
+    case ENE_EVENT_TYPES.MARKETING_QUALIFIED_HANDOFF:
+      return "Marketing qualified response";
     default:
       return "Workflow Update";
   }

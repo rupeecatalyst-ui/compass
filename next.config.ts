@@ -96,6 +96,11 @@ const nextConfig: NextConfig = {
     cpus: 1,
     webpackMemoryOptimizations: true,
   },
+  /** CO-C1-ADMIN-USER-MANUAL-001 — include Markdown knowledge base in serverless traces. */
+  outputFileTracingIncludes: {
+    "/admin/user-manual/**/*": ["./content/enterprise-user-manual/**/*"],
+    "/admin/user-manual": ["./content/enterprise-user-manual/**/*"],
+  },
   webpack: (config) => {
     config.parallelism = 1;
     return config;

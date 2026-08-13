@@ -106,7 +106,8 @@ export function resolveLoanCommunicationParticipants(file: LoanFile): ContextPar
 }
 
 /**
- * CO-UX-015 — Resolve Deal Workspace recipients from the active Enterprise Deal.
+ * CO-UX-015 / CO-C1-FOLLOWUP-002 — Resolve Deal Workspace recipients from the active
+ * Enterprise Deal + Opportunity pipeline lenders only (never full Lender Master).
  * Prefer resolved parties; omit empty roles so Action Center never asks for manual lookup.
  */
 export function resolveDealCommunicationParticipants(
@@ -115,17 +116,6 @@ export function resolveDealCommunicationParticipants(
 ): ContextParticipant[] {
   const deal = activeDeal ?? runtime.deal;
   const ctx = runtime.context;
-  const lenderCard =
-    runtime.lenders.find(
-      (l) =>
-        l.enterpriseDealId === deal.id ||
-        l.id === deal.id ||
-        (deal.lenderId && l.lenderRegistryId === deal.lenderId),
-    ) ?? null;
-  const lenderName =
-    lenderCard?.lender ||
-    deal.primaryCounterpartyName ||
-    "Lender";
   const snap =
     deal.snapshot && typeof deal.snapshot === "object"
       ? (deal.snapshot as Record<string, unknown>)
@@ -146,12 +136,51 @@ export function resolveDealCommunicationParticipants(
     });
   }
 
-  list.push({
-    id: `lender:${deal.lenderId || deal.id}`,
-    name: `${lenderName} · Relationship Manager`,
-    recipientType: "lender_representative",
-    identityRef: deal.lenderId ? `identity:lender:${deal.lenderId}` : undefined,
-  });
+  // Context-only lenders: identified / active pipeline for this transaction.
+  const seenLenderKeys = new Set<string>();
+  for (const card of runtime.lenders ?? []) {
+    const key = card.lenderRegistryId || card.enterpriseDealId || card.id || card.lender;
+    if (!key || seenLenderKeys.has(key)) continue;
+    seenLenderKeys.add(key);
+    const contactName =
+      card.lenderSalesContactName?.trim() ||
+      "Relationship Manager";
+    const designation =
+      card.lenderSalesContactDesignationLabel?.trim() || "Relationship Manager";
+    const lenderLabel = card.lender?.trim() || "Lender";
+    list.push({
+      id: `lender:${card.enterpriseDealId || card.id || key}`,
+      name: `${lenderLabel} · ${contactName} — ${designation}`,
+      recipientType: "lender_representative",
+      email: card.lenderSalesContactOfficialEmail || undefined,
+      mobile: card.lenderSalesContactMobile || undefined,
+      identityRef: card.lenderRegistryId
+        ? `identity:lender:${card.lenderRegistryId}`
+        : undefined,
+    });
+  }
+
+  if (seenLenderKeys.size === 0) {
+    const lenderCard =
+      runtime.lenders.find(
+        (l) =>
+          l.enterpriseDealId === deal.id ||
+          l.id === deal.id ||
+          (deal.lenderId && l.lenderRegistryId === deal.lenderId),
+      ) ?? null;
+    const lenderName =
+      lenderCard?.lender ||
+      deal.primaryCounterpartyName ||
+      "Lender";
+    list.push({
+      id: `lender:${deal.lenderId || deal.id}`,
+      name: `${lenderName} · Relationship Manager`,
+      recipientType: "lender_representative",
+      email: lenderCard?.lenderSalesContactOfficialEmail || undefined,
+      mobile: lenderCard?.lenderSalesContactMobile || undefined,
+      identityRef: deal.lenderId ? `identity:lender:${deal.lenderId}` : undefined,
+    });
+  }
 
   const partnerName =
     (typeof snap.channelPartnerName === "string" && snap.channelPartnerName) ||
@@ -163,11 +192,18 @@ export function resolveDealCommunicationParticipants(
       ? deal.invoicePartySpecify
       : null);
 
+  const partnerEmail =
+    (typeof snap.channelPartnerEmail === "string" && snap.channelPartnerEmail) ||
+    (typeof snap.partnerEmail === "string" && snap.partnerEmail) ||
+    (typeof snap.wealthPartnerEmail === "string" && snap.wealthPartnerEmail) ||
+    null;
+
   if (partnerName?.trim()) {
     list.push({
       id: `partner:${deal.invoicePartyContactId || deal.invoicePartyId || partnerName}`,
       name: partnerName.trim(),
       recipientType: "wealth_partner",
+      email: partnerEmail?.trim() || undefined,
       identityRef: deal.invoicePartyContactId
         ? `identity:contact:${deal.invoicePartyContactId}`
         : undefined,
@@ -191,7 +227,7 @@ export function resolveDealCommunicationParticipants(
   const rm = deal.relationshipManagerName || ctx.relationshipManager;
   if (rm?.trim()) {
     list.push({
-      id: `rm:${rm}`,
+      id: `rm:${deal.relationshipManagerUserId || rm}`,
       name: rm.trim(),
       recipientType: "relationship_manager",
     });
@@ -199,6 +235,43 @@ export function resolveDealCommunicationParticipants(
 
   return list;
 }
+
+/** Recipient type groups for contextual Send Email (CO-C1-FOLLOWUP-002). */
+export type SendEmailRecipientGroupId =
+  | "customer"
+  | "wealth_partner"
+  | "lender"
+  | "internal_employee";
+
+export function classifySendEmailRecipientGroup(
+  type: ContextParticipant["recipientType"],
+): SendEmailRecipientGroupId | null {
+  switch (type) {
+    case "customer":
+    case "co_applicant":
+    case "guarantor":
+      return "customer";
+    case "wealth_partner":
+      return "wealth_partner";
+    case "lender_representative":
+      return "lender";
+    case "relationship_manager":
+    case "hybrid_employee":
+      return "internal_employee";
+    default:
+      return null;
+  }
+}
+
+export const SEND_EMAIL_RECIPIENT_GROUPS: ReadonlyArray<{
+  id: SendEmailRecipientGroupId;
+  label: string;
+}> = [
+  { id: "customer", label: "Customer" },
+  { id: "wealth_partner", label: "Wealth Partner" },
+  { id: "lender", label: "Lender" },
+  { id: "internal_employee", label: "Internal Employee" },
+];
 
 export function preferredDealParticipantId(
   participants: ContextParticipant[],

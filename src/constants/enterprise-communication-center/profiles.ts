@@ -52,14 +52,17 @@ export const ECC_COMMUNICATION_PROFILE_SEEDS: readonly CommunicationProfileSeed[
     supportEmail: "connect@rupeecatalyst.com",
     supportPhone: "+91 98219 84181",
     smtpProvider: "none",
-    signature: "Rupee Catalyst Connect",
-    footer: "Rupee Catalyst Connect — Your loan journey companion.",
+    signature:
+      "Rupee Catalyst Connect\nFunding Growth. Building Wealth.\nhttps://www.rupeecatalyst.com",
+    footer:
+      "Rupee Catalyst — Official operational communication. Corporate signature is centrally managed.",
     usedFor: [
       "Customer Invitations",
       "Customer Notifications",
       "Loan Status Updates",
       "Document Requests",
       "Customer Communications",
+      "Operational Follow-ups",
     ],
     active: true,
   },

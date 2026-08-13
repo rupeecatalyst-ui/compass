@@ -14,6 +14,7 @@ import {
   buildRecipientRows,
   resolveNotificationRecipients,
 } from "@server/services/enterprise-notification/recipients";
+import { buildExplicitAssigneeRecipients } from "@/lib/enterprise-notification-engine/recipients-pure";
 import type {
   EnterpriseNotificationItem,
   FanOutEnterpriseNotificationInput,
@@ -92,12 +93,14 @@ export const enterpriseNotificationService = {
     input: FanOutEnterpriseNotificationInput & { actorIsPartner?: boolean },
   ): Promise<EnterpriseNotificationItem[]> {
     const organizationId = await resolveOrganizationId(input.organizationId);
-    const recipients = await resolveNotificationRecipients({
-      organizationId,
-      actorUserId: input.actorUserId,
-      sourceWealthPartnerId: input.sourceWealthPartnerId,
-      actorIsPartner: input.actorIsPartner,
-    });
+    const recipients = Array.isArray(input.explicitRecipientUserIds)
+      ? buildExplicitAssigneeRecipients(input.explicitRecipientUserIds)
+      : await resolveNotificationRecipients({
+          organizationId,
+          actorUserId: input.actorUserId,
+          sourceWealthPartnerId: input.sourceWealthPartnerId,
+          actorIsPartner: input.actorIsPartner,
+        });
     if (recipients.length === 0) return [];
 
     const rows = buildRecipientRows(

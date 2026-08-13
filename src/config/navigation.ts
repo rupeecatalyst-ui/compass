@@ -112,6 +112,14 @@ export const organizationChildren: NavSubItem[] = [
   { title: "Business Configuration", href: ROUTES.ORGANIZATION_BUSINESS_CONFIG },
   { title: "Organization Settings", href: ROUTES.ORGANIZATION_SETTINGS },
   { title: "Organization Security", href: ROUTES.ORGANIZATION_SECURITY },
+  {
+    title: "Communication",
+    href: ROUTES.ORGANIZATION_COMMUNICATION,
+  },
+  {
+    title: "Email Configuration",
+    href: ROUTES.ORGANIZATION_COMMUNICATION_EMAIL,
+  },
 ];
 
 /**
@@ -120,6 +128,7 @@ export const organizationChildren: NavSubItem[] = [
  */
 export const administrationChildren: NavSubItem[] = [
   { title: "Administration Console", href: ROUTES.ADMIN },
+  { title: "User Manual", href: ROUTES.ADMIN_USER_MANUAL },
   ...organizationChildren,
   { title: "Users", href: ROUTES.ADMIN_USERS, separatorBefore: true },
   { title: "Roles & Permissions", href: ROUTES.ADMIN_ROLES_PERMISSIONS },
@@ -152,6 +161,7 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION },
   { title: "Production Reset", href: ROUTES.ADMIN_PRODUCTION_RESET },
   { title: "Enterprise Metrics", href: ROUTES.ADMIN_ENTERPRISE_METRICS },
+  { title: "Marketing Command Center", href: ROUTES.ADMIN_MARKETING },
   { title: "Partner Access & Entitlements", href: ROUTES.ADMIN_PARTNER_ENTITLEMENTS },
   { title: "Shadow Mode Dashboard", href: ROUTES.ADMIN_SHADOW_MODE_DASHBOARD },
   { title: "Enterprise Communication", href: ROUTES.ADMIN_ENTERPRISE_COMMUNICATION },
@@ -362,6 +372,7 @@ export const adminConsoleNavigation: NavGroup = {
     { title: "Build Information", href: ROUTES.ADMIN_BUILD_INFORMATION, icon: Info },
     { title: "Production Reset", href: ROUTES.ADMIN_PRODUCTION_RESET, icon: Eraser },
     { title: "Enterprise Metrics", href: ROUTES.ADMIN_ENTERPRISE_METRICS, icon: BarChart3 },
+    { title: "Marketing Command Center", href: ROUTES.ADMIN_MARKETING, icon: Megaphone },
     { title: "Partner Access & Entitlements", href: ROUTES.ADMIN_PARTNER_ENTITLEMENTS, icon: Shield },
     { title: "Shadow Mode Dashboard", href: ROUTES.ADMIN_SHADOW_MODE_DASHBOARD, icon: Radar },
     { title: "Enterprise Communication", href: ROUTES.ADMIN_ENTERPRISE_COMMUNICATION, icon: Mail },

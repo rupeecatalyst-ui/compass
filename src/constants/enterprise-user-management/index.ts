@@ -57,6 +57,7 @@ export const EUM_PERMISSION_MODULES = [
   { id: "enterprise_assets", label: "Enterprise Asset Library" },
   { id: "credit_risk_engine", label: "Credit & Risk Engine" },
   { id: "workflow_engine", label: "Workflow Engine" },
+  { id: "marketing_command_center", label: "Marketing Command Center" },
   { id: "user_management", label: "User Management" },
   { id: "roles_permissions", label: "Roles & Permissions" },
   { id: "ai_administration", label: "AI Administration" },
@@ -75,6 +76,7 @@ export const EUM_SENSITIVE_MODULES = [
   "organization_settings",
   "organization",
   "user_management",
+  "marketing_command_center",
 ] as const;
 
 export const EUM_BRANCHES = [

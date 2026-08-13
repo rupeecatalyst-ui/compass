@@ -43,6 +43,7 @@ import type {
 } from "@/types/enterprise-lender-registry";
 import { EldHierarchyChart } from "@/components/catalyst-one/enterprise-lender-workspace/eld-hierarchy-chart";
 import { EldLenderEmployeeSlideOver } from "@/components/catalyst-one/enterprise-lender-directory/eld-employee-slide-over";
+import { TransactionActivityTimeline } from "@/components/catalyst-one/transaction-activity-timeline/transaction-activity-timeline";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -53,6 +54,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 
 function displayMetric(value: string | number | null | undefined): string {
   if (value == null) return "Not available";
@@ -98,6 +100,9 @@ export function EnterpriseLenderDirectorySlideOver({
   const [employeeEditing, setEmployeeEditing] = useState(false);
   /** Hierarchy Create/Assign/RM dialog open — disable parent Escape so dialog owns dismiss. */
   const [hierarchyNestedOpen, setHierarchyNestedOpen] = useState(false);
+  const [lenderDealIds, setLenderDealIds] = useState<string[]>([]);
+  const [lenderOpportunityIds, setLenderOpportunityIds] = useState<string[]>([]);
+  const [lenderDeals, setLenderDeals] = useState<EnterpriseDealApiRecord[]>([]);
   const { options: productOptions } = useProductMasterOptions(true);
 
   const lenderId = row?.lenderId ?? null;
@@ -168,23 +173,43 @@ export function EnterpriseLenderDirectorySlideOver({
     setLoading(true);
     void (async () => {
       try {
-        const [prog, docs] = await Promise.all([
+        const [prog, docs, dealsResult] = await Promise.all([
           lenderRegistryClient.queryPrograms({
             lenderId,
             publishedOnly: true,
             pageSize: 200,
           }),
           lenderRegistryClient.listDocuments(lenderId),
+          enterpriseDealApiClient
+            .searchDeals({ archived: false, pageSize: 200, view: "summary" })
+            .catch(() => ({ items: [] as EnterpriseDealApiRecord[] })),
         ]);
         if (cancelled) return;
         setPrograms(prog.items ?? []);
         setDocuments(Array.isArray(docs) ? docs : []);
+        const lenderDealsForLender = (dealsResult.items ?? []).filter(
+          (d) => d.lenderId === lenderId,
+        );
+        setLenderDeals(lenderDealsForLender);
+        setLenderDealIds(lenderDealsForLender.map((d) => d.id).filter(Boolean));
+        setLenderOpportunityIds(
+          Array.from(
+            new Set(
+              lenderDealsForLender
+                .map((d) => d.opportunityId)
+                .filter((id): id is string => Boolean(id?.trim())),
+            ),
+          ),
+        );
         await reloadEmployees();
       } catch {
         if (!cancelled) {
           setPrograms([]);
           setDocuments([]);
           setEmployees([]);
+          setLenderDeals([]);
+          setLenderDealIds([]);
+          setLenderOpportunityIds([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -263,7 +288,7 @@ export function EnterpriseLenderDirectorySlideOver({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700 dark:text-teal-300">
-                  Lender Workspace
+                  Lender 360°
                 </p>
                 <SheetTitle className="truncate text-base">
                   {row?.lenderName ?? "Lender"}
@@ -273,6 +298,24 @@ export function EnterpriseLenderDirectorySlideOver({
                   {row?.shortName ? ` · ${row.shortName}` : ""} · Directory stays open behind this
                   panel
                 </SheetDescription>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center gap-1.5 rounded-md border border-amber-700/40 bg-amber-500/10 px-2 py-0.5">
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                      Lender Score
+                    </span>
+                    <span className="text-sm font-semibold tabular-nums text-foreground">
+                      {row?.activityScore ?? "—"}
+                    </span>
+                  </div>
+                  {(row?.productsSupported ?? []).slice(0, 4).map((p) => (
+                    <span
+                      key={p}
+                      className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                    >
+                      {p}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <Button
@@ -337,36 +380,155 @@ export function EnterpriseLenderDirectorySlideOver({
             {!row ? null : loading ? (
               <p className="text-sm text-muted-foreground">Loading lender workspace…</p>
             ) : tab === "summary" ? (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  { label: "Active Opportunities", value: displayMetric(row.activeOpportunities) },
-                  { label: "Active Deals", value: displayMetric(row.activeDeals) },
-                  { label: "Pipeline Value", value: displayMetric(row.maxLoanAmountLabel) },
-                  { label: "Average TAT", value: displayMetric(row.averageTatLabel) },
-                  { label: "Home Loan ROI", value: displayMetric(row.homeLoanRoiLabel) },
-                  { label: "BT ROI", value: displayMetric(row.balanceTransferRoiLabel) },
-                  { label: "Max LTV", value: displayMetric(row.maxLtvLabel) },
-                  { label: "Min CIBIL", value: displayMetric(row.minCibilLabel) },
-                  { label: "Max FOIR", value: displayMetric(row.foirLabel) },
-                  {
-                    label: "Lender Employees",
-                    value: displayMetric(employees.length),
-                  },
-                ].map((k) => (
-                  <div
-                    key={k.label}
-                    className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
-                  >
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      {k.label}
-                    </p>
-                    <p className="mt-1 text-sm font-semibold tabular-nums">{k.value}</p>
-                  </div>
-                ))}
-                <p className="sm:col-span-2 lg:col-span-4 text-[11px] text-muted-foreground">
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    { label: "Lender Score", value: displayMetric(row.activityScore) },
+                    { label: "Active Opportunities", value: displayMetric(row.activeOpportunities) },
+                    { label: "Active Deals", value: displayMetric(row.activeDeals) },
+                    { label: "Pipeline Value", value: displayMetric(row.maxLoanAmountLabel) },
+                    { label: "Average TAT", value: displayMetric(row.averageTatLabel) },
+                    { label: "Home Loan ROI", value: displayMetric(row.homeLoanRoiLabel) },
+                    { label: "BT ROI", value: displayMetric(row.balanceTransferRoiLabel) },
+                    { label: "Max LTV", value: displayMetric(row.maxLtvLabel) },
+                    { label: "Min CIBIL", value: displayMetric(row.minCibilLabel) },
+                    { label: "Max FOIR", value: displayMetric(row.foirLabel) },
+                    {
+                      label: "Lender Employees",
+                      value: displayMetric(employees.length),
+                    },
+                    {
+                      label: "Programs",
+                      value: displayMetric(programs.length),
+                    },
+                  ].map((k) => (
+                    <div
+                      key={k.label}
+                      className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                    >
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {k.label}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold tabular-nums">{k.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
                   Metrics project from Enterprise Lender Registry programmes + Deal Registry
                   counts. Missing values show as Not available — never demo numbers.
                 </p>
+
+                <section className="space-y-1.5">
+                  <h3 className="text-xs font-semibold tracking-tight text-foreground">
+                    Relationship Intelligence
+                  </h3>
+                  <div className="grid gap-1.5 md:grid-cols-2">
+                    <div className="rounded-md border border-border/60 bg-card/40">
+                      <div className="flex items-center justify-between border-b border-border/50 px-2.5 py-1.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Deals / Pipeline
+                        </p>
+                        <span className="tabular-nums text-[10px] text-muted-foreground">
+                          {lenderDeals.length}
+                        </span>
+                      </div>
+                      {lenderDeals.length === 0 ? (
+                        <p className="px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                          No deals linked to this lender
+                        </p>
+                      ) : (
+                        <ul className="max-h-32 divide-y divide-border/40 overflow-y-auto">
+                          {lenderDeals.slice(0, 8).map((d) => (
+                            <li key={d.id} className="px-2.5 py-1.5 text-[11px]">
+                              <p className="truncate font-medium text-foreground">
+                                {d.dealNumber || d.id}
+                              </p>
+                              <p className="truncate text-muted-foreground">
+                                {[d.primaryContactName, d.grossStage, d.productLabel]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-card/40">
+                      <div className="flex items-center justify-between border-b border-border/50 px-2.5 py-1.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Contacts / RMs
+                        </p>
+                        <span className="tabular-nums text-[10px] text-muted-foreground">
+                          {employees.length}
+                        </span>
+                      </div>
+                      {employees.length === 0 ? (
+                        <p className="px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                          No lender employees linked
+                        </p>
+                      ) : (
+                        <ul className="max-h-32 divide-y divide-border/40 overflow-y-auto">
+                          {employees.slice(0, 8).map((e) => (
+                            <li key={e.contactId} className="px-2.5 py-1.5 text-[11px]">
+                              <p className="truncate font-medium text-foreground">
+                                {e.employeeName}
+                              </p>
+                              <p className="truncate text-muted-foreground">
+                                {[e.designationLabel, e.mobile].filter(Boolean).join(" · ")}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-card/40">
+                      <div className="flex items-center justify-between border-b border-border/50 px-2.5 py-1.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Products / Programmes
+                        </p>
+                        <span className="tabular-nums text-[10px] text-muted-foreground">
+                          {programs.length}
+                        </span>
+                      </div>
+                      {programs.length === 0 ? (
+                        <p className="px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                          No published programmes
+                        </p>
+                      ) : (
+                        <ul className="max-h-32 divide-y divide-border/40 overflow-y-auto">
+                          {programs.slice(0, 8).map((p) => (
+                            <li key={p.id} className="px-2.5 py-1.5 text-[11px]">
+                              <p className="truncate font-medium text-foreground">{p.label}</p>
+                              <p className="truncate text-muted-foreground">
+                                {[p.productCode, p.employmentType].filter(Boolean).join(" · ")}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-card/40">
+                      <div className="flex items-center justify-between border-b border-border/50 px-2.5 py-1.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Activity scope
+                        </p>
+                        <button
+                          type="button"
+                          className="text-[10px] text-teal-700 hover:underline dark:text-teal-300"
+                          onClick={() => setTab("activity")}
+                        >
+                          Open Activity →
+                        </button>
+                      </div>
+                      <p className="px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                        EAR chronology for {lenderDealIds.length} deal
+                        {lenderDealIds.length === 1 ? "" : "s"} / {lenderOpportunityIds.length}{" "}
+                        opportunit
+                        {lenderOpportunityIds.length === 1 ? "y" : "ies"} linked to this lender.
+                      </p>
+                    </div>
+                  </div>
+                </section>
               </div>
             ) : tab === "products" ? (
               <div className="space-y-2">
@@ -598,40 +760,39 @@ export function EnterpriseLenderDirectorySlideOver({
             ) : tab === "opportunities" ? (
               <div className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">
-                  Lender-linked Deals from Enterprise Deal Registry (post lender assignment).
-                  Directory Opportunity count:{" "}
+                  Lender-linked Deals from Enterprise Deal Registry. Directory Opportunity count:{" "}
                   <span className="font-semibold text-foreground">
                     {displayMetric(row.activeOpportunities)}
                   </span>
                   . Deal count:{" "}
                   <span className="font-semibold text-foreground">
-                    {displayMetric(row.activeDeals)}
+                    {displayMetric(lenderDeals.length || row.activeDeals)}
                   </span>
                   .
                 </p>
-                {employees.flatMap((e) => e.pipeline).length === 0 ? (
+                {lenderDeals.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No active Deals currently linked to employees of this lender.
+                    No Deals currently linked to this lender in Deal Registry.
                   </p>
                 ) : (
-                  employees.flatMap((e) =>
-                    e.pipeline.map((item) => (
-                      <article
-                        key={`${e.contactId}-${item.dealId}`}
-                        className="rounded-lg border border-border/60 bg-card px-3 py-2"
-                      >
-                        <p className="text-sm font-semibold">{item.customerName}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {e.employeeName} · {item.dealNumber}
-                          {item.opportunityNumber ? ` · ${item.opportunityNumber}` : ""} ·{" "}
-                          {item.stageLabel}
-                        </p>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {item.productLabel} · {item.amountLabel}
-                        </p>
-                      </article>
-                    )),
-                  )
+                  lenderDeals.map((d) => (
+                    <article
+                      key={d.id}
+                      className="rounded-lg border border-border/60 bg-card px-3 py-2"
+                    >
+                      <p className="text-sm font-semibold">
+                        {d.primaryContactName || d.dealNumber || d.id}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {d.dealNumber}
+                        {d.opportunityNumber ? ` · ${d.opportunityNumber}` : ""} ·{" "}
+                        {d.grossStage}
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {[d.productLabel, d.relationshipManagerName].filter(Boolean).join(" · ")}
+                      </p>
+                    </article>
+                  ))
                 )}
               </div>
             ) : tab === "documents" ? (
@@ -656,10 +817,22 @@ export function EnterpriseLenderDirectorySlideOver({
                   ))
                 )}
               </div>
+            ) : tab === "activity" ? (
+              <TransactionActivityTimeline
+                scope={{
+                  mode: "lender",
+                  dealIds: lenderDealIds,
+                  opportunityIds: lenderOpportunityIds,
+                }}
+                title="Lender Activity"
+                description="Chronology from Enterprise Activity Registry for Deals linked to this lender (no separate lender activity store)."
+                compact
+                active={tab === "activity"}
+              />
             ) : (
               <div className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">
-                  Chanakya insights are derived from Directory, Programme, and Contact Registry
+                  Chanakya Insights are derived from Directory, Programme, and Contact Registry
                   facts only — no fabricated Radar scores.
                 </p>
                 {chanakyaInsights.length === 0 ? (

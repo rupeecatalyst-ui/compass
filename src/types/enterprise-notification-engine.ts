@@ -14,7 +14,8 @@ export type EnterpriseNotificationEventType =
   | "DISBURSEMENT"
   | "TASK_ASSIGNED"
   | "TASK_DUE"
-  | "IMPORTANT_WORKFLOW_ACTION";
+  | "IMPORTANT_WORKFLOW_ACTION"
+  | "MARKETING_QUALIFIED_HANDOFF";
 
 export type EnterpriseNotificationRecipientKind = "user" | "partner";
 
@@ -70,6 +71,8 @@ export type FanOutEnterpriseNotificationInput = {
   previousValue?: string | null;
   newValue?: string | null;
   href: string;
+  /** When set, only these users are notified — default manager/admin fan-out is skipped. */
+  explicitRecipientUserIds?: string[];
   /** Optional partner who owns the transaction (for partner-visible external events). */
   sourceWealthPartnerId?: string | null;
   occurredAt?: string | Date;

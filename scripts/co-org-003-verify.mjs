@@ -88,8 +88,8 @@ mustContain(
 );
 mustContain(
   "src/components/catalyst-one/opportunity-workspace/workspace-dialogue-panel.tsx",
-  "hydrateEdcFromEar",
-  "OW Dialogue hydrates EAR",
+  "TransactionActivityTimeline",
+  "OW Dialogue / Activity reads EAR (CO-C1-DIALOGUE-002)",
 );
 mustContain(
   "src/mission-control/situation-room/providers.ts",

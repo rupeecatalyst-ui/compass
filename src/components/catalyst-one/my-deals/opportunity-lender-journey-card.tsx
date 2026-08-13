@@ -117,7 +117,16 @@ export function OpportunityLenderJourneyCard({
             </div>
             <ul className="divide-y divide-zinc-800/70">
               {group.deals.map((deal) => {
-                const contact = resolveLenderDealContactName(deal);
+                const lenderContact = resolveLenderDealContactName(deal);
+                const assignee =
+                  (deal.assignedUsers ?? [])
+                    .map((u) => u.name)
+                    .filter(Boolean)
+                    .join("; ") ||
+                  (deal.assignedRm && deal.assignedRm !== "—"
+                    ? deal.assignedRm
+                    : "");
+                const assigneeLabel = assignee || "Unassigned";
                 return (
                   <li key={deal.enterpriseDealId || deal.id}>
                     <div className="flex flex-col gap-2 px-1 py-2.5 md:flex-row md:items-center md:gap-3">
@@ -130,23 +139,40 @@ export function OpportunityLenderJourneyCard({
                         <p className="truncate font-mono text-[10px] text-zinc-500">
                           {deal.dealId}
                         </p>
+                        <p className="truncate text-[10px] font-medium text-teal-400/90">
+                          {deal.grossStageLabel}
+                        </p>
                       </div>
-                      <div className="w-full shrink-0 md:w-[120px]">
+                      <div className="w-full shrink-0 space-y-0.5 md:w-[120px]">
                         <p
                           className={cn(
                             "truncate text-[12px]",
-                            contact === "Unassigned"
+                            assigneeLabel === "Unassigned"
                               ? "italic text-zinc-500"
-                              : "text-zinc-300",
+                              : "text-zinc-200",
                           )}
+                          title={`Assignee: ${assigneeLabel}`}
                         >
-                          {contact}
+                          {assigneeLabel}
+                        </p>
+                        <p
+                          className={cn(
+                            "truncate text-[10px]",
+                            lenderContact === "Unassigned"
+                              ? "italic text-zinc-600"
+                              : "text-zinc-500",
+                          )}
+                          title={`Lender contact: ${lenderContact}`}
+                        >
+                          {lenderContact === "Unassigned"
+                            ? "No lender contact"
+                            : lenderContact}
                         </p>
                       </div>
                       <div className="min-w-0 flex-1 overflow-x-auto">
                         <LenderJourneyRailway
                           pipelineStage={deal.grossStage}
-                          lenderCaseStage={deal.grossStage}
+                          lenderCaseStage={deal.lenderCaseStage}
                           status={String(deal.status)}
                         />
                       </div>

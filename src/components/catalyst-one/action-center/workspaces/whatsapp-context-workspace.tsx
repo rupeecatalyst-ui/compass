@@ -11,6 +11,8 @@ import {
   resumeOutboxCountdown,
   updateOutboxMessage,
 } from "@/lib/enterprise-action-center";
+import { appendCorporateWhatsAppIdentity } from "@/lib/enterprise-communication-center";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import { ContextWorkspaceShell } from "@/components/catalyst-one/action-center/context-workspace-shell";
 import type {
   ContextParticipant,
@@ -43,6 +45,12 @@ export function WhatsAppContextWorkspace({
   participants: ContextParticipant[];
   editingMessage?: OutboxMessage | null;
 }) {
+  const { user } = useAuthContext();
+  const senderDisplayName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+    rm ||
+    "Rupee Catalyst";
+
   const withMobile = useMemo(
     () => participants.filter((p) => Boolean(p.mobile) || p.recipientType === "customer"),
     [participants],
@@ -119,6 +127,10 @@ export function WhatsAppContextWorkspace({
       return;
     }
 
+    const signedBody = appendCorporateWhatsAppIdentity(body, {
+      senderDisplayName,
+    });
+
     const now = Date.now();
     if (editingMessage) {
       updateOutboxMessage(editingMessage.id, {
@@ -128,7 +140,7 @@ export function WhatsAppContextWorkspace({
         recipientMobile: recipient.mobile,
         templateId: templateId || undefined,
         templateName: templates.find((t) => t.id === templateId)?.name,
-        body,
+        body: signedBody,
         status: "queued",
         dispatchAtMs: now + OUTBOX_COUNTDOWN_MS,
         dispatchAt: new Date(now + OUTBOX_COUNTDOWN_MS).toISOString(),
@@ -145,7 +157,7 @@ export function WhatsAppContextWorkspace({
         recipientMobile: recipient.mobile,
         templateId: templateId || undefined,
         templateName: templates.find((t) => t.id === templateId)?.name,
-        body,
+        body: signedBody,
       });
     }
     onOpenChange(false);
@@ -237,4 +249,4 @@ export function WhatsAppContextWorkspace({
     </ContextWorkspaceShell>
   );
 }
-
+

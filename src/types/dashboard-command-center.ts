@@ -15,7 +15,15 @@ export interface NewOpportunityFeedRow {
   sourceName: string;
   stageLabel: string;
   assignedLabel: string;
+  /** Opportunity creation timestamp (SSOT). */
   createdAt: string;
+  /** Opportunity last-updated timestamp (SSOT — never derived from createdAt). */
+  updatedAt: string;
+  /** Display: Created date (e.g. 12 Aug 2026). */
+  createdDateLabel: string;
+  /** Display: Last Updated date+time (e.g. 12 Aug 2026, 10:16 PM). */
+  lastUpdatedLabel: string;
+  /** @deprecated Prefer createdDateLabel + lastUpdatedLabel — kept for compact time chip. */
   arrivalTimeLabel: string;
   attention: NewOpportunityAttentionStatus;
   isNewIndicator: boolean;

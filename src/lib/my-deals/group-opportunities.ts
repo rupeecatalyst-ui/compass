@@ -46,6 +46,7 @@ export function opportunityGroupKey(row: DealRegistryRow): string {
 function dealProgress(row: DealRegistryRow) {
   return deriveJourneyProgressSegments({
     pipelineStage: row.grossStage,
+    lenderCaseStage: row.lenderCaseStage,
     status: String(row.status),
   });
 }

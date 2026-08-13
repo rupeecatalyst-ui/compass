@@ -1,14 +1,21 @@
 "use client";
 
 /**
- * CO-NOTIFICATION-001 — Bottom-right enterprise notification toast host.
- * Non-blocking · auto-dismiss ~10s · sound + Silent · multi-tab sound lock.
+ * CO-NOTIFICATION-001 / CO-NOTIFICATION-001B — CHANAKYA Enterprise Notification toast host.
+ * Visual: CHANAKYA portrait identity · mandatory premium dark card · bottom-right.
+ * Behaviour unchanged: non-blocking · ~10s dismiss · sound + Silent · multi-tab sound lock.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BellOff, BellRing, X } from "lucide-react";
+import { BellOff, X } from "lucide-react";
+import { ChanakyaAvatar } from "@/components/catalyst-one/chanakya-enterprise-identity/chanakya-avatar";
 import { useAuthContext } from "@/components/providers/auth-provider";
+import {
+  CEI_DEFAULT_AVATAR_PACK,
+  CEI_OFFICIAL_SUBTITLE,
+  CEI_OFFICIAL_TITLE,
+} from "@/constants/chanakya-enterprise-identity";
 import {
   ENE_CHIME_PUBLIC_PATH,
   ENE_MAX_STACK,
@@ -29,18 +36,6 @@ import { cn } from "@/lib/utils";
 
 type ToastItem = EnterpriseNotificationItem & { toastKey: string };
 
-function formatTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return "";
-  }
-}
-
 function claimSoundLeadership(): boolean {
   try {
     const now = Date.now();
@@ -52,6 +47,37 @@ function claimSoundLeadership(): boolean {
   } catch {
     return true;
   }
+}
+
+function buildBusinessContext(item: EnterpriseNotificationItem): string | null {
+  const parts = [item.customerName, item.productLabel, item.amountLabel].filter(
+    (p): p is string => Boolean(p?.trim()),
+  );
+  if (parts.length) return parts.join(" · ");
+  if (item.body?.trim()) return item.body.trim();
+  return null;
+}
+
+function buildFactualMessage(item: EnterpriseNotificationItem): string | null {
+  const context = buildBusinessContext(item);
+  if (item.description?.trim()) return item.description.trim();
+  if (item.body?.trim() && context !== item.body.trim()) return item.body.trim();
+  return null;
+}
+
+function buildActorLine(item: EnterpriseNotificationItem): string | null {
+  if (item.previousValue && item.newValue) {
+    return `${item.previousValue} → ${item.newValue}`;
+  }
+  if (item.actorName?.trim()) return `Created by ${item.actorName.trim()}`;
+  return null;
+}
+
+function openActionLabel(item: EnterpriseNotificationItem): string {
+  if (item.opportunityId && !item.dealId) return "Open Opportunity →";
+  if (item.dealId) return "Open Deal →";
+  if (item.contactId) return "Open Contact →";
+  return "Open →";
 }
 
 export function EnterpriseNotificationHost() {
@@ -188,77 +214,127 @@ export function EnterpriseNotificationHost() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-4 right-4 z-[80] flex w-[min(100vw-1.5rem,22rem)] flex-col-reverse gap-2"
-      data-sprint="CO-NOTIFICATION-001"
+      className={cn(
+        "pointer-events-none fixed z-[80] flex w-[min(100vw-1.5rem,22.5rem)] flex-col-reverse gap-2",
+        "bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))]",
+        "max-sm:bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+3.75rem))]",
+      )}
+      data-sprint="CO-NOTIFICATION-001B"
+      data-ene-avatar={CEI_DEFAULT_AVATAR_PACK.portraitSrc}
       role="region"
-      aria-label="Enterprise notifications"
+      aria-label="CHANAKYA notifications"
     >
-      {toasts.map((item) => (
-        <div
-          key={item.toastKey}
-          className={cn(
-            "pointer-events-auto rounded-xl border border-border/80 bg-card/95 p-3 shadow-lg backdrop-blur-md",
-            "ring-1 ring-black/5",
-          )}
-          onMouseEnter={() => setHovering(item.id)}
-          onMouseLeave={() => setHovering(null)}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-semibold text-foreground">🔔 {item.title}</p>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                title={soundEnabled ? "Silent (mute sound)" : "Sound on"}
-                aria-label={soundEnabled ? "Mute notification sound" : "Enable notification sound"}
-                onClick={() => void toggleSilent()}
-              >
-                {soundEnabled ? (
-                  <BellRing className="h-3.5 w-3.5" />
-                ) : (
-                  <BellOff className="h-3.5 w-3.5" />
-                )}
-              </button>
-              <button
-                type="button"
-                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Dismiss"
-                onClick={() => dismiss(item.id)}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+      {toasts.map((item) => {
+        const context = buildBusinessContext(item);
+        const message = buildFactualMessage(item);
+        const actorLine = buildActorLine(item);
+
+        return (
+          <article
+            key={item.toastKey}
+            className={cn(
+              "pointer-events-auto overflow-hidden rounded-xl border border-zinc-700/80",
+              "bg-[#0f1419] text-zinc-100 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.65)]",
+              "ring-1 ring-teal-500/15",
+            )}
+            onMouseEnter={() => setHovering(item.id)}
+            onMouseLeave={() => setHovering(null)}
+          >
+            <div className="flex gap-3 p-3.5">
+              <ChanakyaAvatar
+                size="md"
+                shape="circle"
+                animate={false}
+                className="mt-0.5 ring-1 ring-teal-400/25"
+              />
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold tracking-wide text-zinc-50">
+                      {CEI_OFFICIAL_TITLE}
+                    </p>
+                    <p className="text-[10px] font-medium tracking-[0.04em] text-zinc-400">
+                      {CEI_OFFICIAL_SUBTITLE}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors",
+                      "hover:bg-zinc-800 hover:text-zinc-100",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50",
+                    )}
+                    aria-label="Dismiss"
+                    onClick={() => dismiss(item.id)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <h3 className="mt-2 text-[14px] font-semibold leading-snug text-zinc-50">
+                  {item.title}
+                </h3>
+
+                {context ? (
+                  <p className="mt-1.5 text-[12.5px] font-medium leading-snug text-zinc-200">
+                    {context}
+                  </p>
+                ) : null}
+
+                {actorLine ? (
+                  <p className="mt-0.5 text-[11.5px] text-zinc-400">{actorLine}</p>
+                ) : null}
+
+                {message ? (
+                  <p className="mt-2 text-[12.5px] leading-relaxed text-zinc-300">
+                    “{message}”
+                  </p>
+                ) : null}
+
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      "rounded-md px-1 py-0.5 text-[12px] font-semibold text-teal-300",
+                      "hover:text-teal-200 hover:underline",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50",
+                    )}
+                    onClick={() => void onOpen(item)}
+                  >
+                    {openActionLabel(item)}
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium",
+                      soundEnabled
+                        ? "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                        : "bg-zinc-800/80 text-amber-200/90",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50",
+                    )}
+                    title={
+                      soundEnabled
+                        ? "Silent — keep visual, mute sound"
+                        : "Sound muted (Silent on)"
+                    }
+                    aria-label={
+                      soundEnabled
+                        ? "Mute notification sound"
+                        : "Enable notification sound"
+                    }
+                    aria-pressed={!soundEnabled}
+                    onClick={() => void toggleSilent()}
+                  >
+                    <BellOff className="h-3.5 w-3.5" aria-hidden />
+                    <span>{soundEnabled ? "Silent" : "Silent on"}</span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-          <p className="mt-1 text-[13px] font-medium leading-snug text-foreground/90">
-            {item.body}
-          </p>
-          {item.description ? (
-            <p className="mt-1 text-[12px] text-muted-foreground">{item.description}</p>
-          ) : null}
-          {item.actorName ? (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {item.previousValue && item.newValue
-                ? `${item.previousValue} → ${item.newValue}`
-                : `By ${item.actorName}`}
-            </p>
-          ) : null}
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[10px] tabular-nums text-muted-foreground">
-              {formatTime(item.occurredAt)}
-            </span>
-            <button
-              type="button"
-              className="text-[11px] font-semibold text-teal-700 hover:underline dark:text-teal-300"
-              onClick={() => void onOpen(item)}
-            >
-              Open →
-            </button>
-          </div>
-          {!soundEnabled ? (
-            <p className="mt-1 text-[10px] text-muted-foreground">🔕 Silent — sound muted</p>
-          ) : null}
-        </div>
-      ))}
+          </article>
+        );
+      })}
     </div>
   );
 }

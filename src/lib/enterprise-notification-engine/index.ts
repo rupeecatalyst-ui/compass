@@ -16,6 +16,7 @@ export {
   subscribeEneUpdated,
 } from "./session-registry";
 export {
+  buildExplicitAssigneeRecipients,
   buildRecipientRows,
   excludeActorFromRecipients,
 } from "./recipients-pure";

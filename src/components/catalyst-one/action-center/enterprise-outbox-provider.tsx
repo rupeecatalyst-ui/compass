@@ -14,6 +14,7 @@ import {
 } from "@/lib/enterprise-action-center";
 import { simulateEnceCommunication } from "@/lib/enterprise-notification-communication-engine";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
+import { emitEnterpriseActivityBestEffort } from "@/lib/enterprise-activity-registry";
 import type { OutboxMessage } from "@/types/enterprise-action-center";
 
 export type OutboxDispatchHandler = (message: OutboxMessage) => void | Promise<void>;
@@ -122,6 +123,30 @@ export function EnterpriseOutboxProvider({
         },
       });
 
+      emitEnterpriseActivityBestEffort({
+        eventKind: "communications",
+        sourceSystem: "outbox",
+        sourceEventId: message.id,
+        title:
+          message.channel === "email"
+            ? `Email sent · ${message.recipientName}`
+            : `WhatsApp sent · ${message.recipientName}`,
+        summary: message.subject || message.body.slice(0, 180),
+        payload: {
+          channel: message.channel,
+          templateId: message.templateId,
+          recipientType: message.recipientType,
+          recipientId: message.recipientId,
+        },
+        opportunityId:
+          message.entityType === "opportunity" ? message.entityId : null,
+        dealId: message.entityType === "loan" ? message.entityId : null,
+        contactId: message.recipientId?.startsWith("customer:")
+          ? message.recipientId.replace(/^customer:/, "")
+          : null,
+        actorName: "enterprise-outbox",
+      });
+
       await onDispatchedRef.current?.(message);
       toast.success(
         message.channel === "email" ? "Email dispatched" : "WhatsApp dispatched",
@@ -190,4 +215,4 @@ export function EnterpriseOutboxProvider({
 
   return <>{children}</>;
 }
-
+

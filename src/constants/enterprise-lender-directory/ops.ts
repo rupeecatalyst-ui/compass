@@ -60,6 +60,7 @@ export const ELD_WORKSPACE_TABS = [
   { id: "performance", label: "Performance" },
   { id: "opportunities", label: "Opportunities" },
   { id: "documents", label: "Documents" },
+  { id: "activity", label: "Activity" },
   { id: "chanakya", label: "Chanakya Insights" },
 ] as const;
 

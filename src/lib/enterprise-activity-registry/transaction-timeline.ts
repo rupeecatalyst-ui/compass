@@ -48,7 +48,9 @@ export type TransactionTimelineItem = {
 
 export type TransactionTimelineScope =
   | { mode: "opportunity"; opportunityId: string }
-  | { mode: "deal"; dealId: string; opportunityId?: string | null };
+  | { mode: "deal"; dealId: string; opportunityId?: string | null }
+  | { mode: "contact"; contactId: string }
+  | { mode: "lender"; dealIds: string[]; opportunityIds?: string[] };
 
 const CATEGORY_LABELS: Record<TransactionTimelineCategory, string> = {
   note: "NOTE",
@@ -231,6 +233,18 @@ export function filterEventsForScope(
   if (scope.mode === "opportunity") {
     return events.filter((e) => e.opportunityId === scope.opportunityId);
   }
+  if (scope.mode === "contact") {
+    return events.filter((e) => e.contactId === scope.contactId);
+  }
+  if (scope.mode === "lender") {
+    const dealSet = new Set(scope.dealIds.filter(Boolean));
+    const oppSet = new Set((scope.opportunityIds ?? []).filter(Boolean));
+    return events.filter((e) => {
+      if (e.dealId && dealSet.has(e.dealId)) return true;
+      if (e.opportunityId && oppSet.has(e.opportunityId) && !e.dealId) return true;
+      return false;
+    });
+  }
   const dealId = scope.dealId;
   const opportunityId = scope.opportunityId?.trim() || null;
   return events.filter((e) => {
@@ -282,6 +296,25 @@ export async function loadTransactionActivityTimeline(
       opportunityId: scope.opportunityId,
       limit,
     });
+  } else if (scope.mode === "contact") {
+    raw = await listEnterpriseActivity({
+      contactId: scope.contactId,
+      limit,
+    });
+  } else if (scope.mode === "lender") {
+    const dealIds = scope.dealIds.filter(Boolean).slice(0, 40);
+    const opportunityIds = (scope.opportunityIds ?? []).filter(Boolean).slice(0, 40);
+    const batches = await Promise.all([
+      ...dealIds.map((dealId) => listEnterpriseActivity({ dealId, limit: 40 })),
+      ...opportunityIds.map((opportunityId) =>
+        listEnterpriseActivity({ opportunityId, limit: 40 }),
+      ),
+    ]);
+    const map = new Map<string, EnterpriseActivityEvent>();
+    for (const batch of batches) {
+      for (const e of batch) map.set(e.id, e);
+    }
+    raw = Array.from(map.values());
   } else {
     const [byDeal, byOpp] = await Promise.all([
       listEnterpriseActivity({ dealId: scope.dealId, limit }),

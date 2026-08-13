@@ -13,6 +13,7 @@ export const ADMINISTRATION_CONSOLE_TAGLINE =
 export const ADMINISTRATION_CONSOLE_SEARCH_PLACEHOLDER = "Search configuration…";
 
 export type AdministrationCategoryId =
+  | "user-manual"
   | "organization"
   | "identity-access"
   | "workflow"
@@ -39,6 +40,31 @@ export interface AdministrationCategory {
 }
 
 export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
+  {
+    id: "user-manual",
+    title: "User Manual",
+    description:
+      "Enterprise User Manual / Knowledge Center — operational documentation for Catalyst One modules.",
+    modules: [
+      {
+        id: "enterprise-user-manual",
+        title: "Enterprise User Manual",
+        description:
+          "Searchable procedures, FAQs, and module guides. Marketing documentation lives here as one section — not a Marketing-owned manual.",
+        href: ROUTES.ADMIN_USER_MANUAL,
+        keywords: [
+          "user manual",
+          "knowledge center",
+          "documentation",
+          "help",
+          "how to",
+          "faq",
+          "training",
+          "marketing manual",
+        ],
+      },
+    ],
+  },
   {
     id: "organization",
     title: "Organization",
@@ -483,6 +509,22 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         href: ROUTES.REPORTS,
         keywords: ["reports", "analytics"],
       },
+      {
+        id: "marketing-command-center",
+        title: "Marketing Command Center",
+        description:
+          "Enterprise Marketing Engine (EME) — acquisition campaigns foundation. Isolated from operational CRM; no live send in MKT-01.",
+        href: ROUTES.ADMIN_MARKETING,
+        keywords: [
+          "marketing",
+          "campaign",
+          "eme",
+          "acquisition",
+          "email campaign",
+          "audience",
+          "command center",
+        ],
+      },
     ],
   },
   {
@@ -632,5 +674,7 @@ export function searchAdministrationModules(query: string) {
 }
 
 export function administrationCategoryHref(categoryId: AdministrationCategoryId): string {
+  /** First-class User Manual opens the Knowledge Center directly. */
+  if (categoryId === "user-manual") return ROUTES.ADMIN_USER_MANUAL;
   return `${ROUTES.ADMIN}/console/${categoryId}`;
 }

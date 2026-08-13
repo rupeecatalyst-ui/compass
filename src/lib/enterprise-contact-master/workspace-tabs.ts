@@ -15,14 +15,16 @@ export interface EcmWorkspaceTab {
 
 /** Build dynamic Contact Workspace tabs from Role Master + assigned roles. */
 export function buildEcmWorkspaceTabs(assignedRoles: EcmContactRole[]): EcmWorkspaceTab[] {
-  const before = ECM_FIXED_WORKSPACE_TABS.filter((t) => t.placement === "before_roles").map(
-    (t) =>
-      ({
-        id: t.id,
-        label: t.label,
-        kind: "fixed" as const,
-      }) satisfies EcmWorkspaceTab,
-  );
+  const before = ECM_FIXED_WORKSPACE_TABS.filter((t) => t.placement === "before_roles")
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(
+      (t) =>
+        ({
+          id: t.id,
+          label: t.label,
+          kind: "fixed" as const,
+        }) satisfies EcmWorkspaceTab,
+    );
 
   const roleTabs: EcmWorkspaceTab[] = [];
   const master = getEnabledEcmRoleMaster();
@@ -49,5 +51,6 @@ export function buildEcmWorkspaceTabs(assignedRoles: EcmContactRole[]): EcmWorks
         }) satisfies EcmWorkspaceTab,
     );
 
-  return [...before, ...roleTabs, ...after];
+  // CO-C1-CONTACT-360-UX-REFINEMENT-002 — role workspaces are secondary; keep after 360° / Activity / drill-downs.
+  return [...before, ...after, ...roleTabs];
 }

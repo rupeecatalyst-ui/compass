@@ -1,10 +1,20 @@
 /**
  * CO-SPRINT-098 — Deal Registry projection from LoanFile SSOT.
+ *
+ * CO-C1-HEALTH-REMEDIATION-001 — DEPRECATED for operational reads.
+ * Canonical My Deals / registry list path is Enterprise Deal API →
+ * `mapEnterpriseDealToDealRegistryRow` via `loadMyDealsDealRegistryRows`.
+ * Do not wire new surfaces to `mapLoanFileToDealRegistryRow` / `listDealRegistryRows`.
+ * Residual helpers remain for filter/sort utilities only until Architecture Cleanup.
  */
 
 import type { LoanFile } from "@/types/catalyst-one";
 import { STAGE_LABELS } from "@/constants/loan-stage-master";
 import { getSubStatusLabel } from "@/constants/loan-stage-master";
+import {
+  LENDER_CASE_STAGE_LABELS,
+  normalizeLenderCaseStage,
+} from "@/constants/lender-pipeline";
 import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
 import { formatINR } from "@/lib/format-currency";
 import type { DealRegistryFilters, DealRegistryRow, DealRegistrySortField } from "@/types/deal-registry";
@@ -79,6 +89,10 @@ export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
         },
       ]
     : [];
+  const primaryLender = file.lenders?.find((l) => l.isPrimary) ?? file.lenders?.[0];
+  const lenderStage = normalizeLenderCaseStage(
+    primaryLender?.caseStage || file.stage || "identified",
+  );
 
   return {
     id: file.id,
@@ -98,7 +112,9 @@ export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
     rowVersion: file.enterpriseDealRowVersion,
     lendingExtension: null,
     grossStage: file.stage,
-    grossStageLabel: STAGE_LABELS[file.stage] ?? file.stage,
+    lenderCaseStage: lenderStage,
+    grossStageLabel:
+      LENDER_CASE_STAGE_LABELS[lenderStage] ?? STAGE_LABELS[file.stage] ?? file.stage,
     subStage: getSubStatusLabel(file.stage, file.stageSubStatus) || "—",
     selectedLender: selectedLender(file),
     expectedRevenue: file.expectedRevenue ?? 0,

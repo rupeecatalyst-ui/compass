@@ -3,6 +3,9 @@ export {
   resolveDealCommunicationParticipants,
   preferredDealParticipantId,
   applyTemplatePlaceholders,
+  classifySendEmailRecipientGroup,
+  SEND_EMAIL_RECIPIENT_GROUPS,
+  type SendEmailRecipientGroupId,
 } from "./resolve-participants";
 export {
   listOutboxMessages,
@@ -16,4 +19,4 @@ export {
   dueOutboxMessages,
   OUTBOX_EVENT,
 } from "./outbox";
-
+
