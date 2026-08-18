@@ -49,12 +49,15 @@ export function DealActionCenter({
   activeDeal,
   className,
   onTimelineNote,
+  onViewActivity,
 }: {
   runtime: DealPipelineRuntime;
   /** Active lender Deal — switches automatically when the operator focuses another card. */
   activeDeal: EnterpriseDealApiRecord;
   className?: string;
   onTimelineNote?: (title: string, description: string) => void;
+  /** Opens the Deal Activity Timeline (EAR reader). */
+  onViewActivity?: () => void;
 }) {
   const [emailOpen, setEmailOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
@@ -164,13 +167,17 @@ export function DealActionCenter({
         toast.message("Open Document Center from the journey to manage Deal documents.");
         return;
       }
+      if (id === "view_activity") {
+        onViewActivity?.();
+        return;
+      }
       if (id === "add_activity") {
         setActivityOpen(true);
         return;
       }
       toast.message(`${id.replace(/_/g, " ")} will open as a Context Workspace in a later sprint.`);
     },
-    [openEmailFor],
+    [openEmailFor, onViewActivity],
   );
 
   const onEditOutbox = useCallback((message: OutboxMessage) => {

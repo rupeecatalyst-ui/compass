@@ -12,6 +12,13 @@ import {
 } from "@/constants/my-deals";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import {
+  overlayDealRowsWithEarLastActivity,
+} from "@/lib/enterprise-activity-registry/latest-opportunity-activity";
+import {
+  listSessionEarEvents,
+  subscribeEarUpdated,
+} from "@/lib/enterprise-activity-registry/session-registry";
+import {
   enrichMyDealsDealRegistryRows,
   loadMyDealsDealRegistryRows,
   resolveMyDealsDisplayRows,
@@ -160,9 +167,18 @@ export function MyDealsWorkspace() {
     window.addEventListener("storage", onStorage);
     // CO-ARCH-003 — Deal list refreshes on Deal/LoanFile notify only (not Opportunity storm).
     const unsubLoan = subscribeLoanFilesUpdated(() => setTick((t) => t + 1));
+    const unsubEar = subscribeEarUpdated(() => {
+      setPortRows((previous) => {
+        if (!previous?.length) return previous;
+        return overlayDealRowsWithEarLastActivity(previous, listSessionEarEvents()).sort(
+          (a, b) => b.lastActivity.localeCompare(a.lastActivity),
+        );
+      });
+    });
     return () => {
       window.removeEventListener("storage", onStorage);
       unsubLoan();
+      unsubEar();
     };
   }, []);
 

@@ -62,6 +62,23 @@ if (!attention.includes("deriveNewOpportunityAttention")) {
   failed = true;
 }
 
+const liveFeed = fs.readFileSync(
+  path.join(root, "src/components/catalyst-one/user-home-dashboard/new-opportunities-section.tsx"),
+  "utf8",
+);
+if (!liveFeed.includes("Expand Live Feed") || !liveFeed.includes("aria-expanded")) {
+  console.error("Live Feed expand control missing");
+  failed = true;
+}
+if (!liveFeed.includes("loadNewOpportunitiesFeed")) {
+  console.error("Live Feed must keep the existing command-center data source");
+  failed = true;
+}
+if ((liveFeed.match(/function loadNewOpportunitiesFeed/g) || []).length > 0) {
+  console.error("Live Feed must not reimplement loadNewOpportunitiesFeed");
+  failed = true;
+}
+
 const oppApi = fs.readFileSync(
   path.join(root, "src/app/api/enterprise-opportunities/route.ts"),
   "utf8",

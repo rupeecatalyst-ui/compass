@@ -10,3 +10,8 @@ export {
   type OperationalEmailTemplateCode,
   type OperationalEmailTemplateDef,
 } from "./corporate-branding";
+export {
+  OPERATIONAL_EMAIL_CATEGORIES,
+  type OperationalEmailCategoryId,
+  type OperationalEmailCategoryDef,
+} from "./operational-categories";

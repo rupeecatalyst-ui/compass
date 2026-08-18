@@ -22,7 +22,7 @@ export function WorkspaceDialoguePanel() {
   }
 
   return (
-    <div className="space-y-4" data-panel="workspace-activity-timeline">
+    <div className="space-y-4" data-panel="workspace-activity-timeline" data-opportunity-activity-timeline="">
       <StrategicTabToolbar
         title="Activity Timeline"
         description="What has happened on this transaction — chronological work history."

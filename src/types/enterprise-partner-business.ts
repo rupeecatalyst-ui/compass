@@ -10,7 +10,8 @@
 export type PartnerBusinessDtoSource =
   | "placeholder_partner_business"
   | "enterprise_opportunity_registry"
-  | "enterprise_customer_registry";
+  | "enterprise_customer_registry"
+  | "enterprise_deal_registry";
 
 export type PartnerOpportunitySummaryDto = {
   opportunityId: string;
@@ -38,6 +39,15 @@ export type PartnerOpportunityDocumentDto = {
   previewDataUrl?: string | null;
   /** Partner-facing uploader label — presentation only. */
   uploadedByLabel?: string | null;
+  /** Relative path inside a folder upload when supplied. */
+  relativePath?: string | null;
+  /** Folder / package name when uploaded as a complete folder. */
+  folderName?: string | null;
+  uploadSource?: string | null;
+  /** Employee/partner caption — e.g. Catalyst Connect. */
+  sourceLabel?: string | null;
+  participantId?: string | null;
+  documentScope?: string | null;
   updatedAt: string;
   dtoSource: PartnerBusinessDtoSource;
 };
@@ -89,6 +99,8 @@ export type PartnerParticipantDto = {
   dtoSource: PartnerBusinessDtoSource;
 };
 
+export type PartnerLenderSelectionSource = "saarthi" | "manual";
+
 export type PartnerLenderProjectionDto = {
   lenderId: string;
   lenderLabel: string;
@@ -96,6 +108,25 @@ export type PartnerLenderProjectionDto = {
   offerLabel: string | null;
   dtoSource: PartnerBusinessDtoSource;
   dtoNotice: string;
+  /** Enterprise Deal id when this row is a real pipeline Deal. */
+  dealId?: string | null;
+  /** How the partner selected this lender — never implied as Saarthi for manual picks. */
+  selectionSource?: PartnerLenderSelectionSource | null;
+  selectedAt?: string | null;
+  partnerReason?: string | null;
+};
+
+export type PartnerSelectedLenderDto = {
+  lenderId: string;
+  displayName: string;
+  dealId: string;
+  dealNumber: string;
+  stageLabel: string;
+  selectionSource: PartnerLenderSelectionSource | null;
+  selectedAt: string | null;
+  reason: string | null;
+  alreadySelected?: boolean;
+  dtoSource: "enterprise_deal_registry";
 };
 
 export type PartnerNoteEntryDto = {
@@ -267,7 +298,7 @@ export type PartnerOpportunityDocumentUploadInput = {
    * CO-WP-DOC-002 — inbox | additional | requirement.
    * Default: requirement when typeRef is a checklist type; otherwise inbox.
    */
-  intakeMode?: "inbox" | "additional" | "requirement";
+  intakeMode?: "inbox" | "additional" | "requirement" | "folder";
   title?: string;
   /** When set, replaces an existing upload for the same typeRef. */
   replaceDocumentId?: string;
@@ -278,6 +309,20 @@ export type PartnerOpportunityDocumentUploadInput = {
   sizeBytes?: number;
   /** Optional image/PDF receipt payload (base64 data URL or raw base64). */
   contentBase64?: string;
+  /** CO-WP-DOC-003 — relative path inside the selected folder (not flattened). */
+  relativePath?: string;
+  /** Folder / package name from device directory selection. */
+  folderName?: string;
+  /** Client-generated folder session id — groups files into Document Package. */
+  packageId?: string;
+  /** Optional Deal (Enterprise Deal id) when the partner selected a Deal. */
+  dealId?: string;
+  /** Optional participant attribution (Primary / Co-applicant / Guarantor). */
+  participantId?: string;
+  documentScope?: "applicant" | "shared" | "lender";
+  /** Last file in a folder batch — used for a single EAR summary event. */
+  packageComplete?: boolean;
+  packageFileCount?: number;
 };
 
 /** CO-WP-BUSINESS-001 — My Business Pipeline Workspace */

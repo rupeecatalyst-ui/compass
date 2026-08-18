@@ -26,6 +26,8 @@ export {
 } from "./virus-scan-hook";
 export {
   buildLodDimensionKey,
+  buildLodStructureKey,
+  getDocumentRequestRef,
   hasLodDimensionDrift,
   mergeLodItemsWithPrior,
   nextLodVersionNumber,
@@ -40,6 +42,8 @@ export {
   resolveUploadSessionByToken,
   recordPortalOpened,
   recordDocumentRequestCommunication,
+  requestDocumentItems,
+  addCustomDocumentRequirement,
   buildCustomerUploadPortalPath,
   buildCustomerEngagementPortalPath,
   markItemRemarks,

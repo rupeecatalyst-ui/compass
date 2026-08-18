@@ -10,17 +10,40 @@ import type {
   DealPriority,
   DealProductFamily,
   Prisma,
+  PrismaClient,
 } from "@prisma/client";
 import { prisma } from "@server/lib/prisma";
 import { userAdminService } from "@server/services/user-admin.service";
 import { ENTERPRISE_DEAL_SOFT_DELETE_MODULE } from "@/constants/enterprise-deal-registry";
 import type { EnterpriseDealSearchQuery } from "@/types/enterprise-deal";
 import { allocateDealNumberInTransaction } from "@server/services/enterprise-deal/deal-number.service";
+import { POST_DISBURSEMENT_CONFIRMATION_DELAY_HOURS } from "@/constants/post-disbursement-confirmation";
 import {
   DealConflictError,
   DealNotFoundError,
   DealValidationError,
 } from "@server/services/enterprise-deal/deal-validation";
+import { emitDealTimelineToEarBestEffort } from "@server/services/enterprise-activity/deal-timeline-ear";
+
+/**
+ * Create the pending PDC schedule if missing. Existing rows are never overwritten.
+ * Does not update EnterpriseDeal (preserves updatedAt / disbursedAt).
+ */
+export async function ensurePendingPostDisbursementSchedule(
+  db: Prisma.TransactionClient | PrismaClient,
+  input: { organizationId: string; dealId: string; dueAt: Date },
+) {
+  return db.enterprisePostDisbursementSchedule.upsert({
+    where: { dealId: input.dealId },
+    create: {
+      organizationId: input.organizationId,
+      dealId: input.dealId,
+      dueAt: input.dueAt,
+      status: "pending",
+    },
+    update: {},
+  });
+}
 
 export type CreateEnterpriseDealInput = {
   organizationId: string;
@@ -236,7 +259,7 @@ export class EnterpriseDealRepository {
     // CO-QA-005 — Single interactive transaction: number allocate + create + snapshot + timeline.
     // Sequential allocateDealNumber() + $transaction doubled pool checkout pressure under
     // Supabase PgBouncer (6543) and default maxWait=2s → "Unable to start a transaction…".
-    return prisma.$transaction(async (tx) => {
+    const created = await prisma.$transaction(async (tx) => {
       const dealNumber = await allocateDealNumberInTransaction(tx, input.organizationId);
       const deal = await tx.enterpriseDeal.create({
         data: {
@@ -314,7 +337,7 @@ export class EnterpriseDealRepository {
         },
       });
 
-      await tx.enterpriseDealTimelineEvent.create({
+      const createdTimeline = await tx.enterpriseDealTimelineEvent.create({
         data: {
           organizationId: input.organizationId,
           dealId: deal.id,
@@ -332,8 +355,20 @@ export class EnterpriseDealRepository {
         },
       });
 
-      return deal;
+      return { deal, createdTimeline };
     });
+
+    await emitDealTimelineToEarBestEffort({
+      timelineEventId: created.createdTimeline.id,
+      dealId: created.deal.id,
+      opportunityId: created.deal.opportunityId,
+      eventType: created.createdTimeline.eventType,
+      summary: created.createdTimeline.summary,
+      actorUserId: created.createdTimeline.actorUserId,
+      occurredAt: created.createdTimeline.occurredAt,
+    });
+
+    return created.deal;
   }
 
   /** ARB A2 — append-only timeline (no update/delete API). */
@@ -345,6 +380,7 @@ export class EnterpriseDealRepository {
     actorUserId?: string | null;
     occurredAt?: Date;
     payload?: Prisma.InputJsonValue;
+    opportunityId?: string | null;
   }) {
     const row = await prisma.enterpriseDealTimelineEvent.create({
       data: {
@@ -358,30 +394,24 @@ export class EnterpriseDealRepository {
       },
     });
 
-    // CO-ORG-003 — dual-write Deal Timeline → Enterprise Activity Registry
-    try {
-      const { enterpriseActivityService } = await import(
-        "@server/services/enterprise-activity/enterprise-activity.service"
-      );
-      const isStage =
-        input.eventType.includes("stage") || input.eventType.includes("Stage");
-      await enterpriseActivityService.emitBestEffort({
-        eventKind: isStage ? "stage_change" : "workflow",
-        sourceSystem: "deal_timeline",
-        sourceEventId: row.id,
-        title: input.summary,
-        summary: input.eventType,
-        payload: {
-          dealEventType: input.eventType,
-          dealId: input.dealId,
-        },
-        dealId: input.dealId,
-        actorUserId: input.actorUserId ?? null,
-        occurredAt: row.occurredAt,
+    // CO-ORG-003 / CO-C1-EAR-COVERAGE-002 — dual-write Deal Timeline → EAR
+    let opportunityId = input.opportunityId?.trim() || null;
+    if (!opportunityId) {
+      const parent = await prisma.enterpriseDeal.findFirst({
+        where: { id: input.dealId, organizationId: input.organizationId },
+        select: { opportunityId: true },
       });
-    } catch {
-      /* fail-open */
+      opportunityId = parent?.opportunityId ?? null;
     }
+    await emitDealTimelineToEarBestEffort({
+      timelineEventId: row.id,
+      dealId: input.dealId,
+      opportunityId,
+      eventType: input.eventType,
+      summary: input.summary,
+      actorUserId: input.actorUserId ?? null,
+      occurredAt: row.occurredAt,
+    });
 
     // CO-NOTIFICATION-001 — stage / workflow toast fan-out
     try {
@@ -512,7 +542,7 @@ export class EnterpriseDealRepository {
     const now = new Date();
     const label = `${deal.dealNumber}${deal.primaryContactName ? ` · ${deal.primaryContactName}` : ""}`;
 
-    return prisma.$transaction(async (tx) => {
+    const deleted = await prisma.$transaction(async (tx) => {
       const updated = await tx.enterpriseDeal.update({
         where: { id: deal.id },
         data: {
@@ -571,7 +601,7 @@ export class EnterpriseDealRepository {
         },
       });
 
-      await tx.enterpriseDealTimelineEvent.create({
+      const createdTimeline = await tx.enterpriseDealTimelineEvent.create({
         data: {
           organizationId: input.organizationId,
           dealId: deal.id,
@@ -583,8 +613,20 @@ export class EnterpriseDealRepository {
         },
       });
 
-      return updated;
+      return { updated, createdTimeline };
     });
+
+    await emitDealTimelineToEarBestEffort({
+      timelineEventId: deleted.createdTimeline.id,
+      dealId: deal.id,
+      opportunityId: deal.opportunityId,
+      eventType: deleted.createdTimeline.eventType,
+      summary: deleted.createdTimeline.summary,
+      actorUserId: deleted.createdTimeline.actorUserId,
+      occurredAt: deleted.createdTimeline.occurredAt,
+    });
+
+    return deleted.updated;
   }
 
   async listTimeline(organizationId: string, dealId: string, take = 50) {
@@ -789,6 +831,7 @@ export class EnterpriseDealRepository {
       eventType: "archived",
       summary: `Deal ${deal.dealNumber} archived`,
       actorUserId: input.actorUserId,
+      opportunityId: deal.opportunityId,
       payload: { reason: input.reason ?? null },
     });
     return updated;
@@ -854,7 +897,7 @@ export class EnterpriseDealRepository {
         });
       }
 
-      await tx.enterpriseDealTimelineEvent.create({
+      const createdTimeline = await tx.enterpriseDealTimelineEvent.create({
         data: {
           organizationId: input.organizationId,
           dealId: deal.id,
@@ -870,10 +913,20 @@ export class EnterpriseDealRepository {
         },
       });
 
-      return row;
+      return { row, createdTimeline };
     });
 
-    return updated;
+    await emitDealTimelineToEarBestEffort({
+      timelineEventId: updated.createdTimeline.id,
+      dealId: deal.id,
+      opportunityId: deal.opportunityId,
+      eventType: updated.createdTimeline.eventType,
+      summary: updated.createdTimeline.summary,
+      actorUserId: updated.createdTimeline.actorUserId,
+      occurredAt: updated.createdTimeline.occurredAt,
+    });
+
+    return updated.row;
   }
 
   async transitionDeal(input: {
@@ -892,21 +945,45 @@ export class EnterpriseDealRepository {
 
     const now = new Date();
     const stageChanged = deal.grossStage !== input.toGrossStage;
-    const updated = await this.updateDealOptimistic(
-      input.organizationId,
-      input.dealId,
-      input.rowVersion,
-      {
-        grossStage: input.toGrossStage,
-        subStage: input.toSubStage === undefined ? deal.subStage : input.toSubStage,
-        ...(input.toLifecycleStatus ? { lifecycleStatus: input.toLifecycleStatus } : {}),
-        ...(input.toOperationalStatus ? { operationalStatus: input.toOperationalStatus } : {}),
-        ...(stageChanged
-          ? { stageEnteredAt: now, daysInStage: 0 }
-          : {}),
-        updatedBy: input.actorUserId,
-      },
-    );
+    const enteringDisbursed =
+      stageChanged && input.toGrossStage === "disbursed";
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.enterpriseDeal.updateMany({
+        where: {
+          id: input.dealId,
+          organizationId: input.organizationId,
+          rowVersion: input.rowVersion,
+          isDeleted: false,
+        },
+        data: {
+          grossStage: input.toGrossStage,
+          subStage: input.toSubStage === undefined ? deal.subStage : input.toSubStage,
+          ...(input.toLifecycleStatus ? { lifecycleStatus: input.toLifecycleStatus } : {}),
+          ...(input.toOperationalStatus
+            ? { operationalStatus: input.toOperationalStatus }
+            : {}),
+          ...(stageChanged ? { stageEnteredAt: now, daysInStage: 0 } : {}),
+          ...(enteringDisbursed && !deal.disbursedAt ? { disbursedAt: now } : {}),
+          updatedBy: input.actorUserId,
+          rowVersion: { increment: 1 },
+        },
+      });
+      if (result.count === 0) throw new DealConflictError();
+
+      if (enteringDisbursed) {
+        const dueAt = new Date(
+          now.getTime() +
+            POST_DISBURSEMENT_CONFIRMATION_DELAY_HOURS * 60 * 60 * 1000,
+        );
+        await ensurePendingPostDisbursementSchedule(tx, {
+          organizationId: input.organizationId,
+          dealId: input.dealId,
+          dueAt,
+        });
+      }
+
+      return tx.enterpriseDeal.findUniqueOrThrow({ where: { id: input.dealId } });
+    });
 
     // CO-ARCH-003 — Tier 2 timeline/snapshot after Tier 1 stage commit (do not block response).
     const { scheduleTier2Work } = await import("@server/lib/schedule-tier2");
@@ -917,6 +994,7 @@ export class EnterpriseDealRepository {
         eventType: "stage_transition",
         summary: `Stage ${deal.grossStage} → ${input.toGrossStage}`,
         actorUserId: input.actorUserId,
+        opportunityId: deal.opportunityId,
         payload: {
           fromGrossStage: deal.grossStage,
           toGrossStage: input.toGrossStage,

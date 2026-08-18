@@ -42,6 +42,11 @@ import type {
   EmeRunType,
 } from "@/types/enterprise-metrics-engine";
 import { EME_EVENT_METRIC_MAP } from "@/types/enterprise-metrics-engine";
+import {
+  shouldComputeDealHealthProxy,
+  shouldPersistDealHealthOnDealRow,
+} from "@server/services/enterprise-metrics-engine/deal-health-persist";
+import { computeDealHealthProxyScore } from "@/lib/enterprise-metrics-engine/deal-health-proxy";
 
 const DISBURSED_STAGES = [
   "disbursed",
@@ -751,14 +756,18 @@ export class EnterpriseMetricsEngineService {
         });
       }
 
-      /** Deal health write-through (reserved columns) — stage progress proxy until full engine. */
-      if (keysWanted.has("deal.health") || input.runType !== "event_refresh") {
+      /** Deal health proxy — snapshots always; Deal-row write only on explicit event refresh. */
+      if (shouldComputeDealHealthProxy(input.runType, keysWanted)) {
+        const persistOnDealRow = shouldPersistDealHealthOnDealRow(
+          input.runType,
+          keysWanted,
+        );
         for (const deal of deals.slice(0, 200)) {
           const days = deal.daysInStage ?? 0;
-          const score = Math.max(5, Math.min(98, 85 - Math.min(days, 60)));
+          const score = computeDealHealthProxyScore(days);
           const band = score >= 70 ? "good" : score >= 45 ? "needs_attention" : "critical";
           recordsProcessed += 1;
-          if (!dryRun) {
+          if (!dryRun && persistOnDealRow) {
             await prisma.enterpriseDeal.update({
               where: { id: deal.id },
               data: {
@@ -787,7 +796,11 @@ export class EnterpriseMetricsEngineService {
             sourceModules: ["EME.dealHealthProxy", "EnterpriseDeal.grossStage"],
           });
         }
-        notes.push("Deal health proxy written from daysInStage (EME Phase 1).");
+        notes.push(
+          persistOnDealRow
+            ? "Deal health proxy written from daysInStage (EME Phase 1)."
+            : "Deal health proxy snapshot only — Deal row timestamps not mutated.",
+        );
       }
 
       if (!dryRun) {

@@ -39,7 +39,9 @@ export type ActionCenterActionId =
   | "share_documents"
   | "request_documents"
   /** CO-VOICE-002 — ECIE Enterprise Activity Composer */
-  | "add_activity";
+  | "add_activity"
+  /** Phase 1 — open Deal Activity Timeline (EAR reader) */
+  | "view_activity";
 
 export type CommunicationRecipientType =
   | "customer"

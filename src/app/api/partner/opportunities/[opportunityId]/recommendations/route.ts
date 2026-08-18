@@ -20,9 +20,12 @@ export async function GET(request: Request, context: Ctx) {
   try {
     const actor = requirePartnerAccessToken(request);
     const { opportunityId } = await context.params;
+    const url = new URL(request.url);
+    const limitRaw = Number.parseInt(url.searchParams.get("limit") || "", 10);
     const dto = await partnerOpportunityRecommendationsService.getRecommendations(
       actor.userId,
       decodeURIComponent(opportunityId),
+      { limit: Number.isFinite(limitRaw) ? limitRaw : undefined },
     );
     return partnerSuccess(request, dto);
   } catch (err) {

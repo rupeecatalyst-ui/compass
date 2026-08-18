@@ -154,6 +154,29 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         href: ROUTES.ORGANIZATION_SECURITY,
         keywords: ["security", "flags", "branding"],
       },
+      {
+        id: "org-communication",
+        title: "Communication",
+        description:
+          "Organization operational communication hub (not Marketing campaigns).",
+        href: ROUTES.ORGANIZATION_COMMUNICATION,
+        keywords: ["communication", "email", "operational", "smtp", "sender"],
+      },
+      {
+        id: "org-email-configuration",
+        title: "Email Configuration",
+        description:
+          "Operational Catalyst One email — sender profiles, delivery provider, signature, templates, and test send. Separate from Marketing.",
+        href: ROUTES.ORGANIZATION_COMMUNICATION_EMAIL,
+        keywords: [
+          "email configuration",
+          "sender profile",
+          "smtp",
+          "signature",
+          "operational email",
+          "reply-to",
+        ],
+      },
     ],
   },
   {

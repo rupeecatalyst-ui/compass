@@ -45,6 +45,7 @@ import {
   resolveLenderDocumentsKey,
 } from "@/constants/lender-pipeline-documents";
 import { cn } from "@/lib/utils";
+import { documentRegistrySourceLabel } from "@/constants/document-intake";
 import { ROUTES } from "@/constants/routes";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import {
@@ -582,6 +583,10 @@ export function DealDocumentsProjection({
                   </p>
                   <p className="truncate text-[10px] text-muted-foreground">
                     {record.categoryLabel} · v{record.version}
+                    {` · ${documentRegistrySourceLabel(record.uploadSource)}`}
+                    {record.uploadSource === "wealth_partner" && record.uploadedBy
+                      ? ` · ${record.uploadedBy}`
+                      : ""}
                     {record.verifiedAt
                       ? ` · Verified${record.verifiedBy ? ` by ${record.verifiedBy}` : ""}`
                       : ""}

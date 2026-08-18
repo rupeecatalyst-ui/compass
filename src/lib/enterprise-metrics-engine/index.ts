@@ -7,6 +7,12 @@ export {
   EME_SCHEDULE_NOTE,
 } from "@/constants/enterprise-metrics-engine";
 
+export {
+  computeDealHealthProxyScore,
+  dealHealthStageAgeDays,
+  resolveKanbanDealHealthScore,
+} from "./deal-health-proxy";
+
 export type {
   EmeAdminStatus,
   EmeLiveMetrics,

@@ -59,10 +59,20 @@ import {
   LENDER_PROBABILITY_LABELS,
   dealHealthScoreKanbanTone,
   dealPriorityKanbanTone,
+  DISBURSED_DATE_UNAVAILABLE_LABEL,
   formatKanbanCardDate,
   isPreExecutionStage,
   normalizeLenderCaseStage,
+  resolveKanbanCardTimestampLines,
 } from "@/constants/lender-pipeline";
+import {
+  isPostDisbursementConfirmationPending,
+  LENDER_CONFIRMATION_PENDING_KANBAN_LABEL,
+  POST_DISBURSEMENT_CONFIRMATION_STAGE,
+  POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES,
+} from "@/constants/post-disbursement-confirmation";
+import { postDisbursementApiClient } from "@/lib/post-disbursement-confirmation/client";
+import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import type {
   LenderCaseStage,
   LenderLostReason,
@@ -309,6 +319,34 @@ export function LenderPipelineBoard({
           c.lenderSalesContactOfficialEmail?.trim() ||
           "",
       });
+      setDragOverStage(null);
+      setDraggingId(null);
+      return;
+    }
+
+    if (stage === POST_DISBURSEMENT_CONFIRMATION_STAGE) {
+      toast.message(
+        "Post-Disbursement Confirmation opens automatically three days after Disbursed.",
+      );
+      setDragOverStage(null);
+      setDraggingId(null);
+      return;
+    }
+
+    if (normalizeLenderCaseStage(c.caseStage) === POST_DISBURSEMENT_CONFIRMATION_STAGE) {
+      toast.message(
+        "Use Confirmation Received on the card to complete lender confirmation.",
+      );
+      setDragOverStage(null);
+      setDraggingId(null);
+      return;
+    }
+
+    // `stage` is already narrowed away from disbursed / post_disbursement_confirmation above.
+    if (normalizeLenderCaseStage(c.caseStage) === "disbursed") {
+      toast.message(
+        "Disbursed cases advance to Post-Disbursement Confirmation via the server timer.",
+      );
       setDragOverStage(null);
       setDraggingId(null);
       return;
@@ -738,6 +776,50 @@ export function LenderPipelineBoard({
     setHoldCase(null);
   };
 
+  const confirmPostDisbursementReceived = (caseId: string) => {
+    const c = cases.find((x) => x.id === caseId);
+    if (!c || !isPostDisbursementConfirmationPending({
+      caseStage: c.caseStage,
+      caseSubStage: c.caseSubStage,
+    })) {
+      return;
+    }
+    void (async () => {
+      try {
+        const dealId = (c.enterpriseDealId || c.id || "").trim();
+        if (!dealId) {
+          toast.error("Deal id is missing for confirmation.");
+          return;
+        }
+        let rowVersion = c.enterpriseDealRowVersion;
+        if (rowVersion == null) {
+          const deal = await enterpriseDealApiClient.getDeal(dealId);
+          rowVersion = deal.rowVersion;
+        }
+        if (rowVersion == null) {
+          toast.error("Deal version is missing — reload the workspace and try again.");
+          return;
+        }
+        const result = await postDisbursementApiClient.confirmReceived(dealId, {
+          rowVersion,
+        });
+        applyMove(caseId, POST_DISBURSEMENT_CONFIRMATION_STAGE, {
+          caseSubStage: POST_DISBURSEMENT_CONFIRMATION_SUB_STAGES.received,
+          enterpriseDealRowVersion: result.rowVersion,
+        });
+        toast.success(
+          result.idempotentReplay
+            ? "Confirmation already recorded — Accounting Case unchanged."
+            : "Confirmation Received — Accounting Case activated.",
+        );
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to record confirmation",
+        );
+      }
+    })();
+  };
+
   const confirmLoginProbe = (values: LenderLoginProbeValues) => {
     if (!loginProbeCase) return;
     applyMove(loginProbeCase.id, loginProbeCase.targetStage, buildLenderLoginProbePatch(values));
@@ -823,6 +905,7 @@ export function LenderPipelineBoard({
                         }
                         onReorderUp={() => reorderIdentified(c.id, "up")}
                         onReorderDown={() => reorderIdentified(c.id, "down")}
+                        onConfirmReceived={() => confirmPostDisbursementReceived(c.id)}
                       />
                     ))}
                     {colCases.length === 0 && (
@@ -1284,6 +1367,7 @@ function LenderCaseKanbanCard({
   onOpenDocuments,
   onReorderUp,
   onReorderDown,
+  onConfirmReceived,
 }: {
   context: DealPipelineContext;
   stageLabel: string;
@@ -1302,15 +1386,24 @@ function LenderCaseKanbanCard({
   onOpenDocuments?: () => void;
   onReorderUp: () => void;
   onReorderDown: () => void;
+  onConfirmReceived: () => void;
 }) {
   const stage = normalizeLenderCaseStage(caseExecution.caseStage);
   const identified = stage === "identified";
+  const confirmationPending = isPostDisbursementConfirmationPending({
+    caseStage: caseExecution.caseStage,
+    caseSubStage: caseExecution.caseSubStage,
+  });
   const product = caseExecution.product ?? loan.loanProduct;
   const salesContactName = caseExecution.lenderSalesContactName?.trim() || "";
   const internalRm = loan.relationshipManager?.trim() || "—";
   const health = dealHealthScoreKanbanTone(caseExecution.dealHealthScore);
   const priorityTone = dealPriorityKanbanTone(caseExecution.dealPriority);
-  const updatedLabel = formatKanbanCardDate(caseExecution.updatedAt) || "—";
+  const cardTimestamps = resolveKanbanCardTimestampLines({
+    caseStage: caseExecution.caseStage,
+    updatedAt: caseExecution.updatedAt,
+    disbursedAt: caseExecution.disbursedAt,
+  });
   const expectedDate = resolveStageExpectedDate(stage, caseExecution);
   const subStage =
     lenderSubStageLabel(stage, caseExecution.caseSubStage) ||
@@ -1468,6 +1561,14 @@ function LenderCaseKanbanCard({
             {subStage}
           </span>
         </div>
+        {confirmationPending ? (
+          <p
+            className="mt-1 text-[10px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400"
+            title="The three-day post-disbursement period has elapsed and lender confirmation is now required."
+          >
+            {LENDER_CONFIRMATION_PENDING_KANBAN_LABEL}
+          </p>
+        ) : null}
       </div>
 
       {/* OPERATIONAL — Lender Sales Contact · Internal RM */}
@@ -1493,11 +1594,27 @@ function LenderCaseKanbanCard({
         </div>
       </div>
 
-      {/* TIMELINE — Last Updated · stage expected date (collapsed on tablet) */}
+      {/* TIMELINE — Disbursed (canonical) · Updated (persistence) · stage expected date */}
       <div className="mt-2 space-y-0.5 text-[10px] leading-snug max-md:block md:hidden lg:block">
+        {cardTimestamps.showDisbursedDate ? (
+          <p>
+            {cardTimestamps.disbursedValue === DISBURSED_DATE_UNAVAILABLE_LABEL ? (
+              <span className="font-medium text-foreground">
+                {cardTimestamps.disbursedValue}
+              </span>
+            ) : (
+              <>
+                <span className="text-muted-foreground">Disbursed </span>
+                <span className="font-medium text-foreground">
+                  {cardTimestamps.disbursedValue}
+                </span>
+              </>
+            )}
+          </p>
+        ) : null}
         <p>
           <span className="text-muted-foreground">Updated </span>
-          <span className="font-medium text-foreground">{updatedLabel}</span>
+          <span className="font-medium text-foreground">{cardTimestamps.updatedLabel}</span>
         </p>
         {expectedDate ? (
           <p>
@@ -1527,6 +1644,16 @@ function LenderCaseKanbanCard({
         {identified ? (
           <Button type="button" size="sm" className="h-6 px-1.5 text-[9px]" onClick={onStartLogin}>
             Start Login
+          </Button>
+        ) : null}
+        {confirmationPending ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-6 px-1.5 text-[9px] bg-red-600 text-white hover:bg-red-700"
+            onClick={onConfirmReceived}
+          >
+            Confirmation Received
           </Button>
         ) : null}
         <Button

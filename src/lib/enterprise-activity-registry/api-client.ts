@@ -64,10 +64,37 @@ export async function listEnterpriseActivity(
     };
     const items = payload.data?.items ?? payload.items ?? [];
     if (items.length) rememberEarEvents(items);
-    return items;
+    const session = sessionFallback(query);
+    if (!items.length) return session;
+    const limit = query.limit ?? 50;
+    return mergeEarItems(items, session).slice(0, limit);
   } catch {
     return sessionFallback(query);
   }
+}
+
+function mergeEarItems(
+  api: EnterpriseActivityEvent[],
+  session: EnterpriseActivityEvent[],
+): EnterpriseActivityEvent[] {
+  if (!session.length) return api;
+  const byKey = new Map<string, EnterpriseActivityEvent>();
+  for (const event of session) {
+    byKey.set(earMergeKey(event), event);
+  }
+  for (const event of api) {
+    byKey.set(earMergeKey(event), event);
+  }
+  return [...byKey.values()].sort(
+    (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+  );
+}
+
+function earMergeKey(event: EnterpriseActivityEvent): string {
+  if (event.sourceSystem && event.sourceEventId) {
+    return `${event.sourceSystem}:${event.sourceEventId}`;
+  }
+  return event.id;
 }
 
 export async function emitEnterpriseActivity(
@@ -102,7 +129,11 @@ export async function emitEnterpriseActivity(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        ...input,
+        id: provisional.id,
+        occurredAt: provisional.occurredAt,
+      }),
     });
     if (!res.ok) return provisional;
     const payload = (await res.json()) as {

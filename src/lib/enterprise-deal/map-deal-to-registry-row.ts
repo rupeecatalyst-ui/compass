@@ -65,7 +65,11 @@ export function mapEnterpriseDealToDealRegistryRow(
   deal: EnterpriseDealApiRecord,
 ): DealRegistryRow {
   const amount = deal.requestedAmount ?? 0;
-  const last = deal.updatedAt || deal.createdAt || "";
+  const lastActivity =
+    (typeof deal.stageEnteredAt === "string" && deal.stageEnteredAt.trim()) ||
+    deal.createdAt ||
+    "";
+  const lastModified = deal.updatedAt || deal.createdAt || "";
   const lenderStage = normalizeLenderCaseStage(deal.grossStage);
   const stage = resolveDealStageProjection(deal) || ("raw_lead" as PipelineStage);
   const stageLabel =
@@ -128,12 +132,12 @@ export function mapEnterpriseDealToDealRegistryRow(
     expectedRevenue,
     expectedRevenueLabel: formatINR(expectedRevenue),
     priority: asPriority(deal.priority),
-    lastActivity: last,
-    lastActivityLabel: formatWhenTime(last),
+    lastActivity,
+    lastActivityLabel: formatWhenTime(lastActivity),
     dateCreated: deal.createdAt || "",
     dateCreatedLabel: formatWhen(deal.createdAt || ""),
-    lastModified: last,
-    lastModifiedLabel: formatWhen(last),
+    lastModified,
+    lastModifiedLabel: formatWhen(lastModified),
     status: asStatus(deal.operationalStatus),
     statusLabel: String(deal.operationalStatus ?? "—").replace(/_/g, " "),
     city: "—",

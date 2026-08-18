@@ -45,6 +45,7 @@ export type EteBusinessEvent =
   | "soft_approval"
   | "final_approval"
   | "disbursed"
+  | "post_disbursement_confirmation_pending"
   | "document_uploaded"
   | "lender_assigned";
 

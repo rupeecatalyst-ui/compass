@@ -75,6 +75,11 @@ import {
   softDeletePartnerOpportunityDocument,
   upsertPartnerOpportunityDocument,
 } from "@server/services/partner-gateway/partner-ssot-projections";
+import { partnerDealService } from "@server/services/partner-gateway/partner-deal.service";
+import { listProjectedLendersForOpportunity } from "@server/services/partner-gateway/partner-opportunity-lenders.service";
+import { enterpriseActivityService } from "@server/services/enterprise-activity/enterprise-activity.service";
+import { EAR_EVENT_KINDS, EAR_SOURCE_SYSTEMS } from "@/constants/enterprise-activity-registry";
+import { isApproxCibilScoreBand } from "@/constants/cibil-score-master";
 import type { PartnerEntitlementAction } from "@/constants/enterprise-partner-entitlements";
 import type { PartnerEffectiveEntitlements } from "@/types/enterprise-partner-entitlements";
 
@@ -117,6 +122,28 @@ function parseRequestedAmount(label?: string | null): number | null {
   const n = Number(cleaned);
   if (!Number.isFinite(n) || n <= 0) return null;
   return Math.round(n);
+}
+
+/**
+ * Partner IDC `approxCibilScore` uses the Lead Information CIBIL master.
+ * Persist onto Opportunity.lendingExtension — never a parallel WP-only field.
+ */
+function lendingExtensionWithApproxCibil(
+  existing: unknown,
+  borrowerFields?: Record<string, string> | null,
+  productFields?: Record<string, string> | null,
+): Prisma.InputJsonValue | undefined {
+  const raw =
+    borrowerFields?.approxCibilScore?.trim() ||
+    productFields?.approxCibilScore?.trim() ||
+    "";
+  if (!raw || !isApproxCibilScoreBand(raw)) return undefined;
+  const prev =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? { ...(existing as Record<string, unknown>) }
+      : {};
+  prev.approxCibilScore = raw;
+  return prev as Prisma.InputJsonValue;
 }
 
 function mapRegistryLifecycleToPartner(life: string, stage: string): {
@@ -526,18 +553,7 @@ function applyWorkspaceProjection(detail: PartnerOpportunityDetailDto): PartnerO
         },
       ];
 
-  detail.lenders = detail.lenders?.length
-    ? detail.lenders
-    : [
-        {
-          lenderId: `${detail.opportunityId}-lender-assigned`,
-          lenderLabel: detail.loanFile?.lenderLabel || "Not Specified",
-          statusLabel: detail.loanFile?.available ? "Assigned" : "Not assigned",
-          offerLabel: null,
-          dtoSource: DTO_SOURCE,
-          dtoNotice: "Presentation only — lender pipeline owned by Catalyst One Deal Registry.",
-        },
-      ];
+  detail.lenders = detail.lenders?.length ? detail.lenders : [];
 
   const notesBody = (detail.notes ?? "").trim();
   detail.noteEntries = detail.noteEntries?.length
@@ -1523,6 +1539,21 @@ export const partnerBusinessService = {
     detail.lod = projectPartnerOpportunityLod(detail);
 
     const hydrated = applyHealth(detail);
+    hydrated.lenders = await listProjectedLendersForOpportunity(
+      owned.organizationId,
+      owned.id,
+    );
+    if (!hydrated.lenders.length) {
+      const recHref = `/app/opportunities/${owned.id}/recommendations`;
+      hydrated.nextBestAction = {
+        title: "Choose lenders",
+        reason:
+          "Review Saarthi recommendations or add a lender from the Enterprise Lender Registry.",
+        ctaLabel: "Open Lender Recommendation",
+        ctaDeepLink: recHref,
+        dtoSource: DTO_SOURCE,
+      };
+    }
     store.opportunities.set(owned.id, hydrated);
     stores.set(partnerId, store);
     return {
@@ -1770,6 +1801,11 @@ export const partnerBusinessService = {
       ? assertOpportunityPrimaryBorrowerKind(input.primaryBorrowerKind)
       : null;
     const requestedAmount = parseRequestedAmount(input.requiredAmountLabel);
+    const lendingExtension = lendingExtensionWithApproxCibil(
+      null,
+      input.borrowerFields,
+      input.productFields,
+    );
 
     // CO-WP-INT-001 — Opportunity Registry is the create SSOT (sourceWealthPartnerId ownership).
     const registryRow = await enterpriseOpportunityRepository.createOpportunity({
@@ -1788,6 +1824,7 @@ export const partnerBusinessService = {
       sourceCode: "wealth_partner",
       sourceWealthPartnerId: partner.id,
       participationRole: "referral",
+      lendingExtension: lendingExtension ?? undefined,
       snapshot: {
         partnerCreated: true,
         partnerNotes: input.notes?.trim() || null,
@@ -1939,6 +1976,19 @@ export const partnerBusinessService = {
       !Array.isArray(existing.snapshot)
         ? (existing.snapshot as Record<string, unknown>)
         : {};
+    const nextBorrowerFields =
+      input.borrowerFields !== undefined
+        ? input.borrowerFields
+        : detail.borrowerFields ?? null;
+    const nextProductFields =
+      input.productFields !== undefined
+        ? input.productFields
+        : detail.productFields ?? null;
+    const lendingExtension = lendingExtensionWithApproxCibil(
+      existing?.lendingExtension,
+      nextBorrowerFields,
+      nextProductFields,
+    );
     await enterpriseOpportunityRepository.updateOpportunity(owned.organizationId, owned.id, {
       productCode:
         input.productCode !== undefined ? input.productCode.trim() || null : undefined,
@@ -1969,6 +2019,7 @@ export const partnerBusinessService = {
             : detail.productFields ?? null,
         partnerPatchedAt: nowIso(),
       },
+      lendingExtension: lendingExtension ?? undefined,
       updatedBy: userId,
     });
 
@@ -2060,11 +2111,8 @@ export const partnerBusinessService = {
     opportunityId: string,
     input: PartnerOpportunityDocumentUploadInput,
   ): Promise<PartnerOpportunityDetailDto> {
-    const { owned, userDisplayName } = await assertOwnedOpportunityAction(
-      userId,
-      "document_upload",
-      opportunityId,
-    );
+    const { owned, userDisplayName, partnerDisplayName, partnerId: actorPartnerId } =
+      await assertOwnedOpportunityAction(userId, "document_upload", opportunityId);
     const replaceId = input.replaceDocumentId?.trim();
     if (replaceId) {
       await assertOwnedOpportunityAction(userId, "document_edit", owned.id);
@@ -2077,10 +2125,11 @@ export const partnerBusinessService = {
       ? lod.items.find((i) => i.typeRef === typeRefIn)
       : undefined;
 
-    /** CO-WP-DOC-002 — freeform inbox/additional vs checklist requirement upload. */
+    /** CO-WP-DOC-002 / CO-WP-DOC-003 — freeform inbox/additional/folder vs checklist. */
     const isFreeform =
       modeIn === "inbox" ||
       modeIn === "additional" ||
+      modeIn === "folder" ||
       (!typeRefIn && modeIn !== "requirement") ||
       isUnclassifiedDocumentTypeRef(typeRefIn);
 
@@ -2108,10 +2157,39 @@ export const partnerBusinessService = {
       : typeRefIn;
 
     const categoryLabel = isFreeform
-      ? modeIn === "additional"
-        ? "Additional document"
-        : "Customer document"
+      ? input.folderName?.trim() ||
+        (modeIn === "additional"
+          ? "Additional document"
+          : modeIn === "folder"
+            ? "Wealth Partner folder"
+            : "Customer document")
       : lodItem!.label;
+
+    let dealId: string | null = input.dealId?.trim() || null;
+    if (dealId) {
+      const deal = await partnerDealService.getDeal(userId, dealId);
+      if (deal.opportunityId !== owned.id) {
+        throw new PartnerGatewayError(
+          "Selected Deal does not belong to this Opportunity.",
+          "VALIDATION",
+          400,
+        );
+      }
+    }
+
+    const participantId = input.participantId?.trim() || null;
+    if (participantId) {
+      const allowed = (detail.participants ?? []).some(
+        (p) => p.participantId === participantId,
+      );
+      if (!allowed) {
+        throw new PartnerGatewayError(
+          "Selected participant is not on this Opportunity.",
+          "VALIDATION",
+          400,
+        );
+      }
+    }
 
     const title =
       input.title?.trim() ||
@@ -2130,7 +2208,7 @@ export const partnerBusinessService = {
     }
 
     // CO-WP-INT-002 / CO-DOC-ARCH-001 — Durable Opportunity Document Center (same SSOT).
-    await upsertPartnerOpportunityDocument({
+    const persisted = await upsertPartnerOpportunityDocument({
       organizationId: owned.organizationId,
       opportunityId: owned.id,
       opportunityNumber: owned.opportunityNumber,
@@ -2143,24 +2221,87 @@ export const partnerBusinessService = {
       sizeBytes,
       contentBase64: input.contentBase64?.trim() || null,
       replaceDocumentId: replaceId || null,
-      uploadedBy: userDisplayName || userId,
+      uploadedBy: userDisplayName || partnerDisplayName || userId,
+      relativePath: input.relativePath?.trim() || null,
+      folderName: input.folderName?.trim() || null,
+      packageId: input.packageId?.trim() || null,
+      dealId,
+      participantId,
+      documentScope: participantId
+        ? "applicant"
+        : input.documentScope || (modeIn === "folder" ? "shared" : "shared"),
     });
 
     const replaced = Boolean(replaceId);
     const labelForActivity = isFreeform ? title : lodItem!.label;
+    const fileLabel = input.fileName
+      ? `${labelForActivity} (${input.relativePath || input.fileName})`
+      : labelForActivity;
     pushActivity(
       detail,
       replaced ? "Document Replaced" : "Document Uploaded",
       "Document",
-      `${labelForActivity}${input.fileName ? ` (${input.fileName})` : ""} ${replaced ? "replaced" : "uploaded"}.`,
+      `${fileLabel} ${replaced ? "replaced" : "uploaded"} via Catalyst Connect.`,
     );
     pushTimeline(
       detail,
-      "Document uploaded",
+      modeIn === "folder" ? "Folder document uploaded" : "Document uploaded",
       isFreeform
-        ? `${labelForActivity}${input.fileName ? ` (${input.fileName})` : ""} received via Wealth Partner Document Inbox (awaiting Catalyst One review).`
-        : `${labelForActivity}${input.fileName ? ` (${input.fileName})` : ""} added for Enterprise LOD item (awaiting Catalyst One review).`,
+        ? `${fileLabel} received via Wealth Partner Document Desk (Source: Catalyst Connect). Awaiting Catalyst One review.`
+        : `${fileLabel} added for Enterprise LOD item (awaiting Catalyst One review).`,
     );
+
+    await enterpriseActivityService.emitBestEffort({
+      eventKind: EAR_EVENT_KINDS.DOCUMENTS,
+      sourceSystem: EAR_SOURCE_SYSTEMS.PARTNER,
+      sourceEventId: `wp-doc:${persisted.documentId}:${replaced ? "replaced" : "uploaded"}`,
+      title: replaced
+        ? "replaced a document via Catalyst Connect"
+        : "uploaded a document via Catalyst Connect",
+      summary: `${partnerDisplayName} ${replaced ? "replaced" : "uploaded"} ${input.fileName || labelForActivity}${
+        input.folderName ? ` in folder “${input.folderName}”` : ""
+      }. Source: Catalyst Connect.`,
+      payload: {
+        source: "catalyst_connect",
+        partnerId: actorPartnerId,
+        partnerName: partnerDisplayName,
+        folderName: input.folderName?.trim() || null,
+        relativePath: input.relativePath?.trim() || null,
+        uploadSource: "wealth_partner",
+      },
+      opportunityId: owned.id,
+      dealId,
+      contactId: owned.primaryContactId,
+      documentId: persisted.documentId,
+      actorUserId: userId,
+      actorName: userDisplayName || partnerDisplayName,
+    });
+
+    if (input.packageComplete && input.packageId?.trim()) {
+      const count = Math.max(1, Math.round(Number(input.packageFileCount) || 1));
+      await enterpriseActivityService.emitBestEffort({
+        eventKind: EAR_EVENT_KINDS.DOCUMENTS,
+        sourceSystem: EAR_SOURCE_SYSTEMS.PARTNER,
+        sourceEventId: `wp-folder:${input.packageId.trim()}:complete`,
+        title: "uploaded documents via Catalyst Connect",
+        summary: `${partnerDisplayName} uploaded ${count} document${count === 1 ? "" : "s"}${
+          input.folderName ? ` (Folder: ${input.folderName})` : ""
+        }. Source: Catalyst Connect.`,
+        payload: {
+          source: "catalyst_connect",
+          partnerId: actorPartnerId,
+          partnerName: partnerDisplayName,
+          folderName: input.folderName?.trim() || null,
+          fileCount: count,
+          uploadSource: "wealth_partner",
+        },
+        opportunityId: owned.id,
+        dealId,
+        contactId: owned.primaryContactId,
+        actorUserId: userId,
+        actorName: userDisplayName || partnerDisplayName,
+      });
+    }
     if (detail.stageLabel === "Draft" || detail.stageLabel === "Requirement Captured") {
       detail.stageLabel = "Documents";
     }

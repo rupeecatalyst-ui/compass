@@ -19,8 +19,8 @@ export type OwStrategicTabId =
 
 /**
  * Horizontal Strategic Tabs — frozen order (Business Certified UX Spec v2.0).
- * CO-DOC-001: Document Requests lives only on Opportunity Creation (Credit Bench),
- * immediately after Loan Details — not duplicated here.
+ * CO-DOC-001: Document Requests (LOD) is the single WorkspaceDocumentRequestsPanel
+ * implementation, surfaced both on Opportunity Creation (Credit Bench) and here.
  * Internal id `funding_strategy` retained; UI label is Lender Strategy (LIFE).
  * Internal id `product` retained; UI label is Solution Design.
  */
@@ -30,6 +30,7 @@ export const OW_STRATEGIC_NAV: Array<{ id: OwStrategicTabId; label: string }> = 
   { id: "timeline", label: "Activity Timeline" },
   { id: "customer", label: "Customer Profile" },
   { id: "requirement", label: "Requirement" },
+  { id: "documents", label: "Documents (LOD)" },
   { id: "product", label: "Solution Design" },
   { id: "relationships", label: "Relationships" },
   { id: "competition", label: "Competition" },

@@ -49,6 +49,7 @@ export const ETE_BUSINESS_EVENTS = {
   SOFT_APPROVAL: "soft_approval",
   FINAL_APPROVAL: "final_approval",
   DISBURSED: "disbursed",
+  POST_DISBURSEMENT_CONFIRMATION_PENDING: "post_disbursement_confirmation_pending",
   DOCUMENT_UPLOADED: "document_uploaded",
   LENDER_ASSIGNED: "lender_assigned",
 } as const satisfies Record<string, EteBusinessEvent>;
@@ -141,6 +142,17 @@ export const ETE_AUTO_GENERATION_RULES: readonly EteAutoGenerationRule[] = [
     priority: "high",
     dueInDays: 1,
     predefinedDescription: "General",
+  },
+  {
+    id: "obtain-lender-disbursement-confirmation",
+    event: "post_disbursement_confirmation_pending",
+    workType: "Lender Call",
+    title: "Obtain Lender Disbursement Confirmation",
+    description:
+      "Obtain and record lender confirmation of the post-disbursement details.",
+    priority: "high",
+    dueInDays: 0,
+    predefinedDescription: "Follow-up Lender",
   },
   {
     id: "deal-created-kickoff",

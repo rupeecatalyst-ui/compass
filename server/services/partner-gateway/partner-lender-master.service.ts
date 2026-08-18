@@ -143,7 +143,22 @@ export async function listPublishedOptionsForPartner(): Promise<PublishedLenderO
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
+/**
+ * Resolve one partner-visible lender by Enterprise Lender Registry PK.
+ * Inactive / unpublished / deleted lenders are not selectable.
+ */
+export async function getPartnerVisibleLenderById(
+  lenderId: string,
+): Promise<PartnerLenderMasterHit | null> {
+  const id = lenderId.trim();
+  if (!id) return null;
+  const lender = await lenderRegistryService.getLenderById(id);
+  if (!lender || !isPartnerVisibleLender(lender)) return null;
+  return toHit(lender);
+}
+
 export const partnerLenderMasterService = {
   searchPartnerEnterpriseLenders,
   listPublishedOptionsForPartner,
+  getPartnerVisibleLenderById,
 };

@@ -12,8 +12,11 @@ import type { PartnerOpportunityDetailDto } from "@/types/enterprise-partner-bus
 import type {
   PartnerOpportunityRecommendationsDto,
   PartnerRecommendationCardDto,
+  PartnerRecommendationDocumentReadinessDto,
   PartnerRecommendationGuidanceDto,
 } from "@/types/enterprise-partner-recommendations";
+import { isApproxCibilScoreBand } from "@/constants/cibil-score-master";
+import type { ApproxCibilScoreBand } from "@/types/cibil-score-master";
 import {
   PARTNER_RECOMMENDATION_ENGINE_VERSION,
   PARTNER_RECOMMENDATION_FORBIDDEN_GAP_IDS,
@@ -48,9 +51,21 @@ function mapEmployment(code: string | undefined): string {
  * Minimal LoanFile-shaped projection for Registry ranking — structure only.
  * Does not invent credit scores or risk fields.
  */
+function readApproxCibilBand(
+  detail: PartnerOpportunityDetailDto,
+  approxCibilScore?: string | null,
+): ApproxCibilScoreBand | undefined {
+  const raw =
+    (approxCibilScore || "").trim() ||
+    (detail.borrowerFields?.approxCibilScore || "").trim() ||
+    (detail.productFields?.approxCibilScore || "").trim();
+  if (!raw || !isApproxCibilScoreBand(raw)) return undefined;
+  return raw;
+}
+
 export function buildPartnerRecommendationLoanFile(
   detail: PartnerOpportunityDetailDto,
-  opts?: { city?: string | null },
+  opts?: { city?: string | null; approxCibilScore?: string | null },
 ): LoanFile {
   const borrower = detail.borrowerFields ?? {};
   const product = detail.productFields ?? {};
@@ -115,6 +130,7 @@ export function buildPartnerRecommendationLoanFile(
       product.currentLendingInstitution?.trim() ||
       borrower.currentLendingInstitution?.trim() ||
       undefined,
+    approxCibilScore: readApproxCibilBand(detail, opts?.approxCibilScore),
   } as LoanFile;
 }
 
@@ -149,10 +165,24 @@ function partnerReady(file: LoanFile): boolean {
   return Boolean(product) && amount > 0;
 }
 
+function documentReadinessOf(
+  detail: PartnerOpportunityDetailDto,
+): PartnerRecommendationDocumentReadinessDto | undefined {
+  const lod = detail.lod;
+  if (!lod?.summary) return undefined;
+  return {
+    required: lod.summary.required,
+    uploaded: lod.summary.uploaded,
+    pending: lod.summary.pending,
+  };
+}
+
 export async function projectPartnerOpportunityRecommendations(
   detail: PartnerOpportunityDetailDto,
   opts?: {
     city?: string | null;
+    approxCibilScore?: string | null;
+    limit?: number;
     /**
      * CO-WP-LENDER-API-002 — Partner Gateway must inject Prisma-backed options.
      * Never call relative /api/lender-registry from Partner server routes.
@@ -165,6 +195,8 @@ export async function projectPartnerOpportunityRecommendations(
   const analyzedAt = new Date().toISOString();
   const guidance = projectGuidance(file);
   const ready = partnerReady(file);
+  const documentReadiness = documentReadinessOf(detail);
+  const limit = Math.max(1, Math.min(25, opts?.limit ?? 5));
 
   if (!ready) {
     return {
@@ -180,25 +212,32 @@ export async function projectPartnerOpportunityRecommendations(
           ? guidance
           : [{ id: "incomplete", message: "Complete Initial Data Collection to see suggestions." }],
       recommendations: [],
+      documentReadiness,
     };
   }
 
   const ranked = recommendPublishedLendersFromOptions(opts?.registryOptions ?? [], {
     file,
-    limit: 5,
+    limit,
   });
 
-  const recommendations: PartnerRecommendationCardDto[] = ranked.map((row, index) => ({
-    id: `rec-${row.enterpriseLenderId || row.lenderRef || index}`,
-    title: row.lenderName,
-    reason: partnerFriendlyReason(row.lenderName, row.reason, detail.productLabel || ""),
-    badgeLabel: index === 0 ? presentation.suggestedBadgeLabel : null,
-    ctaLabel: presentation.cardCtaLabel,
-    deepLink: null,
-    rank: row.rank,
-    sortOrder: row.rank,
-    lenderRef: row.lenderRef,
-  }));
+  const recommendations: PartnerRecommendationCardDto[] = ranked.map((row, index) => {
+    const displayName = row.lenderName;
+    const lenderId = row.enterpriseLenderId;
+    return {
+      id: `rec-${lenderId || row.lenderRef || index}`,
+      title: displayName,
+      displayName,
+      lenderId,
+      reason: partnerFriendlyReason(displayName, row.reason, detail.productLabel || ""),
+      badgeLabel: index === 0 ? presentation.suggestedBadgeLabel : null,
+      ctaLabel: presentation.cardCtaLabel,
+      deepLink: null,
+      rank: row.rank,
+      sortOrder: row.rank,
+      lenderRef: row.lenderRef,
+    };
+  });
 
   if (recommendations.length === 0) {
     return {
@@ -216,6 +255,7 @@ export async function projectPartnerOpportunityRecommendations(
         },
       ],
       recommendations: [],
+      documentReadiness,
     };
   }
 
@@ -229,5 +269,6 @@ export async function projectPartnerOpportunityRecommendations(
     presentation,
     guidance,
     recommendations,
+    documentReadiness,
   };
 }

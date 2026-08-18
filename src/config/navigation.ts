@@ -96,6 +96,20 @@ const settingsChildren: NavSubItem[] = [
   { title: "Preferences", href: `${ROUTES.SETTINGS}#preferences` },
   { title: "Notifications", href: `${ROUTES.SETTINGS}#notifications` },
   { title: "Appearance", href: `${ROUTES.SETTINGS}#appearance` },
+  /**
+   * CO-C1-OPERATIONAL-EMAIL-001 — Canonical discovery path:
+   * Settings → Organization Communication → Email Configuration.
+   * Organization routes remain SUPER_ADMIN-guarded; personal settings unchanged.
+   */
+  {
+    title: "Organization · Communication",
+    href: ROUTES.ORGANIZATION_COMMUNICATION,
+    separatorBefore: true,
+  },
+  {
+    title: "Email Configuration",
+    href: ROUTES.ORGANIZATION_COMMUNICATION_EMAIL,
+  },
 ];
 
 /** Organization sub-pages — retained for command palette / legacy consumers */
@@ -169,7 +183,7 @@ export const administrationChildren: NavSubItem[] = [
 /**
  * Primary domain navigation — Column 1 (Architecture Freeze + CO-ARCH-003).
  * Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Journey · Investments ·
- * Tasks · Documents · Enterprise Lender Directory · Accounting · Mission Control · Horizon · Administration · Settings
+ * Tasks · Activity · Dialogue · Documents · Enterprise Lender Directory · Accounting · Mission Control · Horizon · Administration · Settings
  * Mission Control primary href = Executive Briefing (Radar remains a separate primary item).
  * CO-SPRINT-111: Administration is a single entry → Administration Console (not an expandable tree).
  * CO-ARCH-003: My Opportunities = Opportunity Registry; My Deals = Deal Registry.
@@ -192,13 +206,25 @@ export const primaryDomainNavigation: NavGroup = {
     { title: "Investments", href: ROUTES.INVESTMENTS, icon: LineChart, badge: "Soon" },
     { title: "Tasks", href: ROUTES.TASKS, icon: ListTodo },
     {
+      title: "Activity",
+      href: buildDashboardHref(ROUTES.ACTIVITY),
+      icon: History,
+    },
+    { title: "Dialogue", href: ROUTES.DIALOGUE, icon: MessagesSquare },
+    {
       title: "Documents",
       href: buildDashboardHref(ROUTES.DOCUMENT_CENTER),
       icon: FileStack,
     },
     { title: "Enterprise Lender Directory", href: ROUTES.LENDERS, icon: Building2 },
     { title: "Wealth Partners", href: ROUTES.WEALTH_PARTNERS, icon: Handshake },
-    { title: "Accounting", href: ROUTES.ACCOUNTING, icon: Calculator },
+    {
+      title: "Accounting",
+      href: ROUTES.ACCOUNTING,
+      icon: Calculator,
+      /** CO-C1-ACCOUNTING-ACTIVATION-001 — honest activation posture (CO-ORG-004/005). */
+      badge: "Awaiting SSOT",
+    },
     /**
      * Mission Control section hub (rail + executive modules).
      * Executive Briefing remains at /mission-control/executive-briefing — not Dashboard.
@@ -343,6 +369,12 @@ export const organizationNavigation: NavGroup = {
     { title: "Business Configuration", href: ROUTES.ORGANIZATION_BUSINESS_CONFIG, icon: Briefcase },
     { title: "Organization Settings", href: ROUTES.ORGANIZATION_SETTINGS, icon: Settings },
     { title: "Organization Security", href: ROUTES.ORGANIZATION_SECURITY, icon: Shield },
+    { title: "Communication", href: ROUTES.ORGANIZATION_COMMUNICATION, icon: MessagesSquare },
+    {
+      title: "Email Configuration",
+      href: ROUTES.ORGANIZATION_COMMUNICATION_EMAIL,
+      icon: Mail,
+    },
   ],
 };
 
@@ -447,7 +479,6 @@ export const systemAdministrationCommandPaletteRoutes = [
     href: ROUTES.CONTACT_STRATEGY,
     icon: Network,
   },
-  { title: "Dialogue", href: ROUTES.DIALOGUE, icon: MessagesSquare },
   {
     title: "Mission Control · Executive Briefing",
     href: ROUTES.MISSION_CONTROL_EXECUTIVE_BRIEFING,

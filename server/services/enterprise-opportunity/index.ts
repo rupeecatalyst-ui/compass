@@ -31,6 +31,7 @@ import {
 import { resolveCommercialRevenueSharePercent } from "@/lib/enterprise-commercial-participation";
 import { isWealthPartnerBusinessSource } from "@/constants/opportunity-business-source";
 import { serializeOpportunity } from "@server/services/enterprise-opportunity/opportunity-serialize";
+import { emitOpportunityLifecycleToEarBestEffort } from "@server/services/enterprise-activity/opportunity-lifecycle-ear";
 import {
   assertNonEmpty,
   assertOpportunityLifecycle,
@@ -490,6 +491,16 @@ export class EnterpriseOpportunityService {
       } catch {
         /* fail-open */
       }
+      await emitOpportunityLifecycleToEarBestEffort({
+        opportunityId: created.id,
+        action: "created",
+        title: `Opportunity ${created.opportunityNumber} created`,
+        toStatus: created.lifecycleStatus,
+        actorUserId,
+        opportunityNumber: created.opportunityNumber,
+        contactId: created.primaryContactId ?? null,
+        occurredAt: created.createdAt,
+      });
       return serializeOpportunity(created);
     } catch (err) {
       if (!asDialogue && productUniquenessKey) {
@@ -856,6 +867,22 @@ export class EnterpriseOpportunityService {
         opportunityId,
         patch,
       );
+      if (nextLifecycle !== existing.lifecycleStatus) {
+        await emitOpportunityLifecycleToEarBestEffort({
+          opportunityId: updated.id,
+          action:
+            nextLifecycle === "converted_to_deal"
+              ? "converted_to_deal"
+              : "lifecycle_changed",
+          title: `Opportunity ${updated.opportunityNumber} ${existing.lifecycleStatus} → ${nextLifecycle}`,
+          fromStatus: existing.lifecycleStatus,
+          toStatus: nextLifecycle,
+          actorUserId,
+          opportunityNumber: updated.opportunityNumber,
+          contactId: updated.primaryContactId ?? null,
+          occurredAt: updated.updatedAt,
+        });
+      }
       return serializeOpportunity(updated);
     } catch (err) {
       if (willEnterUniqueness && nextKey) {
@@ -1079,11 +1106,28 @@ export class EnterpriseOpportunityService {
   /** After first Deal created — Opportunity → Converted to Deal. */
   async markConvertedToDeal(opportunityId: string, actorUserId: string) {
     const organizationId = await this.orgId();
+    const existing = await enterpriseOpportunityRepository.requireOpportunity(
+      organizationId,
+      opportunityId,
+    );
     const row = await enterpriseOpportunityRepository.markConvertedToDeal(
       organizationId,
       opportunityId,
       actorUserId,
     );
+    if (existing.lifecycleStatus !== row.lifecycleStatus) {
+      await emitOpportunityLifecycleToEarBestEffort({
+        opportunityId: row.id,
+        action: "converted_to_deal",
+        title: `Opportunity ${row.opportunityNumber} converted to Deal`,
+        fromStatus: existing.lifecycleStatus,
+        toStatus: row.lifecycleStatus,
+        actorUserId,
+        opportunityNumber: row.opportunityNumber,
+        contactId: row.primaryContactId ?? null,
+        occurredAt: row.updatedAt,
+      });
+    }
     return serializeOpportunity(row);
   }
 
@@ -1133,6 +1177,19 @@ export class EnterpriseOpportunityService {
         actorUserId,
         { closedAt: new Date(), fulfilmentStatus: "fulfilled" },
       );
+      if (existing.lifecycleStatus !== row.lifecycleStatus) {
+        await emitOpportunityLifecycleToEarBestEffort({
+          opportunityId: row.id,
+          action: "lifecycle_changed",
+          title: `Opportunity ${row.opportunityNumber} ${existing.lifecycleStatus} → ${row.lifecycleStatus}`,
+          fromStatus: existing.lifecycleStatus,
+          toStatus: row.lifecycleStatus,
+          actorUserId,
+          opportunityNumber: row.opportunityNumber,
+          contactId: row.primaryContactId ?? null,
+          occurredAt: row.updatedAt,
+        });
+      }
       return serializeOpportunity(row);
     }
 
@@ -1144,6 +1201,19 @@ export class EnterpriseOpportunityService {
         actorUserId,
         { closedAt: new Date(), fulfilmentStatus: "abandoned" },
       );
+      if (existing.lifecycleStatus !== row.lifecycleStatus) {
+        await emitOpportunityLifecycleToEarBestEffort({
+          opportunityId: row.id,
+          action: "lifecycle_changed",
+          title: `Opportunity ${row.opportunityNumber} ${existing.lifecycleStatus} → ${row.lifecycleStatus}`,
+          fromStatus: existing.lifecycleStatus,
+          toStatus: row.lifecycleStatus,
+          actorUserId,
+          opportunityNumber: row.opportunityNumber,
+          contactId: row.primaryContactId ?? null,
+          occurredAt: row.updatedAt,
+        });
+      }
       return serializeOpportunity(row);
     }
 
@@ -1153,6 +1223,19 @@ export class EnterpriseOpportunityService {
         opportunityId,
         actorUserId,
       );
+      if (existing.lifecycleStatus !== row.lifecycleStatus) {
+        await emitOpportunityLifecycleToEarBestEffort({
+          opportunityId: row.id,
+          action: "converted_to_deal",
+          title: `Opportunity ${row.opportunityNumber} converted to Deal`,
+          fromStatus: existing.lifecycleStatus,
+          toStatus: row.lifecycleStatus,
+          actorUserId,
+          opportunityNumber: row.opportunityNumber,
+          contactId: row.primaryContactId ?? null,
+          occurredAt: row.updatedAt,
+        });
+      }
       return serializeOpportunity(row);
     }
 

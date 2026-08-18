@@ -31,11 +31,18 @@ export function appendEdcTimelineEntry(
     remarks: `EDC ${entry.eventType}: ${entry.title}`,
   });
 
-  // CO-ORG-003 — never block dialogue/workflow on EAR persistence
-  try {
-    emitEnterpriseActivityBestEffort(mapEdcEntryToEarEmit(entry));
-  } catch {
-    /* ignore */
+  // CO-ORG-003 — never block dialogue/workflow on EAR persistence.
+  // Document Requests writes EAR first-class; skip EDC dual-write to avoid duplicates.
+  const payloadSource =
+    entry.expandablePayload && typeof entry.expandablePayload === "object"
+      ? (entry.expandablePayload as Record<string, unknown>).source
+      : null;
+  if (payloadSource !== "document_requests") {
+    try {
+      emitEnterpriseActivityBestEffort(mapEdcEntryToEarEmit(entry));
+    } catch {
+      /* ignore */
+    }
   }
 
   return entry;

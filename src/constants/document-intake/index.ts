@@ -68,8 +68,13 @@ export const DOCUMENT_INTAKE_UNCLASSIFIED_TYPE_PREFIX = "doc:other:";
 
 export const DOCUMENT_INTAKE_ARCHITECTURE_ID = "CO-DOC-ARCH-001";
 
-/** CO-WP-DOC-002 — Partner freeform intake modes (presentation → same Document SSOT). */
-export const DOCUMENT_INTAKE_PARTNER_MODES = ["inbox", "additional", "requirement"] as const;
+/** CO-WP-DOC-002 / CO-WP-DOC-003 — Partner freeform intake modes (same Document SSOT). */
+export const DOCUMENT_INTAKE_PARTNER_MODES = [
+  "inbox",
+  "additional",
+  "requirement",
+  "folder",
+] as const;
 
 export type DocumentIntakePartnerMode = (typeof DOCUMENT_INTAKE_PARTNER_MODES)[number];
 
@@ -77,6 +82,37 @@ export function isUnclassifiedDocumentTypeRef(
   typeRef: string | null | undefined,
 ): boolean {
   return Boolean(typeRef?.startsWith(DOCUMENT_INTAKE_UNCLASSIFIED_TYPE_PREFIX));
+}
+
+/**
+ * Employee-facing intake caption. Wealth Partner channel = Catalyst Connect.
+ * Does not invent partner names — those come from uploadedBy / partner metadata.
+ */
+export function documentRegistrySourceLabel(
+  uploadSource: string | null | undefined,
+): string {
+  switch ((uploadSource || "").trim()) {
+    case "wealth_partner":
+      return "Catalyst Connect";
+    case "folder_package":
+      return "Document Package";
+    case "customer_portal":
+      return "Customer Portal";
+    case "lender_portal":
+      return "Lender Portal";
+    case "manual_upload":
+      return "Walk-in / Manual";
+    case "email":
+      return "Email";
+    case "whatsapp":
+      return "WhatsApp";
+    case "api":
+      return "API";
+    case "conversation_activity":
+      return "Conversation";
+    default:
+      return "Catalyst One";
+  }
 }
 
 export function createUnclassifiedDocumentTypeRef(id?: string): string {

@@ -27,3 +27,4 @@ export {
 } from "./partner-opportunity-journey-config.service";
 export { partnerOpportunityRecommendationsService } from "./partner-opportunity-recommendations.service";
 export { partnerLenderMasterService } from "./partner-lender-master.service";
+export { partnerOpportunityLendersService } from "./partner-opportunity-lenders.service";

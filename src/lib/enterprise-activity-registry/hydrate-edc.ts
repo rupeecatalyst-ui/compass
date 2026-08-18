@@ -10,20 +10,20 @@ export async function hydrateEdcFromEar(input?: {
   opportunityId?: string;
   dealId?: string;
   contactId?: string;
+  eventKind?: string;
+  since?: string;
   limit?: number;
 }): Promise<number> {
   const items = await listEnterpriseActivity({
     opportunityId: input?.opportunityId,
     dealId: input?.dealId,
     contactId: input?.contactId,
+    eventKind: input?.eventKind,
+    since: input?.since,
     limit: input?.limit ?? 100,
   });
   const ports = getEdcPorts();
-  let n = 0;
-  for (const event of items) {
-    const entry = mapEarEventToEdcEntry(event);
-    ports.timeline.save(entry);
-    n += 1;
-  }
-  return n;
+  const mapped = items.map(mapEarEventToEdcEntry);
+  ports.timeline.replaceAll(mapped);
+  return mapped.length;
 }

@@ -11,6 +11,11 @@ export const LENDER_CASE_STAGES: { id: LenderCaseStage; label: string; color: st
   { id: "final_approved", label: "Final Approved", color: "#86EFAC" },
   { id: "closure_wip", label: "Closure WIP", color: "#22C55E" },
   { id: "disbursed", label: "Disbursed", color: "#14532D" },
+  {
+    id: "post_disbursement_confirmation",
+    label: "Post-disbursement Confirmation",
+    color: "#0F766E",
+  },
   { id: "lost", label: "Lost", color: "#EF4444" },
   { id: "hold", label: "Hold", color: "#F97316" },
 ] as const;
@@ -128,6 +133,9 @@ export function formatKanbanCardDate(iso?: string | null): string {
   });
 }
 
+/** Historical Disbursed rows may lack disbursedAt — never substitute updatedAt. */
+export const DISBURSED_DATE_UNAVAILABLE_LABEL = "Disbursed date unavailable";
+
 const LEGACY_STAGE_MAP: Record<string, LenderCaseStage> = {
   // Legacy PipelineStage → canonical LenderCaseStage (read-only normalize)
   raw_lead: "identified",
@@ -153,6 +161,32 @@ export function normalizeLenderCaseStage(stage?: string): LenderCaseStage {
     return key as LenderCaseStage;
   }
   return LEGACY_STAGE_MAP[key] ?? "identified";
+}
+
+/**
+ * Kanban timestamp lines. Disbursed date is disbursedAt only; Updated remains updatedAt.
+ * Non-Disbursed stages do not surface a Disbursed line.
+ */
+export function resolveKanbanCardTimestampLines(input: {
+  caseStage?: string | null;
+  updatedAt?: string | null;
+  disbursedAt?: string | null;
+}): {
+  updatedLabel: string;
+  showDisbursedDate: boolean;
+  disbursedValue: string | null;
+} {
+  const stage = normalizeLenderCaseStage(input.caseStage ?? undefined);
+  const updatedLabel = formatKanbanCardDate(input.updatedAt) || "—";
+  if (stage !== "disbursed") {
+    return { updatedLabel, showDisbursedDate: false, disbursedValue: null };
+  }
+  const formatted = formatKanbanCardDate(input.disbursedAt);
+  return {
+    updatedLabel,
+    showDisbursedDate: true,
+    disbursedValue: formatted || DISBURSED_DATE_UNAVAILABLE_LABEL,
+  };
 }
 
 /**

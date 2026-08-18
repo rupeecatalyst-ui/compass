@@ -105,6 +105,13 @@ export const ACTION_CENTER_CATALOG: Array<
     entityTypes: ["loan", "opportunity", "customer"],
   },
   {
+    id: "view_activity",
+    label: "Activity",
+    description: "Open the chronological activity history for this Deal.",
+    group: "navigation",
+    entityTypes: ["loan"],
+  },
+  {
     id: "upload_documents",
     label: "Upload Documents",
     description: "Collect and update the transaction document checklist in place.",
@@ -196,6 +203,7 @@ export const LOAN_REFERENCE_ACTION_IDS = [
  * Email targets are enabled; future channels appear in catalog as Coming soon.
  */
 export const DEAL_REFERENCE_ACTION_IDS = [
+  "view_activity",
   "add_activity",
   "email_lender",
   "email_customer",

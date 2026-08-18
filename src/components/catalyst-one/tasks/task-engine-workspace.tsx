@@ -152,6 +152,13 @@ export function TaskEngineWorkspace() {
     escalateEteOverdueTasks("system");
     refresh();
     refreshTaskDueReminders(listEteTasks());
+    void (async () => {
+      const { hydratePostDisbursementOwnerTasksIntoEte } = await import(
+        "@/lib/post-disbursement-confirmation/hydrate-ete"
+      );
+      await hydratePostDisbursementOwnerTasksIntoEte();
+      refresh();
+    })();
   }, []);
 
   useEffect(() => {

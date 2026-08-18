@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDocumentFileSize } from "@/constants/document-registry";
+import { documentRegistrySourceLabel } from "@/constants/document-intake";
 import {
   canDeleteDocuments,
   canDownloadDocuments,
@@ -159,9 +160,29 @@ export function DocumentRegistryPanel({
         exportValue: (row) => row.categoryLabel,
       },
       {
+        id: "source",
+        label: "Source",
+        defaultOrder: 3,
+        defaultWidth: 140,
+        minWidth: 110,
+        render: (row) => (
+          <span
+            className="block truncate"
+            title={
+              row.uploadSource === "wealth_partner"
+                ? `Catalyst Connect · ${row.uploadedBy}`
+                : documentRegistrySourceLabel(row.uploadSource)
+            }
+          >
+            {documentRegistrySourceLabel(row.uploadSource)}
+          </span>
+        ),
+        exportValue: (row) => documentRegistrySourceLabel(row.uploadSource),
+      },
+      {
         id: "uploadedBy",
         label: "Uploaded By",
-        defaultOrder: 3,
+        defaultOrder: 4,
         defaultWidth: 120,
         minWidth: 90,
         render: (row) => row.uploadedBy,
@@ -169,8 +190,8 @@ export function DocumentRegistryPanel({
       },
       {
         id: "uploadedAt",
-        label: "Upload Date",
-        defaultOrder: 4,
+        label: "Uploaded On",
+        defaultOrder: 5,
         defaultWidth: 150,
         minWidth: 120,
         render: (row) => (

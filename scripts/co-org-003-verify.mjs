@@ -61,7 +61,17 @@ mustContain(
   "EDC dual-writes EAR",
 );
 mustContain(
-  "server/repositories/enterprise-deal/enterprise-deal.repository.ts",
+  "src/lib/document-requests/timeline.ts",
+  "emitEnterpriseActivity",
+  "Document Requests write first-class EAR",
+);
+mustContain(
+  "src/lib/document-requests/timeline.ts",
+  "EAR_SOURCE_SYSTEMS.DOCUMENT_REQUEST",
+  "LOD EAR source is document_request",
+);
+mustContain(
+  "server/services/enterprise-activity/deal-timeline-ear.ts",
   'sourceSystem: "deal_timeline"',
   "Deal Timeline dual-writes EAR",
 );

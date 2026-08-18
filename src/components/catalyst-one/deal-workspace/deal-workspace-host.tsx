@@ -404,6 +404,7 @@ export function DealWorkspaceHost() {
                   "Lender / stage filters will open here in a later sprint.",
               })
             }
+            onViewActivity={() => setTimelineOpen(true)}
           />
         }
       >
@@ -479,12 +480,14 @@ export function DealWorkspaceHost() {
           {/* CO-C1-DIALOGUE-002A — EAR Activity Timeline (lazy; no sibling leakage) */}
           <details
             className="shrink-0 rounded-md border border-teal-500/25 bg-card/40 open:pb-1"
+            open={timelineOpen}
+            data-deal-activity-timeline=""
             onToggle={(e) => setTimelineOpen((e.target as HTMLDetailsElement).open)}
           >
             <summary className="cursor-pointer list-none px-2 py-1.5 text-[11px] font-semibold text-foreground marker:content-none [&::-webkit-details-marker]:hidden">
               Activity Timeline
               <span className="ml-2 font-normal text-muted-foreground">
-                What happened on this Deal · expand to load
+                Chronological history for this Deal
               </span>
             </summary>
             <div className="max-h-72 overflow-y-auto px-2 pb-2">

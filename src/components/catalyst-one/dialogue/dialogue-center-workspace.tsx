@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { hydrateEdcFromEar } from "@/lib/enterprise-activity-registry";
 import { appendEdcTimelineEntry, listEdcTimeline } from "@/lib/enterprise-dialogue-center";
+import { EAR_EVENT_KINDS } from "@/constants/enterprise-activity-registry";
 import type { EdcEventType, EdcTimelineEntry } from "@/types/enterprise-dialogue-center";
 import { EnterpriseEngagementCard, type EnterpriseCardTone } from "@/components/catalyst-one/shared/enterprise-engagement-card";
 import { PageHeader } from "@/components/design-system/page-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { isDemoSeedEnabled } from "@/lib/demo-seed";
 
@@ -25,10 +27,24 @@ const EVENT_TONE: Record<EdcEventType, EnterpriseCardTone> = {
   conversation_activity: "blue",
 };
 
-function seedDialogueIfEmpty() {
+const KIND_FILTERS: Array<{ value: string; label: string }> = [
+  { value: "", label: "All kinds" },
+  { value: EAR_EVENT_KINDS.STAGE_CHANGE, label: "Stage changes" },
+  { value: EAR_EVENT_KINDS.WORKFLOW, label: "Workflow" },
+  { value: EAR_EVENT_KINDS.NOTES, label: "Notes" },
+  { value: EAR_EVENT_KINDS.DIALOGUE, label: "Dialogue" },
+  { value: EAR_EVENT_KINDS.DOCUMENTS, label: "Documents" },
+  { value: EAR_EVENT_KINDS.TASKS, label: "Tasks" },
+  { value: EAR_EVENT_KINDS.COMMUNICATIONS, label: "Communications" },
+  { value: EAR_EVENT_KINDS.OPPORTUNITY, label: "Opportunity" },
+];
+
+function seedDialogueIfEmpty(contextId?: string) {
   if (!isDemoSeedEnabled()) return;
+  // The global Dialogue route must never manufacture a demo history.
+  if (!contextId) return;
   if (listEdcTimeline().length > 0) return;
-  const ctx = { type: "opportunity" as const, id: "opp-demo-001" };
+  const ctx = { type: "opportunity" as const, id: contextId };
   const samples: Array<{ eventType: EdcEventType; title: string; description: string }> = [
     { eventType: "stage_change", title: "Stage → Lender Review", description: "Opportunity moved to lender review." },
     { eventType: "task", title: "Task assigned: Follow-up Documents", description: "Assignee: RM-001" },
@@ -55,39 +71,77 @@ interface DialogueCenterWorkspaceProps {
   contextId?: string;
 }
 
-export function DialogueCenterWorkspace({ contextId = "opp-demo-001" }: DialogueCenterWorkspaceProps) {
+/**
+ * Global route reads the durable EAR projection without an entity filter.
+ * Callers may supply an Opportunity context for a scoped embedded view.
+ */
+export function DialogueCenterWorkspace({ contextId }: DialogueCenterWorkspaceProps) {
   const [entries, setEntries] = useState<EdcTimelineEntry[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [eventKind, setEventKind] = useState("");
+  const [sinceDate, setSinceDate] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     async function boot() {
-      // CO-ORG-003 — Dialogue Center reads EAR via EDC projection hydrate
+      const since = sinceDate
+        ? new Date(`${sinceDate}T00:00:00`).toISOString()
+        : undefined;
       await hydrateEdcFromEar({
-        opportunityId: contextId.startsWith("opp") ? contextId : undefined,
+        opportunityId: contextId?.startsWith("opp") ? contextId : undefined,
+        eventKind: eventKind || undefined,
+        since,
         limit: 100,
       });
       if (cancelled) return;
-      seedDialogueIfEmpty();
+      seedDialogueIfEmpty(contextId);
       setEntries(listEdcTimeline());
     }
     void boot();
     return () => {
       cancelled = true;
     };
-  }, [contextId]);
+  }, [contextId, eventKind, sinceDate]);
 
   const filtered = useMemo(
-    () => entries.filter((e) => !contextId || e.contextRef.id === contextId),
+    () => (contextId ? entries.filter((e) => e.contextRef.id === contextId) : entries),
     [entries, contextId],
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-dialogue-center="">
       <PageHeader
-        title="Enterprise Dialogue Center"
-        description="Unified operational timeline — latest activity first. Complete audit trail."
+        title="Dialogue"
+        description="Global operational chronology from the Enterprise Activity Registry — latest first. Not employee messaging."
       />
+
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+          Event kind
+          <select
+            value={eventKind}
+            onChange={(e) => setEventKind(e.target.value)}
+            className="block h-9 min-w-[10rem] rounded-md border border-input bg-background px-2 text-sm text-foreground"
+            data-dialogue-event-kind=""
+          >
+            {KIND_FILTERS.map((opt) => (
+              <option key={opt.value || "all"} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+          Since
+          <Input
+            type="date"
+            value={sinceDate}
+            onChange={(e) => setSinceDate(e.target.value)}
+            className="h-9 w-[11rem] text-sm"
+            data-dialogue-since=""
+          />
+        </label>
+      </div>
 
       <div className="space-y-3">
         {filtered.map((entry) => {
@@ -97,7 +151,7 @@ export function DialogueCenterWorkspace({ contextId = "opp-demo-001" }: Dialogue
               key={entry.id}
               title={entry.title}
               description={entry.description}
-              tone={EVENT_TONE[entry.eventType]}
+              tone={EVENT_TONE[entry.eventType] ?? "slate"}
               badge={entry.eventType.replace(/_/g, " ")}
               meta={`${new Date(entry.occurredOn).toLocaleString()} · ${entry.actorId}${
                 entry.historicalReference ? " · historical" : ""

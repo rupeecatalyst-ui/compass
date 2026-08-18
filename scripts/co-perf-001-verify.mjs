@@ -12,6 +12,7 @@ const required = [
   "src/app/api/admin/enterprise-metrics/route.ts",
   "src/app/api/enterprise-metrics/dashboard/route.ts",
   "src/app/api/cron/enterprise-metrics/route.ts",
+  "server/services/enterprise-metrics-engine/deal-health-persist.ts",
   "src/app/(dashboard)/admin/enterprise-metrics/page.tsx",
   "src/lib/enterprise-deal/deal-stage-projection.ts",
   "prisma/migrations/20260722160000_co_perf_001_enterprise_metrics_engine/migration.sql",

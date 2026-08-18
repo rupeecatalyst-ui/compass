@@ -21,6 +21,11 @@ export {
   subscribeEarUpdated,
 } from "./session-registry";
 export {
+  formatDealLastActivityLabel,
+  latestOperationalOccurredAtByOpportunity,
+  overlayDealRowsWithEarLastActivity,
+} from "./latest-opportunity-activity";
+export {
   TRANSACTION_TIMELINE_FILTERS,
   classifyEarEvent,
   filterEventsForScope,

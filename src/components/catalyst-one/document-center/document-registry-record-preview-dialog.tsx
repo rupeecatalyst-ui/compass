@@ -19,6 +19,7 @@ import {
 } from "@/lib/document-registry";
 import { previewDocumentRegistryRecord } from "@/lib/document-package";
 import { formatDocumentFileSize } from "@/constants/document-registry";
+import { documentRegistrySourceLabel } from "@/constants/document-intake";
 
 export function DocumentRegistryRecordPreviewDialog({
   open,
@@ -67,10 +68,21 @@ export function DocumentRegistryRecordPreviewDialog({
           </DialogTitle>
         </DialogHeader>
         {record ? (
-          <p className="text-[11px] text-muted-foreground">
-            {record.mimeType} · {formatDocumentFileSize(record.fileSizeBytes)} ·{" "}
-            {record.uploadedBy}
-          </p>
+          <>
+            <p className="text-[11px] text-muted-foreground">
+              {record.mimeType} · {formatDocumentFileSize(record.fileSizeBytes)} ·{" "}
+              {record.uploadedBy}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Source: {documentRegistrySourceLabel(record.uploadSource)}
+              {record.uploadSource === "wealth_partner" && record.uploadedBy
+                ? ` · Partner: ${record.uploadedBy}`
+                : ""}
+              {record.links.packageRelativePath
+                ? ` · ${record.links.packageRelativePath}`
+                : ""}
+            </p>
+          </>
         ) : null}
         <div className="mt-2 min-h-[320px] rounded-lg border border-border/60 bg-muted/20 p-2">
           {!record ? (

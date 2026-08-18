@@ -1,0 +1,115 @@
+﻿ M .env.example
+ M docs/co-consolidated-deploy-001/CO-CONSOLIDATED-DEPLOY-001-DEPLOYMENT-REPORT.md
+ M next.config.ts
+ M package-lock.json
+ M package.json
+ M scripts/co-notification-001-verify.mjs
+ M scripts/co-org-003-verify.mjs
+ M server/services/enterprise-notification/enterprise-notification.service.ts
+ M src/components/catalyst-one/action-center/deal-action-center.tsx
+ M src/components/catalyst-one/action-center/enterprise-outbox-provider.tsx
+ M src/components/catalyst-one/action-center/workspaces/email-context-workspace.tsx
+ M src/components/catalyst-one/action-center/workspaces/whatsapp-context-workspace.tsx
+ M src/components/catalyst-one/administration-console/administration-console.tsx
+ M src/components/catalyst-one/contacts/contact-workspace-modal.tsx
+ M src/components/catalyst-one/enterprise-lender-directory/eld-slide-over.tsx
+ M src/components/catalyst-one/enterprise-notification-engine/enterprise-notification-host.tsx
+ M src/components/catalyst-one/my-deals/deal-lender-journey-board.tsx
+ M src/components/catalyst-one/my-deals/opportunity-lender-journey-card.tsx
+ M src/components/catalyst-one/transaction-activity-timeline/transaction-activity-timeline.tsx
+ M src/components/catalyst-one/user-home-dashboard/new-opportunities-section.tsx
+ M src/components/catalyst-one/user-home-dashboard/user-home-dashboard.tsx
+ M src/config/navigation.ts
+ M src/constants/administration-console.ts
+ M src/constants/enterprise-action-center/communication-templates.ts
+ M src/constants/enterprise-communication-center/index.ts
+ M src/constants/enterprise-communication-center/profiles.ts
+ M src/constants/enterprise-contact-master/lifecycle.ts
+ M src/constants/enterprise-lender-directory/ops.ts
+ M src/constants/enterprise-notification-engine/index.ts
+ M src/constants/enterprise-user-management/index.ts
+ M src/constants/routes.ts
+ M src/constants/user-home-dashboard/new-arrivals.ts
+ M src/lib/enterprise-action-center/index.ts
+ M src/lib/enterprise-action-center/resolve-participants.ts
+ M src/lib/enterprise-activity-registry/transaction-timeline.ts
+ M src/lib/enterprise-communication-center/index.ts
+ M src/lib/enterprise-contact-master/workspace-tabs.ts
+ M src/lib/enterprise-deal/map-deal-to-registry-row.ts
+ M src/lib/enterprise-notification-engine/index.ts
+ M src/lib/enterprise-notification-engine/recipients-pure.ts
+ M src/lib/my-deals/deal-registry.ts
+ M src/lib/my-deals/derive-opportunity-executive-summary.ts
+ M src/lib/my-deals/group-opportunities.ts
+ M src/lib/user-home-dashboard/command-center/load-new-opportunities.ts
+ M src/types/dashboard-command-center.ts
+ M src/types/deal-registry.ts
+ M src/types/enterprise-notification-engine.ts
+?? content/
+?? docs/co-c1-admin-user-manual-001/
+?? docs/co-c1-consolidated-deploy-20260812-build-log.txt
+?? docs/co-c1-consolidated-deploy-20260812/
+?? docs/co-c1-contact-360-ux-refinement-002/
+?? docs/co-c1-health-audit-20260813/
+?? docs/co-c1-health-remediation-001/
+?? docs/co-c1-refinements-20260812/
+?? docs/co-consolidated-deploy-001/CO-CONSOLIDATED-DEPLOY-001A-MIGRATION-BLOCKER-INVESTIGATION.md
+?? docs/co-marketing-activation-002/
+?? docs/co-marketing-align-001/
+?? docs/co-marketing-arch-001/
+?? docs/co-marketing-mkt-01/
+?? docs/co-marketing-mkt-02/
+?? docs/co-marketing-mkt-03/
+?? docs/co-marketing-mkt-04/
+?? docs/co-marketing-mkt-05/
+?? docs/co-marketing-mkt-06-10/
+?? docs/co-marketing-mkt-07/
+?? docs/co-marketing-mkt-08/
+?? docs/co-marketing-mkt-09/
+?? docs/co-marketing-mkt-10/
+?? docs/co-marketing-mkt-11/
+?? docs/co-marketing-mkt-12/
+?? docs/co-marketing-mkt-13/
+?? docs/co-notification-001/CO-NOTIFICATION-001B-VISUAL-REFINEMENT-REPORT.md
+?? scripts/co-c1-admin-user-manual-001-verify.mjs
+?? scripts/co-c1-consolidated-deploy-20260812-verify.mjs
+?? scripts/co-marketing-activation-002-verify.mjs
+?? scripts/co-marketing-mkt-01-verify.mjs
+?? scripts/co-marketing-mkt-02-verify.mjs
+?? scripts/co-marketing-mkt-03-verify.mjs
+?? scripts/co-marketing-mkt-04-verify.mjs
+?? scripts/co-marketing-mkt-05-verify.mjs
+?? scripts/co-marketing-mkt-07-verify.mjs
+?? scripts/co-marketing-mkt-08-verify.mjs
+?? scripts/co-marketing-mkt-09-verify.mjs
+?? scripts/co-marketing-mkt-10-verify.mjs
+?? scripts/co-marketing-mkt-11-verify.mjs
+?? scripts/co-marketing-mkt-12-verify.mjs
+?? scripts/co-marketing-mkt-13-verify.mjs
+?? server/services/enterprise-marketing-engine/
+?? src/app/(dashboard)/admin/marketing/
+?? src/app/(dashboard)/admin/user-manual/
+?? src/app/(dashboard)/organization/communication/
+?? src/app/api/admin/marketing/
+?? src/app/api/cron/marketing-execution/
+?? src/components/catalyst-one/admin/marketing/
+?? src/components/catalyst-one/contacts/add-explicit-relationship-dialog.tsx
+?? src/components/catalyst-one/contacts/contact-360-intelligence-panel.tsx
+?? src/components/catalyst-one/enterprise-user-manual/
+?? src/constants/enterprise-communication-center/corporate-branding.ts
+?? src/constants/enterprise-marketing-engine/
+?? src/constants/enterprise-user-manual/
+?? src/lib/enterprise-communication-center/corporate-identity.ts
+?? src/lib/enterprise-contact-master/compose-contact-360.ts
+?? src/lib/enterprise-marketing-engine/
+?? src/lib/enterprise-user-manual/
+?? src/types/enterprise-marketing-analytics.ts
+?? src/types/enterprise-marketing-audience.ts
+?? src/types/enterprise-marketing-campaign.ts
+?? src/types/enterprise-marketing-data-source.ts
+?? src/types/enterprise-marketing-email-delivery.ts
+?? src/types/enterprise-marketing-engine.ts
+?? src/types/enterprise-marketing-execution.ts
+?? src/types/enterprise-marketing-qualification.ts
+?? src/types/enterprise-marketing-whatsapp-delivery.ts
+?? src/types/enterprise-user-manual.ts

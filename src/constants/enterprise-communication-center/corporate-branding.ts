@@ -35,7 +35,13 @@ export type OperationalEmailTemplateCode =
   | "followup_disbursement"
   | "followup_documents"
   | "partner_communication"
-  | "lender_communication";
+  | "lender_communication"
+  | "opportunity_update"
+  | "accounting_communication"
+  | "invoice_communication"
+  | "payout_communication"
+  | "internal_notification"
+  | "system_notification";
 
 export interface OperationalEmailTemplateDef {
   code: OperationalEmailTemplateCode;
@@ -97,6 +103,42 @@ export const OPERATIONAL_EMAIL_TEMPLATE_CATALOG: readonly OperationalEmailTempla
     code: "lender_communication",
     name: "Lender Communication",
     description: "Operational message to lender contacts",
+    active: true,
+  },
+  {
+    code: "opportunity_update",
+    name: "Opportunity Update",
+    description: "Operational opportunity / deal status update",
+    active: true,
+  },
+  {
+    code: "accounting_communication",
+    name: "Accounting Communication",
+    description: "Accounting / finance operational message",
+    active: true,
+  },
+  {
+    code: "invoice_communication",
+    name: "Invoice Communication",
+    description: "Invoice-related operational message",
+    active: true,
+  },
+  {
+    code: "payout_communication",
+    name: "Payout Communication",
+    description: "Payout-related operational message",
+    active: true,
+  },
+  {
+    code: "internal_notification",
+    name: "Internal Notification",
+    description: "Internal employee operational notification",
+    active: true,
+  },
+  {
+    code: "system_notification",
+    name: "System Notification",
+    description: "System / transactional notification",
     active: true,
   },
 ] as const;

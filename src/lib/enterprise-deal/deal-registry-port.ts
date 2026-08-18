@@ -8,6 +8,11 @@ import {
 } from "@/constants/enterprise-deal-registry";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { mapEnterpriseDealToDealRegistryRow } from "@/lib/enterprise-deal/map-deal-to-registry-row";
+import {
+  overlayDealRowsWithEarLastActivity,
+} from "@/lib/enterprise-activity-registry/latest-opportunity-activity";
+import { listEnterpriseActivity } from "@/lib/enterprise-activity-registry/api-client";
+import { listSessionEarEvents } from "@/lib/enterprise-activity-registry/session-registry";
 import type { DealRegistryRow } from "@/types/deal-registry";
 
 export type DealRegistryReadSource = "local" | "enterprise_deal" | "local_fallback";
@@ -41,6 +46,22 @@ export function resolveMyDealsDisplayRows(input: {
   return incoming;
 }
 
+async function overlayMyDealsLastActivityFromEar(
+  rows: DealRegistryRow[],
+): Promise<DealRegistryRow[]> {
+  try {
+    const events = await listEnterpriseActivity({ limit: 200 });
+    const session = listSessionEarEvents();
+    return overlayDealRowsWithEarLastActivity(rows, [...session, ...events]).sort(
+      (a, b) => b.lastActivity.localeCompare(a.lastActivity),
+    );
+  } catch {
+    return overlayDealRowsWithEarLastActivity(rows, listSessionEarEvents()).sort(
+      (a, b) => b.lastActivity.localeCompare(a.lastActivity),
+    );
+  }
+}
+
 /** @deprecated Soft Go-Live list — returns empty when Registry is operational. */
 export function listDealRegistryRowsLocal(): DealRegistryPortResult {
   return {
@@ -71,10 +92,10 @@ export async function loadMyDealsDealRegistryRows(): Promise<DealRegistryPortRes
       productFamily: "lending",
       view: "summary",
     });
-    const rows = page.items
+    const mapped = page.items
       .filter((d) => !d.isDeleted && !d.archived)
-      .map(mapEnterpriseDealToDealRegistryRow)
-      .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
+      .map(mapEnterpriseDealToDealRegistryRow);
+    const rows = await overlayMyDealsLastActivityFromEar(mapped);
     return {
       rows,
       source: "enterprise_deal",
@@ -106,10 +127,10 @@ export async function enrichMyDealsDealRegistryRows(): Promise<DealRegistryPortR
       productFamily: "lending",
       view: "full",
     });
-    const rows = page.items
+    const mapped = page.items
       .filter((d) => !d.isDeleted && !d.archived)
-      .map(mapEnterpriseDealToDealRegistryRow)
-      .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
+      .map(mapEnterpriseDealToDealRegistryRow);
+    const rows = await overlayMyDealsLastActivityFromEar(mapped);
     return {
       rows,
       source: "enterprise_deal",

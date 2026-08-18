@@ -52,6 +52,10 @@ export const LENDER_CASE_SUB_STAGES: Record<LenderCaseStage, EnterpriseSubStageO
     { id: "final_tranche", label: "Final Tranche" },
     { id: "fully_disbursed", label: "Fully Disbursed" },
   ],
+  post_disbursement_confirmation: [
+    { id: "confirmation_pending", label: "Confirmation Pending" },
+    { id: "confirmation_received", label: "Confirmation Received" },
+  ],
   lost: [
     { id: "rejected", label: "Rejected" },
     { id: "customer_declined", label: "Customer Declined" },

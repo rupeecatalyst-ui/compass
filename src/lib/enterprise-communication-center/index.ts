@@ -9,3 +9,11 @@ export {
   buildCorporateEmailSignature,
   buildCorporateWhatsAppIdentity,
 } from "./corporate-identity";
+export {
+  deriveDomainAuthStatuses,
+  deriveProviderConnectionStatus,
+  isOperationalProductionSendingEnabled,
+  labelConfigStatus,
+  type OperationalDeliveryConnectionStatus,
+  type OperationalEmailConfigStatus,
+} from "./delivery-status";

@@ -54,6 +54,8 @@ export const ROUTES = {
   CREDIT_BENCH: "/credit-bench",
   CREDIT_WORKBENCH: "/credit-workbench",
   TASKS: "/tasks",
+  /** Employee-facing entity activity desk (EAR / TransactionActivityTimeline). */
+  ACTIVITY: "/activity",
   DIALOGUE: "/dialogue",
   CONTACTS: "/contacts",
   CONTACT_STRATEGY: "/contact-strategy",
@@ -256,6 +258,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.CREDIT_BENCH,
   ROUTES.CREDIT_WORKBENCH,
   ROUTES.TASKS,
+  ROUTES.ACTIVITY,
   ROUTES.DIALOGUE,
   ROUTES.CONTACTS,
   ROUTES.CONTACT_STRATEGY,

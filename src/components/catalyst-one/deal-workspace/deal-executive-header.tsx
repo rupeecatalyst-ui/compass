@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, Filter, ListFilter, Plus, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Filter, History, ListFilter, Plus, Sparkles } from "lucide-react";
 import { formatINR } from "@/lib/format-currency";
 import {
   resolveOpportunityDisplayNumber,
@@ -35,6 +35,7 @@ export function DealExecutiveHeader({
   onIdentifyLender,
   onViewOptions,
   onFilters,
+  onViewActivity,
   dealCount,
 }: {
   runtime: DealPipelineRuntime;
@@ -50,6 +51,7 @@ export function DealExecutiveHeader({
   onIdentifyLender?: () => void;
   onViewOptions?: () => void;
   onFilters?: () => void;
+  onViewActivity?: () => void;
   dealCount?: number;
 }) {
   const { context, deal, siblingDeals } = runtime;
@@ -223,11 +225,25 @@ export function DealExecutiveHeader({
               Filters
             </Button>
           ) : null}
+          {onViewActivity ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 px-1.5 text-[10px]"
+              data-deal-activity-action=""
+              onClick={onViewActivity}
+            >
+              <History className="h-3 w-3" aria-hidden />
+              Activity
+            </Button>
+          ) : null}
           <DealActionCenter
             runtime={runtime}
             activeDeal={activeDeal}
             className="h-7 shrink-0 px-2 text-[10px]"
             onTimelineNote={onTimelineNote}
+            onViewActivity={onViewActivity}
           />
           <WorkspacePrimaryActions
             mode="editable"

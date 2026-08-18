@@ -210,6 +210,8 @@ model Organization {
   enterpriseDealNotificationLinks    EnterpriseDealNotificationLink[]
   enterpriseDealIntelligenceLinks    EnterpriseDealIntelligenceLink[]
   enterpriseDealWorkflowBindings     EnterpriseDealWorkflowBinding[]
+  postDisbursementSchedules          EnterprisePostDisbursementSchedule[]
+  enterpriseAccountingCases          EnterpriseAccountingCase[]
   /// CO-ADMIN-004 — Production Reset run audit (immutable history)
   productionResetRuns                ProductionResetRun[]
   /// CO-PERF-001 — Enterprise Metrics Engine read models
@@ -2237,6 +2239,8 @@ model EnterpriseDeal {
   progressPercent           Int                    @default(0) @map("progress_percent")
   daysInStage               Int                    @default(0) @map("days_in_stage")
   stageEnteredAt            DateTime               @map("stage_entered_at")
+  /// Immutable first entry into the canonical Disbursed stage.
+  disbursedAt               DateTime?              @map("disbursed_at")
   closedAt                  DateTime?              @map("closed_at")
   archived                  Boolean                @default(false)
   archivedAt                DateTime?              @map("archived_at")
@@ -2332,6 +2336,8 @@ model EnterpriseDeal {
   notificationLinks       EnterpriseDealNotificationLink[]
   intelligenceLinks       EnterpriseDealIntelligenceLink[]
   workflowBindings        EnterpriseDealWorkflowBinding[]
+  postDisbursementSchedule EnterprisePostDisbursementSchedule?
+  accountingCase          EnterpriseAccountingCase?
 
   @@unique([organizationId, dealNumber], map: "edeal_org_number_key")
   /// CO-ARCH-003: legacy_loan_file_id is NON-unique — multiple Deals may share one LoanFile bridge
@@ -2348,6 +2354,66 @@ model EnterpriseDeal {
   @@index([organizationId, productId], map: "edeal_org_product_idx")
   @@index([organizationId, importBatchId], map: "edeal_org_import_idx")
   @@map("enterprise_deals")
+}
+
+/// Durable +72h hand-off from Disbursed into post-disbursement confirmation.
+model EnterprisePostDisbursementSchedule {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  dealId         String    @unique @map("deal_id")
+  dueAt          DateTime  @map("due_at")
+  status         String    @default("pending")
+  claimToken     String?   @map("claim_token")
+  claimedAt      DateTime? @map("claimed_at")
+  processedAt    DateTime? @map("processed_at")
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([status, dueAt], map: "epds_status_due_idx")
+  @@index([organizationId, status, dueAt], map: "epds_org_status_due_idx")
+  @@map("enterprise_post_disbursement_schedules")
+}
+
+/// Accounting operational case created exactly once after human confirmation.
+/// This is not an invoice entity.
+model EnterpriseAccountingCase {
+  id                     String    @id @default(cuid())
+  organizationId         String    @map("organization_id")
+  dealId                 String    @unique @map("deal_id")
+  status                 String    @default("open")
+  upstreamSnapshot       Json?     @map("upstream_snapshot")
+  finalAmount            Decimal?  @map("final_amount") @db.Decimal(18, 2)
+  disbursedAmount        Decimal?  @map("disbursed_amount") @db.Decimal(18, 2)
+  disbursedDate          DateTime? @map("disbursed_date")
+  roiPercent             Decimal?  @map("roi_percent") @db.Decimal(9, 4)
+  feesJson               Json?     @map("fees_json")
+  commissionPercent      Decimal?  @map("commission_percent") @db.Decimal(9, 4)
+  expectedCommission     Decimal?  @map("expected_commission") @db.Decimal(18, 2)
+  confirmedInvoiceAmount Decimal?  @map("confirmed_invoice_amount") @db.Decimal(18, 2)
+  payoutAmount           Decimal?  @map("payout_amount") @db.Decimal(18, 2)
+  tdsAmount              Decimal?  @map("tds_amount") @db.Decimal(18, 2)
+  shortPaymentAmount     Decimal?  @map("short_payment_amount") @db.Decimal(18, 2)
+  reconciliationJson     Json?     @map("reconciliation_json")
+  confirmationSource     String    @default("human") @map("confirmation_source")
+  confirmedBy            String    @map("confirmed_by")
+  confirmedAt            DateTime  @map("confirmed_at")
+  createdBy              String    @map("created_by")
+  updatedBy              String    @map("updated_by")
+  rowVersion             Int       @default(1) @map("row_version")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, dealId], map: "eac_org_deal_key")
+  @@index([organizationId, status, updatedAt(sort: Desc)], map: "eac_org_status_updated_idx")
+  @@map("enterprise_accounting_cases")
 }
 
 model EnterpriseDealSnapshot {

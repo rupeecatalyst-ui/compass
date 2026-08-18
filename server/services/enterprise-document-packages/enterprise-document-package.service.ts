@@ -124,6 +124,14 @@ function serialize(row: {
 export const enterpriseDocumentPackageService = {
   async upsert(input: DurablePackageUpsertInput): Promise<DurablePackageDto> {
     const organizationId = await resolvePilotOrganizationId();
+    return this.upsertForOrganization(organizationId, input);
+  },
+
+  /** Partner Gateway / multi-org — write against the owning organization. */
+  async upsertForOrganization(
+    organizationId: string,
+    input: DurablePackageUpsertInput,
+  ): Promise<DurablePackageDto> {
     const existing = await prisma.enterpriseDocumentPackage.findFirst({
       where: {
         organizationId,
@@ -190,6 +198,13 @@ export const enterpriseDocumentPackageService = {
 
   async listByOpportunity(opportunityId: string): Promise<DurablePackageDto[]> {
     const organizationId = await resolvePilotOrganizationId();
+    return this.listByOpportunityForOrganization(organizationId, opportunityId);
+  },
+
+  async listByOpportunityForOrganization(
+    organizationId: string,
+    opportunityId: string,
+  ): Promise<DurablePackageDto[]> {
     const rows = await prisma.enterpriseDocumentPackage.findMany({
       where: {
         organizationId,
@@ -200,6 +215,22 @@ export const enterpriseDocumentPackageService = {
       take: 200,
     });
     return rows.map(serialize);
+  },
+
+  async findByClientPackageIdForOrganization(
+    organizationId: string,
+    clientPackageId: string,
+  ): Promise<DurablePackageDto | null> {
+    const id = clientPackageId.trim();
+    if (!id) return null;
+    const row = await prisma.enterpriseDocumentPackage.findFirst({
+      where: {
+        organizationId,
+        status: { not: "deleted" },
+        OR: [{ clientPackageId: id }, { id }],
+      },
+    });
+    return row ? serialize(row) : null;
   },
 
   async search(query: string): Promise<DurablePackageDto[]> {

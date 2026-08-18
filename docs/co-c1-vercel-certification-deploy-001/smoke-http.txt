@@ -1,0 +1,12 @@
+200  /login
+200  /dashboard
+200  /contacts
+200  /lenders
+200  /my-deals
+200  /organization/communication
+200  /organization/communication/email
+200  /admin
+200  /admin/marketing
+200  /admin/user-manual
+200  /deals
+302  deploy-url/login

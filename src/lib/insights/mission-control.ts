@@ -155,6 +155,7 @@ const ETA_BY_STAGE: Record<LenderCaseStage, number> = {
   final_approved: 7,
   closure_wip: 3,
   disbursed: 0,
+  post_disbursement_confirmation: 0,
   hold: 14,
   lost: 0,
 };

@@ -64,9 +64,12 @@ export type DocumentRequestCommKind =
   | "customer_uploaded"
   | "verification_completed"
   | "link_regenerated"
-  | "upload_link_generated";
+  | "upload_link_generated"
+  | "custom_requirement_added";
 
 export interface DocumentRequestLodItem {
+  /** Stable request-row identity; typeRef remains the editable Document Master reference. */
+  requestRef?: string;
   typeRef: string;
   label: string;
   category: DocumentRequestLodCategory;
@@ -74,9 +77,18 @@ export interface DocumentRequestLodItem {
   moduleLabel: string;
   mandatory: boolean;
   critical: boolean;
+  ownerScope?: "participant" | "security";
+  participantId?: string;
+  ownerName?: string;
+  ownerRoleLabel?: string;
+  ownerTypeLabel?: string;
 }
 
 export interface DocumentRequestItemState extends DocumentRequestLodItem {
+  /**
+   * Existing `pending` value represents an LOD requirement that has not been
+   * communicated yet. UI displays it as "Not Requested".
+   */
   status: DocumentRequestItemStatus;
   requestedOn?: string;
   reminderStatus?: "none" | "sent" | "overdue";
@@ -84,6 +96,12 @@ export interface DocumentRequestItemState extends DocumentRequestLodItem {
   remarks?: string;
   uploadedAt?: string;
   registryRecordId?: string;
+  /** Document Registry ingestion channel for the linked received document. */
+  receivedSource?: string;
+  /** Manually added requirement; still follows the same request/registry workflow. */
+  custom?: boolean;
+  addedAt?: string;
+  addedBy?: string;
 }
 
 export interface DocumentRequestCommEvent {
@@ -127,6 +145,8 @@ export interface DocumentRequestLodVersionSnapshot {
   constitutionLabel: string;
   /** Fingerprint of the three LOD dimensions */
   dimensionKey: string;
+  /** Loan Structure participant/security fingerprint used for participant-card regeneration. */
+  structureKey?: string;
   documentCount: number;
   /** Frozen typeRefs at generation time (audit only — not live status) */
   typeRefs: string[];

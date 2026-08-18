@@ -20,6 +20,8 @@ import {
 import { evaluateDocumentRequestLodReadiness } from "@/lib/document-requests/lod-readiness";
 import {
   buildLodDimensionKey,
+  buildLodStructureKey,
+  getDocumentRequestRef,
   mergeLodItemsWithPrior,
   nextLodVersionNumber,
 } from "@/lib/document-requests/lod-versioning";
@@ -120,6 +122,8 @@ function appendComm(
     actor,
     detail,
     opportunityReference,
+    sourceEventId: event.id,
+    occurredAt: event.at,
   });
   return {
     ...state,
@@ -136,18 +140,21 @@ function syncStatusesFromRegistry(
     runtimeKey?.trim() || opportunityId,
     opportunityId,
   );
-  const byType = new Map<string, (typeof records)[0]>();
-  for (const r of records) {
-    if (r.status === "deleted") continue;
-    const prev = byType.get(r.typeRef);
-    if (!prev || new Date(r.uploadedAt) > new Date(prev.uploadedAt)) {
-      byType.set(r.typeRef, r);
-    }
-  }
 
   const newlyVerified: DocumentRequestItemState[] = [];
   const nextItems = items.map((item) => {
-    const rec = byType.get(item.typeRef);
+    const rec = records
+      .filter((record) => {
+        if (record.status === "deleted" || record.typeRef !== item.typeRef) return false;
+        if (item.ownerScope === "participant") {
+          return record.links.participantId === item.participantId;
+        }
+        if (item.ownerScope === "security") {
+          return record.links.documentScope === "shared" && !record.links.participantId;
+        }
+        return true;
+      })
+      .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())[0];
     if (!rec) {
       if (item.status === "rejected") {
         return { ...item, status: "re_upload_required" as const };
@@ -164,6 +171,7 @@ function syncStatusesFromRegistry(
       status,
       uploadedAt: rec.uploadedAt,
       registryRecordId: rec.id,
+      receivedSource: rec.uploadSource,
     };
     if (status === "verified" && item.status !== "verified") {
       newlyVerified.push(synced);
@@ -193,10 +201,11 @@ export function refreshDocumentRequestFromRegistry(
       const prev = current.lodItems[idx];
       return (
         prev &&
-        prev.typeRef === item.typeRef &&
+        getDocumentRequestRef(prev) === getDocumentRequestRef(item) &&
         prev.status === item.status &&
         prev.registryRecordId === item.registryRecordId &&
-        prev.uploadedAt === item.uploadedAt
+        prev.uploadedAt === item.uploadedAt &&
+        prev.receivedSource === item.receivedSource
       );
     });
   if (unchanged) return current;
@@ -291,8 +300,9 @@ export function generateAndPersistLod(input: {
   const deduped: DocumentRequestItemState[] = [];
   const seen = new Set<string>();
   for (const item of synced) {
-    if (seen.has(item.typeRef)) continue;
-    seen.add(item.typeRef);
+    const ref = getDocumentRequestRef(item);
+    if (seen.has(ref)) continue;
+    seen.add(ref);
     deduped.push(item);
   }
 
@@ -316,8 +326,12 @@ export function generateAndPersistLod(input: {
       productLabel,
       constitutionLabel,
     }),
+    structureKey: buildLodStructureKey(
+      input.runtimeFile?.participants ?? [],
+      input.runtimeFile?.lendingType === "secured",
+    ),
     documentCount: deduped.length,
-    typeRefs: deduped.map((i) => i.typeRef),
+    typeRefs: deduped.map(getDocumentRequestRef),
     active: true,
   };
 
@@ -393,15 +407,7 @@ export function createOrRegenerateUploadSession(input: {
     ...current,
     opportunityId: input.opportunityId,
     uploadSession: session,
-    lodItems: current.lodItems.map((i) =>
-      i.status === "pending"
-        ? {
-            ...i,
-            status: "requested" as const,
-            requestedOn: i.requestedOn ?? session.createdAt,
-          }
-        : i,
-    ),
+    lodItems: current.lodItems,
   };
   next = appendComm(
     next,
@@ -493,6 +499,9 @@ export function resolveUploadSessionByToken(
   return {
     ...live,
     uploadSession: live.uploadSession?.token === t ? live.uploadSession : session,
+    // The external portal receives only requirements explicitly requested.
+    // Master-derived but unrequested rows remain visible internally in Catalyst One.
+    lodItems: live.lodItems.filter((item) => item.status !== "pending"),
   };
 }
 
@@ -518,12 +527,104 @@ export function recordDocumentRequestCommunication(
     next = {
       ...next,
       lodItems: next.lodItems.map((i) =>
-        i.status === "pending" || i.status === "requested"
+        i.status === "requested"
           ? { ...i, reminderStatus: "sent", lastReminderAt: now }
           : i,
       ),
     };
   }
+  return saveState(next);
+}
+
+export function requestDocumentItems(
+  opportunityId: string,
+  requestRefs: string[],
+): DocumentRequestWorkspaceState {
+  const selected = new Set(requestRefs.map((ref) => ref.trim()).filter(Boolean));
+  if (!selected.size) return getDocumentRequestState(opportunityId);
+  const current = getDocumentRequestState(opportunityId);
+  const requestedOn = new Date().toISOString();
+  return saveState({
+    ...current,
+    lodItems: current.lodItems.map((item) =>
+      selected.has(getDocumentRequestRef(item)) && item.status === "pending"
+        ? {
+            ...item,
+            status: "requested" as const,
+            requestedOn,
+            reminderStatus: "none" as const,
+          }
+        : item,
+    ),
+  });
+}
+
+export function addCustomDocumentRequirement(input: {
+  opportunityId: string;
+  label: string;
+  category: "critical" | "journey";
+  actor: string;
+  ownerScope: "participant" | "security";
+  participantId?: string;
+  ownerName: string;
+  ownerRoleLabel: string;
+  ownerTypeLabel: string;
+  remarks?: string;
+}): DocumentRequestWorkspaceState {
+  const label = input.label.trim();
+  if (!label) return getDocumentRequestState(input.opportunityId);
+  const current = getDocumentRequestState(input.opportunityId);
+  const duplicate = current.lodItems.some(
+    (item) =>
+      item.label.trim().toLocaleLowerCase() === label.toLocaleLowerCase() &&
+      item.ownerScope === input.ownerScope &&
+      item.participantId === input.participantId,
+  );
+  if (duplicate) return current;
+  const slug =
+    label
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 48) || "requirement";
+  const addedAt = new Date().toISOString();
+  const typeRef = `custom:${slug}:${Date.now().toString(36)}`;
+  let next: DocumentRequestWorkspaceState = {
+    ...current,
+    lodItems: [
+      ...current.lodItems,
+      {
+        requestRef:
+          input.ownerScope === "participant"
+            ? `participant:${input.participantId}:${typeRef}`
+            : `security:${typeRef}`,
+        typeRef,
+        label,
+        category: input.category,
+        moduleId: "custom_requirement",
+        moduleLabel: "Manual Requirement",
+        mandatory: true,
+        critical: input.category === "critical",
+        ownerScope: input.ownerScope,
+        participantId: input.participantId,
+        ownerName: input.ownerName,
+        ownerRoleLabel: input.ownerRoleLabel,
+        ownerTypeLabel: input.ownerTypeLabel,
+        status: "pending",
+        reminderStatus: "none",
+        remarks: input.remarks?.trim() || undefined,
+        custom: true,
+        addedAt,
+        addedBy: input.actor,
+      },
+    ],
+  };
+  next = appendComm(
+    next,
+    "custom_requirement_added",
+    input.actor,
+    `${label} · ${input.ownerName}`,
+  );
   return saveState(next);
 }
 
@@ -538,38 +639,41 @@ export function buildCustomerEngagementPortalPath(token: string): string {
 
 export function markItemRemarks(
   opportunityId: string,
-  typeRef: string,
+  requestRef: string,
   remarks: string,
 ): DocumentRequestWorkspaceState {
   const current = getDocumentRequestState(opportunityId);
   return saveState({
     ...current,
-    lodItems: current.lodItems.map((i) => (i.typeRef === typeRef ? { ...i, remarks } : i)),
+    lodItems: current.lodItems.map((item) =>
+      getDocumentRequestRef(item) === requestRef ? { ...item, remarks } : item,
+    ),
   });
 }
 
 export function recordCustomerPortalUpload(
   opportunityId: string,
-  typeRef: string,
+  requestRef: string,
   registryRecordId: string,
   actor = "Customer",
   opportunityReference?: string,
 ): DocumentRequestWorkspaceState {
   const now = new Date().toISOString();
   let next = getDocumentRequestState(opportunityId);
-  const label = next.lodItems.find((i) => i.typeRef === typeRef)?.label || typeRef;
+  const label =
+    next.lodItems.find((item) => getDocumentRequestRef(item) === requestRef)?.label || requestRef;
   next = {
     ...next,
     lastCustomerActivityAt: now,
-    lodItems: next.lodItems.map((i) =>
-      i.typeRef === typeRef
+    lodItems: next.lodItems.map((item) =>
+      getDocumentRequestRef(item) === requestRef
         ? {
-            ...i,
+            ...item,
             status: "under_verification" as const,
             uploadedAt: now,
             registryRecordId,
           }
-        : i,
+        : item,
     ),
   };
   next = appendComm(next, "customer_uploaded", actor, label, opportunityReference);

@@ -17,9 +17,14 @@ const FORWARD: LenderCaseStage[] = [
   "final_approved",
   "closure_wip",
   "disbursed",
+  "post_disbursement_confirmation",
 ];
 
-const TERMINAL = new Set<LenderCaseStage>(["lost", "hold", "disbursed"]);
+const TERMINAL = new Set<LenderCaseStage>([
+  "lost",
+  "hold",
+  "post_disbursement_confirmation",
+]);
 
 const KNOWN = new Set(LENDER_CASE_STAGES.map((s) => s.id));
 
@@ -42,7 +47,7 @@ export function canonicalizeDealPipelineStage(stage: string): LenderCaseStage {
  * - Forward along primary path is allowed (including skip-ahead with allowSkip)
  * - lost / hold allowed from non-terminal stages
  * - Exit hold back to a forward stage allowed (re-open)
- * - No movement out of lost / disbursed without explicit lifecycle change
+ * - Disbursed hand-off is cron-owned; no human stage endpoint may advance it
  * - Always returns canonical LenderCaseStage in toGrossStage
  */
 export function assertLenderPipelineStageTransition(input: {
@@ -57,6 +62,12 @@ export function assertLenderPipelineStageTransition(input: {
   const to = canonicalizeDealPipelineStage(input.toGrossStage);
   const fromCanonical = tryCanonicalLenderCaseStage(input.fromGrossStage);
 
+  if (to === "post_disbursement_confirmation" && fromCanonical !== to) {
+    throw new DealValidationError(
+      "Post-disbursement confirmation stage is entered by the authenticated cron only",
+    );
+  }
+
   // Unknown / empty from (legacy row) may move onto the known matrix once.
   if (!fromCanonical) {
     return { toGrossStage: to };
@@ -69,7 +80,14 @@ export function assertLenderPipelineStageTransition(input: {
     throw new DealValidationError("Deal in Lost cannot change pipeline stage");
   }
   if (from === "disbursed" && to !== "disbursed") {
-    throw new DealValidationError("Disbursed Deal cannot move to another pipeline stage");
+    throw new DealValidationError(
+      "Disbursed Deal advances through the authenticated post-disbursement cron only",
+    );
+  }
+  if (from === "post_disbursement_confirmation") {
+    throw new DealValidationError(
+      "Post-disbursement confirmation stage cannot change through the general stage endpoint",
+    );
   }
 
   if (to === "lost" || to === "hold") {

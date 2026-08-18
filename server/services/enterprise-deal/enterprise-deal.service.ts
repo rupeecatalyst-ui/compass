@@ -36,6 +36,7 @@ import {
   isValidInvoicePartyType,
 } from "@server/services/enterprise-deal/deal-invoice-party";
 import { prisma } from "@server/lib/prisma";
+import { POST_DISBURSEMENT_CONFIRMATION_STAGE } from "@/constants/post-disbursement-confirmation";
 import type {
   CreateActivityInput,
   CreateCounterpartyInput,
@@ -344,6 +345,14 @@ export class EnterpriseDealService {
     assertRowVersion(input.rowVersion);
 
     const existing = await enterpriseDealRepository.requireDeal(organizationId, dealId);
+    if (
+      existing.grossStage === POST_DISBURSEMENT_CONFIRMATION_STAGE &&
+      input.subStage !== undefined
+    ) {
+      throw new DealValidationError(
+        "Confirmation sub-stage can only be changed through the administrator confirmation endpoint",
+      );
+    }
 
     const data: Prisma.EnterpriseDealUncheckedUpdateManyInput = {
       updatedBy: input.actorUserId,
@@ -535,6 +544,7 @@ export class EnterpriseDealService {
           ? `Deal ${updated.dealNumber} lender/program updated`
           : `Deal ${updated.dealNumber} updated`,
         actorUserId: input.actorUserId,
+        opportunityId: updated.opportunityId,
         payload: {
           reason: input.reason ?? null,
           fields: Object.keys(data),
@@ -629,6 +639,11 @@ export class EnterpriseDealService {
   async transitionDeal(dealId: string, input: TransitionDealInput) {
     const organizationId = await this.orgId();
     const deal = await enterpriseDealRepository.requireDeal(organizationId, dealId);
+    if (deal.grossStage === POST_DISBURSEMENT_CONFIRMATION_STAGE) {
+      throw new DealValidationError(
+        "Post-disbursement confirmation can only be completed through the administrator confirmation endpoint",
+      );
+    }
     assertRowVersion(input.rowVersion);
     const { toGrossStage } = validateStageTransition({
       fromGrossStage: deal.grossStage,
@@ -717,7 +732,7 @@ export class EnterpriseDealService {
     actorUserId: string,
   ) {
     const organizationId = await this.orgId();
-    await enterpriseDealRepository.requireDeal(organizationId, dealId);
+    const deal = await enterpriseDealRepository.requireDeal(organizationId, dealId);
     const r = assertNonEmpty(reason, "reason");
     if (!snapshot || typeof snapshot !== "object") {
       throw new DealValidationError("snapshot object is required");
@@ -735,6 +750,7 @@ export class EnterpriseDealService {
       eventType: "snapshot_appended",
       summary: `Snapshot v${row.versionNumber} appended (${r})`,
       actorUserId,
+      opportunityId: deal.opportunityId,
       payload: { versionNumber: row.versionNumber, reason: r },
     });
     return serializeSnapshot(row);

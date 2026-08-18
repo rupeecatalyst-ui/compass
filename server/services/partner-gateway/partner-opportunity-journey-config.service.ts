@@ -19,6 +19,7 @@ import {
   ENTERPRISE_IDC_VERSION,
   getEnterpriseIdcCatalog,
 } from "@/constants/enterprise-initial-data-collection";
+import { APPROX_CIBIL_SCORE_OPTIONS } from "@/constants/cibil-score-master";
 import { PROPERTY_TYPES } from "@/constants/loan-stage-master";
 import { getOccupancyMaster } from "@/constants/occupancy-master";
 import { PARTNER_RECOMMENDATION_PRESENTATION } from "@/constants/enterprise-partner-recommendations";
@@ -191,6 +192,10 @@ export function buildPartnerOpportunityJourneyConfig(): PartnerOpportunityJourne
         .slice()
         .sort((a, b) => a.localeCompare(b))
         .map((label) => ({ value: label, label })),
+      approxCibilScore: APPROX_CIBIL_SCORE_OPTIONS.map((o) => ({
+        value: o.value,
+        label: o.label,
+      })),
       propertyUsage: getOccupancyMaster()
         .filter((o) => o.enabled)
         .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label))

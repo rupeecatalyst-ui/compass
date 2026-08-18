@@ -17,11 +17,16 @@ import {
 } from "@/lib/edie-certified/resolve-context";
 import { evaluateDocumentRequestLodReadiness } from "@/lib/document-requests/lod-readiness";
 import type { LoanFile } from "@/types/catalyst-one";
+import {
+  LOAN_PARTICIPANT_ROLE_LABELS,
+  type LoanParticipant,
+} from "@/types/loan-participant";
 import type {
   EdieCustomerCategory,
   EdieProductRef,
   EdieResolveInput,
   EdieTransactionType,
+  EdieWorkflowStage,
 } from "@/types/edie-certified-rules";
 import type {
   DocumentRequestLodItem,
@@ -47,6 +52,29 @@ export type GenerateOpportunityLodInput = {
   /** Optional runtime case for EDIE helpers that expect LoanFile shapes */
   runtimeFile?: LoanFile | null;
 };
+
+function participantRoleLabel(participant: LoanParticipant): string {
+  if (participant.role === "primary_applicant") return "Applicant";
+  return participant.role
+    ? LOAN_PARTICIPANT_ROLE_LABELS[participant.role]
+    : participant.entityType === "company"
+      ? "Entity"
+      : "Participant";
+}
+
+function participantTypeLabel(participant: LoanParticipant): string {
+  if (participant.entityType === "individual") return "Individual";
+  return participant.constitution?.trim() || "Company";
+}
+
+function isSecurityRequirement(item: DocumentRequestLodItem): boolean {
+  const module = item.moduleId.toLowerCase();
+  return (
+    module.includes("property") ||
+    module.includes("security") ||
+    module.includes("collateral")
+  );
+}
 
 function assertCertifiedLodContext(input: GenerateOpportunityLodInput): {
   productRef: EdieProductRef;
@@ -117,14 +145,17 @@ function assertCertifiedLodContext(input: GenerateOpportunityLodInput): {
   };
 }
 
-export function generateOpportunityLod(input: GenerateOpportunityLodInput): DocumentRequestLodItem[] {
+function resolveMasterLod(
+  input: GenerateOpportunityLodInput,
+  workflowStage: EdieWorkflowStage = "before_lender_login",
+): DocumentRequestLodItem[] {
   const resolved = assertCertifiedLodContext(input);
 
   const resolveInput: EdieResolveInput = {
     productRef: resolved.productRef,
     customerCategory: resolved.customerCategory,
     transactionType: resolved.transactionType,
-    workflowStage: "before_lender_login",
+    workflowStage,
     constitution: resolved.constitution,
     receipts: {},
   };
@@ -153,4 +184,49 @@ export function generateOpportunityLod(input: GenerateOpportunityLodInput): Docu
     if (a.category !== b.category) return a.category === "critical" ? -1 : 1;
     return a.label.localeCompare(b.label);
   });
+}
+
+export function generateOpportunityLod(input: GenerateOpportunityLodInput): DocumentRequestLodItem[] {
+  const participants =
+    input.runtimeFile?.participants?.filter((participant) => participant.status !== "inactive") ?? [];
+
+  // Preserve the certified opportunity-level path when Loan Structure participants
+  // have not been captured yet.
+  if (!participants.length) return resolveMasterLod(input);
+
+  const participantItems = participants.flatMap((participant) => {
+    const company = participant.entityType === "company";
+    const resolved = resolveMasterLod({
+      ...input,
+      runtimeFile: null,
+      employmentType: company ? "company" : input.employmentType,
+      borrowerCategory: company ? "company" : input.borrowerCategory,
+      constitution: company ? participant.constitution : input.constitution,
+    }).filter((item) => !isSecurityRequirement(item));
+
+    return resolved.map((item) => ({
+      ...item,
+      requestRef: `participant:${participant.id}:${item.typeRef}`,
+      ownerScope: "participant" as const,
+      participantId: participant.id,
+      ownerName: participant.name,
+      ownerRoleLabel: participantRoleLabel(participant),
+      ownerTypeLabel: participantTypeLabel(participant),
+    }));
+  });
+
+  if (input.runtimeFile?.lendingType !== "secured") return participantItems;
+
+  const securityItems = resolveMasterLod(input, "soft_approval")
+    .filter(isSecurityRequirement)
+    .map((item) => ({
+      ...item,
+      requestRef: `security:${item.typeRef}`,
+      ownerScope: "security" as const,
+      ownerName: "COLLATERAL / SECURITY DOCUMENTS",
+      ownerRoleLabel: "Security",
+      ownerTypeLabel: "Collateral",
+    }));
+
+  return [...participantItems, ...securityItems];
 }

@@ -57,6 +57,8 @@ export type EnterpriseDealApiRecord = {
   priority?: string;
   isUrgent?: boolean;
   stageEnteredAt?: string | null;
+  /** Immutable first entry into canonical Disbursed. Null on historical rows. */
+  disbursedAt?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
   /** Deal Health Score (0–100) from Enterprise Deal Registry — null until computed. */

@@ -12,6 +12,7 @@ import {
   validateDocumentFile,
 } from "@/lib/document-registry";
 import { appendUploadSessionAudit } from "@/lib/document-requests/session-audit";
+import { getDocumentRequestRef } from "@/lib/document-requests/lod-versioning";
 import { runCustomerPortalVirusScan } from "@/lib/document-requests/virus-scan-hook";
 import { recordCustomerPortalUpload } from "@/lib/document-requests/store";
 import type { DocumentRequestItemState, DocumentRequestUploadSession } from "@/types/document-requests";
@@ -120,14 +121,15 @@ export async function ingestCustomerPortalDocument(input: {
       uploadSource: DIRECT_UPLOAD_SOURCE,
       links: {
         opportunityId: session.opportunityId,
-        documentScope: "shared",
+        participantId: item.ownerScope === "participant" ? item.participantId : undefined,
+        documentScope: item.ownerScope === "participant" ? "applicant" : "shared",
       },
       replaceRecordId: mode === "replace" ? item.registryRecordId : item.registryRecordId,
     });
 
     recordCustomerPortalUpload(
       session.opportunityId,
-      item.typeRef,
+      getDocumentRequestRef(item),
       uploaded.record.id,
       session.customerName || "Customer",
       session.opportunityReference,

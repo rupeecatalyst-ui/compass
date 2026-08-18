@@ -81,7 +81,6 @@ export const ENTERPRISE_REGISTRY_FULL_WIDTH_PATH_PREFIXES = [
   "/admin/foundation-libraries/registry",
   "/admin/reference-masters",
   "/admin/enterprise-mdm",
-  "/accounting",
 ] as const;
 
 /** Exact paths that are registry desks (not prefix-only). */

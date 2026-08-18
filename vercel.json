@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/enterprise-metrics",
       "schedule": "30 20 * * *"
+    },
+    {
+      "path": "/api/cron/post-disbursement-confirmation",
+      "schedule": "40 20 * * *"
     }
   ]
 }

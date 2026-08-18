@@ -12,6 +12,7 @@ import {
   Pencil,
   Plus,
   Sparkles,
+  History,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ const ICONS: Partial<Record<ActionCenterActionId, typeof Mail>> = {
   share_documents: FileUp,
   request_documents: FileStack,
   add_activity: Mic,
+  view_activity: History,
   upload_documents: FileUp,
   ask_chanakya: Sparkles,
   open_credit_workbench: FileStack,

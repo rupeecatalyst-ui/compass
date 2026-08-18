@@ -31,16 +31,25 @@ const svc = readFileSync(
   join(root, "server/services/partner-gateway/partner-opportunity-journey-config.service.ts"),
   "utf8",
 );
+const catalog = readFileSync(
+  join(root, "src/constants/enterprise-initial-data-collection/catalog.ts"),
+  "utf8",
+);
+const docs = readFileSync(
+  join(root, "docs/co-wp-journey/CO-WP-JOURNEY-001D-DYNAMIC-SECTIONS.md"),
+  "utf8",
+);
 
 for (const [label, hay, needle] of [
   ["types", types, "PartnerJourneySectionDef"],
   ["types", types, "detailSections"],
   ["service", svc, "detailSections"],
-  ["service", svc, "resolveVisibleDetailSections"],
-  ["service", svc, "Borrower Information"],
-  ["service", svc, "Employment Information"],
-  ["service", svc, "Loan Requirement"],
-  ["service", svc, "CO-WP-JOURNEY-001D"],
+  ["service", svc, "getEnterpriseIdcCatalog"],
+  ["catalog", catalog, "Employment Information"],
+  ["catalog", catalog, "Loan Requirement"],
+  ["catalog", catalog, "credit_profile"],
+  ["catalog", catalog, "approxCibilScore"],
+  ["docs", docs, "CO-WP-JOURNEY-001D"],
 ]) {
   if (!hay.includes(needle)) {
     console.error(`MISSING ${label}:${needle}`);

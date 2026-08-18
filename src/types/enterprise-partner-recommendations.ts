@@ -12,6 +12,10 @@ export type PartnerRecommendationCardDto = {
   id: string;
   /** Display title (e.g. lender programme name) — from Catalyst One. */
   title: string;
+  /** Authoritative Enterprise Lender Registry display name (same as title). */
+  displayName: string;
+  /** Enterprise Lender Registry primary key — never a free-text name. */
+  lenderId: string;
   /** Customer/partner-friendly reason — from Catalyst One projection. */
   reason: string;
   /** Optional soft badge (e.g. "Suggested fit") — configurable copy, never a score. */
@@ -41,6 +45,12 @@ export type PartnerRecommendationPresentationDto = {
   suggestedBadgeLabel: string;
 };
 
+export type PartnerRecommendationDocumentReadinessDto = {
+  required: number;
+  uploaded: number;
+  pending: number;
+};
+
 export type PartnerOpportunityRecommendationsDto = {
   version: string;
   dtoSource: "enterprise_partner_recommendation_engine";
@@ -51,4 +61,6 @@ export type PartnerOpportunityRecommendationsDto = {
   presentation: PartnerRecommendationPresentationDto;
   guidance: PartnerRecommendationGuidanceDto[];
   recommendations: PartnerRecommendationCardDto[];
+  /** LOD snapshot at analysis time — never a fabricated processing spinner. */
+  documentReadiness?: PartnerRecommendationDocumentReadinessDto;
 };

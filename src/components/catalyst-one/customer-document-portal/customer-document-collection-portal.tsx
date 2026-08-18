@@ -23,6 +23,7 @@ import {
   appendUploadSessionAudit,
   buildSaarthiGreeting,
   deriveCustomerPortalProgress,
+  getDocumentRequestRef,
   ingestCustomerPortalDocument,
   recordPortalOpened,
   refreshDocumentRequestFromRegistry,
@@ -210,7 +211,7 @@ export function CustomerDocumentCollectionPortal({
       setFlash("This document is already uploaded. Use Replace to submit a new version.");
       return;
     }
-    setBusyRef(item.typeRef);
+    setBusyRef(getDocumentRequestRef(item));
     setFlash(null);
     const result = await ingestCustomerPortalDocument({
       session,
@@ -602,7 +603,7 @@ function DocumentCategorySection({
         <ul className="mt-3 space-y-3">
           {items.map((item) => (
             <li
-              key={item.typeRef}
+              key={getDocumentRequestRef(item)}
               className="rounded-xl border border-white/10 bg-zinc-950/55 p-3"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -623,13 +624,13 @@ function DocumentCategorySection({
                     <FileAction
                       label="Upload"
                       icon={
-                        busyRef === item.typeRef ? (
+                        busyRef === getDocumentRequestRef(item) ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <FileUp className="h-3.5 w-3.5" />
                         )
                       }
-                      disabled={busyRef === item.typeRef}
+                      disabled={busyRef === getDocumentRequestRef(item)}
                       onFile={(file) => onUpload(item, file)}
                     />
                   )}
@@ -637,13 +638,13 @@ function DocumentCategorySection({
                     <FileAction
                       label="Replace"
                       icon={
-                        busyRef === item.typeRef ? (
+                        busyRef === getDocumentRequestRef(item) ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <RefreshCw className="h-3.5 w-3.5" />
                         )
                       }
-                      disabled={busyRef === item.typeRef}
+                      disabled={busyRef === getDocumentRequestRef(item)}
                       onFile={(file) => onReplace(item, file)}
                     />
                   )}

@@ -38,6 +38,7 @@ const EXECUTION_STAGE_SCORE: Record<LenderCaseStage, number> = {
   final_approved: 75,
   closure_wip: 85,
   disbursed: 100,
+  post_disbursement_confirmation: 100,
   lost: 10,
   hold: 25,
 };

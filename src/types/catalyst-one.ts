@@ -269,6 +269,7 @@ export type LenderCaseStage =
   | "final_approved"
   | "closure_wip"
   | "disbursed"
+  | "post_disbursement_confirmation"
   | "lost"
   | "hold";
 
@@ -426,6 +427,8 @@ export interface LoanLenderExecution {
   updatedBy?: string;
   createdAt: string;
   updatedAt: string;
+  /** Immutable first Disbursed transition from Enterprise Deal Registry. Null when never captured. */
+  disbursedAt?: string | null;
 }
 
 export type CustomerRelationshipType =

@@ -106,8 +106,8 @@ export function UserHomeDashboard() {
         </header>
 
         {/* 1–3 — Dense two-column command strip (desktop); stack on tablet/mobile */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-          <div className="min-w-0 lg:col-span-7">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5">
+          <div className="flex min-w-0 w-full flex-col lg:col-span-7 lg:min-h-[min(28rem,calc(100dvh-16rem))]">
             <NewOpportunitiesSection />
           </div>
           <div className="flex min-w-0 flex-col gap-4 lg:col-span-5">

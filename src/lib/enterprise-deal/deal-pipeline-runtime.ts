@@ -21,6 +21,7 @@ import type {
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import type { LoanCommercialPayeeType } from "@/constants/loan-commercial-payee";
 import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
+import { resolveKanbanDealHealthScore } from "@/lib/enterprise-metrics-engine/deal-health-proxy";
 
 function readDerivedSingleLender(
   deal: EnterpriseDealApiRecord,
@@ -34,7 +35,10 @@ function readDerivedSingleLender(
 }
 
 /** Project one EnterpriseDeal → one Pipeline card (CO-ARCH-007). */
-export function dealToLenderExecution(deal: EnterpriseDealApiRecord): LoanLenderExecution {
+export function dealToLenderExecution(
+  deal: EnterpriseDealApiRecord,
+  options?: { now?: Date },
+): LoanLenderExecution {
   const now = deal.updatedAt || deal.createdAt || new Date().toISOString();
   const derived = readDerivedSingleLender(deal);
   // P1 — Deal Registry grossStage is SSOT. Never prefer snapshot.caseStage over Registry.
@@ -75,10 +79,17 @@ export function dealToLenderExecution(deal: EnterpriseDealApiRecord): LoanLender
     probability: (derived?.probability as LoanLenderExecution["probability"]) ?? undefined,
     relationshipManager: derived?.relationshipManager ?? undefined,
     dealPriority: deal.priority ?? undefined,
-    dealHealthScore: typeof deal.healthScore === "number" ? deal.healthScore : null,
+    dealHealthScore: resolveKanbanDealHealthScore(
+      {
+        stageEnteredAt: deal.stageEnteredAt,
+        healthScore: deal.healthScore,
+      },
+      options?.now,
+    ),
     identifiedAt: now,
     createdAt: deal.createdAt || now,
     updatedAt: deal.updatedAt || now,
+    disbursedAt: deal.disbursedAt ?? null,
   };
 }
 
@@ -161,7 +172,7 @@ function toRuntime(
   return {
     deal: deals.find((d) => d.id === anchor.id) ?? anchor,
     context: toDealPipelineContext(anchor),
-    lenders: deals.map(dealToLenderExecution),
+    lenders: deals.map((deal) => dealToLenderExecution(deal)),
     siblingDeals: deals,
   };
 }

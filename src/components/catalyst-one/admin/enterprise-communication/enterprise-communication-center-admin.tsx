@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { OperationalEmailActivationPanel } from "@/components/catalyst-one/admin/enterprise-communication/operational-email-activation-panel";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import type {
   EnterpriseCommunicationEventMapping,
@@ -47,9 +48,7 @@ export function EnterpriseCommunicationCenterAdmin() {
   const [saving, setSaving] = useState(false);
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Partial<EnterpriseCommunicationProfileRecord> & {
-    smtpPassword?: string;
-  }>({});
+  const [draft, setDraft] = useState<Partial<EnterpriseCommunicationProfileRecord>>({});
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -64,7 +63,7 @@ export function EnterpriseCommunicationCenterAdmin() {
       setSelectedCode(code);
       const profile = data.profiles.find((p) => p.profileCode === code) || first;
       if (profile) {
-        setDraft({ ...profile, smtpPassword: "" });
+        setDraft({ ...profile });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Load failed");
@@ -83,7 +82,7 @@ export function EnterpriseCommunicationCenterAdmin() {
     const profile = bundle?.profiles.find((p) => p.profileCode === code);
     if (!profile) return;
     setSelectedCode(code);
-    setDraft({ ...profile, smtpPassword: "" });
+    setDraft({ ...profile });
   }
 
   async function save() {
@@ -102,7 +101,6 @@ export function EnterpriseCommunicationCenterAdmin() {
             smtpHost: draft.smtpHost,
             smtpPort: draft.smtpPort,
             smtpUsername: draft.smtpUsername,
-            smtpPassword: draft.smtpPassword || undefined,
             signature: draft.signature,
             footer: draft.footer,
             logoUrl: draft.logoUrl,
@@ -143,7 +141,8 @@ export function EnterpriseCommunicationCenterAdmin() {
           <h1 className="text-xl font-semibold tracking-tight">Enterprise Communication Center</h1>
           <p className="text-xs text-muted-foreground">
             Configure Communication Profiles. Modules specify event types — ECC resolves the
-            sender. Never hardcode From addresses in application code.
+            sender. Never hardcode From addresses in application code. Separate from Marketing
+            campaign email.
           </p>
         </div>
         <Button type="button" size="sm" onClick={() => void save()} disabled={saving || !selectedCode}>
@@ -151,6 +150,11 @@ export function EnterpriseCommunicationCenterAdmin() {
           Save Profile
         </Button>
       </div>
+
+      <OperationalEmailActivationPanel
+        profiles={bundle?.profiles ?? []}
+        selectedCode={selectedCode}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
         <Card>
@@ -300,20 +304,13 @@ export function EnterpriseCommunicationCenterAdmin() {
                   onChange={(e) => setDraft((d) => ({ ...d, smtpUsername: e.target.value }))}
                 />
               </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>
-                  Password / API key{" "}
-                  {draft.smtpCredentialConfigured ? (
-                    <span className="text-muted-foreground">(configured — leave blank to keep)</span>
-                  ) : null}
-                </Label>
-                <Input
-                  type="password"
-                  autoComplete="new-password"
-                  value={draft.smtpPassword || ""}
-                  onChange={(e) => setDraft((d) => ({ ...d, smtpPassword: e.target.value }))}
-                  placeholder="Never hardcoded — stored in Communication Profile only"
-                />
+              <div className="space-y-1.5 sm:col-span-2 rounded-md border border-border/70 bg-muted/30 px-3 py-2">
+                <Label>Provider credential</Label>
+                <p className="text-xs text-muted-foreground">
+                  {draft.smtpCredentialConfigured
+                    ? "A credential is configured. Its value is never returned to this UI."
+                    : "Not configured. Credential entry remains withheld until an approved secure-secret connector is available."}
+                </p>
               </div>
             </CardContent>
           </Card>

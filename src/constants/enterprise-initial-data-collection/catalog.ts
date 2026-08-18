@@ -196,6 +196,28 @@ export const ENTERPRISE_IDC_DETAIL_SECTIONS: IdcSectionDef[] = [
     ],
   },
   {
+    sectionId: "credit_profile",
+    name: "Credit Profile",
+    description: "Expected CIBIL score used for lender matching",
+    displayOrder: 30,
+    visibility: "visible",
+    mandatory: true,
+    visibleWhenBorrower: "any",
+    valueBucket: "borrower",
+    fields: [
+      {
+        key: "approxCibilScore",
+        label: "Expected CIBIL Score",
+        control: "select",
+        required: true,
+        optionSet: "approxCibilScore",
+        helpText:
+          "Approximate CIBIL score helps improve lender recommendations and eligibility assessment. If unknown, select 'Not Known'.",
+        displayOrder: 10,
+      },
+    ],
+  },
+  {
     sectionId: "property_information",
     name: "Property Information",
     description: "Property details for secured products",

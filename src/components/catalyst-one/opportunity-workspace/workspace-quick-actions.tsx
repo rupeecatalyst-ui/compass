@@ -3,7 +3,6 @@
 import {
   ClipboardList,
   FileUp,
-  MessageSquare,
   Building2,
   History,
   GitBranch,
@@ -20,7 +19,7 @@ const ACTIONS: Array<{
 }> = [
   { label: "Add Task", focus: "tasks", icon: ClipboardList },
   { label: "Upload Document", focus: "documents", icon: FileUp },
-  { label: "Open Dialogue", focus: "dialogue", icon: MessageSquare },
+  { label: "Activity", focus: "dialogue", icon: History },
   { label: "Select Lender", focus: "life", icon: Building2 },
   { label: "Workflow", focus: "workflow", icon: Workflow },
   { label: "View Timeline", focus: "timeline", icon: History },
@@ -41,6 +40,7 @@ export function WorkspaceQuickActions() {
             <button
               key={action.focus}
               type="button"
+              data-opportunity-activity-action=""
               onClick={() => activateQuickAction(action.focus)}
               className={cn(
                 "group flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3 text-center transition-all duration-200",

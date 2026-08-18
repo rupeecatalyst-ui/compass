@@ -10,7 +10,7 @@ import {
 } from "./opportunity-workspace-context";
 import { WorkspaceContactSummary } from "./workspace-contact-summary";
 import { WorkspaceBorrowerPartySections } from "./workspace-borrower-party-sections";
-import { WorkspaceDocumentsPanel } from "./workspace-documents-panel";
+import { WorkspaceDocumentRequestsPanel } from "./workspace-document-requests-panel";
 import { WorkspaceLifeStrategyBoard } from "./workspace-life-strategy-board";
 import { WorkspaceTasksPanel } from "./workspace-tasks-panel";
 import { WorkspaceWorkflowPanel } from "./workspace-workflow-panel";
@@ -564,7 +564,7 @@ function OpportunityWorkspaceShell() {
               {tab === "funding_strategy" && <WorkspaceLifeStrategyBoard />}
               {tab === "notes" && <WorkspaceNotesPanel />}
               {tab === "timeline" && <WorkspaceDialoguePanel />}
-              {tab === "documents" && <WorkspaceDocumentsPanel />}
+              {tab === "documents" && <WorkspaceDocumentRequestsPanel />}
               {tab === "tasks" && <WorkspaceTasksPanel />}
               {tab === "workflow" && <WorkspaceWorkflowPanel />}
             </div>

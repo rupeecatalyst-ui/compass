@@ -13,9 +13,9 @@ type Ctx = { params: Promise<{ opportunityId: string }> };
 const MAX_BYTES = 8 * 1024 * 1024;
 
 /**
- * CO-WP-LOD-001 / CO-WP-UPLOAD-001 / CO-WP-DOC-002 — Partner Document Inbox + LOD.
- * Accepts JSON or multipart (camera / gallery / drag-drop files). No folder trees.
- * Freeform inbox uploads omit typeRef (or use intakeMode=inbox|additional).
+ * CO-WP-LOD-001 / CO-WP-UPLOAD-001 / CO-WP-DOC-002 / CO-WP-DOC-003
+ * Partner Document Inbox + folder upload into Enterprise Document Registry.
+ * Accepts JSON or multipart. Folder files still land as individual Registry records.
  */
 export async function OPTIONS(request: Request) {
   return partnerOptionsResponse(request);
@@ -41,15 +41,49 @@ async function readUploadInput(request: Request): Promise<PartnerOpportunityDocu
     const typeRef = String(form.get("typeRef") || "").trim() || undefined;
     const intakeRaw = String(form.get("intakeMode") || "").trim().toLowerCase();
     const intakeMode =
-      intakeRaw === "inbox" || intakeRaw === "additional" || intakeRaw === "requirement"
+      intakeRaw === "inbox" ||
+      intakeRaw === "additional" ||
+      intakeRaw === "requirement" ||
+      intakeRaw === "folder"
         ? intakeRaw
         : undefined;
     const replaceDocumentId = String(form.get("replaceDocumentId") || "").trim() || undefined;
     const title = String(form.get("title") || "").trim() || undefined;
     const append = String(form.get("append") || "") === "1" || String(form.get("append") || "") === "true";
+    const relativePath = String(form.get("relativePath") || "").trim() || undefined;
+    const folderName = String(form.get("folderName") || "").trim() || undefined;
+    const packageId = String(form.get("packageId") || "").trim() || undefined;
+    const dealId = String(form.get("dealId") || "").trim() || undefined;
+    const participantId = String(form.get("participantId") || "").trim() || undefined;
+    const scopeRaw = String(form.get("documentScope") || "").trim().toLowerCase();
+    const documentScope =
+      scopeRaw === "applicant" || scopeRaw === "shared" || scopeRaw === "lender"
+        ? scopeRaw
+        : undefined;
+    const packageComplete =
+      String(form.get("packageComplete") || "") === "1" ||
+      String(form.get("packageComplete") || "") === "true";
+    const packageFileCountRaw = String(form.get("packageFileCount") || "").trim();
+    const packageFileCount = packageFileCountRaw
+      ? Number.parseInt(packageFileCountRaw, 10)
+      : undefined;
     const file = form.get("file");
     if (!(file instanceof File)) {
-      return { typeRef, intakeMode, title, replaceDocumentId, append };
+      return {
+        typeRef,
+        intakeMode,
+        title,
+        replaceDocumentId,
+        append,
+        relativePath,
+        folderName,
+        packageId,
+        dealId,
+        participantId,
+        documentScope,
+        packageComplete,
+        packageFileCount,
+      };
     }
     if (file.size > MAX_BYTES) {
       throw new PartnerGatewayError("Each file must be 8 MB or smaller.", "VALIDATION", 400);
@@ -66,6 +100,18 @@ async function readUploadInput(request: Request): Promise<PartnerOpportunityDocu
       mimeType: file.type || "application/octet-stream",
       sizeBytes: file.size,
       contentBase64,
+      relativePath:
+        relativePath ||
+        (typeof (file as File & { webkitRelativePath?: string }).webkitRelativePath === "string"
+          ? (file as File & { webkitRelativePath?: string }).webkitRelativePath
+          : undefined),
+      folderName,
+      packageId,
+      dealId,
+      participantId,
+      documentScope,
+      packageComplete,
+      packageFileCount,
     };
   }
 

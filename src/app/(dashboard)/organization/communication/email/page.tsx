@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * CO-C1-EMAIL-CONFIG-001 — Organization → Communication → Email Configuration.
+ * CO-C1-OPERATIONAL-EMAIL-001 / CO-C1-EMAIL-CONFIG-001 —
+ * Settings → Organization → Communication → Email Configuration.
  * Operational Catalyst One email (ECC) — separate from Marketing Engine.
  */
 

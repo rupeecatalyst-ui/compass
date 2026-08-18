@@ -80,6 +80,7 @@ export function serializeDeal(deal: EnterpriseDeal) {
     progressPercent: deal.progressPercent,
     daysInStage: deal.daysInStage,
     stageEnteredAt: iso(deal.stageEnteredAt),
+    disbursedAt: iso(deal.disbursedAt),
     closedAt: iso(deal.closedAt),
     archived: deal.archived,
     archivedAt: iso(deal.archivedAt),

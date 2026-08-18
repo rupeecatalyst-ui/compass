@@ -59,6 +59,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     pathname.startsWith("/admin/architecture") ||
     pathname.startsWith("/admin/workflow-engine") ||
     pathname.startsWith("/admin/enterprise-assets") ||
+    pathname.startsWith("/accounting") ||
     pathname === "/dashboard" ||
     pathname === "/chanakya-radar";
 
@@ -79,7 +80,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <DevelopmentOnlyDemoBanner />
           <main
             className={cn(
-              "min-h-0 flex-1 scrollbar-thin",
+              "min-h-0 w-full min-w-0 flex-1 overflow-x-hidden scrollbar-thin",
               isLockedFillDesk ? "overflow-hidden" : "overflow-y-auto",
             )}
           >
@@ -89,6 +90,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               animate="animate"
               transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
               className={cn(
+                "w-full min-w-0",
                 !isFullWidth && "container mx-auto max-w-7xl p-4 md:p-6 lg:p-8",
                 isFullWidth &&
                   !isRegistryFullWidth &&

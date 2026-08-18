@@ -45,6 +45,7 @@ export type SessionDealRecord = {
   invoicePartyContactId?: string | null;
   invoicePartyId?: string | null;
   priority?: string;
+  disbursedAt?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
   snapshot?: unknown;
