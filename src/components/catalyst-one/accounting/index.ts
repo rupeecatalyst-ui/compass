@@ -1,5 +1,9 @@
 export { AccountingWorkspace } from "./accounting-workspace";
 export { AccountingWorkbenchNav } from "./accounting-workbench-nav";
+export { AccountingCasesPanel } from "./accounting-cases-panel";
+export { AccountingInvoiceRegister } from "./accounting-invoice-register";
+export { AccountingCollectionsRegister } from "./accounting-collections-register";
+export { AccountingInboundReceiptsRegister } from "./accounting-inbound-receipts-register";
 export { FinancialSummary } from "./financial-summary";
 export { InvoiceManagementGrid } from "./invoice-management-grid";
 export { InvoiceWorkspaceSheet } from "./invoice-workspace-sheet";

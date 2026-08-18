@@ -16,14 +16,14 @@ export const MARKETING_COMMAND_CENTER_SECTIONS: MarketingNavSection[] = [
   {
     id: "home",
     title: "Command Center",
-    description: "Acquisition campaign operating overview (foundation shell).",
+    description: "Acquisition campaign operating overview — MARKETING TEST MODE.",
     href: ROUTES.ADMIN_MARKETING,
-    foundationOnly: true,
+    foundationOnly: false,
   },
   {
     id: "campaigns",
     title: "Campaigns",
-    description: "Campaign registry and block-document Campaign Builder (preview only — no send).",
+    description: "Campaign registry, builder, lifecycle, and SIMULATED dry-run execution.",
     href: ROUTES.ADMIN_MARKETING_CAMPAIGNS,
     foundationOnly: false,
   },
@@ -72,9 +72,9 @@ export const MARKETING_COMMAND_CENTER_SECTIONS: MarketingNavSection[] = [
   {
     id: "deliverability",
     title: "Deliverability",
-    description: "Sender health and Deliverability Guard.",
+    description: "Sender health and Deliverability Guard (dry-run / not connected).",
     href: ROUTES.ADMIN_MARKETING_DELIVERABILITY,
-    foundationOnly: true,
+    foundationOnly: false,
   },
   {
     id: "analytics",
@@ -88,6 +88,6 @@ export const MARKETING_COMMAND_CENTER_SECTIONS: MarketingNavSection[] = [
     title: "Settings",
     description: "Sender identities, defaults, and module safety status.",
     href: ROUTES.ADMIN_MARKETING_SETTINGS,
-    foundationOnly: true,
+    foundationOnly: false,
   },
 ];

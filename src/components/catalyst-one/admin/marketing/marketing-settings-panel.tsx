@@ -31,22 +31,46 @@ export function MarketingSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState("dry_run");
+  const [safety, setSafety] = useState<{
+    executionEnabled?: boolean;
+    executionDryRunEnabled?: boolean;
+    handoffEnabled?: boolean;
+    handoffMode?: string;
+    sheetsMode?: string;
+    sheetsReadEnabled?: boolean;
+    emailMode?: string;
+    whatsappMode?: string;
+    providerConnectEnabled?: boolean;
+    audienceImportEnabled?: boolean;
+    notice?: string;
+  } | null>(null);
   const [identities, setIdentities] = useState<SenderIdentity[]>([]);
   const [displayName, setDisplayName] = useState("Rupee Catalyst Campaigns");
   const [fromAddress, setFromAddress] = useState("campaigns@example.com");
   const [replyTo, setReplyTo] = useState("");
 
   const load = useCallback(async () => {
-    const res = await authenticatedJsonFetch("/api/admin/marketing/sender-identities");
-    const body = (await res.json()) as ApiEnvelope<{
+    const [idRes, statusRes] = await Promise.all([
+      authenticatedJsonFetch("/api/admin/marketing/sender-identities"),
+      authenticatedJsonFetch("/api/admin/marketing"),
+    ]);
+    const body = (await idRes.json()) as ApiEnvelope<{
       identities: SenderIdentity[];
       mode: string;
     }>;
-    if (!res.ok || !body.success || !body.data) {
+    if (!idRes.ok || !body.success || !body.data) {
       throw new Error(body.error?.message || "Failed to load sender identities");
     }
     setIdentities(body.data.identities);
     setMode(body.data.mode);
+    if (statusRes.ok) {
+      const statusBody = (await statusRes.json()) as ApiEnvelope<{
+        safety: NonNullable<typeof safety>;
+      }>;
+      if (statusBody.success && statusBody.data?.safety) {
+        setSafety(statusBody.data.safety);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -115,10 +139,44 @@ export function MarketingSettingsPanel() {
             MARKETING TEST MODE
           </CardTitle>
           <CardDescription>
-            Email delivery mode: <strong>{mode}</strong>. Live provider connect is OFF. Campaign
-            controlled tests are SIMULATED — not ACTUALLY SENT.
+            Email delivery mode: <strong>{safety?.emailMode ?? mode}</strong>. Live provider connect
+            is OFF. Campaign controlled tests are SIMULATED — not ACTUALLY SENT.
           </CardDescription>
         </CardHeader>
+        {safety ? (
+          <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
+            <p>
+              Live bulk execution:{" "}
+              <strong>{safety.executionEnabled ? "Enabled" : "Disabled"}</strong>
+            </p>
+            <p>
+              Dry-run / test execution:{" "}
+              <strong>{safety.executionDryRunEnabled ? "Active" : "Disabled"}</strong>
+            </p>
+            <p>
+              Sheets adapter:{" "}
+              <strong>
+                {safety.sheetsMode}
+                {safety.sheetsReadEnabled ? " (read)" : " (off)"}
+              </strong>
+            </p>
+            <p>
+              Handoff:{" "}
+              <strong>
+                {safety.handoffEnabled
+                  ? `Enabled · ${safety.handoffMode ?? "fixture"}`
+                  : "Disabled"}
+              </strong>
+            </p>
+            <p>
+              WhatsApp: <strong>{safety.whatsappMode ?? "dry_run"}</strong>
+            </p>
+            <p>
+              Audience import:{" "}
+              <strong>{safety.audienceImportEnabled ? "Enabled" : "Disabled"}</strong>
+            </p>
+          </CardContent>
+        ) : null}
       </Card>
 
       <Card>

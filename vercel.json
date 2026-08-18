@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/post-disbursement-confirmation",
-      "schedule": "40 20 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }

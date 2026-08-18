@@ -388,6 +388,14 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         ],
       },
       {
+        id: "accounting-gst-rate-master",
+        title: "Accounting GST Rate Master",
+        description:
+          "Approved GST rates for Raise Invoice. 0% is allowed only when explicitly selected.",
+        href: ROUTES.ADMIN_ACCOUNTING_GST_RATES,
+        keywords: ["gst", "tax", "rate", "invoice", "accounting", "master"],
+      },
+      {
         id: "reference-masters",
         title: "Lookup Masters",
         description:
@@ -536,7 +544,7 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         id: "marketing-command-center",
         title: "Marketing Command Center",
         description:
-          "Enterprise Marketing Engine (EME) — acquisition campaigns foundation. Isolated from operational CRM; no live send in MKT-01.",
+          "Enterprise Marketing Engine (EME) — acquisition Command Center in MARKETING TEST MODE. Live unrestricted bulk send remains separately gated.",
         href: ROUTES.ADMIN_MARKETING,
         keywords: [
           "marketing",

@@ -94,10 +94,11 @@ export const ENTERPRISE_MODULE_ACTIVATION: readonly EnterpriseModuleActivationEn
   {
     id: "accounting",
     label: "Accounting",
-    classification: "awaiting_ssot",
+    classification: "partially_active",
     route: "/accounting",
-    ssot: "Pending Deal-keyed Accounting Registry",
-    activationNote: "Empty-honest model; nav badge Awaiting SSOT (CO-ORG-004/005).",
+    ssot: "Prisma EnterpriseAccountingCase + Invoice Party Master + EnterpriseAccountingInvoice + EnterpriseAccountingPayment; receivable is derived; payout / credit-note unbound",
+    activationNote:
+      "Cases, Invoice Party Master, GST Rate Master, Raise Invoice, Post Payment, derived receivables, and Collections are bound. Payouts, credit notes, and GST reports remain unimplemented as durable ledgers.",
   },
   {
     id: "horizon",

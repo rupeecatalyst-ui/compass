@@ -6,10 +6,27 @@ import type {
   UpdateEnterpriseAccountingCaseInput,
 } from "@/types/enterprise-accounting-case";
 
+export type EnterpriseAccountingCaseDealDto = {
+  dealNumber?: string | null;
+  opportunityId?: string | null;
+  primaryContactName?: string | null;
+  productLabel?: string | null;
+  primaryCounterpartyName?: string | null;
+  invoicePartyId?: string | null;
+  invoiceParty?: {
+    id: string;
+    displayName: string;
+    gstin?: string | null;
+    tdsApplicable?: boolean;
+    tdsRatePercent?: number | null;
+  } | null;
+};
+
 export type EnterpriseAccountingCaseDto = Record<string, unknown> & {
   id: string;
   dealId: string;
   rowVersion: number;
+  deal?: EnterpriseAccountingCaseDealDto | null;
 };
 
 async function read<T>(response: Response): Promise<T> {

@@ -45,13 +45,13 @@ export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false as const;
 export type EnterpriseMarketingSheetsMode = "off" | "fixture" | "live";
 
 function resolveSheetsMode(): EnterpriseMarketingSheetsMode {
-  const raw = (process.env.ENTERPRISE_MARKETING_SHEETS_MODE ?? "off").trim().toLowerCase();
+  const raw = (process.env.ENTERPRISE_MARKETING_SHEETS_MODE ?? "fixture").trim().toLowerCase();
   if (raw === "fixture" || raw === "live" || raw === "off") return raw;
-  return "off";
+  return "fixture";
 }
 
 export const ENTERPRISE_MARKETING_SHEETS_MODE: EnterpriseMarketingSheetsMode =
-  typeof process !== "undefined" ? resolveSheetsMode() : "off";
+  typeof process !== "undefined" ? resolveSheetsMode() : "fixture";
 
 export const ENTERPRISE_MARKETING_SHEETS_READ_ENABLED =
   ENTERPRISE_MARKETING_SHEETS_MODE === "fixture" ||

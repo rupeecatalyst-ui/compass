@@ -1,22 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { formatINR, formatINRCompact } from "@/lib/format-currency";
-import { cn } from "@/lib/utils";
-import {
-  INVOICE_WORKBENCH_LANES,
-  type InvoiceWorkbenchLane,
-} from "@/constants/accounting-workbench";
+import { useEffect, useState } from "react";
+import { formatINRCompact } from "@/lib/format-currency";
 import type {
   AccountingFinancialSummary,
-  AccountingInvoice,
-  AccountingPayout,
   FinancialActivityEvent,
 } from "@/lib/accounting-workspace";
 import { FinancialActivityTimeline } from "./financial-activity-timeline";
 import { FinancialSummary } from "./financial-summary";
-import { InvoiceManagementGrid } from "./invoice-management-grid";
-import { PayoutManagement } from "./payout-management";
+import { AccountingInvoiceRegister } from "./accounting-invoice-register";
+import { AccountingCollectionsRegister } from "./accounting-collections-register";
+import { AccountingInboundReceiptsRegister } from "./accounting-inbound-receipts-register";
+import type { EnterpriseAccountingInvoiceDto } from "@/types/enterprise-accounting-invoice";
+import type { DerivedAccountingPaymentSummary } from "@/types/enterprise-accounting-payment";
+import {
+  invoicePartyApiClient,
+  type InvoicePartyRecord,
+} from "@/lib/invoice-party/invoice-party-api-client";
 
 function WorkbenchHeader({
   eyebrow,
@@ -74,51 +74,24 @@ function MetricTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function filterInvoicesByLane(
-  invoices: AccountingInvoice[],
-  lane: InvoiceWorkbenchLane,
-): AccountingInvoice[] {
-  switch (lane) {
-    case "draft":
-      return invoices.filter((i) => i.invoiceStatus === "draft");
-    case "generated":
-      return invoices.filter((i) => i.invoiceStatus === "raised");
-    case "sent":
-      return invoices.filter((i) => i.invoiceStatus === "shared");
-    case "paid":
-      return invoices.filter((i) => i.paymentStatus === "paid");
-    case "cancelled":
-      return invoices.filter((i) => i.invoiceStatus === "cancelled");
-    case "credit_notes":
-      return invoices.filter(
-        (i) =>
-          i.auditTrail.some((a) => /credit note/i.test(a.action)) ||
-          i.notes?.toLowerCase().includes("credit note"),
-      );
-    default:
-      return invoices;
-  }
-}
-
 /** Dashboard Workbench — landing view inside Accounting Workspace. */
 export function AccountingDashboardWorkbench({
   summary,
+  paymentSummary,
   activity,
-  payouts,
   onOpenInvoices,
   onOpenReceivables,
   onOpenPayouts,
 }: {
   summary: AccountingFinancialSummary;
+  paymentSummary: DerivedAccountingPaymentSummary | null;
   activity: FinancialActivityEvent[];
-  payouts: AccountingPayout[];
   onOpenInvoices: () => void;
   onOpenReceivables: () => void;
   onOpenPayouts: () => void;
 }) {
-  const pendingPayouts = payouts.filter(
-    (p) => p.status === "pending" || p.status === "expected" || p.status === "overdue",
-  ).length;
+  const openInboundLines =
+    (paymentSummary?.unpaidCount ?? 0) + (paymentSummary?.partiallyPaidCount ?? 0);
 
   return (
     <div className="space-y-3">
@@ -128,6 +101,17 @@ export function AccountingDashboardWorkbench({
         description="Executive KPIs and operational shortcuts into Accounting workbenches."
       />
       <FinancialSummary summary={summary} />
+      {paymentSummary ? (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <MetricTile label="Total invoiced" value={formatINRCompact(paymentSummary.totalInvoiced)} />
+          <MetricTile label="Total received" value={formatINRCompact(paymentSummary.totalReceived)} />
+          <MetricTile label="Credit notes" value={formatINRCompact(paymentSummary.creditNotesTotal)} />
+          <MetricTile label="Outstanding" value={formatINRCompact(paymentSummary.outstanding)} />
+          <MetricTile label="Paid invoices" value={String(paymentSummary.paidCount)} />
+          <MetricTile label="Partially paid" value={String(paymentSummary.partiallyPaidCount)} />
+          <MetricTile label="Unpaid invoices" value={String(paymentSummary.unpaidCount)} />
+        </div>
+      ) : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <MetricTile
           label="Outstanding Receivables"
@@ -138,10 +122,10 @@ export function AccountingDashboardWorkbench({
           value={formatINRCompact(summary.todaysCollections)}
         />
         <MetricTile
-          label="Expected Payouts"
+          label="Expected inbound receipts"
           value={formatINRCompact(summary.expectedPayouts)}
         />
-        <MetricTile label="Open Payout Lines" value={String(pendingPayouts)} />
+        <MetricTile label="Open inbound receipt lines" value={String(openInboundLines)} />
       </div>
       <div className="flex flex-wrap gap-1.5">
         <button
@@ -163,275 +147,135 @@ export function AccountingDashboardWorkbench({
           onClick={onOpenPayouts}
           className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-muted/40"
         >
-          Open Payout Workbench →
+          Open Inbound Receipts →
         </button>
       </div>
-      <div className="grid gap-3 xl:grid-cols-2">
-        <PayoutManagement payouts={payouts} />
-        <FinancialActivityTimeline events={activity} />
-      </div>
+      <FinancialActivityTimeline events={activity} />
     </div>
   );
 }
 
-/** Invoice Workbench — Invoice Management screen lives here (not the module identity). */
+/** Invoice Workbench — bound to durable EnterpriseAccountingInvoice (Phase 1). */
 export function AccountingInvoiceWorkbench({
   invoices,
-  onOpen,
-  onMarkPaid,
-  onCancel,
+  loading,
+  error,
+  canPostPayment,
+  onReload,
 }: {
-  invoices: AccountingInvoice[];
-  onOpen: (invoice: AccountingInvoice) => void;
-  onMarkPaid: (id: string) => void;
-  onCancel: (id: string) => void;
+  invoices: EnterpriseAccountingInvoiceDto[];
+  loading: boolean;
+  error: string | null;
+  canPostPayment?: boolean;
+  onReload?: () => Promise<void> | void;
 }) {
-  const [lane, setLane] = useState<InvoiceWorkbenchLane>("all");
-  const laneInvoices = useMemo(
-    () => filterInvoicesByLane(invoices, lane),
-    [invoices, lane],
-  );
-
   return (
     <div className="space-y-2">
       <WorkbenchHeader
         eyebrow="Invoice Workbench"
         title="Invoice Management"
-        description="Operational invoice screen inside Accounting Workspace — Draft · Generated · Sent · Paid · Cancelled · Credit Notes"
+        description="Durable raised invoices. Post Payment records received money. Issue Credit Note reduces derived outstanding without changing billed invoice values. Mark Paid, Cancel, PDF, and Share are unavailable."
       />
-      <div
-        className="flex gap-1 overflow-x-auto rounded-lg border border-border/60 bg-muted/15 p-1"
-        role="tablist"
-        aria-label="Invoice lanes"
-      >
-        {INVOICE_WORKBENCH_LANES.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={lane === item.id}
-            onClick={() => setLane(item.id)}
-            className={cn(
-              "shrink-0 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-              lane === item.id
-                ? "bg-teal-600 text-white shadow-sm"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      <InvoiceManagementGrid
-        invoices={laneInvoices}
-        onOpen={onOpen}
-        onMarkPaid={onMarkPaid}
-        onCancel={onCancel}
+      <AccountingInvoiceRegister
+        invoices={invoices}
+        loading={loading}
+        error={error}
+        canPostPayment={canPostPayment}
+        onReload={onReload}
       />
     </div>
   );
 }
 
 export function AccountingReceivablesWorkbench({
-  summary,
   invoices,
-  onOpenInvoice,
+  loading,
+  error,
 }: {
-  summary: AccountingFinancialSummary;
-  invoices: AccountingInvoice[];
-  onOpenInvoice: (invoice: AccountingInvoice) => void;
+  invoices: EnterpriseAccountingInvoiceDto[];
+  loading: boolean;
+  error: string | null;
 }) {
-  const outstanding = invoices.filter(
-    (i) =>
-      i.invoiceStatus !== "cancelled" &&
-      (i.paymentStatus === "unpaid" ||
-        i.paymentStatus === "partial" ||
-        i.paymentStatus === "overdue"),
+  const open = invoices.filter(
+    (i) => i.documentStatus !== "cancelled" && i.paymentStatus !== "PAID",
   );
-  const overdue = outstanding.filter((i) => i.paymentStatus === "overdue");
-  const partial = outstanding.filter((i) => i.paymentStatus === "partial");
+  const partial = open.filter((i) => i.paymentStatus === "PARTIALLY_PAID");
+  const outstanding = open.reduce((sum, i) => sum + i.outstanding, 0);
 
   return (
     <div className="space-y-3">
       <WorkbenchHeader
         eyebrow="Receivables Workbench"
-        title="Outstanding receivables & follow-up"
-        description="Ageing, follow-up queue, and payment commitments"
+        title="Derived outstanding receivables"
+        description="Outstanding is Invoice net receivable minus posted payments minus posted credit notes. Ageing is not implemented."
       />
       <div className="grid gap-2 sm:grid-cols-3">
-        <MetricTile
-          label="Outstanding Receivables"
-          value={formatINRCompact(summary.outstandingReceivables)}
-        />
-        <MetricTile label="Overdue Invoices" value={String(overdue.length)} />
+        <MetricTile label="Outstanding Receivables" value={formatINRCompact(outstanding)} />
+        <MetricTile label="Open invoices" value={String(open.length)} />
         <MetricTile label="Partial Payments" value={String(partial.length)} />
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
-        <CapabilityCard
-          title="Ageing Analysis"
-          items={[
-            "0–30 days",
-            "31–60 days",
-            "61–90 days",
-            "90+ days (escalation)",
-          ]}
-        />
-        <CapabilityCard
-          title="Payment Commitments"
-          items={[
-            "Promised payment dates",
-            "Commitment owner",
-            "Breach alerts",
-            "CHANAKYA follow-up prompts",
-          ]}
-        />
-      </div>
-      <section className="rounded-xl border border-border/70 bg-card p-3 shadow-sm">
-        <h3 className="text-[12px] font-semibold text-foreground">Follow-up Queue</h3>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Open receivables requiring collection attention
-        </p>
-        <ul className="mt-2 divide-y divide-border/50">
-          {outstanding.length === 0 ? (
-            <li className="py-4 text-center text-[11px] text-muted-foreground">
-              No outstanding receivables in the current book.
-            </li>
-          ) : (
-            outstanding.map((inv) => (
-              <li key={inv.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpenInvoice(inv)}
-                  className="flex w-full items-center justify-between gap-3 px-1 py-2 text-left hover:bg-muted/20"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-[12px] font-medium text-foreground">
-                      {inv.invoiceNumber} · {inv.customer}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {inv.lender} · {inv.paymentStatus}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-[12px] font-semibold tabular-nums text-foreground">
-                    {formatINR(inv.invoiceAmount)}
-                  </span>
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      </section>
+      <AccountingCollectionsRegister invoices={invoices} loading={loading} error={error} />
     </div>
   );
 }
 
 export function AccountingPayoutWorkbench({
-  payouts,
+  invoices,
+  loading,
+  error,
+  summary,
 }: {
-  payouts: AccountingPayout[];
+  invoices: EnterpriseAccountingInvoiceDto[];
+  loading: boolean;
+  error: string | null;
+  summary: DerivedAccountingPaymentSummary | null;
 }) {
-  const expected = payouts.filter((p) => p.status === "expected" || p.status === "pending");
-  const received = payouts.filter((p) => p.status === "received");
-  const overdue = payouts.filter((p) => p.status === "overdue");
-
   return (
     <div className="space-y-3">
       <WorkbenchHeader
         eyebrow="Payout Workbench"
-        title="Lender payout operations"
-        description="Expected · received · pending claims · commission reconciliation"
+        title="Inbound Commission Receipts"
+        description="This is inbound commission receipt tracking from the invoice party / commission payer. It is not RM / Wealth Partner payouts, and it cannot create payout amounts."
       />
       <div className="grid gap-2 sm:grid-cols-3">
-        <MetricTile label="Expected / Pending Lines" value={String(expected.length)} />
-        <MetricTile label="Received Lines" value={String(received.length)} />
-        <MetricTile label="Overdue Lines" value={String(overdue.length)} />
+        <MetricTile label="Expected" value={formatINRCompact(summary?.totalInvoiced ?? 0)} />
+        <MetricTile label="Received" value={formatINRCompact(summary?.totalReceived ?? 0)} />
+        <MetricTile label="Pending" value={formatINRCompact(summary?.outstanding ?? 0)} />
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
-        <CapabilityCard
-          title="Pending Claims"
-          items={[
-            "Claims awaiting lender confirmation",
-            "Supporting document checklist",
-            "Escalation after SLA breach",
-          ]}
-        />
-        <CapabilityCard
-          title="Commission Reconciliation"
-          items={[
-            "Expected vs received variance",
-            "Product-wise commission match",
-            "Period close reconciliation",
-          ]}
-        />
-      </div>
-      <PayoutManagement payouts={payouts} />
+      <AccountingInboundReceiptsRegister invoices={invoices} loading={loading} error={error} />
     </div>
   );
 }
 
 export function AccountingCollectionsWorkbench({
+  invoices,
+  loading,
+  error,
   summary,
-  activity,
 }: {
-  summary: AccountingFinancialSummary;
-  activity: FinancialActivityEvent[];
+  invoices: EnterpriseAccountingInvoiceDto[];
+  loading: boolean;
+  error: string | null;
+  summary: DerivedAccountingPaymentSummary | null;
 }) {
-  const collectionEvents = activity.filter(
-    (e) => e.kind === "payment_received" || e.kind === "invoice_shared",
-  );
-
   return (
     <div className="space-y-3">
       <WorkbenchHeader
         eyebrow="Collections Workbench"
-        title="Collection calendar & recovery"
-        description="Follow-up activities, recovery status, and reminder queue"
+        title="Invoice collections"
+        description="Invoice + posted payments + posted credit notes. Outstanding is derived. Ageing, reminders, and recovery workflows are not implemented."
       />
       <div className="grid gap-2 sm:grid-cols-2">
         <MetricTile
           label="Today's Collections"
-          value={formatINRCompact(summary.todaysCollections)}
+          value={formatINRCompact(summary?.todaysCollections ?? 0)}
         />
         <MetricTile
           label="Outstanding Receivables"
-          value={formatINRCompact(summary.outstandingReceivables)}
+          value={formatINRCompact(summary?.outstanding ?? 0)}
         />
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
-        <CapabilityCard
-          title="Collection Calendar"
-          items={[
-            "Scheduled follow-ups",
-            "Promised payment dates",
-            "RM ownership",
-          ]}
-        />
-        <CapabilityCard
-          title="Reminder Queue"
-          items={[
-            "Automated payment reminders",
-            "Escalation reminders",
-            "Outbox-ready communications",
-          ]}
-        />
-        <CapabilityCard
-          title="Recovery Status"
-          items={[
-            "Soft recovery",
-            "Formal notice",
-            "Legal referral (policy-gated)",
-          ]}
-        />
-        <CapabilityCard
-          title="Follow-up Activities"
-          items={
-            collectionEvents.length > 0
-              ? collectionEvents.slice(0, 4).map((e) => e.detail)
-              : ["No recent collection activities in mock book"]
-          }
-        />
-      </div>
-      <FinancialActivityTimeline events={activity} />
+      <AccountingCollectionsRegister invoices={invoices} loading={loading} error={error} />
     </div>
   );
 }
@@ -441,12 +285,38 @@ export function AccountingGstTaxWorkbench({
 }: {
   summary: AccountingFinancialSummary;
 }) {
+  const [parties, setParties] = useState<InvoicePartyRecord[]>([]);
+  const [partiesError, setPartiesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void invoicePartyApiClient
+      .list()
+      .then((items) => {
+        if (!cancelled) {
+          setParties(items);
+          setPartiesError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setParties([]);
+          setPartiesError(
+            err instanceof Error ? err.message : "Failed to load Invoice Party tax attributes",
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="space-y-3">
       <WorkbenchHeader
         eyebrow="GST & Tax Workbench"
         title="Tax operations desk"
-        description="GST summary, GSTR reports, TDS, and tax exports"
+        description="Invoice Party GSTIN / TDS attributes are live. GST collected, GSTR filing, and invoice tax presentation remain unbound."
       />
       <div className="grid gap-2 sm:grid-cols-2">
         <MetricTile
@@ -458,6 +328,50 @@ export function AccountingGstTaxWorkbench({
           value={formatINRCompact(summary.mtdRevenue)}
         />
       </div>
+      <section className="rounded-xl border border-border/70 bg-card p-3 shadow-sm">
+        <h3 className="text-[12px] font-semibold text-foreground">
+          Invoice Party tax attributes
+        </h3>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          GSTIN, GST status, and TDS flags from Accounting Invoice Party Master. Not GST collected from invoices.
+        </p>
+        {partiesError ? (
+          <p className="mt-3 text-[11px] text-destructive">{partiesError}</p>
+        ) : parties.length === 0 ? (
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            No Invoice Parties yet. Tax attributes appear after Invoice Party Master create.
+          </p>
+        ) : (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead className="text-[10px] uppercase text-muted-foreground">
+                <tr>
+                  <th className="py-1.5 pr-2">Invoice Party</th>
+                  <th className="py-1.5 pr-2">GSTIN</th>
+                  <th className="py-1.5 pr-2">GST status</th>
+                  <th className="py-1.5 pr-2">TDS</th>
+                  <th className="py-1.5">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parties.map((party) => (
+                  <tr key={party.id} className="border-t border-border/50">
+                    <td className="py-2 pr-2 font-medium">{party.displayName}</td>
+                    <td className="py-2 pr-2">{party.gstin || "—"}</td>
+                    <td className="py-2 pr-2 capitalize">{party.gstStatus || "unknown"}</td>
+                    <td className="py-2 pr-2">
+                      {party.tdsApplicable
+                        ? `Yes${party.tdsRatePercent != null ? ` · ${party.tdsRatePercent}%` : ""}`
+                        : "No"}
+                    </td>
+                    <td className="py-2">{party.enabled ? "Active" : "Inactive"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <CapabilityCard
           title="GST Summary"

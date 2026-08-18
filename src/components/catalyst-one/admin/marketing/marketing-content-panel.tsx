@@ -108,9 +108,8 @@ export function MarketingContentPanel() {
             <CardContent className="space-y-2">
               {blocks.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Reusable blocks can be saved via API (
-                  <code className="text-[11px]">save_reusable_block</code>). UI picker expansion
-                  follows in a later polish sprint.
+                  No reusable blocks yet. In Campaign Builder, select a block and Save as reusable
+                  block.
                 </p>
               ) : (
                 blocks.map((b) => (

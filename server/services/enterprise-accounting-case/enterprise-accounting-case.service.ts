@@ -59,6 +59,16 @@ function serialize(row: Record<string, unknown> | null) {
     const value = result[field];
     if (value instanceof Date) result[field] = value.toISOString();
   }
+  const deal = result.deal as Record<string, unknown> | null | undefined;
+  if (deal && typeof deal === "object") {
+    const invoiceParty = deal.invoiceParty as Record<string, unknown> | null | undefined;
+    if (invoiceParty && typeof invoiceParty === "object") {
+      const rate = invoiceParty.tdsRatePercent as { toNumber?: () => number } | number | null | undefined;
+      if (rate && typeof rate === "object" && rate.toNumber) {
+        invoiceParty.tdsRatePercent = rate.toNumber();
+      }
+    }
+  }
   return result;
 }
 

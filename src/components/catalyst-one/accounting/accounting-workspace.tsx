@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { toast } from "sonner";
 import {
   EnterpriseWorkspaceHeaderBand,
 } from "@/components/enterprise/workspace-layout";
@@ -21,13 +19,18 @@ import {
 import {
   getAccountingWorkspaceModel,
   resolveAccountingWorkbenchFromSearchParams,
-  type AccountingInvoice,
 } from "@/lib/accounting-workspace";
 import {
   enterpriseAccountingCaseClient,
   type EnterpriseAccountingCaseDto,
 } from "@/lib/enterprise-accounting-case/client";
+import { enterpriseAccountingInvoiceClient } from "@/lib/enterprise-accounting-invoice/client";
+import type { EnterpriseAccountingInvoiceDto } from "@/types/enterprise-accounting-invoice";
+import type { DerivedAccountingPaymentSummary } from "@/types/enterprise-accounting-payment";
+import { isAccountingInvoiceRaiseRole } from "@/constants/enterprise-accounting-invoice";
+import { useAuth } from "@/hooks/use-auth";
 import { AccountingWorkbenchNav } from "./accounting-workbench-nav";
+import { AccountingCasesPanel } from "./accounting-cases-panel";
 import {
   AccountingCollectionsWorkbench,
   AccountingDashboardWorkbench,
@@ -39,9 +42,6 @@ import {
 } from "./accounting-workbench-views";
 import { InvoicePartyMasterWorkbench } from "./invoice-party-master-workbench";
 import { ChanakyaFinancialInsights } from "./chanakya-financial-insights";
-import { InvoiceWorkspaceSheet } from "./invoice-workspace-sheet";
-import { formatINR } from "@/lib/format-currency";
-import { ROUTES } from "@/constants/routes";
 
 /** Org-scoped accounting desk entity id for Business Notes (module-level). */
 const ACCOUNTING_NOTES_ENTITY_ID = "accounting-workspace";
@@ -51,6 +51,7 @@ const ACCOUNTING_NOTES_ENTITY_ID = "accounting-workspace";
  * Invoice entity creation remains a later Accounting action — cases only here.
  */
 export function AccountingWorkspace() {
+  const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -58,9 +59,10 @@ export function AccountingWorkspace() {
   const [cases, setCases] = useState<EnterpriseAccountingCaseDto[]>([]);
   const [casesLoading, setCasesLoading] = useState(true);
   const [casesError, setCasesError] = useState<string | null>(null);
-  const invoices = seed.invoices;
-  const [selected, setSelected] = useState<AccountingInvoice | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [durableInvoices, setDurableInvoices] = useState<EnterpriseAccountingInvoiceDto[]>([]);
+  const [paymentSummary, setPaymentSummary] = useState<DerivedAccountingPaymentSummary | null>(null);
+  const [invoicesLoading, setInvoicesLoading] = useState(true);
+  const [invoicesError, setInvoicesError] = useState<string | null>(null);
 
   const workbench = useMemo(
     () => resolveAccountingWorkbenchFromSearchParams(searchParams),
@@ -82,9 +84,24 @@ export function AccountingWorkspace() {
     }
   }, []);
 
+  const reloadInvoices = useCallback(async () => {
+    setInvoicesLoading(true);
+    setInvoicesError(null);
+    try {
+      const result = await enterpriseAccountingInvoiceClient.list();
+      setDurableInvoices(result.items);
+      setPaymentSummary(result.summary ?? null);
+    } catch (err) {
+      setInvoicesError(err instanceof Error ? err.message : "Failed to load invoices");
+    } finally {
+      setInvoicesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void reloadCases();
-  }, [reloadCases]);
+    void reloadInvoices();
+  }, [reloadCases, reloadInvoices]);
 
   const setWorkbench = useCallback(
     (id: AccountingWorkbenchId) => {
@@ -105,18 +122,15 @@ export function AccountingWorkspace() {
     [pathname, router, searchParams],
   );
 
-  const openInvoice = (invoice: AccountingInvoice) => {
-    setSelected(invoice);
-    setSheetOpen(true);
-  };
+  const currentInvoiceByCaseId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const inv of durableInvoices) {
+      if (inv.documentStatus !== "cancelled") map[inv.accountingCaseId] = inv.invoiceNumber;
+    }
+    return map;
+  }, [durableInvoices]);
 
-  const markPaid = () => {
-    toast.message("Invoice payment requires the later Accounting invoice workflow.");
-  };
-
-  const cancelInvoice = () => {
-    toast.message("Invoice cancellation requires the later Accounting invoice workflow.");
-  };
+  const canRaiseInvoice = isAccountingInvoiceRaiseRole(user?.role);
 
   const insights = useMemo(() => {
     if (casesLoading) {
@@ -181,7 +195,7 @@ export function AccountingWorkspace() {
                     Accounting Workspace
                   </h1>
                   <p className="text-[11px] text-muted-foreground sm:text-xs">
-                    Durable Accounting Cases after Confirmation Received · Invoice raise is a separate later action
+                    Durable Accounting Cases after Confirmation Received · Raise Invoice is an explicit ADMIN action
                   </p>
                 </div>
               }
@@ -206,78 +220,24 @@ export function AccountingWorkspace() {
           <div className="min-w-0" data-accounting-workbench={workbench}>
             {workbench === "dashboard" ? (
               <div className="space-y-3">
-                <section className="rounded-xl border border-border/70 bg-card p-3 shadow-sm">
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Accounting Cases
-                  </h2>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Created only when Confirmation Pending → Confirmation Received.
-                  </p>
-                  {casesLoading ? (
-                    <p className="mt-3 text-[11px] text-muted-foreground">Loading…</p>
-                  ) : casesError ? (
-                    <p className="mt-3 text-[11px] text-destructive">{casesError}</p>
-                  ) : cases.length === 0 ? (
-                    <p className="mt-3 text-[11px] text-muted-foreground">
-                      No durable Accounting Cases yet.
-                    </p>
-                  ) : (
-                    <ul className="mt-2 divide-y divide-border/50">
-                      {cases.map((item) => {
-                        const dealId = String(item.dealId ?? "");
-                        const status = String(item.status ?? "open");
-                        const amount =
-                          typeof item.confirmedInvoiceAmount === "number"
-                            ? item.confirmedInvoiceAmount
-                            : typeof item.disbursedAmount === "number"
-                              ? item.disbursedAmount
-                              : typeof item.finalAmount === "number"
-                                ? item.finalAmount
-                                : null;
-                        return (
-                          <li
-                            key={item.id}
-                            className="flex items-center justify-between gap-3 py-2"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-[12px] font-medium text-foreground">
-                                Case {item.id.slice(0, 10)}… · {status}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">
-                                Deal {dealId.slice(0, 12)}
-                                {amount != null ? ` · ${formatINR(amount)}` : ""}
-                              </p>
-                            </div>
-                            {dealId ? (
-                              <Link
-                                href={`${ROUTES.DEALS}/${encodeURIComponent(dealId)}`}
-                                className="shrink-0 text-[11px] font-medium text-teal-700 hover:underline dark:text-teal-300"
-                              >
-                                Open Deal →
-                              </Link>
-                            ) : null}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </section>
+                <AccountingCasesPanel
+                  cases={cases}
+                  loading={casesLoading}
+                  error={casesError}
+                  onReload={reloadCases}
+                  caption="Created only when Confirmation Pending → Confirmation Received. Commercial capture only — this is not an invoice ledger."
+                />
                 <AccountingDashboardWorkbench
                   summary={{
                     ...seed.summary,
-                    invoicesRaised: 0,
-                    expectedPayouts: cases.reduce((sum, c) => {
-                      const v =
-                        typeof c.payoutAmount === "number"
-                          ? c.payoutAmount
-                          : typeof c.expectedCommission === "number"
-                            ? c.expectedCommission
-                            : 0;
-                      return sum + v;
-                    }, 0),
+                    invoicesRaised: paymentSummary?.invoicesRaised ?? 0,
+                    outstandingReceivables: paymentSummary?.outstanding ?? 0,
+                    todaysCollections: paymentSummary?.todaysCollections ?? 0,
+                    expectedPayouts: paymentSummary?.totalInvoiced ?? 0,
+                    gstCollected: 0,
                   }}
+                  paymentSummary={paymentSummary}
                   activity={seed.activity}
-                  payouts={seed.payouts}
                   onOpenInvoices={() => setWorkbench("invoices")}
                   onOpenReceivables={() => setWorkbench("receivables")}
                   onOpenPayouts={() => setWorkbench("payouts")}
@@ -285,37 +245,102 @@ export function AccountingWorkspace() {
               </div>
             ) : null}
             {workbench === "invoices" ? (
-              <AccountingInvoiceWorkbench
-                invoices={invoices}
-                onOpen={openInvoice}
-                onMarkPaid={markPaid}
-                onCancel={cancelInvoice}
-              />
+              <div className="space-y-3">
+                <AccountingCasesPanel
+                  cases={cases}
+                  loading={casesLoading}
+                  error={casesError}
+                  onReload={reloadCases}
+                  canRaiseInvoice={canRaiseInvoice}
+                  currentInvoiceByCaseId={currentInvoiceByCaseId}
+                  onInvoiceRaised={reloadInvoices}
+                  caption="Cases after Confirmation Received. Raise Invoice is an explicit ADMIN action and does not send the invoice."
+                />
+                <AccountingInvoiceWorkbench
+                  invoices={durableInvoices}
+                  loading={invoicesLoading}
+                  error={invoicesError}
+                  canPostPayment={canRaiseInvoice}
+                  onReload={reloadInvoices}
+                />
+              </div>
             ) : null}
             {workbench === "receivables" ? (
-              <AccountingReceivablesWorkbench
-                summary={seed.summary}
-                invoices={invoices}
-                onOpenInvoice={openInvoice}
-              />
+              <div className="space-y-3">
+                <AccountingCasesPanel
+                  cases={cases}
+                  loading={casesLoading}
+                  error={casesError}
+                  onReload={reloadCases}
+                  caption="Derived outstanding uses Invoice + posted payments + posted credit notes. Case amounts are not a receivable ledger."
+                />
+                <AccountingReceivablesWorkbench
+                  invoices={durableInvoices}
+                  loading={invoicesLoading}
+                  error={invoicesError}
+                />
+              </div>
             ) : null}
             {workbench === "payouts" ? (
-              <AccountingPayoutWorkbench payouts={seed.payouts} />
+              <div className="space-y-3">
+                <AccountingCasesPanel
+                  cases={cases}
+                  loading={casesLoading}
+                  error={casesError}
+                  onReload={reloadCases}
+                  caption="Case payoutAmount / expectedCommission are commercial capture only. Payout Workbench is inbound commission receipts — not RM / Wealth Partner payouts, and not a writable payout ledger."
+                />
+                <AccountingPayoutWorkbench
+                  invoices={durableInvoices}
+                  loading={invoicesLoading}
+                  error={invoicesError}
+                  summary={paymentSummary}
+                />
+              </div>
             ) : null}
             {workbench === "collections" ? (
-              <AccountingCollectionsWorkbench
-                summary={seed.summary}
-                activity={seed.activity}
-              />
+              <div className="space-y-3">
+                <AccountingCasesPanel
+                  cases={cases}
+                  loading={casesLoading}
+                  error={casesError}
+                  onReload={reloadCases}
+                  caption="Collections are derived from raised invoices, posted payments, and posted credit notes. Accounting Cases do not create payments."
+                />
+                <AccountingCollectionsWorkbench
+                  invoices={durableInvoices}
+                  loading={invoicesLoading}
+                  error={invoicesError}
+                  summary={paymentSummary}
+                />
+              </div>
             ) : null}
             {workbench === "gst_tax" ? (
-              <AccountingGstTaxWorkbench summary={seed.summary} />
+              <div className="space-y-3">
+                <AccountingCasesPanel
+                  cases={cases}
+                  loading={casesLoading}
+                  error={casesError}
+                  onReload={reloadCases}
+                  caption="Case tdsAmount is commercial capture. GST collected, GSTR filing, and invoice tax presentation are unbound until an invoice ledger exists."
+                />
+                <AccountingGstTaxWorkbench summary={seed.summary} />
+              </div>
             ) : null}
             {workbench === "invoice_party_master" || workbench === "payee_master" ? (
               <InvoicePartyMasterWorkbench />
             ) : null}
             {workbench === "reports" ? (
-              <AccountingReportsWorkbench summary={seed.summary} />
+              <div className="space-y-3">
+                <AccountingCasesPanel
+                  cases={cases}
+                  loading={casesLoading}
+                  error={casesError}
+                  onReload={reloadCases}
+                  caption="Case commercial capture is not revenue MIS. Invoice register, GST collected, and collections remain unbound."
+                />
+                <AccountingReportsWorkbench summary={seed.summary} />
+              </div>
             ) : null}
             {workbench === "notes" ? (
               <div className="rounded-xl border border-border bg-card p-4">
@@ -340,12 +365,6 @@ export function AccountingWorkspace() {
           </aside>
         </div>
       </EnterpriseWorkspaceShell>
-
-      <InvoiceWorkspaceSheet
-        invoice={selected}
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-      />
     </div>
   );
 }

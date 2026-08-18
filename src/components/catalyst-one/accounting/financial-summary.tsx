@@ -7,7 +7,7 @@ const CARDS: Array<{ key: keyof AccountingFinancialSummary; label: string }> = [
   { key: "totalRevenue", label: "Total Revenue" },
   { key: "invoicesRaised", label: "Invoices Raised" },
   { key: "outstandingReceivables", label: "Outstanding Receivables" },
-  { key: "expectedPayouts", label: "Expected Payouts" },
+  { key: "expectedPayouts", label: "Expected inbound receipts" },
   { key: "gstCollected", label: "GST Collected" },
   { key: "todaysCollections", label: "Today's Collections" },
   { key: "mtdRevenue", label: "Month-to-Date Revenue" },

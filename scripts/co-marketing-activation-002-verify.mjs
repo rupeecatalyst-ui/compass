@@ -26,6 +26,9 @@ const panel = fs.readFileSync(
   "utf8",
 );
 assert(panel.includes("runControlledTest"), "campaigns UI missing controlled test");
+assert(panel.includes("runNextBatch"), "campaigns UI missing run next batch");
+assert(panel.includes("senderIdentityId"), "campaigns UI missing sender identity binding");
+assert(panel.includes("whatsappTemplateId"), "campaigns UI missing WhatsApp template binding");
 assert(panel.includes("SIMULATED"), "campaigns UI must label SIMULATED");
 assert(!panel.includes("Test Send (disabled)"), "disabled Test Send stub must be replaced");
 

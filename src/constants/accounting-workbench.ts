@@ -47,7 +47,7 @@ export const ACCOUNTING_WORKBENCHES: readonly AccountingWorkbenchDef[] = [
   {
     id: "payouts",
     label: "Payouts",
-    description: "Payout Workbench — expected, received, pending claims, reconciliation",
+    description: "Inbound Commission Receipts — expected, received, pending (not RM / Wealth Partner payouts)",
   },
   {
     id: "collections",

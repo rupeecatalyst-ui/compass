@@ -36,6 +36,16 @@ export class EnterpriseAccountingCaseRepository {
               primaryContactName: true,
               productLabel: true,
               primaryCounterpartyName: true,
+              invoicePartyId: true,
+              invoiceParty: {
+                select: {
+                  id: true,
+                  displayName: true,
+                  gstin: true,
+                  tdsApplicable: true,
+                  tdsRatePercent: true,
+                },
+              },
             },
           },
         },
@@ -64,6 +74,16 @@ export class EnterpriseAccountingCaseRepository {
             primaryContactName: true,
             productLabel: true,
             primaryCounterpartyName: true,
+            invoicePartyId: true,
+            invoiceParty: {
+              select: {
+                id: true,
+                displayName: true,
+                gstin: true,
+                tdsApplicable: true,
+                tdsRatePercent: true,
+              },
+            },
           },
         },
       },

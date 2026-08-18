@@ -194,6 +194,7 @@ export const ROUTES = {
   ADMIN_PRODUCT_PROGRAMS: "/admin/product-programs",
   /** CO-MDM-001 — Document Type Master */
   ADMIN_DOCUMENT_TYPES: "/admin/document-types",
+  ADMIN_ACCOUNTING_GST_RATES: "/admin/accounting/gst-rates",
   /** GO-LIVE P0 — Enterprise Lender Registry (Administration → Masters). */
   ADMIN_LENDER_REGISTRY: "/admin/lender-registry",
   /** CO-WP-001 — Enterprise Wealth Partner Registry (Administration → Masters). */
@@ -358,6 +359,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_ENTERPRISE_MDM,
   ROUTES.ADMIN_PRODUCT_PROGRAMS,
   ROUTES.ADMIN_DOCUMENT_TYPES,
+  ROUTES.ADMIN_ACCOUNTING_GST_RATES,
   ROUTES.ADMIN_ENTERPRISE_ASSETS,
   ROUTES.ADMIN_ENTERPRISE_ASSETS_REGISTRY,
   ROUTES.ADMIN_ENTERPRISE_ASSETS_CATEGORIES,

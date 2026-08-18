@@ -29,18 +29,36 @@ export function MarketingCommandCenter() {
   const [status, setStatus] = useState<EnterpriseMarketingFoundationStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [campaignCount, setCampaignCount] = useState<number | null>(null);
+  const [audienceCount, setAudienceCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await authenticatedJsonFetch("/api/admin/marketing");
+        const [res, campRes, audRes] = await Promise.all([
+          authenticatedJsonFetch("/api/admin/marketing"),
+          authenticatedJsonFetch("/api/admin/marketing/campaigns"),
+          authenticatedJsonFetch("/api/admin/marketing/audiences"),
+        ]);
         const body = (await res.json()) as ApiEnvelope<EnterpriseMarketingFoundationStatus>;
         if (cancelled) return;
         if (!res.ok || !body.success || !body.data) {
           setError(body.error?.message ?? "Failed to load Marketing foundation status");
         } else {
           setStatus(body.data);
+        }
+        if (campRes.ok) {
+          const campBody = (await campRes.json()) as ApiEnvelope<{ campaigns: unknown[] }>;
+          if (campBody.success && campBody.data?.campaigns) {
+            setCampaignCount(campBody.data.campaigns.length);
+          }
+        }
+        if (audRes.ok) {
+          const audBody = (await audRes.json()) as ApiEnvelope<{ audiences: unknown[] }>;
+          if (audBody.success && audBody.data?.audiences) {
+            setAudienceCount(audBody.data.audiences.length);
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -165,6 +183,18 @@ export function MarketingCommandCenter() {
                     {status.capabilities.audienceEngine === "definition_preview"
                       ? "Definition + preview"
                       : "Disabled"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase text-muted-foreground">Campaigns (this process)</dt>
+                  <dd className="font-medium">
+                    {campaignCount == null ? "—" : campaignCount}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase text-muted-foreground">Audiences (this process)</dt>
+                  <dd className="font-medium">
+                    {audienceCount == null ? "—" : audienceCount}
                   </dd>
                 </div>
               </dl>

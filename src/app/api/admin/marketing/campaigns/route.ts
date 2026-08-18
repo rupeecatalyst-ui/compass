@@ -137,6 +137,8 @@ export async function POST(request: Request) {
       routingPlaceholder?: MarketingRoutingPlaceholder;
       notificationPlaceholder?: MarketingNotificationPlaceholder;
       batchPolicy?: MarketingBatchPolicy | null;
+      senderIdentityId?: string | null;
+      whatsappTemplateId?: string | null;
       testBatchSize?: number;
       resetCursor?: boolean;
       subject?: string;
@@ -208,6 +210,8 @@ export async function POST(request: Request) {
         routingPlaceholder: body.routingPlaceholder,
         notificationPlaceholder: body.notificationPlaceholder,
         batchPolicy: body.batchPolicy,
+        senderIdentityId: body.senderIdentityId,
+        whatsappTemplateId: body.whatsappTemplateId,
         subject: body.subject,
         previewText: body.previewText,
         content: body.content,

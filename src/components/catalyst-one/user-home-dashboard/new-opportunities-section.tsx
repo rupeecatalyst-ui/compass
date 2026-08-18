@@ -273,9 +273,9 @@ export function NewOpportunitiesSection() {
         role={expanded ? "dialog" : undefined}
         tabIndex={expanded ? -1 : undefined}
         className={cn(
-          "flex h-full min-h-0 w-full flex-1 flex-col gap-2 outline-none",
+          "flex min-h-0 w-full flex-col gap-2 outline-none",
           expanded &&
-            "fixed inset-0 z-[46] gap-3 overflow-hidden bg-background p-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-2xl sm:inset-3 sm:rounded-xl sm:border sm:p-4 md:inset-5 lg:inset-6",
+            "fixed inset-0 z-[46] h-full flex-1 gap-3 overflow-hidden bg-background p-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-2xl sm:inset-3 sm:rounded-xl sm:border sm:p-4 md:inset-5 lg:inset-6",
         )}
       >
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -376,7 +376,10 @@ export function NewOpportunitiesSection() {
         </div>
 
         <div
-          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/80 bg-card/40"
+          className={cn(
+            "flex min-h-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-card/40",
+            expanded ? "flex-1" : "h-[21rem] w-full",
+          )}
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
@@ -413,12 +416,7 @@ export function NewOpportunitiesSection() {
           </div>
           <div
             ref={viewportRef}
-            className={cn(
-              "min-h-0 overflow-y-auto",
-              expanded
-                ? "flex-1"
-                : "max-h-[min(24rem,55dvh)] lg:max-h-none lg:flex-1",
-            )}
+            className="min-h-0 flex-1 overflow-y-auto"
             aria-live="polite"
           >
             {loading && rows.length === 0 ? (

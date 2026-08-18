@@ -1,0 +1,65 @@
+---
+description: Rupee Catalyst Cursor model cost control — no Auto for routine work; GitHub remains SSOT
+alwaysApply: true
+---
+
+# Rupee Catalyst — Cursor Model Cost Control
+
+Status: **OFFICIAL** (permanent) · Working policy only — not application architecture
+
+## 1. Do not use Auto for routine tasks
+
+For routine Rupee Catalyst work, explicitly select the appropriate low-cost/fast model.
+
+Do not use Auto merely for convenience.
+
+## 2. Auto is not assumed to be cheap
+
+Auto may route a request to a different model based on its routing logic.
+
+Therefore:
+
+- UI refinement → fast/low-cost model
+- Simple bug fix → fast/low-cost model
+- Existing wiring → fast/low-cost model
+- Moderate multi-file implementation → medium model
+- Architecture / SSOT / concurrency / security → high-reasoning model
+
+## 3. High-cost model escalation
+
+A high-cost model may only be used when:
+
+- the task genuinely requires complex reasoning, OR
+- a cheaper model has already failed and escalation is justified.
+
+Do not start a routine task on a high-cost model and then downgrade later.
+
+## 4. Subagents
+
+Do not unnecessarily create subagents for simple tasks.
+
+If subagents are required, use the least expensive suitable model for them.
+
+Do not allow background/subagent work to continue after the requested task is complete.
+
+## 5. Context control
+
+For every task:
+
+- inspect minimum necessary files
+- avoid broad repository searches
+- avoid loading unrelated architecture
+- avoid repeating already completed investigations
+- make minimum necessary changes
+- run targeted validation
+- STOP immediately when validation passes
+
+## 6. No Origin migration
+
+Do not move, mirror, or migrate the Rupee Catalyst repository to Cursor Origin.
+
+GitHub remains the source of truth.
+
+Current workflow remains:
+
+Local Cursor → GitHub → Vercel

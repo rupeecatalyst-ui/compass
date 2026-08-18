@@ -9,9 +9,9 @@ import type {
 } from "@/types/enterprise-platform-modes";
 
 const DEFAULT_STATE: PlatformModesState = {
-  workflowMode: "off",
-  communicationMode: "off",
-  chanakyaMode: "learning",
+  workflowMode: "internal",
+  communicationMode: "simulation",
+  chanakyaMode: "advisory",
   migrationMode: false,
   suppressWorkflowTriggers: false,
   suppressTasks: false,

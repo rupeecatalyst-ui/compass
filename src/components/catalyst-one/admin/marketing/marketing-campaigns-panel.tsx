@@ -95,6 +95,20 @@ export function MarketingCampaignsPanel() {
   const [busy, setBusy] = useState(false);
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [audiences, setAudiences] = useState<MarketingAudienceDefinition[]>([]);
+  const [senderIdentities, setSenderIdentities] = useState<
+    Array<{
+      id: string;
+      displayName: string;
+      fromAddress: string;
+      replyTo?: string | null;
+      active: boolean;
+    }>
+  >([]);
+  const [whatsappTemplates, setWhatsappTemplates] = useState<
+    Array<{ id: string; name: string; approvalState: string; active: boolean }>
+  >([]);
+  const [senderIdentityId, setSenderIdentityId] = useState("");
+  const [whatsappTemplateId, setWhatsappTemplateId] = useState("");
   const [templates, setTemplates] = useState<MarketingContentTemplate[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [detail, setDetail] = useState<CampaignDetail | null>(null);
@@ -148,10 +162,12 @@ export function MarketingCampaignsPanel() {
   const [execution, setExecution] = useState<MarketingExecutionSummary | null>(null);
 
   const loadList = useCallback(async () => {
-    const [campRes, audRes, tplRes] = await Promise.all([
+    const [campRes, audRes, tplRes, senderRes, waRes] = await Promise.all([
       authenticatedJsonFetch("/api/admin/marketing/campaigns"),
       authenticatedJsonFetch("/api/admin/marketing/audiences"),
       authenticatedJsonFetch("/api/admin/marketing/campaigns?view=templates"),
+      authenticatedJsonFetch("/api/admin/marketing/sender-identities"),
+      authenticatedJsonFetch("/api/admin/marketing/whatsapp?activeOnly=1"),
     ]);
     const campBody = (await campRes.json()) as ApiEnvelope<{ campaigns: MarketingCampaign[] }>;
     if (!campRes.ok || !campBody.success || !campBody.data) {
@@ -170,6 +186,24 @@ export function MarketingCampaignsPanel() {
         templates: MarketingContentTemplate[];
       }>;
       if (tplBody.success && tplBody.data) setTemplates(tplBody.data.templates);
+    }
+    if (senderRes.ok) {
+      const senderBody = (await senderRes.json()) as ApiEnvelope<{
+        identities: Array<{
+          id: string;
+          displayName: string;
+          fromAddress: string;
+          replyTo?: string | null;
+          active: boolean;
+        }>;
+      }>;
+      if (senderBody.success && senderBody.data) setSenderIdentities(senderBody.data.identities);
+    }
+    if (waRes.ok) {
+      const waBody = (await waRes.json()) as ApiEnvelope<{
+        templates: Array<{ id: string; name: string; approvalState: string; active: boolean }>;
+      }>;
+      if (waBody.success && waBody.data) setWhatsappTemplates(waBody.data.templates);
     }
   }, []);
 
@@ -202,6 +236,8 @@ export function MarketingCampaignsPanel() {
     setProduct(d.campaign.product ?? "");
     setAudienceId(d.campaign.audienceId ?? "");
     setChannel(d.campaign.channel);
+    setSenderIdentityId(d.campaign.senderIdentityId ?? "");
+    setWhatsappTemplateId(d.campaign.whatsappTemplateId ?? "");
     setSender(d.campaign.sender);
     setSubject(d.draft?.subject ?? "");
     setPreviewText(d.draft?.previewText ?? "");
@@ -299,6 +335,8 @@ export function MarketingCampaignsPanel() {
         product: product || null,
         audienceId: audienceId || null,
         channel,
+        senderIdentityId: senderIdentityId || null,
+        whatsappTemplateId: channel === "WHATSAPP" ? whatsappTemplateId || null : null,
         sender,
         subject,
         previewText,
@@ -466,6 +504,78 @@ export function MarketingCampaignsPanel() {
       await loadDetail(selectedId);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Controlled test failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runNextBatch = async () => {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "run_next_batch",
+          campaignId: selectedId,
+        }),
+      });
+      const body = (await res.json()) as ApiEnvelope<{
+        tick: {
+          claimed: number;
+          processed: number;
+          skippedReason?: string | null;
+        };
+        execution?: MarketingExecutionSummary;
+        deliveryLabel: string;
+        actuallySent: boolean;
+      }>;
+      if (!res.ok || !body.success || !body.data) {
+        throw new Error(body.error?.message || "Next batch failed");
+      }
+      if (body.data.execution) setExecution(body.data.execution);
+      const tick = body.data.tick;
+      if (tick.skippedReason) {
+        toast.message(`Next batch skipped: ${tick.skippedReason}`, {
+          description: "Campaign must be SCHEDULED or RUNNING. Delivery remains SIMULATED.",
+        });
+      } else {
+        toast.success(
+          `SIMULATED next batch — processed ${tick.processed} (claimed ${tick.claimed}). NOT ACTUALLY SENT.`,
+        );
+      }
+      await loadDetail(selectedId);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Next batch failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveReusableBlock = async () => {
+    if (!selectedBlock) {
+      toast.error("Select a content block first");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_reusable_block",
+          blockName: `${name || "Campaign"} · ${selectedBlock.type}`,
+          block: selectedBlock,
+        }),
+      });
+      const body = (await res.json()) as ApiEnvelope<unknown>;
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message || "Save reusable block failed");
+      }
+      toast.success("Reusable block saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save reusable block failed");
     } finally {
       setBusy(false);
     }
@@ -795,6 +905,65 @@ export function MarketingCampaignsPanel() {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
+                    <Label>Sender identity</Label>
+                    <Select
+                      value={senderIdentityId || "__inline__"}
+                      onValueChange={(v) => {
+                        if (v === "__inline__") {
+                          setSenderIdentityId("");
+                          return;
+                        }
+                        setSenderIdentityId(v);
+                        const found = senderIdentities.find((s) => s.id === v);
+                        if (found) {
+                          setSender({
+                            fromName: found.displayName,
+                            fromAddress: found.fromAddress,
+                            replyTo: found.replyTo ?? null,
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Use campaign sender fields" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__inline__">Campaign sender fields</SelectItem>
+                        {senderIdentities
+                          .filter((s) => s.active)
+                          .map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.displayName} · {s.fromAddress}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {channel === "WHATSAPP" ? (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>WhatsApp template</Label>
+                      <Select
+                        value={whatsappTemplateId || "__none__"}
+                        onValueChange={(v) => setWhatsappTemplateId(v === "__none__" ? "" : v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select approved template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Not selected</SelectItem>
+                          {whatsappTemplates.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.name} · {t.approvalState}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Template-only WhatsApp. Dry-run delivery; live provider remains NOT CONNECTED.
+                      </p>
+                    </div>
+                  ) : null}
+                  <div className="space-y-1.5">
                     <Label>Sender name</Label>
                     <Input
                       value={sender.fromName}
@@ -1075,6 +1244,9 @@ export function MarketingCampaignsPanel() {
                     <Button size="sm" disabled={busy} onClick={() => void runControlledTest()}>
                       Run controlled test ({testBatchSize}) — SIMULATED
                     </Button>
+                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void runNextBatch()}>
+                      Run next batch — SIMULATED
+                    </Button>
                   </div>
                   {execution ? (
                     <div className="rounded-md border bg-background/60 p-3 text-[11px] text-muted-foreground">
@@ -1140,15 +1312,27 @@ export function MarketingCampaignsPanel() {
                       <div className="space-y-2 rounded-md border p-2">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-medium">{selectedBlock.type}</p>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={removeSelectedBlock}
-                          >
-                            Remove
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              disabled={busy}
+                              onClick={() => void saveReusableBlock()}
+                            >
+                              Save as reusable block
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={removeSelectedBlock}
+                            >
+                              Remove
+                            </Button>
+                          </div>
                         </div>
                         {Object.entries(selectedBlock.props).map(([key, val]) =>
                           typeof val === "string" ? (

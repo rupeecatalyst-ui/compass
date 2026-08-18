@@ -32,28 +32,32 @@ import {
   type InvoicePartyRecord,
 } from "@/lib/invoice-party/invoice-party-api-client";
 
+const EMPTY_FORM = {
+  partyType: "lender",
+  legalName: "",
+  billingName: "",
+  displayName: "",
+  contactId: "" as string,
+  contactLabel: "",
+  companyId: "" as string,
+  companyLabel: "",
+  gstin: "",
+  pan: "",
+  billingAddress: "",
+  stateLabel: "",
+  invoiceEmail: "",
+  tdsApplicable: false,
+  tdsRatePercent: "",
+  gstStatus: "unknown",
+};
+
 export function InvoicePartyMasterWorkbench() {
   const [rows, setRows] = useState<InvoicePartyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    partyType: "lender",
-    legalName: "",
-    billingName: "",
-    displayName: "",
-    contactId: "" as string,
-    contactLabel: "",
-    companyId: "" as string,
-    companyLabel: "",
-    gstin: "",
-    pan: "",
-    billingAddress: "",
-    stateLabel: "",
-    invoiceEmail: "",
-    tdsApplicable: false,
-    tdsRatePercent: "",
-    gstStatus: "unknown",
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -71,6 +75,55 @@ export function InvoicePartyMasterWorkbench() {
     void reload();
   }, [reload]);
 
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setOpen(true);
+  };
+
+  const openEdit = (row: InvoicePartyRecord) => {
+    setEditingId(row.id);
+    setForm({
+      partyType: row.partyType || "lender",
+      legalName: row.legalName ?? "",
+      billingName: row.billingName ?? "",
+      displayName: row.displayName ?? "",
+      contactId: row.contactId ?? "",
+      contactLabel: row.contact?.name ?? "",
+      companyId: row.companyId ?? "",
+      companyLabel: row.company?.companyName ?? "",
+      gstin: row.gstin ?? "",
+      pan: row.pan ?? "",
+      billingAddress: row.billingAddress ?? "",
+      stateLabel: row.stateLabel ?? "",
+      invoiceEmail: row.invoiceEmail ?? "",
+      tdsApplicable: Boolean(row.tdsApplicable),
+      tdsRatePercent:
+        row.tdsRatePercent != null && Number.isFinite(row.tdsRatePercent)
+          ? String(row.tdsRatePercent)
+          : "",
+      gstStatus: row.gstStatus || "unknown",
+    });
+    setOpen(true);
+  };
+
+  const payload = () => ({
+    partyType: form.partyType,
+    legalName: form.legalName.trim(),
+    billingName: (form.billingName || form.legalName).trim(),
+    displayName: (form.displayName || form.billingName || form.legalName).trim(),
+    contactId: form.contactId || null,
+    companyId: form.companyId || null,
+    gstin: form.gstin || null,
+    pan: form.pan || null,
+    billingAddress: form.billingAddress || null,
+    stateLabel: form.stateLabel || null,
+    invoiceEmail: form.invoiceEmail || null,
+    tdsApplicable: form.tdsApplicable,
+    tdsRatePercent: form.tdsRatePercent ? Number(form.tdsRatePercent) : null,
+    gstStatus: form.gstStatus || null,
+  });
+
   const submit = async () => {
     if (!form.contactId && !form.companyId) {
       toast.error("Select a Contact or Company from the Enterprise Registry");
@@ -81,27 +134,37 @@ export function InvoicePartyMasterWorkbench() {
       return;
     }
     try {
-      await invoicePartyApiClient.create({
-        partyType: form.partyType,
-        legalName: form.legalName.trim(),
-        billingName: (form.billingName || form.legalName).trim(),
-        displayName: (form.displayName || form.billingName || form.legalName).trim(),
-        contactId: form.contactId || null,
-        companyId: form.companyId || null,
-        gstin: form.gstin || null,
-        pan: form.pan || null,
-        billingAddress: form.billingAddress || null,
-        stateLabel: form.stateLabel || null,
-        invoiceEmail: form.invoiceEmail || null,
-        tdsApplicable: form.tdsApplicable,
-        tdsRatePercent: form.tdsRatePercent ? Number(form.tdsRatePercent) : null,
-        gstStatus: form.gstStatus || null,
-      });
-      toast.success("Invoice Party created in Accounting Invoice Party Master");
+      if (editingId) {
+        await invoicePartyApiClient.update(editingId, payload());
+        toast.success("Invoice Party updated in Accounting Invoice Party Master");
+      } else {
+        await invoicePartyApiClient.create(payload());
+        toast.success("Invoice Party created in Accounting Invoice Party Master");
+      }
       setOpen(false);
+      setEditingId(null);
       void reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create Invoice Party");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : editingId
+            ? "Failed to update Invoice Party"
+            : "Failed to create Invoice Party",
+      );
+    }
+  };
+
+  const toggleEnabled = async (row: InvoicePartyRecord) => {
+    setBusyId(row.id);
+    try {
+      await invoicePartyApiClient.update(row.id, { enabled: !row.enabled });
+      toast.success(row.enabled ? "Invoice Party deactivated" : "Invoice Party activated");
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update Invoice Party status");
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -115,7 +178,7 @@ export function InvoicePartyMasterWorkbench() {
             duplicate party data.
           </p>
         </div>
-        <Button type="button" size="sm" className="h-8 gap-1 text-xs" onClick={() => setOpen(true)}>
+        <Button type="button" size="sm" className="h-8 gap-1 text-xs" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5" />
           Add Invoice Party
         </Button>
@@ -131,18 +194,19 @@ export function InvoicePartyMasterWorkbench() {
               <th className="px-2 py-2">GSTIN</th>
               <th className="px-2 py-2">Invoice Email</th>
               <th className="px-2 py-2">Status</th>
+              <th className="px-2 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-2 py-6 text-center text-muted-foreground">
+                <td colSpan={7} className="px-2 py-6 text-center text-muted-foreground">
                   Loading…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-2 py-6 text-center text-muted-foreground">
+                <td colSpan={7} className="px-2 py-6 text-center text-muted-foreground">
                   No invoice parties yet. Add an Invoice Party from Contact or Company Registry.
                 </td>
               </tr>
@@ -161,6 +225,29 @@ export function InvoicePartyMasterWorkbench() {
                   <td className="px-2 py-2">{r.gstin || "—"}</td>
                   <td className="px-2 py-2">{r.invoiceEmail || "—"}</td>
                   <td className="px-2 py-2">{r.enabled ? "Active" : "Inactive"}</td>
+                  <td className="px-2 py-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px]"
+                        onClick={() => openEdit(r)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px]"
+                        disabled={busyId === r.id}
+                        onClick={() => void toggleEnabled(r)}
+                      >
+                        {r.enabled ? "Deactivate" : "Activate"}
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -168,10 +255,16 @@ export function InvoicePartyMasterWorkbench() {
         </table>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setEditingId(null);
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Invoice Party</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Invoice Party" : "Add Invoice Party"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
             <div>
@@ -318,7 +411,7 @@ export function InvoicePartyMasterWorkbench() {
               Cancel
             </Button>
             <Button type="button" size="sm" onClick={() => void submit()}>
-              Save Invoice Party
+              {editingId ? "Save changes" : "Save Invoice Party"}
             </Button>
           </DialogFooter>
         </DialogContent>

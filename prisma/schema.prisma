@@ -191,6 +191,12 @@ model Organization {
   enterpriseOpportunityNumberSequences EnterpriseOpportunityNumberSequence[]
   /// CO-ARCH-003 Phase 2B Sprint 1 — Invoice Party Master (Accounting)
   enterpriseInvoiceParties           EnterpriseInvoiceParty[]
+  enterpriseAccountingGstRates       EnterpriseAccountingGstRate[]
+  enterpriseAccountingInvoiceNumberSequences EnterpriseAccountingInvoiceNumberSequence[]
+  enterpriseAccountingInvoices       EnterpriseAccountingInvoice[]
+  enterpriseAccountingPayments       EnterpriseAccountingPayment[]
+  enterpriseAccountingCreditNoteNumberSequences EnterpriseAccountingCreditNoteNumberSequence[]
+  enterpriseAccountingCreditNotes    EnterpriseAccountingCreditNote[]
   /// CO-ARCH-002-W1 / CO-ARCH-003 — Enterprise Deal Registry (per-lender Deal)
   enterpriseDeals                    EnterpriseDeal[]
   enterpriseDealNumberSequences      EnterpriseDealNumberSequence[]
@@ -2185,6 +2191,7 @@ model EnterpriseInvoiceParty {
   contact      EcmContact?  @relation("InvoicePartyContact", fields: [contactId], references: [id], onDelete: Restrict)
   company      EcmCompany?  @relation("InvoicePartyCompany", fields: [companyId], references: [id], onDelete: Restrict)
   deals        EnterpriseDeal[] @relation("DealInvoiceParty")
+  accountingInvoices EnterpriseAccountingInvoice[]
 
   @@index([organizationId, isDeleted, enabled], map: "eapayee_org_active_idx")
   @@index([organizationId, isDeleted, partyType], map: "eapayee_org_type_idx")
@@ -2338,6 +2345,8 @@ model EnterpriseDeal {
   workflowBindings        EnterpriseDealWorkflowBinding[]
   postDisbursementSchedule EnterprisePostDisbursementSchedule?
   accountingCase          EnterpriseAccountingCase?
+  accountingInvoices      EnterpriseAccountingInvoice[]
+  accountingPayments      EnterpriseAccountingPayment[]
 
   @@unique([organizationId, dealNumber], map: "edeal_org_number_key")
   /// CO-ARCH-003: legacy_loan_file_id is NON-unique — multiple Deals may share one LoanFile bridge
@@ -2410,10 +2419,204 @@ model EnterpriseAccountingCase {
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   deal         EnterpriseDeal @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  invoices     EnterpriseAccountingInvoice[]
+  payments     EnterpriseAccountingPayment[]
 
   @@unique([organizationId, dealId], map: "eac_org_deal_key")
   @@index([organizationId, status, updatedAt(sort: Desc)], map: "eac_org_status_updated_idx")
   @@map("enterprise_accounting_cases")
+}
+
+/// Administration-controlled GST rate catalogue for Raise Invoice. Not a tax engine.
+model EnterpriseAccountingGstRate {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  name           String
+  ratePercent    Decimal   @map("rate_percent") @db.Decimal(9, 4)
+  enabled        Boolean   @default(true)
+  effectiveFrom  DateTime? @map("effective_from")
+  effectiveUntil DateTime? @map("effective_until")
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBy      String?   @map("deleted_by")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoices     EnterpriseAccountingInvoice[]
+
+  @@index([organizationId, isDeleted, enabled], map: "eagr_org_active_idx")
+  @@index([organizationId, updatedAt(sort: Desc)], map: "eagr_org_updated_idx")
+  @@map("enterprise_accounting_gst_rates")
+}
+
+/// Invoice number allocator — Organization × LN|MF × financial year. Not Deal sequence.
+model EnterpriseAccountingInvoiceNumberSequence {
+  organizationId       String @map("organization_id")
+  invoiceProductPrefix String @map("invoice_product_prefix")
+  financialYearKey     String @map("financial_year_key")
+  nextValue            Int    @default(1) @map("next_value")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@id([organizationId, invoiceProductPrefix, financialYearKey], map: "eains_org_prefix_fy_pk")
+  @@map("enterprise_accounting_invoice_number_sequences")
+}
+
+/// Durable billed invoice SSOT. Raised only by Accounting Raise Invoice — never on Disbursed or Confirmation Received.
+model EnterpriseAccountingInvoice {
+  id                     String   @id @default(cuid())
+  organizationId         String   @map("organization_id")
+  accountingCaseId       String   @map("accounting_case_id")
+  dealId                 String   @map("deal_id")
+  opportunityId          String?  @map("opportunity_id")
+  invoicePartyId         String   @map("invoice_party_id")
+  gstRateId              String   @map("gst_rate_id")
+
+  productId              String?  @map("product_id")
+  productCode            String?  @map("product_code")
+  productLabel           String?  @map("product_label")
+  productFamily          String   @map("product_family")
+  invoiceProductPrefix   String   @map("invoice_product_prefix")
+
+  financialYearKey       String   @map("financial_year_key")
+  sequenceNumber         Int      @map("sequence_number")
+  invoiceNumber          String   @map("invoice_number")
+
+  invoiceDate            DateTime @map("invoice_date")
+  dueDate                DateTime? @map("due_date")
+  confirmationReference  String   @map("confirmation_reference")
+
+  partyBillingName       String   @map("party_billing_name")
+  partyGstin             String?  @map("party_gstin")
+  partyPan               String?  @map("party_pan")
+  partyBillingAddress    String?  @map("party_billing_address") @db.Text
+  partyStateLabel        String?  @map("party_state_label")
+  partyGstStatus         String?  @map("party_gst_status")
+  partyTdsApplicable     Boolean  @map("party_tds_applicable")
+  partyTdsRatePercent    Float?   @map("party_tds_rate_percent")
+  partyDisplayName       String   @map("party_display_name")
+
+  taxableValue           Decimal  @map("taxable_value") @db.Decimal(18, 2)
+  gstRatePercent         Decimal  @map("gst_rate_percent") @db.Decimal(9, 4)
+  gstAmount              Decimal  @map("gst_amount") @db.Decimal(18, 2)
+  invoiceTotal           Decimal  @map("invoice_total") @db.Decimal(18, 2)
+  tdsRatePercent         Decimal? @map("tds_rate_percent") @db.Decimal(9, 4)
+  tdsAmount              Decimal  @map("tds_amount") @db.Decimal(18, 2)
+  netReceivable          Decimal  @map("net_receivable") @db.Decimal(18, 2)
+
+  /// draft | raised | shared | cancelled — Phase 1 Raise creates raised
+  documentStatus         String   @map("document_status")
+
+  raisedBy               String   @map("raised_by")
+  raisedAt               DateTime @map("raised_at")
+  cancelledAt            DateTime? @map("cancelled_at")
+  cancelledBy            String?  @map("cancelled_by")
+  cancellationReason     String?  @map("cancellation_reason") @db.Text
+  rowVersion             Int      @default(1) @map("row_version")
+  createdBy              String   @map("created_by")
+  updatedBy              String   @map("updated_by")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  accountingCase EnterpriseAccountingCase   @relation(fields: [accountingCaseId], references: [id], onDelete: Restrict)
+  deal           EnterpriseDeal             @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  invoiceParty   EnterpriseInvoiceParty     @relation(fields: [invoicePartyId], references: [id], onDelete: Restrict)
+  gstRate        EnterpriseAccountingGstRate @relation(fields: [gstRateId], references: [id], onDelete: Restrict)
+  payments       EnterpriseAccountingPayment[]
+  creditNotes    EnterpriseAccountingCreditNote[]
+
+  @@unique([organizationId, invoiceNumber], map: "eainv_org_number_key")
+  @@index([organizationId, documentStatus, invoiceDate(sort: Desc)], map: "eainv_org_status_date_idx")
+  @@index([organizationId, accountingCaseId], map: "eainv_org_case_idx")
+  @@index([dealId], map: "eainv_deal_idx")
+  @@map("enterprise_accounting_invoices")
+}
+
+/// Money actually received against an Invoice. Not a receivable ledger. Draft/voided do not affect outstanding.
+model EnterpriseAccountingPayment {
+  id               String    @id @default(cuid())
+  organizationId   String    @map("organization_id")
+  invoiceId        String    @map("invoice_id")
+  accountingCaseId String    @map("accounting_case_id")
+  dealId           String    @map("deal_id")
+  opportunityId    String?   @map("opportunity_id")
+  paymentDate      DateTime  @map("payment_date")
+  amount           Decimal   @map("amount") @db.Decimal(18, 2)
+  paymentReference String    @map("payment_reference")
+  paymentMode      String    @map("payment_mode")
+  /// draft | posted | voided — only posted affects outstanding
+  status           String
+  receivedBy       String    @map("received_by")
+  receivedAt       DateTime  @map("received_at")
+  notes            String?   @db.Text
+  voidedAt         DateTime? @map("voided_at")
+  voidedBy         String?   @map("voided_by")
+  voidReason       String?   @map("void_reason") @db.Text
+  rowVersion       Int       @default(1) @map("row_version")
+  createdBy        String    @map("created_by")
+  updatedBy        String    @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice        EnterpriseAccountingInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  accountingCase EnterpriseAccountingCase @relation(fields: [accountingCaseId], references: [id], onDelete: Restrict)
+  deal           EnterpriseDeal           @relation(fields: [dealId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, invoiceId, status], map: "eapmt_org_invoice_status_idx")
+  @@index([organizationId, paymentDate(sort: Desc)], map: "eapmt_org_date_idx")
+  @@index([dealId], map: "eapmt_deal_idx")
+  @@map("enterprise_accounting_payments")
+}
+
+/// Credit Note numbering — Organization × financial year. Not Invoice or Deal sequence.
+model EnterpriseAccountingCreditNoteNumberSequence {
+  organizationId   String   @map("organization_id")
+  financialYearKey String   @map("financial_year_key")
+  nextValue        Int      @default(1) @map("next_value")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@id([organizationId, financialYearKey], map: "eacns_org_fy_pk")
+  @@map("enterprise_accounting_credit_note_number_sequences")
+}
+
+/// Durable Credit Note. Reduces derived outstanding. Never mutates Invoice billed values.
+model EnterpriseAccountingCreditNote {
+  id               String   @id @default(cuid())
+  organizationId   String   @map("organization_id")
+  invoiceId        String   @map("invoice_id")
+  financialYearKey String   @map("financial_year_key")
+  sequenceNumber   Int      @map("sequence_number")
+  creditNoteNumber String   @map("credit_note_number")
+  creditNoteDate   DateTime @map("credit_note_date")
+  reason           String   @db.Text
+  taxableAmount    Decimal  @map("taxable_amount") @db.Decimal(18, 2)
+  gstRatePercent   Decimal  @map("gst_rate_percent") @db.Decimal(9, 4)
+  gstAmount        Decimal  @map("gst_amount") @db.Decimal(18, 2)
+  creditNoteAmount Decimal  @map("credit_note_amount") @db.Decimal(18, 2)
+  /// posted — cancellation is not implemented in this phase
+  status           String
+  issuedBy         String   @map("issued_by")
+  issuedAt         DateTime @map("issued_at")
+  rowVersion       Int      @default(1) @map("row_version")
+  createdBy        String   @map("created_by")
+  updatedBy        String   @map("updated_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  organization Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice      EnterpriseAccountingInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, creditNoteNumber], map: "eacn_org_number_key")
+  @@index([organizationId, invoiceId, status], map: "eacn_org_invoice_status_idx")
+  @@map("enterprise_accounting_credit_notes")
 }
 
 model EnterpriseDealSnapshot {

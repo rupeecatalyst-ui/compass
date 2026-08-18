@@ -203,6 +203,8 @@ export const marketingCampaignService = {
       routingPlaceholder?: MarketingRoutingPlaceholder;
       notificationPlaceholder?: MarketingNotificationPlaceholder;
       batchPolicy?: MarketingBatchPolicy | null;
+      senderIdentityId?: string | null;
+      whatsappTemplateId?: string | null;
       subject?: string;
       previewText?: string;
       content?: MarketingContentDocument;
@@ -267,7 +269,9 @@ export const marketingCampaignService = {
         input.schedulePlaceholder !== undefined ||
         input.routingPlaceholder !== undefined ||
         input.notificationPlaceholder !== undefined ||
-        input.batchPolicy !== undefined;
+        input.batchPolicy !== undefined ||
+        input.senderIdentityId !== undefined ||
+        input.whatsappTemplateId !== undefined;
       if (wantsMeta) {
         throw Object.assign(
           new Error(`Campaign metadata locked in status ${existing.status}`),
@@ -305,6 +309,12 @@ export const marketingCampaignService = {
     }
     if (input.batchPolicy !== undefined) {
       campaignPatch.batchPolicy = input.batchPolicy;
+    }
+    if (input.senderIdentityId !== undefined) {
+      campaignPatch.senderIdentityId = input.senderIdentityId;
+    }
+    if (input.whatsappTemplateId !== undefined) {
+      campaignPatch.whatsappTemplateId = input.whatsappTemplateId;
     }
     if (Object.keys(campaignPatch).length) {
       marketingCampaignStore.updateCampaign(campaignId, organizationId, campaignPatch);

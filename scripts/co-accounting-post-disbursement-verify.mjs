@@ -120,7 +120,30 @@ expect(
       item.schedule === "0 * * * *",
   ),
 );
-expect("No invoice table was introduced", !schema.includes("model EnterpriseInvoice "));
+expect(
+  "Generic EnterpriseInvoice model remains forbidden",
+  !schema.includes("model EnterpriseInvoice "),
+);
+expect(
+  "EnterpriseAccountingInvoice is the authorized invoice SSOT",
+  schema.includes("model EnterpriseAccountingInvoice ") &&
+    schema.includes("This is not an invoice entity"),
+);
+expect(
+  "Confirmation Received does not create an Accounting Invoice",
+  !confirmation.includes("enterpriseAccountingInvoice.create") &&
+    !confirmation.includes("enterpriseAccountingInvoice.upsert"),
+);
+expect(
+  "Disbursed Deal path does not create an Accounting Invoice",
+  !repository.includes("enterpriseAccountingInvoice.create") &&
+    !repository.includes("enterpriseAccountingInvoice.upsert"),
+);
+expect(
+  "Accounting Case remains distinct from Invoice",
+  schema.includes("model EnterpriseAccountingCase") &&
+    !/model EnterpriseAccountingCase[\s\S]{0,800}invoiceNumber/.test(schema),
+);
 
 for (const check of checks) {
   console.log(`${check.ok ? "PASS" : "FAIL"}: ${check.name}`);
