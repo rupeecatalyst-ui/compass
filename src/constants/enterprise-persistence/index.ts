@@ -42,10 +42,11 @@ export const ENTERPRISE_PERSISTENCE_MODE_ENV = "ENTERPRISE_PERSISTENCE_MODE" as 
 export type EnterprisePersistenceMode = "memory" | "prisma";
 
 export function resolveEnterprisePersistenceMode(): EnterprisePersistenceMode {
-  // Next.js only inlines literal `process.env.FOO` in client bundles — not dynamic keys.
-  const raw =
-    process.env.NEXT_PUBLIC_ENTERPRISE_PERSISTENCE_MODE ??
-    process.env.ENTERPRISE_PERSISTENCE_MODE;
+  // Server runtime must win. NEXT_PUBLIC_* is compile-time on the client; if it
+  // is inlined as "memory", `??` would never fall through to the runtime server var.
+  const server = process.env.ENTERPRISE_PERSISTENCE_MODE?.trim();
+  const pub = process.env.NEXT_PUBLIC_ENTERPRISE_PERSISTENCE_MODE?.trim();
+  const raw = server || pub;
   return raw === "prisma" ? "prisma" : "memory";
 }
 

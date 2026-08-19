@@ -118,10 +118,17 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   serverExternalPackages: ["bcryptjs", "jsonwebtoken", "@prisma/client"],
+  /**
+   * Do not bake ENTERPRISE_PERSISTENCE_MODE (or its NEXT_PUBLIC_ mirror) into `env`.
+   * Next.js `config.env` inlines values at BUILD TIME. Hostinger often injects
+   * Environment Variables only at process start; a missing/undefined value here
+   * previously compiled as `"memory"`, so runtime `prisma` was ignored and APIs
+   * returned PERSISTENCE_MODE_REQUIRED. Server code must read
+   * process.env.ENTERPRISE_PERSISTENCE_MODE at runtime. NEXT_PUBLIC_* is inlined
+   * by Next.js from the build environment when that variable is actually set.
+   */
   env: {
     CATALYST_DEMO_SEEDS_ENABLED: demoSeedsEnabled,
-    ENTERPRISE_PERSISTENCE_MODE: process.env.ENTERPRISE_PERSISTENCE_MODE ?? "memory",
-    NEXT_PUBLIC_ENTERPRISE_PERSISTENCE_MODE: process.env.ENTERPRISE_PERSISTENCE_MODE ?? "memory",
     ...buildIdentity,
   },
   images: {
