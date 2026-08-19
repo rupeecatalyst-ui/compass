@@ -13,10 +13,34 @@ if (typeof window !== "undefined") {
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
+/**
+ * Prisma Client uses DATABASE_URL (schema `url`). DIRECT_URL is migrations only.
+ *
+ * Supabase transaction pooler (host contains `pooler` and/or port 6543) is
+ * PgBouncer/Supavisor transaction mode. Prisma's query engine still emits
+ * named prepared statements (`s4`, …) unless `pgbouncer=true` is on the URL,
+ * which yields Postgres 42P05 "prepared statement already exists".
+ *
+ * Do not rewrite Hostinger env values; append the Prisma-supported flag when
+ * the runtime URL is a transaction pooler and the flag is missing.
+ */
+export function resolvePrismaRuntimeUrl(raw: string | undefined): string | undefined {
+  const url = raw?.trim();
+  if (!url) return raw;
+  const isTransactionPooler =
+    /:6543(?:\/|\?|$)/.test(url) || /pooler\.supabase\.com/i.test(url);
+  if (!isTransactionPooler) return url;
+  if (/[?&]pgbouncer=true(?:&|$)/i.test(url)) return url;
+  return url.includes("?") ? `${url}&pgbouncer=true` : `${url}?pgbouncer=true`;
+}
+
+const runtimeDatabaseUrl = resolvePrismaRuntimeUrl(process.env.DATABASE_URL);
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: serverEnv.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    ...(runtimeDatabaseUrl ? { datasources: { db: { url: runtimeDatabaseUrl } } } : {}),
     /**
      * CO-QA-005 — Align interactive transaction maxWait with Postgres pool_timeout
      * (Prisma default maxWait=2s < pool_timeout=10s → false "Unable to start a transaction").
