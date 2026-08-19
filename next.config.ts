@@ -91,6 +91,15 @@ const buildIdentity = resolveBuildIdentityEnv();
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  /**
+   * Hostinger Next.js (`app_type: next`) starts `.next/standalone/server.js`
+   * after a successful `next build`. Without standalone output, Hostinger
+   * reports "Deployment build failed" even when compilation succeeded
+   * ("Next.js build produced no standalone server or static output").
+   * Hostinger may inject this itself; declaring it here makes the contract
+   * explicit if their wrapper does not merge our config.
+   */
+  output: "standalone",
   /** CO-DEPLOY-BAT-008 / CO-DEPLOY-LENDER-001 — Cap workers on Vercel 8GB builders to avoid OOM SIGKILL. */
   experimental: {
     cpus: 1,
