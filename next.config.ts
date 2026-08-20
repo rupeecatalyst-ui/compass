@@ -18,6 +18,8 @@ function tryGit(command: string): string {
     return execSync(`git ${command}`, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
+      /** Prevent hung git/credential helpers from blocking `next build` indefinitely. */
+      timeout: 8_000,
     }).trim();
   } catch {
     return "";
@@ -100,6 +102,35 @@ const nextConfig: NextConfig = {
    * explicit if their wrapper does not merge our config.
    */
   output: "standalone",
+  /**
+   * Prevent shared CDN from caching HTML documents for a year (Next default
+   * s-maxage=31536000 on prerender). Stale HTML + new /_next/static hashes ⇒
+   * ChunkLoadError / blank app on Hostinger.
+   * Document routes: private + no-store. Versioned /_next/static: immutable.
+   */
+  async headers() {
+    return [
+      {
+        // HTML / app documents only — exclude versioned static, images, and file assets
+        source: "/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-cache, no-store, max-age=0, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
   /** CO-DEPLOY-BAT-008 / CO-DEPLOY-LENDER-001 — Cap workers on Vercel 8GB builders to avoid OOM SIGKILL. */
   experimental: {
     cpus: 1,
