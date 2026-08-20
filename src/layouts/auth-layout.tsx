@@ -1,8 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
 import Link from "next/link";
-import { pageVariants } from "@/lib/animations";
 import { siteConfig } from "@/config/site";
 import { RupeeCatalystLogo } from "@/components/branding/rupee-catalyst-logo";
 import { AuthCompassHero } from "@/components/auth/auth-compass-hero";
@@ -68,14 +66,9 @@ export function AuthLayout({
         </p>
       </aside>
 
-      {/* Right panel — Catalyst One auth */}
+      {/* Right panel — always visible (no opacity:0 entry animation; login must SSR readable). */}
       <div className="flex items-center justify-center bg-[var(--auth-panel)] px-4 py-8 sm:px-8 sm:py-12 dark:bg-background">
-        <motion.div
-          variants={pageVariants}
-          initial="initial"
-          animate="animate"
-          className={cn("w-full space-y-7", wide ? "max-w-xl" : "max-w-md")}
-        >
+        <div className={cn("w-full space-y-7", wide ? "max-w-xl" : "max-w-md")}>
           <div className="space-y-3 lg:hidden">
             <div className="flex justify-center">
               <AuthCompassHero className="!w-[148px] !h-[148px]" />
@@ -128,7 +121,7 @@ export function AuthLayout({
               Secure enterprise access · Rupee Catalyst
             </p>
           )}
-        </motion.div>
+        </div>
       </div>
     </div>
   );
