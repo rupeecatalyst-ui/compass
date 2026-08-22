@@ -11,7 +11,7 @@ import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 import { StrategicTabToolbar } from "./strategic-tab-toolbar";
 
 export function WorkspaceDialoguePanel() {
-  const { opportunityId, contact } = useOpportunityWorkspace();
+  const { opportunityId, contact, setFocus } = useOpportunityWorkspace();
 
   if (!opportunityId) {
     return (
@@ -29,6 +29,7 @@ export function WorkspaceDialoguePanel() {
       />
       <TransactionActivityTimeline
         scope={{ mode: "opportunity", opportunityId }}
+        onClose={() => setFocus("overview")}
         notesContext={{
           workspaceKind: "opportunity",
           entityKind: "opportunity",

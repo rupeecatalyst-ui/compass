@@ -35,7 +35,10 @@ export function WorkspaceQuickActions() {
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
         {ACTIONS.map((action) => {
           const Icon = action.icon;
-          const active = focus === action.focus;
+          const active =
+            focus === action.focus ||
+            (action.focus === "dialogue" && focus === "timeline") ||
+            (action.focus === "timeline" && focus === "dialogue");
           return (
             <button
               key={action.focus}

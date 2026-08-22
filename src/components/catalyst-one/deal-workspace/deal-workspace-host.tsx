@@ -57,6 +57,14 @@ export function DealWorkspaceHost() {
   /** CO-C1-DIALOGUE-002A — load EAR timeline only when expanded (progressive). */
   const [timelineOpen, setTimelineOpen] = useState(false);
 
+  const toggleActivityTimeline = useCallback(() => {
+    setTimelineOpen((open) => !open);
+  }, []);
+
+  const closeActivityTimeline = useCallback(() => {
+    setTimelineOpen(false);
+  }, []);
+
   const reloadRuntime = useCallback(async (dealId: string) => {
     const next = await loadDealPipelineRuntime(dealId);
     setRuntime(next);
@@ -404,7 +412,8 @@ export function DealWorkspaceHost() {
                   "Lender / stage filters will open here in a later sprint.",
               })
             }
-            onViewActivity={() => setTimelineOpen(true)}
+            onViewActivity={toggleActivityTimeline}
+            activityTimelineOpen={timelineOpen}
           />
         }
       >
@@ -479,6 +488,7 @@ export function DealWorkspaceHost() {
           </div>
           {/* CO-C1-DIALOGUE-002A — EAR Activity Timeline (lazy; no sibling leakage) */}
           <details
+            id="deal-activity-timeline-panel"
             className="shrink-0 rounded-md border border-teal-500/25 bg-card/40 open:pb-1"
             open={timelineOpen}
             data-deal-activity-timeline=""
@@ -494,6 +504,7 @@ export function DealWorkspaceHost() {
               <TransactionActivityTimeline
                 compact
                 active={timelineOpen}
+                onClose={closeActivityTimeline}
                 scope={{
                   mode: "deal",
                   dealId: activeDealId || dealIdParam,

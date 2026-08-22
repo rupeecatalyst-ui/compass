@@ -132,7 +132,8 @@ function OpportunityWorkspaceShell() {
     };
     const next = map[focus];
     if (next) setTab(next);
-  }, [focus]);
+    else if (focus === "overview" && tab === "timeline") setTab("overview");
+  }, [focus, tab]);
 
   const activeLoan = useMemo(() => {
     // FS-01 — Opportunity projection (leadCaseFile) is runtime authority.

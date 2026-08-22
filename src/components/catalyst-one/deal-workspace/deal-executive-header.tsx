@@ -36,6 +36,7 @@ export function DealExecutiveHeader({
   onViewOptions,
   onFilters,
   onViewActivity,
+  activityTimelineOpen = false,
   dealCount,
 }: {
   runtime: DealPipelineRuntime;
@@ -52,6 +53,7 @@ export function DealExecutiveHeader({
   onViewOptions?: () => void;
   onFilters?: () => void;
   onViewActivity?: () => void;
+  activityTimelineOpen?: boolean;
   dealCount?: number;
 }) {
   const { context, deal, siblingDeals } = runtime;
@@ -229,9 +231,11 @@ export function DealExecutiveHeader({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant={activityTimelineOpen ? "secondary" : "outline"}
               className="h-7 gap-1 px-1.5 text-[10px]"
               data-deal-activity-action=""
+              aria-expanded={activityTimelineOpen}
+              aria-controls="deal-activity-timeline-panel"
               onClick={onViewActivity}
             >
               <History className="h-3 w-3" aria-hidden />

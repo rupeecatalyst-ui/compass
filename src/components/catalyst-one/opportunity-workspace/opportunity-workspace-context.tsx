@@ -963,6 +963,13 @@ export function OpportunityWorkspaceProvider({
 
   const activateQuickAction = useCallback(
     (nextFocus: WorkspaceFocus) => {
+      if (
+        (nextFocus === "dialogue" || nextFocus === "timeline") &&
+        (focus === "dialogue" || focus === "timeline")
+      ) {
+        setFocus("overview");
+        return;
+      }
       setFocus(nextFocus);
       if (!opportunityId) return;
       const intentMap: Partial<Record<WorkspaceFocus, WorkspaceQuickIntent>> = {
@@ -977,7 +984,7 @@ export function OpportunityWorkspaceProvider({
       if (intent) placeholderSetQuickIntent(opportunityId, intent);
       refresh();
     },
-    [opportunityId, refresh],
+    [focus, opportunityId, refresh],
   );
 
   const lastPlaceholderStatus = opportunityId

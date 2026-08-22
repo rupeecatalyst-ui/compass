@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, UserRound, Cog } from "lucide-react";
+import { RefreshCw, UserRound, Cog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,6 +34,8 @@ type Props = {
   description?: string;
   /** When false, skip network load (Deal collapsible closed). */
   active?: boolean;
+  /** When set, shows a top-right Close control and enables Escape to dismiss. */
+  onClose?: () => void;
 };
 
 function categoryTone(category: TransactionTimelineItem["category"]): string {
@@ -77,6 +79,7 @@ export function TransactionActivityTimeline({
   title = "Activity Timeline",
   description = "Chronological work history for this transaction.",
   active = true,
+  onClose,
 }: Props) {
   const [items, setItems] = useState<TransactionTimelineItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -138,6 +141,17 @@ export function TransactionActivityTimeline({
     });
   }, [refresh, active]);
 
+  useEffect(() => {
+    if (!active || !onClose) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [active, onClose]);
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((item) => {
@@ -186,6 +200,18 @@ export function TransactionActivityTimeline({
         <div className="flex flex-wrap items-center gap-1.5">
           {notesContext ? (
             <BusinessNotesActionButton context={notesContext} onSaved={() => void refresh()} />
+          ) : null}
+          {onClose ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+              onClick={onClose}
+              aria-label="Close Activity Timeline"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </Button>
           ) : null}
           <Button
             type="button"
