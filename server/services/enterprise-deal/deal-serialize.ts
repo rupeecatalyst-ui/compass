@@ -11,6 +11,7 @@ import type {
   EnterpriseDealTimelineEvent,
   Prisma,
 } from "@prisma/client";
+import { hydrateTransactionContactIdentity } from "@server/services/ecm/contact-ssot-propagate";
 
 function decimalToNumber(value: Prisma.Decimal | number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
@@ -153,6 +154,30 @@ export function serializeDeal(deal: EnterpriseDeal) {
     deletedAt: iso(deal.deletedAt),
     deletedBy: deal.deletedBy,
     deletionReason: deal.deletionReason,
+  };
+}
+
+/** ECM Contact SSOT — hydrate identity mirrors for API responses. */
+export async function serializeDealWithContactSsot(deal: EnterpriseDeal) {
+  const base = serializeDeal(deal);
+  const identity = await hydrateTransactionContactIdentity({
+    organizationId: deal.organizationId,
+    primaryContactId: deal.primaryContactId,
+    denorm: {
+      primaryContactName: deal.primaryContactName,
+      primaryContactMobile: deal.primaryContactMobile,
+      primaryContactEmail: deal.primaryContactEmail,
+      cityLabel: deal.cityLabel,
+      stateLabel: deal.stateLabel,
+    },
+  });
+  return {
+    ...base,
+    primaryContactName: identity.primaryContactName,
+    primaryContactMobile: identity.primaryContactMobile,
+    primaryContactEmail: identity.primaryContactEmail,
+    cityLabel: identity.cityLabel,
+    stateLabel: identity.stateLabel,
   };
 }
 

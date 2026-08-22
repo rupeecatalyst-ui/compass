@@ -7,11 +7,13 @@ import {
   enterpriseDealRepository,
   type CreateEnterpriseDealInput,
 } from "@server/repositories/enterprise-deal";
+import { syncContactIdentityPatchToEcm } from "@server/services/ecm/contact-ssot-propagate";
 import {
   serializeActivity,
   serializeCounterparty,
   serializeDeal,
   serializeDealSummary,
+  serializeDealWithContactSsot,
   serializeDocumentLink,
   serializeSnapshot,
   serializeTask,
@@ -259,13 +261,13 @@ export class EnterpriseDealService {
       /* fail-open */
     }
 
-    return serializeDeal(deal);
+    return await serializeDealWithContactSsot(deal);
   }
 
   async getDeal(dealId: string, include: DealIncludeOption[] = []) {
     const organizationId = await this.orgId();
     const deal = await enterpriseDealRepository.requireDeal(organizationId, dealId);
-    const base = serializeDeal(deal);
+    const base = await serializeDealWithContactSsot(deal);
     let opportunityNumber: string | null = null;
     if (deal.opportunityId) {
       const opportunity = await prisma.enterpriseOpportunity.findFirst({
@@ -318,10 +320,12 @@ export class EnterpriseDealService {
         organizationId,
         deal.opportunityId,
       );
-      extras.siblings = siblingRows.map((row) => ({
-        ...serializeDeal(row),
-        opportunityNumber,
-      }));
+      extras.siblings = await Promise.all(
+        siblingRows.map(async (row) => ({
+          ...(await serializeDealWithContactSsot(row)),
+          opportunityNumber,
+        })),
+      );
     }
     return { ...withOpp, ...extras };
   }
@@ -345,6 +349,17 @@ export class EnterpriseDealService {
     assertRowVersion(input.rowVersion);
 
     const existing = await enterpriseDealRepository.requireDeal(organizationId, dealId);
+    await syncContactIdentityPatchToEcm({
+      organizationId,
+      primaryContactId: existing.primaryContactId,
+      primaryBorrowerKind: existing.companyId ? "company" : "individual",
+      body: {
+        primaryContactName: input.primaryContactName,
+        primaryContactMobile: input.primaryContactMobile,
+        primaryContactEmail: input.primaryContactEmail,
+      },
+      actorUserId: input.actorUserId,
+    });
     if (
       existing.grossStage === POST_DISBURSEMENT_CONFIRMATION_STAGE &&
       input.subStage !== undefined
@@ -575,7 +590,7 @@ export class EnterpriseDealService {
       }
     });
 
-    return serializeDeal(updated);
+    return await serializeDealWithContactSsot(updated);
   }
 
   async softDeleteDeal(
@@ -605,7 +620,7 @@ export class EnterpriseDealService {
       isDeleted: updated.isDeleted,
       deletedAt: updated.deletedAt?.toISOString?.() ?? updated.deletedAt,
     });
-    return serializeDeal(updated);
+    return await serializeDealWithContactSsot(updated);
   }
 
   async archiveDeal(dealId: string, actorUserId: string, reason?: string | null) {
@@ -616,7 +631,7 @@ export class EnterpriseDealService {
       actorUserId,
       reason,
     });
-    return serializeDeal(updated);
+    return await serializeDealWithContactSsot(updated);
   }
 
   async restoreDeal(
@@ -633,7 +648,7 @@ export class EnterpriseDealService {
       actorName,
       reason,
     });
-    return serializeDeal(updated);
+    return await serializeDealWithContactSsot(updated);
   }
 
   async transitionDeal(dealId: string, input: TransitionDealInput) {
@@ -689,7 +704,7 @@ export class EnterpriseDealService {
       }
     }
 
-    return serializeDeal(updated);
+    return await serializeDealWithContactSsot(updated);
   }
 
   async listTimeline(dealId: string, take = 50) {

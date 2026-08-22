@@ -3,6 +3,8 @@
  */
 import type { EnterpriseOpportunity, Prisma } from "@prisma/client";
 import { hasRequirementCaptureFields } from "@/constants/opportunity-lifecycle";
+import type { TransactionContactIdentityFields } from "@server/services/ecm/contact-ssot-propagate";
+import { hydrateTransactionContactIdentity } from "@server/services/ecm/contact-ssot-propagate";
 
 function decimalToNumber(value: Prisma.Decimal | number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
@@ -17,6 +19,21 @@ function iso(value: Date | null | undefined): string | null {
 
 export function serializeOpportunity(row: EnterpriseOpportunity) {
   const requestedAmount = decimalToNumber(row.requestedAmount);
+  return buildSerializedOpportunity(row, requestedAmount);
+}
+
+function buildSerializedOpportunity(
+  row: EnterpriseOpportunity,
+  requestedAmount: number | null,
+  identity?: TransactionContactIdentityFields,
+) {
+  const contactIdentity = identity ?? {
+    primaryContactName: row.primaryContactName,
+    primaryContactMobile: row.primaryContactMobile,
+    primaryContactEmail: row.primaryContactEmail,
+    cityLabel: row.cityLabel,
+    stateLabel: row.stateLabel,
+  };
   return {
     id: row.id,
     organizationId: row.organizationId,
@@ -46,15 +63,15 @@ export function serializeOpportunity(row: EnterpriseOpportunity) {
     teamId: row.teamId,
     branchId: row.branchId,
     primaryContactId: row.primaryContactId,
-    primaryContactName: row.primaryContactName,
-    primaryContactMobile: row.primaryContactMobile,
-    primaryContactEmail: row.primaryContactEmail,
+    primaryContactName: contactIdentity.primaryContactName,
+    primaryContactMobile: contactIdentity.primaryContactMobile,
+    primaryContactEmail: contactIdentity.primaryContactEmail,
     primaryBorrowerKind: row.primaryBorrowerKind,
     companyId: row.companyId,
     companyName: row.companyName,
     employmentTypeCode: row.employmentTypeCode,
-    cityLabel: row.cityLabel,
-    stateLabel: row.stateLabel,
+    cityLabel: contactIdentity.cityLabel,
+    stateLabel: contactIdentity.stateLabel,
     currencyCode: row.currencyCode,
     requestedAmount,
     /** ADR-018 — Product + Required Amount gate (field-based). */
@@ -83,4 +100,20 @@ export function serializeOpportunity(row: EnterpriseOpportunity) {
     updatedAt: iso(row.updatedAt),
     isDeleted: row.isDeleted,
   };
+}
+
+export async function serializeOpportunityWithContactSsot(row: EnterpriseOpportunity) {
+  const requestedAmount = decimalToNumber(row.requestedAmount);
+  const identity = await hydrateTransactionContactIdentity({
+    organizationId: row.organizationId,
+    primaryContactId: row.primaryContactId,
+    denorm: {
+      primaryContactName: row.primaryContactName,
+      primaryContactMobile: row.primaryContactMobile,
+      primaryContactEmail: row.primaryContactEmail,
+      cityLabel: row.cityLabel,
+      stateLabel: row.stateLabel,
+    },
+  });
+  return buildSerializedOpportunity(row, requestedAmount, identity);
 }

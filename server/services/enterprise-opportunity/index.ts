@@ -30,7 +30,11 @@ import {
 } from "@server/repositories/enterprise-opportunity";
 import { resolveCommercialRevenueSharePercent } from "@/lib/enterprise-commercial-participation";
 import { isWealthPartnerBusinessSource } from "@/constants/opportunity-business-source";
-import { serializeOpportunity } from "@server/services/enterprise-opportunity/opportunity-serialize";
+import {
+  serializeOpportunity,
+  serializeOpportunityWithContactSsot,
+} from "@server/services/enterprise-opportunity/opportunity-serialize";
+import { syncContactIdentityPatchToEcm } from "@server/services/ecm/contact-ssot-propagate";
 import { emitOpportunityLifecycleToEarBestEffort } from "@server/services/enterprise-activity/opportunity-lifecycle-ear";
 import {
   assertNonEmpty,
@@ -147,7 +151,7 @@ export class EnterpriseOpportunityService {
       primaryContactId,
       productUniquenessKey,
     );
-    return row ? serializeOpportunity(row) : null;
+    return row ? await serializeOpportunityWithContactSsot(row) : null;
   }
 
   /**
@@ -173,7 +177,7 @@ export class EnterpriseOpportunityService {
       companyId,
       productUniquenessKey,
     );
-    return row ? serializeOpportunity(row) : null;
+    return row ? await serializeOpportunityWithContactSsot(row) : null;
   }
 
   /**
@@ -228,7 +232,7 @@ export class EnterpriseOpportunityService {
               primaryContactId!,
             );
         if (openDialogue) {
-          return serializeOpportunity(openDialogue);
+          return await serializeOpportunityWithContactSsot(openDialogue);
         }
         return await this.createOpportunityUnlocked(body, actorUserId, {
           organizationId,
@@ -501,7 +505,7 @@ export class EnterpriseOpportunityService {
         contactId: created.primaryContactId ?? null,
         occurredAt: created.createdAt,
       });
-      return serializeOpportunity(created);
+      return await serializeOpportunityWithContactSsot(created);
     } catch (err) {
       if (!asDialogue && productUniquenessKey) {
         const again =
@@ -547,7 +551,7 @@ export class EnterpriseOpportunityService {
       organizationId,
       primaryContactId,
     );
-    return row ? serializeOpportunity(row) : null;
+    return row ? await serializeOpportunityWithContactSsot(row) : null;
   }
 
   /**
@@ -560,7 +564,7 @@ export class EnterpriseOpportunityService {
       organizationId,
       companyId,
     );
-    return row ? serializeOpportunity(row) : null;
+    return row ? await serializeOpportunityWithContactSsot(row) : null;
   }
 
   /**
@@ -862,6 +866,14 @@ export class EnterpriseOpportunityService {
     }
 
     try {
+      await syncContactIdentityPatchToEcm({
+        organizationId,
+        primaryContactId: existing.primaryContactId,
+        primaryBorrowerKind: existing.primaryBorrowerKind,
+        body,
+        actorUserId,
+      });
+
       const updated = await enterpriseOpportunityRepository.updateOpportunity(
         organizationId,
         opportunityId,
@@ -883,7 +895,7 @@ export class EnterpriseOpportunityService {
           occurredAt: updated.updatedAt,
         });
       }
-      return serializeOpportunity(updated);
+      return await serializeOpportunityWithContactSsot(updated);
     } catch (err) {
       if (willEnterUniqueness && nextKey) {
         const message = err instanceof Error ? err.message : String(err);
@@ -927,7 +939,7 @@ export class EnterpriseOpportunityService {
       organizationId,
       opportunityId,
     );
-    return serializeOpportunity(row);
+    return await serializeOpportunityWithContactSsot(row);
   }
 
   async searchOpportunities(query: {
@@ -957,7 +969,9 @@ export class EnterpriseOpportunityService {
     });
     return {
       ...result,
-      items: result.items.map(serializeOpportunity),
+      items: await Promise.all(
+        result.items.map((row) => serializeOpportunityWithContactSsot(row)),
+      ),
     };
   }
 
@@ -1128,7 +1142,7 @@ export class EnterpriseOpportunityService {
         occurredAt: row.updatedAt,
       });
     }
-    return serializeOpportunity(row);
+    return await serializeOpportunityWithContactSsot(row);
   }
 
   /**
@@ -1143,7 +1157,7 @@ export class EnterpriseOpportunityService {
     );
     const current = (existing.lifecycleStatus || "").toLowerCase();
     if (["completed", "won", "lost", "cancelled", "archived"].includes(current)) {
-      return serializeOpportunity(existing);
+      return await serializeOpportunityWithContactSsot(existing);
     }
 
     const { enterpriseDealRepository } = await import(
@@ -1154,7 +1168,7 @@ export class EnterpriseOpportunityService {
       opportunityId,
     );
     if (deals.length === 0) {
-      return serializeOpportunity(existing);
+      return await serializeOpportunityWithContactSsot(existing);
     }
 
     const stages = deals.map((d) => (d.grossStage || "").toLowerCase());
@@ -1190,7 +1204,7 @@ export class EnterpriseOpportunityService {
           occurredAt: row.updatedAt,
         });
       }
-      return serializeOpportunity(row);
+      return await serializeOpportunityWithContactSsot(row);
     }
 
     if (allLost) {
@@ -1214,7 +1228,7 @@ export class EnterpriseOpportunityService {
           occurredAt: row.updatedAt,
         });
       }
-      return serializeOpportunity(row);
+      return await serializeOpportunityWithContactSsot(row);
     }
 
     if (current !== "converted_to_deal") {
@@ -1236,10 +1250,10 @@ export class EnterpriseOpportunityService {
           occurredAt: row.updatedAt,
         });
       }
-      return serializeOpportunity(row);
+      return await serializeOpportunityWithContactSsot(row);
     }
 
-    return serializeOpportunity(existing);
+    return await serializeOpportunityWithContactSsot(existing);
   }
 
   async softDelete(opportunityId: string, actorUserId: string, reason?: string) {
@@ -1250,7 +1264,7 @@ export class EnterpriseOpportunityService {
       actorUserId,
       reason,
     );
-    return serializeOpportunity(row);
+    return await serializeOpportunityWithContactSsot(row);
   }
 }
 

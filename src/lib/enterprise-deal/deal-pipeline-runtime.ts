@@ -61,7 +61,8 @@ export function dealToLenderExecution(
     lenderRef: deal.lenderId ? `lender:${deal.lenderId}` : derived?.lenderRef || undefined,
     lenderProgramId: deal.lenderProgramId ?? undefined,
     opportunityId: deal.opportunityId ?? derived?.opportunityId ?? undefined,
-    expectedLoanAmount: derived?.expectedLoanAmount ?? deal.requestedAmount ?? undefined,
+    expectedLoanAmount:
+      deal.requestedAmount ?? derived?.expectedLoanAmount ?? undefined,
     product: derived?.product || deal.productLabel || undefined,
     // CO-LR-013 — Sales contact link from derived snapshot
     lenderSalesContactId: derived?.lenderSalesContactId ?? undefined,
@@ -117,7 +118,8 @@ export function buildDerivedSingleLenderSnapshot(
         lenderRef: lender.lenderRef ?? null,
         isPrimary: Boolean(lender.isPrimary),
         opportunityId: lender.opportunityId ?? deal.opportunityId ?? null,
-        expectedLoanAmount: lender.expectedLoanAmount,
+        expectedLoanAmount:
+          lender.expectedLoanAmount ?? deal.requestedAmount ?? null,
         product: lender.product,
         enterpriseDealId: deal.id,
         // CO-LR-013
@@ -169,9 +171,10 @@ function toRuntime(
     siblingDeals.length > 0
       ? siblingDeals
       : [anchor];
+  const resolvedAnchor = deals.find((d) => d.id === anchor.id) ?? anchor;
   return {
-    deal: deals.find((d) => d.id === anchor.id) ?? anchor,
-    context: toDealPipelineContext(anchor),
+    deal: resolvedAnchor,
+    context: toDealPipelineContext(resolvedAnchor),
     lenders: deals.map((deal) => dealToLenderExecution(deal)),
     siblingDeals: deals,
   };
@@ -550,6 +553,12 @@ export async function removeLenderPipelineDeal(
   return next;
 }
 
+function dealAmountNumber(value: unknown): number | null {
+  if (value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n) : null;
+}
+
 /**
  * Persist Pipeline stage/field changes per EnterpriseDeal (not multi-lender snapshot).
  * CO-QA-002 — Also soft-deletes Enterprise Deals removed from the Kanban (ghost-card fix).
@@ -628,19 +637,19 @@ export async function persistDealPipelineLenders(
     const lenderAligned: LoanLenderExecution = {
       ...lender,
       caseStage: grossStageToLenderCaseStage(current.grossStage),
+      expectedLoanAmount:
+        dealAmountNumber(lender.expectedLoanAmount) ??
+        dealAmountNumber(current.requestedAmount) ??
+        lender.expectedLoanAmount,
     };
 
-    const nextRequestedAmount =
-      lender.expectedLoanAmount != null && lender.expectedLoanAmount > 0
-        ? lender.expectedLoanAmount
-        : undefined;
+    const nextRequestedAmount = dealAmountNumber(lender.expectedLoanAmount);
 
     const updated = await enterpriseDealApiClient.updateDeal(dealId, {
       rowVersion,
       snapshot: buildDerivedSingleLenderSnapshot(current, lenderAligned),
       primaryCounterpartyName: lender.lender,
-      ...(nextRequestedAmount !== undefined &&
-      current.requestedAmount !== nextRequestedAmount
+      ...(nextRequestedAmount != null && nextRequestedAmount > 0
         ? { requestedAmount: nextRequestedAmount }
         : {}),
       reason: "deal_pipeline_derived_snapshot",

@@ -285,8 +285,8 @@ function OpportunityWorkspaceShell() {
     [registryOpportunity],
   );
   const headerBorrowerName =
-    borrowerIdentity.displayName.trim() ||
     contact?.name?.trim() ||
+    borrowerIdentity.displayName.trim() ||
     "";
   /** Compact Opportunity Header — single information row (Registry SSOT only). */
   const identityLine = [

@@ -91,8 +91,8 @@ export function OpportunityCreationStage({
     : null;
   const borrower = opp ? resolveOpportunityBorrowerIdentity(opp) : null;
   const customerName =
-    borrower?.displayName ||
     (!companyBorrower ? contact?.name?.trim() : "") ||
+    borrower?.displayName ||
     "Not Specified";
   const product =
     opp?.productLabel?.trim() ||
