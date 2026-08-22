@@ -37,6 +37,7 @@ export const EAR_SOURCE_SYSTEMS = {
   WORKFLOW: "workflow",
   MANUAL: "manual",
   BUSINESS_NOTES: "business_notes",
+  INBOUND_EMAIL: "inbound_email",
 } as const satisfies Record<string, EnterpriseActivitySourceSystem>;
 
 /** Map EDC event types → EAR event kinds. */

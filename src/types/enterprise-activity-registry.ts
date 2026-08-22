@@ -31,7 +31,8 @@ export type EnterpriseActivitySourceSystem =
   | "partner"
   | "workflow"
   | "manual"
-  | "business_notes";
+  | "business_notes"
+  | "inbound_email";
 
 export interface EnterpriseActivityEvent {
   id: string;

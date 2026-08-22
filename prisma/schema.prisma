@@ -257,6 +257,9 @@ model Organization {
   enterpriseActivityEvents                 EnterpriseActivityEvent[]
   /// CO-NOTIFICATION-001 — Enterprise Notification Engine (in-app delivery SSOT)
   enterpriseNotifications                  EnterpriseNotification[]
+  /// CO-C1-COMMUNICATION-002 — Inbound operational mailbox ingestion ledger
+  enterpriseInboundEmailMessages           EnterpriseInboundEmailMessage[]
+  enterpriseInboundEmailAttachments        EnterpriseInboundEmailAttachment[]
   /// CO-UX-021 — Enterprise Business Notes (official business chronology notes)
   enterpriseBusinessNotes                  EnterpriseBusinessNote[]
   /// CO-ORG-001 — Enterprise Organization Workspace (durable backend)
@@ -643,6 +646,66 @@ model EnterpriseNotification {
   @@index([organizationId, recipientPartnerId, occurredAt(sort: Desc)], map: "ene_org_partner_occurred_idx")
   @@index([organizationId, readState, occurredAt(sort: Desc)], map: "ene_org_read_occurred_idx")
   @@map("enterprise_notifications")
+}
+
+/// CO-C1-COMMUNICATION-002 — Inbound operational mailbox message ledger (idempotent ingestion SSOT).
+model EnterpriseInboundEmailMessage {
+  id                    String    @id @default(cuid())
+  organizationId        String    @map("organization_id")
+  messageId             String    @map("message_id")
+  inReplyTo             String?   @map("in_reply_to")
+  referencesHeader      String?   @map("references_header") @db.Text
+  fromEmail             String    @map("from_email")
+  fromName              String?   @map("from_name")
+  toEmailsJson          Json      @map("to_emails_json")
+  ccEmailsJson          Json?     @map("cc_emails_json")
+  replyToEmail          String?   @map("reply_to_email")
+  subject               String    @db.Text
+  textBody              String?   @map("text_body") @db.Text
+  receivedAt            DateTime  @map("received_at")
+  senderRole            String?   @map("sender_role")
+  matchStatus           String    @default("received") @map("match_status")
+  matchReason           String?   @map("match_reason")
+  opportunityId         String?   @map("opportunity_id")
+  dealId                String?   @map("deal_id")
+  contactId             String?   @map("contact_id")
+  outboundSourceEventId String?   @map("outbound_source_event_id")
+  attachmentCount       Int       @default(0) @map("attachment_count")
+  processedAt           DateTime? @map("processed_at")
+  failureReason         String?   @map("failure_reason") @db.Text
+  sourceMailbox         String?   @map("source_mailbox")
+  imapUid               String?   @map("imap_uid")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  attachments  EnterpriseInboundEmailAttachment[]
+
+  @@unique([organizationId, messageId], map: "eie_org_message_uidx")
+  @@index([organizationId, matchStatus, receivedAt(sort: Desc)], map: "eie_org_status_received_idx")
+  @@index([organizationId, opportunityId], map: "eie_org_opp_idx")
+  @@index([organizationId, dealId], map: "eie_org_deal_idx")
+  @@map("enterprise_inbound_email_messages")
+}
+
+/// CO-C1-COMMUNICATION-002 — Inbound email attachment ledger (links to Document Registry).
+model EnterpriseInboundEmailAttachment {
+  id               String   @id @default(cuid())
+  organizationId   String   @map("organization_id")
+  inboundEmailId   String   @map("inbound_email_id")
+  filename         String
+  mimeType         String   @map("mime_type")
+  sizeBytes        Int      @map("size_bytes")
+  contentHash      String   @map("content_hash")
+  documentId       String?  @map("document_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  inboundEmail EnterpriseInboundEmailMessage @relation(fields: [inboundEmailId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, inboundEmailId, contentHash], map: "eie_attach_hash_uidx")
+  @@index([organizationId, documentId], map: "eie_attach_doc_idx")
+  @@map("enterprise_inbound_email_attachments")
 }
 
 /// CO-UX-021 — Enterprise Business Notes (official business context; soft-delete only).
