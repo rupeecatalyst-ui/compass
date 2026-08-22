@@ -308,8 +308,8 @@ export function EnterpriseCommunicationCenterAdmin() {
                 <Label>Provider credential</Label>
                 <p className="text-xs text-muted-foreground">
                   {draft.smtpCredentialConfigured
-                    ? "A credential is configured. Its value is never returned to this UI."
-                    : "Not configured. Credential entry remains withheld until an approved secure-secret connector is available."}
+                    ? "Server environment credential is configured. The secret is never returned to this UI."
+                    : "Configure ECC_CUSTOMERS_SMTP_PASSWORD on the Hostinger server environment. Passwords are not stored in Git or the browser."}
                 </p>
               </div>
             </CardContent>

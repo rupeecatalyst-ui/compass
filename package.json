@@ -86,6 +86,7 @@
     "verify:co-wp-002": "node scripts/co-wp-002-verify.mjs",
     "verify:co-inv-001": "node scripts/co-inv-001-verify.mjs",
     "verify:co-ecc-001": "node scripts/co-ecc-001-verify.mjs",
+    "verify:co-ecc-recipient-router-001": "npx tsx scripts/co-ecc-recipient-router-001-verify.mts",
     "verify:co-wp-007": "node scripts/co-wp-007-verify.mjs",
     "verify:co-wp-102": "node scripts/co-wp-102-verify.mjs",
     "verify:co-wp-access-001": "node --import tsx scripts/co-wp-access-001-verify.mjs",

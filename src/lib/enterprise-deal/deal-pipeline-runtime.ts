@@ -630,10 +630,19 @@ export async function persistDealPipelineLenders(
       caseStage: grossStageToLenderCaseStage(current.grossStage),
     };
 
+    const nextRequestedAmount =
+      lender.expectedLoanAmount != null && lender.expectedLoanAmount > 0
+        ? lender.expectedLoanAmount
+        : undefined;
+
     const updated = await enterpriseDealApiClient.updateDeal(dealId, {
       rowVersion,
       snapshot: buildDerivedSingleLenderSnapshot(current, lenderAligned),
       primaryCounterpartyName: lender.lender,
+      ...(nextRequestedAmount !== undefined &&
+      current.requestedAmount !== nextRequestedAmount
+        ? { requestedAmount: nextRequestedAmount }
+        : {}),
       reason: "deal_pipeline_derived_snapshot",
     });
     patchedById.set(dealId, updated);

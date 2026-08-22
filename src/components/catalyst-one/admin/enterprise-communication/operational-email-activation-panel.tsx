@@ -92,7 +92,55 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
   const [recipient, setRecipient] = useState("");
   const [testProfile, setTestProfile] = useState<string>(selectedCode || "CUSTOMERS");
   const [sending, setSending] = useState(false);
+  const [probing, setProbing] = useState(false);
   const [lastResult, setLastResult] = useState<TestResult | null>(null);
+  const [lastProbe, setLastProbe] = useState<{
+    ok: boolean;
+    message: string;
+    timestamp: string;
+  } | null>(null);
+
+  async function probeSmtp() {
+    setProbing(true);
+    setLastProbe(null);
+    try {
+      const res = await authenticatedJsonFetch(
+        "/api/admin/enterprise-communication/smtp-probe",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            profileCode: profile?.profileCode || testProfile || "CUSTOMERS",
+          }),
+        },
+      );
+      const json = await res.json().catch(() => ({}));
+      const payload = json?.data ?? json;
+      if (!res.ok) {
+        setLastProbe({
+          ok: false,
+          message: payload?.message || json?.error?.message || "SMTP probe failed",
+          timestamp: new Date().toISOString(),
+        });
+        toast.error("SMTP probe failed");
+        return;
+      }
+      setLastProbe({
+        ok: Boolean(payload?.ok),
+        message: String(payload?.message || "Probe complete"),
+        timestamp: String(payload?.timestamp || new Date().toISOString()),
+      });
+      toast.success(payload?.ok ? "SMTP probe passed" : "SMTP probe failed");
+    } catch {
+      setLastProbe({
+        ok: false,
+        message: "SMTP probe request failed",
+        timestamp: new Date().toISOString(),
+      });
+      toast.error("SMTP probe request failed");
+    } finally {
+      setProbing(false);
+    }
+  }
 
   async function sendTest() {
     setSending(true);
@@ -239,6 +287,43 @@ export function OperationalEmailActivationPanel({ profiles, selectedCode }: Prop
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">SMTP connectivity probe</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <p className="text-xs text-muted-foreground">
+            Verifies Hostinger SMTP reachability and authentication only. Does not send email and
+            does not enable ENCE production delivery.
+          </p>
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={probing || !profile}
+              onClick={() => void probeSmtp()}
+            >
+              {probing ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              Run SMTP probe
+            </Button>
+          </div>
+          {lastProbe ? (
+            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs">
+              <Badge
+                variant="outline"
+                className={cn("text-[9px]", statusBadgeClass(lastProbe.ok ? "success" : "failed"))}
+              >
+                {lastProbe.ok ? "success" : "failed"}
+              </Badge>
+              <p className="mt-1 text-foreground">{lastProbe.message}</p>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">

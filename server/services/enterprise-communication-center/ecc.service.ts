@@ -82,6 +82,13 @@ export const enterpriseCommunicationCenterService = {
     if (input.displayName !== undefined && !input.displayName.trim()) {
       throw new EccError("Display name is required", "DISPLAY_NAME_REQUIRED");
     }
+    if (input.smtpPassword !== undefined) {
+      throw new EccError(
+        "SMTP credentials must be configured via server environment secrets (ECC_CUSTOMERS_SMTP_PASSWORD).",
+        "SMTP_SECRET_ENV_ONLY",
+        400,
+      );
+    }
     const row = await enterpriseCommunicationCenterRepository.updateProfile(
       organizationId,
       profileCode,

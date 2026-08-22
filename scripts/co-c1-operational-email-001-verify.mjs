@@ -43,6 +43,9 @@ mustExist(
   "src/components/catalyst-one/admin/enterprise-communication/operational-email-activation-panel.tsx",
 );
 mustExist("src/app/api/admin/enterprise-communication/test-send/route.ts");
+mustExist("src/app/api/admin/enterprise-communication/smtp-probe/route.ts");
+mustExist("src/lib/enterprise-communication-center/smtp-secret-resolver.ts");
+mustExist("server/services/enterprise-communication-center/smtp-probe.service.ts");
 mustExist("src/constants/enterprise-communication-center/operational-categories.ts");
 mustExist("server/services/enterprise-communication-center/ecc.service.ts");
 
@@ -103,8 +106,23 @@ mustNotContain(
 );
 mustContain(
   "src/components/catalyst-one/admin/enterprise-communication/enterprise-communication-center-admin.tsx",
-  "approved secure-secret connector",
+  "ECC_CUSTOMERS_SMTP_PASSWORD",
   "honest provider-secret posture",
+);
+mustContain(
+  "src/lib/enterprise-communication-center/smtp-secret-resolver.ts",
+  "ECC_CUSTOMERS_SMTP_PASSWORD",
+  "env-based SMTP secret resolver",
+);
+mustContain(
+  "server/repositories/enterprise-communication-center/ecc.repository.ts",
+  "SMTP secrets are host-env only",
+  "no recoverable DB credential writes",
+);
+mustContain(
+  "src/components/catalyst-one/admin/enterprise-communication/operational-email-activation-panel.tsx",
+  "Run SMTP probe",
+  "controlled SMTP probe UI",
 );
 
 // Marketing separation — activation files must not flip marketing live flags

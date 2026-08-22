@@ -1,13 +1,14 @@
 /**
  * CO-ECC-001 — Communication Profile repository.
  */
-import { prisma } from "@server/lib/prisma";
+import { isSmtpSecretConfigured } from "@/lib/enterprise-communication-center/smtp-secret-resolver";
 import type {
   EnterpriseCommunicationProfileCode,
   EnterpriseCommunicationProfileRecord,
   EnterpriseCommunicationSmtpProvider,
   UpdateCommunicationProfileInput,
 } from "@/types/enterprise-communication-center";
+import { prisma } from "@server/lib/prisma";
 
 function usedForFromJson(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -48,7 +49,9 @@ export function mapProfileRow(row: {
     smtpHost: row.smtpHost,
     smtpPort: row.smtpPort,
     smtpUsername: row.smtpUsername,
-    smtpCredentialConfigured: Boolean(row.smtpPasswordEnc),
+    smtpCredentialConfigured: isSmtpSecretConfigured(
+      row.profileCode as EnterpriseCommunicationProfileCode,
+    ),
     signature: row.signature,
     footer: row.footer,
     logoUrl: row.logoUrl,
@@ -140,10 +143,11 @@ export const enterpriseCommunicationCenterRepository = {
     if (input.smtpUsername !== undefined) {
       data.smtpUsername = input.smtpUsername?.trim() || null;
     }
+    // SMTP secrets are host-env only (ECC_*_SMTP_PASSWORD). Never persist recoverable credentials.
     if (input.smtpPassword !== undefined) {
-      data.smtpPasswordEnc = input.smtpPassword?.trim()
-        ? Buffer.from(input.smtpPassword.trim(), "utf8").toString("base64")
-        : null;
+      throw new Error(
+        "SMTP credentials must be configured via server environment secrets, not profile PATCH.",
+      );
     }
     if (input.signature !== undefined) data.signature = input.signature;
     if (input.footer !== undefined) data.footer = input.footer;

@@ -220,7 +220,7 @@ export class EcmContactService {
     };
     const contactScore = computeEcmContactScore(merged);
 
-    return ecmContactRepository.update(id, {
+    const updated = await ecmContactRepository.update(id, {
       name: merged.name,
       mobilePrimary: nextMobile,
       mobileSecondary: patch.mobileSecondary?.trim(),
@@ -246,6 +246,25 @@ export class EcmContactService {
       contactScore,
       modifiedBy: actorId,
     });
+
+    const { propagateContactIdentityToTransactions } = await import(
+      "@server/services/ecm/contact-ssot-propagate"
+    );
+    await propagateContactIdentityToTransactions({
+      organizationId,
+      contactId: id,
+      contact: {
+        name: updated.name,
+        mobilePrimary: updated.mobilePrimary,
+        officialEmail: updated.officialEmail,
+        personalEmail: updated.personalEmail,
+        city: updated.city,
+        state: updated.state,
+      },
+      modifiedBy: actorId,
+    });
+
+    return updated;
   }
 
   /**
