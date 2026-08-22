@@ -5,14 +5,16 @@
  */
 
 import {
-  resolveCustomerFacingRecipients,
+  resolveTransactionOperationalRecipients,
   type RecipientContactSnapshot,
   type RecipientDealSnapshot,
+  type RecipientLenderContactSnapshot,
   type RecipientOpportunitySnapshot,
   type RecipientRouterResolveInput,
   type RecipientRouterResult,
   type RecipientUserSnapshot,
   type RecipientWealthPartnerSnapshot,
+  type TransactionPrimaryToRole,
 } from "@/lib/enterprise-communication-center/recipient-router";
 import type { EnterpriseCommunicationEventType } from "@/types/enterprise-communication-center";
 import { prisma } from "@server/lib/prisma";
@@ -22,6 +24,8 @@ export type LoadRecipientRouterInput = {
   eventType: EnterpriseCommunicationEventType;
   opportunityId?: string | null;
   dealId?: string | null;
+  primaryToRole?: TransactionPrimaryToRole;
+  internalUserId?: string | null;
 };
 
 function mapContact(row: {
@@ -39,10 +43,10 @@ function mapContact(row: {
 }
 
 /**
- * Resolve customer-facing operational recipients from live SSOT.
- * Browser must not supply TO/CC — only ids + eventType.
+ * Unified transaction email recipient resolution (all primary TO roles).
+ * Browser must not supply TO/CC — only ids, eventType, and primaryToRole.
  */
-export async function loadAndResolveCustomerFacingRecipients(
+export async function loadAndResolveTransactionOperationalRecipients(
   input: LoadRecipientRouterInput,
 ): Promise<RecipientRouterResult> {
   const organizationId = input.organizationId.trim();
@@ -50,7 +54,7 @@ export async function loadAndResolveCustomerFacingRecipients(
   const dealId = input.dealId?.trim() || null;
 
   let deal: RecipientDealSnapshot | null = null;
-  let opportunity: RecipientOpportunitySnapshot | null = null;
+  let dealLenderId: string | null = null;
 
   if (dealId) {
     const dealRow = await prisma.enterpriseDeal.findFirst({
@@ -62,6 +66,7 @@ export async function loadAndResolveCustomerFacingRecipients(
         primaryContactEmail: true,
         relationshipManagerUserId: true,
         primaryOwnerUserId: true,
+        lenderId: true,
       },
     });
     if (dealRow) {
@@ -73,10 +78,12 @@ export async function loadAndResolveCustomerFacingRecipients(
         relationshipManagerUserId: dealRow.relationshipManagerUserId,
         primaryOwnerUserId: dealRow.primaryOwnerUserId,
       };
+      dealLenderId = dealRow.lenderId?.trim() || null;
     }
   }
 
   const oppIdToLoad = opportunityId || deal?.opportunityId || null;
+  let opportunity: RecipientOpportunitySnapshot | null = null;
   if (oppIdToLoad) {
     const oppRow = await prisma.enterpriseOpportunity.findFirst({
       where: { id: oppIdToLoad, organizationId, isDeleted: false },
@@ -114,6 +121,12 @@ export async function loadAndResolveCustomerFacingRecipients(
   }
   if (opportunity?.primaryOwnerUserId) userIds.add(opportunity.primaryOwnerUserId);
   if (opportunity?.sourceWealthPartnerId) wpIds.add(opportunity.sourceWealthPartnerId);
+
+  const primaryToRole = input.primaryToRole ?? "customer";
+  const internalUserId = input.internalUserId?.trim() || null;
+  if (primaryToRole === "internal_employee" && internalUserId) {
+    userIds.add(internalUserId);
+  }
 
   const contactsById: Record<string, RecipientContactSnapshot | undefined> = {};
   const usersById: Record<string, RecipientUserSnapshot | undefined> = {};
@@ -202,5 +215,48 @@ export async function loadAndResolveCustomerFacingRecipients(
     wealthPartnersById,
   };
 
-  return resolveCustomerFacingRecipients(resolveInput);
+  let lenderContact: RecipientLenderContactSnapshot | null = null;
+  if (primaryToRole === "lender" && dealLenderId) {
+    const contactRow = await prisma.enterpriseLenderContact.findFirst({
+      where: {
+        organizationId,
+        lenderId: dealLenderId,
+        isDeleted: false,
+        enabled: true,
+        email: { not: null },
+      },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { lenderId: true, email: true },
+    });
+    if (contactRow?.email?.trim()) {
+      lenderContact = {
+        lenderId: contactRow.lenderId,
+        email: contactRow.email.trim(),
+      };
+    } else {
+      lenderContact = { lenderId: dealLenderId, email: null };
+    }
+  }
+
+  const internalUser =
+    primaryToRole === "internal_employee" && internalUserId
+      ? usersById[internalUserId] ?? null
+      : null;
+
+  return resolveTransactionOperationalRecipients({
+    ...resolveInput,
+    primaryToRole,
+    lenderContact,
+    internalUser,
+  });
+}
+
+/** Customer-primary TO — convenience wrapper for document_request and similar. */
+export async function loadAndResolveCustomerFacingRecipients(
+  input: LoadRecipientRouterInput,
+): Promise<RecipientRouterResult> {
+  return loadAndResolveTransactionOperationalRecipients({
+    ...input,
+    primaryToRole: "customer",
+  });
 }

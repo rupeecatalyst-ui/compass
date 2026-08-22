@@ -87,6 +87,10 @@ export function LoanActionCenter({
           setEmailOpen(open);
           if (!open) setEditing(null);
         }}
+        opportunityId={
+          (loan as LoanFile & { opportunityId?: string }).opportunityId ?? ""
+        }
+        dealId={null}
         entityId={loan.id}
         entityLabel={entityLabel}
         product={loan.loanProduct}
@@ -96,6 +100,9 @@ export function LoanActionCenter({
         rm={loan.relationshipManager}
         participants={participants}
         editingMessage={editing?.channel === "email" ? editing : null}
+        onEmailSent={(summary) =>
+          onTimelineNote?.("Email sent", summary)
+        }
       />
 
       <WhatsAppContextWorkspace

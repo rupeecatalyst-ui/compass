@@ -10,17 +10,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { filterCommunicationTemplates, OUTBOX_COUNTDOWN_MS } from "@/constants/enterprise-action-center";
+import { filterCommunicationTemplates } from "@/constants/enterprise-action-center";
 import {
   applyTemplatePlaceholders,
   classifySendEmailRecipientGroup,
-  queueOutboxMessage,
-  resumeOutboxCountdown,
   SEND_EMAIL_RECIPIENT_GROUPS,
-  updateOutboxMessage,
   type SendEmailRecipientGroupId,
 } from "@/lib/enterprise-action-center";
 import { appendCorporateEmailSignature } from "@/lib/enterprise-communication-center";
+import { sendTransactionOperationalEmail } from "@/lib/enterprise-communication-center/operational-transaction-email-api";
+import type { TransactionPrimaryToRole } from "@/lib/enterprise-communication-center/recipient-router";
 import { searchAssignableUsers } from "@/lib/assigned-users";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { ContextWorkspaceShell } from "@/components/catalyst-one/action-center/context-workspace-shell";
@@ -34,6 +33,8 @@ import { cn } from "@/lib/utils";
 export function EmailContextWorkspace({
   open,
   onOpenChange,
+  opportunityId,
+  dealId,
   entityId,
   entityLabel,
   product,
@@ -47,9 +48,13 @@ export function EmailContextWorkspace({
   participants,
   preferredRecipientId,
   editingMessage,
+  onEmailSent,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Opportunity Registry SSOT — required for server recipient resolution. */
+  opportunityId: string;
+  dealId?: string | null;
   entityId: string;
   entityLabel: string;
   product?: string;
@@ -64,6 +69,7 @@ export function EmailContextWorkspace({
   /** CO-UX-015 — pre-select resolved recipient (Email to Lender / Customer / …). */
   preferredRecipientId?: string;
   editingMessage?: OutboxMessage | null;
+  onEmailSent?: (summary: string) => void;
 }) {
   const { user } = useAuthContext();
   const senderDisplayName =
@@ -81,6 +87,7 @@ export function EmailContextWorkspace({
   const [employeeQuery, setEmployeeQuery] = useState("");
   const [employeeOptions, setEmployeeOptions] = useState<AssignableUserOption[]>([]);
   const [pickedEmployee, setPickedEmployee] = useState<ContextParticipant | null>(null);
+  const [sending, setSending] = useState(false);
 
   const groupedParticipants = useMemo(() => {
     const map: Record<SendEmailRecipientGroupId, ContextParticipant[]> = {
@@ -243,7 +250,7 @@ export function EmailContextWorkspace({
     setBody(applyTemplatePlaceholders(t.body, vars));
   };
 
-  const queue = () => {
+  const sendEmail = () => {
     if (!recipient) {
       toast.message("Select a recipient linked to this transaction.");
       return;
@@ -252,45 +259,51 @@ export function EmailContextWorkspace({
       toast.message("Message body is required.");
       return;
     }
+    if (!opportunityId?.trim()) {
+      toast.error("Opportunity context is required for server-side email delivery.");
+      return;
+    }
+
+    const primaryToRole: TransactionPrimaryToRole = recipientGroup;
+    const internalUserId =
+      recipientGroup === "internal_employee" && pickedEmployee?.id
+        ? pickedEmployee.id.replace(/^employee:/, "")
+        : null;
 
     const signedBody = appendCorporateEmailSignature(body, {
       senderDisplayName,
       profileCode: "CUSTOMERS",
     });
 
-    const now = Date.now();
-    if (editingMessage) {
-      updateOutboxMessage(editingMessage.id, {
-        recipientId: recipient.id,
-        recipientName: recipient.name,
-        recipientType: recipient.recipientType,
-        recipientEmail: recipient.email,
-        templateId: templateId || undefined,
-        templateName: templates.find((t) => t.id === templateId)?.name,
-        subject,
-        body: signedBody,
-        status: "queued",
-        dispatchAtMs: now + OUTBOX_COUNTDOWN_MS,
-        dispatchAt: new Date(now + OUTBOX_COUNTDOWN_MS).toISOString(),
-      });
-      resumeOutboxCountdown(editingMessage.id);
-    } else {
-      queueOutboxMessage({
-        channel: "email",
-        entityType: "loan",
-        entityId,
-        recipientId: recipient.id,
-        recipientName: recipient.name,
-        recipientType: recipient.recipientType,
-        recipientEmail: recipient.email,
-        templateId: templateId || undefined,
-        templateName: templates.find((t) => t.id === templateId)?.name,
-        subject,
-        body: signedBody,
-      });
-    }
-
-    onOpenChange(false);
+    setSending(true);
+    void sendTransactionOperationalEmail({
+      opportunityId: opportunityId.trim(),
+      dealId: dealId?.trim() || null,
+      eventType: "customer_communication",
+      primaryToRole,
+      internalUserId,
+      subject: subject.trim() || "(No subject)",
+      textBody: signedBody,
+      customerDisplayName: customerName ?? null,
+      opportunityReference: opportunityNumber ?? dealNumber ?? null,
+    })
+      .then((result) => {
+        if (result.deliveryStatus === "sent") {
+          toast.success("Email sent", {
+            description: `TO ${result.to.join(", ")}${result.cc.length ? ` · CC ${result.cc.join(", ")}` : ""}`,
+          });
+          onEmailSent?.(result.subject || signedBody.slice(0, 120));
+          onOpenChange(false);
+          return;
+        }
+        toast.error("Email failed", { description: result.message });
+      })
+      .catch((err: unknown) => {
+        toast.error("Email failed", {
+          description: err instanceof Error ? err.message : "Send failed",
+        });
+      })
+      .finally(() => setSending(false));
   };
 
   return (
@@ -298,20 +311,26 @@ export function EmailContextWorkspace({
       open={open}
       onOpenChange={onOpenChange}
       title="Send Email"
-      description="Recipients are resolved from this transaction. Templates use Opportunity / Deal context. Corporate signature is appended automatically."
+      description="Recipients are resolved server-side from Opportunity/Deal SSOT. Templates use transaction context. Corporate signature is appended automatically."
       entityLabel={entityLabel}
       onAskChanakya={() => {
         const rec = templates.find((t) => t.recommended);
         setChanakyaHint(
           rec
-            ? `I recommend “${rec.name}” for a ${recipient?.recipientType?.replace(/_/g, " ") ?? "recipient"} on ${product ?? "this product"} at stage ${stage ?? "current"}. Review the draft, then queue to Outbox.`
+            ? `I recommend “${rec.name}” for a ${recipient?.recipientType?.replace(/_/g, " ") ?? "recipient"} on ${product ?? "this product"} at stage ${stage ?? "current"}. Review the draft, then send.`
             : "Add a linked participant or complete relationship context so I can recommend a template.",
         );
         if (rec) applyTemplate(rec.id);
       }}
       footer={
-        <Button type="button" size="sm" className="h-9 w-full text-xs" onClick={queue}>
-          {editingMessage ? "Save & return to Outbox" : "Queue to Outbox"}
+        <Button
+          type="button"
+          size="sm"
+          className="h-9 w-full text-xs"
+          disabled={sending}
+          onClick={sendEmail}
+        >
+          {sending ? "Sending…" : "Send Email"}
         </Button>
       }
     >

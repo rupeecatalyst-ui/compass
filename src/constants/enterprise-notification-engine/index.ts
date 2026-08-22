@@ -28,6 +28,10 @@ export const ENE_EVENT_TYPES = {
   TASK_DUE: "TASK_DUE",
   IMPORTANT_WORKFLOW_ACTION: "IMPORTANT_WORKFLOW_ACTION",
   MARKETING_QUALIFIED_HANDOFF: "MARKETING_QUALIFIED_HANDOFF",
+  TRANSACTION_EMAIL_SENT: "TRANSACTION_EMAIL_SENT",
+  TRANSACTION_EMAIL_FAILED: "TRANSACTION_EMAIL_FAILED",
+  CUSTOMER_EMAIL_RECEIVED: "CUSTOMER_EMAIL_RECEIVED",
+  CUSTOMER_EMAIL_ATTACHMENT_RECEIVED: "CUSTOMER_EMAIL_ATTACHMENT_RECEIVED",
 } as const satisfies Record<string, EnterpriseNotificationEventType>;
 
 export const ENE_SOURCE_SYSTEMS = {
@@ -36,6 +40,7 @@ export const ENE_SOURCE_SYSTEMS = {
   DEAL_TIMELINE: "deal_timeline",
   DOCUMENT: "document",
   DOCUMENT_REQUEST: "document_request",
+  OPERATIONAL_EMAIL: "operational_email",
   ETE: "ete",
   WORKFLOW: "workflow",
   CONTACT: "contact",
@@ -71,6 +76,14 @@ export function eneEventTitle(eventType: string): string {
       return "Task Due";
     case ENE_EVENT_TYPES.MARKETING_QUALIFIED_HANDOFF:
       return "Marketing qualified response";
+    case ENE_EVENT_TYPES.TRANSACTION_EMAIL_SENT:
+      return "Transaction email sent";
+    case ENE_EVENT_TYPES.TRANSACTION_EMAIL_FAILED:
+      return "Transaction email failed";
+    case ENE_EVENT_TYPES.CUSTOMER_EMAIL_RECEIVED:
+      return "Customer replied";
+    case ENE_EVENT_TYPES.CUSTOMER_EMAIL_ATTACHMENT_RECEIVED:
+      return "Customer email attachment";
     default:
       return "Workflow Update";
   }

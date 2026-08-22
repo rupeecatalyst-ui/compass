@@ -35,8 +35,22 @@ export type RecipientRouterFailureCode =
   | "unsupported_event"
   | "missing_context"
   | "missing_customer_email"
+  | "missing_lender_email"
+  | "missing_wealth_partner_email"
+  | "missing_internal_email"
   | "missing_or_inactive_transaction_manager"
   | "invalid_manager_assignment";
+
+export type TransactionPrimaryToRole =
+  | "customer"
+  | "lender"
+  | "wealth_partner"
+  | "internal_employee";
+
+export type RecipientLenderContactSnapshot = {
+  lenderId: string;
+  email: string | null;
+};
 
 export type RecipientPartyRef = {
   role: "customer" | "transaction_manager" | "wealth_partner";
@@ -113,6 +127,12 @@ export type RecipientRouterResolveInput = {
   contactsById?: Record<string, RecipientContactSnapshot | undefined>;
   usersById?: Record<string, RecipientUserSnapshot | undefined>;
   wealthPartnersById?: Record<string, RecipientWealthPartnerSnapshot | undefined>;
+};
+
+export type TransactionOperationalResolveInput = RecipientRouterResolveInput & {
+  primaryToRole: TransactionPrimaryToRole;
+  lenderContact?: RecipientLenderContactSnapshot | null;
+  internalUser?: RecipientUserSnapshot | null;
 };
 
 const BASIC_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -251,11 +271,100 @@ function fail(
   };
 }
 
+function resolveMandatoryManagerCc(args: {
+  deal?: RecipientDealSnapshot | null;
+  opportunity?: RecipientOpportunitySnapshot | null;
+  usersById: Record<string, RecipientUserSnapshot | undefined>;
+  partyRefs: RecipientPartyRef[];
+  eventType: CustomerFacingRecipientEvent;
+  senderProfileCode: "CUSTOMERS";
+}):
+  | { ok: true; managerEmail: string; managerUserId: string }
+  | RecipientRouterFailure {
+  const managerPick = resolveManagerUserId({
+    deal: args.deal,
+    opportunity: args.opportunity,
+  });
+
+  if (!managerPick.userId) {
+    return fail(
+      "missing_or_inactive_transaction_manager",
+      "Transaction manager could not be resolved from Opportunity/Deal SSOT",
+      {
+        eventType: args.eventType,
+        senderProfileCode: args.senderProfileCode,
+        partyRefs: args.partyRefs,
+      },
+    );
+  }
+
+  const managerUser = args.usersById[managerPick.userId];
+  if (!managerUser?.isActive || !isValidEmailAddress(managerUser.email)) {
+    args.partyRefs.push({
+      role: "transaction_manager",
+      entityKind: "user",
+      entityId: managerPick.userId,
+      email: managerUser?.email ?? null,
+    });
+    return fail(
+      "missing_or_inactive_transaction_manager",
+      "Transaction manager email is missing or inactive",
+      {
+        eventType: args.eventType,
+        senderProfileCode: args.senderProfileCode,
+        partyRefs: args.partyRefs,
+      },
+    );
+  }
+
+  const managerEmail = canonicalizeEmail(managerUser.email!);
+  args.partyRefs.push({
+    role: "transaction_manager",
+    entityKind: "user",
+    entityId: managerUser.id,
+    email: managerEmail,
+  });
+
+  return { ok: true, managerEmail, managerUserId: managerUser.id };
+}
+
+function resolveOptionalWealthPartnerCc(args: {
+  opportunity?: RecipientOpportunitySnapshot | null;
+  wealthPartnersById: Record<string, RecipientWealthPartnerSnapshot | undefined>;
+  partyRefs: RecipientPartyRef[];
+}): string | null {
+  const wpId = args.opportunity?.sourceWealthPartnerId?.trim() || null;
+  if (!wpId) return null;
+
+  const wealthPartnerEmail = resolveWealthPartnerEmail(args.wealthPartnersById[wpId]);
+  args.partyRefs.push({
+    role: "wealth_partner",
+    entityKind: "wealth_partner",
+    entityId: wpId,
+    email: wealthPartnerEmail,
+  });
+  return wealthPartnerEmail;
+}
+
 /**
  * Pure Phase-1 recipient resolution. Never trusts browser TO/CC.
+ * Transaction manager CC is mandatory — fail closed when RM email cannot be resolved.
  */
 export function resolveCustomerFacingRecipients(
   input: RecipientRouterResolveInput,
+): RecipientRouterResult {
+  return resolveTransactionOperationalRecipients({
+    ...input,
+    primaryToRole: "customer",
+  });
+}
+
+/**
+ * Unified transaction operational email routing (all primary TO roles).
+ * Never trusts browser-supplied TO/CC.
+ */
+export function resolveTransactionOperationalRecipients(
+  input: TransactionOperationalResolveInput,
 ): RecipientRouterResult {
   const { eventType } = input;
 
@@ -306,73 +415,100 @@ export function resolveCustomerFacingRecipients(
     primaryContactEmailFallback,
   });
 
-  const partyRefs: RecipientPartyRef[] = [
-    {
+  const partyRefs: RecipientPartyRef[] = [];
+
+  const managerCc = resolveMandatoryManagerCc({
+    deal: input.deal,
+    opportunity: input.opportunity,
+    usersById,
+    partyRefs,
+    eventType,
+    senderProfileCode,
+  });
+  if (!managerCc.ok) return managerCc;
+
+  const ccCandidates: string[] = [managerCc.managerEmail];
+
+  const wealthPartnerEmail = resolveOptionalWealthPartnerCc({
+    opportunity: input.opportunity,
+    wealthPartnersById,
+    partyRefs,
+  });
+  if (wealthPartnerEmail) ccCandidates.push(wealthPartnerEmail);
+
+  let toEmail: string | null = null;
+
+  if (input.primaryToRole === "customer") {
+    toEmail = customerEmail;
+    partyRefs.unshift({
       role: "customer",
       entityKind: "contact",
       entityId: primaryContactId,
       email: customerEmail,
-    },
-  ];
-
-  if (!customerEmail) {
-    return fail("missing_customer_email", "Customer TO email could not be resolved from SSOT", {
-      eventType,
-      senderProfileCode,
-      partyRefs,
     });
-  }
-
-  const managerPick = resolveManagerUserId({
-    deal: input.deal,
-    opportunity: input.opportunity,
-  });
-
-  const ccCandidates: string[] = [];
-
-  if (managerPick.userId) {
-    const managerUser = usersById[managerPick.userId];
-    if (managerUser?.isActive && isValidEmailAddress(managerUser.email)) {
-      const managerEmail = canonicalizeEmail(managerUser.email!);
-      ccCandidates.push(managerEmail);
-      partyRefs.push({
-        role: "transaction_manager",
-        entityKind: "user",
-        entityId: managerUser.id,
-        email: managerEmail,
-      });
-    } else {
-      partyRefs.push({
-        role: "transaction_manager",
-        entityKind: "user",
-        entityId: managerPick.userId,
-        email: managerUser?.email ?? null,
+    if (!toEmail) {
+      return fail("missing_customer_email", "Customer TO email could not be resolved from SSOT", {
+        eventType,
+        senderProfileCode,
+        partyRefs,
       });
     }
-  }
-
-  // Wealth Partner is Opportunity-owned. Deal events inherit via linked Opportunity snapshot.
-  const wpId = input.opportunity?.sourceWealthPartnerId?.trim() || null;
-  if (wpId) {
-    const wealthPartnerEmail = resolveWealthPartnerEmail(wealthPartnersById[wpId]);
-    if (wealthPartnerEmail) {
-      ccCandidates.push(wealthPartnerEmail);
+  } else if (input.primaryToRole === "lender") {
+    const lenderEmail = input.lenderContact?.email?.trim() || "";
+    if (!isValidEmailAddress(lenderEmail)) {
+      return fail(
+        "missing_lender_email",
+        "Lender TO email could not be resolved from Enterprise Lender Registry",
+        { eventType, senderProfileCode, partyRefs },
+      );
     }
-    partyRefs.push({
-      role: "wealth_partner",
-      entityKind: "wealth_partner",
-      entityId: wpId,
-      email: wealthPartnerEmail,
+    toEmail = canonicalizeEmail(lenderEmail);
+    partyRefs.unshift({
+      role: "customer",
+      entityKind: "contact",
+      entityId: input.lenderContact?.lenderId ?? null,
+      email: toEmail,
+    });
+  } else if (input.primaryToRole === "wealth_partner") {
+    const wpId = input.opportunity?.sourceWealthPartnerId?.trim() || null;
+    if (!wpId || !wealthPartnerEmail) {
+      return fail(
+        "missing_wealth_partner_email",
+        "Wealth Partner TO email could not be resolved from SSOT",
+        { eventType, senderProfileCode, partyRefs },
+      );
+    }
+    toEmail = wealthPartnerEmail;
+    // Remove WP from CC when WP is primary TO (dedupe handles overlap anyway)
+    const wpCcIdx = ccCandidates.findIndex(
+      (e) => normalizeEmailForCompare(e) === normalizeEmailForCompare(toEmail!),
+    );
+    if (wpCcIdx >= 0) ccCandidates.splice(wpCcIdx, 1);
+  } else if (input.primaryToRole === "internal_employee") {
+    const internal = input.internalUser;
+    if (!internal?.isActive || !isValidEmailAddress(internal.email)) {
+      return fail(
+        "missing_internal_email",
+        "Internal employee TO email could not be resolved from User SSOT",
+        { eventType, senderProfileCode, partyRefs },
+      );
+    }
+    toEmail = canonicalizeEmail(internal.email!);
+    partyRefs.unshift({
+      role: "transaction_manager",
+      entityKind: "user",
+      entityId: internal.id,
+      email: toEmail,
     });
   }
 
   const { to, cc } = dedupeRecipients({
-    to: [customerEmail],
+    to: [toEmail!],
     cc: ccCandidates,
   });
 
   if (to.length === 0) {
-    return fail("missing_customer_email", "Customer TO email invalid after normalization", {
+    return fail("missing_customer_email", "Primary TO email invalid after normalization", {
       eventType,
       senderProfileCode,
       partyRefs,

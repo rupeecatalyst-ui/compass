@@ -15,7 +15,11 @@ export type EnterpriseNotificationEventType =
   | "TASK_ASSIGNED"
   | "TASK_DUE"
   | "IMPORTANT_WORKFLOW_ACTION"
-  | "MARKETING_QUALIFIED_HANDOFF";
+  | "MARKETING_QUALIFIED_HANDOFF"
+  | "TRANSACTION_EMAIL_SENT"
+  | "TRANSACTION_EMAIL_FAILED"
+  | "CUSTOMER_EMAIL_RECEIVED"
+  | "CUSTOMER_EMAIL_ATTACHMENT_RECEIVED";
 
 export type EnterpriseNotificationRecipientKind = "user" | "partner";
 

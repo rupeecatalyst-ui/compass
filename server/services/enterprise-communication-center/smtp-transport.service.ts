@@ -83,6 +83,7 @@ function buildMimeMessage(input: {
   cc: string[];
   subject: string;
   textBody: string;
+  messageId?: string;
 }): string {
   const date = new Date().toUTCString();
   const toHeader = input.to.join(", ");
@@ -97,6 +98,11 @@ function buildMimeMessage(input: {
   lines.push(
     `Subject: ${input.subject}`,
     `Date: ${date}`,
+  );
+  if (input.messageId?.trim()) {
+    lines.push(`Message-ID: ${input.messageId.trim()}`);
+  }
+  lines.push(
     "MIME-Version: 1.0",
     "Content-Type: text/plain; charset=utf-8",
     "",
@@ -119,6 +125,7 @@ export type OperationalSmtpSendInput = {
   textBody: string;
   ehloName?: string;
   timeoutMs?: number;
+  messageId?: string;
 };
 
 export type OperationalSmtpSendResult = {
@@ -180,6 +187,7 @@ export async function sendOperationalSmtpMessage(
             cc,
             subject: input.subject,
             textBody: input.textBody,
+            messageId: input.messageId,
           });
           writeLine(socket, body);
           writeLine(socket, ".");

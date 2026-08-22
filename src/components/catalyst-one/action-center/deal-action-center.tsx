@@ -222,6 +222,8 @@ export function DealActionCenter({
             setPreferredRecipientId(undefined);
           }
         }}
+        opportunityId={activeDeal.opportunityId || runtime.context.opportunityId || ""}
+        dealId={activeDeal.id}
         entityId={activeDeal.id}
         entityLabel={entityLabel}
         product={product}
@@ -235,6 +237,9 @@ export function DealActionCenter({
         participants={participants}
         preferredRecipientId={preferredRecipientId}
         editingMessage={editing?.channel === "email" ? editing : null}
+        onEmailSent={(summary) =>
+          onTimelineNote?.("Email sent", summary)
+        }
       />
 
       <WhatsAppContextWorkspace

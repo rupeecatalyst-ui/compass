@@ -86,6 +86,17 @@ export function EnterpriseOutboxProvider({
     if (dispatching.current.has(message.id)) return;
     dispatching.current.add(message.id);
     try {
+      if (message.channel === "email") {
+        const toastId = toastIds.current.get(message.id);
+        if (toastId != null) toast.dismiss(toastId);
+        toastIds.current.delete(message.id);
+        toast.error("Email outbox retired", {
+          description:
+            "Transactional email sends through server SMTP from Action Center only.",
+        });
+        return;
+      }
+
       markOutboxSent(message.id);
       const toastId = toastIds.current.get(message.id);
       if (toastId != null) toast.dismiss(toastId);
@@ -109,11 +120,8 @@ export function EnterpriseOutboxProvider({
           type: message.entityType === "loan" ? "loan" : "opportunity",
           id: message.entityId,
         },
-        eventType: message.channel === "email" ? "email" : "notification",
-        title:
-          message.channel === "email"
-            ? `Email sent · ${message.recipientName}`
-            : `WhatsApp sent · ${message.recipientName}`,
+        eventType: "notification",
+        title: `WhatsApp sent · ${message.recipientName}`,
         description: message.subject || message.body.slice(0, 140),
         actorId: "enterprise-outbox",
         expandablePayload: {
@@ -127,10 +135,7 @@ export function EnterpriseOutboxProvider({
         eventKind: "communications",
         sourceSystem: "outbox",
         sourceEventId: message.id,
-        title:
-          message.channel === "email"
-            ? `Email sent · ${message.recipientName}`
-            : `WhatsApp sent · ${message.recipientName}`,
+        title: `WhatsApp sent · ${message.recipientName}`,
         summary: message.subject || message.body.slice(0, 180),
         payload: {
           channel: message.channel,
@@ -148,12 +153,9 @@ export function EnterpriseOutboxProvider({
       });
 
       await onDispatchedRef.current?.(message);
-      toast.success(
-        message.channel === "email" ? "Email dispatched" : "WhatsApp dispatched",
-        {
-          description: `${message.recipientName} · Timeline & communication history updated.`,
-        },
-      );
+      toast.success("WhatsApp dispatched", {
+        description: `${message.recipientName} · Timeline & communication history updated.`,
+      });
     } finally {
       dispatching.current.delete(message.id);
     }
