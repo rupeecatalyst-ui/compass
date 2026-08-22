@@ -98,7 +98,7 @@ export async function propagateContactIdentityToTransactions(input: {
     primaryContactEmail: email,
     cityLabel: input.contact.city?.trim() || null,
     stateLabel: input.contact.state?.trim() || null,
-    modifiedBy: input.modifiedBy,
+    updatedBy: input.modifiedBy,
   };
 
   const [opp, deal] = await prisma.$transaction([
