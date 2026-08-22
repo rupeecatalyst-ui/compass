@@ -328,68 +328,36 @@ export function resolveCustomerFacingRecipients(
     opportunity: input.opportunity,
   });
 
-  if (!managerPick.userId) {
-    return fail(
-      "missing_or_inactive_transaction_manager",
-      "No relationshipManagerUserId or primaryOwnerUserId on Deal/Opportunity",
-      { eventType, senderProfileCode, partyRefs },
-    );
-  }
+  const ccCandidates: string[] = [];
 
-  const managerUser = usersById[managerPick.userId];
-  if (!managerUser) {
-    return fail(
-      "invalid_manager_assignment",
-      `Transaction manager user not found: ${managerPick.userId}`,
-      {
-        eventType,
-        senderProfileCode,
-        partyRefs: [
-          ...partyRefs,
-          {
-            role: "transaction_manager",
-            entityKind: "user",
-            entityId: managerPick.userId,
-            email: null,
-          },
-        ],
-      },
-    );
+  if (managerPick.userId) {
+    const managerUser = usersById[managerPick.userId];
+    if (managerUser?.isActive && isValidEmailAddress(managerUser.email)) {
+      const managerEmail = canonicalizeEmail(managerUser.email!);
+      ccCandidates.push(managerEmail);
+      partyRefs.push({
+        role: "transaction_manager",
+        entityKind: "user",
+        entityId: managerUser.id,
+        email: managerEmail,
+      });
+    } else {
+      partyRefs.push({
+        role: "transaction_manager",
+        entityKind: "user",
+        entityId: managerPick.userId,
+        email: managerUser?.email ?? null,
+      });
+    }
   }
-
-  if (!managerUser.isActive || !isValidEmailAddress(managerUser.email)) {
-    return fail(
-      "missing_or_inactive_transaction_manager",
-      "Transaction manager is inactive or has no valid email",
-      {
-        eventType,
-        senderProfileCode,
-        partyRefs: [
-          ...partyRefs,
-          {
-            role: "transaction_manager",
-            entityKind: "user",
-            entityId: managerUser.id,
-            email: managerUser.email,
-          },
-        ],
-      },
-    );
-  }
-
-  const managerEmail = canonicalizeEmail(managerUser.email!);
-  partyRefs.push({
-    role: "transaction_manager",
-    entityKind: "user",
-    entityId: managerUser.id,
-    email: managerEmail,
-  });
 
   // Wealth Partner is Opportunity-owned. Deal events inherit via linked Opportunity snapshot.
   const wpId = input.opportunity?.sourceWealthPartnerId?.trim() || null;
-  let wealthPartnerEmail: string | null = null;
   if (wpId) {
-    wealthPartnerEmail = resolveWealthPartnerEmail(wealthPartnersById[wpId]);
+    const wealthPartnerEmail = resolveWealthPartnerEmail(wealthPartnersById[wpId]);
+    if (wealthPartnerEmail) {
+      ccCandidates.push(wealthPartnerEmail);
+    }
     partyRefs.push({
       role: "wealth_partner",
       entityKind: "wealth_partner",
@@ -400,7 +368,7 @@ export function resolveCustomerFacingRecipients(
 
   const { to, cc } = dedupeRecipients({
     to: [customerEmail],
-    cc: wealthPartnerEmail ? [managerEmail, wealthPartnerEmail] : [managerEmail],
+    cc: ccCandidates,
   });
 
   if (to.length === 0) {

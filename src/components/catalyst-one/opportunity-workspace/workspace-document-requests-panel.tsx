@@ -27,11 +27,11 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  buildDocumentRequestEmailBody,
   buildDocumentRequestWhatsAppBody,
   DOCUMENT_REQUEST_EMAIL_SUBJECT,
 } from "@/constants/document-requests";
 import { queueOutboxMessage } from "@/lib/enterprise-action-center";
+import { sendDocumentRequestOperationalEmail } from "@/lib/document-requests/operational-email-api";
 import { subscribeDocumentRegistryUpdated } from "@/lib/document-registry";
 import { resolveOpportunityBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
 import {
@@ -144,8 +144,12 @@ function commLabel(kind: DocumentRequestCommEvent["kind"]): string {
       return "LOD Generated";
     case "lod_regenerated":
       return "Regenerated LOD";
+    case "email_requested":
+      return "Email Requested";
     case "email_sent":
       return "Email Sent";
+    case "email_failed":
+      return "Email Failed";
     case "whatsapp_sent":
       return "WhatsApp Sent";
     case "reminder_sent":
@@ -559,12 +563,8 @@ export function WorkspaceDocumentRequestsPanel() {
     toast.success("Upload link regenerated");
   };
 
-  const onSendEmail = (asReminder = false) => {
+  const onSendEmail = async (asReminder = false, documentSummary?: string) => {
     if (!opportunityId) return;
-    if (!email.trim()) {
-      toast.error("Customer email is required to send the document request.");
-      return;
-    }
     let session = state.uploadSession;
     if (!session?.token) {
       const next = ensureUploadSession(false);
@@ -575,44 +575,77 @@ export function WorkspaceDocumentRequestsPanel() {
       return;
     }
     const uploadUrl = absoluteUploadUrl(session.token);
-    const subject = DOCUMENT_REQUEST_EMAIL_SUBJECT.replace(
-      "{{Loan Product}}",
-      productForLod || "Loan",
-    );
-    const body = buildDocumentRequestEmailBody({
-      customerName: customerName === "—" ? "Customer" : customerName,
-      loanProduct: productForLod || "Loan",
-      borrowerType: borrowerTypeLabel,
-      constitution: constitutionLabel || "N/A",
-      opportunityReference: oppRef,
-      uploadUrl,
-    });
-    queueOutboxMessage({
-      channel: "email",
-      entityType: "opportunity",
-      entityId: opportunityId,
-      recipientId: contact?.id || opportunityId,
-      recipientName: customerName === "—" ? "Customer" : customerName,
-      recipientType: "customer",
-      recipientEmail: email,
-      templateName: asReminder ? "Document Request Reminder" : "Document Request LOD",
-      subject: asReminder ? `Reminder: ${subject}` : subject,
-      body: asReminder
-        ? `Reminder — please upload pending documents.\n\n${body}`
-        : body,
-    });
+    setBusy(true);
     recordDocumentRequestCommunication(
       opportunityId,
-      asReminder ? "reminder_sent" : "email_sent",
+      "email_requested",
       actor,
-      email,
+      "Server-side operational delivery requested",
       oppRef,
+      { timelineEmit: "none" },
     );
-    reload();
-    toast.success(asReminder ? "Reminder queued in Enterprise Outbox" : "Email queued in Enterprise Outbox");
+    try {
+      const result = await sendDocumentRequestOperationalEmail({
+        opportunityId,
+        uploadUrl,
+        customerDisplayName: customerName === "—" ? "Customer" : customerName,
+        loanProduct: productForLod || "Loan",
+        borrowerType: borrowerTypeLabel,
+        constitution: constitutionLabel || "N/A",
+        opportunityReference: oppRef,
+        asReminder,
+        documentSummary,
+      });
+      const detail = [
+        result.to.length ? `TO ${result.to.join(", ")}` : null,
+        result.cc.length ? `CC ${result.cc.join(", ")}` : null,
+        result.smtpResponse,
+        result.message,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      if (result.ok) {
+        recordDocumentRequestCommunication(
+          opportunityId,
+          asReminder ? "reminder_sent" : "email_sent",
+          actor,
+          detail,
+          oppRef,
+          { timelineEmit: "edc-only", sourceEventId: result.sourceEventId },
+        );
+        toast.success(
+          asReminder ? "Document reminder sent via Connect SMTP" : "Document request email sent",
+          { description: result.smtpResponse ?? result.message },
+        );
+      } else {
+        recordDocumentRequestCommunication(
+          opportunityId,
+          "email_failed",
+          actor,
+          detail || result.message,
+          oppRef,
+          { timelineEmit: "edc-only", sourceEventId: result.sourceEventId },
+        );
+        toast.error("Document request email failed", { description: result.message });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Send failed";
+      recordDocumentRequestCommunication(
+        opportunityId,
+        "email_failed",
+        actor,
+        message,
+        oppRef,
+        { timelineEmit: "edc-only" },
+      );
+      toast.error("Document request email failed", { description: message });
+    } finally {
+      setBusy(false);
+      reload();
+    }
   };
 
-  const sendSelectedLod = (
+  const sendSelectedLod = async (
     channel: "email" | "whatsapp",
     recipientType: "customer" | "wealth_partner",
   ) => {
@@ -658,19 +691,88 @@ export function WorkspaceDocumentRequestsPanel() {
         ? `Please coordinate the following documents for ${customerName}:\n${selectedList}`
         : `Please provide the following documents:\n${selectedList}`;
 
+    if (channel === "email" && recipientType === "customer") {
+      setBusy(true);
+      recordDocumentRequestCommunication(
+        opportunityId,
+        "email_requested",
+        actor,
+        selectionIntro,
+        oppRef,
+        { timelineEmit: "none" },
+      );
+      try {
+        const result = await sendDocumentRequestOperationalEmail({
+          opportunityId,
+          uploadUrl,
+          customerDisplayName: recipient.name,
+          loanProduct: productForLod || "Loan",
+          borrowerType: borrowerTypeLabel,
+          constitution: constitutionLabel || "N/A",
+          opportunityReference: oppRef,
+          documentSummary: selectionIntro,
+        });
+        const detail = [
+          `${selectedItems.length} document${selectedItems.length === 1 ? "" : "s"}`,
+          result.to.length ? `TO ${result.to.join(", ")}` : null,
+          result.cc.length ? `CC ${result.cc.join(", ")}` : null,
+          result.smtpResponse,
+          result.message,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        if (result.ok) {
+          requestDocumentItems(
+            opportunityId,
+            selectedItems.map(getDocumentRequestRef),
+          );
+          recordDocumentRequestCommunication(
+            opportunityId,
+            "email_sent",
+            actor,
+            detail,
+            oppRef,
+            { timelineEmit: "edc-only", sourceEventId: result.sourceEventId },
+          );
+          setSelectedRefs(new Set());
+          toast.success(
+            `${selectedItems.length} document requirement${selectedItems.length === 1 ? "" : "s"} emailed via Connect SMTP`,
+            { description: result.smtpResponse ?? undefined },
+          );
+        } else {
+          recordDocumentRequestCommunication(
+            opportunityId,
+            "email_failed",
+            actor,
+            detail || result.message,
+            oppRef,
+            { timelineEmit: "edc-only", sourceEventId: result.sourceEventId },
+          );
+          toast.error("Document request email failed", { description: result.message });
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Send failed";
+        recordDocumentRequestCommunication(
+          opportunityId,
+          "email_failed",
+          actor,
+          message,
+          oppRef,
+          { timelineEmit: "edc-only" },
+        );
+        toast.error("Document request email failed", { description: message });
+      } finally {
+        setBusy(false);
+        reload();
+      }
+      return;
+    }
+
     if (channel === "email") {
       const subject = DOCUMENT_REQUEST_EMAIL_SUBJECT.replace(
         "{{Loan Product}}",
         productForLod || "Loan",
       );
-      const body = buildDocumentRequestEmailBody({
-        customerName: recipient.name,
-        loanProduct: productForLod || "Loan",
-        borrowerType: borrowerTypeLabel,
-        constitution: constitutionLabel || "N/A",
-        opportunityReference: oppRef,
-        uploadUrl,
-      });
       queueOutboxMessage({
         channel: "email",
         entityType: "opportunity",
@@ -681,10 +783,19 @@ export function WorkspaceDocumentRequestsPanel() {
         recipientEmail: recipient.email,
         templateName: "Document Request LOD",
         subject,
-        body: `${selectionIntro}\n\n${body}`,
+        body: `${selectionIntro}\n\nUpload: ${uploadUrl}`,
       });
-    } else {
-      const body = buildDocumentRequestWhatsAppBody({
+      requestDocumentItems(
+        opportunityId,
+        selectedItems.map(getDocumentRequestRef),
+      );
+      setSelectedRefs(new Set());
+      reload();
+      toast.message("Wealth Partner email remains on Outbox simulation until a partner route is authorised.");
+      return;
+    }
+
+    const body = buildDocumentRequestWhatsAppBody({
         customerName: recipient.name,
         loanProduct: productForLod || "Loan",
         uploadUrl,
@@ -699,8 +810,7 @@ export function WorkspaceDocumentRequestsPanel() {
         recipientMobile: recipient.mobile,
         templateName: "Document Request LOD",
         body: `${body}\n\n${selectionIntro}`,
-      });
-    }
+    });
 
     requestDocumentItems(
       opportunityId,
@@ -708,7 +818,7 @@ export function WorkspaceDocumentRequestsPanel() {
     );
     recordDocumentRequestCommunication(
       opportunityId,
-      channel === "email" ? "email_sent" : "whatsapp_sent",
+      "whatsapp_sent",
       actor,
       `${recipient.name} · ${selectedItems.length} document${selectedItems.length === 1 ? "" : "s"} · ${selectedItems.map((item) => item.label).join(", ")}`,
       oppRef,

@@ -58,7 +58,9 @@ export type OpportunityDocumentReadinessState =
 export type DocumentRequestCommKind =
   | "lod_generated"
   | "lod_regenerated"
+  | "email_requested"
   | "email_sent"
+  | "email_failed"
   | "whatsapp_sent"
   | "reminder_sent"
   | "customer_uploaded"

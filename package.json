@@ -140,6 +140,7 @@
     "verify:co-accounting-phase-004": "node --import tsx scripts/co-accounting-phase-004-verify.mjs",
     "verify:co-c1-disbursed-timestamp-001": "node --import tsx scripts/co-c1-disbursed-timestamp-001-verify.mjs",
     "verify:co-c1-operational-email-001": "node scripts/co-c1-operational-email-001-verify.mjs",
+    "verify:co-c1-operational-email-002": "node scripts/co-c1-operational-email-002-verify.mjs",
     "verify:co-c1-ssot-sync-001": "node scripts/co-c1-ssot-sync-001-verify.mjs",
     "verify:co-c1-operational-email-001:db": "node --env-file=.env.local scripts/co-c1-operational-email-001-db-verify.mjs",
     "verify:co-c1-dialogue-activity-audit-001": "node scripts/co-c1-dialogue-activity-audit-001-verify.mjs",

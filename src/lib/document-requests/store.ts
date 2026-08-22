@@ -108,9 +108,10 @@ function appendComm(
   actor: string,
   detail?: string,
   opportunityReference?: string,
+  options?: { timelineEmit?: "full" | "edc-only" | "none"; sourceEventId?: string },
 ): DocumentRequestWorkspaceState {
   const event: DocumentRequestCommEvent = {
-    id: newId("drc"),
+    id: options?.sourceEventId ?? newId("drc"),
     kind,
     at: new Date().toISOString(),
     actor,
@@ -124,6 +125,7 @@ function appendComm(
     opportunityReference,
     sourceEventId: event.id,
     occurredAt: event.at,
+    timelineEmit: options?.timelineEmit ?? "full",
   });
   return {
     ...state,
@@ -515,13 +517,17 @@ export function recordPortalOpened(token: string, opportunityId: string): void {
 
 export function recordDocumentRequestCommunication(
   opportunityId: string,
-  kind: Extract<DocumentRequestCommKind, "email_sent" | "whatsapp_sent" | "reminder_sent">,
+  kind: Extract<
+    DocumentRequestCommKind,
+    "email_requested" | "email_sent" | "email_failed" | "whatsapp_sent" | "reminder_sent"
+  >,
   actor: string,
   detail?: string,
   opportunityReference?: string,
+  options?: { timelineEmit?: "full" | "edc-only" | "none"; sourceEventId?: string },
 ): DocumentRequestWorkspaceState {
   let next = getDocumentRequestState(opportunityId);
-  next = appendComm(next, kind, actor, detail, opportunityReference);
+  next = appendComm(next, kind, actor, detail, opportunityReference, options);
   if (kind === "reminder_sent") {
     const now = new Date().toISOString();
     next = {

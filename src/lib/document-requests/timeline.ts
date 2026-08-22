@@ -17,7 +17,9 @@ import type { DocumentRequestCommKind } from "@/types/document-requests";
 const TITLE: Record<DocumentRequestCommKind, string> = {
   lod_generated: "LOD Generated",
   lod_regenerated: "Regenerated LOD",
+  email_requested: "Email Requested",
   email_sent: "Email Sent",
+  email_failed: "Email Failed",
   whatsapp_sent: "WhatsApp Sent",
   reminder_sent: "Reminder Sent",
   customer_uploaded: "Customer Uploaded Document",
@@ -30,6 +32,8 @@ const TITLE: Record<DocumentRequestCommKind, string> = {
 function earKindFor(kind: DocumentRequestCommKind): EnterpriseActivityEventKind {
   switch (kind) {
     case "email_sent":
+    case "email_failed":
+    case "email_requested":
     case "whatsapp_sent":
     case "reminder_sent":
       return EAR_EVENT_KINDS.COMMUNICATIONS;
@@ -50,7 +54,7 @@ function edcEventTypeFor(kind: DocumentRequestCommKind) {
   if (kind === "customer_uploaded" || kind === "verification_completed") {
     return "document_upload" as const;
   }
-  if (kind === "email_sent" || kind === "whatsapp_sent" || kind === "reminder_sent") {
+  if (kind === "email_sent" || kind === "email_failed" || kind === "email_requested" || kind === "whatsapp_sent" || kind === "reminder_sent") {
     return "email" as const;
   }
   return "progress" as const;
@@ -65,6 +69,8 @@ export function appendDocumentRequestTimeline(input: {
   sourceEventId?: string;
   occurredAt?: string;
   dealId?: string | null;
+  /** full = EDC+EAR · edc-only = dialogue only · none = local comm record only */
+  timelineEmit?: "full" | "edc-only" | "none";
 }): void {
   const opportunityId = input.opportunityId.trim();
   if (!opportunityId) return;
@@ -82,41 +88,47 @@ export function appendDocumentRequestTimeline(input: {
     input.sourceEventId?.trim() ||
     `document_request:${opportunityId}:${input.kind}:${occurredAt}`;
 
+  const timelineEmit = input.timelineEmit ?? "full";
+
   try {
-    appendEdcTimelineEntry({
-      contextRef: { type: "opportunity", id: opportunityId },
-      eventType: edcEventTypeFor(input.kind),
-      title,
-      description: summary,
-      actorId: input.actor,
-      occurredOn: occurredAt,
-      expandablePayload: {
-        source: "document_requests",
-        kind: input.kind,
-        opportunityReference: input.opportunityReference,
-        earSourceEventId: sourceEventId,
-      },
-    });
+    if (timelineEmit === "full" || timelineEmit === "edc-only") {
+      appendEdcTimelineEntry({
+        contextRef: { type: "opportunity", id: opportunityId },
+        eventType: edcEventTypeFor(input.kind),
+        title,
+        description: summary,
+        actorId: input.actor,
+        occurredOn: occurredAt,
+        expandablePayload: {
+          source: "document_requests",
+          kind: input.kind,
+          opportunityReference: input.opportunityReference,
+          earSourceEventId: sourceEventId,
+        },
+      });
+    }
   } catch {
     // Timeline must never block Document Requests workflow.
   }
 
-  void emitEnterpriseActivity({
-    eventKind: earKindFor(input.kind),
-    sourceSystem: EAR_SOURCE_SYSTEMS.DOCUMENT_REQUEST,
-    sourceEventId,
-    title,
-    summary,
-    payload: {
-      contextType: "opportunity",
-      contextId: opportunityId,
-      kind: input.kind,
-      opportunityReference: input.opportunityReference ?? null,
-      source: "document_requests",
-    },
-    opportunityId,
-    dealId: input.dealId?.trim() || null,
-    actorName: input.actor,
-    occurredAt,
-  });
+  if (timelineEmit === "full") {
+    void emitEnterpriseActivity({
+      eventKind: earKindFor(input.kind),
+      sourceSystem: EAR_SOURCE_SYSTEMS.DOCUMENT_REQUEST,
+      sourceEventId,
+      title,
+      summary,
+      payload: {
+        contextType: "opportunity",
+        contextId: opportunityId,
+        kind: input.kind,
+        opportunityReference: input.opportunityReference ?? null,
+        source: "document_requests",
+      },
+      opportunityId,
+      dealId: input.dealId?.trim() || null,
+      actorName: input.actor,
+      occurredAt,
+    });
+  }
 }

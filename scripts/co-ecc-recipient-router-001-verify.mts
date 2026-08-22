@@ -187,15 +187,15 @@ check("7. Owner fallback", () => {
   if (result.ok) assert.deepEqual(result.cc, ["owner@rupeecatalyst.com"]);
 });
 
-check("8. Inactive RM → fail closed", () => {
+check("8. Inactive RM → omit from CC (delivery may still proceed)", () => {
   const result = resolveCustomerFacingRecipients(
     input({ usersById: { "rm-1": user({ isActive: false }) } }),
   );
-  assert.equal(result.ok, false);
-  if (!result.ok) assert.equal(result.code, "missing_or_inactive_transaction_manager");
+  assert.equal(result.ok, true);
+  if (result.ok) assert.deepEqual(result.cc, []);
 });
 
-check("9. Missing RM → fail closed", () => {
+check("9. Missing RM → omit CC (customer TO still resolves)", () => {
   const result = resolveCustomerFacingRecipients(
     input({
       opportunity: baseOpp({
@@ -204,8 +204,11 @@ check("9. Missing RM → fail closed", () => {
       }),
     }),
   );
-  assert.equal(result.ok, false);
-  if (!result.ok) assert.equal(result.code, "missing_or_inactive_transaction_manager");
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.deepEqual(result.to, ["customer@example.com"]);
+    assert.deepEqual(result.cc, []);
+  }
 });
 
 check("10. Wealth Partner present → CC", () => {
@@ -371,10 +374,13 @@ check("WP email via linked ECM contact when partner.email empty", () => {
   );
 });
 
-check("Invalid manager assignment when user id missing from map", () => {
+check("Missing manager user row → omit CC (customer TO still resolves)", () => {
   const result = resolveCustomerFacingRecipients(input({ usersById: {} }));
-  assert.equal(result.ok, false);
-  if (!result.ok) assert.equal(result.code, "invalid_manager_assignment");
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.deepEqual(result.to, ["customer@example.com"]);
+    assert.deepEqual(result.cc, []);
+  }
 });
 
 check("All Phase-1 events map to CUSTOMERS and resolve", () => {
