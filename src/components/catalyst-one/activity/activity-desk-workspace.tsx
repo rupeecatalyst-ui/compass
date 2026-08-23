@@ -1,8 +1,7 @@
 "use client";
 
 /**
- * Phase 1 Activity desk — entity-scoped EAR chronology.
- * Reuses TransactionActivityTimeline. Not a global Dialogue reader.
+ * Activity & Dialogue desk — unified EAR chronology (global + entity-scoped).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -14,11 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants/routes";
 import {
-  buildDashboardHref,
-  getActiveOpportunityContext,
-  isDashboardNavEntry,
   setActiveOpportunityContext,
-  shouldShowEntitySelectionScreen,
 } from "@/lib/lead-opportunity-journey/active-context";
 import { rememberOpportunityRegistryContext } from "@/lib/lead-opportunity-journey/opportunity-context";
 import {
@@ -34,10 +29,15 @@ import { cn } from "@/lib/utils";
 
 type PickerKind = "opportunity" | "deal";
 
-function activityHref(input: { opportunityId?: string | null; dealId?: string | null }): string {
+function activityHref(input: {
+  opportunityId?: string | null;
+  dealId?: string | null;
+  inboundEmailId?: string | null;
+}): string {
   const params = new URLSearchParams();
   if (input.opportunityId) params.set("opportunityId", input.opportunityId);
   if (input.dealId) params.set("dealId", input.dealId);
+  if (input.inboundEmailId) params.set("inboundEmailId", input.inboundEmailId);
   const q = params.toString();
   return q ? `${ROUTES.ACTIVITY}?${q}` : ROUTES.ACTIVITY;
 }
@@ -45,38 +45,30 @@ function activityHref(input: { opportunityId?: string | null; dealId?: string | 
 export function ActivityDeskWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const dashboardEntry = isDashboardNavEntry(searchParams);
   const opportunityIdParam = searchParams.get("opportunityId")?.trim() || "";
   const dealIdParam = searchParams.get("dealId")?.trim() || "";
+  const inboundEmailId = searchParams.get("inboundEmailId")?.trim() || "";
+  const showEntityFilter = searchParams.get("filter") === "entity";
   const hasUrlContext = Boolean(opportunityIdParam || dealIdParam);
-  const showPicker = shouldShowEntitySelectionScreen({
-    dashboardEntry,
-    hasUrlContext,
-  });
 
-  useEffect(() => {
-    if (dashboardEntry || hasUrlContext) return;
-    const active = getActiveOpportunityContext();
-    if (active?.fileId) {
-      router.replace(
-        activityHref({
-          dealId: active.fileId,
-          opportunityId: active.opportunityId ?? null,
-        }),
-      );
-      return;
-    }
-    if (active?.opportunityId) {
-      router.replace(activityHref({ opportunityId: active.opportunityId }));
-    }
-  }, [dashboardEntry, hasUrlContext, router]);
+  const [pickingEntity, setPickingEntity] = useState(false);
 
-  if (showPicker) {
+  if (pickingEntity || (showEntityFilter && !hasUrlContext)) {
     return (
       <ActivityEntityPicker
+        onCancel={() => {
+          setPickingEntity(false);
+          router.replace(ROUTES.ACTIVITY);
+        }}
         onSelectOpportunity={(opportunity) => {
           rememberOpportunityRegistryContext(opportunity);
-          router.replace(activityHref({ opportunityId: opportunity.id }));
+          setPickingEntity(false);
+          router.replace(
+            activityHref({
+              opportunityId: opportunity.id,
+              inboundEmailId: inboundEmailId || null,
+            }),
+          );
         }}
         onSelectDeal={(deal) => {
           if (deal.opportunityId) {
@@ -89,10 +81,12 @@ export function ActivityDeskWorkspace() {
               opportunityReference: deal.opportunityNumber || undefined,
             });
           }
+          setPickingEntity(false);
           router.replace(
             activityHref({
               dealId: deal.id,
               opportunityId: deal.opportunityId ?? null,
+              inboundEmailId: inboundEmailId || null,
             }),
           );
         }}
@@ -102,12 +96,13 @@ export function ActivityDeskWorkspace() {
 
   const dealId = dealIdParam || undefined;
   const opportunityId = opportunityIdParam || undefined;
+  const isGlobal = !dealId && !opportunityId;
 
   return (
-    <div className="space-y-6" data-activity-desk="">
+    <div className="space-y-6" data-activity-desk="" data-activity-dialogue="">
       <PageHeader
-        title="Activity"
-        description="Chronological work history for the selected Opportunity or Deal. Source: Enterprise Activity Registry."
+        title="Activity & Dialogue"
+        description="One chronological communication stream — email, calls, notes, and transaction events. Source: Enterprise Activity Registry."
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
@@ -115,17 +110,30 @@ export function ActivityDeskWorkspace() {
             ? "Deal-scoped history (parent Opportunity events without a sibling Deal id are included)."
             : opportunityId
               ? "Opportunity-scoped history."
-              : "Select an Opportunity or Deal to load activity."}
+              : "Organization-wide Activity & Dialogue — newest first."}
         </p>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 text-xs"
-          onClick={() => router.push(buildDashboardHref(ROUTES.ACTIVITY))}
-        >
-          Change
-        </Button>
+        <div className="flex flex-wrap gap-1.5">
+          {!isGlobal ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => router.push(ROUTES.ACTIVITY)}
+            >
+              All activity
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => setPickingEntity(true)}
+          >
+            {isGlobal ? "Filter by Opportunity / Deal" : "Change"}
+          </Button>
+        </div>
       </div>
       {dealId ? (
         <TransactionActivityTimeline
@@ -141,8 +149,9 @@ export function ActivityDeskWorkspace() {
             dealId,
             opportunityId: opportunityId || null,
           }}
-          title="Deal history"
+          title="Deal — Activity & Dialogue"
           description="This Deal plus shared Opportunity events. Sibling lender deals are excluded."
+          focusInboundEmailId={inboundEmailId || null}
         />
       ) : opportunityId ? (
         <TransactionActivityTimeline
@@ -154,13 +163,17 @@ export function ActivityDeskWorkspace() {
             opportunityId,
             contactId: null,
           }}
-          title="Opportunity history"
-          description="Notes, activities, documents, tasks, and stage events for this Opportunity."
+          title="Opportunity — Activity & Dialogue"
+          description="Notes, communications, documents, tasks, and stage events for this Opportunity."
+          focusInboundEmailId={inboundEmailId || null}
         />
       ) : (
-        <p className="text-sm text-muted-foreground">
-          No Opportunity or Deal is selected.
-        </p>
+        <TransactionActivityTimeline
+          scope={{ mode: "global" }}
+          title="Activity & Dialogue"
+          description="Newest communications and operational events across Catalyst One."
+          focusInboundEmailId={inboundEmailId || null}
+        />
       )}
     </div>
   );
@@ -169,9 +182,11 @@ export function ActivityDeskWorkspace() {
 function ActivityEntityPicker({
   onSelectOpportunity,
   onSelectDeal,
+  onCancel,
 }: {
   onSelectOpportunity: (opportunity: EnterpriseOpportunityApiRecord) => void;
   onSelectDeal: (deal: EnterpriseDealApiRecord) => void;
+  onCancel: () => void;
 }) {
   const [kind, setKind] = useState<PickerKind>("opportunity");
   const [query, setQuery] = useState("");
@@ -259,19 +274,19 @@ function ActivityEntityPicker({
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Activity
+              Activity & Dialogue
             </p>
             <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">
-              Select an Opportunity or Deal
+              Filter by Opportunity or Deal
             </h2>
             <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-              Activity is the chronological work history for one business entity. Dialogue remains
-              the global chronology feed.
+              Optional filter for one transaction. The global stream remains available without a
+              selection.
             </p>
           </div>
         </div>
 
-        <div className="mt-4 flex gap-1.5">
+        <div className="mt-4 flex flex-wrap gap-1.5">
           <Button
             type="button"
             size="sm"
@@ -297,6 +312,15 @@ function ActivityEntityPicker({
           >
             <Briefcase className="h-3.5 w-3.5" aria-hidden />
             Deal
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="ml-auto h-8 text-xs"
+            onClick={onCancel}
+          >
+            Show all
           </Button>
         </div>
 

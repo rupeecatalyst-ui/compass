@@ -17,6 +17,7 @@ export type TransactionTimelineCategory =
   | "lender"
   | "approval"
   | "disbursement"
+  | "incoming_email"
   | "system";
 
 export type TransactionTimelineFilterId =
@@ -26,6 +27,7 @@ export type TransactionTimelineFilterId =
   | "documents"
   | "tasks"
   | "stage_changes"
+  | "communications"
   | "system";
 
 export type TransactionTimelineItem = {
@@ -44,9 +46,13 @@ export type TransactionTimelineItem = {
   sourceSystem: string;
   eventKind: string;
   payload: Record<string, unknown> | null;
+  /** Inbound email ledger id when this row is an email_received event. */
+  inboundEmailId: string | null;
+  needsAttention: boolean;
 };
 
 export type TransactionTimelineScope =
+  | { mode: "global" }
   | { mode: "opportunity"; opportunityId: string }
   | { mode: "deal"; dealId: string; opportunityId?: string | null }
   | { mode: "contact"; contactId: string }
@@ -61,6 +67,7 @@ const CATEGORY_LABELS: Record<TransactionTimelineCategory, string> = {
   lender: "LENDER",
   approval: "APPROVAL",
   disbursement: "DISBURSEMENT",
+  incoming_email: "INCOMING EMAIL",
   system: "SYSTEM",
 };
 
@@ -69,6 +76,7 @@ export const TRANSACTION_TIMELINE_FILTERS: ReadonlyArray<{
   label: string;
 }> = [
   { id: "all", label: "All" },
+  { id: "communications", label: "Communications" },
   { id: "activities", label: "Activities" },
   { id: "notes", label: "Notes" },
   { id: "documents", label: "Documents" },
@@ -116,6 +124,13 @@ export function classifyEarEvent(
   const source = (event.sourceSystem || "").toLowerCase();
   const title = `${event.title || ""} ${event.summary || ""}`.toLowerCase();
   const payload = asRecord(event.payload);
+
+  if (
+    source === "inbound_email" ||
+    stringField(payload, ["kind", "eventType"]) === "email_received"
+  ) {
+    return "incoming_email";
+  }
 
   if (title.includes("disburs") || kind.includes("disburs")) return "disbursement";
   if (title.includes("approv") || stringField(payload, ["approvalStatus"])) return "approval";
@@ -202,6 +217,13 @@ export function mapEarEventToTimelineItem(
   const pair = stageCapable
     ? resolveStagePair(event)
     : { previousValue: null, newValue: null };
+  const payload = asRecord(event.payload);
+  const inboundEmailId = stringField(payload, ["inboundEmailId"]);
+  const needsAttention =
+    payload.needsAttention === true ||
+    stringField(payload, ["matchStatus"]) === "needs_review" ||
+    stringField(payload, ["matchStatus"]) === "unmatched" ||
+    stringField(payload, ["matchStatus"]) === "received";
   return {
     id: event.id,
     occurredAt: event.occurredAt,
@@ -218,6 +240,8 @@ export function mapEarEventToTimelineItem(
     sourceSystem: String(event.sourceSystem || ""),
     eventKind: String(event.eventKind || ""),
     payload: event.payload,
+    inboundEmailId,
+    needsAttention,
   };
 }
 
@@ -225,11 +249,15 @@ export function mapEarEventToTimelineItem(
  * Opportunity mode: all EAR rows for that opportunityId.
  * Deal mode: this deal's rows + parent Opportunity rows with no other dealId
  * (excludes sibling-deal-only events).
+ * Global mode: no entity filter (org-wide chronology).
  */
 export function filterEventsForScope(
   events: EnterpriseActivityEvent[],
   scope: TransactionTimelineScope,
 ): EnterpriseActivityEvent[] {
+  if (scope.mode === "global") {
+    return events;
+  }
   if (scope.mode === "opportunity") {
     return events.filter((e) => e.opportunityId === scope.opportunityId);
   }
@@ -261,8 +289,15 @@ export function matchesTimelineFilter(
 ): boolean {
   if (filter === "all") return true;
   if (filter === "notes") return item.category === "note";
+  if (filter === "communications") {
+    return item.category === "incoming_email" || item.eventKind === "communications";
+  }
   if (filter === "activities") {
-    return item.category === "activity" || item.category === "note";
+    return (
+      item.category === "activity" ||
+      item.category === "note" ||
+      item.category === "incoming_email"
+    );
   }
   if (filter === "documents") return item.category === "document";
   if (filter === "tasks") return item.category === "task";
@@ -291,7 +326,9 @@ export async function loadTransactionActivityTimeline(
   const limit = Math.min(Math.max(options?.limit ?? 80, 1), 200);
   let raw: EnterpriseActivityEvent[] = [];
 
-  if (scope.mode === "opportunity") {
+  if (scope.mode === "global") {
+    raw = await listEnterpriseActivity({ limit });
+  } else if (scope.mode === "opportunity") {
     raw = await listEnterpriseActivity({
       opportunityId: scope.opportunityId,
       limit,

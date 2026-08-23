@@ -7,6 +7,7 @@ import { useSidebar } from "@/hooks/use-sidebar";
 import { UserMenu } from "@/components/layout/user-menu";
 import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 import { NotificationsPanel } from "@/components/layout/notifications-panel";
+import { ActivityDialogueQuickAccess } from "@/components/catalyst-one/activity-dialogue/activity-dialogue-quick-access";
 import { GlobalChanakyaButton } from "@/components/layout/global-chanakya-assistant";
 import { ChanakyaLiveIntelligenceBar } from "@/components/enterprise/chanakya-live-intelligence";
 import { ChanakyaRadarViewSwitcher } from "@/components/catalyst-one/chanakya-radar/chanakya-radar-view-switcher";
@@ -23,7 +24,7 @@ interface AppTopbarProps {
 
 /**
  * EUX-007 enterprise header layout:
- * Logo/Workspace · Page controls · Live Intelligence · Notifications · Switchers · CHANAKYA AI · Profile
+ * Logo/Workspace · Page controls · Live Intelligence · Notifications · Activity & Dialogue · Switchers · CHANAKYA AI · Profile
  */
 export function AppTopbar({ onSearchClick }: AppTopbarProps) {
   const { toggleTheme, isDark, mounted } = useTheme();
@@ -35,7 +36,6 @@ export function AppTopbar({ onSearchClick }: AppTopbarProps) {
       openMobile();
       return;
     }
-    // Desktop: expand immediately (Auto peek or Collapsed manual expand)
     if (navMode === "auto") {
       setPeekOpen(true);
       noteNavInteraction();
@@ -46,7 +46,6 @@ export function AppTopbar({ onSearchClick }: AppTopbarProps) {
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-background/80 px-3 backdrop-blur-xl sm:gap-3 sm:px-4 lg:px-6">
-      {/* Logo / Workspace */}
       <Button
         variant="ghost"
         size="icon"
@@ -60,7 +59,6 @@ export function AppTopbar({ onSearchClick }: AppTopbarProps) {
         <WorkspaceSwitcher />
       </div>
 
-      {/* Page controls — compact search (⌘K); does not take ticker space */}
       <Button
         variant="ghost"
         size="icon"
@@ -72,22 +70,26 @@ export function AppTopbar({ onSearchClick }: AppTopbarProps) {
         <Search className="h-4 w-4" />
       </Button>
 
-      {/* CHANAKYA Live Intelligence Bar — flex fills remaining width */}
       <ChanakyaLiveIntelligenceBar appearance="dashboard" />
 
-      {/* Actions — never wrap; preserved at all breakpoints */}
       <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative shrink-0"
+              aria-label="Notifications"
+            >
               <Bell className="h-4 w-4" />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80 p-0">
             <NotificationsPanel />
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <ActivityDialogueQuickAccess />
 
         <ChanakyaRadarViewSwitcher variant="dashboard" />
 

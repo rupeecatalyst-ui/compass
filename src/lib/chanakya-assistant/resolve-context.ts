@@ -48,7 +48,7 @@ function workspaceFromPath(pathname: string): {
   if (path.startsWith("/mission-control")) {
     return { workspaceId: "strategic_workspace", advisorTitle: "Executive Advisor", section: "mission_control" };
   }
-  if (path.startsWith("/dialogue")) {
+  if (path.startsWith("/dialogue") || path.startsWith("/activity")) {
     return { workspaceId: "dialogue", advisorTitle: "Dialogue Advisor" };
   }
   if (path.startsWith("/tasks")) {

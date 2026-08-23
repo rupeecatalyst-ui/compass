@@ -5,13 +5,17 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, UserRound, Cog, X } from "lucide-react";
+import { RefreshCw, UserRound, Cog, X, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   BusinessNotesActionButton,
   type BusinessNotesContext,
 } from "@/components/catalyst-one/enterprise-business-notes";
+import {
+  InboundEmailDetailSheet,
+  inboundEmailChipClass,
+} from "@/components/catalyst-one/activity-dialogue/inbound-email-detail-sheet";
 import {
   TRANSACTION_TIMELINE_FILTERS,
   formatTimelineWhen,
@@ -36,6 +40,8 @@ type Props = {
   active?: boolean;
   /** When set, shows a top-right Close control and enables Escape to dismiss. */
   onClose?: () => void;
+  /** Auto-open inbound email detail when landing from notification deep link. */
+  focusInboundEmailId?: string | null;
 };
 
 function categoryTone(category: TransactionTimelineItem["category"]): string {
@@ -43,6 +49,8 @@ function categoryTone(category: TransactionTimelineItem["category"]): string {
     case "note":
     case "activity":
       return "border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-200";
+    case "incoming_email":
+      return "border-violet-500/40 bg-violet-500/10 text-violet-900 dark:text-violet-200";
     case "stage_change":
     case "approval":
     case "disbursement":
@@ -76,10 +84,11 @@ export function TransactionActivityTimeline({
   notesContext,
   className,
   compact = false,
-  title = "Activity Timeline",
-  description = "Chronological work history for this transaction.",
+  title = "Activity & Dialogue",
+  description = "Chronological communication and work history.",
   active = true,
   onClose,
+  focusInboundEmailId = null,
 }: Props) {
   const [items, setItems] = useState<TransactionTimelineItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,39 +96,31 @@ export function TransactionActivityTimeline({
   const [filter, setFilter] = useState<TransactionTimelineFilterId>("all");
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(80);
+  const [openInboundId, setOpenInboundId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (focusInboundEmailId?.trim()) {
+      setOpenInboundId(focusInboundEmailId.trim());
+    }
+  }, [focusInboundEmailId]);
 
   const scopeKey =
-    scope.mode === "opportunity"
-      ? `opp:${scope.opportunityId}`
-      : scope.mode === "contact"
-        ? `contact:${scope.contactId}`
-        : scope.mode === "lender"
-          ? `lender:${scope.dealIds.join(",")}`
-          : `deal:${scope.dealId}:${scope.opportunityId || ""}`;
-
-  const opportunityId =
-    scope.mode === "opportunity"
-      ? scope.opportunityId
-      : scope.mode === "deal"
-        ? scope.opportunityId || null
-        : null;
-  const dealId = scope.mode === "deal" ? scope.dealId : null;
-  const mode = scope.mode;
+    scope.mode === "global"
+      ? "global"
+      : scope.mode === "opportunity"
+        ? `opp:${scope.opportunityId}`
+        : scope.mode === "contact"
+          ? `contact:${scope.contactId}`
+          : scope.mode === "lender"
+            ? `lender:${scope.dealIds.join(",")}`
+            : `deal:${scope.dealId}:${scope.opportunityId || ""}`;
 
   const refresh = useCallback(async () => {
     if (!active) return;
     setLoading(true);
     setError(null);
     try {
-      const nextScope: TransactionTimelineScope =
-        mode === "opportunity"
-          ? { mode: "opportunity", opportunityId: opportunityId! }
-          : {
-              mode: "deal",
-              dealId: dealId!,
-              opportunityId,
-            };
-      const rows = await loadTransactionActivityTimeline(nextScope, { limit });
+      const rows = await loadTransactionActivityTimeline(scope, { limit });
       setItems(rows);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load activity timeline.");
@@ -127,7 +128,9 @@ export function TransactionActivityTimeline({
     } finally {
       setLoading(false);
     }
-  }, [active, mode, opportunityId, dealId, limit]);
+    // scopeKey captures entity identity; avoid depending on inline scope object identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scopeKey is the stable identity
+  }, [active, scopeKey, limit, scope]);
 
   useEffect(() => {
     if (!active) return;
@@ -268,8 +271,8 @@ export function TransactionActivityTimeline({
 
       {!loading && !error && visible.length === 0 ? (
         <p className="rounded-lg border border-border/70 bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
-          No activity recorded for this transaction yet. Add a Business Note to capture the
-          discussion — it will appear here in chronological order.
+          No activity or communications yet. Incoming email, notes, and transaction events appear
+          here newest first.
         </p>
       ) : null}
 
@@ -283,27 +286,53 @@ export function TransactionActivityTimeline({
               {group.items.map((item) => {
                 const when = formatTimelineWhen(item.occurredAt);
                 const isSystem = item.actorLabel === "System";
+                const isEmail = item.category === "incoming_email";
                 return (
                   <li
                     key={item.id}
-                    className="rounded-xl border border-border/80 bg-card/50 px-3 py-2.5 shadow-sm"
+                    id={
+                      item.inboundEmailId
+                        ? `inbound-email-${item.inboundEmailId}`
+                        : undefined
+                    }
+                    className={cn(
+                      "rounded-xl border bg-card/50 px-3 py-2.5 shadow-sm",
+                      isEmail
+                        ? "border-violet-500/40 ring-1 ring-violet-500/20"
+                        : "border-border/80",
+                      item.needsAttention && "border-amber-500/50 ring-1 ring-amber-500/20",
+                    )}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-[11px] font-medium tabular-nums text-muted-foreground">
                         {when.time || "—"}
                       </p>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                          categoryTone(item.category),
-                        )}
-                      >
-                        {item.categoryLabel}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {item.needsAttention ? (
+                          <span className={inboundEmailChipClass(true)}>Needs Attention</span>
+                        ) : null}
+                        <span
+                          className={cn(
+                            "inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                            categoryTone(item.category),
+                          )}
+                        >
+                          {item.categoryLabel}
+                        </span>
+                      </div>
                     </div>
                     <div className="mt-1.5 flex items-start gap-2">
-                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                        {isSystem ? (
+                      <span
+                        className={cn(
+                          "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+                          isEmail
+                            ? "bg-violet-500/15 text-violet-700 dark:text-violet-300"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {isEmail ? (
+                          <Mail className="h-3.5 w-3.5" aria-hidden />
+                        ) : isSystem ? (
                           <Cog className="h-3.5 w-3.5" aria-hidden />
                         ) : (
                           <UserRound className="h-3.5 w-3.5" aria-hidden />
@@ -335,6 +364,17 @@ export function TransactionActivityTimeline({
                           </p>
                         ) : null}
                         <p className="text-[10px] text-muted-foreground">{item.entityLabel}</p>
+                        {item.inboundEmailId ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="mt-1 h-7 text-[11px]"
+                            onClick={() => setOpenInboundId(item.inboundEmailId)}
+                          >
+                            Open email
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   </li>
@@ -357,6 +397,14 @@ export function TransactionActivityTimeline({
             Load earlier activity
           </Button>
         </div>
+      ) : null}
+
+      {openInboundId ? (
+        <InboundEmailDetailSheet
+          inboundEmailId={openInboundId}
+          open={Boolean(openInboundId)}
+          onClose={() => setOpenInboundId(null)}
+        />
       ) : null}
     </div>
   );

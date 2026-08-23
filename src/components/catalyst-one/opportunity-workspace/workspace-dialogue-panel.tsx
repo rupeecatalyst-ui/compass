@@ -25,7 +25,7 @@ export function WorkspaceDialoguePanel() {
     <div className="space-y-4" data-panel="workspace-activity-timeline" data-opportunity-activity-timeline="">
       <StrategicTabToolbar
         title="Activity Timeline"
-        description="What has happened on this transaction — chronological work history."
+        description="What has happened on this transaction — chronological communication and work history."
       />
       <TransactionActivityTimeline
         scope={{ mode: "opportunity", opportunityId }}
@@ -37,8 +37,8 @@ export function WorkspaceDialoguePanel() {
           opportunityId,
           contactId: contact?.id ?? null,
         }}
-        title="Opportunity history"
-        description="Notes, activities, documents, tasks, and stage events for this Opportunity."
+        title="Activity & Dialogue"
+        description="Notes, communications, documents, tasks, and stage events for this Opportunity."
       />
     </div>
   );

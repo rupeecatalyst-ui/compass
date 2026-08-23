@@ -54,8 +54,9 @@ export const ROUTES = {
   CREDIT_BENCH: "/credit-bench",
   CREDIT_WORKBENCH: "/credit-workbench",
   TASKS: "/tasks",
-  /** Employee-facing entity activity desk (EAR / TransactionActivityTimeline). */
+  /** Employee-facing Activity & Dialogue desk (EAR / TransactionActivityTimeline). */
   ACTIVITY: "/activity",
+  /** @deprecated Redirects to ACTIVITY — unified Activity & Dialogue. */
   DIALOGUE: "/dialogue",
   CONTACTS: "/contacts",
   CONTACT_STRATEGY: "/contact-strategy",

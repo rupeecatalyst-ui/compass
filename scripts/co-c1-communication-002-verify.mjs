@@ -27,6 +27,11 @@ const checks = [
   ["idempotent message key", read("prisma/schema.prisma"), "eie_org_message_uidx"],
   ["outbound message-id preserved", read("server/services/enterprise-communication-center/smtp-transport.service.ts"), "Message-ID:"],
   ["ene customer received", read("src/types/enterprise-notification-engine.ts"), "CUSTOMER_EMAIL_RECEIVED"],
+  ["incoming email ear emit", read("server/services/enterprise-inbound-email/inbound-email-ingestion.service.ts"), "emitInboundEarEvent"],
+  ["activity dialogue nav", read("src/config/navigation.ts"), "Activity & Dialogue"],
+  ["dialogue redirects to activity", read("src/app/(dashboard)/dialogue/page.tsx"), "ROUTES.ACTIVITY"],
+  ["inbound email detail api", read("src/app/api/enterprise-inbound-emails/[inboundEmailId]/route.ts"), "enterpriseInboundEmailMessage"],
+  ["activity dialogue quick access", read("src/components/catalyst-one/activity-dialogue/activity-dialogue-quick-access.tsx"), "ActivityDialogueQuickAccess"],
 ];
 
 let failed = 0;
