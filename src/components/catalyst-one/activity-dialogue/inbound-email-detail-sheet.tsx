@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Mail, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants/routes";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import { formatRelativeTime, cn } from "@/lib/utils";
 
 export type InboundEmailDetailDto = {
@@ -54,10 +55,10 @@ export function InboundEmailDetailSheet({ inboundEmailId, open, onClose }: Props
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void fetch(`/api/enterprise-inbound-emails/${encodeURIComponent(inboundEmailId)}`, {
-      credentials: "include",
-      cache: "no-store",
-    })
+    void authenticatedJsonFetch(
+      `/api/enterprise-inbound-emails/${encodeURIComponent(inboundEmailId)}`,
+      { cache: "no-store" },
+    )
       .then(async (res) => {
         if (!res.ok) throw new Error("Could not load this email");
         const json = (await res.json()) as {

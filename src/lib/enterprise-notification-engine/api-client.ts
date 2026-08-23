@@ -7,6 +7,7 @@ import {
   ENE_PREFS_API_PATH,
   ENE_SOUND_PREF_STORAGE_KEY,
 } from "@/constants/enterprise-notification-engine";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
   listSessionEneForUser,
   markSessionEneRead,
@@ -32,8 +33,7 @@ export async function listEnterpriseNotifications(
   userId?: string | null,
 ): Promise<EnterpriseNotificationItem[]> {
   try {
-    const res = await fetch(`${ENE_API_PATH}${buildQuery(query)}`, {
-      credentials: "include",
+    const res = await authenticatedJsonFetch(`${ENE_API_PATH}${buildQuery(query)}`, {
       cache: "no-store",
     });
     if (!res.ok) {
@@ -59,10 +59,8 @@ export async function markEnterpriseNotificationRead(
 ): Promise<EnterpriseNotificationItem | null> {
   markSessionEneRead(id, userId ?? undefined);
   try {
-    const res = await fetch(`${ENE_API_PATH}/${encodeURIComponent(id)}`, {
+    const res = await authenticatedJsonFetch(`${ENE_API_PATH}/${encodeURIComponent(id)}`, {
       method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "mark_read" }),
     });
     if (!res.ok) return markSessionEneRead(id, userId ?? undefined);
@@ -98,8 +96,7 @@ export function writeLocalSoundPreference(enabled: boolean): void {
 
 export async function fetchNotificationSoundPreference(): Promise<boolean> {
   try {
-    const res = await fetch(ENE_PREFS_API_PATH, {
-      credentials: "include",
+    const res = await authenticatedJsonFetch(ENE_PREFS_API_PATH, {
       cache: "no-store",
     });
     if (!res.ok) return readLocalSoundPreference();
@@ -122,10 +119,8 @@ export async function saveNotificationSoundPreference(
 ): Promise<void> {
   writeLocalSoundPreference(soundEnabled);
   try {
-    await fetch(ENE_PREFS_API_PATH, {
+    await authenticatedJsonFetch(ENE_PREFS_API_PATH, {
       method: "PUT",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ soundEnabled }),
     });
   } catch {

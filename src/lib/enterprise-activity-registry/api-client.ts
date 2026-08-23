@@ -3,6 +3,7 @@
  */
 
 import { EAR_API_PATH } from "@/constants/enterprise-activity-registry";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
   listSessionEarEvents,
   rememberEarEvent,
@@ -53,8 +54,7 @@ export async function listEnterpriseActivity(
   query: ListEnterpriseActivityQuery = {},
 ): Promise<EnterpriseActivityEvent[]> {
   try {
-    const res = await fetch(`${EAR_API_PATH}${buildQuery(query)}`, {
-      credentials: "include",
+    const res = await authenticatedJsonFetch(`${EAR_API_PATH}${buildQuery(query)}`, {
       cache: "no-store",
     });
     if (!res.ok) return sessionFallback(query);
@@ -125,10 +125,8 @@ export async function emitEnterpriseActivity(
   rememberEarEvent(provisional);
 
   try {
-    const res = await fetch(EAR_API_PATH, {
+    const res = await authenticatedJsonFetch(EAR_API_PATH, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({
         ...input,
         id: provisional.id,
