@@ -7,7 +7,7 @@
     "dev:web": "next dev",
     "dev:api": "tsx watch server/index.ts",
     "clean": "rimraf .next .turbo",
-    "build": "prisma generate && node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build && node scripts/copy-standalone-assets.mjs",
+    "build": "prisma generate && node scripts/prisma-migrate-deploy-on-build.mjs && node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build && node scripts/copy-standalone-assets.mjs",
     "postbuild:standalone-assets": "node scripts/copy-standalone-assets.mjs",
     "build:api": "tsc -p tsconfig.server.json",
     "start": "next start",
