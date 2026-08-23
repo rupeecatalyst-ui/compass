@@ -136,10 +136,22 @@ const nextConfig: NextConfig = {
     cpus: 1,
     webpackMemoryOptimizations: true,
   },
-  /** CO-C1-ADMIN-USER-MANUAL-001 — include Markdown knowledge base in serverless traces. */
+  /**
+   * CO-C1-ADMIN-USER-MANUAL-001 — include Markdown knowledge base in serverless traces.
+   * CO-C1-COMMUNICATION-002 — imapflow/mailparser are dynamically imported by the
+   * inbound IMAP poller; Next standalone tracing often omits them unless listed.
+   */
   outputFileTracingIncludes: {
     "/admin/user-manual/**/*": ["./content/enterprise-user-manual/**/*"],
     "/admin/user-manual": ["./content/enterprise-user-manual/**/*"],
+    "/api/cron/inbound-email": [
+      "./node_modules/imapflow/**/*",
+      "./node_modules/mailparser/**/*",
+    ],
+    "/api/cron/inbound-email/**/*": [
+      "./node_modules/imapflow/**/*",
+      "./node_modules/mailparser/**/*",
+    ],
   },
   webpack: (config) => {
     config.parallelism = 1;
