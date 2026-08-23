@@ -13,7 +13,10 @@ import { matchInboundEmailTransaction } from "@/lib/enterprise-inbound-email/tra
 import type { ParsedInboundEmail } from "@/types/enterprise-inbound-email";
 import { enterpriseActivityService } from "@server/services/enterprise-activity/enterprise-activity.service";
 import { buildInboundMatchContext } from "@server/services/enterprise-inbound-email/inbound-match-context.service";
-import { fetchUnreadInboundEmails } from "@server/services/enterprise-inbound-email/imap-mailbox.service";
+import {
+  fetchUnreadInboundEmails,
+  INBOUND_EMAIL_POLL_MESSAGE_LIMIT,
+} from "@server/services/enterprise-inbound-email/imap-mailbox.service";
 import { inboundEmailServerConfigService } from "@server/services/enterprise-inbound-email/inbound-email-server-config.service";
 import { enterpriseNotificationService } from "@server/services/enterprise-notification/enterprise-notification.service";
 import { enterpriseTransactionDocumentService } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
@@ -301,7 +304,14 @@ export const inboundEmailIngestionService = {
     configured: boolean;
     fetched: number;
     results: Array<{ status: string; messageId: string }>;
+    /** True when the cooperative cron budget stopped IMAP work early (additive). */
+    stoppedEarly?: boolean;
   }> {
+    // cron-job.org max HTTP wait is 30s — bound IMAP under that; finish ingest of the small batch.
+    const IMAP_BUDGET_MS = 16_000;
+    const startedAt = Date.now();
+    const imapDeadlineAt = startedAt + IMAP_BUDGET_MS;
+
     const runtime = await inboundEmailServerConfigService.resolveRuntimeImapConfig();
     if (!runtime.enabled) {
       return { enabled: false, configured: false, fetched: 0, results: [] };
@@ -311,9 +321,15 @@ export const inboundEmailIngestionService = {
     }
 
     const organizationId = await resolveOrganizationId();
-    const emails = await fetchUnreadInboundEmails(runtime.imap);
+    const { emails, stoppedEarly: imapStoppedEarly } = await fetchUnreadInboundEmails(
+      runtime.imap,
+      INBOUND_EMAIL_POLL_MESSAGE_LIMIT,
+      { deadlineAt: imapDeadlineAt },
+    );
     const results: Array<{ status: string; messageId: string }> = [];
 
+    // Always ingest every message already fetched/marked \\Seen in this tick (max 3).
+    // Do not abandon mid-batch — that would leave Seen messages without ledger rows.
     for (const email of emails) {
       try {
         results.push(
@@ -352,11 +368,14 @@ export const inboundEmailIngestionService = {
       }
     }
 
+    const stoppedEarly = imapStoppedEarly;
+
     return {
       enabled: true,
       configured: true,
       fetched: emails.length,
       results,
+      ...(stoppedEarly ? { stoppedEarly: true } : {}),
     };
   },
 

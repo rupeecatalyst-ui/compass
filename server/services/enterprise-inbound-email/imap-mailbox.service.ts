@@ -71,10 +71,37 @@ function resolveReceivedAt(parsedDate: unknown, fallback: unknown): Date {
   return new Date();
 }
 
+/**
+ * Bounded Hostinger IMAP poll — keep under external cron HTTP budgets (~30s).
+ * Probe path deliberately does not use these options.
+ */
+export const INBOUND_EMAIL_POLL_MESSAGE_LIMIT = 3;
+/** TCP/TLS + auth must complete quickly. */
+export const INBOUND_EMAIL_POLL_CONNECTION_TIMEOUT_MS = 8_000;
+export const INBOUND_EMAIL_POLL_GREETING_TIMEOUT_MS = 8_000;
+/** Stuck FETCH/SEARCH fails before cron-job.org's 30s client timeout. */
+export const INBOUND_EMAIL_POLL_SOCKET_TIMEOUT_MS = 12_000;
+
+export type FetchUnreadInboundEmailsOptions = {
+  /** Absolute deadline (Date.now()); loop stops cleanly when reached. */
+  deadlineAt?: number;
+};
+
+export type FetchUnreadInboundEmailsResult = {
+  emails: ParsedInboundEmail[];
+  /** True when the poll stopped before the message limit due to deadline or IMAP error. */
+  stoppedEarly: boolean;
+};
+
+function isPastDeadline(deadlineAt: number | undefined): boolean {
+  return typeof deadlineAt === "number" && Date.now() >= deadlineAt;
+}
+
 export async function fetchUnreadInboundEmails(
   config: InboundImapConfig,
-  limit = 25,
-): Promise<ParsedInboundEmail[]> {
+  limit = INBOUND_EMAIL_POLL_MESSAGE_LIMIT,
+  options?: FetchUnreadInboundEmailsOptions,
+): Promise<FetchUnreadInboundEmailsResult> {
   const { ImapFlow } = await import("imapflow");
   const { simpleParser } = await import("mailparser");
 
@@ -84,14 +111,37 @@ export async function fetchUnreadInboundEmails(
     secure: true,
     auth: { user: config.user, pass: config.password },
     logger: false,
+    disableAutoIdle: true,
+    connectionTimeout: INBOUND_EMAIL_POLL_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: INBOUND_EMAIL_POLL_GREETING_TIMEOUT_MS,
+    socketTimeout: INBOUND_EMAIL_POLL_SOCKET_TIMEOUT_MS,
+  });
+
+  // Prevent imapflow ETIMEOUT from becoming process uncaughtException.
+  let clientError: Error | null = null;
+  client.on("error", (err: Error) => {
+    clientError = err instanceof Error ? err : new Error(String(err));
   });
 
   const results: ParsedInboundEmail[] = [];
+  const messageLimit = Math.max(1, Math.min(limit, INBOUND_EMAIL_POLL_MESSAGE_LIMIT));
+  let stoppedEarly = false;
 
   try {
+    if (isPastDeadline(options?.deadlineAt)) {
+      return { emails: results, stoppedEarly: true };
+    }
+
     await client.connect();
+    if (clientError) throw clientError;
+    if (isPastDeadline(options?.deadlineAt)) {
+      return { emails: results, stoppedEarly: true };
+    }
+
     const lock = await client.getMailboxLock(config.mailbox);
     try {
+      if (clientError) throw clientError;
+
       const messages = client.fetch(
         { seen: false },
         { source: true, uid: true, internalDate: true },
@@ -99,7 +149,12 @@ export async function fetchUnreadInboundEmails(
 
       let count = 0;
       for await (const msg of messages) {
-        if (count >= limit) break;
+        if (clientError) throw clientError;
+        if (isPastDeadline(options?.deadlineAt)) {
+          stoppedEarly = true;
+          break;
+        }
+        if (count >= messageLimit) break;
         if (!msg.source) continue;
 
         const parsed = await simpleParser(msg.source);
@@ -154,11 +209,22 @@ export async function fetchUnreadInboundEmails(
     } finally {
       lock.release();
     }
+  } catch (err) {
+    const surfaced = clientError ?? (err instanceof Error ? err : new Error(String(err)));
+    // Prefer returning messages already safely parsed/marked when the session dies mid-poll.
+    if (results.length > 0) {
+      return { emails: results, stoppedEarly: true };
+    }
+    throw surfaced;
   } finally {
     await client.logout().catch(() => undefined);
   }
 
-  return results;
+  if (clientError && results.length === 0) {
+    throw clientError;
+  }
+
+  return { emails: results, stoppedEarly };
 }
 
 /**
