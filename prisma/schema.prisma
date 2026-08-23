@@ -260,6 +260,8 @@ model Organization {
   /// CO-C1-COMMUNICATION-002 — Inbound operational mailbox ingestion ledger
   enterpriseInboundEmailMessages           EnterpriseInboundEmailMessage[]
   enterpriseInboundEmailAttachments        EnterpriseInboundEmailAttachment[]
+  /// CO-C1-COMMUNICATION-002 — Incoming Email Server settings (non-secret; password remains host env)
+  enterpriseInboundEmailServerConfig       EnterpriseInboundEmailServerConfig?
   /// CO-UX-021 — Enterprise Business Notes (official business chronology notes)
   enterpriseBusinessNotes                  EnterpriseBusinessNote[]
   /// CO-ORG-001 — Enterprise Organization Workspace (durable backend)
@@ -646,6 +648,29 @@ model EnterpriseNotification {
   @@index([organizationId, recipientPartnerId, occurredAt(sort: Desc)], map: "ene_org_partner_occurred_idx")
   @@index([organizationId, readState, occurredAt(sort: Desc)], map: "ene_org_read_occurred_idx")
   @@map("enterprise_notifications")
+}
+
+/// CO-C1-COMMUNICATION-002 — Incoming Email Server settings (org-scoped, non-secret).
+/// IMAP password remains host env only (INBOUND_EMAIL_IMAP_PASSWORD) — ECC secret pattern.
+model EnterpriseInboundEmailServerConfig {
+  id                   String    @id @default(cuid())
+  organizationId       String    @unique @map("organization_id")
+  enabled              Boolean   @default(false)
+  imapHost             String?   @map("imap_host")
+  imapPort             Int       @default(993) @map("imap_port")
+  imapUsername         String?   @map("imap_username")
+  mailbox              String    @default("INBOX")
+  internalDomains      String    @default("rupeecatalyst.com") @map("internal_domains")
+  lastProbeAt          DateTime? @map("last_probe_at")
+  lastProbeOk          Boolean?  @map("last_probe_ok")
+  lastProbeMessage     String?   @map("last_probe_message") @db.Text
+  modifiedByUserId     String?   @map("modified_by_user_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@map("enterprise_inbound_email_server_configs")
 }
 
 /// CO-C1-COMMUNICATION-002 — Inbound operational mailbox message ledger (idempotent ingestion SSOT).

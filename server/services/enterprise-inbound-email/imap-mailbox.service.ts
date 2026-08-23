@@ -20,7 +20,10 @@ export type InboundImapConfig = {
   mailbox: string;
 };
 
-export function resolveInboundImapConfig(): InboundImapConfig | null {
+/**
+ * Env-only IMAP config (legacy fallback). Prefer inboundEmailServerConfigService.resolveRuntimeImapConfig().
+ */
+export function resolveInboundImapConfigFromEnv(): InboundImapConfig | null {
   const host = process.env.INBOUND_EMAIL_IMAP_HOST?.trim();
   const user = process.env.INBOUND_EMAIL_IMAP_USER?.trim();
   const password = process.env.INBOUND_EMAIL_IMAP_PASSWORD?.trim();
@@ -28,6 +31,11 @@ export function resolveInboundImapConfig(): InboundImapConfig | null {
   const port = Number(process.env.INBOUND_EMAIL_IMAP_PORT || "993");
   const mailbox = process.env.INBOUND_EMAIL_MAILBOX?.trim() || "INBOX";
   return { host, port: Number.isFinite(port) ? port : 993, user, password, mailbox };
+}
+
+/** @deprecated Use resolveInboundImapConfigFromEnv or DB-backed runtime resolver. */
+export function resolveInboundImapConfig(): InboundImapConfig | null {
+  return resolveInboundImapConfigFromEnv();
 }
 
 function hashBuffer(buf: Buffer): string {
@@ -152,3 +160,63 @@ export async function fetchUnreadInboundEmails(
 
   return results;
 }
+
+/**
+ * Controlled IMAP connectivity probe — AUTH + open mailbox only.
+ * Does not fetch or mutate messages. Never logs credentials.
+ */
+export async function probeInboundImapConnection(
+  config: InboundImapConfig,
+): Promise<{
+  ok: boolean;
+  tlsConnected: boolean;
+  authVerified: boolean;
+  mailboxOpened: boolean;
+  message: string;
+}> {
+  const { ImapFlow } = await import("imapflow");
+  const client = new ImapFlow({
+    host: config.host,
+    port: config.port,
+    secure: true,
+    auth: { user: config.user, pass: config.password },
+    logger: false,
+  });
+
+  let tlsConnected = false;
+  let authVerified = false;
+  let mailboxOpened = false;
+
+  try {
+    await client.connect();
+    tlsConnected = true;
+    authVerified = true;
+    const lock = await client.getMailboxLock(config.mailbox);
+    try {
+      mailboxOpened = Boolean(client.mailbox);
+    } finally {
+      lock.release();
+    }
+    await client.logout().catch(() => undefined);
+    return {
+      ok: true,
+      tlsConnected,
+      authVerified,
+      mailboxOpened,
+      message: `IMAP connected to ${config.host}:${config.port} mailbox ${config.mailbox}`,
+    };
+  } catch (err) {
+    await client.logout().catch(() => undefined);
+    const raw = err instanceof Error ? err.message : "IMAP probe failed";
+    // Never echo credentials if libraries include them in errors
+    const message = raw.replace(/pass(?:word)?[=:].*/gi, "[redacted]");
+    return {
+      ok: false,
+      tlsConnected,
+      authVerified,
+      mailboxOpened,
+      message,
+    };
+  }
+}
+

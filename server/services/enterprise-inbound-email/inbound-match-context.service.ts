@@ -64,6 +64,7 @@ export async function buildInboundMatchContext(args: {
   textBody: string | null;
   inReplyTo: string | null;
   referencesHeader: string | null;
+  internalDomains?: string[];
 }): Promise<InboundMatchContext> {
   const email = args.fromEmail.trim().toLowerCase();
 
@@ -201,6 +202,7 @@ export async function buildInboundMatchContext(args: {
     textBody: args.textBody,
     inReplyTo: args.inReplyTo,
     referencesHeader: args.referencesHeader,
+    internalDomains: args.internalDomains,
     outboundThread,
     referenceMatches: { opportunitiesByNumber, dealsByNumber },
     senderContacts: {

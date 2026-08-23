@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { OperationalEmailActivationPanel } from "@/components/catalyst-one/admin/enterprise-communication/operational-email-activation-panel";
+import { IncomingEmailServerPanel } from "@/components/catalyst-one/admin/enterprise-communication/incoming-email-server-panel";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import type {
   EnterpriseCommunicationEventMapping,
@@ -155,6 +156,8 @@ export function EnterpriseCommunicationCenterAdmin() {
         profiles={bundle?.profiles ?? []}
         selectedCode={selectedCode}
       />
+
+      <IncomingEmailServerPanel />
 
       <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
         <Card>

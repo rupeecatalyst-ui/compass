@@ -8,16 +8,13 @@ import { ROUTES } from "@/constants/routes";
 import { createUnclassifiedDocumentTypeRef } from "@/constants/document-intake";
 import {
   INBOUND_EMAIL_SOURCE_SYSTEM,
-  isInboundEmailEnabled,
 } from "@/constants/enterprise-inbound-email";
 import { matchInboundEmailTransaction } from "@/lib/enterprise-inbound-email/transaction-matcher";
 import type { ParsedInboundEmail } from "@/types/enterprise-inbound-email";
 import { enterpriseActivityService } from "@server/services/enterprise-activity/enterprise-activity.service";
 import { buildInboundMatchContext } from "@server/services/enterprise-inbound-email/inbound-match-context.service";
-import {
-  fetchUnreadInboundEmails,
-  resolveInboundImapConfig,
-} from "@server/services/enterprise-inbound-email/imap-mailbox.service";
+import { fetchUnreadInboundEmails } from "@server/services/enterprise-inbound-email/imap-mailbox.service";
+import { inboundEmailServerConfigService } from "@server/services/enterprise-inbound-email/inbound-email-server-config.service";
 import { enterpriseNotificationService } from "@server/services/enterprise-notification/enterprise-notification.service";
 import { enterpriseTransactionDocumentService } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
 import { enterpriseInboundEmailRepository } from "@server/repositories/enterprise-inbound-email/enterprise-inbound-email.repository";
@@ -66,6 +63,7 @@ async function ingestOneEmail(args: {
   organizationId: string;
   email: ParsedInboundEmail;
   sourceMailbox: string;
+  internalDomains: string[];
 }): Promise<{ status: string; messageId: string }> {
   const existing = await enterpriseInboundEmailRepository.findByMessageId(
     args.organizationId,
@@ -82,6 +80,7 @@ async function ingestOneEmail(args: {
     textBody: args.email.textBody,
     inReplyTo: args.email.inReplyTo,
     referencesHeader: args.email.referencesHeader,
+    internalDomains: args.internalDomains,
   });
   const match = matchInboundEmailTransaction(matchContext);
 
@@ -292,8 +291,9 @@ async function processMatchedInbound(args: {
 }
 
 export const inboundEmailIngestionService = {
-  isEnabled(): boolean {
-    return isInboundEmailEnabled();
+  async isEnabled(): Promise<boolean> {
+    const runtime = await inboundEmailServerConfigService.resolveRuntimeImapConfig();
+    return runtime.enabled;
   },
 
   async pollAndIngest(): Promise<{
@@ -302,17 +302,16 @@ export const inboundEmailIngestionService = {
     fetched: number;
     results: Array<{ status: string; messageId: string }>;
   }> {
-    if (!this.isEnabled()) {
+    const runtime = await inboundEmailServerConfigService.resolveRuntimeImapConfig();
+    if (!runtime.enabled) {
       return { enabled: false, configured: false, fetched: 0, results: [] };
     }
-
-    const config = resolveInboundImapConfig();
-    if (!config) {
+    if (!runtime.imap) {
       return { enabled: true, configured: false, fetched: 0, results: [] };
     }
 
     const organizationId = await resolveOrganizationId();
-    const emails = await fetchUnreadInboundEmails(config);
+    const emails = await fetchUnreadInboundEmails(runtime.imap);
     const results: Array<{ status: string; messageId: string }> = [];
 
     for (const email of emails) {
@@ -321,7 +320,8 @@ export const inboundEmailIngestionService = {
           await ingestOneEmail({
             organizationId,
             email,
-            sourceMailbox: config.mailbox,
+            sourceMailbox: runtime.imap.mailbox,
+            internalDomains: runtime.internalDomains,
           }),
         );
       } catch (err) {
@@ -346,7 +346,7 @@ export const inboundEmailIngestionService = {
           matchReason: "ingestion_error",
           failureReason: err instanceof Error ? err.message : "Ingestion failed",
           attachmentCount: email.attachments.length,
-          sourceMailbox: config.mailbox,
+          sourceMailbox: runtime.imap.mailbox,
           imapUid: email.imapUid,
         }).catch(() => undefined);
       }

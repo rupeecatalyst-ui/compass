@@ -50,3 +50,31 @@ export type InboundTransactionMatch = {
   outboundSourceEventId: string | null;
   senderRole: InboundEmailSenderRole;
 };
+
+/** Admin DTO — never includes IMAP password. */
+export type InboundEmailServerSettingsDto = {
+  enabled: boolean;
+  imapHost: string | null;
+  imapPort: number;
+  imapUsername: string | null;
+  mailbox: string;
+  internalDomains: string;
+  passwordConfigured: boolean;
+  passwordEnvKey: string;
+  lastProbeAt: string | null;
+  lastProbeOk: boolean | null;
+  lastProbeMessage: string | null;
+  source: "database" | "environment_fallback" | "unconfigured";
+};
+
+export type InboundEmailImapProbeResult = {
+  ok: boolean;
+  host: string | null;
+  port: number | null;
+  mailbox: string | null;
+  tlsConnected: boolean;
+  authVerified: boolean;
+  mailboxOpened: boolean;
+  passwordConfigured: boolean;
+  message: string;
+};

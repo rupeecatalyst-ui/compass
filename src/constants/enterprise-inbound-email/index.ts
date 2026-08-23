@@ -33,13 +33,24 @@ export function isInboundEmailEnabled(): boolean {
   return raw === "true" || raw === "1";
 }
 
-export function resolveInternalEmailDomains(): string[] {
-  const raw =
-    process.env.INBOUND_EMAIL_INTERNAL_DOMAINS?.trim() || "rupeecatalyst.com";
-  return raw
+/** Parse comma-separated internal domains (DB or env). */
+export function parseInternalEmailDomains(raw: string | null | undefined): string[] {
+  return (raw ?? "")
     .split(",")
     .map((d) => d.trim().toLowerCase())
     .filter(Boolean);
+}
+
+/** Env-only internal domains (fallback when no DB config). */
+export function resolveInternalEmailDomainsFromEnv(): string[] {
+  const raw =
+    process.env.INBOUND_EMAIL_INTERNAL_DOMAINS?.trim() || "rupeecatalyst.com";
+  return parseInternalEmailDomains(raw);
+}
+
+/** @deprecated Prefer resolveInternalEmailDomainsFromEnv or DB-backed runtime config. */
+export function resolveInternalEmailDomains(): string[] {
+  return resolveInternalEmailDomainsFromEnv();
 }
 
 export function normalizeMessageId(value: string | null | undefined): string | null {

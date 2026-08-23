@@ -30,6 +30,8 @@ export type InboundMatchContext = {
   textBody: string | null;
   inReplyTo: string | null;
   referencesHeader: string | null;
+  /** When set, overrides env INBOUND_EMAIL_INTERNAL_DOMAINS for this match. */
+  internalDomains?: string[];
   outboundThread?: {
     sourceEventId: string;
     opportunityId: string | null;
@@ -77,12 +79,14 @@ function resolveSenderRole(args: {
   lenderContactIds: string[];
   wealthPartnerIds: string[];
   isInternalUser: boolean;
+  internalDomains?: string[];
 }): InboundEmailSenderRole {
   const domain = args.fromEmail.split("@")[1]?.toLowerCase() ?? "";
-  if (
-    resolveInternalEmailDomains().includes(domain) ||
-    args.isInternalUser
-  ) {
+  const internal =
+    args.internalDomains?.length
+      ? args.internalDomains
+      : resolveInternalEmailDomains();
+  if (internal.includes(domain) || args.isInternalUser) {
     return "internal";
   }
   if (args.lenderContactIds.length) return "lender";
@@ -100,6 +104,7 @@ export function matchInboundEmailTransaction(
     lenderContactIds: input.senderContacts?.lenderContactIds ?? [],
     wealthPartnerIds: input.senderContacts?.wealthPartnerIds ?? [],
     isInternalUser: input.senderContacts?.isInternalUser ?? false,
+    internalDomains: input.internalDomains,
   });
 
   if (senderRole === "internal") {
