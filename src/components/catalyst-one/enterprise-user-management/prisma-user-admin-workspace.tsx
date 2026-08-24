@@ -23,6 +23,7 @@ import { useAuthContext } from "@/components/providers/auth-provider";
 import { getAccessToken } from "@/lib/api-client";
 import { ROLES, type Role } from "@/constants/roles";
 import { cn } from "@/lib/utils";
+import { UserAiAccessPanel } from "@/components/catalyst-one/admin/users/user-ai-access-panel";
 
 type UserAdminRecord = {
   id: string;
@@ -72,6 +73,7 @@ export function PrismaUserAdminWorkspace() {
   const [editing, setEditing] = useState<UserAdminRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [tempPasswordNotice, setTempPasswordNotice] = useState<string | null>(null);
+  const [aiAccessUser, setAiAccessUser] = useState<UserAdminRecord | null>(null);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -342,6 +344,9 @@ export function PrismaUserAdminWorkspace() {
                       <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
                         Edit
                       </Button>
+                      <Button size="sm" variant="outline" onClick={() => setAiAccessUser(u)}>
+                        AI Access
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => void toggleActive(u)}>
                         {u.isActive ? "Deactivate" : "Activate"}
                       </Button>
@@ -448,6 +453,15 @@ export function PrismaUserAdminWorkspace() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <UserAiAccessPanel
+        userId={aiAccessUser?.id ?? ""}
+        userLabel={aiAccessUser?.fullName ?? ""}
+        open={Boolean(aiAccessUser)}
+        onOpenChange={(open) => {
+          if (!open) setAiAccessUser(null);
+        }}
+      />
     </div>
   );
 }

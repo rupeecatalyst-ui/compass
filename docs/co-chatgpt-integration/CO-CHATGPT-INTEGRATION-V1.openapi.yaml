@@ -1,0 +1,455 @@
+openapi: 3.1.0
+info:
+  title: Catalyst One — ChatGPT Read-Only Integration V1
+  version: 1.0.0
+  description: |
+    Dedicated read-only integration namespace for ChatGPT executive operational intelligence.
+    **GET-only.** No mutation capabilities. Does not expose employee/admin/partner APIs.
+
+    **Channel auth:** `X-ChatGPT-Integration-Key` (server integration key).
+
+    **User auth:** OAuth 2.0 authorization code + PKCE issues a short-lived integration bearer token
+    (`aud=catalyst_one_chatgpt`). Employee session JWTs are **not** accepted on integration reads.
+servers:
+  - url: https://catalyst-one.rupeecatalyst.com
+    description: Production (Hostinger)
+  - url: http://localhost:3000
+    description: Local development
+tags:
+  - name: ChatGPT Integration V1
+    description: Read-only operational intelligence endpoints
+security:
+  - ChatGptIntegrationApiKey: []
+    ChatGptIntegrationOAuth: []
+paths:
+  /api/integrations/chatgpt/v1/oauth/authorize:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: OAuth authorization endpoint (authorization code + PKCE)
+      operationId: chatgptOAuthAuthorize
+      security: []
+      parameters:
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            example: chatgpt:read chatgpt:chanakya
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: code_challenge
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code_challenge_method
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [S256]
+      responses:
+        "302":
+          description: Redirect to Catalyst One consent UI
+        "400":
+          $ref: "#/components/responses/OAuthError"
+        "503":
+          $ref: "#/components/responses/NotConfigured"
+  /api/integrations/chatgpt/v1/oauth/token:
+    post:
+      tags: [ChatGPT Integration V1]
+      summary: OAuth token endpoint (authorization_code grant)
+      operationId: chatgptOAuthToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - grant_type
+                - code
+                - redirect_uri
+                - client_id
+                - client_secret
+                - code_verifier
+              properties:
+                grant_type:
+                  type: string
+                  enum: [authorization_code]
+                code:
+                  type: string
+                redirect_uri:
+                  type: string
+                  format: uri
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+                code_verifier:
+                  type: string
+      responses:
+        "200":
+          description: Integration access token (short-lived)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthTokenResponse"
+        "400":
+          $ref: "#/components/responses/OAuthError"
+        "401":
+          $ref: "#/components/responses/OAuthError"
+        "503":
+          $ref: "#/components/responses/NotConfigured"
+  /api/integrations/chatgpt/v1/health:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: Platform health snapshot
+      operationId: chatgptHealth
+      responses:
+        "200":
+          description: Health DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessHealth"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/NotConfigured"
+  /api/integrations/chatgpt/v1/mission-control:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: Mission Control operational snapshot
+      operationId: chatgptMissionControl
+      responses:
+        "200":
+          description: Mission Control DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessMissionControl"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/integrations/chatgpt/v1/chanakya:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: CHANAKYA / Radar intelligence snapshot
+      operationId: chatgptChanakya
+      responses:
+        "200":
+          description: CHANAKYA DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessChanakya"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/integrations/chatgpt/v1/pipeline:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: Aggregated loan pipeline summary
+      operationId: chatgptPipeline
+      responses:
+        "200":
+          description: Pipeline DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessPipeline"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/integrations/chatgpt/v1/tasks:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: Task attention summary
+      operationId: chatgptTasks
+      responses:
+        "200":
+          description: Tasks DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessTasks"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/integrations/chatgpt/v1/email-status:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: Inbound email processing health
+      operationId: chatgptEmailStatus
+      responses:
+        "200":
+          description: Email status DTO (no credentials)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessEmailStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/integrations/chatgpt/v1/activity:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: Today's aggregated activity highlights
+      operationId: chatgptActivity
+      responses:
+        "200":
+          description: Activity DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessActivity"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/integrations/chatgpt/v1/build:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: Deployment / build information
+      operationId: chatgptBuild
+      responses:
+        "200":
+          description: Build DTO (no secrets)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessBuild"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+components:
+  securitySchemes:
+    ChatGptIntegrationApiKey:
+      type: apiKey
+      in: header
+      name: X-ChatGPT-Integration-Key
+      description: |
+        Dedicated integration channel key (`CHATGPT_INTEGRATION_API_KEY`).
+        Required on every integration read alongside the OAuth integration bearer token.
+    ChatGptIntegrationOAuth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: /api/integrations/chatgpt/v1/oauth/authorize
+          tokenUrl: /api/integrations/chatgpt/v1/oauth/token
+          scopes:
+            chatgpt:read: Read-only operational intelligence (requires AI_ACCESS + AI_TEXT + AI_CATALYST_INTELLIGENCE)
+            chatgpt:chanakya: CHANAKYA / Radar endpoint (requires AI_CHANAKYA)
+      description: |
+        OAuth 2.0 authorization code + PKCE. Issues a short-lived JWT (`aud=catalyst_one_chatgpt`)
+        accepted **only** by `/api/integrations/chatgpt/v1/*`. Employee session JWTs are rejected.
+  responses:
+    OAuthError:
+      description: OAuth request failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: Missing or invalid integration API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    RateLimited:
+      description: Rate limit exceeded (executive intelligence throttle)
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotConfigured:
+      description: Integration key not configured on deployment
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message, statusCode]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            statusCode:
+              type: integer
+            correlationId:
+              type: string
+    IntegrationMeta:
+      type: object
+      required: [requestId, generatedAt, organizationId, organizationSlug, integrationVersion]
+      properties:
+        requestId:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        organizationId:
+          type: string
+        organizationSlug:
+          type: string
+        integrationVersion:
+          type: string
+          enum: [v1]
+    OAuthTokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in, scope]
+      properties:
+        access_token:
+          type: string
+          description: Short-lived integration JWT (aud=catalyst_one_chatgpt)
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: Seconds until expiry (default 1800)
+        scope:
+          type: string
+          description: Space-delimited granted scopes
+    ApiSuccessHealth:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+              properties:
+                overallHealth:
+                  type: string
+                summary:
+                  type: string
+    ApiSuccessMissionControl:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessChanakya:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessPipeline:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessTasks:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessEmailStatus:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessActivity:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessBuild:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object

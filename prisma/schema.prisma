@@ -37,6 +37,8 @@ model User {
   createdById        String?        @map("created_by_id")
   reportingManagerId String?        @map("reporting_manager_id")
   eumUserId          String?        @unique @map("eum_user_id")
+  /// CO-AI-ACCESS-001 — explicit user AI capabilities (default OFF). Not inherited from role.
+  aiCapabilitiesJson Json           @default("{}") @map("ai_capabilities_json")
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
   refreshTokens      RefreshToken[]

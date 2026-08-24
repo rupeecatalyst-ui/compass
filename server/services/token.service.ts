@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { serverEnv } from "../config/env";
+import { isChatGptIntegrationTokenPayload } from "@/lib/chatgpt-integration/integration-access-token";
 
 export interface TokenPayload {
   userId: string;
@@ -29,6 +30,10 @@ export function verifyAccessToken(token: string): TokenPayload {
   const audList = Array.isArray(aud) ? aud : aud ? [aud] : [];
   if (audList.includes("wealth_partner_app") || payload.typ === "partner_access") {
     throw new Error("Partner token cannot access employee APIs");
+  }
+  /** CO-CHATGPT-OAUTH-001 — Integration tokens are read-only on /api/integrations/chatgpt/v1/* only. */
+  if (isChatGptIntegrationTokenPayload(payload)) {
+    throw new Error("ChatGPT integration token cannot access employee APIs");
   }
   return payload;
 }
