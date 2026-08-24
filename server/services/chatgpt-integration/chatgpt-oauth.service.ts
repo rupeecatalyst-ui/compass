@@ -9,13 +9,13 @@ import { resolvePilotOrganizationId } from "@server/repositories/ecm/organizatio
 import {
   integrationTokenExpiresInSeconds,
   signChatGptIntegrationAccessToken,
-  verifyPkceS256,
 } from "@/lib/chatgpt-integration/integration-access-token";
 import {
   assertOAuthClientCredentials,
   assertRedirectUriAllowed,
   readChatGptOAuthConfig,
 } from "@/lib/chatgpt-integration/oauth-config";
+import { assertTokenPkce } from "@/lib/chatgpt-integration/oauth-pkce";
 import {
   consumeAuthorizationCode,
   consumeOAuthPendingRequest,
@@ -135,7 +135,7 @@ export async function approveOAuthConsent(input: {
     scopes: grantedScopes,
     redirectUri: pending.redirectUri,
     codeChallenge: pending.codeChallenge,
-    codeChallengeMethod: "S256",
+    codeChallengeMethod: pending.codeChallengeMethod,
     clientId: pending.clientId,
   });
 
@@ -192,12 +192,7 @@ export async function exchangeOAuthAuthorizationCode(input: {
     });
   }
 
-  if (!verifyPkceS256(input.codeVerifier, authCode.codeChallenge)) {
-    throw Object.assign(new Error("Invalid PKCE code_verifier."), {
-      statusCode: 400,
-      code: "INVALID_PKCE",
-    });
-  }
+  assertTokenPkce(input.codeVerifier, authCode.codeChallenge, authCode.codeChallengeMethod);
 
   if (!isDatabaseAvailable()) {
     throw Object.assign(new Error("Database unavailable."), {

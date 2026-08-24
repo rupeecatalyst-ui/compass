@@ -2,6 +2,7 @@
  * CO-CHATGPT-OAUTH-001 — OAuth authorization start (no DB; no server-only).
  */
 import { parseRequestedOAuthScopes, readChatGptOAuthConfig } from "@/lib/chatgpt-integration/oauth-config";
+import { resolveAuthorizePkce } from "@/lib/chatgpt-integration/oauth-pkce";
 import {
   createOAuthPendingRequest,
   peekOAuthPendingRequest,
@@ -50,12 +51,7 @@ export function beginOAuthAuthorization(params: OAuthAuthorizeParams): {
     });
   }
 
-  if (params.codeChallengeMethod !== "S256" || !params.codeChallenge.trim()) {
-    throw Object.assign(new Error("PKCE S256 code_challenge is required."), {
-      statusCode: 400,
-      code: "INVALID_PKCE",
-    });
-  }
+  const pkce = resolveAuthorizePkce(params.codeChallenge, params.codeChallengeMethod);
 
   const requestedScopes = parseRequestedOAuthScopes(params.scope);
 
@@ -64,7 +60,8 @@ export function beginOAuthAuthorization(params: OAuthAuthorizeParams): {
     redirectUri: params.redirectUri,
     scope: requestedScopes.join(" "),
     state: params.state,
-    codeChallenge: params.codeChallenge,
+    codeChallenge: pkce.codeChallenge,
+    codeChallengeMethod: pkce.codeChallengeMethod,
   });
 
   return {

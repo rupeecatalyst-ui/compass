@@ -29,8 +29,10 @@ export type ChatGptOAuthPendingRequest = {
   redirectUri: string;
   scope: string;
   state: string;
+  /** Empty when ChatGPT confidential-client authorize omits PKCE. */
   codeChallenge: string;
-  codeChallengeMethod: "S256";
+  /** S256 when PKCE was presented; null for confidential-client (no PKCE). */
+  codeChallengeMethod: "S256" | null;
   createdAt: number;
   expiresAt: number;
 };
@@ -42,7 +44,7 @@ export type ChatGptOAuthAuthorizationCode = {
   scopes: ChatGptOAuthScope[];
   redirectUri: string;
   codeChallenge: string;
-  codeChallengeMethod: "S256";
+  codeChallengeMethod: "S256" | null;
   clientId: string;
   expiresAt: number;
   used: boolean;

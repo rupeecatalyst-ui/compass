@@ -29,17 +29,13 @@ function randomId(prefix: string): string {
 }
 
 export function createOAuthPendingRequest(
-  input: Omit<
-    ChatGptOAuthPendingRequest,
-    "requestId" | "createdAt" | "expiresAt" | "codeChallengeMethod"
-  >,
+  input: Omit<ChatGptOAuthPendingRequest, "requestId" | "createdAt" | "expiresAt">,
 ): ChatGptOAuthPendingRequest {
   purgeExpired();
   const now = Date.now();
   const request: ChatGptOAuthPendingRequest = {
     ...input,
     requestId: randomId("cgo_req"),
-    codeChallengeMethod: "S256",
     createdAt: now,
     expiresAt: now + CHATGPT_OAUTH_REQUEST_TTL_MS,
   };

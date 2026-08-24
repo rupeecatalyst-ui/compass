@@ -33,9 +33,14 @@ import {
   describeOAuthPendingRequest,
 } from "../src/lib/chatgpt-integration/oauth-authorization-flow.ts";
 import {
+  assertTokenPkce,
+  resolveAuthorizePkce,
+} from "../src/lib/chatgpt-integration/oauth-pkce.ts";
+import {
   consumeAuthorizationCode,
   issueAuthorizationCode,
   resetChatGptOAuthStoreForTests,
+  peekOAuthPendingRequest,
 } from "../src/lib/chatgpt-integration/oauth-store.ts";
 import { CHATGPT_INTEGRATION_TOKEN_AUDIENCE } from "../src/types/chatgpt-integration-oauth.ts";
 import { verifyPartnerAccessToken } from "../server/services/partner-gateway/partner-token.service.ts";
@@ -70,6 +75,7 @@ const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64ur
 
 resetChatGptOAuthStoreForTests();
 
+// --- PKCE authorize: S256 + challenge accepted and preserved ---
 try {
   const started = beginOAuthAuthorization({
     responseType: "code",
@@ -80,13 +86,37 @@ try {
     codeChallenge,
     codeChallengeMethod: "S256",
   });
+  const pending = peekOAuthPendingRequest(started.requestId);
+  if (!pending || pending.codeChallenge !== codeChallenge || pending.codeChallengeMethod !== "S256") {
+    fail("PKCE.A authorize S256 challenge not preserved on pending request");
+  } else ok("PKCE.A authorize with code_challenge + S256 preserves challenge");
   const meta = describeOAuthPendingRequest(started.requestId);
   if (!meta.scopes.includes("chatgpt:read")) fail("Authorize should preserve chatgpt:read scope");
   else ok("1. OAuth authorization flow creates pending request");
 } catch (e) {
-  fail(`1. OAuth authorization flow: ${e instanceof Error ? e.message : e}`);
+  fail(`PKCE.A / 1. OAuth authorization flow: ${e instanceof Error ? e.message : e}`);
 }
 
+// --- PKCE authorize: lowercase s256 accepted ---
+try {
+  resetChatGptOAuthStoreForTests();
+  const started = beginOAuthAuthorization({
+    responseType: "code",
+    clientId: process.env.CHATGPT_OAUTH_CLIENT_ID,
+    redirectUri,
+    scope: "chatgpt:read",
+    state: "s256-case",
+    codeChallenge,
+    codeChallengeMethod: "s256",
+  });
+  const pending = peekOAuthPendingRequest(started.requestId);
+  if (pending?.codeChallengeMethod === "S256") ok("PKCE.B lowercase s256 normalized to S256");
+  else fail("PKCE.B lowercase s256 should normalize to S256");
+} catch (e) {
+  fail(`PKCE.B lowercase s256: ${e instanceof Error ? e.message : e}`);
+}
+
+// --- Matching verifier succeeds ---
 try {
   resetChatGptOAuthStoreForTests();
   beginOAuthAuthorization({
@@ -111,8 +141,99 @@ try {
   if (!consumed || !verifyPkceS256(codeVerifier, consumed.codeChallenge)) {
     fail("2. Valid callback PKCE/code consume failed");
   } else ok("2. Valid callback authorization code + PKCE");
+  assertTokenPkce(codeVerifier, consumed.codeChallenge, consumed.codeChallengeMethod);
+  ok("PKCE.C matching code_verifier accepted at token");
 } catch (e) {
-  fail(`2. Valid callback: ${e instanceof Error ? e.message : e}`);
+  fail(`2 / PKCE.C Valid callback: ${e instanceof Error ? e.message : e}`);
+}
+
+// --- Missing verifier rejected when S256 challenge stored ---
+try {
+  assertTokenPkce("", codeChallenge, "S256");
+  fail("PKCE.D missing verifier should throw");
+} catch (e) {
+  if (e && typeof e === "object" && "code" in e && e.code === "INVALID_PKCE") {
+    ok("PKCE.D missing code_verifier rejected");
+  } else fail("PKCE.D Expected INVALID_PKCE for missing verifier");
+}
+
+// --- Mismatched verifier rejected ---
+try {
+  assertTokenPkce("wrong-verifier-not-matching-challenge", codeChallenge, "S256");
+  fail("PKCE.E mismatched verifier should throw");
+} catch (e) {
+  if (e && typeof e === "object" && "code" in e && e.code === "INVALID_PKCE") {
+    ok("PKCE.E mismatched code_verifier rejected");
+  } else fail("PKCE.E Expected INVALID_PKCE for mismatched verifier");
+}
+
+// --- Unsupported / plain PKCE method rejected ---
+try {
+  resolveAuthorizePkce(codeChallenge, "plain");
+  fail("PKCE.F plain method should throw");
+} catch (e) {
+  if (e && typeof e === "object" && "code" in e && e.code === "INVALID_PKCE") {
+    ok("PKCE.F plain PKCE method rejected");
+  } else fail("PKCE.F Expected INVALID_PKCE for plain");
+}
+
+try {
+  resolveAuthorizePkce(codeChallenge, "S512");
+  fail("PKCE.G unsupported method should throw");
+} catch (e) {
+  if (e && typeof e === "object" && "code" in e && e.code === "INVALID_PKCE") {
+    ok("PKCE.G unsupported PKCE method rejected");
+  } else fail("PKCE.G Expected INVALID_PKCE for unsupported method");
+}
+
+// --- Challenge without S256 method rejected ---
+try {
+  resolveAuthorizePkce(codeChallenge, "");
+  fail("PKCE.H challenge without method should throw");
+} catch (e) {
+  if (e && typeof e === "object" && "code" in e && e.code === "INVALID_PKCE") {
+    ok("PKCE.H code_challenge without S256 method rejected");
+  } else fail("PKCE.H Expected INVALID_PKCE when method missing but challenge present");
+}
+
+// --- ChatGPT confidential-client authorize (no PKCE params) allowed ---
+try {
+  resetChatGptOAuthStoreForTests();
+  const started = beginOAuthAuthorization({
+    responseType: "code",
+    clientId: process.env.CHATGPT_OAUTH_CLIENT_ID,
+    redirectUri,
+    scope: "chatgpt:read",
+    state: "chatgpt-no-pkce",
+    codeChallenge: "",
+    codeChallengeMethod: "",
+  });
+  const pending = peekOAuthPendingRequest(started.requestId);
+  if (pending && pending.codeChallenge === "" && pending.codeChallengeMethod === null) {
+    ok("PKCE.I ChatGPT authorize without PKCE (confidential client) accepted");
+  } else fail("PKCE.I expected empty challenge + null method for confidential client");
+  assertTokenPkce("", "", null);
+  ok("PKCE.J token skips verifier when authorize had no PKCE");
+} catch (e) {
+  fail(`PKCE.I/J confidential client: ${e instanceof Error ? e.message : e}`);
+}
+
+// --- redirect_uri validation remains intact ---
+try {
+  beginOAuthAuthorization({
+    responseType: "code",
+    clientId: process.env.CHATGPT_OAUTH_CLIENT_ID,
+    redirectUri: "https://evil.example/callback",
+    scope: "chatgpt:read",
+    state: "x",
+    codeChallenge: "",
+    codeChallengeMethod: "",
+  });
+  fail("PKCE.K invalid redirect_uri should throw");
+} catch (e) {
+  if (e && typeof e === "object" && "code" in e && e.code === "INVALID_REDIRECT_URI") {
+    ok("PKCE.K redirect_uri validation remains intact");
+  } else fail("PKCE.K Expected INVALID_REDIRECT_URI");
 }
 
 try {
@@ -217,12 +338,6 @@ const integrationToken = signChatGptIntegrationAccessToken({
   organizationId: "org-wrong",
   scopes: ["chatgpt:read"],
 });
-const orgMismatchReq = new Request("http://local/api/integrations/chatgpt/v1/health", {
-  headers: {
-    Authorization: `Bearer ${integrationToken}`,
-    "X-ChatGPT-Integration-Key": "verify-integration-key",
-  },
-});
 if (classifyIntegrationBearerToken(integrationToken) === "integration") {
   ok("10. Integration token lane classified correctly");
 } else fail("10. Integration token lane misclassified");
@@ -303,6 +418,9 @@ const grantedScopes = scopesForUserCapabilities(
 if (grantedScopes.includes("chatgpt:read") && grantedScopes.includes("chatgpt:chanakya")) {
   ok("OAuth scopes derive from user AI capabilities");
 } else fail("Scope derivation incomplete");
+
+if (looksLikeJwt(integrationToken)) ok("looksLikeJwt recognizes integration JWT");
+else fail("looksLikeJwt failed for integration JWT");
 
 if (failed) {
   console.error(`\nCO-CHATGPT-OAUTH-001: FAIL (${failed})`);
