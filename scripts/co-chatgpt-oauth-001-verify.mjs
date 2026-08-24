@@ -37,6 +37,11 @@ import {
   resolveAuthorizePkce,
 } from "../src/lib/chatgpt-integration/oauth-pkce.ts";
 import {
+  buildChatGptOAuthConsentRedirectUrl,
+  isChatGptOAuthUntrustedBindOrigin,
+  resolveChatGptOAuthPublicOrigin,
+} from "../src/lib/chatgpt-integration/oauth-public-origin.ts";
+import {
   consumeAuthorizationCode,
   issueAuthorizationCode,
   resetChatGptOAuthStoreForTests,
@@ -59,6 +64,8 @@ process.env.CHATGPT_OAUTH_CLIENT_SECRET = "verify-chatgpt-client-secret-value";
 process.env.CHATGPT_OAUTH_REDIRECT_URIS =
   "https://chat.openai.com/aip/oauth/callback,http://127.0.0.1/callback";
 process.env.CHATGPT_INTEGRATION_API_KEY = "verify-integration-key";
+process.env.NEXT_PUBLIC_APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL || "https://catalyst-one.rupeecatalyst.com";
 
 let failed = 0;
 function ok(msg) {
@@ -234,6 +241,61 @@ try {
   if (e && typeof e === "object" && "code" in e && e.code === "INVALID_REDIRECT_URI") {
     ok("PKCE.K redirect_uri validation remains intact");
   } else fail("PKCE.K Expected INVALID_REDIRECT_URI");
+}
+
+// --- CO-CHATGPT-OAUTH-DEBUG-002: consent redirect must not use bind origin ---
+{
+  const previousAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL = "https://catalyst-one.rupeecatalyst.com";
+  try {
+    if (isChatGptOAuthUntrustedBindOrigin("https://0.0.0.0:3000")) {
+      ok("ORIGIN.A 0.0.0.0 classified as untrusted bind origin");
+    } else fail("ORIGIN.A expected 0.0.0.0 untrusted");
+
+    const publicOrigin = resolveChatGptOAuthPublicOrigin();
+    if (publicOrigin === "https://catalyst-one.rupeecatalyst.com") {
+      ok("ORIGIN.B resolveChatGptOAuthPublicOrigin uses NEXT_PUBLIC_APP_URL");
+    } else fail(`ORIGIN.B unexpected public origin ${publicOrigin}`);
+
+    const built = buildChatGptOAuthConsentRedirectUrl(
+      "/integrations/chatgpt/oauth?request=cgo_req_verify",
+    );
+    if (
+      built.startsWith("https://catalyst-one.rupeecatalyst.com/integrations/chatgpt/oauth?") &&
+      !built.includes("0.0.0.0")
+    ) {
+      ok("ORIGIN.C consent redirect URL uses public origin, not 0.0.0.0");
+    } else fail(`ORIGIN.C unexpected consent URL ${built}`);
+
+    // Simulate Hostinger bind-address request.url: consent redirect must still use configured public origin.
+    const simulatedRequestOrigin = "https://0.0.0.0:3000";
+    const consentPath = "/integrations/chatgpt/oauth?request=cgo_req_bind";
+    const legacyBroken = new URL(consentPath, simulatedRequestOrigin).toString();
+    const fixed = buildChatGptOAuthConsentRedirectUrl(consentPath);
+    if (legacyBroken.includes("0.0.0.0") && !fixed.includes("0.0.0.0")) {
+      ok("ORIGIN.D bind-origin request.url would break; trusted helper does not");
+    } else fail(`ORIGIN.D legacy=${legacyBroken} fixed=${fixed}`);
+
+    const authorizeSrc = read("src/app/api/integrations/chatgpt/v1/oauth/authorize/route.ts");
+    if (
+      authorizeSrc.includes("buildChatGptOAuthConsentRedirectUrl") &&
+      !authorizeSrc.includes("url.origin") &&
+      !authorizeSrc.includes("X-Forwarded-Host") &&
+      !authorizeSrc.includes("x-forwarded-host")
+    ) {
+      ok("ORIGIN.E authorize route uses trusted helper; no url.origin / forwarded Host");
+    } else fail("ORIGIN.E authorize route still unsafe for production bind origin");
+
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+    if (resolveChatGptOAuthPublicOrigin() === "http://localhost:3000") {
+      ok("ORIGIN.F local NEXT_PUBLIC_APP_URL preserved for development");
+    } else fail("ORIGIN.F local development origin not preserved");
+  } catch (e) {
+    fail(`ORIGIN.* consent origin regression: ${e instanceof Error ? e.message : e}`);
+  } finally {
+    if (previousAppUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = previousAppUrl;
+  }
 }
 
 try {
