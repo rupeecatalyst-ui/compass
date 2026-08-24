@@ -33,6 +33,10 @@ paths:
       responses:
         "200":
           description: Health DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessHealth"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -49,6 +53,10 @@ paths:
       responses:
         "200":
           description: Mission Control DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessMissionControl"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -63,6 +71,10 @@ paths:
       responses:
         "200":
           description: CHANAKYA DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessChanakya"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -77,6 +89,10 @@ paths:
       responses:
         "200":
           description: Pipeline DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessPipeline"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -91,6 +107,10 @@ paths:
       responses:
         "200":
           description: Tasks DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessTasks"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -105,6 +125,10 @@ paths:
       responses:
         "200":
           description: Email status DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessEmailStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -119,6 +143,10 @@ paths:
       responses:
         "200":
           description: Activity DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessActivity"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -133,6 +161,10 @@ paths:
       responses:
         "200":
           description: Build DTO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiSuccessBuild"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -157,9 +189,164 @@ components:
   responses:
     Unauthorized:
       description: Missing or invalid integration bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
     Forbidden:
       description: AI capability, OAuth scope, or organization mismatch
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
     RateLimited:
       description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
     NotConfigured:
       description: ChatGPT OAuth not configured on deployment
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message, statusCode]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            statusCode:
+              type: integer
+            correlationId:
+              type: string
+    IntegrationMeta:
+      type: object
+      required: [requestId, generatedAt, organizationId, organizationSlug, integrationVersion]
+      properties:
+        requestId:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        organizationId:
+          type: string
+        organizationSlug:
+          type: string
+        integrationVersion:
+          type: string
+          enum: [v1]
+    ApiSuccessHealth:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+              properties:
+                overallHealth:
+                  type: string
+                summary:
+                  type: string
+    ApiSuccessMissionControl:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessChanakya:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessPipeline:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessTasks:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessEmailStatus:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessActivity:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+    ApiSuccessBuild:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
