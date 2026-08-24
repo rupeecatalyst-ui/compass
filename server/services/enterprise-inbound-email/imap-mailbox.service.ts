@@ -142,20 +142,29 @@ export async function fetchUnreadInboundEmails(
     try {
       if (clientError) throw clientError;
 
-      const messages = client.fetch(
-        { seen: false },
-        { source: true, uid: true, internalDate: true },
-      );
+      // Newest-first: SEARCH UNSEEN, sort UIDs descending, then fetch individually.
+      // Avoids oldest-first streaming that starves newer mail under the IMAP deadline.
+      const unseen = await client.search({ seen: false }, { uid: true });
+      if (clientError) throw clientError;
+      const unseenUids = Array.isArray(unseen) ? unseen : [];
+      const newestFirstUids = [...unseenUids].sort((a, b) => b - a);
 
       let count = 0;
-      for await (const msg of messages) {
+      for (const uid of newestFirstUids) {
         if (clientError) throw clientError;
         if (isPastDeadline(options?.deadlineAt)) {
           stoppedEarly = true;
           break;
         }
         if (count >= messageLimit) break;
-        if (!msg.source) continue;
+
+        const msg = await client.fetchOne(
+          String(uid),
+          { source: true, uid: true, internalDate: true },
+          { uid: true },
+        );
+        if (clientError) throw clientError;
+        if (!msg || !msg.source) continue;
 
         const parsed = await simpleParser(msg.source);
         const from = parsed.from?.value?.[0];
@@ -199,11 +208,11 @@ export async function fetchUnreadInboundEmails(
             (typeof parsed.text === "string" ? parsed.text.trim() : "") ||
             (parsed.html ? stripHtmlToPlainText(String(parsed.html)) : null),
           receivedAt: resolveReceivedAt(parsed.date, msg.internalDate),
-          imapUid: msg.uid ? String(msg.uid) : null,
+          imapUid: msg.uid ? String(msg.uid) : String(uid),
           attachments,
         });
 
-        await client.messageFlagsAdd(msg.uid, ["\\Seen"], { uid: true });
+        await client.messageFlagsAdd(msg.uid ?? uid, ["\\Seen"], { uid: true });
         count += 1;
       }
     } finally {

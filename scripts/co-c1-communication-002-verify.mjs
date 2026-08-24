@@ -13,6 +13,7 @@ const checks = [
   ["migration", read("prisma/migrations/20260822120000_co_c1_communication_002_inbound_email/migration.sql"), "enterprise_inbound_email_messages"],
   ["transaction matcher", read("src/lib/enterprise-inbound-email/transaction-matcher.ts"), "matchInboundEmailTransaction"],
   ["imap service", read("server/services/enterprise-inbound-email/imap-mailbox.service.ts"), "fetchUnreadInboundEmails"],
+  ["imap newest-first unseen", read("server/services/enterprise-inbound-email/imap-mailbox.service.ts"), "newestFirstUids"],
   ["ingestion orchestrator", read("server/services/enterprise-inbound-email/inbound-email-ingestion.service.ts"), "pollAndIngest"],
   ["inbound cron route", read("src/app/api/cron/inbound-email/route.ts"), "pollAndIngest"],
   ["inbound server settings api", read("src/app/api/admin/enterprise-communication/inbound-server/route.ts"), "getSettingsDto"],
@@ -50,6 +51,22 @@ if (ingestion.includes("ingestOneEmail({") && ingestion.includes("manuallyMatchE
   failed++;
 } else {
   console.log("PASS  manual match uses processMatchedInbound");
+}
+
+const imapSrc = read("server/services/enterprise-inbound-email/imap-mailbox.service.ts");
+const hasNewestFirst =
+  imapSrc.includes('search({ seen: false }') &&
+  imapSrc.includes("newestFirstUids") &&
+  imapSrc.includes("(a, b) => b - a") &&
+  imapSrc.includes("fetchOne(");
+const stillStreamsOldest =
+  /client\.fetch\(\s*\{\s*seen:\s*false/.test(imapSrc) &&
+  imapSrc.includes("for await (const msg of messages)");
+if (!hasNewestFirst || stillStreamsOldest) {
+  console.error("FAIL  imap unread fetch must SEARCH UNSEEN and process newest UIDs first");
+  failed++;
+} else {
+  console.log("PASS  imap unread fetch newest-first");
 }
 
 const { matchInboundEmailTransaction } = await import(
