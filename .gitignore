@@ -49,3 +49,5 @@ vercel.json.backup
 # TypeScript incremental
 *.tsbuildinfo
 tsconfig.tsbuildinfo
+
+.env.chatgpt-deploy.local

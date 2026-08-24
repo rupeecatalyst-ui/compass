@@ -172,15 +172,22 @@ if (!clientId || !integrationKey) {
   const requestId = location ? new URL(location, base).searchParams.get("request") : null;
 
   const prisma = new PrismaClient();
-  const admin = await prisma.user.findFirst({
-    where: { id: userId },
-    select: { id: true, email: true, role: true },
-  });
-  const org = await prisma.organization.findFirst({
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-  await prisma.$disconnect();
+  let admin = null;
+  let org = null;
+  try {
+    admin = await prisma.user.findFirst({
+      where: { id: userId },
+      select: { id: true, email: true, role: true },
+    });
+    org = await prisma.organization.findFirst({
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    });
+  } catch {
+    warn("Prisma unavailable locally — skipping DB-assisted OAuth smoke helpers");
+  } finally {
+    await prisma.$disconnect().catch(() => undefined);
+  }
 
   if (!admin) {
     fail("D. Could not resolve admin for integration smoke");
