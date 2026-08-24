@@ -120,6 +120,7 @@
     "verify:co-chatgpt-integration-v1": "node --import tsx scripts/co-chatgpt-integration-v1-verify.mjs",
     "verify:co-chatgpt-oauth-001": "node --import tsx scripts/co-chatgpt-oauth-001-verify.mjs",
     "verify:co-chatgpt-oauth-001-post-deploy": "node --env-file=.env.local --import tsx scripts/co-chatgpt-oauth-001-post-deploy.mjs",
+    "verify:co-chatgpt-gpt-action-001": "node --import tsx scripts/co-chatgpt-gpt-action-001-verify.mjs",
     "co-chatgpt-oauth-001:grant-super-admin": "node --env-file=.env.local --import tsx scripts/co-chatgpt-oauth-001-grant-super-admin.mjs",
     "co-chatgpt-oauth-001:provision-secrets": "node scripts/co-chatgpt-oauth-001-provision-secrets.mjs",
     "verify:co-ai-access-001": "node --import tsx scripts/co-ai-access-001-verify.mjs",

@@ -18,6 +18,9 @@ export const CHATGPT_INTEGRATION_RATE_LIMIT_MAX_REQUESTS = 60;
 
 export const CHATGPT_INTEGRATION_VERSION = "v1" as const;
 
+/** OAuth-only read lane for ChatGPT Custom GPT Actions (single auth scheme). */
+export const CHATGPT_GPT_ACTION_BASE = "/api/integrations/chatgpt/v1/gpt-action" as const;
+
 export const CHATGPT_INTEGRATION_ALLOWED_ENDPOINTS = [
   "/api/integrations/chatgpt/v1/health",
   "/api/integrations/chatgpt/v1/mission-control",
