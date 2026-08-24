@@ -89,3 +89,55 @@ export function cloneContentDocument(doc: MarketingContentDocument): MarketingCo
     })),
   };
 }
+
+/**
+ * Keep form-level CTA / disclaimer in sync with content blocks so email-render
+ * (which only renders blocks) matches what operators configure in Campaign Builder.
+ * Does not invent content — only upserts existing block types when values are set.
+ */
+export function syncCampaignFormFieldsIntoContent(
+  doc: MarketingContentDocument,
+  fields: {
+    ctaLabel?: string | null;
+    ctaUrl?: string | null;
+    disclaimer?: string | null;
+  },
+): MarketingContentDocument {
+  const blocks = [...doc.blocks];
+  const ctaLabel = fields.ctaLabel?.trim() ?? "";
+  const ctaUrl = fields.ctaUrl?.trim() ?? "";
+  const disclaimer = fields.disclaimer?.trim() ?? "";
+
+  if (ctaLabel || ctaUrl) {
+    const ctaIdx = blocks.findIndex((b) => b.type === "cta");
+    if (ctaIdx >= 0) {
+      blocks[ctaIdx] = {
+        ...blocks[ctaIdx],
+        props: {
+          ...blocks[ctaIdx].props,
+          ...(ctaLabel ? { label: ctaLabel } : {}),
+          ...(ctaUrl ? { url: ctaUrl } : {}),
+        },
+      };
+    } else if (ctaLabel && ctaUrl) {
+      blocks.push(createBlock("cta", { label: ctaLabel, url: ctaUrl }));
+    }
+  }
+
+  if (disclaimer) {
+    const discIdx = blocks.findIndex((b) => b.type === "disclaimer");
+    if (discIdx >= 0) {
+      blocks[discIdx] = {
+        ...blocks[discIdx],
+        props: { ...blocks[discIdx].props, text: disclaimer },
+      };
+    } else {
+      const footerIdx = blocks.findIndex((b) => b.type === "footer");
+      const block = createBlock("disclaimer", { text: disclaimer });
+      if (footerIdx >= 0) blocks.splice(footerIdx, 0, block);
+      else blocks.push(block);
+    }
+  }
+
+  return { ...doc, blocks };
+}

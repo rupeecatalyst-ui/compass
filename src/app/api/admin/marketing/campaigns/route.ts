@@ -120,7 +120,8 @@ export async function POST(request: Request) {
         | "configure_execution"
         | "run_test_batch"
         | "run_next_batch"
-        | "execution_summary";
+        | "execution_summary"
+        | "test_send";
       /** Lifecycle action when action=transition */
       lifecycleAction?: MarketingCampaignAction;
       campaignId?: string;
@@ -140,6 +141,8 @@ export async function POST(request: Request) {
       senderIdentityId?: string | null;
       whatsappTemplateId?: string | null;
       testBatchSize?: number;
+      /** Single mailbox for action=test_send (render path + delivery port). */
+      testRecipientEmail?: string;
       resetCursor?: boolean;
       subject?: string;
       previewText?: string;
@@ -291,6 +294,20 @@ export async function POST(request: Request) {
         body.personalization,
       );
       return successResponse({ preview });
+    }
+
+    if (action === "test_send") {
+      if (!body.campaignId) {
+        return errorResponse(400, "INVALID_INPUT", "campaignId is required");
+      }
+      if (!body.testRecipientEmail?.trim()) {
+        return errorResponse(400, "INVALID_INPUT", "testRecipientEmail is required");
+      }
+      const result = await marketingCampaignService.testSend(ctx, body.campaignId, {
+        recipientEmail: body.testRecipientEmail,
+        personalization: body.personalization,
+      });
+      return successResponse(result);
     }
 
     if (action === "save_template") {

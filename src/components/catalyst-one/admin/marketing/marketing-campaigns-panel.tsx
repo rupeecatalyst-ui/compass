@@ -5,11 +5,16 @@
  * Live unrestricted bulk send remains OFF. Controlled batches are SIMULATED (dry-run).
  */
 
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
   Copy,
   Eye,
   Loader2,
+  Mail,
   Plus,
   RefreshCw,
   Save,
@@ -17,6 +22,7 @@ import {
   LayoutTemplate,
   Smartphone,
   Monitor,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,9 +46,17 @@ import {
   MARKETING_LEGAL_TRANSITIONS,
   MARKETING_DEFAULT_BATCH_POLICY,
   MARKETING_CONTROLLED_TEST_BATCH_SIZES,
+  MARKETING_CAMPAIGN_BUILDER_STEPS,
+  MARKETING_CAMPAIGN_OBJECTIVE_OPTIONS,
+  MARKETING_AUDIENCE_CATEGORY_OPTIONS,
   type MarketingCampaignAction,
 } from "@/constants/enterprise-marketing-engine";
-import { createBlock } from "@/lib/enterprise-marketing-engine/content-blocks";
+import { ROUTES } from "@/constants/routes";
+import {
+  createBlock,
+  syncCampaignFormFieldsIntoContent,
+} from "@/lib/enterprise-marketing-engine/content-blocks";
+import { cn } from "@/lib/utils";
 import { defaultPersonalizationSample } from "@/lib/enterprise-marketing-engine/personalization";
 import type {
   MarketingCampaign,
@@ -88,6 +102,31 @@ function blockSummary(b: MarketingContentBlock): string {
     (typeof b.props.text === "string" && b.props.text.slice(0, 40)) ||
     "";
   return `${label}${title ? ` — ${title}` : ""}`;
+}
+
+const PERSONALIZATION_TOKEN_LABELS: Record<string, string> = {
+  firstName: "First name",
+  lastName: "Last name",
+  fullName: "Full name",
+  city: "City",
+  state: "State",
+  profession: "Profession",
+  company: "Company",
+  companyName: "Company name",
+  product: "Loan product",
+  senderName: "RM / sender name",
+};
+
+function personalizationTokenLabel(token: string): string {
+  return PERSONALIZATION_TOKEN_LABELS[token] ?? token;
+}
+
+function resolveObjectivePreset(value: string): string {
+  if (!value) return "";
+  const match = MARKETING_CAMPAIGN_OBJECTIVE_OPTIONS.find(
+    (o) => o !== "Other" && o.toLowerCase() === value.toLowerCase(),
+  );
+  return match ?? (value ? "Other" : "");
 }
 
 export function MarketingCampaignsPanel() {
@@ -160,6 +199,19 @@ export function MarketingCampaignsPanel() {
   const [testBatchSize, setTestBatchSize] =
     useState<(typeof MARKETING_CONTROLLED_TEST_BATCH_SIZES)[number]>(5);
   const [execution, setExecution] = useState<MarketingExecutionSummary | null>(null);
+
+  const [builderStep, setBuilderStep] = useState(1);
+  const [maxStepReached, setMaxStepReached] = useState(1);
+  const [audienceCategory, setAudienceCategory] = useState("");
+  const [audienceEstimate, setAudienceEstimate] = useState<number | null>(null);
+  const [testRecipientEmail, setTestRecipientEmail] = useState("");
+  const [contentSourceMode, setContentSourceMode] = useState<"existing" | "new">("new");
+  const [sendMode, setSendMode] = useState<"immediate" | "scheduled">("immediate");
+  const [objectivePreset, setObjectivePreset] = useState("");
+  const [showAdvancedTracking, setShowAdvancedTracking] = useState(false);
+  const [showSimulatedBatch, setShowSimulatedBatch] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const step3PreviewTriggered = useRef(false);
 
   const loadList = useCallback(async () => {
     const [campRes, audRes, tplRes, senderRes, waRes] = await Promise.all([
@@ -266,12 +318,22 @@ export function MarketingCampaignsPanel() {
     setNotifyEmail(d.campaign.notificationPlaceholder.email);
     setNotifyWhatsapp(d.campaign.notificationPlaceholder.whatsapp);
     setBatchPolicy(d.campaign.batchPolicy ?? { ...MARKETING_DEFAULT_BATCH_POLICY });
-    setScheduleStartAt(
+    const startAt =
       d.campaign.schedulePlaceholder?.startAt?.slice(0, 16) ||
-        d.campaign.batchPolicy?.startAt?.slice(0, 16) ||
-        "",
-    );
+      d.campaign.batchPolicy?.startAt?.slice(0, 16) ||
+      "";
+    setScheduleStartAt(startAt);
     setPreview(null);
+    setBuilderStep(1);
+    setMaxStepReached(1);
+    setAudienceEstimate(null);
+    setAudienceCategory("");
+    setTestRecipientEmail("");
+    setContentSourceMode("new");
+    setSendMode(startAt ? "scheduled" : "immediate");
+    setObjectivePreset(resolveObjectivePreset(d.campaign.objective ?? ""));
+    setPrePublish(null);
+    setShowVersionHistory(false);
     await loadExecution(d.campaign.id);
   }, [loadExecution]);
 
@@ -323,6 +385,12 @@ export function MarketingCampaignsPanel() {
     if (!selectedId || !content) {
       throw new Error("No campaign selected");
     }
+    const syncedContent = syncCampaignFormFieldsIntoContent(content, {
+      ctaLabel,
+      ctaUrl,
+      disclaimer,
+    });
+    setContent(syncedContent);
     const res = await authenticatedJsonFetch("/api/admin/marketing/campaigns", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -340,7 +408,7 @@ export function MarketingCampaignsPanel() {
         sender,
         subject,
         previewText,
-        content,
+        content: syncedContent,
         disclaimer: disclaimer || null,
         trackingEnabled,
         plainTextOverride: plainTextOverride || null,
@@ -733,7 +801,401 @@ export function MarketingCampaignsPanel() {
     setSelectedBlockId(next[0]?.id ?? "");
   };
 
+  const closeBuilder = () => {
+    setSelectedId("");
+    setDetail(null);
+    setBuilderStep(1);
+    setMaxStepReached(1);
+    setPreview(null);
+    setPrePublish(null);
+    setExecution(null);
+  };
+
+  const loadAudienceEstimate = useCallback(async (id: string) => {
+    if (!id) {
+      setAudienceEstimate(null);
+      return;
+    }
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/audiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "preview", audienceId: id }),
+      });
+      const body = (await res.json()) as ApiEnvelope<{
+        preview: { counts: { eligible: number } };
+      }>;
+      if (res.ok && body.success && body.data?.preview) {
+        setAudienceEstimate(body.data.preview.counts.eligible);
+      } else {
+        setAudienceEstimate(null);
+      }
+    } catch {
+      setAudienceEstimate(null);
+    }
+  }, []);
+
+  const sendTestEmail = async () => {
+    if (!selectedId) return;
+    if (!testRecipientEmail.trim()) {
+      toast.error("Enter a test recipient email");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (detail?.editPolicy?.contentEditable !== false) await persistCampaign();
+      const res = await authenticatedJsonFetch("/api/admin/marketing/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "test_send",
+          campaignId: selectedId,
+          testRecipientEmail,
+          personalization: personalizationDraft,
+        }),
+      });
+      const body = (await res.json()) as ApiEnvelope<{
+        preview: MarketingCampaignPreviewPayload;
+        notice: string;
+        actuallySent: boolean;
+      }>;
+      if (!res.ok || !body.success || !body.data) {
+        throw new Error(body.error?.message || "Test send failed");
+      }
+      setPreview(body.data.preview);
+      if (body.data.actuallySent) {
+        toast.success(body.data.notice || "Test email sent");
+      } else {
+        toast.message(body.data.notice || "Test send completed (dry-run)", {
+          description: "Rendered via the same path as Preview.",
+        });
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Test send failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (audienceId) {
+      void loadAudienceEstimate(audienceId);
+    } else {
+      setAudienceEstimate(null);
+    }
+  }, [audienceId, loadAudienceEstimate]);
+
+  useEffect(() => {
+    if (builderStep === 3 && selectedId && !preview && !step3PreviewTriggered.current && !busy) {
+      step3PreviewTriggered.current = true;
+      void runPreview();
+    }
+    if (builderStep !== 3) {
+      step3PreviewTriggered.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-preview once per step-3 entry
+  }, [builderStep, selectedId, preview, busy]);
+
   const selectedBlock = content?.blocks.find((b) => b.id === selectedBlockId) ?? null;
+  const currentStepMeta = MARKETING_CAMPAIGN_BUILDER_STEPS[builderStep - 1];
+  const selectedAudience = audiences.find((a) => a.id === audienceId) ?? null;
+  const contentEditable =
+    detail?.editPolicy?.contentEditable !== false &&
+    !detail?.editPolicy?.readOnly &&
+    !detail?.editPolicy?.operationalControlsOnly;
+
+  const goToStep = (step: number) => {
+    if (step >= 1 && step <= 6 && step <= maxStepReached) {
+      setBuilderStep(step);
+    }
+  };
+
+  const handleContinue = () => {
+    if (builderStep < 6) {
+      const next = builderStep + 1;
+      setBuilderStep(next);
+      setMaxStepReached((m) => Math.max(m, next));
+    }
+  };
+
+  const handleBack = () => {
+    if (builderStep > 1) setBuilderStep((s) => s - 1);
+  };
+
+  const handleSendModeChange = (mode: "immediate" | "scheduled") => {
+    setSendMode(mode);
+    if (mode === "immediate") {
+      setScheduleStartAt("");
+    }
+  };
+
+  const renderSenderFields = () => (
+    <>
+      <div className="space-y-1.5">
+        <Label>Sender identity</Label>
+        <Select
+          value={senderIdentityId || "__inline__"}
+          onValueChange={(v) => {
+            if (v === "__inline__") {
+              setSenderIdentityId("");
+              return;
+            }
+            setSenderIdentityId(v);
+            const found = senderIdentities.find((s) => s.id === v);
+            if (found) {
+              setSender({
+                fromName: found.displayName,
+                fromAddress: found.fromAddress,
+                replyTo: found.replyTo ?? null,
+              });
+            }
+          }}
+          disabled={!contentEditable}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Use campaign sender fields" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__inline__">Campaign sender fields</SelectItem>
+            {senderIdentities
+              .filter((s) => s.active)
+              .map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.displayName} · {s.fromAddress}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Sender name</Label>
+        <Input
+          value={sender.fromName}
+          disabled={!contentEditable}
+          onChange={(e) => setSender({ ...sender, fromName: e.target.value })}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Sender address</Label>
+        <Input
+          value={sender.fromAddress}
+          disabled={!contentEditable}
+          onChange={(e) => setSender({ ...sender, fromAddress: e.target.value })}
+        />
+      </div>
+    </>
+  );
+
+  const renderBlockEditor = () => (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1">
+        {MARKETING_CONTENT_BLOCK_TYPES.map((t) => (
+          <Button
+            key={t}
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 text-[11px]"
+            disabled={!contentEditable}
+            onClick={() => addBlock(t)}
+          >
+            + {MARKETING_CONTENT_BLOCK_LABELS[t]}
+          </Button>
+        ))}
+      </div>
+      <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+        {content!.blocks.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            className={cn(
+              "block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground",
+              selectedBlockId === b.id && "bg-accent text-accent-foreground",
+            )}
+            onClick={() => setSelectedBlockId(b.id)}
+          >
+            {blockSummary(b)}
+          </button>
+        ))}
+      </div>
+      {selectedBlock ? (
+        <div className="space-y-2 rounded-md border p-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium">{selectedBlock.type}</p>
+            <div className="flex gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                disabled={busy || !contentEditable}
+                onClick={() => void saveReusableBlock()}
+              >
+                Save as reusable block
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                disabled={!contentEditable}
+                onClick={removeSelectedBlock}
+              >
+                Remove
+              </Button>
+            </div>
+          </div>
+          {Object.entries(selectedBlock.props).map(([key, val]) =>
+            typeof val === "string" ? (
+              <div key={key} className="space-y-1">
+                <Label className="text-[11px]">{key}</Label>
+                {key === "html" || key === "text" || key === "body" ? (
+                  <Textarea
+                    rows={3}
+                    disabled={!contentEditable}
+                    value={val}
+                    onChange={(e) => updateSelectedBlockProp(key, e.target.value)}
+                  />
+                ) : (
+                  <Input
+                    disabled={!contentEditable}
+                    value={val}
+                    onChange={(e) => updateSelectedBlockProp(key, e.target.value)}
+                  />
+                )}
+              </div>
+            ) : null,
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const renderEmailPreview = () => (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground">Live preview</p>
+        <div className="flex flex-wrap gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={previewMode === "desktop" ? "default" : "outline"}
+            onClick={() => setPreviewMode("desktop")}
+          >
+            <Monitor className="mr-1 h-3.5 w-3.5" />
+            Desktop
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={previewMode === "mobile" ? "default" : "outline"}
+            onClick={() => setPreviewMode("mobile")}
+          >
+            <Smartphone className="mr-1 h-3.5 w-3.5" />
+            Mobile
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={previewMode === "plaintext" ? "default" : "outline"}
+            onClick={() => setPreviewMode("plaintext")}
+          >
+            Plain text
+          </Button>
+          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => void runPreview()}>
+            <RefreshCw className="mr-1 h-3.5 w-3.5" />
+            Refresh preview
+          </Button>
+        </div>
+      </div>
+      {preview ? (
+        <>
+          <div className="rounded-md border bg-muted/40 p-2 text-xs space-y-1">
+            <p>
+              <span className="text-muted-foreground">From:</span> {preview.sender.fromName} &lt;
+              {preview.sender.fromAddress}&gt;
+            </p>
+            <p>
+              <span className="text-muted-foreground">Subject:</span> {preview.subject}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Preheader:</span>{" "}
+              {preview.preheader ?? preview.previewText}
+            </p>
+          </div>
+          {previewMode === "plaintext" ? (
+            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md border bg-white p-3 text-xs text-foreground">
+              {preview.plaintext}
+            </pre>
+          ) : (
+            <div
+              className="mx-auto overflow-hidden rounded-md border bg-white"
+              style={{ maxWidth: previewMode === "mobile" ? 360 : 600 }}
+            >
+              <iframe
+                title="Campaign preview"
+                sandbox=""
+                className="h-[420px] w-full border-0"
+                srcDoc={previewMode === "mobile" ? preview.htmlMobile : preview.htmlDesktop}
+              />
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">Preview will render when you enter this step.</p>
+      )}
+    </div>
+  );
+
+  const renderExecutionCard = () =>
+    execution ? (
+      <Card className="border-teal-500/30 bg-teal-500/[0.04]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Execution status</CardTitle>
+        </CardHeader>
+        <CardContent className="text-[11px] text-muted-foreground">
+          <p>
+            Next {execution.lease?.nextRunAt ?? "—"} · batches {execution.totalBatches} · cursor{" "}
+            {execution.lease?.streamCursor ?? "start"}
+          </p>
+          <p className="mt-1 font-medium text-amber-800 dark:text-amber-200">
+            Channel delivery: SIMULATED / NOT CONNECTED
+          </p>
+        </CardContent>
+      </Card>
+    ) : null;
+
+  const renderBuilderFooter = () => (
+    <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background/95 p-3 backdrop-blur">
+      <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={closeBuilder}>
+        Cancel
+      </Button>
+      <div className="flex flex-wrap gap-2">
+        {builderStep > 1 ? (
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={handleBack}>
+            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+            Back
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={busy || !contentEditable}
+          onClick={() => void saveCampaign()}
+        >
+          <Save className="mr-1.5 h-3.5 w-3.5" />
+          Save draft
+        </Button>
+        {builderStep < 6 ? (
+          <Button type="button" size="sm" disabled={busy} onClick={handleContinue}>
+            Continue
+            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -743,9 +1205,8 @@ export function MarketingCampaignsPanel() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Campaign Builder</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Block-document authoring with email-safe desktop/mobile preview. Save never sends.
-            Personalization tokens:{" "}
-            {MARKETING_PERSONALIZATION_TOKENS.map((t) => `{{${t}}}`).join(", ")}.
+            Six-step wizard for campaign authoring. Save never publishes. Controlled batches remain
+            SIMULATED until live execution is authorised.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -753,10 +1214,17 @@ export function MarketingCampaignsPanel() {
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
             Refresh
           </Button>
-          <Button size="sm" onClick={() => void createCampaign()} disabled={busy}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            New campaign
-          </Button>
+          {!detail ? (
+            <Button size="sm" onClick={() => void createCampaign()} disabled={busy}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              New campaign
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void cloneCampaign()}>
+              <Copy className="mr-1.5 h-3.5 w-3.5" />
+              Clone
+            </Button>
+          )}
         </div>
       </div>
 
@@ -826,859 +1294,575 @@ export function MarketingCampaignsPanel() {
           {!detail || !content ? (
             <Card>
               <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Select or create a campaign to open the builder.
+                Select or create a campaign to open the six-step builder.
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 min-w-0">
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Campaign</CardTitle>
-                  <CardDescription className="text-xs">
-                    {MARKETING_CAMPAIGN_STATUS_LABELS[detail.campaign.status]} · Draft v
-                    {detail.draft?.versionNumber}
-                    {detail.draft?.immutable ? " (frozen)" : ""} · Versions:{" "}
-                    {detail.versions.length}
-                    {detail.editPolicy?.readOnly ? " · Read-only" : ""}
-                    {detail.editPolicy?.operationalControlsOnly
-                      ? " · Operational controls only"
-                      : ""}
-                  </CardDescription>
+                <CardHeader className="pb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-base">{name || "Untitled campaign"}</CardTitle>
+                      <CardDescription className="text-xs">
+                        Step {builderStep} of 6 · {currentStepMeta.title} ·{" "}
+                        {MARKETING_CAMPAIGN_STATUS_LABELS[detail.campaign.status]}
+                      </CardDescription>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Draft v{detail.draft?.versionNumber}</p>
+                  </div>
+                  <nav className="mt-4 flex flex-wrap gap-1" aria-label="Campaign builder steps">
+                    {MARKETING_CAMPAIGN_BUILDER_STEPS.map((step) => {
+                      const done = step.number < builderStep || step.number < maxStepReached;
+                      const current = step.number === builderStep;
+                      return (
+                        <button
+                          key={step.id}
+                          type="button"
+                          disabled={step.number > maxStepReached}
+                          onClick={() => goToStep(step.number)}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-left text-[11px] transition-colors",
+                            current && "border-primary bg-primary/10 text-foreground",
+                            done && "border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer",
+                            !current && !done && "border-border/60 text-muted-foreground opacity-60",
+                          )}
+                        >
+                          {done ? (
+                            <Check className="h-3 w-3 text-emerald-600" />
+                          ) : (
+                            <span className="font-mono text-[10px]">{step.number}</span>
+                          )}
+                          <span className="hidden sm:inline">{step.shortTitle}</span>
+                        </button>
+                      );
+                    })}
+                  </nav>
                 </CardHeader>
-                <CardContent className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Name</Label>
-                    <Input value={name} onChange={(e) => setName(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Objective</Label>
-                    <Input value={objective} onChange={(e) => setObjective(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Product</Label>
-                    <Input value={product} onChange={(e) => setProduct(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Internal description</Label>
-                    <Textarea
-                      rows={2}
-                      value={internalDescription}
-                      onChange={(e) => setInternalDescription(e.target.value)}
-                      placeholder="Operator-only notes — not shown in customer email"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Audience</Label>
-                    <Select
-                      value={audienceId || "__none__"}
-                      onValueChange={(v) => setAudienceId(v === "__none__" ? "" : v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select audience" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Not linked</SelectItem>
-                        {audiences.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Channel</Label>
-                    <Select
-                      value={channel}
-                      onValueChange={(v) => setChannel(v as (typeof MARKETING_CHANNELS)[number])}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MARKETING_CHANNELS.map((ch) => (
-                          <SelectItem key={ch} value={ch}>
-                            {ch}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Sender identity</Label>
-                    <Select
-                      value={senderIdentityId || "__inline__"}
-                      onValueChange={(v) => {
-                        if (v === "__inline__") {
-                          setSenderIdentityId("");
-                          return;
-                        }
-                        setSenderIdentityId(v);
-                        const found = senderIdentities.find((s) => s.id === v);
-                        if (found) {
-                          setSender({
-                            fromName: found.displayName,
-                            fromAddress: found.fromAddress,
-                            replyTo: found.replyTo ?? null,
-                          });
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Use campaign sender fields" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__inline__">Campaign sender fields</SelectItem>
-                        {senderIdentities
-                          .filter((s) => s.active)
-                          .map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.displayName} · {s.fromAddress}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {channel === "WHATSAPP" ? (
+              </Card>
+
+              {builderStep === 1 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Campaign basics</CardTitle>
+                    <CardDescription>{currentStepMeta.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5 sm:col-span-2">
-                      <Label>WhatsApp template</Label>
+                      <Label>Campaign name</Label>
+                      <Input value={name} disabled={!contentEditable} onChange={(e) => setName(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Objective</Label>
                       <Select
-                        value={whatsappTemplateId || "__none__"}
-                        onValueChange={(v) => setWhatsappTemplateId(v === "__none__" ? "" : v)}
+                        value={objectivePreset || "__none__"}
+                        disabled={!contentEditable}
+                        onValueChange={(v) => {
+                          const preset = v === "__none__" ? "" : v;
+                          setObjectivePreset(preset);
+                          if (preset && preset !== "Other") setObjective(preset);
+                          else if (preset === "Other") setObjective(objective && !MARKETING_CAMPAIGN_OBJECTIVE_OPTIONS.includes(objective as (typeof MARKETING_CAMPAIGN_OBJECTIVE_OPTIONS)[number]) ? objective : "");
+                        }}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select approved template" />
+                          <SelectValue placeholder="Select objective" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">Not selected</SelectItem>
-                          {whatsappTemplates.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.name} · {t.approvalState}
+                          <SelectItem value="__none__">Not set</SelectItem>
+                          {MARKETING_CAMPAIGN_OBJECTIVE_OPTIONS.map((o) => (
+                            <SelectItem key={o} value={o}>
+                              {o}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-[11px] text-muted-foreground">
-                        Template-only WhatsApp. Dry-run delivery; live provider remains NOT CONNECTED.
+                    </div>
+                    {objectivePreset === "Other" ? (
+                      <div className="space-y-1.5">
+                        <Label>Other objective</Label>
+                        <Input
+                          value={objective}
+                          disabled={!contentEditable}
+                          onChange={(e) => setObjective(e.target.value)}
+                          placeholder="Describe the campaign objective"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <Label>Product</Label>
+                        <Input value={product} disabled={!contentEditable} onChange={(e) => setProduct(e.target.value)} />
+                      </div>
+                    )}
+                    {objectivePreset === "Other" ? (
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label>Product</Label>
+                        <Input value={product} disabled={!contentEditable} onChange={(e) => setProduct(e.target.value)} />
+                      </div>
+                    ) : null}
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>Campaign description (internal)</Label>
+                      <Textarea
+                        rows={3}
+                        value={internalDescription}
+                        disabled={!contentEditable}
+                        onChange={(e) => setInternalDescription(e.target.value)}
+                        placeholder="Operator-only notes — not shown to customers"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {builderStep === 2 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Audience</CardTitle>
+                    <CardDescription>{currentStepMeta.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="mb-2 block text-xs text-muted-foreground">Audience category (guide only)</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {MARKETING_AUDIENCE_CATEGORY_OPTIONS.map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setAudienceCategory(cat.id)}
+                            className={cn(
+                              "rounded-full border px-3 py-1 text-xs transition-colors",
+                              audienceCategory === cat.id
+                                ? "border-primary bg-primary/15 text-foreground"
+                                : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                            )}
+                          >
+                            {cat.label}
+                          </button>
+                        ))}
+                      </div>
+                      {audienceCategory ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {MARKETING_AUDIENCE_CATEGORY_OPTIONS.find((c) => c.id === audienceCategory)?.hint}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Saved audience</Label>
+                      <Select
+                        value={audienceId || "__none__"}
+                        disabled={!contentEditable}
+                        onValueChange={(v) => setAudienceId(v === "__none__" ? "" : v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select audience" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Not linked</SelectItem>
+                          {audiences.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Manage audiences in the{" "}
+                        <Link href={ROUTES.ADMIN_MARKETING_AUDIENCES} className="text-primary underline-offset-2 hover:underline">
+                          Audiences module
+                        </Link>
+                        .
                       </p>
                     </div>
-                  ) : null}
-                  <div className="space-y-1.5">
-                    <Label>Sender name</Label>
-                    <Input
-                      value={sender.fromName}
-                      onChange={(e) => setSender({ ...sender, fromName: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Sender address</Label>
-                    <Input
-                      value={sender.fromAddress}
-                      onChange={(e) => setSender({ ...sender, fromAddress: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Subject</Label>
-                    <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Preheader (inbox preview text)</Label>
-                    <Input value={previewText} onChange={(e) => setPreviewText(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>CTA label</Label>
-                    <Input value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>CTA URL</Label>
-                    <Input value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Disclaimer / footer signature</Label>
-                    <Textarea
-                      rows={2}
-                      value={disclaimer}
-                      onChange={(e) => setDisclaimer(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>Plain text fallback (optional override)</Label>
-                    <Textarea
-                      rows={3}
-                      value={plainTextOverride}
-                      onChange={(e) => setPlainTextOverride(e.target.value)}
-                      placeholder="Leave empty to auto-derive from content blocks"
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 text-sm sm:col-span-2">
-                    <input
-                      type="checkbox"
-                      checked={trackingEnabled}
-                      onChange={(e) => setTrackingEnabled(e.target.checked)}
-                    />
-                    Tracking enabled — append UTM params to CTA/links in preview/render
-                  </label>
-                  <div className="grid gap-2 rounded-md border p-3 sm:col-span-2 sm:grid-cols-3">
-                    <p className="text-xs font-medium sm:col-span-3">UTM configuration</p>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">utm_source</Label>
-                      <Input
-                        value={utm.source}
-                        onChange={(e) => setUtm({ ...utm, source: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">utm_medium</Label>
-                      <Input
-                        value={utm.medium}
-                        onChange={(e) => setUtm({ ...utm, medium: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">utm_campaign</Label>
-                      <Input
-                        value={utm.campaign}
-                        onChange={(e) => setUtm({ ...utm, campaign: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">utm_content</Label>
-                      <Input
-                        value={utm.content ?? ""}
-                        onChange={(e) => setUtm({ ...utm, content: e.target.value || null })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">utm_term</Label>
-                      <Input
-                        value={utm.term ?? ""}
-                        onChange={(e) => setUtm({ ...utm, term: e.target.value || null })}
-                      />
-                    </div>
-                  </div>
-                  <div className="rounded-md border p-3 text-xs sm:col-span-2 space-y-3">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Post-qualification routing</Label>
+                    {selectedAudience ? (
+                      <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                        <p className="font-medium">{selectedAudience.name}</p>
+                        <p className="mt-1 text-muted-foreground">
+                          Estimated eligible recipients:{" "}
+                          <span className="font-semibold text-foreground">
+                            {audienceEstimate !== null ? audienceEstimate.toLocaleString() : "Calculating…"}
+                          </span>
+                        </p>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {builderStep === 3 ? (
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Channel &amp; message</CardTitle>
+                      <CardDescription>{currentStepMeta.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label>Channel</Label>
                         <Select
-                          value={routingMode}
-                          onValueChange={(v) =>
-                            setRoutingMode(v as MarketingRoutingPlaceholder["mode"])
-                          }
+                          value={channel}
+                          disabled={!contentEditable}
+                          onValueChange={(v) => setChannel(v as (typeof MARKETING_CHANNELS)[number])}
                         >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="UNCONFIGURED">Unconfigured</SelectItem>
-                            <SelectItem value="SINGLE_USER">Specific user</SelectItem>
-                            <SelectItem value="TEAM">Specific team</SelectItem>
-                            <SelectItem value="ROUND_ROBIN">Round-robin</SelectItem>
-                            <SelectItem value="RULE_BASED">Routing rule</SelectItem>
+                            {MARKETING_CHANNELS.map((ch) => (
+                              <SelectItem key={ch} value={ch}>
+                                {ch}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Internal notification channels</Label>
-                        <div className="flex flex-wrap gap-3 pt-1">
-                          <label className="flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={notifyInApp}
-                              onChange={(e) => setNotifyInApp(e.target.checked)}
-                            />
-                            Catalyst One
+                      {renderSenderFields()}
+                      {channel === "WHATSAPP" ? (
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label>WhatsApp template</Label>
+                          <Select
+                            value={whatsappTemplateId || "__none__"}
+                            disabled={!contentEditable}
+                            onValueChange={(v) => setWhatsappTemplateId(v === "__none__" ? "" : v)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select approved template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Not selected</SelectItem>
+                              {whatsappTemplates.map((t) => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  {t.name} · {t.approvalState}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : null}
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label>Subject</Label>
+                        <Input value={subject} disabled={!contentEditable} onChange={(e) => setSubject(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label>Preheader</Label>
+                        <Input value={previewText} disabled={!contentEditable} onChange={(e) => setPreviewText(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>CTA label</Label>
+                        <Input value={ctaLabel} disabled={!contentEditable} onChange={(e) => setCtaLabel(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>CTA URL</Label>
+                        <Input value={ctaUrl} disabled={!contentEditable} onChange={(e) => setCtaUrl(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label>Disclaimer</Label>
+                        <Textarea rows={2} value={disclaimer} disabled={!contentEditable} onChange={(e) => setDisclaimer(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label>Plain text override</Label>
+                        <Textarea rows={2} value={plainTextOverride} disabled={!contentEditable} onChange={(e) => setPlainTextOverride(e.target.value)} />
+                      </div>
+                      <details className="sm:col-span-2 rounded-md border p-3" open={showAdvancedTracking} onToggle={(e) => setShowAdvancedTracking((e.target as HTMLDetailsElement).open)}>
+                        <summary className="cursor-pointer text-xs font-medium">Advanced — tracking &amp; UTM</summary>
+                        <div className="mt-3 space-y-3">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" checked={trackingEnabled} disabled={!contentEditable} onChange={(e) => setTrackingEnabled(e.target.checked)} />
+                            Tracking enabled
                           </label>
-                          <label className="flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={notifyEmail}
-                              onChange={(e) => setNotifyEmail(e.target.checked)}
-                            />
-                            Email
-                          </label>
-                          <label className="flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={notifyWhatsapp}
-                              onChange={(e) => setNotifyWhatsapp(e.target.checked)}
-                            />
-                            WhatsApp
-                          </label>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            {(["source", "medium", "campaign", "content", "term"] as const).map((key) => (
+                              <div key={key} className="space-y-1">
+                                <Label className="text-[11px]">utm_{key}</Label>
+                                <Input
+                                  disabled={!contentEditable}
+                                  value={key === "content" || key === "term" ? (utm[key] ?? "") : utm[key]}
+                                  onChange={(e) =>
+                                    setUtm({
+                                      ...utm,
+                                      [key]: key === "content" || key === "term" ? e.target.value || null : e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </details>
+                      <div className="sm:col-span-2 space-y-2">
+                        <Label>Content source</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" size="sm" variant={contentSourceMode === "existing" ? "default" : "outline"} onClick={() => setContentSourceMode("existing")}>
+                            Select existing content
+                          </Button>
+                          <Button type="button" size="sm" variant={contentSourceMode === "new" ? "default" : "outline"} onClick={() => setContentSourceMode("new")}>
+                            Create new content
+                          </Button>
                         </div>
                       </div>
-                    </div>
-                    <p className="text-muted-foreground">
-                      Assignee pools and closed rules are edited on Responses. Clicking an in-app
-                      alert opens the Opportunity (or Contact) record.
-                    </p>
-                    <p className="text-muted-foreground">
-                      Tokens: {MARKETING_PERSONALIZATION_TOKENS.map((t) => `{{${t}}}`).join(" · ")}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-teal-500/30 bg-teal-500/[0.04]">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Schedule · batch pacing · MARKETING TEST MODE</CardTitle>
-                  <CardDescription className="text-xs">
-                    Default policy is 100 recipients / 2.5 hours. Controlled tests use 5 / 10 / 20.
-                    Delivery is <strong>SIMULATED</strong> — never shown as ACTUALLY SENT while live
-                    execution remains off.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Start (local)</Label>
-                      <Input
-                        type="datetime-local"
-                        className="h-8"
-                        value={scheduleStartAt}
-                        onChange={(e) => setScheduleStartAt(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Batch size</Label>
-                      <Input
-                        type="number"
-                        className="h-8"
-                        min={1}
-                        max={500}
-                        value={batchPolicy.batchSize}
-                        onChange={(e) =>
-                          setBatchPolicy((p) => ({
-                            ...p,
-                            batchSize: Number(e.target.value) || 1,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Interval (hours)</Label>
-                      <Input
-                        type="number"
-                        className="h-8"
-                        min={0.1}
-                        step={0.1}
-                        value={Number((batchPolicy.intervalMs / 3_600_000).toFixed(2))}
-                        onChange={(e) =>
-                          setBatchPolicy((p) => ({
-                            ...p,
-                            intervalMs: Math.max(60_000, Number(e.target.value) * 3_600_000),
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Daily max</Label>
-                      <Input
-                        type="number"
-                        className="h-8"
-                        min={1}
-                        value={batchPolicy.dailyMax}
-                        onChange={(e) =>
-                          setBatchPolicy((p) => ({
-                            ...p,
-                            dailyMax: Number(e.target.value) || 1,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Send window start</Label>
-                      <Input
-                        className="h-8"
-                        value={batchPolicy.sendWindowStart}
-                        onChange={(e) =>
-                          setBatchPolicy((p) => ({ ...p, sendWindowStart: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Send window end</Label>
-                      <Input
-                        className="h-8"
-                        value={batchPolicy.sendWindowEnd}
-                        onChange={(e) =>
-                          setBatchPolicy((p) => ({ ...p, sendWindowEnd: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Timezone</Label>
-                      <Input
-                        className="h-8"
-                        value={batchPolicy.timezone}
-                        onChange={(e) =>
-                          setBatchPolicy((p) => ({ ...p, timezone: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Controlled test size</Label>
-                      <Select
-                        value={String(testBatchSize)}
-                        onValueChange={(v) =>
-                          setTestBatchSize(Number(v) as (typeof MARKETING_CONTROLLED_TEST_BATCH_SIZES)[number])
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MARKETING_CONTROLLED_TEST_BATCH_SIZES.map((n) => (
-                            <SelectItem key={n} value={String(n)}>
-                              {n} recipients (test)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" disabled={busy} onClick={() => void configureExecution()}>
-                      Save pacing / lease
-                    </Button>
-                    <Button size="sm" disabled={busy} onClick={() => void runControlledTest()}>
-                      Run controlled test ({testBatchSize}) — SIMULATED
-                    </Button>
-                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void runNextBatch()}>
-                      Run next batch — SIMULATED
-                    </Button>
-                  </div>
-                  {execution ? (
-                    <div className="rounded-md border bg-background/60 p-3 text-[11px] text-muted-foreground">
-                      <p>
-                        <span className="font-semibold text-foreground">Execution:</span>{" "}
-                        next {execution.lease?.nextRunAt ?? "—"} · batches {execution.totalBatches} ·
-                        cursor {execution.lease?.streamCursor ?? "start"} · daily{" "}
-                        {execution.lease?.dailyProcessedCount ?? 0}/
-                        {execution.lease?.batchPolicy.dailyMax ?? "—"}
-                      </p>
-                      <p className="mt-1">
-                        Ledger touched: processed {execution.ledgerCounts.processed ?? 0} · failed{" "}
-                        {execution.ledgerCounts.failed ?? 0} · suppressed{" "}
-                        {execution.ledgerCounts.suppressed ?? 0} · skipped{" "}
-                        {execution.ledgerCounts.skipped ?? 0}
-                      </p>
-                      <p className="mt-1 font-medium text-amber-800 dark:text-amber-200">
-                        Channel delivery: SIMULATED / NOT CONNECTED for live providers
-                      </p>
-                    </div>
-                  ) : null}
-                </CardContent>
-              </Card>
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Content blocks</CardTitle>
-                    <CardDescription className="text-xs">
-                      Extensible block document — email-safe render on preview.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex flex-wrap gap-1">
-                      {MARKETING_CONTENT_BLOCK_TYPES.map((t) => (
-                        <Button
-                          key={t}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-[11px]"
-                          onClick={() => addBlock(t)}
-                        >
-                          + {MARKETING_CONTENT_BLOCK_LABELS[t]}
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
-                      {content.blocks.map((b) => (
-                        <button
-                          key={b.id}
-                          type="button"
-                          className={`block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground ${
-                            selectedBlockId === b.id ? "bg-accent text-accent-foreground" : ""
-                          }`}
-                          onClick={() => setSelectedBlockId(b.id)}
-                        >
-                          {blockSummary(b)}
-                        </button>
-                      ))}
-                    </div>
-                    {selectedBlock ? (
-                      <div className="space-y-2 rounded-md border p-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium">{selectedBlock.type}</p>
-                          <div className="flex gap-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs"
-                              disabled={busy}
-                              onClick={() => void saveReusableBlock()}
-                            >
-                              Save as reusable block
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={removeSelectedBlock}
-                            >
-                              Remove
+                      {contentSourceMode === "existing" ? (
+                        <div className="sm:col-span-2 space-y-2 rounded-md border p-3">
+                          <p className="text-xs text-muted-foreground">Templates from Content &amp; Templates. Save this campaign as a template below.</p>
+                          <ul className="space-y-1 text-xs">
+                            {templates.map((t) => (
+                              <li key={t.id} className="text-muted-foreground">· {t.name}</li>
+                            ))}
+                          </ul>
+                          <div className="flex flex-wrap items-end gap-2 pt-2">
+                            <div className="space-y-1">
+                              <Label className="text-[11px]">Save as template</Label>
+                              <Input className="h-8 w-48" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Template name" />
+                            </div>
+                            <Button size="sm" variant="outline" disabled={busy} onClick={() => void saveAsTemplate()}>
+                              <LayoutTemplate className="mr-1.5 h-3.5 w-3.5" />
+                              Save template
                             </Button>
                           </div>
                         </div>
-                        {Object.entries(selectedBlock.props).map(([key, val]) =>
-                          typeof val === "string" ? (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-[11px]">{key}</Label>
-                              {key === "html" || key === "text" || key === "body" ? (
-                                <Textarea
-                                  rows={3}
-                                  value={val}
-                                  onChange={(e) => updateSelectedBlockProp(key, e.target.value)}
-                                />
-                              ) : (
-                                <Input
-                                  value={val}
-                                  onChange={(e) => updateSelectedBlockProp(key, e.target.value)}
-                                />
-                              )}
-                            </div>
-                          ) : null,
-                        )}
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
+                      ) : (
+                        <div className="sm:col-span-2">{renderBlockEditor()}</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  {channel === "EMAIL" ? (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Editor · Live preview</CardTitle>
+                      </CardHeader>
+                      <CardContent className="grid gap-4 lg:grid-cols-2">
+                        <div>{contentSourceMode === "new" ? renderBlockEditor() : <p className="text-sm text-muted-foreground">Switch to Create new content to edit blocks side-by-side.</p>}</div>
+                        <div>{renderEmailPreview()}</div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-4 text-sm text-muted-foreground">
+                        {channel} preview uses subject and content fields above. Email iframe preview is EMAIL-only.
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              ) : null}
 
+              {builderStep === 4 ? (
                 <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <CardTitle className="text-sm">Preview</CardTitle>
-                        <CardDescription className="text-xs">
-                          Desktop · Mobile · Plain text · Subject · Preheader · Personalization
-                        </CardDescription>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={previewMode === "desktop" ? "default" : "outline"}
-                          onClick={() => setPreviewMode("desktop")}
-                        >
-                          <Monitor className="mr-1 h-3.5 w-3.5" />
-                          Desktop
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={previewMode === "mobile" ? "default" : "outline"}
-                          onClick={() => setPreviewMode("mobile")}
-                        >
-                          <Smartphone className="mr-1 h-3.5 w-3.5" />
-                          Mobile
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={previewMode === "plaintext" ? "default" : "outline"}
-                          onClick={() => setPreviewMode("plaintext")}
-                        >
-                          Plain text
-                        </Button>
-                      </div>
-                    </div>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Personalisation</CardTitle>
+                    <CardDescription>{currentStepMeta.description}</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid gap-2 rounded-md border p-2 sm:grid-cols-2">
-                      <p className="text-[11px] font-medium sm:col-span-2">
-                        Personalization preview sample (test-recipient render — no send)
-                      </p>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {MARKETING_PERSONALIZATION_TOKENS.map((tok) => (
                         <div key={tok} className="space-y-1">
-                          <Label className="text-[11px]">{`{{${tok}}}`}</Label>
+                          <Label className="text-xs">{personalizationTokenLabel(tok)}</Label>
                           <Input
                             value={personalizationDraft[tok] ?? ""}
-                            onChange={(e) =>
-                              setPersonalizationDraft({
-                                ...personalizationDraft,
-                                [tok]: e.target.value,
-                              })
-                            }
+                            onChange={(e) => setPersonalizationDraft({ ...personalizationDraft, [tok]: e.target.value })}
+                            placeholder={`{{${tok}}}`}
                           />
                         </div>
                       ))}
                     </div>
                     {preview ? (
-                      <>
-                        <div className="rounded-md border bg-muted/40 p-2 text-xs space-y-1">
-                          <p>
-                            <span className="text-muted-foreground">From:</span>{" "}
-                            {preview.sender.fromName} &lt;{preview.sender.fromAddress}&gt;
-                          </p>
-                          <p>
-                            <span className="text-muted-foreground">Subject:</span> {preview.subject}
-                          </p>
-                          <p>
-                            <span className="text-muted-foreground">Preheader:</span>{" "}
-                            {preview.preheader ?? preview.previewText}
-                          </p>
-                          <p className="text-muted-foreground">{preview.notice}</p>
-                        </div>
-                        {previewMode === "plaintext" ? (
-                          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md border bg-white p-3 text-xs text-foreground">
-                            {preview.plaintext}
-                          </pre>
-                        ) : (
-                          <div
-                            className="mx-auto overflow-hidden rounded-md border bg-white"
-                            style={{ maxWidth: previewMode === "mobile" ? 360 : 600 }}
-                          >
-                            <iframe
-                              title="Campaign preview"
-                              sandbox=""
-                              className="h-[420px] w-full border-0"
-                              srcDoc={
-                                previewMode === "mobile" ? preview.htmlMobile : preview.htmlDesktop
-                              }
-                            />
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Save + Preview to render email-safe HTML / plaintext (no send).
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Version history</CardTitle>
-                  <CardDescription className="text-xs">
-                    Frozen / published versions are immutable. Restoring creates a new draft — never
-                    alters a running campaign&apos;s published content.
-                    {detail.campaign.activePublishedVersionId
-                      ? ` Active published: ${detail.campaign.activePublishedVersionId}`
-                      : ""}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {detail.versions.map((v) => (
-                    <div
-                      key={v.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          v{v.versionNumber}
-                          {v.id === detail.campaign.currentDraftVersionId ? " · current draft" : ""}
-                          {v.id === detail.campaign.activePublishedVersionId
-                            ? " · published"
-                            : ""}
-                          {v.immutable ? " · frozen" : " · editable"}
+                      <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                        <p>
+                          <span className="text-muted-foreground">Preview subject:</span> {preview.subject}
                         </p>
-                        <p className="text-muted-foreground truncate max-w-md">{v.subject}</p>
+                        <p className="mt-1">
+                          <span className="text-muted-foreground">Preview preheader:</span>{" "}
+                          {preview.preheader ?? preview.previewText}
+                        </p>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={
-                          busy ||
-                          v.id === detail.campaign.currentDraftVersionId ||
-                          detail.editPolicy?.readOnly ||
-                          detail.editPolicy?.operationalControlsOnly
-                        }
-                        onClick={() => void restoreVersion(v.id)}
-                      >
-                        Use as new draft
+                    ) : null}
+                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void runPreview()}>
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                      Refresh preview with samples
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {builderStep === 5 ? (
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Schedule &amp; delivery</CardTitle>
+                      <CardDescription>{currentStepMeta.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" size="sm" variant={sendMode === "immediate" ? "default" : "outline"} onClick={() => handleSendModeChange("immediate")}>
+                          Send immediately
+                        </Button>
+                        <Button type="button" size="sm" variant={sendMode === "scheduled" ? "default" : "outline"} onClick={() => handleSendModeChange("scheduled")}>
+                          Schedule
+                        </Button>
+                      </div>
+                      {sendMode === "scheduled" ? (
+                        <div className="space-y-1.5 max-w-sm">
+                          <Label>Start date &amp; time</Label>
+                          <Input type="datetime-local" value={scheduleStartAt} onChange={(e) => setScheduleStartAt(e.target.value)} />
+                        </div>
+                      ) : null}
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Batch size</Label>
+                          <Input type="number" min={1} max={500} value={batchPolicy.batchSize} onChange={(e) => setBatchPolicy((p) => ({ ...p, batchSize: Number(e.target.value) || 1 }))} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Interval (hours)</Label>
+                          <Input type="number" min={0.1} step={0.1} value={Number((batchPolicy.intervalMs / 3_600_000).toFixed(2))} onChange={(e) => setBatchPolicy((p) => ({ ...p, intervalMs: Math.max(60_000, Number(e.target.value) * 3_600_000) }))} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Daily max</Label>
+                          <Input type="number" min={1} value={batchPolicy.dailyMax} onChange={(e) => setBatchPolicy((p) => ({ ...p, dailyMax: Number(e.target.value) || 1 }))} />
+                        </div>
+                      </div>
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => void configureExecution()}>
+                        Configure execution
                       </Button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <div className="flex flex-wrap items-end gap-2">
-                <Button
-                  size="sm"
-                  disabled={busy || detail.editPolicy?.readOnly || detail.editPolicy?.operationalControlsOnly}
-                  onClick={() => void saveCampaign()}
-                >
-                  <Save className="mr-1.5 h-3.5 w-3.5" />
-                  Save draft
-                </Button>
-                <Button size="sm" variant="secondary" disabled={busy} onClick={() => void runPreview()}>
-                  <Eye className="mr-1.5 h-3.5 w-3.5" />
-                  Preview
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void loadPrePublish()}
-                >
-                  Pre-publish checks
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("READY_FOR_REVIEW")}
-                  onClick={() => void runLifecycle("SUBMIT_FOR_REVIEW")}
-                >
-                  Submit for review
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("APPROVED")}
-                  onClick={() => void runLifecycle("APPROVE")}
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("DRAFT")}
-                  onClick={() => void runLifecycle("REOPEN_DRAFT")}
-                >
-                  Reopen draft
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("SCHEDULED")}
-                  onClick={() => void runLifecycle("SCHEDULE")}
-                >
-                  Schedule
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("RUNNING")}
-                  onClick={() => void runLifecycle("RUN")}
-                >
-                  Run
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("PAUSED")}
-                  onClick={() => void runLifecycle("PAUSE")}
-                >
-                  Pause
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || detail.campaign.status !== "PAUSED"}
-                  onClick={() => void runLifecycle("RESUME")}
-                >
-                  Resume
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("COMPLETED")}
-                  onClick={() => void runLifecycle("COMPLETE")}
-                >
-                  Complete
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("STOPPED")}
-                  onClick={() => void runLifecycle("STOP")}
-                >
-                  Stop
-                </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => void cloneCampaign()}>
-                  <Copy className="mr-1.5 h-3.5 w-3.5" />
-                  Clone
-                </Button>
-                <div className="flex items-end gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Save as template</Label>
-                    <Input
-                      className="h-8 w-40"
-                      value={templateName}
-                      onChange={(e) => setTemplateName(e.target.value)}
-                      placeholder="Template name"
-                    />
-                  </div>
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void saveAsTemplate()}>
-                    <LayoutTemplate className="mr-1.5 h-3.5 w-3.5" />
-                    Save template
-                  </Button>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-primary/30">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        Send test
+                      </CardTitle>
+                      <CardDescription>Deliver to one mailbox via the real render path (not simulated batch).</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-wrap items-end gap-2">
+                      <div className="space-y-1 flex-1 min-w-[200px]">
+                        <Label className="text-xs">Test recipient email</Label>
+                        <Input type="email" value={testRecipientEmail} onChange={(e) => setTestRecipientEmail(e.target.value)} placeholder="you@example.com" />
+                      </div>
+                      <Button size="sm" disabled={busy || !testRecipientEmail.trim()} onClick={() => void sendTestEmail()}>
+                        <Send className="mr-1.5 h-3.5 w-3.5" />
+                        Send test
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  <details className="rounded-lg border" open={showSimulatedBatch} onToggle={(e) => setShowSimulatedBatch((e.target as HTMLDetailsElement).open)}>
+                    <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-muted-foreground">
+                      Advanced — Simulated controlled batch (operators)
+                    </summary>
+                    <CardContent className="space-y-3 border-t pt-3">
+                      <p className="text-xs text-amber-800 dark:text-amber-200">SIMULATED — NOT ACTUALLY SENT. Separate from Send test above.</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Select value={String(testBatchSize)} onValueChange={(v) => setTestBatchSize(Number(v) as (typeof MARKETING_CONTROLLED_TEST_BATCH_SIZES)[number])}>
+                          <SelectTrigger className="h-8 w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {MARKETING_CONTROLLED_TEST_BATCH_SIZES.map((n) => (
+                              <SelectItem key={n} value={String(n)}>
+                                {n} recipients
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button size="sm" variant="outline" disabled={busy} onClick={() => void runControlledTest()}>
+                          Run simulated batch ({testBatchSize})
+                        </Button>
+                        <Button size="sm" variant="secondary" disabled={busy} onClick={() => void runNextBatch()}>
+                          Run next batch — SIMULATED
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </details>
+                  {renderExecutionCard()}
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() => void runControlledTest()}
-                  title="Runs a capped dry-run batch. Never ACTUALLY SENT while live execution is off."
-                >
-                  Controlled test ({testBatchSize}) — SIMULATED
-                </Button>
-              </div>
-
-              {prePublish ? (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Pre-publish checks</CardTitle>
-                    <CardDescription className="text-xs">
-                      {prePublish.readyForApproval
-                        ? "Ready for approval (no send)"
-                        : `Blocking: ${prePublish.blockingCodes.join(", ") || "none"}`}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-1 text-xs">
-                    {prePublish.checks.map((c) => (
-                      <div key={c.id} className="flex gap-2">
-                        <span className={c.passed ? "text-emerald-700" : "text-destructive"}>
-                          {c.passed ? "PASS" : c.severity.toUpperCase()}
-                        </span>
-                        <span>
-                          {c.label}: {c.message}
-                        </span>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
               ) : null}
 
-              {detail.campaign.stateHistory.length > 0 ? (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Audit / state history</CardTitle>
-                    <CardDescription className="text-xs">
-                      Created by {detail.campaign.governance.createdByUserId ?? "—"} · Modified by{" "}
-                      {detail.campaign.governance.modifiedByUserId ?? "—"} · Submitted by{" "}
-                      {detail.campaign.governance.submittedByUserId ?? "—"} · Approved by{" "}
-                      {detail.campaign.governance.approvedByUserId ?? "—"} · Scheduled by{" "}
-                      {detail.campaign.governance.scheduledByUserId ?? "—"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="max-h-40 space-y-1 overflow-y-auto text-xs">
-                    {[...detail.campaign.stateHistory].reverse().map((h) => (
-                      <div key={h.id}>
-                        {h.at} · {h.action}: {h.from} → {h.to}
-                        {h.actorUserId ? ` · ${h.actorUserId}` : ""}
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+              {builderStep === 6 ? (
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Review &amp; launch</CardTitle>
+                      <CardDescription>{currentStepMeta.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 sm:grid-cols-2">
+                      {[
+                        ["Campaign", name],
+                        ["Audience", selectedAudience ? `${selectedAudience.name}${audienceEstimate !== null ? ` (~${audienceEstimate})` : ""}` : "Not linked"],
+                        ["Channel", channel],
+                        ["Sender", `${sender.fromName} · ${sender.fromAddress}`],
+                        ["Subject", subject || "—"],
+                        ["Schedule", sendMode === "immediate" ? "Send immediately" : scheduleStartAt || "Not set"],
+                        ["Content blocks", String(content.blocks.length)],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-md border bg-muted/20 p-3">
+                          <p className="text-[11px] uppercase text-muted-foreground">{label}</p>
+                          <p className="mt-1 text-sm font-medium">{value}</p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void runPreview()}>
+                      <Eye className="mr-1.5 h-3.5 w-3.5" />
+                      Preview campaign
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={busy || !testRecipientEmail.trim()} onClick={() => void sendTestEmail()}>
+                      <Send className="mr-1.5 h-3.5 w-3.5" />
+                      Send test
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={busy || !contentEditable} onClick={() => void saveCampaign()}>
+                      Save draft
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => void loadPrePublish()}>
+                      Pre-publish checks
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("READY_FOR_REVIEW")} onClick={() => void runLifecycle("SUBMIT_FOR_REVIEW")}>
+                      Submit for review
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("APPROVED")} onClick={() => void runLifecycle("APPROVE")}>
+                      Approve
+                    </Button>
+                    <Button size="sm" disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("SCHEDULED")} onClick={() => void runLifecycle("SCHEDULE")}>
+                      Schedule launch
+                    </Button>
+                    <Button size="sm" disabled={busy || !MARKETING_LEGAL_TRANSITIONS[detail.campaign.status].includes("RUNNING")} onClick={() => void runLifecycle("RUN")}>
+                      Run campaign
+                    </Button>
+                  </div>
+                  {prePublish ? (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Pre-publish checks</CardTitle>
+                        <CardDescription className="text-xs">
+                          {prePublish.readyForApproval ? "Ready for approval" : `Blocking: ${prePublish.blockingCodes.join(", ") || "none"}`}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-1 text-xs">
+                        {prePublish.checks.map((c) => (
+                          <div key={c.id} className="flex gap-2">
+                            <span className={c.passed ? "text-emerald-700" : "text-destructive"}>{c.passed ? "PASS" : c.severity.toUpperCase()}</span>
+                            <span>{c.label}: {c.message}</span>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ) : null}
+                  {renderExecutionCard()}
+                  <details className="rounded-lg border" open={showVersionHistory} onToggle={(e) => setShowVersionHistory((e.target as HTMLDetailsElement).open)}>
+                    <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Version history</summary>
+                    <CardContent className="space-y-2 border-t pt-3">
+                      {detail.versions.map((v) => (
+                        <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs">
+                          <div>
+                            <p className="font-medium">v{v.versionNumber}{v.id === detail.campaign.currentDraftVersionId ? " · draft" : ""}{v.immutable ? " · frozen" : ""}</p>
+                            <p className="text-muted-foreground truncate max-w-md">{v.subject}</p>
+                          </div>
+                          <Button type="button" size="sm" variant="outline" disabled={busy || v.id === detail.campaign.currentDraftVersionId || !contentEditable} onClick={() => void restoreVersion(v.id)}>
+                            Use as new draft
+                          </Button>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </details>
+                </div>
               ) : null}
+
+              {renderBuilderFooter()}
             </div>
           )}
         </div>

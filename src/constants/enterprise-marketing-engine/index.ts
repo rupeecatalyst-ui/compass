@@ -63,6 +63,13 @@ export {
 } from "./permissions";
 
 export {
+  MARKETING_CAMPAIGN_BUILDER_STEPS,
+  MARKETING_CAMPAIGN_OBJECTIVE_OPTIONS,
+  MARKETING_AUDIENCE_CATEGORY_OPTIONS,
+  type MarketingCampaignBuilderStepId,
+} from "./campaign-builder";
+
+export {
   MARKETING_CAMPAIGN_ACTIONS,
   MARKETING_CAMPAIGN_STATUSES,
   MARKETING_CHANNELS,

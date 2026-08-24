@@ -15,7 +15,7 @@ import {
   marketingCampaignEditPolicy,
   MARKETING_ACTION_TARGET_STATUS,
 } from "@/constants/enterprise-marketing-engine/transitions";
-import { cloneContentDocument } from "@/lib/enterprise-marketing-engine/content-blocks";
+import { cloneContentDocument, syncCampaignFormFieldsIntoContent } from "@/lib/enterprise-marketing-engine/content-blocks";
 import {
   renderMarketingEmailHtml,
   renderMarketingEmailPlaintext,
@@ -50,6 +50,7 @@ import type { MarketingBatchPolicy } from "@/types/enterprise-marketing-executio
 import { recordMarketingAuditEvent } from "./audit";
 import { marketingAudienceDefinitionStore } from "./audience-definition-store";
 import { marketingCampaignStore } from "./campaign-store";
+import { marketingEmailDeliveryService } from "./email-delivery.service";
 import { marketingExecutionService } from "./execution.service";
 import { marketingTemplateStore, marketingReusableBlockStore } from "./template-store";
 
@@ -321,10 +322,10 @@ export const marketingCampaignService = {
     }
 
     if (wantsContent) {
+      const draftBefore = marketingCampaignStore.getVersion(existing.currentDraftVersionId);
       const versionPatch: Parameters<typeof marketingCampaignStore.updateDraftVersion>[2] = {};
       if (input.subject !== undefined) versionPatch.subject = input.subject;
       if (input.previewText !== undefined) versionPatch.previewText = input.previewText;
-      if (input.content !== undefined) versionPatch.content = input.content;
       if (input.disclaimer !== undefined) versionPatch.disclaimer = input.disclaimer;
       if (input.trackingEnabled !== undefined) versionPatch.trackingEnabled = input.trackingEnabled;
       if (input.plainTextOverride !== undefined) {
@@ -333,6 +334,18 @@ export const marketingCampaignService = {
       if (input.utm !== undefined) versionPatch.utm = input.utm;
       if (input.ctaLabel !== undefined) versionPatch.ctaLabel = input.ctaLabel;
       if (input.ctaUrl !== undefined) versionPatch.ctaUrl = input.ctaUrl;
+
+      const baseContent = input.content ?? draftBefore?.content ?? null;
+      if (baseContent) {
+        versionPatch.content = syncCampaignFormFieldsIntoContent(baseContent, {
+          ctaLabel:
+            input.ctaLabel !== undefined ? input.ctaLabel : draftBefore?.ctaLabel ?? null,
+          ctaUrl: input.ctaUrl !== undefined ? input.ctaUrl : draftBefore?.ctaUrl ?? null,
+          disclaimer:
+            input.disclaimer !== undefined ? input.disclaimer : draftBefore?.disclaimer ?? null,
+        });
+      }
+
       marketingCampaignStore.updateDraftVersion(campaignId, organizationId, versionPatch);
     }
 
@@ -640,7 +653,90 @@ export const marketingCampaignService = {
       utm: draft.utm ?? null,
       trackingEnabled: draft.trackingEnabled,
       notice:
-        "Preview only — no Test Send or production delivery in MKT-08. Content engine + versioning active; SAVE never publishes.",
+        "Live preview of the customer-facing email (same renderer used at send time). Preview does not send. SAVE never publishes.",
+    };
+  },
+
+  /**
+   * Test send — renders via the same path as Preview, then hands the payload to the
+   * existing Marketing email delivery port (dry-run unless live adapter is authorised).
+   * Separate from production Launch / run_test_batch.
+   */
+  async testSend(
+    actor: Actor,
+    campaignId: string,
+    input: { recipientEmail: string; personalization?: Record<string, string> },
+  ) {
+    assertNoSend();
+    assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
+    const recipientEmail = (input.recipientEmail ?? "").trim();
+    if (!recipientEmail || !recipientEmail.includes("@")) {
+      throw Object.assign(new Error("Enter a valid test recipient email"), {
+        statusCode: 400,
+        code: "INVALID_TEST_RECIPIENT",
+      });
+    }
+
+    const preview = this.preview(actor, campaignId, input.personalization);
+    const { campaign, draft } = this.get(actor, campaignId);
+    if (!draft) {
+      throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
+    }
+
+    const organizationId = orgId(actor.organizationId);
+    const batchId = `test-send-${Date.now()}`;
+    const idempotencyKey = `mkt-test:${campaignId}:${recipientEmail.toLowerCase()}:${batchId}`;
+
+    const delivery = await marketingEmailDeliveryService.deliver({
+      idempotencyKey,
+      organizationId,
+      campaignId,
+      campaignVersionId: draft.id,
+      batchId,
+      recipientFingerprint: `test:${recipientEmail.toLowerCase()}`,
+      recipientEmail,
+      sender: {
+        senderIdentityId: campaign.senderIdentityId || "inline",
+        displayName: campaign.sender.fromName || preview.sender.fromName,
+        fromAddress: campaign.sender.fromAddress || preview.sender.fromAddress,
+        replyTo: campaign.sender.replyTo ?? null,
+      },
+      subject: preview.subject,
+      htmlBody: preview.htmlDesktop,
+      textBody: preview.plaintext,
+      assetRefs: [],
+      tracking: {
+        enabled: draft.trackingEnabled,
+        campaignId,
+        batchId,
+        campaignVersionId: draft.id,
+        recipientFingerprint: `test:${recipientEmail.toLowerCase()}`,
+      },
+    });
+
+    recordMarketingAuditEvent({
+      kind: "campaign.test_send",
+      actorUserId: actor.userId ?? null,
+      organizationId,
+      detail: {
+        campaignId,
+        outcome: delivery.outcome,
+        dryRun: delivery.dryRun,
+        actuallySent: !delivery.dryRun && (delivery.outcome === "SENT" || delivery.outcome === "ACCEPTED"),
+        delivery: delivery.dryRun ? "dry_run" : "provider",
+      },
+    });
+
+    const actuallySent =
+      !delivery.dryRun && (delivery.outcome === "SENT" || delivery.outcome === "ACCEPTED");
+
+    return {
+      preview,
+      delivery,
+      actuallySent,
+      notice: actuallySent
+        ? "Test send delivered via the Marketing email provider using the same rendered content as Preview."
+        : "Test send ran the real render path and the Marketing delivery port. Live mailbox delivery remains unavailable until the Marketing email live adapter is authorised — this was a dry-run of the exact customer-facing HTML.",
     };
   },
 

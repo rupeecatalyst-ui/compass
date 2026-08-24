@@ -78,8 +78,8 @@ export const MARKETING_COMMAND_CENTER_SECTIONS: MarketingNavSection[] = [
   },
   {
     id: "analytics",
-    title: "Analytics",
-    description: "Acquisition funnel and campaign comparison.",
+    title: "Reports",
+    description: "Acquisition funnel, engagement, and campaign comparison.",
     href: ROUTES.ADMIN_MARKETING_ANALYTICS,
     foundationOnly: false,
   },

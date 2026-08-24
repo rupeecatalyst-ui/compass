@@ -96,6 +96,7 @@ export type MarketingAuditEventKind =
   | "campaign.clone"
   | "campaign.save_template"
   | "campaign.preview"
+  | "campaign.test_send"
   | "campaign.transition"
   | "campaign.submit_for_review"
   | "campaign.approve"
