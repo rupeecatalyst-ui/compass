@@ -64,8 +64,7 @@ process.env.CHATGPT_OAUTH_CLIENT_SECRET = "verify-chatgpt-client-secret-value";
 process.env.CHATGPT_OAUTH_REDIRECT_URIS =
   "https://chat.openai.com/aip/oauth/callback,http://127.0.0.1/callback";
 process.env.CHATGPT_INTEGRATION_API_KEY = "verify-integration-key";
-process.env.NEXT_PUBLIC_APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL || "https://catalyst-one.rupeecatalyst.com";
+process.env.APP_URL = process.env.APP_URL || "https://catalyst-one.rupeecatalyst.com";
 
 let failed = 0;
 function ok(msg) {
@@ -243,58 +242,79 @@ try {
   } else fail("PKCE.K Expected INVALID_REDIRECT_URI");
 }
 
-// --- CO-CHATGPT-OAUTH-DEBUG-002: consent redirect must not use bind origin ---
+// --- CO-CHATGPT-OAUTH-DEBUG-004: server-runtime APP_URL for consent origin ---
 {
-  const previousAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-  process.env.NEXT_PUBLIC_APP_URL = "https://catalyst-one.rupeecatalyst.com";
+  const previousAppUrl = process.env.APP_URL;
   try {
     if (isChatGptOAuthUntrustedBindOrigin("https://0.0.0.0:3000")) {
       ok("ORIGIN.A 0.0.0.0 classified as untrusted bind origin");
     } else fail("ORIGIN.A expected 0.0.0.0 untrusted");
 
-    const publicOrigin = resolveChatGptOAuthPublicOrigin();
-    if (publicOrigin === "https://catalyst-one.rupeecatalyst.com") {
-      ok("ORIGIN.B resolveChatGptOAuthPublicOrigin uses NEXT_PUBLIC_APP_URL");
-    } else fail(`ORIGIN.B unexpected public origin ${publicOrigin}`);
+    process.env.APP_URL = "https://catalyst-one.rupeecatalyst.com";
+    if (resolveChatGptOAuthPublicOrigin() === "https://catalyst-one.rupeecatalyst.com") {
+      ok("ORIGIN.B APP_URL production value resolves to public origin");
+    } else fail(`ORIGIN.B unexpected ${resolveChatGptOAuthPublicOrigin()}`);
 
+    process.env.APP_URL = "https://catalyst-one.rupeecatalyst.com/";
+    if (resolveChatGptOAuthPublicOrigin() === "https://catalyst-one.rupeecatalyst.com") {
+      ok("ORIGIN.C APP_URL with trailing slash returns .origin only");
+    } else fail(`ORIGIN.C unexpected ${resolveChatGptOAuthPublicOrigin()}`);
+
+    delete process.env.APP_URL;
+    if (resolveChatGptOAuthPublicOrigin() === "http://localhost:3000") {
+      ok("ORIGIN.D absent APP_URL falls back to local development origin");
+    } else fail(`ORIGIN.D unexpected ${resolveChatGptOAuthPublicOrigin()}`);
+
+    process.env.APP_URL = "not-a-valid-url";
+    if (resolveChatGptOAuthPublicOrigin() === "http://localhost:3000") {
+      ok("ORIGIN.E invalid APP_URL falls back to local development origin");
+    } else fail(`ORIGIN.E unexpected ${resolveChatGptOAuthPublicOrigin()}`);
+
+    process.env.APP_URL = "https://catalyst-one.rupeecatalyst.com";
     const built = buildChatGptOAuthConsentRedirectUrl(
       "/integrations/chatgpt/oauth?request=cgo_req_verify",
     );
     if (
       built.startsWith("https://catalyst-one.rupeecatalyst.com/integrations/chatgpt/oauth?") &&
-      !built.includes("0.0.0.0")
+      !built.includes("0.0.0.0") &&
+      !built.startsWith("http://localhost:3000")
     ) {
-      ok("ORIGIN.C consent redirect URL uses public origin, not 0.0.0.0");
-    } else fail(`ORIGIN.C unexpected consent URL ${built}`);
+      ok("ORIGIN.F consent redirect uses APP_URL; not bind/localhost when configured");
+    } else fail(`ORIGIN.F unexpected consent URL ${built}`);
 
-    // Simulate Hostinger bind-address request.url: consent redirect must still use configured public origin.
     const simulatedRequestOrigin = "https://0.0.0.0:3000";
     const consentPath = "/integrations/chatgpt/oauth?request=cgo_req_bind";
     const legacyBroken = new URL(consentPath, simulatedRequestOrigin).toString();
     const fixed = buildChatGptOAuthConsentRedirectUrl(consentPath);
-    if (legacyBroken.includes("0.0.0.0") && !fixed.includes("0.0.0.0")) {
-      ok("ORIGIN.D bind-origin request.url would break; trusted helper does not");
-    } else fail(`ORIGIN.D legacy=${legacyBroken} fixed=${fixed}`);
+    if (legacyBroken.includes("0.0.0.0") && !fixed.includes("0.0.0.0") && !fixed.includes("localhost:3000")) {
+      ok("ORIGIN.G bind-origin request.url would break; APP_URL helper does not");
+    } else fail(`ORIGIN.G legacy=${legacyBroken} fixed=${fixed}`);
 
+    const helperSrc = read("src/lib/chatgpt-integration/oauth-public-origin.ts");
     const authorizeSrc = read("src/app/api/integrations/chatgpt/v1/oauth/authorize/route.ts");
     if (
+      helperSrc.includes("process.env.APP_URL") &&
+      !helperSrc.includes("NEXT_PUBLIC_APP_URL") &&
       authorizeSrc.includes("buildChatGptOAuthConsentRedirectUrl") &&
       !authorizeSrc.includes("url.origin") &&
       !authorizeSrc.includes("X-Forwarded-Host") &&
       !authorizeSrc.includes("x-forwarded-host")
     ) {
-      ok("ORIGIN.E authorize route uses trusted helper; no url.origin / forwarded Host");
-    } else fail("ORIGIN.E authorize route still unsafe for production bind origin");
+      ok("ORIGIN.H helper uses APP_URL only; authorize avoids url.origin / forwarded Host");
+    } else fail("ORIGIN.H source contract failed for APP_URL / authorize route");
 
-    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
-    if (resolveChatGptOAuthPublicOrigin() === "http://localhost:3000") {
-      ok("ORIGIN.F local NEXT_PUBLIC_APP_URL preserved for development");
-    } else fail("ORIGIN.F local development origin not preserved");
+    if (
+      !helperSrc.includes("process.env.NEXT_PUBLIC_APP_URL") &&
+      !authorizeSrc.includes("NEXT_PUBLIC_APP_URL") &&
+      !authorizeSrc.includes("process.env.NEXT_PUBLIC")
+    ) {
+      ok("ORIGIN.I OAuth origin path does not read NEXT_PUBLIC_APP_URL");
+    } else fail("ORIGIN.I NEXT_PUBLIC_APP_URL still referenced as env source in OAuth origin path");
   } catch (e) {
-    fail(`ORIGIN.* consent origin regression: ${e instanceof Error ? e.message : e}`);
+    fail(`ORIGIN.* APP_URL regression: ${e instanceof Error ? e.message : e}`);
   } finally {
-    if (previousAppUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
-    else process.env.NEXT_PUBLIC_APP_URL = previousAppUrl;
+    if (previousAppUrl === undefined) delete process.env.APP_URL;
+    else process.env.APP_URL = previousAppUrl;
   }
 }
 

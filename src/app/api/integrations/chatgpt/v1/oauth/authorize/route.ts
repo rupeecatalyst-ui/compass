@@ -16,7 +16,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       codeChallenge: url.searchParams.get("code_challenge") ?? "",
       codeChallengeMethod: url.searchParams.get("code_challenge_method") ?? "",
     });
-    // Use trusted NEXT_PUBLIC_APP_URL — never request.url origin (Hostinger bind 0.0.0.0:3000).
+    // Use trusted server-runtime APP_URL — never request.url origin (Hostinger bind 0.0.0.0:3000).
     return NextResponse.redirect(buildChatGptOAuthConsentRedirectUrl(result.consentPath));
   } catch (err) {
     return mapOAuthRouteError(err, "oauth.authorize");

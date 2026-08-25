@@ -4,7 +4,8 @@
  * Hostinger standalone Next.js may expose request.url as https://0.0.0.0:3000
  * (listen bind address). Absolute redirects must never use that origin.
  *
- * Trusted source: NEXT_PUBLIC_APP_URL (established app URL config).
+ * Trusted source: server-runtime APP_URL (NOT NEXT_PUBLIC_* — those are
+ * inlined at Next.js build time and miss Hostinger runtime env).
  * Does not trust Host or X-Forwarded-* headers.
  */
 const LOCAL_DEV_ORIGIN = "http://localhost:3000";
@@ -27,10 +28,10 @@ export function isChatGptOAuthUntrustedBindOrigin(originOrUrl: string): boolean 
 
 /**
  * Resolve the public Catalyst One origin for OAuth consent redirects.
- * Reads NEXT_PUBLIC_APP_URL on each call (runtime Hostinger env / local .env).
+ * Reads server-only APP_URL at runtime (Hostinger process env / local .env).
  */
 export function resolveChatGptOAuthPublicOrigin(): string {
-  const configured = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim();
+  const configured = (process.env.APP_URL ?? "").trim();
   if (configured) {
     try {
       return new URL(configured).origin;
