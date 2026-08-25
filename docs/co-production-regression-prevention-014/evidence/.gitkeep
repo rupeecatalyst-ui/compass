@@ -1,0 +1,9 @@
+# Evidence screenshots (optional)
+
+Generated when running shell smoke with:
+
+```bash
+CERT_SHELL_SCREENSHOTS=1 npm run cert:production-shell-smoke
+```
+
+Do not commit transient evidence unless attached to a certification report.
