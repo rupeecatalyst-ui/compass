@@ -10,6 +10,7 @@ import {
 } from "@/lib/enterprise-financial-input";
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
 import { getProposalButtonLabel } from "@/lib/chanakya-phase5-intelligence";
+import { CHANAKYA_EVIDENCE_VISIBILITY_LABEL } from "@/constants/chanakya-credit-proposal";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -21,12 +22,14 @@ import type {
   EcwStatedInformationDraft,
 } from "@/types/enterprise-credit-workspace";
 import { ECW_LEFT_SECTIONS } from "@/types/enterprise-credit-workspace";
-import type { ChanakyaProposalReadinessReview } from "@/types/chanakya-phase5-intelligence";
+import type { ChanakyaProposalEvidenceReadiness } from "@/types/chanakya-credit-proposal";
+import type { ChanakyaInternalStrengtheningRecommendation } from "@/types/chanakya-credit-proposal";
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
 import {
   NATURE_OF_BUSINESS_NOT_AVAILABLE,
   resolveNatureOfBusinessFromProfile,
 } from "@/lib/lead-opportunity-journey/nature-of-business";
+import { Mic } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 export function EcwSectionTabs({
@@ -101,7 +104,11 @@ export function EcwLeftPanel({
   stated,
   onStatedChange,
   documents,
-  readiness,
+  evidenceReadiness,
+  internalRecommendations,
+  rmNote,
+  onRmNoteChange,
+  canMakeProposal,
   onMakeProposal,
 }: {
   file: LoanFile;
@@ -112,8 +119,13 @@ export function EcwLeftPanel({
   stated: EcwStatedInformationDraft;
   onStatedChange: (patch: Partial<EcwStatedInformationDraft>) => void;
   documents: LoanFileDocument[];
-  readiness: ChanakyaProposalReadinessReview;
-  /** CO-CHANAKYA-CREDIT-PROPOSAL-002 — opens streaming generation (read-only). */
+  evidenceReadiness: ChanakyaProposalEvidenceReadiness;
+  internalRecommendations: ChanakyaInternalStrengtheningRecommendation[];
+  rmNote: string;
+  onRmNoteChange: (value: string) => void;
+  /** Opportunity context present — evidence readiness never blocks. */
+  canMakeProposal: boolean;
+  /** CO-CHANAKYA-CREDIT-WORKBENCH-004 — opens streaming generation (read-only). */
   onMakeProposal?: () => void;
 }) {
   const categoryCtx = useMemo(
@@ -332,45 +344,114 @@ export function EcwLeftPanel({
 
           {section === "proposal_readiness" && (
             <div className="space-y-3 text-xs">
-              <p className="font-semibold">Completeness · {readiness.completenessPct}%</p>
-              <p className="leading-relaxed text-muted-foreground">{readiness.conversationalPrompt}</p>
+              <div className="rounded-md border border-border/60 bg-muted/15 px-2.5 py-2">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  CHANAKYA Proposal Readiness
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {CHANAKYA_EVIDENCE_VISIBILITY_LABEL[evidenceReadiness.overall]}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  Evidence base for preparing the proposal — not a lender approval probability.
+                  Does not block MAKE PROPOSAL.
+                </p>
+              </div>
               <ul className="space-y-1.5">
-                {readiness.fields.map((f) => (
+                {(
+                  [
+                    ["Evidence coverage", evidenceReadiness.evidenceCoverage],
+                    ["Financial visibility", evidenceReadiness.financialVisibility],
+                    ["Banking visibility", evidenceReadiness.bankingVisibility],
+                    ["Property visibility", evidenceReadiness.propertyVisibility],
+                    ["Business visibility", evidenceReadiness.businessVisibility],
+                  ] as const
+                ).map(([label, level]) => (
                   <li
-                    key={f.key}
-                    className={cn(
-                      "rounded-md border px-2 py-1.5",
-                      f.complete
-                        ? "border-emerald-500/30 bg-emerald-500/5"
-                        : "border-amber-500/30 bg-amber-500/5",
-                    )}
+                    key={label}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2 py-1.5"
                   >
-                    <span className="font-medium">{f.label}</span>
-                    <span className="ml-2 text-muted-foreground">{f.complete ? "Complete" : "Missing"}</span>
+                    <span className="font-medium">{label}</span>
+                    <span className="text-muted-foreground">
+                      {CHANAKYA_EVIDENCE_VISIBILITY_LABEL[level]}
+                    </span>
                   </li>
                 ))}
               </ul>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                {evidenceReadiness.capabilityNote}
+              </p>
+              {internalRecommendations.length > 0 ? (
+                <div className="space-y-1.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Additional information that could strengthen the assessment
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Internal only — never sent to lenders automatically.
+                  </p>
+                  <ul className="space-y-1.5">
+                    {internalRecommendations.slice(0, 5).map((r) => (
+                      <li
+                        key={r.id}
+                        className="rounded-md border border-amber-500/25 bg-amber-500/5 px-2 py-1.5"
+                      >
+                        <span className="font-medium">{r.title}</span>
+                        <span className="mt-0.5 block text-muted-foreground">{r.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           )}
 
           {section === "proposal" && (
             <div className="space-y-3 text-xs">
               <p className="leading-relaxed text-muted-foreground">
-                CHANAKYA prepares a read-only lender-facing draft from authorized Opportunity,
-                document presence, and stated verification. No auto-send.
+                Evidence-first draft from Opportunity, document presence, Credit Workbench, and your
+                note. No auto-send. Readiness never blocks generation.
               </p>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 text-xs"
-                disabled={!readiness.ready || !onMakeProposal}
-                onClick={() => onMakeProposal?.()}
-              >
-                {getProposalButtonLabel()}
-              </Button>
-              {!readiness.ready && (
+              <Field label="RM / Credit Officer Note to CHANAKYA">
+                <textarea
+                  className={cn(
+                    "flex min-h-[72px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm",
+                    "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  )}
+                  value={rmNote}
+                  onChange={(e) => onRmNoteChange(e.target.value)}
+                  placeholder="Add any context you want CHANAKYA to consider…"
+                  aria-label="RM / Credit Officer Note to CHANAKYA"
+                />
+              </Field>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1 text-xs"
+                  disabled
+                  title="Voice dictation coming soon"
+                >
+                  <Mic className="h-3 w-3" aria-hidden />
+                  Dictate
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 text-xs"
+                  disabled={!canMakeProposal || !onMakeProposal}
+                  onClick={() => onMakeProposal?.()}
+                >
+                  {getProposalButtonLabel()}
+                </Button>
+              </div>
+              {!canMakeProposal ? (
                 <p className="text-[11px] text-muted-foreground">
-                  Button enables after Proposal Readiness reaches the required completeness.
+                  Opportunity context is required before MAKE PROPOSAL.
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Your note is user-provided context — CHANAKYA will not treat it as document
+                  evidence.
                 </p>
               )}
             </div>

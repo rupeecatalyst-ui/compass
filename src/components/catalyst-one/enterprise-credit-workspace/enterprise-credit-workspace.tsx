@@ -13,7 +13,8 @@ import {
   opportunityNumberForFile,
   resolveEcwSelectedLender,
 } from "@/lib/enterprise-credit-workspace";
-import { buildProposalReadinessReview } from "@/lib/chanakya-phase5-intelligence";
+import { deriveChanakyaProposalEvidenceReadiness } from "@/lib/chanakya-credit-proposal/derive-evidence-readiness";
+import { buildInternalStrengtheningRecommendations } from "@/lib/chanakya-credit-proposal/internal-recommendations";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -76,6 +77,7 @@ export function EnterpriseCreditWorkspace() {
   const [previewDoc, setPreviewDoc] = useState<EcwViewerDocument | null>(null);
   const [previewCategory, setPreviewCategory] = useState<string | undefined>();
   const [proposalOpen, setProposalOpen] = useState(false);
+  const [rmNote, setRmNote] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -130,25 +132,57 @@ export function EnterpriseCreditWorkspace() {
     [file],
   );
 
-  const readiness = useMemo(() => {
+  const documentPresenceHints = useMemo(
+    () =>
+      (file?.documents ?? []).map((d) => ({
+        name: d.name,
+        status: String(d.status),
+        typeRef: (d as { typeRef?: string }).typeRef,
+      })),
+    [file],
+  );
+
+  const evidenceReadiness = useMemo(() => {
     if (!file) {
-      return buildProposalReadinessReview({ productName: "—", loanAmount: 0 });
+      return deriveChanakyaProposalEvidenceReadiness({
+        productName: "—",
+        loanAmount: 0,
+        documents: [],
+      });
     }
-    return buildProposalReadinessReview({
+    return deriveChanakyaProposalEvidenceReadiness({
       productName: file.loanProduct,
       loanAmount: file.requiredAmount || file.loanAmount,
-      loanFileId: file.id,
+      employmentType: file.employmentType,
+      city: file.city,
+      companyName: file.customerName,
       stated: {
-        stated_income_information: stated.statedIncomeMonthly || null,
-        stated_business_information:
-          stated.statedTurnover || stated.statedNatureOfBusiness || null,
-        stated_property_information:
-          stated.statedPropertyValue || stated.statedPropertyType || null,
-        stated_financial_information:
-          stated.statedIncomeMonthly || file.requiredAmount || null,
+        statedIncomeMonthly: stated.statedIncomeMonthly,
+        statedTurnover: stated.statedTurnover,
+        statedNatureOfBusiness: stated.statedNatureOfBusiness,
+        statedPropertyType: stated.statedPropertyType,
+        statedPropertyValue: stated.statedPropertyValue,
+        statedPropertyLocation: stated.statedPropertyLocation,
       },
+      documents: documentPresenceHints,
+      lenderName: lender.lenderName,
     });
-  }, [file, stated]);
+  }, [documentPresenceHints, file, lender.lenderName, stated]);
+
+  const internalRecommendations = useMemo(
+    () =>
+      buildInternalStrengtheningRecommendations({
+        documents: documentPresenceHints,
+        hasStatedIncome: Boolean(stated.statedIncomeMonthly?.trim()),
+        hasStatedTurnover: Boolean(stated.statedTurnover?.trim()),
+        hasPropertyContext: Boolean(
+          stated.statedPropertyType?.trim() ||
+            stated.statedPropertyValue?.trim() ||
+            stated.statedPropertyLocation?.trim(),
+        ),
+      }),
+    [documentPresenceHints, stated],
+  );
 
   const pendingDocs = (file?.documents ?? []).filter(
     (d) => d.status === "pending" || d.status === "requested",
@@ -301,13 +335,15 @@ export function EnterpriseCreditWorkspace() {
                   setDirty(true);
                 }}
                 documents={file.documents ?? []}
-                readiness={readiness}
+                evidenceReadiness={evidenceReadiness}
+                internalRecommendations={internalRecommendations}
+                rmNote={rmNote}
+                onRmNoteChange={setRmNote}
+                canMakeProposal={Boolean(resolvedOpportunityId)}
                 onMakeProposal={() => {
-                  if (!readiness.ready || !resolvedOpportunityId) {
+                  if (!resolvedOpportunityId) {
                     showToast(
-                      !resolvedOpportunityId
-                        ? "Opportunity context is required before MAKE PROPOSAL."
-                        : "Complete Proposal Readiness before MAKE PROPOSAL.",
+                      "Opportunity context is required before MAKE PROPOSAL.",
                     );
                     return;
                   }
@@ -324,13 +360,10 @@ export function EnterpriseCreditWorkspace() {
                   key={resolvedOpportunityId}
                   opportunityId={resolvedOpportunityId}
                   stated={stated}
+                  rmNote={rmNote}
                   lenderName={lender.lenderName}
-                  documentPresence={(file.documents ?? []).map((d) => ({
-                    name: d.name,
-                    status: String(d.status),
-                    typeRef: (d as { typeRef?: string }).typeRef,
-                  }))}
-                  readinessReady={readiness.ready}
+                  documentPresence={documentPresenceHints}
+                  canGenerate={Boolean(resolvedOpportunityId)}
                   onClose={() => setProposalOpen(false)}
                 />
               </div>

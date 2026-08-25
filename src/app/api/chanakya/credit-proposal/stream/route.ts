@@ -1,6 +1,7 @@
 /**
- * CO-CHANAKYA-CREDIT-PROPOSAL-002 — SSE stream for MAKE PROPOSAL.
+ * CO-CHANAKYA-CREDIT-WORKBENCH-004 — SSE stream for MAKE PROPOSAL.
  * Read-only generation. Never mutates Opportunity / documents / send.
+ * Proposal Readiness never blocks. RM note is user-provided context only.
  */
 
 import {
@@ -42,6 +43,7 @@ export async function POST(request: Request): Promise<Response> {
         try {
           for await (const event of runChanakyaCreditProposalStream({
             opportunityId,
+            rmNote: body.rmNote,
             stated: body.stated,
             lenderName: body.lenderName,
             documentPresence: body.documentPresence,

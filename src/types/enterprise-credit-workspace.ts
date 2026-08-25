@@ -46,7 +46,7 @@ export const ECW_LEFT_SECTIONS: Array<{ id: EcwLeftSectionId; label: string }> =
   { id: "stated_financial", label: "Financial Verification" },
   { id: "stated_business", label: "Business Verification" },
   { id: "stated_property", label: "Property Verification" },
-  { id: "proposal_readiness", label: "Proposal Readiness" },
+  { id: "proposal_readiness", label: "CHANAKYA Proposal Readiness" },
   { id: "proposal", label: "Proposal" },
   { id: "communication", label: "Communication" },
   { id: "timeline", label: "Timeline" },

@@ -1,20 +1,25 @@
 /**
- * CO-CHANAKYA-CREDIT-PROPOSAL-002 — Gather authorized context (no invented figures).
+ * CO-CHANAKYA-CREDIT-WORKBENCH-004 / CO-CHANAKYA-CREDIT-INTELLIGENCE-005
+ * Gather authorized context + honest document reading (no invented figures).
  */
 
 import "server-only";
 
 import { enterpriseOpportunityService } from "@server/services/enterprise-opportunity";
-import { enterpriseTransactionDocumentService } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
 import {
   CHANAKYA_CREDIT_PROPOSAL_NO_EXTRACTION_NOTICE,
   CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE,
 } from "@/constants/chanakya-credit-proposal";
+import { buildChanakyaDocumentIntelligencePack } from "@/lib/chanakya-document-intelligence";
+import type { ChanakyaDocumentIntelligencePack } from "@/types/chanakya-document-intelligence";
 import { formatINR } from "@/lib/format-currency";
 import type {
   ChanakyaCreditProposalEvidenceItem,
+  ChanakyaCreditProposalInternalIntelligence,
   ChanakyaCreditProposalStreamRequest,
 } from "@/types/chanakya-credit-proposal";
+import { deriveChanakyaProposalEvidenceReadiness } from "./derive-evidence-readiness";
+import { buildInternalStrengtheningRecommendations } from "./internal-recommendations";
 
 function displayOrUnavailable(value: unknown): { text: string; available: boolean } {
   if (value == null) return { text: CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE, available: false };
@@ -56,6 +61,8 @@ export interface ChanakyaCreditProposalContextPack {
   transactionType: string | null;
   relationshipManagerName: string | null;
   lenderName: string | null;
+  /** User-provided RM note — never document evidence. */
+  rmNote: string | null;
   stated: NonNullable<ChanakyaCreditProposalStreamRequest["stated"]>;
   documents: Array<{
     name: string;
@@ -63,8 +70,12 @@ export interface ChanakyaCreditProposalContextPack {
     typeRef: string;
     verified: boolean;
   }>;
+  /** Server-side document intelligence (may include truncated text excerpts). */
+  documentIntelligence: ChanakyaDocumentIntelligencePack;
   evidence: ChanakyaCreditProposalEvidenceItem[];
+  /** Lender-facing limitation statements (no upload CTAs). */
   gaps: string[];
+  intelligence: ChanakyaCreditProposalInternalIntelligence;
 }
 
 export async function gatherChanakyaCreditProposalContext(
@@ -92,24 +103,23 @@ export async function gatherChanakyaCreditProposalContext(
     String(opp.primaryContactName || opp.companyName || "").trim() || "Not Specified";
   const purpose = purposeFromOpportunity(opp);
   const stated = input.stated ?? {};
+  const rmNote =
+    typeof input.rmNote === "string" && input.rmNote.trim()
+      ? input.rmNote.trim()
+      : null;
 
-  let documents: ChanakyaCreditProposalContextPack["documents"] = [];
-  try {
-    const durable = await enterpriseTransactionDocumentService.listByOpportunity(
-      opportunityId,
-      { includeContent: false },
-    );
-    documents = durable.map((d) => ({
-      name: d.displayName || d.originalFilename || d.typeRef,
-      status: d.status,
-      typeRef: d.typeRef,
-      verified: Boolean(d.verifiedAt),
+  const documentIntelligence = await buildChanakyaDocumentIntelligencePack({
+    opportunityId,
+  });
+
+  let documents: ChanakyaCreditProposalContextPack["documents"] =
+    documentIntelligence.reads.map((r) => ({
+      name: r.displayName,
+      status: r.hasBinary ? "active" : "metadata_only",
+      typeRef: r.typeRef,
+      verified: false,
     }));
-  } catch {
-    documents = [];
-  }
 
-  // Supplement with client presence list (status/name only) when durable store is empty.
   if (documents.length === 0 && input.documentPresence?.length) {
     documents = input.documentPresence.map((d) => ({
       name: d.name,
@@ -166,18 +176,52 @@ export async function gatherChanakyaCreditProposalContext(
     stated.statedPropertyLocation,
   );
 
+  if (rmNote) {
+    evidence.push({
+      id: "rm.note",
+      source: "rm_note",
+      label: "RM / Credit Officer note (user-provided)",
+      value: rmNote,
+      available: true,
+    });
+  } else {
+    evidence.push({
+      id: "rm.note",
+      source: "rm_note",
+      label: "RM / Credit Officer note (user-provided)",
+      value: "No RM note provided.",
+      available: false,
+    });
+  }
+
   push(
     "docs.count",
     "documents",
     "Documents on record (presence)",
     documents.length > 0 ? `${documents.length} document(s)` : null,
   );
+
+  const readable = documentIntelligence.documentsWithReadableText;
+  evidence.push({
+    id: "docs.content_read",
+    source: "documents",
+    label: "Document content reading (native / PDF text-layer)",
+    value:
+      readable > 0
+        ? `${readable} document(s) yielded readable text excerpts (truncated). Structured financial fact extraction is not available.`
+        : "No document yielded readable text in this run (missing binary, scanned PDF, or unsupported type).",
+    available: readable > 0,
+  });
+
   evidence.push({
     id: "docs.extraction",
     source: "edie_facts",
     label: "Structured document financial facts",
-    value: CHANAKYA_CREDIT_PROPOSAL_NO_EXTRACTION_NOTICE,
-    available: false,
+    value:
+      documentIntelligence.structuredFacts.length > 0
+        ? `${documentIntelligence.structuredFacts.length} structured fact(s) extracted from readable document text (labeled values only — not OCR-invented).`
+        : CHANAKYA_CREDIT_PROPOSAL_NO_EXTRACTION_NOTICE,
+    available: documentIntelligence.structuredFacts.length > 0,
   });
 
   push("lender.name", "lender_product", "Selected lender (desk)", lenderName);
@@ -185,25 +229,111 @@ export async function gatherChanakyaCreditProposalContext(
     id: "ext.research",
     source: "external_research",
     label: "External web research",
-    value: "Not enabled in Phase 1.",
+    value: "Not enabled yet.",
     available: false,
   });
 
   const gaps: string[] = [
     "FOIR / DSCR / LTV / banking analysis engines are not available yet.",
-    "OCR and structured EDIE financial extraction are not available yet.",
+    "Structured EDIE financial / table extraction is not available yet.",
     "External web research is not enabled yet.",
   ];
-  if (!purpose) gaps.push("Loan purpose is not captured on the Opportunity.");
-  if (!stated.statedIncomeMonthly && !stated.statedTurnover) {
-    gaps.push("Stated income / turnover is incomplete on Credit Workbench.");
+  if (documentIntelligence.documentsRequiringOcr > 0) {
+    gaps.push(
+      `${documentIntelligence.documentsRequiringOcr} document(s) require OCR and were not content-read.`,
+    );
+  }
+  if (!purpose) {
+    gaps.push("Loan purpose is not captured on the Opportunity.");
   }
   if (documents.length === 0) {
     gaps.push("No transaction documents were found for this Opportunity.");
   }
-  if (!lenderName) {
-    gaps.push("No lender is selected on the Credit Workbench desk.");
-  }
+
+  const readiness = deriveChanakyaProposalEvidenceReadiness({
+    productName,
+    loanAmount,
+    purpose,
+    employmentType:
+      typeof opp.employmentTypeCode === "string" ? opp.employmentTypeCode : null,
+    companyName: typeof opp.companyName === "string" ? opp.companyName : null,
+    city: typeof opp.cityLabel === "string" ? opp.cityLabel : null,
+    stated,
+    documents,
+    lenderName,
+  });
+
+  const recommendations = buildInternalStrengtheningRecommendations({
+    documents,
+    hasStatedIncome: Boolean(stated.statedIncomeMonthly?.trim()),
+    hasStatedTurnover: Boolean(stated.statedTurnover?.trim()),
+    hasPropertyContext: Boolean(
+      stated.statedPropertyType?.trim() ||
+        stated.statedPropertyValue?.trim() ||
+        stated.statedPropertyLocation?.trim(),
+    ),
+  });
+
+  const documentReading = {
+    documentsReviewed: documentIntelligence.documentsReviewed,
+    documentsWithBinary: documentIntelligence.documentsWithBinary,
+    documentsWithReadableText: documentIntelligence.documentsWithReadableText,
+    documentsRequiringOcr: documentIntelligence.documentsRequiringOcr,
+    documentsRequiringVision: documentIntelligence.documentsRequiringVision,
+    structuredFactsCount: documentIntelligence.structuredFacts.length,
+    crossDocumentComparisonsCount:
+      documentIntelligence.crossDocumentComparisons.length,
+    visionConfigured: documentIntelligence.visionProvider.configured,
+    capabilityNote: documentIntelligence.capability.note,
+    reads: documentIntelligence.reads.map((r) => ({
+      documentId: r.documentId,
+      displayName: r.displayName,
+      typeRef: r.typeRef,
+      familyHint: r.familyHint,
+      status: r.status,
+      extractionMethod: r.extractionMethod,
+      hasBinary: r.hasBinary,
+      textCharCount: r.textCharCount,
+      limitation: r.limitation,
+    })),
+    extractedFactSummaries: documentIntelligence.structuredFacts
+      .slice(0, 24)
+      .map((f) => ({
+        key: f.key,
+        label: f.label,
+        value: f.value,
+        periodLabel: f.periodLabel ?? null,
+        documentName: f.provenance.displayName,
+        confidence: f.provenance.confidence,
+      })),
+  };
+
+  const nativeDocumentTextAvailable = readable > 0;
+  const structuredFinancialFactsAvailable =
+    documentIntelligence.structuredFacts.length > 0;
+
+  const intelligence: ChanakyaCreditProposalInternalIntelligence = {
+    readiness,
+    rmNote,
+    recommendations,
+    limitations: [
+      ...gaps,
+      ...documentIntelligence.limitations.slice(0, 4),
+      readiness.capabilityNote,
+      "Proposal Readiness does not block proposal generation.",
+      "Internal recommendations must never appear in lender communication.",
+    ],
+    documentPresenceSummary:
+      documents.length === 0
+        ? "No documents on record."
+        : `${documents.length} document(s) on record · ${readable} with readable text · ${documentIntelligence.structuredFacts.length} structured fact(s) · ${documentIntelligence.documentsRequiringOcr} OCR-required.`,
+    documentReading,
+    nativeDocumentTextAvailable,
+    structuredFinancialFactsAvailable,
+    contentExtractionAvailable: nativeDocumentTextAvailable,
+    webResearchAvailable: false,
+    financialEnginesAvailable: false,
+  };
 
   return {
     opportunityId,
@@ -224,9 +354,12 @@ export async function gatherChanakyaCreditProposalContext(
         ? opp.relationshipManagerName
         : null,
     lenderName,
+    rmNote,
     stated,
     documents,
+    documentIntelligence,
     evidence,
     gaps,
+    intelligence,
   };
 }

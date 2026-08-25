@@ -1,6 +1,7 @@
 /**
- * CO-CHANAKYA-CREDIT-PROPOSAL-002 — Compose lender-facing draft from evidence only.
+ * CO-CHANAKYA-CREDIT-WORKBENCH-004 — Compose lender-facing draft from evidence only.
  * Never invents FOIR/DSCR/LTV or document-extracted financial values.
+ * Never includes internal Proposal Readiness or upload recommendations.
  */
 
 import { randomUUID } from "node:crypto";
@@ -27,9 +28,16 @@ function section(
   id: ChanakyaCreditProposalSectionId,
   body: string,
   evidenceSources: ChanakyaCreditProposalEvidenceSource[],
+  included = true,
 ): ChanakyaCreditProposalSection {
   const meta = CHANAKYA_CREDIT_PROPOSAL_SECTIONS.find((s) => s.id === id)!;
-  return { id, title: meta.title, body: body.trim(), evidenceSources };
+  return { id, title: meta.title, body: body.trim(), evidenceSources, included };
+}
+
+function looksLikeUploadAsk(text: string): boolean {
+  return /please (provide|upload|attach)|upload (gst|bank|itr|financial)|missing document recommendation/i.test(
+    text,
+  );
 }
 
 export function composeChanakyaCreditProposalDraft(
@@ -39,9 +47,23 @@ export function composeChanakyaCreditProposalDraft(
     ctx.loanAmount > 0 ? formatINR(ctx.loanAmount) : CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE;
 
   const verifiedCount = ctx.documents.filter((d) => d.verified).length;
-  const pendingCount = ctx.documents.filter((d) =>
-    /pending|requested|missing/i.test(d.status),
-  ).length;
+
+  const hasPropertyContext = Boolean(
+    ctx.stated.statedPropertyType?.trim() ||
+      ctx.stated.statedPropertyValue?.trim() ||
+      ctx.stated.statedPropertyLocation?.trim() ||
+      ctx.documents.some((d) =>
+        /property|sale\s*agreement|title|valuation|collateral/i.test(
+          `${d.name} ${d.typeRef}`,
+        ),
+      ),
+  );
+
+  const hasFinancialStated = Boolean(
+    ctx.stated.statedIncomeMonthly?.trim() ||
+      ctx.stated.statedTurnover?.trim() ||
+      ctx.stated.statedObligations?.trim(),
+  );
 
   const docLines =
     ctx.documents.length === 0
@@ -61,25 +83,37 @@ export function composeChanakyaCreditProposalDraft(
     line("Business vintage", ctx.stated.statedBusinessVintage),
     line("Nature of business", ctx.stated.statedNatureOfBusiness),
     line("Constitution", ctx.stated.statedConstitution),
-    line("Property type", ctx.stated.statedPropertyType),
-    line("Property value (stated)", ctx.stated.statedPropertyValue),
-    line("Property location", ctx.stated.statedPropertyLocation),
   ].join("\n");
 
   const strengths: string[] = [];
   if (ctx.loanAmount > 0 && ctx.productName !== "Not Specified") {
     strengths.push("Product and required amount are captured on the Opportunity.");
   }
-  if (ctx.stated.statedIncomeMonthly || ctx.stated.statedTurnover) {
-    strengths.push("Credit Workbench stated income / turnover information has been provided.");
+  if (ctx.purpose) {
+    strengths.push("Loan purpose is captured on the Opportunity.");
+  }
+  if (hasFinancialStated) {
+    strengths.push(
+      "Credit Workbench includes stated income / turnover / obligation inputs (user-entered verification — not document-extracted).",
+    );
   }
   if (verifiedCount > 0) {
     strengths.push(
       `${verifiedCount} document(s) carry a verification stamp (presence verified — content not extracted).`,
     );
   }
+  if (ctx.documents.length > 0) {
+    strengths.push(
+      `${ctx.documents.length} transaction document(s) are on record for review (presence only in this phase).`,
+    );
+  }
   if (ctx.relationshipManagerName) {
     strengths.push(`Named relationship manager: ${ctx.relationshipManagerName}.`);
+  }
+  if (ctx.rmNote) {
+    strengths.push(
+      "Additional transaction context was provided by the RM / Credit Officer (user-provided — not document evidence).",
+    );
   }
   if (strengths.length === 0) {
     strengths.push(
@@ -90,16 +124,11 @@ export function composeChanakyaCreditProposalDraft(
   const considerations = [
     CHANAKYA_CREDIT_PROPOSAL_NO_EXTRACTION_NOTICE,
     "FOIR, DSCR, LTV, and banking analysis are not computed in this phase.",
-    ...ctx.gaps.filter(
-      (g) =>
-        !g.includes("OCR") &&
-        !g.includes("FOIR") &&
-        !g.includes("External web"),
-    ),
+    ...ctx.gaps.filter((g) => !looksLikeUploadAsk(g)),
   ];
-  if (pendingCount > 0) {
+  if (ctx.documents.length === 0) {
     considerations.push(
-      `${pendingCount} document(s) remain pending/requested — collection should continue in Document Center.`,
+      "Banking information was not available in the documents reviewed (no documents on record).",
     );
   }
 
@@ -115,9 +144,11 @@ export function composeChanakyaCreditProposalDraft(
         line("Required amount", amountLabel),
         line("Lender (desk)", ctx.lenderName),
         ``,
-        `CHANAKYA has reviewed authorized transaction context, document **presence**, Credit Workbench stated verification, and available lender/product labels. Structured financial extraction and ratio engines are **not** available yet — no fabricated ratios or statement figures are included.`,
+        `Based on the information reviewed, CHANAKYA has used authorized transaction context, document presence, optional document text reading where binaries allow, Credit Workbench stated verification, and any RM / Credit Officer note provided as **user context**. Structured financial extraction and ratio engines are **not** available yet — no fabricated ratios or statement figures are included.`,
+        ``,
+        `This draft is not a lender credit decision.`,
       ].join("\n"),
-      ["transaction", "credit_workbench", "documents", "lender_product", "chanakya_inference"],
+      ["transaction", "credit_workbench", "documents", "lender_product", "rm_note", "chanakya_inference"],
     ),
     section(
       "borrower_overview",
@@ -142,60 +173,100 @@ export function composeChanakyaCreditProposalDraft(
     section(
       "business_overview",
       [
-        `Overview is limited to Opportunity and Credit Workbench stated fields.`,
+        `Overview is limited to Opportunity and Credit Workbench stated fields in this phase.`,
         ``,
         line("Nature of business (stated)", ctx.stated.statedNatureOfBusiness),
         line("Constitution (stated)", ctx.stated.statedConstitution),
         line("Business vintage (stated)", ctx.stated.statedBusinessVintage),
         line("Turnover (stated)", ctx.stated.statedTurnover),
         ``,
-        `External company/industry research is **not enabled** in Phase 1.`,
+        ctx.rmNote
+          ? [
+              `**RM / Credit Officer context (user-provided — not document evidence):**`,
+              `As represented by the RM / Credit Officer: "${ctx.rmNote}"`,
+            ].join("\n")
+          : `No additional RM / Credit Officer note was provided.`,
+        ``,
+        `External company/industry research is **not enabled** in this phase.`,
       ].join("\n"),
-      ["credit_workbench", "transaction"],
+      ["credit_workbench", "transaction", "rm_note"],
     ),
     section(
       "stated_financial",
       [
-        `The following values are **stated verification inputs** from Credit Workbench (SOURCE: credit_workbench). They are not EDIE-extracted financial statement facts.`,
+        hasFinancialStated
+          ? `The following values are **stated verification inputs** from Credit Workbench (SOURCE: credit_workbench). They are not EDIE-extracted financial statement facts.`
+          : `Stated financial verification fields were largely incomplete. CHANAKYA does not invent salary, turnover, EBITDA, net profit, or banking figures. Based on the financial statements / income documents available for review: **content extraction is not yet available**, so no statement figures are asserted.`,
         ``,
         statedLines,
         ``,
         ctx.stated.notes?.trim()
-          ? line("Verification notes", ctx.stated.notes)
-          : line("Verification notes", null),
-      ].join("\n"),
+          ? line("Verification working notes (Credit Workbench)", ctx.stated.notes)
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
       ["credit_workbench"],
+      hasFinancialStated || Boolean(ctx.stated.notes?.trim()),
     ),
     section(
       "document_readiness",
       [
-        `Document inventory reflects **presence and status only**.`,
+        `Document inventory reflects presence, status, and honest content-reading outcomes.`,
         ``,
         docLines,
         ``,
-        `> ${CHANAKYA_CREDIT_PROPOSAL_NO_EXTRACTION_NOTICE}`,
+        ctx.documentIntelligence.documentsWithReadableText > 0
+          ? `CHANAKYA obtained readable text from ${ctx.documentIntelligence.documentsWithReadableText} document(s) via native text, real PDF.js extraction (unpdf), and/or configured vision OCR where applicable — only quality-gated content.`
+          : `No document yielded readable text in this run. Scanned PDFs require OCR (Azure Document Intelligence or page rasterization) — not claimed here without a successful provider response.`,
+        ``,
+        ctx.documentIntelligence.structuredFacts.length > 0
+          ? [
+              `Structured facts extracted from readable text (labeled values only):`,
+              ...ctx.documentIntelligence.structuredFacts.slice(0, 16).map(
+                (f) =>
+                  `- **${f.label}:** ${f.value}${f.periodLabel ? ` (${f.periodLabel})` : ""} — source: ${f.provenance.displayName}${f.provenance.sectionOrTable ? `, ${f.provenance.sectionOrTable}` : ""} [${f.provenance.extractionMethod}, ${f.provenance.confidence}]`,
+              ),
+            ].join("\n")
+          : `> ${CHANAKYA_CREDIT_PROPOSAL_NO_EXTRACTION_NOTICE}`,
+        ``,
+        ctx.documentIntelligence.documentsRequiringOcr > 0
+          ? `${ctx.documentIntelligence.documentsRequiringOcr} document(s) were classified as OCR-required and were not content-read.`
+          : null,
+      ]
+        .filter((line) => line !== null)
+        .join("\n"),
+      ["documents", "edie_facts"],
+    ),
+    section(
+      "property_security",
+      [
+        line("Property type (stated)", ctx.stated.statedPropertyType),
+        line("Property value (stated)", ctx.stated.statedPropertyValue),
+        line("Property location (stated)", ctx.stated.statedPropertyLocation),
+        ``,
+        `Valuation is not invented. Property document content extraction is not available in this phase.`,
       ].join("\n"),
-      ["documents"],
+      ["credit_workbench", "documents", "transaction"],
+      hasPropertyContext,
     ),
     section(
       "credit_observations",
       [
-        `- Opportunity identity and product/amount framing are available from Catalyst One.`,
-        `- Credit Workbench stated fields: ${
-          ctx.stated.statedIncomeMonthly || ctx.stated.statedTurnover
-            ? "partially available"
-            : "largely incomplete"
+        `- On the basis of the available evidence, Opportunity identity and product/amount framing are available from Catalyst One.`,
+        `- Credit Workbench stated financial fields: ${
+          hasFinancialStated ? "partially available" : "largely incomplete"
         }.`,
         `- Documents on record: ${ctx.documents.length}; verification stamps: ${verifiedCount}.`,
         `- Calculated credit ratios (FOIR / DSCR / LTV / banking): **not available** — engine SSOT pending.`,
-        `- CHANAKYA does not assert underwriting eligibility in this draft.`,
+        `- CHANAKYA does not assert underwriting eligibility or guaranteed approval in this draft.`,
       ].join("\n"),
       ["transaction", "credit_workbench", "documents", "chanakya_inference"],
     ),
     section(
       "strengths",
       strengths.map((s) => `- ${s}`).join("\n"),
-      ["chanakya_inference", "transaction", "credit_workbench", "documents"],
+      ["chanakya_inference", "transaction", "credit_workbench", "documents", "rm_note"],
     ),
     section(
       "key_considerations",
@@ -210,26 +281,27 @@ export function composeChanakyaCreditProposalDraft(
         line("Proposed lender", ctx.lenderName),
         line("Tenure / ROI / LTV / FOIR ceilings", null),
         ``,
-        `Detailed structure (tenure, pricing, security perfection, FOIR/LTV fit) requires lender program parameters plus financial-analysis SSOT — both are out of scope for Phase 1 generation.`,
+        `Detailed structure (tenure, pricing, security perfection, FOIR/LTV fit) requires lender program parameters plus financial-analysis SSOT — both are out of scope for this generation phase.`,
       ].join("\n"),
       ["transaction", "lender_product"],
     ),
     section(
       "recommendation",
       [
-        `**Draft recommendation (advisory only):** Proceed to complete document collection and Credit Workbench verification. Do **not** treat this draft as a final credit decision.`,
+        `**Draft recommendation (advisory only):** Based on the information reviewed, the transaction may be progressed for lender consideration **subject to lender policy and verification**. This is not a credit decision.`,
         ``,
         `Next human-controlled steps:`,
         `1. Review this draft for accuracy against Catalyst One records.`,
-        `2. Complete missing stated information and mandatory documents.`,
-        `3. Re-run MAKE PROPOSAL after financial/EDIE capabilities are available.`,
+        `2. Optionally strengthen the internal evidence base (see CHANAKYA internal recommendations — not part of this lender draft).`,
+        `3. Re-run MAKE PROPOSAL after financial/EDIE capabilities are available for deeper analysis.`,
         `4. **Send to Lender** remains a separate explicit user action — CHANAKYA will not send automatically.`,
       ].join("\n"),
       ["chanakya_inference"],
     ),
   ];
 
-  const fullText = sections.map((s) => `## ${s.title}\n\n${s.body}`).join("\n\n");
+  const included = sections.filter((s) => s.included);
+  const fullText = included.map((s) => `## ${s.title}\n\n${s.body}`).join("\n\n");
 
   return {
     draftId: `ccp_${randomUUID().replace(/-/g, "").slice(0, 16)}`,
@@ -241,10 +313,10 @@ export function composeChanakyaCreditProposalDraft(
     emailOutboundOwner: "catalyst_one",
     readOnly: true,
     autoSendForbidden: true,
-    sections,
+    sections: included,
     fullText,
     evidence: ctx.evidence,
-    gaps: ctx.gaps,
+    gaps: ctx.gaps.filter((g) => !looksLikeUploadAsk(g)),
     generatedAt: new Date().toISOString(),
   };
 }

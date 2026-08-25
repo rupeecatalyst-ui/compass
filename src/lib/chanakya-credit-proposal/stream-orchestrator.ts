@@ -1,11 +1,11 @@
 /**
- * CO-CHANAKYA-CREDIT-PROPOSAL-002 — Stream orchestrator (stage events + text deltas).
+ * CO-CHANAKYA-CREDIT-WORKBENCH-004 — Stream orchestrator (stage + intelligence + deltas).
+ * Proposal Readiness never blocks generation. No form-first gate.
  */
 
 import "server-only";
 
 import { CHANAKYA_CREDIT_PROPOSAL_STAGES } from "@/constants/chanakya-credit-proposal";
-import { buildProposalReadinessReview } from "@/lib/chanakya-phase5-intelligence";
 import { composeChanakyaCreditProposalDraft } from "./compose-proposal";
 import { gatherChanakyaCreditProposalContext } from "./gather-context";
 import type {
@@ -50,31 +50,11 @@ export async function* runChanakyaCreditProposalStream(
   const ctx = await gatherChanakyaCreditProposalContext(input);
   yield* emitStage("review_transaction", "completed");
 
-  const stated = input.stated ?? {};
-  const readiness = buildProposalReadinessReview({
-    productName: ctx.productName,
-    loanAmount: ctx.loanAmount,
-    loanFileId: ctx.opportunityId,
-    stated: {
-      stated_income_information: stated.statedIncomeMonthly || null,
-      stated_business_information:
-        stated.statedTurnover || stated.statedNatureOfBusiness || null,
-      stated_property_information:
-        stated.statedPropertyValue || stated.statedPropertyType || null,
-      stated_financial_information:
-        stated.statedIncomeMonthly || ctx.loanAmount || null,
-    },
-  });
-  if (!readiness.ready) {
-    yield {
-      type: "error",
-      code: "PROPOSAL_NOT_READY",
-      message:
-        readiness.conversationalPrompt ||
-        "Proposal readiness gate is not met for this Opportunity.",
-    };
-    return;
-  }
+  // Evidence-first readiness is informational only — never blocks.
+  yield {
+    type: "intelligence",
+    intelligence: ctx.intelligence,
+  };
 
   yield* emitStage("review_documents", "active");
   await sleep(40);

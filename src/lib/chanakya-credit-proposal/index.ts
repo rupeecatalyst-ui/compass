@@ -4,3 +4,5 @@ export {
   runChanakyaCreditProposalStream,
   encodeSseEvent,
 } from "./stream-orchestrator";
+export { deriveChanakyaProposalEvidenceReadiness } from "./derive-evidence-readiness";
+export { buildInternalStrengtheningRecommendations } from "./internal-recommendations";

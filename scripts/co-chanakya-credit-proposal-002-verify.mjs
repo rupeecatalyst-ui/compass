@@ -39,15 +39,15 @@ if (types.includes('"transaction"') && types.includes('"edie_facts"') && types.i
 } else fail("Evidence source contracts incomplete");
 
 if (
-  constants.includes("Reviewing transaction context") &&
+  constants.includes("Transaction information reviewed") &&
   constants.includes("Writing proposal") &&
   constants.includes("autoSendForbidden: true")
 ) {
   ok("Stage labels + read-only boundary constants present");
 } else fail("Stage/boundary constants missing");
 
-if (gather.includes("listByOpportunity") && gather.includes("includeContent: false")) {
-  ok("Gather uses authorized document list without content OCR");
+if (gather.includes("buildChanakyaDocumentIntelligencePack")) {
+  ok("Gather uses authorized document intelligence pack");
 } else fail("Gather document access contract failed");
 
 if (

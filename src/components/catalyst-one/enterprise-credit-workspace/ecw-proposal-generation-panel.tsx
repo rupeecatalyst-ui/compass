@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * CO-CHANAKYA-CREDIT-PROPOSAL-002 — Progressive MAKE PROPOSAL experience.
+ * CO-CHANAKYA-CREDIT-WORKBENCH-004 — Progressive MAKE PROPOSAL experience.
+ * Internal intelligence is separated from lender-facing streamed draft.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,9 +13,11 @@ import {
   CHANAKYA_CREDIT_PROPOSAL_SPRINT,
   CHANAKYA_CREDIT_PROPOSAL_STAGES,
   CHANAKYA_CREDIT_PROPOSAL_STREAM_PATH,
+  CHANAKYA_EVIDENCE_VISIBILITY_LABEL,
 } from "@/constants/chanakya-credit-proposal";
 import type {
   ChanakyaCreditProposalDraft,
+  ChanakyaCreditProposalInternalIntelligence,
   ChanakyaCreditProposalStageId,
   ChanakyaCreditProposalStageStatus,
   ChanakyaCreditProposalStreamEvent,
@@ -68,34 +71,40 @@ async function consumeSse(
 export function EcwProposalGenerationPanel({
   opportunityId,
   stated,
+  rmNote,
   lenderName,
   documentPresence,
-  readinessReady,
+  canGenerate,
   onClose,
 }: {
   opportunityId: string;
   stated: ChanakyaCreditProposalStreamRequest["stated"];
+  rmNote?: string | null;
   lenderName?: string | null;
   documentPresence?: ChanakyaCreditProposalStreamRequest["documentPresence"];
-  readinessReady: boolean;
+  /** Opportunity context present — Proposal Readiness never blocks. */
+  canGenerate: boolean;
   onClose: () => void;
 }) {
   const [running, setRunning] = useState(false);
   const [stages, setStages] = useState<StageState>(initialStages);
   const [streamText, setStreamText] = useState("");
   const [draft, setDraft] = useState<ChanakyaCreditProposalDraft | null>(null);
+  const [intelligence, setIntelligence] =
+    useState<ChanakyaCreditProposalInternalIntelligence | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const startedRef = useRef(false);
   const runningRef = useRef(false);
 
   const start = useCallback(async () => {
-    if (!readinessReady || !opportunityId || runningRef.current) return;
+    if (!canGenerate || !opportunityId || runningRef.current) return;
     runningRef.current = true;
     setRunning(true);
     setDone(false);
     setError(null);
     setDraft(null);
+    setIntelligence(null);
     setStreamText("");
     setStages(initialStages());
 
@@ -104,6 +113,7 @@ export function EcwProposalGenerationPanel({
         method: "POST",
         body: JSON.stringify({
           opportunityId,
+          rmNote: rmNote?.trim() || null,
           stated,
           lenderName,
           documentPresence,
@@ -120,6 +130,8 @@ export function EcwProposalGenerationPanel({
       await consumeSse(res, (event) => {
         if (event.type === "stage") {
           setStages((prev) => ({ ...prev, [event.stageId]: event.status }));
+        } else if (event.type === "intelligence") {
+          setIntelligence(event.intelligence);
         } else if (event.type === "delta") {
           setStreamText((prev) => prev + event.text);
         } else if (event.type === "draft") {
@@ -137,16 +149,17 @@ export function EcwProposalGenerationPanel({
       runningRef.current = false;
       setRunning(false);
     }
-  }, [documentPresence, lenderName, opportunityId, readinessReady, stated]);
+  }, [canGenerate, documentPresence, lenderName, opportunityId, rmNote, stated]);
 
   useEffect(() => {
     if (startedRef.current) return;
-    if (!readinessReady || !opportunityId) return;
+    if (!canGenerate || !opportunityId) return;
     startedRef.current = true;
     void start();
-  }, [opportunityId, readinessReady, start]);
+  }, [canGenerate, opportunityId, start]);
 
   const stageRows = useMemo(() => CHANAKYA_CREDIT_PROPOSAL_STAGES, []);
+  const readiness = intelligence?.readiness;
 
   return (
     <div
@@ -161,7 +174,7 @@ export function EcwProposalGenerationPanel({
             CHANAKYA Credit Proposal
           </p>
           <p className="text-[11px] text-muted-foreground">
-            Read-only draft · never auto-sends
+            Read-only draft · never auto-sends · readiness never blocks
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -172,7 +185,7 @@ export function EcwProposalGenerationPanel({
                 startedRef.current = false;
                 void start();
               }}
-              disabled={!readinessReady}
+              disabled={!canGenerate}
               className="h-7 rounded-md bg-teal-700 px-2.5 text-[11px] font-semibold text-white disabled:opacity-50"
             >
               Regenerate
@@ -188,7 +201,7 @@ export function EcwProposalGenerationPanel({
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[14rem_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[15rem_minmax(0,1fr)]">
         <aside className="border-b border-border/50 p-3 lg:border-b-0 lg:border-r">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Progress
@@ -223,6 +236,102 @@ export function EcwProposalGenerationPanel({
               );
             })}
           </ul>
+
+          {readiness ? (
+            <div className="mt-4 space-y-1.5 rounded-md border border-border/60 bg-muted/20 p-2">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Internal · Proposal Readiness
+              </p>
+              <p className="text-[12px] font-semibold text-foreground">
+                {CHANAKYA_EVIDENCE_VISIBILITY_LABEL[readiness.overall]}
+              </p>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                Evidence {CHANAKYA_EVIDENCE_VISIBILITY_LABEL[readiness.evidenceCoverage]} ·
+                Financial {CHANAKYA_EVIDENCE_VISIBILITY_LABEL[readiness.financialVisibility]} ·
+                Banking {CHANAKYA_EVIDENCE_VISIBILITY_LABEL[readiness.bankingVisibility]}
+              </p>
+              <p className="text-[9px] text-muted-foreground">
+                Not a lender approval probability. Does not block generation.
+              </p>
+            </div>
+          ) : null}
+
+          {intelligence?.documentReading ? (
+            <div className="mt-3 space-y-1.5 rounded-md border border-border/60 bg-muted/20 p-2">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Internal · Document reading
+              </p>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                Reviewed {intelligence.documentReading.documentsReviewed} · readable text{" "}
+                {intelligence.documentReading.documentsWithReadableText} · OCR required{" "}
+                {intelligence.documentReading.documentsRequiringOcr} · structured facts{" "}
+                {intelligence.documentReading.structuredFactsCount}
+                {intelligence.documentReading.visionConfigured
+                  ? " · vision key configured"
+                  : " · vision key absent"}
+              </p>
+              <ul className="max-h-28 space-y-1 overflow-y-auto">
+                {intelligence.documentReading.reads.slice(0, 8).map((r) => (
+                  <li key={r.documentId} className="text-[10px] leading-snug">
+                    <span className="font-medium text-foreground">{r.displayName}</span>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {r.status}
+                      {r.textCharCount > 0 ? ` · ${r.textCharCount} chars` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {intelligence.documentReading.extractedFactSummaries.length > 0 ? (
+                <div className="mt-1.5 space-y-1 border-t border-border/40 pt-1.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Extracted facts (provenance)
+                  </p>
+                  <ul className="max-h-32 space-y-1 overflow-y-auto">
+                    {intelligence.documentReading.extractedFactSummaries
+                      .slice(0, 10)
+                      .map((f) => (
+                        <li key={`${f.key}:${f.documentName}`} className="text-[10px] leading-snug">
+                          <span className="font-medium text-foreground">{f.label}</span>
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {f.value}
+                            {f.periodLabel ? ` · ${f.periodLabel}` : ""} · {f.documentName} ·{" "}
+                            {f.confidence}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ) : null}
+              <p className="text-[9px] text-muted-foreground">
+                Excerpts stay server-side · no fabricated financial figures
+              </p>
+            </div>
+          ) : null}
+
+          {intelligence?.recommendations?.length ? (
+            <div className="mt-3 space-y-1.5">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Internal · Strengthen assessment
+              </p>
+              <ul className="space-y-1.5">
+                {intelligence.recommendations.slice(0, 4).map((r) => (
+                  <li
+                    key={r.id}
+                    className="rounded border border-amber-500/20 bg-amber-500/5 px-1.5 py-1 text-[10px] leading-snug"
+                  >
+                    <span className="font-medium text-foreground">{r.title}</span>
+                    <span className="mt-0.5 block text-muted-foreground">{r.reason}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[9px] text-muted-foreground">
+                User-only · never included in lender draft
+              </p>
+            </div>
+          ) : null}
+
           <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">
             Forbidden: {CHANAKYA_CREDIT_PROPOSAL_BOUNDARY.mustNot.slice(0, 4).join(", ")}…
           </p>
@@ -238,23 +347,28 @@ export function EcwProposalGenerationPanel({
           {!running && !streamText && !error ? (
             <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
               <p>
-                Click <span className="font-medium text-foreground">Start generation</span> to
-                stream a lender-facing draft from authorized Opportunity, document presence, and
-                Credit Workbench stated fields.
+                Streaming a lender-facing draft from authorized Opportunity context, document
+                presence, Credit Workbench stated fields, and RM note (user-provided).
               </p>
               <p className="mt-2 text-[12px]">
                 No FOIR/DSCR/LTV inventing. No document content extraction. No Send to Lender.
+                Internal recommendations stay on the left.
               </p>
             </div>
           ) : null}
 
           {streamText ? (
-            <article className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">
-              {streamText}
-              {running ? (
-                <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-teal-600 align-middle" />
-              ) : null}
-            </article>
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Lender-facing credit proposal
+              </p>
+              <article className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">
+                {streamText}
+                {running ? (
+                  <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-teal-600 align-middle" />
+                ) : null}
+              </article>
+            </div>
           ) : null}
 
           {done && draft ? (
