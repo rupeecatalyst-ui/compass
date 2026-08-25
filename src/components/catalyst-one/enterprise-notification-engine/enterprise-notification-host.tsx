@@ -1,9 +1,11 @@
 "use client";
 
 /**
- * CO-NOTIFICATION-001 / CO-NOTIFICATION-001B — CHANAKYA Enterprise Notification toast host.
+ * CO-NOTIFICATION-001 / CO-NOTIFICATION-001B / CO-PRODUCTION-UX-STABILIZATION-013
+ * CHANAKYA Enterprise Notification toast host.
  * Visual: CHANAKYA portrait identity · mandatory premium dark card · bottom-right.
- * Behaviour unchanged: non-blocking · ~10s dismiss · sound + Silent · multi-tab sound lock.
+ * Presentation only: ONE active toast · internal priority queue · never covers workspace chrome.
+ * Does not alter registry, unread counts, history, or fan-out architecture.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -18,7 +20,7 @@ import {
 } from "@/constants/chanakya-enterprise-identity";
 import {
   ENE_CHIME_PUBLIC_PATH,
-  ENE_MAX_STACK,
+  ENE_MAX_TOAST_QUEUE,
   ENE_POLL_INTERVAL_MS,
   ENE_SOUND_LOCK_KEY,
   ENE_SOUND_THROTTLE_MS,
@@ -31,6 +33,11 @@ import {
   markEnterpriseNotificationRead,
   saveNotificationSoundPreference,
 } from "@/lib/enterprise-notification-engine";
+import {
+  loadPresentedToastIds,
+  rememberPresentedToastId,
+  sortNotificationsForToastQueue,
+} from "@/lib/enterprise-notification-engine/toast-queue-session";
 import type { EnterpriseNotificationItem } from "@/types/enterprise-notification-engine";
 import { cn } from "@/lib/utils";
 
@@ -83,14 +90,28 @@ function openActionLabel(item: EnterpriseNotificationItem): string {
 export function EnterpriseNotificationHost() {
   const { user, isAuthenticated } = useAuthContext();
   const router = useRouter();
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [activeToast, setActiveToast] = useState<ToastItem | null>(null);
+  const [queuedCount, setQueuedCount] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [hovering, setHovering] = useState<string | null>(null);
-  const seenIds = useRef(new Set<string>());
+  const [hovering, setHovering] = useState(false);
+
+  const queueRef = useRef<ToastItem[]>([]);
+  const presentedIdsRef = useRef<Set<string>>(new Set());
+  const sessionSeenIds = useRef(new Set<string>());
+  const activeToastRef = useRef<ToastItem | null>(null);
   const lastSoundAt = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
-  const timers = useRef(new Map<string, number>());
+  const dismissTimer = useRef<number | null>(null);
+  const showNextFromQueueRef = useRef<() => void>(() => undefined);
+
+  useEffect(() => {
+    activeToastRef.current = activeToast;
+  }, [activeToast]);
+
+  useEffect(() => {
+    presentedIdsRef.current = loadPresentedToastIds();
+  }, []);
 
   useEffect(() => {
     void fetchNotificationSoundPreference().then(setSoundEnabled);
@@ -106,7 +127,14 @@ export function EnterpriseNotificationHost() {
           lastSoundAt.current = Date.now();
         }
         if (data?.type === "dismiss" && data.id) {
-          setToasts((prev) => prev.filter((t) => t.id !== data.id));
+          if (activeToastRef.current?.id === data.id) {
+            queueRef.current = queueRef.current.filter((t) => t.id !== data.id);
+            setQueuedCount(queueRef.current.length);
+            showNextFromQueueRef.current();
+          } else {
+            queueRef.current = queueRef.current.filter((t) => t.id !== data.id);
+            setQueuedCount(queueRef.current.length);
+          }
         }
       };
     } catch {
@@ -115,6 +143,10 @@ export function EnterpriseNotificationHost() {
     return () => {
       channelRef.current?.close();
     };
+  }, []);
+
+  const syncQueuedCount = useCallback(() => {
+    setQueuedCount(queueRef.current.length);
   }, []);
 
   const playChime = useCallback(() => {
@@ -138,42 +170,104 @@ export function EnterpriseNotificationHost() {
     }
   }, [soundEnabled]);
 
-  const dismiss = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-    const t = timers.current.get(id);
-    if (t) window.clearTimeout(t);
-    timers.current.delete(id);
-    channelRef.current?.postMessage({ type: "dismiss", id });
+  const clearDismissTimer = useCallback(() => {
+    if (dismissTimer.current != null) {
+      window.clearTimeout(dismissTimer.current);
+      dismissTimer.current = null;
+    }
   }, []);
 
-  const scheduleDismiss = useCallback(
-    (id: string) => {
-      const existing = timers.current.get(id);
-      if (existing) window.clearTimeout(existing);
-      const handle = window.setTimeout(() => {
-        if (hovering === id) {
-          scheduleDismiss(id);
-          return;
-        }
-        dismiss(id);
-      }, ENE_TOAST_AUTO_DISMISS_MS);
-      timers.current.set(id, handle);
-    },
-    [dismiss, hovering],
-  );
+  const canPresent = useCallback((id: string): boolean => {
+    if (sessionSeenIds.current.has(id)) return false;
+    if (presentedIdsRef.current.has(id)) return false;
+    if (activeToastRef.current?.id === id) return false;
+    if (queueRef.current.some((t) => t.id === id)) return false;
+    return true;
+  }, []);
 
-  const pushToast = useCallback(
-    (item: EnterpriseNotificationItem) => {
-      if (seenIds.current.has(item.id)) return;
-      seenIds.current.add(item.id);
-      setToasts((prev) => {
-        const next = [{ ...item, toastKey: `${item.id}:${Date.now()}` }, ...prev];
-        return next.slice(0, ENE_MAX_STACK);
-      });
-      scheduleDismiss(item.id);
+  const activateToast = useCallback(
+    (item: ToastItem) => {
+      rememberPresentedToastId(item.id);
+      presentedIdsRef.current.add(item.id);
+      sessionSeenIds.current.add(item.id);
+      setActiveToast(item);
+      activeToastRef.current = item;
       playChime();
     },
-    [playChime, scheduleDismiss],
+    [playChime],
+  );
+
+  const showNextFromQueue = useCallback(() => {
+    clearDismissTimer();
+    const next = queueRef.current.shift() ?? null;
+    syncQueuedCount();
+    if (!next) {
+      setActiveToast(null);
+      activeToastRef.current = null;
+      return;
+    }
+    activateToast(next);
+  }, [activateToast, clearDismissTimer, syncQueuedCount]);
+
+  useEffect(() => {
+    showNextFromQueueRef.current = showNextFromQueue;
+  }, [showNextFromQueue]);
+
+  const scheduleDismiss = useCallback(() => {
+    clearDismissTimer();
+    dismissTimer.current = window.setTimeout(() => {
+      if (hovering) {
+        scheduleDismiss();
+        return;
+      }
+      const current = activeToastRef.current;
+      if (!current) return;
+      channelRef.current?.postMessage({ type: "dismiss", id: current.id });
+      showNextFromQueue();
+    }, ENE_TOAST_AUTO_DISMISS_MS);
+  }, [clearDismissTimer, hovering, showNextFromQueue]);
+
+  useEffect(() => {
+    if (!activeToast) return;
+    scheduleDismiss();
+    return () => clearDismissTimer();
+  }, [activeToast, scheduleDismiss, clearDismissTimer]);
+
+  const dismiss = useCallback(() => {
+    const current = activeToastRef.current;
+    if (!current) return;
+    channelRef.current?.postMessage({ type: "dismiss", id: current.id });
+    showNextFromQueue();
+  }, [showNextFromQueue]);
+
+  const enqueueNotifications = useCallback(
+    (items: EnterpriseNotificationItem[]) => {
+      const sorted = sortNotificationsForToastQueue(items);
+      let added = false;
+
+      for (const item of sorted) {
+        if (!canPresent(item.id)) continue;
+        queueRef.current.push({ ...item, toastKey: `${item.id}:${Date.now()}` });
+        added = true;
+      }
+
+      if (!added) return;
+
+      const deduped: ToastItem[] = [];
+      const seen = new Set<string>();
+      for (const entry of sortNotificationsForToastQueue(queueRef.current)) {
+        if (seen.has(entry.id)) continue;
+        seen.add(entry.id);
+        deduped.push(entry as ToastItem);
+      }
+      queueRef.current = deduped.slice(0, ENE_MAX_TOAST_QUEUE);
+      syncQueuedCount();
+
+      if (!activeToastRef.current) {
+        showNextFromQueue();
+      }
+    },
+    [canPresent, showNextFromQueue, syncQueuedCount],
   );
 
   const poll = useCallback(async () => {
@@ -182,10 +276,8 @@ export function EnterpriseNotificationHost() {
       { limit: 20, unreadOnly: true },
       user.id,
     );
-    for (const item of items.slice().reverse()) {
-      pushToast(item);
-    }
-  }, [isAuthenticated, user?.id, pushToast]);
+    enqueueNotifications(items);
+  }, [enqueueNotifications, isAuthenticated, user?.id]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -196,7 +288,7 @@ export function EnterpriseNotificationHost() {
 
   const onOpen = async (item: ToastItem) => {
     await markEnterpriseNotificationRead(item.id, user?.id);
-    dismiss(item.id);
+    dismiss();
     if (item.href) router.push(item.href);
   };
 
@@ -206,135 +298,149 @@ export function EnterpriseNotificationHost() {
     await saveNotificationSoundPreference(next);
   };
 
-  if (!isAuthenticated || toasts.length === 0) {
+  if (!isAuthenticated || !activeToast) {
     return (
       <div className="pointer-events-none fixed bottom-4 right-4 z-[80] hidden" aria-hidden />
     );
   }
 
+  const context = buildBusinessContext(activeToast);
+  const message = buildFactualMessage(activeToast);
+  const actorLine = buildActorLine(activeToast);
+
   return (
     <div
       className={cn(
-        "pointer-events-none fixed z-[80] flex w-[min(100vw-1.5rem,22.5rem)] flex-col-reverse gap-2",
+        /* pointer-events-none on host — only the card captures clicks (interaction safety) */
+        "pointer-events-none fixed z-[80] flex max-h-[min(42vh,24rem)] w-[min(100vw-1.5rem,22.5rem)] flex-col",
         "bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))]",
         "max-sm:bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+3.75rem))]",
       )}
-      data-sprint="CO-NOTIFICATION-001B"
+      data-sprint="CO-PRODUCTION-UX-STABILIZATION-013"
+      data-ene-visible-toasts="1"
       data-ene-avatar={CEI_DEFAULT_AVATAR_PACK.portraitSrc}
       role="region"
       aria-label="CHANAKYA notifications"
+      aria-live="polite"
     >
-      {toasts.map((item) => {
-        const context = buildBusinessContext(item);
-        const message = buildFactualMessage(item);
-        const actorLine = buildActorLine(item);
+      {queuedCount > 0 ? (
+        <p className="pointer-events-none mb-1.5 shrink-0 text-right text-[10px] font-medium text-zinc-400">
+          +{queuedCount} queued
+        </p>
+      ) : null}
 
-        return (
-          <article
-            key={item.toastKey}
-            className={cn(
-              "pointer-events-auto overflow-hidden rounded-xl border border-zinc-700/80",
-              "bg-[#0f1419] text-zinc-100 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.65)]",
-              "ring-1 ring-teal-500/15",
-            )}
-            onMouseEnter={() => setHovering(item.id)}
-            onMouseLeave={() => setHovering(null)}
-          >
-            <div className="flex gap-3 p-3.5">
-              <ChanakyaAvatar
-                size="md"
-                shape="circle"
-                animate={false}
-                className="mt-0.5 ring-1 ring-teal-400/25"
-              />
+      <article
+        key={activeToast.toastKey}
+        className={cn(
+          "pointer-events-auto min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-xl border border-zinc-700/80",
+          "bg-[#0f1419] text-zinc-100 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.65)]",
+          "ring-1 ring-teal-500/15",
+        )}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+      >
+        <div className="flex gap-3 p-3.5">
+          <ChanakyaAvatar
+            size="md"
+            shape="circle"
+            animate={false}
+            className="mt-0.5 shrink-0 ring-1 ring-teal-400/25"
+          />
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold tracking-wide text-zinc-50">
-                      {CEI_OFFICIAL_TITLE}
-                    </p>
-                    <p className="text-[10px] font-medium tracking-[0.04em] text-zinc-400">
-                      {CEI_OFFICIAL_SUBTITLE}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className={cn(
-                      "shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors",
-                      "hover:bg-zinc-800 hover:text-zinc-100",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50",
-                    )}
-                    aria-label="Dismiss"
-                    onClick={() => dismiss(item.id)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                <h3 className="mt-2 text-[14px] font-semibold leading-snug text-zinc-50">
-                  {item.title}
-                </h3>
-
-                {context ? (
-                  <p className="mt-1.5 text-[12.5px] font-medium leading-snug text-zinc-200">
-                    {context}
-                  </p>
-                ) : null}
-
-                {actorLine ? (
-                  <p className="mt-0.5 text-[11.5px] text-zinc-400">{actorLine}</p>
-                ) : null}
-
-                {message ? (
-                  <p className="mt-2 text-[12.5px] leading-relaxed text-zinc-300">
-                    “{message}”
-                  </p>
-                ) : null}
-
-                <div className="mt-3 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    className={cn(
-                      "rounded-md px-1 py-0.5 text-[12px] font-semibold text-teal-300",
-                      "hover:text-teal-200 hover:underline",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50",
-                    )}
-                    onClick={() => void onOpen(item)}
-                  >
-                    {openActionLabel(item)}
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium",
-                      soundEnabled
-                        ? "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-                        : "bg-zinc-800/80 text-amber-200/90",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50",
-                    )}
-                    title={
-                      soundEnabled
-                        ? "Silent — keep visual, mute sound"
-                        : "Sound muted (Silent on)"
-                    }
-                    aria-label={
-                      soundEnabled
-                        ? "Mute notification sound"
-                        : "Enable notification sound"
-                    }
-                    aria-pressed={!soundEnabled}
-                    onClick={() => void toggleSilent()}
-                  >
-                    <BellOff className="h-3.5 w-3.5" aria-hidden />
-                    <span>{soundEnabled ? "Silent" : "Silent on"}</span>
-                  </button>
-                </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold tracking-wide text-zinc-50">
+                  {CEI_OFFICIAL_TITLE}
+                </p>
+                <p className="truncate text-[10px] font-medium tracking-[0.04em] text-zinc-400">
+                  {CEI_OFFICIAL_SUBTITLE}
+                </p>
               </div>
+              <button
+                type="button"
+                className={cn(
+                  "shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors",
+                  "hover:bg-zinc-800 hover:text-zinc-100",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50",
+                )}
+                aria-label="Dismiss"
+                onClick={() => dismiss()}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
-          </article>
-        );
-      })}
+
+            <h3
+              className="mt-2 line-clamp-2 text-[14px] font-semibold leading-snug text-zinc-50"
+              title={activeToast.title}
+            >
+              {activeToast.title}
+            </h3>
+
+            {context ? (
+              <p
+                className="mt-1.5 line-clamp-2 text-[12.5px] font-medium leading-snug text-zinc-200"
+                title={context}
+              >
+                {context}
+              </p>
+            ) : null}
+
+            {actorLine ? (
+              <p className="mt-0.5 truncate text-[11.5px] text-zinc-400" title={actorLine}>
+                {actorLine}
+              </p>
+            ) : null}
+
+            {message ? (
+              <p
+                className="mt-2 line-clamp-3 text-[12.5px] leading-relaxed text-zinc-300"
+                title={message}
+              >
+                “{message}”
+              </p>
+            ) : null}
+
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                className={cn(
+                  "min-w-0 truncate rounded-md px-1 py-0.5 text-[12px] font-semibold text-teal-300",
+                  "hover:text-teal-200 hover:underline",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50",
+                )}
+                onClick={() => void onOpen(activeToast)}
+              >
+                {openActionLabel(activeToast)}
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium",
+                  soundEnabled
+                    ? "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                    : "bg-zinc-800/80 text-amber-200/90",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50",
+                )}
+                title={
+                  soundEnabled
+                    ? "Silent — keep visual, mute sound"
+                    : "Sound muted (Silent on)"
+                }
+                aria-label={
+                  soundEnabled ? "Mute notification sound" : "Enable notification sound"
+                }
+                aria-pressed={!soundEnabled}
+                onClick={() => void toggleSilent()}
+              >
+                <BellOff className="h-3.5 w-3.5" aria-hidden />
+                <span>{soundEnabled ? "Silent" : "Silent on"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
     </div>
   );
 }

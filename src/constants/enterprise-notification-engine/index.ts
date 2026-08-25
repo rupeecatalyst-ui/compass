@@ -13,7 +13,12 @@ export const ENE_CHIME_PUBLIC_PATH = "/sounds/catalyst_one_notification_chime.wa
 export const ENE_TOAST_AUTO_DISMISS_MS = 10_000;
 export const ENE_POLL_INTERVAL_MS = 25_000;
 export const ENE_SOUND_THROTTLE_MS = 2_500;
+/** @deprecated Visible multi-toast stack removed (CO-PRODUCTION-UX-STABILIZATION-013). */
 export const ENE_MAX_STACK = 5;
+/** Exactly one toast card may be visible at a time (presentation only). */
+export const ENE_VISIBLE_TOAST_COUNT = 1;
+/** Maximum notifications held in the live toast queue (presentation only). */
+export const ENE_MAX_TOAST_QUEUE = 200;
 
 export const ENE_EVENT_TYPES = {
   CONTACT_CREATED: "CONTACT_CREATED",
