@@ -40,6 +40,7 @@ import {
 import { EcwLeftPanel, EcwSectionTabs } from "./ecw-left-panel";
 import { EcwDocumentCategories } from "./ecw-document-categories";
 import { EcwDocumentPreviewDrawer } from "./ecw-document-preview-drawer";
+import { EcwProposalGenerationPanel } from "./ecw-proposal-generation-panel";
 import type { LoanFile } from "@/types/catalyst-one";
 import type {
   EcwLeftSectionId,
@@ -74,6 +75,7 @@ export function EnterpriseCreditWorkspace() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<EcwViewerDocument | null>(null);
   const [previewCategory, setPreviewCategory] = useState<string | undefined>();
+  const [proposalOpen, setProposalOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,6 +192,12 @@ export function EnterpriseCreditWorkspace() {
     opportunityId,
   });
 
+  const resolvedOpportunityId =
+    (opportunityId ||
+      file.enterpriseOpportunityId ||
+      (file as { opportunityId?: string }).opportunityId ||
+      "").trim();
+
   return (
     <div className="-mx-4 flex flex-col bg-background md:-mx-6 lg:-mx-8">
       <LeadOpportunityJourneyChrome
@@ -273,9 +281,11 @@ export function EnterpriseCreditWorkspace() {
           <div
             className={cn(
               "grid min-h-[min(70vh,720px)] grid-cols-1",
-              previewOpen
-                ? "lg:grid-cols-[minmax(240px,34%)_minmax(0,1fr)_minmax(280px,42%)]"
-                : "lg:grid-cols-[minmax(260px,38%)_minmax(0,1fr)]",
+              proposalOpen
+                ? "lg:grid-cols-[minmax(240px,32%)_minmax(0,1fr)]"
+                : previewOpen
+                  ? "lg:grid-cols-[minmax(240px,34%)_minmax(0,1fr)_minmax(280px,42%)]"
+                  : "lg:grid-cols-[minmax(260px,38%)_minmax(0,1fr)]",
             )}
           >
             <div className="min-h-0 border-b border-border/50 lg:border-b-0 lg:border-r">
@@ -292,29 +302,62 @@ export function EnterpriseCreditWorkspace() {
                 }}
                 documents={file.documents ?? []}
                 readiness={readiness}
-              />
-            </div>
-
-            <div className="min-h-0 p-2 sm:p-3">
-              <EcwDocumentCategories
-                file={file}
-                viewerDocs={viewerDocs}
-                onView={(doc, categoryLabel) => {
-                  setPreviewDoc(doc);
-                  setPreviewCategory(categoryLabel);
-                  setPreviewOpen(true);
+                onMakeProposal={() => {
+                  if (!readiness.ready || !resolvedOpportunityId) {
+                    showToast(
+                      !resolvedOpportunityId
+                        ? "Opportunity context is required before MAKE PROPOSAL."
+                        : "Complete Proposal Readiness before MAKE PROPOSAL.",
+                    );
+                    return;
+                  }
+                  setPreviewOpen(false);
+                  setProposalOpen(true);
+                  setSection("proposal");
                 }}
               />
             </div>
 
-            {previewOpen ? (
-              <EcwDocumentPreviewDrawer
-                open={previewOpen}
-                onClose={() => setPreviewOpen(false)}
-                document={previewDoc}
-                categoryLabel={previewCategory}
-              />
-            ) : null}
+            {proposalOpen ? (
+              <div className="min-h-0">
+                <EcwProposalGenerationPanel
+                  key={resolvedOpportunityId}
+                  opportunityId={resolvedOpportunityId}
+                  stated={stated}
+                  lenderName={lender.lenderName}
+                  documentPresence={(file.documents ?? []).map((d) => ({
+                    name: d.name,
+                    status: String(d.status),
+                    typeRef: (d as { typeRef?: string }).typeRef,
+                  }))}
+                  readinessReady={readiness.ready}
+                  onClose={() => setProposalOpen(false)}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="min-h-0 p-2 sm:p-3">
+                  <EcwDocumentCategories
+                    file={file}
+                    viewerDocs={viewerDocs}
+                    onView={(doc, categoryLabel) => {
+                      setPreviewDoc(doc);
+                      setPreviewCategory(categoryLabel);
+                      setPreviewOpen(true);
+                    }}
+                  />
+                </div>
+
+                {previewOpen ? (
+                  <EcwDocumentPreviewDrawer
+                    open={previewOpen}
+                    onClose={() => setPreviewOpen(false)}
+                    document={previewDoc}
+                    categoryLabel={previewCategory}
+                  />
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       </LeadOpportunityJourneyChrome>

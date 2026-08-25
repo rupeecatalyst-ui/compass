@@ -102,6 +102,7 @@ export function EcwLeftPanel({
   onStatedChange,
   documents,
   readiness,
+  onMakeProposal,
 }: {
   file: LoanFile;
   opportunityNumber: string;
@@ -112,6 +113,8 @@ export function EcwLeftPanel({
   onStatedChange: (patch: Partial<EcwStatedInformationDraft>) => void;
   documents: LoanFileDocument[];
   readiness: ChanakyaProposalReadinessReview;
+  /** CO-CHANAKYA-CREDIT-PROPOSAL-002 — opens streaming generation (read-only). */
+  onMakeProposal?: () => void;
 }) {
   const categoryCtx = useMemo(
     () => getContextAwareVisibility(file.employmentType),
@@ -353,10 +356,16 @@ export function EcwLeftPanel({
           {section === "proposal" && (
             <div className="space-y-3 text-xs">
               <p className="leading-relaxed text-muted-foreground">
-                Proposal generation will run from this workspace after readiness is met. Keep the
-                preview drawer open while refining Stated Information here.
+                CHANAKYA prepares a read-only lender-facing draft from authorized Opportunity,
+                document presence, and stated verification. No auto-send.
               </p>
-              <Button type="button" size="sm" className="h-8 text-xs" disabled={!readiness.ready}>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={!readiness.ready || !onMakeProposal}
+                onClick={() => onMakeProposal?.()}
+              >
                 {getProposalButtonLabel()}
               </Button>
               {!readiness.ready && (
