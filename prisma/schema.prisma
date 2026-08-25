@@ -234,6 +234,8 @@ model Organization {
   lenderProgramDialogueMessages      LenderProgramDialogueMessage[]
   /// CO-DOC-002 — Durable Opportunity Document Registry (metadata + optional content)
   enterpriseTransactionDocuments     EnterpriseTransactionDocument[]
+  /// CO-CHANAKYA-DOCUMENT-STORAGE-009 — Durable object blobs (separate from ETD metadata)
+  enterpriseDocumentObjectBlobs      EnterpriseDocumentObjectBlob[]
   /// CO-DOC-005 — Enterprise Document Package Registry (additive; migration pending approval)
   enterpriseDocumentPackages         EnterpriseDocumentPackage[]
   /// CO-WP-001 — Enterprise Wealth Partner Registry (additive; Contact/Company remain identity SSOT)
@@ -3418,8 +3420,13 @@ model EnterpriseTransactionDocument {
   uploadedBy         String    @map("uploaded_by")
   verifiedAt         DateTime? @map("verified_at")
   verifiedBy         String?   @map("verified_by")
-  /// Optional binary (capped by API). Null = metadata-only (blob may be client-local).
+  /// Optional inline binary (≤4MB soft-cap). Null when object storage holds the bytes.
   contentBytes       Bytes?    @map("content_bytes")
+  /// CO-CHANAKYA-DOCUMENT-STORAGE-009 — opaque object-store reference (not a public URL).
+  storageKey         String?   @map("storage_key")
+  storageProvider    String?   @map("storage_provider")
+  contentHash        String?   @map("content_hash")
+  contentVersion     Int       @default(1) @map("content_version")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -3428,7 +3435,32 @@ model EnterpriseTransactionDocument {
   @@unique([organizationId, clientRecordId], map: "etd_org_client_record_key")
   @@index([organizationId, opportunityId, status], map: "etd_org_opp_status_idx")
   @@index([organizationId, contactId], map: "etd_org_contact_idx")
+  @@index([organizationId, storageKey], map: "etd_org_storage_key_idx")
   @@map("enterprise_transaction_documents")
+}
+
+/// CO-CHANAKYA-DOCUMENT-STORAGE-009 — Durable document object blobs (Hostinger-compatible).
+/// Separate from ETD metadata rows. Prefer Supabase Storage when SERVICE_ROLE is configured;
+/// this table is the default object adapter so large bank PDFs are server-retrievable.
+model EnterpriseDocumentObjectBlob {
+  id              String   @id @default(cuid())
+  storageKey      String   @unique @map("storage_key")
+  organizationId  String   @map("organization_id")
+  opportunityId   String   @map("opportunity_id")
+  documentId      String   @map("document_id")
+  contentVersion  Int      @default(1) @map("content_version")
+  contentHash     String   @map("content_hash")
+  mimeType        String   @map("mime_type")
+  byteLength      Int      @map("byte_length")
+  contentBytes    Bytes    @map("content_bytes")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, opportunityId], map: "edob_org_opp_idx")
+  @@index([organizationId, documentId], map: "edob_org_doc_idx")
+  @@map("enterprise_document_object_blobs")
 }
 
 /// CO-DOC-005 — Durable Document Package Registry (folder uploads).

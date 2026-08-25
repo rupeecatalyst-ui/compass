@@ -1,8 +1,11 @@
 /**
- * CO-DOC-002 — Sync Document Registry ↔ durable Postgres Opportunity documents.
+ * CO-DOC-002 / CO-CHANAKYA-DOCUMENT-STORAGE-009 —
+ * Sync Document Registry ↔ durable Postgres Opportunity documents.
+ * Small files: inline contentBase64. Large files: metadata + multipart object store.
  */
 import { authenticatedJsonFetch, getAccessToken } from "@/lib/api-client";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { ETD_INLINE_CONTENT_BYTES_MAX } from "@/constants/enterprise-document-object-storage";
 import type { DocumentRegistryRecord } from "@/types/document-registry";
 import { saveDocumentBlob } from "@/lib/document-registry/blob-store";
 import {
@@ -19,7 +22,9 @@ type Envelope<T> = {
 async function fileToBase64(file: Blob): Promise<string | null> {
   try {
     const buf = await file.arrayBuffer();
-    if (buf.byteLength === 0 || buf.byteLength > 4 * 1024 * 1024) return null;
+    if (buf.byteLength === 0 || buf.byteLength > ETD_INLINE_CONTENT_BYTES_MAX) {
+      return null;
+    }
     let binary = "";
     const bytes = new Uint8Array(buf);
     const chunk = 0x8000;
@@ -30,6 +35,30 @@ async function fileToBase64(file: Blob): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+async function syncLargeBinaryToServer(input: {
+  opportunityId: string;
+  clientRecordId: string;
+  contentBlob: Blob;
+}): Promise<void> {
+  const token = getAccessToken();
+  if (!token) return;
+  const form = new FormData();
+  form.set("opportunityId", input.opportunityId);
+  form.set("clientRecordId", input.clientRecordId);
+  form.set(
+    "file",
+    input.contentBlob,
+    "document.bin",
+  );
+  await fetch("/api/enterprise-transaction-documents/binary", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: form,
+  });
 }
 
 /** Best-effort push of a local registry record to Postgres. */
@@ -43,9 +72,12 @@ export async function syncDocumentRecordToServer(
   const opportunityId = record.links.opportunityId?.trim();
   if (!opportunityId) return;
 
+  const blob = opts?.contentBlob ?? null;
+  const isLarge = Boolean(blob && blob.size > ETD_INLINE_CONTENT_BYTES_MAX);
+
   let contentBase64: string | null = null;
-  if (opts?.contentBlob) {
-    contentBase64 = await fileToBase64(opts.contentBlob);
+  if (blob && !isLarge) {
+    contentBase64 = await fileToBase64(blob);
   }
 
   try {
@@ -72,12 +104,19 @@ export async function syncDocumentRecordToServer(
         uploadedBy: record.uploadedBy,
         verifiedAt: record.verifiedAt ?? null,
         verifiedBy: record.verifiedBy ?? null,
-        // CO-DOC-003 — additive fields (ignored by API until migration applied)
         packageId: record.links.packageId ?? null,
         packageRelativePath: record.links.packageRelativePath ?? null,
         contentBase64,
       }),
     });
+
+    if (isLarge && blob) {
+      await syncLargeBinaryToServer({
+        opportunityId,
+        clientRecordId: record.id,
+        contentBlob: blob,
+      });
+    }
   } catch {
     /* non-blocking — local registry remains authoring cache */
   }
@@ -109,7 +148,7 @@ export async function hydrateDocumentRegistryFromServer(input: {
       },
     );
 
-    // Restore blobs from content when local blob missing
+    // Restore blobs from inline content when local blob missing
     for (const item of body.data.items) {
       const contentBase64 =
         typeof item.contentBase64 === "string" ? item.contentBase64 : null;
