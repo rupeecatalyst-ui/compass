@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { exchangeOAuthAuthorizationCode } from "@server/services/chatgpt-integration/chatgpt-oauth.service";
+import {
+  exchangeOAuthAuthorizationCode,
+  exchangeOAuthRefreshToken,
+} from "@server/services/chatgpt-integration/chatgpt-oauth.service";
 import { mapOAuthRouteError } from "@/lib/chatgpt-integration/oauth-route-utils";
 import { createCorrelationId } from "@/lib/ops/correlation";
 import { recordBusinessAudit } from "@/lib/ops/record";
@@ -21,7 +24,11 @@ async function parseTokenRequestBody(request: Request): Promise<Record<string, s
   return Object.fromEntries(params.entries());
 }
 
-/** OAuth 2.0 token endpoint — authorization_code + PKCE only. */
+/**
+ * OAuth 2.0 token endpoint.
+ * Supports authorization_code (+ PKCE) and refresh_token grants.
+ * CO-CHANAKYA-ENTERPRISE-READ-CONTEXT-002 — refresh enables silent renewal.
+ */
 export async function POST(request: Request): Promise<NextResponse> {
   const correlationId = createCorrelationId();
   let fields: Record<string, string>;
@@ -37,23 +44,39 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  const grantType = fields.grant_type ?? "";
+
   try {
-    const tokenResponse = await exchangeOAuthAuthorizationCode({
-      grantType: fields.grant_type ?? "",
-      code: fields.code ?? "",
-      redirectUri: fields.redirect_uri ?? "",
-      clientId: fields.client_id ?? "",
-      clientSecret: fields.client_secret ?? "",
-      codeVerifier: fields.code_verifier ?? "",
-    });
+    const tokenResponse =
+      grantType === "refresh_token"
+        ? await exchangeOAuthRefreshToken({
+            grantType,
+            refreshToken: fields.refresh_token ?? "",
+            clientId: fields.client_id ?? "",
+            clientSecret: fields.client_secret ?? "",
+          })
+        : await exchangeOAuthAuthorizationCode({
+            grantType,
+            code: fields.code ?? "",
+            redirectUri: fields.redirect_uri ?? "",
+            clientId: fields.client_id ?? "",
+            clientSecret: fields.client_secret ?? "",
+            codeVerifier: fields.code_verifier ?? "",
+          });
 
     recordBusinessAudit({
       actorUserId: null,
       module: CHATGPT_INTEGRATION_MODULE,
-      action: "oauth.token.issued",
+      action:
+        grantType === "refresh_token" ? "oauth.token.refreshed" : "oauth.token.issued",
       entityId: correlationId,
       previousValue: null,
-      newValue: { scope: tokenResponse.scope, expires_in: tokenResponse.expires_in },
+      newValue: {
+        scope: tokenResponse.scope,
+        expires_in: tokenResponse.expires_in,
+        grant_type: grantType,
+        // Never log access_token / refresh_token
+      },
       result: "Success",
       correlationId,
     });

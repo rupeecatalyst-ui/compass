@@ -19,8 +19,13 @@ import { assertTokenPkce } from "@/lib/chatgpt-integration/oauth-pkce";
 import {
   consumeAuthorizationCode,
   consumeOAuthPendingRequest,
+  consumeOAuthRefreshToken,
   issueAuthorizationCode,
+  issueOAuthRefreshToken,
 } from "@/lib/chatgpt-integration/oauth-store";
+import {
+  CHATGPT_OAUTH_REFRESH_TOKEN_TTL_SECONDS,
+} from "@/constants/chatgpt-integration-oauth";
 import {
   assertAiCapabilities,
   parseUserAiCapabilitiesJson,
@@ -158,6 +163,8 @@ export async function exchangeOAuthAuthorizationCode(input: {
   token_type: "Bearer";
   expires_in: number;
   scope: string;
+  refresh_token: string;
+  refresh_token_expires_in: number;
 }> {
   const config = readChatGptOAuthConfig();
   if (!config) {
@@ -232,10 +239,133 @@ export async function exchangeOAuthAuthorizationCode(input: {
     scopes: authCode.scopes,
   });
 
+  const { refreshToken } = issueOAuthRefreshToken({
+    userId: user.id,
+    organizationId: authCode.organizationId,
+    scopes: authCode.scopes,
+    clientId: input.clientId,
+  });
+
   return {
     access_token: accessToken,
     token_type: "Bearer",
     expires_in: integrationTokenExpiresInSeconds(),
     scope: authCode.scopes.join(" "),
+    refresh_token: refreshToken,
+    refresh_token_expires_in: CHATGPT_OAUTH_REFRESH_TOKEN_TTL_SECONDS,
+  };
+}
+
+/**
+ * CO-CHANAKYA-ENTERPRISE-READ-CONTEXT-002 — Silent access-token renewal.
+ * Rotates refresh token on each successful exchange (one-time use rotation).
+ */
+export async function exchangeOAuthRefreshToken(input: {
+  grantType: string;
+  refreshToken: string;
+  clientId: string;
+  clientSecret: string;
+}): Promise<{
+  access_token: string;
+  token_type: "Bearer";
+  expires_in: number;
+  scope: string;
+  refresh_token: string;
+  refresh_token_expires_in: number;
+}> {
+  const config = readChatGptOAuthConfig();
+  if (!config) {
+    throw Object.assign(new Error("ChatGPT OAuth is not configured."), {
+      statusCode: 503,
+      code: "OAUTH_NOT_CONFIGURED",
+    });
+  }
+
+  if (input.grantType !== "refresh_token") {
+    throw Object.assign(new Error("Unsupported grant_type."), {
+      statusCode: 400,
+      code: "UNSUPPORTED_GRANT_TYPE",
+    });
+  }
+
+  assertOAuthClientCredentials(input.clientId, input.clientSecret, config);
+
+  const prior = consumeOAuthRefreshToken(input.refreshToken, input.clientId);
+  if (!prior) {
+    throw Object.assign(new Error("Invalid or expired refresh token."), {
+      statusCode: 400,
+      code: "INVALID_GRANT",
+    });
+  }
+
+  if (!isDatabaseAvailable()) {
+    throw Object.assign(new Error("Database unavailable."), {
+      statusCode: 503,
+      code: "SERVICE_UNAVAILABLE",
+    });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: prior.userId },
+    select: { id: true, email: true, role: true, isActive: true, aiCapabilitiesJson: true },
+  });
+
+  if (!user || !user.isActive) {
+    throw Object.assign(new Error("User inactive or not found."), {
+      statusCode: 403,
+      code: "USER_INACTIVE",
+    });
+  }
+
+  const capabilities = parseUserAiCapabilitiesJson(user.aiCapabilitiesJson);
+  try {
+    assertAiCapabilities(capabilities, [AI_CAPABILITIES.AI_ACCESS, AI_CAPABILITIES.AI_TEXT]);
+  } catch {
+    throw Object.assign(new Error("AI access revoked — reauthorization required."), {
+      statusCode: 403,
+      code: "AI_ACCESS_DENIED",
+    });
+  }
+
+  const currentOrgId = await resolvePilotOrganizationId();
+  if (!currentOrgId || currentOrgId !== prior.organizationId) {
+    throw Object.assign(new Error("Organization context mismatch — reauthorization required."), {
+      statusCode: 403,
+      code: "ORG_MISMATCH",
+    });
+  }
+
+  const grantable = scopesForUserCapabilities(capabilities);
+  const scopes = prior.scopes.filter((scope) => grantable.includes(scope));
+  if (!scopes.includes(CHATGPT_OAUTH_SCOPES.READ)) {
+    throw Object.assign(new Error("chatgpt:read scope no longer grantable — reauthorization required."), {
+      statusCode: 403,
+      code: "AI_CAPABILITY_DENIED",
+    });
+  }
+
+  const accessToken = signChatGptIntegrationAccessToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    organizationId: prior.organizationId,
+    scopes,
+  });
+
+  const { refreshToken } = issueOAuthRefreshToken({
+    userId: user.id,
+    organizationId: prior.organizationId,
+    scopes,
+    clientId: input.clientId,
+    rotatedFromHash: prior.tokenHash,
+  });
+
+  return {
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: integrationTokenExpiresInSeconds(),
+    scope: scopes.join(" "),
+    refresh_token: refreshToken,
+    refresh_token_expires_in: CHATGPT_OAUTH_REFRESH_TOKEN_TTL_SECONDS,
   };
 }

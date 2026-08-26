@@ -30,6 +30,8 @@ export type ChatGptComposeContext = ChatGptOrgContext & {
   requestId: string;
   generatedAt: string;
   actor: AiAccessActor;
+  /** Optional query string from the inbound GET (opportunity-aware reads). */
+  requestQuery?: URLSearchParams;
 };
 
 export function buildChatGptIntegrationMeta(
@@ -171,6 +173,7 @@ export function createChatGptIntegrationRouteHandlers<T>(
         requestId,
         generatedAt: new Date().toISOString(),
         actor: userAuth.actor,
+        requestQuery: new URL(request.url).searchParams,
       };
       const data = await compose(ctx);
       assertNoSecretsInResponse(data);

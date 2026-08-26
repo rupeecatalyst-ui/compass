@@ -30,6 +30,7 @@ export const CHATGPT_INTEGRATION_ALLOWED_ENDPOINTS = [
   "/api/integrations/chatgpt/v1/email-status",
   "/api/integrations/chatgpt/v1/activity",
   "/api/integrations/chatgpt/v1/build",
+  "/api/integrations/chatgpt/v1/enterprise-read",
 ] as const;
 
 export type ChatGptIntegrationEndpoint =
@@ -48,6 +49,7 @@ export const CHATGPT_INTEGRATION_ENDPOINT_CAPABILITIES: Record<
   "/api/integrations/chatgpt/v1/email-status": [AI_CAPABILITIES.AI_CATALYST_INTELLIGENCE],
   "/api/integrations/chatgpt/v1/activity": [AI_CAPABILITIES.AI_CATALYST_INTELLIGENCE],
   "/api/integrations/chatgpt/v1/build": [AI_CAPABILITIES.AI_CATALYST_INTELLIGENCE],
+  "/api/integrations/chatgpt/v1/enterprise-read": [AI_CAPABILITIES.AI_CHANAKYA],
 };
 
 /** Text interface gate for integration reads (voice-ready; voice not used in V1 routes). */

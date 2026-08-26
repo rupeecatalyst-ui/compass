@@ -1,18 +1,24 @@
 /**
  * CO-CHATGPT-OAUTH-001 — In-memory OAuth authorization code + pending request store.
+ * CO-CHANAKYA-ENTERPRISE-READ-CONTEXT-002 — refresh token store (hashed, rotatable).
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   CHATGPT_OAUTH_CODE_TTL_MS,
+  CHATGPT_OAUTH_REFRESH_TOKEN_TTL_MS,
   CHATGPT_OAUTH_REQUEST_TTL_MS,
 } from "@/constants/chatgpt-integration-oauth";
 import type {
   ChatGptOAuthAuthorizationCode,
   ChatGptOAuthPendingRequest,
+  ChatGptOAuthRefreshTokenRecord,
+  ChatGptOAuthScope,
 } from "@/types/chatgpt-integration-oauth";
 
 const pendingRequests = new Map<string, ChatGptOAuthPendingRequest>();
 const authorizationCodes = new Map<string, ChatGptOAuthAuthorizationCode>();
+/** Hash → refresh record (never store plaintext refresh tokens). */
+const refreshTokens = new Map<string, ChatGptOAuthRefreshTokenRecord>();
 
 function purgeExpired(): void {
   const now = Date.now();
@@ -22,6 +28,13 @@ function purgeExpired(): void {
   for (const [code, entry] of authorizationCodes) {
     if (entry.expiresAt <= now || entry.used) authorizationCodes.delete(code);
   }
+  for (const [hash, entry] of refreshTokens) {
+    if (entry.expiresAt <= now || entry.revoked) refreshTokens.delete(hash);
+  }
+}
+
+export function hashChatGptOAuthRefreshToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 function randomId(prefix: string): string {
@@ -90,7 +103,65 @@ export function consumeAuthorizationCode(code: string): ChatGptOAuthAuthorizatio
   return entry;
 }
 
+export function issueOAuthRefreshToken(input: {
+  userId: string;
+  organizationId: string;
+  scopes: ChatGptOAuthScope[];
+  clientId: string;
+  rotatedFromHash?: string | null;
+}): { refreshToken: string; record: ChatGptOAuthRefreshTokenRecord } {
+  purgeExpired();
+  if (input.rotatedFromHash) {
+    const prior = refreshTokens.get(input.rotatedFromHash);
+    if (prior) {
+      prior.revoked = true;
+      refreshTokens.set(input.rotatedFromHash, prior);
+    }
+  }
+  const refreshToken = randomId("cgo_rt");
+  const tokenHash = hashChatGptOAuthRefreshToken(refreshToken);
+  const now = Date.now();
+  const record: ChatGptOAuthRefreshTokenRecord = {
+    tokenHash,
+    userId: input.userId,
+    organizationId: input.organizationId,
+    scopes: input.scopes,
+    clientId: input.clientId,
+    createdAt: now,
+    expiresAt: now + CHATGPT_OAUTH_REFRESH_TOKEN_TTL_MS,
+    revoked: false,
+    rotatedFromHash: input.rotatedFromHash ?? null,
+  };
+  refreshTokens.set(tokenHash, record);
+  return { refreshToken, record };
+}
+
+export function consumeOAuthRefreshToken(
+  refreshToken: string,
+  clientId: string,
+): ChatGptOAuthRefreshTokenRecord | null {
+  purgeExpired();
+  const tokenHash = hashChatGptOAuthRefreshToken(refreshToken);
+  const entry = refreshTokens.get(tokenHash);
+  if (!entry || entry.revoked || entry.expiresAt <= Date.now()) {
+    refreshTokens.delete(tokenHash);
+    return null;
+  }
+  if (entry.clientId !== clientId) return null;
+  return entry;
+}
+
+export function revokeOAuthRefreshToken(refreshToken: string): boolean {
+  const tokenHash = hashChatGptOAuthRefreshToken(refreshToken);
+  const entry = refreshTokens.get(tokenHash);
+  if (!entry) return false;
+  entry.revoked = true;
+  refreshTokens.set(tokenHash, entry);
+  return true;
+}
+
 export function resetChatGptOAuthStoreForTests(): void {
   pendingRequests.clear();
   authorizationCodes.clear();
+  refreshTokens.clear();
 }

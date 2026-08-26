@@ -171,6 +171,68 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "429":
           $ref: "#/components/responses/RateLimited"
+  /api/integrations/chatgpt/v1/gpt-action/enterprise-read:
+    get:
+      tags: [Chanakya AI GPT Action]
+      summary: CHANAKYA enterprise read context (Opportunity/Deal 360 / attention)
+      description: |
+        Read-only targeted context compile. Query params:
+        mode=summary|opportunity|domain|enterprise|transaction
+        opportunityId / opportunityRef (required for opportunity mode)
+        dealId / dealRef (optional Deal 360)
+        domains=comma-separated domain list (includes productLender)
+        limit=max attention list size
+        includeDocumentExcerpts=1 (optional truncated excerpts; never binaries)
+        Customer mobile/email are omitted before response.
+      operationId: gptActionEnterpriseRead
+      parameters:
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [summary, opportunity, domain, enterprise, transaction]
+        - name: opportunityId
+          in: query
+          schema:
+            type: string
+        - name: opportunityRef
+          in: query
+          schema:
+            type: string
+        - name: dealId
+          in: query
+          schema:
+            type: string
+        - name: dealRef
+          in: query
+          schema:
+            type: string
+        - name: domains
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: includeDocumentExcerpts
+          in: query
+          schema:
+            type: string
+            enum: ["1"]
+      responses:
+        "200":
+          description: Enterprise read context DTO (privacy-safe)
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 components:
   securitySchemes:
     ChatGptIntegrationOAuth:

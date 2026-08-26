@@ -26,7 +26,7 @@ export function scopesForUserCapabilities(
 }
 
 export function oauthScopesForEndpoint(endpoint: ChatGptIntegrationEndpoint): ChatGptOAuthScope[] {
-  if (endpoint.endsWith("/chanakya")) {
+  if (endpoint.endsWith("/chanakya") || endpoint.endsWith("/enterprise-read")) {
     return [CHATGPT_OAUTH_SCOPES.READ, CHATGPT_OAUTH_SCOPES.CHANAKYA];
   }
   return [CHATGPT_OAUTH_SCOPES.READ];
@@ -54,7 +54,7 @@ export function aiCapabilitiesForIntegrationEndpoint(
     AI_CAPABILITIES.AI_ACCESS,
     AI_CAPABILITIES.AI_TEXT,
   ];
-  if (endpoint.endsWith("/chanakya")) {
+  if (endpoint.endsWith("/chanakya") || endpoint.endsWith("/enterprise-read")) {
     return [...base, AI_CAPABILITIES.AI_CHANAKYA];
   }
   return [...base, AI_CAPABILITIES.AI_CATALYST_INTELLIGENCE];

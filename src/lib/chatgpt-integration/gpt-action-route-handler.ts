@@ -148,6 +148,7 @@ export function createChatGptGptActionRouteHandlers(def: ChatGptGptActionEndpoin
         requestId,
         generatedAt: new Date().toISOString(),
         actor: userAuth.actor,
+        requestQuery: new URL(request.url).searchParams,
       };
       const data = await compose(ctx);
       assertNoSecretsInResponse(data);

@@ -20,6 +20,7 @@ import type {
 } from "@/types/chanakya-credit-proposal";
 import { deriveChanakyaProposalEvidenceReadiness } from "./derive-evidence-readiness";
 import { buildInternalStrengtheningRecommendations } from "./internal-recommendations";
+import { redactCustomerContactPiiForAiContext } from "@/lib/chanakya-enterprise-read-context/redact-pii";
 
 function displayOrUnavailable(value: unknown): { text: string; available: boolean } {
   if (value == null) return { text: CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE, available: false };
@@ -89,9 +90,11 @@ export async function gatherChanakyaCreditProposalContext(
     });
   }
 
-  const opp = (await enterpriseOpportunityService.getOpportunity(
+  const oppRaw = (await enterpriseOpportunityService.getOpportunity(
     opportunityId,
   )) as Record<string, unknown>;
+  // Hard privacy: strip customer mobile/email before any AI / proposal context use.
+  const opp = redactCustomerContactPiiForAiContext(oppRaw) as Record<string, unknown>;
 
   const productName =
     String(opp.productLabel || opp.productCode || "").trim() || "Not Specified";
