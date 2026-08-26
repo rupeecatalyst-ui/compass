@@ -58,6 +58,16 @@ export const MARKETING_PERSONALIZATION_TOKENS = [
 export type MarketingPersonalizationToken =
   (typeof MARKETING_PERSONALIZATION_TOKENS)[number];
 
+/**
+ * Approved snake_case aliases → canonical camelCase tokens.
+ * Does not expand the allowlist — maps known user-facing variants only.
+ */
+export const MARKETING_PERSONALIZATION_TOKEN_ALIASES: Partial<
+  Record<string, MarketingPersonalizationToken>
+> = {
+  first_name: "firstName",
+};
+
 /** Safe fallback when a personalization value is missing (never executes code). */
 export const MARKETING_PERSONALIZATION_FALLBACKS: Record<
   MarketingPersonalizationToken,

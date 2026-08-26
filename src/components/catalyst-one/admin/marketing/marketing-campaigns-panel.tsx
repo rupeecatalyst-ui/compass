@@ -49,6 +49,8 @@ import {
   MARKETING_CAMPAIGN_BUILDER_STEPS,
   MARKETING_CAMPAIGN_OBJECTIVE_OPTIONS,
   MARKETING_AUDIENCE_CATEGORY_OPTIONS,
+  ENTERPRISE_MARKETING_EXECUTION_DRY_RUN_ENABLED,
+  ENTERPRISE_MARKETING_EXECUTION_ENABLED,
   type MarketingCampaignAction,
 } from "@/constants/enterprise-marketing-engine";
 import { ROUTES } from "@/constants/routes";
@@ -57,7 +59,11 @@ import {
   syncCampaignFormFieldsIntoContent,
 } from "@/lib/enterprise-marketing-engine/content-blocks";
 import { cn } from "@/lib/utils";
-import { defaultPersonalizationSample } from "@/lib/enterprise-marketing-engine/personalization";
+import {
+  defaultPersonalizationSample,
+  listPersonalizationTokensInText,
+  scanDocumentTokens,
+} from "@/lib/enterprise-marketing-engine/personalization";
 import type {
   MarketingCampaign,
   MarketingCampaignPreviewPayload,
@@ -127,6 +133,80 @@ function resolveObjectivePreset(value: string): string {
     (o) => o !== "Other" && o.toLowerCase() === value.toLowerCase(),
   );
   return match ?? (value ? "Other" : "");
+}
+
+function primaryTextBlockId(doc: MarketingContentDocument | null): string | null {
+  return doc?.blocks.find((b) => b.type === "text")?.id ?? null;
+}
+
+function collectUsedPersonalizationTokens(input: {
+  subject: string;
+  previewText: string;
+  content: MarketingContentDocument | null;
+}): string[] {
+  const tokens = new Set<string>();
+  for (const tok of listPersonalizationTokensInText(input.subject)) tokens.add(tok);
+  for (const tok of listPersonalizationTokensInText(input.previewText)) tokens.add(tok);
+  if (input.content) {
+    for (const tok of scanDocumentTokens(input.content)) tokens.add(tok);
+  }
+  return [...tokens];
+}
+
+function validateBuilderStep(
+  step: number,
+  fields: {
+    name: string;
+    audienceId: string;
+    subject: string;
+    sender: MarketingSenderIdentityDraft;
+    channel: (typeof MARKETING_CHANNELS)[number];
+    contentSourceMode: "existing" | "new";
+    content: MarketingContentDocument | null;
+    sendMode: "immediate" | "scheduled";
+    scheduleStartAt: string;
+  },
+): { ok: true } | { ok: false; message: string } {
+  switch (step) {
+    case 1:
+      if (!fields.name.trim()) {
+        return { ok: false, message: "Campaign name is required before continuing." };
+      }
+      return { ok: true };
+    case 2:
+      if (!fields.audienceId) {
+        return {
+          ok: false,
+          message: "Select a saved audience before continuing. Create one in Audiences first.",
+        };
+      }
+      return { ok: true };
+    case 3:
+      if (!fields.subject.trim()) {
+        return { ok: false, message: "Subject is required before continuing." };
+      }
+      if (!fields.sender.fromAddress.trim()) {
+        return { ok: false, message: "Sender address is required before continuing." };
+      }
+      if (fields.channel === "EMAIL" && fields.contentSourceMode === "new") {
+        const textBlock = fields.content?.blocks.find((b) => b.type === "text");
+        const html = typeof textBlock?.props.html === "string" ? textBlock.props.html.trim() : "";
+        if (!html) {
+          return {
+            ok: false,
+            message: "Email body is required — enter the main message in the Email Body block.",
+          };
+        }
+      }
+      return { ok: true };
+    case 5:
+      if (fields.sendMode === "scheduled" && !fields.scheduleStartAt.trim()) {
+        return { ok: false, message: "Select a schedule date and time before continuing." };
+      }
+      return { ok: true };
+    default:
+      return { ok: true };
+  }
 }
 
 export function MarketingCampaignsPanel() {
@@ -212,6 +292,7 @@ export function MarketingCampaignsPanel() {
   const [showSimulatedBatch, setShowSimulatedBatch] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const step3PreviewTriggered = useRef(false);
+  const step4PreviewTriggered = useRef(false);
 
   const loadList = useCallback(async () => {
     const [campRes, audRes, tplRes, senderRes, waRes] = await Promise.all([
@@ -886,19 +967,42 @@ export function MarketingCampaignsPanel() {
   }, [audienceId, loadAudienceEstimate]);
 
   useEffect(() => {
-    if (builderStep === 3 && selectedId && !preview && !step3PreviewTriggered.current && !busy) {
+    const canAutoPreview =
+      (builderStep === 3 || builderStep === 4) &&
+      selectedId &&
+      channel === "EMAIL" &&
+      !busy &&
+      Boolean(content) &&
+      subject.trim().length > 0;
+
+    if (builderStep === 3 && canAutoPreview && !step3PreviewTriggered.current) {
       step3PreviewTriggered.current = true;
       void runPreview();
     }
-    if (builderStep !== 3) {
-      step3PreviewTriggered.current = false;
+    if (builderStep === 4 && canAutoPreview && !step4PreviewTriggered.current) {
+      step4PreviewTriggered.current = true;
+      void runPreview();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-preview once per step-3 entry
-  }, [builderStep, selectedId, preview, busy]);
+    if (builderStep !== 3) step3PreviewTriggered.current = false;
+    if (builderStep !== 4) step4PreviewTriggered.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- auto-preview once per step entry
+  }, [builderStep, selectedId, busy, channel, content, subject]);
+
+  useEffect(() => {
+    if (builderStep === 3 && content) {
+      const primaryId = primaryTextBlockId(content);
+      if (primaryId) setSelectedBlockId(primaryId);
+    }
+  }, [builderStep, content]);
 
   const selectedBlock = content?.blocks.find((b) => b.id === selectedBlockId) ?? null;
   const currentStepMeta = MARKETING_CAMPAIGN_BUILDER_STEPS[builderStep - 1];
   const selectedAudience = audiences.find((a) => a.id === audienceId) ?? null;
+  const usedPersonalizationTokens = collectUsedPersonalizationTokens({
+    subject,
+    previewText,
+    content,
+  });
   const contentEditable =
     detail?.editPolicy?.contentEditable !== false &&
     !detail?.editPolicy?.readOnly &&
@@ -910,12 +1014,39 @@ export function MarketingCampaignsPanel() {
     }
   };
 
-  const handleContinue = () => {
-    if (builderStep < 6) {
-      const next = builderStep + 1;
-      setBuilderStep(next);
-      setMaxStepReached((m) => Math.max(m, next));
+  const handleContinue = async () => {
+    if (builderStep >= 6) return;
+    const validation = validateBuilderStep(builderStep, {
+      name,
+      audienceId,
+      subject,
+      sender,
+      channel,
+      contentSourceMode,
+      content,
+      sendMode,
+      scheduleStartAt,
+    });
+    if (!validation.ok) {
+      toast.error(validation.message);
+      return;
     }
+    if (selectedId && content && contentEditable) {
+      setBusy(true);
+      try {
+        await persistCampaign();
+      } catch (e) {
+        toast.error(
+          e instanceof Error ? e.message : "Could not save draft — fix errors before continuing.",
+        );
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+    }
+    const next = builderStep + 1;
+    setBuilderStep(next);
+    setMaxStepReached((m) => Math.max(m, next));
   };
 
   const handleBack = () => {
@@ -986,90 +1117,116 @@ export function MarketingCampaignsPanel() {
     </>
   );
 
-  const renderBlockEditor = () => (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-1">
-        {MARKETING_CONTENT_BLOCK_TYPES.map((t) => (
-          <Button
-            key={t}
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 text-[11px]"
-            disabled={!contentEditable}
-            onClick={() => addBlock(t)}
-          >
-            + {MARKETING_CONTENT_BLOCK_LABELS[t]}
-          </Button>
-        ))}
-      </div>
-      <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
-        {content!.blocks.map((b) => (
-          <button
-            key={b.id}
-            type="button"
-            className={cn(
-              "block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground",
-              selectedBlockId === b.id && "bg-accent text-accent-foreground",
-            )}
-            onClick={() => setSelectedBlockId(b.id)}
-          >
-            {blockSummary(b)}
-          </button>
-        ))}
-      </div>
-      {selectedBlock ? (
-        <div className="space-y-2 rounded-md border p-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium">{selectedBlock.type}</p>
-            <div className="flex gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                disabled={busy || !contentEditable}
-                onClick={() => void saveReusableBlock()}
-              >
-                Save as reusable block
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                disabled={!contentEditable}
-                onClick={removeSelectedBlock}
-              >
-                Remove
-              </Button>
-            </div>
-          </div>
-          {Object.entries(selectedBlock.props).map(([key, val]) =>
-            typeof val === "string" ? (
-              <div key={key} className="space-y-1">
-                <Label className="text-[11px]">{key}</Label>
-                {key === "html" || key === "text" || key === "body" ? (
-                  <Textarea
-                    rows={3}
-                    disabled={!contentEditable}
-                    value={val}
-                    onChange={(e) => updateSelectedBlockProp(key, e.target.value)}
-                  />
-                ) : (
-                  <Input
-                    disabled={!contentEditable}
-                    value={val}
-                    onChange={(e) => updateSelectedBlockProp(key, e.target.value)}
-                  />
-                )}
-              </div>
-            ) : null,
-          )}
+  const renderBlockEditor = () => {
+    const primaryId = primaryTextBlockId(content);
+    return (
+      <div className="space-y-3">
+        <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
+          <p className="text-sm font-medium text-foreground">Email Body</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This is the main customer-facing email content. Use {"{{firstName}}"} or{" "}
+            {"{{first_name}}"} for personalization. Subject, preheader, CTA, and disclaimer are
+            configured separately above.
+          </p>
         </div>
-      ) : null}
-    </div>
-  );
+        <div className="flex flex-wrap gap-1">
+          <p className="w-full text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Additional blocks (optional)
+          </p>
+          {MARKETING_CONTENT_BLOCK_TYPES.map((t) => (
+            <Button
+              key={t}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px]"
+              disabled={!contentEditable}
+              onClick={() => addBlock(t)}
+            >
+              + {MARKETING_CONTENT_BLOCK_LABELS[t]}
+            </Button>
+          ))}
+        </div>
+        <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+          {content!.blocks.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              className={cn(
+                "block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground",
+                selectedBlockId === b.id && "bg-accent text-accent-foreground",
+                b.id === primaryId && "font-medium",
+              )}
+              onClick={() => setSelectedBlockId(b.id)}
+            >
+              {b.id === primaryId ? "Email Body — " : ""}
+              {blockSummary(b)}
+            </button>
+          ))}
+        </div>
+        {selectedBlock ? (
+          <div className="space-y-2 rounded-md border p-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium">
+                {selectedBlock.type === "text" && selectedBlock.id === primaryId
+                  ? "Email Body"
+                  : selectedBlock.type}
+              </p>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={busy || !contentEditable}
+                  onClick={() => void saveReusableBlock()}
+                >
+                  Save as reusable block
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={!contentEditable || selectedBlock.id === primaryId}
+                  onClick={removeSelectedBlock}
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+            {Object.entries(selectedBlock.props).map(([key, val]) =>
+              typeof val === "string" ? (
+                <div key={key} className="space-y-1">
+                  <Label className="text-[11px]">
+                    {selectedBlock.type === "text" &&
+                    selectedBlock.id === primaryId &&
+                    key === "html"
+                      ? "Email Body"
+                      : key}
+                  </Label>
+                  {key === "html" || key === "text" || key === "body" ? (
+                    <Textarea
+                      rows={selectedBlock.id === primaryId && key === "html" ? 8 : 3}
+                      disabled={!contentEditable}
+                      value={val}
+                      onChange={(e) => updateSelectedBlockProp(key, e.target.value)}
+                    />
+                  ) : (
+                    <Input
+                      disabled={!contentEditable}
+                      value={val}
+                      onChange={(e) => updateSelectedBlockProp(key, e.target.value)}
+                    />
+                  )}
+                </div>
+              ) : null,
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   const renderEmailPreview = () => (
     <div className="space-y-3">
@@ -1188,7 +1345,7 @@ export function MarketingCampaignsPanel() {
           Save draft
         </Button>
         {builderStep < 6 ? (
-          <Button type="button" size="sm" disabled={busy} onClick={handleContinue}>
+          <Button type="button" size="sm" disabled={busy} onClick={() => void handleContinue()}>
             Continue
             <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
           </Button>
@@ -1307,6 +1464,13 @@ export function MarketingCampaignsPanel() {
                       <CardDescription className="text-xs">
                         Step {builderStep} of 6 · {currentStepMeta.title} ·{" "}
                         {MARKETING_CAMPAIGN_STATUS_LABELS[detail.campaign.status]}
+                        {" · "}
+                        MKT-05 governance active
+                        {" · "}
+                        {ENTERPRISE_MARKETING_EXECUTION_ENABLED
+                          ? "Live execution ON"
+                          : "Live bulk send OFF"}
+                        {ENTERPRISE_MARKETING_EXECUTION_DRY_RUN_ENABLED ? " · dry-run enabled" : ""}
                       </CardDescription>
                     </div>
                     <p className="text-xs text-muted-foreground">Draft v{detail.draft?.versionNumber}</p>
@@ -1421,7 +1585,9 @@ export function MarketingCampaignsPanel() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <Label className="mb-2 block text-xs text-muted-foreground">Audience category (guide only)</Label>
+                      <Label className="mb-2 block text-xs text-muted-foreground">
+                        Audience category (guide only — does not select an audience)
+                      </Label>
                       <div className="flex flex-wrap gap-2">
                         {MARKETING_AUDIENCE_CATEGORY_OPTIONS.map((cat) => (
                           <button
@@ -1447,30 +1613,52 @@ export function MarketingCampaignsPanel() {
                     </div>
                     <div className="space-y-1.5">
                       <Label>Saved audience</Label>
-                      <Select
-                        value={audienceId || "__none__"}
-                        disabled={!contentEditable}
-                        onValueChange={(v) => setAudienceId(v === "__none__" ? "" : v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select audience" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Not linked</SelectItem>
-                          {audiences.map((a) => (
-                            <SelectItem key={a.id} value={a.id}>
-                              {a.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Manage audiences in the{" "}
-                        <Link href={ROUTES.ADMIN_MARKETING_AUDIENCES} className="text-primary underline-offset-2 hover:underline">
-                          Audiences module
-                        </Link>
-                        .
-                      </p>
+                      {audiences.length === 0 ? (
+                        <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+                          <p className="font-medium text-foreground">No audience available.</p>
+                          <p className="mt-1 text-muted-foreground">
+                            Create an audience first in the Audiences module, then return here to link
+                            it to this campaign. Category chips above are guidance only — they do not
+                            create or select an audience.
+                          </p>
+                          <Button asChild size="sm" variant="outline" className="mt-3">
+                            <Link href={ROUTES.ADMIN_MARKETING_AUDIENCES}>
+                              Go to Audiences
+                              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Select
+                            value={audienceId || "__none__"}
+                            disabled={!contentEditable}
+                            onValueChange={(v) => setAudienceId(v === "__none__" ? "" : v)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select audience" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">Not linked</SelectItem>
+                              {audiences.map((a) => (
+                                <SelectItem key={a.id} value={a.id}>
+                                  {a.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Manage audiences in the{" "}
+                            <Link
+                              href={ROUTES.ADMIN_MARKETING_AUDIENCES}
+                              className="text-primary underline-offset-2 hover:underline"
+                            >
+                              Audiences module
+                            </Link>
+                            .
+                          </p>
+                        </>
+                      )}
                     </div>
                     {selectedAudience ? (
                       <div className="rounded-md border bg-muted/30 p-3 text-sm">
@@ -1618,17 +1806,32 @@ export function MarketingCampaignsPanel() {
                           </div>
                         </div>
                       ) : (
-                        <div className="sm:col-span-2">{renderBlockEditor()}</div>
+                        <p className="sm:col-span-2 text-xs text-muted-foreground">
+                          Email body and blocks are edited in the live preview panel below.
+                        </p>
                       )}
                     </CardContent>
                   </Card>
                   {channel === "EMAIL" ? (
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Editor · Live preview</CardTitle>
+                        <CardTitle className="text-sm">Message editor · Live preview</CardTitle>
+                        <CardDescription className="text-xs">
+                          Customer-facing email preview updates automatically when content is valid.
+                          Save draft never publishes.
+                        </CardDescription>
                       </CardHeader>
                       <CardContent className="grid gap-4 lg:grid-cols-2">
-                        <div>{contentSourceMode === "new" ? renderBlockEditor() : <p className="text-sm text-muted-foreground">Switch to Create new content to edit blocks side-by-side.</p>}</div>
+                        <div>
+                          {contentSourceMode === "new" ? (
+                            renderBlockEditor()
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Switch to Create new content to edit the email body and blocks
+                              side-by-side with preview.
+                            </p>
+                          )}
+                        </div>
                         <div>{renderEmailPreview()}</div>
                       </CardContent>
                     </Card>
@@ -1643,41 +1846,50 @@ export function MarketingCampaignsPanel() {
               ) : null}
 
               {builderStep === 4 ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Personalisation</CardTitle>
-                    <CardDescription>{currentStepMeta.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {MARKETING_PERSONALIZATION_TOKENS.map((tok) => (
-                        <div key={tok} className="space-y-1">
-                          <Label className="text-xs">{personalizationTokenLabel(tok)}</Label>
-                          <Input
-                            value={personalizationDraft[tok] ?? ""}
-                            onChange={(e) => setPersonalizationDraft({ ...personalizationDraft, [tok]: e.target.value })}
-                            placeholder={`{{${tok}}}`}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    {preview ? (
-                      <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                        <p>
-                          <span className="text-muted-foreground">Preview subject:</span> {preview.subject}
-                        </p>
-                        <p className="mt-1">
-                          <span className="text-muted-foreground">Preview preheader:</span>{" "}
-                          {preview.preheader ?? preview.previewText}
-                        </p>
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Personalisation</CardTitle>
+                      <CardDescription>{currentStepMeta.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-xs text-muted-foreground">
+                        Sample values below are used for preview only. At send time, values come from
+                        the audience source. Both {"{{firstName}}"} and {"{{first_name}}"} resolve to
+                        the same first-name value.
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {MARKETING_PERSONALIZATION_TOKENS.map((tok) => (
+                          <div key={tok} className="space-y-1">
+                            <Label className="text-xs">{personalizationTokenLabel(tok)}</Label>
+                            <Input
+                              value={personalizationDraft[tok] ?? ""}
+                              onChange={(e) =>
+                                setPersonalizationDraft({ ...personalizationDraft, [tok]: e.target.value })
+                              }
+                              placeholder={`{{${tok}}}`}
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ) : null}
-                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void runPreview()}>
-                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                      Refresh preview with samples
-                    </Button>
-                  </CardContent>
-                </Card>
+                      <Button size="sm" variant="secondary" disabled={busy} onClick={() => void runPreview()}>
+                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                        Refresh preview with samples
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  {channel === "EMAIL" ? (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Personalised preview</CardTitle>
+                        <CardDescription className="text-xs">
+                          Automatically rendered using sample personalisation values.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>{renderEmailPreview()}</CardContent>
+                    </Card>
+                  ) : null}
+                </div>
               ) : null}
 
               {builderStep === 5 ? (
@@ -1725,19 +1937,35 @@ export function MarketingCampaignsPanel() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm flex items-center gap-2">
                         <Mail className="h-4 w-4" />
-                        Send test
+                        Send test (controlled)
                       </CardTitle>
-                      <CardDescription>Deliver to one mailbox via the real render path (not simulated batch).</CardDescription>
+                      <CardDescription>
+                        Sends one rendered test message to a single mailbox using the same preview
+                        pipeline. This does not launch the campaign, schedule bulk delivery, or
+                        enable live marketing execution. Bulk email / WhatsApp / SMS remain disabled
+                        unless explicitly authorised under MKT-05.
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent className="flex flex-wrap items-end gap-2">
-                      <div className="space-y-1 flex-1 min-w-[200px]">
-                        <Label className="text-xs">Test recipient email</Label>
-                        <Input type="email" value={testRecipientEmail} onChange={(e) => setTestRecipientEmail(e.target.value)} placeholder="you@example.com" />
+                    <CardContent className="space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        Default delivery mode is dry-run — the render path is exercised; live mailbox
+                        delivery requires separate Product Owner authorisation.
+                      </p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="space-y-1 flex-1 min-w-[200px]">
+                          <Label className="text-xs">Test recipient email</Label>
+                          <Input
+                            type="email"
+                            value={testRecipientEmail}
+                            onChange={(e) => setTestRecipientEmail(e.target.value)}
+                            placeholder="you@example.com"
+                          />
+                        </div>
+                        <Button size="sm" disabled={busy || !testRecipientEmail.trim()} onClick={() => void sendTestEmail()}>
+                          <Send className="mr-1.5 h-3.5 w-3.5" />
+                          Send test (controlled)
+                        </Button>
                       </div>
-                      <Button size="sm" disabled={busy || !testRecipientEmail.trim()} onClick={() => void sendTestEmail()}>
-                        <Send className="mr-1.5 h-3.5 w-3.5" />
-                        Send test
-                      </Button>
                     </CardContent>
                   </Card>
                   <details className="rounded-lg border" open={showSimulatedBatch} onToggle={(e) => setShowSimulatedBatch((e.target as HTMLDetailsElement).open)}>
@@ -1782,12 +2010,41 @@ export function MarketingCampaignsPanel() {
                     <CardContent className="grid gap-3 sm:grid-cols-2">
                       {[
                         ["Campaign", name],
-                        ["Audience", selectedAudience ? `${selectedAudience.name}${audienceEstimate !== null ? ` (~${audienceEstimate})` : ""}` : "Not linked"],
+                        ["Objective", objective || "Not set"],
+                        ["Product", product || "Not set"],
+                        [
+                          "Audience",
+                          selectedAudience
+                            ? `${selectedAudience.name}${audienceEstimate !== null ? ` (~${audienceEstimate})` : ""}`
+                            : "Not linked",
+                        ],
                         ["Channel", channel],
-                        ["Sender", `${sender.fromName} · ${sender.fromAddress}`],
                         ["Subject", subject || "—"],
-                        ["Schedule", sendMode === "immediate" ? "Send immediately" : scheduleStartAt || "Not set"],
-                        ["Content blocks", String(content.blocks.length)],
+                        ["Preheader", previewText || "—"],
+                        [
+                          "Personalisation tokens",
+                          usedPersonalizationTokens.length
+                            ? usedPersonalizationTokens.map((t) => `{{${t}}}`).join(", ")
+                            : "None",
+                        ],
+                        [
+                          "Schedule",
+                          sendMode === "immediate"
+                            ? "Send immediately (intent only — not launched)"
+                            : scheduleStartAt || "Not set",
+                        ],
+                        [
+                          "Campaign status",
+                          MARKETING_CAMPAIGN_STATUS_LABELS[detail.campaign.status],
+                        ],
+                        [
+                          "MKT-05 governance",
+                          ENTERPRISE_MARKETING_EXECUTION_ENABLED
+                            ? "Live execution authorised"
+                            : "Live bulk send OFF · Save never publishes · Approve/Launch governed",
+                        ],
+                        ["Sender", `${sender.fromName} · ${sender.fromAddress}`],
+                        ["Content blocks", String(content?.blocks.length ?? 0)],
                       ].map(([label, value]) => (
                         <div key={label} className="rounded-md border bg-muted/20 p-3">
                           <p className="text-[11px] uppercase text-muted-foreground">{label}</p>
@@ -1801,9 +2058,14 @@ export function MarketingCampaignsPanel() {
                       <Eye className="mr-1.5 h-3.5 w-3.5" />
                       Preview campaign
                     </Button>
-                    <Button size="sm" variant="outline" disabled={busy || !testRecipientEmail.trim()} onClick={() => void sendTestEmail()}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy || !testRecipientEmail.trim()}
+                      onClick={() => void sendTestEmail()}
+                    >
                       <Send className="mr-1.5 h-3.5 w-3.5" />
-                      Send test
+                      Send test (controlled)
                     </Button>
                     <Button size="sm" variant="outline" disabled={busy || !contentEditable} onClick={() => void saveCampaign()}>
                       Save draft

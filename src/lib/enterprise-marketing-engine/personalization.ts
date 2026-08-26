@@ -5,6 +5,7 @@
 
 import {
   MARKETING_PERSONALIZATION_FALLBACKS,
+  MARKETING_PERSONALIZATION_TOKEN_ALIASES,
   MARKETING_PERSONALIZATION_TOKENS,
   type MarketingPersonalizationToken,
 } from "@/constants/enterprise-marketing-engine/content";
@@ -14,11 +15,22 @@ const TOKEN_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g;
 const ANY_MUSTACHE_RE = /\{\{([^}]*)\}\}/g;
 const ALLOWED = new Set<string>(MARKETING_PERSONALIZATION_TOKENS);
 
+/** Resolve alias (e.g. first_name) to canonical allowlisted token (firstName). */
+export function resolveCanonicalPersonalizationToken(
+  name: string,
+): MarketingPersonalizationToken | null {
+  if (ALLOWED.has(name)) return name as MarketingPersonalizationToken;
+  const alias = MARKETING_PERSONALIZATION_TOKEN_ALIASES[name];
+  return alias ?? null;
+}
+
 export function listPersonalizationTokensInText(text: string): string[] {
   const found = new Set<string>();
   for (const match of text.matchAll(TOKEN_RE)) {
     const name = match[1];
-    if (name) found.add(name);
+    if (!name) continue;
+    const canonical = resolveCanonicalPersonalizationToken(name);
+    if (canonical) found.add(canonical);
   }
   return [...found];
 }
@@ -26,10 +38,10 @@ export function listPersonalizationTokensInText(text: string): string[] {
 export function assertSafePersonalizationTokens(text: string): void {
   for (const match of text.matchAll(ANY_MUSTACHE_RE)) {
     const inner = (match[1] ?? "").trim();
-    if (!ALLOWED.has(inner)) {
+    if (!resolveCanonicalPersonalizationToken(inner)) {
       throw Object.assign(
         new Error(
-          `Unsafe or unknown personalization token "{{${inner}}}". Allowed: ${MARKETING_PERSONALIZATION_TOKENS.join(", ")}`,
+          `Unsafe or unknown personalization token "{{${inner}}}". Allowed: ${MARKETING_PERSONALIZATION_TOKENS.join(", ")} ({{first_name}} is accepted as an alias for firstName).`,
         ),
         { statusCode: 400, code: "INVALID_PERSONALIZATION_TOKEN" },
       );
@@ -59,7 +71,11 @@ export function applyPersonalization(
   }
 
   return text.replace(TOKEN_RE, (_full, name: string) => {
-    const key = name as MarketingPersonalizationToken;
+    const key = resolveCanonicalPersonalizationToken(name);
+    if (!key) {
+      if (opts?.leavePlaceholders) return `{{${name}}}`;
+      return "";
+    }
     const v = normalized[key];
     if (v != null && String(v).length) return String(v);
     if (opts?.leavePlaceholders) return `{{${name}}}`;

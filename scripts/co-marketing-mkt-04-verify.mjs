@@ -156,6 +156,10 @@ if (!personalized.includes("Asha") || !personalized.includes("Pune")) {
   fail("personalization apply");
 } else pass("personalization apply");
 
+const aliasPersonalized = persMod.applyPersonalization("Hello {{first_name}},", sample);
+if (!aliasPersonalized.includes("Asha")) fail("first_name alias must resolve to firstName");
+else pass("first_name alias resolves to firstName");
+
 let rejected = false;
 try {
   persMod.assertSafePersonalizationTokens("{{__proto__}}");
