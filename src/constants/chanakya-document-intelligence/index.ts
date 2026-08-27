@@ -40,11 +40,31 @@ export const CHANAKYA_DOCUMENT_VISION_MODEL_ENV =
 
 export const CHANAKYA_DOCUMENT_VISION_DEFAULT_MODEL = "gpt-4o" as const;
 
+/** Azure Document Intelligence (scanned PDF + layout OCR). */
+export const CHANAKYA_AZURE_DI_ENDPOINT_ENV =
+  "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT" as const;
+
+export const CHANAKYA_AZURE_DI_KEY_ENV_KEYS = [
+  "AZURE_DOCUMENT_INTELLIGENCE_KEY",
+  "AZURE_DOCUMENT_INTELLIGENCE_API_KEY",
+] as const;
+
+export const CHANAKYA_AZURE_DI_API_VERSION = "2024-11-30" as const;
+
+export const CHANAKYA_OCR_PROVIDER_NOT_CONFIGURED =
+  "PROVIDER_NOT_CONFIGURED" as const;
+
+/** OCR provider was configured/attempted but returned no usable text. */
+export const CHANAKYA_OCR_FAILED = "OCR_FAILED" as const;
+
+/** Document content is not available for intelligence (binary/OCR/read path). */
+export const CHANAKYA_DOC_READ_NOT_AVAILABLE = "NOT_AVAILABLE" as const;
+
 export const CHANAKYA_DOCUMENT_INTELLIGENCE_CAPABILITY_NOTE =
-  "Phase 009: durable object storage for large transaction documents + Phase 008 unpdf extraction. Inline contentBytes remain ≤4MB; larger files use storageKey → postgres blob / Supabase Storage. Image vision OCR activates only when DOCUMENT_VISION_API_KEY (or OPENAI_API_KEY) is configured. CHANAKYA will not invent statement figures." as const;
+  "Phase 014: OCR provider-port chain (Azure Document Intelligence for scanned PDFs + OpenAI-compatible vision for images). Credentials required — never fabricated OCR. Phase 009 durable object storage + Phase 008 unpdf extraction remain active." as const;
 
 export const CHANAKYA_DOCUMENT_VISION_PROVIDER_NOTE =
-  "Recommended production providers: (1) OpenAI-compatible vision for images when DOCUMENT_VISION_API_KEY is set; (2) Azure Document Intelligence for scanned PDF + financial tables (native PDF, no Catalyst One rasterizer required). No provider credentials are configured in this environment." as const;
+  "OCR providers (port-based, first match wins): (1) Azure Document Intelligence when AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT + key are set — supports scanned PDF without rasterization; (2) OpenAI-compatible vision for images when DOCUMENT_VISION_API_KEY or OPENAI_API_KEY is set. Garbage OCR is quality-gated before content_read." as const;
 
 export const CHANAKYA_DOC_BINARY_ABSENT_OVERSIZE_NOTE =
   "Document metadata exists but durable binary is absent. Files ≤4MB use inline contentBytes; larger files require object-store upload (storageKey). Pre-009 oversized uploads that never left client IndexedDB cannot be recovered server-side — re-upload is required." as const;

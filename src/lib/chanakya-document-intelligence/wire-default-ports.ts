@@ -4,22 +4,45 @@
 
 import "server-only";
 
-import { createOpenAiCompatibleVisionOcrPort } from "./openai-vision-ocr-port";
-import { configureChanakyaDocumentIntelligencePorts } from "./ports";
+import { createCompositeOcrPort } from "./composite-ocr-port";
+import {
+  configureChanakyaDocumentIntelligencePorts,
+  getChanakyaOcrExtractorPort,
+  getChanakyaTableExtractorPort,
+} from "./ports";
 import { createStructuredTextTableExtractorPort } from "./structured-text-table-port";
+import {
+  isAnyOcrProviderConfigured,
+  isAzureDocumentIntelligenceConfigured,
+  listOcrProviderDescriptors,
+} from "./ocr-provider-config";
 import { isDocumentVisionConfigured } from "./vision-config";
 
 let wired = false;
 
+export function resetChanakyaDocumentIntelligencePortsWiringForVerification(): void {
+  wired = false;
+}
+
 export function ensureChanakyaDocumentIntelligencePortsWired(): {
   visionConfigured: boolean;
+  ocrConfigured: boolean;
+  azureDiConfigured: boolean;
+  ocrProviders: ReturnType<typeof listOcrProviderDescriptors>;
 } {
   if (!wired) {
-    configureChanakyaDocumentIntelligencePorts({
-      ocr: createOpenAiCompatibleVisionOcrPort(),
-      table: createStructuredTextTableExtractorPort(),
-    });
+    if (!getChanakyaOcrExtractorPort() && !getChanakyaTableExtractorPort()) {
+      configureChanakyaDocumentIntelligencePorts({
+        ocr: createCompositeOcrPort(),
+        table: createStructuredTextTableExtractorPort(),
+      });
+    }
     wired = true;
   }
-  return { visionConfigured: isDocumentVisionConfigured() };
+  return {
+    visionConfigured: isDocumentVisionConfigured(),
+    ocrConfigured: isAnyOcrProviderConfigured(),
+    azureDiConfigured: isAzureDocumentIntelligenceConfigured(),
+    ocrProviders: listOcrProviderDescriptors(),
+  };
 }

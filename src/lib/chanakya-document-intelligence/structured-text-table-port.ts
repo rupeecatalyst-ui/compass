@@ -10,7 +10,7 @@ import { extractPdfTextFromBytes } from "./extract-pdf-text";
 
 export function createStructuredTextTableExtractorPort(): ChanakyaTableExtractorPort {
   return {
-    providerId: "structured_text_financial_v1",
+    providerId: "structured_text_financial_v2_table_012",
     async extract(input) {
       let text = input.textHint?.trim() || "";
       if (!text && input.bytes?.byteLength) {

@@ -1,12 +1,16 @@
 /**
- * CO-CHANAKYA-CREDIT-INTELLIGENCE-006 — Structured financial fact extraction from text.
- * Extracts only labeled values present in text. Never invents missing line items.
+ * CO-CHANAKYA-CREDIT-INTELLIGENCE-006 / 012 — Structured financial fact extraction from text.
+ * Table-aware extractors (012) take precedence for financial/GST documents.
+ * Legacy regex retained only for bank / ITR / auditor paths where table structure differs.
  */
 
 import type {
   ChanakyaDocumentExtractedFact,
   ChanakyaDocumentProvenance,
 } from "@/types/chanakya-document-intelligence";
+import { extractFinancialTableFacts } from "./extract-financial-tables";
+import { extractGstReturnFacts } from "./extract-gst-returns";
+import { extractBankStatementFacts } from "./extract-bank-statements";
 
 type FactDef = {
   key: string;
@@ -377,6 +381,7 @@ export function extractStructuredFactsFromText(input: {
   const looksBs = /balance sheet|statement of financial position|share capital|total assets/.test(
     lower,
   );
+  const looksFinancial = looksPnl || looksBs;
   const looksBank =
     /bank statement|account statement|passbook|statement of account/.test(lower) &&
     /opening balance|closing balance|available balance/.test(lower);
@@ -388,23 +393,35 @@ export function extractStructuredFactsFromText(input: {
   const looksItr =
     /income tax return|\bitr[\s-]*[uv]\b|assessment year|assessee/.test(lower);
 
-  if (looksPnl) facts.push(...extractByDefs(text, PNL_DEFS, base));
-  if (looksBs) facts.push(...extractByDefs(text, BS_DEFS, base));
-  if (looksBank) facts.push(...extractByDefs(text, BANK_DEFS, base));
-  if (looksAuditor) facts.push(...extractByDefs(text, AUDITOR_DEFS, base));
-  if (looksGst) facts.push(...extractByDefs(text, GST_DEFS, base));
-  if (looksItr) facts.push(...extractByDefs(text, ITR_DEFS, base));
-
-  // If document looks financial but section markers weak, still try both P&L+BS carefully.
-  if (!looksPnl && !looksBs && /turnover|net worth|borrowings|gross profit/.test(lower)) {
-    facts.push(...extractByDefs(text, [...PNL_DEFS, ...BS_DEFS], base));
+  // 012 — evidence-first table extraction for financial statements and GST returns.
+  if (looksFinancial) {
+    facts.push(...extractFinancialTableFacts({ text, provenance: base }));
+  }
+  if (looksGst) {
+    facts.push(...extractGstReturnFacts({ text, provenance: base }));
+  }
+  if (looksBank) {
+    facts.push(...extractBankStatementFacts({ text, provenance: base }));
   }
 
-  // Deduplicate by key (first wins).
-  const seen = new Set<string>();
-  return facts.filter((f) => {
-    if (seen.has(f.key)) return false;
-    seen.add(f.key);
-    return true;
-  });
+  // Legacy regex only where table extractors are not the primary path.
+  if (looksAuditor) facts.push(...extractByDefs(text, AUDITOR_DEFS, base));
+  if (looksItr) facts.push(...extractByDefs(text, ITR_DEFS, base));
+
+  // Deduplicate by key + period (table facts win over regex when both present).
+  const seen = new Map<string, ChanakyaDocumentExtractedFact>();
+  for (const f of facts) {
+    const dedupeKey = `${f.key}::${f.periodLabel ?? ""}`;
+    const existing = seen.get(dedupeKey);
+    if (!existing) {
+      seen.set(dedupeKey, f);
+      continue;
+    }
+    const rank = (c: ChanakyaDocumentProvenance["confidence"]) =>
+      c === "high" ? 4 : c === "medium" ? 3 : c === "low" ? 2 : c === "ambiguous" ? 1 : 0;
+    if (rank(f.provenance.confidence) > rank(existing.provenance.confidence)) {
+      seen.set(dedupeKey, f);
+    }
+  }
+  return [...seen.values()];
 }

@@ -113,9 +113,8 @@ function customerConnector(): EaiReadConnector {
               employmentType: contact.employmentType ?? "",
               ownerName: contact.ownerName ?? "",
               // Masked mobile only — never full identity docs
-              mobileMasked: contact.mobilePrimary
-                ? `******${contact.mobilePrimary.slice(-4)}`
-                : "",
+              // CO-CHANAKYA-ENTERPRISE-READ-CONTEXT-002 — omit contact channels entirely
+              // (do not pass mobile/email into AI projections).
             },
             refs: [{ registry: "ecm_contact", entityId: contact.id, label: contact.name }],
             summary: `Customer ${contact.name} (${contact.city ?? "city not specified"})`,

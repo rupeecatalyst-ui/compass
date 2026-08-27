@@ -120,7 +120,7 @@ export async function retrieveAuthorizedOpportunityDocuments(input: {
       bytes = decodeContentBase64(row.contentBase64);
       if (bytes?.byteLength) {
         binarySource = "inline";
-      } else if (organizationId && (row.storageKey || row.hasContent)) {
+      } else if (organizationId && row.storageKey) {
         try {
           const resolved =
             await enterpriseTransactionDocumentService.resolveBinaryForOrganization({

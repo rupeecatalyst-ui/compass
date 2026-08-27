@@ -96,6 +96,7 @@ export function createOpenAiCompatibleVisionOcrPort(): ChanakyaOcrExtractorPort 
           confidence: "medium",
           pageCount: 1,
           method: "vision",
+          providerId: "openai_compatible_vision",
         };
       } catch {
         return null;

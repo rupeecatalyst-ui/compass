@@ -17,6 +17,10 @@ const FORBIDDEN_SUBSTRINGS = [
 const SECRET_KEY_PATTERN =
   /^(password|secret|token|api[_-]?key|authorization|jwt|refreshToken|private[_-]?key|connectionString|databaseUrl)$/i;
 
+/** Customer contact channels — never leave ChatGPT / CHANAKYA action responses. */
+const CUSTOMER_CONTACT_PII_KEY_PATTERN =
+  /^(primaryContactMobile|primaryContactEmail|mobilePrimary|mobileSecondary|officialMobile|officialEmail|customerMobile|customerEmail|contactMobile|contactEmail|mobile|email|phone|telephone|whatsapp)$/i;
+
 export function redactPersonName(name: string | null | undefined): string | null {
   if (!name?.trim()) return null;
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -47,7 +51,9 @@ export function sanitizeRecordForChatGpt(
   if (depth > 5) return { truncated: true };
   const out: Record<string, unknown> = {};
   for (const [key, raw] of Object.entries(value)) {
-    if (SECRET_KEY_PATTERN.test(key)) {
+    if (SECRET_KEY_PATTERN.test(key) || CUSTOMER_CONTACT_PII_KEY_PATTERN.test(key)) {
+      // Omit customer contact channels entirely (preferred over [REDACTED] placeholder).
+      if (CUSTOMER_CONTACT_PII_KEY_PATTERN.test(key)) continue;
       out[key] = "[REDACTED]";
       continue;
     }

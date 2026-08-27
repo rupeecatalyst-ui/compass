@@ -10,6 +10,15 @@ export const CHATGPT_OAUTH_REDIRECT_URIS_ENV = "CHATGPT_OAUTH_REDIRECT_URIS" as 
 export const CHATGPT_INTEGRATION_TOKEN_TTL = "30m" as const;
 export const CHATGPT_INTEGRATION_TOKEN_TTL_SECONDS = 30 * 60;
 
+/**
+ * CO-CHANAKYA-ENTERPRISE-READ-CONTEXT-002 — refresh token lifetime.
+ * Enables silent access-token renewal without re-consent while the refresh
+ * credential remains valid. Not "forever" — reconnect when revoked / expired /
+ * scopes change / provider requires reauthorization.
+ */
+export const CHATGPT_OAUTH_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export const CHATGPT_OAUTH_REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
+
 export const CHATGPT_OAUTH_CODE_TTL_MS = 5 * 60 * 1000;
 export const CHATGPT_OAUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 

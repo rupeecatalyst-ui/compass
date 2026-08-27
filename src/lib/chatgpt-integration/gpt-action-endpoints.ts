@@ -13,6 +13,7 @@ import { composeChatGptActivityDto } from "@server/services/chatgpt-integration/
 import { composeChatGptBuildDto } from "@server/services/chatgpt-integration/compose-build";
 import { composeChatGptChanakyaDto } from "@server/services/chatgpt-integration/compose-chanakya";
 import { composeChatGptEmailStatusDto } from "@server/services/chatgpt-integration/compose-email-status";
+import { composeChatGptEnterpriseReadDto } from "@server/services/chatgpt-integration/compose-enterprise-read";
 import { composeChatGptHealthDto } from "@server/services/chatgpt-integration/compose-health";
 import { composeChatGptMissionControlDto } from "@server/services/chatgpt-integration/compose-mission-control";
 import { composeChatGptPipelineDto } from "@server/services/chatgpt-integration/compose-pipeline";
@@ -27,6 +28,7 @@ export const CHATGPT_GPT_ACTION_SLUGS = [
   "email-status",
   "activity",
   "build",
+  "enterprise-read",
 ] as const;
 
 export type ChatGptGptActionSlug = (typeof CHATGPT_GPT_ACTION_SLUGS)[number];
@@ -75,6 +77,11 @@ export const CHATGPT_GPT_ACTION_ENDPOINTS: Record<
   ),
   activity: def("activity", "/api/integrations/chatgpt/v1/activity", composeChatGptActivityDto),
   build: def("build", "/api/integrations/chatgpt/v1/build", composeChatGptBuildDto),
+  "enterprise-read": def(
+    "enterprise-read",
+    "/api/integrations/chatgpt/v1/enterprise-read",
+    composeChatGptEnterpriseReadDto,
+  ),
 };
 
 export function resolveChatGptGptActionSlug(raw: string): ChatGptGptActionSlug | null {

@@ -49,3 +49,18 @@ export type ChatGptOAuthAuthorizationCode = {
   expiresAt: number;
   used: boolean;
 };
+
+/** Server-side refresh credential (plaintext token never logged). */
+export type ChatGptOAuthRefreshTokenRecord = {
+  /** SHA-256 hex of the opaque refresh token. */
+  tokenHash: string;
+  userId: string;
+  organizationId: string;
+  scopes: ChatGptOAuthScope[];
+  clientId: string;
+  createdAt: number;
+  expiresAt: number;
+  revoked: boolean;
+  /** Rotation: previous hash invalidated when a new refresh is issued. */
+  rotatedFromHash?: string | null;
+};

@@ -1,5 +1,15 @@
 export { gatherChanakyaCreditProposalContext } from "./gather-context";
-export { composeChanakyaCreditProposalDraft } from "./compose-proposal";
+export {
+  composeChanakyaCreditProposalDraft,
+  composeLegacyChanakyaCreditProposalDraft,
+} from "./compose-proposal";
+export {
+  buildLenderProposalIntelligence,
+  shouldUseLenderProposalIntelligence,
+  assertNoForbiddenLenderProposalLanguage,
+  assertNoInternalMetadataInLenderText,
+  detectLegacyProposalMarkers,
+} from "./lender-proposal-intelligence-core";
 export {
   runChanakyaCreditProposalStream,
   encodeSseEvent,

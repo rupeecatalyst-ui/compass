@@ -93,6 +93,15 @@ if (panel.includes("authenticatedJsonFetch") && panel.includes("consumeSse")) {
   ok("Client consumes SSE progressively");
 } else fail("Client SSE consumer missing");
 
+if (
+  panel.includes("Send to Lender") &&
+  panel.includes("data-workspace=\"proposal\"") &&
+  panel.includes("EcwProposalDocumentView") &&
+  panel.includes("Confirm send to lender")
+) {
+  ok("Proposal workspace panel wired with document view and send confirmation");
+} else fail("Proposal workspace panel contract failed");
+
 // Ensure ChatGPT OAuth authorize route was not modified in this sprint scope check
 const oauth = read("src/app/api/integrations/chatgpt/v1/oauth/authorize/route.ts");
 if (oauth.includes("buildChatGptOAuthConsentRedirectUrl")) {

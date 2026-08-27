@@ -7,7 +7,7 @@ import { authenticatedJsonFetch, getAccessToken } from "@/lib/api-client";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { ETD_INLINE_CONTENT_BYTES_MAX } from "@/constants/enterprise-document-object-storage";
 import type { DocumentRegistryRecord } from "@/types/document-registry";
-import { saveDocumentBlob } from "@/lib/document-registry/blob-store";
+import { getDocumentBlob, saveDocumentBlob } from "@/lib/document-registry/blob-store";
 import {
   getAllDocumentRegistryRecords,
   mergeDurableDocumentsIntoLocalRegistry,
@@ -41,9 +41,9 @@ async function syncLargeBinaryToServer(input: {
   opportunityId: string;
   clientRecordId: string;
   contentBlob: Blob;
-}): Promise<void> {
+}): Promise<boolean> {
   const token = getAccessToken();
-  if (!token) return;
+  if (!token) return false;
   const form = new FormData();
   form.set("opportunityId", input.opportunityId);
   form.set("clientRecordId", input.clientRecordId);
@@ -52,13 +52,57 @@ async function syncLargeBinaryToServer(input: {
     input.contentBlob,
     "document.bin",
   );
-  await fetch("/api/enterprise-transaction-documents/binary", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: form,
-  });
+  try {
+    const res = await fetch("/api/enterprise-transaction-documents/binary", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: form,
+    });
+    if (!res.ok) return false;
+    const body = (await res.json()) as Envelope<{ storageKey?: string | null }>;
+    return Boolean(body.success && body.data?.storageKey);
+  } catch {
+    return false;
+  }
+}
+
+/** CO-CHANAKYA-CREDIT-CERTIFICATION-019A — recover pre-009 metadata-only large docs from local blob cache. */
+async function backfillMetadataOnlyLargeDocumentsFromLocalBlob(input: {
+  opportunityId: string;
+  serverItems: Array<Record<string, unknown>>;
+}): Promise<number> {
+  let pushed = 0;
+  for (const item of input.serverItems) {
+    const fileSizeBytes =
+      typeof item.fileSizeBytes === "number" ? item.fileSizeBytes : 0;
+    const storageKey =
+      typeof item.storageKey === "string" && item.storageKey.trim()
+        ? item.storageKey.trim()
+        : null;
+    const contentBase64 =
+      typeof item.contentBase64 === "string" ? item.contentBase64 : null;
+    const clientRecordId =
+      typeof item.clientRecordId === "string" ? item.clientRecordId : null;
+    if (!clientRecordId || fileSizeBytes <= ETD_INLINE_CONTENT_BYTES_MAX) continue;
+    if (storageKey || contentBase64) continue;
+
+    const local = getAllDocumentRegistryRecords().find((r) => r.id === clientRecordId);
+    if (!local) continue;
+    const blobId = local.versions.find((v) => v.isCurrent)?.blobId;
+    if (!blobId) continue;
+    const blob = await getDocumentBlob(blobId);
+    if (!blob || blob.size === 0) continue;
+
+    const stored = await syncLargeBinaryToServer({
+      opportunityId: input.opportunityId,
+      clientRecordId,
+      contentBlob: blob,
+    });
+    if (stored) pushed += 1;
+  }
+  return pushed;
 }
 
 /** Best-effort push of a local registry record to Postgres. */
@@ -147,6 +191,11 @@ export async function hydrateDocumentRegistryFromServer(input: {
         opportunityNumber: input.opportunityNumber,
       },
     );
+
+    await backfillMetadataOnlyLargeDocumentsFromLocalBlob({
+      opportunityId,
+      serverItems: body.data.items,
+    });
 
     // Restore blobs from inline content when local blob missing
     for (const item of body.data.items) {

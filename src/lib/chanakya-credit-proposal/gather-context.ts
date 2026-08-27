@@ -20,32 +20,19 @@ import type {
 } from "@/types/chanakya-credit-proposal";
 import { deriveChanakyaProposalEvidenceReadiness } from "./derive-evidence-readiness";
 import { buildInternalStrengtheningRecommendations } from "./internal-recommendations";
+import { redactCustomerContactPiiForAiContext } from "@/lib/chanakya-enterprise-read-context/redact-pii";
+import { projectProductLenderIntelligence } from "@/lib/chanakya-enterprise-read-context/product-lender-intelligence";
+import { projectCreditIntelligence } from "@/lib/chanakya-credit-intelligence/project-credit-intelligence";
+import { assembleCreditIntelligence } from "@/lib/chanakya-credit-intelligence/credit-intelligence-core";
+import type { ChanakyaCreditIntelligenceContext } from "@/types/chanakya-credit-intelligence";
+import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
+import { resolveOpportunityLoanPurpose } from "@/lib/enterprise-opportunity/resolve-loan-purpose";
 
 function displayOrUnavailable(value: unknown): { text: string; available: boolean } {
   if (value == null) return { text: CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE, available: false };
   const s = String(value).trim();
   if (!s) return { text: CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE, available: false };
   return { text: s, available: true };
-}
-
-function purposeFromOpportunity(opp: Record<string, unknown>): string | null {
-  const lending = opp.lendingExtension;
-  if (lending && typeof lending === "object" && !Array.isArray(lending)) {
-    const ext = lending as Record<string, unknown>;
-    for (const key of ["purpose", "loanPurpose", "loan_purpose", "requirementPurpose"]) {
-      const v = ext[key];
-      if (typeof v === "string" && v.trim()) return v.trim();
-    }
-  }
-  const snapshot = opp.snapshot;
-  if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) {
-    const snap = snapshot as Record<string, unknown>;
-    for (const key of ["purpose", "loanPurpose", "loan_purpose"]) {
-      const v = snap[key];
-      if (typeof v === "string" && v.trim()) return v.trim();
-    }
-  }
-  return null;
 }
 
 export interface ChanakyaCreditProposalContextPack {
@@ -76,6 +63,10 @@ export interface ChanakyaCreditProposalContextPack {
   /** Lender-facing limitation statements (no upload CTAs). */
   gaps: string[];
   intelligence: ChanakyaCreditProposalInternalIntelligence;
+  /** CO-CHANAKYA-003E — internal product/lender fit intelligence for proposal engine. */
+  productLenderIntelligence: Record<string, unknown>;
+  /** CO-CHANAKYA-CREDIT-INTELLIGENCE-010 — evidence-first credit analysis for proposal engine. */
+  creditIntelligence: ChanakyaCreditIntelligenceContext;
 }
 
 export async function gatherChanakyaCreditProposalContext(
@@ -89,9 +80,11 @@ export async function gatherChanakyaCreditProposalContext(
     });
   }
 
-  const opp = (await enterpriseOpportunityService.getOpportunity(
+  const oppRaw = (await enterpriseOpportunityService.getOpportunity(
     opportunityId,
   )) as Record<string, unknown>;
+  // Hard privacy: strip customer mobile/email before any AI / proposal context use.
+  const opp = redactCustomerContactPiiForAiContext(oppRaw) as Record<string, unknown>;
 
   const productName =
     String(opp.productLabel || opp.productCode || "").trim() || "Not Specified";
@@ -101,7 +94,7 @@ export async function gatherChanakyaCreditProposalContext(
       : 0;
   const borrowerName =
     String(opp.primaryContactName || opp.companyName || "").trim() || "Not Specified";
-  const purpose = purposeFromOpportunity(opp);
+  const purpose = resolveOpportunityLoanPurpose(opp);
   const stated = input.stated ?? {};
   const rmNote =
     typeof input.rmNote === "string" && input.rmNote.trim()
@@ -208,7 +201,7 @@ export async function gatherChanakyaCreditProposalContext(
     label: "Document content reading (native / PDF text-layer)",
     value:
       readable > 0
-        ? `${readable} document(s) yielded readable text excerpts (truncated). Structured financial fact extraction is not available.`
+        ? `${readable} document(s) yielded readable text excerpts (truncated). Credit intelligence consumes extracted facts where available.`
         : "No document yielded readable text in this run (missing binary, scanned PDF, or unsupported type).",
     available: readable > 0,
   });
@@ -234,13 +227,17 @@ export async function gatherChanakyaCreditProposalContext(
   });
 
   const gaps: string[] = [
-    "FOIR / DSCR / LTV / banking analysis engines are not available yet.",
-    "Structured EDIE financial / table extraction is not available yet.",
+    "FOIR / DSCR / LTV underwriting ratios are not computed — creditRatios remain NOT_AVAILABLE until a configured engine is wired.",
     "External web research is not enabled yet.",
   ];
   if (documentIntelligence.documentsRequiringOcr > 0) {
     gaps.push(
       `${documentIntelligence.documentsRequiringOcr} document(s) require OCR and were not content-read.`,
+    );
+  }
+  if (documentIntelligence.documentsOcrFailed > 0) {
+    gaps.push(
+      `${documentIntelligence.documentsOcrFailed} document(s) failed OCR — content remains unavailable.`,
     );
   }
   if (!purpose) {
@@ -279,6 +276,7 @@ export async function gatherChanakyaCreditProposalContext(
     documentsWithBinary: documentIntelligence.documentsWithBinary,
     documentsWithReadableText: documentIntelligence.documentsWithReadableText,
     documentsRequiringOcr: documentIntelligence.documentsRequiringOcr,
+    documentsOcrFailed: documentIntelligence.documentsOcrFailed,
     documentsRequiringVision: documentIntelligence.documentsRequiringVision,
     structuredFactsCount: documentIntelligence.structuredFacts.length,
     crossDocumentComparisonsCount:
@@ -309,8 +307,41 @@ export async function gatherChanakyaCreditProposalContext(
   };
 
   const nativeDocumentTextAvailable = readable > 0;
+
+  const organizationId = await resolvePilotOrganizationId();
+  const productLenderIntelligence = organizationId
+    ? await projectProductLenderIntelligence({
+        organizationId,
+        opportunityRow: opp,
+        stated,
+        documentsReadable: nativeDocumentTextAvailable,
+      })
+    : {
+        availability: "NOT_AVAILABLE",
+        readOnly: true,
+        summary: "Organization context unavailable for product/lender intelligence.",
+      };
+
+  const creditIntelligence: ChanakyaCreditIntelligenceContext = organizationId
+    ? await projectCreditIntelligence({
+        organizationId,
+        opportunityRef: opportunityId,
+        opportunityRow: opp,
+        stated,
+        documentPack: documentIntelligence,
+      })
+    : assembleCreditIntelligence({
+        opportunityId,
+        structuredFacts: documentIntelligence.structuredFacts,
+        crossDocumentComparisons: documentIntelligence.crossDocumentComparisons,
+        reads: documentIntelligence.reads,
+        stated,
+        limitations: ["Organization context unavailable — credit intelligence partial."],
+      });
+
   const structuredFinancialFactsAvailable =
-    documentIntelligence.structuredFacts.length > 0;
+    documentIntelligence.structuredFacts.length > 0 ||
+    creditIntelligence.financialProfile.availability !== "NOT_AVAILABLE";
 
   const intelligence: ChanakyaCreditProposalInternalIntelligence = {
     readiness,
@@ -361,5 +392,10 @@ export async function gatherChanakyaCreditProposalContext(
     evidence,
     gaps,
     intelligence,
+    productLenderIntelligence: productLenderIntelligence as unknown as Record<
+      string,
+      unknown
+    >,
+    creditIntelligence,
   };
 }

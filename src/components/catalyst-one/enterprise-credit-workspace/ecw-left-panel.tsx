@@ -11,6 +11,7 @@ import {
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
 import { getProposalButtonLabel } from "@/lib/chanakya-phase5-intelligence";
 import { CHANAKYA_EVIDENCE_VISIBILITY_LABEL } from "@/constants/chanakya-credit-proposal";
+import { CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE } from "@/constants/chanakya-credit-proposal";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -103,6 +104,9 @@ export function EcwLeftPanel({
   onSectionChange,
   stated,
   onStatedChange,
+  loanPurpose,
+  onLoanPurposeChange,
+  showLoanPurpose,
   documents,
   evidenceReadiness,
   internalRecommendations,
@@ -118,6 +122,9 @@ export function EcwLeftPanel({
   onSectionChange: (id: EcwLeftSectionId) => void;
   stated: EcwStatedInformationDraft;
   onStatedChange: (patch: Partial<EcwStatedInformationDraft>) => void;
+  loanPurpose: string;
+  onLoanPurposeChange: (value: string) => void;
+  showLoanPurpose: boolean;
   documents: LoanFileDocument[];
   evidenceReadiness: ChanakyaProposalEvidenceReadiness;
   internalRecommendations: ChanakyaInternalStrengtheningRecommendation[];
@@ -172,15 +179,36 @@ export function EcwLeftPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-2">
           {section === "customer_snapshot" && (
-            <div className="space-y-1.5 text-[11px]">
+            <div className="space-y-3 text-[11px]">
               <p className="text-[10px] text-muted-foreground">
-                Identity lives in the workspace header. Below are verification-only facts.
+                Identity lives in the workspace header. Capture Opportunity Registry facts below.
               </p>
+              {showLoanPurpose ? (
+                <Field label="Loan Purpose (Opportunity Registry)">
+                  <Input
+                    className="h-8 text-xs"
+                    value={loanPurpose}
+                    onChange={(e) => onLoanPurposeChange(e.target.value)}
+                    placeholder="Business purpose of the facility"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Saved to Opportunity.lendingExtension.loanPurpose — not inferred from documents.
+                  </p>
+                </Field>
+              ) : (
+                <p className="rounded-md border border-border/60 bg-muted/10 px-2 py-1.5 text-[10px] text-muted-foreground">
+                  Loan purpose capture applies to business-loan products only.
+                </p>
+              )}
               <dl className="divide-y divide-border/50 rounded-md border border-border/60 bg-muted/10">
                 {(
                   [
                     ["Employment", file.employmentType || "—"],
                     ["City", file.city || "—"],
+                    [
+                      "Loan purpose (read)",
+                      loanPurpose.trim() || CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE,
+                    ],
                     ["File number", file.fileNumber || "—"],
                     ["Priority", file.priority || "—"],
                   ] as const

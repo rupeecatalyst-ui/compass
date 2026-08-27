@@ -1,7 +1,6 @@
 /**
- * CO-CHANAKYA-CREDIT-WORKBENCH-004 — Compose lender-facing draft from evidence only.
- * Never invents FOIR/DSCR/LTV or document-extracted financial values.
- * Never includes internal Proposal Readiness or upload recommendations.
+ * CO-CHANAKYA-CREDIT-WORKBENCH-004 / CO-CHANAKYA-CREDIT-INTELLIGENCE-016
+ * Compose lender-facing draft from evidence only.
  */
 
 import { randomUUID } from "node:crypto";
@@ -9,9 +8,14 @@ import {
   CHANAKYA_CREDIT_PROPOSAL_NO_EXTRACTION_NOTICE,
   CHANAKYA_CREDIT_PROPOSAL_SECTIONS,
   CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE,
+  CHANAKYA_LENDER_PROPOSAL_NOT_AVAILABLE,
 } from "@/constants/chanakya-credit-proposal";
 import { formatINR } from "@/lib/format-currency";
 import type { ChanakyaCreditProposalContextPack } from "./gather-context";
+import {
+  buildLenderProposalIntelligence,
+  shouldUseLenderProposalIntelligence,
+} from "./lender-proposal-intelligence-core";
 import type {
   ChanakyaCreditProposalDraft,
   ChanakyaCreditProposalEvidenceSource,
@@ -40,7 +44,7 @@ function looksLikeUploadAsk(text: string): boolean {
   );
 }
 
-export function composeChanakyaCreditProposalDraft(
+function composeLegacyChanakyaCreditProposalDraft(
   ctx: ChanakyaCreditProposalContextPack,
 ): ChanakyaCreditProposalDraft {
   const amountLabel =
@@ -151,7 +155,7 @@ export function composeChanakyaCreditProposalDraft(
       ["transaction", "credit_workbench", "documents", "lender_product", "rm_note", "chanakya_inference"],
     ),
     section(
-      "borrower_overview",
+      "borrower_profile",
       [
         line("Primary borrower / contact", ctx.borrowerName),
         line("Company", ctx.companyName),
@@ -192,7 +196,7 @@ export function composeChanakyaCreditProposalDraft(
       ["credit_workbench", "transaction", "rm_note"],
     ),
     section(
-      "stated_financial",
+      "financial_analysis",
       [
         hasFinancialStated
           ? `The following values are **stated verification inputs** from Credit Workbench (SOURCE: credit_workbench). They are not EDIE-extracted financial statement facts.`
@@ -210,7 +214,7 @@ export function composeChanakyaCreditProposalDraft(
       hasFinancialStated || Boolean(ctx.stated.notes?.trim()),
     ),
     section(
-      "document_readiness",
+      "evidence_notes",
       [
         `Document inventory reflects presence, status, and honest content-reading outcomes.`,
         ``,
@@ -251,7 +255,7 @@ export function composeChanakyaCreditProposalDraft(
       hasPropertyContext,
     ),
     section(
-      "credit_observations",
+      "credit_context",
       [
         `- On the basis of the available evidence, Opportunity identity and product/amount framing are available from Catalyst One.`,
         `- Credit Workbench stated financial fields: ${
@@ -259,17 +263,17 @@ export function composeChanakyaCreditProposalDraft(
         }.`,
         `- Documents on record: ${ctx.documents.length}; verification stamps: ${verifiedCount}.`,
         `- Calculated credit ratios (FOIR / DSCR / LTV / banking): **not available** — engine SSOT pending.`,
-        `- CHANAKYA does not assert underwriting eligibility or guaranteed approval in this draft.`,
+        `- CHANAKYA does not assert underwriting outcomes or approval decisions in this draft.`,
       ].join("\n"),
       ["transaction", "credit_workbench", "documents", "chanakya_inference"],
     ),
     section(
-      "strengths",
+      "key_positives",
       strengths.map((s) => `- ${s}`).join("\n"),
       ["chanakya_inference", "transaction", "credit_workbench", "documents", "rm_note"],
     ),
     section(
-      "key_considerations",
+      "key_concerns",
       considerations.map((c) => `- ${c}`).join("\n"),
       ["chanakya_inference", "documents", "edie_facts"],
     ),
@@ -320,3 +324,41 @@ export function composeChanakyaCreditProposalDraft(
     generatedAt: new Date().toISOString(),
   };
 }
+
+export function composeChanakyaCreditProposalDraft(
+  ctx: ChanakyaCreditProposalContextPack,
+): ChanakyaCreditProposalDraft {
+  if (!shouldUseLenderProposalIntelligence(ctx)) {
+    return composeLegacyChanakyaCreditProposalDraft(ctx);
+  }
+
+  const intelligence = buildLenderProposalIntelligence(ctx);
+  const sections: ChanakyaCreditProposalSection[] = intelligence.sections.map((s) =>
+    section(s.id, s.body, s.evidenceSources, s.included),
+  );
+
+  const included = sections.filter((s) => s.included);
+  const fullText = included.map((s) => `## ${s.title}\n\n${s.body}`).join("\n\n");
+
+  const lenderGaps = intelligence.lenderLimitations.filter((g) => !looksLikeUploadAsk(g));
+
+  return {
+    draftId: `ccp_${randomUUID().replace(/-/g, "").slice(0, 16)}`,
+    opportunityId: ctx.opportunityId,
+    opportunityNumber: ctx.opportunityNumber,
+    productName: ctx.productName,
+    loanAmount: ctx.loanAmount,
+    status: "draft",
+    emailOutboundOwner: "catalyst_one",
+    readOnly: true,
+    autoSendForbidden: true,
+    sections: included,
+    fullText,
+    evidence: ctx.evidence,
+    gaps: lenderGaps.length ? lenderGaps : [CHANAKYA_LENDER_PROPOSAL_NOT_AVAILABLE],
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+/** Pre-016 compose path — verify / comparison only. */
+export { composeLegacyChanakyaCreditProposalDraft };

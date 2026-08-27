@@ -125,6 +125,8 @@
     "verify:co-chatgpt-oauth-001": "node --import tsx scripts/co-chatgpt-oauth-001-verify.mjs",
     "verify:co-chatgpt-oauth-001-post-deploy": "node --env-file=.env.local --import tsx scripts/co-chatgpt-oauth-001-post-deploy.mjs",
     "verify:co-chatgpt-gpt-action-001": "node --import tsx scripts/co-chatgpt-gpt-action-001-verify.mjs",
+    "verify:co-chanakya-030-integrated-cert-prep": "node --env-file=.env.local --env-file=compass/.env.local --import ./scripts/_bat-stub-server-only.mjs --import tsx scripts/co-chanakya-030-integrated-certification-prep.mjs",
+    "verify:co-chanakya-enterprise-read-context-002": "node --import tsx scripts/co-chanakya-enterprise-read-context-002-verify.mjs",
     "verify:co-chanakya-credit-proposal-002": "node scripts/co-chanakya-credit-proposal-002-verify.mjs",
     "verify:co-chanakya-credit-workbench-004": "node scripts/co-chanakya-credit-workbench-004-verify.mjs",
     "verify:co-chanakya-credit-intelligence-005": "node scripts/co-chanakya-credit-intelligence-005-verify.mjs",

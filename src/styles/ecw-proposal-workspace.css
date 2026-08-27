@@ -1,0 +1,82 @@
+/**
+ * CO-CHANAKYA-028 — Proposal workspace print + layout helpers.
+ * Scoped to Credit Workbench proposal — no global shell / sidebar changes.
+ */
+
+.ecw-proposal-print-root {
+  overflow-x: hidden;
+  word-break: break-word;
+}
+
+.ecw-proposal-print-root table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: auto;
+}
+
+@media print {
+  body.ecw-proposal-print-active * {
+    visibility: hidden;
+  }
+
+  body.ecw-proposal-print-active [data-print-exclude="true"],
+  body.ecw-proposal-print-active [data-print-exclude="true"] * {
+    visibility: hidden !important;
+    display: none !important;
+  }
+
+  body.ecw-proposal-print-active .ecw-proposal-print-root,
+  body.ecw-proposal-print-active .ecw-proposal-print-root * {
+    visibility: visible;
+  }
+
+  body.ecw-proposal-print-active .ecw-proposal-print-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    max-width: none !important;
+    margin: 0 auto;
+    padding: 0.75in 0.65in;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: #111 !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+  }
+
+  body.ecw-proposal-print-active .ecw-proposal-print-root h1,
+  body.ecw-proposal-print-active .ecw-proposal-print-root h2,
+  body.ecw-proposal-print-active .ecw-proposal-print-root h3,
+  body.ecw-proposal-print-active .ecw-proposal-print-root p,
+  body.ecw-proposal-print-active .ecw-proposal-print-root li,
+  body.ecw-proposal-print-active .ecw-proposal-print-root td,
+  body.ecw-proposal-print-active .ecw-proposal-print-root th {
+    color: #111 !important;
+  }
+
+  body.ecw-proposal-print-active .ecw-proposal-section {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  body.ecw-proposal-print-active .ecw-proposal-section + .ecw-proposal-section {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  body.ecw-proposal-print-active .ecw-proposal-print-root h2 {
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  body.ecw-proposal-print-active .ecw-proposal-print-root table {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  body.ecw-proposal-print-active .ecw-proposal-print-root tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

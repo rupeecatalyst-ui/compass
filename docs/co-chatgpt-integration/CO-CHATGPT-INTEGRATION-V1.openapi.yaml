@@ -78,7 +78,7 @@ paths:
   /api/integrations/chatgpt/v1/oauth/token:
     post:
       tags: [ChatGPT Integration V1]
-      summary: OAuth token endpoint (authorization_code grant)
+      summary: OAuth token endpoint (authorization_code + refresh_token)
       operationId: chatgptOAuthToken
       security: []
       requestBody:
@@ -89,17 +89,15 @@ paths:
               type: object
               required:
                 - grant_type
-                - code
-                - redirect_uri
                 - client_id
                 - client_secret
-                - code_verifier
               properties:
                 grant_type:
                   type: string
-                  enum: [authorization_code]
+                  enum: [authorization_code, refresh_token]
                 code:
                   type: string
+                  description: Required for authorization_code
                 redirect_uri:
                   type: string
                   format: uri
@@ -109,9 +107,13 @@ paths:
                   type: string
                 code_verifier:
                   type: string
+                  description: Required for authorization_code when PKCE was used
+                refresh_token:
+                  type: string
+                  description: Required for refresh_token grant
       responses:
         "200":
-          description: Integration access token (short-lived)
+          description: Integration access token (+ refresh token)
           content:
             application/json:
               schema:
@@ -252,6 +254,63 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "429":
           $ref: "#/components/responses/RateLimited"
+  /api/integrations/chatgpt/v1/enterprise-read:
+    get:
+      tags: [ChatGPT Integration V1]
+      summary: CHANAKYA enterprise read context (Opportunity/Deal 360 / attention)
+      description: |
+        CO-CHANAKYA-ENTERPRISE-READ-CONTEXT-002 — read-only targeted context compile.
+        Customer mobile/email are omitted before response. No mutation verbs.
+        Query: mode, opportunityId|opportunityRef, dealId|dealRef, domains, limit, includeDocumentExcerpts.
+      operationId: chatgptEnterpriseRead
+      parameters:
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [summary, opportunity, domain, enterprise, transaction]
+        - name: opportunityId
+          in: query
+          schema:
+            type: string
+        - name: opportunityRef
+          in: query
+          schema:
+            type: string
+        - name: dealId
+          in: query
+          schema:
+            type: string
+        - name: dealRef
+          in: query
+          schema:
+            type: string
+        - name: domains
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: includeDocumentExcerpts
+          in: query
+          schema:
+            type: string
+            enum: ["1"]
+      responses:
+        "200":
+          description: Enterprise read context DTO (privacy-safe)
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 components:
   securitySchemes:
     ChatGptIntegrationApiKey:
@@ -346,7 +405,7 @@ components:
           enum: [v1]
     OAuthTokenResponse:
       type: object
-      required: [access_token, token_type, expires_in, scope]
+      required: [access_token, token_type, expires_in, scope, refresh_token]
       properties:
         access_token:
           type: string
@@ -356,10 +415,16 @@ components:
           enum: [Bearer]
         expires_in:
           type: integer
-          description: Seconds until expiry (default 1800)
+          description: Seconds until access token expiry (default 1800)
         scope:
           type: string
           description: Space-delimited granted scopes
+        refresh_token:
+          type: string
+          description: Opaque refresh credential (server-hashed; rotate on use)
+        refresh_token_expires_in:
+          type: integer
+          description: Seconds until refresh token expiry
     ApiSuccessHealth:
       type: object
       required: [success, data]

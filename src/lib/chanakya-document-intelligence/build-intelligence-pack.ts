@@ -8,9 +8,12 @@ import "server-only";
 import {
   CHANAKYA_DOC_BINARY_ABSENT_OVERSIZE_NOTE,
   CHANAKYA_DOC_DURABLE_BINARY_MAX_BYTES,
+  CHANAKYA_DOC_READ_NOT_AVAILABLE,
   CHANAKYA_DOC_TEXT_EXCERPT_BUDGET_CHARS,
   CHANAKYA_DOCUMENT_INTELLIGENCE_CAPABILITY_NOTE,
   CHANAKYA_DOCUMENT_VISION_PROVIDER_NOTE,
+  CHANAKYA_OCR_FAILED,
+  CHANAKYA_OCR_PROVIDER_NOT_CONFIGURED,
 } from "@/constants/chanakya-document-intelligence";
 import type {
   ChanakyaContentClassification,
@@ -19,12 +22,15 @@ import type {
   ChanakyaDocumentIntelligencePack,
   ChanakyaDocumentProvenance,
   ChanakyaDocumentReadingStatus,
+  ChanakyaOcrExtractorPort,
 } from "@/types/chanakya-document-intelligence";
 import { classifyDocumentContent } from "./classify-content";
+import { classifyCreditOcrDocument } from "./classify-credit-ocr-priority";
 import {
   classifyReadingStrategy,
   hintDocumentFamily,
 } from "./classify-reading-strategy";
+import { assessOcrExtractQuality } from "./assess-ocr-quality";
 import { buildCrossDocumentComparisons } from "./cross-document";
 import {
   getCachedDocumentExtraction,
@@ -34,9 +40,14 @@ import {
 import { extractNativeTextFromBytes } from "./extract-native-text";
 import { extractPdfTextFromBytes } from "./extract-pdf-text";
 import { getChanakyaOcrExtractorPort, getChanakyaTableExtractorPort } from "./ports";
-import { retrieveAuthorizedOpportunityDocuments } from "./retrieve-authorized";
+import {
+  retrieveAuthorizedOpportunityDocuments,
+  type AuthorizedDocumentBinary,
+} from "./retrieve-authorized";
 import { isDocumentVisionConfigured } from "./vision-config";
 import { ensureChanakyaDocumentIntelligencePortsWired } from "./wire-default-ports";
+import { isDeterministicMockOcrPort } from "./mock-ocr-port";
+import { stampOcrProvenanceOnFacts } from "./ocr-integration-core";
 
 function provenanceBase(input: {
   documentId: string;
@@ -67,15 +78,35 @@ function isReadableStatus(status: ChanakyaDocumentReadingStatus): boolean {
   return status === "content_read" || status === "content_read_partial";
 }
 
+function shouldAttemptOcrProviderChain(
+  ocrConfigured: boolean,
+  ocrPort: ChanakyaOcrExtractorPort | null,
+): boolean {
+  if (!ocrPort) return false;
+  if (ocrConfigured) return true;
+  return isDeterministicMockOcrPort(ocrPort);
+}
+
+function ocrCapabilityActive(
+  ocrConfigured: boolean,
+  ocrPort: ChanakyaOcrExtractorPort | null,
+): boolean {
+  return shouldAttemptOcrProviderChain(ocrConfigured, ocrPort);
+}
+
 export async function buildChanakyaDocumentIntelligencePack(input: {
   opportunityId: string;
+  /** Verification-only — inject authorized docs without Postgres retrieval. */
+  verificationDocuments?: AuthorizedDocumentBinary[];
 }): Promise<ChanakyaDocumentIntelligencePack> {
   const wire = ensureChanakyaDocumentIntelligencePortsWired();
   const opportunityId = String(input.opportunityId || "").trim();
-  const docs = await retrieveAuthorizedOpportunityDocuments({
-    opportunityId,
-    includeBinary: true,
-  });
+  const docs =
+    input.verificationDocuments ??
+    (await retrieveAuthorizedOpportunityDocuments({
+      opportunityId,
+      includeBinary: true,
+    }));
 
   const reads: ChanakyaDocumentContentReadResult[] = [];
   const structuredFacts: ChanakyaDocumentExtractedFact[] = [];
@@ -83,6 +114,12 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
   let excerptBudget = CHANAKYA_DOC_TEXT_EXCERPT_BUDGET_CHARS;
   const ocrPort = getChanakyaOcrExtractorPort();
   const tablePort = getChanakyaTableExtractorPort();
+  let ocrAttempted = 0;
+  let ocrSucceeded = 0;
+  let ocrRejectedQuality = 0;
+  let ocrFailed = 0;
+  let ocrProviderNotConfigured = 0;
+  const ocrChainActive = shouldAttemptOcrProviderChain(wire.ocrConfigured, ocrPort);
 
   for (const doc of docs) {
     const familyHint = hintDocumentFamily({
@@ -185,9 +222,9 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
         } else if (extracted.quality.empty) {
           status = "ocr_required";
           method = "ocr";
-          limitation = wire.visionConfigured
-            ? "PDF produced no text layer. OCR/vision required; scanned-PDF rasterizer / Azure DI not wired for PDF binaries."
-            : "OCR/vision unavailable — provider credentials not configured. PDF has no usable text layer.";
+          limitation = wire.ocrConfigured
+            ? "PDF produced no text layer — OCR provider chain will be attempted."
+            : `${CHANAKYA_OCR_PROVIDER_NOT_CONFIGURED} — OCR credentials absent (AZURE_DOCUMENT_INTELLIGENCE_* or DOCUMENT_VISION_API_KEY / OPENAI_API_KEY). PDF has no usable text layer.`;
         } else if (!extracted.quality.usable) {
           status = "unreadable_content";
           method = "pdf_text_layer";
@@ -212,9 +249,9 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
       } else if (strategy.preferredMethod === "vision") {
         status = "vision_required";
         method = "vision";
-        limitation = wire.visionConfigured
-          ? "Attempting configured vision OCR for image…"
-          : "OCR/vision unavailable — provider credentials not configured.";
+        limitation = wire.ocrConfigured
+          ? "Image document — OCR/vision provider chain will be attempted."
+          : `${CHANAKYA_OCR_PROVIDER_NOT_CONFIGURED} — OCR/vision credentials not configured.`;
       } else {
         status = strategy.ifUnavailableStatus;
         method = "unavailable";
@@ -226,31 +263,66 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
         (status === "ocr_required" || status === "vision_required") &&
         ocrPort
       ) {
-        const ocr = await ocrPort.extract({
-          documentId: doc.documentId,
-          opportunityId,
-          mimeType: doc.mimeType,
-          bytes: doc.bytes,
-          displayName: doc.displayName,
-        });
-        if (ocr?.text?.trim()) {
-          parseText = ocr.text.trim();
-          textExcerpt =
-            excerptBudget > 0 ? ocr.text.trim().slice(0, excerptBudget) : null;
-          if (textExcerpt) excerptBudget -= textExcerpt.length;
-          method = ocr.method;
-          status = "content_read";
-          confidence = ocr.confidence;
-          limitation = `Vision/OCR provider (${ocrPort.providerId}) returned text.`;
-        } else if (status === "vision_required" && wire.visionConfigured) {
+        if (ocrChainActive) {
+          ocrAttempted += 1;
+          const ocrPriority = classifyCreditOcrDocument({
+            displayName: doc.displayName,
+            typeRef: doc.typeRef,
+            mimeType: doc.mimeType,
+          });
+
+          const ocr = await ocrPort.extract({
+            documentId: doc.documentId,
+            opportunityId,
+            mimeType: doc.mimeType,
+            bytes: doc.bytes,
+            displayName: doc.displayName,
+          });
+
+          if (ocr?.text?.trim()) {
+            const quality = assessOcrExtractQuality({
+              text: ocr.text.trim(),
+              providerConfidence: ocr.confidence,
+            });
+
+            if (!quality.accepted) {
+              ocrRejectedQuality += 1;
+              ocrFailed += 1;
+              status = "ocr_failed";
+              method = ocr.method;
+              parseText = null;
+              textExcerpt = null;
+              confidence = "none";
+              limitation = `${CHANAKYA_OCR_FAILED} — OCR output rejected by quality gate (${quality.reason}). Provider: ${ocr.providerId ?? ocrPort.providerId}.`;
+            } else {
+              ocrSucceeded += 1;
+              parseText = ocr.text.trim();
+              textExcerpt =
+                excerptBudget > 0 ? ocr.text.trim().slice(0, excerptBudget) : null;
+              if (textExcerpt) excerptBudget -= textExcerpt.length;
+              method = ocr.method;
+              status = quality.partial ? "content_read_partial" : "content_read";
+              confidence = quality.ocrConfidence;
+              pageHint = ocr.pageCount && ocr.pageCount > 0 ? 1 : null;
+              limitation = `OCR provider (${ocr.providerId ?? ocrPort.providerId}) returned quality-gated text · category=${ocrPriority.category} · priority=${ocrPriority.priority}.`;
+            }
+          } else {
+            ocrFailed += 1;
+            const wasVision = status === "vision_required";
+            status = "ocr_failed";
+            method = wasVision ? "vision" : "ocr";
+            parseText = null;
+            textExcerpt = null;
+            confidence = "none";
+            limitation = wasVision
+              ? `${CHANAKYA_OCR_FAILED} — vision provider returned no readable text for this image.`
+              : `${CHANAKYA_OCR_FAILED} — OCR provider chain returned no readable text.`;
+          }
+        } else if (status === "ocr_required" || status === "vision_required") {
+          ocrProviderNotConfigured += 1;
           limitation =
-            "Vision provider is configured but returned no readable text for this image.";
-        } else if (status === "ocr_required" && !wire.visionConfigured) {
-          limitation =
-            "OCR/vision unavailable — provider credentials not configured.";
-        } else if (status === "ocr_required") {
-          limitation =
-            "OCR required for this PDF; image-vision port cannot process PDF binaries without rasterization / Azure DI.";
+            limitation ||
+            `${CHANAKYA_OCR_PROVIDER_NOT_CONFIGURED} — OCR provider credentials not configured.`;
         }
       }
 
@@ -265,19 +337,12 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
           typeRef: doc.typeRef,
           documentVersionHint: doc.updatedAt,
         });
-        if (pageHint != null) {
-          docFacts = docFacts.map((f) => ({
-            ...f,
-            provenance: {
-              ...f.provenance,
-              page: f.provenance.page ?? pageHint,
-              extractionMethod:
-                f.provenance.extractionMethod === "table_extraction"
-                  ? "table_extraction"
-                  : method,
-            },
-          }));
-        }
+        docFacts = stampOcrProvenanceOnFacts({
+          facts: docFacts,
+          extractionMethod: method,
+          confidence,
+          pageHint,
+        });
       }
 
       setCachedDocumentExtraction({
@@ -344,6 +409,7 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
     isReadableStatus(r.status),
   ).length;
   const documentsRequiringOcr = reads.filter((r) => r.status === "ocr_required").length;
+  const documentsOcrFailed = reads.filter((r) => r.status === "ocr_failed").length;
   const documentsRequiringVision = reads.filter(
     (r) => r.status === "vision_required",
   ).length;
@@ -353,14 +419,24 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
     CHANAKYA_DOCUMENT_VISION_PROVIDER_NOTE,
     "Document content is never written to application logs by this pack builder.",
   ];
-  if (!wire.visionConfigured) {
+  if (!wire.ocrConfigured && !isDeterministicMockOcrPort(ocrPort)) {
     limitations.push(
-      "DOCUMENT_VISION_API_KEY / OPENAI_API_KEY absent — image vision OCR inactive.",
+      `${CHANAKYA_OCR_PROVIDER_NOT_CONFIGURED} — AZURE_DOCUMENT_INTELLIGENCE_* or DOCUMENT_VISION_API_KEY / OPENAI_API_KEY absent.`,
+    );
+  }
+  if (ocrRejectedQuality > 0) {
+    limitations.push(
+      `${ocrRejectedQuality} document(s) returned OCR text that failed the quality gate — not promoted to content_read.`,
+    );
+  }
+  if (ocrFailed > 0) {
+    limitations.push(
+      `${ocrFailed} document(s) ended in ${CHANAKYA_OCR_FAILED} — provider attempted but no quality-gated readable text.`,
     );
   }
   if (documentsWithReadableText === 0 && docs.length > 0) {
     limitations.push(
-      "No document yielded quality-gated readable text in this run (binaries missing, scanned PDFs, unreadable_content, or unsupported types).",
+      `${CHANAKYA_DOC_READ_NOT_AVAILABLE} — no document yielded quality-gated readable text in this run (binaries missing, OCR failure, or unsupported types).`,
     );
   }
 
@@ -371,8 +447,8 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
       nativeTextExtraction: true,
       pdfTextExtraction: true,
       pdfTextLayerProbe: false,
-      ocr: Boolean(ocrPort) && wire.visionConfigured,
-      vision: Boolean(ocrPort) && wire.visionConfigured,
+      ocr: ocrCapabilityActive(wire.ocrConfigured, ocrPort),
+      vision: Boolean(ocrPort) && (wire.visionConfigured || isDeterministicMockOcrPort(ocrPort)),
       tableExtraction: Boolean(tablePort),
       structuredFinancialFacts: structuredFacts.length > 0,
       crossDocumentReconciliation: crossDocumentComparisons.length > 0,
@@ -382,6 +458,7 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
     documentsWithBinary: reads.filter((r) => r.hasBinary).length,
     documentsWithReadableText,
     documentsRequiringOcr,
+    documentsOcrFailed,
     documentsRequiringVision,
     reads,
     structuredFacts,
@@ -391,8 +468,21 @@ export async function buildChanakyaDocumentIntelligencePack(input: {
       configured: isDocumentVisionConfigured(),
       providerId: ocrPort?.providerId ?? null,
       supportsImages: true,
-      supportsScannedPdfWithoutRasterizer: false,
+      supportsScannedPdfWithoutRasterizer: wire.azureDiConfigured,
       note: CHANAKYA_DOCUMENT_VISION_PROVIDER_NOTE,
+    },
+    ocrProviders: {
+      anyConfigured: wire.ocrConfigured,
+      providers: wire.ocrProviders,
+    },
+    ocrRunSummary: {
+      attempted: ocrAttempted,
+      succeeded: ocrSucceeded,
+      rejectedQuality: ocrRejectedQuality,
+      failed: ocrFailed,
+      providerNotConfigured: ocrProviderNotConfigured,
+      remainingOcrRequired: reads.filter((r) => r.status === "ocr_required").length,
+      remainingOcrFailed: documentsOcrFailed,
     },
     limitations,
   };

@@ -21,6 +21,7 @@ const CHATGPT_GPT_ACTION_SLUGS = [
   "email-status",
   "activity",
   "build",
+  "enterprise-read",
 ];
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");

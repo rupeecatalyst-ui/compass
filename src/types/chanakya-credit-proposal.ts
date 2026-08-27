@@ -17,17 +17,23 @@ export type ChanakyaCreditProposalEvidenceSource =
 
 export type ChanakyaCreditProposalSectionId =
   | "executive_summary"
-  | "borrower_overview"
-  | "loan_requirement"
+  | "borrower_profile"
   | "business_overview"
-  | "stated_financial"
-  | "document_readiness"
+  | "loan_requirement"
+  | "facility_purpose"
+  | "financial_analysis"
+  | "gst_analysis"
+  | "banking_analysis"
+  | "credit_context"
   | "property_security"
-  | "credit_observations"
-  | "strengths"
-  | "key_considerations"
+  | "product_lender_context"
+  | "key_positives"
+  | "key_concerns"
+  | "mitigants"
+  | "pending_information"
   | "proposed_structure"
-  | "recommendation";
+  | "recommendation"
+  | "evidence_notes";
 
 export type ChanakyaCreditProposalStageId =
   | "review_transaction"
@@ -108,6 +114,7 @@ export interface ChanakyaCreditProposalDocumentReadingSummary {
   documentsWithBinary: number;
   documentsWithReadableText: number;
   documentsRequiringOcr: number;
+  documentsOcrFailed: number;
   documentsRequiringVision: number;
   structuredFactsCount: number;
   crossDocumentComparisonsCount: number;

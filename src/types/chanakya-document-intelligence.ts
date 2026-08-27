@@ -24,6 +24,8 @@ export type ChanakyaDocumentReadingStatus =
   | "extraction_failed"
   | "unreadable_content"
   | "ocr_required"
+  /** Provider configured/attempted but OCR did not yield quality-gated readable text. */
+  | "ocr_failed"
   | "vision_required"
   | "table_extraction_required"
   | "no_binary"
@@ -50,7 +52,7 @@ export interface ChanakyaDocumentProvenance {
   page: number | null;
   sectionOrTable: string | null;
   extractionMethod: ChanakyaDocumentExtractionMethod;
-  confidence: "high" | "medium" | "low" | "none";
+  confidence: "high" | "medium" | "low" | "ambiguous" | "none";
 }
 
 /**
@@ -114,6 +116,8 @@ export interface ChanakyaDocumentIntelligencePack {
   documentsWithBinary: number;
   documentsWithReadableText: number;
   documentsRequiringOcr: number;
+  /** Documents where OCR was attempted but failed quality gate or provider returned nothing. */
+  documentsOcrFailed: number;
   documentsRequiringVision: number;
   reads: ChanakyaDocumentContentReadResult[];
   /** Empty until structured extractors produce real facts — never fabricated. */
@@ -128,6 +132,26 @@ export interface ChanakyaDocumentIntelligencePack {
     supportsImages: boolean;
     supportsScannedPdfWithoutRasterizer: boolean;
     note: string;
+  };
+  /** CO-CHANAKYA-CREDIT-INTELLIGENCE-014 — OCR provider chain summary. */
+  ocrProviders: {
+    anyConfigured: boolean;
+    providers: Array<{
+      providerId: string;
+      configured: boolean;
+      supportsPdf: boolean;
+      supportsImages: boolean;
+    }>;
+  };
+  /** OCR attempt counters for this pack run (never includes raw binaries). */
+  ocrRunSummary: {
+    attempted: number;
+    succeeded: number;
+    rejectedQuality: number;
+    failed: number;
+    providerNotConfigured: number;
+    remainingOcrRequired: number;
+    remainingOcrFailed: number;
   };
   limitations: string[];
 }
@@ -163,6 +187,21 @@ export type ChanakyaCrossDocumentComparisonStatus =
   | "inconsistent"
   | "unavailable";
 
+/** CO-CHANAKYA-CREDIT-INTELLIGENCE-013 / 023 — bank document availability states. */
+export type ChanakyaBankDocumentAvailabilityState =
+  | "metadata_only"
+  /** STORAGE-009 storageKey present but durable binary could not be retrieved. */
+  | "binary_unavailable"
+  | "inline_binary"
+  | "object_store_binary"
+  | "readable"
+  | "unreadable"
+  | "ocr_required"
+  | "not_available";
+
+/** CO-023 — evidence tier for bank statements (presence ≠ intelligence). */
+export type ChanakyaBankEvidenceTier = "PRESENT" | "READABLE" | "FINANCIALLY_USEFUL";
+
 export interface ChanakyaCrossDocumentComparison {
   id: string;
   leftFactId: string;
@@ -186,6 +225,8 @@ export interface ChanakyaOcrExtractorPort {
     confidence: "high" | "medium" | "low";
     pageCount?: number;
     method: "ocr" | "vision";
+    /** Which provider produced this result (composite chain). */
+    providerId?: string;
   } | null>;
 }
 

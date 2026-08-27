@@ -38,6 +38,15 @@ import {
   resolveStatedDraftForFile,
   saveStatedDraft,
 } from "@/lib/lead-opportunity-journey/stated-draft";
+import {
+  enterpriseOpportunityApiClient,
+  type EnterpriseOpportunityApiRecord,
+} from "@/lib/enterprise-opportunity/opportunity-api-client";
+import {
+  isLoanPurposeCaptureVisible,
+  mergeLoanPurposeIntoLendingExtension,
+  resolveOpportunityLoanPurpose,
+} from "@/lib/enterprise-opportunity/resolve-loan-purpose";
 import { EcwLeftPanel, EcwSectionTabs } from "./ecw-left-panel";
 import { EcwDocumentCategories } from "./ecw-document-categories";
 import { EcwDocumentPreviewDrawer } from "./ecw-document-preview-drawer";
@@ -68,6 +77,9 @@ export function EnterpriseCreditWorkspace() {
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<EcwLeftSectionId>("stated_financial");
   const [stated, setStated] = useState<EcwStatedInformationDraft>({});
+  const [loanPurpose, setLoanPurpose] = useState("");
+  const [opportunityRecord, setOpportunityRecord] =
+    useState<EnterpriseOpportunityApiRecord | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
@@ -100,6 +112,50 @@ export function EnterpriseCreditWorkspace() {
       cancelled = true;
     };
   }, [fileParam, opportunityId, searchParams]);
+
+  const resolvedOpportunityId = useMemo(
+    () =>
+      (
+        opportunityId ||
+        file?.enterpriseOpportunityId ||
+        (file as { opportunityId?: string } | null)?.opportunityId ||
+        ""
+      ).trim(),
+    [file, opportunityId],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!resolvedOpportunityId) {
+      setOpportunityRecord(null);
+      setLoanPurpose("");
+      return;
+    }
+    void enterpriseOpportunityApiClient
+      .getOpportunity(resolvedOpportunityId)
+      .then((row) => {
+        if (cancelled) return;
+        setOpportunityRecord(row);
+        setLoanPurpose(resolveOpportunityLoanPurpose(row as Record<string, unknown>) ?? "");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOpportunityRecord(null);
+        setLoanPurpose("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedOpportunityId]);
+
+  const showLoanPurpose = useMemo(
+    () =>
+      isLoanPurposeCaptureVisible(
+        opportunityRecord?.productCode ?? file?.loanProduct,
+        opportunityRecord?.productLabel ?? file?.loanProduct,
+      ),
+    [file?.loanProduct, opportunityRecord?.productCode, opportunityRecord?.productLabel],
+  );
 
   useEffect(() => {
     if (dashboardEntry || hasUrlContext || file) return;
@@ -156,6 +212,7 @@ export function EnterpriseCreditWorkspace() {
       employmentType: file.employmentType,
       city: file.city,
       companyName: file.customerName,
+      purpose: loanPurpose.trim() || null,
       stated: {
         statedIncomeMonthly: stated.statedIncomeMonthly,
         statedTurnover: stated.statedTurnover,
@@ -167,7 +224,7 @@ export function EnterpriseCreditWorkspace() {
       documents: documentPresenceHints,
       lenderName: lender.lenderName,
     });
-  }, [documentPresenceHints, file, lender.lenderName, stated]);
+  }, [documentPresenceHints, file, lender.lenderName, loanPurpose, stated]);
 
   const internalRecommendations = useMemo(
     () =>
@@ -226,12 +283,6 @@ export function EnterpriseCreditWorkspace() {
     opportunityId,
   });
 
-  const resolvedOpportunityId =
-    (opportunityId ||
-      file.enterpriseOpportunityId ||
-      (file as { opportunityId?: string }).opportunityId ||
-      "").trim();
-
   return (
     <div className="-mx-4 flex flex-col bg-background md:-mx-6 lg:-mx-8">
       <LeadOpportunityJourneyChrome
@@ -268,19 +319,34 @@ export function EnterpriseCreditWorkspace() {
         }
         onSaveDraft={async () => {
           saveStatedDraft(file.id, stated);
+          if (resolvedOpportunityId && opportunityRecord) {
+            await enterpriseOpportunityApiClient.updateOpportunity(resolvedOpportunityId, {
+              lendingExtension: mergeLoanPurposeIntoLendingExtension(
+                opportunityRecord.lendingExtension,
+                loanPurpose,
+              ),
+              rowVersion: opportunityRecord.rowVersion,
+            });
+            const refreshed =
+              await enterpriseOpportunityApiClient.getOpportunity(resolvedOpportunityId);
+            setOpportunityRecord(refreshed);
+            setLoanPurpose(
+              resolveOpportunityLoanPurpose(refreshed as Record<string, unknown>) ?? "",
+            );
+          }
           setDirty(false);
           setSavedOnce(true);
         }}
         saveSuccessMessage="Verification draft saved successfully."
       >
         <div className="flex flex-col">
-          {toast ? (
-            <div className="border-b border-teal-500/20 bg-teal-500/10 px-3 py-1 text-[11px] text-teal-950 dark:text-teal-100 sm:px-4">
+          {toast && !proposalOpen ? (
+            <div className="border-b border-teal-500/20 bg-teal-500/10 px-3 py-1 text-[11px] text-teal-950 dark:text-teal-100 sm:px-4 print:hidden">
               {toast}
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-muted/15 px-3 py-1 sm:px-4">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-muted/15 px-3 py-1 sm:px-4 print:hidden">
             <Button
               type="button"
               size="sm"
@@ -290,17 +356,19 @@ export function EnterpriseCreditWorkspace() {
               <MessageSquare className="h-3 w-3" />
               Request Pending Docs
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="h-7 gap-1 text-[11px]"
-              disabled={!lender.enabled}
-              onClick={() => setSendOpen(true)}
-            >
-              <SendHorizonal className="h-3 w-3" />
-              Send to Lender
-            </Button>
+            {!proposalOpen ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-7 gap-1 text-[11px]"
+                disabled={!lender.enabled}
+                onClick={() => setSendOpen(true)}
+              >
+                <SendHorizonal className="h-3 w-3" />
+                Send to Lender
+              </Button>
+            ) : null}
             <Button asChild size="sm" variant="outline" className="h-7 text-[11px]">
               <Link href={docCenterHref}>Open Document Center</Link>
             </Button>
@@ -314,15 +382,17 @@ export function EnterpriseCreditWorkspace() {
 
           <div
             className={cn(
-              "grid min-h-[min(70vh,720px)] grid-cols-1",
-              proposalOpen
-                ? "lg:grid-cols-[minmax(240px,32%)_minmax(0,1fr)]"
-                : previewOpen
-                  ? "lg:grid-cols-[minmax(240px,34%)_minmax(0,1fr)_minmax(280px,42%)]"
-                  : "lg:grid-cols-[minmax(260px,38%)_minmax(0,1fr)]",
+              "flex min-h-[min(78vh,860px)] min-w-0 flex-col overflow-x-hidden lg:min-h-[min(82vh,920px)] lg:flex-row",
             )}
           >
-            <div className="min-h-0 border-b border-border/50 lg:border-b-0 lg:border-r">
+            <div
+              className={cn(
+                "min-h-0 min-w-0 border-b border-border/50 lg:shrink-0 lg:border-b-0 lg:border-r",
+                proposalOpen
+                  ? "lg:w-[30%] lg:max-w-[30%] lg:flex-[0_0_30%] print:hidden"
+                  : "lg:w-[38%] lg:max-w-[42%]",
+              )}
+            >
               <EcwLeftPanel
                 file={file}
                 opportunityNumber={opportunityNumber}
@@ -334,6 +404,12 @@ export function EnterpriseCreditWorkspace() {
                   setStated((prev) => ({ ...prev, ...patch }));
                   setDirty(true);
                 }}
+                loanPurpose={loanPurpose}
+                onLoanPurposeChange={(value) => {
+                  setLoanPurpose(value);
+                  setDirty(true);
+                }}
+                showLoanPurpose={showLoanPurpose}
                 documents={file.documents ?? []}
                 evidenceReadiness={evidenceReadiness}
                 internalRecommendations={internalRecommendations}
@@ -355,20 +431,42 @@ export function EnterpriseCreditWorkspace() {
             </div>
 
             {proposalOpen ? (
-              <div className="min-h-0">
+              <div
+                className={cn(
+                  "min-h-0 min-w-0 flex-[1_1_70%] basis-full overflow-x-hidden",
+                  "lg:w-[70%] lg:max-w-[70%] lg:flex-[0_0_70%]",
+                  "print:max-w-none print:basis-full print:flex-1",
+                )}
+                data-proposal-workspace-host="true"
+                data-proposal-workspace-open="true"
+              >
                 <EcwProposalGenerationPanel
                   key={resolvedOpportunityId}
                   opportunityId={resolvedOpportunityId}
+                  opportunityNumber={opportunityNumber}
+                  borrowerName={file.customerName}
                   stated={stated}
                   rmNote={rmNote}
                   lenderName={lender.lenderName}
+                  lenderContactName={lender.contactName}
+                  lenderSendEnabled={lender.enabled}
                   documentPresence={documentPresenceHints}
                   canGenerate={Boolean(resolvedOpportunityId)}
                   onClose={() => setProposalOpen(false)}
+                  onSent={(message) => {
+                    showToast(message);
+                  }}
                 />
               </div>
             ) : (
-              <>
+              <div
+                className={cn(
+                  "grid min-h-0 min-w-0 flex-1 grid-cols-1",
+                  previewOpen
+                    ? "lg:grid-cols-[minmax(0,1fr)_minmax(280px,42%)]"
+                    : "lg:grid-cols-1",
+                )}
+              >
                 <div className="min-h-0 p-2 sm:p-3">
                   <EcwDocumentCategories
                     file={file}
@@ -389,7 +487,7 @@ export function EnterpriseCreditWorkspace() {
                     categoryLabel={previewCategory}
                   />
                 ) : null}
-              </>
+              </div>
             )}
           </div>
         </div>

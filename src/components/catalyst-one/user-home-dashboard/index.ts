@@ -1,4 +1,5 @@
 export { UserHomeDashboard } from "./user-home-dashboard";
+export { ChanakyaIntelligenceMode } from "./chanakya-intelligence-mode";
 export { NewOpportunitiesSection } from "./new-opportunities-section";
 export { NewArrivalsPulseSection } from "./new-arrivals-pulse-section";
 export { AttentionRequiredSection } from "./attention-required-section";

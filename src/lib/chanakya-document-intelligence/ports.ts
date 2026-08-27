@@ -25,3 +25,9 @@ export function getChanakyaOcrExtractorPort(): ChanakyaOcrExtractorPort | null {
 export function getChanakyaTableExtractorPort(): ChanakyaTableExtractorPort | null {
   return tablePort;
 }
+
+/** Verification-only — reset wired ports between deterministic OCR certify runs. */
+export function resetChanakyaDocumentIntelligencePortsForVerification(): void {
+  ocrPort = null;
+  tablePort = null;
+}

@@ -70,7 +70,9 @@ if (
   pack.includes("buildCrossDocumentComparisons") &&
   pack.includes("getCachedDocumentExtraction") &&
   pack.includes("extractPdfTextFromBytes") &&
-  pack.includes("supportsScannedPdfWithoutRasterizer: false")
+  pack.includes("supportsScannedPdfWithoutRasterizer") &&
+  pack.includes("assessOcrExtractQuality") &&
+  pack.includes("ocrRunSummary")
 ) {
   ok("Pack wires ports, cache, cross-doc, real PDF extraction; honest scanned-PDF limitation");
 } else fail("Pack wiring incomplete");

@@ -1,0 +1,350 @@
+{
+  "sprint": "CO-CHANAKYA-030",
+  "startedAt": "2026-08-27T05:31:46.805Z",
+  "completedAt": "2026-08-27T05:45:17.306Z",
+  "mode": "read-only-prep",
+  "hostingerFrozen": true,
+  "readiness": {
+    "CODE_READY": "NO",
+    "CONFIG_READY": "NO",
+    "DATA_READY": "YES",
+    "PRODUCTION_READY": "NO"
+  },
+  "sections": {
+    "A": {
+      "status": "PASS",
+      "detail": "7/7 canonical CHANAKYA roots present",
+      "durationMs": 0
+    },
+    "B": {
+      "status": "PASS",
+      "detail": "002 Enterprise Read Context + OAuth/read compile (003A–003E, 010 in same verify)",
+      "durationMs": 0,
+      "script": "scripts/co-chanakya-enterprise-read-context-002-verify.mjs"
+    },
+    "C": {
+      "status": "PASS",
+      "detail": "026 Transaction Executive Intelligence",
+      "durationMs": 0,
+      "script": "026 verify"
+    },
+    "D": {
+      "status": "PASS",
+      "detail": "003B Transaction Attention (within 002-READ verify)",
+      "durationMs": 0,
+      "script": "002-READ"
+    },
+    "E": {
+      "status": "PASS",
+      "detail": "003D Change Intelligence (within 002-READ verify)",
+      "durationMs": 0,
+      "script": "002-READ"
+    },
+    "F": {
+      "status": "PASS",
+      "detail": "003C Accounting/Commercial (within 002-READ verify)",
+      "durationMs": 0,
+      "script": "002-READ"
+    },
+    "G": {
+      "status": "PASS",
+      "detail": "003E + 025 Product/Lender Matrix depth",
+      "durationMs": 0,
+      "script": "025-PLM + 002-READ"
+    },
+    "H": {
+      "status": "PASS",
+      "detail": "010 Credit Intelligence pipeline (002 verify + 011 E2E + 015 synthesis)",
+      "durationMs": 0,
+      "script": "011 + 015 + 002"
+    },
+    "I": {
+      "status": "PASS",
+      "detail": "—",
+      "durationMs": 0,
+      "script": "scripts/co-chanakya-021-financial-fact-quality-verify.mjs"
+    },
+    "J": {
+      "status": "PASS",
+      "detail": "—",
+      "durationMs": 0,
+      "script": "scripts/co-chanakya-022-gst-intelligence-verify.mjs"
+    },
+    "K": {
+      "status": "PASS",
+      "detail": "—",
+      "durationMs": 0,
+      "script": "scripts/co-chanakya-023-banking-intelligence-verify.mjs"
+    },
+    "L": {
+      "status": "PASS",
+      "detail": "—",
+      "durationMs": 0,
+      "script": "scripts/co-chanakya-024-ocr-integration-readiness-verify.mjs"
+    },
+    "M": {
+      "status": "PASS",
+      "detail": "027 Proposal V3 + 016 proposal intelligence",
+      "durationMs": 0,
+      "script": "027 + 016"
+    },
+    "N": {
+      "status": "PASS",
+      "detail": "—",
+      "durationMs": 0,
+      "script": "scripts/co-chanakya-028-proposal-workspace-final-ux-verify.mjs"
+    },
+    "O": {
+      "status": "PASS",
+      "detail": "029 safety audit (PII static/runtime)",
+      "durationMs": 0,
+      "script": "029-SAFETY"
+    },
+    "P": {
+      "status": "PASS",
+      "detail": "020 Avon separation + 029 SEPARATION-STATIC",
+      "durationMs": 0,
+      "script": "020 + 029"
+    },
+    "Q": {
+      "status": "PASS",
+      "detail": "CO-PRODUCTION-REGRESSION-014 static framework",
+      "durationMs": 0,
+      "script": "014-STATIC"
+    },
+    "R": {
+      "status": "FAIL",
+      "detail": "production build FAIL (see log)",
+      "durationMs": 0,
+      "script": "npm run build"
+    },
+    "S": {
+      "status": "DOCUMENTED",
+      "detail": "Avon classification: READY_WITH_LIMITATIONS",
+      "durationMs": 0
+    },
+    "T": {
+      "status": "BLOCKED",
+      "detail": "TypeScript errors in CHANAKYA paths: src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts, src/lib/chanakya-enterprise-read-context/product-lender-intelligence-core.ts, src/lib/chanakya-enterprise-read-context/transaction-executive-snapshot.ts · Production build did not pass · OCR provider not configured in environment · 8 Avon bank statement(s) metadata-only (binary not inline) · 4 Avon document(s) require OCR; provider not configured · Avon BAT classification: READY_WITH_LIMITATIONS (not PRODUCTION_READY) · CO-CHANAKYA-RELEASE-FREEZE-015 — Hostinger deploy FROZEN until PO FINAL CUTOVER · Explicit Product Owner PRODUCTION_READY acceptance required (CO-QA-001)",
+      "durationMs": 0
+    }
+  },
+  "suiteRuns": [
+    {
+      "id": "002-READ",
+      "script": "scripts/co-chanakya-enterprise-read-context-002-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 1013
+    },
+    {
+      "id": "011-E2E",
+      "script": "scripts/co-chanakya-credit-intelligence-011-e2e.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 8364
+    },
+    {
+      "id": "015-SYNTH",
+      "script": "scripts/co-chanakya-credit-intelligence-015-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 1410
+    },
+    {
+      "id": "016-PROPOSAL",
+      "script": "scripts/co-chanakya-credit-intelligence-016-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 1610
+    },
+    {
+      "id": "020-AVON",
+      "script": "scripts/co-chanakya-certification-018.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 77804
+    },
+    {
+      "id": "021-FIN",
+      "script": "scripts/co-chanakya-021-financial-fact-quality-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 98435
+    },
+    {
+      "id": "022-GST",
+      "script": "scripts/co-chanakya-022-gst-intelligence-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 14357
+    },
+    {
+      "id": "023-BANK",
+      "script": "scripts/co-chanakya-023-banking-intelligence-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 1460
+    },
+    {
+      "id": "024-OCR",
+      "script": "scripts/co-chanakya-024-ocr-integration-readiness-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 1673
+    },
+    {
+      "id": "025-PLM",
+      "script": "scripts/co-chanakya-025-product-lender-matrix-depth-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 3917
+    },
+    {
+      "id": "026-EXEC",
+      "script": "scripts/co-chanakya-026-transaction-executive-intelligence-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 4147
+    },
+    {
+      "id": "027-PROP-V3",
+      "script": "scripts/co-chanakya-027-lender-proposal-quality-v3-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 12073
+    },
+    {
+      "id": "028-WS",
+      "script": "scripts/co-chanakya-028-proposal-workspace-final-ux-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 36626
+    },
+    {
+      "id": "029-SAFETY",
+      "script": "scripts/co-chanakya-029-final-safety-evidence-audit.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 267272
+    },
+    {
+      "id": "014-STATIC",
+      "script": "scripts/co-production-regression-014-verify.mjs",
+      "status": "PASS",
+      "detail": "",
+      "durationMs": 151
+    }
+  ],
+  "avon": {
+    "status": "CAPTURED",
+    "classification": "READY_WITH_LIMITATIONS",
+    "documentCoverage": {
+      "totalDocuments": 67,
+      "withBinary": 55,
+      "contentRead": 34,
+      "ocrRequired": 4,
+      "metadataOnlyBankStatements": 8,
+      "structuredFacts": 189,
+      "ocrProvider": "PROVIDER_NOT_CONFIGURED"
+    },
+    "capabilityMatrix": {
+      "opportunity": "PASS",
+      "enterpriseDocuments": "PASS",
+      "documentRetrieval": "PASS",
+      "pdfExtraction": "PASS",
+      "ocr": "LIMITED — provider not configured (expected on cert env)",
+      "structuredFacts": "PASS",
+      "financialIntelligence": "PASS",
+      "gstIntelligence": "PASS",
+      "bankingIntelligence": "LIMITED (honest)",
+      "reconciliation": "PARTIAL",
+      "creditSynthesis": "PASS",
+      "productLenderIntelligence": "PASS",
+      "proposalIntelligence": "PASS",
+      "lenderProposalWorkspace": "PASS (UI contract via 017 verify)",
+      "attentionIntelligence": "PASS (003B verify chain)",
+      "changeIntelligence": "PASS (003D verify chain)",
+      "commercialIntelligence": "PARTIAL — not in offline Avon BAT compose"
+    },
+    "blockers": [],
+    "cutoverPrerequisites": [
+      "Explicit Product Owner FINAL CUTOVER approval (CO-CHANAKYA-RELEASE-FREEZE-015)",
+      "Configure Azure Document Intelligence OCR credentials in production",
+      "Resolve metadata-only bank statement binary retrieval (object store inline policy)",
+      "Re-run CO-018 certification after OCR + banking path PASS on Avon",
+      "Capture loan purpose on Opportunity where missing",
+      "Deploy certified clean Git SHA to Hostinger only after PO approval",
+      "Post-deploy: prisma migrate deploy (if pending) on approved maintenance window",
+      "Live MAKE PROPOSAL UI BAT on Credit Workbench with proposal workspace",
+      "CO-PRODUCTION-REGRESSION-014 shell smoke PASS on deployed SHA"
+    ],
+    "proposalSections": {
+      "executive_summary": true,
+      "borrower": true,
+      "business": true,
+      "facility": true,
+      "financial": true,
+      "gstMentioned": true,
+      "bankingLimitationHonest": true,
+      "property": true,
+      "positives": true,
+      "concerns": true,
+      "mitigants": true,
+      "recommendation": true,
+      "financialYears": [
+        "FY2022-23",
+        "FY2023-24"
+      ]
+    }
+  },
+  "build": {
+    "tsc": {
+      "status": "FAIL",
+      "durationMs": 21317,
+      "errorCount": 13,
+      "chanakyaErrorFiles": [
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts",
+        "src/lib/chanakya-enterprise-read-context/product-lender-intelligence-core.ts",
+        "src/lib/chanakya-enterprise-read-context/transaction-executive-snapshot.ts"
+      ],
+      "accountingWipFiles": [],
+      "otherErrorFiles": [],
+      "sampleErrors": [
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(60,3): error TS2322: Type 'string[]' is not assignable to type 'string'.\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(131,5): error TS2561: Object literal may only specify known properties, but 'limitation' does not exist in type 'ChanakyaCreditFinancialFactQuality'. Did you mean to write 'limitations'?\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(133,3): error TS2739: Type '{ availability: \"NOT_AVAILABLE\"; metrics: never[]; }' is missing the following properties from type 'ChanakyaCreditFinancialTrends': chartData, interpretations\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(136,5): error TS2322: Type '\"NOT_AVAILABLE\"' is not assignable to type 'ChanakyaBankEvidenceTier'.\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(162,62): error TS2353: Object literal may only specify known properties, and 'limitation' does not exist in type 'ChanakyaCreditGstAnalysis'.\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(163,54): error TS2353: Object literal may only specify known properties, and 'observations' does not exist in type 'ChanakyaCreditBusinessAnalysis'.\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(165,54): error TS2353: Object literal may only specify known properties, and 'observations' does not exist in type 'ChanakyaCreditPropertyAnalysis'.\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(166,54): error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'ChanakyaCreditExternalResearch'.\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(167,52): error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'ChanakyaCreditReconciliation'.\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(168,50): error TS2353: Object literal may only specify known properties, and 'ratios' does not exist in type 'ChanakyaCreditRatios'.\r",
+        "src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts(183,7): error TS2353: Object literal may only specify known properties, and 'availability' does not exist in type 'ChanakyaCreditAssessmentSection'.\r",
+        "src/lib/chanakya-enterprise-read-context/product-lender-intelligence-core.ts(192,5): error TS2304: Cannot find name 'ChanakyaProgramFitExplanation'.\r",
+        "src/lib/chanakya-enterprise-read-context/transaction-executive-snapshot.ts(122,77): error TS2339: Property 'latestOccurredAt' does not exist on type '{}'.\r"
+      ]
+    },
+    "build": {
+      "status": "FAIL",
+      "durationMs": 258841,
+      "snippet": " Environments: .env.production.local, .env.local, .env\n   - Experiments (use with caution):\n     · cpus: 1\n     ✓ webpackMemoryOptimizations\n\n   Creating an optimized production build ...\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nwarn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).\nFor more information, see: https://pris.ly/prisma-config\n\nEnvironment variables loaded from .env\n"
+    }
+  },
+  "productionBlockers": [
+    "TypeScript errors in CHANAKYA paths: src/constants/chanakya-credit-intelligence/avon-transaction-executive-fixtures.ts, src/lib/chanakya-enterprise-read-context/product-lender-intelligence-core.ts, src/lib/chanakya-enterprise-read-context/transaction-executive-snapshot.ts",
+    "Production build did not pass",
+    "OCR provider not configured in environment",
+    "8 Avon bank statement(s) metadata-only (binary not inline)",
+    "4 Avon document(s) require OCR; provider not configured",
+    "Avon BAT classification: READY_WITH_LIMITATIONS (not PRODUCTION_READY)",
+    "CO-CHANAKYA-RELEASE-FREEZE-015 — Hostinger deploy FROZEN until PO FINAL CUTOVER",
+    "Explicit Product Owner PRODUCTION_READY acceptance required (CO-QA-001)"
+  ],
+  "suiteSummary": {
+    "pass": 15,
+    "fail": 0,
+    "blocked": 0
+  }
+}

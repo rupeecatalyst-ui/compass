@@ -64,21 +64,40 @@ export const CHANAKYA_CREDIT_PROPOSAL_SECTIONS: Array<{
   title: string;
 }> = [
   { id: "executive_summary", title: "1. Executive Summary" },
-  { id: "borrower_overview", title: "2. Borrower / Business Overview" },
-  { id: "loan_requirement", title: "3. Loan Requirement" },
-  { id: "business_overview", title: "4. Business / Transaction Overview" },
-  { id: "stated_financial", title: "5. Available Financial / Stated Information" },
-  { id: "document_readiness", title: "6. Document Inventory (Presence)" },
-  { id: "property_security", title: "7. Property / Security" },
-  { id: "credit_observations", title: "8. Credit Observations" },
-  { id: "strengths", title: "9. Key Positives" },
-  { id: "key_considerations", title: "10. Key Concerns / Limitations" },
-  { id: "proposed_structure", title: "11. Proposed Facility" },
-  { id: "recommendation", title: "12. Recommendation" },
+  { id: "borrower_profile", title: "2. Borrower Profile" },
+  { id: "business_overview", title: "3. Business Overview" },
+  { id: "loan_requirement", title: "4. Facility / Loan Requirement" },
+  { id: "facility_purpose", title: "5. Purpose of Facility" },
+  { id: "financial_analysis", title: "6. Financial Analysis" },
+  { id: "gst_analysis", title: "7. GST Analysis" },
+  { id: "banking_analysis", title: "8. Banking Analysis" },
+  { id: "credit_context", title: "9. Existing Obligations / Credit Context" },
+  { id: "property_security", title: "10. Property / Security" },
+  { id: "product_lender_context", title: "11. Product & Lender Context" },
+  { id: "key_positives", title: "12. Key Positives" },
+  { id: "key_concerns", title: "13. Key Concerns" },
+  { id: "mitigants", title: "14. Mitigants" },
+  { id: "pending_information", title: "15. Missing / Pending Information" },
+  { id: "proposed_structure", title: "16. Proposed Facility" },
+  { id: "recommendation", title: "17. Advisory Recommendation" },
+  { id: "evidence_notes", title: "18. Source / Evidence Notes" },
 ];
 
 export const CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE =
   "Not available in Catalyst One for this transaction yet." as const;
+
+/** Lender-facing unavailable wording — professional, no platform metadata. */
+export const CHANAKYA_LENDER_PROPOSAL_NOT_AVAILABLE =
+  "Information was not available in the documents reviewed." as const;
+
+export const CHANAKYA_LENDER_PROPOSAL_BANKING_LIMITATION =
+  "Bank statement transaction content was not available for review — statements on file could not be read for banking analysis." as const;
+
+export const CHANAKYA_LENDER_PROPOSAL_OCR_LIMITATION =
+  "Certain scanned documents require optical character recognition before their financial content can be reviewed." as const;
+
+export const CHANAKYA_LENDER_PROPOSAL_RATIO_LIMITATION =
+  "FOIR, DSCR, and LTV ratios were not computed — no underwriting ratio engine was applied to this draft." as const;
 
 export const CHANAKYA_CREDIT_PROPOSAL_NO_EXTRACTION_NOTICE =
   "Structured document extraction (P&L, Balance Sheet, Bank Statement, ITR, GST) is not yet available. Document presence is reported without inventing financial values." as const;

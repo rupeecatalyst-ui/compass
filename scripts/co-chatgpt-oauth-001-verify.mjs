@@ -459,9 +459,12 @@ try {
   ok("12. Integration token blocked on partner APIs");
 }
 
-if (read("src/app/api/integrations/chatgpt/v1/oauth/token/route.ts").includes("authorization_code")) {
-  ok("13. Token endpoint limited to authorization_code grant");
-} else fail("13. OAuth token route missing grant restriction");
+if (
+  read("src/app/api/integrations/chatgpt/v1/oauth/token/route.ts").includes("authorization_code") &&
+  read("src/app/api/integrations/chatgpt/v1/oauth/token/route.ts").includes("refresh_token")
+) {
+  ok("13. Token endpoint supports authorization_code + refresh_token grants");
+} else fail("13. OAuth token route missing authorization_code and/or refresh_token support");
 
 if (read("src/lib/chatgpt-integration/route-handler.ts").includes("rejectMutation")) {
   ok("14. Integration routes reject mutations");
