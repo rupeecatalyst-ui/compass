@@ -56,12 +56,14 @@ function StatusRow({
       onFocus={() => onHover(row)}
       onBlur={onLeave}
       onClick={() => onClick(row)}
-      aria-label={`Open Deal Workspace for ${row.dealId}`}
+      aria-label={`Open Deal Workspace for ${row.borrower || row.dealId}`}
     >
-      <p className="truncate text-[10px] font-semibold leading-tight tracking-tight text-zinc-100">
-        {row.dealId}
+      <p className="truncate text-[11px] font-semibold leading-tight tracking-tight text-zinc-50">
+        {row.borrower?.trim() || "Borrower not specified"}
       </p>
-      <p className="mt-0.5 truncate text-[9px] leading-tight text-zinc-300">{row.borrower}</p>
+      <p className="mt-0.5 truncate font-mono text-[9px] leading-tight text-zinc-400">
+        {row.opportunityNumber?.trim() || row.dealId}
+      </p>
       <p className="mt-0.5 truncate text-[8px] leading-tight text-zinc-500">
         {row.product}
         {row.lender && row.lender !== "—" ? ` · ${row.lender}` : ""}

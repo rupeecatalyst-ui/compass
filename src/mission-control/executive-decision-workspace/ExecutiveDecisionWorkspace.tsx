@@ -48,8 +48,8 @@ export function ExecutiveDecisionWorkspace() {
           Executive decisions at a glance
         </h2>
         <p className="mt-1 max-w-2xl text-xs text-zinc-500">
-          Attention, approvals, monitoring, and positive developments — placeholder data via
-          providers.
+          Attention, approvals, monitoring, and positive developments — from the certified
+          Mission Control snapshot.
         </p>
       </div>
 

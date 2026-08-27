@@ -32,7 +32,7 @@ export function PriorityActionsSection({ actions }: { actions: PriorityAction[] 
         <SectionHeader
           eyebrow="Priority Actions"
           title="What needs immediate attention"
-          description="Placeholder actions for executive triage — not live signals."
+          description="CHANAKYA advisory signals from the certified Mission Control snapshot."
         />
         <div
           className="flex flex-wrap gap-1"

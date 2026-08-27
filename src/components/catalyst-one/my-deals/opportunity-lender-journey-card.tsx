@@ -9,13 +9,14 @@ import {
   LenderJourneyAxisHeader,
   LenderJourneyRailway,
 } from "@/components/catalyst-one/my-deals/lender-journey-railway";
-import { getJourneySegmentLabel } from "@/constants/enterprise-deal-journey-progress";
-import { ENTERPRISE_JOURNEY_SEGMENTS } from "@/constants/enterprise-deal-journey-progress";
 import {
   formatDealBusinessSource,
   resolveLenderDealContactName,
 } from "@/lib/my-deals/lender-deal-contact";
-import type { OpportunityRegistryGroup } from "@/lib/my-deals/group-opportunities";
+import {
+  pickPreferredDealForOpportunity,
+  type OpportunityRegistryGroup,
+} from "@/lib/my-deals/group-opportunities";
 import { cn } from "@/lib/utils";
 import type { DealRegistryRow } from "@/types/deal-registry";
 
@@ -25,14 +26,11 @@ type Props = {
   onOpenDeal: (row: DealRegistryRow, group: OpportunityRegistryGroup) => void;
 };
 
+/** Opportunity header "Stage" = furthest Deal's canonical Deal Stage label (grossStageLabel). */
 function opportunityStageLabel(group: OpportunityRegistryGroup): string {
-  const idx = Math.max(
-    0,
-    Math.min(group.maxProgressFilled - 1, ENTERPRISE_JOURNEY_SEGMENTS.length - 1),
-  );
-  const segment = ENTERPRISE_JOURNEY_SEGMENTS[idx];
-  if (segment) return getJourneySegmentLabel(segment.id);
-  return group.deals[0]?.grossStageLabel || "—";
+  if (group.deals.length === 0) return "—";
+  const preferred = pickPreferredDealForOpportunity(group.deals);
+  return preferred.grossStageLabel || "—";
 }
 
 export function OpportunityLenderJourneyCard({

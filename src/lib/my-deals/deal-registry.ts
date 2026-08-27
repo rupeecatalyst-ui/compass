@@ -19,6 +19,10 @@ import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
 import { formatINR } from "@/lib/format-currency";
 import type { DealRegistryFilters, DealRegistryRow, DealRegistrySortField } from "@/types/deal-registry";
 import { DEMO_CURRENT_RM } from "@/constants/customer-360";
+import {
+  actorCanSeeCase,
+} from "@/lib/enterprise-case-visibility";
+import { HIERARCHY_VISIBILITY_EXTENSION_KEY } from "@/types/assigned-users";
 
 function formatWhen(iso: string): string {
   if (!iso) return "—";
@@ -160,6 +164,11 @@ export function filterDealRegistryRows(
   rows: DealRegistryRow[],
   filters: DealRegistryFilters,
   currentRm?: string,
+  visibility?: {
+    actorUserId?: string | null;
+    role?: string | null;
+    downlineUserIds?: string[] | null;
+  },
 ): DealRegistryRow[] {
   const rm = currentRm?.trim() || DEMO_CURRENT_RM;
   const q = filters.search.trim().toLowerCase();
@@ -175,7 +184,39 @@ export function filterDealRegistryRows(
   const colDeal = filters.columnDealId.trim().toLowerCase();
 
   return rows.filter((row) => {
-    if (filters.scope === "my_deals" && row.assignedRm !== rm) return false;
+    if (filters.scope === "my_deals") {
+      if (visibility?.actorUserId) {
+        const ext =
+          row.lendingExtension && typeof row.lendingExtension === "object"
+            ? (row.lendingExtension as Record<string, unknown>)
+            : {};
+        const hierarchyRaw = ext[HIERARCHY_VISIBILITY_EXTENSION_KEY];
+        const hierarchyVisibilityUserIds = Array.isArray(hierarchyRaw)
+          ? hierarchyRaw.filter((v): v is string => typeof v === "string")
+          : [];
+        const ok = actorCanSeeCase(
+          {
+            userId: visibility.actorUserId,
+            role: visibility.role,
+            displayName: rm,
+          },
+          {
+            assignedUserIds: (row.assignedUsers ?? []).map((u) => u.id),
+            assignedUserNames: (row.assignedUsers ?? []).map((u) => u.name),
+            relationshipManagerName: row.assignedRm,
+            hierarchyVisibilityUserIds,
+          },
+          {
+            scope: "my_portfolio",
+            downlineUserIds: visibility.actorUserId ? [visibility.actorUserId] : [],
+          },
+        );
+        if (!ok) return false;
+      } else if (row.assignedRm !== rm) {
+        return false;
+      }
+    }
+    // my_team / all: server Deal search already applies Role∪Hierarchy∪Assignment for non-org-wide roles.
     if (q) {
       const hay = [
         row.borrowerName,

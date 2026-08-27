@@ -64,10 +64,10 @@ function isTerminalLenderBook(file: LoanFile): boolean {
 
   const primary = lenders.find((l) => l.isPrimary) ?? lenders[0];
   if (primary && isTerminal(primary)) {
-    // Primary Lost / Disbursed / Withdrawn → deal is terminal for Radar
+    // Primary Lost / Post-Disbursement Confirmation / Withdrawn → deal is terminal for Radar
     if (
       primary.caseStage === "lost" ||
-      primary.caseStage === "disbursed" ||
+      primary.caseStage === "post_disbursement_confirmation" ||
       primary.probability === "withdrawn" ||
       primary.probability === "rejected"
     ) {
@@ -81,7 +81,8 @@ function isTerminalLenderBook(file: LoanFile): boolean {
 
 /**
  * Active operational Deal projection for CHANAKYA / Radar.
- * CO-CHANAKYA-RADAR-003 — excludes Lost · Disbursed · Cancelled · Withdrawn · Archived.
+ * CO-CHANAKYA-RADAR-003 — excludes Lost · Post-Disbursement Confirmation ·
+ * Cancelled · Withdrawn · Archived (Disbursed remains Radar-eligible until PDC).
  * Terminal Deals never appear on Radar or Average Deal Health.
  */
 export function isLiveActiveLoanFile(file: LoanFile): boolean {

@@ -100,7 +100,7 @@ export type TransitionDealInput = {
   toLifecycleStatus?: DealLifecycleStatus;
   toOperationalStatus?: DealOperationalStatus;
   reason?: string | null;
-  /** Allow skipping intermediate lender pipeline stages (default false). */
+  /** Allow skipping intermediate lender pipeline stages (compatibility; operational free-move is default). */
   allowSkip?: boolean;
 };
 

@@ -957,6 +957,8 @@ export class EnterpriseOpportunityService {
     orderBy?: "updatedAt" | "createdAt";
     limit?: number;
     offset?: number;
+    /** CO-ORG-VISIBILITY-002 — non-org-wide actors only */
+    visibilityUserId?: string;
   }) {
     const organizationId = await this.orgId();
     let opportunityIds = query.opportunityIds;
@@ -966,6 +968,7 @@ export class EnterpriseOpportunityService {
     const result = await enterpriseOpportunityRepository.search(organizationId, {
       ...query,
       opportunityIds,
+      visibilityUserId: query.visibilityUserId,
     });
     return {
       ...result,

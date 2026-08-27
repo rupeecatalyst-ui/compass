@@ -38,6 +38,7 @@ import {
   EnterpriseStageTransitionDialog,
   type EnterpriseStageTransitionConfirm,
 } from "@/components/catalyst-one/shared/enterprise-stage-transition-dialog";
+import { formatINR } from "@/lib/format-currency";
 import { lenderSubStageLabel } from "@/constants/enterprise-stage-transition";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
 import { EDC_EVENT_TYPES } from "@/constants/enterprise-dialogue-center/lifecycle";
@@ -382,12 +383,16 @@ export function LenderPipelineBoard({
 
     // CO-UX-001 / CO-DWS-001C — Payee / Invoice Party is Accounting only — never block Pipeline drag.
 
-    // CO-WF-006 — Guide → Recommend → Confirm for mid-stage moves (special gates keep their dialogs).
+    // CO-REFINEMENT-003 — Operational drag/drop completes in one gesture (no sequential WF-006 gate).
+    // Special gates above (Disbursed capture, Lost/Hold reasons, Login probe, PDC) remain.
     if (normalizeLenderCaseStage(c.caseStage) !== stage) {
-      tracePipelineDrag("stage_validation", { gate: "enterprise_transition_dialog", caseId, stage });
-      setTransitionCase({ ...c, targetStage: stage });
-      setDragOverStage(null);
-      setDraggingId(null);
+      tracePipelineDrag("apply_move", {
+        caseId,
+        from: c.caseStage,
+        to: stage,
+        mode: "flexible_operational",
+      });
+      applyMove(caseId, stage);
       return;
     }
 
@@ -1395,6 +1400,8 @@ function LenderCaseKanbanCard({
     caseSubStage: caseExecution.caseSubStage,
   });
   const product = caseExecution.product ?? loan.loanProduct;
+  const loanAmount = caseExecution.expectedLoanAmount ?? loan.requiredAmount ?? 0;
+  const loanAmountLabel = loanAmount > 0 ? formatINR(loanAmount) : null;
   const salesContactName = caseExecution.lenderSalesContactName?.trim() || "";
   const internalRm = loan.relationshipManager?.trim() || "—";
   const health = dealHealthScoreKanbanTone(caseExecution.dealHealthScore);
@@ -1435,6 +1442,14 @@ function LenderCaseKanbanCard({
             <p className="truncate text-[10px] font-medium leading-snug text-foreground/80">
               {product || "Product not specified"}
             </p>
+            {loanAmountLabel ? (
+              <p
+                className="mt-0.5 truncate text-[12px] font-bold tabular-nums tracking-tight text-foreground"
+                title="Deal loan amount (Enterprise Deal Registry)"
+              >
+                {loanAmountLabel}
+              </p>
+            ) : null}
             <p
               className={cn(
                 "mt-0.5 flex items-center gap-1 text-[11px] font-semibold tabular-nums",

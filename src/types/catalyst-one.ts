@@ -779,6 +779,12 @@ export interface LoanFile {
   enterpriseDealId?: string;
   /** Optimistic concurrency for Deal Registry updates */
   enterpriseDealRowVersion?: number;
+  /** CO-ORG-VISIBILITY-002 — Deal Registry ownership / hierarchy projection. */
+  primaryOwnerUserId?: string;
+  relationshipManagerUserId?: string;
+  assignedUserIds?: string[];
+  hierarchyVisibilityUserIds?: string[];
+  lendingExtension?: unknown;
   /** CO-ARCH-003 Phase 2B Sprint 2 — primary lender / program on Deal */
   enterpriseLenderId?: string;
   lenderProgramId?: string;

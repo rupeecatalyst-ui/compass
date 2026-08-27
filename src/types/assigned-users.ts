@@ -25,6 +25,8 @@ export const ASSIGNED_USERS_EXTENSION_KEY = "assignedUsers" as const;
 export const PRIMARY_OWNER_EXTENSION_KEY = "primaryOwnerUserId" as const;
 /** Supervisors above assigned users — automatic Opportunity/Deal visibility. */
 export const HIERARCHY_VISIBILITY_EXTENSION_KEY = "hierarchyVisibilityUserIds" as const;
+/** Flat assignee user ids for Prisma JSON visibility queries (mirrors assignedUsers[].id). */
+export const ASSIGNED_USER_IDS_EXTENSION_KEY = "assignedUserIds" as const;
 
 export function formatAssignedUsersLabel(users: AssignedUserRef[]): string {
   if (users.length === 0) return "Unassigned";

@@ -13,6 +13,8 @@ export type DealTimelineEarInput = {
   summary: string;
   actorUserId?: string | null;
   occurredAt: Date | string;
+  /** Optional stage-change fields for Activity Timeline consumers. */
+  payload?: Record<string, unknown> | null;
 };
 
 export function classifyDealTimelineEventKind(
@@ -26,6 +28,8 @@ export function classifyDealTimelineEventKind(
 export function mapDealTimelineEventToEarEmit(
   input: DealTimelineEarInput,
 ): EmitEnterpriseActivityInput {
+  const extra =
+    input.payload && typeof input.payload === "object" ? input.payload : {};
   return {
     eventKind: classifyDealTimelineEventKind(input.eventType),
     sourceSystem: "deal_timeline",
@@ -36,6 +40,17 @@ export function mapDealTimelineEventToEarEmit(
       dealEventType: input.eventType,
       dealId: input.dealId,
       opportunityId: input.opportunityId,
+      previousStage:
+        (typeof extra.fromGrossStage === "string" && extra.fromGrossStage) ||
+        (typeof extra.previousStage === "string" && extra.previousStage) ||
+        null,
+      newStage:
+        (typeof extra.toGrossStage === "string" && extra.toGrossStage) ||
+        (typeof extra.newStage === "string" && extra.newStage) ||
+        null,
+      actorUserId: input.actorUserId ?? null,
+      dealNumber: typeof extra.dealNumber === "string" ? extra.dealNumber : null,
+      reason: typeof extra.reason === "string" ? extra.reason : null,
     },
     dealId: input.dealId,
     opportunityId: input.opportunityId,

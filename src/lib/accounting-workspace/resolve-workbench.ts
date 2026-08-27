@@ -18,15 +18,11 @@ const WORKBENCH_IDS = new Set<AccountingWorkbenchId>([
   "gst_tax",
   "invoice_party_master",
   "payee_master",
-  "reports",
   "notes",
 ]);
 
-/** Legacy dashboard / EI aliases → workbench id. */
+/** Legacy dashboard / EI aliases → workbench id. Revenue analytics moved to Mission Control. */
 const TAB_ALIASES: Record<string, AccountingWorkbenchId> = {
-  revenue: "reports",
-  reports: "reports",
-  profitability: "reports",
   invoice: "invoices",
   invoices: "invoices",
   receivable: "receivables",
@@ -80,6 +76,20 @@ export function resolveAccountingWorkbenchFromSearchParams(
   if (action && ACTION_ALIASES[action]) return ACTION_ALIASES[action];
 
   return DEFAULT_ACCOUNTING_WORKBENCH;
+}
+
+/** Legacy revenue analytics deep-links → Mission Control Revenue Analytics. */
+export function isLegacyAccountingRevenueAnalyticsDeepLink(
+  params: URLSearchParams | { get: (name: string) => string | null },
+): boolean {
+  const tab = params.get("tab")?.trim().toLowerCase() ?? "";
+  const wb = params.get("workbench")?.trim().toLowerCase() ?? "";
+  return (
+    tab === "revenue" ||
+    tab === "reports" ||
+    tab === "profitability" ||
+    wb === "reports"
+  );
 }
 
 /** Canonical certification / deep-link href for a workbench. */

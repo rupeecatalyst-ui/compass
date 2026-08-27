@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Filter, FilterX } from "lucide-react";
 import { OpportunityLenderJourneyCard } from "@/components/catalyst-one/my-deals/opportunity-lender-journey-card";
+import { useAuthContext } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -94,6 +95,7 @@ export function DealLenderJourneyBoard({
   initialGrossStage = "all",
   onFiltersChanged,
 }: DealLenderJourneyBoardProps) {
+  const { user } = useAuthContext();
   const [filters, setFilters] = useState<DealRegistryFilters>(() => ({
     ...EMPTY_DEAL_REGISTRY_FILTERS,
     scope: initialScope,
@@ -111,8 +113,13 @@ export function DealLenderJourneyBoard({
   }, []);
 
   const filteredRows = useMemo(
-    () => filterDealRegistryRows(allRows, filters, currentRm),
-    [allRows, filters, currentRm],
+    () =>
+      filterDealRegistryRows(allRows, filters, currentRm, {
+        actorUserId: user?.id,
+        role: user?.role,
+        downlineUserIds: user?.id ? [user.id] : [],
+      }),
+    [allRows, filters, currentRm, user?.id, user?.role],
   );
 
   const groups = useMemo(

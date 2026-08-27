@@ -666,7 +666,8 @@ export class EnterpriseDealService {
       fromLifecycleStatus: deal.lifecycleStatus,
       toLifecycleStatus: input.toLifecycleStatus,
       productFamily: deal.productFamily,
-      allowSkip: Boolean(input.allowSkip),
+      // CO-REFINEMENT-003 — free operational move; allowSkip defaults on.
+      allowSkip: input.allowSkip !== false,
     });
 
     // CO-DWS-001 / CO-DWS-001C — Invoice Party does not block Lender Pipeline stage movement.

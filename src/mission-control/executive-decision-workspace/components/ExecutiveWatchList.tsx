@@ -11,7 +11,7 @@ export function ExecutiveWatchList({ items }: { items: ExecutiveWatchItem[] }) {
       <SectionHeader
         eyebrow="Executive Watch List"
         title="What should be monitored"
-        description="Placeholder watch items — not live monitoring feeds."
+        description="Operational items derived from certified EBI snapshot metrics."
       />
       <h2 id="edw-watch-list-heading" className="sr-only">
         Executive Watch List

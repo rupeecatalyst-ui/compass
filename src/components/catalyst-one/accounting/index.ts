@@ -19,5 +19,4 @@ export {
   AccountingPayoutWorkbench,
   AccountingCollectionsWorkbench,
   AccountingGstTaxWorkbench,
-  AccountingReportsWorkbench,
 } from "./accounting-workbench-views";

@@ -2,6 +2,7 @@ export { EmptyState } from "./EmptyState";
 export { HealthIndicatorStrip } from "./HealthIndicatorStrip";
 export { SectionHeader } from "./SectionHeader";
 export { WorkspaceLoadingState } from "./WorkspaceLoadingState";
+export { McAnalyticsExpandCard } from "./McAnalyticsExpandCard";
 export { Panel } from "./Panel";
 export {
   MC_SECTION_EYEBROW,

@@ -406,7 +406,15 @@ export type ChanakyaRadarViewId = "matrix" | "kanban" | "dashboard";
 
 export const CHANAKYA_RADAR_FILTER_ALL = "all";
 
-export const CHANAKYA_RADAR_EXCLUDED_LENDER_STAGES = new Set(["lost", "disbursed"]);
+/**
+ * Radar monitors active origination / execution Deals through Disbursed.
+ * Exit Radar at Post-Disbursement Confirmation (Accounting handoff) and Lost.
+ * Hold remains Radar-visible under existing on-hold classification.
+ */
+export const CHANAKYA_RADAR_EXCLUDED_LENDER_STAGES = new Set([
+  "lost",
+  "post_disbursement_confirmation",
+]);
 export const CHANAKYA_RADAR_EXCLUDED_PROBABILITIES = new Set([
   "rejected",
   "withdrawn",
@@ -415,14 +423,14 @@ export const CHANAKYA_RADAR_EXCLUDED_PROBABILITIES = new Set([
 /**
  * CO-CHANAKYA-RADAR-003 — Terminal Deal stages (never on Radar / avg health).
  * Enterprise Configuration — do not hardcode in UI.
+ * Disbursed / won remain Radar-eligible until Post-Disbursement Confirmation.
  */
 export const CHANAKYA_RADAR_EXCLUDED_DEAL_STAGES = new Set([
   "lost",
-  "disbursed",
+  "post_disbursement_confirmation",
   "cancelled",
   "withdrawn",
   "archived",
-  "won", // disbursed projection on LoanFile
   "completed",
 ]);
 

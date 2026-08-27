@@ -5,6 +5,7 @@ import {
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import type { ApiResponse } from "@/types/api";
+import { hasOrgWideCaseVisibility } from "@/lib/enterprise-case-visibility";
 import { enterpriseOpportunityService } from "@server/services/enterprise-opportunity";
 import {
   enterpriseOpportunityApiGuard,
@@ -16,7 +17,6 @@ export async function GET(request: Request) {
   try {
     enterpriseOpportunityApiGuard();
     const actor = requireAccessToken(request);
-    void actor;
     const url = new URL(request.url);
     const primaryContactId = url.searchParams.get("primaryContactId") ?? undefined;
     const companyId = url.searchParams.get("companyId") ?? undefined;
@@ -78,6 +78,9 @@ export async function GET(request: Request) {
       offset: url.searchParams.get("offset")
         ? Number(url.searchParams.get("offset"))
         : undefined,
+      visibilityUserId: hasOrgWideCaseVisibility(actor.role)
+        ? undefined
+        : actor.userId,
     });
     return successResponse(result);
   } catch (err) {

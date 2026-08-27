@@ -1,6 +1,15 @@
 /**
- * CO-ARCH-003 / CO-INC-001A — Deal (lender pipeline) stage transition rules.
+ * CO-ARCH-003 / CO-INC-001A / CO-REFINEMENT-003 — Deal (lender pipeline) stage transition rules.
  * Canonical vocabulary: LenderCaseStage (same ids as Kanban columns).
+ *
+ * Operational stages (Identified → Disbursed) may move freely: forward, skip, or backward.
+ * Product journeys are not identical — Soft Approved is not mandatory for every product.
+ *
+ * Hard gates retained:
+ * - Lost is locked
+ * - Disbursed advances to PDC via authenticated cron only
+ * - PDC entry/exit is not via the general stage endpoint
+ * - Lost / Hold remain exception terminals (with Hold resume)
  */
 import {
   LENDER_CASE_STAGES,
@@ -9,6 +18,7 @@ import {
 import type { LenderCaseStage } from "@/types/catalyst-one";
 import { DealValidationError } from "@server/services/enterprise-deal/deal-validation";
 
+/** Primary operational path (PDC is cron-owned; included for index/identity only). */
 const FORWARD: LenderCaseStage[] = [
   "identified",
   "prelogin",
@@ -18,6 +28,17 @@ const FORWARD: LenderCaseStage[] = [
   "closure_wip",
   "disbursed",
   "post_disbursement_confirmation",
+];
+
+/** Human-movable operational stages (excludes cron-owned PDC). */
+const OPERATIONAL: LenderCaseStage[] = [
+  "identified",
+  "prelogin",
+  "logged_in_wip",
+  "soft_approved",
+  "final_approved",
+  "closure_wip",
+  "disbursed",
 ];
 
 const TERMINAL = new Set<LenderCaseStage>([
@@ -44,17 +65,20 @@ export function canonicalizeDealPipelineStage(stage: string): LenderCaseStage {
 
 /**
  * Validates Deal gross_stage transitions for lending pipeline.
- * - Forward along primary path is allowed (including skip-ahead with allowSkip)
+ * - Operational stages may move freely (forward / skip / backward)
  * - lost / hold allowed from non-terminal stages
- * - Exit hold back to a forward stage allowed (re-open)
+ * - Exit hold back to a forward/operational stage allowed (re-open)
  * - Disbursed hand-off is cron-owned; no human stage endpoint may advance it
  * - Always returns canonical LenderCaseStage in toGrossStage
+ *
+ * `allowSkip` is retained for API compatibility; operational free-move no longer requires it.
  */
 export function assertLenderPipelineStageTransition(input: {
   fromGrossStage: string;
   toGrossStage: string;
   allowSkip?: boolean;
 }): { toGrossStage: string } {
+  void input.allowSkip;
   if (!String(input.toGrossStage ?? "").trim()) {
     throw new DealValidationError("toGrossStage is required");
   }
@@ -98,29 +122,29 @@ export function assertLenderPipelineStageTransition(input: {
   }
 
   if (from === "hold") {
-    // Re-open: resume to any forward stage (including identified)
-    if (FORWARD.includes(to)) return { toGrossStage: to };
+    // Re-open: resume to any operational / forward stage (including identified)
+    if (OPERATIONAL.includes(to) || FORWARD.includes(to)) {
+      if (to === "post_disbursement_confirmation") {
+        throw new DealValidationError(
+          "Post-disbursement confirmation stage is entered by the authenticated cron only",
+        );
+      }
+      return { toGrossStage: to };
+    }
     throw new DealValidationError(`Cannot resume Hold to stage ${to}`);
   }
 
-  const fromIdx = FORWARD.indexOf(from);
-  const toIdx = FORWARD.indexOf(to);
-  if (fromIdx < 0 || toIdx < 0) {
-    throw new DealValidationError(`Invalid stage transition ${from} → ${to}`);
+  const fromOperational = OPERATIONAL.includes(from);
+  const toOperational = OPERATIONAL.includes(to);
+  if (fromOperational && toOperational) {
+    // CO-REFINEMENT-003 — free movement among operational stages (skip + backward OK).
+    return { toGrossStage: to };
   }
-  if (toIdx < fromIdx) {
-    throw new DealValidationError(
-      `Backward stage transition not allowed (${from} → ${to}). Use Hold/Lost for exceptions.`,
-    );
-  }
-  if (!input.allowSkip && toIdx > fromIdx + 1) {
-    throw new DealValidationError(
-      `Cannot skip stages from ${from} to ${to}. Advance one stage at a time (or pass allowSkip).`,
-    );
-  }
-  return { toGrossStage: to };
+
+  throw new DealValidationError(`Invalid stage transition ${from} → ${to}`);
 }
 
 /** @internal test helper — exported for verify scripts */
 export const DEAL_PIPELINE_FORWARD_STAGES = FORWARD;
+export const DEAL_PIPELINE_OPERATIONAL_STAGES = OPERATIONAL;
 export const DEAL_PIPELINE_KNOWN_STAGES = KNOWN;

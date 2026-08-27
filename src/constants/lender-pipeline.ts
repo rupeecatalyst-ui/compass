@@ -13,7 +13,7 @@ export const LENDER_CASE_STAGES: { id: LenderCaseStage; label: string; color: st
   { id: "disbursed", label: "Disbursed", color: "#14532D" },
   {
     id: "post_disbursement_confirmation",
-    label: "Post-disbursement Confirmation",
+    label: "Post-Disbursement Confirmation",
     color: "#0F766E",
   },
   { id: "lost", label: "Lost", color: "#EF4444" },

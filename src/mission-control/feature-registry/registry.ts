@@ -62,9 +62,24 @@ const MODULES: MissionControlFeatureModule[] = [
     description: "Executive Dashboard — what are the numbers (Briefing implementation unchanged)",
   },
   {
+    id: "mc-revenue-analytics",
+    displayName: "Revenue Analytics",
+    route: "/mission-control/revenue-analytics",
+    icon: "IndianRupee",
+    permissions: [
+      { id: "mc.revenue-analytics.view", resource: "mission-control.revenue-analytics", action: "view" },
+    ],
+    featureFlag: "enabled",
+    version: "1.0.0",
+    status: "active",
+    dependencies: ["mc-executive-briefing"],
+    description:
+      "Revenue Analytics — expected, invoiced, and realised revenue intelligence (Mission Control)",
+  },
+  {
     id: "mc-enterprise-intelligence",
     displayName: "Enterprise Intelligence",
-    route: "/reports",
+    route: "/mission-control/enterprise-intelligence",
     icon: "BarChart3",
     permissions: [
       { id: "mc.enterprise-intelligence.view", resource: "mission-control.enterprise-intelligence", action: "view" },

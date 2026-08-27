@@ -39,8 +39,12 @@ const CY = CHANAKYA_RADAR_PLACEMENT.centerY;
 function DealInsightPanel({ row }: { row: ChanakyaRadarDealRow }) {
   return (
     <div className="w-[240px] rounded-lg border border-zinc-600/80 bg-zinc-950/98 px-3 py-2 text-left shadow-2xl backdrop-blur">
-      <p className="truncate text-[12px] font-semibold tracking-tight text-zinc-100">{row.dealId}</p>
-      <p className="mt-0.5 truncate text-[11px] text-zinc-300">{row.borrower}</p>
+      <p className="truncate text-[12px] font-semibold tracking-tight text-zinc-50">
+        {row.borrower?.trim() || "Borrower not specified"}
+      </p>
+      <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-400">
+        {row.opportunityNumber?.trim() || row.dealId}
+      </p>
       <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[10px] leading-snug">
         <dt className="text-zinc-500">Product</dt>
         <dd className="truncate text-right text-zinc-200">{row.product}</dd>

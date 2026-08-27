@@ -11,7 +11,13 @@
  */
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import { resolveDealStageProjection } from "@/lib/enterprise-deal/deal-stage-projection";
+import { grossStageToLenderCaseStage } from "@/lib/enterprise-deal/deal-lender-stage-map";
 import { resolveDealBorrowerIdentity } from "@/lib/enterprise-borrower-identity";
+import {
+  coalesceAssignedUsers,
+  readAssignedUserIdsFromExtension,
+  readHierarchyVisibilityUserIdsFromExtension,
+} from "@/lib/assigned-users";
 import {
   mapEnterpriseDealActivityTimelineToLoanFileEvents,
   mergeLoanFileTimelines,
@@ -23,7 +29,6 @@ import type {
   LoanFilePriority,
   LoanFileStatus,
   LoanLenderExecution,
-  PipelineStage,
   TransactionType,
 } from "@/types/catalyst-one";
 
@@ -82,12 +87,14 @@ function projectLendersFromDeal(
   const now = deal.updatedAt || deal.createdAt || new Date().toISOString();
 
   // CO-ARCH-004 — Registry snapshot is pipeline authority (never prefer stale local LoanFile).
+  // Deal.grossStage is canonical LenderCaseStage — sync onto projected cases (never prefer stale snapshot.caseStage).
+  const canonicalCaseStage = grossStageToLenderCaseStage(deal.grossStage);
   if (Array.isArray(snap?.lenders) && snap!.lenders!.length > 0) {
     return snap!.lenders!.map((l, index) => ({
       id: l.id || `snap-lender-${deal.id}-${index}`,
       lender: l.name || deal.primaryCounterpartyName || "Lender",
       status: (l.status as LoanLenderExecution["status"]) || "active",
-      caseStage: (l.caseStage as LoanLenderExecution["caseStage"]) || "identified",
+      caseStage: canonicalCaseStage,
       isPrimary: l.isPrimary ?? index === 0,
       lenderRegistryId:
         l.lenderRegistryId ||
@@ -109,7 +116,7 @@ function projectLendersFromDeal(
         id: `deal-lender-${deal.id}`,
         lender: deal.primaryCounterpartyName || "Lender",
         status: "active",
-        caseStage: "identified",
+        caseStage: canonicalCaseStage,
         isPrimary: true,
         lenderRegistryId: deal.lenderId ?? undefined,
         lenderRef: deal.lenderId ? `lender:${deal.lenderId}` : undefined,
@@ -139,7 +146,8 @@ export function mapEnterpriseDealToLoanFileStub(
   // Amount from Deal Registry or local capture only — never invent 5_000_000.
   const amount = deal.requestedAmount ?? local?.requiredAmount ?? local?.loanAmount ?? 0;
   // CO-PERF-001 — Deal Registry grossStage is the only stage authority for projections.
-  const stage = (resolveDealStageProjection(deal) || "") as PipelineStage;
+  // May carry terminal LenderCaseStage ids (PDC / lost) for Radar eligibility filters.
+  const stage = (resolveDealStageProjection(deal) || "") as LoanFile["stage"];
   const now = deal.updatedAt || deal.createdAt || local?.createdAt || new Date().toISOString();
   const lenders = projectLendersFromDeal(deal, local);
   const lendingType = asLendingType(local?.lendingType) as LoanFile["lendingType"];
@@ -226,6 +234,22 @@ export function mapEnterpriseDealToLoanFileStub(
     stage,
     stageSubStatus: deal.subStage ?? base.stageSubStatus,
     relationshipManager: deal.relationshipManagerName || base.relationshipManager,
+    primaryOwnerUserId: deal.primaryOwnerUserId ?? undefined,
+    relationshipManagerUserId: deal.relationshipManagerUserId ?? undefined,
+    assignedUserIds: (() => {
+      const ids = readAssignedUserIdsFromExtension(deal.lendingExtension);
+      if (ids.length > 0) return ids;
+      return coalesceAssignedUsers({
+        lendingExtension: deal.lendingExtension,
+        primaryOwnerUserId: deal.primaryOwnerUserId,
+        relationshipManagerUserId: deal.relationshipManagerUserId,
+        relationshipManagerName: deal.relationshipManagerName,
+      }).map((u) => u.id);
+    })(),
+    hierarchyVisibilityUserIds: readHierarchyVisibilityUserIdsFromExtension(
+      deal.lendingExtension,
+    ),
+    lendingExtension: deal.lendingExtension ?? undefined,
     priority: asPriority(deal.priority) || base.priority,
     status: asStatus(deal.operationalStatus) || base.status,
     sanctionAmount: deal.approvedAmount ?? base.sanctionAmount,

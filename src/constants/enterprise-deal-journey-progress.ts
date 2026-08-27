@@ -16,6 +16,7 @@ export const ENTERPRISE_JOURNEY_COLORS = {
   finalApproved: "#86EFAC", // Light Green
   closureWip: "#22C55E", // Green
   disbursed: "#14532D", // Deep Green
+  postDisbursementConfirmation: "#0F766E", // Teal — post-origination
   hold: "#F97316", // Orange
   lost: "#EF4444", // Red
 } as const;
@@ -28,6 +29,11 @@ export const ENTERPRISE_JOURNEY_SEGMENTS = [
   { id: "final_approved", label: "Final Approved", color: ENTERPRISE_JOURNEY_COLORS.finalApproved },
   { id: "closure_wip", label: "Closure WIP", color: ENTERPRISE_JOURNEY_COLORS.closureWip },
   { id: "disbursed", label: "Disbursed", color: ENTERPRISE_JOURNEY_COLORS.disbursed },
+  {
+    id: "post_disbursement_confirmation",
+    label: "Post-Disbursement Confirmation",
+    color: ENTERPRISE_JOURNEY_COLORS.postDisbursementConfirmation,
+  },
 ] as const;
 
 export type EnterpriseJourneySegmentId =
@@ -39,7 +45,15 @@ export type EnterpriseDealStatusOverlay = "none" | "hold" | "lost";
 export function pipelineStageToJourneySegment(
   stage: PipelineStage | string | null | undefined,
 ): EnterpriseJourneySegmentId {
-  const s = migrateLegacyStage(String(stage ?? "raw_lead"));
+  const raw = String(stage ?? "raw_lead").trim().toLowerCase();
+  // Terminal / extended ids may appear on LoanFile.stage after Deal projection.
+  if (raw === "post_disbursement_confirmation") {
+    return "post_disbursement_confirmation";
+  }
+  if (raw === "lost") {
+    return "pre_login";
+  }
+  const s = migrateLegacyStage(raw);
   switch (s) {
     case "raw_lead":
     case "pre_login":
@@ -79,6 +93,8 @@ export function lenderCaseStageToJourneySegment(
       return "closure_wip";
     case "disbursed":
       return "disbursed";
+    case "post_disbursement_confirmation":
+      return "post_disbursement_confirmation";
     case "hold":
     case "lost":
       // Overlay only — caller should pass underlying stage when known.

@@ -224,6 +224,7 @@ export function ChanakyaRadarWorkspace() {
     useState<ChanakyaRadarDashboardModel | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(true);
   const [refreshBusy, setRefreshBusy] = useState(false);
+  const [downlineUserIds, setDownlineUserIds] = useState<string[]>([]);
   const snapshotRef = useRef<HTMLElement | null>(null);
   const columnRefs = useRef<
     Partial<Record<ChanakyaOperationalQuadrantId, HTMLElement | null>>
@@ -248,12 +249,51 @@ export function ChanakyaRadarWorkspace() {
   }, [reloadSnapshot]);
 
   useEffect(() => {
+    let cancelled = false;
+    const userId = user?.id?.trim();
+    if (!userId) {
+      setDownlineUserIds([]);
+      return;
+    }
+    void authenticatedJsonFetch(`/api/users/downline?userId=${encodeURIComponent(userId)}`)
+      .then(async (res) => {
+        const body = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          data?: { downlineUserIds?: string[] };
+        };
+        if (cancelled) return;
+        if (res.ok && body.success) {
+          setDownlineUserIds(body.data?.downlineUserIds ?? [userId]);
+        } else {
+          setDownlineUserIds([userId]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setDownlineUserIds([userId]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
     setWorkspaceTab(getChanakyaRadarWorkspaceTab());
     return subscribeChanakyaRadarWorkspaceTab(setWorkspaceTab);
   }, []);
 
   useEffect(() => {
-    setScope((prev) => (canUseRadarScope(prev, user?.role) ? prev : defaultRadarScope(user?.role)));
+    if (!user?.role) return;
+    setScope((prev) => {
+      if (!canUseRadarScope(prev, user.role)) return defaultRadarScope(user.role);
+      // Auth hydrate: SUPER_ADMIN/ADMIN must land on Entire Organization (not empty name-scoped My Team).
+      if (
+        (user.role === "SUPER_ADMIN" || user.role === "ADMIN") &&
+        (prev === "my_portfolio" || prev === "my_team")
+      ) {
+        return "entire_organization";
+      }
+      return prev;
+    });
   }, [user?.role]);
 
   useEffect(() => {
@@ -294,8 +334,19 @@ export function ChanakyaRadarWorkspace() {
   const baseDashboard = certifiedDashboard ?? EMPTY_RADAR_DASHBOARD;
 
   const scopedRows = useMemo(
-    () => filterRadarRowsByScope(baseDashboard.rows, scope, actorRm),
-    [baseDashboard.rows, scope, actorRm],
+    () =>
+      filterRadarRowsByScope(baseDashboard.rows, scope, {
+        actorRm,
+        actorUserId: user?.id,
+        role: user?.role,
+        downlineUserIds:
+          downlineUserIds.length > 0
+            ? downlineUserIds
+            : user?.id
+              ? [user.id]
+              : [],
+      }),
+    [baseDashboard.rows, scope, actorRm, user?.id, user?.role, downlineUserIds],
   );
 
   /** Certified vector/KPIs stay org-wide; scope only focuses blips / lists (lightweight). */

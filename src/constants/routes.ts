@@ -78,9 +78,14 @@ export const ROUTES = {
   MISSION_CONTROL_OPERATIONS_INTELLIGENCE: "/mission-control/operations-intelligence",
   /** CO-SPRINT-095 — Executive Relationship Heat Map */
   MISSION_CONTROL_RELATIONSHIP_HEAT_MAP: "/mission-control/relationship-heat-map",
+  /** CO-REFINEMENT-004 — Enterprise Intelligence report inside Mission Control shell. */
+  MISSION_CONTROL_ENTERPRISE_INTELLIGENCE: "/mission-control/enterprise-intelligence",
   HORIZON: "/horizon",
   COMMUNICATION: "/communication",
   ACCOUNTING: "/accounting",
+  /** CO-REFINEMENT-005 — Revenue Analytics (executive revenue intelligence). */
+  MISSION_CONTROL_REVENUE_ANALYTICS: "/mission-control/revenue-analytics",
+  /** @deprecated Prefer MISSION_CONTROL_ENTERPRISE_INTELLIGENCE — redirects into Mission Control. */
   REPORTS: "/reports",
   AI_ASSISTANT: "/ai-assistant",
   /** CO-AI-111 — SARATHI Conversation Experience (text only) */

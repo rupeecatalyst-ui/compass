@@ -9,6 +9,7 @@ import { authenticatedJsonFetch } from "@/lib/api-client";
 import type { AssignedUserRef, AssignableUserOption } from "@/types/assigned-users";
 import {
   ASSIGNED_USERS_EXTENSION_KEY,
+  ASSIGNED_USER_IDS_EXTENSION_KEY,
   HIERARCHY_VISIBILITY_EXTENSION_KEY,
   PRIMARY_OWNER_EXTENSION_KEY,
   formatAssignedUsersLabel,
@@ -19,6 +20,7 @@ import { ROLES } from "@/constants/roles";
 export {
   formatAssignedUsersLabel,
   ASSIGNED_USERS_EXTENSION_KEY,
+  ASSIGNED_USER_IDS_EXTENSION_KEY,
   HIERARCHY_VISIBILITY_EXTENSION_KEY,
   PRIMARY_OWNER_EXTENSION_KEY,
 };
@@ -53,6 +55,40 @@ export function readAssignedUsersFromExtension(
     });
   }
   return out;
+}
+
+export function readAssignedUserIdsFromExtension(
+  lendingExtension: unknown,
+): string[] {
+  const ext = asRecord(lendingExtension);
+  const flat = ext[ASSIGNED_USER_IDS_EXTENSION_KEY];
+  if (Array.isArray(flat)) {
+    return [
+      ...new Set(
+        flat
+          .filter((v): v is string => typeof v === "string")
+          .map((v) => v.trim())
+          .filter(Boolean),
+      ),
+    ];
+  }
+  return readAssignedUsersFromExtension(lendingExtension).map((u) => u.id);
+}
+
+export function readHierarchyVisibilityUserIdsFromExtension(
+  lendingExtension: unknown,
+): string[] {
+  const ext = asRecord(lendingExtension);
+  const raw = ext[HIERARCHY_VISIBILITY_EXTENSION_KEY];
+  if (!Array.isArray(raw)) return [];
+  return [
+    ...new Set(
+      raw
+        .filter((v): v is string => typeof v === "string")
+        .map((v) => v.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 export function readPrimaryOwnerIdFromExtension(
@@ -121,6 +157,10 @@ export function writeAssignedUsersIntoExtension(
     ...(u.employeeId ? { employeeId: u.employeeId } : {}),
     isPrimaryOwner: primaryId ? u.id === primaryId : false,
   }));
+
+  next[ASSIGNED_USER_IDS_EXTENSION_KEY] = [
+    ...new Set(users.map((u) => u.id.trim()).filter(Boolean)),
+  ];
 
   if (primaryId) {
     next[PRIMARY_OWNER_EXTENSION_KEY] = primaryId;

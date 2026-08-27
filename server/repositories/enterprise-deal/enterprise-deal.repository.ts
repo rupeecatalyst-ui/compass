@@ -13,7 +13,6 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 import { prisma } from "@server/lib/prisma";
-import { userAdminService } from "@server/services/user-admin.service";
 import { ENTERPRISE_DEAL_SOFT_DELETE_MODULE } from "@/constants/enterprise-deal-registry";
 import type { EnterpriseDealSearchQuery } from "@/types/enterprise-deal";
 import { allocateDealNumberInTransaction } from "@server/services/enterprise-deal/deal-number.service";
@@ -24,6 +23,7 @@ import {
   DealValidationError,
 } from "@server/services/enterprise-deal/deal-validation";
 import { emitDealTimelineToEarBestEffort } from "@server/services/enterprise-activity/deal-timeline-ear";
+import { buildDealVisibilityOrFilters } from "@server/services/enterprise-case-visibility/build-visibility-where";
 
 /**
  * Create the pending PDC schedule if missing. Existing rows are never overwritten.
@@ -411,6 +411,10 @@ export class EnterpriseDealRepository {
       summary: input.summary,
       actorUserId: input.actorUserId ?? null,
       occurredAt: row.occurredAt,
+      payload:
+        input.payload && typeof input.payload === "object" && !Array.isArray(input.payload)
+          ? (input.payload as Record<string, unknown>)
+          : null,
     });
 
     // CO-NOTIFICATION-001 — stage / workflow toast fan-out
@@ -447,13 +451,17 @@ export class EnterpriseDealRepository {
             ? payload.fromStage
             : typeof payload.previousStage === "string"
               ? payload.previousStage
-              : null;
+              : typeof payload.fromGrossStage === "string"
+                ? payload.fromGrossStage
+                : null;
         const toStage =
           typeof payload.toStage === "string"
             ? payload.toStage
             : typeof payload.newStage === "string"
               ? payload.newStage
-              : null;
+              : typeof payload.toGrossStage === "string"
+                ? payload.toGrossStage
+                : null;
         await enterpriseNotificationService.fanOutBestEffort({
           organizationId: input.organizationId,
           eventType: "DEAL_STAGE_CHANGED",
@@ -722,21 +730,11 @@ export class EnterpriseDealRepository {
         ],
       });
     }
-    if (query.scope === "my" && query.scopeUserId) {
-      const downlineIds = await userAdminService.resolveDownlineUserIds(query.scopeUserId);
-      andFilters.push({
-        OR: [
-          { relationshipManagerUserId: { in: downlineIds } },
-          { primaryOwnerUserId: { in: downlineIds } },
-          // Supervisors stored on assignment save (hierarchyVisibilityUserIds)
-          {
-            lendingExtension: {
-              path: ["hierarchyVisibilityUserIds"],
-              array_contains: query.scopeUserId,
-            },
-          },
-        ],
-      });
+    if ((query.scope === "my" || query.scope === "team") && query.scopeUserId) {
+      const visibilityOr = await buildDealVisibilityOrFilters(query.scopeUserId);
+      if (visibilityOr.length > 0) {
+        andFilters.push({ OR: visibilityOr });
+      }
     }
     if (andFilters.length > 0) where.AND = andFilters
     if (query.counterpartyType || query.counterpartyId) {
@@ -996,13 +994,23 @@ export class EnterpriseDealRepository {
         actorUserId: input.actorUserId,
         opportunityId: deal.opportunityId,
         payload: {
+          dealId: input.dealId,
+          dealNumber: deal.dealNumber,
+          opportunityId: deal.opportunityId,
           fromGrossStage: deal.grossStage,
           toGrossStage: input.toGrossStage,
+          // Aliases for notification / Activity consumers
+          previousStage: deal.grossStage,
+          newStage: input.toGrossStage,
+          fromStage: deal.grossStage,
+          toStage: input.toGrossStage,
           fromSubStage: deal.subStage,
           toSubStage: input.toSubStage ?? null,
           fromLifecycleStatus: deal.lifecycleStatus,
           toLifecycleStatus: input.toLifecycleStatus ?? null,
           reason: input.reason ?? null,
+          actorUserId: input.actorUserId,
+          occurredAt: now.toISOString(),
         },
       });
       if (stageChanged) {

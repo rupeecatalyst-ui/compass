@@ -25,7 +25,7 @@ export async function GET(request: Request) {
         const actor = requireAccessToken(request);
         const url = new URL(request.url);
         const result = await enterpriseDealService.searchDeals(
-          parseDealSearchQuery(url, actor.userId),
+          parseDealSearchQuery(url, actor.userId, actor.role),
         );
         return successResponse(result, 200, correlationId);
       } catch (err) {

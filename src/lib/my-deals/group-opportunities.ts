@@ -27,7 +27,7 @@ export interface OpportunityRegistryGroup {
   /** Max lastActivity across child deals — used for sort / freshness. */
   lastActivity: string;
   dateCreated: string;
-  /** Highest journey fill among lenders (1…6) — “fastest progressing”. */
+  /** Highest journey fill among lenders (1…N) — “fastest progressing”. */
   maxProgressFilled: number;
   /** True when any deal is hold/lost or high risk. */
   needsAttention: boolean;

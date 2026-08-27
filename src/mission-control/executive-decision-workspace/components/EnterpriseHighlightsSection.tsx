@@ -15,7 +15,7 @@ export function EnterpriseHighlightsSection({
       <SectionHeader
         eyebrow="Enterprise Highlights"
         title="What positive developments occurred"
-        description="Placeholder highlights with trend indicators — not computed KPIs."
+        description="RM pipeline highlights from certified Enterprise Business Intelligence."
       />
       <h2 id="edw-highlights-heading" className="sr-only">
         Enterprise Highlights

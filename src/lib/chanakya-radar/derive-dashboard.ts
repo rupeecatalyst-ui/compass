@@ -15,6 +15,11 @@ import {
 import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
 import { formatINR } from "@/lib/format-currency";
 import {
+  coalesceAssignedUsers,
+  readAssignedUserIdsFromExtension,
+  readHierarchyVisibilityUserIdsFromExtension,
+} from "@/lib/assigned-users";
+import {
   classifyDealHealth,
   listActiveRadarLenders,
 } from "./derive-radar";
@@ -46,6 +51,12 @@ export interface ChanakyaRadarDealRow {
   loanAmount: number;
   loanAmountLabel: string;
   assignedRm: string;
+  /** CO-ORG-VISIBILITY-002 — assignee / hierarchy ids when projected from Deal Registry. */
+  primaryOwnerUserId?: string;
+  relationshipManagerUserId?: string;
+  assignedUserIds?: string[];
+  assignedUserNames?: string[];
+  hierarchyVisibilityUserIds?: string[];
   quadrant: ChanakyaOperationalQuadrantId;
   quadrantLabel: string;
   stageLabel: string;
@@ -294,6 +305,20 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
     file.opportunityNumber?.trim() || opportunityNumberForFile(file);
   const dealDisplay =
     file.dealNumber?.trim() || opportunityNumber;
+  const ext = (file as { lendingExtension?: unknown }).lendingExtension;
+  const assigned = coalesceAssignedUsers({
+    lendingExtension: ext,
+    primaryOwnerUserId: (file as { primaryOwnerUserId?: string }).primaryOwnerUserId,
+    relationshipManagerUserId: (file as { relationshipManagerUserId?: string })
+      .relationshipManagerUserId,
+    relationshipManagerName: file.relationshipManager,
+  });
+  const assignedUserIds =
+    (file as { assignedUserIds?: string[] }).assignedUserIds ??
+    readAssignedUserIdsFromExtension(ext);
+  const hierarchyVisibilityUserIds =
+    (file as { hierarchyVisibilityUserIds?: string[] }).hierarchyVisibilityUserIds ??
+    readHierarchyVisibilityUserIdsFromExtension(ext);
 
   return {
     id: enterpriseDealId || file.id,
@@ -307,6 +332,16 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
     loanAmount: amount,
     loanAmountLabel: formatINR(amount),
     assignedRm: file.relationshipManager || "—",
+    primaryOwnerUserId:
+      (file as { primaryOwnerUserId?: string }).primaryOwnerUserId ||
+      assigned.find((u) => u.isPrimaryOwner)?.id ||
+      assigned[0]?.id,
+    relationshipManagerUserId: (file as { relationshipManagerUserId?: string })
+      .relationshipManagerUserId,
+    assignedUserIds:
+      assignedUserIds.length > 0 ? assignedUserIds : assigned.map((u) => u.id),
+    assignedUserNames: assigned.map((u) => u.name),
+    hierarchyVisibilityUserIds,
     quadrant,
     quadrantLabel: quadrantLabel(quadrant),
     stageLabel: classified.signals.stageLabel || radarDealStageLabel(file, lead),

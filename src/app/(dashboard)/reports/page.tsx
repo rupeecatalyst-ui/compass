@@ -1,19 +1,7 @@
-import { Suspense } from "react";
-import { ExecutiveIntelligenceWorkspace } from "@/components/catalyst-one/executive-intelligence";
-import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
 
+/** CO-REFINEMENT-004 — Legacy /reports alias redirects into Mission Control shell. */
 export default function ReportsPage() {
-  return (
-    <Suspense
-      fallback={
-        <ChanakyaLoadingExperience
-          module="reports"
-          statusLabel="Preparing Executive Intelligence..."
-          density="panel"
-        />
-      }
-    >
-      <ExecutiveIntelligenceWorkspace />
-    </Suspense>
-  );
+  redirect(ROUTES.MISSION_CONTROL_ENTERPRISE_INTELLIGENCE);
 }

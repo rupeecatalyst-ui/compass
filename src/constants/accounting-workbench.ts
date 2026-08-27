@@ -18,7 +18,6 @@ export type AccountingWorkbenchId =
   | "gst_tax"
   | "invoice_party_master"
   | "payee_master"
-  | "reports"
   | "notes";
 
 export interface AccountingWorkbenchDef {
@@ -64,11 +63,6 @@ export const ACCOUNTING_WORKBENCHES: readonly AccountingWorkbenchDef[] = [
     label: "Invoice Party Master",
     description:
       "Accounting Invoice Party Master — curated commission invoice parties linked to Contact/Company Registry",
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    description: "Reports Workbench — revenue, profitability, and MIS",
   },
   {
     id: "notes",

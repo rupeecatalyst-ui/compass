@@ -79,6 +79,7 @@ export {
   lenderCaseStageToGrossStage,
   grossStageToLenderCaseStage,
   lenderCaseStageToPipelineStageProjection,
+  type DealPipelineStageProjection,
 } from "./deal-lender-stage-map";
 export {
   resolveDealStageProjection,

@@ -22,6 +22,7 @@ import {
   OpportunityConflictError,
   OpportunityNotFoundError,
 } from "@server/services/enterprise-opportunity/opportunity-validation";
+import { buildOpportunityVisibilityOrFilters } from "@server/services/enterprise-case-visibility/build-visibility-where";
 
 function sourceCodesForBucket(bucket: string): string[] {
   return businessSourceCodesForKpiBucket(bucket);
@@ -297,6 +298,11 @@ export class EnterpriseOpportunityRepository {
     orderBy?: "updatedAt" | "createdAt";
     limit?: number;
     offset?: number;
+    /**
+     * CO-ORG-VISIBILITY-002 — when set, restrict to Role∪Hierarchy∪Assignment
+     * for this actor (non-org-wide roles).
+     */
+    visibilityUserId?: string;
   }) {
     const limit = Math.min(Math.max(query.limit ?? 50, 1), 200);
     const offset = Math.max(query.offset ?? 0, 0);
@@ -356,6 +362,18 @@ export class EnterpriseOpportunityRepository {
           }
         : {}),
     };
+
+    if (query.visibilityUserId?.trim()) {
+      const visibilityOr = await buildOpportunityVisibilityOrFilters(
+        query.visibilityUserId.trim(),
+      );
+      if (visibilityOr.length > 0) {
+        where.AND = [
+          ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+          { OR: visibilityOr },
+        ];
+      }
+    }
 
     const orderField = query.orderBy === "createdAt" ? "createdAt" : "updatedAt";
 

@@ -54,7 +54,7 @@ export function BusinessPerformanceSection({
         </h3>
       </header>
 
-      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="flex flex-col gap-3">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 xl:col-span-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
             Pipeline Funnel

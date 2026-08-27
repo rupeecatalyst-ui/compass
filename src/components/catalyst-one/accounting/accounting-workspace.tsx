@@ -18,8 +18,10 @@ import {
 } from "@/constants/accounting-workbench";
 import {
   getAccountingWorkspaceModel,
+  isLegacyAccountingRevenueAnalyticsDeepLink,
   resolveAccountingWorkbenchFromSearchParams,
 } from "@/lib/accounting-workspace";
+import { ROUTES } from "@/constants/routes";
 import {
   enterpriseAccountingCaseClient,
   type EnterpriseAccountingCaseDto,
@@ -38,7 +40,6 @@ import {
   AccountingInvoiceWorkbench,
   AccountingPayoutWorkbench,
   AccountingReceivablesWorkbench,
-  AccountingReportsWorkbench,
 } from "./accounting-workbench-views";
 import { InvoicePartyMasterWorkbench } from "./invoice-party-master-workbench";
 import { ChanakyaFinancialInsights } from "./chanakya-financial-insights";
@@ -99,6 +100,12 @@ export function AccountingWorkspace() {
   }, []);
 
   useEffect(() => {
+    if (isLegacyAccountingRevenueAnalyticsDeepLink(searchParams)) {
+      router.replace(ROUTES.MISSION_CONTROL_REVENUE_ANALYTICS);
+    }
+  }, [router, searchParams]);
+
+  useEffect(() => {
     void reloadCases();
     void reloadInvoices();
   }, [reloadCases, reloadInvoices]);
@@ -126,6 +133,14 @@ export function AccountingWorkspace() {
     const map: Record<string, string> = {};
     for (const inv of durableInvoices) {
       if (inv.documentStatus !== "cancelled") map[inv.accountingCaseId] = inv.invoiceNumber;
+    }
+    return map;
+  }, [durableInvoices]);
+
+  const currentInvoiceIdByCaseId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const inv of durableInvoices) {
+      if (inv.documentStatus !== "cancelled") map[inv.accountingCaseId] = inv.id;
     }
     return map;
   }, [durableInvoices]);
@@ -253,6 +268,7 @@ export function AccountingWorkspace() {
                   onReload={reloadCases}
                   canRaiseInvoice={canRaiseInvoice}
                   currentInvoiceByCaseId={currentInvoiceByCaseId}
+                  currentInvoiceIdByCaseId={currentInvoiceIdByCaseId}
                   onInvoiceRaised={reloadInvoices}
                   caption="Cases after Confirmation Received. Raise Invoice is an explicit ADMIN action and does not send the invoice."
                 />
@@ -272,6 +288,10 @@ export function AccountingWorkspace() {
                   loading={casesLoading}
                   error={casesError}
                   onReload={reloadCases}
+                  canRaiseInvoice={canRaiseInvoice}
+                  currentInvoiceByCaseId={currentInvoiceByCaseId}
+                  currentInvoiceIdByCaseId={currentInvoiceIdByCaseId}
+                  onInvoiceRaised={reloadInvoices}
                   caption="Derived outstanding uses Invoice + posted payments + posted credit notes. Case amounts are not a receivable ledger."
                 />
                 <AccountingReceivablesWorkbench
@@ -329,18 +349,6 @@ export function AccountingWorkspace() {
             ) : null}
             {workbench === "invoice_party_master" || workbench === "payee_master" ? (
               <InvoicePartyMasterWorkbench />
-            ) : null}
-            {workbench === "reports" ? (
-              <div className="space-y-3">
-                <AccountingCasesPanel
-                  cases={cases}
-                  loading={casesLoading}
-                  error={casesError}
-                  onReload={reloadCases}
-                  caption="Case commercial capture is not revenue MIS. Invoice register, GST collected, and collections remain unbound."
-                />
-                <AccountingReportsWorkbench summary={seed.summary} />
-              </div>
             ) : null}
             {workbench === "notes" ? (
               <div className="rounded-xl border border-border bg-card p-4">

@@ -30,12 +30,20 @@ export function grossStageToLenderCaseStage(
 }
 
 /**
- * My Deals / LoanFile-shaped surfaces still speak PipelineStage.
- * One-way display projection only — never used for Kanban persist.
+ * Lossy LoanFile.stage vocabulary for legacy PipelineStage consumers.
+ * Preserves terminal LenderCaseStage ids that PipelineStage cannot express
+ * (`post_disbursement_confirmation`, `lost`) so Radar / filters do not
+ * collapse them to `pre_login`.
+ * One-way display / filter projection only — never used for Kanban persist.
  */
+export type DealPipelineStageProjection =
+  | PipelineStage
+  | "post_disbursement_confirmation"
+  | "lost";
+
 export function lenderCaseStageToPipelineStageProjection(
   caseStage: LenderCaseStage | string | null | undefined,
-): PipelineStage {
+): DealPipelineStageProjection {
   const s = normalizeLenderCaseStage(String(caseStage ?? "identified"));
   switch (s) {
     case "identified":
@@ -52,8 +60,10 @@ export function lenderCaseStageToPipelineStageProjection(
       return "closure_wip";
     case "disbursed":
       return "won";
+    case "post_disbursement_confirmation":
+      return "post_disbursement_confirmation";
     case "lost":
-      return "pre_login";
+      return "lost";
     default:
       return "pre_login";
   }

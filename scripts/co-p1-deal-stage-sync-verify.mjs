@@ -51,6 +51,11 @@ mustContain(
   "deal.grossStage",
   "My Deals projection uses grossStage",
 );
+mustContain(
+  "src/lib/enterprise-deal/deal-lender-stage-map.ts",
+  'return "post_disbursement_confirmation"',
+  "PDC projection does not collapse to pre_login",
+);
 
 if (failures.length) {
   console.error("P1 deal stage sync verify FAILED:\n" + failures.map((f) => `  - ${f}`).join("\n"));

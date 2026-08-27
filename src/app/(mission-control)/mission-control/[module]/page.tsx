@@ -5,9 +5,12 @@ import { listMissionControlNavModules } from "@/mission-control/feature-registry
 /** Routes owned by dedicated App Router pages (not the dynamic scaffold). */
 const DEDICATED_SLUGS = new Set([
   "executive-briefing",
+  "enterprise-intelligence",
+  "revenue-analytics",
   "situation-room",
   "alert-center",
   "chanakya-intelligence",
+  "operations-intelligence",
 ]);
 
 const MODULE_SLUGS = listMissionControlNavModules()

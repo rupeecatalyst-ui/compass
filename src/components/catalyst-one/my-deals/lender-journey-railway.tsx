@@ -45,14 +45,17 @@ export function LenderJourneyRailway({
       }`}
     >
       {showAxisLabels ? (
-        <div className="mb-1.5 grid grid-cols-6 gap-0.5">
+        <div className="mb-1.5 grid grid-cols-7 gap-0.5">
           {ENTERPRISE_JOURNEY_SEGMENTS.map((seg) => (
             <span
               key={seg.id}
               className="truncate text-center text-[9px] font-medium uppercase tracking-wide text-zinc-500"
               title={seg.label}
             >
-              {seg.label.replace("Logged In – WIP", "Logged In").replace("Pre-Login", "Prelogin")}
+              {seg.label
+                .replace("Logged In – WIP", "Logged In")
+                .replace("Pre-Login", "Prelogin")
+                .replace("Post-Disbursement Confirmation", "PDC")}
             </span>
           ))}
         </div>
@@ -148,7 +151,7 @@ export function LenderJourneyRailway({
 export function LenderJourneyAxisHeader({ className }: { className?: string }) {
   return (
     <div className={cn("min-w-[280px] flex-1 px-0.5", className)}>
-      <div className="grid grid-cols-6 gap-0.5">
+      <div className="grid grid-cols-7 gap-0.5">
         {ENTERPRISE_JOURNEY_SEGMENTS.map((seg) => (
           <span
             key={seg.id}
@@ -157,7 +160,8 @@ export function LenderJourneyAxisHeader({ className }: { className?: string }) {
           >
             {seg.label
               .replace("Logged In – WIP", "Logged In")
-              .replace("Pre-Login", "Prelogin")}
+              .replace("Pre-Login", "Prelogin")
+              .replace("Post-Disbursement Confirmation", "PDC")}
           </span>
         ))}
       </div>

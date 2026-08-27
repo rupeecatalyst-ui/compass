@@ -407,7 +407,7 @@ export const adminConsoleNavigation: NavGroup = {
     { title: "Partner Access & Entitlements", href: ROUTES.ADMIN_PARTNER_ENTITLEMENTS, icon: Shield },
     { title: "Shadow Mode Dashboard", href: ROUTES.ADMIN_SHADOW_MODE_DASHBOARD, icon: Radar },
     { title: "Enterprise Communication", href: ROUTES.ADMIN_ENTERPRISE_COMMUNICATION, icon: Mail },
-    { title: "Enterprise Intelligence", href: ROUTES.REPORTS, icon: BarChart3 },
+    { title: "Enterprise Intelligence", href: ROUTES.MISSION_CONTROL_ENTERPRISE_INTELLIGENCE, icon: BarChart3 },
   ],
 };
 
@@ -490,7 +490,7 @@ export const systemAdministrationCommandPaletteRoutes = [
   },
   { title: "Customers", href: ROUTES.CUSTOMERS, icon: Users },
   { title: "Opportunity Compass", href: ROUTES.OPPORTUNITY_COMPASS, icon: Compass },
-  { title: "Enterprise Intelligence", href: ROUTES.REPORTS, icon: BarChart3 },
+  { title: "Enterprise Intelligence", href: ROUTES.MISSION_CONTROL_ENTERPRISE_INTELLIGENCE, icon: BarChart3 },
   { title: "Communication", href: ROUTES.COMMUNICATION, icon: Megaphone },
   { title: "Workflow (EWOE)", href: ROUTES.WORKFLOW, icon: Workflow },
   { title: "Experience Console (EEI)", href: ROUTES.DECISIONS, icon: Brain },

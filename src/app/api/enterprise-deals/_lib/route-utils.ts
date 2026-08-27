@@ -15,6 +15,7 @@ import {
   DealNotFoundError,
   DealValidationError,
 } from "@server/services/enterprise-deal/deal-validation";
+import { resolveEffectiveDealSearchScope } from "@server/services/enterprise-case-visibility/build-visibility-where";
 
 export function enterpriseDealApiGuard() {
   if (!isEnterprisePersistencePrisma()) {
@@ -131,8 +132,12 @@ export function parseInclude(url: URL): DealIncludeOption[] {
 export function parseDealSearchQuery(
   url: URL,
   scopeUserId?: string,
+  role?: string | null,
 ): EnterpriseDealSearchQuery {
   const archivedParam = url.searchParams.get("archived");
+  const requestedScope =
+    (url.searchParams.get("scope") as EnterpriseDealSearchQuery["scope"]) ?? "all";
+  const scope = resolveEffectiveDealSearchScope(requestedScope, role);
   return {
     q: url.searchParams.get("q") ?? undefined,
     legacyLoanFileId: url.searchParams.get("legacyLoanFileId") ?? undefined,
@@ -160,7 +165,7 @@ export function parseDealSearchQuery(
     updatedTo: url.searchParams.get("updatedTo") ?? undefined,
     archived:
       archivedParam === "true" ? true : archivedParam === "false" ? false : undefined,
-    scope: (url.searchParams.get("scope") as EnterpriseDealSearchQuery["scope"]) ?? "all",
+    scope,
     scopeUserId,
     page: Number(url.searchParams.get("page") ?? 1),
     pageSize: Number(url.searchParams.get("pageSize") ?? 25),

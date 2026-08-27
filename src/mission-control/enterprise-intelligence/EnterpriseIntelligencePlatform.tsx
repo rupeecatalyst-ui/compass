@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CO-MC-002 — Full-width Mission Control Enterprise Intelligence platform.
+ * CO-MC-002 / CO-REFINEMENT-004 — Full-width Mission Control Enterprise Intelligence platform.
  * Renders precomputed snapshot sections only — never aggregates live.
  */
 
@@ -28,6 +28,7 @@ import type {
   McEiSection,
   MissionControlEnterpriseIntelligencePack,
 } from "@/types/mission-control-enterprise-intelligence";
+import { McAnalyticsExpandCard } from "../shared/ui/McAnalyticsExpandCard";
 import { cn } from "../shared/cn";
 
 const CHART_COLORS = [
@@ -72,16 +73,6 @@ function FullWidthCard({
   );
 }
 
-function CardHeader({ card }: { card: McEiChartCard }) {
-  return (
-    <header className="mb-4">
-      <h4 className="text-sm font-semibold text-zinc-50">{card.title}</h4>
-      {card.subtitle ? (
-        <p className="mt-0.5 text-[11px] text-zinc-500">{card.subtitle}</p>
-      ) : null}
-    </header>
-  );
-}
 
 function EmptyChart({ label }: { label?: string }) {
   return (
@@ -477,10 +468,13 @@ function SectionBlock({ section }: { section: McEiSection }) {
       </header>
       <div className="flex flex-col gap-4">
         {section.cards.map((card) => (
-          <FullWidthCard key={card.id}>
-            <CardHeader card={card} />
+          <McAnalyticsExpandCard
+            key={card.id}
+            title={card.title}
+            subtitle={card.subtitle}
+          >
             <ChartBody card={card} />
-          </FullWidthCard>
+          </McAnalyticsExpandCard>
         ))}
       </div>
     </section>

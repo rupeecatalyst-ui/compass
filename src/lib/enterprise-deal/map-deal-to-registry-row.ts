@@ -71,7 +71,7 @@ export function mapEnterpriseDealToDealRegistryRow(
     "";
   const lastModified = deal.updatedAt || deal.createdAt || "";
   const lenderStage = normalizeLenderCaseStage(deal.grossStage);
-  const stage = resolveDealStageProjection(deal) || ("raw_lead" as PipelineStage);
+  const stage = (resolveDealStageProjection(deal) || "raw_lead") as PipelineStage;
   const stageLabel =
     LENDER_CASE_STAGE_LABELS[lenderStage] ??
     STAGE_LABELS[stage] ??

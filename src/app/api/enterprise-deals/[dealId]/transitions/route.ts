@@ -45,6 +45,8 @@ export async function POST(request: Request, context: Ctx) {
             ? assertOperationalStatus(body.toOperationalStatus)
             : undefined,
           reason: body.reason ? String(body.reason) : null,
+          // CO-REFINEMENT-003 — honor client allowSkip; operational free-move also allowed server-side.
+          allowSkip: body.allowSkip !== false,
         });
         recordBusinessAudit({
           actorUserId: actor.userId,
