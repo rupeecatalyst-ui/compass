@@ -81,11 +81,14 @@ if (/CO-CHANAKYA-GPT-PORTFOLIO-ROUTING-049/.test(yaml)) {
   ok("049 routing model documented in OpenAPI info");
 } else fail("049 routing model missing");
 
-if (/portfolioBusinessRegistry/.test(yaml) && /portfolioHydration/.test(yaml)) {
+if (
+  (/portfolioBusinessRegistry|data\.portfolio\.deals|portfolio\.deals/.test(yaml)) &&
+  (/portfolioHydration|portfolio\.summary/.test(yaml))
+) {
   ok("portfolio registry + hydration documented");
 } else fail("portfolio registry/hydration missing from OpenAPI");
 
-if (/Pipeline or Radar shows zero Deals/.test(yaml)) {
+if (/Pipeline or Radar shows zero Deals|portfolio\.summary\.totalDeals/.test(yaml)) {
   ok("conflict resolution rule documented");
 } else fail("conflict resolution rule missing");
 
@@ -108,13 +111,13 @@ for (const op of ops) {
 {
   const desc = extractFoldedDescription(yaml, "gptActionEnterpriseRead");
   for (const needle of [
-    "portfolioBusinessRegistry",
-    "portfolioHydration",
-    "Customer/Deal lists",
-    "PRIMARY deep CHANAKYA",
+    ["portfolio.deals", /portfolio\.deals|view=portfolio_list/i.test(desc)],
+    ["portfolio summary", /portfolio\.summary|deals\+summary|portfolioHydration/i.test(desc)],
+    ["Customer/Deal lists", /customer\/deal lists/i.test(desc)],
+    ["PRIMARY portfolio", /PRIMARY/i.test(desc)],
   ]) {
-    if (desc.toLowerCase().includes(needle.toLowerCase())) ok(`enterprise-read desc: ${needle}`);
-    else fail(`enterprise-read desc missing: ${needle}`);
+    if (needle[1]) ok(`enterprise-read desc: ${needle[0]}`);
+    else fail(`enterprise-read desc missing: ${needle[0]}`);
   }
 }
 
@@ -144,7 +147,11 @@ for (const op of ops) {
   if (guide.includes("gptActionPipeline") && guide.includes("Never")) {
     ok("guide forbids pipeline for portfolio lists");
   } else fail("guide pipeline exclusion missing");
-  if (guide.includes("portfolioHydration.availability")) {
+  if (
+    guide.includes("portfolio.summary.totalDeals") ||
+    guide.includes("portfolioHydration.availability") ||
+    guide.includes("false-zero")
+  ) {
     ok("guide documents conflict resolution");
   } else fail("guide conflict resolution missing");
 }

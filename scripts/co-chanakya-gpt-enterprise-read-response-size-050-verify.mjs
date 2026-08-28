@@ -11,6 +11,7 @@ import {
   buildCompactGptEnterpriseReadResponse,
   enforceGptActionResponseSizeGuard,
   measureJsonUtf8Bytes,
+  resolveGptPortfolioActivityFilter,
 } from "../server/services/chatgpt-integration/compact-enterprise-read.ts";
 import {
   GPT_ACTION_RESPONSE_SAFE_MAX_BYTES,
@@ -162,6 +163,12 @@ else fail("compile missing gptCompactView");
   if (resolveGptEnterpriseReadView({ requestHint: changeQ }) === "changes") {
     ok("G change question resolves changes view");
   } else fail("G changes view resolution");
+
+  const currentlyQ =
+    "Give me the names of all customers currently lying in Deals with their Deal numbers, lender and current stages.";
+  if (resolveGptPortfolioActivityFilter(currentlyQ) === "all") {
+    ok("052 currently lying in Deals does not infer active-only filter");
+  } else fail("052 currently incorrectly maps to active filter");
 
   const acctQ = "What is accounting status?";
   if (resolveGptEnterpriseReadView({ requestHint: acctQ }) === "commercial") {

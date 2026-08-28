@@ -49,7 +49,11 @@ export type GptCompactPortfolioPagination = {
   sizeGuardMaxBytes?: number;
 };
 
+export type GptPortfolioActivityFilter = "all" | "active" | "inactive";
+
 export type GptCompactPortfolioList = {
+  /** SSOT activity filter applied to `deals` rows — "currently" alone does NOT mean active. */
+  activityFilter: GptPortfolioActivityFilter;
   summary: {
     totalDeals: number;
     activeDeals: number;

@@ -13,6 +13,7 @@ import {
   type GptCompactPortfolioDealRow,
   type GptCompactPortfolioList,
   type GptEnterpriseReadCompactView,
+  type GptPortfolioActivityFilter,
 } from "@/types/chatgpt-enterprise-read-compact";
 import type {
   ChanakyaEnterpriseReadCompileResult,
@@ -51,11 +52,15 @@ export function resolveGptEnterpriseReadView(
   if (/dialogue|conversation thread|message history/.test(q)) return "dialogue";
   if (/activity|timeline|recent activit/.test(q)) return "activity";
   if (/attention|stuck|why is|needs attention|idle/.test(q)) return "attention";
-  if (/wealth partner|partner.?wise|by partner/.test(q)) return "portfolio_list";
   if (
-    /all (customers|deals)|lying in deals|active deals|inactive deals|deal number|portfolio|list deals/.test(
+    /how many deals|deal register|deal list|list the deals|show me the deals|which deals|customers in deals|lying in deals|deal numbers|deal-wise|lender-wise|product-wise|wealth partner|partner.?wise|by partner/.test(
       q,
     )
+  ) {
+    return "portfolio_list";
+  }
+  if (
+    /all (customers|deals)|inactive deals|active deals|portfolio|list deals/.test(q)
   ) {
     return "portfolio_list";
   }
@@ -169,23 +174,52 @@ function readPortfolioRegistry(
   };
 }
 
+/**
+ * CO-052 — Portfolio activity filter from natural-language hint.
+ * "Currently lying in Deals" = ALL deals. Only explicit "active/inactive" narrows rows.
+ */
+export function resolveGptPortfolioActivityFilter(
+  requestHint?: string | null,
+): GptPortfolioActivityFilter {
+  const q = (requestHint || "").toLowerCase();
+  if (
+    /\binactive\s+deals?\b/.test(q) ||
+    /\bdeals?\b[^\n]{0,40}\binactive\b/.test(q) ||
+    /\binactive\b[^\n]{0,40}\bdeals?\b/.test(q)
+  ) {
+    return "inactive";
+  }
+  if (
+    /\bactive\s+deals?\b/.test(q) ||
+    /\bdeals?\b[^\n]{0,40}\bactive\b/.test(q) ||
+    /\bactive\b[^\n]{0,40}\bdeals?\b/.test(q)
+  ) {
+    return "active";
+  }
+  return "all";
+}
+
 function pickPortfolioRows(
   registry: NonNullable<ReturnType<typeof readPortfolioRegistry>["registry"]>,
   view: GptEnterpriseReadCompactView,
   requestHint?: string | null,
-): ChanakyaPortfolioBusinessRow[] {
+): { rows: ChanakyaPortfolioBusinessRow[]; activityFilter: GptPortfolioActivityFilter } {
   const q = (requestHint || "").toLowerCase();
   if (view === "attention" || /attention|stuck|idle/.test(q)) {
-    return registry.allDeals.filter(
-      (r) =>
-        (r.pendingDocs ?? 0) > 0 ||
-        r.activityClassification === "inactive" ||
-        (r.idleDays ?? 0) >= 5,
-    );
+    return {
+      activityFilter: "all",
+      rows: registry.allDeals.filter(
+        (r) =>
+          (r.pendingDocs ?? 0) > 0 ||
+          r.activityClassification === "inactive" ||
+          (r.idleDays ?? 0) >= 5,
+      ),
+    };
   }
-  if (/inactive/.test(q)) return registry.inactiveDeals;
-  if (/active/.test(q)) return registry.activeDeals;
-  return registry.allDeals;
+  const activityFilter = resolveGptPortfolioActivityFilter(requestHint);
+  if (activityFilter === "inactive") return { activityFilter, rows: registry.inactiveDeals };
+  if (activityFilter === "active") return { activityFilter, rows: registry.activeDeals };
+  return { activityFilter: "all", rows: registry.allDeals };
 }
 
 export function buildGptCompactPortfolioList(input: {
@@ -198,7 +232,11 @@ export function buildGptCompactPortfolioList(input: {
   const { registry, hydration } = readPortfolioRegistry(input.compiled.transactionAttention);
   if (!registry) return null;
 
-  const sourceRows = pickPortfolioRows(registry, input.view, input.requestHint);
+  const { rows: sourceRows, activityFilter } = pickPortfolioRows(
+    registry,
+    input.view,
+    input.requestHint,
+  );
   const paginationMeta = hydration?.pagination;
   const page = paginationMeta?.page ?? 1;
   const pageSize = paginationMeta?.limit ?? sourceRows.length;
@@ -222,6 +260,7 @@ export function buildGptCompactPortfolioList(input: {
       : registry.inactiveDeals.length;
 
   const portfolio: GptCompactPortfolioList = {
+    activityFilter,
     summary: {
       totalDeals,
       activeDeals,
@@ -560,7 +599,22 @@ export function buildCompactGptEnterpriseReadResponse(input: {
       view: input.view,
       requestHint: input.requestHint,
     });
-    if (portfolio) base.portfolio = portfolio;
+    if (portfolio) {
+      base.portfolio = portfolio;
+      base.portfolioRouting = {
+        authoritativeAction: "gptActionEnterpriseRead",
+        authoritativeSource: "enterprise_deal_registry",
+        activityFilter: portfolio.activityFilter,
+        activitySemantics:
+          portfolio.activityFilter === "all"
+            ? "All Deal Registry rows — the word currently does NOT mean active-only."
+            : `Filtered to ${portfolio.activityFilter} deals per explicit user wording.`,
+        falseZeroRule:
+          "If Pipeline or Radar aggregate is zero but portfolio.summary.totalDeals > 0, trust portfolio.deals.",
+        readFrom: "data.portfolio.deals and data.portfolio.summary",
+        doNotUse: ["gptActionPipeline", "gptActionChanakya"],
+      };
+    }
     if (input.view === "attention") {
       const attentionSlice = buildDomainSlice(input.compiled, "attention");
       if (attentionSlice) base.attention = attentionSlice;

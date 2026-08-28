@@ -17,21 +17,24 @@ info:
 
     GET-only. No mutation capabilities.
 
-    ## Action routing model (CO-CHANAKYA-GPT-CONNECTION-CLOSURE-042 · CO-CHANAKYA-GPT-PORTFOLIO-ROUTING-049)
+    ## Action routing model (CO-CHANAKYA-GPT-CONNECTION-CLOSURE-042 · CO-CHANAKYA-GPT-PORTFOLIO-ROUTING-049 · CO-CHANAKYA-GPT-PORTFOLIO-ROUTING-CORRECTION-052)
 
     | User question type | Call | Never call |
     |-------------------|------|------------|
-    | Record-level portfolio (customer/company names, Deal lists, stages, lenders, products, amounts, WP/source, active/inactive) | **gptActionEnterpriseRead** (no dealRef) | gptActionPipeline, gptActionChanakya |
+    | Record-level portfolio (customer/company names, Deal lists, stages, lenders, products, amounts, WP/source, active/inactive) | **gptActionEnterpriseRead** `view=portfolio_list` (no dealRef) | gptActionPipeline, gptActionChanakya |
     | Deal (`DEAL-…`, dealId, dealRef, "this deal") | **gptActionEnterpriseRead** with `dealRef` | gptActionChanakya, gptActionPipeline |
     | Opportunity (`OPP-…`, opportunityId, "this opportunity") | **gptActionEnterpriseRead** with `opportunityRef` | gptActionChanakya, gptActionPipeline |
     | Why stuck / what changed / documents / tasks / activity / financials / lenders / accounting / 360 | **gptActionEnterpriseRead** | gptActionChanakya, gptActionPipeline |
     | Aggregate pipeline snapshot only (no customer/Deal names) | **gptActionPipeline** | gptActionEnterpriseRead |
     | Org-wide CHANAKYA Radar snapshot / desk health only (no record-level lists) | **gptActionChanakya** | gptActionEnterpriseRead, gptActionPipeline |
 
+    **Activity semantics (CO-052):** "customers currently lying in Deals" = **all** Deal Registry rows
+    (`portfolio.activityFilter=all`). Only explicit "active deals" or "inactive deals" narrows the list.
+    The word **currently** does **not** mean active-only.
+
     **Portfolio conflict rule:** If Pipeline or Radar shows zero Deals but
-    `transactionAttention.portfolioHydration.availability` is `AVAILABLE`, use
-    `portfolioBusinessRegistry` / `transactionAttention` from **gptActionEnterpriseRead**
-    — never tell the user there are zero Deals based on stale Radar/EBI alone.
+    `data.portfolio.summary.totalDeals` > 0 from **gptActionEnterpriseRead**, trust
+    `data.portfolio.deals` — never tell the user there are zero Deals based on stale Radar/EBI/Pipeline alone.
 
     **Follow-up rule:** When the user continues about the same case without repeating
     the Deal/Opportunity number ("Why is it stuck?", "What should I do today?"),
@@ -210,9 +213,9 @@ paths:
       tags: [Chanakya AI GPT Action]
       summary: CHANAKYA enterprise read (PRIMARY portfolio + Deal/Opp 360)
       description: >-
-        PRIMARY deep CHANAKYA portfolio SSOT. Customer/Deal lists, stages, lenders, products, amounts,
-        WP/source, docs, tasks, activity, 360. No dealRef → portfolioBusinessRegistry. Radar/Pipeline=0 +
-        portfolioHydration AVAILABLE → trust registry. Pass dealRef/oppRef. FOIR/DSCR/LTV/DBR Phase 2.
+        PRIMARY Deal Registry portfolio. Pass view=portfolio_list; read data.portfolio.deals+summary.
+        Currently lying in Deals=ALL rows NOT active-only. Never gptActionPipeline for customer/Deal lists.
+        Pipeline/Radar zero but portfolio.totalDeals>0→trust enterprise-read. dealRef for 360. Phase 2 deferred.
       operationId: gptActionEnterpriseRead
       parameters:
         - name: mode
@@ -289,8 +292,9 @@ paths:
         - name: q
           in: query
           description: |
-            Optional natural-language hint for audit/routing (e.g. "why stuck", "documents pending").
-            Does not invent facts — entity scope still requires dealRef/opportunityRef when known.
+            Natural-language hint for routing/audit. Pass the user question verbatim when possible.
+            CO-052: "currently lying in Deals" means ALL deals (activityFilter=all) — not active-only.
+            Use explicit wording "active deals" or "inactive deals" only when the user asks for that subset.
           schema:
             type: string
         - name: view
@@ -467,10 +471,34 @@ components:
             - type: object
               description: |
                 Compiled CHANAKYA enterprise read context. Typical fields:
-                mode, resolvedMode, requestedEntityRefs, opportunity360, deal360,
-                transactionAttention, changeIntelligence, productLenderIntelligence,
-                creditIntelligence, enterpriseSummary, domains, limitations, privacy, readOnly.
+                mode, resolvedMode, requestedEntityRefs, responseProfile, compactView, portfolio,
+                portfolioRouting, dealSummary, opportunitySummary, slice, limitations, privacy, readOnly.
               properties:
+                responseProfile:
+                  type: string
+                  description: gpt_action_compact on GPT Action lane (CO-050).
+                compactView:
+                  type: string
+                  description: Query-shaped compact view (portfolio_list, deal_summary, documents, etc.).
+                portfolio:
+                  type: object
+                  nullable: true
+                  description: >-
+                    PRIMARY compact portfolio DTO (CO-050/052). Read data.portfolio.deals for Deal Registry rows
+                    and data.portfolio.summary for totals. activityFilter=all unless user explicitly asked active/inactive.
+                portfolioRouting:
+                  type: object
+                  nullable: true
+                  description: CO-052 routing hints — authoritative source, activity semantics, false-zero protection.
+                dealSummary:
+                  type: object
+                  nullable: true
+                opportunitySummary:
+                  type: object
+                  nullable: true
+                slice:
+                  type: object
+                  nullable: true
                 mode:
                   type: string
                 resolvedMode:
