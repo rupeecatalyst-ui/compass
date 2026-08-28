@@ -60,6 +60,44 @@ export async function assembleChanakyaDeal360(input: {
   }
   if (!deal) return null;
 
+  let parentOpportunity: {
+    opportunityNumber: string | null;
+    companyName: string | null;
+    sourceCode: string | null;
+    sourceContactName: string | null;
+    sourceCampaignLabel: string | null;
+    sourceWealthPartnerId: string | null;
+  } | null = null;
+  let wealthPartnerName: string | null = null;
+  if (deal.opportunityId && isDatabaseAvailable()) {
+    parentOpportunity = await prisma.enterpriseOpportunity.findFirst({
+      where: {
+        organizationId: input.organizationId,
+        id: deal.opportunityId,
+        isDeleted: false,
+      },
+      select: {
+        opportunityNumber: true,
+        companyName: true,
+        sourceCode: true,
+        sourceContactName: true,
+        sourceCampaignLabel: true,
+        sourceWealthPartnerId: true,
+      },
+    });
+    if (parentOpportunity?.sourceWealthPartnerId) {
+      const wp = await prisma.enterpriseWealthPartner.findFirst({
+        where: {
+          organizationId: input.organizationId,
+          id: parentOpportunity.sourceWealthPartnerId,
+          isDeleted: false,
+        },
+        select: { displayName: true, code: true },
+      });
+      wealthPartnerName = wp?.displayName?.trim() || wp?.code?.trim() || null;
+    }
+  }
+
   const limitations: string[] = [
     "Deal 360 is read-access foundation — no lender recommendation or credit analysis in this sprint.",
     "Customer mobile and email are omitted.",
@@ -104,6 +142,7 @@ export async function assembleChanakyaDeal360(input: {
         id: deal.id,
         dealNumber: deal.dealNumber,
         opportunityId: deal.opportunityId,
+        opportunityNumber: parentOpportunity?.opportunityNumber ?? null,
         lenderId: deal.lenderId,
         lenderName: deal.primaryCounterpartyName,
         productLabel: deal.productLabel,
@@ -119,6 +158,21 @@ export async function assembleChanakyaDeal360(input: {
         stageEnteredAt: deal.stageEnteredAt,
         updatedAt: deal.updatedAt,
         primaryContactName: deal.primaryContactName,
+        customerName: deal.primaryContactName,
+        companyName: parentOpportunity?.companyName ?? null,
+        businessSource: parentOpportunity
+          ? {
+              sourceCode: parentOpportunity.sourceCode,
+              sourceContactName: parentOpportunity.sourceContactName,
+              sourceCampaignLabel: parentOpportunity.sourceCampaignLabel,
+            }
+          : null,
+        wealthPartner: parentOpportunity?.sourceWealthPartnerId
+          ? {
+              id: parentOpportunity.sourceWealthPartnerId,
+              name: wealthPartnerName,
+            }
+          : null,
       },
       activityRegistry: earEvidence,
       dialogue: dialogueEvidence,
@@ -168,6 +222,22 @@ export async function assembleChanakyaDeal360(input: {
     "Deal relationship identity (contact channels redacted)",
     {
       primaryContactName: deal.primaryContactName,
+      customerName: deal.primaryContactName,
+      companyName: parentOpportunity?.companyName ?? null,
+      opportunityNumber: parentOpportunity?.opportunityNumber ?? null,
+      businessSource: parentOpportunity
+        ? {
+            sourceCode: parentOpportunity.sourceCode,
+            sourceContactName: parentOpportunity.sourceContactName,
+            sourceCampaignLabel: parentOpportunity.sourceCampaignLabel,
+          }
+        : null,
+      wealthPartner: parentOpportunity?.sourceWealthPartnerId
+        ? {
+            id: parentOpportunity.sourceWealthPartnerId,
+            name: wealthPartnerName,
+          }
+        : null,
       contactChannels: {
         mobile: CHANAKYA_FIELD_AVAILABILITY.REDACTED,
         email: CHANAKYA_FIELD_AVAILABILITY.REDACTED,

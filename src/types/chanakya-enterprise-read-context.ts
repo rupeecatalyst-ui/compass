@@ -732,6 +732,50 @@ export type ChanakyaAttentionEvidenceRow = {
 
 
 
+/** CO-CHANAKYA-ENTERPRISE-READ-COVERAGE-047 — portfolio list row with business labels. */
+
+export type ChanakyaPortfolioBusinessRow = ChanakyaAttentionEvidenceRow & {
+
+  customerName: string | null;
+
+  companyName: string | null;
+
+  productLabel: string | null;
+
+  requestedAmount: number | null;
+
+  loanAmountLabel: string | null;
+
+  activityClassification: "active" | "inactive" | null;
+
+  businessSource: {
+
+    sourceCode: string | null;
+
+    sourceContactName: string | null;
+
+    sourceCampaignLabel: string | null;
+
+  } | null;
+
+  wealthPartner: {
+
+    id: string | null;
+
+    name: string | null;
+
+  } | null;
+
+  latestActivityLabel: string | null;
+
+  relationshipManagerName: string | null;
+
+  openTasks: number | null;
+
+};
+
+
+
 export type ChanakyaEnterpriseReadCompileRequest = {
 
   mode: ChanakyaEnterpriseReadMode;

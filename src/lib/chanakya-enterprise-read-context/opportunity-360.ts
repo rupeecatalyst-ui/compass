@@ -94,12 +94,18 @@ async function resolveOpportunityRow(
   }
 }
 
-function sanitizeOpportunityCore(opp: Record<string, unknown>): Record<string, unknown> {
+function sanitizeOpportunityCore(
+  opp: Record<string, unknown>,
+  extras?: { wealthPartnerName?: string | null },
+): Record<string, unknown> {
   const loanPurpose = resolveOpportunityLoanPurpose(opp);
+  const sourceWealthPartnerId =
+    typeof opp.sourceWealthPartnerId === "string" ? opp.sourceWealthPartnerId : null;
   return {
     id: opp.id ?? null,
     opportunityNumber: opp.opportunityNumber ?? null,
     primaryContactName: opp.primaryContactName ?? null,
+    customerName: opp.primaryContactName ?? null,
     primaryContactId: opp.primaryContactId ?? null,
     companyName: opp.companyName ?? null,
     companyId: opp.companyId ?? null,
@@ -121,10 +127,34 @@ function sanitizeOpportunityCore(opp: Record<string, unknown>): Record<string, u
     ownerUserId: opp.ownerUserId ?? null,
     createdAt: opp.createdAt ?? null,
     updatedAt: opp.updatedAt ?? null,
+    businessSource: {
+      sourceCode: opp.sourceCode ?? null,
+      sourceContactName: opp.sourceContactName ?? null,
+      sourceCampaignLabel: opp.sourceCampaignLabel ?? null,
+    },
+    wealthPartner: sourceWealthPartnerId
+      ? {
+          id: sourceWealthPartnerId,
+          name: extras?.wealthPartnerName ?? null,
+        }
+      : null,
     // Explicitly never include contact channels even before global redact
     primaryContactMobile: undefined,
     primaryContactEmail: undefined,
   };
+}
+
+async function resolveWealthPartnerLabel(
+  organizationId: string,
+  wealthPartnerId: string | null,
+): Promise<string | null> {
+  if (!wealthPartnerId || !isDatabaseAvailable()) return null;
+  const partner = await prisma.enterpriseWealthPartner.findFirst({
+    where: { organizationId, id: wealthPartnerId, isDeleted: false },
+    select: { displayName: true, code: true },
+  });
+  if (!partner) return null;
+  return partner.displayName?.trim() || partner.code?.trim() || null;
 }
 
 export async function assembleChanakyaOpportunity360(input: {
@@ -142,6 +172,11 @@ export async function assembleChanakyaOpportunity360(input: {
     typeof opp.organizationId === "string"
       ? opp.organizationId
       : input.organizationId;
+
+  const wealthPartnerName = await resolveWealthPartnerLabel(
+    organizationId,
+    typeof opp.sourceWealthPartnerId === "string" ? opp.sourceWealthPartnerId : null,
+  );
 
   if (organizationId !== input.organizationId) {
     return null;
@@ -162,7 +197,7 @@ export async function assembleChanakyaOpportunity360(input: {
     opportunityId,
     `Opportunity ${opportunityNumber ?? opportunityId} core transaction context`,
     {
-      opportunity: sanitizeOpportunityCore(opp),
+      opportunity: sanitizeOpportunityCore(opp, { wealthPartnerName }),
       provenance: "enterprise_opportunity_registry",
     },
   );
@@ -176,10 +211,22 @@ export async function assembleChanakyaOpportunity360(input: {
     {
       primaryContactId: opp.primaryContactId ?? null,
       primaryContactName: opp.primaryContactName ?? null,
+      customerName: opp.primaryContactName ?? null,
       companyId: opp.companyId ?? null,
       companyName: opp.companyName ?? null,
       cityLabel: opp.cityLabel ?? null,
       employmentTypeCode: opp.employmentTypeCode ?? null,
+      businessSource: {
+        sourceCode: opp.sourceCode ?? null,
+        sourceContactName: opp.sourceContactName ?? null,
+        sourceCampaignLabel: opp.sourceCampaignLabel ?? null,
+      },
+      wealthPartner: opp.sourceWealthPartnerId
+        ? {
+            id: opp.sourceWealthPartnerId,
+            name: wealthPartnerName,
+          }
+        : null,
       contactChannels: {
         mobile: CHANAKYA_FIELD_AVAILABILITY.REDACTED,
         email: CHANAKYA_FIELD_AVAILABILITY.REDACTED,
@@ -199,6 +246,8 @@ export async function assembleChanakyaOpportunity360(input: {
       redactCustomerContactPiiForAiContext({
         id: d.id,
         dealNumber: d.dealNumber,
+        customerName: d.primaryContactName ?? opp.primaryContactName ?? null,
+        companyName: opp.companyName ?? null,
         lenderId: d.lenderId,
         lenderName: d.primaryCounterpartyName ?? null,
         productLabel: d.productLabel,

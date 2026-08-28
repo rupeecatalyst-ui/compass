@@ -307,7 +307,9 @@ export function mapRadarRowToAttentionEvidence(row: RadarRow): ChanakyaAttention
   };
 }
 
-export function sortAttentionRows(rows: ChanakyaAttentionEvidenceRow[]): ChanakyaAttentionEvidenceRow[] {
+export function sortAttentionRows<T extends ChanakyaAttentionEvidenceRow>(
+  rows: T[],
+): T[] {
   return [...rows].sort((a, b) => {
     const qa = (a.quadrant as ChanakyaOperationalQuadrantId) || "on_track";
     const qb = (b.quadrant as ChanakyaOperationalQuadrantId) || "on_track";

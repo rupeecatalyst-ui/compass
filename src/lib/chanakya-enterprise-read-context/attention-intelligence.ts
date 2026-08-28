@@ -15,6 +15,7 @@ import type {
   ChanakyaAttentionDomain,
   ChanakyaAttentionEvidenceRow,
   ChanakyaAttentionReasonEvidence,
+  ChanakyaPortfolioBusinessRow,
 } from "@/types/chanakya-enterprise-read-context";
 import { CHANAKYA_FIELD_AVAILABILITY } from "@/types/chanakya-enterprise-read-context";
 import {
@@ -28,6 +29,11 @@ import {
   projectCommercialAccountingContext,
 } from "./commercial-projections";
 import { redactCustomerContactPiiForAiContext } from "./redact-pii";
+import {
+  buildEnrichedPortfolioRows,
+  buildPortfolioBusinessRegistry,
+  enrichRadarRowToPortfolioBusinessRow,
+} from "./portfolio-business-intelligence";
 import {
   attentionExplanationStatus,
   buildAttentionReasonsFromRadarRow,
@@ -321,23 +327,43 @@ export async function buildPortfolioAttentionLists(input: {
   organizationId: string;
   limit: number;
 }): Promise<{
-  needingAttention: ChanakyaAttentionEvidenceRow[];
-  inactiveOver5Days: ChanakyaAttentionEvidenceRow[];
-  awaitingDocuments: ChanakyaAttentionEvidenceRow[];
-  awaitingLenderAction: ChanakyaAttentionEvidenceRow[];
-  recentlyDisbursed: ChanakyaAttentionEvidenceRow[];
-  priorityList: ChanakyaAttentionEvidenceRow[];
+  needingAttention: ChanakyaPortfolioBusinessRow[];
+  inactiveOver5Days: ChanakyaPortfolioBusinessRow[];
+  awaitingDocuments: ChanakyaPortfolioBusinessRow[];
+  awaitingLenderAction: ChanakyaPortfolioBusinessRow[];
+  recentlyDisbursed: ChanakyaPortfolioBusinessRow[];
+  priorityList: ChanakyaPortfolioBusinessRow[];
+  portfolioBusinessRegistry: Awaited<ReturnType<typeof buildPortfolioBusinessRegistry>>;
 }> {
   const ctx = loadEbiDataContext();
   const rows = ctx.radar.rows;
   const limit = input.limit;
 
-  const enriched = rows.map((r) => mapRadarRowToAttentionEvidence(r));
+  const [enriched, portfolioBusinessRegistry] = await Promise.all([
+    buildEnrichedPortfolioRows({ organizationId: input.organizationId, rows }),
+    buildPortfolioBusinessRegistry({
+      organizationId: input.organizationId,
+      rows,
+      limit,
+    }),
+  ]);
+
+  const enrichedByDealId = new Map<string, ChanakyaPortfolioBusinessRow>();
+  for (const row of enriched) {
+    enrichedByDealId.set(row.dealId || row.entityId, row);
+  }
+  const pick = (radarRow: (typeof rows)[number]): ChanakyaPortfolioBusinessRow => {
+    const id = radarRow.enterpriseDealId || radarRow.id;
+    return (
+      enrichedByDealId.get(id) ??
+      enrichRadarRowToPortfolioBusinessRow({ row: radarRow })
+    );
+  };
 
   const inactive = sortAttentionRows(
     rows
       .filter((r) => r.idleDays >= 5 && !r.isHealthyWaiting)
-      .map((r) => mapRadarRowToAttentionEvidence(r)),
+      .map((r) => pick(r)),
   ).slice(0, limit);
 
   const awaitingDocuments = sortAttentionRows(
@@ -358,7 +384,7 @@ export async function buildPortfolioAttentionLists(input: {
       .filter(
         (r) => r.quadrant === "at_risk" || (r.idleDays >= 7 && !r.isHealthyWaiting),
       )
-      .map((r) => mapRadarRowToAttentionEvidence(r)),
+      .map((r) => pick(r)),
   ).slice(0, limit);
 
   const recentlyDisbursed = enriched
@@ -376,6 +402,7 @@ export async function buildPortfolioAttentionLists(input: {
     awaitingLenderAction: awaitingLender,
     recentlyDisbursed,
     priorityList,
+    portfolioBusinessRegistry,
   };
 }
 
@@ -444,6 +471,7 @@ export async function buildTransactionAttentionContext(input: {
       recentlyDisbursed: lists.recentlyDisbursed,
       priorityList: lists.priorityList,
     },
+    portfolioBusinessRegistry: lists.portfolioBusinessRegistry,
     entityAttention,
     note: "Lists and entity explanations join Radar/EBI/ETE/document/phase/post-disb/SDE/accounting evidence — no new risk engine. Empty evidence means NOT_AVAILABLE, not invented reasons.",
     provenance: "loadEbiDataContext → Chanakya Radar + EBI + attention-intelligence joins",
