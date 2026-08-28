@@ -7,6 +7,7 @@ import {
   CHATGPT_OAUTH_CLIENT_SECRET_ENV,
   CHATGPT_OAUTH_REDIRECT_URIS_ENV,
 } from "@/constants/chatgpt-integration-oauth";
+import { isChatGptOAuthRedirectUriAllowed } from "@/lib/chatgpt-integration/oauth-redirect-uri";
 
 export type ChatGptOAuthConfig = {
   clientId: string;
@@ -31,7 +32,7 @@ export function readChatGptOAuthConfig(): ChatGptOAuthConfig | null {
 }
 
 export function assertRedirectUriAllowed(redirectUri: string, config: ChatGptOAuthConfig): void {
-  if (!config.redirectUris.includes(redirectUri)) {
+  if (!isChatGptOAuthRedirectUriAllowed(redirectUri, config.redirectUris)) {
     throw Object.assign(new Error("Invalid redirect_uri for ChatGPT OAuth client."), {
       statusCode: 400,
       code: "INVALID_REDIRECT_URI",

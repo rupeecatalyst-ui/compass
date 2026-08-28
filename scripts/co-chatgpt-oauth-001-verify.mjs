@@ -42,6 +42,10 @@ import {
   resolveChatGptOAuthPublicOrigin,
 } from "../src/lib/chatgpt-integration/oauth-public-origin.ts";
 import {
+  evaluateChatGptOAuthRedirectUri,
+  isChatGptOAuthRedirectUriAllowed,
+} from "../src/lib/chatgpt-integration/oauth-redirect-uri.ts";
+import {
   consumeAuthorizationCode,
   issueAuthorizationCode,
   resetChatGptOAuthStoreForTests,
@@ -240,6 +244,71 @@ try {
   if (e && typeof e === "object" && "code" in e && e.code === "INVALID_REDIRECT_URI") {
     ok("PKCE.K redirect_uri validation remains intact");
   } else fail("PKCE.K Expected INVALID_REDIRECT_URI");
+}
+
+// --- CO-CHANAKYA-GPT-OAUTH-CALLBACK-CLOSURE-045: OpenAI GPT-specific callback patterns ---
+{
+  const configured = [redirectUri];
+  const gptSpecificOpenAi =
+    "https://chat.openai.com/aip/g-diagprobe000/oauth/callback";
+  const gptSpecificChatGpt =
+    "https://chatgpt.com/aip/g-diagprobe000/oauth/callback";
+  const connectorStable = "https://chatgpt.com/connector_platform_oauth_redirect";
+  const connectorCallback =
+    "https://chatgpt.com/connector/oauth/cb_diagprobe000";
+
+  if (isChatGptOAuthRedirectUriAllowed(gptSpecificOpenAi, configured)) {
+    ok("REDIRECT.A GPT-specific chat.openai.com callback allowed");
+  } else fail("REDIRECT.A GPT-specific chat.openai.com callback should be allowed");
+
+  if (isChatGptOAuthRedirectUriAllowed(gptSpecificChatGpt, configured)) {
+    ok("REDIRECT.B GPT-specific chatgpt.com callback allowed");
+  } else fail("REDIRECT.B GPT-specific chatgpt.com callback should be allowed");
+
+  if (isChatGptOAuthRedirectUriAllowed(connectorStable, configured)) {
+    ok("REDIRECT.C chatgpt.com connector_platform_oauth_redirect allowed");
+  } else fail("REDIRECT.C connector_platform_oauth_redirect should be allowed");
+
+  if (isChatGptOAuthRedirectUriAllowed(connectorCallback, configured)) {
+    ok("REDIRECT.D chatgpt.com connector/oauth/{id} allowed");
+  } else fail("REDIRECT.D connector/oauth callback should be allowed");
+
+  if (!isChatGptOAuthRedirectUriAllowed("https://evil.example/callback", configured)) {
+    ok("REDIRECT.E arbitrary external redirect rejected");
+  } else fail("REDIRECT.E evil.example must be rejected");
+
+  if (!isChatGptOAuthRedirectUriAllowed("http://chat.openai.com/aip/oauth/callback", configured)) {
+    ok("REDIRECT.F non-HTTPS OpenAI redirect rejected");
+  } else fail("REDIRECT.F http must be rejected");
+
+  if (
+    !isChatGptOAuthRedirectUriAllowed(
+      "https://chat.openai.com/aip/g-evil/oauth/callback?x=1",
+      configured,
+    )
+  ) {
+    ok("REDIRECT.G redirect with query string rejected");
+  } else fail("REDIRECT.G query string must be rejected");
+
+  try {
+    beginOAuthAuthorization({
+      responseType: "code",
+      clientId: process.env.CHATGPT_OAUTH_CLIENT_ID,
+      redirectUri: gptSpecificOpenAi,
+      scope: "chatgpt:read chatgpt:chanakya",
+      state: "closure045",
+      codeChallenge: "",
+      codeChallengeMethod: "",
+    });
+    ok("REDIRECT.H authorize accepts GPT-specific redirect_uri");
+  } catch (e) {
+    fail(`REDIRECT.H authorize with GPT-specific redirect: ${e instanceof Error ? e.message : e}`);
+  }
+
+  const decision = evaluateChatGptOAuthRedirectUri(gptSpecificChatGpt, configured);
+  if (decision.allowed && decision.reason === "openai_builtin_pattern") {
+    ok("REDIRECT.I builtin pattern reason recorded");
+  } else fail("REDIRECT.I expected openai_builtin_pattern decision");
 }
 
 // --- CO-CHATGPT-OAUTH-DEBUG-004: server-runtime APP_URL for consent origin ---

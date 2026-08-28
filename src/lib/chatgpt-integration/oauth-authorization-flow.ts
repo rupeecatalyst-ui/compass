@@ -2,6 +2,7 @@
  * CO-CHATGPT-OAUTH-001 — OAuth authorization start (no DB; no server-only).
  */
 import { parseRequestedOAuthScopes, readChatGptOAuthConfig } from "@/lib/chatgpt-integration/oauth-config";
+import { isChatGptOAuthRedirectUriAllowed } from "@/lib/chatgpt-integration/oauth-redirect-uri";
 import { resolveAuthorizePkce } from "@/lib/chatgpt-integration/oauth-pkce";
 import {
   createOAuthPendingRequest,
@@ -44,7 +45,7 @@ export function beginOAuthAuthorization(params: OAuthAuthorizeParams): {
     });
   }
 
-  if (!config.redirectUris.includes(params.redirectUri)) {
+  if (!isChatGptOAuthRedirectUriAllowed(params.redirectUri, config.redirectUris)) {
     throw Object.assign(new Error("Invalid redirect_uri for ChatGPT OAuth client."), {
       statusCode: 400,
       code: "INVALID_REDIRECT_URI",

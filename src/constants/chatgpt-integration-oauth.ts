@@ -25,3 +25,22 @@ export const CHATGPT_OAUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 export const CHATGPT_OAUTH_AUTHORIZE_PATH = "/api/integrations/chatgpt/v1/oauth/authorize" as const;
 export const CHATGPT_OAUTH_TOKEN_PATH = "/api/integrations/chatgpt/v1/oauth/token" as const;
 export const CHATGPT_OAUTH_CONSENT_UI_PATH = "/integrations/chatgpt/oauth" as const;
+
+/**
+ * CO-CHANAKYA-GPT-OAUTH-CALLBACK-CLOSURE-045 — built-in OpenAI callback hosts/paths.
+ * GPT Builder does not surface the callback URL; OpenAI sends it on authorize.
+ */
+export const CHATGPT_OAUTH_BUILTIN_REDIRECT_HOSTS = new Set([
+  "chat.openai.com",
+  "chatgpt.com",
+]);
+
+/** GPT id segment: g- plus OpenAI alphanumeric id (e.g. g-abc123XYZ). */
+export const CHATGPT_OAUTH_GPT_ID_SEGMENT = "g-[A-Za-z0-9_-]+";
+
+export const CHATGPT_OAUTH_BUILTIN_REDIRECT_PATH_PATTERNS: readonly RegExp[] = [
+  /^\/aip\/oauth\/callback$/,
+  new RegExp(`^/aip/${CHATGPT_OAUTH_GPT_ID_SEGMENT}/oauth/callback$`),
+  /^\/connector_platform_oauth_redirect$/,
+  /^\/connector\/oauth\/[A-Za-z0-9_-]+$/,
+];
