@@ -213,6 +213,8 @@
     "verify:co-mission-control-dashboard-refinement-004": "node --import tsx scripts/co-mission-control-dashboard-refinement-004-verify.mts",
     "verify:co-revenue-analytics-refinement-005": "node --import tsx scripts/co-revenue-analytics-refinement-005-verify.mts",
     "verify:co-wp-agreement-refinement-006": "node --import tsx scripts/co-wp-agreement-refinement-006-verify.mts",
+    "verify:co-catalyst-one-refinement-001-my-deals-activity": "node --import tsx scripts/co-catalyst-one-refinement-001-my-deals-activity-verify.mjs",
+    "verify:co-catalyst-one-refinement-002-lod-contact-readiness": "node --import tsx scripts/co-catalyst-one-refinement-002-lod-contact-readiness-verify.mjs",
     "verify:co-mc-001": "node scripts/co-mc-001-verify.mjs",
     "verify:co-ai-101": "node scripts/co-ai-101-verify.mjs",
     "ai:foundation:validate": "tsx scripts/co-ai-101-foundation-validate.mts",

@@ -23,6 +23,10 @@ import { LENDER_CASE_STAGES } from "@/constants/lender-pipeline";
 import { PIPELINE_STAGES } from "@/constants/loan-stage-master";
 import { formatINRCompact } from "@/lib/format-currency";
 import {
+  countDealsByActivity,
+  type DealActivityFilter,
+} from "@/lib/my-deals/classify-deal-activity";
+import {
   filterDealRegistryRows,
   uniqueDealValues,
 } from "@/lib/my-deals/deal-registry";
@@ -32,6 +36,7 @@ import {
   sortOpportunityGroups,
   type OpportunityRegistryGroup,
 } from "@/lib/my-deals/group-opportunities";
+import { rememberMyDealsUiPrefs, readMyDealsUiPrefs } from "@/lib/my-deals/view-state";
 import { deriveJourneyProgressSegments } from "@/constants/enterprise-deal-journey-progress";
 import { cn } from "@/lib/utils";
 import {
@@ -96,20 +101,28 @@ export function DealLenderJourneyBoard({
   onFiltersChanged,
 }: DealLenderJourneyBoardProps) {
   const { user } = useAuthContext();
+  const savedUiPrefs = useMemo(() => readMyDealsUiPrefs(), []);
   const [filters, setFilters] = useState<DealRegistryFilters>(() => ({
     ...EMPTY_DEAL_REGISTRY_FILTERS,
     scope: initialScope,
     search: initialSearch,
     grossStage: initialGrossStage || "all",
+    activity: savedUiPrefs.activityFilter ?? "active",
   }));
-  const [filtersVisible, setFiltersVisible] = useState(true);
+  const [filtersVisible, setFiltersVisible] = useState(savedUiPrefs.filtersVisible);
 
   useEffect(() => {
     onFiltersChanged?.(filters);
   }, [filters, onFiltersChanged]);
 
   const patchFilters = useCallback((patch: Partial<DealRegistryFilters>) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
+    setFilters((prev) => {
+      const next = { ...prev, ...patch };
+      if (patch.activity) {
+        rememberMyDealsUiPrefs({ activityFilter: patch.activity });
+      }
+      return next;
+    });
   }, []);
 
   const filteredRows = useMemo(
@@ -141,7 +154,7 @@ export function DealLenderJourneyBoard({
     const loanValue = formatLoanValueTotal(filteredRows);
     return {
       opportunities: groups.length,
-      activeDeals: filteredRows.length,
+      activeDeals: countDealsByActivity(filteredRows, "active"),
       loanValueLabel: formatINRCompact(loanValue),
       ...journey,
     };
@@ -149,6 +162,7 @@ export function DealLenderJourneyBoard({
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
+    if (filters.activity !== "active") n += 1;
     if (filters.search.trim()) n += 1;
     if (filters.product !== "all") n += 1;
     if (filters.grossStage !== "all") n += 1;
@@ -194,7 +208,11 @@ export function DealLenderJourneyBoard({
             variant="ghost"
             size="sm"
             className="h-7 gap-1 px-2 text-[11px] text-zinc-400"
-            onClick={() => setFiltersVisible((v) => !v)}
+            onClick={() => {
+              const next = !filtersVisible;
+              setFiltersVisible(next);
+              rememberMyDealsUiPrefs({ filtersVisible: next });
+            }}
           >
             {filtersVisible ? <FilterX className="h-3.5 w-3.5" /> : <Filter className="h-3.5 w-3.5" />}
             Filters
@@ -210,12 +228,14 @@ export function DealLenderJourneyBoard({
               variant="ghost"
               size="sm"
               className="h-7 px-2 text-[11px] text-zinc-400"
-              onClick={() =>
-                setFilters({
-                  ...EMPTY_DEAL_REGISTRY_FILTERS,
-                  scope: initialScope,
-                })
-              }
+              onClick={() => {
+              rememberMyDealsUiPrefs({ activityFilter: "active" });
+              setFilters({
+                ...EMPTY_DEAL_REGISTRY_FILTERS,
+                scope: initialScope,
+                activity: "active",
+              });
+            }}
             >
               Clear
             </Button>
@@ -227,6 +247,21 @@ export function DealLenderJourneyBoard({
 
         {filtersVisible ? (
           <div className="flex flex-wrap items-center gap-1.5">
+            <Select
+              value={filters.activity}
+              onValueChange={(v) =>
+                patchFilters({ activity: v as DealActivityFilter })
+              }
+            >
+              <SelectTrigger className={cn(selectClass, "w-[108px]")} aria-label="Activity">
+                <SelectValue placeholder="Activity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="all">All Deals</SelectItem>
+              </SelectContent>
+            </Select>
             <Select
               value={filters.scope}
               onValueChange={(v) =>

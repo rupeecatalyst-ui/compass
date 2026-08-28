@@ -8,6 +8,17 @@ export {
 } from "./derive-rows";
 
 export {
+  classifyDealActivity,
+  countDealsByActivity,
+  matchesDealActivityFilter,
+  matchesDealStageFilter,
+  MY_DEALS_ACTIVE_LENDER_STAGES,
+  MY_DEALS_INACTIVE_LENDER_STAGES,
+  type DealActivityClassification,
+  type DealActivityFilter,
+} from "./classify-deal-activity";
+
+export {
   exportDealRegistryCsv,
   filterDealRegistryRows,
   listDealRegistryRows,

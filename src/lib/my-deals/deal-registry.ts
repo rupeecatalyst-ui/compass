@@ -18,6 +18,10 @@ import {
 import { opportunityNumberForFile } from "@/lib/enterprise-credit-workspace";
 import { formatINR } from "@/lib/format-currency";
 import type { DealRegistryFilters, DealRegistryRow, DealRegistrySortField } from "@/types/deal-registry";
+import {
+  matchesDealActivityFilter,
+  matchesDealStageFilter,
+} from "@/lib/my-deals/classify-deal-activity";
 import { DEMO_CURRENT_RM } from "@/constants/customer-360";
 import {
   actorCanSeeCase,
@@ -234,7 +238,10 @@ export function filterDealRegistryRows(
       if (!hay.includes(q)) return false;
     }
     if (filters.product !== "all" && row.product !== filters.product) return false;
-    if (filters.grossStage !== "all" && row.grossStage !== filters.grossStage) return false;
+    if (filters.grossStage !== "all" && !matchesDealStageFilter(row, filters.grossStage)) {
+      return false;
+    }
+    if (!matchesDealActivityFilter(row, filters.activity)) return false;
     if (filters.subStage !== "all" && row.subStage !== filters.subStage) return false;
     if (filters.assignedRm !== "all" && row.assignedRm !== filters.assignedRm) return false;
     if (filters.lender !== "all" && row.selectedLender !== filters.lender) return false;

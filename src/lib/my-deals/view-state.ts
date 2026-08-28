@@ -20,6 +20,8 @@ export interface MyDealsUiPrefs {
   filtersVisible: boolean;
   /** Advanced filters panel under the primary toolbar */
   moreFiltersOpen: boolean;
+  /** CO-CATALYST-ONE-REFINEMENT-001 — persisted activity filter choice */
+  activityFilter?: "active" | "inactive" | "all";
 }
 
 /** CO-UX-003 — preserve registry chrome when returning from Loan Workspace. */
@@ -81,6 +83,12 @@ export function readMyDealsUiPrefs(): MyDealsUiPrefs {
         typeof parsed.moreFiltersOpen === "boolean"
           ? parsed.moreFiltersOpen
           : DEFAULT_UI_PREFS.moreFiltersOpen,
+      activityFilter:
+        parsed.activityFilter === "active" ||
+        parsed.activityFilter === "inactive" ||
+        parsed.activityFilter === "all"
+          ? parsed.activityFilter
+          : undefined,
     };
   } catch {
     return { ...DEFAULT_UI_PREFS };

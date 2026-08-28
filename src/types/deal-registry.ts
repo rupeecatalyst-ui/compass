@@ -2,6 +2,7 @@
  * CO-SPRINT-098 — Deal Registry row + filter types.
  */
 
+import type { DealActivityFilter } from "@/lib/my-deals/classify-deal-activity";
 import type { AssignedUserRef } from "@/types/assigned-users";
 import type {
   LenderCaseStage,
@@ -131,6 +132,8 @@ export interface DealRegistryFilters {
   lastUpdatedTo: string;
   /** Scope: my deals vs team */
   scope: "my_deals" | "my_team" | "all";
+  /** CO-CATALYST-ONE-REFINEMENT-001 — default working queue filter */
+  activity: DealActivityFilter;
   columnBorrower: string;
   columnDealId: string;
 }
@@ -157,6 +160,7 @@ export const EMPTY_DEAL_REGISTRY_FILTERS: DealRegistryFilters = {
   lastUpdatedFrom: "",
   lastUpdatedTo: "",
   scope: "my_team",
+  activity: "active",
   columnBorrower: "",
   columnDealId: "",
 };

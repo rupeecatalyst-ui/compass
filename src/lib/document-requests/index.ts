@@ -1,7 +1,18 @@
 export {
   evaluateDocumentRequestLodReadiness,
+  buildDocumentRequestLodContext,
   type DocumentRequestContextInput,
 } from "./lod-readiness";
+export {
+  resolveLodContact,
+  resolveLodContactReadiness,
+  buildLodContactGapMessage,
+  normalizeLodMobile,
+  normalizeLodEmail,
+  type LodResolvedContact,
+  type LodContactReadiness,
+  type ResolveLodContactInput,
+} from "./resolve-lod-contact";
 export {
   generateOpportunityLod,
   EdieLodCertificationError,

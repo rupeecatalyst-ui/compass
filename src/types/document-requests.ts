@@ -184,10 +184,21 @@ export interface DocumentRequestLodReadinessGap {
   detail?: string;
 }
 
+export interface DocumentRequestLodResolvedContact {
+  name: string;
+  mobile: string;
+  email: string;
+  source: string;
+  participantId?: string;
+  participantRole?: string;
+}
+
 export interface DocumentRequestLodReadiness {
   canGenerate: boolean;
   gaps: DocumentRequestLodReadinessGap[];
   chanakyaMessage: string | null;
+  /** Resolved human contact when LOD communication channels are ready. */
+  resolvedContact?: DocumentRequestLodResolvedContact | null;
 }
 
 export interface OpportunityDocumentReadinessSnapshot {

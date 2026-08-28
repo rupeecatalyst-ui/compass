@@ -237,18 +237,51 @@ export function WorkspaceDocumentRequestsPanel() {
     contact?.ownerName ||
     actor;
 
+  const loanParticipants = useMemo(
+    () =>
+      (leadCaseFile?.participants ?? []).filter(
+        (participant) => participant.status !== "inactive",
+      ),
+    [leadCaseFile?.participants],
+  );
+
   const lodGate = useMemo(
     () =>
       evaluateDocumentRequestLodReadiness({
         customerName: customerName === "—" ? "" : customerName,
-        mobile,
-        email,
         productLabel: productForLod,
         employmentType,
         constitution,
+        borrower,
+        participants: loanParticipants,
+        contactRegistry: {
+          mobile: contact?.mobilePrimary,
+          email: contact?.personalEmail || contact?.officialEmail,
+          name: contact?.name,
+        },
+        leadCaseFile: leadCaseFile
+          ? {
+              customerMobile: leadCaseFile.customerMobile,
+              customerEmail: leadCaseFile.customerEmail,
+              customerName: leadCaseFile.customerName,
+            }
+          : null,
       }),
-    [customerName, mobile, email, productForLod, employmentType, constitution],
+    [
+      customerName,
+      productForLod,
+      employmentType,
+      constitution,
+      borrower,
+      loanParticipants,
+      contact?.mobilePrimary,
+      contact?.personalEmail,
+      contact?.officialEmail,
+      contact?.name,
+      leadCaseFile,
+    ],
   );
+  const lodCommunicationContact = lodGate.resolvedContact;
 
   const [state, setState] = useState<DocumentRequestWorkspaceState>(() =>
     opportunityId ? getDocumentRequestState(opportunityId) : getDocumentRequestState(""),
@@ -263,10 +296,6 @@ export function WorkspaceDocumentRequestsPanel() {
   const [customRequirementOwnerRef, setCustomRequirementOwnerRef] = useState("");
   const autoRegenKeyRef = useRef<string>("");
   const autoGenerateKeyRef = useRef<string>("");
-  const loanParticipants = useMemo(
-    () => (leadCaseFile?.participants ?? []).filter((participant) => participant.status !== "inactive"),
-    [leadCaseFile?.participants],
-  );
   const secured = leadCaseFile?.lendingType === "secured";
   const participantSignature = useMemo(
     () =>
@@ -665,10 +694,12 @@ export function WorkspaceDocumentRequestsPanel() {
     const recipient =
       recipientType === "customer"
         ? {
-            id: contact?.id || opportunityId,
-            name: customerName === "—" ? "Customer" : customerName,
-            email,
-            mobile,
+            id: lodCommunicationContact?.participantId || contact?.id || opportunityId,
+            name:
+              lodCommunicationContact?.name ||
+              (customerName === "—" ? "Customer" : customerName),
+            email: lodCommunicationContact?.email || email,
+            mobile: lodCommunicationContact?.mobile || mobile,
           }
         : {
             id: wealthPartner?.id || "",

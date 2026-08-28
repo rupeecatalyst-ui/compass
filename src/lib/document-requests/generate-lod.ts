@@ -15,7 +15,7 @@ import {
   tryResolveEdieCustomerCategory,
   tryResolveEdieProductRef,
 } from "@/lib/edie-certified/resolve-context";
-import { evaluateDocumentRequestLodReadiness } from "@/lib/document-requests/lod-readiness";
+import { evaluateDocumentRequestLodReadiness, buildDocumentRequestLodContext } from "@/lib/document-requests/lod-readiness";
 import type { LoanFile } from "@/types/catalyst-one";
 import {
   LOAN_PARTICIPANT_ROLE_LABELS,
@@ -94,17 +94,15 @@ function assertCertifiedLodContext(input: GenerateOpportunityLodInput): {
     transactionType = resolveEdieTransactionType(input.runtimeFile);
   }
 
-  const gate = evaluateDocumentRequestLodReadiness({
-    // Contact fields already gated in UI; placeholders isolate EDIE axis failures here.
-    customerName: "validated",
-    mobile: "validated",
-    email: "validated",
-    productLabel: input.productLabel,
-    employmentType: input.employmentType,
-    borrowerCategory: input.borrowerCategory,
-    constitution,
-    entityHint,
-  });
+  const gate = evaluateDocumentRequestLodReadiness(
+    buildDocumentRequestLodContext({
+      runtimeFile: input.runtimeFile,
+      productLabel: input.productLabel,
+      employmentType: input.employmentType,
+      borrowerCategory: input.borrowerCategory,
+      constitution,
+    }),
+  );
 
   const product = tryResolveEdieProductRef(input.productLabel);
   const category = tryResolveEdieCustomerCategory(

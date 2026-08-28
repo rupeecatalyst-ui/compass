@@ -17,7 +17,7 @@ import {
   EdieLodCertificationError,
   generateOpportunityLod,
 } from "@/lib/document-requests/generate-lod";
-import { evaluateDocumentRequestLodReadiness } from "@/lib/document-requests/lod-readiness";
+import { evaluateDocumentRequestLodReadiness, buildDocumentRequestLodContext } from "@/lib/document-requests/lod-readiness";
 import {
   buildLodDimensionKey,
   buildLodStructureKey,
@@ -260,24 +260,20 @@ export function generateAndPersistLod(input: {
   actor: string;
   opportunityReference?: string;
 }): DocumentRequestWorkspaceState {
-  const entityHint = input.runtimeFile?.participants?.find((p) => p.entityType === "company")
-    ? "company"
-    : undefined;
-  const gate = evaluateDocumentRequestLodReadiness({
-    customerName: "validated",
-    mobile: "validated",
-    email: "validated",
-    productLabel: input.productLabel,
-    employmentType: input.employmentType,
-    borrowerCategory: input.borrowerCategory,
-    constitution:
-      input.constitution?.trim() ||
-      (input.runtimeFile
-        ? input.runtimeFile.businessDetails?.constitution ||
-          input.runtimeFile.participants?.find((p) => p.entityType === "company")?.constitution
-        : undefined),
-    entityHint,
-  });
+  const gate = evaluateDocumentRequestLodReadiness(
+    buildDocumentRequestLodContext({
+      runtimeFile: input.runtimeFile,
+      productLabel: input.productLabel,
+      employmentType: input.employmentType,
+      borrowerCategory: input.borrowerCategory,
+      constitution:
+        input.constitution?.trim() ||
+        (input.runtimeFile
+          ? input.runtimeFile.businessDetails?.constitution ||
+            input.runtimeFile.participants?.find((p) => p.entityType === "company")?.constitution
+          : undefined),
+    }),
+  );
   if (!gate.canGenerate) {
     throw new EdieLodCertificationError(
       gate.chanakyaMessage ||
