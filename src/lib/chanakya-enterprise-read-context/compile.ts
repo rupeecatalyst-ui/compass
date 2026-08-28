@@ -316,6 +316,12 @@ export async function compileChanakyaEnterpriseReadContext(
 
         limit: request.limit,
 
+        portfolioPage:
+          request.portfolioPage ??
+          (request.portfolioCursor?.trim()
+            ? Number.parseInt(request.portfolioCursor.trim(), 10)
+            : undefined),
+
         opportunityRef: request.opportunityRef,
 
         opportunityId: opportunity360?.opportunityId ?? null,

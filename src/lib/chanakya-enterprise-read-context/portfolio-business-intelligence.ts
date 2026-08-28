@@ -18,6 +18,7 @@ import type {
   ChanakyaAttentionEvidenceRow,
   ChanakyaPortfolioBusinessRow,
 } from "@/types/chanakya-enterprise-read-context";
+import { CHANAKYA_PORTFOLIO_PAGE_MAX } from "@/types/chanakya-enterprise-read-context";
 import { redactCustomerContactPiiForAiContext } from "./redact-pii";
 import { mapRadarRowToAttentionEvidence } from "./attention-radar-evidence";
 
@@ -274,16 +275,18 @@ export async function buildPortfolioBusinessRegistry(input: {
   organizationId: string;
   rows: ChanakyaRadarDealRow[];
   limit: number;
+  hydration?: import("@/types/chanakya-enterprise-read-context").ChanakyaPortfolioHydrationMeta;
 }): Promise<{
   allDeals: ChanakyaPortfolioBusinessRow[];
   activeDeals: ChanakyaPortfolioBusinessRow[];
   inactiveDeals: ChanakyaPortfolioBusinessRow[];
   byWealthPartner: Record<string, ChanakyaPortfolioBusinessRow[]>;
+  hydration?: import("@/types/chanakya-enterprise-read-context").ChanakyaPortfolioHydrationMeta;
 }> {
-  const limit = Math.min(Math.max(input.limit, 1), 200);
+  const limit = Math.min(Math.max(input.limit, 1), CHANAKYA_PORTFOLIO_PAGE_MAX);
   const enriched = await buildEnrichedPortfolioRows({
     organizationId: input.organizationId,
-    rows: input.rows.slice(0, limit * 3),
+    rows: input.hydration ? input.rows : input.rows.slice(0, limit * 3),
   });
 
   const activeDeals = enriched
@@ -306,5 +309,6 @@ export async function buildPortfolioBusinessRegistry(input: {
     activeDeals,
     inactiveDeals,
     byWealthPartner,
+    hydration: input.hydration,
   };
 }

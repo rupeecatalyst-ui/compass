@@ -58,6 +58,9 @@ export async function composeChatGptEnterpriseReadDto(
   const limitRaw = params?.get("limit");
   const limit = limitRaw ? Number(limitRaw) : undefined;
 
+  const cursorRaw = params?.get("cursor") || params?.get("portfolioPage");
+  const portfolioPage = cursorRaw ? Number.parseInt(cursorRaw, 10) : undefined;
+
   const changePeriodRaw = (params?.get("changePeriod") || "").trim();
   const changePeriod = (CHANAKYA_CHANGE_PERIODS as readonly string[]).includes(
     changePeriodRaw,
@@ -73,6 +76,8 @@ export async function composeChatGptEnterpriseReadDto(
     domains,
     includeDocumentExcerpts: params?.get("includeDocumentExcerpts") === "1",
     limit: Number.isFinite(limit) ? limit : undefined,
+    portfolioPage: Number.isFinite(portfolioPage) ? portfolioPage : undefined,
+    portfolioCursor: cursorRaw,
     changePeriod,
     actorUserId: ctx.actor.userId,
     correlationId: ctx.requestId,

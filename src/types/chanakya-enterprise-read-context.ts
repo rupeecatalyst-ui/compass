@@ -776,6 +776,68 @@ export type ChanakyaPortfolioBusinessRow = ChanakyaAttentionEvidenceRow & {
 
 
 
+/** CO-CHANAKYA-048 — portfolio page size aligned with enterpriseDealRepository.searchDeals cap (100). */
+
+export const CHANAKYA_PORTFOLIO_PAGE_DEFAULT = 25;
+
+export const CHANAKYA_PORTFOLIO_PAGE_MAX = 100;
+
+
+
+/** CO-CHANAKYA-048 — portfolio hydration honesty + pagination metadata. */
+
+export type ChanakyaPortfolioHydrationAvailability =
+
+  | "AVAILABLE"
+
+  | "TRUE_EMPTY"
+
+  | "FALLBACK_FAILURE"
+
+  | "NOT_AVAILABLE";
+
+
+
+export type ChanakyaPortfolioHydrationSource = "ebi_radar" | "enterprise_deal_registry";
+
+
+
+export type ChanakyaPortfolioPaginationMeta = {
+
+  totalDeals: number;
+
+  returnedCount: number;
+
+  limit: number;
+
+  page: number;
+
+  hasMore: boolean;
+
+  nextCursor: string | null;
+
+};
+
+
+
+export type ChanakyaPortfolioHydrationMeta = {
+
+  source: ChanakyaPortfolioHydrationSource;
+
+  isLiveTrusted: boolean;
+
+  availability: ChanakyaPortfolioHydrationAvailability;
+
+  note?: string;
+
+  fallbackError?: string;
+
+  pagination: ChanakyaPortfolioPaginationMeta;
+
+};
+
+
+
 export type ChanakyaEnterpriseReadCompileRequest = {
 
   mode: ChanakyaEnterpriseReadMode;
@@ -799,6 +861,14 @@ export type ChanakyaEnterpriseReadCompileRequest = {
   /** Cap for attention / list payloads. */
 
   limit?: number;
+
+  /** CO-CHANAKYA-048 — portfolio page cursor (1-based page number as string). */
+
+  portfolioPage?: number;
+
+  /** Alias for portfolioPage from GPT query `cursor`. */
+
+  portfolioCursor?: string | null;
 
   /** CO-CHANAKYA-003D — change intelligence window (defaults to last_7_days). */
 

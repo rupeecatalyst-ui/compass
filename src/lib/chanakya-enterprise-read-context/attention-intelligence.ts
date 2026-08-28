@@ -16,8 +16,9 @@ import type {
   ChanakyaAttentionEvidenceRow,
   ChanakyaAttentionReasonEvidence,
   ChanakyaPortfolioBusinessRow,
+  ChanakyaPortfolioHydrationMeta,
 } from "@/types/chanakya-enterprise-read-context";
-import { CHANAKYA_FIELD_AVAILABILITY } from "@/types/chanakya-enterprise-read-context";
+import { CHANAKYA_FIELD_AVAILABILITY, CHANAKYA_PORTFOLIO_PAGE_MAX } from "@/types/chanakya-enterprise-read-context";
 import {
   projectDocumentReadinessEvidence,
   projectPhaseReadinessEvidence,
@@ -34,6 +35,7 @@ import {
   buildPortfolioBusinessRegistry,
   enrichRadarRowToPortfolioBusinessRow,
 } from "./portfolio-business-intelligence";
+import { resolvePortfolioRadarRows } from "./portfolio-hydration";
 import {
   attentionExplanationStatus,
   buildAttentionReasonsFromRadarRow,
@@ -326,6 +328,7 @@ export async function buildEntityAttentionExplanation(input: {
 export async function buildPortfolioAttentionLists(input: {
   organizationId: string;
   limit: number;
+  page?: number;
 }): Promise<{
   needingAttention: ChanakyaPortfolioBusinessRow[];
   inactiveOver5Days: ChanakyaPortfolioBusinessRow[];
@@ -334,10 +337,38 @@ export async function buildPortfolioAttentionLists(input: {
   recentlyDisbursed: ChanakyaPortfolioBusinessRow[];
   priorityList: ChanakyaPortfolioBusinessRow[];
   portfolioBusinessRegistry: Awaited<ReturnType<typeof buildPortfolioBusinessRegistry>>;
+  portfolioHydration: ChanakyaPortfolioHydrationMeta;
 }> {
-  const ctx = loadEbiDataContext();
-  const rows = ctx.radar.rows;
-  const limit = input.limit;
+  const limit = Math.min(Math.max(input.limit, 1), CHANAKYA_PORTFOLIO_PAGE_MAX);
+  const page = Math.max(1, input.page ?? 1);
+
+  const resolved = await resolvePortfolioRadarRows({
+    organizationId: input.organizationId,
+    limit,
+    page,
+  });
+
+  const rows = resolved.rows;
+  const hydration = resolved.hydration;
+
+  if (hydration.availability === "FALLBACK_FAILURE") {
+    return {
+      needingAttention: [],
+      inactiveOver5Days: [],
+      awaitingDocuments: [],
+      awaitingLenderAction: [],
+      recentlyDisbursed: [],
+      priorityList: [],
+      portfolioBusinessRegistry: {
+        allDeals: [],
+        activeDeals: [],
+        inactiveDeals: [],
+        byWealthPartner: {},
+        hydration,
+      },
+      portfolioHydration: hydration,
+    };
+  }
 
   const [enriched, portfolioBusinessRegistry] = await Promise.all([
     buildEnrichedPortfolioRows({ organizationId: input.organizationId, rows }),
@@ -345,6 +376,7 @@ export async function buildPortfolioAttentionLists(input: {
       organizationId: input.organizationId,
       rows,
       limit,
+      hydration,
     }),
   ]);
 
@@ -403,12 +435,14 @@ export async function buildPortfolioAttentionLists(input: {
     recentlyDisbursed,
     priorityList,
     portfolioBusinessRegistry,
+    portfolioHydration: hydration,
   };
 }
 
 export async function buildTransactionAttentionContext(input: {
   organizationId: string;
   limit?: number;
+  portfolioPage?: number;
   opportunityRef?: string | null;
   opportunityId?: string | null;
   opportunityNumber?: string | null;
@@ -420,10 +454,14 @@ export async function buildTransactionAttentionContext(input: {
   disbursedAt?: Date | string | null;
   opportunityRecord?: Record<string, unknown> | null;
 }): Promise<Record<string, unknown>> {
-  const limit = Math.min(Math.max(input.limit ?? 25, 1), 100);
+  const limit = Math.min(Math.max(input.limit ?? 25, 1), CHANAKYA_PORTFOLIO_PAGE_MAX);
   const ctx = loadEbiDataContext();
   const ebi = composeBusinessIntelligenceSnapshot();
-  const lists = await buildPortfolioAttentionLists({ organizationId: input.organizationId, limit });
+  const lists = await buildPortfolioAttentionLists({
+    organizationId: input.organizationId,
+    limit,
+    page: input.portfolioPage,
+  });
 
   const hasEntityScope = Boolean(
     input.opportunityRef?.trim() ||
@@ -454,14 +492,28 @@ export async function buildTransactionAttentionContext(input: {
   return redactCustomerContactPiiForAiContext({
     organizationId: input.organizationId,
     asOf: ctx.asOf,
-    isLiveTrusted: ctx.isLiveTrusted,
+    isLiveTrusted: lists.portfolioHydration.isLiveTrusted,
+    portfolioHydration: lists.portfolioHydration,
     aggregates: {
       overdueTasks: ebi.operational.overdueTasks,
       inactiveOpportunities: ebi.operational.inactiveOpportunities,
       dealsAwaitingDocuments: ebi.operational.dealsAwaitingDocuments,
       dealsAwaitingLenderAction: ebi.operational.dealsAwaitingLenderAction,
       activeOpportunities: ebi.executive.activeOpportunities,
-      activeDeals: ebi.executive.activeDeals,
+      activeDeals:
+        lists.portfolioHydration.source === "enterprise_deal_registry" &&
+        lists.portfolioHydration.availability === "AVAILABLE"
+          ? Math.max(
+              ebi.executive.activeDeals,
+              lists.portfolioBusinessRegistry.activeDeals.length,
+            )
+          : lists.portfolioHydration.availability === "FALLBACK_FAILURE"
+            ? null
+            : ebi.executive.activeDeals,
+      totalDeals: lists.portfolioHydration.pagination.totalDeals,
+      returnedDeals: lists.portfolioHydration.pagination.returnedCount,
+      portfolioHasMore: lists.portfolioHydration.pagination.hasMore,
+      portfolioNextCursor: lists.portfolioHydration.pagination.nextCursor,
     },
     lists: {
       needingAttention: lists.needingAttention,
@@ -473,7 +525,10 @@ export async function buildTransactionAttentionContext(input: {
     },
     portfolioBusinessRegistry: lists.portfolioBusinessRegistry,
     entityAttention,
-    note: "Lists and entity explanations join Radar/EBI/ETE/document/phase/post-disb/SDE/accounting evidence — no new risk engine. Empty evidence means NOT_AVAILABLE, not invented reasons.",
+    note:
+      lists.portfolioHydration.availability === "FALLBACK_FAILURE"
+        ? lists.portfolioHydration.note
+        : "Lists and entity explanations join Radar/EBI or Enterprise Deal Registry fallback + 047 enrichment — no new risk engine. Empty evidence means NOT_AVAILABLE or TRUE_EMPTY, not invented reasons.",
     provenance: "loadEbiDataContext → Chanakya Radar + EBI + attention-intelligence joins",
   });
 }
