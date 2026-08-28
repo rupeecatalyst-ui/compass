@@ -84,5 +84,10 @@ export async function composeChatGptEnterpriseReadDto(
     ...compiled,
     /** Echo resolved mode so ChatGPT can see coercion from default enterprise. */
     resolvedMode: mode,
+    /** Echo entity refs for multi-turn follow-up (CO-CHANAKYA-GPT-CONNECTION-CLOSURE-042). */
+    requestedEntityRefs: {
+      dealRef: dealRef?.trim() || null,
+      opportunityRef: opportunityRef?.trim() || null,
+    },
   };
 }

@@ -129,6 +129,7 @@
     "verify:co-chanakya-enterprise-read-context-002": "node --import tsx scripts/co-chanakya-enterprise-read-context-002-verify.mjs",
     "verify:co-chanakya-phase1-inapp-conversation-closure-037": "node --import tsx scripts/co-chanakya-phase1-inapp-conversation-closure-037-verify.mjs",
     "verify:co-chanakya-chatgpt-enterprise-read-closure-038": "node --import tsx scripts/co-chanakya-chatgpt-enterprise-read-closure-038-verify.mjs",
+    "verify:co-chanakya-gpt-connection-closure-042": "node --import tsx scripts/co-chanakya-gpt-connection-closure-042-verify.mjs",
     "verify:co-chanakya-credit-proposal-002": "node scripts/co-chanakya-credit-proposal-002-verify.mjs",
     "verify:co-chanakya-credit-workbench-004": "node scripts/co-chanakya-credit-workbench-004-verify.mjs",
     "verify:co-chanakya-credit-intelligence-005": "node scripts/co-chanakya-credit-intelligence-005-verify.mjs",

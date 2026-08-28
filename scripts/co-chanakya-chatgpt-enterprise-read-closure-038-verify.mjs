@@ -51,7 +51,11 @@ for (const rel of [
   if (/gptActionEnterpriseRead[\s\S]*PRIMARY deep CHANAKYA/i.test(yaml)) {
     ok("enterprise-read marked PRIMARY deep evidence");
   } else fail("enterprise-read discoverability text weak");
-  if (/gptActionChanakya[\s\S]*Do NOT use this for Opportunity\/Deal depth/i.test(yaml)) {
+  if (
+    /gptActionChanakya[\s\S]*(Do NOT use this for Opportunity\/Deal depth|NEVER USE FOR)/i.test(
+      yaml,
+    )
+  ) {
     ok("Radar chanakya clarifies depth boundary");
   } else fail("Radar chanakya depth boundary missing");
   for (const example of [

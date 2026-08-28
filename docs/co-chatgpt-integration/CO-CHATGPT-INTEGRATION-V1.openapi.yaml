@@ -260,20 +260,24 @@ paths:
   /api/integrations/chatgpt/v1/enterprise-read:
     get:
       tags: [ChatGPT Integration V1]
-      summary: CHANAKYA enterprise read context (deep evidence)
+      summary: CHANAKYA enterprise read context (PRIMARY deep evidence)
       description: |
-        PRIMARY deep CHANAKYA evidence endpoint (same compiler as Catalyst One / GPT Action).
-        Use for focus/intervention, stuck cases, changes, financials, documents, lenders,
-        deal/opportunity status, and commercial/accounting read evidence.
+        **PRIMARY deep CHANAKYA evidence** — same compiler as GPT Action `gptActionEnterpriseRead`.
 
-        Modes: summary|opportunity|domain|enterprise|transaction
-        Entity refs: opportunityId|opportunityRef, dealId|dealRef
+        **Deal-wise:** pass `dealRef` (e.g. DEAL-2026-000082) for Deal 360, lender stage, documents,
+        attention, change, commercial/accounting, credit/document intelligence, next action.
+
+        **Opportunity-wise:** pass `opportunityRef` (e.g. OPP-2026-000060) for Opportunity 360.
+
+        **Follow-up:** reuse `dealRef`/`opportunityRef` from prior response (`requestedEntityRefs`,
+        `deal360`, `opportunity360`) when user continues without repeating the number.
+
+        Do **not** use lightweight Radar for Deal/Opportunity depth — entity depth is always this endpoint.
+
+        Modes: summary|opportunity|domain|enterprise|transaction (coerces when entity refs present).
         Domains: executive,transactions,credit,documents,commercial,relationships,execution
         changePeriod: today|since_yesterday|last_7_days
-        includeDocumentExcerpts=1 for truncated structured excerpts (never binaries/PII).
-
-        When entity refs are supplied with mode=enterprise, server coerces to
-        opportunity/transaction so 360 + credit/product-lender/document evidence compile.
+        includeDocumentExcerpts=1 — excerpts only; never binaries/PII/OCR dumps.
 
         FOIR/DSCR/LTV/DBR = Phase 2 (not computed). GET-only. No mutations.
       operationId: chatgptEnterpriseRead
@@ -325,8 +329,8 @@ paths:
       responses:
         "200":
           description: |
-            Privacy-safe enterprise read context including opportunity360, deal360,
-            transactionAttention, changeIntelligence, productLenderIntelligence,
+            Privacy-safe enterprise read context including requestedEntityRefs, opportunity360,
+            deal360, transactionAttention, changeIntelligence, productLenderIntelligence,
             creditIntelligence, enterpriseSummary, limitations, privacy, resolvedMode.
           content:
             application/json:

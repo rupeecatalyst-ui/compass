@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Catalyst One — Chanakya AI GPT Action (OAuth-only V1)
-  version: 1.0.0
+  version: 1.1.0
   description: |
     GPT Action–compatible read-only schema for the Chanakya AI Custom GPT.
 
@@ -17,11 +17,22 @@ info:
 
     GET-only. No mutation capabilities.
 
-    **Action selection:**
-    - `gptActionChanakya` = lightweight org Radar snapshot only.
-    - `gptActionEnterpriseRead` = deep CHANAKYA enterprise evidence (Opportunity/Deal 360,
-      attention, change, credit, documents, product/lender, commercial). Prefer this for
-      transaction questions.
+    ## Action routing model (CO-CHANAKYA-GPT-CONNECTION-CLOSURE-042)
+
+    | User question type | Call | Never call |
+    |-------------------|------|------------|
+    | Deal (`DEAL-…`, dealId, dealRef, "this deal") | **gptActionEnterpriseRead** with `dealRef` | gptActionChanakya |
+    | Opportunity (`OPP-…`, opportunityId, "this opportunity") | **gptActionEnterpriseRead** with `opportunityRef` | gptActionChanakya |
+    | Why stuck / what changed / documents / financials / lenders / accounting / 360 | **gptActionEnterpriseRead** | gptActionChanakya |
+    | Org-wide Radar snapshot / high-level desk health only | **gptActionChanakya** | — (no entity depth) |
+
+    **Follow-up rule:** When the user continues about the same case without repeating
+    the Deal/Opportunity number ("Why is it stuck?", "What should I do today?"),
+    reuse `dealRef` or `opportunityRef` from the prior turn (or from `data.requestedEntityRefs`
+    / `data.deal360` / `data.opportunity360` in the last enterprise-read response).
+
+    FOIR / DSCR / LTV / DBR are Phase 2 — never computed. No document binaries,
+    unrestricted OCR dumps, mobile numbers, or emails.
 servers:
   - url: https://catalyst-one.rupeecatalyst.com
     description: Production (Hostinger)
@@ -72,17 +83,25 @@ paths:
   /api/integrations/chatgpt/v1/gpt-action/chanakya:
     get:
       tags: [Chanakya AI GPT Action]
-      summary: Org-wide CHANAKYA Radar snapshot (lightweight)
+      summary: Org-wide CHANAKYA Radar snapshot (lightweight only)
       description: |
-        Lightweight organisation Radar intelligence only (health score, direction,
-        quadrant counts, top signals).
+        **Lightweight organisation Radar intelligence only** — health score, direction,
+        quadrant counts, top org-wide signals. No Opportunity/Deal depth.
 
-        Use this for high-level org radar questions.
+        **USE ONLY FOR:** high-level Radar snapshot · general org attention summary ·
+        "how is the desk doing?" without naming a Deal or Opportunity.
 
-        Do NOT use this for Opportunity/Deal depth, stuck-case analysis, financials,
-        documents, lender fit, change intelligence, or commercial status.
+        **NEVER USE FOR** (call `gptActionEnterpriseRead` instead):
+        - Any `DEAL-…` / `dealId` / `dealRef` / "this deal" question
+        - Any `OPP-…` / `opportunityId` / `opportunityRef` / "this opportunity" question
+        - Why stuck · what changed · documents pending · financial analysis
+        - Lender assignment · accounting/commercial status · post-disbursement
+        - Complete 360 · transaction attention · recommended next human action
+        - Follow-up questions after a Deal/Opportunity was already discussed
 
-        For those questions call `gptActionEnterpriseRead` instead.
+        This action does **not** accept entity references and cannot return Deal 360 or
+        Opportunity 360. There is no separate per-deal action — entity depth is always
+        `gptActionEnterpriseRead`.
       operationId: gptActionChanakya
       responses:
         "200":
@@ -190,72 +209,106 @@ paths:
   /api/integrations/chatgpt/v1/gpt-action/enterprise-read:
     get:
       tags: [Chanakya AI GPT Action]
-      summary: CHANAKYA enterprise read context (deep evidence)
+      summary: CHANAKYA enterprise read context (PRIMARY deep evidence)
       description: |
-        PRIMARY deep CHANAKYA evidence action. Read-only targeted compile of the same
-        Phase-1 enterprise intelligence used inside Catalyst One.
+        **PRIMARY deep CHANAKYA evidence action** — read-only compile of the same Phase-1
+        enterprise intelligence used inside Catalyst One. **Always prefer this action** over
+        `gptActionChanakya` when the user names or implies a Deal, Opportunity, or transaction.
 
-        Call this action (not gptActionChanakya) for questions such as:
+        ## Deal-wise access (`DEAL-…`, dealId, dealRef, "this deal")
+
+        Pass `dealRef` (or `dealId`) — e.g. `DEAL-2026-000082`. Server coerces `mode=enterprise`
+        to `transaction` and returns **Deal 360** where authorized, including when available:
+        parent Opportunity context · borrower/company · product · lender · lender stage ·
+        stage age · latest activity · tasks · documents · document readiness · transaction
+        attention · recent changes · commercial/accounting context · post-disbursement state ·
+        product/lender intelligence · credit/document intelligence · recommended next human action.
+
+        Example calls:
+        - `dealRef=DEAL-2026-000082` — "Tell me about DEAL-2026-000082."
+        - Same `dealRef` — follow-up "Why is this deal stuck?" / "What changed?" / "What documents are pending?"
+        - Same `dealRef` + `changePeriod=since_yesterday` — "What changed in this deal?"
+        - Same `dealRef` + `domains=commercial,execution` — accounting/commercial status
+
+        ## Opportunity-wise access (`OPP-…`, opportunityId, opportunityRef)
+
+        Pass `opportunityRef` (or `opportunityId`) — e.g. `OPP-2026-000060`. Returns **Opportunity 360**
+        and authorised intelligence (credit, documents, product/lender, commercial, attention, change).
+
+        Example: `opportunityRef=OPP-2026-000060` — "Give me a complete 360 analysis of OPP-2026-000060."
+
+        ## Follow-up context (multi-turn)
+
+        ChatGPT must **retain** the active `dealRef` or `opportunityRef` across follow-up turns.
+        Re-read `data.requestedEntityRefs`, `data.deal360.dealNumber`, or
+        `data.opportunity360.opportunityNumber` from the prior response when the user does not
+        repeat the reference ("Why is it stuck?", "What should I do next?", "What should I do today?").
+
+        ## Also use for (no entity ref — org desk)
+
         - What should I focus on today? / Which cases require intervention?
-        - Why is this opportunity/deal stuck?
-        - What changed since yesterday?
-        - Analyse this transaction / Analyse the financials
-        - What documents are available / readable / missing?
-        - Which lenders are relevant?
-        - What is happening with this deal?
-        - What is the commercial/accounting status?
+        - Show transactions delayed beyond SLA (org attention via `mode=enterprise` or `summary`)
 
-        Modes:
-        - enterprise — portfolio attention / commercial / execution (org desk)
-        - summary — executive + transactions attention
-        - opportunity — Opportunity 360 (requires opportunityId or opportunityRef)
-        - transaction — Deal/Opportunity execution depth (prefer dealId/dealRef)
-        - domain — selected domains only
+        ## Modes
 
-        When opportunityId/dealId are supplied with mode=enterprise, the server
-        coerces to opportunity/transaction so Opportunity/Deal 360, creditIntelligence,
-        productLenderIntelligence, and document evidence still compile.
+        - `enterprise` — portfolio attention / commercial / execution (default; coerces when entity refs present)
+        - `summary` — executive + transactions attention
+        - `opportunity` — Opportunity 360 (requires opportunityRef)
+        - `transaction` — Deal execution depth (prefer dealRef)
+        - `domain` — selected domains only
 
-        Domains (comma-separated): executive,transactions,credit,documents,commercial,
+        **Domains** (comma-separated): executive,transactions,credit,documents,commercial,
         relationships,execution
 
-        changePeriod: today | since_yesterday | last_7_days
+        **changePeriod:** today | since_yesterday | last_7_days
 
-        includeDocumentExcerpts=1 returns truncated structured excerpts only — never
-        document binaries, unrestricted OCR payloads, mobile numbers, or emails.
+        `includeDocumentExcerpts=1` — truncated structured excerpts only. Never document binaries,
+        unrestricted OCR payloads, mobile numbers, or emails.
 
-        FOIR / DSCR / LTV / DBR are Phase 2 and are never computed here.
-        Never invent APPROVED / SANCTIONED / GUARANTEED / ELIGIBLE without persisted SSOT.
-        Missing evidence returns honest NOT_AVAILABLE / OCR_REQUIRED / INSUFFICIENT_EVIDENCE.
+        **FOIR / DSCR / LTV / DBR = Phase 2** — never computed. Never invent APPROVED / SANCTIONED /
+        GUARANTEED / ELIGIBLE without persisted SSOT. Missing evidence → NOT_AVAILABLE /
+        OCR_REQUIRED / INSUFFICIENT_EVIDENCE.
       operationId: gptActionEnterpriseRead
       parameters:
         - name: mode
           in: query
-          description: Compile mode. Prefer opportunity/transaction when entity refs are known.
+          description: |
+            Compile mode. When `dealRef` or `opportunityRef` is known, pass it with any mode;
+            server coerces `enterprise` → `transaction` (deal) or `opportunity` (opp only).
           schema:
             type: string
             enum: [summary, opportunity, domain, enterprise, transaction]
             default: enterprise
         - name: opportunityId
           in: query
-          description: Opportunity id or number (e.g. OPP-2026-000060)
+          description: |
+            Opportunity id or business number (e.g. `OPP-2026-000060`). Required for Opportunity-scoped
+            360 when mode=opportunity. Alias of opportunityRef.
           schema:
             type: string
         - name: opportunityRef
           in: query
-          description: Alias for opportunityId
+          description: |
+            Opportunity reference for Opportunity 360 — use when user says OPP-…, "this opportunity",
+            or follow-up after an Opportunity question. Reuse across multi-turn follow-ups.
           schema:
             type: string
+            example: OPP-2026-000060
         - name: dealId
           in: query
-          description: Deal id or number (e.g. DEAL-2026-000082)
+          description: |
+            Deal id or business number (e.g. `DEAL-2026-000082`). Alias of dealRef.
           schema:
             type: string
         - name: dealRef
           in: query
-          description: Alias for dealId
+          description: |
+            Deal reference for Deal 360 — use when user says DEAL-…, dealId, "this deal", or
+            follow-up after a Deal question ("Why is it stuck?", "What should I do next?").
+            Reuse the same dealRef across multi-turn follow-ups without re-asking the user.
           schema:
             type: string
+            example: DEAL-2026-000082
         - name: domains
           in: query
           description: Comma-separated domains (executive,transactions,credit,documents,commercial,relationships,execution)
@@ -279,7 +332,9 @@ paths:
             enum: ["1"]
         - name: q
           in: query
-          description: Optional natural-language hint for audit/routing (does not invent facts)
+          description: |
+            Optional natural-language hint for audit/routing (e.g. "why stuck", "documents pending").
+            Does not invent facts — entity scope still requires dealRef/opportunityRef when known.
           schema:
             type: string
       responses:
@@ -436,14 +491,25 @@ components:
             - type: object
               description: |
                 Compiled CHANAKYA enterprise read context. Typical fields:
-                mode, resolvedMode, opportunity360, deal360, transactionAttention,
-                changeIntelligence, productLenderIntelligence, creditIntelligence,
-                enterpriseSummary, domains, limitations, privacy, readOnly.
+                mode, resolvedMode, requestedEntityRefs, opportunity360, deal360,
+                transactionAttention, changeIntelligence, productLenderIntelligence,
+                creditIntelligence, enterpriseSummary, domains, limitations, privacy, readOnly.
               properties:
                 mode:
                   type: string
                 resolvedMode:
                   type: string
+                  description: Effective mode after entity-aware coercion (e.g. enterprise→transaction when dealRef set).
+                requestedEntityRefs:
+                  type: object
+                  description: Echo of dealRef/opportunityRef from this request — reuse for follow-up turns.
+                  properties:
+                    dealRef:
+                      type: string
+                      nullable: true
+                    opportunityRef:
+                      type: string
+                      nullable: true
                 opportunity360:
                   type: object
                   nullable: true
