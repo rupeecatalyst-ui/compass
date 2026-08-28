@@ -882,6 +882,10 @@ export type ChanakyaEnterpriseReadCompileRequest = {
 
   requestHint?: string | null;
 
+  /** CO-050 — GPT Action compact lane skips heavy optional compile slices when safe. */
+
+  gptCompactView?: import("./chatgpt-enterprise-read-compact").GptEnterpriseReadCompactView | null;
+
 };
 
 

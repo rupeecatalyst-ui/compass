@@ -540,6 +540,14 @@ export async function compileChanakyaEnterpriseReadContext(
 
 
 
+    const gptView = request.gptCompactView ?? null;
+    const needsChangeIntel =
+      !gptView ||
+      gptView === "changes" ||
+      gptView === "deal_summary" ||
+      gptView === "opportunity_summary";
+
+    if (needsChangeIntel) {
     changeIntelligence = await projectChangeIntelligence({
 
       organizationId: request.organizationId,
@@ -569,8 +577,16 @@ export async function compileChanakyaEnterpriseReadContext(
           request.mode === "domain"),
 
     });
+    }
 
-    if (opportunity360?.opportunityId || deal360?.opportunityId || deal360?.dealId) {
+    const needsProductLender = !gptView || gptView === "lenders";
+    const needsCredit = !gptView || gptView === "financials";
+    const needsExecutiveSnapshot =
+      !gptView ||
+      gptView === "deal_summary" ||
+      gptView === "opportunity_summary";
+
+    if (needsProductLender && (opportunity360?.opportunityId || deal360?.opportunityId || deal360?.dealId)) {
       productLenderIntelligence = await projectProductLenderIntelligence({
         organizationId: request.organizationId,
         opportunityRef:
@@ -578,6 +594,15 @@ export async function compileChanakyaEnterpriseReadContext(
         dealId: deal360?.dealId ?? null,
       });
 
+      const creditOppRef =
+        opportunity360?.opportunityId ?? deal360?.opportunityId ?? null;
+      if (needsCredit && creditOppRef) {
+        creditIntelligence = await projectCreditIntelligence({
+          organizationId: request.organizationId,
+          opportunityRef: creditOppRef,
+        });
+      }
+    } else if (needsCredit && (opportunity360?.opportunityId || deal360?.opportunityId)) {
       const creditOppRef =
         opportunity360?.opportunityId ?? deal360?.opportunityId ?? null;
       if (creditOppRef) {
@@ -588,7 +613,7 @@ export async function compileChanakyaEnterpriseReadContext(
       }
     }
 
-    if (opportunity360 || deal360) {
+    if (needsExecutiveSnapshot && (opportunity360 || deal360)) {
       transactionExecutiveSnapshot = composeTransactionExecutiveSnapshotFromCompile({
         compiledAt,
         opportunity360,

@@ -17,19 +17,29 @@ info:
 
     GET-only. No mutation capabilities.
 
-    ## Action routing model (CO-CHANAKYA-GPT-CONNECTION-CLOSURE-042)
+    ## Action routing model (CO-CHANAKYA-GPT-CONNECTION-CLOSURE-042 · CO-CHANAKYA-GPT-PORTFOLIO-ROUTING-049)
 
     | User question type | Call | Never call |
     |-------------------|------|------------|
-    | Deal (`DEAL-…`, dealId, dealRef, "this deal") | **gptActionEnterpriseRead** with `dealRef` | gptActionChanakya |
-    | Opportunity (`OPP-…`, opportunityId, "this opportunity") | **gptActionEnterpriseRead** with `opportunityRef` | gptActionChanakya |
-    | Why stuck / what changed / documents / financials / lenders / accounting / 360 | **gptActionEnterpriseRead** | gptActionChanakya |
-    | Org-wide Radar snapshot / high-level desk health only | **gptActionChanakya** | — (no entity depth) |
+    | Record-level portfolio (customer/company names, Deal lists, stages, lenders, products, amounts, WP/source, active/inactive) | **gptActionEnterpriseRead** (no dealRef) | gptActionPipeline, gptActionChanakya |
+    | Deal (`DEAL-…`, dealId, dealRef, "this deal") | **gptActionEnterpriseRead** with `dealRef` | gptActionChanakya, gptActionPipeline |
+    | Opportunity (`OPP-…`, opportunityId, "this opportunity") | **gptActionEnterpriseRead** with `opportunityRef` | gptActionChanakya, gptActionPipeline |
+    | Why stuck / what changed / documents / tasks / activity / financials / lenders / accounting / 360 | **gptActionEnterpriseRead** | gptActionChanakya, gptActionPipeline |
+    | Aggregate pipeline snapshot only (no customer/Deal names) | **gptActionPipeline** | gptActionEnterpriseRead |
+    | Org-wide CHANAKYA Radar snapshot / desk health only (no record-level lists) | **gptActionChanakya** | gptActionEnterpriseRead, gptActionPipeline |
+
+    **Portfolio conflict rule:** If Pipeline or Radar shows zero Deals but
+    `transactionAttention.portfolioHydration.availability` is `AVAILABLE`, use
+    `portfolioBusinessRegistry` / `transactionAttention` from **gptActionEnterpriseRead**
+    — never tell the user there are zero Deals based on stale Radar/EBI alone.
 
     **Follow-up rule:** When the user continues about the same case without repeating
     the Deal/Opportunity number ("Why is it stuck?", "What should I do today?"),
     reuse `dealRef` or `opportunityRef` from the prior turn (or from `data.requestedEntityRefs`
     / `data.deal360` / `data.opportunity360` in the last enterprise-read response).
+
+    **Deal-wise access:** `dealRef` / `dealId` for DEAL-…, lender stage, post-disbursement, Deal 360.
+    **Opportunity-wise access:** `opportunityRef` / `opportunityId` for OPP-… and Opportunity 360.
 
     FOIR / DSCR / LTV / DBR are Phase 2 — never computed. No document binaries,
     unrestricted OCR dumps, mobile numbers, or emails.
@@ -84,24 +94,10 @@ paths:
     get:
       tags: [Chanakya AI GPT Action]
       summary: Org-wide CHANAKYA Radar snapshot (lightweight only)
-      description: |
-        **Lightweight organisation Radar intelligence only** — health score, direction,
-        quadrant counts, top org-wide signals. No Opportunity/Deal depth.
-
-        **USE ONLY FOR:** high-level Radar snapshot · general org attention summary ·
-        "how is the desk doing?" without naming a Deal or Opportunity.
-
-        **NEVER USE FOR** (call `gptActionEnterpriseRead` instead):
-        - Any `DEAL-…` / `dealId` / `dealRef` / "this deal" question
-        - Any `OPP-…` / `opportunityId` / `opportunityRef` / "this opportunity" question
-        - Why stuck · what changed · documents pending · financial analysis
-        - Lender assignment · accounting/commercial status · post-disbursement
-        - Complete 360 · transaction attention · recommended next human action
-        - Follow-up questions after a Deal/Opportunity was already discussed
-
-        This action does **not** accept entity references and cannot return Deal 360 or
-        Opportunity 360. There is no separate per-deal action — entity depth is always
-        `gptActionEnterpriseRead`.
+      description: >-
+        Org-wide CHANAKYA Radar only (health, quadrants, top signals). NEVER USE FOR customer/Deal lists,
+        WHO/WHICH customer/deal/lender/stage, or record-level portfolio — use gptActionEnterpriseRead.
+        OK for Radar/desk health only, not named Deals.
       operationId: gptActionChanakya
       responses:
         "200":
@@ -119,7 +115,10 @@ paths:
   /api/integrations/chatgpt/v1/gpt-action/pipeline:
     get:
       tags: [Chanakya AI GPT Action]
-      summary: Aggregated loan pipeline summary
+      summary: Aggregated pipeline summary (NOT customer/Deal lists)
+      description: >-
+        Aggregate pipeline snapshot only. NEVER USE FOR customer names, Deal lists, stages, lenders,
+        products, amounts, WP/source, or WHO/WHICH record questions — use gptActionEnterpriseRead.
       operationId: gptActionPipeline
       responses:
         "200":
@@ -209,65 +208,11 @@ paths:
   /api/integrations/chatgpt/v1/gpt-action/enterprise-read:
     get:
       tags: [Chanakya AI GPT Action]
-      summary: CHANAKYA enterprise read context (PRIMARY deep evidence)
-      description: |
-        **PRIMARY deep CHANAKYA evidence action** — read-only compile of the same Phase-1
-        enterprise intelligence used inside Catalyst One. **Always prefer this action** over
-        `gptActionChanakya` when the user names or implies a Deal, Opportunity, or transaction.
-
-        ## Deal-wise access (`DEAL-…`, dealId, dealRef, "this deal")
-
-        Pass `dealRef` (or `dealId`) — e.g. `DEAL-2026-000082`. Server coerces `mode=enterprise`
-        to `transaction` and returns **Deal 360** where authorized, including when available:
-        parent Opportunity context · borrower/company · product · lender · lender stage ·
-        stage age · latest activity · tasks · documents · document readiness · transaction
-        attention · recent changes · commercial/accounting context · post-disbursement state ·
-        product/lender intelligence · credit/document intelligence · recommended next human action.
-
-        Example calls:
-        - `dealRef=DEAL-2026-000082` — "Tell me about DEAL-2026-000082."
-        - Same `dealRef` — follow-up "Why is this deal stuck?" / "What changed?" / "What documents are pending?"
-        - Same `dealRef` + `changePeriod=since_yesterday` — "What changed in this deal?"
-        - Same `dealRef` + `domains=commercial,execution` — accounting/commercial status
-
-        ## Opportunity-wise access (`OPP-…`, opportunityId, opportunityRef)
-
-        Pass `opportunityRef` (or `opportunityId`) — e.g. `OPP-2026-000060`. Returns **Opportunity 360**
-        and authorised intelligence (credit, documents, product/lender, commercial, attention, change).
-
-        Example: `opportunityRef=OPP-2026-000060` — "Give me a complete 360 analysis of OPP-2026-000060."
-
-        ## Follow-up context (multi-turn)
-
-        ChatGPT must **retain** the active `dealRef` or `opportunityRef` across follow-up turns.
-        Re-read `data.requestedEntityRefs`, `data.deal360.dealNumber`, or
-        `data.opportunity360.opportunityNumber` from the prior response when the user does not
-        repeat the reference ("Why is it stuck?", "What should I do next?", "What should I do today?").
-
-        ## Also use for (no entity ref — org desk)
-
-        - What should I focus on today? / Which cases require intervention?
-        - Show transactions delayed beyond SLA (org attention via `mode=enterprise` or `summary`)
-
-        ## Modes
-
-        - `enterprise` — portfolio attention / commercial / execution (default; coerces when entity refs present)
-        - `summary` — executive + transactions attention
-        - `opportunity` — Opportunity 360 (requires opportunityRef)
-        - `transaction` — Deal execution depth (prefer dealRef)
-        - `domain` — selected domains only
-
-        **Domains** (comma-separated): executive,transactions,credit,documents,commercial,
-        relationships,execution
-
-        **changePeriod:** today | since_yesterday | last_7_days
-
-        `includeDocumentExcerpts=1` — truncated structured excerpts only. Never document binaries,
-        unrestricted OCR payloads, mobile numbers, or emails.
-
-        **FOIR / DSCR / LTV / DBR = Phase 2** — never computed. Never invent APPROVED / SANCTIONED /
-        GUARANTEED / ELIGIBLE without persisted SSOT. Missing evidence → NOT_AVAILABLE /
-        OCR_REQUIRED / INSUFFICIENT_EVIDENCE.
+      summary: CHANAKYA enterprise read (PRIMARY portfolio + Deal/Opp 360)
+      description: >-
+        PRIMARY deep CHANAKYA portfolio SSOT. Customer/Deal lists, stages, lenders, products, amounts,
+        WP/source, docs, tasks, activity, 360. No dealRef → portfolioBusinessRegistry. Radar/Pipeline=0 +
+        portfolioHydration AVAILABLE → trust registry. Pass dealRef/oppRef. FOIR/DSCR/LTV/DBR Phase 2.
       operationId: gptActionEnterpriseRead
       parameters:
         - name: mode
@@ -322,6 +267,17 @@ paths:
             enum: [today, since_yesterday, last_7_days]
         - name: limit
           in: query
+          description: Portfolio list page size (default 25, max 100).
+          schema:
+            type: integer
+        - name: cursor
+          in: query
+          description: Portfolio page cursor (1-based page number string) when portfolioHydration.pagination.hasMore is true.
+          schema:
+            type: string
+        - name: portfolioPage
+          in: query
+          description: Alias of cursor for portfolio pagination.
           schema:
             type: integer
         - name: includeDocumentExcerpts
@@ -337,6 +293,26 @@ paths:
             Does not invent facts — entity scope still requires dealRef/opportunityRef when known.
           schema:
             type: string
+        - name: view
+          in: query
+          description: |
+            Optional compact response view (CO-050). portfolio_list, deal_summary, opportunity_summary,
+            documents, financials, commercial, changes, lenders, activity, dialogue, attention.
+            When omitted, inferred from q + dealRef/opportunityRef. GPT Action returns compact DTO only.
+          schema:
+            type: string
+            enum:
+              - portfolio_list
+              - deal_summary
+              - opportunity_summary
+              - documents
+              - activity
+              - dialogue
+              - financials
+              - lenders
+              - commercial
+              - attention
+              - changes
       responses:
         "200":
           description: |
@@ -519,6 +495,10 @@ components:
                 transactionAttention:
                   type: object
                   nullable: true
+                  description: >-
+                    Portfolio lists and portfolioBusinessRegistry (allDeals, activeDeals, inactiveDeals,
+                    byWealthPartner) plus portfolioHydration honesty metadata. PRIMARY source for record-level
+                    customer/Deal portfolio questions when no dealRef is supplied.
                 changeIntelligence:
                   type: object
                   nullable: true

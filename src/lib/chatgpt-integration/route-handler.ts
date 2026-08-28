@@ -32,6 +32,8 @@ export type ChatGptComposeContext = ChatGptOrgContext & {
   actor: AiAccessActor;
   /** Optional query string from the inbound GET (opportunity-aware reads). */
   requestQuery?: URLSearchParams;
+  /** CO-050 — GPT Action lane returns compact query-shaped DTOs only. */
+  gptActionLane?: boolean;
 };
 
 export function buildChatGptIntegrationMeta(

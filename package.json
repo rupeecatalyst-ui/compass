@@ -129,6 +129,8 @@
     "verify:co-chanakya-enterprise-read-context-002": "node --import tsx scripts/co-chanakya-enterprise-read-context-002-verify.mjs",
     "verify:co-chanakya-enterprise-read-coverage-047": "node --import ./scripts/_bat-stub-server-only.mjs --import tsx scripts/co-chanakya-enterprise-read-coverage-047-verify.mjs",
     "verify:co-chanakya-enterprise-portfolio-hydration-048": "node --import ./scripts/_bat-stub-server-only.mjs --import tsx scripts/co-chanakya-enterprise-portfolio-hydration-048-verify.mjs",
+    "verify:co-chanakya-gpt-portfolio-routing-049": "node --import tsx scripts/co-chanakya-gpt-portfolio-routing-049-verify.mjs",
+    "verify:co-chanakya-gpt-enterprise-read-response-size-050": "node --import ./scripts/_bat-stub-server-only.mjs --import tsx scripts/co-chanakya-gpt-enterprise-read-response-size-050-verify.mjs",
     "verify:co-chanakya-phase1-inapp-conversation-closure-037": "node --import tsx scripts/co-chanakya-phase1-inapp-conversation-closure-037-verify.mjs",
     "verify:co-chanakya-chatgpt-enterprise-read-closure-038": "node --import tsx scripts/co-chanakya-chatgpt-enterprise-read-closure-038-verify.mjs",
     "verify:co-chanakya-gpt-connection-closure-042": "node --import tsx scripts/co-chanakya-gpt-connection-closure-042-verify.mjs",
