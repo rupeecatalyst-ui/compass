@@ -16,6 +16,12 @@ info:
     settings — they are **not** listed as callable business actions below.
 
     GET-only. No mutation capabilities.
+
+    **Action selection:**
+    - `gptActionChanakya` = lightweight org Radar snapshot only.
+    - `gptActionEnterpriseRead` = deep CHANAKYA enterprise evidence (Opportunity/Deal 360,
+      attention, change, credit, documents, product/lender, commercial). Prefer this for
+      transaction questions.
 servers:
   - url: https://catalyst-one.rupeecatalyst.com
     description: Production (Hostinger)
@@ -66,11 +72,21 @@ paths:
   /api/integrations/chatgpt/v1/gpt-action/chanakya:
     get:
       tags: [Chanakya AI GPT Action]
-      summary: CHANAKYA / Radar intelligence snapshot
+      summary: Org-wide CHANAKYA Radar snapshot (lightweight)
+      description: |
+        Lightweight organisation Radar intelligence only (health score, direction,
+        quadrant counts, top signals).
+
+        Use this for high-level org radar questions.
+
+        Do NOT use this for Opportunity/Deal depth, stuck-case analysis, financials,
+        documents, lender fit, change intelligence, or commercial status.
+
+        For those questions call `gptActionEnterpriseRead` instead.
       operationId: gptActionChanakya
       responses:
         "200":
-          description: CHANAKYA DTO
+          description: CHANAKYA Radar DTO (not Opportunity/Deal 360)
           content:
             application/json:
               schema:
@@ -174,59 +190,109 @@ paths:
   /api/integrations/chatgpt/v1/gpt-action/enterprise-read:
     get:
       tags: [Chanakya AI GPT Action]
-      summary: CHANAKYA enterprise read context (Opportunity/Deal 360 / attention)
+      summary: CHANAKYA enterprise read context (deep evidence)
       description: |
-        Read-only targeted context compile. Query params:
-        mode=summary|opportunity|domain|enterprise|transaction
-        opportunityId / opportunityRef (required for opportunity mode)
-        dealId / dealRef (optional Deal 360)
-        domains=comma-separated domain list (includes productLender)
-        limit=max attention list size
-        includeDocumentExcerpts=1 (optional truncated excerpts; never binaries)
-        Customer mobile/email are omitted before response.
+        PRIMARY deep CHANAKYA evidence action. Read-only targeted compile of the same
+        Phase-1 enterprise intelligence used inside Catalyst One.
+
+        Call this action (not gptActionChanakya) for questions such as:
+        - What should I focus on today? / Which cases require intervention?
+        - Why is this opportunity/deal stuck?
+        - What changed since yesterday?
+        - Analyse this transaction / Analyse the financials
+        - What documents are available / readable / missing?
+        - Which lenders are relevant?
+        - What is happening with this deal?
+        - What is the commercial/accounting status?
+
+        Modes:
+        - enterprise — portfolio attention / commercial / execution (org desk)
+        - summary — executive + transactions attention
+        - opportunity — Opportunity 360 (requires opportunityId or opportunityRef)
+        - transaction — Deal/Opportunity execution depth (prefer dealId/dealRef)
+        - domain — selected domains only
+
+        When opportunityId/dealId are supplied with mode=enterprise, the server
+        coerces to opportunity/transaction so Opportunity/Deal 360, creditIntelligence,
+        productLenderIntelligence, and document evidence still compile.
+
+        Domains (comma-separated): executive,transactions,credit,documents,commercial,
+        relationships,execution
+
+        changePeriod: today | since_yesterday | last_7_days
+
+        includeDocumentExcerpts=1 returns truncated structured excerpts only — never
+        document binaries, unrestricted OCR payloads, mobile numbers, or emails.
+
+        FOIR / DSCR / LTV / DBR are Phase 2 and are never computed here.
+        Never invent APPROVED / SANCTIONED / GUARANTEED / ELIGIBLE without persisted SSOT.
+        Missing evidence returns honest NOT_AVAILABLE / OCR_REQUIRED / INSUFFICIENT_EVIDENCE.
       operationId: gptActionEnterpriseRead
       parameters:
         - name: mode
           in: query
+          description: Compile mode. Prefer opportunity/transaction when entity refs are known.
           schema:
             type: string
             enum: [summary, opportunity, domain, enterprise, transaction]
+            default: enterprise
         - name: opportunityId
           in: query
+          description: Opportunity id or number (e.g. OPP-2026-000060)
           schema:
             type: string
         - name: opportunityRef
           in: query
+          description: Alias for opportunityId
           schema:
             type: string
         - name: dealId
           in: query
+          description: Deal id or number (e.g. DEAL-2026-000082)
           schema:
             type: string
         - name: dealRef
           in: query
+          description: Alias for dealId
           schema:
             type: string
         - name: domains
           in: query
+          description: Comma-separated domains (executive,transactions,credit,documents,commercial,relationships,execution)
           schema:
             type: string
+        - name: changePeriod
+          in: query
+          description: Change intelligence window
+          schema:
+            type: string
+            enum: [today, since_yesterday, last_7_days]
         - name: limit
           in: query
           schema:
             type: integer
         - name: includeDocumentExcerpts
           in: query
+          description: "1 = include truncated structured document excerpts (never binaries)"
           schema:
             type: string
             enum: ["1"]
+        - name: q
+          in: query
+          description: Optional natural-language hint for audit/routing (does not invent facts)
+          schema:
+            type: string
       responses:
         "200":
-          description: Enterprise read context DTO (privacy-safe)
+          description: |
+            Privacy-safe enterprise read context. Typical top-level fields include
+            opportunity360, deal360, transactionAttention, changeIntelligence,
+            productLenderIntelligence, creditIntelligence, enterpriseSummary,
+            domains, limitations, privacy, resolvedMode.
           content:
             application/json:
               schema:
-                type: object
+                $ref: "#/components/schemas/ApiSuccessEnterpriseRead"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -243,7 +309,7 @@ components:
           tokenUrl: https://catalyst-one.rupeecatalyst.com/api/integrations/chatgpt/v1/oauth/token
           scopes:
             chatgpt:read: Read-only operational intelligence (requires AI_ACCESS + AI_TEXT + AI_CATALYST_INTELLIGENCE)
-            chatgpt:chanakya: CHANAKYA / Radar endpoint (requires AI_CHANAKYA)
+            chatgpt:chanakya: CHANAKYA Radar + enterprise-read deep evidence (requires AI_CHANAKYA)
       description: |
         OAuth 2.0 authorization code + PKCE (S256).
         Issues a short-lived integration JWT (`aud=catalyst_one_chatgpt`).
@@ -357,6 +423,55 @@ components:
           allOf:
             - $ref: "#/components/schemas/IntegrationMeta"
             - type: object
+    ApiSuccessEnterpriseRead:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          allOf:
+            - $ref: "#/components/schemas/IntegrationMeta"
+            - type: object
+              description: |
+                Compiled CHANAKYA enterprise read context. Typical fields:
+                mode, resolvedMode, opportunity360, deal360, transactionAttention,
+                changeIntelligence, productLenderIntelligence, creditIntelligence,
+                enterpriseSummary, domains, limitations, privacy, readOnly.
+              properties:
+                mode:
+                  type: string
+                resolvedMode:
+                  type: string
+                opportunity360:
+                  type: object
+                  nullable: true
+                deal360:
+                  type: object
+                  nullable: true
+                transactionAttention:
+                  type: object
+                  nullable: true
+                changeIntelligence:
+                  type: object
+                  nullable: true
+                productLenderIntelligence:
+                  type: object
+                  nullable: true
+                creditIntelligence:
+                  type: object
+                  nullable: true
+                enterpriseSummary:
+                  type: object
+                  nullable: true
+                limitations:
+                  type: array
+                  items:
+                    type: string
+                readOnly:
+                  type: boolean
+                  enum: [true]
     ApiSuccessPipeline:
       type: object
       required: [success, data]

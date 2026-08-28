@@ -161,11 +161,14 @@ paths:
   /api/integrations/chatgpt/v1/chanakya:
     get:
       tags: [ChatGPT Integration V1]
-      summary: CHANAKYA / Radar intelligence snapshot
+      summary: Org-wide CHANAKYA Radar snapshot (lightweight)
+      description: |
+        Lightweight organisation Radar only. For Opportunity/Deal depth, financials,
+        documents, lender fit, changes, or commercial status use chatgptEnterpriseRead.
       operationId: chatgptChanakya
       responses:
         "200":
-          description: CHANAKYA DTO
+          description: CHANAKYA Radar DTO (not Opportunity/Deal 360)
           content:
             application/json:
               schema:
@@ -257,11 +260,22 @@ paths:
   /api/integrations/chatgpt/v1/enterprise-read:
     get:
       tags: [ChatGPT Integration V1]
-      summary: CHANAKYA enterprise read context (Opportunity/Deal 360 / attention)
+      summary: CHANAKYA enterprise read context (deep evidence)
       description: |
-        CO-CHANAKYA-ENTERPRISE-READ-CONTEXT-002 — read-only targeted context compile.
-        Customer mobile/email are omitted before response. No mutation verbs.
-        Query: mode, opportunityId|opportunityRef, dealId|dealRef, domains, limit, includeDocumentExcerpts.
+        PRIMARY deep CHANAKYA evidence endpoint (same compiler as Catalyst One / GPT Action).
+        Use for focus/intervention, stuck cases, changes, financials, documents, lenders,
+        deal/opportunity status, and commercial/accounting read evidence.
+
+        Modes: summary|opportunity|domain|enterprise|transaction
+        Entity refs: opportunityId|opportunityRef, dealId|dealRef
+        Domains: executive,transactions,credit,documents,commercial,relationships,execution
+        changePeriod: today|since_yesterday|last_7_days
+        includeDocumentExcerpts=1 for truncated structured excerpts (never binaries/PII).
+
+        When entity refs are supplied with mode=enterprise, server coerces to
+        opportunity/transaction so 360 + credit/product-lender/document evidence compile.
+
+        FOIR/DSCR/LTV/DBR = Phase 2 (not computed). GET-only. No mutations.
       operationId: chatgptEnterpriseRead
       parameters:
         - name: mode
@@ -269,6 +283,7 @@ paths:
           schema:
             type: string
             enum: [summary, opportunity, domain, enterprise, transaction]
+            default: enterprise
         - name: opportunityId
           in: query
           schema:
@@ -289,6 +304,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: changePeriod
+          in: query
+          schema:
+            type: string
+            enum: [today, since_yesterday, last_7_days]
         - name: limit
           in: query
           schema:
@@ -298,9 +318,16 @@ paths:
           schema:
             type: string
             enum: ["1"]
+        - name: q
+          in: query
+          schema:
+            type: string
       responses:
         "200":
-          description: Enterprise read context DTO (privacy-safe)
+          description: |
+            Privacy-safe enterprise read context including opportunity360, deal360,
+            transactionAttention, changeIntelligence, productLenderIntelligence,
+            creditIntelligence, enterpriseSummary, limitations, privacy, resolvedMode.
           content:
             application/json:
               schema:
@@ -328,7 +355,7 @@ components:
           tokenUrl: /api/integrations/chatgpt/v1/oauth/token
           scopes:
             chatgpt:read: Read-only operational intelligence (requires AI_ACCESS + AI_TEXT + AI_CATALYST_INTELLIGENCE)
-            chatgpt:chanakya: CHANAKYA / Radar endpoint (requires AI_CHANAKYA)
+            chatgpt:chanakya: CHANAKYA Radar + enterprise-read deep evidence (requires AI_CHANAKYA)
       description: |
         OAuth 2.0 authorization code + PKCE. Issues a short-lived JWT (`aud=catalyst_one_chatgpt`)
         accepted **only** by `/api/integrations/chatgpt/v1/*`. Employee session JWTs are rejected.

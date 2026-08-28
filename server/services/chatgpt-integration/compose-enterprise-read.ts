@@ -1,5 +1,6 @@
 /**
  * CO-CHANAKYA-ENTERPRISE-READ-CONTEXT-002 — GPT Action compose for enterprise read context.
+ * CO-CHANAKYA-CHATGPT-ENTERPRISE-READ-CLOSURE-038 — entity-aware mode coercion.
  */
 import "server-only";
 
@@ -7,13 +8,12 @@ import {
   buildChatGptIntegrationMeta,
   type ChatGptComposeContext,
 } from "@/lib/chatgpt-integration/route-handler";
+import { resolveChatGptEnterpriseReadMode } from "@/lib/chatgpt-integration/resolve-enterprise-read-mode";
 import { compileChanakyaEnterpriseReadContext } from "@/lib/chanakya-enterprise-read-context";
 import {
   CHANAKYA_ENTERPRISE_READ_DOMAINS,
-  CHANAKYA_ENTERPRISE_READ_MODES,
   CHANAKYA_CHANGE_PERIODS,
   type ChanakyaEnterpriseReadDomain,
-  type ChanakyaEnterpriseReadMode,
   type ChanakyaChangePeriod,
 } from "@/types/chanakya-enterprise-read-context";
 
@@ -21,13 +21,18 @@ export async function composeChatGptEnterpriseReadDto(
   ctx: ChatGptComposeContext,
 ): Promise<Record<string, unknown>> {
   const params = ctx.requestQuery;
-  const modeRaw = (params?.get("mode") || "enterprise").trim();
-  const mode = (CHANAKYA_ENTERPRISE_READ_MODES as readonly string[]).includes(modeRaw)
-    ? (modeRaw as ChanakyaEnterpriseReadMode)
-    : "enterprise";
+  const opportunityRef =
+    params?.get("opportunityId") || params?.get("opportunityRef") || null;
+  const dealRef = params?.get("dealId") || params?.get("dealRef") || null;
+
+  const mode = resolveChatGptEnterpriseReadMode({
+    modeRaw: params?.get("mode"),
+    opportunityRef,
+    dealRef,
+  });
 
   const domainsParam = params?.get("domains");
-  const domains = domainsParam
+  let domains = domainsParam
     ? (domainsParam
         .split(",")
         .map((d: string) => d.trim())
@@ -35,6 +40,20 @@ export async function composeChatGptEnterpriseReadDto(
           (CHANAKYA_ENTERPRISE_READ_DOMAINS as readonly string[]).includes(d),
         ) as ChanakyaEnterpriseReadDomain[])
     : undefined;
+
+  // When ChatGPT asks about a specific case without domains, include the
+  // Phase-1 evidence domains that unlock credit / documents / commercial depth.
+  if (!domains?.length && (opportunityRef?.trim() || dealRef?.trim())) {
+    domains = [
+      "executive",
+      "transactions",
+      "credit",
+      "documents",
+      "commercial",
+      "execution",
+      "relationships",
+    ];
+  }
 
   const limitRaw = params?.get("limit");
   const limit = limitRaw ? Number(limitRaw) : undefined;
@@ -49,8 +68,8 @@ export async function composeChatGptEnterpriseReadDto(
   const compiled = await compileChanakyaEnterpriseReadContext({
     mode,
     organizationId: ctx.organizationId,
-    opportunityRef: params?.get("opportunityId") || params?.get("opportunityRef"),
-    dealRef: params?.get("dealId") || params?.get("dealRef"),
+    opportunityRef,
+    dealRef,
     domains,
     includeDocumentExcerpts: params?.get("includeDocumentExcerpts") === "1",
     limit: Number.isFinite(limit) ? limit : undefined,
@@ -63,5 +82,7 @@ export async function composeChatGptEnterpriseReadDto(
   return {
     ...buildChatGptIntegrationMeta(ctx),
     ...compiled,
+    /** Echo resolved mode so ChatGPT can see coercion from default enterprise. */
+    resolvedMode: mode,
   };
 }

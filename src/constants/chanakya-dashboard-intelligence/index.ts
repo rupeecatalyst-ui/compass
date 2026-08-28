@@ -14,14 +14,15 @@ export const CHANAKYA_INTELLIGENCE_PARTNER_TITLE = "CHANAKYA" as const;
 export const CHANAKYA_INTELLIGENCE_PARTNER_SUBTITLE =
   "Your Catalyst One Intelligence Partner" as const;
 
-/** Suggested questions — open Guide / future conversation within auth boundary. */
+/** Suggested questions — submit through Ask CHANAKYA conversation (037). */
 export const CHANAKYA_INTELLIGENCE_CONVERSATION_PROMPTS: ChanakyaConversationPrompt[] = [
-  { id: "sla-delayed", label: "Show me all transactions delayed beyond SLA." },
-  { id: "bl-intervention", label: "Which business loans need my intervention?" },
-  { id: "why-stuck", label: "Why is this case stuck?" },
-  { id: "analyse-financials", label: "Analyse the financials of this transaction." },
-  { id: "intervene-today", label: "Which cases should I personally intervene in today?" },
   { id: "focus-first", label: "What should I focus on first?" },
+  { id: "bl-intervention", label: "Which business loans need my intervention?" },
+  { id: "sla-delayed", label: "Show me transactions delayed beyond SLA." },
+  { id: "why-stuck", label: "Why is this case stuck?" },
+  { id: "what-changed", label: "What changed since yesterday?" },
+  { id: "analyse-financials", label: "Analyse the financials of this transaction." },
+  { id: "lenders-relevant", label: "Which lenders are relevant for this opportunity?" },
 ];
 
 export const CHANAKYA_INTELLIGENCE_DOCUMENT_FAMILIES = [

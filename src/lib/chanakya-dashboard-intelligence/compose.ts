@@ -198,8 +198,8 @@ function mapBusinessIntelligence(
 }
 
 const KNOWN_GAPS = [
-  "Free-form CHANAKYA multi-turn conversation is not yet a dedicated backend — prompts open the existing Guide within the auth boundary.",
-  "Transaction-scoped document financial analysis (EDIE → structured facts → reasoning) is reserved; no direct file exposure to external LLMs.",
+  "Ask CHANAKYA free-form conversation is wired via Enterprise Read Context (037) — still advisory / read-only.",
+  "Transaction-scoped document financial analysis depth continues to depend on EDIE structured facts; OCR gaps stay OCR_REQUIRED / NOT_AVAILABLE.",
   "Proactive alert daemon / voice delivery is not implemented — alert cards are the feed contract only.",
   "Org-wide lender / RM performance league tables are Mission Control / EBI surfaces — not duplicated here as fake metrics.",
   "Precise SLA breach clocks beyond ETE ageing reasons require a dedicated SLA projection API (not invented).",

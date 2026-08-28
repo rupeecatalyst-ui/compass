@@ -12,13 +12,12 @@ import {
   FileText,
   Lightbulb,
   MessageSquare,
-  Sparkles,
   TrendingUp,
 } from "lucide-react";
 import { useAuthContext } from "@/components/providers/auth-provider";
-import { useOptionalGlobalChanakya } from "@/components/layout/global-chanakya-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ChanakyaInappConversationPanel } from "@/components/catalyst-one/user-home-dashboard/chanakya-inapp-conversation-panel";
 import {
   CHANAKYA_DASHBOARD_INTELLIGENCE_SPRINT,
   CHANAKYA_INTELLIGENCE_PARTNER_SUBTITLE,
@@ -80,7 +79,6 @@ function SectionHeading({
 
 export function ChanakyaIntelligenceMode() {
   const { user } = useAuthContext();
-  const chanakya = useOptionalGlobalChanakya();
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || "";
   const [dealRows, setDealRows] = useState<DealRegistryRow[]>([]);
@@ -119,10 +117,6 @@ export function ChanakyaIntelligenceMode() {
     [user, dealRows],
   );
 
-  const openConversation = useCallback(() => {
-    chanakya?.openAssistant();
-  }, [chanakya]);
-
   return (
     <div
       className="space-y-6"
@@ -157,41 +151,16 @@ export function ChanakyaIntelligenceMode() {
         </div>
       </section>
 
-      {/* Conversation */}
+      {/* Conversation — CO-CHANAKYA-037 interactive Ask CHANAKYA */}
       <section aria-label="Ask CHANAKYA" className="space-y-3">
         <SectionHeading
           icon={MessageSquare}
           title="Ask CHANAKYA"
-          subtitle="Conversation stays inside your Catalyst One authorization boundary."
+          subtitle="Free-form multi-turn conversation inside your Catalyst One authorization boundary."
         />
         <Card className="border-[var(--ei-teal)]/25 bg-background/70 shadow-[var(--ei-depth-1)]">
-          <CardContent className="space-y-4 p-4 md:p-5">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 w-full justify-start gap-2 border-dashed bg-muted/20 text-left text-sm font-normal text-muted-foreground hover:text-foreground"
-              onClick={openConversation}
-            >
-              <Sparkles className="h-4 w-4 shrink-0 text-[var(--ei-teal)]" aria-hidden />
-              Ask CHANAKYA anything about your business…
-            </Button>
-            <div className="flex flex-wrap gap-2">
-              {model.conversationPrompts.map((prompt) => (
-                <button
-                  key={prompt.id}
-                  type="button"
-                  onClick={openConversation}
-                  className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-[var(--ei-teal)]/40 hover:text-foreground"
-                >
-                  {prompt.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Opens the enterprise CHANAKYA Guide for this workspace. Free-form multi-turn
-              business conversation will attach to this surface when the controlled
-              intelligence layer is ready — no mutation capabilities.
-            </p>
+          <CardContent className="p-4 md:p-5">
+            <ChanakyaInappConversationPanel prompts={model.conversationPrompts} />
           </CardContent>
         </Card>
       </section>

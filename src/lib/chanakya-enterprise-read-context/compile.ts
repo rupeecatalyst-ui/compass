@@ -168,6 +168,8 @@ export async function compileChanakyaEnterpriseReadContext(
 
   try {
 
+    // CO-CHANAKYA-038 — when an opportunityRef is supplied, always load Opportunity 360
+    // (including mode=enterprise) so credit / documents / product-lender evidence compile.
     const wantsOpportunity =
 
       Boolean(request.opportunityRef?.trim()) &&
@@ -178,7 +180,9 @@ export async function compileChanakyaEnterpriseReadContext(
 
         request.mode === "domain" ||
 
-        request.mode === "transaction");
+        request.mode === "transaction" ||
+
+        request.mode === "enterprise");
 
 
 
