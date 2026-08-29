@@ -109,6 +109,12 @@ async function resolveOpportunity(orgId, oppRef) {
       lifecycleStatus: true,
       snapshot: true,
       productCode: true,
+      productLabel: true,
+      requestedAmount: true,
+      sourceCode: true,
+      companyId: true,
+      transactionType: true,
+      cityLabel: true,
     },
   });
 }
@@ -149,7 +155,8 @@ async function operationalCounts(orgId, opportunityId, contactId) {
   };
 }
 
-async function runProductScenario(productCode, label, extraAnswers = {}) {
+async function runProductScenario(productCode, label, extraAnswers = {}, options = {}) {
+  const expectAdvantage = options.expectAdvantage !== false;
   const mobile = `9${String(Date.now()).slice(-9)}`;
   const cfg = await call(`/api/compass/journey/config?productCode=${productCode}`);
   if (!cfg.res.ok || cfg.body?.data?.dtoSource !== "enterprise_initial_data_collection") {
@@ -225,10 +232,16 @@ async function runProductScenario(productCode, label, extraAnswers = {}) {
     if (hasMock) fail(`${label} no mock lenders`, "mock pattern detected");
   }
   pass(`${label} recommendations`, rec.status);
-  if (!adv || adv.dtoSource !== "enterprise_compass_advantage" || adv.status !== "not_available") {
-    fail(`${label} advantage authority`, JSON.stringify(adv));
+  if (expectAdvantage) {
+    if (!adv || adv.dtoSource !== "enterprise_compass_advantage" || adv.status !== "not_available") {
+      fail(`${label} advantage authority`, JSON.stringify(adv));
+    }
+    pass(`${label} advantage not_available (C1 authority)`);
+  } else if (adv && adv.eligible) {
+    fail(`${label} advantage must not be eligible`, JSON.stringify(adv));
+  } else {
+    pass(`${label} advantage not applicable`);
   }
-  pass(`${label} advantage not_available (C1 authority)`);
 
   const lodBefore = await call("/api/compass/journey/lod", {
     headers: journeyHeaders(token),
@@ -625,12 +638,38 @@ async function securityTests(tokenA) {
   if (noConsent.res.ok) fail("missing consent", "submit succeeded");
   pass("missing consent blocks submit");
 
+  const startNoConsent = await call("/api/compass/journey/start", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      productCode: "personal-loan",
+      mobile: "9876543210",
+      consentAccepted: false,
+    }),
+  });
+  if (startNoConsent.res.ok) fail("start without consent", "succeeded");
+  pass("start without consent rejected");
+
+  const badMobile = await call("/api/compass/journey/start", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      productCode: "personal-loan",
+      mobile: "12",
+      consentAccepted: true,
+    }),
+  });
+  if (badMobile.res.ok) fail("invalid mobile", "succeeded");
+  pass("invalid mobile rejected");
+
   const invalidProducts = [
-    "personal-loan",
+    "vehicle-loan",
+    "lease-rental-discounting",
+    "equipment-finance",
+    "gold-loan",
+    "education-loan",
+    "not-a-product",
     "lap",
-    "business-loan",
-    "working-capital",
-    "construction-finance",
   ];
   for (const p of invalidProducts) {
     const r = await call(`/api/compass/journey/config?productCode=${p}`);
@@ -652,6 +691,78 @@ async function main() {
 
   evidence.hl = await runProductScenario("home-loan", "HL");
   evidence.hlbt = await runProductScenario("home-loan-balance-transfer", "HLBT");
+
+  const matrix = [
+    ["personal-loan", "PL", { loanPurpose: "Medical" }, { expectAdvantage: false, enterprise: "PERSONAL_LOAN" }],
+    [
+      "business-loan",
+      "BL",
+      { companyName: "E2E Synthetic Business Pvt Ltd", constitution: "private_limited", annualTurnover: 25000000 },
+      { expectAdvantage: false, enterprise: "BUSINESS_LOAN_UNSECURED", expectCompany: true },
+    ],
+    [
+      "loan-against-property",
+      "LAP",
+      { propertyUsage: "self-occupied", propertyValue: 9000000 },
+      { expectAdvantage: false, enterprise: "LAP" },
+    ],
+    [
+      "working-capital",
+      "WC",
+      {
+        facilityType: "cash_credit",
+        companyName: "E2E Synthetic WC Traders",
+        constitution: "proprietorship",
+        annualTurnover: 18000000,
+      },
+      { expectAdvantage: false, enterprise: "WORKING_CAPITAL_SECURED", expectCompany: true },
+    ],
+    [
+      "construction-finance",
+      "CF",
+      {
+        projectCost: 50000000,
+        companyName: "E2E Synthetic Builders LLP",
+        constitution: "llp",
+      },
+      { expectAdvantage: false, enterprise: "CONSTRUCTION_FINANCE", expectCompany: true },
+    ],
+    [
+      "project-finance",
+      "PF",
+      {
+        projectCost: 120000000,
+        companyName: "E2E Synthetic Project SPV",
+        constitution: "private_limited",
+      },
+      { expectAdvantage: false, enterprise: "PROJECT_FINANCE", expectCompany: true },
+    ],
+  ];
+
+  evidence.products = {};
+  for (const [code, tag, extras, opts] of matrix) {
+    evidence.products[tag] = await runProductScenario(code, tag, extras, opts);
+    const row = await resolveOpportunity(org.id, evidence.products[tag].oppRef);
+    if (!row) fail(`${tag} db opportunity`, "missing");
+    if (row.productCode !== opts.enterprise) {
+      fail(`${tag} product mapping`, `${row.productCode} != ${opts.enterprise}`);
+    }
+    if (row.sourceCode !== "website_compass") fail(`${tag} source`, row.sourceCode);
+    if (!row.primaryContactId) fail(`${tag} contact relation`, "missing primaryContactId");
+    if (opts.expectCompany && !row.companyId) fail(`${tag} company relation`, "missing companyId");
+    pass(`${tag} database mapping`, row.productCode);
+  }
+
+  const plVsHl = evidence.products.PL.enterpriseProductCode;
+  if (plVsHl === "HOME_LOAN" || evidence.products.PL.oppRef === evidence.hl.oppRef) {
+    fail("PL/HL collision", `${plVsHl} ${evidence.products.PL.oppRef}`);
+  }
+  pass("PL never maps to HOME_LOAN");
+
+  if (evidence.products.BL.enterpriseProductCode === "PERSONAL_LOAN") {
+    fail("BL/PL collision", evidence.products.BL.enterpriseProductCode);
+  }
+  pass("BL never maps to PERSONAL_LOAN");
 
   if (evidence.hlbt.enterpriseProductCode !== "HOME_LOAN_BT") {
     fail("HLBT product separation", evidence.hlbt.enterpriseProductCode);

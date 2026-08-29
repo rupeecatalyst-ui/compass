@@ -9,6 +9,7 @@ import { join } from "node:path";
 const root = process.cwd();
 const scripts = [
   "co-compass-customer-gateway-verify.mjs",
+  "co-compass-product-routing-verify.mjs",
   "co-compass-journey-config-authority-verify.mjs",
   "co-compass-recommendation-authority-verify.mjs",
   "co-compass-advantage-boundary-verify.mjs",
@@ -26,7 +27,7 @@ for (const script of scripts) {
     failed = true;
     continue;
   }
-  const needsTsx = /authority|advantage|upload-validation/.test(script);
+  const needsTsx = /authority|advantage|upload-validation|product-routing/.test(script);
   const args = needsTsx ? ["--import", "tsx", path] : [path];
   const result = spawnSync(process.execPath, args, { stdio: "inherit", cwd: root });
   if (result.status !== 0) failed = true;

@@ -28,12 +28,35 @@ const { buildCompassJourneyConfig } = await import(
 );
 const hl = buildCompassJourneyConfig("home-loan");
 const hlbt = buildCompassJourneyConfig("home-loan-balance-transfer");
+const pl = buildCompassJourneyConfig("personal-loan");
+const bl = buildCompassJourneyConfig("business-loan");
+const lap = buildCompassJourneyConfig("loan-against-property");
+const wc = buildCompassJourneyConfig("working-capital");
+const cf = buildCompassJourneyConfig("construction-finance");
 assert.equal(hl.dtoSource, "enterprise_initial_data_collection");
 assert.equal(hlbt.dtoSource, "enterprise_initial_data_collection");
 assert.equal(hl.enterpriseProductCode, "HOME_LOAN");
 assert.equal(hlbt.enterpriseProductCode, "HOME_LOAN_BT");
+assert.equal(pl.enterpriseProductCode, "PERSONAL_LOAN");
+assert.equal(bl.enterpriseProductCode, "BUSINESS_LOAN_UNSECURED");
+assert.equal(lap.enterpriseProductCode, "LAP");
+assert.equal(wc.enterpriseProductCode, "WORKING_CAPITAL_SECURED");
+assert.equal(cf.enterpriseProductCode, "CONSTRUCTION_FINANCE");
+assert.equal(pl.borrowerKind, "individual");
+assert.equal(bl.borrowerKind, "company");
+assert.equal(pl.isSecured, false);
+assert.equal(lap.isSecured, true);
 assert.ok(hl.fields.length > 0, "HL config must expose IDC fields");
 assert.ok(hlbt.fields.length > 0, "HLBT config must expose IDC fields");
+assert.ok(pl.fields.length > 0, "PL config must expose IDC fields");
+assert.ok(
+  wc.fields.some((f) => f.fieldId === "facilityType"),
+  "WC must expose facility type",
+);
+assert.ok(
+  cf.fields.some((f) => f.fieldId === "projectCostLabel" || f.fieldId === "projectLocation"),
+  "Construction Finance must expose project fields",
+);
 const btField = hlbt.fields.find(
   (f) =>
     f.fieldId === "currentLendingInstitution" ||
