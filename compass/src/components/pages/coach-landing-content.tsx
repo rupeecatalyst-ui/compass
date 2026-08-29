@@ -78,8 +78,8 @@ export function CoachLandingContent({ coach }: CoachLandingContentProps) {
         <ComingSoonPanel
           title="Coming Soon"
           description={`${coach.title} goes deeper soon. Related calculators will appear with Catalyst One Intelligence — no formulas on COMPASS.`}
-          ctaHref={toolRoute("compass-advantage")}
-          ctaLabel="See COMPASS Advantage"
+          ctaHref={ROUTES.CONTACT}
+          ctaLabel="Contact Us"
           secondaryHref={ROUTES.COACHES}
           secondaryLabel={ctaCopy.secondary.browseCoaches}
         />

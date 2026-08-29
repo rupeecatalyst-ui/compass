@@ -7,13 +7,16 @@ import { DiscoveryAdvantageStep } from "@/components/home-loan-experience/discov
 import { DiscoveryAmbientIntelligence } from "@/components/ambient-intelligence/home-loan-ambient";
 import { DiscoveryAnalysisStep } from "@/components/home-loan-experience/discovery/discovery-analysis-step";
 import { DiscoveryCompass } from "@/components/home-loan-experience/discovery/discovery-compass";
+import { DiscoveryConfirmationStep } from "@/components/home-loan-experience/discovery/discovery-confirmation-step";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
+import { DiscoveryDocumentsStep } from "@/components/home-loan-experience/discovery/discovery-documents-step";
 import { DiscoveryLendersStep } from "@/components/home-loan-experience/discovery/discovery-lenders-step";
 import { DiscoveryProgress } from "@/components/home-loan-experience/discovery/discovery-progress";
+import { DiscoveryReviewStep } from "@/components/home-loan-experience/discovery/discovery-review-step";
 import { PremiumSlider } from "@/components/home-loan-experience/discovery/premium-slider";
 import { Button } from "@/components/ui/button";
 import { CITY_OPTIONS } from "@/config/home-loan-conversation";
-import { discoveryCopy } from "@/config/home-loan-discovery";
+import { COMPASS_PRODUCT_LABELS, discoveryCopy } from "@/config/home-loan-discovery";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
 
@@ -68,16 +71,35 @@ function MiniHomePreview({ scale }: { scale: number }) {
 }
 
 function MobileStep() {
-  const { answers, setAnswer, goNext, nudgeCompass } = useDiscovery();
-  const [phase, setPhase] = useState<"form" | "otp" | "success">("form");
+  const { answers, setAnswer, goNext, nudgeCompass, startJourneySession, otpRequired } = useDiscovery();
+  const [phase, setPhase] = useState<"form" | "otp" | "success" | "starting">("form");
   const [otp, setOtp] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
   const c = discoveryCopy.mobile;
 
   const canSend = answers.mobile.length >= 10;
 
+  const continueAfterIdentity = async () => {
+    setPhase("starting");
+    setError(null);
+    try {
+      await startJourneySession();
+      setPhase("success");
+      nudgeCompass();
+      window.setTimeout(() => goNext(), reduceMotion ? 100 : 900);
+    } catch (err) {
+      setPhase("form");
+      setError(err instanceof Error ? err.message : "Unable to continue right now.");
+    }
+  };
+
   const sendOtp = () => {
     if (!canSend) return;
+    if (!otpRequired) {
+      void continueAfterIdentity();
+      return;
+    }
     setPhase("otp");
     nudgeCompass();
   };
@@ -85,9 +107,7 @@ function MobileStep() {
   const verifyOtp = () => {
     if (otp.length < 4) return;
     setAnswer("otpVerified", true);
-    setPhase("success");
-    nudgeCompass();
-    window.setTimeout(() => goNext(), reduceMotion ? 100 : 1400);
+    void continueAfterIdentity();
   };
 
   return (
@@ -109,9 +129,10 @@ function MobileStep() {
                 />
               </label>
               <Button size="lg" className="mt-4 h-12 w-full" disabled={!canSend} onClick={sendOtp}>
-                {c.cta}
+                {otpRequired ? c.cta : "Continue"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
+              {error ? <p className="text-center text-sm text-muted-foreground">{error}</p> : null}
             </motion.div>
           ) : null}
 
@@ -131,7 +152,7 @@ function MobileStep() {
             </motion.div>
           ) : null}
 
-          {phase === "success" ? (
+          {phase === "success" || phase === "starting" ? (
             <motion.div
               key="success"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -141,7 +162,9 @@ function MobileStep() {
               <span className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/35 bg-primary/15 text-primary">
                 <Check className="h-7 w-7" />
               </span>
-              <p className="text-lg font-medium text-foreground">{c.otpSuccess}</p>
+              <p className="text-lg font-medium text-foreground">
+                {phase === "starting" ? "Securing your journey..." : c.otpSuccess}
+              </p>
             </motion.div>
           ) : null}
         </AnimatePresence>
@@ -208,7 +231,7 @@ function CityStep() {
 }
 
 export function DiscoveryJourney() {
-  const { step, answers, setAnswer, goNext, goBack, closeDiscovery, compassNudge, nudgeCompass } =
+  const { step, answers, setAnswer, goNext, goBack, closeDiscovery, compassNudge, nudgeCompass, productCode } =
     useDiscovery();
   const reduceMotion = useReducedMotion();
 
@@ -221,7 +244,10 @@ export function DiscoveryJourney() {
           <DiscoveryScreen stepKey="welcome">
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               <DiscoveryCompass nudgeKey={compassNudge} size="lg" />
-              <h2 className="mt-8 text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                {COMPASS_PRODUCT_LABELS[productCode]}
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">
                 {discoveryCopy.welcome.title}
               </h2>
               <p className="mt-4 max-w-md text-base text-muted-foreground">{discoveryCopy.welcome.subtitle}</p>
@@ -404,6 +430,15 @@ export function DiscoveryJourney() {
       case "lenders":
         return <DiscoveryLendersStep />;
 
+      case "documents":
+        return <DiscoveryDocumentsStep />;
+
+      case "review":
+        return <DiscoveryReviewStep />;
+
+      case "confirmation":
+        return <DiscoveryConfirmationStep />;
+
       default:
         return null;
     }
@@ -422,7 +457,11 @@ export function DiscoveryJourney() {
     >
       <div className="border-b border-white/[0.06] bg-[#05070c]/80 px-4 py-4 backdrop-blur-xl sm:px-6">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
-          {step !== "welcome" && step !== "analysing" && step !== "advantage" && step !== "lenders" ? (
+          {step !== "welcome" &&
+          step !== "analysing" &&
+          step !== "advantage" &&
+          step !== "lenders" &&
+          step !== "confirmation" ? (
             <button
               type="button"
               onClick={goBack}

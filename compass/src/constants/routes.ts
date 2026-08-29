@@ -16,6 +16,9 @@ export const ROUTES = {
   RESOURCES: "/resources",
   COACHES: "/coaches",
   TOOLS: "/tools",
+  PRIVACY: "/privacy",
+  TERMS: "/terms",
+  DISCLAIMER: "/disclaimer",
 } as const;
 
 /** Maps coach slugs to dedicated product experience routes. */

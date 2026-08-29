@@ -80,9 +80,9 @@ export const borrowGoals: readonly BorrowGoal[] = [
   {
     id: "buy-vehicle",
     title: "Buy a Vehicle",
-    insight: "Vehicle financing strategy before you compare lenders.",
-    productRoute: ROUTES.PERSONAL_LOAN,
-    discoveryHref: discoveryLaunchUrl(ROUTES.PERSONAL_LOAN),
+    insight: "Vehicle financing guidance is coming soon. Contact us for early assistance.",
+    productRoute: ROUTES.CONTACT,
+    discoveryHref: ROUTES.CONTACT,
     icon: "car",
   },
   {

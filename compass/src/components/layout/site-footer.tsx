@@ -14,8 +14,7 @@ export function SiteFooter() {
           <div>
             <CompassLogo showTagline />
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-              The customer platform from {siteConfig.company}. Borrow better, invest smarter, build
-              confidence — with calm guidance at every step.
+              {siteConfig.tagline} — the customer platform from {siteConfig.company}.
             </p>
           </div>
 

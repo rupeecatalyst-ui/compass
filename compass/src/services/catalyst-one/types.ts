@@ -1,6 +1,6 @@
-/** Catalyst One → COMPASS discovery intelligence contract (master template). */
+/** COMPASS ↔ Catalyst One gateway presentation types. */
 
-export type DiscoveryProductId = "home-loan";
+export type CompassProductCode = "home-loan" | "home-loan-balance-transfer";
 
 export type DiscoveryAnswersPayload = {
   propertyType?: "ready" | "construction";
@@ -16,8 +16,10 @@ export type DiscoveryAnswersPayload = {
 
 export type CompassAdvantageResult = {
   title: string;
-  amount: number;
-  amountFormatted: string;
+  amount: number | null;
+  amountFormatted: string | null;
+  eligible: boolean;
+  status?: "not_available" | "ready";
   disclaimer: string;
 };
 
@@ -26,29 +28,75 @@ export type LenderRecommendationResult = {
   name: string;
   logoUrl: string | null;
   initials: string;
-  matchScore: number;
+  tier: "best" | "strong" | "alternative";
   interestRate: string;
   estimatedEmi: string;
   processingTime: string;
   reasons: string[];
   benefits: string[];
-  tier: "best" | "strong" | "alternative";
+  rank: number;
 };
 
 export type SarathiIntelligenceResult = {
-  /** Ordered advisor messages — opening, why #1, why #2, comparison, next steps. */
   messages: string[];
 };
 
 export type DiscoveryIntelligenceResult = {
-  product: DiscoveryProductId;
-  advantage: CompassAdvantageResult;
+  product: CompassProductCode;
+  advantage: CompassAdvantageResult | null;
   lenders: LenderRecommendationResult[];
+  recommendationsStatus: "ready" | "pending" | "unavailable";
+  recommendationsMessage: string;
   sarathi: SarathiIntelligenceResult;
-  source: "catalyst-one";
+  journeySessionToken?: string;
+  opportunityRef?: string;
+};
+
+export type JourneyStartResponse = {
+  journeySessionToken: string;
+  journeyRef: string;
+  contactRef: string;
+  opportunityRef: string;
+  otpRequired: boolean;
+};
+
+export type CompassLodItemDto = {
+  itemId: string;
+  typeRef: string;
+  label: string;
+  mandatory: boolean;
+  conditional: boolean;
+  explanation: string | null;
+  participantLabel: string | null;
+  uploadStatus: "missing" | "uploaded" | "pending_verification" | "verified" | "rejected";
+  fileName: string | null;
+  allowedMimeTypes: string[];
+  maxSizeBytes: number;
+};
+
+export type CompassLodDto = {
+  items: CompassLodItemDto[];
+  completionPercent: number;
+  mandatoryPending: number;
+  dtoSource: "enterprise_compass_lod";
+};
+
+export type CompassDocumentUploadResponse = {
+  uploadedCount: number;
+  uploaded: string[];
+  lod: CompassLodDto;
+};
+
+export type CompassSubmitResponse = {
+  submitted: boolean;
+  reference: string;
+  message: string;
+  pendingItems: string[];
+  dtoSource: "enterprise_compass_submission";
 };
 
 export type DiscoveryIntelligenceRequest = {
-  product: DiscoveryProductId;
+  product: CompassProductCode;
   answers: DiscoveryAnswersPayload;
+  journeySessionToken?: string;
 };

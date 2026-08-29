@@ -12,6 +12,7 @@ export const DISCOVERY_STAGES = [
   "Financial Snapshot",
   "Personalising Results",
   "Your COMPASS Advantage",
+  "Application",
 ] as const;
 
 export type DiscoveryStepId =
@@ -26,7 +27,18 @@ export type DiscoveryStepId =
   | "city"
   | "analysing"
   | "advantage"
-  | "lenders";
+  | "lenders"
+  | "documents"
+  | "review"
+  | "confirmation";
+
+export const COMPASS_PRODUCT_LABELS: Record<
+  "home-loan" | "home-loan-balance-transfer",
+  string
+> = {
+  "home-loan": "New Home Loan",
+  "home-loan-balance-transfer": "Home Loan Balance Transfer",
+};
 
 export const ANALYSIS_PHASES = [
   {
@@ -152,7 +164,36 @@ export const discoveryCopy = {
   lenders: {
     heading: "Your Matches",
     subtitle: "Shortlisted for your profile — revealed one at a time.",
-    reviewSarathi: "Review Sarathi",
+    continueCta: "Continue to Documents",
+  },
+  documents: {
+    heading: "Documents",
+    subtitle: "Upload your documents folder or add files one by one.",
+    folderCta: "Upload folder",
+    folderHelper: "Select a folder from your device — we will map files into your application.",
+    itemCta: "Upload file",
+    completionLabel: "Document completion",
+    mandatoryPending: "mandatory pending",
+    loading: "Loading your document checklist...",
+    continueCta: "Review application",
+  },
+  review: {
+    heading: "Review your application",
+    subtitle: "Confirm your details before final submission.",
+    productLabel: "Product",
+    answersLabel: "Your details",
+    recommendationsLabel: "Lender guidance",
+    documentsLabel: "Documents",
+    advantageLabel: "COMPASS Advantage",
+    submitCta: "Submit application",
+    submitting: "Submitting...",
+  },
+  confirmation: {
+    heading: "Application received",
+    referenceLabel: "Reference",
+    nextStepsTitle: "What happens next",
+    doneCta: "Done",
+    sarathiCta: "Talk to Sarathi",
   },
   sarathiBridge: {
     name: "Sarathi",
@@ -184,6 +225,9 @@ export const DISCOVERY_STEP_ORDER: DiscoveryStepId[] = [
   "analysing",
   "advantage",
   "lenders",
+  "documents",
+  "review",
+  "confirmation",
 ];
 
 export function stepToStageIndex(step: DiscoveryStepId): number {
@@ -205,6 +249,10 @@ export function stepToStageIndex(step: DiscoveryStepId): number {
     case "advantage":
     case "lenders":
       return 4;
+    case "documents":
+    case "review":
+    case "confirmation":
+      return 5;
     default:
       return 0;
   }

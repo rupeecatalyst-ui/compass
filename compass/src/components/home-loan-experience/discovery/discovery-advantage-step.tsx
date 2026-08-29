@@ -30,7 +30,7 @@ export function DiscoveryAdvantageStep() {
 
         <h2 className="mt-8 text-2xl font-semibold tracking-tight sm:text-3xl">{c.heading}</h2>
 
-        {intelligenceLoading || !advantage ? (
+        {intelligenceLoading || (!advantage && !intelligenceError) ? (
           <p className="mt-6 text-sm text-muted-foreground">{c.loading}</p>
         ) : intelligenceError ? (
           <div className="mt-8 space-y-4">
@@ -39,7 +39,14 @@ export function DiscoveryAdvantageStep() {
               Try Again
             </Button>
           </div>
-        ) : (
+        ) : advantage?.status === "not_available" || !advantage?.eligible ? (
+          <div className="mx-auto mt-10 max-w-lg space-y-4">
+            <p className="text-sm leading-relaxed text-muted-foreground">{advantage?.disclaimer}</p>
+            <p className="text-xs text-muted-foreground">
+              You can continue — lender guidance and document collection are not affected.
+            </p>
+          </div>
+        ) : advantage?.eligible && advantage.amountFormatted ? (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -54,9 +61,13 @@ export function DiscoveryAdvantageStep() {
             </p>
             <p className="mt-6 text-left text-sm leading-relaxed text-muted-foreground">{advantage.disclaimer}</p>
           </motion.div>
+        ) : (
+          <p className="mt-8 max-w-md text-sm text-muted-foreground">
+            We need a little more information before we can estimate your COMPASS Advantage.
+          </p>
         )}
 
-        {advantage && !intelligenceLoading ? (
+        {!intelligenceLoading && !intelligenceError ? (
           <Button size="lg" className="mt-10 h-12 px-10" onClick={goNext}>
             {c.showMatches}
             <ArrowRight className="h-4 w-4" />

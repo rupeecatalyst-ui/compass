@@ -29,7 +29,11 @@ export const borrowCategories: readonly BorrowNavCategory[] = [
     tagline: "Purchase and transfer with clarity.",
     products: [
       { id: "home-loan", label: "Home Loan", href: ROUTES.HOME_LOAN },
-      { id: "home-loan-bt", label: "Home Loan Balance Transfer", href: ROUTES.HOME_LOAN },
+      {
+        id: "home-loan-bt",
+        label: "Home Loan Balance Transfer",
+        href: `${ROUTES.HOME_LOAN}?product=home-loan-balance-transfer`,
+      },
     ],
   },
   {
@@ -59,7 +63,7 @@ export const borrowCategories: readonly BorrowNavCategory[] = [
     title: "Vehicle Loans",
     tagline: "Finance your next vehicle with confidence.",
     products: [
-      { id: "car-loan", label: "Car Loan", href: ROUTES.PERSONAL_LOAN },
+      { id: "car-loan", label: "Car Loan", future: true },
       { id: "commercial-vehicle", label: "Commercial Vehicle Loan", future: true },
     ],
   },

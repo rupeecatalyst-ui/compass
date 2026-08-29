@@ -39,7 +39,7 @@ function LenderCard({ lender, visible }: { lender: LenderRecommendationResult; v
         {TIER_LABELS[lender.tier]}
       </p>
 
-      <div className="mt-4 flex items-center justify-between gap-4">
+        <div className="mt-4 flex items-center justify-between gap-4">
         {lender.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={lender.logoUrl} alt="" className="h-11 w-11 rounded-xl object-contain" />
@@ -56,8 +56,10 @@ function LenderCard({ lender, visible }: { lender: LenderRecommendationResult; v
           </span>
         )}
         <div className="text-right">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Match</p>
-          <p className="text-2xl font-bold text-primary">{lender.matchScore}%</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Priority
+          </p>
+          <p className="text-2xl font-bold text-primary">#{lender.rank}</p>
         </div>
       </div>
 
@@ -96,12 +98,18 @@ function LenderCard({ lender, visible }: { lender: LenderRecommendationResult; v
 }
 
 export function DiscoveryLendersStep() {
-  const { compassNudge, intelligence, activateSarathi } = useDiscovery();
+  const { compassNudge, intelligence, intelligenceLoading, intelligenceError, goNext } =
+    useDiscovery();
   const reduceMotion = useReducedMotion();
   const [revealedCount, setRevealedCount] = useState(0);
   const c = discoveryCopy.lenders;
 
   const lenders = useMemo(() => intelligence?.lenders ?? [], [intelligence?.lenders]);
+  const unavailable =
+    !intelligenceLoading &&
+    (intelligence?.recommendationsStatus === "unavailable" ||
+      intelligence?.recommendationsStatus === "pending" ||
+      lenders.length === 0);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -132,15 +140,25 @@ export function DiscoveryLendersStep() {
       </div>
 
       <div className="mx-auto mt-10 w-full max-w-lg space-y-4">
-        {lenders.map((lender, i) => (
-          <LenderCard key={lender.id} lender={lender} visible={i < revealedCount} />
-        ))}
+        {unavailable ? (
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              {intelligenceError ||
+                intelligence?.recommendationsMessage ||
+                "We are preparing your lender guidance. A Rupee Catalyst advisor will share suitable options shortly."}
+            </p>
+          </div>
+        ) : (
+          lenders.map((lender, i) => (
+            <LenderCard key={lender.id} lender={lender} visible={i < revealedCount} />
+          ))
+        )}
       </div>
 
-      {revealedCount >= lenders.length && lenders.length > 0 ? (
+      {(revealedCount >= lenders.length && lenders.length > 0) || unavailable ? (
         <div className="mt-10 flex justify-center">
-          <Button size="lg" className="h-12 px-10" onClick={activateSarathi}>
-            {c.reviewSarathi}
+          <Button size="lg" className="h-12 px-10" onClick={goNext}>
+            {c.continueCta}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
