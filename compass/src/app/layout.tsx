@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteLayout } from "@/components/layout/site-layout";
+import { pwaConfig } from "@/config/pwa";
 import { siteConfig } from "@/config/site";
 import "./globals.css";
 
@@ -45,12 +46,29 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: pwaConfig.shortName,
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [
+      { url: `${pwaConfig.iconBasePath}/icon-192x192.png`, sizes: "192x192", type: "image/png" },
+      { url: `${pwaConfig.iconBasePath}/icon-512x512.png`, sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: `${pwaConfig.iconBasePath}/apple-touch-icon.png`, sizes: "180x180" }],
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#06080d",
+  themeColor: pwaConfig.themeColor,
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

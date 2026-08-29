@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3001",
+    "prebuild": "node scripts/build-pwa.mjs",
     "build": "next build",
     "start": "next start --port 3001",
-    "lint": "next lint"
+    "lint": "next lint",
+    "verify:pwa": "node scripts/co-compass-pwa-verify.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
