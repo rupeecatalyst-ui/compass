@@ -13,12 +13,17 @@ export function resolveProductFieldFamily(productCode: string): string {
   const c = productCode.trim().toUpperCase();
   if (c.includes("HOME_LOAN") || c === "HL" || c.startsWith("HL_")) return "HOME_LOAN";
   if (c.includes("LAP") || c.includes("LOAN_AGAINST_PROPERTY")) return "LAP";
+  if (c.includes("CONSTRUCTION") || c.includes("PROJECT_FINANCE")) return "CONSTRUCTION_FINANCE";
   if (
-    c.includes("BUSINESS") ||
     c.includes("WORKING_CAPITAL") ||
-    c.includes("MSME") ||
-    c.startsWith("BL_")
+    c === "CASH_CREDIT" ||
+    c === "OVERDRAFT" ||
+    c.includes("CASH_CREDIT") ||
+    c.includes("OVERDRAFT")
   ) {
+    return "WORKING_CAPITAL";
+  }
+  if (c.includes("BUSINESS") || c.includes("MSME") || c.startsWith("BL_")) {
     return "BUSINESS_LOAN";
   }
   if (c.includes("PERSONAL") || c.startsWith("PL_")) return "PERSONAL_LOAN";

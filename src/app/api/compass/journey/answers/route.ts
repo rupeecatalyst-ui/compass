@@ -7,6 +7,7 @@ import {
   readBearerJourneyToken,
 } from "@/lib/compass-customer-gateway/route-utils";
 import { compassJourneyService } from "@server/services/compass-customer-gateway/compass-journey.service";
+import { toCompassGatewayFailure } from "@server/services/compass-customer-gateway/compass-journey-errors";
 
 export async function PATCH(request: NextRequest) {
   const auth = assertCompassGatewayAuthorized(request);
@@ -22,7 +23,7 @@ export async function PATCH(request: NextRequest) {
     const data = await compassJourneyService.patchAnswers(token, body);
     return compassGatewaySuccess(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to save answers.";
-    return compassGatewayError(400, "ANSWERS_PATCH_FAILED", message);
+    const failure = toCompassGatewayFailure(error, "ANSWERS_PATCH_FAILED", "Unable to save answers.");
+    return compassGatewayError(failure.httpStatus, failure.code, failure.message);
   }
 }

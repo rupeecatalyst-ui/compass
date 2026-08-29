@@ -7,6 +7,7 @@ import {
   readBearerJourneyToken,
 } from "@/lib/compass-customer-gateway/route-utils";
 import { compassJourneyService } from "@server/services/compass-customer-gateway/compass-journey.service";
+import { toCompassGatewayFailure } from "@server/services/compass-customer-gateway/compass-journey-errors";
 
 export async function POST(request: NextRequest) {
   const auth = assertCompassGatewayAuthorized(request);
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
     const data = await compassJourneyService.submit(token, body);
     return compassGatewaySuccess(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Submission failed.";
-    return compassGatewayError(400, "SUBMIT_FAILED", message);
+    const failure = toCompassGatewayFailure(error, "SUBMIT_FAILED", "Submission failed.");
+    return compassGatewayError(failure.httpStatus, failure.code, failure.message);
   }
 }

@@ -3,23 +3,10 @@
  * Catalyst One is the sole authority; COMPASS renders these DTOs only.
  */
 
-export type CompassProductCode = "home-loan" | "home-loan-balance-transfer";
+import type { CompassBorrowerKind, CompassProductCode } from "@/constants/compass-customer-gateway/product-registry";
 
-export const COMPASS_PRODUCT_TO_ENTERPRISE: Record<
-  CompassProductCode,
-  { productCode: string; productLabel: string; transactionType: "fresh" | "balance_transfer" }
-> = {
-  "home-loan": {
-    productCode: "HOME_LOAN",
-    productLabel: "Home Loan",
-    transactionType: "fresh",
-  },
-  "home-loan-balance-transfer": {
-    productCode: "HOME_LOAN_BT",
-    productLabel: "Home Loan Balance Transfer",
-    transactionType: "balance_transfer",
-  },
-};
+export type { CompassProductCode } from "@/constants/compass-customer-gateway/product-registry";
+export { COMPASS_PRODUCT_TO_ENTERPRISE } from "@/constants/compass-customer-gateway/product-registry";
 
 export type CompassJourneyFieldType =
   | "text"
@@ -48,6 +35,9 @@ export type CompassJourneyConfigDto = {
   productCode: CompassProductCode;
   enterpriseProductCode: string;
   productLabel: string;
+  transactionType: "fresh" | "balance_transfer";
+  isSecured: boolean;
+  borrowerKind: CompassBorrowerKind;
   configVersion: string;
   fields: CompassJourneyFieldDef[];
   otpEnabled: boolean;

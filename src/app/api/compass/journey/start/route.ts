@@ -4,8 +4,10 @@ import {
   assertCompassGatewayAuthorized,
   compassGatewayError,
   compassGatewaySuccess,
+  requireActiveCompassProduct,
 } from "@/lib/compass-customer-gateway/route-utils";
 import { compassJourneyService } from "@server/services/compass-customer-gateway/compass-journey.service";
+import { toCompassGatewayFailure } from "@server/services/compass-customer-gateway/compass-journey-errors";
 
 export async function POST(request: NextRequest) {
   const auth = assertCompassGatewayAuthorized(request);
@@ -13,13 +15,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json()) as CompassJourneyStartRequest;
-    if (body.productCode !== "home-loan" && body.productCode !== "home-loan-balance-transfer") {
-      return compassGatewayError(400, "INVALID_PRODUCT", "Unsupported product.");
-    }
-    const data = await compassJourneyService.startJourney(body);
+    const productCode = requireActiveCompassProduct(body.productCode);
+    if (productCode instanceof Response) return productCode;
+    const data = await compassJourneyService.startJourney({ ...body, productCode });
     return compassGatewaySuccess(data, 201);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to start journey.";
-    return compassGatewayError(400, "JOURNEY_START_FAILED", message);
+    const failure = toCompassGatewayFailure(error, "JOURNEY_START_FAILED", "Unable to start journey.");
+    return compassGatewayError(failure.httpStatus, failure.code, failure.message);
   }
 }

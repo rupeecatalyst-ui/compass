@@ -8,7 +8,7 @@
 
 import type { IdcCatalog, IdcSectionDef } from "@/types/enterprise-initial-data-collection";
 
-export const ENTERPRISE_IDC_VERSION = "CO-WP-IDC-001";
+export const ENTERPRISE_IDC_VERSION = "CO-WP-IDC-002";
 
 /** Progressive Contact — Primary Applicant minimum + optional city. */
 export const ENTERPRISE_IDC_CUSTOMER_CAPTURE = {
@@ -258,6 +258,83 @@ export const ENTERPRISE_IDC_DETAIL_SECTIONS: IdcSectionDef[] = [
         displayOrder: 30,
         visibleWhenProductFamilies: ["LAP"],
       },
+      {
+        key: "propertyValueLabel",
+        label: "Property Value",
+        control: "text",
+        placeholder: "₹ amount",
+        helpText: "Approximate current market value of the property.",
+        required: false,
+        displayOrder: 40,
+        inputMode: "decimal",
+        visibleWhenProductFamilies: ["HOME_LOAN", "LAP"],
+      },
+    ],
+  },
+  {
+    sectionId: "working_capital_facility",
+    name: "Working Capital Facility",
+    description: "Facility type for working capital requirements",
+    displayOrder: 42,
+    visibility: "visible",
+    mandatory: true,
+    visibleWhenBorrower: "company",
+    visibleWhenProductFamilies: ["WORKING_CAPITAL"],
+    valueBucket: "product",
+    fields: [
+      {
+        key: "facilityType",
+        label: "Facility Type",
+        control: "select",
+        required: true,
+        optionSet: "wcFacility",
+        helpText: "Select the working capital facility required.",
+        displayOrder: 10,
+        visibleWhenProductFamilies: ["WORKING_CAPITAL"],
+      },
+    ],
+  },
+  {
+    sectionId: "project_information",
+    name: "Project Information",
+    description: "Project / construction details",
+    displayOrder: 44,
+    visibility: "visible",
+    mandatory: true,
+    visibleWhenBorrower: "company",
+    visibleWhenProductFamilies: ["CONSTRUCTION_FINANCE"],
+    valueBucket: "product",
+    fields: [
+      {
+        key: "projectName",
+        label: "Project Name",
+        control: "text",
+        required: false,
+        helpText: "Name of the project being financed.",
+        displayOrder: 10,
+        validation: { maxLength: 160 },
+      },
+      {
+        key: "projectLocation",
+        label: "Project Location",
+        control: "city_search",
+        required: true,
+        placeholder: "Search city…",
+        helpText: "City or location of the project.",
+        displayOrder: 20,
+        validation: { minLength: 2, maxLength: 80 },
+      },
+      {
+        key: "projectCostLabel",
+        label: "Project Cost",
+        control: "text",
+        placeholder: "₹ amount",
+        helpText: "Estimated total project cost.",
+        required: true,
+        displayOrder: 30,
+        inputMode: "decimal",
+        validation: { minLength: 1, maxLength: 40 },
+      },
     ],
   },
   {
@@ -332,7 +409,12 @@ export const ENTERPRISE_IDC_DETAIL_SECTIONS: IdcSectionDef[] = [
         required: false,
         helpText: "Business purpose of the facility.",
         displayOrder: 40,
-        visibleWhenProductFamilies: ["BUSINESS_LOAN"],
+        visibleWhenProductFamilies: [
+          "BUSINESS_LOAN",
+          "PERSONAL_LOAN",
+          "WORKING_CAPITAL",
+          "CONSTRUCTION_FINANCE",
+        ],
       },
     ],
   },

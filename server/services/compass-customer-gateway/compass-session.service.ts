@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { CompassJourneyError } from "./compass-journey-errors";
 import type {
   CompassJourneySessionClaims,
   CompassProductCode,
@@ -50,17 +51,24 @@ export function issueCompassJourneyToken(input: {
 
 export function verifyCompassJourneyToken(token: string): CompassJourneySessionClaims {
   const parts = token.split(".");
-  if (parts.length !== 2) throw new Error("Invalid journey session token");
+  if (parts.length !== 2) {
+    throw new CompassJourneyError("INVALID_SESSION", "Your session is invalid. Please restart the journey.", 401);
+  }
   const [body, sig] = parts;
   const expected = createHmac("sha256", secret()).update(body).digest("base64url");
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    throw new Error("Invalid journey session signature");
+    throw new CompassJourneyError("INVALID_SESSION", "Your session is invalid. Please restart the journey.", 401);
   }
-  const claims = JSON.parse(fromB64url(body).toString("utf8")) as CompassJourneySessionClaims;
+  let claims: CompassJourneySessionClaims;
+  try {
+    claims = JSON.parse(fromB64url(body).toString("utf8")) as CompassJourneySessionClaims;
+  } catch {
+    throw new CompassJourneyError("INVALID_SESSION", "Your session is invalid. Please restart the journey.", 401);
+  }
   if (!claims.exp || claims.exp < Math.floor(Date.now() / 1000)) {
-    throw new Error("Journey session expired");
+    throw new CompassJourneyError("SESSION_EXPIRED", "Your session has expired. Please restart the journey.", 401);
   }
   return claims;
 }

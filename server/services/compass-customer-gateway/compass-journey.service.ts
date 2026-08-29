@@ -28,6 +28,13 @@ import type {
   CompassSubmitResponse,
 } from "@/types/compass-customer-gateway";
 import { COMPASS_PRODUCT_TO_ENTERPRISE } from "@/types/compass-customer-gateway";
+import { getCompassProductDefinition } from "@/constants/compass-customer-gateway/product-registry";
+import { CompassJourneyError } from "./compass-journey-errors";
+import { ecmCompanyRepository } from "@server/repositories/ecm/company.repository";
+import {
+  formatCompanyDisplayName,
+  normalizeCompanyNameKey,
+} from "@/lib/enterprise-company-master/name-normalize";
 import { buildCompassJourneyConfig } from "./compass-journey-config.service";
 import { computeCompassAdvantage } from "./compass-advantage.service";
 import {
@@ -71,7 +78,7 @@ async function resolveContactByMobile(input: {
 }): Promise<{ id: string; name: string; mobile: string }> {
   const mobile = normalizeEcmMobile(input.mobile);
   if (!mobile || mobile.length < 10) {
-    throw new Error("A valid mobile number is required.");
+    throw new CompassJourneyError("INVALID_MOBILE", "A valid mobile number is required.", 400);
   }
 
   const existing = await ecmContactRepository.findIdentityByMobile(input.organizationId, mobile);
@@ -120,7 +127,9 @@ async function resolveContactByMobile(input: {
 
 async function loadOpportunityByRef(organizationId: string, opportunityRef: string) {
   const row = await enterpriseOpportunityRepository.findByNumber(organizationId, opportunityRef);
-  if (!row) throw new Error("Journey application not found.");
+  if (!row) {
+    throw new CompassJourneyError("INVALID_SESSION", "Journey application not found.", 401);
+  }
   return row;
 }
 
@@ -129,11 +138,19 @@ async function verifySessionClaims(claims: CompassJourneySessionClaims) {
   const row = await loadOpportunityByRef(organizationId, claims.opportunityRef);
   const expectedContactRef = contactRefFromId(row.primaryContactId || "");
   if (claims.contactRef !== expectedContactRef) {
-    throw new Error("Journey session does not match this customer.");
+    throw new CompassJourneyError(
+      "CROSS_CUSTOMER",
+      "Journey session does not match this customer.",
+      403,
+    );
   }
   const mappedProduct = COMPASS_PRODUCT_TO_ENTERPRISE[claims.productCode];
   if (!mappedProduct || row.productCode !== mappedProduct.productCode) {
-    throw new Error("Journey session does not match this application.");
+    throw new CompassJourneyError(
+      "PRODUCT_MISMATCH",
+      "Journey session does not match this application.",
+      403,
+    );
   }
   return { organizationId, row };
 }
@@ -168,6 +185,41 @@ async function findReusableDraft(
   );
 }
 
+async function resolveRelatedCompany(input: {
+  organizationId: string;
+  contactId: string | null;
+  companyName: string;
+  constitution?: string;
+  annualTurnover?: string;
+}) {
+  const displayName = formatCompanyDisplayName(input.companyName);
+  if (!displayName) return null;
+  const nameKey = normalizeCompanyNameKey(displayName);
+  let company = await ecmCompanyRepository.findEnabledByNameKey(input.organizationId, nameKey);
+  if (!company) {
+    company = await ecmCompanyRepository.create({
+      organizationId: input.organizationId,
+      companyName: displayName,
+      constitution: input.constitution?.trim(),
+      annualTurnover: input.annualTurnover?.trim(),
+      status: "active",
+      companyScore: 20,
+      createdBy: "compass-customer-gateway",
+      modifiedBy: "compass-customer-gateway",
+    });
+  }
+  if (input.contactId) {
+    await ecmCompanyRepository.linkContact({
+      organizationId: input.organizationId,
+      companyId: company.id,
+      contactId: input.contactId,
+      relationRole: "authorized_signatory",
+      createdBy: "compass-customer-gateway",
+    });
+  }
+  return company;
+}
+
 async function buildDetail(organizationId: string, opportunityId: string) {
   const row = await enterpriseOpportunityRepository.requireOpportunity(organizationId, opportunityId);
   const documents = await listPartnerOpportunityDocuments({ organizationId, opportunityId });
@@ -181,19 +233,29 @@ export const compassJourneyService = {
 
   async startJourney(input: CompassJourneyStartRequest): Promise<CompassJourneyStartResponse> {
     if (!input.consentAccepted) {
-      throw new Error("Consent is required to begin the journey.");
+      throw new CompassJourneyError("CONSENT_REQUIRED", "Consent is required to begin the journey.", 400);
     }
+    const definition = getCompassProductDefinition(input.productCode);
     const organizationId = await resolveCompassGatewayOrganizationId();
-    const contact = await resolveContactByMobile({
-      organizationId,
-      mobile: input.mobile,
-      displayName: input.displayName,
-      city: input.city,
-    });
-    const enterprise = COMPASS_PRODUCT_TO_ENTERPRISE[input.productCode];
+    let contact: { id: string; name: string; mobile: string };
+    try {
+      contact = await resolveContactByMobile({
+        organizationId,
+        mobile: input.mobile,
+        displayName: input.displayName,
+        city: input.city,
+      });
+    } catch (error) {
+      if (error instanceof CompassJourneyError) throw error;
+      throw new CompassJourneyError(
+        "CONTACT_CREATE_FAILED",
+        "Unable to start your application right now. Please try again shortly.",
+        502,
+      );
+    }
     const productUniquenessKey = resolveProductUniquenessKey({
-      productCode: enterprise.productCode,
-      productLabel: enterprise.productLabel,
+      productCode: definition.enterpriseProductCode,
+      productLabel: definition.productLabel,
     });
 
     const active = productUniquenessKey
@@ -204,20 +266,25 @@ export const compassJourneyService = {
         )
       : null;
     if (active && SUBMITTED_STATUSES.has(active.lifecycleStatus)) {
-      throw new Error(
+      throw new CompassJourneyError(
+        "ACTIVE_APPLICATION_EXISTS",
         "An active application already exists for this product. Our team will contact you shortly.",
+        409,
       );
     }
 
     let row =
       (await findReusableDraft(organizationId, contact.id, input.productCode)) ??
-      (await enterpriseOpportunityRepository.createOpportunity({
+      null;
+    if (!row) {
+      try {
+        row = await enterpriseOpportunityRepository.createOpportunity({
         organizationId,
         productFamily: "lending",
-        productCode: enterprise.productCode,
-        productLabel: enterprise.productLabel,
+        productCode: definition.enterpriseProductCode,
+        productLabel: definition.productLabel,
         productUniquenessKey,
-        transactionType: enterprise.transactionType,
+        transactionType: definition.transactionType,
         requirementStage: "lead_creation",
         lifecycleStatus: "dialogue",
         primaryBorrowerKind: "individual",
@@ -230,9 +297,20 @@ export const compassJourneyService = {
         snapshot: {
           compassChannel: "website",
           compassConsentAt: new Date().toISOString(),
+          compassLendingType: definition.isSecured ? "secured" : "unsecured",
+          compassBorrowerKind: definition.borrowerKind,
         },
         actorUserId: null,
-      }));
+      });
+      } catch (error) {
+        if (error instanceof CompassJourneyError) throw error;
+        throw new CompassJourneyError(
+          "OPPORTUNITY_CREATE_FAILED",
+          "Unable to create your application right now. Please try again shortly.",
+          502,
+        );
+      }
+    }
 
     const journeyRef = newJourneyRef();
     const contactRef = contactRefFromId(contact.id);
@@ -265,11 +343,39 @@ export const compassJourneyService = {
       compassUpdatedAt: new Date().toISOString(),
     };
 
+    const definition = getCompassProductDefinition(claims.productCode);
+    mapped.productFields.lendingType = definition.isSecured ? "secured" : "unsecured";
+    mapped.productFields.transactionType = definition.transactionType;
+
+    let companyId: string | undefined;
+    if (definition.hasBusinessFields) {
+      const companyName = mapped.borrowerFields.companyName?.trim();
+      if (companyName) {
+        try {
+          const company = await resolveRelatedCompany({
+            organizationId,
+            contactId: row.primaryContactId,
+            companyName,
+            constitution: mapped.borrowerFields.constitution,
+            annualTurnover: mapped.borrowerFields.annualTurnoverLabel || mapped.borrowerFields.annualTurnover,
+          });
+          companyId = company?.id;
+        } catch {
+          throw new CompassJourneyError(
+            "COMPANY_CREATE_FAILED",
+            "Unable to save business details right now. Please try again shortly.",
+            502,
+          );
+        }
+      }
+    }
+
     await enterpriseOpportunityRepository.updateOpportunity(organizationId, row.id, {
       snapshot,
       requestedAmount: mapped.requestedAmount,
       cityLabel: mapped.city,
       employmentTypeCode: mapped.borrowerFields.employmentTypeCode || row.employmentTypeCode,
+      ...(companyId ? { companyId } : {}),
       updatedBy: "compass-customer-gateway",
     });
 
@@ -301,9 +407,9 @@ export const compassJourneyService = {
       city: detail.borrowerFields?.city,
     });
 
-    const advantage =
-      claims.productCode === "home-loan" || claims.productCode === "home-loan-balance-transfer"
-        ? computeCompassAdvantage({
+    const definition = getCompassProductDefinition(claims.productCode);
+    const advantage = definition.advantageEnabled
+      ? computeCompassAdvantage({
             productCode: claims.productCode,
             loanAmount: parseLoanAmount(snapshotAnswers.loanAmount),
             monthlyIncome: parseLoanAmount(snapshotAnswers.monthlyIncome),
@@ -312,7 +418,7 @@ export const compassJourneyService = {
               snapshotAnswers.propertyType === "construction" ? "construction" : "ready",
             existingEmi: parseLoanAmount(snapshotAnswers.existingEmi),
           })
-        : null;
+      : null;
 
     const sarathiMessages = recommendations.cards.slice(0, 3).map((card, index) => {
       if (index === 0) {
@@ -452,7 +558,11 @@ export const compassJourneyService = {
 
   async submit(token: string, input: CompassSubmitRequest): Promise<CompassSubmitResponse> {
     if (!input.consentAccepted || !input.declarationsAccepted) {
-      throw new Error("Consent and declarations are required to submit.");
+      throw new CompassJourneyError(
+        "CONSENT_REQUIRED",
+        "Consent and declarations are required to submit.",
+        400,
+      );
     }
     const claims = verifyCompassJourneyToken(token);
     const { organizationId, row } = await verifySessionClaims(claims);

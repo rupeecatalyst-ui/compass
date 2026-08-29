@@ -2,6 +2,8 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import type { CompassProductCode } from "@/constants/compass-customer-gateway/product-registry";
+import { classifyCompassProductParam } from "@/constants/compass-customer-gateway/product-registry";
 import { createCorrelationId } from "@/lib/ops/correlation";
 import { errorResponse, successResponse } from "@/lib/api/auth-route-utils";
 
@@ -86,6 +88,21 @@ export function compassGatewayError(
     module: "compass-customer-gateway",
     action: code,
   });
+}
+
+export function requireActiveCompassProduct(
+  value: string | null | undefined,
+): CompassProductCode | NextResponse {
+  const classified = classifyCompassProductParam(value);
+  if (classified.kind === "active") return classified.code;
+  if (classified.kind === "future") {
+    return compassGatewayError(
+      400,
+      "PRODUCT_UNAVAILABLE",
+      "This product is not available on COMPASS yet.",
+    );
+  }
+  return compassGatewayError(400, "INVALID_PRODUCT", "Unsupported product.");
 }
 
 export function readBearerJourneyToken(request: Request): string | null {

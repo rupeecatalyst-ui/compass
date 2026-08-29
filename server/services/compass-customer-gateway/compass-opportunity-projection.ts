@@ -124,6 +124,25 @@ export function answersToSnapshotFields(
   let requestedAmount: number | null = null;
   let city: string | null = null;
 
+  const PRODUCT_FIELD_KEYS = new Set([
+    "propertyType",
+    "propertyValue",
+    "propertyValueLabel",
+    "propertyUsage",
+    "facilityType",
+    "projectName",
+    "projectLocation",
+    "projectCost",
+    "projectCostLabel",
+    "loanPurpose",
+    "transactionType",
+    "lendingType",
+    "currentLender",
+    "currentLendingInstitution",
+    "outstandingLoanAmount",
+    "outstandingLoanAmountLabel",
+  ]);
+
   for (const [key, raw] of Object.entries(answers)) {
     if (raw == null) continue;
     const value = String(raw).trim();
@@ -134,19 +153,41 @@ export function answersToSnapshotFields(
       productFields.requestedAmountLabel = value;
       continue;
     }
-    if (key === "city") {
+    if (key === "city" || key === "propertyCity") {
       city = value;
       borrowerFields.city = value;
+      if (key === "propertyCity") productFields.propertyCity = value;
       continue;
     }
-    if (key === "propertyType") productFields.propertyType = value;
-    else if (key === "propertyValue") productFields.propertyValueLabel = value;
-    else if (key === "incomeType" || key === "employmentTypeCode")
+    if (key === "incomeType" || key === "employmentTypeCode") {
       borrowerFields.employmentTypeCode = value;
-    else if (key === "monthlyIncome") borrowerFields.monthlyIncomeLabel = value;
-    else if (key === "existingEmi") borrowerFields.existingEmiLabel = value;
-    else if (key === "transactionType") productFields.transactionType = value;
-    else borrowerFields[key] = value;
+      continue;
+    }
+    if (key === "monthlyIncome") {
+      borrowerFields.monthlyIncomeLabel = value;
+      continue;
+    }
+    if (key === "existingEmi") {
+      borrowerFields.existingEmiLabel = value;
+      continue;
+    }
+    if (key === "annualTurnover") {
+      borrowerFields.annualTurnoverLabel = value;
+      continue;
+    }
+    if (key === "projectCost") {
+      productFields.projectCostLabel = value;
+      continue;
+    }
+    if (key === "propertyValue") {
+      productFields.propertyValueLabel = value;
+      continue;
+    }
+    if (PRODUCT_FIELD_KEYS.has(key)) {
+      productFields[key] = value;
+      continue;
+    }
+    borrowerFields[key] = value;
   }
 
   return { borrowerFields, productFields, requestedAmount, city };

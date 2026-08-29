@@ -7,6 +7,7 @@ import {
 } from "@/lib/compass-customer-gateway/route-utils";
 import { compassJourneyService } from "@server/services/compass-customer-gateway/compass-journey.service";
 import { CompassUploadRejectedError } from "@server/services/compass-customer-gateway/compass-upload-validation";
+import { toCompassGatewayFailure } from "@server/services/compass-customer-gateway/compass-journey-errors";
 
 export async function POST(request: NextRequest) {
   const auth = assertCompassGatewayAuthorized(request);
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof CompassUploadRejectedError) {
       return compassGatewayError(error.httpStatus, error.code, error.message);
     }
-    const message = error instanceof Error ? error.message : "Upload failed.";
-    return compassGatewayError(400, "UPLOAD_FAILED", message);
+    const failure = toCompassGatewayFailure(error, "UPLOAD_FAILED", "Upload failed.");
+    return compassGatewayError(failure.httpStatus, failure.code, failure.message);
   }
 }

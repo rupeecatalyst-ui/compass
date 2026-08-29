@@ -3,9 +3,10 @@
  * No gateway-local commercial arithmetic. Returns not_available until C1 engine exists.
  */
 import type { CompassAdvantageDto, CompassProductCode } from "@/types/compass-customer-gateway";
+import { getCompassProductDefinition } from "@/constants/compass-customer-gateway/product-registry";
 
 function isAdvantageProduct(productCode: CompassProductCode): boolean {
-  return productCode === "home-loan" || productCode === "home-loan-balance-transfer";
+  return getCompassProductDefinition(productCode).advantageEnabled;
 }
 
 export function computeCompassAdvantage(input: {

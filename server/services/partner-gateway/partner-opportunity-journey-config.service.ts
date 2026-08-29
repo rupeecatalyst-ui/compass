@@ -200,6 +200,11 @@ export function buildPartnerOpportunityJourneyConfig(): PartnerOpportunityJourne
         .filter((o) => o.enabled)
         .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label))
         .map((o) => ({ value: o.id, label: o.label })),
+      wcFacility: [
+        { value: "cash_credit", label: "Cash Credit" },
+        { value: "overdraft", label: "Overdraft" },
+        { value: "working_capital_term_loan", label: "Working Capital Term Loan" },
+      ],
     },
     customerCapture: idc.customerCapture,
     detailSections,

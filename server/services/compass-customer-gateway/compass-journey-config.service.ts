@@ -13,7 +13,7 @@ import type {
   CompassJourneyFieldType,
   CompassProductCode,
 } from "@/types/compass-customer-gateway";
-import { COMPASS_PRODUCT_TO_ENTERPRISE } from "@/types/compass-customer-gateway";
+import { getCompassProductDefinition } from "@/constants/compass-customer-gateway/product-registry";
 import { buildPartnerOpportunityJourneyConfig } from "@server/services/partner-gateway/partner-opportunity-journey-config.service";
 
 function compassOtpEnabled(): boolean {
@@ -59,14 +59,17 @@ function mapIdcField(
 }
 
 export function buildCompassJourneyConfig(productCode: CompassProductCode): CompassJourneyConfigDto {
-  const enterprise = COMPASS_PRODUCT_TO_ENTERPRISE[productCode];
+  const definition = getCompassProductDefinition(productCode);
   const partnerConfig = buildPartnerOpportunityJourneyConfig();
-  const transactionType = enterprise.transactionType;
+  const transactionType = definition.transactionType;
 
   const visibleSections = resolveVisibleIdcSections(partnerConfig.detailSections, {
-    primaryBorrowerKind: "individual",
-    productCode: enterprise.productCode,
-    values: { transactionType },
+    primaryBorrowerKind: definition.borrowerKind,
+    productCode: definition.enterpriseProductCode,
+    values: {
+      transactionType,
+      lendingType: definition.isSecured ? "secured" : "unsecured",
+    },
   });
 
   const fields: CompassJourneyFieldDef[] = [];
@@ -90,8 +93,11 @@ export function buildCompassJourneyConfig(productCode: CompassProductCode): Comp
 
   return {
     productCode,
-    enterpriseProductCode: enterprise.productCode,
-    productLabel: enterprise.productLabel,
+    enterpriseProductCode: definition.enterpriseProductCode,
+    productLabel: definition.productLabel,
+    transactionType: definition.transactionType,
+    isSecured: definition.isSecured,
+    borrowerKind: definition.borrowerKind,
     configVersion: partnerConfig.version || ENTERPRISE_IDC_VERSION,
     fields,
     otpEnabled: compassOtpEnabled(),

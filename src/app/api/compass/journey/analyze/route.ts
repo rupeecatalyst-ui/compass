@@ -6,6 +6,7 @@ import {
   readBearerJourneyToken,
 } from "@/lib/compass-customer-gateway/route-utils";
 import { compassJourneyService } from "@server/services/compass-customer-gateway/compass-journey.service";
+import { toCompassGatewayFailure } from "@server/services/compass-customer-gateway/compass-journey-errors";
 
 export async function POST(request: NextRequest) {
   const auth = assertCompassGatewayAuthorized(request);
@@ -20,7 +21,15 @@ export async function POST(request: NextRequest) {
     const data = await compassJourneyService.analyze(token);
     return compassGatewaySuccess(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Analysis is temporarily unavailable.";
-    return compassGatewayError(503, "ANALYSIS_UNAVAILABLE", message);
+    const failure = toCompassGatewayFailure(
+      error,
+      "ANALYSIS_UNAVAILABLE",
+      "Analysis is temporarily unavailable.",
+    );
+    return compassGatewayError(
+      failure.code === "ANALYSIS_UNAVAILABLE" ? 503 : failure.httpStatus,
+      failure.code,
+      failure.message,
+    );
   }
 }

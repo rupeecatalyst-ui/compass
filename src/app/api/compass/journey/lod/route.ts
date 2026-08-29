@@ -6,6 +6,7 @@ import {
   readBearerJourneyToken,
 } from "@/lib/compass-customer-gateway/route-utils";
 import { compassJourneyService } from "@server/services/compass-customer-gateway/compass-journey.service";
+import { toCompassGatewayFailure } from "@server/services/compass-customer-gateway/compass-journey-errors";
 
 export async function GET(request: NextRequest) {
   const auth = assertCompassGatewayAuthorized(request);
@@ -20,7 +21,11 @@ export async function GET(request: NextRequest) {
     const data = await compassJourneyService.getLod(token);
     return compassGatewaySuccess(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "LOD is temporarily unavailable.";
-    return compassGatewayError(503, "LOD_UNAVAILABLE", message);
+    const failure = toCompassGatewayFailure(error, "LOD_UNAVAILABLE", "LOD is temporarily unavailable.");
+    return compassGatewayError(
+      failure.code === "LOD_UNAVAILABLE" ? 503 : failure.httpStatus,
+      failure.code,
+      failure.message,
+    );
   }
 }
