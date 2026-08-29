@@ -18,6 +18,7 @@ function initials(name: string): string {
 function answersPayload(answers: DiscoveryAnswers) {
   return {
     propertyType: answers.propertyType,
+    propertyUsage: answers.propertyUsage,
     loanAmount: answers.loanAmount,
     propertyValue: answers.propertyValue,
     mobile: answers.mobile,
@@ -26,6 +27,12 @@ function answersPayload(answers: DiscoveryAnswers) {
     monthlyIncome: answers.monthlyIncome,
     existingEmi: answers.existingEmi,
     city: answers.city,
+    loanPurpose: answers.loanPurpose,
+    companyName: answers.companyName,
+    constitution: answers.constitution,
+    annualTurnover: answers.annualTurnover,
+    facilityType: answers.facilityType,
+    projectCost: answers.projectCost,
   };
 }
 

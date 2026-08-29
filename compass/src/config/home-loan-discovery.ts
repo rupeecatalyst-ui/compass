@@ -1,3 +1,9 @@
+import type { DiscoveryStepId } from "@/config/compass-lending-products";
+import { COMPASS_PRODUCT_LABELS } from "@/config/compass-lending-products";
+
+export type { DiscoveryStepId };
+export { COMPASS_PRODUCT_LABELS };
+
 /** Frozen discovery orchestration — Home Loan reference implementation. */
 export const DISCOVERY_QUESTION_RULE = {
   /** A question is allowed only if it changes eligibility, recommendation, calculation, or Sarathi advice. */
@@ -14,31 +20,6 @@ export const DISCOVERY_STAGES = [
   "Your COMPASS Advantage",
   "Application",
 ] as const;
-
-export type DiscoveryStepId =
-  | "welcome"
-  | "propertyType"
-  | "loanAmount"
-  | "propertyValue"
-  | "mobile"
-  | "incomeType"
-  | "monthlyIncome"
-  | "existingEmi"
-  | "city"
-  | "analysing"
-  | "advantage"
-  | "lenders"
-  | "documents"
-  | "review"
-  | "confirmation";
-
-export const COMPASS_PRODUCT_LABELS: Record<
-  "home-loan" | "home-loan-balance-transfer",
-  string
-> = {
-  "home-loan": "New Home Loan",
-  "home-loan-balance-transfer": "Home Loan Balance Transfer",
-};
 
 export const ANALYSIS_PHASES = [
   {
@@ -151,10 +132,70 @@ export const discoveryCopy = {
     cta: "Next",
   },
   city: {
-    heading: "Property City",
+    heading: "City",
     helper: "Lending policies can vary across locations.",
     placeholder: "Search city",
     popular: ["Mumbai", "Bengaluru", "Delhi", "Pune", "Hyderabad", "Chennai", "Gurugram", "Noida"],
+  },
+  propertyUsage: {
+    heading: "Property Usage",
+    helper: "How is the property currently used?",
+    options: [
+      { id: "self-occupied", label: "Self occupied" },
+      { id: "rented", label: "Rented" },
+      { id: "vacant", label: "Vacant" },
+      { id: "commercial", label: "Commercial" },
+    ],
+  },
+  loanPurpose: {
+    heading: "Loan Purpose",
+    helper: "This helps us understand how you plan to use the funds.",
+    placeholder: "e.g. Medical, Education, Travel",
+  },
+  companyName: {
+    heading: "Business Name",
+    helper: "Registered or trading name of the borrowing entity.",
+    placeholder: "Company / firm name",
+  },
+  constitution: {
+    heading: "Constitution",
+    helper: "Legal structure of the business.",
+    options: [
+      { id: "proprietorship", label: "Proprietorship" },
+      { id: "partnership", label: "Partnership" },
+      { id: "llp", label: "LLP" },
+      { id: "private_limited", label: "Private Limited" },
+      { id: "public_limited", label: "Public Limited" },
+    ],
+  },
+  annualTurnover: {
+    heading: "Annual Turnover",
+    helper: "Approximate turnover for the last financial year.",
+    min: 10_00_000,
+    max: 100_00_00_000,
+    default: 2_00_00_000,
+    minLabel: "₹10 Lakh",
+    maxLabel: "₹100 Crore",
+    cta: "Next",
+  },
+  facilityType: {
+    heading: "Facility Type",
+    helper: "Choose the working capital facility you need.",
+    options: [
+      { id: "cash_credit", label: "Cash Credit" },
+      { id: "overdraft", label: "Overdraft" },
+      { id: "working_capital_term_loan", label: "Working Capital Term Loan" },
+    ],
+  },
+  projectCost: {
+    heading: "Project Cost",
+    helper: "Estimated total cost of the project.",
+    min: 50_00_000,
+    max: 500_00_00_000,
+    default: 10_00_00_000,
+    minLabel: "₹50 Lakh",
+    maxLabel: "₹500 Crore",
+    cta: "Next",
   },
   advantage: {
     heading: "Your COMPASS Advantage",
@@ -234,13 +275,20 @@ export function stepToStageIndex(step: DiscoveryStepId): number {
   switch (step) {
     case "welcome":
     case "propertyType":
+    case "propertyUsage":
+    case "facilityType":
       return 0;
     case "loanAmount":
     case "propertyValue":
+    case "projectCost":
       return 1;
     case "incomeType":
     case "monthlyIncome":
     case "existingEmi":
+    case "loanPurpose":
+    case "companyName":
+    case "constitution":
+    case "annualTurnover":
       return 2;
     case "mobile":
     case "city":

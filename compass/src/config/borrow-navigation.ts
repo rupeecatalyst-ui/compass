@@ -37,6 +37,13 @@ export const borrowCategories: readonly BorrowNavCategory[] = [
     ],
   },
   {
+    id: "personal-loans",
+    emoji: "💳",
+    title: "Personal Loans",
+    tagline: "Unsecured borrowing for personal needs.",
+    products: [{ id: "personal-loan", label: "Personal Loan", href: ROUTES.PERSONAL_LOAN }],
+  },
+  {
     id: "property-loans",
     emoji: "🏢",
     title: "Property Loans",
@@ -55,6 +62,11 @@ export const borrowCategories: readonly BorrowNavCategory[] = [
       { id: "business-loan", label: "Unsecured Business Loan", href: ROUTES.BUSINESS_LOAN },
       { id: "working-capital", label: "Working Capital Loan", href: ROUTES.WORKING_CAPITAL },
       { id: "construction-finance", label: "Construction Finance", href: ROUTES.CONSTRUCTION_FINANCE },
+      {
+        id: "project-finance",
+        label: "Project Finance",
+        href: `${ROUTES.CONSTRUCTION_FINANCE}?product=project-finance`,
+      },
     ],
   },
   {

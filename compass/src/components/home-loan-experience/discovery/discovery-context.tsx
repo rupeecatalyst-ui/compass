@@ -2,7 +2,11 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { DiscoveryStepId } from "@/config/home-loan-discovery";
-import { DISCOVERY_STEP_ORDER, discoveryCopy } from "@/config/home-loan-discovery";
+import { discoveryCopy } from "@/config/home-loan-discovery";
+import {
+  getDiscoveryStepOrder,
+  readProductCodeFromPathname,
+} from "@/config/compass-lending-products";
 import { clearDiscoveryLaunchUrl } from "@/discovery-template/launch-discovery";
 import {
   fetchCompassLod,
@@ -21,6 +25,7 @@ import type {
 
 export type DiscoveryAnswers = {
   propertyType?: "ready" | "construction";
+  propertyUsage?: string;
   loanAmount: number;
   propertyValue: number;
   mobile: string;
@@ -29,6 +34,12 @@ export type DiscoveryAnswers = {
   monthlyIncome: number;
   existingEmi: number;
   city: string;
+  loanPurpose?: string;
+  companyName?: string;
+  constitution?: string;
+  annualTurnover?: number;
+  facilityType?: string;
+  projectCost?: number;
 };
 
 const defaultAnswers: DiscoveryAnswers = {
@@ -39,13 +50,13 @@ const defaultAnswers: DiscoveryAnswers = {
   monthlyIncome: discoveryCopy.monthlyIncome.default,
   existingEmi: discoveryCopy.existingEmi.default,
   city: "",
+  annualTurnover: discoveryCopy.annualTurnover.default,
+  projectCost: discoveryCopy.projectCost.default,
 };
 
 function readProductCodeFromLocation(): CompassProductCode {
   if (typeof window === "undefined") return "home-loan";
-  const params = new URLSearchParams(window.location.search);
-  const product = params.get("product");
-  return product === "home-loan-balance-transfer" ? "home-loan-balance-transfer" : "home-loan";
+  return readProductCodeFromPathname(window.location.pathname, window.location.search);
 }
 
 type DiscoveryContextValue = {
@@ -119,14 +130,25 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       clearDiscoveryLaunchUrl();
     }
-    setProductCode(nextProductCode || readProductCodeFromLocation());
+    const resolved = nextProductCode || readProductCodeFromLocation();
+    setProductCode((previous) => {
+      if (previous !== resolved) {
+        setJourneyComplete(false);
+        setJourneySessionToken(null);
+        setOpportunityRef(null);
+        setIntelligence(null);
+        setLod(null);
+        setSubmissionResult(null);
+        setAnswers(defaultAnswers);
+      }
+      return resolved;
+    });
     setLaunchKey((k) => k + 1);
     setIsOpen(true);
-    if (!journeyComplete) setStep("welcome");
-    else setStep("advantage");
+    setStep("welcome");
     setCompassNudge((n) => n + 1);
     document.body.style.overflow = "hidden";
-  }, [journeyComplete]);
+  }, []);
 
   const openDiscovery = launchDiscovery;
 
@@ -151,20 +173,22 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
 
   const goNext = useCallback(() => {
     setStep((current) => {
-      const idx = DISCOVERY_STEP_ORDER.indexOf(current);
-      const next = DISCOVERY_STEP_ORDER[Math.min(idx + 1, DISCOVERY_STEP_ORDER.length - 1)];
+      const order = getDiscoveryStepOrder(productCode);
+      const idx = order.indexOf(current);
+      const next = order[Math.min(Math.max(idx, 0) + 1, order.length - 1)];
       return next ?? current;
     });
     nudgeCompass();
-  }, [nudgeCompass]);
+  }, [nudgeCompass, productCode]);
 
   const goBack = useCallback(() => {
     setStep((current) => {
-      const idx = DISCOVERY_STEP_ORDER.indexOf(current);
+      const order = getDiscoveryStepOrder(productCode);
+      const idx = order.indexOf(current);
       if (idx <= 0) return current;
-      return DISCOVERY_STEP_ORDER[idx - 1] ?? current;
+      return order[idx - 1] ?? current;
     });
-  }, []);
+  }, [productCode]);
 
   const completeJourney = useCallback(() => {
     setJourneyComplete(true);

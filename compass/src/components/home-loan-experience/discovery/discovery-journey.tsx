@@ -17,6 +17,9 @@ import { PremiumSlider } from "@/components/home-loan-experience/discovery/premi
 import { Button } from "@/components/ui/button";
 import { CITY_OPTIONS } from "@/config/home-loan-conversation";
 import { COMPASS_PRODUCT_LABELS, discoveryCopy } from "@/config/home-loan-discovery";
+import {
+  productShowsPropertyPreview,
+} from "@/config/compass-lending-products";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
 
@@ -250,6 +253,9 @@ export function DiscoveryJourney() {
               <h2 className="mt-3 text-3xl font-semibold tracking-[-0.02em] sm:text-4xl">
                 {discoveryCopy.welcome.title}
               </h2>
+              <p className="mt-2 text-sm font-medium text-primary">
+                {COMPASS_PRODUCT_LABELS[productCode]}
+              </p>
               <p className="mt-4 max-w-md text-base text-muted-foreground">{discoveryCopy.welcome.subtitle}</p>
               <Button size="lg" className="mt-10 h-12 px-10" onClick={goNext}>
                 {discoveryCopy.welcome.cta}
@@ -302,7 +308,7 @@ export function DiscoveryJourney() {
                 maxLabel={c.maxLabel}
                 onChange={(v) => setAnswer("loanAmount", v)}
               />
-              <MiniHomePreview scale={loanScale} />
+              {productShowsPropertyPreview(productCode) ? <MiniHomePreview scale={loanScale} /> : null}
               <div className="mt-8 flex justify-center">
                 <Button size="lg" className="h-12 px-10" onClick={goNext}>
                   {c.cta}
@@ -342,6 +348,190 @@ export function DiscoveryJourney() {
 
       case "mobile":
         return <MobileStep />;
+
+      case "propertyUsage": {
+        const c = discoveryCopy.propertyUsage;
+        return (
+          <DiscoveryScreen stepKey="propertyUsage">
+            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <div className="mx-auto grid w-full max-w-md gap-3 sm:grid-cols-2">
+              {c.options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    setAnswer("propertyUsage", opt.id);
+                    nudgeCompass();
+                    goNext();
+                  }}
+                  className={cn(
+                    "rounded-2xl border p-6 text-center text-lg font-medium transition-all duration-300",
+                    "border-white/[0.08] bg-white/[0.02] hover:border-primary/30 hover:bg-primary/[0.06]",
+                    answers.propertyUsage === opt.id && "border-primary/35 bg-primary/[0.08]",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </DiscoveryScreen>
+        );
+      }
+
+      case "facilityType": {
+        const c = discoveryCopy.facilityType;
+        return (
+          <DiscoveryScreen stepKey="facilityType">
+            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <div className="mx-auto grid w-full max-w-lg gap-3">
+              {c.options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    setAnswer("facilityType", opt.id);
+                    nudgeCompass();
+                    goNext();
+                  }}
+                  className={cn(
+                    "rounded-2xl border p-5 text-left text-lg font-medium transition-all duration-300",
+                    "border-white/[0.08] bg-white/[0.02] hover:border-primary/30 hover:bg-primary/[0.06]",
+                    answers.facilityType === opt.id && "border-primary/35 bg-primary/[0.08]",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </DiscoveryScreen>
+        );
+      }
+
+      case "constitution": {
+        const c = discoveryCopy.constitution;
+        return (
+          <DiscoveryScreen stepKey="constitution">
+            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <div className="mx-auto grid w-full max-w-lg gap-3">
+              {c.options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    setAnswer("constitution", opt.id);
+                    nudgeCompass();
+                    goNext();
+                  }}
+                  className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-left text-lg font-medium transition-all hover:border-primary/30 hover:bg-primary/[0.06]"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </DiscoveryScreen>
+        );
+      }
+
+      case "loanPurpose": {
+        const c = discoveryCopy.loanPurpose;
+        return (
+          <DiscoveryScreen stepKey="loanPurpose">
+            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <div className="mx-auto w-full max-w-md space-y-4">
+              <input
+                value={answers.loanPurpose ?? ""}
+                onChange={(e) => setAnswer("loanPurpose", e.target.value)}
+                placeholder={c.placeholder}
+                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+              />
+              <div className="flex justify-center">
+                <Button size="lg" className="h-12 px-10" onClick={goNext}>
+                  {discoveryCopy.buttons.next}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </DiscoveryScreen>
+        );
+      }
+
+      case "companyName": {
+        const c = discoveryCopy.companyName;
+        return (
+          <DiscoveryScreen stepKey="companyName">
+            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <div className="mx-auto w-full max-w-md space-y-4">
+              <input
+                value={answers.companyName ?? ""}
+                onChange={(e) => setAnswer("companyName", e.target.value)}
+                placeholder={c.placeholder}
+                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+              />
+              <div className="flex justify-center">
+                <Button
+                  size="lg"
+                  className="h-12 px-10"
+                  disabled={(answers.companyName ?? "").trim().length < 2}
+                  onClick={goNext}
+                >
+                  {discoveryCopy.buttons.next}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </DiscoveryScreen>
+        );
+      }
+
+      case "annualTurnover": {
+        const c = discoveryCopy.annualTurnover;
+        return (
+          <DiscoveryScreen stepKey="annualTurnover">
+            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <div className="mx-auto w-full max-w-lg">
+              <PremiumSlider
+                value={answers.annualTurnover ?? c.default}
+                min={c.min}
+                max={c.max}
+                minLabel={c.minLabel}
+                maxLabel={c.maxLabel}
+                onChange={(v) => setAnswer("annualTurnover", v)}
+              />
+              <div className="mt-8 flex justify-center">
+                <Button size="lg" className="h-12 px-10" onClick={goNext}>
+                  {c.cta}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </DiscoveryScreen>
+        );
+      }
+
+      case "projectCost": {
+        const c = discoveryCopy.projectCost;
+        return (
+          <DiscoveryScreen stepKey="projectCost">
+            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <div className="mx-auto w-full max-w-lg">
+              <PremiumSlider
+                value={answers.projectCost ?? c.default}
+                min={c.min}
+                max={c.max}
+                minLabel={c.minLabel}
+                maxLabel={c.maxLabel}
+                onChange={(v) => setAnswer("projectCost", v)}
+              />
+              <div className="mt-8 flex justify-center">
+                <Button size="lg" className="h-12 px-10" onClick={goNext}>
+                  {c.cta}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </DiscoveryScreen>
+        );
+      }
 
       case "incomeType": {
         const c = discoveryCopy.incomeType;

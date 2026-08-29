@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { useDiscoveryOptional } from "@/components/home-loan-experience/discovery/discovery-context";
+import { resolveLaunchProductCode } from "@/config/compass-lending-products";
 import {
   dispatchLaunchDiscovery,
   discoveryLaunchUrl,
@@ -16,7 +17,7 @@ export function useLaunchDiscovery(productPath: ProductRoute = ROUTES.HOME_LOAN)
 
   return useCallback(() => {
     if (discovery) {
-      discovery.launchDiscovery();
+      discovery.launchDiscovery(resolveLaunchProductCode(productPath));
       return;
     }
 

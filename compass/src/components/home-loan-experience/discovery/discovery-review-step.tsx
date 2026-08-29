@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { COMPASS_PRODUCT_LABELS, discoveryCopy } from "@/config/home-loan-discovery";
+import { productShowsPropertyPreview } from "@/config/compass-lending-products";
 import { journeyConsent } from "@/config/legal";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
@@ -80,10 +81,24 @@ export function DiscoveryReviewStep() {
               <dt className="text-muted-foreground">Loan amount</dt>
               <dd className="font-medium">{formatCurrency(answers.loanAmount)}</dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Property value</dt>
-              <dd className="font-medium">{formatCurrency(answers.propertyValue)}</dd>
-            </div>
+            {productShowsPropertyPreview(productCode) ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Property value</dt>
+                <dd className="font-medium">{formatCurrency(answers.propertyValue)}</dd>
+              </div>
+            ) : null}
+            {answers.companyName ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Business</dt>
+                <dd className="font-medium">{answers.companyName}</dd>
+              </div>
+            ) : null}
+            {answers.facilityType ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Facility</dt>
+                <dd className="font-medium">{answers.facilityType.replace(/_/g, " ")}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">City</dt>
               <dd className="font-medium">{answers.city || "—"}</dd>

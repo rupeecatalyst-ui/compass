@@ -1,17 +1,32 @@
 /** COMPASS ↔ Catalyst One gateway presentation types. */
 
-export type CompassProductCode = "home-loan" | "home-loan-balance-transfer";
+export type CompassProductCode =
+  | "home-loan"
+  | "home-loan-balance-transfer"
+  | "personal-loan"
+  | "business-loan"
+  | "loan-against-property"
+  | "working-capital"
+  | "construction-finance"
+  | "project-finance";
 
 export type DiscoveryAnswersPayload = {
   propertyType?: "ready" | "construction";
+  propertyUsage?: string;
   loanAmount: number;
-  propertyValue: number;
+  propertyValue?: number;
   mobile: string;
   otpVerified: boolean;
   incomeType?: "salaried" | "business" | "professional";
-  monthlyIncome: number;
-  existingEmi: number;
+  monthlyIncome?: number;
+  existingEmi?: number;
   city: string;
+  loanPurpose?: string;
+  companyName?: string;
+  constitution?: string;
+  annualTurnover?: number;
+  facilityType?: string;
+  projectCost?: number;
 };
 
 export type CompassAdvantageResult = {
