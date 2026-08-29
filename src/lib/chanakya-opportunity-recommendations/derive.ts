@@ -12,7 +12,11 @@
  */
 
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
-import { recommendPublishedLendersFromRegistry } from "@/lib/enterprise-lender-registry/recommend-from-registry";
+import {
+  recommendPublishedLendersFromOptions,
+  recommendPublishedLendersFromRegistry,
+} from "@/lib/enterprise-lender-registry/recommend-from-registry";
+import type { PublishedLenderOption } from "@/lib/enterprise-lender-registry/published-directory";
 import { getCachedOpportunityRecord } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import { isPropertySectionVisible } from "@/constants/loan-stage-master";
 import { isProductSecured } from "@/constants/product-master";
@@ -309,6 +313,69 @@ export function deriveChanakyaOpportunityRecommendations(input: {
   const ranked = recommendPublishedLendersFromRegistry({
     file: input.file,
     limit: 8,
+  }).map((row) => {
+    const confidencePct = confidenceFromScore(row.score, signals);
+    return {
+      rank: row.rank,
+      lenderName: row.lenderName,
+      lenderRef: row.lenderRef,
+      enterpriseLenderId: row.enterpriseLenderId,
+      score: row.score,
+      confidencePct,
+      stars: starsFromRank(row.rank, confidencePct),
+      reason: buildReason(row.lenderName, row.reason, signals),
+    };
+  });
+
+  if (ranked.length === 0) {
+    return {
+      ready: false,
+      missingRequirements: [],
+      guidance: [
+        "No Published lenders in Enterprise Lender Registry yet. Publish lenders in Administration → Lender Registry, then return here.",
+      ],
+      recommendations: [],
+      analyzedAt,
+    };
+  }
+
+  return {
+    ready: true,
+    missingRequirements: [],
+    guidance: [],
+    recommendations: ranked,
+    analyzedAt,
+  };
+}
+
+/**
+ * Server-side Chanakya recommendations — same readiness + ranking rules as canonical derive,
+ * with Prisma-injected Published lender options (COMPASS / Partner Gateway).
+ */
+export function deriveChanakyaOpportunityRecommendationsFromOptions(input: {
+  file: LoanFile;
+  stated?: EcwStatedInformationDraft;
+  registryOptions: PublishedLenderOption[];
+  limit?: number;
+}): ChanakyaOpportunityRecommendationResult {
+  const analyzedAt = new Date().toISOString();
+  const signals = collectSignals(input.file, input.stated);
+  const missingRequirements = listChanakyaRecommendationGaps(input.file, input.stated);
+
+  if (missingRequirements.length > 0) {
+    return {
+      ready: false,
+      missingRequirements,
+      guidance: missingRequirements.map((g) => `Complete ${g.label}.`),
+      recommendations: [],
+      analyzedAt,
+    };
+  }
+
+  const limit = Math.max(1, Math.min(25, input.limit ?? 8));
+  const ranked = recommendPublishedLendersFromOptions(input.registryOptions, {
+    file: input.file,
+    limit,
   }).map((row) => {
     const confidencePct = confidenceFromScore(row.score, signals);
     return {

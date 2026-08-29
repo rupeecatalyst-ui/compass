@@ -1,0 +1,531 @@
+import { createHash, randomUUID } from "node:crypto";
+import { prisma } from "@server/lib/prisma";
+import { resolveCompassGatewayOrganizationId } from "./compass-organization.resolver";
+import { ecmContactRepository } from "@server/repositories/ecm/contact.repository";
+import { enterpriseOpportunityRepository } from "@server/repositories/enterprise-opportunity/enterprise-opportunity.repository";
+import { listCompassGatewayPublishedLenderOptions } from "./compass-lender-options";
+import { listPartnerOpportunityDocuments } from "@server/services/partner-gateway/partner-ssot-projections";
+import { enterpriseTransactionDocumentService } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
+import { enterpriseActivityService } from "@server/services/enterprise-activity/enterprise-activity.service";
+import { EAR_EVENT_KINDS, EAR_SOURCE_SYSTEMS } from "@/constants/enterprise-activity-registry";
+import {
+  COMPASS_OPERATIONAL_HANDOFF_SNAPSHOT_KEY,
+  executeCompassFirstSubmissionHandoff,
+  snapshotHasOperationalHandoff,
+} from "./compass-operational-handoff.service";
+import { toDocumentUploadSource } from "@/constants/document-intake";
+import { resolveProductUniquenessKey } from "@/constants/opportunity-active-uniqueness";
+import { normalizeEcmMobile } from "@/lib/enterprise-contact-master";
+import type {
+  CompassAnalysisDto,
+  CompassJourneyAnswersPatch,
+  CompassJourneyConfigDto,
+  CompassJourneyStartRequest,
+  CompassJourneyStartResponse,
+  CompassLodDto,
+  CompassProductCode,
+  CompassSubmitRequest,
+  CompassSubmitResponse,
+} from "@/types/compass-customer-gateway";
+import { COMPASS_PRODUCT_TO_ENTERPRISE } from "@/types/compass-customer-gateway";
+import { buildCompassJourneyConfig } from "./compass-journey-config.service";
+import { computeCompassAdvantage } from "./compass-advantage.service";
+import {
+  answersToSnapshotFields,
+  projectCompassOpportunityDetail,
+} from "./compass-opportunity-projection";
+import { projectCompassLod } from "./compass-lod.service";
+import { projectCompassRecommendations } from "./compass-recommendations.service";
+import {
+  issueCompassJourneyToken,
+  newJourneyRef,
+  verifyCompassJourneyToken,
+} from "./compass-session.service";
+import { CompassUploadRejectedError, validateCompassCustomerUpload } from "./compass-upload-validation";
+import { getFileExtension } from "@/lib/document-registry/file-utils";
+import type { CompassJourneySessionClaims } from "@/types/compass-customer-gateway";
+
+const CUSTOMER_PORTAL_UPLOAD_SOURCE = toDocumentUploadSource("DIRECT");
+const SUBMITTED_STATUSES = new Set([
+  "requirement_captured",
+  "in_progress",
+  "active",
+  "converted_to_deal",
+  "on_hold",
+]);
+
+function contactRefFromId(contactId: string): string {
+  return `cpr_${createHash("sha256").update(contactId).digest("hex").slice(0, 16)}`;
+}
+
+function parseLoanAmount(value: unknown): number {
+  const n = Number(String(value ?? "").replace(/,/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+async function resolveContactByMobile(input: {
+  organizationId: string;
+  mobile: string;
+  displayName?: string;
+  city?: string;
+}): Promise<{ id: string; name: string; mobile: string }> {
+  const mobile = normalizeEcmMobile(input.mobile);
+  if (!mobile || mobile.length < 10) {
+    throw new Error("A valid mobile number is required.");
+  }
+
+  const existing = await ecmContactRepository.findIdentityByMobile(input.organizationId, mobile);
+  if (existing && !existing.isDeleted && existing.status !== "archived") {
+    return {
+      id: existing.id,
+      name: existing.name,
+      mobile: existing.mobilePrimary,
+    };
+  }
+
+  if (existing?.isDeleted) {
+    await prisma.ecmContact.update({
+      where: { id: existing.id },
+      data: { isDeleted: false, status: "provisional" },
+    });
+    return {
+      id: existing.id,
+      name: existing.name,
+      mobile: existing.mobilePrimary,
+    };
+  }
+
+  try {
+    const created = await ecmContactRepository.create({
+      organizationId: input.organizationId,
+      name: input.displayName?.trim() || "COMPASS Prospect",
+      mobilePrimary: mobile,
+      city: input.city?.trim(),
+      status: "provisional",
+      roles: ["customer"],
+      primaryRole: "customer",
+      additionalRoles: [],
+      createdBy: "compass-customer-gateway",
+      modifiedBy: "compass-customer-gateway",
+    });
+    return { id: created.id, name: created.name, mobile: created.mobilePrimary };
+  } catch (err) {
+    const again = await ecmContactRepository.findByMobile(input.organizationId, mobile);
+    if (again) {
+      return { id: again.id, name: again.name, mobile: again.mobilePrimary };
+    }
+    throw err;
+  }
+}
+
+async function loadOpportunityByRef(organizationId: string, opportunityRef: string) {
+  const row = await enterpriseOpportunityRepository.findByNumber(organizationId, opportunityRef);
+  if (!row) throw new Error("Journey application not found.");
+  return row;
+}
+
+async function verifySessionClaims(claims: CompassJourneySessionClaims) {
+  const organizationId = await resolveCompassGatewayOrganizationId();
+  const row = await loadOpportunityByRef(organizationId, claims.opportunityRef);
+  const expectedContactRef = contactRefFromId(row.primaryContactId || "");
+  if (claims.contactRef !== expectedContactRef) {
+    throw new Error("Journey session does not match this customer.");
+  }
+  const mappedProduct = COMPASS_PRODUCT_TO_ENTERPRISE[claims.productCode];
+  if (!mappedProduct || row.productCode !== mappedProduct.productCode) {
+    throw new Error("Journey session does not match this application.");
+  }
+  return { organizationId, row };
+}
+
+async function findReusableDraft(
+  organizationId: string,
+  contactId: string,
+  productCode: CompassProductCode,
+) {
+  const enterprise = COMPASS_PRODUCT_TO_ENTERPRISE[productCode];
+  const productUniquenessKey = resolveProductUniquenessKey({
+    productCode: enterprise.productCode,
+    productLabel: enterprise.productLabel,
+  });
+  const rows = await enterpriseOpportunityRepository.listByContact(organizationId, contactId);
+  return (
+    rows.find(
+      (row) =>
+        row.productCode === enterprise.productCode &&
+        (row.lifecycleStatus === "dialogue" || row.lifecycleStatus === "draft") &&
+        !row.isDeleted &&
+        !row.archived,
+    ) ??
+    rows.find(
+      (row) =>
+        row.productUniquenessKey === productUniquenessKey &&
+        (row.lifecycleStatus === "dialogue" || row.lifecycleStatus === "draft") &&
+        !row.isDeleted &&
+        !row.archived,
+    ) ??
+    null
+  );
+}
+
+async function buildDetail(organizationId: string, opportunityId: string) {
+  const row = await enterpriseOpportunityRepository.requireOpportunity(organizationId, opportunityId);
+  const documents = await listPartnerOpportunityDocuments({ organizationId, opportunityId });
+  return projectCompassOpportunityDetail(row, documents);
+}
+
+export const compassJourneyService = {
+  getConfig(productCode: CompassProductCode): CompassJourneyConfigDto {
+    return buildCompassJourneyConfig(productCode);
+  },
+
+  async startJourney(input: CompassJourneyStartRequest): Promise<CompassJourneyStartResponse> {
+    if (!input.consentAccepted) {
+      throw new Error("Consent is required to begin the journey.");
+    }
+    const organizationId = await resolveCompassGatewayOrganizationId();
+    const contact = await resolveContactByMobile({
+      organizationId,
+      mobile: input.mobile,
+      displayName: input.displayName,
+      city: input.city,
+    });
+    const enterprise = COMPASS_PRODUCT_TO_ENTERPRISE[input.productCode];
+    const productUniquenessKey = resolveProductUniquenessKey({
+      productCode: enterprise.productCode,
+      productLabel: enterprise.productLabel,
+    });
+
+    const active = productUniquenessKey
+      ? await enterpriseOpportunityRepository.findActiveForContactProduct(
+          organizationId,
+          contact.id,
+          productUniquenessKey,
+        )
+      : null;
+    if (active && SUBMITTED_STATUSES.has(active.lifecycleStatus)) {
+      throw new Error(
+        "An active application already exists for this product. Our team will contact you shortly.",
+      );
+    }
+
+    let row =
+      (await findReusableDraft(organizationId, contact.id, input.productCode)) ??
+      (await enterpriseOpportunityRepository.createOpportunity({
+        organizationId,
+        productFamily: "lending",
+        productCode: enterprise.productCode,
+        productLabel: enterprise.productLabel,
+        productUniquenessKey,
+        transactionType: enterprise.transactionType,
+        requirementStage: "lead_creation",
+        lifecycleStatus: "dialogue",
+        primaryBorrowerKind: "individual",
+        primaryContactId: contact.id,
+        primaryContactName: contact.name,
+        primaryContactMobile: contact.mobile,
+        cityLabel: input.city?.trim() || null,
+        sourceCode: "website_compass",
+        sourceCampaignLabel: "COMPASS Website",
+        snapshot: {
+          compassChannel: "website",
+          compassConsentAt: new Date().toISOString(),
+        },
+        actorUserId: null,
+      }));
+
+    const journeyRef = newJourneyRef();
+    const contactRef = contactRefFromId(contact.id);
+    const journeySessionToken = issueCompassJourneyToken({
+      journeyRef,
+      contactRef,
+      opportunityRef: row.opportunityNumber,
+      productCode: input.productCode,
+    });
+
+    return {
+      journeySessionToken,
+      journeyRef,
+      contactRef,
+      opportunityRef: row.opportunityNumber,
+      otpRequired: process.env.COMPASS_OTP_ENABLED === "true",
+      dtoSource: "enterprise_compass_journey",
+    };
+  },
+
+  async patchAnswers(token: string, patch: CompassJourneyAnswersPatch) {
+    const claims = verifyCompassJourneyToken(token);
+    const { organizationId, row } = await verifySessionClaims(claims);
+    const mapped = answersToSnapshotFields(patch.answers);
+    const snapshot = {
+      ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
+      compassBorrowerFields: mapped.borrowerFields,
+      compassProductFields: mapped.productFields,
+      compassAnswers: patch.answers,
+      compassUpdatedAt: new Date().toISOString(),
+    };
+
+    await enterpriseOpportunityRepository.updateOpportunity(organizationId, row.id, {
+      snapshot,
+      requestedAmount: mapped.requestedAmount,
+      cityLabel: mapped.city,
+      employmentTypeCode: mapped.borrowerFields.employmentTypeCode || row.employmentTypeCode,
+      updatedBy: "compass-customer-gateway",
+    });
+
+    return { saved: true, opportunityRef: row.opportunityNumber };
+  },
+
+  async analyze(token: string): Promise<CompassAnalysisDto> {
+    const claims = verifyCompassJourneyToken(token);
+    const { organizationId, row } = await verifySessionClaims(claims);
+    const detail = await buildDetail(organizationId, row.id);
+    const snapshotAnswers: Record<string, string | number | undefined> =
+      detail.productFields && detail.borrowerFields
+        ? {
+            ...detail.borrowerFields,
+            ...detail.productFields,
+            loanAmount: parseLoanAmount(detail.productFields.requestedAmountLabel),
+            propertyType: detail.productFields.propertyType,
+            monthlyIncome: parseLoanAmount(detail.borrowerFields.monthlyIncomeLabel),
+            propertyValue: parseLoanAmount(detail.productFields.propertyValueLabel),
+            existingEmi: parseLoanAmount(detail.borrowerFields.existingEmiLabel),
+          }
+        : {};
+
+    const registryOptions = await listCompassGatewayPublishedLenderOptions(organizationId);
+    const recommendations = await projectCompassRecommendations({
+      detail,
+      productCode: claims.productCode,
+      registryOptions,
+      city: detail.borrowerFields?.city,
+    });
+
+    const advantage =
+      claims.productCode === "home-loan" || claims.productCode === "home-loan-balance-transfer"
+        ? computeCompassAdvantage({
+            productCode: claims.productCode,
+            loanAmount: parseLoanAmount(snapshotAnswers.loanAmount),
+            monthlyIncome: parseLoanAmount(snapshotAnswers.monthlyIncome),
+            propertyValue: parseLoanAmount(snapshotAnswers.propertyValue),
+            propertyType:
+              snapshotAnswers.propertyType === "construction" ? "construction" : "ready",
+            existingEmi: parseLoanAmount(snapshotAnswers.existingEmi),
+          })
+        : null;
+
+    const sarathiMessages = recommendations.cards.slice(0, 3).map((card, index) => {
+      if (index === 0) {
+        return `${card.displayName} is currently our top suggested fit based on what you have shared.`;
+      }
+      return `${card.displayName} is another suitable option to compare before you proceed.`;
+    });
+
+    if (recommendations.status !== "ready") {
+      sarathiMessages.push(
+        recommendations.message ||
+          "We are preparing your personalised lender guidance. A Rupee Catalyst advisor can help you compare options.",
+      );
+    }
+
+    return {
+      recommendations,
+      advantage,
+      sarathiMessages,
+      dtoSource: "enterprise_compass_analysis",
+    };
+  },
+
+  async getLod(token: string): Promise<CompassLodDto> {
+    const claims = verifyCompassJourneyToken(token);
+    const { organizationId, row } = await verifySessionClaims(claims);
+    const detail = await buildDetail(organizationId, row.id);
+    return projectCompassLod(detail);
+  },
+
+  async uploadDocuments(
+    token: string,
+    files: Array<{
+      file: File;
+      typeRef?: string | null;
+      relativePath?: string | null;
+    }>,
+  ) {
+    const claims = verifyCompassJourneyToken(token);
+    const { organizationId, row } = await verifySessionClaims(claims);
+
+    const prepared: Array<{
+      entry: (typeof files)[number];
+      bytes: Buffer;
+      mimeType: string;
+    }> = [];
+
+    for (const entry of files) {
+      const bytes = Buffer.from(await entry.file.arrayBuffer());
+      const validation = validateCompassCustomerUpload({
+        fileName: entry.file.name,
+        mimeType: entry.file.type || "",
+        sizeBytes: bytes.byteLength,
+      });
+      if (!validation.ok) {
+        await enterpriseActivityService.emitBestEffort({
+          eventKind: EAR_EVENT_KINDS.DOCUMENTS,
+          sourceSystem: EAR_SOURCE_SYSTEMS.DOCUMENT,
+          sourceEventId: `compass-upload-rejected:${row.id}:${randomUUID()}`,
+          title: "rejected an unsupported COMPASS upload",
+          summary: `Unsupported upload attempt for opportunity ${row.opportunityNumber}.`,
+          payload: {
+            channel: "website_compass",
+            reasonCode: validation.code,
+            fileExtension: getFileExtension(entry.file.name) || null,
+            mimeType: entry.file.type?.trim() || null,
+            rejectionCategory: "policy_violation",
+          },
+          opportunityId: row.id,
+          contactId: row.primaryContactId,
+          actorName: "COMPASS Customer",
+        });
+        throw new CompassUploadRejectedError({
+          code: validation.code,
+          message: validation.message,
+          httpStatus: validation.httpStatus,
+        });
+      }
+      prepared.push({
+        entry,
+        bytes,
+        mimeType: validation.mimeType,
+      });
+    }
+
+    const uploaded: string[] = [];
+
+    for (const { entry, bytes, mimeType } of prepared) {
+      const typeRef = entry.typeRef?.trim() || "doc:other:unclassified";
+      const displayName = entry.relativePath?.trim() || entry.file.name;
+      const persisted = await enterpriseTransactionDocumentService.upsertForOrganization(organizationId, {
+        opportunityId: row.id,
+        opportunityNumber: row.opportunityNumber,
+        clientRecordId: `compass-${row.id}-${typeRef}-${randomUUID().replace(/-/g, "").slice(0, 8)}`,
+        contactId: row.primaryContactId,
+        customerId: row.primaryContactId,
+        typeRef,
+        categoryLabel: entry.relativePath?.includes("/")
+          ? entry.relativePath.split("/")[0] || "COMPASS Upload"
+          : "COMPASS Upload",
+        originalFilename: entry.file.name,
+        displayName,
+        mimeType,
+        fileSizeBytes: bytes.byteLength,
+        status: "active",
+        uploadSource: CUSTOMER_PORTAL_UPLOAD_SOURCE,
+        uploadedBy: "compass-customer",
+        contentBase64: bytes.toString("base64"),
+      });
+      uploaded.push(displayName);
+
+      await enterpriseActivityService.emitBestEffort({
+        eventKind: EAR_EVENT_KINDS.DOCUMENTS,
+        sourceSystem: EAR_SOURCE_SYSTEMS.DOCUMENT,
+        sourceEventId: `compass-doc:${persisted.id}:uploaded`,
+        title: "uploaded a document via COMPASS",
+        summary: `Customer uploaded ${displayName} for opportunity ${row.opportunityNumber}.`,
+        payload: {
+          channel: "website_compass",
+          typeRef,
+          relativePath: entry.relativePath?.trim() || null,
+          uploadSource: CUSTOMER_PORTAL_UPLOAD_SOURCE,
+        },
+        opportunityId: row.id,
+        contactId: row.primaryContactId,
+        documentId: persisted.id,
+        actorName: "COMPASS Customer",
+      });
+    }
+
+    return {
+      uploadedCount: uploaded.length,
+      uploaded,
+      lod: await this.getLod(token),
+    };
+  },
+
+  async submit(token: string, input: CompassSubmitRequest): Promise<CompassSubmitResponse> {
+    if (!input.consentAccepted || !input.declarationsAccepted) {
+      throw new Error("Consent and declarations are required to submit.");
+    }
+    const claims = verifyCompassJourneyToken(token);
+    const { organizationId, row } = await verifySessionClaims(claims);
+
+    if (SUBMITTED_STATUSES.has(row.lifecycleStatus)) {
+      const lod = await this.getLod(token);
+      return {
+        submitted: true,
+        reference: row.opportunityNumber,
+        message: "Your application has already been submitted. We will contact you with next steps.",
+        pendingItems:
+          lod.mandatoryPending > 0
+            ? [`${lod.mandatoryPending} mandatory document(s) still pending`]
+            : [],
+        dtoSource: "enterprise_compass_submission",
+      };
+    }
+
+    const mapped = answersToSnapshotFields(
+      ((row.snapshot as Record<string, unknown> | null)?.compassAnswers as Record<
+        string,
+        string | number | boolean | null
+      >) || {},
+    );
+
+    const previousLifecycle = row.lifecycleStatus;
+    const alreadyHandedOff = snapshotHasOperationalHandoff(row.snapshot);
+    const nextSnapshot = {
+      ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
+      compassSubmittedAt: new Date().toISOString(),
+      compassSubmissionConsent: true,
+      ...(alreadyHandedOff ? {} : { [COMPASS_OPERATIONAL_HANDOFF_SNAPSHOT_KEY]: new Date().toISOString() }),
+    };
+
+    const updated = await enterpriseOpportunityRepository.updateOpportunity(organizationId, row.id, {
+      lifecycleStatus: "requirement_captured",
+      requirementStage: "requirement_captured",
+      requestedAmount: mapped.requestedAmount ?? undefined,
+      cityLabel: mapped.city ?? undefined,
+      snapshot: nextSnapshot,
+      updatedBy: "compass-customer-gateway",
+    });
+
+    if (!alreadyHandedOff) {
+      await executeCompassFirstSubmissionHandoff({
+        organizationId,
+        opportunity: {
+          id: updated.id,
+          opportunityNumber: updated.opportunityNumber,
+          primaryContactId: updated.primaryContactId ?? null,
+          primaryContactName: updated.primaryContactName ?? null,
+          productLabel: updated.productLabel ?? null,
+          requestedAmount: updated.requestedAmount,
+        },
+        previousLifecycle,
+        actorUserId: null,
+        skipLifecycleEar: true,
+      });
+    }
+
+    const lod = await this.getLod(token);
+    const pendingItems =
+      lod.mandatoryPending > 0
+        ? [`${lod.mandatoryPending} mandatory document(s) still pending`]
+        : [];
+
+    return {
+      submitted: true,
+      reference: row.opportunityNumber,
+      message:
+        "Thank you. Your application has been received by Rupee Catalyst. Our team will review your details and contact you with next steps.",
+      pendingItems,
+      dtoSource: "enterprise_compass_submission",
+    };
+  },
+};
