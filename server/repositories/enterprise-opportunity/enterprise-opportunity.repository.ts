@@ -84,6 +84,7 @@ export type UpdateEnterpriseOpportunityInput = {
   primaryContactMobile?: string | null;
   primaryContactEmail?: string | null;
   companyId?: string | null;
+  primaryBorrowerKind?: "individual" | "company";
   employmentTypeCode?: string | null;
   cityLabel?: string | null;
   stateLabel?: string | null;
@@ -583,6 +584,9 @@ export class EnterpriseOpportunityRepository {
       data.primaryContactEmail = input.primaryContactEmail;
     }
     if (input.companyId !== undefined) data.companyId = input.companyId;
+    if (input.primaryBorrowerKind !== undefined) {
+      data.primaryBorrowerKind = input.primaryBorrowerKind;
+    }
     if (input.employmentTypeCode !== undefined) {
       data.employmentTypeCode = input.employmentTypeCode;
     }

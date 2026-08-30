@@ -29,6 +29,7 @@ import type {
 } from "@/types/compass-customer-gateway";
 import { COMPASS_PRODUCT_TO_ENTERPRISE } from "@/types/compass-customer-gateway";
 import { getCompassProductDefinition } from "@/constants/compass-customer-gateway/product-registry";
+import { sanitizeCompassJourneyAnswers } from "@/constants/compass-customer-gateway/snapshot-answers";
 import { CompassJourneyError } from "./compass-journey-errors";
 import { ecmCompanyRepository } from "@server/repositories/ecm/company.repository";
 import {
@@ -287,7 +288,7 @@ export const compassJourneyService = {
         transactionType: definition.transactionType,
         requirementStage: "lead_creation",
         lifecycleStatus: "dialogue",
-        primaryBorrowerKind: "individual",
+        primaryBorrowerKind: definition.borrowerKind,
         primaryContactId: contact.id,
         primaryContactName: contact.name,
         primaryContactMobile: contact.mobile,
@@ -334,16 +335,17 @@ export const compassJourneyService = {
   async patchAnswers(token: string, patch: CompassJourneyAnswersPatch) {
     const claims = verifyCompassJourneyToken(token);
     const { organizationId, row } = await verifySessionClaims(claims);
-    const mapped = answersToSnapshotFields(patch.answers);
+    const definition = getCompassProductDefinition(claims.productCode);
+    const sanitizedAnswers = sanitizeCompassJourneyAnswers(claims.productCode, patch.answers);
+    const mapped = answersToSnapshotFields(sanitizedAnswers);
     const snapshot = {
       ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
       compassBorrowerFields: mapped.borrowerFields,
       compassProductFields: mapped.productFields,
-      compassAnswers: patch.answers,
+      compassAnswers: sanitizedAnswers,
       compassUpdatedAt: new Date().toISOString(),
     };
 
-    const definition = getCompassProductDefinition(claims.productCode);
     mapped.productFields.lendingType = definition.isSecured ? "secured" : "unsecured";
     mapped.productFields.transactionType = definition.transactionType;
 
@@ -374,6 +376,7 @@ export const compassJourneyService = {
       snapshot,
       requestedAmount: mapped.requestedAmount,
       cityLabel: mapped.city,
+      primaryBorrowerKind: definition.borrowerKind,
       employmentTypeCode: mapped.borrowerFields.employmentTypeCode || row.employmentTypeCode,
       ...(companyId ? { companyId } : {}),
       updatedBy: "compass-customer-gateway",
@@ -582,10 +585,13 @@ export const compassJourneyService = {
     }
 
     const mapped = answersToSnapshotFields(
-      ((row.snapshot as Record<string, unknown> | null)?.compassAnswers as Record<
-        string,
-        string | number | boolean | null
-      >) || {},
+      sanitizeCompassJourneyAnswers(
+        claims.productCode,
+        ((row.snapshot as Record<string, unknown> | null)?.compassAnswers as Record<
+          string,
+          string | number | boolean | null
+        >) || {},
+      ),
     );
 
     const previousLifecycle = row.lifecycleStatus;
