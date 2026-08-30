@@ -8,6 +8,7 @@ import {
   isOpportunityParticipationRoleCode,
   resolveBusinessSourceContactLookup,
 } from "@/constants/opportunity-business-source";
+import { assertRequestedAmountWithinProductLimit } from "@/constants/enterprise-product-master";
 
 export type LeadInformationValidation = {
   valid: boolean;
@@ -20,7 +21,7 @@ export function parseRequestedAmountInput(raw: string): number | null {
   if (!trimmed) return null;
   const n = Number(trimmed);
   if (!Number.isFinite(n) || Number.isNaN(n) || n < 0) return null;
-  return n;
+  return Math.round(n);
 }
 
 export function validateLeadInformationForm(
@@ -34,6 +35,15 @@ export function validateLeadInformationForm(
   const productOk = Boolean(form.productCode.trim() || form.productLabel.trim());
   const amount = parseRequestedAmountInput(form.requestedAmount);
   const amountOk = amount != null && amount > 0;
+  if (amountOk && form.productCode.trim()) {
+    const limit = assertRequestedAmountWithinProductLimit({
+      enterpriseProductCode: form.productCode,
+      amountRupees: amount,
+    });
+    if (!limit.ok) {
+      errors.requestedAmount = limit.message;
+    }
+  }
   const isBalanceTransfer = form.transactionType === "balance_transfer";
   const transactionOk =
     form.transactionType === "fresh" || form.transactionType === "balance_transfer";
@@ -121,6 +131,7 @@ export function validateLeadInformationForm(
   const requirementReady =
     productOk &&
     amountOk &&
+    !errors.requestedAmount &&
     amount != null &&
     amount > 0 &&
     lendingOk &&

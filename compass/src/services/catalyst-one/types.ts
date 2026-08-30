@@ -17,7 +17,7 @@ export type DiscoveryAnswersPayload = {
   propertyValue?: number;
   mobile: string;
   otpVerified: boolean;
-  incomeType?: "salaried" | "business" | "professional";
+  incomeType?: string;
   monthlyIncome?: number;
   existingEmi?: number;
   city: string;
@@ -29,6 +29,7 @@ export type DiscoveryAnswersPayload = {
   projectCost?: number;
   currentLender?: string;
   outstandingLoanAmount?: number;
+  approxCibilScore?: string;
 };
 
 export type CompassAdvantageResult = {
@@ -36,7 +37,7 @@ export type CompassAdvantageResult = {
   amount: number | null;
   amountFormatted: string | null;
   eligible: boolean;
-  status?: "not_available" | "ready";
+  status?: "not_available" | "ready" | "ineligible";
   disclaimer: string;
 };
 

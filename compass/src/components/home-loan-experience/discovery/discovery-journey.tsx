@@ -20,6 +20,13 @@ import { COMPASS_PRODUCT_LABELS, discoveryCopy } from "@/config/home-loan-discov
 import {
   productShowsPropertyPreview,
 } from "@/config/compass-lending-products";
+import {
+  cibilFieldOptions,
+  findJourneyField,
+  formatJourneyInrLabel,
+  resolveMonthlyIncomeBounds,
+  resolveRequestedAmountBounds,
+} from "@/lib/journey-config";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
 
@@ -234,9 +241,20 @@ function CityStep() {
 }
 
 export function DiscoveryJourney() {
-  const { step, answers, setAnswer, goNext, goBack, closeDiscovery, compassNudge, nudgeCompass, productCode } =
-    useDiscovery();
+  const {
+    step,
+    answers,
+    setAnswer,
+    goNext,
+    goBack,
+    closeDiscovery,
+    compassNudge,
+    nudgeCompass,
+    productCode,
+    journeyConfig,
+  } = useDiscovery();
   const reduceMotion = useReducedMotion();
+  const [amountError, setAmountError] = useState<string | null>(null);
 
   const renderStep = () => {
     switch (step) {
@@ -294,29 +312,53 @@ export function DiscoveryJourney() {
 
       case "loanAmount": {
         const c = discoveryCopy.loanAmount;
+        const bounds = resolveRequestedAmountBounds(journeyConfig, { min: c.min, max: c.max });
         const heading =
           productCode === "home-loan-balance-transfer" ? "Desired Transfer Amount" : c.heading;
         const helper =
           productCode === "home-loan-balance-transfer"
             ? "How much of the existing home loan would you like to transfer?"
-            : c.helper;
+            : bounds.maxLabel || c.helper;
+        const overLimitMessage = bounds.maxLabel
+          ? `Enter an amount ${bounds.maxLabel.replace(/^Loan amount /i, "").replace(/^Funding /i, "")}.`
+          : `Enter an amount up to ${formatJourneyInrLabel(bounds.max)}.`;
+        const scaleMaxLabel = formatJourneyInrLabel(bounds.max);
         return (
           <DiscoveryScreen stepKey="loanAmount">
             <QuestionHeader heading={heading} helper={helper} />
             <div className="mx-auto w-full max-w-lg">
               <PremiumSlider
                 value={answers.loanAmount}
-                min={c.min}
-                max={c.max}
-                minLabel={c.minLabel}
-                maxLabel={c.maxLabel}
-                onChange={(v) => setAnswer("loanAmount", v)}
+                min={bounds.min}
+                max={bounds.max}
+                minLabel={formatJourneyInrLabel(bounds.min)}
+                maxLabel={scaleMaxLabel}
+                step={1}
+                allowManualInput
+                error={amountError}
+                overLimitMessage={overLimitMessage}
+                onManualError={setAmountError}
+                onChange={(v) => {
+                  setAmountError(null);
+                  setAnswer("loanAmount", Math.round(v));
+                }}
               />
               {productShowsPropertyPreview(productCode) ? (
-                <MiniHomePreview scale={0.85 + (answers.loanAmount / c.max) * 0.3} />
+                <MiniHomePreview scale={0.85 + (answers.loanAmount / bounds.max) * 0.3} />
               ) : null}
               <div className="mt-8 flex justify-center">
-                <Button size="lg" className="h-12 px-10" onClick={goNext}>
+                <Button
+                  size="lg"
+                  className="h-12 px-10"
+                  disabled={Boolean(amountError) || answers.loanAmount > bounds.max}
+                  onClick={() => {
+                    if (answers.loanAmount > bounds.max) {
+                      setAmountError(overLimitMessage);
+                      return;
+                    }
+                    goNext();
+                  }}
+                >
                   {c.cta}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -603,18 +645,31 @@ export function DiscoveryJourney() {
 
       case "incomeType": {
         const c = discoveryCopy.incomeType;
+        const employmentField = findJourneyField(journeyConfig, "employmentTypeCode");
+        const options =
+          employmentField?.options?.map((opt) => ({ id: opt.value, label: opt.label })) ??
+          c.options;
+        const heading = employmentField?.label || c.heading;
+        const helper = employmentField?.helpText || c.helper;
         return (
           <DiscoveryScreen stepKey="incomeType">
-            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <QuestionHeader heading={heading} helper={helper} />
             <div className="mx-auto grid w-full max-w-xl gap-3 sm:grid-cols-3">
-              {c.options.map((opt) => (
+              {options.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   onClick={() => {
+                    const bounds = resolveMonthlyIncomeBounds(journeyConfig, opt.id, {
+                      min: discoveryCopy.monthlyIncome.min,
+                      max: discoveryCopy.monthlyIncome.max,
+                    });
                     setAnswer("incomeType", opt.id);
+                    if (answers.monthlyIncome > bounds.max) {
+                      setAnswer("monthlyIncome", bounds.max);
+                    }
                     nudgeCompass();
-                    goNext();
+                    goNext({ incomeType: opt.id });
                   }}
                   className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 text-center text-lg font-medium transition-all hover:border-primary/30 hover:bg-primary/[0.06]"
                 >
@@ -628,16 +683,25 @@ export function DiscoveryJourney() {
 
       case "monthlyIncome": {
         const c = discoveryCopy.monthlyIncome;
+        const incomeField = findJourneyField(journeyConfig, "monthlyIncomeLabel", "monthlyIncome");
+        const bounds = resolveMonthlyIncomeBounds(journeyConfig, answers.incomeType, {
+          min: c.min,
+          max: c.max,
+        });
+        const value = Math.min(Math.max(answers.monthlyIncome, bounds.min), bounds.max);
         return (
           <DiscoveryScreen stepKey="monthlyIncome">
-            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <QuestionHeader
+              heading={incomeField?.label || c.heading}
+              helper={incomeField?.helpText || c.helper}
+            />
             <div className="mx-auto w-full max-w-lg">
               <PremiumSlider
-                value={answers.monthlyIncome}
-                min={c.min}
-                max={c.max}
-                minLabel={c.minLabel}
-                maxLabel={c.maxLabel}
+                value={value}
+                min={bounds.min}
+                max={bounds.max}
+                minLabel={formatJourneyInrLabel(bounds.min)}
+                maxLabel={formatJourneyInrLabel(bounds.max)}
                 onChange={(v) => setAnswer("monthlyIncome", v)}
               />
               <div className="mt-8 flex justify-center">
@@ -646,6 +710,47 @@ export function DiscoveryJourney() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
+          </DiscoveryScreen>
+        );
+      }
+
+      case "approxCibilScore": {
+        const c = discoveryCopy.approxCibilScore;
+        const field = findJourneyField(journeyConfig, "approxCibilScore");
+        const options = cibilFieldOptions(journeyConfig);
+        const fallback = [
+          { value: "not_known", label: "Not Known" },
+          { value: "below_600", label: "Below 600" },
+          { value: "600_649", label: "600 – 649" },
+          { value: "650_699", label: "650 – 699" },
+          { value: "700_749", label: "700 – 749" },
+          { value: "750_799", label: "750 – 799" },
+          { value: "800_plus", label: "800+" },
+        ];
+        const shown = options.length ? options : fallback;
+        return (
+          <DiscoveryScreen stepKey="approxCibilScore">
+            <QuestionHeader heading={field?.label || c.heading} helper={field?.helpText || c.helper} />
+            <div className="mx-auto grid w-full max-w-lg gap-3">
+              {shown.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setAnswer("approxCibilScore", opt.value);
+                    nudgeCompass();
+                    goNext();
+                  }}
+                  className={cn(
+                    "rounded-2xl border p-5 text-left text-lg font-medium transition-all duration-300",
+                    "border-white/[0.08] bg-white/[0.02] hover:border-primary/30 hover:bg-primary/[0.06]",
+                    answers.approxCibilScore === opt.value && "border-primary/35 bg-primary/[0.08]",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </DiscoveryScreen>
         );

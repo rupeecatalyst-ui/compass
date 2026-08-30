@@ -25,6 +25,13 @@ export interface CanonicalProductMasterEntry {
   groupCode: string;
   /** Legacy aliases normalized into this code for continuity. */
   aliases?: string[];
+  /**
+   * Approved maximum requested amount in integer rupees.
+   * Omit until Product Owner approves a ceiling — never invent one.
+   */
+  maxRequestedAmountRupees?: number;
+  /** Customer-facing “up to” phrasing family when a ceiling exists. */
+  requestedAmountLimitKind?: "loan" | "funding";
 }
 
 /** Initial product seed — CO-ADMIN-006 taxonomy (Loan Products / Secured Loans / …). */
@@ -46,6 +53,8 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
       "home-loan",
       "prod_001",
     ],
+    maxRequestedAmountRupees: 10_00_00_000,
+    requestedAmountLimitKind: "loan",
   },
   {
     code: "HOME_LOAN_BT",
@@ -57,6 +66,8 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "HOUSING_LOANS",
     aliases: ["home_loan_bt", "HOME-LOAN-BT"],
+    maxRequestedAmountRupees: 10_00_00_000,
+    requestedAmountLimitKind: "loan",
   },
   {
     code: "LAP",
@@ -73,6 +84,8 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
       "LAP_STD",
       "loan-against-property",
     ],
+    maxRequestedAmountRupees: 25_00_00_000,
+    requestedAmountLimitKind: "funding",
   },
   {
     code: "COMM_PURCHASE",
@@ -110,6 +123,8 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "MSME_LOANS",
     aliases: ["working_capital", "WORKING_CAPITAL", "WC_STD", "working-capital"],
+    maxRequestedAmountRupees: 50_00_00_000,
+    requestedAmountLimitKind: "funding",
   },
   {
     code: "WORKING_CAPITAL_UNSECURED",
@@ -139,6 +154,8 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
       "BUSINESS-LOAN",
       "business-loan",
     ],
+    maxRequestedAmountRupees: 5_00_00_000,
+    requestedAmountLimitKind: "loan",
   },
   {
     code: "CONSTRUCTION_FINANCE",
@@ -150,6 +167,8 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "CORPORATE_LOANS",
     aliases: ["construction_finance", "construction_funding"],
+    maxRequestedAmountRupees: 1_00_00_00_000,
+    requestedAmountLimitKind: "funding",
   },
   {
     code: "LRD",
@@ -182,6 +201,8 @@ export const CANONICAL_PRODUCT_MASTER_SEED: CanonicalProductMasterEntry[] = [
     categoryCode: "LOAN_PRODUCTS",
     groupCode: "UNSECURED_LOANS",
     aliases: ["personal_loan", "PL_STD", "PERSONAL-LOAN", "personal-loan"],
+    maxRequestedAmountRupees: 1_00_00_000,
+    requestedAmountLimitKind: "loan",
   },
   {
     code: "GOLD_LOAN",

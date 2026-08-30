@@ -1,6 +1,8 @@
 /**
  * CO-ARCH-003 Phase 2A — Opportunity validation errors.
  */
+import { assertRequestedAmountWithinProductLimit } from "@/constants/enterprise-product-master";
+
 export class OpportunityValidationError extends Error {
   readonly code = "OPPORTUNITY_VALIDATION";
   constructor(message: string) {
@@ -119,9 +121,24 @@ export function assertOpportunityLifecycle(value: unknown) {
 export function parseOptionalAmount(value: unknown): number | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
-  const n = typeof value === "number" ? value : Number(value);
+  const n = typeof value === "number" ? value : Number(String(value).replace(/,/g, ""));
   if (!Number.isFinite(n) || Number.isNaN(n)) {
     throw new OpportunityValidationError("requestedAmount must be a valid number");
   }
-  return n;
+  return Math.round(n);
+}
+
+export function assertProductRequestedAmountLimit(
+  productCode: string | null | undefined,
+  amount: number | null | undefined,
+): number | null | undefined {
+  if (amount == null || amount <= 0) return amount;
+  const result = assertRequestedAmountWithinProductLimit({
+    enterpriseProductCode: productCode,
+    amountRupees: amount,
+  });
+  if (!result.ok) {
+    throw new OpportunityValidationError(result.message);
+  }
+  return result.amount;
 }

@@ -29,6 +29,11 @@ export type CompassJourneyFieldDef = {
   groupId: string;
   visibleWhenField?: string;
   visibleWhenValues?: string[];
+  requiredWhenField?: string;
+  requiredWhenValues?: string[];
+  notRequiredWhenFilled?: string[];
+  maxWhenField?: string;
+  maxWhenMap?: Record<string, number>;
 };
 
 export type CompassJourneyConfigDto = {
@@ -41,6 +46,10 @@ export type CompassJourneyConfigDto = {
   configVersion: string;
   fields: CompassJourneyFieldDef[];
   otpEnabled: boolean;
+  /** Approved maximum requested amount in integer rupees. Null when no ceiling is approved. */
+  requestedAmountMax: number | null;
+  /** Customer-facing “up to” copy from Product Library. Null when no ceiling is approved. */
+  requestedAmountMaxLabel: string | null;
   dtoSource: "enterprise_initial_data_collection";
 };
 
@@ -67,11 +76,13 @@ export type CompassJourneyAnswersPatch = {
 
 export type CompassAdvantageDto = {
   eligible: boolean;
-  status: "not_available" | "ready";
+  status: "not_available" | "ready" | "ineligible";
   title: string;
   amount: number | null;
   amountFormatted: string | null;
   disclaimer: string;
+  reason?: string | null;
+  ruleId?: string | null;
   productCode: CompassProductCode;
   dtoSource: "enterprise_compass_advantage";
 };
@@ -121,6 +132,8 @@ export type CompassAnalysisDto = {
   recommendations: CompassRecommendationsDto;
   advantage: CompassAdvantageDto | null;
   sarathiMessages: string[];
+  requestedAmount: number | null;
+  requestedAmountMax: number | null;
   dtoSource: "enterprise_compass_analysis";
 };
 

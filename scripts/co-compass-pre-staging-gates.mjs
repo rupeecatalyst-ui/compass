@@ -18,6 +18,7 @@ const scripts = [
   "co-compass-document-repository-verify.mjs",
   "co-compass-route-legal-seo-verify.mjs",
   "co-compass-products-page-verify.mjs",
+  "co-compass-requested-amount-limits-verify.mjs",
 ];
 
 let failed = false;
@@ -28,7 +29,7 @@ for (const script of scripts) {
     failed = true;
     continue;
   }
-  const needsTsx = /authority|advantage|upload-validation|product-routing|products-page/.test(script);
+  const needsTsx = /authority|advantage|upload-validation|product-routing|products-page|requested-amount/.test(script);
   const args = needsTsx ? ["--import", "tsx", path] : [path];
   const result = spawnSync(process.execPath, args, { stdio: "inherit", cwd: root });
   if (result.status !== 0) failed = true;

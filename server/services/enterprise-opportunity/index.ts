@@ -44,6 +44,7 @@ import {
   OpportunityActiveDuplicateError,
   OpportunityValidationError,
   parseOptionalAmount,
+  assertProductRequestedAmountLimit,
 } from "@server/services/enterprise-opportunity/opportunity-validation";
 
 const DEFAULT_REQUIREMENT_STAGE = "raw_lead";
@@ -402,9 +403,12 @@ export class EnterpriseOpportunityService {
       priority: assertPriority(body.priority) ?? "medium",
       requestedAmount: asDialogue
         ? null
-        : body.requestedAmount !== undefined && body.requestedAmount !== null
-          ? Number(body.requestedAmount)
-          : null,
+        : assertProductRequestedAmountLimit(
+            body.productCode ? String(body.productCode) : null,
+            body.requestedAmount !== undefined && body.requestedAmount !== null
+              ? parseOptionalAmount(body.requestedAmount) ?? null
+              : null,
+          ) ?? null,
       currencyCode: body.currencyCode ? String(body.currencyCode) : "INR",
       snapshot: (body.snapshot as Prisma.InputJsonValue) ?? null,
       lendingExtension: (body.lendingExtension as Prisma.InputJsonValue) ?? null,
@@ -609,12 +613,14 @@ export class EnterpriseOpportunityService {
         : existing.productLabel;
 
     const parsedAmount = parseOptionalAmount(body.requestedAmount);
-    const nextAmount =
+    const nextAmount = assertProductRequestedAmountLimit(
+      nextProductCode,
       parsedAmount === undefined
         ? existing.requestedAmount != null
           ? Number(existing.requestedAmount.toString())
           : null
-        : parsedAmount;
+        : parsedAmount,
+    ) ?? null;
 
     const nextKey = resolveProductUniquenessKey({
       productId: nextProductId,

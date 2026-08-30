@@ -7,15 +7,14 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
 import { COMPASS_PRODUCT_LABELS, discoveryCopy } from "@/config/home-loan-discovery";
 import { productShowsPropertyPreview } from "@/config/compass-lending-products";
+import { cibilFieldOptions, findJourneyField } from "@/lib/journey-config";
 import { journeyConsent } from "@/config/legal";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
 
 function formatCurrency(value: number): string {
-  if (value >= 1_00_00_000) return `₹${(value / 1_00_00_000).toFixed(2)} Cr`;
-  if (value >= 1_00_000) return `₹${(value / 1_00_000).toFixed(2)} L`;
-  return `₹${value.toLocaleString("en-IN")}`;
+  return `₹${Math.round(value).toLocaleString("en-IN")}`;
 }
 
 export function DiscoveryReviewStep() {
@@ -25,6 +24,7 @@ export function DiscoveryReviewStep() {
     intelligence,
     lod,
     opportunityRef,
+    journeyConfig,
     submitting,
     submissionError,
     submitApplication,
@@ -111,10 +111,38 @@ export function DiscoveryReviewStep() {
                 <dd className="font-medium">{answers.facilityType.replace(/_/g, " ")}</dd>
               </div>
             ) : null}
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">City</dt>
-              <dd className="font-medium">{answers.city || "—"}</dd>
-            </div>
+            {answers.incomeType ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">
+                  {findJourneyField(journeyConfig, "employmentTypeCode")?.label || "Employment"}
+                </dt>
+                <dd className="font-medium">
+                  {findJourneyField(journeyConfig, "employmentTypeCode")?.options?.find(
+                    (opt) => opt.value === answers.incomeType,
+                  )?.label || answers.incomeType}
+                </dd>
+              </div>
+            ) : null}
+            {answers.monthlyIncome ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">
+                  {findJourneyField(journeyConfig, "monthlyIncomeLabel", "monthlyIncome")?.label ||
+                    "Monthly income"}
+                </dt>
+                <dd className="font-medium">{formatCurrency(answers.monthlyIncome)}</dd>
+              </div>
+            ) : null}
+            {answers.approxCibilScore ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">
+                  {findJourneyField(journeyConfig, "approxCibilScore")?.label || "Expected CIBIL Score"}
+                </dt>
+                <dd className="font-medium">
+                  {cibilFieldOptions(journeyConfig).find((opt) => opt.value === answers.approxCibilScore)
+                    ?.label || answers.approxCibilScore}
+                </dd>
+              </div>
+            ) : null}
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Mobile</dt>
               <dd className="font-medium">{answers.mobile}</dd>

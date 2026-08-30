@@ -14,6 +14,10 @@ import type {
   CompassProductCode,
 } from "@/types/compass-customer-gateway";
 import { getCompassProductDefinition } from "@/constants/compass-customer-gateway/product-registry";
+import {
+  getApprovedMaxRequestedAmountRupees,
+  getApprovedRequestedAmountMaxLabel,
+} from "@/constants/enterprise-product-master";
 import { buildPartnerOpportunityJourneyConfig } from "@server/services/partner-gateway/partner-opportunity-journey-config.service";
 
 function compassOtpEnabled(): boolean {
@@ -34,6 +38,7 @@ function mapIdcField(
   field: IdcFieldDef,
   optionSets: ReturnType<typeof buildPartnerOpportunityJourneyConfig>["optionSets"],
   groupId: string,
+  enterpriseProductCode: string,
 ): CompassJourneyFieldDef {
   const options = field.optionSet
     ? optionSets[field.optionSet as keyof typeof optionSets]?.map((o) => ({
@@ -41,6 +46,11 @@ function mapIdcField(
         label: o.label,
       }))
     : undefined;
+
+  const isRequestedAmount = field.key === "requestedAmountLabel" || field.key === "loanAmount";
+  const requestedMax = isRequestedAmount
+    ? getApprovedMaxRequestedAmountRupees(enterpriseProductCode)
+    : null;
 
   return {
     fieldId: field.key,
@@ -52,7 +62,7 @@ function mapIdcField(
     groupId,
     options,
     min: field.validation?.min,
-    max: field.validation?.max,
+    max: isRequestedAmount ? requestedMax ?? undefined : field.validation?.max,
     visibleWhenField: field.visibleWhenField,
     visibleWhenValues: field.visibleWhenValues,
   };
@@ -62,20 +72,28 @@ export function buildCompassJourneyConfig(productCode: CompassProductCode): Comp
   const definition = getCompassProductDefinition(productCode);
   const partnerConfig = buildPartnerOpportunityJourneyConfig();
   const transactionType = definition.transactionType;
+  const values = {
+    transactionType,
+    lendingType: definition.isSecured ? "secured" : "unsecured",
+  };
 
   const visibleSections = resolveVisibleIdcSections(partnerConfig.detailSections, {
     primaryBorrowerKind: definition.borrowerKind,
     productCode: definition.enterpriseProductCode,
-    values: {
-      transactionType,
-      lendingType: definition.isSecured ? "secured" : "unsecured",
-    },
+    values,
   });
 
   const fields: CompassJourneyFieldDef[] = [];
   for (const section of visibleSections) {
     for (const field of section.fields) {
-      fields.push(mapIdcField(field, partnerConfig.optionSets, section.sectionId));
+      fields.push(
+        mapIdcField(
+          field,
+          partnerConfig.optionSets,
+          section.sectionId,
+          definition.enterpriseProductCode,
+        ),
+      );
     }
   }
 
@@ -85,7 +103,14 @@ export function buildCompassJourneyConfig(productCode: CompassProductCode): Comp
       (f) => f.key === "mobilePrimary" || f.inputMode === "tel",
     );
     if (mobileCapture) {
-      fields.unshift(mapIdcField(mobileCapture, partnerConfig.optionSets, "identity"));
+      fields.unshift(
+        mapIdcField(
+          mobileCapture,
+          partnerConfig.optionSets,
+          "identity",
+          definition.enterpriseProductCode,
+        ),
+      );
     }
   }
 
@@ -101,6 +126,8 @@ export function buildCompassJourneyConfig(productCode: CompassProductCode): Comp
     configVersion: partnerConfig.version || ENTERPRISE_IDC_VERSION,
     fields,
     otpEnabled: compassOtpEnabled(),
+    requestedAmountMax: getApprovedMaxRequestedAmountRupees(definition.enterpriseProductCode),
+    requestedAmountMaxLabel: getApprovedRequestedAmountMaxLabel(definition.enterpriseProductCode),
     dtoSource: "enterprise_initial_data_collection",
   };
 }

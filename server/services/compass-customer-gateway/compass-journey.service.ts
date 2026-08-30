@@ -29,6 +29,11 @@ import type {
 } from "@/types/compass-customer-gateway";
 import { COMPASS_PRODUCT_TO_ENTERPRISE } from "@/types/compass-customer-gateway";
 import { getCompassProductDefinition } from "@/constants/compass-customer-gateway/product-registry";
+import {
+  assertRequestedAmountWithinProductLimit,
+  getApprovedMaxRequestedAmountRupees,
+  toIntegerRupees,
+} from "@/constants/enterprise-product-master";
 import { sanitizeCompassJourneyAnswers } from "@/constants/compass-customer-gateway/snapshot-answers";
 import {
   COMPASS_WEBSITE_SOURCE_CODE,
@@ -71,8 +76,7 @@ function contactRefFromId(contactId: string): string {
 }
 
 function parseLoanAmount(value: unknown): number {
-  const n = Number(String(value ?? "").replace(/,/g, ""));
-  return Number.isFinite(n) && n > 0 ? n : 0;
+  return toIntegerRupees(value) ?? 0;
 }
 
 async function resolveContactByMobile(input: {
@@ -344,6 +348,16 @@ export const compassJourneyService = {
     const { organizationId, row } = await verifySessionClaims(claims);
     const definition = getCompassProductDefinition(claims.productCode);
     const sanitizedAnswers = sanitizeCompassJourneyAnswers(claims.productCode, patch.answers);
+    if (sanitizedAnswers.loanAmount != null) {
+      const limit = assertRequestedAmountWithinProductLimit({
+        enterpriseProductCode: definition.enterpriseProductCode,
+        amountRupees: sanitizedAnswers.loanAmount,
+      });
+      if (!limit.ok) {
+        throw new CompassJourneyError(limit.code, limit.message, 400);
+      }
+      sanitizedAnswers.loanAmount = limit.amount;
+    }
     const mapped = answersToSnapshotFields(sanitizedAnswers);
     mapped.productFields.lendingType = definition.isSecured ? "secured" : "unsecured";
     mapped.productFields.transactionType = definition.transactionType;
@@ -418,6 +432,7 @@ export const compassJourneyService = {
       productCode: claims.productCode,
       registryOptions,
       city: detail.borrowerFields?.city,
+      approxCibilScore: detail.borrowerFields?.approxCibilScore,
     });
 
     const definition = getCompassProductDefinition(claims.productCode);
@@ -451,6 +466,8 @@ export const compassJourneyService = {
       recommendations,
       advantage,
       sarathiMessages,
+      requestedAmount: parseLoanAmount(snapshotAnswers.loanAmount) || null,
+      requestedAmountMax: getApprovedMaxRequestedAmountRupees(definition.enterpriseProductCode),
       dtoSource: "enterprise_compass_analysis",
     };
   },

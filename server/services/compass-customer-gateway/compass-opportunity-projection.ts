@@ -1,4 +1,6 @@
 import type { PartnerOpportunityDetailDto } from "@/types/enterprise-partner-business";
+import { normalizeEcmEmploymentTypeId } from "@/constants/enterprise-contact-master";
+import { toIntegerRupees } from "@/constants/enterprise-product-master";
 
 type OpportunityRow = {
   id: string;
@@ -148,9 +150,11 @@ export function answersToSnapshotFields(
     const value = String(raw).trim();
     if (!value) continue;
     if (key === "loanAmount") {
-      const n = Number(String(raw).replace(/,/g, ""));
-      if (Number.isFinite(n) && n > 0) requestedAmount = n;
-      productFields.requestedAmountLabel = value;
+      const n = toIntegerRupees(raw);
+      if (n != null) {
+        requestedAmount = n;
+        productFields.requestedAmountLabel = String(n);
+      }
       continue;
     }
     if (key === "city" || key === "propertyCity") {
@@ -160,7 +164,11 @@ export function answersToSnapshotFields(
       continue;
     }
     if (key === "incomeType" || key === "employmentTypeCode") {
-      borrowerFields.employmentTypeCode = value;
+      borrowerFields.employmentTypeCode = normalizeEcmEmploymentTypeId(value) ?? value;
+      continue;
+    }
+    if (key === "approxCibilScore") {
+      borrowerFields.approxCibilScore = value;
       continue;
     }
     if (key === "monthlyIncome") {

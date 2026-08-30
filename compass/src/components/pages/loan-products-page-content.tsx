@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeftRight,
@@ -23,6 +24,7 @@ import {
   productShowsAdvantage,
   type CompassProductCode,
 } from "@/config/compass-lending-products";
+import { fetchCompassJourneyConfig } from "@/services/catalyst-one/client";
 import { cn } from "@/lib/utils";
 
 const PRODUCT_ICONS: Record<CompassProductCode, LucideIcon> = {
@@ -49,6 +51,32 @@ const PRODUCT_ACCENTS: Record<CompassProductCode, string> = {
 
 export function LoanProductsPageContent() {
   const products = listVisibleCompassProducts();
+  const [limitLabels, setLimitLabels] = useState<Partial<Record<CompassProductCode, string>>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const codes = listVisibleCompassProducts();
+    void Promise.all(
+      codes.map(async (code) => {
+        try {
+          const config = await fetchCompassJourneyConfig(code);
+          return [code, config.requestedAmountMaxLabel ?? ""] as const;
+        } catch {
+          return [code, ""] as const;
+        }
+      }),
+    ).then((rows) => {
+      if (cancelled) return;
+      const next: Partial<Record<CompassProductCode, string>> = {};
+      for (const [code, label] of rows) {
+        if (label) next[code] = label;
+      }
+      setLimitLabels(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <PageFade>
@@ -116,6 +144,9 @@ export function LoanProductsPageContent() {
                       </li>
                     ))}
                   </ul>
+                  {limitLabels[code] ? (
+                    <p className="relative mt-3 text-xs text-muted-foreground">{limitLabels[code]}</p>
+                  ) : null}
                   <span className="relative mt-auto flex items-center gap-1.5 pt-4 text-sm font-medium text-primary">
                     Explore
                     <ArrowRight

@@ -50,7 +50,8 @@ for (const future of COMPASS_FUTURE_PRODUCTS) {
   assert.doesNotMatch(pageSrc, new RegExp(future.replaceAll("-", "\\-")));
 }
 
-assert.doesNotMatch(pageSrc, /Coming Soon|Awaiting Soon|Apply Now/i);
+assert.match(pageSrc, /requestedAmountMaxLabel/);
+assert.doesNotMatch(pageSrc, /Loan amount up to ₹10 crore|Funding up to ₹25 crore/);
 assert.doesNotMatch(pageSrc, /vehicle-loan|Vehicle Loan/);
 assert.doesNotMatch(contentSrc, /export const loanProducts/);
 

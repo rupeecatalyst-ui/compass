@@ -7,8 +7,12 @@ import {
   getDiscoveryStepOrder,
   readProductCodeFromPathname,
 } from "@/config/compass-lending-products";
+import { persistDiscoveryAnswers, restoreDiscoveryAnswers } from "@/lib/discovery-session";
+import type { CompassJourneyConfig } from "@/lib/journey-config";
+import { isMonthlyIncomeStepRequired } from "@/lib/journey-config";
 import { clearDiscoveryLaunchUrl } from "@/discovery-template/launch-discovery";
 import {
+  fetchCompassJourneyConfig,
   fetchCompassLod,
   fetchDiscoveryIntelligence,
   startCompassJourney,
@@ -30,7 +34,7 @@ export type DiscoveryAnswers = {
   propertyValue: number;
   mobile: string;
   otpVerified: boolean;
-  incomeType?: "salaried" | "business" | "professional";
+  incomeType?: string;
   monthlyIncome: number;
   existingEmi: number;
   city: string;
@@ -42,6 +46,7 @@ export type DiscoveryAnswers = {
   projectCost?: number;
   currentLender?: string;
   outstandingLoanAmount?: number;
+  approxCibilScore?: string;
 };
 
 const defaultAnswers: DiscoveryAnswers = {
@@ -67,6 +72,7 @@ type DiscoveryContextValue = {
   productCode: CompassProductCode;
   step: DiscoveryStepId;
   answers: DiscoveryAnswers;
+  journeyConfig: CompassJourneyConfig | null;
   compassNudge: number;
   journeyComplete: boolean;
   sarathiActivated: boolean;
@@ -87,7 +93,7 @@ type DiscoveryContextValue = {
   openDiscovery: () => void;
   closeDiscovery: () => void;
   setAnswer: <K extends keyof DiscoveryAnswers>(key: K, value: DiscoveryAnswers[K]) => void;
-  goNext: () => void;
+  goNext: (arg?: Partial<DiscoveryAnswers> | { nativeEvent?: unknown }) => void;
   goBack: () => void;
   nudgeCompass: () => void;
   completeJourney: () => void;
@@ -105,12 +111,26 @@ type DiscoveryContextValue = {
 
 const DiscoveryContext = createContext<DiscoveryContextValue | null>(null);
 
+function mergeStoredAnswers(stored: Record<string, unknown> | null): DiscoveryAnswers {
+  if (!stored) return { ...defaultAnswers };
+  const loanAmount =
+    typeof stored.loanAmount === "number" && stored.loanAmount > 0
+      ? Math.round(stored.loanAmount)
+      : defaultAnswers.loanAmount;
+  return {
+    ...defaultAnswers,
+    ...stored,
+    loanAmount,
+  } as DiscoveryAnswers;
+}
+
 export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [launchKey, setLaunchKey] = useState(0);
   const [productCode, setProductCode] = useState<CompassProductCode>("home-loan");
   const [step, setStep] = useState<DiscoveryStepId>("welcome");
   const [answers, setAnswers] = useState<DiscoveryAnswers>(defaultAnswers);
+  const [journeyConfig, setJourneyConfig] = useState<CompassJourneyConfig | null>(null);
   const [compassNudge, setCompassNudge] = useState(0);
   const [journeyComplete, setJourneyComplete] = useState(false);
   const [sarathiActivated, setSarathiActivated] = useState(false);
@@ -141,7 +161,12 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         setIntelligence(null);
         setLod(null);
         setSubmissionResult(null);
-        setAnswers(defaultAnswers);
+        const stored =
+          typeof window !== "undefined"
+            ? restoreDiscoveryAnswers(window.sessionStorage, resolved)
+            : null;
+        setAnswers(mergeStoredAnswers(stored));
+        setJourneyConfig(null);
       }
       return resolved;
     });
@@ -150,6 +175,9 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     setStep("welcome");
     setCompassNudge((n) => n + 1);
     document.body.style.overflow = "hidden";
+    void fetchCompassJourneyConfig(resolved)
+      .then((config) => setJourneyConfig(config))
+      .catch(() => setJourneyConfig(null));
   }, []);
 
   const openDiscovery = launchDiscovery;
@@ -165,32 +193,90 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = restoreDiscoveryAnswers(window.sessionStorage, productCode);
+    if (!stored) return;
+    setAnswers((prev) => {
+      const merged = mergeStoredAnswers({ ...prev, ...stored });
+      return merged.loanAmount === prev.loanAmount &&
+        merged.mobile === prev.mobile &&
+        merged.city === prev.city
+        ? prev
+        : merged;
+    });
+  }, [productCode]);
+
+  useEffect(() => {
+    const max = journeyConfig?.requestedAmountMax;
+    if (typeof max !== "number" || max <= 0) return;
+    setAnswers((prev) => (prev.loanAmount > max ? { ...prev, loanAmount: max } : prev));
+  }, [journeyConfig]);
+
   const setAnswer = useCallback(<K extends keyof DiscoveryAnswers>(key: K, value: DiscoveryAnswers[K]) => {
-    setAnswers((prev) => ({ ...prev, [key]: value }));
-  }, []);
+    setAnswers((prev) => {
+      const next = { ...prev, [key]: value };
+      if (typeof window !== "undefined") {
+        persistDiscoveryAnswers(window.sessionStorage, productCode, next);
+      }
+      return next;
+    });
+  }, [productCode]);
 
   const nudgeCompass = useCallback(() => {
     setCompassNudge((n) => n + 1);
   }, []);
 
-  const goNext = useCallback(() => {
+  const goNext = useCallback((arg?: Partial<DiscoveryAnswers> | { nativeEvent?: unknown }) => {
+    const merged =
+      arg &&
+      typeof arg === "object" &&
+      !("nativeEvent" in arg)
+        ? { ...answers, ...(arg as Partial<DiscoveryAnswers>) }
+        : answers;
     setStep((current) => {
       const order = getDiscoveryStepOrder(productCode);
       const idx = order.indexOf(current);
-      const next = order[Math.min(Math.max(idx, 0) + 1, order.length - 1)];
-      return next ?? current;
+      for (let i = idx + 1; i < order.length; i += 1) {
+        const candidate = order[i];
+        if (
+          candidate === "monthlyIncome" &&
+          !isMonthlyIncomeStepRequired(journeyConfig, {
+            ...merged,
+            employmentTypeCode: merged.incomeType,
+          })
+        ) {
+          continue;
+        }
+        return candidate ?? current;
+      }
+      return current;
     });
     nudgeCompass();
-  }, [nudgeCompass, productCode]);
+  }, [nudgeCompass, productCode, journeyConfig, answers]);
 
   const goBack = useCallback(() => {
     setStep((current) => {
       const order = getDiscoveryStepOrder(productCode);
       const idx = order.indexOf(current);
-      if (idx <= 0) return current;
-      return order[idx - 1] ?? current;
+      for (let i = idx - 1; i >= 0; i -= 1) {
+        const candidate = order[i];
+        if (
+          candidate === "monthlyIncome" &&
+          !isMonthlyIncomeStepRequired(journeyConfig, {
+            ...answers,
+            incomeType: answers.incomeType,
+            employmentTypeCode: answers.incomeType,
+            annualTurnover: answers.annualTurnover,
+          })
+        ) {
+          continue;
+        }
+        return candidate ?? current;
+      }
+      return current;
     });
-  }, [productCode]);
+  }, [productCode, journeyConfig, answers]);
 
   const completeJourney = useCallback(() => {
     setJourneyComplete(true);
@@ -319,6 +405,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       productCode,
       step,
       answers,
+      journeyConfig,
       compassNudge,
       journeyComplete,
       sarathiActivated,
@@ -356,6 +443,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       productCode,
       step,
       answers,
+      journeyConfig,
       compassNudge,
       journeyComplete,
       sarathiActivated,

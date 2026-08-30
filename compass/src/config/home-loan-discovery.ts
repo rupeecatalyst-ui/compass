@@ -74,6 +74,7 @@ export const discoveryCopy = {
       { id: "construction", label: "Construction" },
     ],
   },
+  // Widget range only. Approved product ceilings come from Catalyst One journey config.
   loanAmount: {
     heading: "Desired Loan",
     helper: "Tell us how much financing you're looking for.",
@@ -107,18 +108,18 @@ export const discoveryCopy = {
     helper: "This helps us understand your income source.",
     options: [
       { id: "salaried", label: "Salaried" },
-      { id: "business", label: "Business" },
-      { id: "professional", label: "Professional" },
+      { id: "self-employed-business", label: "Self-Employed Business" },
+      { id: "self-employed-professional", label: "Self-Employed Professional" },
     ],
   },
   monthlyIncome: {
     heading: "Monthly Income",
-    helper: "We use this to estimate a comfortable monthly repayment.",
+    helper: "Approximate monthly income in Indian Rupees. Limits come from Catalyst One.",
     min: 25_000,
-    max: 5_00_000,
+    max: 10_00_000,
     default: 1_50_000,
     minLabel: "₹25,000",
-    maxLabel: "₹5 Lakh",
+    maxLabel: "₹10 Lakh",
     cta: "Next",
   },
   existingEmi: {
@@ -151,6 +152,12 @@ export const discoveryCopy = {
     helper: "Lending policies can vary across locations.",
     placeholder: "Search city",
     popular: ["Mumbai", "Bengaluru", "Delhi", "Pune", "Hyderabad", "Chennai", "Gurugram", "Noida"],
+  },
+  approxCibilScore: {
+    heading: "Expected CIBIL Score",
+    helper:
+      "Approximate CIBIL score helps improve lender recommendations and eligibility assessment. If unknown, select 'Not Known'. This is a self-declared estimate, not a bureau-verified score.",
+    cta: "Next",
   },
   propertyUsage: {
     heading: "Property Usage",
@@ -278,6 +285,7 @@ export const DISCOVERY_STEP_ORDER: DiscoveryStepId[] = [
   "monthlyIncome",
   "existingEmi",
   "city",
+  "approxCibilScore",
   "analysing",
   "advantage",
   "lenders",
@@ -306,6 +314,7 @@ export function stepToStageIndex(step: DiscoveryStepId): number {
     case "companyName":
     case "constitution":
     case "annualTurnover":
+    case "approxCibilScore":
       return 2;
     case "mobile":
     case "city":

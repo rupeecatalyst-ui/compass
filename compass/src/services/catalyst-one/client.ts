@@ -10,6 +10,7 @@ import type {
   DiscoveryIntelligenceResult,
   JourneyStartResponse,
 } from "@/services/catalyst-one/types";
+import type { CompassJourneyConfig } from "@/lib/journey-config";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -27,6 +28,7 @@ function answersPayload(productCode: CompassProductCode, answers: DiscoveryAnswe
     mobile: answers.mobile,
     otpVerified: answers.otpVerified,
     incomeType: answers.incomeType,
+    employmentTypeCode: answers.incomeType,
     monthlyIncome: answers.monthlyIncome,
     existingEmi: answers.existingEmi,
     city: answers.city,
@@ -38,6 +40,7 @@ function answersPayload(productCode: CompassProductCode, answers: DiscoveryAnswe
     projectCost: answers.projectCost,
     currentLender: answers.currentLender,
     outstandingLoanAmount: answers.outstandingLoanAmount,
+    approxCibilScore: answers.approxCibilScore,
   };
   const allowed = new Set(getPersistedDiscoveryAnswerKeys(productCode));
   const payload: Record<string, string | number | boolean> = {};
@@ -59,7 +62,8 @@ async function patchAnswers(token: string, productCode: CompassProductCode, answ
     body: JSON.stringify({ answers: answersPayload(productCode, answers) }),
   });
   if (!response.ok) {
-    throw new Error("Unable to save your answers.");
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error || "Unable to save your answers.");
   }
 }
 
@@ -84,6 +88,19 @@ export async function startCompassJourney(input: {
     throw new Error(body?.error || "Unable to start your journey.");
   }
   return response.json() as Promise<JourneyStartResponse>;
+}
+
+export async function fetchCompassJourneyConfig(
+  productCode: CompassProductCode,
+): Promise<CompassJourneyConfig> {
+  const response = await fetch(
+    `/api/journey/config?productCode=${encodeURIComponent(productCode)}`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) {
+    throw new Error("Journey configuration is temporarily unavailable.");
+  }
+  return response.json() as Promise<CompassJourneyConfig>;
 }
 
 export async function fetchDiscoveryIntelligence(input: {
