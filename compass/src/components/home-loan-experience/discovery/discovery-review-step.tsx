@@ -87,6 +87,18 @@ export function DiscoveryReviewStep() {
                 <dd className="font-medium">{formatCurrency(answers.propertyValue)}</dd>
               </div>
             ) : null}
+            {productCode === "home-loan-balance-transfer" && answers.currentLender ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Current lender</dt>
+                <dd className="font-medium">{answers.currentLender}</dd>
+              </div>
+            ) : null}
+            {productCode === "home-loan-balance-transfer" && answers.outstandingLoanAmount ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Outstanding balance</dt>
+                <dd className="font-medium">{formatCurrency(answers.outstandingLoanAmount)}</dd>
+              </div>
+            ) : null}
             {answers.companyName ? (
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Business</dt>
@@ -110,7 +122,7 @@ export function DiscoveryReviewStep() {
           </dl>
         </section>
 
-        {intelligence?.advantage?.eligible ? (
+        {intelligence?.advantage && intelligence.advantage.status !== "not_available" && intelligence.advantage.eligible ? (
           <section className="rounded-2xl border border-primary/25 bg-primary/[0.06] p-5">
             <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {c.advantageLabel}

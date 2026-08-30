@@ -183,6 +183,16 @@ export function answersToSnapshotFields(
       productFields.propertyValueLabel = value;
       continue;
     }
+    if (key === "currentLender") {
+      productFields.currentLender = value;
+      productFields.currentLendingInstitution = value;
+      continue;
+    }
+    if (key === "outstandingLoanAmount") {
+      productFields.outstandingLoanAmount = value;
+      productFields.outstandingLoanAmountLabel = value;
+      continue;
+    }
     if (PRODUCT_FIELD_KEYS.has(key)) {
       productFields[key] = value;
       continue;

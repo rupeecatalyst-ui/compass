@@ -40,6 +40,8 @@ export type DiscoveryAnswers = {
   annualTurnover?: number;
   facilityType?: string;
   projectCost?: number;
+  currentLender?: string;
+  outstandingLoanAmount?: number;
 };
 
 const defaultAnswers: DiscoveryAnswers = {

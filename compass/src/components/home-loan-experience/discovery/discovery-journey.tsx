@@ -238,8 +238,6 @@ export function DiscoveryJourney() {
     useDiscovery();
   const reduceMotion = useReducedMotion();
 
-  const loanScale = 0.85 + (answers.loanAmount / discoveryCopy.loanAmount.max) * 0.3;
-
   const renderStep = () => {
     switch (step) {
       case "welcome":
@@ -296,9 +294,15 @@ export function DiscoveryJourney() {
 
       case "loanAmount": {
         const c = discoveryCopy.loanAmount;
+        const heading =
+          productCode === "home-loan-balance-transfer" ? "Desired Transfer Amount" : c.heading;
+        const helper =
+          productCode === "home-loan-balance-transfer"
+            ? "How much of the existing home loan would you like to transfer?"
+            : c.helper;
         return (
           <DiscoveryScreen stepKey="loanAmount">
-            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <QuestionHeader heading={heading} helper={helper} />
             <div className="mx-auto w-full max-w-lg">
               <PremiumSlider
                 value={answers.loanAmount}
@@ -308,7 +312,9 @@ export function DiscoveryJourney() {
                 maxLabel={c.maxLabel}
                 onChange={(v) => setAnswer("loanAmount", v)}
               />
-              {productShowsPropertyPreview(productCode) ? <MiniHomePreview scale={loanScale} /> : null}
+              {productShowsPropertyPreview(productCode) ? (
+                <MiniHomePreview scale={0.85 + (answers.loanAmount / c.max) * 0.3} />
+              ) : null}
               <div className="mt-8 flex justify-center">
                 <Button size="lg" className="h-12 px-10" onClick={goNext}>
                   {c.cta}
@@ -348,6 +354,68 @@ export function DiscoveryJourney() {
 
       case "mobile":
         return <MobileStep />;
+
+      case "currentLender": {
+        const c = discoveryCopy.currentLender;
+        return (
+          <DiscoveryScreen stepKey="currentLender">
+            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <div className="mx-auto w-full max-w-md space-y-4">
+              <input
+                value={answers.currentLender ?? ""}
+                onChange={(e) => setAnswer("currentLender", e.target.value)}
+                placeholder={c.placeholder}
+                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+              />
+              <div className="flex justify-center">
+                <Button
+                  size="lg"
+                  className="h-12 px-10"
+                  disabled={(answers.currentLender ?? "").trim().length < 2}
+                  onClick={goNext}
+                >
+                  {discoveryCopy.buttons.next}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </DiscoveryScreen>
+        );
+      }
+
+      case "outstandingLoanAmount": {
+        const c = discoveryCopy.outstandingLoanAmount;
+        return (
+          <DiscoveryScreen stepKey="outstandingLoanAmount">
+            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <div className="mx-auto w-full max-w-lg">
+              <PremiumSlider
+                value={answers.outstandingLoanAmount ?? c.default}
+                min={c.min}
+                max={c.max}
+                minLabel={c.minLabel}
+                maxLabel={c.maxLabel}
+                onChange={(v) => setAnswer("outstandingLoanAmount", v)}
+              />
+              <div className="mt-8 flex justify-center">
+                <Button
+                  size="lg"
+                  className="h-12 px-10"
+                  onClick={() => {
+                    if (answers.outstandingLoanAmount == null) {
+                      setAnswer("outstandingLoanAmount", c.default);
+                    }
+                    goNext();
+                  }}
+                >
+                  {c.cta}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </DiscoveryScreen>
+        );
+      }
 
       case "propertyUsage": {
         const c = discoveryCopy.propertyUsage;
@@ -585,9 +653,15 @@ export function DiscoveryJourney() {
 
       case "existingEmi": {
         const c = discoveryCopy.existingEmi;
+        const heading =
+          productCode === "home-loan-balance-transfer" ? "Current EMI" : c.heading;
+        const helper =
+          productCode === "home-loan-balance-transfer"
+            ? "Monthly EMI on the loan being transferred."
+            : c.helper;
         return (
           <DiscoveryScreen stepKey="existingEmi">
-            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <QuestionHeader heading={heading} helper={helper} />
             <div className="mx-auto w-full max-w-lg">
               <PremiumSlider
                 value={answers.existingEmi}

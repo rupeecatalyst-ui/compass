@@ -27,6 +27,8 @@ export type DiscoveryAnswersPayload = {
   annualTurnover?: number;
   facilityType?: string;
   projectCost?: number;
+  currentLender?: string;
+  outstandingLoanAmount?: number;
 };
 
 export type CompassAdvantageResult = {

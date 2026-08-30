@@ -19,6 +19,8 @@ export function resolveAmbientContext(
     case "propertyType":
     case "loanAmount":
     case "propertyValue":
+    case "currentLender":
+    case "outstandingLoanAmount":
     case "mobile":
       return answers.propertyType === "construction" ? "construction" : "before-income";
     case "incomeType":

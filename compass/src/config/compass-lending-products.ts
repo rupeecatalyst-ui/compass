@@ -72,15 +72,36 @@ type ExtraDiscoveryStepId =
   | "constitution"
   | "annualTurnover"
   | "facilityType"
-  | "projectCost";
+  | "projectCost"
+  | "currentLender"
+  | "outstandingLoanAmount";
 
 const TAIL = ["analysing", "lenders", "documents", "review", "confirmation"] as const;
 
 export function getDiscoveryStepOrder(productCode: CompassProductCode): DiscoveryStepId[] {
   switch (productCode) {
     case "home-loan":
-    case "home-loan-balance-transfer":
       return [...HL_STEPS];
+    case "home-loan-balance-transfer":
+      return [
+        "welcome",
+        "propertyType",
+        "loanAmount",
+        "propertyValue",
+        "currentLender",
+        "outstandingLoanAmount",
+        "mobile",
+        "incomeType",
+        "monthlyIncome",
+        "existingEmi",
+        "city",
+        "analysing",
+        "advantage",
+        "lenders",
+        "documents",
+        "review",
+        "confirmation",
+      ];
     case "personal-loan":
       return [
         "welcome",
@@ -144,6 +165,61 @@ export function getDiscoveryStepOrder(productCode: CompassProductCode): Discover
     default:
       return [...HL_STEPS];
   }
+}
+
+export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode): readonly string[] {
+  const keys = new Set<string>(["loanAmount", "mobile", "otpVerified", "city"]);
+  switch (productCode) {
+    case "home-loan":
+      keys.add("propertyType");
+      keys.add("propertyValue");
+      keys.add("incomeType");
+      keys.add("monthlyIncome");
+      keys.add("existingEmi");
+      break;
+    case "home-loan-balance-transfer":
+      keys.add("propertyType");
+      keys.add("propertyValue");
+      keys.add("currentLender");
+      keys.add("outstandingLoanAmount");
+      keys.add("incomeType");
+      keys.add("monthlyIncome");
+      keys.add("existingEmi");
+      break;
+    case "personal-loan":
+      keys.add("incomeType");
+      keys.add("monthlyIncome");
+      keys.add("existingEmi");
+      keys.add("loanPurpose");
+      break;
+    case "loan-against-property":
+      keys.add("propertyUsage");
+      keys.add("propertyValue");
+      keys.add("incomeType");
+      keys.add("monthlyIncome");
+      keys.add("existingEmi");
+      break;
+    case "business-loan":
+      keys.add("companyName");
+      keys.add("constitution");
+      keys.add("annualTurnover");
+      break;
+    case "working-capital":
+      keys.add("facilityType");
+      keys.add("companyName");
+      keys.add("constitution");
+      keys.add("annualTurnover");
+      break;
+    case "construction-finance":
+    case "project-finance":
+      keys.add("projectCost");
+      keys.add("companyName");
+      keys.add("constitution");
+      break;
+    default:
+      break;
+  }
+  return [...keys];
 }
 
 export function productShowsPropertyPreview(productCode: CompassProductCode): boolean {

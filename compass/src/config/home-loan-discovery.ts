@@ -131,6 +131,21 @@ export const discoveryCopy = {
     maxLabel: "₹5 Lakh",
     cta: "Next",
   },
+  currentLender: {
+    heading: "Current Lender",
+    helper: "Which institution currently holds this home loan?",
+    placeholder: "Search or type the current lender",
+  },
+  outstandingLoanAmount: {
+    heading: "Outstanding Balance",
+    helper: "Current outstanding on the loan being transferred.",
+    min: 1_00_000,
+    max: 5_00_00_000,
+    default: 40_00_000,
+    minLabel: "₹1 Lakh",
+    maxLabel: "₹5 Crore",
+    cta: "Next",
+  },
   city: {
     heading: "City",
     helper: "Lending policies can vary across locations.",
@@ -281,6 +296,8 @@ export function stepToStageIndex(step: DiscoveryStepId): number {
     case "loanAmount":
     case "propertyValue":
     case "projectCost":
+    case "currentLender":
+    case "outstandingLoanAmount":
       return 1;
     case "incomeType":
     case "monthlyIncome":
