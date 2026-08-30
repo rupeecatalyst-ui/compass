@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  buildCatalystOneGatewayHeaders,
+  resolveCatalystOneProtectionBypass,
+} from "./headers";
+
 type GatewayEnvelope<T> = {
   success: boolean;
   data?: T;
@@ -26,11 +31,12 @@ async function callCatalystOne<T>(
   path: string,
   init?: RequestInit & { journeyToken?: string | null },
 ): Promise<T> {
-  const headers = new Headers(init?.headers);
-  headers.set("x-compass-gateway-key", gatewayKey());
-  if (init?.journeyToken) {
-    headers.set("authorization", `Bearer ${init.journeyToken}`);
-  }
+  const headers = buildCatalystOneGatewayHeaders({
+    extra: init?.headers,
+    gatewayKey: gatewayKey(),
+    protectionBypass: resolveCatalystOneProtectionBypass(),
+    journeyToken: init?.journeyToken,
+  });
   if (init?.body && !headers.has("content-type") && !(init.body instanceof FormData)) {
     headers.set("content-type", "application/json");
   }

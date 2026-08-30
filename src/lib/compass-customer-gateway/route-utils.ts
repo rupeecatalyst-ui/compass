@@ -6,6 +6,12 @@ import type { CompassProductCode } from "@/constants/compass-customer-gateway/pr
 import { classifyCompassProductParam } from "@/constants/compass-customer-gateway/product-registry";
 import { createCorrelationId } from "@/lib/ops/correlation";
 import { errorResponse, successResponse } from "@/lib/api/auth-route-utils";
+import {
+  readBearerJourneyToken,
+  resolveCompassGatewayApiKey,
+} from "@/lib/compass-customer-gateway/gateway-headers";
+
+export { readBearerJourneyToken, resolveCompassGatewayApiKey };
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 120;
@@ -34,14 +40,6 @@ function checkRateLimit(request: Request, apiKey: string | null): boolean {
   if (bucket.count >= RATE_LIMIT_MAX) return false;
   bucket.count += 1;
   return true;
-}
-
-export function resolveCompassGatewayApiKey(request: Request): string | null {
-  const auth = request.headers.get("authorization")?.trim();
-  if (auth?.toLowerCase().startsWith("bearer ")) {
-    return auth.slice(7).trim() || null;
-  }
-  return request.headers.get("x-compass-gateway-key")?.trim() || null;
 }
 
 export function assertCompassGatewayAuthorized(request: Request): string | NextResponse {
@@ -103,12 +101,4 @@ export function requireActiveCompassProduct(
     );
   }
   return compassGatewayError(400, "INVALID_PRODUCT", "Unsupported product.");
-}
-
-export function readBearerJourneyToken(request: Request): string | null {
-  const auth = request.headers.get("authorization")?.trim();
-  if (auth?.toLowerCase().startsWith("bearer ")) {
-    return auth.slice(7).trim() || null;
-  }
-  return request.headers.get("x-compass-journey-token")?.trim() || null;
 }
