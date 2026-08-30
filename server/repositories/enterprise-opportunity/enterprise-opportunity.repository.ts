@@ -23,6 +23,7 @@ import {
   OpportunityNotFoundError,
 } from "@server/services/enterprise-opportunity/opportunity-validation";
 import { buildOpportunityVisibilityOrFilters } from "@server/services/enterprise-case-visibility/build-visibility-where";
+import { decideOpportunityBorrowerCreate } from "@/constants/enterprise-opportunity/company-borrower-create";
 
 function sourceCodesForBucket(bucket: string): string[] {
   return businessSourceCodesForKpiBucket(bucket);
@@ -84,6 +85,7 @@ export type UpdateEnterpriseOpportunityInput = {
   primaryContactMobile?: string | null;
   primaryContactEmail?: string | null;
   companyId?: string | null;
+  companyName?: string | null;
   primaryBorrowerKind?: "individual" | "company";
   employmentTypeCode?: string | null;
   cityLabel?: string | null;
@@ -405,21 +407,26 @@ export class EnterpriseOpportunityRepository {
 
     const borrowerKind = input.primaryBorrowerKind ?? "individual";
     const isCompanyBorrower = borrowerKind === "company";
-
-    if (isCompanyBorrower) {
-      if (!input.companyId?.trim()) {
-        throw new OpportunityConflictError("companyId is required when primary borrower is a Company");
-      }
-    } else if (!input.primaryContactId?.trim()) {
-      throw new OpportunityConflictError("primaryContactId must reference a valid Contact");
+    const borrowerCreate = decideOpportunityBorrowerCreate({
+      primaryBorrowerKind: borrowerKind,
+      companyId: input.companyId,
+      primaryContactId: input.primaryContactId,
+      sourceCode: input.sourceCode,
+      lifecycleStatus: input.lifecycleStatus,
+      requirementStage: input.requirementStage,
+    });
+    if (!borrowerCreate.ok) {
+      throw new OpportunityConflictError(borrowerCreate.message);
     }
+    const pendingCompassCompany = borrowerCreate.mode === "compass_pending_company";
+    const keepPrimaryContact = borrowerCreate.mode !== "company_linked";
 
     let contactName: string | null = null;
     let contactMobile: string | null = null;
     let contactEmail: string | null = null;
     let companyName: string | null = input.companyName?.trim() || null;
 
-    if (isCompanyBorrower) {
+    if (borrowerCreate.mode === "company_linked") {
       const company = await prisma.ecmCompany.findFirst({
         where: {
           id: input.companyId!,
@@ -431,7 +438,8 @@ export class EnterpriseOpportunityRepository {
         throw new OpportunityConflictError("companyId must reference a valid Company");
       }
       companyName = companyName || company.companyName;
-    } else {
+    }
+    if (keepPrimaryContact) {
       const contact = await prisma.ecmContact.findFirst({
         where: {
           id: input.primaryContactId!,
@@ -480,18 +488,18 @@ export class EnterpriseOpportunityRepository {
         lifecycleStatus: input.lifecycleStatus ?? "active",
         stageEnteredAt: now,
         primaryBorrowerKind: borrowerKind,
-        primaryContactId: isCompanyBorrower ? null : input.primaryContactId ?? null,
-        primaryContactName: isCompanyBorrower
-          ? companyName
-          : input.primaryContactName ?? contactName,
-        primaryContactMobile: isCompanyBorrower
-          ? null
-          : input.primaryContactMobile ?? contactMobile,
-        primaryContactEmail: isCompanyBorrower
-          ? null
-          : input.primaryContactEmail ?? contactEmail,
-        companyId: isCompanyBorrower ? input.companyId ?? null : input.companyId ?? null,
-        companyName: isCompanyBorrower ? companyName : null,
+        primaryContactId: keepPrimaryContact ? input.primaryContactId ?? null : null,
+        primaryContactName: keepPrimaryContact
+          ? input.primaryContactName ?? contactName
+          : companyName,
+        primaryContactMobile: keepPrimaryContact
+          ? input.primaryContactMobile ?? contactMobile
+          : null,
+        primaryContactEmail: keepPrimaryContact
+          ? input.primaryContactEmail ?? contactEmail
+          : null,
+        companyId: pendingCompassCompany ? null : input.companyId ?? null,
+        companyName: isCompanyBorrower && !pendingCompassCompany ? companyName : null,
         employmentTypeCode: input.employmentTypeCode ?? null,
         cityLabel: input.cityLabel ?? null,
         stateLabel: input.stateLabel ?? null,
@@ -584,6 +592,7 @@ export class EnterpriseOpportunityRepository {
       data.primaryContactEmail = input.primaryContactEmail;
     }
     if (input.companyId !== undefined) data.companyId = input.companyId;
+    if (input.companyName !== undefined) data.companyName = input.companyName;
     if (input.primaryBorrowerKind !== undefined) {
       data.primaryBorrowerKind = input.primaryBorrowerKind;
     }

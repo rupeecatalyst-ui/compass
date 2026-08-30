@@ -144,6 +144,9 @@ const journeyService = readFileSync(
 );
 assert.match(journeyService, /primaryBorrowerKind:\s*definition\.borrowerKind/);
 assert.doesNotMatch(journeyService, /primaryBorrowerKind:\s*"individual"/);
+assert.match(journeyService, /COMPANY_REQUIRED/);
+assert.match(journeyService, /compassSubmitMissingCompany/);
+assert.match(journeyService, /decideOpportunityBorrowerCreate|COMPASS_WEBSITE_SOURCE_CODE/);
 
 const hlLod = generateOpportunityLod({
   productLabel: "HOME_LOAN",

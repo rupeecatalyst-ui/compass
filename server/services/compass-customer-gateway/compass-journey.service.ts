@@ -30,6 +30,10 @@ import type {
 import { COMPASS_PRODUCT_TO_ENTERPRISE } from "@/types/compass-customer-gateway";
 import { getCompassProductDefinition } from "@/constants/compass-customer-gateway/product-registry";
 import { sanitizeCompassJourneyAnswers } from "@/constants/compass-customer-gateway/snapshot-answers";
+import {
+  COMPASS_WEBSITE_SOURCE_CODE,
+  compassSubmitMissingCompany,
+} from "@/constants/enterprise-opportunity/company-borrower-create";
 import { CompassJourneyError } from "./compass-journey-errors";
 import { ecmCompanyRepository } from "@server/repositories/ecm/company.repository";
 import {
@@ -293,13 +297,16 @@ export const compassJourneyService = {
         primaryContactName: contact.name,
         primaryContactMobile: contact.mobile,
         cityLabel: input.city?.trim() || null,
-        sourceCode: "website_compass",
+        sourceCode: COMPASS_WEBSITE_SOURCE_CODE,
         sourceCampaignLabel: "COMPASS Website",
         snapshot: {
           compassChannel: "website",
           compassConsentAt: new Date().toISOString(),
           compassLendingType: definition.isSecured ? "secured" : "unsecured",
           compassBorrowerKind: definition.borrowerKind,
+          ...(definition.borrowerKind === "company"
+            ? { compassPendingCompanyResolution: true }
+            : {}),
         },
         actorUserId: null,
       });
@@ -338,30 +345,24 @@ export const compassJourneyService = {
     const definition = getCompassProductDefinition(claims.productCode);
     const sanitizedAnswers = sanitizeCompassJourneyAnswers(claims.productCode, patch.answers);
     const mapped = answersToSnapshotFields(sanitizedAnswers);
-    const snapshot = {
-      ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
-      compassBorrowerFields: mapped.borrowerFields,
-      compassProductFields: mapped.productFields,
-      compassAnswers: sanitizedAnswers,
-      compassUpdatedAt: new Date().toISOString(),
-    };
-
     mapped.productFields.lendingType = definition.isSecured ? "secured" : "unsecured";
     mapped.productFields.transactionType = definition.transactionType;
 
     let companyId: string | undefined;
+    let companyName: string | undefined;
     if (definition.hasBusinessFields) {
-      const companyName = mapped.borrowerFields.companyName?.trim();
-      if (companyName) {
+      const resolvedName = mapped.borrowerFields.companyName?.trim();
+      if (resolvedName) {
         try {
           const company = await resolveRelatedCompany({
             organizationId,
             contactId: row.primaryContactId,
-            companyName,
+            companyName: resolvedName,
             constitution: mapped.borrowerFields.constitution,
             annualTurnover: mapped.borrowerFields.annualTurnoverLabel || mapped.borrowerFields.annualTurnover,
           });
           companyId = company?.id;
+          companyName = company?.companyName || resolvedName;
         } catch {
           throw new CompassJourneyError(
             "COMPANY_CREATE_FAILED",
@@ -372,13 +373,22 @@ export const compassJourneyService = {
       }
     }
 
+    const snapshot = {
+      ...(typeof row.snapshot === "object" && row.snapshot ? row.snapshot : {}),
+      compassBorrowerFields: mapped.borrowerFields,
+      compassProductFields: mapped.productFields,
+      compassAnswers: sanitizedAnswers,
+      compassUpdatedAt: new Date().toISOString(),
+      ...(companyId ? { compassPendingCompanyResolution: false } : {}),
+    };
+
     await enterpriseOpportunityRepository.updateOpportunity(organizationId, row.id, {
       snapshot,
       requestedAmount: mapped.requestedAmount,
       cityLabel: mapped.city,
       primaryBorrowerKind: definition.borrowerKind,
       employmentTypeCode: mapped.borrowerFields.employmentTypeCode || row.employmentTypeCode,
-      ...(companyId ? { companyId } : {}),
+      ...(companyId ? { companyId, companyName } : {}),
       updatedBy: "compass-customer-gateway",
     });
 
@@ -569,6 +579,19 @@ export const compassJourneyService = {
     }
     const claims = verifyCompassJourneyToken(token);
     const { organizationId, row } = await verifySessionClaims(claims);
+    const definition = getCompassProductDefinition(claims.productCode);
+    if (
+      compassSubmitMissingCompany({
+        primaryBorrowerKind: definition.borrowerKind,
+        companyId: row.companyId,
+      })
+    ) {
+      throw new CompassJourneyError(
+        "COMPANY_REQUIRED",
+        "Please provide your business name before submitting.",
+        400,
+      );
+    }
 
     if (SUBMITTED_STATUSES.has(row.lifecycleStatus)) {
       const lod = await this.getLod(token);
