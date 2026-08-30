@@ -84,7 +84,9 @@ export function DiscoveryDocumentsStep() {
                 </p>
                 <p className="mt-1 text-2xl font-semibold text-foreground">{lod.completionPercent}%</p>
               </div>
-              {lod.mandatoryPending > 0 ? (
+              {lod.items.length === 0 ? (
+                <p className="text-right text-sm text-muted-foreground">Checklist pending</p>
+              ) : lod.mandatoryPending > 0 ? (
                 <p className="text-right text-sm text-muted-foreground">
                   {lod.mandatoryPending} {c.mandatoryPending}
                 </p>
@@ -130,6 +132,12 @@ export function DiscoveryDocumentsStep() {
           </div>
 
           <div className="space-y-3">
+            {lod.items.length === 0 ? (
+              <p className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 text-sm text-muted-foreground">
+                A certified document checklist is not available for this product yet. You may
+                continue — a Rupee Catalyst advisor will confirm required documents.
+              </p>
+            ) : null}
             {lod.items.map((item) => (
               <div
                 key={item.itemId}

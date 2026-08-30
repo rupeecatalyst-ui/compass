@@ -67,6 +67,7 @@ function statusFromUpload(statusLabel: string | undefined): PartnerLodItemStatus
 export type ProjectPartnerLodOptions = {
   /** Soft display context from Recommendation Engine (does not invent documents). */
   recommendationTitle?: string | null;
+  contactChannelPolicy?: "full" | "compass_public";
 };
 
 /**
@@ -102,6 +103,7 @@ export function projectPartnerOpportunityLod(
       borrowerCategory: borrower.borrowerCategory,
       constitution: borrower.constitution,
       transactionType,
+      contactChannelPolicy: opts?.contactChannelPolicy ?? "full",
     });
 
     const docs = detail.documents ?? [];

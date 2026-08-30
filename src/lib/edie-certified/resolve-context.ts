@@ -60,6 +60,7 @@ const EDIE_PRODUCT_CODE_MAP: Record<string, EdieProductRef> = {
   UNSECURED_BUSINESS_LOAN: "product:unsecured-business-loan",
   UBL: "product:unsecured-business-loan",
   BUSINESS_LOAN: "product:unsecured-business-loan",
+  BUSINESS_LOAN_UNSECURED: "product:unsecured-business-loan",
 };
 
 const PHASE1_EXCLUDED_CODES = new Set([

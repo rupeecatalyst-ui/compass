@@ -46,6 +46,11 @@ export type DocumentRequestContextInput = {
     customerEmail?: string | null;
     customerName?: string | null;
   } | null;
+  /**
+   * COMPASS public journeys collect mobile identity, not email.
+   * Document Center remains full-channel. Skipping does not invent LOD types.
+   */
+  skipContactChannelGaps?: boolean;
 };
 
 function requiresConstitution(category: "salaried" | "self_employed" | "company"): boolean {
@@ -204,10 +209,10 @@ export function evaluateDocumentRequestLodReadiness(
   const gaps: DocumentRequestLodReadinessGap[] = [];
   const contactReadiness = resolveContactReadiness(input);
 
-  if (!input.customerName?.trim()) {
+  if (!input.skipContactChannelGaps && !input.customerName?.trim()) {
     gaps.push({ field: "customerName", label: "Customer Name" });
   }
-  if (!contactReadiness.ready) {
+  if (!input.skipContactChannelGaps && !contactReadiness.ready) {
     if (contactReadiness.missingChannels.includes("mobile")) {
       gaps.push({ field: "mobile", label: "Mobile Number" });
     }

@@ -27,7 +27,9 @@ function mapUploadStatus(status: PartnerLodItemStatus): CompassLodItemDto["uploa
 }
 
 export function projectCompassLod(detail: PartnerOpportunityDetailDto): CompassLodDto {
-  const partnerLod = projectPartnerOpportunityLod(detail);
+  const partnerLod = projectPartnerOpportunityLod(detail, {
+    contactChannelPolicy: "compass_public",
+  });
   const items: CompassLodItemDto[] = partnerLod.items.map((item) => ({
     itemId: item.typeRef,
     typeRef: item.typeRef,
@@ -47,9 +49,11 @@ export function projectCompassLod(detail: PartnerOpportunityDetailDto): CompassL
   const mandatoryPending = mandatory.filter((i) => i.uploadStatus === "missing").length;
   const uploaded = items.filter((i) => i.uploadStatus !== "missing").length;
   const completionPercent =
-    mandatory.length === 0
-      ? 100
-      : Math.round(((mandatory.length - mandatoryPending) / mandatory.length) * 100);
+    items.length === 0
+      ? 0
+      : mandatory.length === 0
+        ? 100
+        : Math.round(((mandatory.length - mandatoryPending) / mandatory.length) * 100);
 
   return {
     items,

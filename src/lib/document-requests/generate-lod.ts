@@ -51,6 +51,8 @@ export type GenerateOpportunityLodInput = {
   transactionType?: "fresh" | "balance_transfer" | null;
   /** Optional runtime case for EDIE helpers that expect LoanFile shapes */
   runtimeFile?: LoanFile | null;
+  /** COMPASS public LOD — skip Document Center email/name gates. Default full. */
+  contactChannelPolicy?: "full" | "compass_public";
 };
 
 function participantRoleLabel(participant: LoanParticipant): string {
@@ -94,15 +96,16 @@ function assertCertifiedLodContext(input: GenerateOpportunityLodInput): {
     transactionType = resolveEdieTransactionType(input.runtimeFile);
   }
 
-  const gate = evaluateDocumentRequestLodReadiness(
-    buildDocumentRequestLodContext({
+  const gate = evaluateDocumentRequestLodReadiness({
+    ...buildDocumentRequestLodContext({
       runtimeFile: input.runtimeFile,
       productLabel: input.productLabel,
       employmentType: input.employmentType,
       borrowerCategory: input.borrowerCategory,
       constitution,
     }),
-  );
+    skipContactChannelGaps: input.contactChannelPolicy === "compass_public",
+  });
 
   const product = tryResolveEdieProductRef(input.productLabel);
   const category = tryResolveEdieCustomerCategory(
