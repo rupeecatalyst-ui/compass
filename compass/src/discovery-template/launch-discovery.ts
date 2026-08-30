@@ -10,7 +10,9 @@ export function dispatchLaunchDiscovery(): void {
 }
 
 export function discoveryLaunchUrl(pathname: string): string {
-  return `${pathname}?${DISCOVERY_LAUNCH_QUERY}`;
+  const url = new URL(pathname, "https://compass.local");
+  url.searchParams.set("discovery", "launch");
+  return `${url.pathname}${url.search}`;
 }
 
 export function shouldAutoLaunchDiscovery(): boolean {

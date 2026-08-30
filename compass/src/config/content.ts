@@ -77,39 +77,6 @@ export const homepageContent = {
   },
 } as const;
 
-export const loanProducts = [
-  {
-    id: "home-loan",
-    title: "Home Loan",
-    description: "Competitive rates with guided documentation for purchase, construction, or balance transfer.",
-  },
-  {
-    id: "business-loan",
-    title: "Business Loan",
-    description: "Working capital and growth financing matched to your business cash flows and lender appetite.",
-  },
-  {
-    id: "lap",
-    title: "Loan Against Property",
-    description: "Unlock property value with structured tenure and lender options tailored to your profile.",
-  },
-  {
-    id: "working-capital",
-    title: "Working Capital",
-    description: "Short-term liquidity solutions designed for operational continuity and seasonal demand.",
-  },
-  {
-    id: "construction-finance",
-    title: "Construction Finance",
-    description: "Stage-wise disbursement support with lender coordination from approval to completion.",
-  },
-  {
-    id: "personal-loan",
-    title: "Personal Loan",
-    description: "Unsecured borrowing with eligibility clarity before you commit to an application.",
-  },
-] as const;
-
 export const aboutContent = {
   headline: "Built for clearer financial decisions",
   intro:

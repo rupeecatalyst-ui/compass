@@ -262,3 +262,118 @@ export function resolveLaunchProductCode(productPath: string): CompassProductCod
   }
   return productCodeFromRoute(productPath);
 }
+
+/** Public COMPASS routes that carry the Catalyst One product identity. */
+export const COMPASS_PRODUCT_HREFS: Record<CompassProductCode, string> = {
+  "home-loan": "/home-loan",
+  "home-loan-balance-transfer": "/home-loan?product=home-loan-balance-transfer",
+  "personal-loan": "/personal-loan",
+  "business-loan": "/business-loan",
+  "loan-against-property": "/loan-against-property",
+  "working-capital": "/working-capital",
+  "construction-finance": "/construction-finance",
+  "project-finance": "/construction-finance?product=project-finance",
+};
+
+/**
+ * Customer-facing catalog order for the Products page.
+ * Visibility is still owned by COMPASS_GATEWAY_PRODUCTS — this only ranks launched items.
+ */
+export const COMPASS_PRODUCTS_PAGE_ORDER: readonly CompassProductCode[] = [
+  "home-loan",
+  "home-loan-balance-transfer",
+  "loan-against-property",
+  "business-loan",
+  "working-capital",
+  "construction-finance",
+  "project-finance",
+  "personal-loan",
+] as const;
+
+export type CompassProductPageCopy = {
+  positioning: string;
+  benefits: readonly string[];
+};
+
+export const COMPASS_PRODUCT_PAGE_COPY: Record<CompassProductCode, CompassProductPageCopy> = {
+  "home-loan": {
+    positioning: "Find the right structure and lender for purchasing or constructing your home.",
+    benefits: [
+      "Profile-led lender matching",
+      "Guided documentation",
+      "COMPASS Advantage where eligible",
+    ],
+  },
+  "home-loan-balance-transfer": {
+    positioning:
+      "Evaluate whether transferring your existing Home Loan can meaningfully improve the structure.",
+    benefits: [
+      "Rate and tenure review",
+      "Top-up assessment where applicable",
+      "COMPASS Advantage where eligible",
+    ],
+  },
+  "loan-against-property": {
+    positioning:
+      "Unlock property value through a structure aligned with your end use and repayment capacity.",
+    benefits: ["LTV-led assessment", "Tenure structuring", "Institution-fit guidance"],
+  },
+  "business-loan": {
+    positioning: "Match business funding with turnover, cash flow and expansion requirements.",
+    benefits: [
+      "Secured/unsecured assessment",
+      "Cash-flow-based guidance",
+      "Lender appetite alignment",
+    ],
+  },
+  "working-capital": {
+    positioning:
+      "Structure operating liquidity around receivables, inventory and business cash cycles.",
+    benefits: ["CC/OD and facility assessment", "Cash-cycle alignment", "Banking-pattern guidance"],
+  },
+  "construction-finance": {
+    positioning: "Plan stage-wise project funding and disbursement around execution milestones.",
+    benefits: ["Project-stage assessment", "Tranche planning", "Construction-lender alignment"],
+  },
+  "project-finance": {
+    positioning:
+      "Align long-horizon project capital with execution, cash flows and lender appetite.",
+    benefits: [
+      "Project-stage assessment",
+      "Capital-structure guidance",
+      "Construction-lender alignment",
+    ],
+  },
+  "personal-loan": {
+    positioning: "Explore suitable unsecured borrowing through a short, clear discovery journey.",
+    benefits: ["Profile-based assessment", "Clear repayment view", "Guided application"],
+  },
+};
+
+const FUTURE_PRODUCT_SET = new Set<string>(COMPASS_FUTURE_PRODUCTS);
+
+export function isLaunchedCompassProduct(code: string): code is CompassProductCode {
+  return (COMPASS_GATEWAY_PRODUCTS as readonly string[]).includes(code) && !FUTURE_PRODUCT_SET.has(code);
+}
+
+/** Launched products only, ranked for the Products page. Future/disabled codes never appear. */
+export function listVisibleCompassProducts(): CompassProductCode[] {
+  const rank = new Map(COMPASS_PRODUCTS_PAGE_ORDER.map((code, index) => [code, index]));
+  return COMPASS_GATEWAY_PRODUCTS.filter(isLaunchedCompassProduct).slice().sort((a, b) => {
+    return (rank.get(a) ?? 100) - (rank.get(b) ?? 100);
+  });
+}
+
+export function appendDiscoveryLaunch(href: string): string {
+  const url = new URL(href, "https://compass.local");
+  url.searchParams.set("discovery", "launch");
+  return `${url.pathname}${url.search}`;
+}
+
+export function getCompassProductHref(code: CompassProductCode): string {
+  return COMPASS_PRODUCT_HREFS[code];
+}
+
+export function getCompassProductExploreHref(code: CompassProductCode): string {
+  return appendDiscoveryLaunch(getCompassProductHref(code));
+}

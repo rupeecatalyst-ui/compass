@@ -3,7 +3,8 @@ import { LoanProductsPageContent } from "@/components/pages/loan-products-page-c
 
 export const metadata: Metadata = {
   title: "Loan Products",
-  description: "Explore home loans, business loans, LAP, working capital, construction finance, and personal loans with COMPASS.",
+  description:
+    "Explore borrowing solutions designed around your goals, profile and repayment capacity—not a generic product catalogue.",
 };
 
 export default function LoanProductsPage() {
