@@ -1,8 +1,11 @@
 import type { DiscoveryAnswers } from "@/components/home-loan-experience/discovery/discovery-context";
+import {
+  getPersistedDiscoveryAnswerKeys,
+  type CompassProductCode,
+} from "@/config/compass-lending-products";
 import type {
   CompassDocumentUploadResponse,
   CompassLodDto,
-  CompassProductCode,
   CompassSubmitResponse,
   DiscoveryIntelligenceResult,
   JourneyStartResponse,
@@ -15,8 +18,8 @@ function initials(name: string): string {
   return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
-function answersPayload(answers: DiscoveryAnswers) {
-  return {
+function answersPayload(productCode: CompassProductCode, answers: DiscoveryAnswers) {
+  const raw: Record<string, string | number | boolean | undefined> = {
     propertyType: answers.propertyType,
     propertyUsage: answers.propertyUsage,
     loanAmount: answers.loanAmount,
@@ -33,17 +36,27 @@ function answersPayload(answers: DiscoveryAnswers) {
     annualTurnover: answers.annualTurnover,
     facilityType: answers.facilityType,
     projectCost: answers.projectCost,
+    currentLender: answers.currentLender,
+    outstandingLoanAmount: answers.outstandingLoanAmount,
   };
+  const allowed = new Set(getPersistedDiscoveryAnswerKeys(productCode));
+  const payload: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!allowed.has(key) || value == null) continue;
+    if (typeof value === "string" && !value.trim()) continue;
+    payload[key] = value;
+  }
+  return payload;
 }
 
-async function patchAnswers(token: string, answers: DiscoveryAnswers) {
+async function patchAnswers(token: string, productCode: CompassProductCode, answers: DiscoveryAnswers) {
   const response = await fetch("/api/journey/answers", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ answers: answersPayload(answers) }),
+    body: JSON.stringify({ answers: answersPayload(productCode, answers) }),
   });
   if (!response.ok) {
     throw new Error("Unable to save your answers.");
@@ -78,7 +91,7 @@ export async function fetchDiscoveryIntelligence(input: {
   answers: DiscoveryAnswers;
   journeySessionToken: string;
 }): Promise<DiscoveryIntelligenceResult> {
-  await patchAnswers(input.journeySessionToken, input.answers);
+  await patchAnswers(input.journeySessionToken, input.product, input.answers);
 
   const response = await fetch("/api/journey/analyze", {
     method: "POST",
@@ -121,9 +134,9 @@ export async function fetchDiscoveryIntelligence(input: {
       initials: initials(card.displayName),
       tier: card.tier,
       rank: card.rank,
-      interestRate: card.interestRateLabel || "Indicative — shared after review",
-      estimatedEmi: card.estimatedEmiLabel || "Calculated during advisor review",
-      processingTime: card.processingTimeLabel || "Subject to lender programme",
+      interestRate: card.interestRateLabel || "Not available",
+      estimatedEmi: card.estimatedEmiLabel || "Not available",
+      processingTime: card.processingTimeLabel || "Advisor-assisted",
       reasons: card.reasons,
       benefits: card.benefits,
     }),
