@@ -55,6 +55,7 @@ const HL_STEPS = [
   "monthlyIncome",
   "existingEmi",
   "city",
+  "approxCibilScore",
   "analysing",
   "advantage",
   "lenders",
@@ -77,7 +78,7 @@ type ExtraDiscoveryStepId =
   | "currentLender"
   | "outstandingLoanAmount";
 
-const TAIL = ["analysing", "lenders", "documents", "review", "confirmation"] as const;
+const TAIL = ["approxCibilScore", "analysing", "lenders", "documents", "review", "confirmation"] as const;
 
 export function getDiscoveryStepOrder(productCode: CompassProductCode): DiscoveryStepId[] {
   switch (productCode) {
@@ -96,6 +97,7 @@ export function getDiscoveryStepOrder(productCode: CompassProductCode): Discover
         "monthlyIncome",
         "existingEmi",
         "city",
+        "approxCibilScore",
         "analysing",
         "advantage",
         "lenders",
@@ -169,7 +171,14 @@ export function getDiscoveryStepOrder(productCode: CompassProductCode): Discover
 }
 
 export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode): readonly string[] {
-  const keys = new Set<string>(["loanAmount", "mobile", "otpVerified", "city"]);
+  const keys = new Set<string>([
+    "loanAmount",
+    "mobile",
+    "otpVerified",
+    "city",
+    "approxCibilScore",
+    "employmentTypeCode",
+  ]);
   switch (productCode) {
     case "home-loan":
       keys.add("propertyType");
