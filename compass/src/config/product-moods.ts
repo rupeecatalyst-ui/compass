@@ -96,7 +96,7 @@ export const productMoods: Record<ProductId, ProductMood> = {
   },
   "business-loan": {
     id: "business-loan",
-    label: "Business Loan",
+    label: "Unsecured Business Loan",
     emotion: "Growth. Expansion. Opportunity. Confidence.",
     mood: ["Executive", "Corporate", "Strategic"],
     hasAdvantageWallet: false,
@@ -134,7 +134,7 @@ export const productMoods: Record<ProductId, ProductMood> = {
   },
   "construction-finance": {
     id: "construction-finance",
-    label: "Construction Finance",
+    label: "Construction Funding",
     emotion: "Vision becoming reality. Project execution. Long-term planning.",
     mood: ["Architectural", "Premium", "Visionary"],
     hasAdvantageWallet: false,

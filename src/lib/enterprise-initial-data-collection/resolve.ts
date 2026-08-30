@@ -8,6 +8,13 @@ import type {
   IdcFieldValidation,
   IdcSectionDef,
 } from "@/types/enterprise-initial-data-collection";
+import {
+  EMPLOYMENT_TYPE_FIELD_KEY,
+  MONTHLY_INCOME_FIELD_KEY,
+  TURNOVER_CAPACITY_FIELD_KEYS,
+  isMonthlyIncomeRequired,
+  resolveMonthlyIncomeMax,
+} from "@/constants/enterprise-initial-data-collection/income-rules";
 
 export function resolveProductFieldFamily(productCode: string): string {
   const c = productCode.trim().toUpperCase();
@@ -178,11 +185,75 @@ function runValidation(
   return { ok: true };
 }
 
+function readEmploymentType(values: Record<string, string>): string {
+  return (
+    values[EMPLOYMENT_TYPE_FIELD_KEY] ||
+    values.incomeType ||
+    values.employmentType ||
+    ""
+  ).trim();
+}
+
+export function resolveIdcFieldRequired(
+  field: IdcFieldDef,
+  values: Record<string, string>,
+  options?: { fieldVisible?: boolean },
+): boolean {
+  const visible = options?.fieldVisible ?? true;
+  if (!visible) return false;
+
+  if (field.key === MONTHLY_INCOME_FIELD_KEY || field.key === "monthlyIncome") {
+    const turnoverKeys = field.notRequiredWhenFilled?.length
+      ? field.notRequiredWhenFilled
+      : [...TURNOVER_CAPACITY_FIELD_KEYS];
+    const turnoverApplicable = turnoverKeys.some((key) =>
+      Object.prototype.hasOwnProperty.call(values, key),
+    );
+    return isMonthlyIncomeRequired({
+      fieldVisible: visible,
+      employmentType: readEmploymentType(values),
+      turnoverFieldApplicable: turnoverApplicable,
+      values,
+    });
+  }
+
+  if (field.requiredWhenField) {
+    const current = (values[field.requiredWhenField] ?? "").trim();
+    const allowed = field.requiredWhenValues ?? [];
+    if (!allowed.length) return current.length > 0;
+    return allowed.includes(current);
+  }
+
+  if (field.notRequiredWhenFilled?.some((key) => (values[key] ?? "").trim().length > 0)) {
+    return false;
+  }
+
+  return Boolean(field.required);
+}
+
+function resolveIdcFieldValidation(
+  field: IdcFieldDef,
+  values: Record<string, string>,
+): IdcFieldValidation | undefined {
+  const base = field.validation;
+  if (field.key !== MONTHLY_INCOME_FIELD_KEY && field.key !== "monthlyIncome") {
+    return base;
+  }
+  return {
+    ...base,
+    min: base?.min,
+    max: resolveMonthlyIncomeMax(readEmploymentType(values)),
+  };
+}
+
 export function validateIdcFieldValue(
   field: IdcFieldDef,
   raw: string,
+  values: Record<string, string> = {},
+  options?: { fieldVisible?: boolean },
 ): IdcFieldValidationResult {
-  return runValidation(raw, field.required, field.label, field.validation);
+  const required = resolveIdcFieldRequired(field, values, options);
+  return runValidation(raw, required, field.label, resolveIdcFieldValidation(field, values));
 }
 
 export function validateIdcFields(
@@ -190,7 +261,7 @@ export function validateIdcFields(
   values: Record<string, string>,
 ): IdcFieldValidationResult {
   for (const field of fields) {
-    const result = validateIdcFieldValue(field, values[field.key] ?? "");
+    const result = validateIdcFieldValue(field, values[field.key] ?? "", values);
     if (!result.ok) return result;
   }
   return { ok: true };
@@ -211,9 +282,9 @@ export function deriveIdcSectionCompletion(
 ): IdcSectionCompletion {
   const total = section.fields.length;
   const filled = section.fields.filter((f) => (values[f.key] ?? "").trim().length > 0).length;
-  const required = section.fields.filter((f) => f.required);
+  const required = section.fields.filter((f) => resolveIdcFieldRequired(f, values));
   const requiredComplete = required.every((f) => {
-    const result = validateIdcFieldValue(f, values[f.key] ?? "");
+    const result = validateIdcFieldValue(f, values[f.key] ?? "", values);
     return result.ok && (values[f.key] ?? "").trim().length > 0;
   });
   const percent = total === 0 ? 100 : Math.round((filled / total) * 100);

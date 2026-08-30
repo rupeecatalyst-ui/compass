@@ -6,6 +6,7 @@ export const PRODUCT_COLORS: Record<string, string> = {
   "Loan Against Property": "#3B82F6",
   "Working Capital": "#F97316",
   "Business Loan (Unsecured)": "#A855F7",
+  "Unsecured Business Loan": "#A855F7",
   "Business Loan": "#A855F7",
   "Credit Card": "#6366F1",
   "Commercial Property Loan": "#0EA5E9",
@@ -13,6 +14,7 @@ export const PRODUCT_COLORS: Record<string, string> = {
   "Machinery Loan": "#64748B",
   "Plot Loan": "#84CC16",
   "Construction Finance": "#EAB308",
+  "Construction Funding": "#EAB308",
   "Personal Loan": "#EF4444",
 };
 

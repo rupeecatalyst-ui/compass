@@ -7,6 +7,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { userAdminService } from "@server/services/user-admin.service";
 import { hasOrgWideCaseVisibility } from "@/lib/enterprise-case-visibility";
+import { COMPASS_WEBSITE_SOURCE_CODE } from "@/constants/enterprise-opportunity/company-borrower-create";
 import { HIERARCHY_VISIBILITY_EXTENSION_KEY } from "@/types/assigned-users";
 import { ASSIGNED_USER_IDS_EXTENSION_KEY } from "@/types/assigned-users";
 
@@ -58,6 +59,7 @@ export async function buildOpportunityVisibilityOrFilters(
   return [
     { relationshipManagerUserId: { in: downlineIds } },
     { primaryOwnerUserId: { in: downlineIds } },
+    { sourceCode: COMPASS_WEBSITE_SOURCE_CODE },
     {
       lendingExtension: {
         path: [HIERARCHY_VISIBILITY_EXTENSION_KEY],

@@ -13,6 +13,8 @@ const CORE_KEYS = ["loanAmount", "mobile", "otpVerified", "city"] as const;
 export function compassPersistedAnswerKeys(productCode: CompassProductCode): Set<string> {
   const definition = getCompassProductDefinition(productCode);
   const keys = new Set<string>(CORE_KEYS);
+  keys.add("approxCibilScore");
+  keys.add("employmentTypeCode");
 
   if (definition.borrowerKind === "individual") {
     keys.add("incomeType");

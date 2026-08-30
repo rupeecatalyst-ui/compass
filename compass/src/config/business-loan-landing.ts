@@ -4,7 +4,7 @@ import { discoveryLaunchUrl } from "@/discovery-template/launch-discovery";
 
 export const businessLoanLanding: ProductLandingConfig = {
   hero: {
-    eyebrow: "Business Loan Coach",
+    eyebrow: "Unsecured Business Loan Coach",
     headline: "Fund growth with structure,",
     headlineAccent: "not guesswork.",
     subheadline:

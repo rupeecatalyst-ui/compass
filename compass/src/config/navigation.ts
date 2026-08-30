@@ -12,7 +12,7 @@ export const footerNavigation = {
     { label: "Borrow", href: ROUTES.BORROW },
     { label: "Invest", href: ROUTES.INVEST },
     { label: "Home Loan", href: ROUTES.HOME_LOAN },
-    { label: "Business Loan", href: ROUTES.BUSINESS_LOAN },
+    { label: "Unsecured Business Loan", href: ROUTES.BUSINESS_LOAN },
     { label: "Loan Against Property", href: ROUTES.LOAN_AGAINST_PROPERTY },
     { label: "Personal Loan", href: ROUTES.PERSONAL_LOAN },
   ],

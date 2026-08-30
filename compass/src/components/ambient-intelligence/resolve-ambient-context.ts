@@ -27,6 +27,7 @@ export function resolveAmbientContext(
       return "before-income";
     case "monthlyIncome":
     case "existingEmi":
+    case "approxCibilScore":
       return "after-income";
     case "city":
     case "analysing":

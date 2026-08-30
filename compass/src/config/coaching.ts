@@ -41,9 +41,9 @@ export const coaches = [
   },
   {
     slug: "business-loan" as const,
-    title: "Business Loan Coach",
-    shortTitle: "Business Loan",
-    eyebrow: "Business Loan Coach",
+    title: "Unsecured Business Loan Coach",
+    shortTitle: "Unsecured Business Loan",
+    eyebrow: "Unsecured Business Loan Coach",
     headline: "Fund growth with structure,",
     headlineAccent: "not guesswork.",
     subheadline:
@@ -98,9 +98,9 @@ export const coaches = [
   },
   {
     slug: "construction-finance" as const,
-    title: "Construction Finance Coach",
-    shortTitle: "Construction Finance",
-    eyebrow: "Construction Finance Coach",
+    title: "Construction Funding Coach",
+    shortTitle: "Construction Funding",
+    eyebrow: "Construction Funding Coach",
     headline: "Build in stages,",
     headlineAccent: "fund with discipline.",
     subheadline:

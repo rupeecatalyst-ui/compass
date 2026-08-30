@@ -35,6 +35,6 @@ export function mapProductToTreemapCategory(product: string): ProductTreemapCate
   if (product === "Loan Against Property") return "LAP";
   if (product === "Personal Loan") return "Personal Loan";
   if (product === "Working Capital") return "Working Capital";
-  if (product === "Construction Finance") return "Construction Finance";
+  if (product === "Construction Finance" || product === "Construction Funding") return "Construction Finance";
   return "Others";
 }

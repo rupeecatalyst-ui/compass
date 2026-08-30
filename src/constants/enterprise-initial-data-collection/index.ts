@@ -4,3 +4,16 @@ export {
   ENTERPRISE_IDC_DETAIL_SECTIONS,
   getEnterpriseIdcCatalog,
 } from "./catalog";
+export {
+  MONTHLY_INCOME_FIELD_KEY,
+  EMPLOYMENT_TYPE_FIELD_KEY,
+  ANNUAL_TURNOVER_FIELD_KEY,
+  MONTHLY_INCOME_MIN,
+  SALARIED_EMPLOYMENT_TYPE_CODES,
+  SALARIED_MONTHLY_INCOME_MAX,
+  SELF_EMPLOYED_EMPLOYMENT_TYPE_CODES,
+  SELF_EMPLOYED_MONTHLY_INCOME_MAX,
+  isMonthlyIncomeRequired,
+  resolveMonthlyIncomeMax,
+  formatInrCeilingLabel,
+} from "./income-rules";

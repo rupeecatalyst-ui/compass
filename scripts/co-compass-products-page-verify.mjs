@@ -11,12 +11,14 @@ const root = process.cwd();
 const {
   COMPASS_ACTIVE_PRODUCT_CODES,
   COMPASS_FUTURE_PRODUCT_CODES,
+  getCompassProductDefinition,
 } = await import("../src/constants/compass-customer-gateway/product-registry.ts");
 
 const {
   COMPASS_FUTURE_PRODUCTS,
   COMPASS_GATEWAY_PRODUCTS,
   COMPASS_PRODUCT_HREFS,
+  COMPASS_PRODUCT_LABELS,
   COMPASS_PRODUCT_PAGE_COPY,
   COMPASS_PRODUCTS_PAGE_ORDER,
   getCompassProductExploreHref,
@@ -78,6 +80,13 @@ assert.match(
   /product=project-finance/,
 );
 
+assert.equal(COMPASS_PRODUCT_LABELS["home-loan"], "New Home Loan");
+assert.equal(COMPASS_PRODUCT_LABELS["business-loan"], "Unsecured Business Loan");
+assert.equal(COMPASS_PRODUCT_LABELS["construction-finance"], "Construction Funding");
+assert.equal(getCompassProductDefinition("business-loan").enterpriseProductCode, "BUSINESS_LOAN_UNSECURED");
+assert.equal(getCompassProductDefinition("business-loan").productLabel, "Unsecured Business Loan");
+assert.equal(getCompassProductDefinition("construction-finance").enterpriseProductCode, "CONSTRUCTION_FINANCE");
+assert.equal(getCompassProductDefinition("construction-finance").productLabel, "Construction Funding");
 assert.equal(productShowsAdvantage("home-loan"), true);
 assert.equal(productShowsAdvantage("home-loan-balance-transfer"), true);
 assert.equal(productShowsAdvantage("personal-loan"), false);

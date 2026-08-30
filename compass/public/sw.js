@@ -1,5 +1,5 @@
 /* COMPASS PWA service worker — public assets only. Never cache API or customer data. */
-const CACHE_VERSION = "compass-pwa-2026-08-29";
+const CACHE_VERSION = "compass-pwa-2026-08-30";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 

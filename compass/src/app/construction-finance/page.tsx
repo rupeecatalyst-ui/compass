@@ -5,11 +5,11 @@ const description =
   "Construction finance with discipline — stage-wise disbursement, project-aligned funding, and visionary planning.";
 
 export const metadata: Metadata = {
-  title: "Construction Finance Coach",
+  title: "Construction Funding Coach",
   description,
   alternates: { canonical: "/construction-finance" },
   openGraph: {
-    title: "Construction Finance Coach | COMPASS",
+    title: "Construction Funding Coach | COMPASS",
     description,
     url: "/construction-finance",
   },

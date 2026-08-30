@@ -45,7 +45,7 @@ export const LIVING_COMPASS_DIRECTION_LABELS: Record<
 > = {
   HOME_LOAN: "Home Loan",
   HOME_LOAN_BT: "Home Loan Balance Transfer",
-  BUSINESS_LOAN: "Business Loan",
+  BUSINESS_LOAN: "Unsecured Business Loan",
   WORKING_CAPITAL: "Working Capital",
   LOAN_AGAINST_PROPERTY: "Loan Against Property",
   PERSONAL_LOAN: "Personal Loan",

@@ -45,7 +45,7 @@ export const PROGRESS_NARRATIVE_FLOWS: Record<ProgressNarrativeFlowId, ProgressN
   },
   BUSINESS_LOAN: {
     id: "BUSINESS_LOAN",
-    title: "Business Loan",
+    title: "Unsecured Business Loan",
     headline: "Finding the right funding direction...",
     direction: "BUSINESS_LOAN",
     stepIntervalMs: PROGRESS_NARRATIVE_TIMING.defaultStepIntervalMs,

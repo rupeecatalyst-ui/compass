@@ -61,7 +61,7 @@ export const borrowCategories: readonly BorrowNavCategory[] = [
     products: [
       { id: "business-loan", label: "Unsecured Business Loan", href: ROUTES.BUSINESS_LOAN },
       { id: "working-capital", label: "Working Capital Loan", href: ROUTES.WORKING_CAPITAL },
-      { id: "construction-finance", label: "Construction Finance", href: ROUTES.CONSTRUCTION_FINANCE },
+      { id: "construction-finance", label: "Construction Funding", href: ROUTES.CONSTRUCTION_FINANCE },
       {
         id: "project-finance",
         label: "Project Finance",

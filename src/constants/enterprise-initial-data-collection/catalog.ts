@@ -7,8 +7,15 @@
  */
 
 import type { IdcCatalog, IdcSectionDef } from "@/types/enterprise-initial-data-collection";
+import {
+  ANNUAL_TURNOVER_FIELD_KEY,
+  EMPLOYMENT_TYPE_FIELD_KEY,
+  MONTHLY_INCOME_FIELD_KEY,
+  MONTHLY_INCOME_MIN,
+  SELF_EMPLOYED_MONTHLY_INCOME_MAX,
+} from "@/constants/enterprise-initial-data-collection/income-rules";
 
-export const ENTERPRISE_IDC_VERSION = "CO-WP-IDC-002";
+export const ENTERPRISE_IDC_VERSION = "CO-WP-IDC-003";
 
 /** Progressive Contact — Primary Applicant minimum + optional city. */
 export const ENTERPRISE_IDC_CUSTOMER_CAPTURE = {
@@ -100,14 +107,22 @@ export const ENTERPRISE_IDC_DETAIL_SECTIONS: IdcSectionDef[] = [
         visibleWhenValues: ["self-employed-professional", "self-employed-business"],
       },
       {
-        key: "monthlyIncomeLabel",
+        key: MONTHLY_INCOME_FIELD_KEY,
         label: "Monthly Income",
-        control: "text",
+        control: "number",
         placeholder: "₹ amount",
-        helpText: "Approximate monthly income.",
+        helpText:
+          "Approximate monthly income in Indian Rupees. Required for salaried applicants. Not required when self-employed turnover is the financial-capacity input.",
         required: false,
         displayOrder: 40,
         inputMode: "decimal",
+        requiredWhenField: EMPLOYMENT_TYPE_FIELD_KEY,
+        requiredWhenValues: ["salaried"],
+        notRequiredWhenFilled: [ANNUAL_TURNOVER_FIELD_KEY, "annualTurnover"],
+        validation: {
+          min: MONTHLY_INCOME_MIN,
+          max: SELF_EMPLOYED_MONTHLY_INCOME_MAX,
+        },
       },
     ],
   },

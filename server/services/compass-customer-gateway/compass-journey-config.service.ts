@@ -4,6 +4,12 @@
  */
 import {
   ENTERPRISE_IDC_VERSION,
+  EMPLOYMENT_TYPE_FIELD_KEY,
+  MONTHLY_INCOME_FIELD_KEY,
+  SALARIED_EMPLOYMENT_TYPE_CODES,
+  SALARIED_MONTHLY_INCOME_MAX,
+  SELF_EMPLOYED_EMPLOYMENT_TYPE_CODES,
+  SELF_EMPLOYED_MONTHLY_INCOME_MAX,
 } from "@/constants/enterprise-initial-data-collection";
 import { resolveVisibleIdcSections } from "@/lib/enterprise-initial-data-collection";
 import type { IdcFieldDef } from "@/types/enterprise-initial-data-collection";
@@ -22,6 +28,17 @@ import { buildPartnerOpportunityJourneyConfig } from "@server/services/partner-g
 
 function compassOtpEnabled(): boolean {
   return process.env.COMPASS_OTP_ENABLED === "true";
+}
+
+function monthlyIncomeMaxWhenMap(): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const code of SALARIED_EMPLOYMENT_TYPE_CODES) {
+    map[code] = SALARIED_MONTHLY_INCOME_MAX;
+  }
+  for (const code of SELF_EMPLOYED_EMPLOYMENT_TYPE_CODES) {
+    map[code] = SELF_EMPLOYED_MONTHLY_INCOME_MAX;
+  }
+  return map;
 }
 
 function mapControlType(field: IdcFieldDef): CompassJourneyFieldType {
@@ -48,6 +65,7 @@ function mapIdcField(
     : undefined;
 
   const isRequestedAmount = field.key === "requestedAmountLabel" || field.key === "loanAmount";
+  const isMonthlyIncome = field.key === MONTHLY_INCOME_FIELD_KEY || field.key === "monthlyIncome";
   const requestedMax = isRequestedAmount
     ? getApprovedMaxRequestedAmountRupees(enterpriseProductCode)
     : null;
@@ -65,6 +83,11 @@ function mapIdcField(
     max: isRequestedAmount ? requestedMax ?? undefined : field.validation?.max,
     visibleWhenField: field.visibleWhenField,
     visibleWhenValues: field.visibleWhenValues,
+    requiredWhenField: field.requiredWhenField,
+    requiredWhenValues: field.requiredWhenValues,
+    notRequiredWhenFilled: field.notRequiredWhenFilled,
+    maxWhenField: isMonthlyIncome ? field.requiredWhenField || EMPLOYMENT_TYPE_FIELD_KEY : undefined,
+    maxWhenMap: isMonthlyIncome ? monthlyIncomeMaxWhenMap() : undefined,
   };
 }
 

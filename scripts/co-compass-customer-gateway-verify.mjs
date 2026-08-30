@@ -74,8 +74,7 @@ assert.match(read("src/constants/compass-customer-gateway/product-registry.ts"),
 assert.match(compassSite, /98219 84181/);
 assert.match(compassSite, /champion@rupeecatalyst.com/);
 assert.doesNotMatch(compassLayout, /localhost:3001/);
-assert.match(advantageService, /not_available/);
-assert.match(advantageService, /status:\s*"not_available"/);
+assert.match(advantageService, /computeEnterpriseCompassAdvantage/);
 assert.doesNotMatch(advantageService, /0\.0045|0\.0055|150000|ltvFactor|incomeFactor|baseRate/);
 assert.match(journeyService, /COMPANY_REQUIRED/);
 assert.match(journeyService, /compassSubmitMissingCompany/);

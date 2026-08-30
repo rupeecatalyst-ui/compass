@@ -3,6 +3,7 @@ export {
   resolveVisibleIdcSections,
   isIdcFieldVisible,
   applyIdcFieldDefaults,
+  resolveIdcFieldRequired,
   validateIdcFieldValue,
   validateIdcFields,
   deriveIdcSectionCompletion,

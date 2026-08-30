@@ -1,13 +1,9 @@
 /**
- * COMPASS Advantage — Catalyst One projection only.
- * No gateway-local commercial arithmetic. Returns not_available until C1 engine exists.
+ * COMPASS Advantage — gateway projection of the Catalyst One engine.
+ * No gateway-local commercial arithmetic.
  */
+import { computeEnterpriseCompassAdvantage } from "@/lib/compass-advantage";
 import type { CompassAdvantageDto, CompassProductCode } from "@/types/compass-customer-gateway";
-import { getCompassProductDefinition } from "@/constants/compass-customer-gateway/product-registry";
-
-function isAdvantageProduct(productCode: CompassProductCode): boolean {
-  return getCompassProductDefinition(productCode).advantageEnabled;
-}
 
 export function computeCompassAdvantage(input: {
   productCode: CompassProductCode;
@@ -17,28 +13,5 @@ export function computeCompassAdvantage(input: {
   propertyType?: "ready" | "construction";
   existingEmi?: number;
 }): CompassAdvantageDto {
-  if (!isAdvantageProduct(input.productCode)) {
-    return {
-      eligible: false,
-      status: "not_available",
-      title: "Not applicable",
-      amount: null,
-      amountFormatted: null,
-      disclaimer: "COMPASS Advantage applies only to New Home Loan and Home Loan Balance Transfer.",
-      productCode: input.productCode,
-      dtoSource: "enterprise_compass_advantage",
-    };
-  }
-
-  return {
-    eligible: false,
-    status: "not_available",
-    title: "COMPASS Advantage",
-    amount: null,
-    amountFormatted: null,
-    disclaimer:
-      "COMPASS Advantage is calculated by Catalyst One when the enterprise commercial engine is configured for your application. An indicative amount is not available at this stage.",
-    productCode: input.productCode,
-    dtoSource: "enterprise_compass_advantage",
-  };
+  return computeEnterpriseCompassAdvantage(input);
 }

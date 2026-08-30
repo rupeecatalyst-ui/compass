@@ -29,10 +29,10 @@ export const COMPASS_PRODUCT_LABELS: Record<CompassProductCode, string> = {
   "home-loan": "New Home Loan",
   "home-loan-balance-transfer": "Home Loan Balance Transfer",
   "personal-loan": "Personal Loan",
-  "business-loan": "Business Loan",
+  "business-loan": "Unsecured Business Loan",
   "loan-against-property": "Loan Against Property",
   "working-capital": "Working Capital",
-  "construction-finance": "Construction Finance",
+  "construction-finance": "Construction Funding",
   "project-finance": "Project Finance",
 };
 

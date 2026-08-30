@@ -46,6 +46,11 @@ export type IdcFieldDef = {
   /** Field-level conditional visibility (same value bags). */
   visibleWhenField?: string;
   visibleWhenValues?: string[];
+  /** When set, required only if `visibleWhenField` counterpart matches these values. */
+  requiredWhenField?: string;
+  requiredWhenValues?: string[];
+  /** If any of these keys have a supplied value, this field is not required. */
+  notRequiredWhenFilled?: string[];
 };
 
 export type IdcSectionDef = {
