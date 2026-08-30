@@ -78,6 +78,8 @@ assert.match(advantageService, /not_available/);
 assert.match(advantageService, /status:\s*"not_available"/);
 assert.doesNotMatch(advantageService, /0\.0045|0\.0055|150000|ltvFactor|incomeFactor|baseRate/);
 assert.match(journeyService, /website_compass/);
+assert.match(journeyService, /sanitizeCompassJourneyAnswers/);
+assert.match(journeyService, /primaryBorrowerKind:\s*definition\.borrowerKind/);
 assert.match(journeyService, /projectCompassRecommendations/);
 assert.match(journeyService, /projectCompassLod/);
 assert.match(journeyService, /customer_portal|CUSTOMER_PORTAL_UPLOAD_SOURCE/);

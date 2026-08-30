@@ -113,6 +113,7 @@ async function resolveOpportunity(orgId, oppRef) {
       requestedAmount: true,
       sourceCode: true,
       companyId: true,
+      primaryBorrowerKind: true,
       transactionType: true,
       cityLabel: true,
     },
@@ -750,6 +751,21 @@ async function main() {
     if (row.sourceCode !== "website_compass") fail(`${tag} source`, row.sourceCode);
     if (!row.primaryContactId) fail(`${tag} contact relation`, "missing primaryContactId");
     if (opts.expectCompany && !row.companyId) fail(`${tag} company relation`, "missing companyId");
+    if (opts.expectCompany && row.primaryBorrowerKind !== "company") {
+      fail(`${tag} borrower kind`, row.primaryBorrowerKind);
+    }
+    if (!opts.expectCompany && row.primaryBorrowerKind && row.primaryBorrowerKind !== "individual") {
+      fail(`${tag} borrower kind`, row.primaryBorrowerKind);
+    }
+    const answers =
+      row.snapshot && typeof row.snapshot === "object" ? row.snapshot.compassAnswers || {} : {};
+    if (tag === "PL" && (answers.projectCost != null || answers.annualTurnover != null || answers.propertyValue != null)) {
+      fail(`${tag} snapshot pollution`, JSON.stringify(answers));
+    }
+    if (tag === "BL" && answers.projectCost != null) fail(`${tag} snapshot pollution`, "projectCost");
+    if ((tag === "CF" || tag === "PF") && answers.projectCost == null) {
+      fail(`${tag} projectCost missing`, JSON.stringify(answers));
+    }
     pass(`${tag} database mapping`, row.productCode);
   }
 
@@ -771,6 +787,42 @@ async function main() {
     fail("HL/HLBT collision", "same opportunity ref");
   }
   pass("HL/HLBT separation");
+
+  const hlbtRow = await resolveOpportunity(org.id, evidence.hlbt.oppRef);
+  const hlbtAnswers =
+    hlbtRow?.snapshot && typeof hlbtRow.snapshot === "object"
+      ? hlbtRow.snapshot.compassAnswers || {}
+      : {};
+  const hlbtProduct =
+    hlbtRow?.snapshot && typeof hlbtRow.snapshot === "object"
+      ? hlbtRow.snapshot.compassProductFields || {}
+      : {};
+  if (!hlbtAnswers.currentLender && !hlbtProduct.currentLender && !hlbtProduct.currentLendingInstitution) {
+    fail("HLBT current lender persistence", JSON.stringify(hlbtAnswers));
+  }
+  if (
+    hlbtAnswers.outstandingLoanAmount == null &&
+    hlbtProduct.outstandingLoanAmount == null &&
+    hlbtProduct.outstandingLoanAmountLabel == null
+  ) {
+    fail("HLBT outstanding persistence", JSON.stringify(hlbtAnswers));
+  }
+  if (hlbtRow?.productCode !== "HOME_LOAN_BT") fail("HLBT mapping", hlbtRow?.productCode);
+  if (hlbtAnswers.annualTurnover != null || hlbtAnswers.projectCost != null) {
+    fail("HLBT snapshot pollution", JSON.stringify(hlbtAnswers));
+  }
+  pass("HLBT transfer fields persisted");
+
+  const hlRow = await resolveOpportunity(org.id, evidence.hl.oppRef);
+  const hlAnswers =
+    hlRow?.snapshot && typeof hlRow.snapshot === "object" ? hlRow.snapshot.compassAnswers || {} : {};
+  if (hlAnswers.currentLender || hlAnswers.outstandingLoanAmount) {
+    fail("HL must not collect BT fields", JSON.stringify(hlAnswers));
+  }
+  if (hlAnswers.annualTurnover != null || hlAnswers.projectCost != null) {
+    fail("HL snapshot pollution", JSON.stringify(hlAnswers));
+  }
+  pass("HL snapshot product-aware");
 
   const oppHlbt = await resolveOpportunity(org.id, evidence.hlbt.oppRef);
   evidence.uploadRejection = await proveUploadRejection(

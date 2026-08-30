@@ -80,4 +80,13 @@ assert.equal(bl.borrowerKind, "company");
 assert.equal(bl.isSecured, false);
 assert.equal(lap.isSecured, true);
 
+const { getDiscoveryStepOrder } = await import("../compass/src/config/compass-lending-products.ts");
+const hlSteps = getDiscoveryStepOrder("home-loan");
+const hlbtSteps = getDiscoveryStepOrder("home-loan-balance-transfer");
+assert.equal(hlSteps.includes("currentLender"), false);
+assert.equal(hlSteps.includes("outstandingLoanAmount"), false);
+assert.equal(hlbtSteps.includes("currentLender"), true);
+assert.equal(hlbtSteps.includes("outstandingLoanAmount"), true);
+assert.notDeepEqual(hlSteps, hlbtSteps);
+
 console.log("CO-COMPASS-PRODUCT-ROUTING verify: PASS");
