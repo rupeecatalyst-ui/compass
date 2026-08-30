@@ -2,7 +2,14 @@ import Link from "next/link";
 import { CompassLogo } from "@/components/branding/compass-logo";
 import { SectionContainer } from "@/components/marketing/section-container";
 import { footerNavigation } from "@/config/navigation";
-import { siteConfig } from "@/config/site";
+import { publicWhatsAppHref, siteConfig } from "@/config/site";
+import {
+  PUBLIC_WHATSAPP_LINK_REL,
+  PUBLIC_WHATSAPP_LINK_TARGET,
+} from "@/lib/public-whatsapp";
+
+const footerLinkClass =
+  "text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm";
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
@@ -16,6 +23,9 @@ export function SiteFooter() {
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
               {siteConfig.tagline} — the customer platform from {siteConfig.company}.
             </p>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              {siteConfig.officeAddress}
+            </p>
           </div>
 
           <div>
@@ -23,7 +33,7 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2.5">
               {footerNavigation.products.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+                  <Link href={link.href} className={footerLinkClass}>
                     {link.label}
                   </Link>
                 </li>
@@ -36,7 +46,7 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2.5">
               {footerNavigation.company.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+                  <Link href={link.href} className={footerLinkClass}>
                     {link.label}
                   </Link>
                 </li>
@@ -45,21 +55,36 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Resources</h3>
+            <h3 className="text-sm font-semibold text-foreground">Get in touch</h3>
             <ul className="mt-4 space-y-2.5">
-              {footerNavigation.resources.map((link) => (
-                <li key={link.label}>
-                  <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <a href={siteConfig.telHref} className={footerLinkClass}>
+                  Call · {siteConfig.contactPhone}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={publicWhatsAppHref}
+                  target={PUBLIC_WHATSAPP_LINK_TARGET}
+                  rel={PUBLIC_WHATSAPP_LINK_REL}
+                  className={footerLinkClass}
+                >
+                  WhatsApp
+                </a>
+              </li>
+              <li>
+                <a href={siteConfig.mailtoHref} className={`${footerLinkClass} break-all`}>
+                  Email · {siteConfig.contactEmail}
+                </a>
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="mt-12 flex flex-col gap-2 border-t border-border/50 pt-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>© {year} {siteConfig.company}. All rights reserved.</p>
+          <p>
+            © {year} {siteConfig.company}. All rights reserved.
+          </p>
           <p>
             <span className="font-medium text-foreground">{siteConfig.name}</span>
             <span className="mx-2 opacity-40">·</span>

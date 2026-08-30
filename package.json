@@ -293,6 +293,7 @@
     "verify:co-org-007": "node scripts/co-org-007-verify.mjs",
     "verify:co-org-008": "node scripts/co-org-008-verify.mjs",
     "verify:co-ccc-001": "node scripts/co-ccc-001-verify.mjs",
+    "verify:co-compass-contact-information": "node --import tsx scripts/co-compass-contact-information-verify.mjs",
     "arch:chanakya-day-night:verify": "node scripts/co-arch-007-chanakya-intelligence-verify.mjs",
     "lender:activate-operational": "tsx --env-file=.env.local scripts/co-lender-activate-operational.ts",
     "lender:activate-operational:apply": "tsx --env-file=.env.local scripts/co-lender-activate-operational.ts --apply",

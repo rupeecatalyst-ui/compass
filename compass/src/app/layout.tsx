@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteLayout } from "@/components/layout/site-layout";
+import { OrganizationJsonLd } from "@/components/seo/organization-json-ld";
 import { pwaConfig } from "@/config/pwa";
 import { siteConfig } from "@/config/site";
 import "./globals.css";
@@ -75,6 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+        <OrganizationJsonLd />
         <SiteLayout>{children}</SiteLayout>
       </body>
     </html>

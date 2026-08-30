@@ -52,7 +52,15 @@ export function DiscoveryConfirmationStep() {
         <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
           <li>Our team will review your application and contact you on your registered mobile.</li>
           <li>
-            You can reach us at {siteConfig.contactPhone} or {siteConfig.contactEmail} for updates.
+            You can reach us at{" "}
+            <a href={siteConfig.telHref} className="text-foreground underline-offset-4 hover:underline">
+              {siteConfig.contactPhone}
+            </a>{" "}
+            or{" "}
+            <a href={siteConfig.mailtoHref} className="text-foreground underline-offset-4 hover:underline">
+              {siteConfig.contactEmail}
+            </a>{" "}
+            for updates.
           </li>
           {submissionResult.pendingItems.length > 0 ? (
             <li>{submissionResult.pendingItems.join(" · ")}</li>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { CompassLogo } from "@/components/branding/compass-logo";
+import { PublicContactActions } from "@/components/contact/public-contact-actions";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ctaCopy } from "@/config/cta";
@@ -97,6 +98,9 @@ export function SiteHeader() {
                   {ctaCopy.primary.getStarted}
                 </Link>
               </Button>
+              <div className="mt-8 border-t border-border/50 pt-6">
+                <PublicContactActions className="flex-col items-start gap-3" />
+              </div>
             </nav>
           </SheetContent>
         </Sheet>

@@ -20,7 +20,7 @@ export const footerNavigation = {
     { label: "About", href: ROUTES.ABOUT },
     { label: "Contact", href: ROUTES.CONTACT },
     { label: "Privacy Policy", href: ROUTES.PRIVACY },
-    { label: "Terms & Conditions", href: ROUTES.TERMS },
+    { label: "Terms and Conditions", href: ROUTES.TERMS },
     { label: "Disclaimer", href: ROUTES.DISCLAIMER },
   ],
   resources: [

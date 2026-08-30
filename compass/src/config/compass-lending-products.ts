@@ -66,6 +66,7 @@ const HL_STEPS = [
 export type DiscoveryStepId = (typeof HL_STEPS)[number] | ExtraDiscoveryStepId;
 
 type ExtraDiscoveryStepId =
+  | "approxCibilScore"
   | "propertyUsage"
   | "loanPurpose"
   | "companyName"

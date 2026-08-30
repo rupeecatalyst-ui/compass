@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { ContactPageContent } from "@/components/pages/contact-page-content";
+import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Get in touch with the COMPASS team about your borrowing needs.",
+  description: `Call, WhatsApp or email ${siteConfig.company} — ${siteConfig.officeAddress}.`,
 };
 
 export default function ContactPage() {

@@ -97,6 +97,9 @@ if (!fs.existsSync(offlineHtml)) {
     <h1>You're offline</h1>
     <p>COMPASS needs an internet connection for applications, documents and personalised guidance. Public information will load when you're back online.</p>
     <p><a href="/">Try again</a></p>
+    <p>Call <a href="tel:+919821984181">+91 98219 84181</a><br />
+    Email <a href="mailto:champion@rupeecatalyst.com">champion@rupeecatalyst.com</a><br />
+    B724, Jaswanti Allied Business Centre, Malad West, Mumbai – 400064</p>
   </div>
 </body>
 </html>`,

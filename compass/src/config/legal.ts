@@ -77,7 +77,7 @@ export const legalContent = {
       },
       {
         heading: "Contact",
-        body: `Questions about these terms: ${siteConfig.contactEmail} · ${siteConfig.contactPhone}.`,
+        body: `Questions about these terms: ${siteConfig.contactEmail} · ${siteConfig.contactPhone}. Office: ${siteConfig.officeAddress}.`,
       },
     ],
   },

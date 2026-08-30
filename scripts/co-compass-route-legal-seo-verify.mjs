@@ -22,6 +22,11 @@ const borrow = readFileSync(join(root, "compass/src/config/borrow-navigation.ts"
 
 assert.match(site, /98219 84181/);
 assert.match(site, /champion@rupeecatalyst.com/);
+assert.match(site, /B724, Jaswanti Allied Business Centre, Malad West, Mumbai – 400064/);
+assert.match(site, /tel:\+919821984181/);
+assert.doesNotMatch(site, /hello@rupeecatalyst\.com/);
+assert.doesNotMatch(site, /98765/);
+assert.doesNotMatch(site, /Mumbai, India/);
 assert.doesNotMatch(layout, /localhost:3001/);
 assert.match(borrow, /future:\s*true/);
 
