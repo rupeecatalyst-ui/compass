@@ -1,7 +1,6 @@
 /**
- * CO-NOTIFICATION-001 / CO-PRODUCTION-UX-STABILIZATION-013
- * Browser-session toast presentation memory + presentation-only queue ordering.
- * Does NOT mutate notification registry read state or unread counts.
+ * Toast presentation queue ordering.
+ * SessionStorage helpers below are NOT the toast delivery SSOT (server toastPresentedAt is).
  */
 
 import { ENE_EVENT_TYPES } from "@/constants/enterprise-notification-engine";

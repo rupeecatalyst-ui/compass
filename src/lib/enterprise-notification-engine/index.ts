@@ -1,6 +1,7 @@
 export {
   listEnterpriseNotifications,
   markEnterpriseNotificationRead,
+  claimPendingToastNotifications,
   fetchNotificationSoundPreference,
   saveNotificationSoundPreference,
   readLocalSoundPreference,
@@ -15,6 +16,12 @@ export {
   rememberEneNotifications,
   subscribeEneUpdated,
 } from "./session-registry";
+export {
+  toastPresentationPriority,
+  sortNotificationsForToastQueue,
+  sortNotificationsNewestFirst,
+} from "./toast-queue-session";
+export { claimToastRows, pickUnpresentedToastIds, simulateTwoTabToastClaim } from "./toast-claim";
 export {
   buildExplicitAssigneeRecipients,
   buildRecipientRows,

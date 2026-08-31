@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * CO-NOTIFICATION-001 / CO-NOTIFICATION-001B / CO-PRODUCTION-UX-STABILIZATION-013
+ * CO-NOTIFICATION-001 / CO-NOTIFICATION-001B / toast at-most-once
  * CHANAKYA Enterprise Notification toast host.
  * Visual: CHANAKYA portrait identity · mandatory premium dark card · bottom-right.
- * Presentation only: ONE active toast · internal priority queue · never covers workspace chrome.
- * Does not alter registry, unread counts, history, or fan-out architecture.
+ * Toast delivery is claimed server-side once per recipient. Does not mark read.
+ * Does not rebuild the queue from the Notification Centre unread list.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -26,18 +26,15 @@ import {
   ENE_SOUND_THROTTLE_MS,
   ENE_TAB_CHANNEL,
   ENE_TOAST_AUTO_DISMISS_MS,
+  ENE_TOAST_CLAIM_LIMIT,
 } from "@/constants/enterprise-notification-engine";
 import {
+  claimPendingToastNotifications,
   fetchNotificationSoundPreference,
-  listEnterpriseNotifications,
   markEnterpriseNotificationRead,
   saveNotificationSoundPreference,
 } from "@/lib/enterprise-notification-engine";
-import {
-  loadPresentedToastIds,
-  rememberPresentedToastId,
-  sortNotificationsForToastQueue,
-} from "@/lib/enterprise-notification-engine/toast-queue-session";
+import { sortNotificationsForToastQueue } from "@/lib/enterprise-notification-engine/toast-queue-session";
 import type { EnterpriseNotificationItem } from "@/types/enterprise-notification-engine";
 import { cn } from "@/lib/utils";
 
@@ -104,14 +101,11 @@ export function EnterpriseNotificationHost() {
   const channelRef = useRef<BroadcastChannel | null>(null);
   const dismissTimer = useRef<number | null>(null);
   const showNextFromQueueRef = useRef<() => void>(() => undefined);
+  const pollInFlightRef = useRef(false);
 
   useEffect(() => {
     activeToastRef.current = activeToast;
   }, [activeToast]);
-
-  useEffect(() => {
-    presentedIdsRef.current = loadPresentedToastIds();
-  }, []);
 
   useEffect(() => {
     void fetchNotificationSoundPreference().then(setSoundEnabled);
@@ -187,7 +181,6 @@ export function EnterpriseNotificationHost() {
 
   const activateToast = useCallback(
     (item: ToastItem) => {
-      rememberPresentedToastId(item.id);
       presentedIdsRef.current.add(item.id);
       sessionSeenIds.current.add(item.id);
       setActiveToast(item);
@@ -272,11 +265,14 @@ export function EnterpriseNotificationHost() {
 
   const poll = useCallback(async () => {
     if (!isAuthenticated || !user?.id) return;
-    const items = await listEnterpriseNotifications(
-      { limit: 20, unreadOnly: true },
-      user.id,
-    );
-    enqueueNotifications(items);
+    if (pollInFlightRef.current) return;
+    pollInFlightRef.current = true;
+    try {
+      const items = await claimPendingToastNotifications(ENE_TOAST_CLAIM_LIMIT);
+      enqueueNotifications(items);
+    } finally {
+      pollInFlightRef.current = false;
+    }
   }, [enqueueNotifications, isAuthenticated, user?.id]);
 
   useEffect(() => {

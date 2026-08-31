@@ -75,6 +75,7 @@ function softUpsert(rows: EneCreateRow[]): EnterpriseNotificationItem[] {
       href: row.href,
       readState: "UNREAD",
       readAt: null,
+      toastPresentedAt: null,
       occurredAt: row.occurredAt.toISOString(),
       createdAt: new Date().toISOString(),
     };
@@ -238,6 +239,44 @@ export const enterpriseNotificationService = {
       organizationId,
       partnerId: input.partnerId,
     });
+  },
+
+  async claimPendingToastsForUser(input: {
+    userId: string;
+    organizationId?: string;
+    limit?: number;
+  }): Promise<EnterpriseNotificationItem[]> {
+    const organizationId = await resolveOrganizationId(input.organizationId);
+    if (!this.isDurable()) {
+      const now = new Date().toISOString();
+      const pending = [...softStore.values()].filter(
+        (n) =>
+          n.organizationId === organizationId &&
+          n.recipientKind === "user" &&
+          n.recipientUserId === input.userId &&
+          n.toastPresentedAt == null,
+      );
+      const claimed = pending
+        .sort(
+          (a, b) =>
+            new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+        )
+        .slice(0, input.limit ?? 20);
+      for (const row of claimed) {
+        const next = { ...row, toastPresentedAt: now };
+        softStore.set(row.id, next);
+      }
+      return claimed.map((row) => softStore.get(row.id)!);
+    }
+    try {
+      return await enterpriseNotificationRepository.claimPendingToastsForUser({
+        organizationId,
+        userId: input.userId,
+        limit: input.limit,
+      });
+    } catch {
+      return [];
+    }
   },
 };
 

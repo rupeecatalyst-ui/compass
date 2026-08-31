@@ -6,12 +6,15 @@ import type { EnterpriseNotificationEventType } from "@/types/enterprise-notific
 
 export const ENE_API_PATH = "/api/enterprise-notifications";
 export const ENE_PREFS_API_PATH = "/api/enterprise-notifications/preferences";
+export const ENE_TOAST_CLAIM_API_PATH = "/api/enterprise-notifications/toast-claim";
 
 /** Approved Product Owner chime (public asset). */
 export const ENE_CHIME_PUBLIC_PATH = "/sounds/catalyst_one_notification_chime.wav";
 
 export const ENE_TOAST_AUTO_DISMISS_MS = 10_000;
 export const ENE_POLL_INTERVAL_MS = 25_000;
+/** Max unpresented toasts claimed in one atomic request. */
+export const ENE_TOAST_CLAIM_LIMIT = 20;
 export const ENE_SOUND_THROTTLE_MS = 2_500;
 /** @deprecated Visible multi-toast stack removed (CO-PRODUCTION-UX-STABILIZATION-013). */
 export const ENE_MAX_STACK = 5;

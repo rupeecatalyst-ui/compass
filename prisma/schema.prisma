@@ -646,6 +646,8 @@ model EnterpriseNotification {
 
   readState            String    @default("UNREAD") @map("read_state")
   readAt               DateTime? @map("read_at")
+  /// At-most-once bottom-right toast presentation for this recipient row. Independent of read/unread.
+  toastPresentedAt     DateTime? @map("toast_presented_at")
   occurredAt           DateTime  @map("occurred_at")
   createdAt            DateTime  @default(now()) @map("created_at")
 
@@ -655,6 +657,7 @@ model EnterpriseNotification {
   @@index([organizationId, recipientUserId, occurredAt(sort: Desc)], map: "ene_org_user_occurred_idx")
   @@index([organizationId, recipientPartnerId, occurredAt(sort: Desc)], map: "ene_org_partner_occurred_idx")
   @@index([organizationId, readState, occurredAt(sort: Desc)], map: "ene_org_read_occurred_idx")
+  @@index([organizationId, recipientUserId, toastPresentedAt], map: "ene_org_user_toast_idx")
   @@map("enterprise_notifications")
 }
 

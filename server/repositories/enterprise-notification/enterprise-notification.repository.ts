@@ -59,6 +59,7 @@ function toDomain(row: {
   href: string;
   readState: string;
   readAt: Date | null;
+  toastPresentedAt?: Date | null;
   occurredAt: Date;
   createdAt: Date;
 }): EnterpriseNotificationItem {
@@ -88,6 +89,7 @@ function toDomain(row: {
     href: row.href,
     readState: row.readState === "READ" ? "READ" : "UNREAD",
     readAt: row.readAt ? row.readAt.toISOString() : null,
+    toastPresentedAt: row.toastPresentedAt ? row.toastPresentedAt.toISOString() : null,
     occurredAt: row.occurredAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
   };
@@ -214,5 +216,60 @@ export const enterpriseNotificationRepository = {
       data: { readState: "READ", readAt: new Date() },
     });
     return toDomain(row);
+  },
+
+  async claimPendingToastsForUser(input: {
+    organizationId: string;
+    userId: string;
+    limit?: number;
+  }): Promise<EnterpriseNotificationItem[]> {
+    const limit = Math.min(Math.max(input.limit ?? 20, 1), 50);
+    const now = new Date();
+    try {
+      const claimed = await prisma.$transaction(async (tx) => {
+        const pending = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id
+          FROM enterprise_notifications
+          WHERE organization_id = ${input.organizationId}
+            AND recipient_kind = 'user'
+            AND recipient_user_id = ${input.userId}
+            AND toast_presented_at IS NULL
+          ORDER BY occurred_at DESC
+          LIMIT ${limit}
+          FOR UPDATE SKIP LOCKED
+        `;
+        if (pending.length === 0) return [];
+        const ids = pending.map((row) => row.id);
+        await tx.enterpriseNotification.updateMany({
+          where: {
+            id: { in: ids },
+            organizationId: input.organizationId,
+            recipientKind: "user",
+            recipientUserId: input.userId,
+            toastPresentedAt: null,
+          },
+          data: { toastPresentedAt: now },
+        });
+        return tx.enterpriseNotification.findMany({
+          where: {
+            id: { in: ids },
+            organizationId: input.organizationId,
+            recipientUserId: input.userId,
+            toastPresentedAt: { not: null },
+          },
+          orderBy: { occurredAt: "desc" },
+        });
+      });
+      return claimed.map(toDomain);
+    } catch (error) {
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? String((error as { code: unknown }).code)
+          : "";
+      if (code === "P2022" || code === "P2021" || code === "42703") {
+        return [];
+      }
+      throw error;
+    }
   },
 };

@@ -114,6 +114,13 @@ assert.match(host, /claimSoundLeadership|ENE_SOUND_LOCK_KEY/);
 assert.match(host, /ENE_TOAST_AUTO_DISMISS_MS/);
 assert.match(host, /ENE_MAX_TOAST_QUEUE|activeToast|data-ene-visible-toasts/);
 assert.match(host, /pointer-events-none/);
+assert.match(host, /claimPendingToastNotifications/);
+assert.doesNotMatch(host, /unreadOnly:\s*true/);
+assert.doesNotMatch(host, /listEnterpriseNotifications/);
+assert.match(
+  read("src/components/layout/notifications-panel.tsx"),
+  /listEnterpriseNotifications/,
+);
 
 // E2. CO-NOTIFICATION-001B — CHANAKYA visual identity (dark toast + approved portrait)
 assert.match(host, /ChanakyaAvatar/);

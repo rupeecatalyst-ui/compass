@@ -6,6 +6,8 @@ import {
   ENE_API_PATH,
   ENE_PREFS_API_PATH,
   ENE_SOUND_PREF_STORAGE_KEY,
+  ENE_TOAST_CLAIM_API_PATH,
+  ENE_TOAST_CLAIM_LIMIT,
 } from "@/constants/enterprise-notification-engine";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
@@ -50,6 +52,26 @@ export async function listEnterpriseNotifications(
     return items;
   } catch {
     return userId ? listSessionEneForUser(userId, query) : [];
+  }
+}
+
+export async function claimPendingToastNotifications(
+  limit: number = ENE_TOAST_CLAIM_LIMIT,
+): Promise<EnterpriseNotificationItem[]> {
+  try {
+    const res = await authenticatedJsonFetch(ENE_TOAST_CLAIM_API_PATH, {
+      method: "POST",
+      body: JSON.stringify({ limit }),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const payload = (await res.json()) as {
+      data?: { items?: EnterpriseNotificationItem[] };
+      items?: EnterpriseNotificationItem[];
+    };
+    return payload.data?.items ?? payload.items ?? [];
+  } catch {
+    return [];
   }
 }
 

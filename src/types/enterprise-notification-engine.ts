@@ -52,6 +52,8 @@ export type EnterpriseNotificationItem = {
   href: string;
   readState: EnterpriseNotificationReadState;
   readAt: string | null;
+  /** Independent of read/unread. Set when the bottom-right toast was claimed for this recipient. */
+  toastPresentedAt: string | null;
   occurredAt: string;
   createdAt: string;
 };
