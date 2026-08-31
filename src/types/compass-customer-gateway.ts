@@ -74,6 +74,12 @@ export type CompassJourneyAnswersPatch = {
   answers: Record<string, string | number | boolean | null>;
 };
 
+export type CompassAdvantageFixedBenefitDto = {
+  name: string;
+  amountRupees: string;
+  customerDescription: string | null;
+};
+
 export type CompassAdvantageDto = {
   eligible: boolean;
   status: "not_available" | "ready" | "ineligible";
@@ -85,6 +91,21 @@ export type CompassAdvantageDto = {
   ruleId?: string | null;
   productCode: CompassProductCode;
   dtoSource: "enterprise_compass_advantage";
+  totalAdvantageAmount: string | null;
+  currency: "INR";
+  requestedLoanAmount: string | null;
+  matchedRangeFrom: string | null;
+  matchedRangeTo: string | null;
+  percentageRate: string | null;
+  percentageBenefitAmount: string | null;
+  fixedBenefitComponents: CompassAdvantageFixedBenefitDto[];
+  totalFixedBenefitAmount: string | null;
+  scheduleId: string | null;
+  scheduleVersion: number | null;
+  caseReceivedAt: string | null;
+  calculatedAt: string | null;
+  customerExplanation: string;
+  unavailableReason: string | null;
 };
 
 export type CompassRecommendationCardDto = {

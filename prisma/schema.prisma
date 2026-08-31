@@ -249,6 +249,10 @@ model Organization {
   partnerEntitlementProfiles               PartnerEntitlementProfile[]
   partnerTransactionEntitlements           PartnerTransactionEntitlement[]
   partnerEntitlementAudits                 PartnerEntitlementAudit[]
+  /// CO-COMPASS Advantage — configurable commercial rule engine
+  compassAdvantageSchedules                CompassAdvantageSchedule[]
+  compassAdvantageSnapshots                CompassAdvantageSnapshot[]
+  compassAdvantageAudits                   CompassAdvantageAudit[]
   /// CO-INV-001 — Enterprise Invitation Engine
   enterpriseInvitations                    EnterpriseInvitation[]
   enterpriseInvitationAudits               EnterpriseInvitationAudit[]
@@ -4017,5 +4021,136 @@ model PartnerEntitlementAudit {
   @@index([organizationId, wealthPartnerId, createdAt(sort: Desc)], map: "pea_org_partner_created_idx")
   @@index([organizationId, targetKind, targetId], map: "pea_org_target_idx")
   @@map("partner_entitlement_audits")
+}
+
+// =============================================================================
+// CO-COMPASS Advantage — versioned commercial rule engine (additive)
+// Published schedules are immutable. COMPASS never owns the formula.
+// =============================================================================
+
+enum CompassAdvantageScheduleStatus {
+  draft
+  published
+  suspended
+  retired
+}
+
+model CompassAdvantageSchedule {
+  id                 String                          @id @default(cuid())
+  organizationId     String                          @map("organization_id")
+  productCode        String                          @map("product_code")
+  versionNumber      Int                             @map("version_number")
+  status             CompassAdvantageScheduleStatus  @default(draft)
+  advantageActive    Boolean                         @default(true) @map("advantage_active")
+  effectiveFrom      DateTime                        @map("effective_from")
+  effectiveTo        DateTime?                       @map("effective_to")
+  changeReason       String?                         @map("change_reason") @db.Text
+  createdByUserId    String                          @map("created_by_user_id")
+  publishedByUserId  String?                         @map("published_by_user_id")
+  createdAt          DateTime                        @default(now()) @map("created_at")
+  updatedAt          DateTime                        @updatedAt @map("updated_at")
+  publishedAt        DateTime?                       @map("published_at")
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ranges       CompassAdvantageRange[]
+  snapshots    CompassAdvantageSnapshot[]
+  audits       CompassAdvantageAudit[]
+
+  @@unique([organizationId, productCode, versionNumber], map: "cas_org_product_version_uidx")
+  @@index([organizationId, productCode, status, effectiveFrom], map: "cas_org_product_status_eff_idx")
+  @@map("compass_advantage_schedules")
+}
+
+model CompassAdvantageRange {
+  id                   String   @id @default(cuid())
+  scheduleId           String   @map("schedule_id")
+  rangeFromRupees      Decimal  @map("range_from_rupees") @db.Decimal(18, 0)
+  rangeToRupees        Decimal? @map("range_to_rupees") @db.Decimal(18, 0)
+  noUpperLimit         Boolean  @default(false) @map("no_upper_limit")
+  percentageRate       Decimal  @map("percentage_rate") @db.Decimal(18, 10)
+  customerDescription  String?  @map("customer_description") @db.Text
+  internalNote         String?  @map("internal_note") @db.Text
+  active               Boolean  @default(true)
+  displayOrder         Int      @default(0) @map("display_order")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  schedule      CompassAdvantageSchedule       @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  fixedBenefits CompassAdvantageFixedBenefit[]
+
+  @@index([scheduleId, displayOrder], map: "car_schedule_order_idx")
+  @@map("compass_advantage_ranges")
+}
+
+model CompassAdvantageFixedBenefit {
+  id                   String   @id @default(cuid())
+  rangeId              String   @map("range_id")
+  name                 String
+  amountRupees         Decimal  @map("amount_rupees") @db.Decimal(18, 0)
+  active               Boolean  @default(true)
+  displayOrder         Int      @default(0) @map("display_order")
+  customerDescription  String?  @map("customer_description") @db.Text
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  range CompassAdvantageRange @relation(fields: [rangeId], references: [id], onDelete: Cascade)
+
+  @@index([rangeId, displayOrder], map: "cafb_range_order_idx")
+  @@map("compass_advantage_fixed_benefits")
+}
+
+/// Immutable generated Advantage for a customer Opportunity. Insert-only.
+model CompassAdvantageSnapshot {
+  id                       String   @id @default(cuid())
+  organizationId           String   @map("organization_id")
+  opportunityId            String   @unique @map("opportunity_id")
+  opportunityReference     String   @map("opportunity_reference")
+  productCode              String   @map("product_code")
+  requestedLoanAmount      Decimal  @map("requested_loan_amount") @db.Decimal(18, 0)
+  matchedRangeFrom         Decimal? @map("matched_range_from") @db.Decimal(18, 0)
+  matchedRangeTo           Decimal? @map("matched_range_to") @db.Decimal(18, 0)
+  matchedRangeNoUpperLimit Boolean  @default(false) @map("matched_range_no_upper_limit")
+  percentageRate           Decimal? @map("percentage_rate") @db.Decimal(18, 10)
+  percentageBenefitAmount  Decimal  @map("percentage_benefit_amount") @db.Decimal(18, 0)
+  fixedBenefitComponents   Json     @map("fixed_benefit_components")
+  totalFixedBenefitAmount  Decimal  @map("total_fixed_benefit_amount") @db.Decimal(18, 0)
+  totalAdvantageAmount     Decimal  @map("total_advantage_amount") @db.Decimal(18, 0)
+  currency                 String   @default("INR")
+  scheduleId               String?  @map("schedule_id")
+  scheduleVersion          Int?     @map("schedule_version")
+  caseReceivedAt           DateTime @map("case_received_at")
+  calculatedAt             DateTime @map("calculated_at")
+  effectiveTimestamp       DateTime @map("effective_timestamp")
+  customerExplanation      String   @map("customer_explanation") @db.Text
+  calculationStatus        String   @map("calculation_status")
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  schedule     CompassAdvantageSchedule? @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, productCode], map: "casnap_org_product_idx")
+  @@map("compass_advantage_snapshots")
+}
+
+model CompassAdvantageAudit {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  scheduleId     String?  @map("schedule_id")
+  productCode    String?  @map("product_code")
+  versionNumber  Int?     @map("version_number")
+  action         String
+  actorUserId    String   @map("actor_user_id")
+  actorLabel     String   @map("actor_label")
+  reason         String?  @db.Text
+  beforeValue    Json?    @map("before_value")
+  afterValue     Json?    @map("after_value")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  schedule     CompassAdvantageSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "caaud_org_created_idx")
+  @@index([scheduleId, createdAt(sort: Desc)], map: "caaud_schedule_created_idx")
+  @@map("compass_advantage_audits")
 }
 

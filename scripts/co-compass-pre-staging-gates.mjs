@@ -13,6 +13,7 @@ const scripts = [
   "co-compass-journey-config-authority-verify.mjs",
   "co-compass-recommendation-authority-verify.mjs",
   "co-compass-advantage-boundary-verify.mjs",
+  "co-compass-advantage-commercial-verify.mjs",
   "co-compass-submission-handoff-verify.mjs",
   "co-compass-upload-validation-verify.mjs",
   "co-compass-document-repository-verify.mjs",

@@ -32,6 +32,12 @@ export type DiscoveryAnswersPayload = {
   approxCibilScore?: string;
 };
 
+export type CompassAdvantageFixedComponent = {
+  name: string;
+  amountRupees: string;
+  customerDescription: string | null;
+};
+
 export type CompassAdvantageResult = {
   title: string;
   amount: number | null;
@@ -39,7 +45,24 @@ export type CompassAdvantageResult = {
   eligible: boolean;
   status?: "not_available" | "ready" | "ineligible";
   disclaimer: string;
+  reason?: string | null;
+  percentageBenefitAmount?: string | null;
+  fixedBenefitComponents?: CompassAdvantageFixedComponent[];
+  totalFixedBenefitAmount?: string | null;
+  scheduleId?: string | null;
+  scheduleVersion?: number | null;
+  customerExplanation?: string;
 };
+
+export function compassAdvantageIsDisplayable(
+  advantage: CompassAdvantageResult | null | undefined,
+): boolean {
+  if (!advantage?.eligible) return false;
+  if (advantage.status && advantage.status !== "ready") return false;
+  if (!advantage.amountFormatted) return false;
+  if (advantage.amount == null || advantage.amount <= 0) return false;
+  return true;
+}
 
 export type LenderRecommendationResult = {
   id: string;

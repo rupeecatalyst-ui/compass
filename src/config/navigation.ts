@@ -124,6 +124,8 @@ export const organizationChildren: NavSubItem[] = [
   { title: "Digital Signatures", href: ROUTES.ORGANIZATION_DIGITAL_SIGNATURES },
   { title: "Company Seal", href: ROUTES.ORGANIZATION_COMPANY_SEAL },
   { title: "Business Configuration", href: ROUTES.ORGANIZATION_BUSINESS_CONFIG },
+  { title: "Product Configuration", href: ROUTES.ORGANIZATION_PRODUCT_CONFIGURATION },
+  { title: "COMPASS Advantage Rules", href: ROUTES.ORGANIZATION_COMPASS_ADVANTAGE },
   { title: "Organization Settings", href: ROUTES.ORGANIZATION_SETTINGS },
   { title: "Organization Security", href: ROUTES.ORGANIZATION_SECURITY },
   {
@@ -366,6 +368,8 @@ export const organizationNavigation: NavGroup = {
     { title: "Digital Signatures", href: ROUTES.ORGANIZATION_DIGITAL_SIGNATURES, icon: PenLine },
     { title: "Company Seal", href: ROUTES.ORGANIZATION_COMPANY_SEAL, icon: Stamp },
     { title: "Business Configuration", href: ROUTES.ORGANIZATION_BUSINESS_CONFIG, icon: Briefcase },
+    { title: "Product Configuration", href: ROUTES.ORGANIZATION_PRODUCT_CONFIGURATION, icon: Package },
+    { title: "COMPASS Advantage Rules", href: ROUTES.ORGANIZATION_COMPASS_ADVANTAGE, icon: Sparkles },
     { title: "Organization Settings", href: ROUTES.ORGANIZATION_SETTINGS, icon: Settings },
     { title: "Organization Security", href: ROUTES.ORGANIZATION_SECURITY, icon: Shield },
     { title: "Communication", href: ROUTES.ORGANIZATION_COMMUNICATION, icon: MessagesSquare },

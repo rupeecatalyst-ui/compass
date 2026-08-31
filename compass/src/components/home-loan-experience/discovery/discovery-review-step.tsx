@@ -12,6 +12,7 @@ import { journeyConsent } from "@/config/legal";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
 import { cn } from "@/lib/utils";
+import { compassAdvantageIsDisplayable } from "@/services/catalyst-one/types";
 
 function formatCurrency(value: number): string {
   return `₹${Math.round(value).toLocaleString("en-IN")}`;
@@ -150,15 +151,29 @@ export function DiscoveryReviewStep() {
           </dl>
         </section>
 
-        {intelligence?.advantage && intelligence.advantage.status !== "not_available" && intelligence.advantage.eligible ? (
+        {compassAdvantageIsDisplayable(intelligence?.advantage) ? (
           <section className="rounded-2xl border border-primary/25 bg-primary/[0.06] p-5">
             <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {c.advantageLabel}
             </h3>
             <p className="mt-2 text-xl font-semibold text-primary">
-              {intelligence.advantage.amountFormatted || "Indicative"}
+              {intelligence?.advantage?.amountFormatted}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">{intelligence.advantage.disclaimer}</p>
+            {intelligence?.advantage?.fixedBenefitComponents?.length ? (
+              <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                {intelligence.advantage.fixedBenefitComponents.map((component) => (
+                  <li key={component.name}>
+                    {component.name}: ₹{Number(component.amountRupees).toLocaleString("en-IN")}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {intelligence?.advantage?.scheduleVersion != null ? (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Rule version {intelligence.advantage.scheduleVersion}
+              </p>
+            ) : null}
+            <p className="mt-1 text-xs text-muted-foreground">{intelligence?.advantage?.disclaimer}</p>
           </section>
         ) : null}
 

@@ -47,6 +47,8 @@ import {
 } from "@/lib/enterprise-company-master/name-normalize";
 import { buildCompassJourneyConfig } from "./compass-journey-config.service";
 import { computeCompassAdvantage } from "./compass-advantage.service";
+import { pinAdvantageOnOpportunity } from "@server/services/compass-advantage/compass-advantage-commercial.service";
+import { pinAlreadySet } from "@/lib/compass-advantage/pin";
 import {
   answersToSnapshotFields,
   projectCompassOpportunityDetail,
@@ -324,6 +326,34 @@ export const compassJourneyService = {
       }
     }
 
+    if (!row) {
+      throw new CompassJourneyError(
+        "OPPORTUNITY_CREATE_FAILED",
+        "Unable to create your application right now. Please try again shortly.",
+        502,
+      );
+    }
+
+    if (!pinAlreadySet(row.snapshot)) {
+      try {
+        const { snapshot: pinnedSnapshot } = await pinAdvantageOnOpportunity({
+          organizationId,
+          opportunityId: row.id,
+          productCode: definition.enterpriseProductCode,
+          caseReceivedAt: row.createdAt,
+          snapshot: row.snapshot,
+        });
+        const snapshotJson = JSON.parse(JSON.stringify(pinnedSnapshot)) as typeof row.snapshot;
+        await enterpriseOpportunityRepository.updateOpportunity(organizationId, row.id, {
+          snapshot: snapshotJson,
+          updatedBy: "compass-customer-gateway",
+        });
+        row = { ...row, snapshot: snapshotJson };
+      } catch {
+        /* Missing Advantage tables must not block journey start. */
+      }
+    }
+
     const journeyRef = newJourneyRef();
     const contactRef = contactRefFromId(contact.id);
     const journeySessionToken = issueCompassJourneyToken({
@@ -436,17 +466,16 @@ export const compassJourneyService = {
     });
 
     const definition = getCompassProductDefinition(claims.productCode);
-    const advantage = definition.advantageEnabled
-      ? computeCompassAdvantage({
-            productCode: claims.productCode,
-            loanAmount: parseLoanAmount(snapshotAnswers.loanAmount),
-            monthlyIncome: parseLoanAmount(snapshotAnswers.monthlyIncome),
-            propertyValue: parseLoanAmount(snapshotAnswers.propertyValue),
-            propertyType:
-              snapshotAnswers.propertyType === "construction" ? "construction" : "ready",
-            existingEmi: parseLoanAmount(snapshotAnswers.existingEmi),
-          })
-      : null;
+    const advantage = await computeCompassAdvantage({
+      organizationId,
+      opportunityId: row.id,
+      opportunityReference: row.opportunityNumber,
+      productCode: claims.productCode,
+      loanAmount: parseLoanAmount(snapshotAnswers.loanAmount),
+      caseReceivedAt: row.createdAt,
+      snapshot: row.snapshot,
+      persist: true,
+    });
 
     const sarathiMessages = recommendations.cards.slice(0, 3).map((card, index) => {
       if (index === 0) {

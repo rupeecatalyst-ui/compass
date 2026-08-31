@@ -7,6 +7,7 @@ import { useDiscovery } from "@/components/home-loan-experience/discovery/discov
 import { discoveryCopy } from "@/config/home-loan-discovery";
 import { Button } from "@/components/ui/button";
 import { smoothEase } from "@/lib/animations";
+import { compassAdvantageIsDisplayable } from "@/services/catalyst-one/types";
 
 export function DiscoveryAdvantageStep() {
   const { compassNudge, intelligence, intelligenceLoading, intelligenceError, goNext, loadIntelligence } =
@@ -39,14 +40,13 @@ export function DiscoveryAdvantageStep() {
               Try Again
             </Button>
           </div>
-        ) : advantage?.status === "not_available" || !advantage?.eligible ? (
+        ) : !compassAdvantageIsDisplayable(advantage) ? (
           <div className="mx-auto mt-10 max-w-lg space-y-4">
-            <p className="text-sm leading-relaxed text-muted-foreground">{advantage?.disclaimer}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               You can continue — lender guidance and document collection are not affected.
             </p>
           </div>
-        ) : advantage?.eligible && advantage.amountFormatted ? (
+        ) : (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -59,7 +59,29 @@ export function DiscoveryAdvantageStep() {
             <p className="mt-4 text-4xl font-bold tracking-tight text-gradient sm:text-5xl">
               {advantage.amountFormatted}
             </p>
-            <p className="mt-6 text-left text-sm leading-relaxed text-muted-foreground">{advantage.disclaimer}</p>
+            {advantage.percentageBenefitAmount || advantage.fixedBenefitComponents?.length ? (
+              <dl className="mt-6 space-y-2 text-left text-sm text-muted-foreground">
+                {advantage.percentageBenefitAmount ? (
+                  <div className="flex justify-between gap-4">
+                    <dt>Percentage benefit</dt>
+                    <dd className="font-medium text-foreground">
+                      ₹{Number(advantage.percentageBenefitAmount).toLocaleString("en-IN")}
+                    </dd>
+                  </div>
+                ) : null}
+                {(advantage.fixedBenefitComponents ?? []).map((component) => (
+                  <div key={component.name} className="flex justify-between gap-4">
+                    <dt>{component.name}</dt>
+                    <dd className="font-medium text-foreground">
+                      ₹{Number(component.amountRupees).toLocaleString("en-IN")}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            <p className="mt-6 text-left text-sm leading-relaxed text-muted-foreground">
+              {advantage.customerExplanation || advantage.disclaimer}
+            </p>
           </motion.div>
         ) : (
           <p className="mt-8 max-w-md text-sm text-muted-foreground">
