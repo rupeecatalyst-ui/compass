@@ -3,7 +3,6 @@
  */
 import assert from "node:assert/strict";
 import { deriveRevenueAnalytics } from "../src/lib/revenue-analytics/derive-revenue-analytics.ts";
-import type { EnterpriseAccountingInvoiceDto } from "../src/types/enterprise-accounting-invoice.ts";
 
 function baseInvoice(partial) {
   return {
