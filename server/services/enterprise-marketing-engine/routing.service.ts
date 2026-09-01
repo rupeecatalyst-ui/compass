@@ -50,7 +50,7 @@ export const marketingRoutingService: MarketingRoutingPort & {
   assignForQualification(
     qualification: MarketingQualificationRecord,
     routingPolicyId: string,
-  ): ReturnType<typeof marketingAssignmentStore.claim> & { mode: string };
+  ): Promise<ReturnType<typeof marketingAssignmentStore.claim> & { mode: string }>;
 } = {
   async assign(request) {
     const qualification = {

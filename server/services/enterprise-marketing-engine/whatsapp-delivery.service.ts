@@ -214,14 +214,14 @@ export const marketingWhatsAppDeliveryService = {
         variables: request.variables,
       };
       this.persistRecord(request, result);
-      this.emitDeliveryEvent(request, result);
+      await this.emitDeliveryEvent(request, result);
       return result;
     }
 
     const port = resolvePort();
     const result = await port.deliver(request);
     this.persistRecord(request, result);
-    this.emitDeliveryEvent(request, result);
+    await this.emitDeliveryEvent(request, result);
 
     recordMarketingAuditEvent({
       kind: "whatsapp.delivery.dry_run",
@@ -267,7 +267,7 @@ export const marketingWhatsAppDeliveryService = {
     return record;
   },
 
-  emitDeliveryEvent(
+  async emitDeliveryEvent(
     request: MarketingWhatsAppDeliveryRequest,
     result: MarketingWhatsAppDeliveryResult,
   ) {

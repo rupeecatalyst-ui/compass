@@ -184,7 +184,7 @@ export const marketingEmailDeliveryService = {
     const port = resolvePort();
     const result = await port.deliver(request);
     this.persistRecord(request, result);
-    this.emitDeliveryEvent(request, result);
+    await this.emitDeliveryEvent(request, result);
 
     recordMarketingAuditEvent({
       kind: "email.delivery.dry_run",
@@ -223,7 +223,7 @@ export const marketingEmailDeliveryService = {
     return record;
   },
 
-  emitDeliveryEvent(request: MarketingEmailDeliveryRequest, result: MarketingEmailDeliveryResult) {
+  async emitDeliveryEvent(request: MarketingEmailDeliveryRequest, result: MarketingEmailDeliveryResult) {
     const type = engagementTypeFromDeliveryOutcome(result.outcome);
     if (!type) return;
     await emitMarketingEngagementEvent({

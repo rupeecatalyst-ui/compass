@@ -687,7 +687,7 @@ export const marketingCampaignService = {
       });
     }
 
-    const preview = this.preview(actor, campaignId, input.personalization);
+    const preview = await this.preview(actor, campaignId, input.personalization);
     const { campaign, draft } = await this.get(actor, campaignId);
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });

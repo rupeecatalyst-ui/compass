@@ -138,12 +138,12 @@ export const marketingAnalyticsService = {
       page?: number;
       pageSize?: number;
     },
-  ): {
+  ): Promise<{
     rows: MarketingEngagementExplorerRow[];
     total: number;
     page: number;
     pageSize: number;
-  } {
+  }> {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.ANALYTICS_VIEW);
     const organizationId = actor.organizationId ?? "default";
     const range = resolveMarketingAnalyticsTimeRange(query);
@@ -204,12 +204,12 @@ export const marketingAnalyticsService = {
       page?: number;
       pageSize?: number;
     },
-  ): {
+  ): Promise<{
     rows: MarketingExecutionDrilldownRow[];
     total: number;
     page: number;
     pageSize: number;
-  } {
+  }> {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.ANALYTICS_VIEW);
     const organizationId = actor.organizationId ?? "default";
     const campaignId = query.campaignId.trim();

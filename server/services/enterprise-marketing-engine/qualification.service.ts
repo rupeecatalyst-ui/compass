@@ -199,7 +199,7 @@ export const marketingQualificationService = {
       operatorConfirmed?: boolean;
       policy?: MarketingQualificationPolicy;
     },
-  ): MarketingQualificationPublicDto {
+  ): Promise<MarketingQualificationPublicDto> {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.COMMAND_CENTER);
     const organizationId = actor.organizationId ?? "default";
     const campaign = await marketingCampaignStore.getForOrg(input.campaignId, organizationId);
@@ -257,7 +257,7 @@ export const marketingQualificationService = {
     qualificationId: string,
     businessState: MarketingQualificationRecord["businessState"],
     note?: string,
-  ): MarketingQualificationPublicDto {
+  ): Promise<MarketingQualificationPublicDto> {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.COMMAND_CENTER);
     const organizationId = actor.organizationId ?? "default";
     const existing = marketingQualificationStore.getForOrg(qualificationId, organizationId);
