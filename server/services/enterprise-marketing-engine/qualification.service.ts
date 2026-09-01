@@ -78,7 +78,7 @@ async function notifyHandoffBestEffort(input: {
   notificationPolicyId?: string | null;
   retryFailedOnly?: boolean;
 }): Promise<NonNullable<MarketingHandoffResult["notification"]>> {
-  const campaign = marketingCampaignStore.getForOrg(
+  const campaign = await marketingCampaignStore.getForOrg(
     input.qualification.campaignId,
     input.organizationId,
   );
@@ -178,7 +178,7 @@ export const marketingQualificationService = {
     };
   },
 
-  ingestResponse(
+  async ingestResponse(
     actor: MarketingPermissionActor,
     input: {
       campaignId: string;
@@ -202,7 +202,7 @@ export const marketingQualificationService = {
   ): MarketingQualificationPublicDto {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.COMMAND_CENTER);
     const organizationId = actor.organizationId ?? "default";
-    const campaign = marketingCampaignStore.getForOrg(input.campaignId, organizationId);
+    const campaign = await marketingCampaignStore.getForOrg(input.campaignId, organizationId);
     if (!campaign) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
@@ -252,7 +252,7 @@ export const marketingQualificationService = {
     return toPublicDto(row);
   },
 
-  setBusinessState(
+  async setBusinessState(
     actor: MarketingPermissionActor,
     qualificationId: string,
     businessState: MarketingQualificationRecord["businessState"],
@@ -284,7 +284,7 @@ export const marketingQualificationService = {
     });
     if (businessState === "QUALIFIED") {
       try {
-        emitMarketingEngagementEvent({
+        await emitMarketingEngagementEvent({
           organizationId,
           campaignId: existing.campaignId,
           channel: existing.channel,
@@ -332,7 +332,7 @@ export const marketingQualificationService = {
     }
 
     if (qualification.processState === "HANDOFF_COMPLETE" && qualification.contactId) {
-      const assignment = marketingRoutingService.assignForQualification(
+      const assignment = await marketingRoutingService.assignForQualification(
         qualification,
         input.routingPolicyId,
       );
@@ -367,7 +367,7 @@ export const marketingQualificationService = {
     }
 
     marketingQualificationStore.patch(qualification.id, { processState: "ROUTING" });
-    const claimed = marketingRoutingService.assignForQualification(
+    const claimed = await marketingRoutingService.assignForQualification(
       qualification,
       input.routingPolicyId,
     );
@@ -442,7 +442,7 @@ export const marketingQualificationService = {
       });
 
       try {
-        emitMarketingEngagementEvent({
+        await emitMarketingEngagementEvent({
           organizationId,
           campaignId: next.campaignId,
           channel: next.channel,

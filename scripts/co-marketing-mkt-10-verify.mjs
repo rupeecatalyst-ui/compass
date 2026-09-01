@@ -150,7 +150,7 @@ const rangeDefault = resolveMarketingAnalyticsTimeRange({});
 if (rangeDefault.preset !== "last_7_days") fail(`default preset ${rangeDefault.preset}`);
 else pass("default time filter last_7_days");
 
-const { campaign } = marketingCampaignStore.create({
+const { campaign } = await marketingCampaignStore.create({
   organizationId: org,
   name: "MKT-10 Analytics Campaign",
   channel: "EMAIL",
@@ -162,8 +162,8 @@ const audience = marketingAudienceDefinitionStore.upsert({
   bindingId: binding.id,
   datasetId: "tab_scale_1k",
 });
-marketingCampaignStore.updateCampaign(campaign.id, org, { audienceId: audience.id });
-marketingCampaignStore.recordStateChange(campaign.id, org, {
+await marketingCampaignStore.updateCampaign(campaign.id, org, { audienceId: audience.id });
+await marketingCampaignStore.recordStateChange(campaign.id, org, {
   from: "DRAFT",
   to: "RUNNING",
   action: "RUN",
@@ -383,13 +383,13 @@ const aud100k = marketingAudienceDefinitionStore.upsert({
   bindingId: binding.id,
   datasetId: "tab_scale_100k",
 });
-const { campaign: camp100k } = marketingCampaignStore.create({
+const { campaign: camp100k } = await marketingCampaignStore.create({
   organizationId: org,
   name: "MKT-10 100k Estimate Campaign",
   channel: "EMAIL",
   createdByUserId: actor.userId,
 });
-marketingCampaignStore.updateCampaign(camp100k.id, org, { audienceId: aud100k.id });
+await marketingCampaignStore.updateCampaign(camp100k.id, org, { audienceId: aud100k.id });
 const dash100k = await marketingAnalyticsService.getDashboard(actor, {
   preset: "last_30_days",
   campaignId: camp100k.id,

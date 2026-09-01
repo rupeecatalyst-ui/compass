@@ -101,7 +101,7 @@ async function tickBatchInternal(
   assertNoProviderSend();
 
   const holderId = opts?.holderId ?? `worker-${Date.now()}`;
-  const campaign = marketingCampaignStore.get(campaignId);
+  const campaign = await marketingCampaignStore.get(campaignId);
   if (!campaign) {
     throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
   }
@@ -307,7 +307,7 @@ async function tickBatchInternal(
               lastError: "suppression_match",
             });
             if (claim.ok) {
-              emitMarketingEngagementEvent({
+              await emitMarketingEngagementEvent({
                 organizationId: campaign.organizationId,
                 campaignId,
                 campaignVersionId: versionId,
@@ -341,7 +341,7 @@ async function tickBatchInternal(
         }
 
         claimed += 1;
-        const version = marketingCampaignStore.getVersion(versionId);
+        const version = await marketingCampaignStore.getVersion(versionId);
         if (!version) {
           failed += 1;
           marketingExecutionLedgerStore.finalize(idempotencyKey, {
@@ -349,7 +349,7 @@ async function tickBatchInternal(
             processedAt: nowIso(),
             lastError: "version_missing",
           });
-          emitMarketingEngagementEvent({
+          await emitMarketingEngagementEvent({
             organizationId: campaign.organizationId,
             campaignId,
             campaignVersionId: versionId,
@@ -391,7 +391,7 @@ async function tickBatchInternal(
               processedAt: nowIso(),
               lastError: "whatsapp_template_required",
             });
-            emitMarketingEngagementEvent({
+            await emitMarketingEngagementEvent({
               organizationId: campaign.organizationId,
               campaignId,
               campaignVersionId: versionId,
@@ -430,7 +430,7 @@ async function tickBatchInternal(
             processedAt: nowIso(),
             lastError: "dry_run_simulated_failure",
           });
-          emitMarketingEngagementEvent({
+          await emitMarketingEngagementEvent({
             organizationId: campaign.organizationId,
             campaignId,
             campaignVersionId: versionId,
@@ -448,7 +448,7 @@ async function tickBatchInternal(
             processedAt: nowIso(),
             lastError: null,
           });
-          emitMarketingEngagementEvent({
+          await emitMarketingEngagementEvent({
             organizationId: campaign.organizationId,
             campaignId,
             campaignVersionId: versionId,
@@ -505,7 +505,7 @@ async function tickBatchInternal(
     });
 
     if (campaign.status === "SCHEDULED" && (processed > 0 || failed > 0 || suppressed > 0)) {
-      marketingCampaignStore.recordStateChange(campaignId, campaign.organizationId, {
+      await marketingCampaignStore.recordStateChange(campaignId, campaign.organizationId, {
         from: "SCHEDULED",
         to: "RUNNING",
         action: "RUN",
@@ -590,14 +590,14 @@ function failBatch(
 }
 
 export const marketingExecutionService = {
-  configure(
+  async configure(
     campaignId: string,
     organizationId: string,
     batchPolicy: MarketingBatchPolicy,
     opts?: { resetCursor?: boolean },
   ) {
     assertDryRunExecutionAllowed("execution.configure");
-    const campaign = marketingCampaignStore.getForOrg(campaignId, organizationId);
+    const campaign = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!campaign) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
@@ -618,7 +618,7 @@ export const marketingExecutionService = {
       errorState: null,
       updatedAt: nowIso(),
     });
-    marketingCampaignStore.updateCampaign(campaignId, organizationId, { batchPolicy: policy });
+    await marketingCampaignStore.updateCampaign(campaignId, organizationId, { batchPolicy: policy });
     recordMarketingAuditEvent({
       kind: "execution.configure",
       organizationId,
@@ -627,8 +627,8 @@ export const marketingExecutionService = {
     return lease;
   },
 
-  initializeFromTransition(campaignId: string, organizationId: string) {
-    const campaign = marketingCampaignStore.getForOrg(campaignId, organizationId);
+  async initializeFromTransition(campaignId: string, organizationId: string) {
+    const campaign = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!campaign) return null;
     const policy = resolveBatchPolicy(campaign.batchPolicy);
     return this.configure(campaignId, organizationId, policy, { resetCursor: false });
@@ -664,7 +664,7 @@ export const marketingExecutionService = {
   },
 
   async runNextBatch(campaignId: string, organizationId: string) {
-    const campaign = marketingCampaignStore.getForOrg(campaignId, organizationId);
+    const campaign = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!campaign) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
@@ -686,7 +686,7 @@ export const marketingExecutionService = {
   ) {
     assertDryRunExecutionAllowed("execution.controlledTest");
     const size = Math.max(1, Math.min(20, Math.floor(testBatchSize)));
-    const campaign = marketingCampaignStore.getForOrg(campaignId, organizationId);
+    const campaign = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!campaign) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
@@ -698,7 +698,7 @@ export const marketingExecutionService = {
       dailyMax: Math.max(base.dailyMax, size),
       startAt: scheduleStart ?? base.startAt,
     };
-    this.configure(campaignId, organizationId, policy, { resetCursor: false });
+    await this.configure(campaignId, organizationId, policy, { resetCursor: false });
     const tick = await tickBatchInternal(campaignId, {
       forceRun: true,
       adminTriggered: true,
@@ -743,7 +743,7 @@ export const marketingExecutionService = {
     let processed = 0;
     const now = Date.now();
 
-    for (const campaign of marketingCampaignStore.listAll()) {
+    for (const campaign of await marketingCampaignStore.listAll()) {
       if (processed >= MARKETING_CRON_MAX_CAMPAIGNS_PER_TICK) break;
       if (!RUNNABLE.includes(campaign.status)) continue;
       const lease = marketingExecutionLeaseStore.get(campaign.id);

@@ -20,7 +20,7 @@ export function buildMarketingEngagementProviderEventId(input: {
   return `eme:${input.campaignId}:${input.type}:${identity}:${input.extra ?? "v1"}`.toLowerCase();
 }
 
-export function emitMarketingEngagementEvent(input: {
+export async function emitMarketingEngagementEvent(input: {
   organizationId: string;
   campaignId: string;
   campaignVersionId?: string | null;
@@ -33,7 +33,7 @@ export function emitMarketingEngagementEvent(input: {
   batchId?: string | null;
   errorCode?: string | null;
 }) {
-  const campaign = marketingCampaignStore.get(input.campaignId);
+  const campaign = await marketingCampaignStore.get(input.campaignId);
   const audience = campaign?.audienceId
     ? marketingAudienceDefinitionStore.get(campaign.audienceId)
     : null;

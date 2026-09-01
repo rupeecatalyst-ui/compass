@@ -263,7 +263,7 @@ const rulePick = pickMarketingAssignee({
 if (rulePick.userId !== "rm-home") fail(`closed rule should first-match product, got ${rulePick.userId}`);
 else pass("closed routing rule (product first match)");
 
-const { campaign } = marketingCampaignStore.create({
+const { campaign } = await marketingCampaignStore.create({
   organizationId: org,
   name: "MKT-12 Verify Campaign",
   channel: "EMAIL",

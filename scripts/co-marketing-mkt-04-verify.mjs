@@ -175,7 +175,7 @@ if (!rejected) fail("unknown tokens must be rejected");
 else pass("unknown tokens rejected");
 
 // Campaign create → save → preview → approve → reopen → edit new version
-const created = campaignService.create(actor, {
+const created = await campaignService.create(actor, {
   name: "MKT-04 Verify Campaign",
   objective: "Acquire",
   product: "Home Loan",
@@ -183,7 +183,7 @@ const created = campaignService.create(actor, {
 });
 pass(`campaign=${created.campaign.id}`);
 
-const saved = campaignService.save(actor, created.campaign.id, {
+const saved = await campaignService.save(actor, created.campaign.id, {
   subject: "Hello {{firstName}}",
   previewText: "Offer in {{city}}",
   content: created.draft.content,
@@ -195,7 +195,7 @@ const saved = campaignService.save(actor, created.campaign.id, {
 });
 pass(`draft v${saved.draft.versionNumber}`);
 
-const preview = campaignService.preview(actor, created.campaign.id);
+const preview = await campaignService.preview(actor, created.campaign.id);
 if (!preview.htmlDesktop.includes("<table") || !preview.htmlMobile.includes("360")) {
   fail("preview html");
 } else pass("desktop/mobile preview");
@@ -205,15 +205,15 @@ if (!preview.subject.includes("Hello") || !preview.sender.fromAddress) {
 if (preview.htmlDesktop.includes("Asha")) pass("personalization in preview");
 else fail("expected sample firstName in preview");
 
-campaignService.transition(actor, created.campaign.id, "SUBMIT_FOR_REVIEW");
-const approved = campaignService.transition(actor, created.campaign.id, "APPROVE");
+await campaignService.transition(actor, created.campaign.id, "SUBMIT_FOR_REVIEW");
+const approved = await campaignService.transition(actor, created.campaign.id, "APPROVE");
 const frozenId = approved.campaign.activePublishedVersionId;
 const frozen = approved.versions.find((v) => v.id === frozenId);
 if (!frozen?.immutable) fail("approved version not frozen");
 else pass(`frozen version ${frozen.versionNumber}`);
 
-campaignService.transition(actor, created.campaign.id, "REOPEN_DRAFT");
-const afterEdit = campaignService.save(actor, created.campaign.id, {
+await campaignService.transition(actor, created.campaign.id, "REOPEN_DRAFT");
+const afterEdit = await campaignService.save(actor, created.campaign.id, {
   subject: "Updated {{firstName}}",
 });
 if (afterEdit.draft.id === frozenId) fail("must not mutate frozen version");
@@ -222,18 +222,18 @@ if (afterEdit.versions.find((v) => v.id === frozenId)?.subject !== frozen.subjec
   fail("historical frozen subject changed");
 } else pass("historical content preserved");
 
-const cloned = campaignService.clone(actor, created.campaign.id);
+const cloned = await campaignService.clone(actor, created.campaign.id);
 pass(`cloned=${cloned.campaign.id}`);
 
-const template = campaignService.saveAsTemplate(actor, created.campaign.id, "Verify Template");
-const fromTpl = campaignService.create(actor, {
+const template = await campaignService.saveAsTemplate(actor, created.campaign.id, "Verify Template");
+const fromTpl = await campaignService.create(actor, {
   name: "From template",
   templateId: template.id,
 });
 if (fromTpl.draft.content.blocks.length < 1) fail("template reuse");
 else pass("template reuse");
 
-const block = campaignService.saveReusableBlock(actor, {
+const block = await campaignService.saveReusableBlock(actor, {
   name: "CTA reusable",
   block: created.draft.content.blocks.find((b) => b.type === "cta") ?? created.draft.content.blocks[0],
 });

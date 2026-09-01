@@ -273,7 +273,7 @@ export const marketingWhatsAppDeliveryService = {
   ) {
     const type = engagementTypeFromDeliveryOutcome(result.outcome);
     if (!type) return;
-    emitMarketingEngagementEvent({
+    await emitMarketingEngagementEvent({
       organizationId: request.organizationId,
       campaignId: request.campaignId,
       campaignVersionId: request.campaignVersionId,

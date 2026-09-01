@@ -216,7 +216,7 @@ const k2 = buildMarketingExecutionIdempotencyKey({
 if (k1 !== k2) fail("idempotency key unstable");
 else pass("execution idempotency key stable");
 
-const { campaign } = marketingCampaignStore.create({
+const { campaign } = await marketingCampaignStore.create({
   organizationId: org,
   name: "MKT-13 Scale Campaign",
   channel: "EMAIL",
@@ -228,8 +228,8 @@ const audience = marketingAudienceDefinitionStore.upsert({
   bindingId: binding.id,
   datasetId: "tab_scale_100k",
 });
-marketingCampaignStore.updateCampaign(campaign.id, org, { audienceId: audience.id });
-marketingCampaignStore.recordStateChange(campaign.id, org, {
+await marketingCampaignStore.updateCampaign(campaign.id, org, { audienceId: audience.id });
+await marketingCampaignStore.recordStateChange(campaign.id, org, {
   from: "DRAFT",
   to: "RUNNING",
   action: "RUN",
@@ -263,7 +263,7 @@ const fingerprints = new Set(ledger2.map((e) => e.recipientFingerprint));
 if (fingerprints.size !== ledger2.length) fail("duplicate fingerprints in ledger");
 else pass("no duplicate recipient execution");
 
-marketingCampaignStore.recordStateChange(campaign.id, org, {
+await marketingCampaignStore.recordStateChange(campaign.id, org, {
   from: "RUNNING",
   to: "PAUSED",
   action: "PAUSE",
@@ -277,7 +277,7 @@ const paused = await marketingExecutionService.tickBatch(campaign.id, {
 if (paused.skippedReason !== "campaign_paused") fail(`pause skippedReason ${paused.skippedReason}`);
 else pass("paused campaign remains paused");
 
-marketingCampaignStore.recordStateChange(campaign.id, org, {
+await marketingCampaignStore.recordStateChange(campaign.id, org, {
   from: "PAUSED",
   to: "RUNNING",
   action: "RESUME",

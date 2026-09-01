@@ -129,7 +129,7 @@ const qualifiedState = evaluateMarketingQualificationState({
 if (qualifiedState !== "QUALIFIED") fail(`explicit+confirm should be QUALIFIED, got ${qualifiedState}`);
 else pass("explicit requirement + operator confirm → QUALIFIED");
 
-const { campaign } = marketingCampaignStore.create({
+const { campaign } = await marketingCampaignStore.create({
   organizationId: org,
   name: "MKT-11 Verify Campaign",
   channel: "EMAIL",

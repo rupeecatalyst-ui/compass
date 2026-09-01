@@ -19,6 +19,7 @@ import type {
   MarketingQualificationIntent,
   MarketingRoutingRule,
 } from "@/types/enterprise-marketing-qualification";
+import { resolveMarketingOrganizationId } from "@server/services/enterprise-marketing-engine/organization";
 import { marketingNotificationPolicyStore } from "@server/services/enterprise-marketing-engine/notification-policy-store";
 import { marketingQualificationService } from "@server/services/enterprise-marketing-engine/qualification.service";
 import { marketingRoutingPolicyStore } from "@server/services/enterprise-marketing-engine/routing-policy-store";
@@ -48,11 +49,13 @@ function fromUnknown(err: unknown) {
   );
 }
 
-const actorCtx = (actor: { userId: string; role: string }) => ({
-  userId: actor.userId,
-  role: actor.role,
-  organizationId: "default" as string | null,
-});
+async function actorCtx(actor: { userId: string; role: string }) {
+  return {
+    userId: actor.userId,
+    role: actor.role,
+    organizationId: await resolveMarketingOrganizationId(),
+  };
+}
 
 function parseRules(raw: unknown): MarketingRoutingRule[] | undefined {
   if (!Array.isArray(raw)) return undefined;
@@ -80,7 +83,7 @@ export async function GET(request: Request) {
   try {
     const actor = requireAccessToken(request);
     requireAdministrator(actor);
-    return successResponse(marketingQualificationService.list(actorCtx(actor)));
+    return successResponse(marketingQualificationService.list(await actorCtx(actor)));
   } catch (err) {
     return fromUnknown(err);
   }
@@ -92,14 +95,14 @@ export async function POST(request: Request) {
     requireAdministrator(actor);
     const body = (await request.json()) as Record<string, unknown>;
     const action = typeof body.action === "string" ? body.action : "";
-    const ctx = actorCtx(actor);
+    const ctx = await actorCtx(actor);
 
     if (action === "mass_convert" || action === "mass_handoff") {
       marketingQualificationService.refuseMassConvert();
     }
 
     if (action === "ingest") {
-      const dto = marketingQualificationService.ingestResponse(ctx, {
+      const dto = await marketingQualificationService.ingestResponse(ctx, {
         campaignId: String(body.campaignId ?? ""),
         channel: body.channel as MarketingChannel | undefined,
         recipientFingerprint: String(body.recipientFingerprint ?? ""),
@@ -152,7 +155,7 @@ export async function POST(request: Request) {
     if (action === "upsert_routing_policy") {
       const saved = marketingRoutingPolicyStore.upsert({
         id: typeof body.id === "string" ? body.id : undefined,
-        organizationId: "default",
+        organizationId: ctx.organizationId,
         name: String(body.name ?? "Routing policy"),
         mode: (body.mode as MarketingRoutingMode) ?? "SINGLE_USER",
         assigneeUserId: typeof body.assigneeUserId === "string" ? body.assigneeUserId : null,
@@ -175,7 +178,7 @@ export async function POST(request: Request) {
     if (action === "upsert_notification_policy") {
       const saved = marketingNotificationPolicyStore.upsert({
         id: typeof body.id === "string" ? body.id : undefined,
-        organizationId: "default",
+        organizationId: ctx.organizationId,
         name: String(body.name ?? "Handoff notification"),
         inApp: body.inApp !== false,
         email: body.email === true,

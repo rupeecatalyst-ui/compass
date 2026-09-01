@@ -81,7 +81,7 @@ export const marketingAnalyticsService = {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.ANALYTICS_VIEW);
     const organizationId = actor.organizationId ?? "default";
     const range = resolveMarketingAnalyticsTimeRange(query);
-    let campaigns = marketingCampaignStore.list(organizationId);
+    let campaigns = await marketingCampaignStore.list(organizationId);
     if (query.campaignId?.trim()) {
       campaigns = campaigns.filter((c) => c.id === query.campaignId!.trim());
     }
@@ -126,7 +126,7 @@ export const marketingAnalyticsService = {
     return dashboard;
   },
 
-  listEngagement(
+  async listEngagement(
     actor: MarketingPermissionActor,
     query: {
       preset?: string | null;
@@ -152,7 +152,7 @@ export const marketingAnalyticsService = {
       100,
     );
     const page = Math.max(1, query.page ?? 1);
-    const campaigns = marketingCampaignStore.list(organizationId);
+    const campaigns = await marketingCampaignStore.list(organizationId);
     const nameById = new Map(campaigns.map((c) => [c.id, c.name]));
 
     let events = marketingEngagementEventStore
@@ -193,7 +193,7 @@ export const marketingAnalyticsService = {
     return { rows, total, page, pageSize };
   },
 
-  listExecutionDrilldown(
+  async listExecutionDrilldown(
     actor: MarketingPermissionActor,
     query: {
       preset?: string | null;
@@ -213,7 +213,7 @@ export const marketingAnalyticsService = {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.ANALYTICS_VIEW);
     const organizationId = actor.organizationId ?? "default";
     const campaignId = query.campaignId.trim();
-    const campaign = marketingCampaignStore.getForOrg(campaignId, organizationId);
+    const campaign = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!campaign) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }

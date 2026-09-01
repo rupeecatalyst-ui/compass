@@ -22,6 +22,7 @@ import type {
   MarketingCampaignAction,
   MarketingChannel,
 } from "@/constants/enterprise-marketing-engine";
+import { resolveMarketingOrganizationId } from "@server/services/enterprise-marketing-engine/organization";
 import { marketingCampaignService } from "@server/services/enterprise-marketing-engine";
 import { marketingCampaignStore } from "@server/services/enterprise-marketing-engine/campaign-store";
 import { marketingExecutionService } from "@server/services/enterprise-marketing-engine/execution.service";
@@ -56,15 +57,17 @@ function fromUnknown(err: unknown) {
   );
 }
 
-const actorCtx = (
+async function actorCtx(
   actor: { userId: string; role: string },
   marketingPermissions?: string[],
-) => ({
-  userId: actor.userId,
-  role: actor.role,
-  organizationId: "default" as string | null,
-  marketingPermissions,
-});
+) {
+  return {
+    userId: actor.userId,
+    role: actor.role,
+    organizationId: await resolveMarketingOrganizationId(),
+    marketingPermissions,
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -73,29 +76,29 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const campaignId = url.searchParams.get("id");
     const view = url.searchParams.get("view");
-    const ctx = actorCtx(actor);
+    const ctx = await actorCtx(actor);
 
     if (view === "templates") {
-      const templates = marketingCampaignService.listTemplates(ctx);
+      const templates = await marketingCampaignService.listTemplates(ctx);
       return successResponse({ templates });
     }
     if (view === "reusable-blocks") {
-      const blocks = marketingCampaignService.listReusableBlocks(ctx);
+      const blocks = await marketingCampaignService.listReusableBlocks(ctx);
       return successResponse({ blocks });
     }
     if (view === "pre-publish" && campaignId) {
-      const checks = marketingCampaignService.prePublishChecks(ctx, campaignId);
+      const checks = await marketingCampaignService.prePublishChecks(ctx, campaignId);
       return successResponse({ checks });
     }
     if (campaignId) {
-      const detail = marketingCampaignService.get(ctx, campaignId);
+      const detail = await marketingCampaignService.get(ctx, campaignId);
       if (view === "execution") {
         const summary = marketingExecutionService.getSummary(campaignId);
         return successResponse({ ...detail, execution: summary });
       }
       return successResponse(detail);
     }
-    const campaigns = marketingCampaignService.list(ctx);
+    const campaigns = await marketingCampaignService.list(ctx);
     return successResponse({ campaigns });
   } catch (err) {
     return fromUnknown(err);
@@ -172,7 +175,7 @@ export async function POST(request: Request) {
     };
 
     const action = body.action ?? "create";
-    const ctx = actorCtx(actor, body.marketingPermissions);
+    const ctx = await actorCtx(actor, body.marketingPermissions);
 
     if (body.status !== undefined && action === "save") {
       return errorResponse(
@@ -186,7 +189,7 @@ export async function POST(request: Request) {
       if (!body.name?.trim()) {
         return errorResponse(400, "INVALID_INPUT", "name is required");
       }
-      const detail = marketingCampaignService.create(ctx, {
+      const detail = await marketingCampaignService.create(ctx, {
         name: body.name,
         objective: body.objective,
         product: body.product,
@@ -201,7 +204,7 @@ export async function POST(request: Request) {
       if (!body.campaignId) {
         return errorResponse(400, "INVALID_INPUT", "campaignId is required");
       }
-      const detail = marketingCampaignService.save(ctx, body.campaignId, {
+      const detail = await marketingCampaignService.save(ctx, body.campaignId, {
         name: body.name,
         objective: body.objective,
         internalDescription: body.internalDescription,
@@ -236,7 +239,7 @@ export async function POST(request: Request) {
           "campaignId and versionId are required",
         );
       }
-      const detail = marketingCampaignService.restoreVersionAsDraft(
+      const detail = await marketingCampaignService.restoreVersionAsDraft(
         ctx,
         body.campaignId,
         body.versionId,
@@ -259,7 +262,7 @@ export async function POST(request: Request) {
           "Use action=save for persistence. SAVE never publishes.",
         );
       }
-      const detail = marketingCampaignService.transition(
+      const detail = await marketingCampaignService.transition(
         ctx,
         body.campaignId,
         body.lifecycleAction,
@@ -272,7 +275,7 @@ export async function POST(request: Request) {
       if (!body.campaignId) {
         return errorResponse(400, "INVALID_INPUT", "campaignId is required");
       }
-      const checks = marketingCampaignService.prePublishChecks(ctx, body.campaignId);
+      const checks = await marketingCampaignService.prePublishChecks(ctx, body.campaignId);
       return successResponse({ checks });
     }
 
@@ -280,7 +283,7 @@ export async function POST(request: Request) {
       if (!body.campaignId) {
         return errorResponse(400, "INVALID_INPUT", "campaignId is required");
       }
-      const detail = marketingCampaignService.clone(ctx, body.campaignId, body.name);
+      const detail = await marketingCampaignService.clone(ctx, body.campaignId, body.name);
       return successResponse(detail);
     }
 
@@ -288,7 +291,7 @@ export async function POST(request: Request) {
       if (!body.campaignId) {
         return errorResponse(400, "INVALID_INPUT", "campaignId is required");
       }
-      const preview = marketingCampaignService.preview(
+      const preview = await marketingCampaignService.preview(
         ctx,
         body.campaignId,
         body.personalization,
@@ -314,7 +317,7 @@ export async function POST(request: Request) {
       if (!body.campaignId || !body.templateName?.trim()) {
         return errorResponse(400, "INVALID_INPUT", "campaignId and templateName are required");
       }
-      const template = marketingCampaignService.saveAsTemplate(
+      const template = await marketingCampaignService.saveAsTemplate(
         ctx,
         body.campaignId,
         body.templateName,
@@ -326,9 +329,9 @@ export async function POST(request: Request) {
       if (!body.campaignId) {
         return errorResponse(400, "INVALID_INPUT", "campaignId is required");
       }
-      const detail = marketingCampaignService.get(ctx, body.campaignId);
+      const detail = await marketingCampaignService.get(ctx, body.campaignId);
       const campaign = detail.campaign;
-      const org = ctx.organizationId ?? "default";
+      const org = ctx.organizationId;
       const base = body.batchPolicy ?? campaign.batchPolicy ?? MARKETING_DEFAULT_BATCH_POLICY;
       const startAt =
         body.schedulePlaceholder?.startAt ??
@@ -340,10 +343,10 @@ export async function POST(request: Request) {
         ...base,
         startAt,
       };
-      const lease = marketingExecutionService.configure(body.campaignId, org, policy, {
+      const lease = await marketingExecutionService.configure(body.campaignId, org, policy, {
         resetCursor: body.resetCursor === true,
       });
-      marketingCampaignStore.updateCampaign(body.campaignId, org, {
+      await marketingCampaignStore.updateCampaign(body.campaignId, org, {
         schedulePlaceholder: {
           enabled: true,
           startAt,
@@ -355,7 +358,7 @@ export async function POST(request: Request) {
       });
       return successResponse({
         lease,
-        campaign: marketingCampaignService.get(ctx, body.campaignId).campaign,
+        campaign: (await marketingCampaignService.get(ctx, body.campaignId)).campaign,
         deliveryLabel: "SIMULATED",
         actuallySent: false,
       });
@@ -365,7 +368,7 @@ export async function POST(request: Request) {
       if (!body.campaignId) {
         return errorResponse(400, "INVALID_INPUT", "campaignId is required");
       }
-      const org = ctx.organizationId ?? "default";
+      const org = ctx.organizationId;
       if (action === "run_next_batch") {
         const tick = await marketingExecutionService.runNextBatch(body.campaignId, org);
         return successResponse({
@@ -404,7 +407,7 @@ export async function POST(request: Request) {
       if (!body.block || !body.blockName?.trim()) {
         return errorResponse(400, "INVALID_INPUT", "block and blockName are required");
       }
-      const block = marketingCampaignService.saveReusableBlock(ctx, {
+      const block = await marketingCampaignService.saveReusableBlock(ctx, {
         name: body.blockName,
         block: body.block,
       });

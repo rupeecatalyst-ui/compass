@@ -265,6 +265,9 @@ model Organization {
   enterpriseActivityEvents                 EnterpriseActivityEvent[]
   /// CO-NOTIFICATION-001 — Enterprise Notification Engine (in-app delivery SSOT)
   enterpriseNotifications                  EnterpriseNotification[]
+
+  /// Durable Marketing Campaign Registry (organization-scoped; no live send)
+  enterpriseMarketingCampaigns             EnterpriseMarketingCampaign[]
   /// CO-C1-COMMUNICATION-002 — Inbound operational mailbox ingestion ledger
   enterpriseInboundEmailMessages           EnterpriseInboundEmailMessage[]
   enterpriseInboundEmailAttachments        EnterpriseInboundEmailAttachment[]
@@ -659,6 +662,71 @@ model EnterpriseNotification {
   @@index([organizationId, readState, occurredAt(sort: Desc)], map: "ene_org_read_occurred_idx")
   @@index([organizationId, recipientUserId, toastPresentedAt], map: "ene_org_user_toast_idx")
   @@map("enterprise_notifications")
+}
+
+/// Durable Marketing Campaign Registry — organization-scoped Prisma persistence.
+/// Live bulk email/WhatsApp remain disabled. Demo campaigns use demoKey uniqueness.
+model EnterpriseMarketingCampaign {
+  id                       String   @id
+  organizationId           String   @map("organization_id")
+  /// Idempotent Product Owner demo identity. Null for operator-created campaigns.
+  demoKey                  String?  @map("demo_key")
+  name                     String
+  objective                String?
+  internalDescription      String?  @map("internal_description") @db.Text
+  product                  String?
+  audienceId               String?  @map("audience_id")
+  channel                  String
+  senderJson               Json     @map("sender_json")
+  status                   String
+  currentDraftVersionId    String   @map("current_draft_version_id")
+  activePublishedVersionId String?  @map("active_published_version_id")
+  scheduleJson             Json     @map("schedule_json")
+  routingJson              Json     @map("routing_json")
+  notificationJson         Json     @map("notification_json")
+  batchPolicyJson          Json?    @map("batch_policy_json")
+  senderIdentityId         String?  @map("sender_identity_id")
+  whatsappTemplateId       String?  @map("whatsapp_template_id")
+  templateId               String?  @map("template_id")
+  governanceJson           Json     @map("governance_json")
+  stateHistoryJson         Json     @map("state_history_json")
+  createdAt                DateTime @map("created_at")
+  updatedAt                DateTime @map("updated_at")
+
+  organization Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  versions     EnterpriseMarketingCampaignVersion[]
+
+  @@unique([organizationId, demoKey], map: "emc_org_demo_uidx")
+  @@index([organizationId, updatedAt(sort: Desc)], map: "emc_org_updated_idx")
+  @@index([organizationId, status], map: "emc_org_status_idx")
+  @@map("enterprise_marketing_campaigns")
+}
+
+model EnterpriseMarketingCampaignVersion {
+  id                 String    @id
+  campaignId         String    @map("campaign_id")
+  organizationId     String    @map("organization_id")
+  versionNumber      Int       @map("version_number")
+  immutable          Boolean   @default(false)
+  frozenAt           DateTime? @map("frozen_at")
+  frozenReason       String?   @map("frozen_reason")
+  subject            String
+  previewText        String    @map("preview_text")
+  contentJson        Json      @map("content_json")
+  disclaimer         String?   @db.Text
+  trackingEnabled    Boolean   @default(true) @map("tracking_enabled")
+  plainTextOverride  String?   @map("plain_text_override") @db.Text
+  utmJson            Json?     @map("utm_json")
+  ctaLabel           String?   @map("cta_label")
+  ctaUrl             String?   @map("cta_url")
+  createdAt          DateTime  @map("created_at")
+  updatedAt          DateTime  @map("updated_at")
+
+  campaign EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, versionNumber], map: "emcv_campaign_version_uidx")
+  @@index([organizationId, campaignId], map: "emcv_org_campaign_idx")
+  @@map("enterprise_marketing_campaign_versions")
 }
 
 /// CO-C1-COMMUNICATION-002 — Incoming Email Server settings (org-scoped, non-secret).

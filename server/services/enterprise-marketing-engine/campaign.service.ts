@@ -63,7 +63,14 @@ function assertNoSend() {
 }
 
 function orgId(actorOrg?: string | null) {
-  return (actorOrg ?? "").trim() || "default";
+  const trimmed = (actorOrg ?? "").trim();
+  if (!trimmed || trimmed === "default") {
+    throw Object.assign(new Error("Marketing requires an authenticated organization"), {
+      statusCode: 400,
+      code: "ORGANIZATION_REQUIRED",
+    });
+  }
+  return trimmed;
 }
 
 function validateContentTokens(content: MarketingContentDocument, subject: string, previewText: string) {
@@ -76,10 +83,10 @@ function validateContentTokens(content: MarketingContentDocument, subject: strin
   }
 }
 
-function touchModified(campaignId: string, organizationId: string, actor: Actor) {
-  const c = marketingCampaignStore.getForOrg(campaignId, organizationId);
+async function touchModified(campaignId: string, organizationId: string, actor: Actor) {
+  const c = await marketingCampaignStore.getForOrg(campaignId, organizationId);
   if (!c) return;
-  marketingCampaignStore.updateCampaign(campaignId, organizationId, {
+  await marketingCampaignStore.updateCampaign(campaignId, organizationId, {
     governance: {
       ...c.governance,
       modifiedByUserId: actor.userId ?? null,
@@ -109,25 +116,25 @@ function resolveActionTarget(
 }
 
 export const marketingCampaignService = {
-  list(actor: Actor) {
+  async list(actor: Actor) {
     assertNoSend();
-    return marketingCampaignStore.list(orgId(actor.organizationId));
+    return await marketingCampaignStore.list(orgId(actor.organizationId));
   },
 
-  get(actor: Actor, campaignId: string) {
+  async get(actor: Actor, campaignId: string) {
     assertNoSend();
     const organizationId = orgId(actor.organizationId);
-    const campaign = marketingCampaignStore.getForOrg(campaignId, organizationId);
+    const campaign = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!campaign) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
-    const draft = marketingCampaignStore.getVersion(campaign.currentDraftVersionId);
-    const versions = marketingCampaignStore.listVersions(campaignId);
+    const draft = await marketingCampaignStore.getVersion(campaign.currentDraftVersionId);
+    const versions = await marketingCampaignStore.listVersions(campaignId);
     const editPolicy = marketingCampaignEditPolicy(campaign.status);
     return { campaign, draft, versions, editPolicy };
   },
 
-  create(
+  async create(
     actor: Actor,
     input: {
       name: string;
@@ -159,7 +166,7 @@ export const marketingCampaignService = {
         throw Object.assign(new Error("Audience not found"), { statusCode: 404, code: "AUDIENCE_NOT_FOUND" });
       }
     }
-    const created = marketingCampaignStore.create({
+    const created = await marketingCampaignStore.create({
       organizationId,
       name: input.name,
       objective: input.objective,
@@ -172,7 +179,7 @@ export const marketingCampaignService = {
       createdByUserId: actor.userId ?? null,
     });
     if (input.templateId) {
-      marketingCampaignStore.updateCampaign(created.campaign.id, organizationId, {
+      await marketingCampaignStore.updateCampaign(created.campaign.id, organizationId, {
         templateId: input.templateId,
       });
     }
@@ -182,14 +189,14 @@ export const marketingCampaignService = {
       organizationId,
       detail: { campaignId: created.campaign.id },
     });
-    return this.get(actor, created.campaign.id);
+    return await this.get(actor, created.campaign.id);
   },
 
   /**
    * Persist draft content/metadata only.
    * Never transitions to APPROVED / SCHEDULED / RUNNING / etc.
    */
-  save(
+  async save(
     actor: Actor,
     campaignId: string,
     input: {
@@ -220,7 +227,7 @@ export const marketingCampaignService = {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
     const organizationId = orgId(actor.organizationId);
-    const existing = marketingCampaignStore.getForOrg(campaignId, organizationId);
+    const existing = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!existing) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
@@ -282,7 +289,7 @@ export const marketingCampaignService = {
     }
 
     if (input.content || input.subject || input.previewText) {
-      const draft = marketingCampaignStore.getVersion(existing.currentDraftVersionId);
+      const draft = await marketingCampaignStore.getVersion(existing.currentDraftVersionId);
       const subject = input.subject ?? draft?.subject ?? "";
       const previewText = input.previewText ?? draft?.previewText ?? "";
       const content = input.content ?? draft?.content;
@@ -318,11 +325,11 @@ export const marketingCampaignService = {
       campaignPatch.whatsappTemplateId = input.whatsappTemplateId;
     }
     if (Object.keys(campaignPatch).length) {
-      marketingCampaignStore.updateCampaign(campaignId, organizationId, campaignPatch);
+      await marketingCampaignStore.updateCampaign(campaignId, organizationId, campaignPatch);
     }
 
     if (wantsContent) {
-      const draftBefore = marketingCampaignStore.getVersion(existing.currentDraftVersionId);
+      const draftBefore = await marketingCampaignStore.getVersion(existing.currentDraftVersionId);
       const versionPatch: Parameters<typeof marketingCampaignStore.updateDraftVersion>[2] = {};
       if (input.subject !== undefined) versionPatch.subject = input.subject;
       if (input.previewText !== undefined) versionPatch.previewText = input.previewText;
@@ -346,7 +353,7 @@ export const marketingCampaignService = {
         });
       }
 
-      marketingCampaignStore.updateDraftVersion(campaignId, organizationId, versionPatch);
+      await marketingCampaignStore.updateDraftVersion(campaignId, organizationId, versionPatch);
     }
 
     touchModified(campaignId, organizationId, actor);
@@ -356,12 +363,12 @@ export const marketingCampaignService = {
       organizationId,
       detail: { campaignId, note: "SAVE does not publish" },
     });
-    return this.get(actor, campaignId);
+    return await this.get(actor, campaignId);
   },
 
-  prePublishChecks(actor: Actor, campaignId: string): MarketingPrePublishCheckResult {
+  async prePublishChecks(actor: Actor, campaignId: string): Promise<MarketingPrePublishCheckResult> {
     assertNoSend();
-    const { campaign, draft } = this.get(actor, campaignId);
+    const { campaign, draft } = await this.get(actor, campaignId);
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
@@ -372,7 +379,7 @@ export const marketingCampaignService = {
    * Explicit lifecycle action. SAVE is not a publish path.
    * APPROVE requires CAMPAIGN_APPROVE. No provider send.
    */
-  transition(
+  async transition(
     actor: Actor,
     campaignId: string,
     action: MarketingCampaignAction,
@@ -387,7 +394,7 @@ export const marketingCampaignService = {
     }
 
     const organizationId = orgId(actor.organizationId);
-    const existing = marketingCampaignStore.getForOrg(campaignId, organizationId);
+    const existing = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!existing) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
@@ -409,7 +416,7 @@ export const marketingCampaignService = {
     const to = resolveActionTarget(action, from, opts?.resumeTarget);
     assertMarketingTransitionAllowed(from, to);
 
-    const draft = marketingCampaignStore.getVersion(existing.currentDraftVersionId);
+    const draft = await marketingCampaignStore.getVersion(existing.currentDraftVersionId);
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
@@ -417,8 +424,8 @@ export const marketingCampaignService = {
     if (action === "APPROVE") {
       const checks = runMarketingPrePublishChecks({ campaign: existing, version: draft });
       assertReadyForApproval(checks);
-      const frozen = marketingCampaignStore.freezeVersion(draft.id, "APPROVED");
-      marketingCampaignStore.updateCampaign(campaignId, organizationId, {
+      const frozen = await marketingCampaignStore.freezeVersion(draft.id, "APPROVED");
+      await marketingCampaignStore.updateCampaign(campaignId, organizationId, {
         activePublishedVersionId: frozen.id,
         governance: {
           ...existing.governance,
@@ -430,7 +437,7 @@ export const marketingCampaignService = {
     }
 
     if (action === "SUBMIT_FOR_REVIEW") {
-      marketingCampaignStore.updateCampaign(campaignId, organizationId, {
+      await marketingCampaignStore.updateCampaign(campaignId, organizationId, {
         governance: {
           ...existing.governance,
           submittedByUserId: actor.userId ?? null,
@@ -441,7 +448,7 @@ export const marketingCampaignService = {
     }
 
     if (action === "SCHEDULE") {
-      marketingCampaignStore.updateCampaign(campaignId, organizationId, {
+      await marketingCampaignStore.updateCampaign(campaignId, organizationId, {
         governance: {
           ...existing.governance,
           scheduledByUserId: actor.userId ?? null,
@@ -452,20 +459,23 @@ export const marketingCampaignService = {
     }
 
     if (action === "PREVIEW" || to === "DRAFT") {
-      touchModified(campaignId, organizationId, actor);
+      await touchModified(campaignId, organizationId, actor);
     }
 
     // APPROVED → DRAFT: reopen for new version cycle (content remains frozen until edited)
     if (from === "APPROVED" && to === "DRAFT") {
-      marketingCampaignStore.updateCampaign(campaignId, organizationId, {
-        governance: {
-          ...marketingCampaignStore.getForOrg(campaignId, organizationId)!.governance,
-          modifiedByUserId: actor.userId ?? null,
-        },
-      });
+      const reopened = await marketingCampaignStore.getForOrg(campaignId, organizationId);
+      if (reopened) {
+        await marketingCampaignStore.updateCampaign(campaignId, organizationId, {
+          governance: {
+            ...reopened.governance,
+            modifiedByUserId: actor.userId ?? null,
+          },
+        });
+      }
     }
 
-    marketingCampaignStore.recordStateChange(campaignId, organizationId, {
+    await marketingCampaignStore.recordStateChange(campaignId, organizationId, {
       from,
       to,
       action,
@@ -515,17 +525,17 @@ export const marketingCampaignService = {
       marketingExecutionService.onResume(campaignId);
     }
     if (action === "SCHEDULE" || action === "RUN") {
-      marketingExecutionService.initializeFromTransition(campaignId, organizationId);
+      await marketingExecutionService.initializeFromTransition(campaignId, organizationId);
     }
 
-    return this.get(actor, campaignId);
+    return await this.get(actor, campaignId);
   },
 
-  clone(actor: Actor, campaignId: string, name?: string) {
+  async clone(actor: Actor, campaignId: string, name?: string) {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
     const organizationId = orgId(actor.organizationId);
-    const created = marketingCampaignStore.cloneCampaign(
+    const created = await marketingCampaignStore.cloneCampaign(
       campaignId,
       organizationId,
       name,
@@ -537,14 +547,14 @@ export const marketingCampaignService = {
       organizationId,
       detail: { from: campaignId, to: created.campaign.id },
     });
-    return this.get(actor, created.campaign.id);
+    return await this.get(actor, created.campaign.id);
   },
 
-  saveAsTemplate(actor: Actor, campaignId: string, templateName: string) {
+  async saveAsTemplate(actor: Actor, campaignId: string, templateName: string) {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
     const organizationId = orgId(actor.organizationId);
-    const { campaign, draft } = this.get(actor, campaignId);
+    const { campaign, draft } = await this.get(actor, campaignId);
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
@@ -586,13 +596,13 @@ export const marketingCampaignService = {
     return marketingReusableBlockStore.list(orgId(actor.organizationId));
   },
 
-  preview(
+  async preview(
     actor: Actor,
     campaignId: string,
     personalization?: Record<string, string>,
-  ): MarketingCampaignPreviewPayload {
+  ): Promise<MarketingCampaignPreviewPayload> {
     assertNoSend();
-    const { campaign, draft } = this.get(actor, campaignId);
+    const { campaign, draft } = await this.get(actor, campaignId);
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
@@ -609,7 +619,7 @@ export const marketingCampaignService = {
 
     if (campaign.status === "DRAFT") {
       try {
-        this.transition(actor, campaignId, "PREVIEW", { note: "Opened preview" });
+        await this.transition(actor, campaignId, "PREVIEW", { note: "Opened preview" });
       } catch {
         // soft
       }
@@ -678,7 +688,7 @@ export const marketingCampaignService = {
     }
 
     const preview = this.preview(actor, campaignId, input.personalization);
-    const { campaign, draft } = this.get(actor, campaignId);
+    const { campaign, draft } = await this.get(actor, campaignId);
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
@@ -744,11 +754,11 @@ export const marketingCampaignService = {
    * Create a new editable draft from a historical frozen version.
    * Never mutates the frozen / published version used by a running campaign.
    */
-  restoreVersionAsDraft(actor: Actor, campaignId: string, versionId: string) {
+  async restoreVersionAsDraft(actor: Actor, campaignId: string, versionId: string) {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
     const organizationId = orgId(actor.organizationId);
-    const existing = marketingCampaignStore.getForOrg(campaignId, organizationId);
+    const existing = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!existing) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
@@ -759,11 +769,11 @@ export const marketingCampaignService = {
         { statusCode: 400, code: "RESTORE_BLOCKED" },
       );
     }
-    const source = marketingCampaignStore.getVersion(versionId);
+    const source = await marketingCampaignStore.getVersion(versionId);
     if (!source || source.campaignId !== campaignId) {
       throw Object.assign(new Error("Version not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
-    marketingCampaignStore.updateDraftVersion(campaignId, organizationId, {
+    await marketingCampaignStore.updateDraftVersion(campaignId, organizationId, {
       subject: source.subject,
       previewText: source.previewText,
       content: cloneContentDocument(source.content),
@@ -776,14 +786,17 @@ export const marketingCampaignService = {
     });
     // If current draft was frozen (active published), mint already happened above.
     // Force another mint if current draft is still the published frozen id:
-    const after = marketingCampaignStore.getForOrg(campaignId, organizationId)!;
-    const draft = marketingCampaignStore.getVersion(after.currentDraftVersionId);
+    const after = await marketingCampaignStore.getForOrg(campaignId, organizationId);
+    if (!after) {
+      throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
+    }
+    const draft = await marketingCampaignStore.getVersion(after.currentDraftVersionId);
     if (draft?.immutable) {
-      marketingCampaignStore.updateDraftVersion(campaignId, organizationId, {
+      await marketingCampaignStore.updateDraftVersion(campaignId, organizationId, {
         subject: source.subject,
       });
     }
-    touchModified(campaignId, organizationId, actor);
+    await touchModified(campaignId, organizationId, actor);
     recordMarketingAuditEvent({
       kind: "campaign.save",
       actorUserId: actor.userId ?? null,
@@ -795,7 +808,7 @@ export const marketingCampaignService = {
         delivery: "none",
       },
     });
-    return this.get(actor, campaignId);
+    return await this.get(actor, campaignId);
   },
 };
 

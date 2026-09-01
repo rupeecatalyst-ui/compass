@@ -226,7 +226,7 @@ export const marketingEmailDeliveryService = {
   emitDeliveryEvent(request: MarketingEmailDeliveryRequest, result: MarketingEmailDeliveryResult) {
     const type = engagementTypeFromDeliveryOutcome(result.outcome);
     if (!type) return;
-    emitMarketingEngagementEvent({
+    await emitMarketingEngagementEvent({
       organizationId: request.organizationId,
       campaignId: request.campaignId,
       campaignVersionId: request.campaignVersionId,
@@ -273,7 +273,7 @@ export const marketingEmailDeliveryService = {
         providerMessageId: null,
         dryRun: true,
       };
-      emitMarketingEngagementEvent({
+      await emitMarketingEngagementEvent({
         organizationId: input.organizationId,
         campaignId: input.campaignId,
         campaignVersionId: input.campaignVersionId,

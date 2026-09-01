@@ -126,7 +126,7 @@ if (!permMod.hasMarketingPermission(superActor, "admin.marketing.campaign.approv
   fail("SUPER_ADMIN should have approve");
 } else pass("SUPER_ADMIN has approve");
 
-const created = campaignService.create(superActor, {
+const created = await campaignService.create(superActor, {
   name: "MKT-05 Lifecycle",
   channel: "EMAIL",
 });
@@ -136,7 +136,7 @@ if (!created.campaign.governance.createdByUserId) fail("createdBy missing");
 else pass("governance createdBy");
 
 // SAVE must not accept status publish (service ignores — API rejects)
-const saved = campaignService.save(superActor, created.campaign.id, {
+const saved = await campaignService.save(superActor, created.campaign.id, {
   audienceId: "aud-mkt05",
   subject: "Hello {{firstName}}",
   disclaimer: "Disclaimer and unsubscribe info.",
@@ -149,21 +149,21 @@ if (saved.campaign.status !== "DRAFT" && saved.campaign.status !== "PREVIEW") {
 if (saved.campaign.status === "APPROVED") fail("save published to APPROVED");
 else pass("save did not approve");
 
-const checksFail = campaignService.prePublishChecks(superActor, created.campaign.id);
+const checksFail = await campaignService.prePublishChecks(superActor, created.campaign.id);
 // audience + content should pass if we set them; sender default OK
 if (!checksFail.readyForApproval && checksFail.blockingCodes.includes("audience")) {
   // ensure audience was saved
   fail(`audience should be set; blocking=${checksFail.blockingCodes.join(",")}`);
 }
 
-const checks = campaignService.prePublishChecks(superActor, created.campaign.id);
+const checks = await campaignService.prePublishChecks(superActor, created.campaign.id);
 if (!checks.readyForApproval) fail(`pre-publish not ready: ${checks.blockingCodes.join(",")}`);
 else pass("pre-publish ready");
 
 // Illegal: DRAFT → APPROVE directly
 let blocked = false;
 try {
-  campaignService.transition(superActor, created.campaign.id, "APPROVE");
+  await campaignService.transition(superActor, created.campaign.id, "APPROVE");
 } catch (e) {
   blocked = true;
   if (!(e instanceof Error) || !String(e.message).includes("Illegal")) {
@@ -173,8 +173,8 @@ try {
 }
 if (!blocked) fail("APPROVE from DRAFT should fail");
 
-campaignService.transition(superActor, created.campaign.id, "SUBMIT_FOR_REVIEW");
-const submitted = campaignService.get(superActor, created.campaign.id);
+await campaignService.transition(superActor, created.campaign.id, "SUBMIT_FOR_REVIEW");
+const submitted = await campaignService.get(superActor, created.campaign.id);
 if (submitted.campaign.status !== "READY_FOR_REVIEW") fail("submit status");
 else pass("In Review");
 if (!submitted.campaign.governance.submittedByUserId) fail("submittedBy");
@@ -183,7 +183,7 @@ else pass("submittedBy recorded");
 // ADMIN cannot approve
 let denied = false;
 try {
-  campaignService.transition(adminActor, created.campaign.id, "APPROVE");
+  await campaignService.transition(adminActor, created.campaign.id, "APPROVE");
 } catch (e) {
   denied = (e instanceof Error && (e.message.includes("permission") || e.code === "MARKETING_PERMISSION_DENIED"))
     || (e && typeof e === "object" && "code" in e && e.code === "MARKETING_PERMISSION_DENIED");
@@ -191,7 +191,7 @@ try {
 if (!denied) fail("ADMIN approve should be denied");
 else pass("ADMIN approve denied");
 
-const approved = campaignService.transition(superActor, created.campaign.id, "APPROVE");
+const approved = await campaignService.transition(superActor, created.campaign.id, "APPROVE");
 if (approved.campaign.status !== "APPROVED") fail("approve status");
 else pass("Approved");
 if (!approved.campaign.governance.approvedByUserId) fail("approvedBy");
@@ -203,7 +203,7 @@ else pass("content frozen on approve");
 // Content edit blocked while APPROVED
 let locked = false;
 try {
-  campaignService.save(superActor, created.campaign.id, { subject: "Hacked" });
+  await campaignService.save(superActor, created.campaign.id, { subject: "Hacked" });
 } catch (e) {
   locked = true;
   pass(`content locked: ${e instanceof Error ? e.message : e}`);
@@ -211,34 +211,34 @@ try {
 if (!locked) fail("content should be locked when APPROVED");
 
 // Operational path (state only — no send)
-campaignService.transition(superActor, created.campaign.id, "SCHEDULE");
-if (campaignService.get(superActor, created.campaign.id).campaign.status !== "SCHEDULED") {
+await campaignService.transition(superActor, created.campaign.id, "SCHEDULE");
+if ((await campaignService.get(superActor, created.campaign.id)).campaign.status !== "SCHEDULED") {
   fail("scheduled");
 } else pass("Scheduled");
-campaignService.transition(superActor, created.campaign.id, "RUN");
-if (campaignService.get(superActor, created.campaign.id).campaign.status !== "RUNNING") {
+await campaignService.transition(superActor, created.campaign.id, "RUN");
+if ((await campaignService.get(superActor, created.campaign.id)).campaign.status !== "RUNNING") {
   fail("running");
 } else pass("Running (state only)");
-campaignService.transition(superActor, created.campaign.id, "PAUSE");
-campaignService.transition(superActor, created.campaign.id, "RESUME");
-if (campaignService.get(superActor, created.campaign.id).campaign.status !== "RUNNING") {
+await campaignService.transition(superActor, created.campaign.id, "PAUSE");
+await campaignService.transition(superActor, created.campaign.id, "RESUME");
+if ((await campaignService.get(superActor, created.campaign.id)).campaign.status !== "RUNNING") {
   fail("resume");
 } else pass("Resume → RUNNING");
-campaignService.transition(superActor, created.campaign.id, "COMPLETE");
-if (campaignService.get(superActor, created.campaign.id).campaign.status !== "COMPLETED") {
+await campaignService.transition(superActor, created.campaign.id, "COMPLETE");
+if ((await campaignService.get(superActor, created.campaign.id)).campaign.status !== "COMPLETED") {
   fail("completed");
 } else pass("Completed read-only");
 
 let readonly = false;
 try {
-  campaignService.save(superActor, created.campaign.id, { name: "x" });
+  await campaignService.save(superActor, created.campaign.id, { name: "x" });
 } catch {
   readonly = true;
 }
 if (!readonly) fail("COMPLETED should be read-only");
 else pass("COMPLETED read-only");
 
-const history = campaignService.get(superActor, created.campaign.id).campaign.stateHistory;
+const history = (await campaignService.get(superActor, created.campaign.id)).campaign.stateHistory;
 if (history.length < 5) fail("state history too short");
 else pass(`state history entries=${history.length}`);
 

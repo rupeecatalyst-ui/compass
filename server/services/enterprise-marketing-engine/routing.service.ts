@@ -17,7 +17,7 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function pickForQualification(qualification: MarketingQualificationRecord, policyId: string) {
+async function pickForQualification(qualification: MarketingQualificationRecord, policyId: string) {
   const policy = marketingRoutingPolicyStore.get(policyId);
   if (!policy) {
     throw Object.assign(new Error("Routing policy is not configured"), {
@@ -25,7 +25,7 @@ function pickForQualification(qualification: MarketingQualificationRecord, polic
       code: "ROUTING_UNCONFIGURED",
     });
   }
-  const campaign = marketingCampaignStore.getForOrg(
+  const campaign = await marketingCampaignStore.getForOrg(
     qualification.campaignId,
     qualification.organizationId,
   );
@@ -73,7 +73,7 @@ export const marketingRoutingService: MarketingRoutingPort & {
         idempotent: true,
       };
     }
-    const picked = pickForQualification(qualification, request.routingPolicyId);
+    const picked = await pickForQualification(qualification, request.routingPolicyId);
     const claimed = marketingAssignmentStore.claim({
       qualificationId: request.qualificationId,
       assigneeUserId: picked.userId,
@@ -88,12 +88,12 @@ export const marketingRoutingService: MarketingRoutingPort & {
     };
   },
 
-  assignForQualification(qualification, routingPolicyId) {
+  async assignForQualification(qualification, routingPolicyId) {
     const existing = marketingAssignmentStore.get(qualification.id);
     if (existing) {
       return { assignment: existing, idempotent: true, mode: existing.mode };
     }
-    const picked = pickForQualification(qualification, routingPolicyId);
+    const picked = await pickForQualification(qualification, routingPolicyId);
     const claimed = marketingAssignmentStore.claim({
       qualificationId: qualification.id,
       assigneeUserId: picked.userId,

@@ -10,6 +10,7 @@ import {
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import type { ApiResponse } from "@/types/api";
+import { resolveMarketingOrganizationId } from "@server/services/enterprise-marketing-engine/organization";
 import { marketingAnalyticsService } from "@server/services/enterprise-marketing-engine/analytics.service";
 
 function requireAdministrator(actor: { role: string }) {
@@ -34,11 +35,13 @@ function fromUnknown(err: unknown) {
   );
 }
 
-const actorCtx = (actor: { userId: string; role: string }) => ({
-  userId: actor.userId,
-  role: actor.role,
-  organizationId: "default" as string | null,
-});
+async function actorCtx(actor: { userId: string; role: string }) {
+  return {
+    userId: actor.userId,
+    role: actor.role,
+    organizationId: await resolveMarketingOrganizationId(),
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -55,10 +58,10 @@ export async function GET(request: Request) {
     const status = url.searchParams.get("status");
     const page = Number.parseInt(url.searchParams.get("page") ?? "1", 10);
     const pageSize = Number.parseInt(url.searchParams.get("pageSize") ?? "50", 10);
-    const ctx = actorCtx(actor);
+    const ctx = await actorCtx(actor);
 
     if (view === "engagement") {
-      const result = marketingAnalyticsService.listEngagement(ctx, {
+      const result = await marketingAnalyticsService.listEngagement(ctx, {
         preset,
         from,
         to,
@@ -75,7 +78,7 @@ export async function GET(request: Request) {
       if (!campaignId?.trim()) {
         return errorResponse(400, "CAMPAIGN_REQUIRED", "campaignId is required for execution drill-down");
       }
-      const result = marketingAnalyticsService.listExecutionDrilldown(ctx, {
+      const result = await marketingAnalyticsService.listExecutionDrilldown(ctx, {
         preset,
         from,
         to,
