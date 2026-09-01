@@ -40,13 +40,14 @@ export function DiscoveryAdvantageStep() {
               Try Again
             </Button>
           </div>
-        ) : !compassAdvantageIsDisplayable(advantage) ? (
+        ) : advantage?.status === "not_available" || !advantage?.eligible ? (
           <div className="mx-auto mt-10 max-w-lg space-y-4">
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground">{advantage?.disclaimer}</p>
+            <p className="text-xs text-muted-foreground">
               You can continue — lender guidance and document collection are not affected.
             </p>
           </div>
-        ) : (
+        ) : compassAdvantageIsDisplayable(advantage) ? (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
