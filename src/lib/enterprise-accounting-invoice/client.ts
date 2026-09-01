@@ -1,8 +1,10 @@
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import type { ApiResponse } from "@/types/api";
 import type {
+  ApplyInvoiceSignatureInput,
   EnterpriseAccountingInvoiceDto,
   RaiseEnterpriseAccountingInvoiceInput,
+  SendEnterpriseAccountingInvoiceInput,
 } from "@/types/enterprise-accounting-invoice";
 import type { DerivedAccountingPaymentSummary } from "@/types/enterprise-accounting-payment";
 
@@ -39,5 +41,46 @@ export const enterpriseAccountingInvoiceClient = {
         body: JSON.stringify(input),
       }),
     );
+  },
+
+  async applySignature(input: ApplyInvoiceSignatureInput) {
+    return read<EnterpriseAccountingInvoiceDto>(
+      await authenticatedJsonFetch(
+        `/api/accounting-invoices/${encodeURIComponent(input.invoiceId)}/signature`,
+        {
+          method: "POST",
+          body: JSON.stringify(input),
+        },
+      ),
+    );
+  },
+
+  async send(input: SendEnterpriseAccountingInvoiceInput) {
+    return read<EnterpriseAccountingInvoiceDto>(
+      await authenticatedJsonFetch(
+        `/api/accounting-invoices/${encodeURIComponent(input.invoiceId)}/send`,
+        {
+          method: "POST",
+          body: JSON.stringify(input),
+        },
+      ),
+    );
+  },
+
+  async downloadPdf(invoiceId: string): Promise<Blob> {
+    const response = await authenticatedJsonFetch(
+      `/api/accounting-invoices/${encodeURIComponent(invoiceId)}/pdf`,
+    );
+    if (!response.ok) {
+      let message = "PDF download failed";
+      try {
+        const body = (await response.json()) as ApiResponse<unknown>;
+        message = body.error?.message ?? message;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(message);
+    }
+    return response.blob();
   },
 };

@@ -21,12 +21,14 @@ import {
   calendarDateToUtcNoon,
   parseIsoDateOnly,
 } from "@/lib/enterprise-accounting-invoice/financial-year";
+import { reconcileActualCredit } from "@/lib/enterprise-accounting-invoice/payment-reconciliation";
 import {
   assertPaymentDoesNotExceedOutstanding,
   deriveInvoiceReceivable,
 } from "@/lib/enterprise-accounting-invoice/receivable";
 import type {
   EnterpriseAccountingPaymentDto,
+  EnterpriseAccountingPaymentReconciliationDto,
   PostEnterpriseAccountingPaymentInput,
   VoidEnterpriseAccountingPaymentInput,
 } from "@/types/enterprise-accounting-payment";
@@ -50,6 +52,7 @@ function serializePayment(row: {
   receivedBy: string;
   receivedAt: Date;
   notes: string | null;
+  reconciliationJson?: Prisma.JsonValue | null;
   voidedAt: Date | null;
   voidedBy: string | null;
   voidReason: string | null;
@@ -72,6 +75,10 @@ function serializePayment(row: {
     receivedBy: row.receivedBy,
     receivedAt: row.receivedAt.toISOString(),
     notes: row.notes,
+    reconciliation:
+      row.reconciliationJson && typeof row.reconciliationJson === "object"
+        ? (row.reconciliationJson as EnterpriseAccountingPaymentReconciliationDto)
+        : null,
     voidedAt: isoDate(row.voidedAt),
     voidedBy: row.voidedBy,
     voidReason: row.voidReason,
@@ -81,10 +88,26 @@ function serializePayment(row: {
   };
 }
 
-function postedAmounts(payments: Array<{ status: string; amount: Prisma.Decimal }>): number[] {
+function postedApplicationAmounts(
+  payments: Array<{
+    status: string;
+    amount: Prisma.Decimal;
+    reconciliationJson?: Prisma.JsonValue | null;
+  }>,
+): number[] {
   return payments
     .filter((p) => p.status === ACCOUNTING_PAYMENT_STATUS.posted)
-    .map((p) => p.amount.toNumber());
+    .map((p) => {
+      const recon = p.reconciliationJson;
+      if (recon && typeof recon === "object" && !Array.isArray(recon)) {
+        const r = recon as Record<string, unknown>;
+        const credited = typeof r.amountCredited === "number" ? r.amountCredited : p.amount.toNumber();
+        const withholding = typeof r.tdsWithholdingAmount === "number" ? r.tdsWithholdingAmount : 0;
+        const other = typeof r.otherAdjustment === "number" ? r.otherAdjustment : 0;
+        return roundMoney2(credited + withholding + other);
+      }
+      return p.amount.toNumber();
+    });
 }
 
 function postedCreditNoteAmounts(
@@ -116,7 +139,9 @@ export class EnterpriseAccountingPaymentService {
         code: "INVALID_ROW_VERSION",
       });
     }
-    const amount = roundMoney2(input.amount);
+    const amountCredited = roundMoney2(
+      input.amountCredited != null ? input.amountCredited : (input.amount as number),
+    );
     const paymentCal = parseIsoDateOnly(input.paymentDate);
     const paymentDate = calendarDateToUtcNoon(paymentCal.year, paymentCal.month, paymentCal.day);
     const organizationId = await resolvePilotOrganizationId();
@@ -167,13 +192,40 @@ export class EnterpriseAccountingPaymentService {
         });
       }
 
+      let reconciliation: EnterpriseAccountingPaymentReconciliationDto;
+      try {
+        reconciliation = {
+          ...reconcileActualCredit({
+            invoiceTotal: invoice.invoiceTotal.toNumber(),
+            amountCredited,
+            otherAdjustment: input.otherAdjustment,
+            classifyDifferenceAs: input.classifyDifferenceAs,
+            confirmWithholdingAsTds: input.confirmWithholdingAsTds ?? true,
+          }),
+          payerReference: input.payerReference?.trim() || null,
+          tdsCertificateReference: input.tdsCertificateReference?.trim() || null,
+          tdsCertificateDate: input.tdsCertificateDate?.trim() || null,
+        };
+      } catch (err) {
+        throw Object.assign(err instanceof Error ? err : new Error("Reconciliation failed"), {
+          statusCode: (err as { statusCode?: number }).statusCode ?? 400,
+          code: (err as { code?: string }).code ?? "RECONCILIATION_FAILED",
+        });
+      }
+
+      const applicationAmount = roundMoney2(
+        reconciliation.amountCredited +
+          reconciliation.otherAdjustment +
+          reconciliation.tdsWithholdingAmount,
+      );
+
       const receivable = deriveInvoiceReceivable({
         invoiceTotal: invoice.invoiceTotal.toNumber(),
         netReceivable: invoice.netReceivable.toNumber(),
-        postedPaymentAmounts: postedAmounts(invoice.payments),
+        postedPaymentAmounts: postedApplicationAmounts(invoice.payments),
         postedCreditNoteAmounts: postedCreditNoteAmounts(invoice.creditNotes),
       });
-      assertPaymentDoesNotExceedOutstanding(amount, receivable.outstanding);
+      assertPaymentDoesNotExceedOutstanding(applicationAmount, receivable.outstanding);
 
       const now = new Date();
       const created = await tx.enterpriseAccountingPayment.create({
@@ -184,13 +236,14 @@ export class EnterpriseAccountingPaymentService {
           dealId: invoice.dealId,
           opportunityId: invoice.opportunityId,
           paymentDate,
-          amount: new Prisma.Decimal(amount),
+          amount: new Prisma.Decimal(applicationAmount),
           paymentReference: reference,
           paymentMode: input.paymentMode.trim(),
           status: ACCOUNTING_PAYMENT_STATUS.posted,
           receivedBy: actorUserId,
           receivedAt: now,
           notes: input.notes?.trim() || null,
+          reconciliationJson: reconciliation as unknown as Prisma.InputJsonValue,
           createdBy: actorUserId,
           updatedBy: actorUserId,
         },
@@ -215,7 +268,11 @@ export class EnterpriseAccountingPaymentService {
             invoiceId: invoice.id,
             invoiceNumber: invoice.invoiceNumber,
             paymentId: created.id,
-            amount,
+            amountCredited: reconciliation.amountCredited,
+            tdsWithholdingAmount: reconciliation.tdsWithholdingAmount,
+            otherAdjustment: reconciliation.otherAdjustment,
+            reconciliationStatus: reconciliation.reconciliationStatus,
+            source: reconciliation.source,
           },
           opportunityId: invoice.opportunityId,
           dealId: invoice.dealId,

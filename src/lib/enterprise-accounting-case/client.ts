@@ -17,6 +17,9 @@ export type EnterpriseAccountingCaseDealDto = {
     id: string;
     displayName: string;
     gstin?: string | null;
+    stateLabel?: string | null;
+    invoiceEmail?: string | null;
+    billingAddress?: string | null;
     tdsApplicable?: boolean;
     tdsRatePercent?: number | null;
   } | null;

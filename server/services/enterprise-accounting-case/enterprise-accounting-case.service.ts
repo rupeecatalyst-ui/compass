@@ -144,6 +144,46 @@ export class EnterpriseAccountingCaseService {
     if (input.reconciliation !== undefined) {
       data.reconciliationJson = json(input.reconciliation);
     }
+
+    // CO-ACCOUNTING-INVOICE-OPERATIONS-015 — validate commercial capture when loan amounts + payout % provided
+    const finalCandidate =
+      input.finalAmount !== undefined
+        ? input.finalAmount
+        : undefined;
+    const disbursedCandidate =
+      input.disbursedAmount !== undefined ? input.disbursedAmount : undefined;
+    const payoutPctCandidate =
+      input.commissionPercent !== undefined ? input.commissionPercent : undefined;
+    if (
+      finalCandidate != null &&
+      disbursedCandidate != null &&
+      payoutPctCandidate != null
+    ) {
+      const { calculateAccountingCommercialCapture } = await import(
+        "@/lib/enterprise-accounting-invoice/commercial"
+      );
+      const commercial = calculateAccountingCommercialCapture({
+        finalLoanAmount: finalCandidate,
+        amountDisbursed: disbursedCandidate,
+        payoutPercent: payoutPctCandidate,
+      });
+      data.finalAmount = decimal(commercial.finalLoanAmount, "finalAmount");
+      data.disbursedAmount = decimal(commercial.amountDisbursed, "disbursedAmount");
+      data.commissionPercent = decimal(commercial.payoutPercent, "commissionPercent");
+      data.expectedCommission = decimal(commercial.payoutCommission, "expectedCommission");
+      data.payoutAmount = decimal(commercial.payoutCommission, "payoutAmount");
+      data.confirmedInvoiceAmount = decimal(commercial.taxableValue, "confirmedInvoiceAmount");
+      data.reconciliationJson = json({
+        ...(typeof input.reconciliation === "object" && input.reconciliation
+          ? input.reconciliation
+          : {}),
+        pendingLoanAmount: commercial.pendingLoanAmount,
+        payoutBasis: commercial.payoutBasis,
+        payoutBasisLabel: commercial.payoutBasisLabel,
+        commercialCaptureVersion: "CO-ACCOUNTING-INVOICE-OPERATIONS-015",
+      });
+    }
+
     const organizationId = await resolvePilotOrganizationId();
     const row = await enterpriseAccountingCaseRepository.updateOptimistic({
       organizationId,

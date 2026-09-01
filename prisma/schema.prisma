@@ -2675,6 +2675,17 @@ model EnterpriseAccountingInvoice {
   tdsAmount              Decimal  @map("tds_amount") @db.Decimal(18, 2)
   netReceivable          Decimal  @map("net_receivable") @db.Decimal(18, 2)
 
+  /// CO-ACCOUNTING-INVOICE-OPERATIONS-015 — immutable GST determination snapshot (CGST/SGST/IGST, POS, rule refs)
+  taxDeterminationJson   Json?    @map("tax_determination_json")
+  partyInvoiceEmail      String?  @map("party_invoice_email")
+  signatureAppliedAt     DateTime? @map("signature_applied_at")
+  signatureAuthorityId   String?  @map("signature_authority_id")
+  signatureAuthorityName String?  @map("signature_authority_name")
+  signatureDesignation   String?  @map("signature_designation")
+  /// Durable signed PDF bytes for download. Invoice email send remains disabled in this release.
+  signedPdfBytes         Bytes?   @map("signed_pdf_bytes")
+  lastSendAuditJson      Json?    @map("last_send_audit_json")
+
   /// draft | raised | shared | cancelled — Phase 1 Raise creates raised
   documentStatus         String   @map("document_status")
 
@@ -2721,6 +2732,8 @@ model EnterpriseAccountingPayment {
   receivedBy       String    @map("received_by")
   receivedAt       DateTime  @map("received_at")
   notes            String?   @db.Text
+  /// CO-ACCOUNTING-INVOICE-OPERATIONS-015 — actual credit / TDS withholding reconciliation (never auto-rate)
+  reconciliationJson Json?   @map("reconciliation_json")
   voidedAt         DateTime? @map("voided_at")
   voidedBy         String?   @map("voided_by")
   voidReason       String?   @map("void_reason") @db.Text

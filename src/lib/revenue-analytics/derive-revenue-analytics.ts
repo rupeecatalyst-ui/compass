@@ -176,6 +176,23 @@ export function deriveRevenueAnalytics(input: {
     { name: "Outstanding", value: outstanding, state: "outstanding" },
   ];
 
+  const gstBreakdown = activeInvoices.reduce(
+    (acc, inv) => {
+      acc.taxableRevenue += inv.taxableValue ?? 0;
+      const tax = inv.taxDetermination;
+      if (tax) {
+        acc.totalGst += tax.gstAmount ?? inv.gstAmount ?? 0;
+        acc.cgst += tax.cgstAmount ?? 0;
+        acc.sgst += tax.sgstAmount ?? 0;
+        acc.igst += tax.igstAmount ?? 0;
+      } else {
+        acc.totalGst += inv.gstAmount ?? 0;
+      }
+      return acc;
+    },
+    { taxableRevenue: 0, totalGst: 0, cgst: 0, sgst: 0, igst: 0 },
+  );
+
   const kpis: RevenueAnalyticsKpi[] = [
     {
       id: "expected",
@@ -204,6 +221,20 @@ export function deriveRevenueAnalytics(input: {
       value: formatINRCompact(outstanding),
       hint: "Invoiced minus received & credits",
       state: "outstanding",
+    },
+    {
+      id: "taxable",
+      label: "Taxable Revenue",
+      value: formatINRCompact(gstBreakdown.taxableRevenue),
+      hint: "Invoice taxable value",
+      state: "invoiced",
+    },
+    {
+      id: "gst-total",
+      label: "Total GST",
+      value: formatINRCompact(gstBreakdown.totalGst),
+      hint: "CGST + SGST/UTGST + IGST",
+      state: "invoiced",
     },
     {
       id: "mtd-received",
@@ -263,6 +294,7 @@ export function deriveRevenueAnalytics(input: {
     hasAccountingData,
     hasPipelineData,
     kpis,
+    gstBreakdown,
     waterfall,
     byProduct,
     byLenderParty,

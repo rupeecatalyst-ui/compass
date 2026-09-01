@@ -32,11 +32,20 @@ export type RevenueWaterfallStep = {
   state: RevenueStateKind;
 };
 
+export type RevenueGstBreakdown = {
+  taxableRevenue: number;
+  totalGst: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+};
+
 export type RevenueAnalyticsModel = {
   asOf: string;
   hasAccountingData: boolean;
   hasPipelineData: boolean;
   kpis: RevenueAnalyticsKpi[];
+  gstBreakdown: RevenueGstBreakdown;
   waterfall: RevenueWaterfallStep[];
   byProduct: RevenueNamedAmount[];
   byLenderParty: Array<{ name: string; invoiced: number; received: number }>;

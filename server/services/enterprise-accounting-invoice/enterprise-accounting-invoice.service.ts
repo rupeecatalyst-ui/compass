@@ -12,16 +12,27 @@ import {
   invoiceRaisedEventId,
 } from "@/constants/enterprise-accounting-invoice";
 import { calculateRaisedInvoiceAmounts } from "@/lib/enterprise-accounting-invoice/amounts";
+import { calculateAmountPendingToInvoice } from "@/lib/enterprise-accounting-invoice/commercial";
 import {
   calendarDateToUtcNoon,
   parseIsoDateOnly,
   resolveInvoiceFinancialYearKey,
   todayIsoDateInTimeZone,
 } from "@/lib/enterprise-accounting-invoice/financial-year";
+import { buildAccountingInvoiceHtml } from "@/lib/enterprise-accounting-invoice/invoice-html";
 import { resolveInvoiceProductPrefix } from "@/lib/enterprise-accounting-invoice/prefix";
+import {
+  determineAccountingGst,
+  normalizeGstin,
+  toTaxDeterminationSnapshot,
+  type AccountingTaxDeterminationSnapshot,
+} from "@/lib/enterprise-accounting-regulatory-tax/determine-gst";
 import type {
+  ApplyInvoiceSignatureInput,
   EnterpriseAccountingInvoiceDto,
+  EnterpriseAccountingInvoiceSendAudit,
   RaiseEnterpriseAccountingInvoiceInput,
+  SendEnterpriseAccountingInvoiceInput,
 } from "@/types/enterprise-accounting-invoice";
 import type {
   DerivedAccountingPaymentSummary,
@@ -33,6 +44,7 @@ import { deriveInvoiceReceivable } from "@/lib/enterprise-accounting-invoice/rec
 import type { EnterpriseAccountingCreditNoteDto } from "@/types/enterprise-accounting-credit-note";
 import { serializeCreditNote } from "./enterprise-accounting-credit-note.service";
 import { allocateAccountingInvoiceNumberInTransaction } from "./invoice-number.service";
+import { renderAccountingInvoicePdf } from "./invoice-pdf.service";
 
 function moneyNumber(value: Prisma.Decimal | number | null | undefined): number | null {
   if (value == null) return null;
@@ -42,6 +54,16 @@ function moneyNumber(value: Prisma.Decimal | number | null | undefined): number 
 
 function isoDate(value: Date | null | undefined): string | null {
   return value ? value.toISOString() : null;
+}
+
+function asTaxSnapshot(value: unknown): AccountingTaxDeterminationSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  return value as AccountingTaxDeterminationSnapshot;
+}
+
+function asSendAudit(value: unknown): EnterpriseAccountingInvoiceSendAudit | null {
+  if (!value || typeof value !== "object") return null;
+  return value as EnterpriseAccountingInvoiceSendAudit;
 }
 
 function serializePayment(row: {
@@ -59,6 +81,7 @@ function serializePayment(row: {
   receivedBy: string;
   receivedAt: Date;
   notes: string | null;
+  reconciliationJson?: Prisma.JsonValue | null;
   voidedAt: Date | null;
   voidedBy: string | null;
   voidReason: string | null;
@@ -81,6 +104,10 @@ function serializePayment(row: {
     receivedBy: row.receivedBy,
     receivedAt: row.receivedAt.toISOString(),
     notes: row.notes,
+    reconciliation:
+      row.reconciliationJson && typeof row.reconciliationJson === "object"
+        ? (row.reconciliationJson as EnterpriseAccountingPaymentDto["reconciliation"])
+        : null,
     voidedAt: isoDate(row.voidedAt),
     voidedBy: row.voidedBy,
     voidReason: row.voidReason,
@@ -97,16 +124,35 @@ const invoiceInclude = {
 } satisfies Prisma.EnterpriseAccountingInvoiceInclude;
 
 function serialize(
-  row: Prisma.EnterpriseAccountingInvoiceGetPayload<{ include: typeof invoiceInclude }>,
+  row: Prisma.EnterpriseAccountingInvoiceGetPayload<{ include: typeof invoiceInclude }> & {
+    taxDeterminationJson?: Prisma.JsonValue | null;
+    partyInvoiceEmail?: string | null;
+    signatureAppliedAt?: Date | null;
+    signatureAuthorityId?: string | null;
+    signatureAuthorityName?: string | null;
+    signatureDesignation?: string | null;
+    signedPdfBytes?: Buffer | Uint8Array | null;
+    lastSendAuditJson?: Prisma.JsonValue | null;
+  },
 ): EnterpriseAccountingInvoiceDto {
-  const payments = row.payments.map(serializePayment);
+  const payments = row.payments.map((p) =>
+    serializePayment(p as Parameters<typeof serializePayment>[0]),
+  );
   const creditNotes: EnterpriseAccountingCreditNoteDto[] = row.creditNotes.map(serializeCreditNote);
   const derived = deriveInvoiceReceivable({
     invoiceTotal: row.invoiceTotal.toNumber(),
     netReceivable: row.netReceivable.toNumber(),
     postedPaymentAmounts: payments
       .filter((p) => p.status === ACCOUNTING_PAYMENT_STATUS.posted)
-      .map((p) => p.amount),
+      .map((p) => {
+        const credited = p.reconciliation?.amountCredited;
+        const withholding = p.reconciliation?.tdsWithholdingAmount ?? 0;
+        const other = p.reconciliation?.otherAdjustment ?? 0;
+        if (typeof credited === "number") {
+          return credited + withholding + other;
+        }
+        return p.amount;
+      }),
     postedCreditNoteAmounts: creditNotes
       .filter((n) => n.status === ACCOUNTING_CREDIT_NOTE_STATUS.posted)
       .map((n) => n.creditNoteAmount),
@@ -139,6 +185,7 @@ function serialize(
     partyTdsApplicable: row.partyTdsApplicable,
     partyTdsRatePercent: row.partyTdsRatePercent,
     partyDisplayName: row.partyDisplayName,
+    partyInvoiceEmail: row.partyInvoiceEmail ?? null,
     taxableValue: row.taxableValue.toNumber(),
     gstRatePercent: row.gstRatePercent.toNumber(),
     gstAmount: row.gstAmount.toNumber(),
@@ -146,6 +193,13 @@ function serialize(
     tdsRatePercent: row.tdsRatePercent?.toNumber() ?? null,
     tdsAmount: row.tdsAmount.toNumber(),
     netReceivable: row.netReceivable.toNumber(),
+    taxDetermination: asTaxSnapshot(row.taxDeterminationJson),
+    signatureAppliedAt: isoDate(row.signatureAppliedAt ?? null),
+    signatureAuthorityId: row.signatureAuthorityId ?? null,
+    signatureAuthorityName: row.signatureAuthorityName ?? null,
+    signatureDesignation: row.signatureDesignation ?? null,
+    hasSignedPdf: Boolean(row.signedPdfBytes && row.signedPdfBytes.length > 0),
+    lastSendAudit: asSendAudit(row.lastSendAuditJson),
     amountReceived: derived.amountReceived,
     creditNoteAmount: derived.creditNoteAmount,
     outstanding: derived.outstanding,
@@ -211,16 +265,51 @@ function summarizeInvoices(
   };
 }
 
-function gstRateAppliesOn(rate: {
-  enabled: boolean;
-  isDeleted: boolean;
-  effectiveFrom: Date | null;
-  effectiveUntil: Date | null;
-}, invoiceDate: Date): boolean {
+function gstRateAppliesOn(
+  rate: {
+    enabled: boolean;
+    isDeleted: boolean;
+    effectiveFrom: Date | null;
+    effectiveUntil: Date | null;
+  },
+  invoiceDate: Date,
+): boolean {
   if (!rate.enabled || rate.isDeleted) return false;
   if (rate.effectiveFrom && invoiceDate < rate.effectiveFrom) return false;
   if (rate.effectiveUntil && invoiceDate > rate.effectiveUntil) return false;
   return true;
+}
+
+function assertInvoicePartyReady(party: {
+  billingName: string;
+  displayName: string;
+  gstin: string | null;
+  stateLabel: string | null;
+  invoiceEmail: string | null;
+  gstStatus: string | null;
+  enabled: boolean;
+}): void {
+  const missing: string[] = [];
+  if (!party.billingName?.trim()) missing.push("Billing Name");
+  if (!party.displayName?.trim()) missing.push("Display Name");
+  if (!party.invoiceEmail?.trim()) missing.push("Invoice Email");
+  if (!party.stateLabel?.trim() && !normalizeGstin(party.gstin)) {
+    missing.push("State or GSTIN (for Place of Supply)");
+  }
+  if (missing.length) {
+    throw Object.assign(
+      new Error(
+        `Invoice Party master is incomplete. Missing: ${missing.join(", ")}. Update Invoice Party Master before Raise Invoice.`,
+      ),
+      { statusCode: 409, code: "INVOICE_PARTY_INCOMPLETE", missing },
+    );
+  }
+  if (!party.enabled) {
+    throw Object.assign(new Error("Invoice Party must be active"), {
+      statusCode: 409,
+      code: "INVOICE_PARTY_INACTIVE",
+    });
+  }
 }
 
 export class EnterpriseAccountingInvoiceService {
@@ -236,7 +325,7 @@ export class EnterpriseAccountingInvoiceService {
       orderBy: { invoiceDate: "desc" },
       take: 200,
     });
-    const items = rows.map(serialize);
+    const items = rows.map((row) => serialize(row));
     return { items, summary: summarizeInvoices(items, todayIsoDateInTimeZone(timeZone)) };
   }
 
@@ -268,16 +357,26 @@ export class EnterpriseAccountingInvoiceService {
         code: "INVALID_ROW_VERSION",
       });
     }
+    if (input.tdsAmount != null && input.tdsAmount !== 0) {
+      throw Object.assign(
+        new Error(
+          "Payer TDS is not assumed at Raise Invoice. Leave TDS unset (0). Record actual Amount Credited and classify withholding after payment.",
+        ),
+        { statusCode: 400, code: "TDS_NOT_ASSUMED_AT_RAISE" },
+      );
+    }
 
     const organizationId = await resolvePilotOrganizationId();
     const settings = await prisma.organizationWorkspaceSettings.findUnique({
       where: { organizationId },
     });
+    const profile = await prisma.organizationWorkspaceProfile.findUnique({
+      where: { organizationId },
+    });
     const timeZone = settings?.timeZone?.trim() || "Asia/Kolkata";
     const fyStartMonth = settings?.financialYearStartMonth ?? 4;
 
-    const invoiceDateIso =
-      input.invoiceDate?.trim() || todayIsoDateInTimeZone(timeZone);
+    const invoiceDateIso = input.invoiceDate?.trim() || todayIsoDateInTimeZone(timeZone);
     const invoiceCal = parseIsoDateOnly(invoiceDateIso);
     const invoiceDate = calendarDateToUtcNoon(invoiceCal.year, invoiceCal.month, invoiceCal.day);
     let dueDate: Date | null = null;
@@ -338,7 +437,7 @@ export class EnterpriseAccountingInvoiceService {
       if (taxable == null || taxable <= 0) {
         throw Object.assign(
           new Error(
-            "Raise Invoice is blocked: confirmedInvoiceAmount must be a confirmed taxable value greater than 0. Historical or ambiguous amounts are not converted.",
+            "Raise Invoice is blocked: confirmed taxable value (Payout / Commission) must be greater than 0. Capture commercial data first.",
           ),
           { statusCode: 409, code: "CONFIRMED_TAXABLE_AMOUNT_INVALID" },
         );
@@ -359,12 +458,13 @@ export class EnterpriseAccountingInvoiceService {
           isDeleted: false,
         },
       });
-      if (!invoiceParty || !invoiceParty.enabled) {
+      if (!invoiceParty) {
         throw Object.assign(
-          new Error("Invoice Party must exist and be active in Invoice Party Master"),
+          new Error("Invoice Party must exist in Invoice Party Master"),
           { statusCode: 409, code: "INVOICE_PARTY_INACTIVE" },
         );
       }
+      assertInvoicePartyReady(invoiceParty);
 
       const prefix = resolveInvoiceProductPrefix(String(deal.productFamily));
       const gstRate = await tx.enterpriseAccountingGstRate.findFirst({
@@ -377,39 +477,100 @@ export class EnterpriseAccountingInvoiceService {
         );
       }
 
-      const tdsInput =
-        input.tdsAmount !== undefined
-          ? input.tdsAmount
-          : moneyNumber(accountingCase.tdsAmount);
-      let amounts;
-      try {
-        amounts = calculateRaisedInvoiceAmounts({
-          taxableValue: taxable,
-          gstRatePercent: gstRate.ratePercent.toNumber(),
-          tdsAmount: tdsInput,
-        });
-      } catch (err) {
-        throw Object.assign(new Error(err instanceof Error ? err.message : "Invalid invoice amounts"), {
-          statusCode: 400,
-          code: "INVALID_INVOICE_AMOUNTS",
+      const supplierGstin = normalizeGstin(profile?.gst ?? null);
+      if (!supplierGstin) {
+        throw Object.assign(
+          new Error(
+            "Supplier GSTIN is missing on Organization Workspace Profile. Resolve organization GST details before Raise Invoice.",
+          ),
+          { statusCode: 409, code: "SUPPLIER_GSTIN_REQUIRED" },
+        );
+      }
+
+      const gstDetermination = determineAccountingGst({
+        taxableValue: taxable,
+        selectedGstRatePercent: gstRate.ratePercent.toNumber(),
+        supplierGstin,
+        supplierStateCode: null,
+        supplierStateLabel: null,
+        recipientGstin: invoiceParty.gstin,
+        recipientStateCode: null,
+        recipientStateLabel: invoiceParty.stateLabel,
+        placeOfSupplyStateCode: input.placeOfSupplyStateCode ?? null,
+        recipientGstRegistered:
+          Boolean(normalizeGstin(invoiceParty.gstin)) ||
+          invoiceParty.gstStatus === "registered",
+        supplyKind: "financial_services",
+        asOfIso: invoiceDate.toISOString(),
+      });
+      if (!gstDetermination.ok) {
+        throw Object.assign(new Error(gstDetermination.message), {
+          statusCode: 409,
+          code: gstDetermination.code,
+          missing: gstDetermination.missing,
         });
       }
 
-      const existingCurrent = await tx.enterpriseAccountingInvoice.findFirst({
+      const amounts = calculateRaisedInvoiceAmounts({
+        taxableValue: taxable,
+        gstRatePercent: gstRate.ratePercent.toNumber(),
+        tdsAmount: 0,
+      });
+      if (amounts.gstAmount !== gstDetermination.split.gstAmount) {
+        throw Object.assign(new Error("GST amount mismatch between rate formula and tax engine"), {
+          statusCode: 500,
+          code: "GST_AMOUNT_MISMATCH",
+        });
+      }
+      if (amounts.invoiceTotal !== gstDetermination.split.invoiceTotal) {
+        throw Object.assign(new Error("Invoice total mismatch between rate formula and tax engine"), {
+          statusCode: 500,
+          code: "INVOICE_TOTAL_MISMATCH",
+        });
+      }
+
+      const priorInvoices = await tx.enterpriseAccountingInvoice.findMany({
         where: {
           accountingCaseId: accountingCase.id,
           documentStatus: { not: ACCOUNTING_INVOICE_DOCUMENT_STATUS.cancelled },
         },
-        select: { id: true, invoiceNumber: true },
+        select: { id: true, invoiceNumber: true, taxableValue: true },
       });
-      if (existingCurrent) {
+      if (priorInvoices.length > 0) {
         throw Object.assign(
           new Error(
-            `A current invoice already exists for this Accounting Case (${existingCurrent.invoiceNumber}). Raise Invoice does not create a second current invoice.`,
+            `A current invoice already exists for this Accounting Case (${priorInvoices[0].invoiceNumber}). Raise Invoice does not create a second current invoice.`,
           ),
           { statusCode: 409, code: "CURRENT_INVOICE_EXISTS" },
         );
       }
+
+      const eligible = moneyNumber(accountingCase.expectedCommission) ?? taxable;
+      const pending = calculateAmountPendingToInvoice({
+        eligibleCommercialAmount: eligible,
+        previouslyInvoicedTaxableTotal: 0,
+      });
+      if (pending.amountPendingToInvoice <= 0) {
+        throw Object.assign(new Error("Amount Pending to Invoice is 0. Raise Invoice is disabled."), {
+          statusCode: 409,
+          code: "NOTHING_PENDING_TO_INVOICE",
+        });
+      }
+      if (taxable > pending.amountPendingToInvoice) {
+        throw Object.assign(
+          new Error(
+            `Requested taxable ${taxable} exceeds Amount Pending to Invoice ${pending.amountPendingToInvoice}.`,
+          ),
+          { statusCode: 409, code: "INVOICE_EXCEEDS_ELIGIBLE" },
+        );
+      }
+
+      const taxSnapshot = toTaxDeterminationSnapshot(gstDetermination, {
+        taxableValue: taxable,
+        supplierGstin,
+        recipientGstin: normalizeGstin(invoiceParty.gstin),
+        determinedAt: new Date().toISOString(),
+      });
 
       const financialYearKey = resolveInvoiceFinancialYearKey({
         at: invoiceDate,
@@ -453,16 +614,15 @@ export class EnterpriseAccountingInvoiceService {
           partyTdsApplicable: invoiceParty.tdsApplicable,
           partyTdsRatePercent: invoiceParty.tdsRatePercent,
           partyDisplayName: invoiceParty.displayName,
+          partyInvoiceEmail: invoiceParty.invoiceEmail,
           taxableValue: new Prisma.Decimal(amounts.taxableValue),
           gstRatePercent: new Prisma.Decimal(amounts.gstRatePercent),
           gstAmount: new Prisma.Decimal(amounts.gstAmount),
           invoiceTotal: new Prisma.Decimal(amounts.invoiceTotal),
-          tdsRatePercent:
-            invoiceParty.tdsRatePercent == null
-              ? null
-              : new Prisma.Decimal(invoiceParty.tdsRatePercent),
+          tdsRatePercent: null,
           tdsAmount: new Prisma.Decimal(amounts.tdsAmount),
           netReceivable: new Prisma.Decimal(amounts.netReceivable),
+          taxDeterminationJson: taxSnapshot as unknown as Prisma.InputJsonValue,
           documentStatus: ACCOUNTING_INVOICE_DOCUMENT_STATUS.raised,
           raisedBy: actorUserId,
           raisedAt: now,
@@ -492,7 +652,10 @@ export class EnterpriseAccountingInvoiceService {
             invoiceNumber: created.invoiceNumber,
             accountingCaseId: accountingCase.id,
             dealId: deal.id,
-            netReceivable: amounts.netReceivable,
+            invoiceTotal: amounts.invoiceTotal,
+            taxTreatment: taxSnapshot.taxTreatment,
+            ruleIds: taxSnapshot.rulesUsed.map((r) => r.ruleId),
+            emailed: false,
           },
           opportunityId: deal.opportunityId,
           dealId: deal.id,
@@ -505,6 +668,124 @@ export class EnterpriseAccountingInvoiceService {
 
       return serialize(created);
     });
+  }
+
+  async applyDigitalSignature(input: ApplyInvoiceSignatureInput, actorUserId: string) {
+    const organizationId = await resolvePilotOrganizationId();
+    const invoice = await prisma.enterpriseAccountingInvoice.findFirst({
+      where: { id: input.invoiceId, organizationId },
+      include: invoiceInclude,
+    });
+    if (!invoice) {
+      throw Object.assign(new Error("Invoice not found"), {
+        statusCode: 404,
+        code: "ACCOUNTING_INVOICE_NOT_FOUND",
+      });
+    }
+    if (invoice.rowVersion !== input.invoiceRowVersion) {
+      throw Object.assign(new Error("Invoice changed; reload and retry"), {
+        statusCode: 409,
+        code: "ACCOUNTING_INVOICE_CONFLICT",
+      });
+    }
+    if (invoice.documentStatus === ACCOUNTING_INVOICE_DOCUMENT_STATUS.cancelled) {
+      throw Object.assign(new Error("Cannot sign a cancelled invoice"), {
+        statusCode: 409,
+        code: "INVOICE_CANCELLED",
+      });
+    }
+
+    let signature = input.signatureAuthorityId
+      ? await prisma.organizationDigitalSignature.findFirst({
+          where: {
+            id: input.signatureAuthorityId,
+            organizationId,
+            isDeleted: false,
+            status: "active",
+          },
+        })
+      : await prisma.organizationDigitalSignature.findFirst({
+          where: { organizationId, isDeleted: false, status: "active" },
+          orderBy: { createdAt: "asc" },
+        });
+
+    if (!signature) {
+      throw Object.assign(
+        new Error(
+          "No active Organization Digital Signature found. Register the approved Rupee Catalyst / Peak Profits Capital Services signature authority in Organization → Digital Signatures.",
+        ),
+        { statusCode: 409, code: "DIGITAL_SIGNATURE_REQUIRED" },
+      );
+    }
+
+    const dto = serialize(invoice);
+    dto.signatureAppliedAt = new Date().toISOString();
+    dto.signatureAuthorityId = signature.id;
+    dto.signatureAuthorityName = signature.person;
+    dto.signatureDesignation = signature.designation || "Authorised Signatory";
+
+    const profile = await prisma.organizationWorkspaceProfile.findUnique({
+      where: { organizationId },
+    });
+    const tax = dto.taxDetermination;
+    const html = buildAccountingInvoiceHtml({
+      invoice: dto,
+      supplier: {
+        legalEntityName: profile?.legalEntityName || "Peak Profits Capital Services",
+        brandName: profile?.brandName || "Rupee Catalyst",
+        gstin: profile?.gst || "",
+        pan: profile?.pan || "",
+        address: profile?.registeredAddress || profile?.corporateAddress || "",
+        stateLabel: tax?.supplierStateLabel || "",
+      },
+    });
+    const pdfBytes = await renderAccountingInvoicePdf(html);
+
+    const updated = await prisma.enterpriseAccountingInvoice.update({
+      where: { id: invoice.id },
+      data: {
+        signatureAppliedAt: new Date(),
+        signatureAuthorityId: signature.id,
+        signatureAuthorityName: signature.person,
+        signatureDesignation: signature.designation || "Authorised Signatory",
+        signedPdfBytes: Buffer.from(pdfBytes),
+        rowVersion: { increment: 1 },
+        updatedBy: actorUserId,
+      },
+      include: invoiceInclude,
+    });
+
+    return serialize(updated);
+  }
+
+  async getPdfBytes(invoiceId: string): Promise<{ bytes: Buffer; invoiceNumber: string }> {
+    const organizationId = await resolvePilotOrganizationId();
+    const invoice = await prisma.enterpriseAccountingInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      select: { invoiceNumber: true, signedPdfBytes: true, signatureAppliedAt: true },
+    });
+    if (!invoice) {
+      throw Object.assign(new Error("Invoice not found"), {
+        statusCode: 404,
+        code: "ACCOUNTING_INVOICE_NOT_FOUND",
+      });
+    }
+    if (!invoice.signatureAppliedAt || !invoice.signedPdfBytes) {
+      throw Object.assign(
+        new Error("Add Digital Signature before downloading or sending the PDF."),
+        { statusCode: 409, code: "SIGNED_PDF_REQUIRED" },
+      );
+    }
+    return { bytes: Buffer.from(invoice.signedPdfBytes), invoiceNumber: invoice.invoiceNumber };
+  }
+
+  async sendInvoice(_input: SendEnterpriseAccountingInvoiceInput, _actorUserId: string) {
+    throw Object.assign(
+      new Error(
+        "Invoice email sending is unavailable until the operational SMTP path is separately certified. Download the signed PDF instead.",
+      ),
+      { statusCode: 503, code: "INVOICE_SEND_DISABLED" },
+    );
   }
 }
 

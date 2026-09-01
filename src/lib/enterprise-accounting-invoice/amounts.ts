@@ -1,10 +1,13 @@
 /**
- * Raise Invoice money formula (frozen V1).
- * taxableValue = confirmedInvoiceAmount (before GST)
- * gstAmount = taxableValue × selected GST rate
+ * Raise Invoice money formula.
+ * taxableValue = confirmed commercial taxable value (before GST)
+ * gstAmount = taxableValue × selected GST rate (components via regulatory GST engine)
  * invoiceTotal = taxableValue + gstAmount
- * tdsAmount = approved TDS (null → 0)
- * netReceivable = invoiceTotal − tdsAmount
+ *
+ * CO-ACCOUNTING-INVOICE-OPERATIONS-015:
+ * Do NOT assume payer TDS at raise. Default tdsAmount = 0.
+ * Actual TDS/withholding is reconciled from Amount Credited after payment.
+ * netReceivable at raise = invoiceTotal (when tdsAmount is 0).
  */
 
 export function roundMoney2(value: number): number {
@@ -17,7 +20,8 @@ export function roundMoney2(value: number): number {
 export function calculateRaisedInvoiceAmounts(input: {
   taxableValue: number;
   gstRatePercent: number;
-  tdsAmount: number | null | undefined;
+  /** Prefer omit / null — payer TDS is not assumed at raise */
+  tdsAmount?: number | null | undefined;
 }): {
   taxableValue: number;
   gstRatePercent: number;

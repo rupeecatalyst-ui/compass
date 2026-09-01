@@ -332,8 +332,32 @@ function RevenueAnalyticsBody({ model }: { model: RevenueAnalyticsModel }) {
   return (
     <div className="flex flex-col gap-4">
       <RevenueStateLegend />
-      <McAnalyticsExpandCard title="Revenue KPIs" subtitle="Expected · Invoiced · Received · Outstanding">
+      <McAnalyticsExpandCard title="Revenue KPIs" subtitle="Expected · Invoiced · Received · Outstanding · GST">
         <KpiStrip model={model} />
+      </McAnalyticsExpandCard>
+
+      <McAnalyticsExpandCard
+        title="GST Breakup"
+        subtitle="Taxable revenue and CGST / SGST / IGST from generated invoice determinations"
+      >
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {(
+            [
+              ["Taxable", model.gstBreakdown.taxableRevenue],
+              ["Total GST", model.gstBreakdown.totalGst],
+              ["CGST", model.gstBreakdown.cgst],
+              ["SGST / UTGST", model.gstBreakdown.sgst],
+              ["IGST", model.gstBreakdown.igst],
+            ] as const
+          ).map(([label, value]) => (
+            <li key={label} className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-zinc-100">
+                {formatINRCompact(value)}
+              </p>
+            </li>
+          ))}
+        </ul>
       </McAnalyticsExpandCard>
 
       <McAnalyticsExpandCard
