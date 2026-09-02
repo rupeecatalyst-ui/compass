@@ -79,6 +79,20 @@ export function DiscoveryReviewStep() {
           </h3>
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Full name</dt>
+              <dd className="font-medium">{answers.displayName.trim() || "Not Specified"}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Mobile</dt>
+              <dd className="font-medium">{answers.mobile}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Email</dt>
+              <dd className="font-medium">
+                {answers.personalEmail.trim() ? answers.personalEmail.trim() : "Not Specified"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Loan amount</dt>
               <dd className="font-medium">{formatCurrency(answers.loanAmount)}</dd>
             </div>
@@ -144,10 +158,6 @@ export function DiscoveryReviewStep() {
                 </dd>
               </div>
             ) : null}
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Mobile</dt>
-              <dd className="font-medium">{answers.mobile}</dd>
-            </div>
           </dl>
         </section>
 
@@ -156,24 +166,18 @@ export function DiscoveryReviewStep() {
             <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {c.advantageLabel}
             </h3>
+            {intelligence?.advantage?.requestedLoanAmount ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {discoveryCopy.advantage.requestedAmountLabel}: ₹
+                {Number(intelligence.advantage.requestedLoanAmount).toLocaleString("en-IN")}
+              </p>
+            ) : null}
             <p className="mt-2 text-xl font-semibold text-primary">
               {intelligence?.advantage?.amountFormatted}
             </p>
-            {intelligence?.advantage?.fixedBenefitComponents?.length ? (
-              <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-                {intelligence.advantage.fixedBenefitComponents.map((component) => (
-                  <li key={component.name}>
-                    {component.name}: ₹{Number(component.amountRupees).toLocaleString("en-IN")}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {intelligence?.advantage?.scheduleVersion != null ? (
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Rule version {intelligence.advantage.scheduleVersion}
-              </p>
-            ) : null}
-            <p className="mt-1 text-xs text-muted-foreground">{intelligence?.advantage?.disclaimer}</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {discoveryCopy.advantage.eligibilityNote}
+            </p>
           </section>
         ) : null}
 

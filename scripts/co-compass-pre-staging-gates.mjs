@@ -14,6 +14,7 @@ const scripts = [
   "co-compass-recommendation-authority-verify.mjs",
   "co-compass-advantage-boundary-verify.mjs",
   "co-compass-advantage-commercial-verify.mjs",
+  "co-compass-advantage-refresh-verify.mjs",
   "co-compass-submission-handoff-verify.mjs",
   "co-compass-upload-validation-verify.mjs",
   "co-compass-document-repository-verify.mjs",
@@ -24,6 +25,7 @@ const scripts = [
   "co-compass-expected-cibil-field-verify.mjs",
   "co-compass-opportunity-registry-visibility-verify.mjs",
   "co-compass-contact-information-verify.mjs",
+  "co-compass-customer-identity-verify.mjs",
 ];
 
 let failed = false;
@@ -34,7 +36,7 @@ for (const script of scripts) {
     failed = true;
     continue;
   }
-  const needsTsx = /authority|advantage|upload-validation|product-routing|products-page|requested-amount|income-conditionality|expected-cibil/.test(script);
+  const needsTsx = /authority|advantage|upload-validation|product-routing|products-page|requested-amount|income-conditionality|expected-cibil|customer-identity/.test(script);
   const args = needsTsx ? ["--import", "tsx", path] : [path];
   const result = spawnSync(process.execPath, args, { stdio: "inherit", cwd: root });
   if (result.status !== 0) failed = true;

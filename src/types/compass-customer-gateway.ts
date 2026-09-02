@@ -56,7 +56,12 @@ export type CompassJourneyConfigDto = {
 export type CompassJourneyStartRequest = {
   productCode: CompassProductCode;
   mobile: string;
+  /** Enterprise IDC customer-capture key — Contact `name`. Mandatory for new journeys. */
   displayName?: string;
+  /** ECM Contact `personalEmail`. Optional; omit or blank when not supplied. */
+  personalEmail?: string;
+  /** Alias accepted by the start contract; stored as `personalEmail`. */
+  email?: string;
   city?: string;
   consentAccepted: boolean;
 };

@@ -12,7 +12,9 @@ export async function POST(request: Request) {
   if (!token) return NextResponse.json({ error: "Missing journey session" }, { status: 401 });
   try {
     const data = await catalystOneGateway.analyze(token);
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Analysis unavailable.";
     return NextResponse.json({ error: message }, { status: 503 });

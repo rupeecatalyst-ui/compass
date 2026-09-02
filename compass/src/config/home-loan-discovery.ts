@@ -96,8 +96,13 @@ export const discoveryCopy = {
     cta: "Next",
   },
   mobile: {
-    heading: "Stay Connected",
-    helper: "We'll save your progress as you go.",
+    heading: "Your details",
+    helper: "We'll save your progress as you go. Email is optional.",
+    fullNameLabel: "Full name",
+    fullNamePlaceholder: "Your full name",
+    mobileLabel: "Mobile number",
+    emailLabel: "Email address (optional)",
+    emailPlaceholder: "name@example.com",
     otpLabel: "Verification code",
     otpSuccess: "Great! Your journey has been saved.",
     cta: "Continue",
@@ -220,7 +225,11 @@ export const discoveryCopy = {
     cta: "Next",
   },
   advantage: {
-    heading: "Your COMPASS Advantage",
+    heading: "COMPASS Advantage",
+    requestedAmountLabel: "Requested loan amount",
+    resultTitle: "Your COMPASS Advantage",
+    eligibilityNote:
+      "You will be eligible for this COMPASS Advantage amount after successful disbursal of this transaction.",
     showMatches: "View Matches",
     loading: "Preparing your Advantage...",
   },

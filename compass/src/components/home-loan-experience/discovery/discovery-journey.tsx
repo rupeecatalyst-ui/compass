@@ -28,6 +28,12 @@ import {
   resolveRequestedAmountBounds,
 } from "@/lib/journey-config";
 import { smoothEase } from "@/lib/animations";
+import {
+  parseCompassCustomerIdentity,
+  parseCompassDisplayName,
+  parseCompassMobile,
+  parseCompassOptionalEmail,
+} from "@/lib/customer-identity";
 import { cn } from "@/lib/utils";
 
 function DiscoveryScreen({
@@ -85,10 +91,22 @@ function MobileStep() {
   const [phase, setPhase] = useState<"form" | "otp" | "success" | "starting">("form");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [attempted, setAttempted] = useState(false);
   const reduceMotion = useReducedMotion();
   const c = discoveryCopy.mobile;
 
-  const canSend = answers.mobile.length >= 10;
+  const identity = parseCompassCustomerIdentity({
+    displayName: answers.displayName,
+    mobile: answers.mobile,
+    personalEmail: answers.personalEmail,
+  });
+  const nameError = parseCompassDisplayName(answers.displayName);
+  const mobileError = parseCompassMobile(answers.mobile);
+  const emailError = parseCompassOptionalEmail(answers.personalEmail);
+  const canContinue = identity.ok;
+  const showNameError = attempted && !nameError.ok ? nameError.message : null;
+  const showMobileError = attempted && !mobileError.ok ? mobileError.message : null;
+  const showEmailError = attempted && !emailError.ok ? emailError.message : null;
 
   const continueAfterIdentity = async () => {
     setPhase("starting");
@@ -105,7 +123,8 @@ function MobileStep() {
   };
 
   const sendOtp = () => {
-    if (!canSend) return;
+    setAttempted(true);
+    if (!canContinue) return;
     if (!otpRequired) {
       void continueAfterIdentity();
       return;
@@ -120,6 +139,9 @@ function MobileStep() {
     void continueAfterIdentity();
   };
 
+  const fieldClass =
+    "h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35 focus:ring-2 focus:ring-primary/20";
+
   return (
     <DiscoveryScreen stepKey="mobile">
       <QuestionHeader heading={c.heading} helper={c.helper} />
@@ -128,17 +150,61 @@ function MobileStep() {
           {phase === "form" ? (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
               <label className="block space-y-2">
-                <span className="sr-only">Mobile number</span>
+                <span className="text-sm text-muted-foreground">{c.fullNameLabel}</span>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  value={answers.displayName}
+                  onChange={(e) => setAnswer("displayName", e.target.value)}
+                  placeholder={c.fullNamePlaceholder}
+                  aria-invalid={Boolean(showNameError)}
+                  aria-describedby={showNameError ? "identity-name-error" : undefined}
+                  className={fieldClass}
+                />
+                {showNameError ? (
+                  <p id="identity-name-error" role="alert" className="text-sm text-destructive">
+                    {showNameError}
+                  </p>
+                ) : null}
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm text-muted-foreground">{c.mobileLabel}</span>
                 <input
                   type="tel"
                   inputMode="numeric"
+                  autoComplete="tel"
                   value={answers.mobile}
                   onChange={(e) => setAnswer("mobile", e.target.value.replace(/\D/g, "").slice(0, 10))}
                   placeholder="10-digit mobile"
-                  className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35 focus:ring-2 focus:ring-primary/20"
+                  aria-invalid={Boolean(showMobileError)}
+                  aria-describedby={showMobileError ? "identity-mobile-error" : undefined}
+                  className={fieldClass}
                 />
+                {showMobileError ? (
+                  <p id="identity-mobile-error" role="alert" className="text-sm text-destructive">
+                    {showMobileError}
+                  </p>
+                ) : null}
               </label>
-              <Button size="lg" className="mt-4 h-12 w-full" disabled={!canSend} onClick={sendOtp}>
+              <label className="block space-y-2">
+                <span className="text-sm text-muted-foreground">{c.emailLabel}</span>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  value={answers.personalEmail}
+                  onChange={(e) => setAnswer("personalEmail", e.target.value)}
+                  placeholder={c.emailPlaceholder}
+                  aria-invalid={Boolean(showEmailError)}
+                  aria-describedby={showEmailError ? "identity-email-error" : undefined}
+                  className={fieldClass}
+                />
+                {showEmailError ? (
+                  <p id="identity-email-error" role="alert" className="text-sm text-destructive">
+                    {showEmailError}
+                  </p>
+                ) : null}
+              </label>
+              <Button size="lg" className="mt-4 h-12 w-full" onClick={sendOtp}>
                 {otpRequired ? c.cta : "Continue"}
                 <ArrowRight className="h-4 w-4" />
               </Button>

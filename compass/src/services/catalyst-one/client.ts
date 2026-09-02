@@ -25,7 +25,9 @@ function answersPayload(productCode: CompassProductCode, answers: DiscoveryAnswe
     propertyUsage: answers.propertyUsage,
     loanAmount: answers.loanAmount,
     propertyValue: answers.propertyValue,
+    displayName: answers.displayName,
     mobile: answers.mobile,
+    personalEmail: answers.personalEmail,
     otpVerified: answers.otpVerified,
     incomeType: answers.incomeType,
     employmentTypeCode: answers.incomeType,
@@ -69,7 +71,9 @@ async function patchAnswers(token: string, productCode: CompassProductCode, answ
 
 export async function startCompassJourney(input: {
   productCode: CompassProductCode;
+  displayName: string;
   mobile: string;
+  personalEmail?: string;
   city?: string;
   consentAccepted?: boolean;
 }): Promise<JourneyStartResponse> {
@@ -78,7 +82,9 @@ export async function startCompassJourney(input: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       productCode: input.productCode,
+      displayName: input.displayName,
       mobile: input.mobile,
+      personalEmail: input.personalEmail,
       city: input.city,
       consentAccepted: input.consentAccepted ?? true,
     }),
@@ -117,6 +123,7 @@ export async function fetchDiscoveryIntelligence(input: {
       Authorization: `Bearer ${input.journeySessionToken}`,
     },
     body: JSON.stringify({}),
+    cache: "no-store",
   });
 
   if (!response.ok) {

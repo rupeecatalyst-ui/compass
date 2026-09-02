@@ -8,6 +8,10 @@ import {
   isInitialAdvantageProduct,
 } from "@/constants/compass-advantage/approved-initial";
 import { calculateAdvantageFromSchedule } from "@/lib/compass-advantage/calculate";
+import {
+  decideAdvantageSnapshotWrite,
+  shouldReuseCurrentAdvantageSnapshot,
+} from "@/lib/compass-advantage/current-snapshot";
 import { toCompassAdvantageDto } from "@/lib/compass-advantage/map-dto";
 import { buildAdvantagePin, mergePinIntoSnapshot, pickEffectiveSchedule, pinAlreadySet } from "@/lib/compass-advantage/pin";
 import { isScheduleEffectiveAt, validateScheduleForPublication } from "@/lib/compass-advantage/validate";
@@ -580,12 +584,10 @@ export async function resolveCompassAdvantageForOpportunity(input: {
       : String(input.requestedLoanAmount);
 
   try {
+    const requestStartedAt = new Date();
     const existing = await prisma.compassAdvantageSnapshot.findUnique({
       where: { opportunityId: input.opportunityId },
     });
-    if (existing) {
-      return snapshotToDto(input.compassProductCode, existing);
-    }
 
     const pin =
       pinAlreadySet(input.snapshot) ??
@@ -599,43 +601,131 @@ export async function resolveCompassAdvantageForOpportunity(input: {
         })
       ).pin;
 
+    const reuse = Boolean(
+      existing &&
+        shouldReuseCurrentAdvantageSnapshot({
+          existingRequestedLoanAmount: existing.requestedLoanAmount,
+          existingScheduleId: existing.scheduleId,
+          existingScheduleVersion: existing.scheduleVersion,
+          incomingRequestedLoanAmount: amount,
+          pinScheduleId: pin.scheduleId,
+          pinVersionNumber: pin.versionNumber,
+        }),
+    );
+    if (reuse && existing) {
+      return snapshotToDto(input.compassProductCode, existing);
+    }
+
     const result = await calculateForPin({
       organizationId: input.organizationId,
       productCode,
       pin,
       requestedLoanAmount: amount,
     });
+    const calculatedAt = new Date();
     const dto = toCompassAdvantageDto(input.compassProductCode, result, {
       caseReceivedAt: pin.caseReceivedAt,
-      calculatedAt: new Date().toISOString(),
+      calculatedAt: calculatedAt.toISOString(),
     });
 
     if (input.persist && result.applies && result.totalAdvantageAmount) {
-      await prisma.compassAdvantageSnapshot.create({
-        data: {
-          organizationId: input.organizationId,
-          opportunityId: input.opportunityId,
-          opportunityReference: input.opportunityReference,
-          productCode,
-          requestedLoanAmount: result.requestedLoanAmount ?? "0",
-          matchedRangeFrom: result.matchedRange?.rangeFromRupees ?? null,
-          matchedRangeTo: result.matchedRange?.rangeToRupees ?? null,
-          matchedRangeNoUpperLimit: result.matchedRange?.noUpperLimit ?? false,
-          percentageRate: result.percentageRate,
-          percentageBenefitAmount: result.percentageBenefitAmount ?? "0",
-          fixedBenefitComponents: result.fixedBenefitComponents,
-          totalFixedBenefitAmount: result.totalFixedBenefitAmount ?? "0",
-          totalAdvantageAmount: result.totalAdvantageAmount,
-          currency: "INR",
-          scheduleId: result.scheduleId,
-          scheduleVersion: result.scheduleVersion,
-          caseReceivedAt: new Date(pin.caseReceivedAt),
-          calculatedAt: new Date(),
-          effectiveTimestamp: result.effectiveFrom ? new Date(result.effectiveFrom) : new Date(pin.caseReceivedAt),
-          customerExplanation: result.customerExplanation,
-          calculationStatus: result.status,
-        },
+      const latest = await prisma.compassAdvantageSnapshot.findUnique({
+        where: { opportunityId: input.opportunityId },
       });
+      const latestReuse = Boolean(
+        latest &&
+          shouldReuseCurrentAdvantageSnapshot({
+            existingRequestedLoanAmount: latest.requestedLoanAmount,
+            existingScheduleId: latest.scheduleId,
+            existingScheduleVersion: latest.scheduleVersion,
+            incomingRequestedLoanAmount: amount,
+            pinScheduleId: pin.scheduleId,
+            pinVersionNumber: pin.versionNumber,
+          }),
+      );
+      const decision = decideAdvantageSnapshotWrite({
+        hasExisting: Boolean(latest),
+        reuse: latestReuse,
+        existingCalculatedAt: latest?.calculatedAt ?? null,
+        requestStartedAt,
+      });
+      // Older in-flight analyse must not overwrite a newer persisted result.
+      // Return this request's DTO without mutating the newer current snapshot.
+      if (decision === "ignore-stale-request" || decision === "reuse") {
+        return dto;
+      }
+
+      const persistFields = {
+        opportunityReference: input.opportunityReference,
+        productCode,
+        requestedLoanAmount: result.requestedLoanAmount ?? "0",
+        matchedRangeFrom: result.matchedRange?.rangeFromRupees ?? null,
+        matchedRangeTo: result.matchedRange?.rangeToRupees ?? null,
+        matchedRangeNoUpperLimit: result.matchedRange?.noUpperLimit ?? false,
+        percentageRate: result.percentageRate,
+        percentageBenefitAmount: result.percentageBenefitAmount ?? "0",
+        fixedBenefitComponents: result.fixedBenefitComponents,
+        totalFixedBenefitAmount: result.totalFixedBenefitAmount ?? "0",
+        totalAdvantageAmount: result.totalAdvantageAmount,
+        currency: "INR" as const,
+        scheduleId: result.scheduleId,
+        scheduleVersion: result.scheduleVersion,
+        caseReceivedAt: new Date(pin.caseReceivedAt),
+        calculatedAt,
+        effectiveTimestamp: result.effectiveFrom ? new Date(result.effectiveFrom) : new Date(pin.caseReceivedAt),
+        customerExplanation: result.customerExplanation,
+        calculationStatus: result.status,
+      };
+      if (decision === "replace" && latest) {
+        await prisma.compassAdvantageSnapshot.update({
+          where: { opportunityId: input.opportunityId },
+          data: persistFields,
+        });
+        await writeAudit({
+          organizationId: input.organizationId,
+          scheduleId: result.scheduleId,
+          productCode,
+          versionNumber: result.scheduleVersion,
+          action: "calculation_refreshed",
+          actor: ACTOR_SYSTEM,
+          reason: "Requested loan amount changed; current Advantage result recalculated on pinned schedule.",
+          beforeValue: {
+            requestedLoanAmount: latest.requestedLoanAmount.toString(),
+            totalAdvantageAmount: latest.totalAdvantageAmount.toString(),
+            scheduleId: latest.scheduleId,
+            scheduleVersion: latest.scheduleVersion,
+          },
+          afterValue: {
+            requestedLoanAmount: result.requestedLoanAmount,
+            totalAdvantageAmount: result.totalAdvantageAmount,
+            scheduleId: result.scheduleId,
+            scheduleVersion: result.scheduleVersion,
+          },
+        });
+      } else if (decision === "create") {
+        await prisma.compassAdvantageSnapshot.create({
+          data: {
+            organizationId: input.organizationId,
+            opportunityId: input.opportunityId,
+            ...persistFields,
+          },
+        });
+        await writeAudit({
+          organizationId: input.organizationId,
+          scheduleId: result.scheduleId,
+          productCode,
+          versionNumber: result.scheduleVersion,
+          action: "calculation_created",
+          actor: ACTOR_SYSTEM,
+          reason: "Current COMPASS Advantage result persisted for this Opportunity.",
+          afterValue: {
+            requestedLoanAmount: result.requestedLoanAmount,
+            totalAdvantageAmount: result.totalAdvantageAmount,
+            scheduleId: result.scheduleId,
+            scheduleVersion: result.scheduleVersion,
+          },
+        });
+      }
     }
     return dto;
   } catch (error) {

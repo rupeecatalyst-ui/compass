@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from "node:crypto";
-import { prisma } from "@server/lib/prisma";
 import { resolveCompassGatewayOrganizationId } from "./compass-organization.resolver";
 import { ecmContactRepository } from "@server/repositories/ecm/contact.repository";
 import { enterpriseOpportunityRepository } from "@server/repositories/enterprise-opportunity/enterprise-opportunity.repository";
@@ -15,7 +14,12 @@ import {
 } from "./compass-operational-handoff.service";
 import { toDocumentUploadSource } from "@/constants/document-intake";
 import { resolveProductUniquenessKey } from "@/constants/opportunity-active-uniqueness";
-import { normalizeEcmMobile } from "@/lib/enterprise-contact-master";
+import {
+  mergeResumedContactIdentity,
+  parseCompassCustomerIdentity,
+  type CompassCustomerIdentity,
+} from "@/lib/compass-customer-gateway/customer-identity";
+import type { EcmContact } from "@/types/enterprise-contact-master";
 import type {
   CompassAnalysisDto,
   CompassJourneyAnswersPatch,
@@ -63,6 +67,7 @@ import {
 import { CompassUploadRejectedError, validateCompassCustomerUpload } from "./compass-upload-validation";
 import { getFileExtension } from "@/lib/document-registry/file-utils";
 import type { CompassJourneySessionClaims } from "@/types/compass-customer-gateway";
+import type { Prisma } from "@prisma/client";
 
 const CUSTOMER_PORTAL_UPLOAD_SOURCE = toDocumentUploadSource("DIRECT");
 const SUBMITTED_STATUSES = new Set([
@@ -81,59 +86,148 @@ function parseLoanAmount(value: unknown): number {
   return toIntegerRupees(value) ?? 0;
 }
 
+type ResolvedCompassContact = {
+  id: string;
+  name: string;
+  mobile: string;
+  personalEmail: string | null;
+};
+
+const COMPASS_CONTACT_ACTOR = "compass-customer-gateway";
+
+async function applyIdentityToExistingContact(
+  existing: Pick<EcmContact, "id" | "name" | "personalEmail" | "mobilePrimary"> & {
+    isDeleted?: boolean;
+    status?: string;
+  },
+  identity: CompassCustomerIdentity,
+): Promise<ResolvedCompassContact> {
+  const merged = mergeResumedContactIdentity(
+    { name: existing.name, personalEmail: existing.personalEmail },
+    identity,
+  );
+  const restore = Boolean(existing.isDeleted) || existing.status === "archived";
+  if (restore || merged.nameChanged || merged.emailChanged) {
+    await ecmContactRepository.update(existing.id, {
+      ...(restore ? { isDeleted: false, status: "provisional" as const } : {}),
+      ...(merged.nameChanged ? { name: merged.name } : {}),
+      ...(merged.emailChanged && merged.personalEmail
+        ? { personalEmail: merged.personalEmail }
+        : {}),
+      modifiedBy: COMPASS_CONTACT_ACTOR,
+    });
+  }
+  return {
+    id: existing.id,
+    name: merged.name,
+    mobile: existing.mobilePrimary,
+    personalEmail: merged.personalEmail,
+  };
+}
+
 async function resolveContactByMobile(input: {
   organizationId: string;
-  mobile: string;
-  displayName?: string;
+  identity: CompassCustomerIdentity;
   city?: string;
-}): Promise<{ id: string; name: string; mobile: string }> {
-  const mobile = normalizeEcmMobile(input.mobile);
-  if (!mobile || mobile.length < 10) {
-    throw new CompassJourneyError("INVALID_MOBILE", "A valid mobile number is required.", 400);
-  }
-
-  const existing = await ecmContactRepository.findIdentityByMobile(input.organizationId, mobile);
+}): Promise<ResolvedCompassContact> {
+  const { identity } = input;
+  const existing = await ecmContactRepository.findIdentityByMobile(
+    input.organizationId,
+    identity.mobile,
+  );
   if (existing && !existing.isDeleted && existing.status !== "archived") {
-    return {
-      id: existing.id,
-      name: existing.name,
-      mobile: existing.mobilePrimary,
-    };
+    return applyIdentityToExistingContact(existing, identity);
   }
 
-  if (existing?.isDeleted) {
-    await prisma.ecmContact.update({
-      where: { id: existing.id },
-      data: { isDeleted: false, status: "provisional" },
-    });
-    return {
-      id: existing.id,
-      name: existing.name,
-      mobile: existing.mobilePrimary,
-    };
+  if (existing?.isDeleted || existing?.status === "archived") {
+    return applyIdentityToExistingContact(existing, identity);
   }
 
   try {
     const created = await ecmContactRepository.create({
       organizationId: input.organizationId,
-      name: input.displayName?.trim() || "COMPASS Prospect",
-      mobilePrimary: mobile,
+      name: identity.displayName,
+      mobilePrimary: identity.mobile,
+      ...(identity.personalEmail ? { personalEmail: identity.personalEmail } : {}),
       city: input.city?.trim(),
       status: "provisional",
       roles: ["customer"],
       primaryRole: "customer",
       additionalRoles: [],
-      createdBy: "compass-customer-gateway",
-      modifiedBy: "compass-customer-gateway",
+      createdBy: COMPASS_CONTACT_ACTOR,
+      modifiedBy: COMPASS_CONTACT_ACTOR,
     });
-    return { id: created.id, name: created.name, mobile: created.mobilePrimary };
+    return {
+      id: created.id,
+      name: created.name,
+      mobile: created.mobilePrimary,
+      personalEmail: created.personalEmail ?? null,
+    };
   } catch (err) {
-    const again = await ecmContactRepository.findByMobile(input.organizationId, mobile);
+    const again = await ecmContactRepository.findByMobile(input.organizationId, identity.mobile);
     if (again) {
-      return { id: again.id, name: again.name, mobile: again.mobilePrimary };
+      return applyIdentityToExistingContact(again, identity);
     }
     throw err;
   }
+}
+
+function asSnapshotRecord(snapshot: unknown): Record<string, unknown> {
+  if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) {
+    return { ...(snapshot as Record<string, unknown>) };
+  }
+  return {};
+}
+
+async function syncIdentityOntoOpportunity(input: {
+  organizationId: string;
+  row: {
+    id: string;
+    snapshot: unknown;
+    primaryContactName: string | null;
+    primaryContactEmail?: string | null;
+  };
+  productCode: CompassProductCode;
+  contact: ResolvedCompassContact;
+}) {
+  const snapshot = asSnapshotRecord(input.row.snapshot);
+  const existingAnswers =
+    snapshot.compassAnswers &&
+    typeof snapshot.compassAnswers === "object" &&
+    !Array.isArray(snapshot.compassAnswers)
+      ? { ...(snapshot.compassAnswers as Record<string, unknown>) }
+      : {};
+  const nextAnswers: Record<string, string | number | boolean | null | undefined> = {
+    ...existingAnswers,
+    displayName: input.contact.name,
+    mobile: input.contact.mobile,
+  };
+  if (input.contact.personalEmail) {
+    nextAnswers.personalEmail = input.contact.personalEmail;
+  }
+  const sanitized = sanitizeCompassJourneyAnswers(input.productCode, nextAnswers);
+  const mapped = answersToSnapshotFields(sanitized);
+  const existingBorrower =
+    snapshot.compassBorrowerFields &&
+    typeof snapshot.compassBorrowerFields === "object" &&
+    !Array.isArray(snapshot.compassBorrowerFields)
+      ? { ...(snapshot.compassBorrowerFields as Record<string, string>) }
+      : {};
+  const nextSnapshot = {
+    ...snapshot,
+    compassAnswers: { ...existingAnswers, ...sanitized },
+    compassBorrowerFields: { ...existingBorrower, ...mapped.borrowerFields },
+  };
+  const snapshotJson = JSON.parse(JSON.stringify(nextSnapshot)) as Prisma.InputJsonValue;
+  const existingEmail = (input.row.primaryContactEmail ?? "").trim();
+  await enterpriseOpportunityRepository.updateOpportunity(input.organizationId, input.row.id, {
+    primaryContactName: input.contact.name,
+    ...(input.contact.personalEmail && !existingEmail
+      ? { primaryContactEmail: input.contact.personalEmail }
+      : {}),
+    snapshot: snapshotJson,
+    updatedBy: COMPASS_CONTACT_ACTOR,
+  });
 }
 
 async function loadOpportunityByRef(organizationId: string, opportunityRef: string) {
@@ -246,14 +340,17 @@ export const compassJourneyService = {
     if (!input.consentAccepted) {
       throw new CompassJourneyError("CONSENT_REQUIRED", "Consent is required to begin the journey.", 400);
     }
+    const parsedIdentity = parseCompassCustomerIdentity(input);
+    if (!parsedIdentity.ok) {
+      throw new CompassJourneyError(parsedIdentity.code, parsedIdentity.message, 400);
+    }
     const definition = getCompassProductDefinition(input.productCode);
     const organizationId = await resolveCompassGatewayOrganizationId();
-    let contact: { id: string; name: string; mobile: string };
+    let contact: ResolvedCompassContact;
     try {
       contact = await resolveContactByMobile({
         organizationId,
-        mobile: input.mobile,
-        displayName: input.displayName,
+        identity: parsedIdentity.value,
         city: input.city,
       });
     } catch (error) {
@@ -302,6 +399,7 @@ export const compassJourneyService = {
         primaryContactId: contact.id,
         primaryContactName: contact.name,
         primaryContactMobile: contact.mobile,
+        ...(contact.personalEmail ? { primaryContactEmail: contact.personalEmail } : {}),
         cityLabel: input.city?.trim() || null,
         sourceCode: COMPASS_WEBSITE_SOURCE_CODE,
         sourceCampaignLabel: "COMPASS Website",
@@ -310,6 +408,11 @@ export const compassJourneyService = {
           compassConsentAt: new Date().toISOString(),
           compassLendingType: definition.isSecured ? "secured" : "unsecured",
           compassBorrowerKind: definition.borrowerKind,
+          compassAnswers: {
+            displayName: contact.name,
+            mobile: contact.mobile,
+            ...(contact.personalEmail ? { personalEmail: contact.personalEmail } : {}),
+          },
           ...(definition.borrowerKind === "company"
             ? { compassPendingCompanyResolution: true }
             : {}),
@@ -353,6 +456,13 @@ export const compassJourneyService = {
         /* Missing Advantage tables must not block journey start. */
       }
     }
+
+    await syncIdentityOntoOpportunity({
+      organizationId,
+      row,
+      productCode: input.productCode,
+      contact,
+    });
 
     const journeyRef = newJourneyRef();
     const contactRef = contactRefFromId(contact.id);
@@ -466,12 +576,14 @@ export const compassJourneyService = {
     });
 
     const definition = getCompassProductDefinition(claims.productCode);
+    const requestedAmount =
+      toIntegerRupees(row.requestedAmount) ?? parseLoanAmount(snapshotAnswers.loanAmount);
     const advantage = await computeCompassAdvantage({
       organizationId,
       opportunityId: row.id,
       opportunityReference: row.opportunityNumber,
       productCode: claims.productCode,
-      loanAmount: parseLoanAmount(snapshotAnswers.loanAmount),
+      loanAmount: requestedAmount || undefined,
       caseReceivedAt: row.createdAt,
       snapshot: row.snapshot,
       persist: true,
@@ -495,7 +607,7 @@ export const compassJourneyService = {
       recommendations,
       advantage,
       sarathiMessages,
-      requestedAmount: parseLoanAmount(snapshotAnswers.loanAmount) || null,
+      requestedAmount: requestedAmount || null,
       requestedAmountMax: getApprovedMaxRequestedAmountRupees(definition.enterpriseProductCode),
       dtoSource: "enterprise_compass_analysis",
     };

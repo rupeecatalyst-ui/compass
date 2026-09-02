@@ -15,7 +15,9 @@ export type DiscoveryAnswersPayload = {
   propertyUsage?: string;
   loanAmount: number;
   propertyValue?: number;
+  displayName?: string;
   mobile: string;
+  personalEmail?: string;
   otpVerified: boolean;
   incomeType?: string;
   monthlyIncome?: number;
@@ -46,6 +48,7 @@ export type CompassAdvantageResult = {
   status?: "not_available" | "ready" | "ineligible";
   disclaimer: string;
   reason?: string | null;
+  requestedLoanAmount?: string | null;
   percentageBenefitAmount?: string | null;
   fixedBenefitComponents?: CompassAdvantageFixedComponent[];
   totalFixedBenefitAmount?: string | null;

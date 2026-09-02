@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { DiscoveryStepId } from "@/config/home-loan-discovery";
 import { discoveryCopy } from "@/config/home-loan-discovery";
 import {
@@ -32,7 +32,9 @@ export type DiscoveryAnswers = {
   propertyUsage?: string;
   loanAmount: number;
   propertyValue: number;
+  displayName: string;
   mobile: string;
+  personalEmail: string;
   otpVerified: boolean;
   incomeType?: string;
   monthlyIncome: number;
@@ -52,7 +54,9 @@ export type DiscoveryAnswers = {
 const defaultAnswers: DiscoveryAnswers = {
   loanAmount: discoveryCopy.loanAmount.default,
   propertyValue: discoveryCopy.propertyValue.default,
+  displayName: "",
   mobile: "",
+  personalEmail: "",
   otpVerified: false,
   monthlyIncome: discoveryCopy.monthlyIncome.default,
   existingEmi: discoveryCopy.existingEmi.default,
@@ -140,6 +144,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [intelligence, setIntelligence] = useState<DiscoveryIntelligenceResult | null>(null);
   const [intelligenceLoading, setIntelligenceLoading] = useState(false);
   const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
+  const intelligenceRequestId = useRef(0);
   const [lod, setLod] = useState<CompassLodDto | null>(null);
   const [lodLoading, setLodLoading] = useState(false);
   const [lodError, setLodError] = useState<string | null>(null);
@@ -221,6 +226,10 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
+    if (key === "loanAmount") {
+      intelligenceRequestId.current += 1;
+      setIntelligence(null);
+    }
   }, [productCode]);
 
   const nudgeCompass = useCallback(() => {
@@ -285,7 +294,9 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const startJourneySession = useCallback(async () => {
     const started = await startCompassJourney({
       productCode,
+      displayName: answers.displayName,
       mobile: answers.mobile,
+      personalEmail: answers.personalEmail,
       city: answers.city || undefined,
       consentAccepted: true,
     });
@@ -296,13 +307,15 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     if (!started.otpRequired) {
       setAnswer("otpVerified", true);
     }
-  }, [answers.city, answers.mobile, productCode, setAnswer]);
+  }, [answers.city, answers.displayName, answers.mobile, answers.personalEmail, productCode, setAnswer]);
 
   const loadIntelligence = useCallback(async () => {
     if (!journeySessionToken) {
       setIntelligenceError("Your session could not be verified. Please restart the journey.");
       return;
     }
+    const requestId = intelligenceRequestId.current + 1;
+    intelligenceRequestId.current = requestId;
     setIntelligenceLoading(true);
     setIntelligenceError(null);
     try {
@@ -311,13 +324,17 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         answers,
         journeySessionToken,
       });
+      if (requestId !== intelligenceRequestId.current) return;
       setIntelligence(result);
     } catch {
+      if (requestId !== intelligenceRequestId.current) return;
       setIntelligenceError(
         "We could not complete analysis right now. Your details are saved — please try again shortly.",
       );
     } finally {
-      setIntelligenceLoading(false);
+      if (requestId === intelligenceRequestId.current) {
+        setIntelligenceLoading(false);
+      }
     }
   }, [answers, journeySessionToken, productCode]);
 

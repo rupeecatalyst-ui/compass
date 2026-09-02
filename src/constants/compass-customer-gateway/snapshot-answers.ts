@@ -8,7 +8,7 @@ import {
   type CompassProductCode,
 } from "@/constants/compass-customer-gateway/product-registry";
 
-const CORE_KEYS = ["loanAmount", "mobile", "otpVerified", "city"] as const;
+const CORE_KEYS = ["loanAmount", "mobile", "otpVerified", "city", "displayName", "personalEmail"] as const;
 
 export function compassPersistedAnswerKeys(productCode: CompassProductCode): Set<string> {
   const definition = getCompassProductDefinition(productCode);

@@ -7,6 +7,12 @@ export { calculateAdvantageFromSchedule, amountMatchesRange, findMatchingActiveR
 export { validateScheduleForPublication, rangesOverlap } from "./validate";
 export { buildAdvantagePin, pickEffectiveSchedule, pinAlreadySet, mergePinIntoSnapshot } from "./pin";
 export {
+  canonicalAdvantageLoanAmount,
+  advantageLoanAmountsEqual,
+  shouldReuseCurrentAdvantageSnapshot,
+  decideAdvantageSnapshotWrite,
+} from "./current-snapshot";
+export {
   multiplyAmountByRateRoundHalfUp,
   percentDisplayToRate,
   rateToPercentDisplay,

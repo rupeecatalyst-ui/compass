@@ -174,6 +174,8 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
   const keys = new Set<string>([
     "loanAmount",
     "mobile",
+    "displayName",
+    "personalEmail",
     "otpVerified",
     "city",
     "approxCibilScore",
