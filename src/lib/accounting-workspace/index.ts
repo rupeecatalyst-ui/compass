@@ -15,5 +15,6 @@ export { getAccountingWorkspaceModel, ACCOUNTING_SSOT_PENDING_MESSAGE } from "./
 export {
   resolveAccountingWorkbenchFromSearchParams,
   buildAccountingWorkbenchHref,
+  buildAccountingCaseHref,
   isLegacyAccountingRevenueAnalyticsDeepLink,
 } from "./resolve-workbench";

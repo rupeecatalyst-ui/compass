@@ -34,6 +34,14 @@ export {
   type OpportunityRegistryGroup,
 } from "./group-opportunities";
 
+export { filterLoanDealRegistryRows, isLoanDealRegistryRow } from "./loan-deals";
+
+export {
+  groupDealsForMyDealsKanban,
+  resolveMyDealsKanbanColumnId,
+  isAccountingKanbanColumn,
+} from "./kanban-board";
+
 export {
   deriveOpportunityExecutiveSummary,
   type OpportunityExecutiveSummary,

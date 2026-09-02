@@ -157,6 +157,13 @@ export function buildDealCreateBodyFromOpportunity(
       input.relationshipManager ||
       opportunity.relationshipManagerName ||
       null,
+    relationshipManagerUserId: opportunity.relationshipManagerUserId ?? null,
+    primaryOwnerUserId: opportunity.primaryOwnerUserId ?? null,
+    assignmentMode: "inherited",
+    lendingExtension:
+      opportunity.lendingExtension && typeof opportunity.lendingExtension === "object"
+        ? (opportunity.lendingExtension as Record<string, unknown>)
+        : undefined,
     priority: "medium",
     requestedAmount: amount,
     currencyCode: "INR",

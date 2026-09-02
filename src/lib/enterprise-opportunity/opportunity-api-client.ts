@@ -314,6 +314,7 @@ export const enterpriseOpportunityApiClient = {
   async searchOpportunities(query: {
     q?: string;
     primaryContactId?: string;
+    companyId?: string;
     requirementStage?: string;
     sourceCode?: string;
     sourceBucket?: "direct" | "channel_partner" | "referral" | "other";
@@ -334,6 +335,7 @@ export const enterpriseOpportunityApiClient = {
     const params = new URLSearchParams();
     if (query.q?.trim()) params.set("q", query.q.trim());
     if (query.primaryContactId) params.set("primaryContactId", query.primaryContactId);
+    if (query.companyId) params.set("companyId", query.companyId);
     if (query.requirementStage) params.set("requirementStage", query.requirementStage);
     if (query.sourceCode) params.set("sourceCode", query.sourceCode);
     if (query.sourceBucket) params.set("sourceBucket", query.sourceBucket);

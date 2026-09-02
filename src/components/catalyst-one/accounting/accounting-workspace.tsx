@@ -69,6 +69,7 @@ export function AccountingWorkspace() {
     () => resolveAccountingWorkbenchFromSearchParams(searchParams),
     [searchParams],
   );
+  const focusCaseId = searchParams.get("case")?.trim() || null;
 
   const reloadCases = useCallback(async () => {
     setCasesLoading(true);
@@ -240,6 +241,7 @@ export function AccountingWorkspace() {
                   loading={casesLoading}
                   error={casesError}
                   onReload={reloadCases}
+                  focusCaseId={focusCaseId}
                   caption="Created only when Confirmation Pending → Confirmation Received. Commercial capture only — this is not an invoice ledger."
                 />
                 <AccountingDashboardWorkbench

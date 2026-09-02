@@ -18,11 +18,19 @@ export function classifyChanakyaInappIntent(
   const q = norm(message);
 
   if (
-    /\b(what should i do next|what next|next step|recommend next|how do i progress)\b/.test(
+    /\b(what should i do next|what next|next step|recommend next|how do i progress|what should i ask)\b/.test(
       q,
     )
   ) {
     return "what_next";
+  }
+
+  if (/\bwho is handling|who(?:'s| is) (on|assigned|handling)\b/.test(q)) {
+    return "who_handles";
+  }
+
+  if (/\bcompare (it|this|them|with similar|similar cases)\b/.test(q)) {
+    return "compare_similar";
   }
 
   if (
@@ -120,10 +128,17 @@ export function planChanakyaInappCompile(
   switch (intent) {
     case "why_stuck":
     case "what_next":
+    case "who_handles":
       return {
         mode: "transaction",
         requireEntity: true,
         domains: ["executive", "transactions", "execution", "documents", "commercial"],
+      };
+    case "compare_similar":
+      return {
+        mode: "enterprise",
+        requireEntity: false,
+        domains: ["executive", "transactions", "execution"],
       };
     case "analyse_financials":
       return {

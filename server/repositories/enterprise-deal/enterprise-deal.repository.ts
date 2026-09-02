@@ -71,6 +71,7 @@ export type CreateEnterpriseDealInput = {
   relationshipManagerUserId?: string | null;
   relationshipManagerName?: string | null;
   primaryOwnerUserId?: string | null;
+  assignmentMode?: string | null;
   priority?: DealPriority;
   requestedAmount?: Prisma.Decimal | number | null;
   currencyCode?: string;
@@ -298,7 +299,11 @@ export class EnterpriseDealRepository {
             input.relationshipManagerName ??
             opportunity.relationshipManagerName ??
             null,
-          primaryOwnerUserId: input.primaryOwnerUserId ?? null,
+          primaryOwnerUserId:
+            input.primaryOwnerUserId ??
+            opportunity.primaryOwnerUserId ??
+            null,
+          assignmentMode: input.assignmentMode ?? "inherited",
           priority: input.priority ?? "medium",
           requestedAmount: input.requestedAmount ?? opportunity.requestedAmount ?? null,
           currencyCode: input.currencyCode ?? opportunity.currencyCode ?? "INR",
@@ -773,7 +778,13 @@ export class EnterpriseDealRepository {
         take: pageSize,
         include: {
           opportunity: {
-            select: { opportunityNumber: true },
+            select: {
+              opportunityNumber: true,
+              relationshipManagerUserId: true,
+              relationshipManagerName: true,
+              primaryOwnerUserId: true,
+              lendingExtension: true,
+            },
           },
         },
       }),

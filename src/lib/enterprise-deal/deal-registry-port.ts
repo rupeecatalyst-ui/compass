@@ -93,7 +93,12 @@ export async function loadMyDealsDealRegistryRows(): Promise<DealRegistryPortRes
       view: "summary",
     });
     const mapped = page.items
-      .filter((d) => !d.isDeleted && !d.archived)
+      .filter(
+        (d) =>
+          !d.isDeleted &&
+          !d.archived &&
+          (d.productFamily ?? "lending") === "lending",
+      )
       .map(mapEnterpriseDealToDealRegistryRow);
     const rows = await overlayMyDealsLastActivityFromEar(mapped);
     return {
@@ -128,7 +133,12 @@ export async function enrichMyDealsDealRegistryRows(): Promise<DealRegistryPortR
       view: "full",
     });
     const mapped = page.items
-      .filter((d) => !d.isDeleted && !d.archived)
+      .filter(
+        (d) =>
+          !d.isDeleted &&
+          !d.archived &&
+          (d.productFamily ?? "lending") === "lending",
+      )
       .map(mapEnterpriseDealToDealRegistryRow);
     const rows = await overlayMyDealsLastActivityFromEar(mapped);
     return {

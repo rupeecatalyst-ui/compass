@@ -40,12 +40,23 @@ export type EnterpriseDealApiRecord = {
   primaryContactId?: string | null;
   primaryContactEmail?: string | null;
   productLabel?: string | null;
+  productFamily?: string | null;
+  daysInStage?: number | null;
+  isDelayed?: boolean | null;
+  sourceCode?: string | null;
+  sourceContactId?: string | null;
+  cityLabel?: string | null;
+  stateLabel?: string | null;
+  expectedRevenue?: number | null;
   requestedAmount?: number | null;
   approvedAmount?: number | null;
   fulfilledAmount?: number | null;
   relationshipManagerName?: string | null;
   primaryOwnerUserId?: string | null;
   relationshipManagerUserId?: string | null;
+  assignmentMode?: string | null;
+  rcEmployeeAssignmentSource?: "inherited" | "override" | null;
+  rcEmployeeResolvedFromOpportunity?: boolean;
   lendingExtension?: unknown;
   primaryCounterpartyName?: string | null;
   invoicePartyType?: string | null;
@@ -176,6 +187,8 @@ export const enterpriseDealApiClient = {
     pageSize?: number;
     archived?: boolean;
     productFamily?: string;
+    /** Canonical contact id — never a display-name join. */
+    primaryContactId?: string;
     /** Free-text: deal number, customer, lender, product, RM, opportunity */
     q?: string;
     /** CO-PERF-002 — Phase 1 registry paint */
@@ -190,6 +203,7 @@ export const enterpriseDealApiClient = {
     if (query.archived === false) params.set("archived", "false");
     if (query.archived === true) params.set("archived", "true");
     if (query.productFamily) params.set("productFamily", query.productFamily);
+    if (query.primaryContactId) params.set("primaryContactId", query.primaryContactId);
     if (query.q?.trim()) params.set("q", query.q.trim());
     if (query.view) params.set("view", query.view);
     const page = await dealFetch<{

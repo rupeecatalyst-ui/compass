@@ -3,6 +3,7 @@
  */
 
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import { CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE } from "@/constants/chanakya-conversation-intelligence";
 import type {
   ChanakyaInappTurnRequest,
   ChanakyaInappTurnResult,
@@ -24,12 +25,18 @@ export async function postChanakyaInappConversationTurn(
 
   const json = (await res.json().catch(() => ({}))) as ApiEnvelope<ChanakyaInappTurnResult>;
   if (!res.ok || !json.data) {
+    const status = res.status;
     const message =
-      json.error?.message ||
-      `Ask CHANAKYA request failed (${res.status}).`;
+      status === 401
+        ? "Please sign in to Catalyst One to ask CHANAKYA."
+        : status === 403
+          ? "You do not have access to that CHANAKYA view."
+          : status === 400
+            ? json.error?.message || "Please ask a question."
+            : CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE;
     throw Object.assign(new Error(message), {
-      code: json.error?.code || `HTTP_${res.status}`,
-      statusCode: res.status,
+      code: json.error?.code || `HTTP_${status}`,
+      statusCode: status,
     });
   }
   return json.data;

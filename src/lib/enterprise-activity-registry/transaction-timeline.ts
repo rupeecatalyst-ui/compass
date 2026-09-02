@@ -56,6 +56,7 @@ export type TransactionTimelineScope =
   | { mode: "opportunity"; opportunityId: string }
   | { mode: "deal"; dealId: string; opportunityId?: string | null }
   | { mode: "contact"; contactId: string }
+  | { mode: "contact_graph"; contactId: string; opportunityIds: string[]; dealIds: string[] }
   | { mode: "lender"; dealIds: string[]; opportunityIds?: string[] };
 
 const CATEGORY_LABELS: Record<TransactionTimelineCategory, string> = {
@@ -264,6 +265,16 @@ export function filterEventsForScope(
   if (scope.mode === "contact") {
     return events.filter((e) => e.contactId === scope.contactId);
   }
+  if (scope.mode === "contact_graph") {
+    const dealSet = new Set(scope.dealIds.filter(Boolean));
+    const oppSet = new Set(scope.opportunityIds.filter(Boolean));
+    return events.filter((e) => {
+      if (e.contactId === scope.contactId) return true;
+      if (e.dealId && dealSet.has(e.dealId)) return true;
+      if (e.opportunityId && oppSet.has(e.opportunityId)) return true;
+      return false;
+    });
+  }
   if (scope.mode === "lender") {
     const dealSet = new Set(scope.dealIds.filter(Boolean));
     const oppSet = new Set((scope.opportunityIds ?? []).filter(Boolean));
@@ -338,6 +349,29 @@ export async function loadTransactionActivityTimeline(
       contactId: scope.contactId,
       limit,
     });
+  } else if (scope.mode === "contact_graph") {
+    const dealIds = scope.dealIds.filter(Boolean).slice(0, 24);
+    const opportunityIds = scope.opportunityIds.filter(Boolean).slice(0, 24);
+    const batches = await Promise.all([
+      listEnterpriseActivity({ contactId: scope.contactId, limit: 80 }),
+      ...dealIds.map((dealId) => listEnterpriseActivity({ dealId, limit: 40 })),
+      ...opportunityIds.map((opportunityId) =>
+        listEnterpriseActivity({ opportunityId, limit: 40 }),
+      ),
+    ]);
+    const map = new Map<string, EnterpriseActivityEvent>();
+    const sourceSeen = new Set<string>();
+    for (const batch of batches) {
+      for (const e of batch) {
+        if (map.has(e.id)) continue;
+        const sourceKey =
+          e.sourceEventId && e.sourceSystem ? `${e.sourceSystem}:${e.sourceEventId}` : "";
+        if (sourceKey && sourceSeen.has(sourceKey)) continue;
+        if (sourceKey) sourceSeen.add(sourceKey);
+        map.set(e.id, e);
+      }
+    }
+    raw = Array.from(map.values());
   } else if (scope.mode === "lender") {
     const dealIds = scope.dealIds.filter(Boolean).slice(0, 40);
     const opportunityIds = (scope.opportunityIds ?? []).filter(Boolean).slice(0, 40);

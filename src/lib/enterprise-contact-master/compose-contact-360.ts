@@ -1,6 +1,6 @@
 /**
  * CO-C1-CONTACT-360 / UX-REFINEMENT-002 — Contact 360° relationship intelligence compose.
- * Derives from Opportunity / Deal / ECM / Company / ETE / Document Registry / EAR.
+ * Graph: Contact → Company role → Opportunity → Deal (canonical IDs only).
  * Does not create a new relationship or activity store.
  */
 
@@ -11,14 +11,28 @@ import {
   listEcmRelationshipsTo,
   listEcmContacts,
 } from "@/lib/enterprise-contact-master";
-import { listContactCompanyLinks, getEcmCompany } from "@/lib/enterprise-company-master";
-import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opportunity-api-client";
+import { getEcmCompany } from "@/lib/enterprise-company-master";
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
-import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import { listEnterpriseActivity } from "@/lib/enterprise-activity-registry/api-client";
 import { listTasksForEntity } from "@/lib/enterprise-task-engine";
-import { listDocumentsForOpportunityRuntime } from "@/lib/document-registry";
+import { getAllDocumentRegistryRecords } from "@/lib/document-registry";
+import { enterpriseAccountingCaseClient } from "@/lib/enterprise-accounting-case/client";
+import { ROUTES } from "@/constants/routes";
+import {
+  buildDealWorkspaceHref,
+  buildOpportunityWorkspaceEntryHref,
+} from "@/lib/loan-journey/adr-018-routing";
+import {
+  archivedContactHasActiveTransaction,
+  dedupeActivityEvents,
+  deriveContact360BusinessValue,
+  isActiveDeal,
+  isCurrentOpportunityLifecycle,
+  isDisbursedDeal,
+  resolveContact360Graph,
+  type Contact360TimelineRow,
+} from "@/lib/enterprise-contact-master/contact-360-relationship-graph";
 import type { EcmContact } from "@/types/enterprise-contact-master";
 import type { EnterpriseActivityEvent } from "@/types/enterprise-activity-registry";
 
@@ -35,6 +49,7 @@ export type Contact360RelationshipCategory =
   | "documents"
   | "tasks"
   | "communication"
+  | "accounting"
   | "explicit";
 
 export type Contact360DerivedLinkKind =
@@ -50,7 +65,19 @@ export type Contact360DerivedLinkKind =
   | "referrer"
   | "document"
   | "task"
-  | "communication";
+  | "communication"
+  | "accounting";
+
+export type Contact360SnapshotMeasureId =
+  | "total_opportunities"
+  | "current_opportunities"
+  | "total_deals"
+  | "active_deals"
+  | "loans_disbursed"
+  | "total_business_value"
+  | "last_action"
+  | "last_dialogue"
+  | "last_opportunity";
 
 export interface Contact360DerivedLink {
   id: string;
@@ -68,6 +95,8 @@ export interface Contact360RelationshipSection {
   items: Contact360DerivedLink[];
 }
 
+export type { Contact360TimelineRow };
+
 export interface Contact360Snapshot {
   contactScore: number;
   companyLabel: string | null;
@@ -81,6 +110,12 @@ export interface Contact360Snapshot {
   lastActionAt: string | null;
   lastDialogueAt: string | null;
   lastOpportunityAt: string | null;
+  lastOpportunityId: string | null;
+  archivedReadOnly: boolean;
+  activeTransactionWarning: string | null;
+  graphOpportunityIds: string[];
+  graphDealIds: string[];
+  measureFocus: Partial<Record<Contact360SnapshotMeasureId, Contact360RelationshipCategory | "timeline">>;
   /** Flat list (compat) */
   derivedLinks: Contact360DerivedLink[];
   /** Grouped relationship intelligence sections */
@@ -88,6 +123,7 @@ export interface Contact360Snapshot {
   opportunities: EnterpriseOpportunityApiRecord[];
   deals: EnterpriseDealApiRecord[];
   recentActivity: EnterpriseActivityEvent[];
+  unifiedTimeline: Contact360TimelineRow[];
 }
 
 const SECTION_META: ReadonlyArray<{
@@ -106,18 +142,9 @@ const SECTION_META: ReadonlyArray<{
   { category: "documents", title: "Documents" },
   { category: "tasks", title: "Tasks" },
   { category: "communication", title: "Communication" },
+  { category: "accounting", title: "Disbursement / Accounting" },
   { category: "explicit", title: "Explicit Relationships" },
 ];
-
-function isActiveLifecycle(status?: string | null): boolean {
-  const s = (status || "").toLowerCase();
-  return (
-    s === "active" ||
-    s === "requirement_captured" ||
-    s === "on_hold" ||
-    s === "in_progress"
-  );
-}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -137,6 +164,18 @@ function contactNameById(id: string | null | undefined): string | null {
   return hit?.name?.trim() || null;
 }
 
+function opportunityHref(opp: Pick<EnterpriseOpportunityApiRecord, "id" | "legacyLoanFileId">): string {
+  return buildOpportunityWorkspaceEntryHref(opp);
+}
+
+function dealHref(deal: Pick<EnterpriseDealApiRecord, "id" | "opportunityId" | "legacyLoanFileId">): string {
+  return buildDealWorkspaceHref({
+    dealId: deal.id,
+    opportunityId: deal.opportunityId,
+    fileId: deal.legacyLoanFileId,
+  });
+}
+
 function pushUnique(
   list: Contact360DerivedLink[],
   seen: Set<string>,
@@ -152,64 +191,104 @@ function projectParticipantsFromExtension(
   opportunityId: string,
   seen: Set<string>,
   list: Contact360DerivedLink[],
+  opportunityHrefHint: string,
 ): void {
   const participants = Array.isArray(ext.participants) ? ext.participants : [];
   for (const raw of participants) {
     const p = asRecord(raw);
     const role = (stringField(p, ["role", "participantRole"]) || "").toLowerCase();
-    const name =
-      stringField(p, ["name", "displayName", "contactName"]) ||
-      contactNameById(stringField(p, ["contactId", "entityId", "id"]));
-    if (!name) continue;
-    const idBase = stringField(p, ["contactId", "entityId", "id"]) || name;
+    const entityId = stringField(p, ["contactId", "entityId"]);
+    if (!entityId) continue;
+    const name = contactNameById(entityId) || stringField(p, ["name", "displayName", "contactName"]) || entityId;
     if (role.includes("co_applicant") || role.includes("co-applicant") || role === "coapplicant") {
       pushUnique(list, seen, {
-        id: `coapp:${opportunityId}:${idBase}`,
+        id: `coapp:${opportunityId}:${entityId}`,
         kind: "co_applicant",
         category: "co_applicants",
         label: name,
-        detail: `Co-applicant · Opportunity`,
+        detail: "Co-applicant · Opportunity",
         derived: true,
+        hrefHint: `${ROUTES.CONTACTS}?contact=${encodeURIComponent(entityId)}`,
       });
     } else if (role.includes("guarantor")) {
       pushUnique(list, seen, {
-        id: `guar:${opportunityId}:${idBase}`,
+        id: `guar:${opportunityId}:${entityId}`,
         kind: "guarantor",
         category: "guarantors",
         label: name,
-        detail: `Guarantor · Opportunity`,
+        detail: "Guarantor · Opportunity",
         derived: true,
+        hrefHint: `${ROUTES.CONTACTS}?contact=${encodeURIComponent(entityId)}`,
       });
     }
   }
 
-  const coName =
-    stringField(ext, ["coApplicantName", "coApplicant", "co_applicant_name"]) ||
-    contactNameById(stringField(ext, ["coApplicantId", "coApplicantContactId"]));
-  if (coName) {
+  const coId = stringField(ext, ["coApplicantId", "coApplicantContactId"]);
+  if (coId) {
     pushUnique(list, seen, {
-      id: `coapp:${opportunityId}:${coName}`,
+      id: `coapp:${opportunityId}:${coId}`,
       kind: "co_applicant",
       category: "co_applicants",
-      label: coName,
+      label: contactNameById(coId) || "Co-applicant",
       detail: "Co-applicant · Opportunity",
       derived: true,
+      hrefHint: `${ROUTES.CONTACTS}?contact=${encodeURIComponent(coId)}`,
     });
   }
 
-  const guarName =
-    stringField(ext, ["guarantorName", "guarantor", "guarantor_name"]) ||
-    contactNameById(stringField(ext, ["guarantorId", "guarantorContactId"]));
-  if (guarName) {
+  const guarId = stringField(ext, ["guarantorId", "guarantorContactId"]);
+  if (guarId) {
     pushUnique(list, seen, {
-      id: `guar:${opportunityId}:${guarName}`,
+      id: `guar:${opportunityId}:${guarId}`,
       kind: "guarantor",
       category: "guarantors",
-      label: guarName,
+      label: contactNameById(guarId) || "Guarantor",
       detail: "Guarantor · Opportunity",
       derived: true,
+      hrefHint: `${ROUTES.CONTACTS}?contact=${encodeURIComponent(guarId)}`,
     });
   }
+
+  void opportunityHrefHint;
+}
+
+function listDocumentsForGraph(input: {
+  contactId: string;
+  companyIds: string[];
+  opportunityIds: string[];
+  dealIds: string[];
+}) {
+  const companies = new Set(input.companyIds);
+  const opps = new Set(input.opportunityIds);
+  const deals = new Set(input.dealIds);
+  return getAllDocumentRegistryRecords().filter((r) => {
+    if (r.status === "deleted") return false;
+    const links = r.links;
+    if (links.contactId === input.contactId || links.customerId === input.contactId) return true;
+    if (links.companyId && companies.has(links.companyId)) return true;
+    if (links.opportunityId && opps.has(links.opportunityId)) return true;
+    if (links.dealId && deals.has(links.dealId)) return true;
+    if (links.loanFileId && deals.has(links.loanFileId)) return true;
+    return false;
+  });
+}
+
+function sourceWorkspaceForEvent(event: EnterpriseActivityEvent): string {
+  if (event.dealId) return "Deal Workspace";
+  if (event.documentId) return "Document Workspace";
+  if (event.taskId) return "Tasks";
+  if (event.eventKind === "dialogue" || event.eventKind === "communications") return "Activity & Dialogue";
+  if (event.opportunityId) return "Opportunity Workspace";
+  return "Contact 360";
+}
+
+function hrefForEvent(event: EnterpriseActivityEvent): string | undefined {
+  if (event.dealId) return buildDealWorkspaceHref({ dealId: event.dealId, opportunityId: event.opportunityId });
+  if (event.opportunityId) return buildOpportunityWorkspaceEntryHref({ id: event.opportunityId });
+  if (event.documentId) return ROUTES.DOCUMENT_WORKSPACE;
+  if (event.taskId) return ROUTES.TASKS;
+  if (event.contactId) return `${ROUTES.CONTACTS}?contact=${encodeURIComponent(event.contactId)}`;
+  return ROUTES.ACTIVITY;
 }
 
 export async function composeContact360Snapshot(
@@ -220,59 +299,49 @@ export async function composeContact360Snapshot(
       ? contact.contactScore
       : computeEcmContactScore(contact);
 
-  const [oppPage, dealPage, activity] = await Promise.all([
-    enterpriseOpportunityApiClient
-      .searchOpportunities({
-        primaryContactId: contact.id,
-        limit: 100,
-        offset: 0,
-      })
-      .catch(() => ({ items: [] as EnterpriseOpportunityApiRecord[], total: 0 })),
-    enterpriseDealApiClient
-      .searchDeals({ archived: false, pageSize: 200, view: "full", q: contact.name })
-      .catch(() => ({ items: [] as EnterpriseDealApiRecord[], total: 0 })),
-    listEnterpriseActivity({ contactId: contact.id, limit: 60 }).catch(
+  const graph = await resolveContact360Graph(contact);
+  const opportunities = graph.opportunities;
+  const deals = graph.deals;
+  const companyById = new Map(
+    graph.companyLinks.map((l) => [l.companyId, l.companyLabel] as const),
+  );
+  const oppById = new Map(opportunities.map((o) => [o.id, o] as const));
+  const dealById = new Map(deals.map((d) => [d.id, d] as const));
+
+  const activityBatches = await Promise.all([
+    listEnterpriseActivity({ contactId: contact.id, limit: 80 }).catch(
       () => [] as EnterpriseActivityEvent[],
     ),
+    ...graph.opportunityIds.slice(0, 24).map((opportunityId) =>
+      listEnterpriseActivity({ opportunityId, limit: 40 }).catch(
+        () => [] as EnterpriseActivityEvent[],
+      ),
+    ),
+    ...graph.dealIds.slice(0, 24).map((dealId) =>
+      listEnterpriseActivity({ dealId, limit: 40 }).catch(
+        () => [] as EnterpriseActivityEvent[],
+      ),
+    ),
   ]);
-
-  const opportunities = oppPage.items ?? [];
-  const contactDealIds = new Set(opportunities.map((o) => o.id).filter(Boolean));
-  const deals = (dealPage.items ?? []).filter(
-    (d) =>
-      (d.primaryContactId && d.primaryContactId === contact.id) ||
-      (d.opportunityId && contactDealIds.has(d.opportunityId)) ||
-      (d.primaryContactName || "")
-        .toLowerCase()
-        .includes(contact.name.trim().toLowerCase()),
-  );
+  const activity = dedupeActivityEvents(activityBatches.flat());
 
   const currentOpportunities = opportunities.filter((o) =>
-    isActiveLifecycle(o.lifecycleStatus),
+    isCurrentOpportunityLifecycle(o.lifecycleStatus),
   ).length;
-  const activeDeals = deals.filter((d) => {
-    const stage = (d.grossStage || "").toLowerCase();
-    return stage && stage !== "lost" && stage !== "disbursed" && !d.archived;
-  }).length;
-  const disbursedDeals = deals.filter((d) =>
-    (d.grossStage || "").toLowerCase().includes("disburs"),
-  ).length;
-  const totalBusinessValue = deals.reduce(
-    (sum, d) => sum + (d.requestedAmount ?? d.approvedAmount ?? 0),
-    0,
-  );
+  const activeDeals = deals.filter((d) => isActiveDeal(d)).length;
+  const disbursedDeals = deals.filter((d) => isDisbursedDeal(d)).length;
+  const totalBusinessValue = deriveContact360BusinessValue(opportunities, deals);
 
-  const lastOpportunityAt =
-    opportunities
-      .map((o) => o.createdAt)
-      .filter(Boolean)
-      .sort()
-      .at(-1) ?? null;
+  const lastOpportunity =
+    [...opportunities].sort((a, b) =>
+      (b.createdAt || b.updatedAt || "").localeCompare(a.createdAt || a.updatedAt || ""),
+    )[0] ?? null;
+  const lastOpportunityAt = lastOpportunity?.createdAt || lastOpportunity?.updatedAt || null;
 
   const lastActionAt =
     activity.map((e) => e.occurredAt).filter(Boolean).sort().at(-1) ??
     deals.map((d) => d.updatedAt).filter(Boolean).sort().at(-1) ??
-    null;
+    lastOpportunityAt;
 
   const lastDialogueAt =
     activity
@@ -282,31 +351,32 @@ export async function composeContact360Snapshot(
       .sort()
       .at(-1) ?? null;
 
-  const companyLinks = listContactCompanyLinks(contact.id);
-  const companyNames = companyLinks
-    .map((link) => getEcmCompany(link.companyId)?.companyName?.trim())
-    .filter(Boolean) as string[];
-  for (const o of opportunities) {
-    if (o.companyName?.trim()) companyNames.push(o.companyName.trim());
-  }
-  const companyLabel = companyNames[0] ?? null;
+  const companyLabel = graph.companyLinks[0]?.companyLabel ?? null;
+  const archivedReadOnly = contact.status === "archived";
+  const activeTransactionWarning = archivedContactHasActiveTransaction(
+    contact.status,
+    opportunities,
+    deals,
+  )
+    ? "Data quality: this archived Contact is still linked to an active Opportunity or Deal. History is visible. The Contact is not reactivated."
+    : null;
 
   const seen = new Set<string>();
   const derivedLinks: Contact360DerivedLink[] = [];
 
-  for (const link of companyLinks) {
-    const company = getEcmCompany(link.companyId);
+  for (const link of graph.companyLinks) {
     pushUnique(derivedLinks, seen, {
-      id: `company:${link.id}`,
+      id: `company:${link.linkId}`,
       kind: "company",
       category: "companies",
-      label: company?.companyName || link.companyId,
-      detail: link.relationRole || "Company link",
+      label: link.companyLabel,
+      detail: `${link.relationRole.replace(/_/g, " ")}${link.status !== "active" ? " · historical" : ""}`,
       derived: true,
+      hrefHint: `${ROUTES.CONTACTS}?company=${encodeURIComponent(link.companyId)}`,
     });
   }
   for (const o of opportunities) {
-    if (o.companyId && o.companyName?.trim()) {
+    if (o.companyId && !graph.companyIds.includes(o.companyId) && o.companyName?.trim()) {
       pushUnique(derivedLinks, seen, {
         id: `company:opp:${o.companyId}`,
         kind: "company",
@@ -314,155 +384,163 @@ export async function composeContact360Snapshot(
         label: o.companyName.trim(),
         detail: "Company on Opportunity",
         derived: true,
+        hrefHint: `${ROUTES.CONTACTS}?company=${encodeURIComponent(o.companyId)}`,
       });
     }
   }
 
-  for (const o of opportunities.slice(0, 20)) {
+  for (const o of opportunities) {
+    const href = opportunityHref(o);
     pushUnique(derivedLinks, seen, {
       id: `opp:${o.id}`,
       kind: "opportunity",
       category: "opportunities",
       label: o.opportunityNumber || o.id,
-      detail: [o.productLabel, o.lifecycleStatus || o.requirementStage]
+      detail: [o.productLabel, o.lifecycleStatus || o.requirementStage, o.companyName]
         .filter(Boolean)
         .join(" · "),
       derived: true,
+      hrefHint: href,
     });
 
     const ext = asRecord(o.lendingExtension);
-    projectParticipantsFromExtension(ext, o.id, seen, derivedLinks);
+    projectParticipantsFromExtension(ext, o.id, seen, derivedLinks, href);
 
-    if (o.sourceWealthPartnerId || o.sourceContactName) {
-      const wpName =
-        contactNameById(o.sourceWealthPartnerId) ||
-        o.sourceContactName?.trim() ||
-        null;
-      if (o.sourceWealthPartnerId && wpName) {
-        pushUnique(derivedLinks, seen, {
-          id: `wp:${o.sourceWealthPartnerId}`,
-          kind: "wealth_partner",
-          category: "wealth_partners",
-          label: wpName,
-          detail: "Wealth Partner · Opportunity source",
-          derived: true,
-        });
-      } else if (wpName && (o.sourceCode || "").toLowerCase().includes("partner")) {
-        pushUnique(derivedLinks, seen, {
-          id: `wp:${wpName}`,
-          kind: "wealth_partner",
-          category: "wealth_partners",
-          label: wpName,
-          detail: "Wealth Partner · Opportunity source",
-          derived: true,
-        });
-      } else if (wpName && o.sourceContactName?.trim()) {
-        pushUnique(derivedLinks, seen, {
-          id: `ref:${o.sourceContactId || wpName}`,
-          kind: "referrer",
-          category: "referrers",
-          label: wpName,
-          detail: `Referrer / Introducer${o.sourceCode ? ` · ${o.sourceCode}` : ""}`,
-          derived: true,
-        });
-      }
-    }
-
-    const docs = listDocumentsForOpportunityRuntime(o.id, o.id, {
-      contactId: contact.id,
-      opportunityNumber: o.opportunityNumber,
-    });
-    for (const doc of docs.slice(0, 8)) {
+    if (o.sourceWealthPartnerId) {
+      const wpName = contactNameById(o.sourceWealthPartnerId) || "Wealth Partner";
       pushUnique(derivedLinks, seen, {
-        id: `doc:${doc.id}`,
-        kind: "document",
-        category: "documents",
-        label: doc.displayName || doc.categoryLabel || doc.typeRef || "Document",
-        detail: `Document · ${o.opportunityNumber || "Opportunity"}`,
+        id: `wp:${o.sourceWealthPartnerId}`,
+        kind: "wealth_partner",
+        category: "wealth_partners",
+        label: wpName,
+        detail: "Wealth Partner · Opportunity source",
         derived: true,
+        hrefHint: `${ROUTES.CONTACTS}?contact=${encodeURIComponent(o.sourceWealthPartnerId)}`,
+      });
+    } else if (o.sourceContactId) {
+      const refName = contactNameById(o.sourceContactId) || "Referrer";
+      pushUnique(derivedLinks, seen, {
+        id: `ref:${o.sourceContactId}`,
+        kind: "referrer",
+        category: "referrers",
+        label: refName,
+        detail: `Referrer / Introducer${o.sourceCode ? ` · ${o.sourceCode}` : ""}`,
+        derived: true,
+        hrefHint: `${ROUTES.CONTACTS}?contact=${encodeURIComponent(o.sourceContactId)}`,
       });
     }
   }
 
-  for (const d of deals.slice(0, 20)) {
+  for (const d of deals) {
     const stage = (d.grossStage || "").toLowerCase();
-    const isDisbursed = stage.includes("disburs");
+    const isLoan = isDisbursedDeal(d) || stage.includes("disburs");
     pushUnique(derivedLinks, seen, {
       id: `deal:${d.id}`,
-      kind: isDisbursed ? "loan" : "deal",
-      category: isDisbursed ? "loans" : "deals",
+      kind: isLoan ? "loan" : "deal",
+      category: isLoan ? "loans" : "deals",
       label: d.dealNumber || d.id,
-      detail: [d.primaryCounterpartyName, d.grossStage].filter(Boolean).join(" · ") || "Deal",
+      detail: [d.primaryCounterpartyName, d.grossStage, d.opportunityNumber]
+        .filter(Boolean)
+        .join(" · ") || "Deal",
       derived: true,
+      hrefHint: dealHref(d),
     });
-    if (d.primaryCounterpartyName?.trim()) {
+    if (d.lenderId) {
       pushUnique(derivedLinks, seen, {
-        id: `lender:${d.lenderId || d.primaryCounterpartyName}`,
+        id: `lender:${d.lenderId}`,
         kind: "lender",
         category: "lenders",
-        label: d.primaryCounterpartyName.trim(),
+        label: d.primaryCounterpartyName?.trim() || d.lenderId,
         detail: "Lender on Deal",
         derived: true,
+        hrefHint: dealHref(d),
       });
     }
 
     const snap = asRecord(d.snapshot);
-    const partnerName =
-      stringField(snap, [
-        "channelPartnerName",
-        "partnerName",
-        "wealthPartnerName",
-      ]) ||
-      (d.invoicePartyType === "channel_partner" ||
-      d.invoicePartyType === "wealth_partner"
-        ? d.invoicePartySpecify
-        : null);
-    if (partnerName?.trim()) {
+    if (d.invoicePartyContactId) {
+      const partnerName =
+        contactNameById(d.invoicePartyContactId) ||
+        stringField(snap, ["channelPartnerName", "partnerName", "wealthPartnerName"]) ||
+        d.invoicePartySpecify ||
+        "Wealth Partner";
       pushUnique(derivedLinks, seen, {
-        id: `wp:deal:${d.invoicePartyContactId || partnerName}`,
+        id: `wp:deal:${d.invoicePartyContactId}`,
         kind: "wealth_partner",
         category: "wealth_partners",
-        label: partnerName.trim(),
+        label: partnerName,
         detail: "Wealth Partner · Deal",
         derived: true,
+        hrefHint: `${ROUTES.CONTACTS}?contact=${encodeURIComponent(d.invoicePartyContactId)}`,
       });
     }
 
-    const refName = stringField(snap, [
-      "referralSourceName",
-      "leadSource",
-      "sourceName",
-    ]);
-    if (refName) {
+    const refId = stringField(snap, ["referralSourceId", "sourceContactId"]);
+    if (refId) {
       pushUnique(derivedLinks, seen, {
-        id: `ref:deal:${refName}`,
+        id: `ref:deal:${refId}`,
         kind: "referrer",
         category: "referrers",
-        label: refName,
+        label: contactNameById(refId) || "Referrer",
         detail: "Referrer · Deal",
         derived: true,
+        hrefHint: `${ROUTES.CONTACTS}?contact=${encodeURIComponent(refId)}`,
       });
     }
 
     const lendExt = asRecord(d.lendingExtension);
-    projectParticipantsFromExtension(lendExt, d.id, seen, derivedLinks);
+    projectParticipantsFromExtension(lendExt, d.opportunityId || d.id, seen, derivedLinks, dealHref(d));
   }
 
-  const tasks = listTasksForEntity({ contactId: contact.id });
-  for (const t of tasks.slice(0, 12)) {
+  const documents = listDocumentsForGraph({
+    contactId: contact.id,
+    companyIds: graph.companyIds,
+    opportunityIds: graph.opportunityIds,
+    dealIds: graph.dealIds,
+  });
+  for (const doc of documents.slice(0, 40)) {
+    const opp = doc.links.opportunityId ? oppById.get(doc.links.opportunityId) : null;
+    pushUnique(derivedLinks, seen, {
+      id: `doc:${doc.id}`,
+      kind: "document",
+      category: "documents",
+      label: doc.displayName || doc.categoryLabel || doc.typeRef || "Document",
+      detail: [
+        opp?.opportunityNumber || opp?.id,
+        doc.links.dealId ? dealById.get(doc.links.dealId)?.dealNumber : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "Document Registry",
+      derived: true,
+      hrefHint: ROUTES.DOCUMENT_WORKSPACE,
+    });
+  }
+
+  const taskMap = new Map(
+    [
+      ...listTasksForEntity({ contactId: contact.id }),
+      ...graph.opportunityIds.flatMap((id) => listTasksForEntity({ opportunityRef: id })),
+      ...graph.dealIds.flatMap((id) => listTasksForEntity({ dealId: id })),
+      ...graph.companyIds.flatMap((id) =>
+        listTasksForEntity({ entityKind: "company", entityId: id }),
+      ),
+    ].map((t) => [t.id, t] as const),
+  );
+  for (const t of [...taskMap.values()].slice(0, 40)) {
     pushUnique(derivedLinks, seen, {
       id: `task:${t.id}`,
       kind: "task",
       category: "tasks",
       label: t.title || "Task",
-      detail: [t.status, t.workType].filter(Boolean).join(" · ") || "Task",
+      detail: [t.status, t.workType, t.opportunityRef].filter(Boolean).join(" · ") || "Task",
       derived: true,
+      hrefHint: ROUTES.TASKS,
     });
   }
 
-  for (const e of activity.filter(
-    (row) => row.eventKind === "communications" || row.eventKind === "dialogue",
-  ).slice(0, 12)) {
+  for (const e of activity
+    .filter((row) => row.eventKind === "communications" || row.eventKind === "dialogue")
+    .slice(0, 20)) {
     pushUnique(derivedLinks, seen, {
       id: `comm:${e.id}`,
       kind: "communication",
@@ -470,7 +548,44 @@ export async function composeContact360Snapshot(
       label: e.title || "Communication",
       detail: e.summary || e.eventKind,
       derived: true,
+      hrefHint: hrefForEvent(e) || ROUTES.ACTIVITY,
     });
+  }
+
+  const accountingDeals = deals.filter((d) => isDisbursedDeal(d) || isActiveDeal(d)).slice(0, 12);
+  const accountingPages = await Promise.all(
+    accountingDeals.map((d) =>
+      enterpriseAccountingCaseClient
+        .list({ dealId: d.id, pageSize: 5 })
+        .catch(() => ({ items: [] as Array<{ id: string; dealId: string }> })),
+    ),
+  );
+  for (let i = 0; i < accountingDeals.length; i += 1) {
+    const deal = accountingDeals[i];
+    const items = accountingPages[i]?.items ?? [];
+    if (items.length === 0 && isDisbursedDeal(deal)) {
+      pushUnique(derivedLinks, seen, {
+        id: `acct:deal:${deal.id}`,
+        kind: "accounting",
+        category: "accounting",
+        label: deal.dealNumber || deal.id,
+        detail: "Disbursement · Accounting read view",
+        derived: true,
+        hrefHint: `${ROUTES.ACCOUNTING}?dealId=${encodeURIComponent(deal.id)}`,
+      });
+      continue;
+    }
+    for (const row of items) {
+      pushUnique(derivedLinks, seen, {
+        id: `acct:${row.id}`,
+        kind: "accounting",
+        category: "accounting",
+        label: deal.dealNumber || row.dealId,
+        detail: "Accounting case · read only",
+        derived: true,
+        hrefHint: `${ROUTES.ACCOUNTING}?dealId=${encodeURIComponent(deal.id)}`,
+      });
+    }
   }
 
   for (const rel of [
@@ -487,6 +602,7 @@ export async function composeContact360Snapshot(
       label: otherName,
       detail: rel.relationshipType.replace(/_/g, " "),
       derived: false,
+      hrefHint: `${ROUTES.CONTACTS}?contact=${encodeURIComponent(otherId)}`,
     });
   }
 
@@ -497,6 +613,24 @@ export async function composeContact360Snapshot(
       items: derivedLinks.filter((l) => l.category === meta.category),
     }),
   );
+
+  const unifiedTimeline: Contact360TimelineRow[] = activity.map((event) => {
+    const opp = event.opportunityId ? oppById.get(event.opportunityId) : undefined;
+    const deal = event.dealId ? dealById.get(event.dealId) : undefined;
+    const companyId = opp?.companyId || deal?.companyId || null;
+    return {
+      id: event.id,
+      type: event.eventKind || "activity",
+      summary: event.title || event.summary || "Activity",
+      companyLabel: (companyId && (companyById.get(companyId) || getEcmCompany(companyId)?.companyName)) || opp?.companyName || null,
+      opportunityRef: opp?.opportunityNumber || event.opportunityId,
+      dealRef: deal?.dealNumber || event.dealId,
+      employee: event.actorName,
+      occurredAt: event.occurredAt,
+      sourceWorkspace: sourceWorkspaceForEvent(event),
+      href: hrefForEvent(event),
+    };
+  });
 
   return {
     contactScore,
@@ -511,13 +645,28 @@ export async function composeContact360Snapshot(
     lastActionAt,
     lastDialogueAt,
     lastOpportunityAt,
+    lastOpportunityId: lastOpportunity?.id ?? null,
+    archivedReadOnly,
+    activeTransactionWarning,
+    graphOpportunityIds: graph.opportunityIds,
+    graphDealIds: graph.dealIds,
+    measureFocus: {
+      total_opportunities: "opportunities",
+      current_opportunities: "opportunities",
+      total_deals: "deals",
+      active_deals: "deals",
+      loans_disbursed: "loans",
+      total_business_value: "opportunities",
+      last_action: "timeline",
+      last_dialogue: "communication",
+      last_opportunity: "opportunities",
+    },
     derivedLinks,
     relationshipSections,
     opportunities,
     deals,
-    recentActivity: [...activity].sort((a, b) =>
-      (b.occurredAt || "").localeCompare(a.occurredAt || ""),
-    ),
+    recentActivity: activity,
+    unifiedTimeline,
   };
 }
 
@@ -551,4 +700,38 @@ export function formatContact360DateOnly(iso: string | null | undefined): string
   } catch {
     return "—";
   }
+}
+
+export function snapshotItemsForMeasure(
+  snapshot: Contact360Snapshot,
+  measure: Contact360SnapshotMeasureId,
+): Contact360DerivedLink[] | Contact360TimelineRow[] {
+  if (measure === "last_action") return snapshot.unifiedTimeline;
+  if (measure === "current_opportunities") {
+    const currentIds = new Set(
+      snapshot.opportunities
+        .filter((o) => isCurrentOpportunityLifecycle(o.lifecycleStatus))
+        .map((o) => `opp:${o.id}`),
+    );
+    return snapshot.derivedLinks.filter((l) => currentIds.has(l.id));
+  }
+  if (measure === "active_deals") {
+    const ids = new Set(
+      snapshot.deals.filter((d) => isActiveDeal(d)).map((d) => `deal:${d.id}`),
+    );
+    return snapshot.derivedLinks.filter((l) => ids.has(l.id));
+  }
+  if (measure === "loans_disbursed") {
+    return snapshot.derivedLinks.filter((l) => l.category === "loans");
+  }
+  if (measure === "last_dialogue") {
+    return snapshot.derivedLinks.filter((l) => l.category === "communication");
+  }
+  if (measure === "last_opportunity" || measure === "total_opportunities" || measure === "total_business_value") {
+    return snapshot.derivedLinks.filter((l) => l.category === "opportunities");
+  }
+  if (measure === "total_deals") {
+    return snapshot.derivedLinks.filter((l) => l.category === "deals" || l.category === "loans");
+  }
+  return snapshot.derivedLinks;
 }

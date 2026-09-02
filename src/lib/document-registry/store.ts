@@ -619,6 +619,31 @@ export function markDocumentVerified(
   return snap.records[idx]!;
 }
 
+export function stampDocumentReview(input: {
+  recordId: string;
+  reviewStatus: NonNullable<DocumentRegistryRecord["reviewStatus"]>;
+  reviewedBy: string;
+  remarks?: string;
+}): DocumentRegistryRecord | null {
+  const snap = readSnapshot();
+  const idx = snap.records.findIndex((r) => r.id === input.recordId);
+  if (idx < 0) return null;
+  const current = snap.records[idx]!;
+  if (current.status !== "active") return null;
+  const now = new Date().toISOString();
+  const accepted = input.reviewStatus === "accepted";
+  snap.records[idx] = {
+    ...current,
+    reviewStatus: input.reviewStatus,
+    reviewRemarks: input.remarks?.trim() || current.reviewRemarks,
+    verifiedAt: accepted ? now : undefined,
+    verifiedBy: accepted ? input.reviewedBy.trim() || "RM" : current.verifiedBy,
+    updatedAt: now,
+  };
+  writeSnapshot(snap);
+  return snap.records[idx]!;
+}
+
 export async function deleteDocumentFromRegistry(recordId: string): Promise<boolean> {
   const snap = readSnapshot();
   const idx = snap.records.findIndex((r) => r.id === recordId);
@@ -719,6 +744,10 @@ export function buildEntityLinksFromLoanFile(
       ? { participantId: scope.participantId }
       : {}),
     ...(documentScope === "lender" && lenderId ? { lenderId } : {}),
+    ...(file.enterpriseDealId ? { dealId: file.enterpriseDealId } : {}),
+    ...(documentScope === "applicant" && ownerEntityId && file.customerId !== ownerEntityId
+      ? { companyId: ownerEntityId }
+      : {}),
   };
 }
 

@@ -32,14 +32,14 @@ export function LoanFilesAnalyticsView() {
           </p>
         </div>
         <Button asChild size="sm" variant="secondary" className="h-8 gap-1.5 text-xs">
-          <Link href={ROUTES.REPORTS}>
+          <Link href={ROUTES.MISSION_CONTROL_ENTERPRISE_INTELLIGENCE}>
             Open Executive Intelligence
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </Button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4">
         <div className="rounded-2xl border border-border/60 bg-card/80 p-4">
           <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Pipeline → Funnel

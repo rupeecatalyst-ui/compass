@@ -10,10 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EnterpriseChartMetaStrip } from "@/components/enterprise/charts/enterprise-chart-frame";
+import type { EnterpriseChartMeta } from "@/types/enterprise-chart-readability";
 import { cn } from "../cn";
 
 /**
  * CO-REFINEMENT-004 — Full-width analytics card with in-place enlarge (stays in Mission Control).
+ * CO-C1-CHART-READABILITY-001 — optional measurement/period/unit/freshness/filter strip.
  */
 export function McAnalyticsExpandCard({
   title,
@@ -22,6 +25,11 @@ export function McAnalyticsExpandCard({
   expandedChildren,
   className,
   expandLabel = "Enlarge",
+  meta,
+  loading,
+  error,
+  empty,
+  emptyMessage,
 }: {
   title: string;
   subtitle?: string;
@@ -30,9 +38,42 @@ export function McAnalyticsExpandCard({
   expandedChildren?: ReactNode;
   className?: string;
   expandLabel?: string;
+  meta?: EnterpriseChartMeta;
+  loading?: boolean;
+  error?: string | null;
+  empty?: boolean;
+  emptyMessage?: string;
 }) {
   const [open, setOpen] = useState(false);
   const body = expandedChildren ?? children;
+  const stripMeta = meta ?? {
+    measurementDefinition: subtitle || title,
+    reportingPeriod: "Current operational view",
+    unitLabel: "See series",
+    lastUpdated: null,
+    activeFilters: [],
+  };
+
+  let surface: ReactNode = children;
+  if (loading) {
+    surface = (
+      <div className="flex h-44 items-center justify-center text-sm text-zinc-400" aria-busy>
+        Loading chart…
+      </div>
+    );
+  } else if (error) {
+    surface = (
+      <div role="alert" className="flex h-44 items-center justify-center px-4 text-center text-sm text-rose-300">
+        {error}
+      </div>
+    );
+  } else if (empty) {
+    surface = (
+      <div className="flex h-44 items-center justify-center px-4 text-center text-sm text-zinc-500">
+        {emptyMessage || "No data for the current filters and period."}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -41,6 +82,7 @@ export function McAnalyticsExpandCard({
           "w-full rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 sm:p-5",
           className,
         )}
+        data-enterprise-chart={meta?.id || title}
       >
         <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -48,6 +90,7 @@ export function McAnalyticsExpandCard({
             {subtitle ? (
               <p className="mt-0.5 text-[11px] text-zinc-500">{subtitle}</p>
             ) : null}
+            <EnterpriseChartMetaStrip meta={stripMeta} className="text-zinc-500" />
           </div>
           <Button
             type="button"
@@ -61,18 +104,17 @@ export function McAnalyticsExpandCard({
             {expandLabel}
           </Button>
         </header>
-        {children}
+        {surface}
       </article>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[92vh] max-w-[min(96vw,1200px)] overflow-y-auto border-zinc-800 bg-zinc-950 p-0">
           <DialogHeader className="border-b border-zinc-800 px-5 py-4 pr-12">
             <DialogTitle className="text-base font-semibold text-zinc-50">{title}</DialogTitle>
-            {subtitle ? (
-              <DialogDescription className="text-[12px] text-zinc-500">
-                {subtitle}
-              </DialogDescription>
-            ) : null}
+            <DialogDescription className="text-[12px] text-zinc-500">
+              {subtitle || stripMeta.measurementDefinition}
+            </DialogDescription>
+            <EnterpriseChartMetaStrip meta={stripMeta} className="text-zinc-500" />
           </DialogHeader>
           <div className="min-h-[50vh] px-5 pb-6 pt-4">{body}</div>
           <div className="flex justify-end border-t border-zinc-800 px-5 py-3">

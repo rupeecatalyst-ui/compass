@@ -28,6 +28,7 @@ import {
 import { LenderLogo } from "@/components/catalyst-one/shared/lender-logo";
 import { ChanakyaMark } from "@/components/layout/chanakya-mark";
 import { LenderSalesContactCapture } from "@/components/catalyst-one/execution/lender-sales-contact-capture";
+import { RcEmployeeAssignmentControl } from "@/components/catalyst-one/execution/rc-employee-assignment-control";
 import { EnterpriseActivityComposer } from "@/components/catalyst-one/action-center/workspaces/enterprise-activity-composer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,8 @@ import {
   subscribeConversationActivitiesUpdated,
 } from "@/lib/enterprise-conversation-intelligence";
 import { listEdcTimelineByContext } from "@/lib/enterprise-dialogue-center";
+import { mergeDealControlParticipants } from "@/lib/enterprise-deal/rc-employee-assignment";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
 import type { LenderSalesContactLink } from "@/lib/lender-sales-contact";
 import type {
@@ -67,14 +70,6 @@ import type {
 import type { DealPipelineContext } from "@/types/deal-pipeline-runtime";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-type DealParticipant = {
-  id: string;
-  name: string;
-  role: string;
-  mobile?: string;
-  contactId?: string;
-};
 
 function Section({
   title,
@@ -110,6 +105,7 @@ export function DealControlPanel({
   actorUserId,
   actorLabel,
   onPatch,
+  onContextPatch,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -119,6 +115,7 @@ export function DealControlPanel({
   actorUserId: string;
   actorLabel?: string;
   onPatch: (caseId: string, patch: Partial<LoanLenderExecution>) => void;
+  onContextPatch?: (patch: Partial<DealPipelineContext>) => void;
 }) {
   const router = useRouter();
   const [strategyOpen, setStrategyOpen] = useState(false);
@@ -131,6 +128,40 @@ export function DealControlPanel({
   const [expectedLoginDate, setExpectedLoginDate] = useState("");
   const [expectedDisbursementDate, setExpectedDisbursementDate] = useState("");
   const [priority, setPriority] = useState<LenderProbability | "">("");
+  const [registryTimeline, setRegistryTimeline] = useState<
+    Array<{ id: string; title: string; at: string; kind: string }>
+  >([]);
+
+  useEffect(() => {
+    if (!open || !caseExecution) return;
+    const dealId = caseExecution.enterpriseDealId || context.dealId || caseExecution.id;
+    if (!dealId) return;
+    let cancelled = false;
+    void authenticatedJsonFetch(`/api/enterprise-deals/${dealId}/timeline?take=20`)
+      .then(async (res) => {
+        const body = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          data?: { items?: Array<{ id: string; summary?: string; eventType?: string; occurredAt?: string }> };
+        };
+        if (cancelled || !body.success) return;
+        setRegistryTimeline(
+          (body.data?.items ?? []).map((event) => ({
+            id: event.id,
+            title: event.summary || event.eventType || "Deal event",
+            at: event.occurredAt || "",
+            kind: event.eventType === "rc_employee_assignment_changed"
+              ? "Assignment"
+              : "Deal Timeline",
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setRegistryTimeline([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, caseExecution, context.dealId, context.rowVersion]);
 
   useEffect(() => {
     if (!caseExecution || !open) return;
@@ -169,61 +200,25 @@ export function DealControlPanel({
     };
   }, [caseExecution]);
 
-  const participants = useMemo((): DealParticipant[] => {
+  const participants = useMemo(() => {
     if (!caseExecution) return [];
-    const rows: DealParticipant[] = [];
-
-    if (context.customerName?.trim()) {
-      rows.push({
-        id: "customer",
-        name: context.customerName,
-        role: "Customer",
-        contactId: context.customerId ?? undefined,
-      });
-    }
-
-    if (context.relationshipManager?.trim()) {
-      rows.push({
-        id: "rm",
-        name: context.relationshipManager,
-        role: "Relationship Manager",
-      });
-    }
-
-    if (caseExecution.relationshipManager?.trim() &&
-      caseExecution.relationshipManager !== context.relationshipManager) {
-      rows.push({
-        id: "lender-rm",
-        name: caseExecution.relationshipManager,
-        role: "Lender Relationship Manager",
-      });
-    }
-
-    if (caseExecution.lenderSalesContactName?.trim()) {
-      rows.push({
-        id: "sales",
-        name: caseExecution.lenderSalesContactName,
-        role: caseExecution.lenderSalesContactDesignationLabel || "Lender Sales Contact",
-        mobile: caseExecution.lenderSalesContactMobile,
-        contactId: caseExecution.lenderSalesContactId,
-      });
-    }
-
-    if (caseExecution.identifiedBy?.trim()) {
-      rows.push({
-        id: "identified-by",
-        name: caseExecution.identifiedBy,
-        role: "Internal User",
-      });
-    }
-
-    return rows;
+    return mergeDealControlParticipants({
+      customerName: context.customerName,
+      customerId: context.customerId,
+      rcEmployeeName: context.relationshipManager,
+      rcEmployeeUserId: context.relationshipManagerUserId,
+      lenderSalesContactName: caseExecution.lenderSalesContactName,
+      lenderSalesContactId: caseExecution.lenderSalesContactId,
+      lenderSalesContactMobile: caseExecution.lenderSalesContactMobile,
+      lenderSalesContactRole:
+        caseExecution.lenderSalesContactDesignationLabel || "Lender Sales Contact",
+    });
   }, [caseExecution, context]);
 
   const timeline = useMemo(() => {
     void timelineTick;
     if (!caseExecution) return [];
-    const dealId = caseExecution.enterpriseDealId || caseExecution.id;
+    const dealId = caseExecution.enterpriseDealId || context.dealId || caseExecution.id;
     const rows: Array<{ id: string; title: string; at: string; kind: string }> = [];
 
     for (const a of listConversationActivities()) {
@@ -253,10 +248,25 @@ export function DealControlPanel({
       }
     }
 
+    if (dealId) {
+      for (const e of listEdcTimelineByContext("deal", dealId).slice(0, 12)) {
+        rows.push({
+          id: e.id,
+          title: e.title || e.description || e.eventType || "Event",
+          at: e.occurredOn || "",
+          kind: e.eventType || "Deal Timeline",
+        });
+      }
+    }
+
+    for (const event of registryTimeline) {
+      rows.push(event);
+    }
+
     return rows
       .sort((a, b) => (b.at || "").localeCompare(a.at || ""))
       .slice(0, 12);
-  }, [caseExecution, context.opportunityId, timelineTick]);
+  }, [caseExecution, context.opportunityId, context.dealId, timelineTick, registryTimeline]);
 
   if (!caseExecution) return null;
 
@@ -464,6 +474,25 @@ export function DealControlPanel({
                 Save Deal Fields
               </Button>
             </div>
+          </Section>
+
+          <Section title="Rupee Catalyst Employee">
+            <RcEmployeeAssignmentControl
+              dealId={context.dealId || caseExecution.enterpriseDealId || caseExecution.id}
+              rowVersion={context.rowVersion}
+              selectedUserId={context.relationshipManagerUserId}
+              selectedName={context.relationshipManager}
+              source={context.rcEmployeeAssignmentSource}
+              onAssigned={(next) => {
+                onContextPatch?.({
+                  relationshipManager: next.name || "",
+                  relationshipManagerUserId: next.userId,
+                  rcEmployeeAssignmentSource: next.source,
+                  rowVersion: next.rowVersion,
+                });
+                setTimelineTick((n) => n + 1);
+              }}
+            />
           </Section>
 
           <Section title="Lender Sales Contact">

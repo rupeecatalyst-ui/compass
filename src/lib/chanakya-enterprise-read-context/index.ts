@@ -33,6 +33,8 @@ export {
 export {
   redactCustomerContactPiiForAiContext,
   assertNoCustomerContactPiiInAiContext,
+  redactContactValuesInText,
+  textContainsCustomerContactPii,
   CHANAKYA_CONTACT_PII_REDACTION_MARKER,
 } from "./redact-pii";
 export {

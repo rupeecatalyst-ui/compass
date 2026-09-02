@@ -21,6 +21,7 @@ import { EiFunnelChart } from "@/components/catalyst-one/executive-intelligence/
 import { LENDING_PROGRAMS_NOT_SPECIFIED } from "@/types/lending-programs-workspace";
 import type { DashboardNamedSlice } from "@/types/dashboard-visual-analytics";
 import type { EiFunnelStage } from "@/types/executive-intelligence-platform";
+import { EnterpriseChartTooltip } from "@/components/enterprise/charts/enterprise-chart-tooltip";
 import { cn } from "@/lib/utils";
 
 export function LpKpiStrip({
@@ -149,7 +150,7 @@ export function LpDashboardCharts({
                 <CartesianGrid strokeDasharray="3 3" stroke="rgb(148 163 184 / 0.25)" />
                 <XAxis dataKey="period" tick={{ fontSize: 10 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                <Tooltip />
+                <Tooltip content={<EnterpriseChartTooltip unit="count" period="Recent disbursal window" unitLabel="Deals" />} />
                 <Bar dataKey="count" name="Disbursed" fill="#0f766e" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

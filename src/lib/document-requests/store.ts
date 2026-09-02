@@ -363,6 +363,36 @@ export function getActiveLodVersion(
   return versions.find((v) => v.active) ?? versions[0];
 }
 
+export function revokeUploadSession(input: {
+  opportunityId: string;
+  actor: string;
+}): DocumentRequestWorkspaceState {
+  const current = getDocumentRequestState(input.opportunityId);
+  const session = current.uploadSession;
+  if (!session) return current;
+  const store = readStore();
+  delete store[`token:${session.token}`];
+  appendUploadSessionAudit({
+    token: session.token,
+    opportunityId: input.opportunityId,
+    action: "token_rejected",
+    detail: `Revoked by ${input.actor}`,
+  });
+  const next: DocumentRequestWorkspaceState = appendComm(
+    {
+      ...current,
+      uploadSession: { ...session, active: false },
+      updatedAt: new Date().toISOString(),
+    },
+    "link_regenerated",
+    input.actor,
+    "Secure upload session revoked",
+  );
+  store[input.opportunityId] = next;
+  writeStore(store);
+  return next;
+}
+
 export function createOrRegenerateUploadSession(input: {
   opportunityId: string;
   opportunityReference: string;
@@ -555,6 +585,31 @@ export function requestDocumentItems(
             status: "requested" as const,
             requestedOn,
             reminderStatus: "none" as const,
+          }
+        : item,
+    ),
+  });
+}
+
+export function setDocumentRequestItemReview(input: {
+  opportunityId: string;
+  requestRef: string;
+  status: Extract<
+    DocumentRequestItemStatus,
+    "verified" | "rejected" | "re_upload_required" | "under_verification"
+  >;
+  remarks?: string;
+}): DocumentRequestWorkspaceState {
+  const current = getDocumentRequestState(input.opportunityId);
+  return saveState({
+    ...current,
+    lastVerificationAt: new Date().toISOString(),
+    lodItems: current.lodItems.map((item) =>
+      getDocumentRequestRef(item) === input.requestRef
+        ? {
+            ...item,
+            status: input.status,
+            remarks: input.remarks?.trim() || item.remarks,
           }
         : item,
     ),

@@ -3,6 +3,7 @@ export {
   replaceDocumentInRegistry,
   renameDocumentInRegistry,
   markDocumentVerified,
+  stampDocumentReview,
   deleteDocumentFromRegistry,
   downloadDocumentFromRegistry,
   getDocumentPreviewUrl,
@@ -37,6 +38,7 @@ export {
   canRenameDocuments,
   canDeleteDocuments,
   canDownloadDocuments,
+  canReviewDocuments,
   documentPermissionDenied,
 } from "./permissions";
 

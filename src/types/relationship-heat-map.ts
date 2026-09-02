@@ -66,13 +66,20 @@ export interface RelationshipHeatMapEntity {
   name: string;
   entityType: RelationshipEntityType;
   entityTypeLabel: string;
+  /** Numeric relationship score (size). Independent of colour. */
   engagementScore: number;
+  /** Colour follows activity band from days since last meaningful interaction. */
   band: RelationshipEngagementBand;
   /** Colour fill for treemap */
   fill: string;
   activeOpportunities: number;
+  dealCount: number;
   lastActivityLabel: string;
-  lastActivityAt: string;
+  lastActivityAt: string | null;
+  daysSinceMeaningfulContact: number | null;
+  interactionChannel: string | null;
+  assignedRcEmployee: string | null;
+  classificationReason: string;
   /** Deep-link target for workspace open */
   workspaceHref: string;
   /** Framework demo tile (no durable contact record) */

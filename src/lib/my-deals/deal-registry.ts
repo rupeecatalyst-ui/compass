@@ -154,6 +154,7 @@ export function mapLoanFileToDealRegistryRow(file: LoanFile): DealRegistryRow {
     documentsPending: docsPending,
     tasksPending,
     riskIndicator: riskFromFile(file),
+    productFamily: "lending",
   };
 }
 

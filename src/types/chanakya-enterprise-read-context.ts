@@ -702,6 +702,12 @@ export type ChanakyaAttentionEvidenceRow = {
 
   ownerLabel: string | null;
 
+  /** Visibility keys — used for record-level scoping; omitted from facing answers. */
+  primaryOwnerUserId?: string | null;
+  relationshipManagerUserId?: string | null;
+  assignedUserIds?: string[] | null;
+  daysInStage?: number | null;
+
   attentionSince: string | null;
 
   recommendedNextArea: string | null;
@@ -877,6 +883,9 @@ export type ChanakyaEnterpriseReadCompileRequest = {
   sessionId?: string | null;
 
   actorUserId?: string | null;
+
+  /** Role from authenticated employee or GPT OAuth actor — drives hierarchy scope. */
+  actorRole?: string | null;
 
   correlationId?: string | null;
 

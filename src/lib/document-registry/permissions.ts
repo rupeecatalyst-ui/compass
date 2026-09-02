@@ -27,6 +27,12 @@ export function canDownloadDocuments(user: User | null): boolean {
   return hasMinimumRole(user.role, ROLES.VIEWER);
 }
 
+/** Accept / Reject / Request Replacement — same bar as replace. */
+export function canReviewDocuments(user: User | null): boolean {
+  if (!user) return false;
+  return hasMinimumRole(user.role, ROLES.ANALYST);
+}
+
 export function documentPermissionDenied(action: string, role: Role): string {
   return `You do not have permission to ${action} documents with role ${role}.`;
 }

@@ -14,6 +14,7 @@ export interface User {
   mustChangePassword?: boolean;
   reportingManagerId?: string | null;
   eumUserId?: string | null;
+  organizationId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

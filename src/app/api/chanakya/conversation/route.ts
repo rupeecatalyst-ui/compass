@@ -16,6 +16,7 @@ import { recordBusinessAudit } from "@/lib/ops/record";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import { runChanakyaInappConversationTurn } from "@/lib/chanakya-inapp-conversation";
 import { CHANAKYA_INAPP_CONVERSATION_SPRINT } from "@/constants/chanakya-inapp-conversation";
+import { CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE } from "@/constants/chanakya-conversation-intelligence";
 import { CHANAKYA_CHANGE_PERIODS, type ChanakyaChangePeriod } from "@/types/chanakya-enterprise-read-context";
 
 export const runtime = "nodejs";
@@ -107,6 +108,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const result = await runChanakyaInappConversationTurn({
       actorUserId: auth.userId,
+      actorRole: auth.role,
       organizationId,
       request: {
         sessionId,
@@ -131,7 +133,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         intent: result.intent,
         compileMode: result.compileMode,
         readOnly: true,
-        // Never log message bodies (may contain sensitive operational notes)
+        // Never log message bodies, PII, or generated text
+        modelStatus: result.modelStatus,
+        evidenceCount: result.evidence.length,
       },
       result: "Success",
       correlationId: result.correlationId || correlationId,
@@ -162,9 +166,15 @@ export async function POST(request: Request): Promise<NextResponse> {
         ? String((error as { code?: string }).code || "CONVERSATION_TURN_FAILED")
         : "CONVERSATION_TURN_FAILED";
     const message =
-      error instanceof Error ? error.message : "Ask CHANAKYA turn failed.";
+      statusCode >= 500
+        ? CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE
+        : code === "MESSAGE_REQUIRED"
+          ? "Please ask a question."
+          : code === "MESSAGE_TOO_LONG"
+            ? "Please shorten your question."
+            : CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE;
 
-    return errorResponse(statusCode, code, message, undefined, {
+    return errorResponse(statusCode >= 500 ? 503 : statusCode, code, message, undefined, {
       correlationId,
       module: "ChanakyaInappConversation",
       action: "conversation.turn",

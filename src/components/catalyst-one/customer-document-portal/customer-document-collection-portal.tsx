@@ -37,6 +37,7 @@ import {
   getDocumentRegistryRecord,
   subscribeDocumentRegistryUpdated,
 } from "@/lib/document-registry";
+import { groupDocumentRequestItemsByOwner } from "@/lib/document-workspace/grouped-request";
 import type {
   DocumentRequestItemState,
   DocumentRequestItemStatus,
@@ -183,8 +184,10 @@ export function CustomerDocumentCollectionPortal({
     [state?.lodItems],
   );
 
-  const critical = (state?.lodItems ?? []).filter((i) => i.category === "critical");
-  const journey = (state?.lodItems ?? []).filter((i) => i.category === "journey");
+  const ownerGroups = useMemo(
+    () => groupDocumentRequestItemsByOwner(state?.lodItems ?? []),
+    [state?.lodItems],
+  );
   const lastVerification = (state?.lodItems ?? [])
     .filter((i) => i.status === "verified")
     .map((i) => i.uploadedAt)
@@ -447,25 +450,18 @@ export function CustomerDocumentCollectionPortal({
           </div>
         )}
 
-        <DocumentCategorySection
-          title="Critical Documents"
-          hint="Required before lender submission"
-          items={critical}
-          busyRef={busyRef}
-          onUpload={(item, file) => void onIngest(item, file, "upload")}
-          onReplace={(item, file) => void onIngest(item, file, "replace")}
-          onPreview={(item) => void onPreview(item)}
-        />
-
-        <DocumentCategorySection
-          title="Journey Documents"
-          hint="May be collected during processing"
-          items={journey}
-          busyRef={busyRef}
-          onUpload={(item, file) => void onIngest(item, file, "upload")}
-          onReplace={(item, file) => void onIngest(item, file, "replace")}
-          onPreview={(item) => void onPreview(item)}
-        />
+        {ownerGroups.map((group) => (
+          <DocumentCategorySection
+            key={`${group.ownerRoleLabel}:${group.ownerLabel}`}
+            title={`${group.ownerRoleLabel} — ${group.ownerLabel}`}
+            hint="Upload files for this owner only"
+            items={group.items}
+            busyRef={busyRef}
+            onUpload={(item, file) => void onIngest(item, file, "upload")}
+            onReplace={(item, file) => void onIngest(item, file, "replace")}
+            onPreview={(item) => void onPreview(item)}
+          />
+        ))}
 
         {/* Communication */}
         <section className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
@@ -479,13 +475,6 @@ export function CustomerDocumentCollectionPortal({
                 state.communications[0]
                   ? `${state.communications[0].kind.replace(/_/g, " ")} · ${formatDate(state.communications[0].at)}`
                   : "—"
-              }
-            />
-            <Meta
-              label="RM Remarks"
-              value={
-                state.lodItems.find((i) => i.remarks?.trim())?.remarks ||
-                "No remarks from your Relationship Manager yet."
               }
             />
           </dl>
@@ -593,9 +582,31 @@ function DocumentCategorySection({
 }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-zinc-900/70 p-4">
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">{title}</h2>
-        <p className="text-[10px] text-zinc-500">{hint}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] text-zinc-500">{hint}</p>
+          <label className="cursor-pointer text-[10px] font-medium text-teal-300">
+            Upload folder
+            <input
+              type="file"
+              className="hidden"
+              multiple
+              {...{ webkitdirectory: "", directory: "" }}
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                for (const file of files) {
+                  const name = file.name.toLowerCase();
+                  const match =
+                    items.find((item) => item.label.toLowerCase().split(" ").some((token) => token.length > 3 && name.includes(token.toLowerCase()))) ||
+                    items.find((item) => needsUpload(item.status));
+                  if (match) onUpload(match, file);
+                }
+                e.target.value = "";
+              }}
+            />
+          </label>
+        </div>
       </div>
       {items.length === 0 ? (
         <p className="mt-3 text-sm text-zinc-500">No documents in this category.</p>
@@ -605,6 +616,14 @@ function DocumentCategorySection({
             <li
               key={getDocumentRequestRef(item)}
               className="rounded-xl border border-white/10 bg-zinc-950/55 p-3"
+              onDragOver={(e) => {
+                e.preventDefault();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const file = e.dataTransfer.files?.[0];
+                if (file) onUpload(item, file);
+              }}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -615,9 +634,6 @@ function DocumentCategorySection({
                       ? ` · Verification: ${displayStatus(item.status)}`
                       : ""}
                   </p>
-                  {item.remarks && (
-                    <p className="mt-1 text-[11px] text-zinc-400">Remarks: {item.remarks}</p>
-                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {needsUpload(item.status) && (

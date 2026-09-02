@@ -110,7 +110,7 @@ function EiWorkspaceBody() {
         )}
       </div>
 
-      <div className="ei-stagger grid gap-6 lg:grid-cols-2">
+      <div className="ei-stagger flex flex-col gap-6">
         <EiCapableChapter
           chapter={chapterById("funnel")}
           loading={boot}

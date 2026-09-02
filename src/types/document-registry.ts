@@ -18,6 +18,12 @@ export interface DocumentEntityLinks {
   participantId?: string;
   /** CO-ARCH — applicant | shared | lender (BAT #23) */
   documentScope?: "applicant" | "shared" | "lender";
+  /** Canonical Enterprise Deal id when the record is Deal / lender-specific. */
+  dealId?: string;
+  /** Company registry id for business/entity-owned documents. */
+  companyId?: string;
+  /** Assigned employee / owner user id (display only — not a second store). */
+  ownerUserId?: string;
   /** CO-DOC-003 — Document Package id when uploaded via Folder Upload. */
   packageId?: string;
   /** CO-DOC-003 — path inside the package (relative to folder root). */
@@ -82,6 +88,20 @@ export interface DocumentRegistryRecord {
   /** BAT #23 — RM review stamp on Deal / Lender Documents (View Mode). */
   verifiedAt?: string;
   verifiedBy?: string;
+  /**
+   * Document Workspace review stamp (local + snapshot). Durable Postgres
+   * continues to use verifiedAt / verifiedBy — no production migration.
+   */
+  reviewStatus?:
+    | "pending"
+    | "received"
+    | "under_review"
+    | "accepted"
+    | "rejected"
+    | "expired"
+    | "replacement_requested";
+  reviewRemarks?: string;
+  validityUntil?: string;
 }
 
 export interface DocumentRegistryFilters {

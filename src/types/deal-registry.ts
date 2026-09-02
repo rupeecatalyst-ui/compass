@@ -71,6 +71,24 @@ export interface DealRegistryRow {
   documentsPending: number;
   tasksPending: number;
   riskIndicator: string;
+  /** Enterprise product family — My Deals is loans-only (`lending`). */
+  productFamily?: string;
+  lifecycleStatus?: string;
+  lenderId?: string | null;
+  slaStatus?: string;
+  borrowerEmail?: string;
+  lenderContactName?: string;
+  lenderContactEmail?: string;
+  lenderContactMobile?: string;
+  sourceContactName?: string;
+  sourceContactEmail?: string;
+  sourceContactMobile?: string;
+  expectedDateLabel?: string;
+  confirmationStatus?: string;
+  accountingCaseId?: string;
+  accountingStatus?: string;
+  invoiceStatus?: string;
+  paymentStatus?: string;
 }
 
 export const DEAL_REGISTRY_PAGE_SIZES = [20, 50, 100] as const;

@@ -32,37 +32,50 @@ export const RELATIONSHIP_STATUS_OPTIONS = [
   { id: "dormant" as const, label: "Dormant" },
 ];
 
-/** Premium executive palette — colour = recent engagement band */
+/** Premium executive palette — colour = days since last meaningful interaction */
 export const RELATIONSHIP_ENGAGEMENT_BAND_META: Record<
   RelationshipEngagementBand,
-  { label: string; fill: string; description: string }
+  { label: string; fill: string; description: string; dayRange: string }
 > = {
   very_active: {
     label: "Very Active",
     fill: "#10b981",
-    description: "High recent engagement",
+    description: "Last meaningful interaction within 0–7 days",
+    dayRange: "0–7 days",
   },
   active: {
     label: "Active",
     fill: "#3b82f6",
-    description: "Steady recent engagement",
+    description: "Last meaningful interaction 8–30 days ago",
+    dayRange: "8–30 days",
   },
   moderate: {
     label: "Moderately Active",
     fill: "#eab308",
-    description: "Moderate engagement",
+    description: "Last meaningful interaction 31–60 days ago",
+    dayRange: "31–60 days",
   },
   needs_attention: {
     label: "Needs Attention",
     fill: "#f97316",
-    description: "Cooling relationship",
+    description: "Last meaningful interaction 61–90 days ago",
+    dayRange: "61–90 days",
   },
   dormant: {
     label: "Dormant",
     fill: "#ef4444",
-    description: "Little or no recent activity",
+    description: "More than 90 days, or no meaningful interaction recorded",
+    dayRange: ">90 days or none",
   },
 };
+
+export const RELATIONSHIP_HEAT_MAP_HOW_CALCULATED = [
+  "Colour is the activity band from days since the latest meaningful interaction — not the numeric score.",
+  "Very Active 0–7 days · Active 8–30 · Moderately Active 31–60 · Needs Attention 61–90 · Dormant >90 or none recorded.",
+  "Meaningful: completed call; sent/received operational email; sent/received WhatsApp/message; completed meeting; completed follow-up; employee-recorded interaction with a valid date.",
+  "Does not reset the clock: viewing a profile, automated/background updates, stage movement without communication, task creation without completion, draft/unsent communications, synchronisation events.",
+  "Size is the relationship score (recency, frequency, responsiveness, business relevance). A high score cannot keep a contact out of Dormant after 90 days without contact.",
+].join(" ");
 
 export const RELATIONSHIP_ENTITY_TYPE_LABELS: Record<RelationshipEntityType, string> = {
   borrower: "Borrower",

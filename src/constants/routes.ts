@@ -48,9 +48,11 @@ export const ROUTES = {
   LENDERS: "/lenders",
   /** CO-WP-001 — Enterprise Wealth Partner Registry (ops desk). */
   WEALTH_PARTNERS: "/wealth-partners",
-  /** @deprecated Prefer DOCUMENT_CENTER; kept for backward-compatible deep links. */
+  /** @deprecated Prefer DOCUMENT_WORKSPACE for left-nav; DOCUMENT_CENTER remains Opportunity journey Documents. */
   DOCUMENTS: "/documents",
   DOCUMENT_CENTER: "/document-center",
+  /** Dedicated Document Workspace over Enterprise Document Registry (not journey chrome). */
+  DOCUMENT_WORKSPACE: "/document-workspace",
   CREDIT_BENCH: "/credit-bench",
   CREDIT_WORKBENCH: "/credit-workbench",
   TASKS: "/tasks",
@@ -264,6 +266,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.WEALTH_PARTNERS,
   ROUTES.DOCUMENTS,
   ROUTES.DOCUMENT_CENTER,
+  ROUTES.DOCUMENT_WORKSPACE,
   ROUTES.CREDIT_BENCH,
   ROUTES.CREDIT_WORKBENCH,
   ROUTES.TASKS,

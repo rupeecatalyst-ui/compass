@@ -20,6 +20,7 @@ import {
   DashboardCardContent,
   DashboardCardHeader,
 } from "@/components/catalyst-one/dashboard/dashboard-card";
+import { EnterpriseChartMetaStrip } from "@/components/enterprise/charts/enterprise-chart-frame";
 import type { TargetScope } from "@/types/catalyst-one";
 
 const gaugeColors = ["#14b8a6", "#f59e0b", "#3b82f6"];
@@ -59,6 +60,15 @@ export function TargetAchievementPanel() {
         }
       />
       <DashboardCardContent className="pt-0">
+        <EnterpriseChartMetaStrip
+          meta={{
+            measurementDefinition: "Disbursed amount versus assigned target for monthly, quarterly and yearly goals.",
+            reportingPeriod: dateRange.label,
+            unitLabel: "Percentage of target · ₹ Cr",
+            lastUpdated: null,
+            activeFilters: [scope, dateRange.label],
+          }}
+        />
         <div className="grid gap-2 sm:grid-cols-3">
           {gauges.map((gauge, index) => {
             const chartData = [

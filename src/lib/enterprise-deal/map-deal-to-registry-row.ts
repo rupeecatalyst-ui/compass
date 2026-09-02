@@ -61,6 +61,33 @@ function asStatus(value?: string): LoanFileStatus | string {
   return value ?? "on_track";
 }
 
+function snapString(snap: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = snap[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function daysInStageValue(deal: EnterpriseDealApiRecord): number {
+  if (typeof deal.daysInStage === "number" && Number.isFinite(deal.daysInStage)) {
+    return Math.max(0, Math.round(deal.daysInStage));
+  }
+  const iso = deal.stageEnteredAt || deal.createdAt;
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return 0;
+  return Math.max(0, Math.floor((Date.now() - t) / 86_400_000));
+}
+
+function slaStatusFromDeal(deal: EnterpriseDealApiRecord, status: string): string {
+  if (deal.isDelayed || status === "delayed") return "SLA breach";
+  if (status === "at_risk") return "At risk";
+  if (status === "on_track") return "On track";
+  if (status === "completed") return "Complete";
+  return "";
+}
+
 export function mapEnterpriseDealToDealRegistryRow(
   deal: EnterpriseDealApiRecord,
 ): DealRegistryRow {
@@ -100,6 +127,23 @@ export function mapEnterpriseDealToDealRegistryRow(
       : typeof snap.pendingCustomerDocuments === "number"
         ? snap.pendingCustomerDocuments
         : 0;
+  const source =
+    snapString(snap, ["leadSource", "sourceName", "referralSourceName", "source"]) ||
+    deal.sourceCode ||
+    "—";
+  const lenderContactName = snapString(snap, [
+    "lenderSalesContactName",
+    "lenderRmName",
+    "lenderContactName",
+  ]);
+  const confirmationStatus =
+    deal.subStage === "confirmation_received"
+      ? "Confirmation received"
+      : deal.subStage === "confirmation_pending"
+        ? "Confirmation pending"
+        : undefined;
+  const mappedStatus = asStatus(deal.operationalStatus);
+  const slaStatus = slaStatusFromDeal(deal, String(mappedStatus));
 
   return {
     id: rowId,
@@ -138,12 +182,13 @@ export function mapEnterpriseDealToDealRegistryRow(
     dateCreatedLabel: formatWhen(deal.createdAt || ""),
     lastModified,
     lastModifiedLabel: formatWhen(lastModified),
-    status: asStatus(deal.operationalStatus),
+    status: mappedStatus,
     statusLabel: String(deal.operationalStatus ?? "—").replace(/_/g, " "),
-    city: "—",
-    state: "—",
-    source: "—",
-    channelPartner: "—",
+    city: deal.cityLabel || "—",
+    state: deal.stateLabel || "—",
+    source,
+    channelPartner:
+      snapString(snap, ["channelPartnerName", "partnerName", "wealthPartnerName"]) || "—",
     creditExecutive: "—",
     operationsExecutive: "—",
     branch: "—",
@@ -153,10 +198,32 @@ export function mapEnterpriseDealToDealRegistryRow(
     disbursedAmountLabel: formatINR(deal.fulfilledAmount ?? 0),
     roi: 0,
     roiLabel: "—",
-    tatDays: 0,
-    nextFollowUp: "—",
+    tatDays: daysInStageValue(deal),
+    nextFollowUp: snapString(snap, ["nextFollowUp", "expectedLoginDate"]) || "—",
     documentsPending,
-    tasksPending: 0,
-    riskIndicator: "Low",
+    tasksPending: typeof snap.pendingTaskCount === "number" ? snap.pendingTaskCount : 0,
+    riskIndicator:
+      deal.isDelayed || deal.operationalStatus === "delayed"
+        ? "High"
+        : deal.operationalStatus === "at_risk" || deal.isUrgent
+          ? "Medium"
+          : "Low",
+    productFamily: deal.productFamily || "lending",
+    lifecycleStatus: deal.lifecycleStatus,
+    lenderId: deal.lenderId,
+    slaStatus,
+    borrowerEmail: deal.primaryContactEmail || undefined,
+    lenderContactName,
+    lenderContactEmail: snapString(snap, [
+      "lenderSalesContactOfficialEmail",
+      "lenderContactEmail",
+    ]),
+    lenderContactMobile: snapString(snap, ["lenderSalesContactMobile", "lenderContactMobile"]),
+    sourceContactName:
+      snapString(snap, ["referralSourceName", "sourceContactName"]) || undefined,
+    sourceContactEmail: snapString(snap, ["sourceContactEmail", "referralSourceEmail"]),
+    sourceContactMobile: snapString(snap, ["sourceContactMobile"]),
+    expectedDateLabel: snapString(snap, ["expectedDisbursementDate", "expectedLoginDate"]),
+    confirmationStatus,
   };
 }

@@ -19,6 +19,9 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const users = await userAdminService.listAssignable({
       search: url.searchParams.get("search") ?? undefined,
+      authorised:
+        url.searchParams.get("authorised") === "1" ||
+        url.searchParams.get("authorised") === "true",
     });
     return successResponse({ users });
   } catch (err) {

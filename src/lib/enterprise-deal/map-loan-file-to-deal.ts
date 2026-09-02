@@ -35,6 +35,9 @@ export type DealCreateBody = {
   primaryContactMobile?: string | null;
   primaryContactEmail?: string | null;
   relationshipManagerName?: string | null;
+  relationshipManagerUserId?: string | null;
+  primaryOwnerUserId?: string | null;
+  assignmentMode?: string | null;
   priority?: DealPriority;
   requestedAmount?: number | null;
   currencyCode?: string;
@@ -70,6 +73,10 @@ export type DealUpdateBody = {
   lendingExtension?: Record<string, unknown>;
   snapshot?: Record<string, unknown>;
   reason?: string;
+  rcEmployeeAssignment?: {
+    mode: "override" | "restore_inheritance";
+    userId?: string | null;
+  };
   invoicePartyType?: string | null;
   invoicePartySpecify?: string | null;
   invoicePartyContactId?: string | null;

@@ -32,12 +32,16 @@ function daysSince(iso?: string): number {
   return Math.max(0, (Date.now() - t) / 86400000);
 }
 
+/**
+ * Activity band is date-only. A historically high score must not prevent Dormant.
+ * Very Active 0–7 · Active 8–30 · Moderately Active 31–60 · Needs Attention 61–90 · Dormant >90 or unknown.
+ */
 export function bandFromRecency(days: number): RelationshipEngagementBand {
-  if (days <= 2) return "very_active";
-  if (days <= 7) return "active";
-  if (days <= 21) return "moderate";
-  if (days <= 45) return "needs_attention";
-  return "dormant";
+  if (!Number.isFinite(days) || days > 90) return "dormant";
+  if (days <= 7) return "very_active";
+  if (days <= 30) return "active";
+  if (days <= 60) return "moderate";
+  return "needs_attention";
 }
 
 /**
@@ -48,13 +52,16 @@ export function createPlaceholderEngagementScoreEngine(): RelationshipEngagement
   return {
     score(signals) {
       const days = daysSince(signals.lastActivityAt);
-      const band = bandFromRecency(days);
-      const recencyComponent = clamp(100 - days * 2.2, 12, 96);
+      const recencyComponent = clamp(
+        Number.isFinite(days) ? 100 - days * 0.7 : 8,
+        8,
+        96,
+      );
       const hint = signals.contactScoreHint ?? 70;
       const score = Math.round(clamp(recencyComponent * 0.65 + hint * 0.35, 8, 99));
       return {
         score,
-        band,
+        band: bandFromRecency(days),
         placeholder: true,
         computedAt: new Date().toISOString(),
       };

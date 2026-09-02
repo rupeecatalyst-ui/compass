@@ -507,7 +507,9 @@ export function ContactWorkspaceModal({
   const allowDelete =
     Boolean(active) &&
     canSoftDelete(user?.role ?? "VIEWER") &&
-    isEnterprisePersistencePrisma();
+    isEnterprisePersistencePrisma() &&
+    active?.status !== "archived";
+  const contactArchived = active?.status === "archived";
 
   const [name, setName] = useState("");
   const [mobilePrimary, setMobilePrimary] = useState("");
@@ -708,6 +710,10 @@ export function ContactWorkspaceModal({
   };
 
   const saveIdentity = async (thenNext: boolean) => {
+    if (contactArchived) {
+      setError("Archived contacts are read-only. Historical relationships remain visible.");
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
@@ -1501,12 +1507,9 @@ export function ContactWorkspaceModal({
   }, [open, active]);
 
   const findActiveLoanForContact = (contact: EcmContact): LoanFile | undefined => {
-    const digits = contact.mobilePrimary.replace(/\D/g, "");
     return loadDealsSync("loan_workspace").files.find((f) => {
       if (f.archived || isLoanCompleted(f)) return false;
-      if (f.customerId === contact.id) return true;
-      const mobile = (f.customerMobile ?? "").replace(/\D/g, "");
-      return Boolean(digits) && mobile === digits;
+      return f.customerId === contact.id;
     });
   };
 
@@ -1956,6 +1959,7 @@ export function ContactWorkspaceModal({
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
+                    {contactArchived ? null : (
                     <CreateTaskActionButton
                       className="h-7 rounded-md border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:bg-zinc-800"
                       context={{
@@ -1963,10 +1967,12 @@ export function ContactWorkspaceModal({
                         borrowerName: active.name,
                       }}
                     />
+                    )}
                     <Button
                       type="button"
                       size="sm"
                       className="h-7 gap-1 rounded-md bg-teal-600 px-2 text-xs text-white hover:bg-teal-500"
+                      disabled={contactArchived}
                       onClick={() => setAddRelationshipOpen(true)}
                     >
                       <Plus className="h-3 w-3" />
@@ -1977,6 +1983,7 @@ export function ContactWorkspaceModal({
                       size="sm"
                       variant="outline"
                       className="h-7 gap-1 rounded-md border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 hover:bg-zinc-800"
+                      disabled={contactArchived}
                       onClick={() => {
                         setShowAddRole(false);
                         setTab("identity");
@@ -2011,6 +2018,7 @@ export function ContactWorkspaceModal({
                       type="button"
                       size="sm"
                       className="h-7 gap-1 rounded-md bg-zinc-800 px-2 text-xs text-zinc-100 hover:bg-zinc-700"
+                      disabled={contactArchived}
                       onClick={() => {
                         setTab("overview");
                         setShowAddRole((v) => !v);
@@ -2023,7 +2031,7 @@ export function ContactWorkspaceModal({
                       type="button"
                       size="sm"
                       className="h-7 gap-1 rounded-md bg-teal-700 px-2 text-xs text-white hover:bg-teal-600"
-                      disabled={saving}
+                      disabled={saving || contactArchived}
                       onClick={() => {
                         if (currentStep?.kind === "role" && currentStep.roleCode) {
                           saveRoleStep(currentStep.roleCode, false);
@@ -2039,7 +2047,7 @@ export function ContactWorkspaceModal({
                       type="button"
                       size="sm"
                       className="h-7 gap-1 rounded-md bg-teal-700 px-2 text-xs text-white hover:bg-teal-600"
-                      disabled={saving}
+                      disabled={saving || contactArchived}
                       onClick={() => void closeApi.handleSaveAndClose()}
                     >
                       <Save className="h-3 w-3" />
@@ -2120,7 +2128,9 @@ export function ContactWorkspaceModal({
                       <Contact360IntelligencePanel
                         snapshot={contact360}
                         loading={contact360Loading}
-                        onAddRelationship={() => setAddRelationshipOpen(true)}
+                        onAddRelationship={
+                          contactArchived ? undefined : () => setAddRelationshipOpen(true)
+                        }
                         onOpenActivity={() => setTab("timeline")}
                         roleWorkspaceSlot={
                           <div className="overflow-x-auto">
@@ -2313,7 +2323,7 @@ export function ContactWorkspaceModal({
                           type="button"
                           size="sm"
                           className="h-8 rounded-lg"
-                          disabled={saving}
+                          disabled={saving || contactArchived}
                           onClick={() => {
                             saveIdentity(false);
                             setTab("overview");
@@ -2601,7 +2611,12 @@ export function ContactWorkspaceModal({
 
                   {tab === "timeline" && active && (
                     <TransactionActivityTimeline
-                      scope={{ mode: "contact", contactId: active.id }}
+                      scope={{
+                        mode: "contact_graph",
+                        contactId: active.id,
+                        opportunityIds: contact360?.graphOpportunityIds ?? [],
+                        dealIds: contact360?.graphDealIds ?? [],
+                      }}
                       notesContext={{
                         entityId: active.id,
                         workspaceKind: "customer",
@@ -2609,7 +2624,7 @@ export function ContactWorkspaceModal({
                         contactId: active.id,
                       }}
                       title="Activity"
-                      description="Complete chronological history for this Contact (EAR)."
+                      description="Unified chronology for this Contact, mapped companies, Opportunities and Deals (EAR)."
                       compact
                     />
                   )}

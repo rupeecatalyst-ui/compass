@@ -217,8 +217,8 @@ async function ingestOneEmail(args: {
     contactId: match.contactId,
   });
 
-  if (match.status !== "matched" || !match.opportunityId) {
-    // Unmatched: notify admins/managers; href opens global Activity & Dialogue.
+  if (!match.opportunityId) {
+    // Unmatched with no Opportunity: notify; attachments cannot enter ETD (opportunityId required).
     await enterpriseNotificationService.fanOutBestEffort({
       organizationId: args.organizationId,
       eventType: "CUSTOMER_EMAIL_RECEIVED",
@@ -248,6 +248,7 @@ async function ingestOneEmail(args: {
       senderRole: match.senderRole,
       reason: match.reason,
     },
+    unclassified: match.status !== "matched",
   });
 }
 
@@ -262,6 +263,7 @@ async function processMatchedInbound(args: {
     senderRole: string;
     reason: string;
   };
+  unclassified?: boolean;
 }): Promise<{ status: string; messageId: string }> {
   const { match, email, ledgerId, organizationId } = args;
 
@@ -312,9 +314,11 @@ async function processMatchedInbound(args: {
     sourceEventId: earSourceEventId,
     sourceSystem: INBOUND_EMAIL_SOURCE_SYSTEM,
     title:
-      email.attachments.length > 0
-        ? "Customer attached documents"
-        : "Customer replied",
+      args.unclassified
+        ? "Unclassified received documents — review pending"
+        : email.attachments.length > 0
+          ? "Customer attached documents"
+          : "Customer replied",
     body: email.subject,
     description: opp.primaryContactName ?? email.fromName ?? email.fromEmail,
     opportunityId: match.opportunityId,
@@ -337,6 +341,61 @@ async function processMatchedInbound(args: {
       attachment.contentHash,
     );
     if (existingAtt?.documentId) continue;
+
+    const orgDup = await prisma.enterpriseTransactionDocument.findFirst({
+      where: {
+        organizationId,
+        contentHash: attachment.contentHash,
+        status: { not: "deleted" },
+      },
+    });
+    if (orgDup) {
+      const sameOpportunity = orgDup.opportunityId === match.opportunityId;
+      const sameDeal =
+        !match.dealId || !orgDup.loanFileId || orgDup.loanFileId === match.dealId;
+      const documentId =
+        sameOpportunity && sameDeal
+          ? orgDup.id
+          : (
+              await prisma.enterpriseTransactionDocument.create({
+                data: {
+                  organizationId,
+                  opportunityId: match.opportunityId,
+                  opportunityNumber: opp.opportunityNumber ?? null,
+                  clientRecordId: `inbound-email:${earSourceEventId}:${attachment.contentHash}`,
+                  loanFileId: match.dealId ?? null,
+                  contactId: match.contactId ?? null,
+                  documentScope: "shared",
+                  typeRef: createUnclassifiedDocumentTypeRef(
+                    `inbound-email:${earSourceEventId}:${attachment.contentHash.slice(0, 16)}`,
+                  ),
+                  categoryLabel: "Inbound Email Attachment",
+                  originalFilename: attachment.filename,
+                  displayName: attachment.filename,
+                  mimeType: attachment.mimeType,
+                  fileSizeBytes: attachment.sizeBytes,
+                  status: "active",
+                  uploadSource: "email",
+                  uploadedBy: `inbound:${email.fromEmail}`,
+                  storageKey: orgDup.storageKey,
+                  storageProvider: orgDup.storageProvider,
+                  contentHash: orgDup.contentHash ?? attachment.contentHash,
+                  contentVersion: 1,
+                  contentBytes: orgDup.storageKey ? null : orgDup.contentBytes,
+                },
+              })
+            ).id;
+      await enterpriseInboundEmailRepository.createAttachment({
+        organizationId,
+        inboundEmailId: ledgerId,
+        filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        contentHash: attachment.contentHash,
+        documentId,
+      });
+      continue;
+    }
 
     const clientRecordId = `inbound-email:${earSourceEventId}:${attachment.contentHash.slice(0, 16)}`;
     const doc = await enterpriseTransactionDocumentService.upsertForOrganization(

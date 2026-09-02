@@ -6,6 +6,24 @@
 
 const REDACTED = "[REDACTED]" as const;
 
+/** Value-level contact patterns — emails and Indian mobiles in free text. */
+const EMAIL_VALUE_PATTERN = /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g;
+const MOBILE_VALUE_PATTERN = /(?:\+91[\s-]?)?[6-9]\d{9}\b/g;
+const EMAIL_VALUE_TEST = /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/;
+const MOBILE_VALUE_TEST = /(?:\+91[\s-]?)?[6-9]\d{9}\b/;
+
+export function redactContactValuesInText(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(EMAIL_VALUE_PATTERN, REDACTED)
+    .replace(MOBILE_VALUE_PATTERN, REDACTED);
+}
+
+export function textContainsCustomerContactPii(text: string): boolean {
+  if (!text) return false;
+  return EMAIL_VALUE_TEST.test(text) || MOBILE_VALUE_TEST.test(text);
+}
+
 /** Keys that must never carry raw customer contact channels into CHANAKYA context. */
 const CONTACT_PII_KEY_PATTERN =
   /^(.*)?(mobile|phone|telephone|cell|whatsapp|email|e[_-]?mail|sms)(.*)?$/i;
@@ -68,7 +86,10 @@ export function redactCustomerContactPiiForAiContext<T>(input: T, omitKeys = tru
 function redactUnknown(value: unknown, omitKeys: boolean, depth: number): unknown {
   if (value == null) return value;
   if (depth > 12) return { truncated: true };
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (typeof value === "string") {
+    return redactContactValuesInText(value);
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
     return value;
   }
   if (Array.isArray(value)) {
@@ -111,6 +132,9 @@ function collectContactPiiViolations(
     return value.flatMap((item, i) =>
       collectContactPiiViolations(item, `${path}[${i}]`, depth + 1),
     );
+  }
+  if (typeof value === "string") {
+    return textContainsCustomerContactPii(value) ? [path || "(string)"] : [];
   }
   if (typeof value !== "object") return [];
   const found: string[] = [];

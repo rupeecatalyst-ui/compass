@@ -54,6 +54,7 @@ export type DealIncludeOption =
 export type UpdateEnterpriseDealInput = {
   rowVersion: number;
   actorUserId: string;
+  actorRole?: string | null;
   fileNumber?: string | null;
   productId?: string | null;
   productCode?: string | null;
@@ -90,6 +91,10 @@ export type UpdateEnterpriseDealInput = {
   lenderId?: string | null;
   lenderProgramId?: string | null;
   reason?: string | null;
+  rcEmployeeAssignment?: {
+    mode: "override" | "restore_inheritance";
+    userId?: string | null;
+  };
 };
 
 export type TransitionDealInput = {

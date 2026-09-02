@@ -10,6 +10,10 @@ import { Loader2, RefreshCw, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CHANAKYA_INAPP_CONVERSATION_PROMPTS } from "@/constants/chanakya-inapp-conversation";
+import {
+  CHANAKYA_AUTH_REQUIRED_MESSAGE,
+  CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE,
+} from "@/constants/chanakya-conversation-intelligence";
 import { postChanakyaInappConversationTurn } from "@/lib/chanakya-inapp-conversation/client";
 import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import type { ChanakyaConversationPrompt } from "@/types/chanakya-dashboard-intelligence";
@@ -81,9 +85,11 @@ export function ChanakyaInappConversationPanel({
         setDraft(message);
         setLastFailedMessage(message);
         setError(
-          err instanceof Error
-            ? err.message
-            : "Ask CHANAKYA could not complete this turn.",
+          err && typeof err === "object" && "statusCode" in err && Number((err as { statusCode?: number }).statusCode) === 401
+            ? CHANAKYA_AUTH_REQUIRED_MESSAGE
+            : err && typeof err === "object" && "statusCode" in err && Number((err as { statusCode?: number }).statusCode) === 403
+              ? "You do not have access to ask CHANAKYA for that view."
+              : CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE,
         );
       } finally {
         setLoading(false);
@@ -143,10 +149,25 @@ export function ChanakyaInappConversationPanel({
                 {msg.role === "user" ? "You" : "CHANAKYA"}
               </p>
               <p>{msg.text}</p>
-              {msg.role === "assistant" && msg.provenance.length > 0 ? (
-                <p className="mt-2 text-[10px] text-muted-foreground">
-                  Provenance: {msg.provenance.slice(0, 4).join(" · ")}
-                </p>
+              {msg.role === "assistant" && msg.evidence && msg.evidence.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                  {msg.evidence.slice(0, 6).map((item) => (
+                    <li key={`${item.href}-${item.dealRef || item.opportunityRef || item.label}`}>
+                      <a
+                        href={item.href}
+                        className="text-[var(--ei-teal)] underline-offset-2 hover:underline"
+                      >
+                        {item.label || item.dealRef || item.opportunityRef || "Open record"}
+                      </a>
+                      {item.stage || item.freshness ? (
+                        <span>
+                          {" "}
+                          · {[item.stage, item.freshness].filter(Boolean).join(" · ")}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
               ) : null}
             </div>
           ))

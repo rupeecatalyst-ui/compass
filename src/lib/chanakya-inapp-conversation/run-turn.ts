@@ -1,6 +1,7 @@
 /**
- * CO-CHANAKYA-037 — Run one employee Ask CHANAKYA turn (read-only).
- * Compiles CHANAKYA Enterprise Read Context, then composes an evidence-first reply.
+ * CO-CHANAKYA-037 / CO-C1-CHANAKYA-REALTIME-INTELLIGENCE-001
+ * Run one employee Ask CHANAKYA turn (read-only).
+ * Compiles CHANAKYA Enterprise Read Context, then generates a grounded facing answer.
  */
 
 import "server-only";
@@ -11,12 +12,16 @@ import {
   CHANAKYA_INAPP_CONVERSATION_SPRINT,
   CHANAKYA_INAPP_READ_ONLY_LIMITATIONS,
 } from "@/constants/chanakya-inapp-conversation";
-import { composeChanakyaInappAnswer } from "./compose-answer";
 import { classifyChanakyaInappIntent, planChanakyaInappCompile } from "./intent";
 import {
   appendChanakyaInappTurn,
   resolveChanakyaInappSession,
 } from "./session";
+import { bindFollowUpEntity } from "@/lib/chanakya-conversation-intelligence/follow-up";
+import { isChanakyaMutationRequest } from "@/lib/chanakya-conversation-intelligence/mutation-guard";
+import { buildChanakyaGroundingBrief } from "@/lib/chanakya-conversation-intelligence/grounding-brief";
+import { generateChanakyaConversationAnswer } from "@/lib/chanakya-conversation-intelligence/generate-answer";
+import { actorMayIncludeDocumentExcerpts } from "@/lib/chanakya-conversation-intelligence/document-excerpt-gate";
 import type {
   ChanakyaInappTurnRequest,
   ChanakyaInappTurnResult,
@@ -24,6 +29,7 @@ import type {
 
 export async function runChanakyaInappConversationTurn(input: {
   actorUserId: string;
+  actorRole?: string | null;
   organizationId: string;
   request: ChanakyaInappTurnRequest;
 }): Promise<ChanakyaInappTurnResult> {
@@ -54,23 +60,28 @@ export async function runChanakyaInappConversationTurn(input: {
     entity: requestEntity,
   });
 
-  const entity = {
-    opportunityId:
-      requestEntity.opportunityId || session.activeEntity.opportunityId || null,
-    dealId: requestEntity.dealId || session.activeEntity.dealId || null,
-  };
-
+  const mutationRefused = isChanakyaMutationRequest(message);
   const intent = classifyChanakyaInappIntent(message, session.lastIntent);
   const plan = planChanakyaInappCompile(intent);
+
+  const entity = bindFollowUpEntity({
+    message,
+    requestEntity,
+    sessionEntity: session.activeEntity,
+    focusCards: session.focusEntities ?? [],
+  });
+
   const entityRequiredMissing =
-    plan.requireEntity && !entity.opportunityId && !entity.dealId;
+    !mutationRefused && plan.requireEntity && !entity.opportunityId && !entity.dealId;
 
   let compile = null as Awaited<
     ReturnType<typeof compileChanakyaEnterpriseReadContext>
   > | null;
   let compileMode = plan.mode as ChanakyaInappTurnResult["compileMode"];
+  let dataUnavailable = false;
+  let compileErrorCode: string | null = null;
 
-  if (!entityRequiredMissing) {
+  if (!mutationRefused && !entityRequiredMissing) {
     try {
       compile = await compileChanakyaEnterpriseReadContext({
         mode: plan.mode,
@@ -80,69 +91,50 @@ export async function runChanakyaInappConversationTurn(input: {
         domains: plan.domains,
         changePeriod: input.request.changePeriod || plan.changePeriod || null,
         actorUserId: input.actorUserId,
+        actorRole: input.actorRole,
         sessionId: session.sessionId,
         correlationId,
         requestHint: message,
         limit: 40,
+        includeDocumentExcerpts: actorMayIncludeDocumentExcerpts(input.actorRole),
       });
       compileMode = compile.mode;
-    } catch (error) {
-      const code =
-        error && typeof error === "object" && "code" in error
-          ? String((error as { code?: string }).code || "COMPILE_FAILED")
-          : "COMPILE_FAILED";
-      const composed = composeChanakyaInappAnswer({
-        intent,
-        question: message,
-        entity,
-        compile: null,
-        entityRequiredMissing: false,
-      });
-      const { assistant } = appendChanakyaInappTurn({
-        session,
-        userText: message,
-        replyText: [
-          composed.text,
-          `Enterprise read context could not be compiled (${code}). No fabricated fallback was used.`,
-        ].join("\n\n"),
-        intent,
-        provenance: [...composed.provenance, `compile_error:${code}`],
-        availabilityNotes: [...composed.availabilityNotes, `compile_error:${code}`],
-        entity,
-      });
-
-      return {
-        sprint: CHANAKYA_INAPP_CONVERSATION_SPRINT,
-        sessionId: session.sessionId,
-        readOnly: true,
-        correlationId,
-        intent,
-        compileMode: null,
-        reply: assistant,
-        messages: session.messages,
-        activeEntity: session.activeEntity,
-        limitations: [...CHANAKYA_INAPP_READ_ONLY_LIMITATIONS],
-        errorCode: code,
-      };
+    } catch {
+      dataUnavailable = true;
+      compileErrorCode = "DATA_UNAVAILABLE";
     }
   }
 
-  const composed = composeChanakyaInappAnswer({
+  const brief = buildChanakyaGroundingBrief({
     intent,
-    question: message,
     entity,
     compile,
+  });
+
+  const generated = await generateChanakyaConversationAnswer({
+    question: message,
+    brief,
+    history: session.messages
+      .filter((msg) => msg.role === "user" || msg.role === "assistant")
+      .map((msg) => ({
+        role: msg.role as "user" | "assistant",
+        text: msg.text,
+      })),
+    mutationRefused,
     entityRequiredMissing,
+    dataUnavailable,
   });
 
   const { assistant } = appendChanakyaInappTurn({
     session,
     userText: message,
-    replyText: composed.text,
+    replyText: generated.text,
     intent,
-    provenance: composed.provenance,
-    availabilityNotes: composed.availabilityNotes,
+    provenance: [],
+    availabilityNotes: generated.diagnostics ? [generated.diagnostics.reason] : [],
     entity,
+    evidence: generated.evidence,
+    focusEntities: brief.interventionCards,
   });
 
   return {
@@ -151,14 +143,21 @@ export async function runChanakyaInappConversationTurn(input: {
     readOnly: true,
     correlationId,
     intent,
-    compileMode: entityRequiredMissing ? null : compileMode,
+    compileMode: entityRequiredMissing || dataUnavailable ? null : compileMode,
     reply: assistant,
-    messages: session.messages,
+    messages: session.messages.map((msg) => ({
+      ...msg,
+      provenance: [],
+      availabilityNotes: [],
+    })),
     activeEntity: session.activeEntity,
     limitations: [
       ...CHANAKYA_INAPP_READ_ONLY_LIMITATIONS,
       ...(compile?.limitations ?? []).slice(0, 6),
     ],
-    errorCode: null,
+    errorCode: compileErrorCode,
+    evidence: generated.evidence,
+    freshness: generated.freshness,
+    modelStatus: generated.modelStatus,
   };
 }

@@ -49,11 +49,7 @@ function emptyLinked(): ErwLinkedRecordCount[] {
 
 function loanLinkedForContact(contact: EcmContact): ErwLinkedRecordCount[] {
   const loans = loadLoanFiles().filter(
-    (f) =>
-      !f.archived &&
-      (f.customerId === contact.id ||
-        f.customerName?.toLowerCase() === contact.name.toLowerCase() ||
-        (contact.mobilePrimary && f.customerMobile === contact.mobilePrimary)),
+    (f) => !f.archived && f.customerId === contact.id,
   );
   const base = emptyLinked();
   return base.map((row) => {

@@ -36,6 +36,8 @@ import {
 } from "@server/services/enterprise-opportunity/opportunity-serialize";
 import { syncContactIdentityPatchToEcm } from "@server/services/ecm/contact-ssot-propagate";
 import { emitOpportunityLifecycleToEarBestEffort } from "@server/services/enterprise-activity/opportunity-lifecycle-ear";
+import { propagateOpportunityRcEmployeeToInheritedDeals } from "@server/services/enterprise-deal/rc-employee-assignment.service";
+import { resolveRcEmployee } from "@/lib/enterprise-deal/rc-employee-assignment";
 import {
   assertNonEmpty,
   assertOpportunityLifecycle,
@@ -885,6 +887,22 @@ export class EnterpriseOpportunityService {
         opportunityId,
         patch,
       );
+      const assignmentTouched =
+        body.relationshipManagerUserId !== undefined ||
+        body.relationshipManagerName !== undefined ||
+        body.primaryOwnerUserId !== undefined ||
+        body.lendingExtension !== undefined;
+      if (assignmentTouched) {
+        const beforeEmp = resolveRcEmployee(existing);
+        const afterEmp = resolveRcEmployee(updated);
+        if (beforeEmp.userId !== afterEmp.userId || beforeEmp.name !== afterEmp.name) {
+          await propagateOpportunityRcEmployeeToInheritedDeals({
+            organizationId,
+            opportunity: updated,
+            actorUserId,
+          });
+        }
+      }
       if (nextLifecycle !== existing.lifecycleStatus) {
         await emitOpportunityLifecycleToEarBestEffort({
           opportunityId: updated.id,

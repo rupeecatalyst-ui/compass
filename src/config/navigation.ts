@@ -184,8 +184,9 @@ export const administrationChildren: NavSubItem[] = [
 ];
 /**
  * Primary domain navigation — Column 1 (Architecture Freeze + CO-ARCH-003).
- * Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Journey · Investments ·
- * Tasks · Activity & Dialogue · Documents · Enterprise Lender Directory · Accounting · Mission Control · Horizon · Administration · Settings
+ * Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Journey ·
+ * Document Workspace · Investments · Tasks · Activity & Dialogue · Enterprise Lender Directory ·
+ * Accounting · Mission Control · Horizon · Administration · Settings
  * Mission Control primary href = Executive Briefing (Radar remains a separate primary item).
  * CO-SPRINT-111: Administration is a single entry → Administration Console (not an expandable tree).
  * CO-ARCH-003: My Opportunities = Opportunity Registry; My Deals = Deal Registry.
@@ -205,17 +206,17 @@ export const primaryDomainNavigation: NavGroup = {
       href: buildDashboardHref(ROUTES.LOAN_JOURNEY),
       icon: Landmark,
     },
+    {
+      title: "Document Workspace",
+      href: ROUTES.DOCUMENT_WORKSPACE,
+      icon: FileStack,
+    },
     { title: "Investments", href: ROUTES.INVESTMENTS, icon: LineChart, badge: "Soon" },
     { title: "Tasks", href: ROUTES.TASKS, icon: ListTodo },
     {
       title: "Activity & Dialogue",
       href: ROUTES.ACTIVITY,
       icon: History,
-    },
-    {
-      title: "Documents",
-      href: buildDashboardHref(ROUTES.DOCUMENT_CENTER),
-      icon: FileStack,
     },
     { title: "Enterprise Lender Directory", href: ROUTES.LENDERS, icon: Building2 },
     { title: "Wealth Partners", href: ROUTES.WEALTH_PARTNERS, icon: Handshake },

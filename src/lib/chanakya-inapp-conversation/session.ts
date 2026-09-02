@@ -11,6 +11,9 @@ import type {
   ChanakyaInappMessage,
   ChanakyaInappSession,
 } from "@/types/chanakya-inapp-conversation";
+import type { ChanakyaConversationEvidenceLink, ChanakyaInterventionCard } from "@/types/chanakya-conversation-intelligence";
+import { redactFacingIntelligenceText } from "@/lib/chanakya-conversation-intelligence/facing-redact";
+import { sessionBelongsToActor } from "@/lib/chanakya-conversation-intelligence/follow-up";
 
 const sessions = new Map<string, ChanakyaInappSession>();
 
@@ -49,6 +52,7 @@ export function createChanakyaInappSession(input: {
     },
     lastIntent: null,
     readOnly: true,
+    focusEntities: [],
   };
   sessions.set(session.sessionId, session);
   return session;
@@ -63,7 +67,15 @@ export function resolveChanakyaInappSession(input: {
   const existingId = input.sessionId?.trim();
   if (existingId) {
     const existing = sessions.get(existingId);
-    if (existing && existing.actorUserId === input.actorUserId) {
+    if (
+      existing &&
+      sessionBelongsToActor({
+        sessionActorUserId: existing.actorUserId,
+        sessionOrganizationId: existing.organizationId,
+        actorUserId: input.actorUserId,
+        organizationId: input.organizationId,
+      })
+    ) {
       return existing;
     }
   }
@@ -78,12 +90,14 @@ export function appendChanakyaInappTurn(input: {
   provenance: string[];
   availabilityNotes: string[];
   entity: ChanakyaInappEntityRefs;
+  evidence?: ChanakyaConversationEvidenceLink[];
+  focusEntities?: ChanakyaInterventionCard[];
 }): { user: ChanakyaInappMessage; assistant: ChanakyaInappMessage } {
   const createdAt = nowIso();
   const user: ChanakyaInappMessage = {
     id: newId("cky_msg"),
     role: "user",
-    text: input.userText,
+    text: redactFacingIntelligenceText(input.userText),
     createdAt,
     intent: input.intent,
     provenance: [],
@@ -93,12 +107,13 @@ export function appendChanakyaInappTurn(input: {
   const assistant: ChanakyaInappMessage = {
     id: newId("cky_msg"),
     role: "assistant",
-    text: input.replyText,
+    text: redactFacingIntelligenceText(input.replyText),
     createdAt: nowIso(),
     intent: input.intent,
-    provenance: input.provenance,
-    availabilityNotes: input.availabilityNotes,
+    provenance: [],
+    availabilityNotes: [],
     entityRefs: input.entity,
+    evidence: input.evidence ?? [],
   };
 
   input.session.messages.push(user, assistant);
@@ -113,6 +128,9 @@ export function appendChanakyaInappTurn(input: {
   }
   if (input.entity.dealId?.trim()) {
     input.session.activeEntity.dealId = input.entity.dealId.trim();
+  }
+  if (input.focusEntities && input.focusEntities.length > 0) {
+    input.session.focusEntities = input.focusEntities;
   }
   sessions.set(input.session.sessionId, input.session);
   return { user, assistant };

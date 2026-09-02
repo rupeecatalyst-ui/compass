@@ -52,6 +52,8 @@ export function resolveChanakyaLiveIntelligenceWorkspace(
   if (
     path === ROUTES.DOCUMENT_CENTER ||
     path.startsWith(`${ROUTES.DOCUMENT_CENTER}/`) ||
+    path === ROUTES.DOCUMENT_WORKSPACE ||
+    path.startsWith(`${ROUTES.DOCUMENT_WORKSPACE}/`) ||
     path === ROUTES.DOCUMENTS ||
     path.startsWith(`${ROUTES.DOCUMENTS}/`)
   ) {

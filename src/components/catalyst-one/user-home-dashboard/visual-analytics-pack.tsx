@@ -26,6 +26,7 @@ import {
   DashboardTrendLineChart,
 } from "@/components/catalyst-one/user-home-dashboard/charts/dashboard-bar-charts";
 import { formatINRCompact } from "@/lib/format-currency";
+import { buildEnterpriseChartMeta } from "@/lib/enterprise-chart-readability";
 import { ROUTES } from "@/constants/routes";
 import {
   buildAgeingDrillHref,
@@ -120,7 +121,20 @@ export function VisualAnalyticsPack() {
           />
         ) : snapshot ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <DashboardVizCard title="Opportunity Source Mix" className="xl:col-span-1">
+            <DashboardVizCard
+              title="Opportunity Source Mix"
+              className="xl:col-span-1"
+              meta={buildEnterpriseChartMeta({
+                id: "exec-source-mix",
+                title: "Opportunity Source Mix",
+                measurementDefinition: snapshot.definition || "Share of opportunities by source.",
+                reportingPeriod: TREND_OPTIONS.find((o) => o.id === trendRange)?.label,
+                unit: "opportunities",
+                lastUpdated: snapshot.asOf,
+                dataSource: "Opportunity Registry visual analytics snapshot",
+                kind: "doughnut",
+              })}
+            >
               <DashboardDoughnutChart
                 slices={snapshot.sourceMix}
                 centerLabel="Sources"
@@ -129,7 +143,20 @@ export function VisualAnalyticsPack() {
               />
             </DashboardVizCard>
 
-            <DashboardVizCard title="Product Mix" className="xl:col-span-1">
+            <DashboardVizCard
+              title="Product Mix"
+              className="xl:col-span-1"
+              meta={buildEnterpriseChartMeta({
+                id: "exec-product-mix",
+                title: "Product Mix",
+                measurementDefinition: "Opportunity count and value by product.",
+                reportingPeriod: TREND_OPTIONS.find((o) => o.id === trendRange)?.label,
+                unit: "inr",
+                lastUpdated: snapshot.asOf,
+                dataSource: "Opportunity Registry visual analytics snapshot",
+                kind: "treemap",
+              })}
+            >
               {productTreemap.length === 0 ? (
                 <div className="flex h-[200px] items-center justify-center text-xs text-muted-foreground">
                   No products
@@ -164,7 +191,19 @@ export function VisualAnalyticsPack() {
               </div>
             </DashboardVizCard>
 
-            <DashboardVizCard title="Opportunity Stage Distribution">
+            <DashboardVizCard
+              title="Opportunity Stage Distribution"
+              meta={buildEnterpriseChartMeta({
+                id: "exec-stage-distribution",
+                title: "Opportunity Stage Distribution",
+                measurementDefinition: "Count of opportunities in each stage.",
+                reportingPeriod: TREND_OPTIONS.find((o) => o.id === trendRange)?.label,
+                unit: "opportunities",
+                lastUpdated: snapshot.asOf,
+                dataSource: "Opportunity Registry visual analytics snapshot",
+                kind: "doughnut",
+              })}
+            >
               <DashboardDoughnutChart
                 slices={snapshot.stageDistribution}
                 centerLabel="Stages"
@@ -176,6 +215,17 @@ export function VisualAnalyticsPack() {
             <DashboardVizCard
               title="Monthly Trend"
               className="md:col-span-2 xl:col-span-2"
+              meta={buildEnterpriseChartMeta({
+                id: "exec-monthly-trend",
+                title: "Monthly Trend",
+                measurementDefinition: "Opportunities created, logins and disbursements over the selected range.",
+                reportingPeriod: TREND_OPTIONS.find((o) => o.id === trendRange)?.label,
+                unit: "count",
+                lastUpdated: snapshot.asOf,
+                activeFilters: [TREND_OPTIONS.find((o) => o.id === trendRange)?.label || trendRange],
+                dataSource: "Opportunity Registry visual analytics snapshot",
+                kind: "line",
+              })}
               action={
                 <Select
                   value={trendRange}
@@ -197,21 +247,57 @@ export function VisualAnalyticsPack() {
               <DashboardTrendLineChart series={snapshot.monthlyTrend} />
             </DashboardVizCard>
 
-            <DashboardVizCard title="Lender Distribution">
+            <DashboardVizCard
+              title="Lender Distribution"
+              meta={buildEnterpriseChartMeta({
+                id: "exec-lender-distribution",
+                title: "Lender Distribution",
+                measurementDefinition: "Opportunities by assigned lender.",
+                reportingPeriod: TREND_OPTIONS.find((o) => o.id === trendRange)?.label,
+                unit: "opportunities",
+                lastUpdated: snapshot.asOf,
+                dataSource: "Opportunity Registry visual analytics snapshot",
+                kind: "bar",
+              })}
+            >
               <DashboardHorizontalBarChart
                 slices={snapshot.lenderDistribution}
                 onBarClick={(s) => router.push(buildLenderDrillHref(s.label))}
               />
             </DashboardVizCard>
 
-            <DashboardVizCard title="Opportunity Ageing">
+            <DashboardVizCard
+              title="Opportunity Ageing"
+              meta={buildEnterpriseChartMeta({
+                id: "exec-ageing",
+                title: "Opportunity Ageing",
+                measurementDefinition: "Open opportunities grouped by age bucket.",
+                reportingPeriod: TREND_OPTIONS.find((o) => o.id === trendRange)?.label,
+                unit: "opportunities",
+                lastUpdated: snapshot.asOf,
+                dataSource: "Opportunity Registry visual analytics snapshot",
+                kind: "bar",
+              })}
+            >
               <DashboardAgeingStackedBar
                 buckets={snapshot.ageing}
                 onBucketClick={(b) => router.push(buildAgeingDrillHref(b.id))}
               />
             </DashboardVizCard>
 
-            <DashboardVizCard title="Task Analytics">
+            <DashboardVizCard
+              title="Task Analytics"
+              meta={buildEnterpriseChartMeta({
+                id: "exec-task-analytics",
+                title: "Task Analytics",
+                measurementDefinition: "Enterprise Task Engine counts by status.",
+                reportingPeriod: TREND_OPTIONS.find((o) => o.id === trendRange)?.label,
+                unit: "count",
+                lastUpdated: snapshot.asOf,
+                dataSource: "ETE via visual analytics snapshot",
+                kind: "doughnut",
+              })}
+            >
               <DashboardDoughnutChart
                 slices={snapshot.taskAnalytics}
                 centerLabel="Tasks"
@@ -222,7 +308,20 @@ export function VisualAnalyticsPack() {
               />
             </DashboardVizCard>
 
-            <DashboardVizCard title="Disbursement Analytics" className="md:col-span-2">
+            <DashboardVizCard
+              title="Disbursement Analytics"
+              className="md:col-span-2"
+              meta={buildEnterpriseChartMeta({
+                id: "exec-disbursement",
+                title: "Disbursement Analytics",
+                measurementDefinition: "Disbursed cases and opportunity value by period.",
+                reportingPeriod: TREND_OPTIONS.find((o) => o.id === trendRange)?.label,
+                unit: "inr",
+                lastUpdated: snapshot.asOf,
+                dataSource: "Opportunity Registry visual analytics snapshot",
+                kind: "column",
+              })}
+            >
               <DashboardDisbursementBarChart periods={snapshot.disbursements} />
             </DashboardVizCard>
 

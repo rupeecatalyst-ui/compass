@@ -7,6 +7,11 @@ import type {
   ChanakyaChangePeriod,
   ChanakyaEnterpriseReadMode,
 } from "@/types/chanakya-enterprise-read-context";
+import type {
+  ChanakyaConversationEvidenceLink,
+  ChanakyaConversationModelStatus,
+  ChanakyaInterventionCard,
+} from "@/types/chanakya-conversation-intelligence";
 
 export const CHANAKYA_INAPP_CONVERSATION_SPRINT =
   "CO-CHANAKYA-PHASE1-INAPP-CONVERSATION-CLOSURE-037" as const;
@@ -20,6 +25,8 @@ export type ChanakyaInappIntent =
   | "analyse_financials"
   | "lenders_relevant"
   | "what_next"
+  | "who_handles"
+  | "compare_similar"
   | "general_desk";
 
 export type ChanakyaInappMessageRole = "user" | "assistant" | "system";
@@ -35,9 +42,11 @@ export type ChanakyaInappMessage = {
   text: string;
   createdAt: string;
   intent?: ChanakyaInappIntent;
+  /** Internal/admin only — never render to employees. */
   provenance: string[];
   availabilityNotes: string[];
   entityRefs?: ChanakyaInappEntityRefs;
+  evidence?: ChanakyaConversationEvidenceLink[];
 };
 
 export type ChanakyaInappSession = {
@@ -49,6 +58,8 @@ export type ChanakyaInappSession = {
   messages: ChanakyaInappMessage[];
   /** Continuity — last entity the conversation was discussing. */
   activeEntity: ChanakyaInappEntityRefs;
+  /** Last intervention queue for ordinal follow-ups ("the first one"). */
+  focusEntities: ChanakyaInterventionCard[];
   lastIntent: ChanakyaInappIntent | null;
   readOnly: true;
 };
@@ -80,4 +91,7 @@ export type ChanakyaInappTurnResult = {
   activeEntity: ChanakyaInappEntityRefs;
   limitations: string[];
   errorCode?: string | null;
+  evidence: ChanakyaConversationEvidenceLink[];
+  freshness: string | null;
+  modelStatus: ChanakyaConversationModelStatus;
 };

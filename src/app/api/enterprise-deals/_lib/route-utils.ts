@@ -12,6 +12,7 @@ import type { DealIncludeOption, EnterpriseDealSearchQuery } from "@/types/enter
 import { prisma } from "@server/lib/prisma";
 import {
   DealConflictError,
+  DealForbiddenError,
   DealNotFoundError,
   DealValidationError,
 } from "@server/services/enterprise-deal/deal-validation";
@@ -73,6 +74,12 @@ export function mapDealRouteError(err: unknown): {
   if (err instanceof DealConflictError) {
     return {
       status: 409,
+      body: { success: false, error: { code: err.code, message: err.message } },
+    };
+  }
+  if (err instanceof DealForbiddenError) {
+    return {
+      status: 403,
       body: { success: false, error: { code: err.code, message: err.message } },
     };
   }

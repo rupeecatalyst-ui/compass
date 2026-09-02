@@ -7,7 +7,9 @@ import { loginTrendData } from "@/data/catalyst-one/dashboard";
 import { useDashboardFilter } from "@/hooks/use-dashboard-filter";
 import { ROUTES } from "@/constants/routes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
+import { EnterpriseChartMetaStrip } from "@/components/enterprise/charts/enterprise-chart-frame";
+import { EnterpriseChartTooltip } from "@/components/enterprise/charts/enterprise-chart-tooltip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LoginTrendPeriod } from "@/types/catalyst-one";
 
@@ -35,6 +37,15 @@ export function LoginTrendChart() {
         <div>
           <CardTitle>Login Trend</CardTitle>
           <CardDescription>Daily login count · {dateRange.label}</CardDescription>
+          <EnterpriseChartMetaStrip
+            meta={{
+              measurementDefinition: "Count of employee logins in the selected period.",
+              reportingPeriod: `${period} · ${dateRange.label}`,
+              unitLabel: "Count",
+              lastUpdated: null,
+              activeFilters: [period, dateRange.label],
+            }}
+          />
         </div>
         <Tabs value={period} onValueChange={(v) => setPeriod(v as LoginTrendPeriod)}>
           <TabsList className="h-8">
@@ -58,14 +69,16 @@ export function LoginTrendChart() {
         onClick={() => router.push(`${ROUTES.REPORTS}?tab=logins&period=${period}`)}
       >
           <ChartContainer config={chartConfig} className="aspect-[16/7] w-full">
-            <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+            <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
-              <YAxis tickLine={false} axisLine={false} tickMargin={8} width={32} />
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} width={36} allowDecimals={false} />
               <ChartTooltip
                 content={
-                  <ChartTooltipContent
-                    labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
+                  <EnterpriseChartTooltip
+                    unit="count"
+                    unitLabel="Logins"
+                    period={`${period} · ${dateRange.label}`}
                   />
                 }
               />

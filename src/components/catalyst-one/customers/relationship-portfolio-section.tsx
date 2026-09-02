@@ -115,7 +115,8 @@ export function RelationshipPortfolioSection({
               className="h-2.5 w-2.5 rounded-full shrink-0"
               style={{ backgroundColor: getProductColor(d.product, i) }}
             />
-            {d.product}
+            {d.product} · {formatINRCompact(d.value)} ·{" "}
+            {total > 0 ? `${Math.round((d.value / total) * 100)}%` : "0%"}
           </button>
         ))}
       </div>

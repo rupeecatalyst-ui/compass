@@ -120,6 +120,8 @@ export type AssignableUserRecord = {
   email: string;
   employeeId: string | null;
   reportingManagerId: string | null;
+  role: Role;
+  department: string | null;
 };
 
 export const userAdminService = {
@@ -161,11 +163,14 @@ export const userAdminService = {
    * No role / department / branch eligibility filters.
    * Search: name · employee code · email.
    */
-  async listAssignable(query: { search?: string } = {}): Promise<AssignableUserRecord[]> {
+  async listAssignable(query: { search?: string; authorised?: boolean } = {}): Promise<AssignableUserRecord[]> {
     requireDb();
     const where: NonNullable<Parameters<typeof prisma.user.findMany>[0]>["where"] = {
       isActive: true,
     };
+    if (query.authorised) {
+      where.role = { not: "VIEWER" };
+    }
 
     if (query.search?.trim()) {
       const s = query.search.trim();
@@ -191,6 +196,8 @@ export const userAdminService = {
         lastName: true,
         employeeId: true,
         reportingManagerId: true,
+        role: true,
+        department: true,
       },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       take: 500,
@@ -202,6 +209,8 @@ export const userAdminService = {
       email: u.email,
       employeeId: u.employeeId,
       reportingManagerId: u.reportingManagerId,
+      role: u.role,
+      department: u.department,
     }));
   },
 

@@ -6,20 +6,20 @@ import { Suspense } from "react";
 import { ROUTES } from "@/constants/routes";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 
-/** Backward compatible: /documents → Document Center (preserve query). */
+/** Backward compatible: /documents → Document Workspace (preserve query). */
 function DocumentsRedirectInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
     const q = searchParams.toString();
-    router.replace(q ? `${ROUTES.DOCUMENT_CENTER}?${q}` : ROUTES.DOCUMENT_CENTER);
+    router.replace(q ? `${ROUTES.DOCUMENT_WORKSPACE}?${q}` : ROUTES.DOCUMENT_WORKSPACE);
   }, [router, searchParams]);
 
   return (
     <ChanakyaLoadingExperience
       module="documents"
-      statusLabel="Opening Document Center…"
+      statusLabel="Opening Document Workspace…"
     />
   );
 }

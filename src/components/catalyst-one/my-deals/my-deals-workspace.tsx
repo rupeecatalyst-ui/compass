@@ -3,13 +3,16 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DealLenderJourneyBoard } from "@/components/catalyst-one/my-deals/deal-lender-journey-board";
+import { MyDealsKanbanBoard } from "@/components/catalyst-one/my-deals/my-deals-kanban-board";
+import { MyDealsRegistryToolbar } from "@/components/catalyst-one/my-deals/my-deals-registry-toolbar";
 import { EnterpriseRegistryWorkspaceShell } from "@/components/catalyst-one/shared/enterprise-registry-workspace-shell";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import {
-  MY_DEALS_BUSINESS_TABS,
   MY_DEALS_OFFICIAL_NAME,
-  type MyDealsBusinessTabId,
+  MY_DEALS_WORKSPACE_VIEWS,
+  type MyDealsWorkspaceViewId,
 } from "@/constants/my-deals";
+import type { MyDealsKanbanFieldId } from "@/constants/my-deals-kanban";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import {
   overlayDealRowsWithEarLastActivity,
@@ -26,37 +29,50 @@ import {
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { getRememberedDeal } from "@/lib/enterprise-deal/dual-write-store";
 import { bindSessionDeal } from "@/lib/enterprise-session";
+import { enterpriseAccountingCaseClient } from "@/lib/enterprise-accounting-case/client";
 import {
   buildDealWorkspaceHref,
   buildOpportunityWorkspaceEntryHref,
 } from "@/lib/loan-journey/adr-018-routing";
 import { resolveCurrentRmName } from "@/lib/my-deals";
+import { filterDealRegistryRows } from "@/lib/my-deals/deal-registry";
+import { filterLoanDealRegistryRows } from "@/lib/my-deals/loan-deals";
 import {
+  groupDealRowsByOpportunity,
   pickPreferredDealForOpportunity,
   type OpportunityRegistryGroup,
 } from "@/lib/my-deals/group-opportunities";
-import { readMyDealsReturnState, rememberMyDealsReturnState } from "@/lib/my-deals/view-state";
+import {
+  readMyDealsKanbanPrefs,
+  rememberMyDealsKanbanPrefs,
+} from "@/lib/my-deals/kanban-prefs";
+import {
+  readMyDealsReturnState,
+  rememberMyDealsReturnState,
+  readMyDealsUiPrefs,
+  rememberMyDealsUiPrefs,
+} from "@/lib/my-deals/view-state";
 import { useEcmContactRegistryVersion } from "@/hooks/use-ecm-contact-registry-version";
 import { subscribeLoanFilesUpdated } from "@/lib/loan-data-sync";
-import type { DealRegistryFilters, DealRegistryRow } from "@/types/deal-registry";
+import {
+  EMPTY_DEAL_REGISTRY_FILTERS,
+  type DealRegistryFilters,
+  type DealRegistryRow,
+} from "@/types/deal-registry";
 import { buildSimpleWorkspaceBreadcrumbs } from "@/constants/enterprise-exit-navigation";
 import { cn } from "@/lib/utils";
 
-/**
- * CO-C1-DEALS-JOURNEY-001 — Customer / Opportunity header → Opportunity Workspace.
- */
+function groupFromDealRow(row: DealRegistryRow): OpportunityRegistryGroup {
+  return groupDealRowsByOpportunity([row])[0]!;
+}
+
 function openOpportunityWorkspace(
   router: ReturnType<typeof useRouter>,
   group: OpportunityRegistryGroup,
 ) {
   const opportunityId = group.opportunityId?.trim();
   if (!opportunityId) {
-    // No Opportunity id — fall back to preferred Deal Workspace (legacy rows).
-    void openDealWorkspace(
-      router,
-      pickPreferredDealForOpportunity(group.deals),
-      group,
-    );
+    void openDealWorkspace(router, pickPreferredDealForOpportunity(group.deals), group);
     return;
   }
   const preferred = group.deals[0];
@@ -75,7 +91,6 @@ function openOpportunityWorkspace(
   );
 }
 
-/** Open exact lender Deal Workspace. */
 async function openDealWorkspace(
   router: ReturnType<typeof useRouter>,
   row: DealRegistryRow,
@@ -119,53 +134,92 @@ async function resolveEnterpriseDealId(row: DealRegistryRow): Promise<string | n
   }
 }
 
+function overlayAccountingCases(
+  rows: DealRegistryRow[],
+  cases: Array<{ id: string; dealId: string; status?: unknown }>,
+): DealRegistryRow[] {
+  if (cases.length === 0) return rows;
+  const byDeal = new Map<string, { id: string; status?: unknown }>();
+  for (const item of cases) {
+    if (item.dealId) byDeal.set(item.dealId, item);
+  }
+  return rows.map((row) => {
+    const hit = byDeal.get(row.enterpriseDealId || row.id);
+    if (!hit) return row;
+    return {
+      ...row,
+      accountingCaseId: hit.id,
+      accountingStatus: typeof hit.status === "string" ? hit.status : undefined,
+    };
+  });
+}
+
 /**
- * CO-SPRINT-098 / CO-ARCH-002-W4 / CO-UX-003 — Enterprise Deal Registry.
- * CO-ARCH-005 — Enterprise Deal Registry only (no Soft Go-Live LoanFile list).
- * CO-C1-DEALS-JOURNEY-001 — Lender Journey board replaces tabular grouped registry.
+ * Loan Deal Registry — Deals list + end-to-end Deal Kanban.
+ * Enterprise Deal Registry is the only SSOT.
  */
 export function MyDealsWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuthContext();
   const registryVersion = useEcmContactRegistryVersion();
-  const [businessTab, setBusinessTab] = useState<MyDealsBusinessTabId>("loans");
   const [tick, setTick] = useState(0);
-  const [registryFilters, setRegistryFilters] = useState<DealRegistryFilters | null>(null);
   const [portRows, setPortRows] = useState<DealRegistryRow[] | null>(null);
   const [readSource, setReadSource] = useState<
     "local" | "enterprise_deal" | "local_fallback" | "loading"
   >("loading");
   const [readError, setReadError] = useState<string | null>(null);
+  const [accountingCases, setAccountingCases] = useState<
+    Array<{ id: string; dealId: string; status?: unknown }>
+  >([]);
 
-  const saved = typeof window !== "undefined" ? readMyDealsReturnState() : null;
+  const savedReturn = typeof window !== "undefined" ? readMyDealsReturnState() : null;
+  const savedUi = useMemo(() => readMyDealsUiPrefs(), []);
+  const kanbanPrefs = useMemo(
+    () => readMyDealsKanbanPrefs(user?.id, user?.organizationId),
+    [user?.id, user?.organizationId],
+  );
+
   const initialScope: DealRegistryFilters["scope"] =
-    saved?.filterId === "my_deals" ? "my_deals" : "my_team";
-  const initialSearch = saved?.search ?? "";
-  // CO-UX-002 — Loan Journey Disbursement → Deal Registry with disbursed stage seed.
+    savedReturn?.filterId === "my_deals" ? "my_deals" : "my_team";
   const filterParam = searchParams.get("filter")?.trim() || null;
   const initialGrossStage =
     filterParam === "disbursed" || filterParam === "won" ? "won" : "all";
 
+  const [workspaceView, setWorkspaceView] = useState<MyDealsWorkspaceViewId>(
+    kanbanPrefs.view,
+  );
+  const [selectedStageIds, setSelectedStageIds] = useState<string[]>(
+    kanbanPrefs.selectedStageIds,
+  );
+  const [visibleFieldIds, setVisibleFieldIds] = useState<MyDealsKanbanFieldId[]>(
+    kanbanPrefs.visibleOptionalFieldIds,
+  );
+  const [boardScrollLeft, setBoardScrollLeft] = useState(kanbanPrefs.boardScrollLeft);
+  const [columnScrollTops, setColumnScrollTops] = useState<Record<string, number>>(
+    kanbanPrefs.columnScrollTops,
+  );
+  const [filtersVisible, setFiltersVisible] = useState(savedUi.filtersVisible);
+  const [filters, setFilters] = useState<DealRegistryFilters>(() => ({
+    ...EMPTY_DEAL_REGISTRY_FILTERS,
+    scope: initialScope,
+    search: savedReturn?.search ?? "",
+    grossStage: initialGrossStage,
+    activity: savedUi.activityFilter ?? (kanbanPrefs.view === "kanban" ? "all" : "active"),
+  }));
+
   useEffect(() => {
-    const filterId =
-      registryFilters?.scope === "my_deals"
-        ? "my_deals"
-        : registryFilters?.scope === "all"
-          ? "my_team"
-          : "my_team";
     rememberMyDealsReturnState({
-      view: "table",
-      filterId,
-      search: registryFilters?.search ?? initialSearch,
-      businessTab,
+      view: workspaceView === "kanban" ? "kanban" : "table",
+      filterId: filters.scope === "my_deals" ? "my_deals" : "my_team",
+      search: filters.search,
+      businessTab: "loans",
     });
-  }, [businessTab, registryFilters, initialSearch]);
+  }, [workspaceView, filters]);
 
   useEffect(() => {
     const onStorage = () => setTick((t) => t + 1);
     window.addEventListener("storage", onStorage);
-    // CO-ARCH-003 — Deal list refreshes on Deal/LoanFile notify only (not Opportunity storm).
     const unsubLoan = subscribeLoanFilesUpdated(() => setTick((t) => t + 1));
     const unsubEar = subscribeEarUpdated(() => {
       setPortRows((previous) => {
@@ -184,17 +238,9 @@ export function MyDealsWorkspace() {
 
   const currentRm = resolveCurrentRmName(user);
 
-  const localRows = useMemo((): DealRegistryRow[] => {
-    void tick;
-    void registryVersion;
-    return [];
-  }, [tick, registryVersion]);
-
   useEffect(() => {
     let cancelled = false;
-    const generation = tick;
     setReadSource((prev) => (prev === "enterprise_deal" ? prev : "loading"));
-    // CO-PERF-002 Phase 1 — summary paint first.
     void loadMyDealsDealRegistryRows().then((result) => {
       if (cancelled) return;
       setPortRows((previous) =>
@@ -211,9 +257,7 @@ export function MyDealsWorkspace() {
         setReadSource(result.source);
       }
       setReadError(result.error ?? null);
-      void generation;
 
-      // Phase 2 — progressive enrich (lenders / history / chips fields) without blocking paint.
       if (result.source === "enterprise_deal" && result.projection === "summary") {
         void enrichMyDealsDealRegistryRows().then((enriched) => {
           if (cancelled || enriched.source !== "enterprise_deal") return;
@@ -227,7 +271,64 @@ export function MyDealsWorkspace() {
     };
   }, [tick, registryVersion]);
 
-  const allRows = portRows ?? localRows;
+  useEffect(() => {
+    let cancelled = false;
+    void enterpriseAccountingCaseClient
+      .list({ pageSize: 200 })
+      .then((result) => {
+        if (cancelled) return;
+        setAccountingCases(result.items ?? []);
+      })
+      .catch(() => {
+        /* Accounting overlay is optional; Deal Registry remains SSOT. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tick]);
+
+  const loanRows = useMemo(
+    () => overlayAccountingCases(filterLoanDealRegistryRows(portRows ?? []), accountingCases),
+    [portRows, accountingCases],
+  );
+
+  const filteredRows = useMemo(
+    () =>
+      filterDealRegistryRows(loanRows, filters, currentRm, {
+        actorUserId: user?.id,
+        role: user?.role,
+        downlineUserIds: user?.id ? [user.id] : [],
+      }),
+    [loanRows, filters, currentRm, user?.id, user?.role],
+  );
+
+  const opportunityCount = useMemo(
+    () => groupDealRowsByOpportunity(filteredRows).length,
+    [filteredRows],
+  );
+
+  const patchFilters = useCallback((patch: Partial<DealRegistryFilters>) => {
+    setFilters((prev) => {
+      const next = { ...prev, ...patch };
+      if (patch.activity) {
+        rememberMyDealsUiPrefs({ activityFilter: patch.activity });
+      }
+      return next;
+    });
+  }, []);
+
+  const persistKanban = useCallback(
+    (patch: Parameters<typeof rememberMyDealsKanbanPrefs>[1]) => {
+      const next = rememberMyDealsKanbanPrefs(user?.id, patch, user?.organizationId);
+      if (patch.view) setWorkspaceView(next.view);
+      if (patch.selectedStageIds) setSelectedStageIds(next.selectedStageIds);
+      if (patch.visibleOptionalFieldIds) setVisibleFieldIds(next.visibleOptionalFieldIds);
+      if (patch.boardScrollLeft != null) setBoardScrollLeft(next.boardScrollLeft);
+      if (patch.columnScrollTops) setColumnScrollTops(next.columnScrollTops);
+    },
+    [user?.id, user?.organizationId],
+  );
+
   const sourceLabel =
     readSource === "enterprise_deal"
       ? "SSOT: Enterprise DB"
@@ -237,19 +338,15 @@ export function MyDealsWorkspace() {
           ? "SSOT: local browser"
           : "Loading…";
 
-  const handleFiltersChanged = useCallback((filters: DealRegistryFilters) => {
-    setRegistryFilters(filters);
-  }, []);
-
   return (
     <EnterpriseRegistryWorkspaceShell
       title={MY_DEALS_OFFICIAL_NAME}
-      subtitle="Lender Journey · Enterprise Deal Registry"
-      count={allRows.length}
-      countNoun="Deals"
+      subtitle="Loan Deal Registry · Enterprise Deal Registry"
+      count={loanRows.length}
+      countNoun="Loan Deals"
       breadcrumbs={buildSimpleWorkspaceBreadcrumbs(MY_DEALS_OFFICIAL_NAME)}
-      data-sprint="CO-C1-DEALS-JOURNEY-001"
-      data-surface="deal-lender-journey"
+      data-sprint="CO-C1-MY-DEALS-KANBAN-001"
+      data-surface="loan-deal-registry"
       statusSlot={
         <span
           className={cn(
@@ -266,61 +363,83 @@ export function MyDealsWorkspace() {
         </span>
       }
       banner={
-        <>
-          {readError && readSource === "local_fallback" ? (
-            <p className="shrink-0 text-[11px] text-amber-800 dark:text-amber-200" role="status">
-              Enterprise Deal API unavailable — showing local cache. {readError}
-            </p>
-          ) : null}
-          <div className="flex shrink-0 flex-wrap gap-0.5 border-b border-border pb-1">
-            {MY_DEALS_BUSINESS_TABS.map((tab) => (
+        readError && readSource === "local_fallback" ? (
+          <p className="shrink-0 text-[11px] text-amber-800 dark:text-amber-200" role="status">
+            Enterprise Deal API unavailable — showing local cache. {readError}
+          </p>
+        ) : null
+      }
+      toolbar={
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-1 px-2 pt-1.5">
+            {MY_DEALS_WORKSPACE_VIEWS.map((view) => (
               <button
-                key={tab.id}
+                key={view.id}
                 type="button"
-                onClick={() => setBusinessTab(tab.id)}
+                onClick={() => {
+                  persistKanban({ view: view.id });
+                  if (view.id === "kanban" && filters.activity === "active") {
+                    patchFilters({ activity: "all" });
+                  }
+                }}
                 className={cn(
-                  "rounded px-2 py-0.5 text-[11px] font-medium transition-colors",
-                  businessTab === tab.id
+                  "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                  workspaceView === view.id
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  !tab.live && "opacity-70",
                 )}
               >
-                {tab.label}
-                {!tab.live ? (
-                  <span className="ml-1 text-[9px] uppercase tracking-wide opacity-80">Soon</span>
-                ) : null}
+                {view.label}
               </button>
             ))}
           </div>
-        </>
-      }
-    >
-      {businessTab === "loans" ? (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <DealLenderJourneyBoard
-            rows={allRows}
-            currentRm={currentRm}
-            initialScope={initialScope}
-            initialSearch={initialSearch}
-            initialGrossStage={initialGrossStage}
-            onFiltersChanged={handleFiltersChanged}
-            onOpenOpportunity={(group) => openOpportunityWorkspace(router, group)}
-            onOpenDeal={(row, group) => void openDealWorkspace(router, row, group)}
+          <MyDealsRegistryToolbar
+            allRows={loanRows}
+            filteredCount={filteredRows.length}
+            opportunityCount={opportunityCount}
+            filters={filters}
+            onPatchFilters={patchFilters}
+            onResetFilters={() => {
+              rememberMyDealsUiPrefs({ activityFilter: "active" });
+              setFilters({
+                ...EMPTY_DEAL_REGISTRY_FILTERS,
+                scope: initialScope,
+                activity: workspaceView === "kanban" ? "all" : "active",
+              });
+            }}
+            filtersVisible={filtersVisible}
+            onToggleFiltersVisible={setFiltersVisible}
+            showStageSelect={workspaceView === "deals"}
           />
         </div>
+      }
+    >
+      {workspaceView === "kanban" ? (
+        <MyDealsKanbanBoard
+          rows={filteredRows}
+          selectedStageIds={selectedStageIds}
+          visibleFieldIds={visibleFieldIds}
+          role={user?.role}
+          boardScrollLeft={boardScrollLeft}
+          columnScrollTops={columnScrollTops}
+          onStageIdsChange={(next) => persistKanban({ selectedStageIds: next })}
+          onFieldsApply={(next) => persistKanban({ visibleOptionalFieldIds: next })}
+          onScrollPersist={(patch) => persistKanban(patch)}
+          onOpenDeal={(row) => void openDealWorkspace(router, row, groupFromDealRow(row))}
+          onOpenHref={(href, row) => {
+            if (href.startsWith("/accounting")) {
+              router.push(href);
+              return;
+            }
+            void openDealWorkspace(router, row, groupFromDealRow(row));
+          }}
+        />
       ) : (
-        <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
-          <div>
-            <p className="text-sm font-medium">
-              {MY_DEALS_BUSINESS_TABS.find((t) => t.id === businessTab)?.label} registry
-            </p>
-            <p className="mt-1 max-w-sm text-[12px] text-muted-foreground">
-              This business vertical will use the same Enterprise Deal Registry pattern when
-              enabled. Loans is live today.
-            </p>
-          </div>
-        </div>
+        <DealLenderJourneyBoard
+          rows={filteredRows}
+          onOpenOpportunity={(group) => openOpportunityWorkspace(router, group)}
+          onOpenDeal={(row, group) => void openDealWorkspace(router, row, group)}
+        />
       )}
     </EnterpriseRegistryWorkspaceShell>
   );
