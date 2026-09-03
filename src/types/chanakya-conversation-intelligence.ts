@@ -7,7 +7,9 @@ export type ChanakyaConversationModelStatus =
   | "generated"
   | "unavailable"
   | "refused"
-  | "context_missing";
+  | "context_missing"
+  | "out_of_domain"
+  | "not_in_catalyst_one";
 
 export type ChanakyaConversationEvidenceLink = {
   label: string;
@@ -68,5 +70,12 @@ export type ChanakyaConversationModelPort = {
     systemPrompt: string;
     userPrompt: string;
     history: Array<{ role: "user" | "assistant"; text: string }>;
+    signal?: AbortSignal;
   }): Promise<string | null>;
+  stream?(input: {
+    systemPrompt: string;
+    userPrompt: string;
+    history: Array<{ role: "user" | "assistant"; text: string }>;
+    signal?: AbortSignal;
+  }): AsyncGenerator<string, void, void>;
 };

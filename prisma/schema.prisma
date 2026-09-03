@@ -48,6 +48,8 @@ model User {
   reportingManager   User?          @relation("UserReportsTo", fields: [reportingManagerId], references: [id], onDelete: SetNull)
   directReports      User[]         @relation("UserReportsTo")
   ecmContacts        EcmContact[]   @relation("EcmContactLinkedUser")
+  privateStickyNotes EmployeePrivateStickyNote[] @relation("EmployeePrivateStickyNotes")
+  chanakyaConversationSessions ChanakyaConversationSession[] @relation("EmployeePrivateChanakyaChats")
 
   @@index([reportingManagerId])
   @@index([createdById])
@@ -275,6 +277,11 @@ model Organization {
   enterpriseInboundEmailServerConfig       EnterpriseInboundEmailServerConfig?
   /// CO-UX-021 — Enterprise Business Notes (official business chronology notes)
   enterpriseBusinessNotes                  EnterpriseBusinessNote[]
+  /// CO-C1-CONTACT-STRATEGY-STICKY-NOTES-007 — private personal notes (owner-only)
+  employeePrivateStickyNotes               EmployeePrivateStickyNote[]
+  ecmContactRelationshipPlans              EcmContactRelationshipPlan[]
+  /// CO-C1-CHANAKYA-DURABLE-HISTORY-009A — employee-private CHANAKYA chat (owner-only)
+  chanakyaConversationSessions             ChanakyaConversationSession[]
   /// CO-ORG-001 — Enterprise Organization Workspace (durable backend)
   organizationWorkspaceProfile             OrganizationWorkspaceProfile?
   organizationWorkspaceSettings            OrganizationWorkspaceSettings?
@@ -854,6 +861,115 @@ model EnterpriseBusinessNote {
   @@map("enterprise_business_notes")
 }
 
+/// CO-C1-CONTACT-STRATEGY-STICKY-NOTES-007 — strictly private personal workbench.
+/// Visibility SSOT is organizationId + ownerUserId. Never emit to EAR / Contact 360.
+model EmployeePrivateStickyNote {
+  id              String    @id @default(cuid())
+  organizationId  String    @map("organization_id")
+  ownerUserId     String    @map("owner_user_id")
+  title           String    @default("")
+  body            String    @default("") @db.Text
+  color           String    @default("amber")
+  priority        String    @default("normal")
+  pinned          Boolean   @default(false)
+  sortOrder       Int       @default(0) @map("sort_order")
+  checklistJson   Json      @default("[]") @map("checklist_json")
+  reminderAt      DateTime? @map("reminder_at")
+  archivedAt      DateTime? @map("archived_at")
+  linkKind        String?   @map("link_kind")
+  linkId          String?   @map("link_id")
+  linkLabel       String?   @map("link_label")
+  convertedTaskId String?   @map("converted_task_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  deletedBy       String?   @map("deleted_by")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  owner        User         @relation("EmployeePrivateStickyNotes", fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, ownerUserId, deletedAt, archivedAt, sortOrder], map: "sticky_owner_list_idx")
+  @@index([organizationId, ownerUserId, reminderAt], map: "sticky_owner_reminder_idx")
+  @@index([organizationId, ownerUserId, archivedAt], map: "sticky_owner_archive_idx")
+  @@map("employee_private_sticky_notes")
+}
+
+/// CO-C1-CONTACT-STRATEGY-STICKY-NOTES-007 — relationship plan bound to ECM Contact.
+model EcmContactRelationshipPlan {
+  id                    String    @id @default(cuid())
+  organizationId        String    @map("organization_id")
+  contactId             String    @unique @map("contact_id")
+  objective             String?   @db.Text
+  cadence               String?
+  preferredChannel      String?   @map("preferred_channel")
+  nextReviewAt          DateTime? @map("next_review_at")
+  assignedOwnerUserId   String?   @map("assigned_owner_user_id")
+  assignedOwnerName     String?   @map("assigned_owner_name")
+  updatedBy             String    @map("updated_by")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contact      EcmContact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId], map: "ecm_rel_plan_org_idx")
+  @@map("ecm_contact_relationship_plans")
+}
+
+/// CO-C1-CHANAKYA-DURABLE-HISTORY-009A — employee-private CHANAKYA conversation session.
+/// Owner + organisation only. Hierarchy and Super Admin do not inherit another employee's chats.
+model ChanakyaConversationSession {
+  id             String    @id
+  organizationId String    @map("organization_id")
+  ownerUserId    String    @map("owner_user_id")
+  title          String    @default("New chat")
+  status         String    @default("active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  lastMessageAt  DateTime? @map("last_message_at")
+  expiresAt      DateTime  @map("expires_at")
+  opportunityId  String?   @map("opportunity_id")
+  dealId         String?   @map("deal_id")
+  lastIntent     String?   @map("last_intent")
+  focusEntitiesJson Json   @default("[]") @map("focus_entities_json")
+  metadataJson   Json      @default("{}") @map("metadata_json")
+  version        Int       @default(1)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  owner        User         @relation("EmployeePrivateChanakyaChats", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  messages     ChanakyaConversationMessage[]
+
+  @@index([organizationId, ownerUserId, updatedAt(sort: Desc)], map: "chanakya_chat_owner_updated_idx")
+  @@index([expiresAt], map: "chanakya_chat_expires_idx")
+  @@index([organizationId, ownerUserId, expiresAt], map: "chanakya_chat_owner_expires_idx")
+  @@index([organizationId, opportunityId, dealId], map: "chanakya_chat_context_idx")
+  @@map("chanakya_conversation_sessions")
+}
+
+/// CO-C1-CHANAKYA-DURABLE-HISTORY-009A — redacted CHANAKYA messages (cascade with session).
+model ChanakyaConversationMessage {
+  id               String   @id
+  sessionId        String   @map("session_id")
+  role             String
+  content          String   @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  sequence         Int
+  completionStatus String   @default("complete") @map("completion_status")
+  streamStatus     String   @default("idle") @map("stream_status")
+  evidenceJson     Json     @default("[]") @map("evidence_json")
+  entityRefsJson   Json     @default("{}") @map("entity_refs_json")
+  intent           String?
+  feedback         String?
+  idempotencyKey   String?  @map("idempotency_key")
+  proposalDraftId  String?  @map("proposal_draft_id")
+
+  session ChanakyaConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, idempotencyKey], map: "chanakya_msg_idempotency_key")
+  @@index([sessionId, sequence], map: "chanakya_msg_session_seq_idx")
+  @@map("chanakya_conversation_messages")
+}
+
 /// CO-ORG-001 — Organization audit ledger.
 model OrganizationAuditEntry {
   id             String   @id @default(cuid())
@@ -1103,6 +1219,7 @@ model EcmContact {
   relationshipsTo   EcmContactRelationship[] @relation("EcmRelationshipTo")
   companyLinks      EcmCompanyContactLink[]
   auditReferences   EcmContactAuditReference[]
+  relationshipPlan     EcmContactRelationshipPlan?
   primaryOpportunities EnterpriseOpportunity[] @relation("EnterpriseOpportunityPrimaryContact")
   primaryDeals         EnterpriseDeal[]         @relation("EnterpriseDealPrimaryContact")
   invoicePartyDeals    EnterpriseDeal[]         @relation("EnterpriseDealInvoicePartyContact")

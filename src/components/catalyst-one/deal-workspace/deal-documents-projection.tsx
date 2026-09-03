@@ -35,7 +35,6 @@ import {
   DOCUMENT_CENTER_SHARED_SCOPE_KEY,
   buildDocumentCenterScopeOptions,
   documentCenterActiveOwner,
-  parseParticipantScopeKey,
   type DocumentCenterScopeKey,
 } from "@/constants/opportunity-document-center";
 import {
@@ -48,6 +47,7 @@ import { cn } from "@/lib/utils";
 import { documentRegistrySourceLabel } from "@/constants/document-intake";
 import { ROUTES } from "@/constants/routes";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
+import { buildDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 import {
   buildEntityLinksFromLoanFile,
   canDownloadDocuments,
@@ -239,6 +239,16 @@ export function DealDocumentsProjection({
     );
   };
 
+  const goToDocumentWorkspace = () => {
+    router.push(
+      buildDocumentWorkspaceHref({
+        opportunityId: oppId || null,
+        dealId: file.enterpriseDealId || null,
+        contactId: file.customerId || null,
+      }),
+    );
+  };
+
   const openPreview = async (record: DocumentRegistryRecord) => {
     const url = await getDocumentPreviewUrl(record);
     if (!url) return;
@@ -396,6 +406,15 @@ export function DealDocumentsProjection({
           >
             <FolderOpen className="h-3.5 w-3.5" />
             Go to Document Center
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-2 h-8 gap-1.5 text-xs"
+            onClick={goToDocumentWorkspace}
+          >
+            Open Document Workspace
           </Button>
         </div>
       ) : (

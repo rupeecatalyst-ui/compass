@@ -12,7 +12,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DOCUMENT_WORKSPACE_CHANGE_TRANSACTION,
+  DOCUMENT_WORKSPACE_DRAFT_WARNING,
   DOCUMENT_WORKSPACE_OWNER_TABS,
+  DOCUMENT_WORKSPACE_STALE_CONTEXT,
   DOCUMENT_WORKSPACE_SUBTITLE,
   DOCUMENT_WORKSPACE_TITLE,
   type DocumentWorkspaceActionId,
@@ -45,7 +56,6 @@ import {
   getDocumentRequestState,
   refreshDocumentRequestFromRegistry,
   requestDocumentItems,
-  revokeUploadSession,
   setDocumentRequestItemReview,
   subscribeDocumentRequestsUpdated,
 } from "@/lib/document-requests";
@@ -62,10 +72,29 @@ import {
   type DocumentWorkspaceRow,
 } from "@/lib/document-workspace";
 import { mapDealLenderRecipients } from "@/lib/document-workspace/lender-pack";
+import { fetchDocumentWorkspaceContext } from "@/lib/document-workspace/context-client";
+import {
+  buildDocumentWorkspaceHref,
+  composerMustRefuseStaleContext,
+  documentWorkspaceFingerprint,
+  documentWorkspaceTransientUiAfterFingerprintChange,
+  filterRegistryRecordsForLockedContext,
+  hasUnsavedDocumentWorkspaceDraft,
+  lockMatchesCurrentDocumentWorkspaceRequest,
+  parseDocumentWorkspaceSearchParams,
+  parseOwnerTabParam,
+  readDocumentWorkspaceRestore,
+  writeDocumentWorkspaceRestore,
+} from "@/lib/document-workspace/context-lock";
+import type {
+  DocumentWorkspaceContextInput,
+  DocumentWorkspaceLockFailure,
+  DocumentWorkspaceResolvedContext,
+} from "@/types/document-workspace-context";
 import { resolveLoanParticipants } from "@/lib/loan-participants";
 import { loadOpportunityJourneyRuntime } from "@/lib/lead-opportunity-journey/load-context";
 import { buildOpportunityWorkspaceEntryHref } from "@/lib/loan-journey/adr-018-routing";
-import { displayOpportunityAmount, displayOpportunityText } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { displayOpportunityText } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import { resolveLoanCommunicationParticipants, queueOutboxMessage, pauseOutboxCountdown } from "@/lib/enterprise-action-center";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
@@ -77,31 +106,44 @@ export function DocumentWorkspace() {
   const { user } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const opportunityId = searchParams.get("opportunityId")?.trim() || "";
+  const request = useMemo(
+    () => parseDocumentWorkspaceSearchParams(searchParams),
+    [searchParams],
+  );
+  const opportunityId = request.opportunityId?.trim() || "";
+  const dealIdFromUrl = request.dealId?.trim() || "";
+  const contextKey = documentWorkspaceFingerprint(request);
   const actor =
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || user?.email || "RM";
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() || "RM";
 
+  const [lock, setLock] = useState<DocumentWorkspaceResolvedContext | null>(null);
+  const [lockError, setLockError] = useState<DocumentWorkspaceLockFailure | null>(null);
   const [file, setFile] = useState<LoanFile | null>(null);
-  const [loading, setLoading] = useState(Boolean(opportunityId));
+  const [loading, setLoading] = useState(Boolean(opportunityId || dealIdFromUrl));
   const [registryTick, setRegistryTick] = useState(0);
   const [requestTick, setRequestTick] = useState(0);
-  const [ownerTab, setOwnerTab] = useState<DocumentWorkspaceOwnerTabId>("primary");
+  const [ownerTab, setOwnerTab] = useState<DocumentWorkspaceOwnerTabId>(
+    parseOwnerTabParam(request.ownerTab),
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(request.documentId ?? null);
   const [fullscreen, setFullscreen] = useState(false);
   const [actionOpen, setActionOpen] = useState(false);
   const [composer, setComposer] = useState<"email" | "whatsapp" | "followup" | null>(null);
+  const [composerFingerprint, setComposerFingerprint] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<OutboxMessage | null>(null);
   const [deals, setDeals] = useState<EnterpriseDealApiRecord[]>([]);
-  const [dealId, setDealId] = useState("");
   const [lenderRecipientId, setLenderRecipientId] = useState("");
   const [coverSubject, setCoverSubject] = useState("Document pack for review");
   const [coverBody, setCoverBody] = useState("");
   const [groupedDraft, setGroupedDraft] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [secureLink, setSecureLink] = useState("");
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [pendingSwitch, setPendingSwitch] = useState<DocumentWorkspaceContextInput | null>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(0);
+  const previousContextKey = useRef<string | null>(null);
 
   useEffect(() => {
     return subscribeDocumentRegistryUpdated(() => setRegistryTick((n) => n + 1));
@@ -111,30 +153,45 @@ export function DocumentWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (!opportunityId) {
+    if (!opportunityId && !dealIdFromUrl) {
+      setLock(null);
+      setLockError(null);
       setFile(null);
       setLoading(false);
       return;
     }
     let cancelled = false;
+    setLock(null);
+    setFile(null);
+    setDeals([]);
     setLoading(true);
     void (async () => {
-      const runtime = await loadOpportunityJourneyRuntime(null, opportunityId, {
+      const current = parseDocumentWorkspaceSearchParams(searchParams);
+      const locked = await fetchDocumentWorkspaceContext(current);
+      if (cancelled) return;
+      if (!locked.ok) {
+        setLock(null);
+        setLockError(locked);
+        setFile(null);
+        setDeals([]);
+        setLoading(false);
+        return;
+      }
+      setLock(locked.context);
+      setLockError(null);
+      const runtime = await loadOpportunityJourneyRuntime(null, locked.context.opportunityId, {
         dashboardEntry: false,
       });
       if (cancelled) return;
       setFile(runtime);
       await hydrateDocumentRegistryFromServer({
-        opportunityId,
+        opportunityId: locked.context.opportunityId,
         opportunityNumber: runtime?.opportunityNumber,
       });
-      refreshDocumentRequestFromRegistry(opportunityId, runtime?.id);
+      refreshDocumentRequestFromRegistry(locked.context.opportunityId, runtime?.id);
       try {
-        const listed = await enterpriseDealApiClient.listDealsByOpportunity(opportunityId);
-        if (!cancelled) {
-          setDeals(listed.items);
-          setDealId((current) => current || listed.items[0]?.id || "");
-        }
+        const listed = await enterpriseDealApiClient.listDealsByOpportunity(locked.context.opportunityId);
+        if (!cancelled) setDeals(listed.items);
       } catch {
         if (!cancelled) setDeals([]);
       }
@@ -143,21 +200,92 @@ export function DocumentWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [opportunityId]);
+  }, [contextKey, opportunityId, dealIdFromUrl, searchParams]);
+
+  useEffect(() => {
+    const transition = documentWorkspaceTransientUiAfterFingerprintChange({
+      previousFingerprint: previousContextKey.current,
+      nextFingerprint: contextKey,
+    });
+    previousContextKey.current = contextKey;
+    if (transition.switched) {
+      setSelectedIds(transition.selectedIds);
+      setPreviewId(transition.previewId);
+      setFullscreen(transition.fullscreen);
+      setActionOpen(transition.actionOpen);
+      setComposer(transition.composer);
+      setComposerFingerprint(transition.composerFingerprint);
+      setEditingMessage(transition.editingMessage);
+      setGroupedDraft(transition.groupedDraft);
+      setCoverBody(transition.coverBody);
+      setSecureLink(transition.secureLink);
+      setLenderRecipientId(transition.lenderRecipientId);
+    }
+    const restored = contextKey ? readDocumentWorkspaceRestore(contextKey) : null;
+    setOwnerTab(parseOwnerTabParam(request.ownerTab || restored?.ownerTab));
+    if (!transition.switched) {
+      setPreviewId(request.documentId || restored?.documentId || null);
+      if (restored?.selectedIds?.length) setSelectedIds(restored.selectedIds);
+      requestAnimationFrame(() => {
+        if (tableScrollRef.current && restored?.tableScroll) {
+          tableScrollRef.current.scrollTop = restored.tableScroll;
+        }
+      });
+    }
+  }, [contextKey, request.documentId, request.ownerTab]);
+
+  const persistRestore = useCallback(() => {
+    if (!contextKey) return;
+    writeDocumentWorkspaceRestore(contextKey, {
+      ownerTab,
+      documentId: previewId,
+      selectedIds,
+      tableScroll: tableScrollRef.current?.scrollTop ?? savedScroll.current,
+      actionOpen,
+      previewOpen: Boolean(previewId),
+    });
+  }, [actionOpen, contextKey, ownerTab, previewId, selectedIds]);
+
+  useEffect(() => {
+    persistRestore();
+  }, [persistRestore]);
+
+  useEffect(() => {
+    if (!composer) return;
+    if (
+      composerMustRefuseStaleContext({
+        openedFingerprint: composerFingerprint,
+        currentFingerprint: lock?.fingerprint || contextKey,
+        authorised: Boolean(lock) && !lockError,
+      })
+    ) {
+      setComposer(null);
+      setEditingMessage(null);
+      toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+    }
+  }, [composer, composerFingerprint, contextKey, lock, lockError]);
 
   const participants = useMemo(
     () => (file ? resolveLoanParticipants(file) : []),
     [file],
   );
-  const requestState = opportunityId ? getDocumentRequestState(opportunityId) : null;
-  const records = useMemo(() => {
-    if (!opportunityId) return [];
-    return listDocumentsForOpportunityRuntime(file?.id || opportunityId, opportunityId, {
-      opportunityNumber: file?.opportunityNumber,
-      customerId: file?.customerId,
-      contactId: file?.customerId,
-    });
-  }, [opportunityId, file, registryTick, requestTick]);
+  const lockMatchesRequest = lockMatchesCurrentDocumentWorkspaceRequest(lock, request);
+  const lockedOpportunityId = lockMatchesRequest
+    ? lock?.opportunityId || opportunityId
+    : "";
+  const dealId = lockMatchesRequest ? lock?.dealId || "" : "";
+  const requestState = lockedOpportunityId ? getDocumentRequestState(lockedOpportunityId) : null;
+  const records = useMemo(
+    () =>
+      listLockedWorkspaceRegistryRecords({
+        lockMatchesRequest,
+        lockedOpportunityId,
+        dealId,
+        file,
+        storeRevision: registryTick + requestTick,
+      }),
+    [lockMatchesRequest, lockedOpportunityId, dealId, file, registryTick, requestTick],
+  );
 
   const rows = useMemo(
     () =>
@@ -182,12 +310,30 @@ export function DocumentWorkspace() {
   const selectedRows = rows.filter((row) => selectedIds.includes(row.id));
   const commParticipants = file ? resolveLoanCommunicationParticipants(file) : [];
 
-  const selectOpportunity = useCallback(
-    (id: string) => {
-      router.replace(`/document-workspace?opportunityId=${encodeURIComponent(id)}`);
-    },
-    [router],
-  );
+  const applyLockedHref = (next: DocumentWorkspaceContextInput) => {
+    router.replace(
+      buildDocumentWorkspaceHref({
+        ...next,
+        organizationId: next.organizationId || lock?.organizationId,
+        ownerTab,
+      }),
+    );
+  };
+
+  const selectTransaction = (next: DocumentWorkspaceContextInput) => {
+    if (
+      hasUnsavedDocumentWorkspaceDraft({
+        groupedDraft,
+        coverBody,
+        composerOpen: Boolean(composer),
+      })
+    ) {
+      setPendingSwitch(next);
+      return;
+    }
+    setSwitcherOpen(false);
+    applyLockedHref(next);
+  };
 
   const openPreview = (id: string) => {
     savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
@@ -196,6 +342,7 @@ export function DocumentWorkspace() {
   const closePreview = () => {
     setPreviewId(null);
     setFullscreen(false);
+    persistRestore();
     requestAnimationFrame(() => {
       if (tableScrollRef.current) tableScrollRef.current.scrollTop = savedScroll.current;
     });
@@ -218,16 +365,22 @@ export function DocumentWorkspace() {
         categoryLabel: row.categoryLabel,
         uploadedBy: actor,
         uploadedByUserId: user?.id,
-        links: buildEntityLinksFromLoanFile(file, {
-          participantId: row.lodItem?.participantId,
-          documentScope:
-            row.ownerTab === "shared" || row.ownerTab === "property" ? "shared" : "applicant",
-        }),
+        links: {
+          ...buildEntityLinksFromLoanFile(file, {
+            participantId: row.lodItem?.participantId,
+            documentScope:
+              row.ownerTab === "shared" || row.ownerTab === "property" ? "shared" : "applicant",
+          }),
+          opportunityId: lockedOpportunityId,
+          dealId: dealId || undefined,
+          contactId: lock?.contactId || undefined,
+          companyId: lock?.companyId || undefined,
+        },
         replaceRecordId: row.registryRecordId,
         uploadSource: "manual_upload",
       });
     }
-    refreshDocumentRequestFromRegistry(opportunityId, file.id);
+    refreshDocumentRequestFromRegistry(lockedOpportunityId, file.id);
     toast.success("Stored in Enterprise Document Registry.");
   };
 
@@ -250,7 +403,7 @@ export function DocumentWorkspace() {
     }
     if (row.requestRef) {
       setDocumentRequestItemReview({
-        opportunityId,
+        opportunityId: lockedOpportunityId,
         requestRef: row.requestRef,
         status:
           status === "accepted"
@@ -278,28 +431,45 @@ export function DocumentWorkspace() {
   };
 
   const onAction = (id: DocumentWorkspaceActionId) => {
+    if (
+      composerMustRefuseStaleContext({
+        openedFingerprint: lock?.fingerprint,
+        currentFingerprint: contextKey,
+        authorised: Boolean(lock) && !lockError,
+      })
+    ) {
+      toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+      return;
+    }
     const pending = rows.filter((row) => row.reviewStatus === "pending");
     const target = id === "request_all_pending" ? pending : selectedRows.length ? selectedRows : pending;
     if (id === "request_selected" || id === "request_all_pending") {
       const refs = selectedRequestRefs(target.map((row) => row.lodItem!).filter(Boolean));
-      if (refs.length) requestDocumentItems(opportunityId, refs);
+      if (refs.length) requestDocumentItems(lockedOpportunityId, refs);
       const draft = buildGrouped(target);
       setGroupedDraft(draft);
       const session = createOrRegenerateUploadSession({
-        opportunityId,
-        opportunityReference: file?.opportunityNumber || opportunityId,
-        customerName: file?.customerName || "Customer",
-        loanProduct: file?.loanProduct || "Loan",
+        opportunityId: lockedOpportunityId,
+        opportunityReference: lock?.opportunityNumber || file?.opportunityNumber || lockedOpportunityId,
+        customerName: lock?.customerName || file?.customerName || "Customer",
+        loanProduct: lock?.product || file?.loanProduct || "Loan",
         borrowerTypeLabel: "Individual",
         constitutionLabel: "Not Specified",
-        rmName: file?.relationshipManager,
+        rmName: lock?.assignedEmployeeName || file?.relationshipManager,
         actor,
+        lockedDealId: dealId || null,
+        lockedContactId: lock?.contactId,
+        lockedCompanyId: lock?.companyId,
+        lockedRequestRefs: refs,
       });
       const link = `${window.location.origin}${buildCustomerUploadPortalPath(session.uploadSession!.token)}`;
       setSecureLink(link);
       recordDocumentWorkspaceRequestBatch({
-        opportunityId,
-        recipientName: file?.customerName || "Customer",
+        opportunityId: lockedOpportunityId,
+        dealId: dealId || null,
+        contactId: lock?.contactId,
+        companyId: lock?.companyId,
+        recipientName: lock?.customerName || file?.customerName || "Customer",
         channel: "email",
         requestRefs: refs,
         requester: actor,
@@ -314,23 +484,26 @@ export function DocumentWorkspace() {
       const queued = queueOutboxMessage({
         channel: "email",
         entityType: "opportunity",
-        entityId: opportunityId,
+        entityId: lockedOpportunityId,
         recipientId: commParticipants[0]?.id || "customer",
-        recipientName: commParticipants[0]?.name || file?.customerName || "Customer",
+        recipientName: commParticipants[0]?.name || lock?.customerName || file?.customerName || "Customer",
         recipientType: "customer",
         subject: "Document request",
         body: groupedDraft || buildGrouped(target),
       });
       pauseOutboxCountdown(queued.id);
       setEditingMessage(queued);
+      setComposerFingerprint(lock?.fingerprint || contextKey);
       setComposer("email");
       return;
     }
     if (id === "whatsapp") {
+      setComposerFingerprint(lock?.fingerprint || contextKey);
       setComposer("whatsapp");
       return;
     }
     if (id === "schedule_followup") {
+      setComposerFingerprint(lock?.fingerprint || contextKey);
       setComposer("followup");
       return;
     }
@@ -344,12 +517,16 @@ export function DocumentWorkspace() {
       return;
     }
     if (id === "send_to_lender") {
+      if (!dealId) {
+        toast.error("Lock a lender Deal with Change Transaction before sending a pack.");
+        return;
+      }
       const eligible = selectedRows.filter((row) => row.reviewStatus === "accepted" && row.record);
       const fallback = rows.filter((row) => row.reviewStatus === "accepted" && row.record);
       const packRows = eligible.length ? eligible : fallback;
-      const deal = deals.find((item) => item.id === dealId) ?? deals[0];
+      const deal = deals.find((item) => item.id === dealId);
       if (!deal) {
-        toast.error("Select a lender Deal first.");
+        toast.error("The locked Deal is not authorised in this Opportunity.");
         return;
       }
       const recipients = mapDealLenderRecipients(deal);
@@ -359,7 +536,7 @@ export function DocumentWorkspace() {
         return;
       }
       queueDocumentLenderPack({
-        opportunityId,
+        opportunityId: lockedOpportunityId,
         dealId: deal.id,
         dealNumber: deal.dealNumber,
         recipientId: recipient?.id || deal.id,
@@ -374,14 +551,35 @@ export function DocumentWorkspace() {
     }
   };
 
-  if (!opportunityId) {
+  if (!opportunityId && !dealIdFromUrl) {
     return (
       <div className="space-y-6 p-4 sm:p-6">
         <header>
           <h1 className="text-xl font-semibold tracking-tight">{DOCUMENT_WORKSPACE_TITLE}</h1>
           <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_SUBTITLE}</p>
         </header>
-        <DocumentWorkspaceSwitcher onSelect={selectOpportunity} />
+        <DocumentWorkspaceSwitcher onSelect={selectTransaction} />
+      </div>
+    );
+  }
+
+  if (lockError) {
+    return (
+      <div className="space-y-4 p-4 sm:p-6">
+        <header>
+          <h1 className="text-xl font-semibold tracking-tight">{DOCUMENT_WORKSPACE_TITLE}</h1>
+          <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_SUBTITLE}</p>
+        </header>
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-6">
+          <p className="text-sm font-medium text-destructive">Context locked — access denied</p>
+          <p className="mt-1 text-xs text-muted-foreground">{lockError.message}</p>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Document Workspace does not fall back to a similarly named contact or company.
+          </p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={() => applyLockedHref({})}>
+          {DOCUMENT_WORKSPACE_CHANGE_TRANSACTION}
+        </Button>
       </div>
     );
   }
@@ -395,11 +593,12 @@ export function DocumentWorkspace() {
     );
   }
 
-  const oppHref = file
+  const oppHref = lock
     ? buildOpportunityWorkspaceEntryHref({
-        id: opportunityId,
+        id: lock.opportunityId,
       })
-    : `/opportunities?opportunityId=${encodeURIComponent(opportunityId)}`;
+    : `/opportunities?opportunityId=${encodeURIComponent(lockedOpportunityId)}`;
+  const contextLabel = lock?.companyName || lock?.customerName || displayOpportunityText(file?.customerName);
 
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
@@ -413,7 +612,19 @@ export function DocumentWorkspace() {
             <Link href={oppHref} className="text-xs text-muted-foreground underline-offset-4 hover:underline">
               Open Opportunity
             </Link>
-            <Button type="button" size="sm" variant="outline" onClick={() => setActionOpen(true)}>
+            <Button type="button" size="sm" variant="outline" onClick={() => setSwitcherOpen(true)}>
+              {DOCUMENT_WORKSPACE_CHANGE_TRANSACTION}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
+                persistRestore();
+                setActionOpen(true);
+              }}
+            >
               <PanelRight className="mr-1.5 h-3.5 w-3.5" />
               Action Centre
               {selectedIds.length ? (
@@ -424,17 +635,20 @@ export function DocumentWorkspace() {
             </Button>
           </div>
         </div>
-        <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 lg:grid-cols-7">
-          <Summary label="Customer" value={displayOpportunityText(file?.customerName)} />
-          <Summary label="Opportunity" value={file?.opportunityNumber || opportunityId} />
-          <Summary label="Product" value={displayOpportunityText(file?.loanProduct)} />
+        <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 lg:grid-cols-8" data-document-workspace-context="">
+          <Summary label="Customer / Company" value={contextLabel} />
+          <Summary label="Opportunity" value={lock?.opportunityNumber || file?.opportunityNumber || lockedOpportunityId} />
           <Summary
-            label="Amount"
-            value={displayOpportunityAmount(file?.requiredAmount ?? file?.loanAmount, {
-              captured: (file as { amountCaptured?: boolean } | null)?.amountCaptured,
-            })}
+            label="Deal"
+            value={
+              lock?.dealNumber
+                ? `${lock.dealNumber}${lock.lenderName ? ` · ${lock.lenderName}` : ""}`
+                : "Opportunity-level"
+            }
           />
-          <Summary label="Assigned" value={displayOpportunityText(file?.relationshipManager)} />
+          <Summary label="Product" value={lock?.product || displayOpportunityText(file?.loanProduct)} />
+          <Summary label="Assigned RC employee" value={lock?.assignedEmployeeName || displayOpportunityText(file?.relationshipManager)} />
+          <Summary label="Workflow stage" value={lock?.workflowStage || "—"} />
           <Summary label="Readiness" value={`${readiness.label} · ${readiness.completionPct}%`} />
           <Summary
             label="Counts"
@@ -446,12 +660,27 @@ export function DocumentWorkspace() {
             Unclassified Received Documents: {unclassified.length} (Received — Review Pending, never auto-accepted).
           </p>
         ) : null}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <DocumentWorkspaceSwitcher compact onSelect={selectOpportunity} />
-        </div>
+        {switcherOpen ? (
+          <div className="mt-3 rounded-lg border border-border/70 bg-background p-3">
+            <DocumentWorkspaceSwitcher compact onSelect={selectTransaction} />
+          </div>
+        ) : null}
       </header>
 
-      <Tabs value={ownerTab} onValueChange={(v) => setOwnerTab(v as DocumentWorkspaceOwnerTabId)}>
+      <Tabs
+        value={ownerTab}
+        onValueChange={(v) => {
+          const next = v as DocumentWorkspaceOwnerTabId;
+          setOwnerTab(next);
+          applyLockedHref({
+            ...request,
+            opportunityId: lockedOpportunityId,
+            dealId: dealId || null,
+            ownerTab: next,
+            documentId: previewId,
+          });
+        }}
+      >
         <div className="overflow-x-auto border-b border-border/60 px-4 py-2 sm:px-6">
           <TabsList className="h-8">
             {DOCUMENT_WORKSPACE_OWNER_TABS.map((tab) => (
@@ -464,7 +693,11 @@ export function DocumentWorkspace() {
       </Tabs>
 
       <div className={cn("flex min-h-0 flex-1", previewRow ? "lg:grid lg:grid-cols-2" : "")}>
-        <div ref={tableScrollRef} className="min-w-0 flex-1 overflow-auto px-4 py-3 sm:px-6">
+        <div
+          ref={tableScrollRef}
+          key={`document-workspace-rows:${registryTick}:${requestTick}`}
+          className="min-w-0 flex-1 overflow-auto px-4 py-3 sm:px-6"
+        >
           <table className="w-full min-w-[64rem] text-left text-xs">
             <thead className="sticky top-0 bg-background">
               <tr className="border-b border-border/70 text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -567,12 +800,24 @@ export function DocumentWorkspace() {
 
       <DocumentWorkspaceActionDrawer
         open={actionOpen}
-        onOpenChange={setActionOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            persistRestore();
+            requestAnimationFrame(() => {
+              if (tableScrollRef.current) tableScrollRef.current.scrollTop = savedScroll.current;
+            });
+          } else {
+            savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
+          }
+          setActionOpen(open);
+        }}
         selectedCount={selectedIds.length}
         onAction={onAction}
-        deals={deals}
+        deals={dealId ? deals.filter((item) => item.id === dealId) : []}
         selectedDealId={dealId}
-        onDealIdChange={setDealId}
+        onDealIdChange={() => {
+          toast.message("Use Change Transaction to lock a different Deal. Context does not change from this panel.");
+        }}
         coverSubject={coverSubject}
         coverBody={coverBody}
         onCoverSubjectChange={setCoverSubject}
@@ -585,9 +830,9 @@ export function DocumentWorkspace() {
         onDueDateChange={setDueDate}
         secureLink={secureLink}
         taskContext={{
-          opportunityId,
+          opportunityId: lockedOpportunityId,
           dealId: dealId || undefined,
-          contactId: file?.customerId,
+          contactId: lock?.contactId || file?.customerId,
         }}
       />
 
@@ -598,16 +843,17 @@ export function DocumentWorkspace() {
             if (!open) {
               setComposer(null);
               setEditingMessage(null);
+              persistRestore();
             }
           }}
-          opportunityId={opportunityId}
+          opportunityId={lockedOpportunityId}
           dealId={dealId || null}
-          entityId={opportunityId}
-          entityLabel={file.customerName || "Opportunity"}
-          product={file.loanProduct}
-          customerName={file.customerName}
-          opportunityNumber={file.opportunityNumber}
-          rm={file.relationshipManager}
+          entityId={lockedOpportunityId}
+          entityLabel={lock?.customerName || file.customerName || "Opportunity"}
+          product={lock?.product || file.loanProduct}
+          customerName={lock?.customerName || file.customerName}
+          opportunityNumber={lock?.opportunityNumber || file.opportunityNumber}
+          rm={lock?.assignedEmployeeName || file.relationshipManager}
           participants={commParticipants}
           editingMessage={editingMessage}
         />
@@ -616,13 +862,16 @@ export function DocumentWorkspace() {
         <WhatsAppContextWorkspace
           open
           onOpenChange={(open) => {
-            if (!open) setComposer(null);
+            if (!open) {
+              setComposer(null);
+              persistRestore();
+            }
           }}
-          entityId={opportunityId}
-          entityLabel={file.customerName || "Opportunity"}
-          product={file.loanProduct}
-          customerName={file.customerName}
-          rm={file.relationshipManager}
+          entityId={lockedOpportunityId}
+          entityLabel={lock?.customerName || file.customerName || "Opportunity"}
+          product={lock?.product || file.loanProduct}
+          customerName={lock?.customerName || file.customerName}
+          rm={lock?.assignedEmployeeName || file.relationshipManager}
           participants={commParticipants}
         />
       ) : null}
@@ -630,22 +879,55 @@ export function DocumentWorkspace() {
         <EnterpriseActivityComposer
           open
           onOpenChange={(open) => {
-            if (!open) setComposer(null);
+            if (!open) {
+              setComposer(null);
+              persistRestore();
+            }
           }}
           heading="Schedule Follow-up"
           actorUserId={user?.id || "user"}
           actorLabel={actor}
           composer={{
             contextType: "opportunity",
-            contextId: opportunityId,
-            entityLabel: file?.customerName || "Opportunity",
-            opportunityId,
+            contextId: lockedOpportunityId,
+            entityLabel: lock?.customerName || file?.customerName || "Opportunity",
+            opportunityId: lockedOpportunityId,
             dealId: dealId || undefined,
-            product: file?.loanProduct,
-            customerName: file?.customerName,
+            product: lock?.product || file?.loanProduct,
+            customerName: lock?.customerName || file?.customerName,
           }}
         />
       ) : null}
+
+      <Dialog open={Boolean(pendingSwitch)} onOpenChange={(open) => !open && setPendingSwitch(null)}>
+        <DialogContent className="sm:max-w-md" allowOutsideClose>
+          <DialogHeader>
+            <DialogTitle className="text-sm">Unsaved draft</DialogTitle>
+            <DialogDescription>{DOCUMENT_WORKSPACE_DRAFT_WARNING}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPendingSwitch(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                const next = pendingSwitch;
+                setPendingSwitch(null);
+                setGroupedDraft("");
+                setCoverBody("");
+                setComposer(null);
+                setSwitcherOpen(false);
+                if (next) applyLockedHref(next);
+              }}
+            >
+              Discard and switch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -666,4 +948,29 @@ function fmt(iso?: string) {
   } catch {
     return "—";
   }
+}
+
+function listLockedWorkspaceRegistryRecords(input: {
+  lockMatchesRequest: boolean;
+  lockedOpportunityId: string;
+  dealId: string;
+  file: LoanFile | null;
+  storeRevision: number;
+}) {
+  if (!input.lockMatchesRequest || !input.lockedOpportunityId) return [];
+  const listed = listDocumentsForOpportunityRuntime(
+    input.file?.id || input.lockedOpportunityId,
+    input.lockedOpportunityId,
+    {
+      opportunityNumber: input.file?.opportunityNumber,
+      customerId: input.file?.customerId,
+      contactId: input.file?.customerId,
+    },
+  );
+  const filtered = filterRegistryRecordsForLockedContext({
+    records: listed,
+    opportunityId: input.lockedOpportunityId,
+    dealId: input.dealId,
+  });
+  return input.storeRevision >= 0 ? filtered : [];
 }

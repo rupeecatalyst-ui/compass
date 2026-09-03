@@ -10,17 +10,27 @@ import { FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DEAL_DOCUMENTS_EDIT_BLOCK_MESSAGE } from "@/constants/opportunity-document-center";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
+import { buildDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 import { OwGlassPanel, OwPanelHeader } from "./workspace-design";
 import { useOpportunityWorkspace } from "./opportunity-workspace-context";
 
 export function WorkspaceDocumentsPanel() {
   const router = useRouter();
-  const { opportunityId, documentStats } = useOpportunityWorkspace();
+  const { opportunityId, contactId, documentStats } = useOpportunityWorkspace();
 
   const goToDocumentCenter = () => {
     router.push(
       buildCanonicalJourneyStageHref("documents", {
         opportunityId: opportunityId || null,
+      }),
+    );
+  };
+
+  const goToDocumentWorkspace = () => {
+    router.push(
+      buildDocumentWorkspaceHref({
+        opportunityId: opportunityId || null,
+        contactId: contactId || null,
       }),
     );
   };
@@ -49,6 +59,15 @@ export function WorkspaceDocumentsPanel() {
         >
           <FolderOpen className="h-3.5 w-3.5" />
           Go to Document Center
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="mt-2 h-8 gap-1.5 text-xs"
+          onClick={goToDocumentWorkspace}
+        >
+          Open Document Workspace
         </Button>
       </div>
 

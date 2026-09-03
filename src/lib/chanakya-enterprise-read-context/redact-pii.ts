@@ -6,22 +6,33 @@
 
 const REDACTED = "[REDACTED]" as const;
 
-/** Value-level contact patterns — emails and Indian mobiles in free text. */
+/** Value-level contact patterns — emails, Indian mobiles, and telephone/landline phrases. */
 const EMAIL_VALUE_PATTERN = /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g;
 const MOBILE_VALUE_PATTERN = /(?:\+91[\s-]?)?[6-9]\d{9}\b/g;
+const TELEPHONE_PHRASE_PATTERN =
+  /\b(?:tel(?:ephone)?|landline|phone(?:\s*no\.?| number)?)\s*[:#-]?\s*[\d+()\-\s]{8,}/gi;
+const LANDLINE_VALUE_PATTERN = /\b0[1-9]\d{1,3}[\s-]\d{6,8}\b/g;
 const EMAIL_VALUE_TEST = /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/;
 const MOBILE_VALUE_TEST = /(?:\+91[\s-]?)?[6-9]\d{9}\b/;
+const TELEPHONE_VALUE_TEST =
+  /\b(?:tel(?:ephone)?|landline|phone(?:\s*no\.?| number)?)\s*[:#-]?\s*[\d+()\-\s]{8,}|\b0[1-9]\d{1,3}[\s-]\d{6,8}\b/;
 
 export function redactContactValuesInText(text: string): string {
   if (!text) return text;
   return text
     .replace(EMAIL_VALUE_PATTERN, REDACTED)
-    .replace(MOBILE_VALUE_PATTERN, REDACTED);
+    .replace(MOBILE_VALUE_PATTERN, REDACTED)
+    .replace(TELEPHONE_PHRASE_PATTERN, REDACTED)
+    .replace(LANDLINE_VALUE_PATTERN, REDACTED);
 }
 
 export function textContainsCustomerContactPii(text: string): boolean {
   if (!text) return false;
-  return EMAIL_VALUE_TEST.test(text) || MOBILE_VALUE_TEST.test(text);
+  return (
+    EMAIL_VALUE_TEST.test(text) ||
+    MOBILE_VALUE_TEST.test(text) ||
+    TELEPHONE_VALUE_TEST.test(text)
+  );
 }
 
 /** Keys that must never carry raw customer contact channels into CHANAKYA context. */

@@ -2,11 +2,32 @@
 
 /**
  * CO-CHANAKYA-PHASE1-INAPP-CONVERSATION-CLOSURE-037
- * Interactive Ask CHANAKYA surface — free-form multi-turn, evidence-first.
+ * CO-C1-CHANAKYA-CONVERSATIONAL-INTELLIGENCE-009
+ * Conversational Ask CHANAKYA — multi-turn bubbles, real stream, read-only.
  */
 
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { Loader2, RefreshCw, Send, Sparkles } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
+import {
+  ArrowDown,
+  Copy,
+  Download,
+  Mic,
+  MicOff,
+  RefreshCw,
+  Send,
+  Square,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CHANAKYA_INAPP_CONVERSATION_PROMPTS } from "@/constants/chanakya-inapp-conversation";
@@ -14,40 +35,125 @@ import {
   CHANAKYA_AUTH_REQUIRED_MESSAGE,
   CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE,
 } from "@/constants/chanakya-conversation-intelligence";
-import { postChanakyaInappConversationTurn } from "@/lib/chanakya-inapp-conversation/client";
+import {
+  CHANAKYA_PHASE1_READ_ONLY_INDICATOR,
+  CHANAKYA_PHASE1_SELECT_TRANSACTION_MESSAGE,
+  CHANAKYA_SUGGESTED_QUESTIONS,
+} from "@/constants/chanakya-conversational-intelligence";
+import {
+  postChanakyaInappConversationTurn,
+  postChanakyaMessageFeedback,
+  streamChanakyaInappConversationTurn,
+} from "@/lib/chanakya-inapp-conversation/client";
 import { getActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
+import {
+  isBrowserSpeechRecognitionAvailable,
+  startLiveBrowserStt,
+} from "@/lib/enterprise-conversation-intelligence";
+import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import type { ChanakyaConversationPrompt } from "@/types/chanakya-dashboard-intelligence";
 import type { ChanakyaInappMessage } from "@/types/chanakya-inapp-conversation";
+import type { ChanakyaCreditProposalDraft } from "@/types/chanakya-credit-proposal";
 import { cn } from "@/lib/utils";
 
 type Props = {
   prompts?: ChanakyaConversationPrompt[];
   className?: string;
+  sessionId?: string | null;
+  messages?: ChanakyaInappMessage[];
+  onSessionChange?: (sessionId: string | null) => void;
+  onMessagesChange?: (messages: ChanakyaInappMessage[]) => void;
+  queuedPrompt?: string | null;
+  onQueuedPromptConsumed?: () => void;
 };
+
+function formatClock(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDay(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+}
+
+/** Canonical Opportunity/Deal IDs only — never proposal body or PII in the query string. */
+function proposalWorkspaceHref(
+  opportunityId: string | null | undefined,
+  dealId: string | null | undefined,
+): string | null {
+  const opp = opportunityId?.trim() || null;
+  const deal = dealId?.trim() || null;
+  if (!opp && !deal) return null;
+  return buildCanonicalJourneyStageHref("credit_bench", {
+    opportunityId: opp,
+    dealId: deal,
+    fileId: deal,
+  });
+}
 
 export function ChanakyaInappConversationPanel({
   prompts = CHANAKYA_INAPP_CONVERSATION_PROMPTS,
   className,
+  sessionId: sessionIdProp,
+  messages: messagesProp,
+  onSessionChange,
+  onMessagesChange,
+  queuedPrompt,
+  onQueuedPromptConsumed,
 }: Props) {
   const listId = useId();
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const sttRef = useRef<ReturnType<typeof startLiveBrowserStt> | null>(null);
   const [draft, setDraft] = useState("");
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChanakyaInappMessage[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(sessionIdProp ?? null);
+  const [messages, setMessages] = useState<ChanakyaInappMessage[]>(messagesProp ?? []);
   const [loading, setLoading] = useState(false);
+  const [awaitingFirstToken, setAwaitingFirstToken] = useState(false);
+  const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
+  const [showJump, setShowJump] = useState(false);
+  const [proposalDraft, setProposalDraft] = useState<ChanakyaCreditProposalDraft | null>(null);
+  const [authorisedDealId, setAuthorisedDealId] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState("");
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [messages, loading]);
+    if (sessionIdProp !== undefined) setSessionId(sessionIdProp);
+  }, [sessionIdProp]);
+
+  useEffect(() => {
+    if (messagesProp) setMessages(messagesProp);
+  }, [messagesProp]);
+
+  const jumpToLatest = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    setShowJump(false);
+  }, []);
+
+  useEffect(() => {
+    jumpToLatest();
+  }, [messages, streamingText, awaitingFirstToken, jumpToLatest]);
 
   const resolveEntity = useCallback(() => {
     const active = getActiveOpportunityContext();
+    const opportunityId = active?.opportunityId?.trim() || null;
+    const fileId = active?.fileId?.trim() || null;
+    const dealId = fileId && fileId !== opportunityId ? fileId : authorisedDealId;
     return {
-      opportunityId: active?.opportunityId?.trim() || null,
-      dealId: null as string | null,
+      opportunityId,
+      dealId,
     };
+  }, [authorisedDealId]);
+
+  const stopGenerating = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+    setAwaitingFirstToken(false);
   }, []);
 
   const sendMessage = useCallback(
@@ -55,7 +161,13 @@ export function ChanakyaInappConversationPanel({
       const message = raw.trim();
       if (!message || loading) return;
 
+      abortRef.current?.abort();
+      const abort = new AbortController();
+      abortRef.current = abort;
+
       setLoading(true);
+      setAwaitingFirstToken(true);
+      setStreamingText("");
       setError(null);
       setLastFailedMessage(null);
       setDraft("");
@@ -72,31 +184,100 @@ export function ChanakyaInappConversationPanel({
 
       try {
         const entity = resolveEntity();
-        const result = await postChanakyaInappConversationTurn({
-          sessionId,
-          message,
-          opportunityId: entity.opportunityId,
-          dealId: entity.dealId,
-        });
-        setSessionId(result.sessionId);
-        setMessages(result.messages);
-      } catch (err) {
-        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-        setDraft(message);
-        setLastFailedMessage(message);
-        setError(
-          err && typeof err === "object" && "statusCode" in err && Number((err as { statusCode?: number }).statusCode) === 401
-            ? CHANAKYA_AUTH_REQUIRED_MESSAGE
-            : err && typeof err === "object" && "statusCode" in err && Number((err as { statusCode?: number }).statusCode) === 403
-              ? "You do not have access to ask CHANAKYA for that view."
-              : CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE,
+        await streamChanakyaInappConversationTurn(
+          {
+            sessionId,
+            message,
+            opportunityId: entity.opportunityId,
+            dealId: entity.dealId,
+          },
+          {
+            signal: abort.signal,
+            onSession: (id) => {
+              setSessionId(id);
+              onSessionChange?.(id);
+            },
+            onDelta: (text) => {
+              setAwaitingFirstToken(false);
+              setStreamingText((prev) => prev + text);
+            },
+            onProposal: (event) => {
+              setProposalDraft(event.draft);
+            },
+            onDone: (result) => {
+              setSessionId(result.sessionId);
+              onSessionChange?.(result.sessionId);
+              setMessages(result.messages);
+              onMessagesChange?.(result.messages);
+              setAuthorisedDealId(result.activeEntity.dealId?.trim() || null);
+              setStreamingText("");
+            },
+          },
         );
+      } catch {
+        if (abort.signal.aborted) {
+          setStreamingText((current) => {
+            if (current.trim()) {
+              const partial: ChanakyaInappMessage = {
+                id: `local_assistant_${Date.now()}`,
+                role: "assistant",
+                text: current,
+                createdAt: new Date().toISOString(),
+                provenance: [],
+                availabilityNotes: [],
+              };
+              setMessages((prev) => [...prev, partial]);
+            }
+            return "";
+          });
+        } else {
+          try {
+            const entity = resolveEntity();
+            const result = await postChanakyaInappConversationTurn({
+              sessionId,
+              message,
+              opportunityId: entity.opportunityId,
+              dealId: entity.dealId,
+            });
+            setSessionId(result.sessionId);
+            onSessionChange?.(result.sessionId);
+            setMessages(result.messages);
+            onMessagesChange?.(result.messages);
+            setAuthorisedDealId(result.activeEntity.dealId?.trim() || null);
+          } catch (fallbackErr) {
+            setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+            setDraft(message);
+            setLastFailedMessage(message);
+            setError(
+              fallbackErr &&
+                typeof fallbackErr === "object" &&
+                "statusCode" in fallbackErr &&
+                Number((fallbackErr as { statusCode?: number }).statusCode) === 401
+                ? CHANAKYA_AUTH_REQUIRED_MESSAGE
+                : fallbackErr &&
+                    typeof fallbackErr === "object" &&
+                    "statusCode" in fallbackErr &&
+                    Number((fallbackErr as { statusCode?: number }).statusCode) === 403
+                  ? "You do not have access to ask CHANAKYA for that view."
+                  : CHANAKYA_TEMPORARY_UNAVAILABLE_MESSAGE,
+            );
+          }
+        }
       } finally {
         setLoading(false);
+        setAwaitingFirstToken(false);
+        if (abortRef.current === abort) abortRef.current = null;
       }
     },
-    [loading, resolveEntity, sessionId],
+    [loading, onMessagesChange, onSessionChange, resolveEntity, sessionId],
   );
+
+  useEffect(() => {
+    const q = queuedPrompt?.trim();
+    if (!q) return;
+    onQueuedPromptConsumed?.();
+    void sendMessage(q);
+  }, [queuedPrompt, onQueuedPromptConsumed, sendMessage]);
 
   const onSubmit = useCallback(
     (event: FormEvent) => {
@@ -110,72 +291,287 @@ export function ChanakyaInappConversationPanel({
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
-        void sendMessage(draft);
+        if (!loading) void sendMessage(draft);
       }
     },
-    [draft, sendMessage],
+    [draft, loading, sendMessage],
   );
+
+  const toggleMic = useCallback(() => {
+    if (loading) return;
+    if (listening) {
+      const live = sttRef.current?.getTranscript() ?? "";
+      sttRef.current?.stop();
+      sttRef.current = null;
+      setListening(false);
+      if (live.trim()) setDraft(live.trim());
+      return;
+    }
+    if (!isBrowserSpeechRecognitionAvailable()) return;
+    const stt = startLiveBrowserStt({
+      lang: "en-IN",
+      onPartial: (text) => setDraft(text),
+    });
+    sttRef.current = stt;
+    setListening(Boolean(stt));
+  }, [listening, loading]);
+
+  const copyText = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const downloadProposal = useCallback(() => {
+    if (!proposalDraft) return;
+    const blob = new Blob([proposalDraft.fullText], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${proposalDraft.draftId}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [proposalDraft]);
+
+  const grouped = useMemo(() => {
+    const out: Array<{ day: string; items: ChanakyaInappMessage[] }> = [];
+    for (const msg of messages) {
+      const day = formatDay(msg.createdAt) || "Today";
+      const last = out[out.length - 1];
+      if (last && last.day === day) last.items.push(msg);
+      else out.push({ day, items: [msg] });
+    }
+    return out;
+  }, [messages]);
+
+  const workspaceHref = proposalDraft
+    ? proposalWorkspaceHref(
+        proposalDraft.opportunityId,
+        authorisedDealId || resolveEntity().dealId,
+      )
+    : null;
+
+  const suggested = prompts.length > 0 ? prompts : CHANAKYA_SUGGESTED_QUESTIONS;
 
   return (
     <div
-      className={cn("space-y-4", className)}
+      className={cn("flex h-full min-h-0 flex-col", className)}
       data-chanakya-inapp-conversation="037"
+      data-chanakya-conversational="009"
       data-read-only="true"
     >
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-1 pb-2">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--ei-teal)]">
+          {CHANAKYA_PHASE1_READ_ONLY_INDICATOR}
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={cn("h-7 gap-1 text-[11px]", showJump ? "opacity-100" : "pointer-events-none opacity-0")}
+          onClick={jumpToLatest}
+        >
+          <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+          Jump to Latest
+        </Button>
+      </div>
+
       <div
         id={listId}
         role="log"
         aria-live="polite"
         aria-relevant="additions"
-        className="max-h-[22rem] space-y-3 overflow-y-auto rounded-xl border border-border/60 bg-muted/10 p-3"
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 py-3"
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          setShowJump(!nearBottom);
+        }}
       >
-        {messages.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Ask a free-form business question. CHANAKYA answers from authorised enterprise
-            evidence only — advisory, never mutating records.
-          </p>
+        {messages.length === 0 && !loading ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Ask a free-form business question. CHANAKYA answers from authorised Catalyst One
+              evidence only — advisory, never mutating records.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {suggested.map((prompt) => (
+                <button
+                  key={prompt.id}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void sendMessage(prompt.label)}
+                  className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-[var(--ei-teal)]/40 hover:text-foreground disabled:opacity-50"
+                >
+                  {prompt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={cn(
-                "rounded-xl px-3 py-2 text-sm whitespace-pre-wrap",
-                msg.role === "user"
-                  ? "ml-6 bg-[var(--ei-teal)]/10 text-[var(--ei-ink)]"
-                  : "mr-4 border border-border/70 bg-background/90 text-[var(--ei-ink-soft)]",
-              )}
-            >
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {msg.role === "user" ? "You" : "CHANAKYA"}
+          grouped.map((group) => (
+            <div key={group.day} className="space-y-3">
+              <p className="text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                {group.day}
               </p>
-              <p>{msg.text}</p>
-              {msg.role === "assistant" && msg.evidence && msg.evidence.length > 0 ? (
-                <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-                  {msg.evidence.slice(0, 6).map((item) => (
-                    <li key={`${item.href}-${item.dealRef || item.opportunityRef || item.label}`}>
-                      <a
-                        href={item.href}
-                        className="text-[var(--ei-teal)] underline-offset-2 hover:underline"
+              {group.items.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "max-w-[92%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap shadow-[var(--ei-depth-1)]",
+                    msg.role === "user"
+                      ? "ml-auto bg-[var(--ei-teal)]/12 text-[var(--ei-ink)]"
+                      : "mr-auto border border-border/70 bg-background/90 text-[var(--ei-ink-soft)]",
+                  )}
+                >
+                  <p className="mb-1 flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span>{msg.role === "user" ? "You" : "CHANAKYA"}</span>
+                    <span className="font-normal normal-case">{formatClock(msg.createdAt)}</span>
+                  </p>
+                  <p>{msg.text}</p>
+                  {msg.role === "assistant" && msg.evidence && msg.evidence.length > 0 ? (
+                    <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                      {msg.evidence.slice(0, 6).map((item) => (
+                        <li key={`${item.href}-${item.dealRef || item.opportunityRef || item.label}`}>
+                          <a
+                            href={item.href}
+                            className="text-[var(--ei-teal)] underline-offset-2 hover:underline"
+                          >
+                            {item.label || item.dealRef || item.opportunityRef || "Open record"}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {msg.role === "assistant" ? (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={() => void copyText(msg.text)}
                       >
-                        {item.label || item.dealRef || item.opportunityRef || "Open record"}
-                      </a>
-                      {item.stage || item.freshness ? (
-                        <span>
-                          {" "}
-                          · {[item.stage, item.freshness].filter(Boolean).join(" · ")}
-                        </span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+                        <Copy className="mr-1 h-3 w-3" aria-hidden />
+                        Copy response
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        aria-label="Helpful"
+                        onClick={() =>
+                          sessionId
+                            ? void postChanakyaMessageFeedback({
+                                sessionId,
+                                messageId: msg.id,
+                                feedback: "up",
+                              })
+                            : undefined
+                        }
+                      >
+                        <ThumbsUp className="h-3 w-3" aria-hidden />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        aria-label="Not helpful"
+                        onClick={() =>
+                          sessionId
+                            ? void postChanakyaMessageFeedback({
+                                sessionId,
+                                messageId: msg.id,
+                                feedback: "down",
+                              })
+                            : undefined
+                        }
+                      >
+                        <ThumbsDown className="h-3 w-3" aria-hidden />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
             </div>
           ))
         )}
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            CHANAKYA is compiling enterprise evidence…
+
+        {awaitingFirstToken ? (
+          <div className="mr-auto flex items-center gap-2 rounded-2xl border border-border/70 bg-background/90 px-3 py-2 text-sm text-muted-foreground">
+            <span className="flex gap-1" aria-label="CHANAKYA is typing">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--ei-teal)]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--ei-teal)] [animation-delay:120ms]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--ei-teal)] [animation-delay:240ms]" />
+            </span>
+            CHANAKYA is writing…
+          </div>
+        ) : null}
+
+        {streamingText && !awaitingFirstToken ? (
+          <div className="mr-auto max-w-[92%] rounded-2xl border border-border/70 bg-background/90 px-3 py-2 text-sm whitespace-pre-wrap">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              CHANAKYA
+            </p>
+            <p>{streamingText}</p>
+          </div>
+        ) : null}
+
+        {proposalDraft ? (
+          <div className="rounded-xl border border-[var(--ei-teal)]/30 bg-[var(--ei-teal)]/5 p-3 text-[12px]">
+            <p className="font-medium">
+              Proposal draft ready · not sent · not saved as a business record
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                onClick={() => void copyText(proposalDraft.fullText)}
+              >
+                Copy
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                onClick={() => {
+                  const w = window.open("", "_blank");
+                  if (w) {
+                    w.document.write(
+                      `<pre>${proposalDraft.fullText.replace(/</g, "&lt;")}</pre>`,
+                    );
+                  }
+                }}
+              >
+                Preview
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                onClick={downloadProposal}
+              >
+                <Download className="mr-1 h-3 w-3" aria-hidden />
+                Download
+              </Button>
+              {workspaceHref ? (
+                <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]" asChild>
+                  <a href={workspaceHref}>Open Proposal Workspace</a>
+                </Button>
+              ) : (
+                <p className="w-full text-[11px] text-muted-foreground">
+                  {CHANAKYA_PHASE1_SELECT_TRANSACTION_MESSAGE}
+                </p>
+              )}
+            </div>
           </div>
         ) : null}
         <div ref={bottomRef} />
@@ -184,7 +580,7 @@ export function ChanakyaInappConversationPanel({
       {error ? (
         <div
           role="alert"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-200"
+          className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-200"
         >
           <p>{error}</p>
           {lastFailedMessage ? (
@@ -203,55 +599,62 @@ export function ChanakyaInappConversationPanel({
         </div>
       ) : null}
 
-      <form onSubmit={onSubmit} className="space-y-3">
+      <form onSubmit={onSubmit} className="shrink-0 space-y-2 border-t border-border/60 pt-2">
         <div className="relative">
-          <Sparkles
-            className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[var(--ei-teal)]"
-            aria-hidden
-          />
           <Textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Ask CHANAKYA anything about your business…"
-            disabled={loading}
-            rows={2}
-            className="min-h-[2.75rem] resize-y border-dashed bg-muted/20 pl-9 pr-12 text-sm"
+            placeholder="Ask CHANAKYA about Catalyst One…"
+            disabled={false}
+            rows={3}
+            className="min-h-[4.5rem] resize-y bg-muted/20 pr-24 text-sm"
             aria-controls={listId}
             aria-label="Ask CHANAKYA"
           />
-          <Button
-            type="submit"
-            size="icon"
-            className="absolute bottom-2 right-2 h-8 w-8"
-            disabled={loading || !draft.trim()}
-            aria-label="Send question to CHANAKYA"
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <Send className="h-4 w-4" aria-hidden />
-            )}
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {prompts.map((prompt) => (
-            <button
-              key={prompt.id}
+          <div className="absolute bottom-2 right-2 flex items-center gap-1">
+            <Button
               type="button"
+              size="icon"
+              variant={listening ? "default" : "outline"}
+              className="h-8 w-8"
+              onClick={toggleMic}
               disabled={loading}
-              onClick={() => void sendMessage(prompt.label)}
-              className="rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-[var(--ei-teal)]/40 hover:text-foreground disabled:opacity-50"
+              aria-label={listening ? "Stop dictation" : "Start dictation"}
+              aria-pressed={listening}
             >
-              {prompt.label}
-            </button>
-          ))}
+              {listening ? <MicOff className="h-4 w-4" aria-hidden /> : <Mic className="h-4 w-4" aria-hidden />}
+            </Button>
+            {loading ? (
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="h-8 w-8"
+                onClick={stopGenerating}
+                aria-label="Stop generating"
+              >
+                <Square className="h-3.5 w-3.5" aria-hidden />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                size="icon"
+                className="h-8 w-8"
+                disabled={loading || !draft.trim()}
+                aria-label="Send question to CHANAKYA"
+              >
+                <Send className="h-4 w-4" aria-hidden />
+              </Button>
+            )}
+          </div>
         </div>
-
         <p className="text-[11px] text-muted-foreground">
-          Multi-turn conversation uses CHANAKYA Enterprise Read Context. Read-only · no
-          FOIR/DSCR/LTV/DBR · OCR gaps stay OCR_REQUIRED / NOT_AVAILABLE.
+          {listening
+            ? "Listening…"
+            : loading
+              ? "Processing…"
+              : "Enter to send · Shift+Enter for a new line"}
         </p>
       </form>
     </div>

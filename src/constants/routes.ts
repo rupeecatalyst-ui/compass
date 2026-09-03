@@ -56,6 +56,7 @@ export const ROUTES = {
   CREDIT_BENCH: "/credit-bench",
   CREDIT_WORKBENCH: "/credit-workbench",
   TASKS: "/tasks",
+  STICKY_NOTES: "/sticky-notes",
   /** Employee-facing Activity & Dialogue desk (EAR / TransactionActivityTimeline). */
   ACTIVITY: "/activity",
   /** @deprecated Redirects to ACTIVITY — unified Activity & Dialogue. */
@@ -270,6 +271,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.CREDIT_BENCH,
   ROUTES.CREDIT_WORKBENCH,
   ROUTES.TASKS,
+  ROUTES.STICKY_NOTES,
   ROUTES.ACTIVITY,
   ROUTES.DIALOGUE,
   ROUTES.CONTACTS,

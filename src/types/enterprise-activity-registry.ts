@@ -80,4 +80,7 @@ export interface ListEnterpriseActivityQuery {
   contactId?: string;
   sourceSystem?: string;
   since?: string;
+  until?: string;
+  actorUserId?: string;
+  cursor?: string;
 }

@@ -5,7 +5,9 @@
 
 import { listEnterpriseActivity } from "@/lib/enterprise-activity-registry/api-client";
 import { subscribeEarUpdated } from "@/lib/enterprise-activity-registry/session-registry";
+import { composeDetailedTimelineRow } from "@/lib/enterprise-activity-registry/detailed-timeline";
 import type { EnterpriseActivityEvent } from "@/types/enterprise-activity-registry";
+import { stickyNoteMustNotEnterSharedActivity } from "@/lib/sticky-notes/owner-scope";
 
 /** Presentation categories (mapped from existing EAR kinds — not new producers). */
 export type TransactionTimelineCategory =
@@ -114,6 +116,7 @@ export function isOperationalTimelineEvent(event: EnterpriseActivityEvent): bool
   const title = (event.title || "").trim();
   if (!title) return false;
   if (NOISE_KINDS.has(kind) || NOISE_SOURCES.has(source)) return false;
+  if (stickyNoteMustNotEnterSharedActivity(event.sourceSystem)) return false;
   if (NOISE_TITLE_RE.test(title) || NOISE_TITLE_RE.test(event.summary || "")) return false;
   return true;
 }
@@ -157,15 +160,6 @@ export function classifyEarEvent(
     return "system";
   }
   return "system";
-}
-
-function resolveActor(event: EnterpriseActivityEvent): string {
-  const name = event.actorName?.trim();
-  if (name) return name;
-  const payload = asRecord(event.payload);
-  const fromPayload = stringField(payload, ["actorLabel", "actorName", "createdByName"]);
-  if (fromPayload) return fromPayload;
-  return "System";
 }
 
 function resolveEntityLabel(
@@ -220,7 +214,9 @@ export function mapEarEventToTimelineItem(
     : { previousValue: null, newValue: null };
   const payload = asRecord(event.payload);
   const inboundEmailId = stringField(payload, ["inboundEmailId"]);
+  const detailed = composeDetailedTimelineRow(event);
   const needsAttention =
+    detailed.needsAttention ||
     payload.needsAttention === true ||
     stringField(payload, ["matchStatus"]) === "needs_review" ||
     stringField(payload, ["matchStatus"]) === "unmatched" ||
@@ -230,12 +226,12 @@ export function mapEarEventToTimelineItem(
     occurredAt: event.occurredAt,
     category,
     categoryLabel: CATEGORY_LABELS[category],
-    title: event.title?.trim() || "Activity",
-    description: (event.summary || "").trim(),
-    actorLabel: resolveActor(event),
+    title: detailed.title,
+    description: detailed.explanation,
+    actorLabel: detailed.actorLabel,
     entityLabel: resolveEntityLabel(event, scope),
-    previousValue: pair.previousValue,
-    newValue: pair.newValue,
+    previousValue: detailed.beforeValue || pair.previousValue,
+    newValue: detailed.afterValue || pair.newValue,
     opportunityId: event.opportunityId,
     dealId: event.dealId,
     sourceSystem: String(event.sourceSystem || ""),
@@ -432,6 +428,7 @@ export function formatTimelineWhen(iso: string): { day: string; time: string } {
     const time = d.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
       hour12: true,
     });
     return { day, time };

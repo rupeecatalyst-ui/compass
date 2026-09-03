@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   Download,
   Expand,
@@ -22,6 +23,8 @@ import {
 import { documentWorkspaceReviewLabel } from "@/lib/document-workspace/review-status";
 import type { DocumentWorkspaceRow } from "@/lib/document-workspace";
 import { cn } from "@/lib/utils";
+
+const EMPTY_VERSIONS: NonNullable<DocumentWorkspaceRow["record"]>["versions"] = [];
 
 export function DocumentWorkspacePreview({
   row,
@@ -50,7 +53,8 @@ export function DocumentWorkspacePreview({
   const [reason, setReason] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  const versions = row.record?.versions ?? [];
+  const versions = row.record?.versions ?? EMPTY_VERSIONS;
+  const currentVersionId = versions.find((v) => v.isCurrent)?.id ?? versions[0]?.id ?? null;
   const version =
     versions.find((v) => v.id === versionId) ??
     versions.find((v) => v.isCurrent) ??
@@ -61,17 +65,20 @@ export function DocumentWorkspacePreview({
     setRotation(0);
     setFit(true);
     setReason("");
-    setVersionId(versions.find((v) => v.isCurrent)?.id ?? versions[0]?.id ?? null);
-  }, [row.id]);
+    setVersionId(currentVersionId);
+  }, [row.id, currentVersionId]);
+
+  const versionBlobId = version?.blobId ?? null;
+  const versionKey = version?.id ?? null;
 
   useEffect(() => {
-    if (!version) {
+    if (!versionBlobId) {
       setPreviewUrl(null);
       return;
     }
     let revoked: string | null = null;
     let cancelled = false;
-    void createBlobObjectUrl(version.blobId).then((url) => {
+    void createBlobObjectUrl(versionBlobId).then((url) => {
       if (cancelled) {
         if (url) URL.revokeObjectURL(url);
         return;
@@ -83,7 +90,7 @@ export function DocumentWorkspacePreview({
       cancelled = true;
       if (revoked) URL.revokeObjectURL(revoked);
     };
-  }, [version?.blobId, version?.id]);
+  }, [versionBlobId, versionKey]);
 
   const previewable =
     version && previewUrl && canPreviewDocument(version.mimeType, version.originalFilename);
@@ -166,10 +173,13 @@ export function DocumentWorkspacePreview({
         <div className="min-w-0 flex-1 overflow-auto bg-muted/20 p-3">
           {previewable ? (
             isImage ? (
-              <img
+              <Image
                 src={previewUrl!}
                 alt={row.typeLabel}
-                className="mx-auto origin-center"
+                width={1600}
+                height={2200}
+                unoptimized
+                className="mx-auto h-auto w-auto origin-center"
                 style={{
                   transform: `rotate(${rotation}deg) scale(${fit ? zoom / 100 : zoom / 100})`,
                   maxWidth: fit ? "100%" : "none",

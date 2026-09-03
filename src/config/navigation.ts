@@ -38,6 +38,7 @@ import {
   Gauge,
   Handshake,
   Eraser,
+  StickyNote,
   Mail,
   History,
   type LucideIcon,
@@ -185,7 +186,7 @@ export const administrationChildren: NavSubItem[] = [
 /**
  * Primary domain navigation — Column 1 (Architecture Freeze + CO-ARCH-003).
  * Dashboard · CHANAKYA Radar · Contacts · My Opportunities · My Deals · Loan Journey ·
- * Document Workspace · Investments · Tasks · Activity & Dialogue · Enterprise Lender Directory ·
+ * Document Workspace · Investments · Tasks · Sticky Notes · Activity & Dialogue · Enterprise Lender Directory ·
  * Accounting · Mission Control · Horizon · Administration · Settings
  * Mission Control primary href = Executive Briefing (Radar remains a separate primary item).
  * CO-SPRINT-111: Administration is a single entry → Administration Console (not an expandable tree).
@@ -213,6 +214,7 @@ export const primaryDomainNavigation: NavGroup = {
     },
     { title: "Investments", href: ROUTES.INVESTMENTS, icon: LineChart, badge: "Soon" },
     { title: "Tasks", href: ROUTES.TASKS, icon: ListTodo },
+    { title: "Sticky Notes", href: ROUTES.STICKY_NOTES, icon: StickyNote },
     {
       title: "Activity & Dialogue",
       href: ROUTES.ACTIVITY,

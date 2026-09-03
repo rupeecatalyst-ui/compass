@@ -403,6 +403,10 @@ export function createOrRegenerateUploadSession(input: {
   rmName?: string;
   actor: string;
   regenerate?: boolean;
+  lockedDealId?: string | null;
+  lockedContactId?: string | null;
+  lockedCompanyId?: string | null;
+  lockedRequestRefs?: string[];
 }): DocumentRequestWorkspaceState {
   const current = getDocumentRequestState(input.opportunityId);
   const now = Date.now();
@@ -416,6 +420,10 @@ export function createOrRegenerateUploadSession(input: {
     borrowerTypeLabel: input.borrowerTypeLabel,
     constitutionLabel: input.constitutionLabel,
     rmName: input.rmName,
+    lockedDealId: input.lockedDealId?.trim() || null,
+    lockedContactId: input.lockedContactId?.trim() || null,
+    lockedCompanyId: input.lockedCompanyId?.trim() || null,
+    lockedRequestRefs: input.lockedRequestRefs?.filter(Boolean),
     applicationStatus: CUSTOMER_PORTAL_DEFAULT_APPLICATION_STATUS,
     currentStage: CUSTOMER_PORTAL_DEFAULT_STAGE,
     createdAt: new Date(now).toISOString(),

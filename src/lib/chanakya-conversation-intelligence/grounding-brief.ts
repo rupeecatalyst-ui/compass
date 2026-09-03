@@ -7,6 +7,7 @@ import type { ChanakyaEnterpriseReadCompileResult } from "@/types/chanakya-enter
 import type { ChanakyaInappEntityRefs, ChanakyaInappIntent } from "@/types/chanakya-inapp-conversation";
 import type { ChanakyaGroundingBrief } from "@/types/chanakya-conversation-intelligence";
 import { redactFacingIntelligenceText } from "./facing-redact";
+import { collectChanakyaDocumentGroundingNotes } from "@/lib/chanakya-conversational-intelligence/document-grounding";
 import {
   buildInterventionCards,
   INTERVENTION_EMPTY_CRITERIA,
@@ -102,10 +103,12 @@ export function buildChanakyaGroundingBrief(input: {
     str(compile?.productLenderIntelligence?.summary) || "",
   );
 
-  const documentNotes = (compile?.limitations ?? [])
-    .map(friendlyLimitation)
-    .filter((item): item is string => Boolean(item))
-    .slice(0, 4);
+  const documentNotes = [
+    ...(compile?.limitations ?? [])
+      .map(friendlyLimitation)
+      .filter((item): item is string => Boolean(item)),
+    ...collectChanakyaDocumentGroundingNotes(compile),
+  ].slice(0, 24);
 
   const emptyCriteria =
     cards.length === 0

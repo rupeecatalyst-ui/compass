@@ -83,6 +83,13 @@ export async function ingestCustomerPortalDocument(input: {
 }): Promise<CustomerPortalUploadResult> {
   const { session, item, file, mode } = input;
 
+  if (session.lockedRequestRefs?.length) {
+    const ref = getDocumentRequestRef(item);
+    if (!session.lockedRequestRefs.includes(ref)) {
+      return { ok: false, reason: "This secure upload link is locked to a different request." };
+    }
+  }
+
   appendUploadSessionAudit({
     token: session.token,
     opportunityId: session.opportunityId,
@@ -121,6 +128,9 @@ export async function ingestCustomerPortalDocument(input: {
       uploadSource: DIRECT_UPLOAD_SOURCE,
       links: {
         opportunityId: session.opportunityId,
+        dealId: session.lockedDealId || undefined,
+        contactId: session.lockedContactId || undefined,
+        companyId: session.lockedCompanyId || undefined,
         participantId: item.ownerScope === "participant" ? item.participantId : undefined,
         documentScope: item.ownerScope === "participant" ? "applicant" : "shared",
       },

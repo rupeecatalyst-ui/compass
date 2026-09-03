@@ -27,6 +27,8 @@ export type ChanakyaInappIntent =
   | "what_next"
   | "who_handles"
   | "compare_similar"
+  | "document_status"
+  | "make_proposal"
   | "general_desk";
 
 export type ChanakyaInappMessageRole = "user" | "assistant" | "system";
@@ -47,6 +49,9 @@ export type ChanakyaInappMessage = {
   availabilityNotes: string[];
   entityRefs?: ChanakyaInappEntityRefs;
   evidence?: ChanakyaConversationEvidenceLink[];
+  proposalDraftId?: string | null;
+  feedback?: "up" | "down" | null;
+  completionStatus?: "pending" | "complete" | "cancelled" | "failed";
 };
 
 export type ChanakyaInappSession = {
@@ -55,6 +60,7 @@ export type ChanakyaInappSession = {
   organizationId: string;
   createdAt: string;
   updatedAt: string;
+  title: string;
   messages: ChanakyaInappMessage[];
   /** Continuity — last entity the conversation was discussing. */
   activeEntity: ChanakyaInappEntityRefs;
@@ -70,6 +76,8 @@ export type ChanakyaInappTurnRequest = {
   opportunityId?: string | null;
   dealId?: string | null;
   changePeriod?: ChanakyaChangePeriod | null;
+  /** Client retry identity — never an owner or organisation claim. */
+  idempotencyKey?: string | null;
 };
 
 export type ChanakyaInappCompilePlan = {

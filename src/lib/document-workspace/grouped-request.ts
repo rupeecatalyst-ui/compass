@@ -52,6 +52,16 @@ ${link}
 This message is a draft. Nothing has been sent yet.`;
 }
 
+export function lodItemsForLockedUploadSession(input: {
+  items: DocumentRequestItemState[];
+  lockedRequestRefs?: string[] | null;
+}): DocumentRequestItemState[] {
+  const refs = (input.lockedRequestRefs ?? []).map((ref) => ref.trim()).filter(Boolean);
+  if (!refs.length) return input.items;
+  const allow = new Set(refs);
+  return input.items.filter((item) => allow.has(getDocumentRequestRef(item)));
+}
+
 export function selectedRequestRefs(items: DocumentRequestItemState[]): string[] {
   return items.map((item) => getDocumentRequestRef(item)).filter(Boolean);
 }

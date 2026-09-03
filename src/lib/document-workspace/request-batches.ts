@@ -8,6 +8,9 @@ export type DocumentWorkspaceRequestChannel = "email" | "whatsapp" | "secure_lin
 export type DocumentWorkspaceRequestBatch = {
   id: string;
   opportunityId: string;
+  dealId?: string | null;
+  contactId?: string | null;
+  companyId?: string | null;
   recipientName: string;
   recipientId?: string;
   channel: DocumentWorkspaceRequestChannel;

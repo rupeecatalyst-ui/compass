@@ -49,15 +49,12 @@ const primary = nav.slice(
   nav.indexOf("export function isContextDomain"),
 );
 const tasksIdx = primary.indexOf('title: "Tasks"');
-const activityIdx = primary.indexOf('title: "Activity"');
-const dialogueIdx = primary.indexOf('title: "Dialogue"');
-const documentsIdx = primary.indexOf('title: "Documents"');
+const stickyNotesIdx = primary.indexOf('title: "Sticky Notes"');
+const activityIdx = primary.indexOf('title: "Activity & Dialogue"');
 assert.ok(tasksIdx > 0, "Tasks nav item");
-assert.ok(activityIdx > tasksIdx, "Activity follows Tasks");
-assert.ok(dialogueIdx > activityIdx, "Dialogue follows Activity");
-assert.ok(documentsIdx > dialogueIdx, "Documents follows Dialogue");
-assert.match(primary, /href:\s*buildDashboardHref\(ROUTES\.ACTIVITY\)/);
-assert.match(primary, /href:\s*ROUTES\.DIALOGUE/);
+assert.ok(stickyNotesIdx > tasksIdx, "Sticky Notes follows Tasks");
+assert.ok(activityIdx > stickyNotesIdx, "Activity & Dialogue follows Sticky Notes");
+assert.match(primary, /href:\s*ROUTES\.ACTIVITY/);
 
 assert.ok(existsSync(join(root, "src/app/(dashboard)/activity/page.tsx")), "Activity route page");
 assert.ok(existsSync(join(root, "src/app/(dashboard)/dialogue/page.tsx")), "Dialogue route page");
@@ -66,15 +63,14 @@ const activityPage = read("src/app/(dashboard)/activity/page.tsx");
 assert.match(activityPage, /ActivityDeskWorkspace/);
 
 const activityDesk = read("src/components/catalyst-one/activity/activity-desk-workspace.tsx");
-assert.match(activityDesk, /TransactionActivityTimeline/);
+assert.match(activityDesk, /DetailedActivityDialogueTimeline/);
 assert.match(activityDesk, /shouldShowEntitySelectionScreen/);
-assert.match(activityDesk, /mode: "opportunity"/);
-assert.match(activityDesk, /mode: "deal"/);
 assert.doesNotMatch(activityDesk, /from "@\/components\/catalyst-one\/dialogue/);
 assert.doesNotMatch(activityDesk, /inbox|messaging thread/i);
 
 const dialoguePage = read("src/app/(dashboard)/dialogue/page.tsx");
-assert.match(dialoguePage, /DialogueCenterWorkspace/);
+assert.match(dialoguePage, /ROUTES\.ACTIVITY/);
+assert.match(dialoguePage, /redirect/);
 
 const dialogue = read(
   "src/components/catalyst-one/dialogue/dialogue-center-workspace.tsx",

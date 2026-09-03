@@ -27,7 +27,7 @@ export {
   isChanakyaConversationModelConfigured,
   getChanakyaConversationModelPort,
 } from "./model-port";
-export { generateChanakyaConversationAnswer } from "./generate-answer";
+export { generateChanakyaConversationAnswer, streamChanakyaConversationAnswer } from "./generate-answer";
 export {
   actorHasOrgWideChanakyaView,
   actorMaySeeAttentionRow,

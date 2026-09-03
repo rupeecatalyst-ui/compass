@@ -116,6 +116,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         opportunityId,
         dealId,
         changePeriod,
+        idempotencyKey:
+          typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : null,
       },
     });
 

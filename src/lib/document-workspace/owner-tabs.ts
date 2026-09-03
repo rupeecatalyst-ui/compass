@@ -38,7 +38,7 @@ export function resolveDocumentWorkspaceOwnerTab(input: {
   }
 
   if (scope === "shared" && !input.lodItem?.participantId && !input.record?.links.participantId) {
-    return { tab: "shared", ownerLabel: "Shared Transaction" };
+    return { tab: "shared", ownerLabel: "Shared Opportunity documents" };
   }
 
   const participantId =

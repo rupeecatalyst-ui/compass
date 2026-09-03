@@ -18,6 +18,23 @@ export function classifyChanakyaInappIntent(
   const q = norm(message);
 
   if (
+    /\b(make (a |the )?proposal|draft (a |the )?proposal|generate (a |the )?proposal|prepare (a |the )?proposal|write (a |the )?proposal)\b/.test(
+      q,
+    )
+  ) {
+    return "make_proposal";
+  }
+
+  if (
+    /\b(which documents|what documents|documents? (required|pending|missing|received|rejected|expired|accepted|under review)|document-ready|document ready|co-applicant|company documents|lender program require|applicant documents)\b/.test(
+      q,
+    ) ||
+    /\b(lod|list of documents|what should we request next)\b/.test(q)
+  ) {
+    return "document_status";
+  }
+
+  if (
     /\b(what should i do next|what next|next step|recommend next|how do i progress|what should i ask)\b/.test(
       q,
     )
@@ -78,7 +95,7 @@ export function classifyChanakyaInappIntent(
       q,
     )
   ) {
-    return "analyse_financials";
+    return "document_status";
   }
 
   if (
@@ -140,10 +157,18 @@ export function planChanakyaInappCompile(
         requireEntity: false,
         domains: ["executive", "transactions", "execution"],
       };
+    case "document_status":
     case "analyse_financials":
       return {
         mode: "opportunity",
         requireEntity: true,
+        domains: ["executive", "transactions", "documents", "execution"],
+      };
+    case "make_proposal":
+      return {
+        mode: "opportunity",
+        requireEntity: true,
+        domains: ["executive", "transactions", "documents", "execution", "commercial"],
       };
     case "lenders_relevant":
       return {

@@ -7,12 +7,20 @@ export const DOCUMENT_WORKSPACE_TITLE = "Document Workspace";
 export const DOCUMENT_WORKSPACE_SUBTITLE =
   "Enterprise Document Registry · Single Source of Truth";
 
+export const DOCUMENT_WORKSPACE_CHANGE_TRANSACTION = "Change Transaction";
+
+export const DOCUMENT_WORKSPACE_DRAFT_WARNING =
+  "You have an unsaved document request or communication draft. Switching transaction will discard it.";
+
+export const DOCUMENT_WORKSPACE_STALE_CONTEXT =
+  "This communication is locked to a previous transaction. Context is stale or unauthorised — nothing was sent.";
+
 export const DOCUMENT_WORKSPACE_OWNER_TABS = [
   { id: "primary", label: "Primary Applicant" },
   { id: "co_applicants", label: "Co-Applicants" },
   { id: "guarantors", label: "Guarantors" },
   { id: "business", label: "Business / Entity" },
-  { id: "shared", label: "Shared Transaction" },
+  { id: "shared", label: "Shared Opportunity documents" },
   { id: "property", label: "Property / Security" },
 ] as const;
 

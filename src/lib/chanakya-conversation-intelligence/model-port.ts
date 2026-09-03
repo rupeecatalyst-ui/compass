@@ -59,6 +59,8 @@ const livePort: ChanakyaConversationModelPort = {
     const baseUrl = resolveBaseUrl().replace(/\/$/, "");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20_000);
+    const onAbort = () => controller.abort();
+    input.signal?.addEventListener("abort", onAbort, { once: true });
     try {
       const messages: Array<{ role: string; content: string }> = [
         { role: "system", content: input.systemPrompt },
@@ -91,6 +93,73 @@ const livePort: ChanakyaConversationModelPort = {
     } catch {
       return null;
     } finally {
+      input.signal?.removeEventListener("abort", onAbort);
+      clearTimeout(timer);
+    }
+  },
+  async *stream(input) {
+    const apiKey = resolveChanakyaConversationApiKey();
+    if (!apiKey) return;
+
+    const baseUrl = resolveBaseUrl().replace(/\/$/, "");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45_000);
+    const onAbort = () => controller.abort();
+    input.signal?.addEventListener("abort", onAbort, { once: true });
+    try {
+      const messages: Array<{ role: string; content: string }> = [
+        { role: "system", content: input.systemPrompt },
+        ...input.history.slice(-8).map((turn) => ({
+          role: turn.role === "assistant" ? "assistant" : "user",
+          content: turn.text,
+        })),
+        { role: "user", content: input.userPrompt },
+      ];
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: resolveModel(),
+          temperature: 0.2,
+          max_tokens: 900,
+          stream: true,
+          messages,
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) return;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const payload = trimmed.slice(5).trim();
+          if (!payload || payload === "[DONE]") continue;
+          try {
+            const json = JSON.parse(payload) as {
+              choices?: Array<{ delta?: { content?: string } }>;
+            };
+            const piece = json.choices?.[0]?.delta?.content;
+            if (piece) yield piece;
+          } catch {
+            /* ignore malformed SSE fragments */
+          }
+        }
+      }
+    } catch {
+      return;
+    } finally {
+      input.signal?.removeEventListener("abort", onAbort);
       clearTimeout(timer);
     }
   },

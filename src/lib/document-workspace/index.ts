@@ -9,6 +9,7 @@ export {
   groupDocumentRequestItemsByOwner,
   buildGroupedDocumentRequestBody,
   selectedRequestRefs,
+  lodItemsForLockedUploadSession,
 } from "./grouped-request";
 export {
   eligibleRecordsForLenderPack,
@@ -28,3 +29,10 @@ export {
   markDocumentWorkspaceRequestResponse,
 } from "./request-batches";
 export type { DocumentWorkspaceRequestBatch } from "./request-batches";
+export {
+  buildDocumentWorkspaceHref,
+  filterRegistryRecordsForLockedContext,
+  composerMustRefuseStaleContext,
+  parseDocumentWorkspaceSearchParams,
+} from "./context-lock";
+export type { DocumentWorkspaceContextInput } from "@/types/document-workspace-context";

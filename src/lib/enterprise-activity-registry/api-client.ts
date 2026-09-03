@@ -14,6 +14,17 @@ import type {
   EnterpriseActivityEvent,
   ListEnterpriseActivityQuery,
 } from "@/types/enterprise-activity-registry";
+import type {
+  DetailedTimelineCounts,
+  DetailedTimelineFilters,
+  DetailedTimelineRow,
+} from "@/types/activity-dialogue-timeline";
+import {
+  emptyDetailedTimelineCounts,
+  emptyDetailedTimelineFilters,
+  paginateAuthorisedTimeline,
+} from "@/lib/enterprise-activity-registry/detailed-timeline";
+import { detailedTimelineFiltersToSearchParams } from "@/lib/enterprise-activity-registry/detailed-timeline-state";
 
 function buildQuery(params: ListEnterpriseActivityQuery): string {
   const q = new URLSearchParams();
@@ -24,6 +35,9 @@ function buildQuery(params: ListEnterpriseActivityQuery): string {
   if (params.contactId) q.set("contactId", params.contactId);
   if (params.sourceSystem) q.set("sourceSystem", params.sourceSystem);
   if (params.since) q.set("since", params.since);
+  if (params.until) q.set("until", params.until);
+  if (params.actorUserId) q.set("actorUserId", params.actorUserId);
+  if (params.cursor) q.set("cursor", params.cursor);
   const s = q.toString();
   return s ? `?${s}` : "";
 }
@@ -149,4 +163,80 @@ export async function emitEnterpriseActivity(
 /** Fire-and-forget emit — never blocks the business workflow. */
 export function emitEnterpriseActivityBestEffort(input: EmitEnterpriseActivityInput): void {
   void emitEnterpriseActivity(input);
+}
+
+export async function listDetailedActivityDialogueTimeline(input: {
+  filters?: DetailedTimelineFilters;
+  cursor?: string | null;
+  limit?: number;
+} = {}): Promise<{
+  items: DetailedTimelineRow[];
+  counts: DetailedTimelineCounts;
+  pageInfo: { nextCursor: string | null; hasNextPage: boolean };
+  summary: DetailedTimelineCounts;
+  nextCursor: string | null;
+  hasMore: boolean;
+  durable: boolean;
+}> {
+  const filters = input.filters ?? emptyDetailedTimelineFilters();
+  const params = detailedTimelineFiltersToSearchParams(filters);
+  if (input.cursor) params.set("cursor", input.cursor);
+  if (input.limit != null) params.set("limit", String(input.limit));
+  const qs = params.toString();
+  try {
+    const res = await authenticatedJsonFetch(
+      `${EAR_API_PATH}/timeline${qs ? `?${qs}` : ""}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) throw new Error("timeline_unavailable");
+    const payload = (await res.json()) as {
+      data?: {
+        items?: DetailedTimelineRow[];
+        counts?: DetailedTimelineCounts;
+        summary?: DetailedTimelineCounts;
+        pageInfo?: { nextCursor?: string | null; hasNextPage?: boolean };
+        nextCursor?: string | null;
+        hasMore?: boolean;
+        durable?: boolean;
+      };
+    };
+    const data = payload.data;
+    if (!data) throw new Error("timeline_unavailable");
+    const summary = data.summary ?? data.counts ?? emptyDetailedTimelineCounts(Boolean(data.durable));
+    const nextCursor = data.pageInfo?.nextCursor ?? data.nextCursor ?? null;
+    const hasNextPage = data.pageInfo?.hasNextPage ?? Boolean(data.hasMore);
+    return {
+      items: data.items ?? [],
+      counts: summary,
+      summary,
+      pageInfo: { nextCursor, hasNextPage },
+      nextCursor,
+      hasMore: hasNextPage,
+      durable: Boolean(data.durable),
+    };
+  } catch {
+    const session = sessionFallback({
+      limit: 500,
+      opportunityId: filters.opportunityId || undefined,
+      dealId: filters.dealId || undefined,
+      contactId: filters.contactId || undefined,
+      since: filters.since || undefined,
+    });
+    const page = paginateAuthorisedTimeline(session, {
+      filters,
+      includeTechnical: false,
+      pageSize: input.limit ?? 40,
+      cursor: input.cursor,
+      complete: false,
+    });
+    return {
+      items: page.items,
+      counts: page.summary,
+      summary: page.summary,
+      pageInfo: page.pageInfo,
+      nextCursor: page.pageInfo.nextCursor,
+      hasMore: page.pageInfo.hasNextPage,
+      durable: false,
+    };
+  }
 }

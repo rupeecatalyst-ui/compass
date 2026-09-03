@@ -5,6 +5,7 @@
 export {
   emitEnterpriseActivity,
   emitEnterpriseActivityBestEffort,
+  listDetailedActivityDialogueTimeline,
   listEnterpriseActivity,
 } from "./api-client";
 export { hydrateEdcFromEar } from "./hydrate-edc";
@@ -39,3 +40,16 @@ export {
   type TransactionTimelineItem,
   type TransactionTimelineScope,
 } from "./transaction-timeline";
+export {
+  composeDetailedTimelinePage,
+  composeDetailedTimelineRow,
+  composeHumanReadableNarrative,
+  dedupeEnterpriseActivityEvents,
+  earDedupeKey,
+  looksLikeRawEventCode,
+} from "./detailed-timeline";
+export {
+  buildActivityTimelineHref,
+  parseDetailedTimelineFiltersFromSearch,
+  saveDetailedTimelineRestoreState,
+} from "./detailed-timeline-state";
