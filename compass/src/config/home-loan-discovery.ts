@@ -119,7 +119,7 @@ export const discoveryCopy = {
   },
   monthlyIncome: {
     heading: "Monthly Income",
-    helper: "Approximate monthly income in Indian Rupees. Limits come from Catalyst One.",
+    helper: "Approximate monthly income in Indian Rupees.",
     min: 25_000,
     max: 10_00_000,
     default: 1_50_000,

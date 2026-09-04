@@ -26,7 +26,7 @@ export const personalLoanLanding = {
     eyebrow: "Why COMPASS",
     headline: "Fast · Flexible · Stress-free",
     subheadline:
-      "A Personal Loan should feel simple. COMPASS keeps the experience calm — and keeps complexity inside Catalyst One.",
+      "A Personal Loan should feel simple. COMPASS keeps the experience calm — and keeps complexity behind the scenes.",
     pillars: [
       {
         id: "fast",

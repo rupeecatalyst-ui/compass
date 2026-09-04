@@ -21,7 +21,11 @@ export function SiteFooter() {
           <div>
             <CompassLogo showTagline />
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-              {siteConfig.tagline} — the customer platform from {siteConfig.company}.
+              {siteConfig.tagline}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground/80">{siteConfig.campaignTagline}</p>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              {siteConfig.legalOperatorStatement}
             </p>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               {siteConfig.officeAddress}
@@ -81,10 +85,15 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-2 border-t border-border/50 pt-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            © {year} {siteConfig.company}. All rights reserved.
-          </p>
+        <div className="mt-12 flex flex-col gap-3 border-t border-border/50 pt-8 text-sm text-muted-foreground sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <p>
+              © {year} {siteConfig.company}. All rights reserved.
+            </p>
+            <p className="max-w-xl text-xs leading-relaxed sm:text-sm">
+              {siteConfig.notALenderDisclosure}
+            </p>
+          </div>
           <p>
             <span className="font-medium text-foreground">{siteConfig.name}</span>
             <span className="mx-2 opacity-40">·</span>

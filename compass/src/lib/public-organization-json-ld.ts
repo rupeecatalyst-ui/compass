@@ -1,3 +1,4 @@
+import { FOUNDED_YEAR } from "@/config/company-facts";
 import { siteConfig } from "@/config/site";
 
 /**
@@ -8,6 +9,10 @@ export function buildPublicOrganizationJsonLd() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: siteConfig.company,
+    legalName: siteConfig.legalOperator,
+    foundingDate: String(FOUNDED_YEAR),
+    slogan: siteConfig.tagline,
+    description: siteConfig.description,
     telephone: siteConfig.contactPhone,
     email: siteConfig.contactEmail,
     address: {

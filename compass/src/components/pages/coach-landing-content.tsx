@@ -77,7 +77,7 @@ export function CoachLandingContent({ coach }: CoachLandingContentProps) {
       <SectionContainer className="pt-4 pb-20">
         <ComingSoonPanel
           title="Coming Soon"
-          description={`${coach.title} goes deeper soon. Related calculators will appear with Catalyst One Intelligence — no formulas on COMPASS.`}
+          description={`${coach.title} goes deeper soon. Related calculators will appear with Rupee Catalyst intelligence — no formulas on COMPASS.`}
           ctaHref={ROUTES.CONTACT}
           ctaLabel="Contact Us"
           secondaryHref={ROUTES.COACHES}

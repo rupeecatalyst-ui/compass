@@ -7,7 +7,7 @@ export const legalContent = {
     sections: [
       {
         heading: "Introduction",
-        body: `Rupee Catalyst ("we", "us", "our") operates the COMPASS customer platform. This Privacy Policy explains how we collect, use, store and protect personal information when you use our website and application journeys.`,
+        body: `Rupee Catalyst ("we", "us", "our") operates the COMPASS customer platform. ${siteConfig.legalOperatorStatement} This Privacy Policy explains how we collect, use, store and protect personal information when you use our website and application journeys.`,
       },
       {
         heading: "Information we collect",
@@ -53,7 +53,7 @@ export const legalContent = {
       },
       {
         heading: "Nature of service",
-        body: `COMPASS is a customer-facing platform operated by Rupee Catalyst. We provide financial guidance, application facilitation and document collection services. We are not a bank, NBFC or lender. Loan approval, rates, terms and disbursement decisions are made solely by the relevant financial institution.`,
+        body: `COMPASS is a customer-facing platform operated by Rupee Catalyst. ${siteConfig.legalOperatorStatement} We provide financial guidance, application facilitation and document collection services. We are not a bank, NBFC, HFC or lender. Loan approval, rates, terms and disbursement decisions are made solely by the relevant financial institution.`,
       },
       {
         heading: "Indicative information",
@@ -91,7 +91,7 @@ export const legalContent = {
       },
       {
         heading: "No guarantee",
-        body: `Rupee Catalyst does not guarantee loan approval, specific interest rates, COMPASS Advantage amounts, processing timelines or lender outcomes. All lending decisions rest with the respective financial institution.`,
+        body: `Rupee Catalyst does not guarantee loan approval, specific interest rates, COMPASS Advantage amounts, processing timelines or lender outcomes. ${siteConfig.legalOperatorStatement} ${siteConfig.notALenderDisclosure}`,
       },
       {
         heading: "Lender relationships",

@@ -1,3 +1,5 @@
+import { COMPANY_STATISTICS } from "@/config/company-facts";
+
 export const homeLoanLanding = {
   hero: {
     eyebrow: "Home Loan Coach",
@@ -17,40 +19,16 @@ export const homeLoanLanding = {
   },
   metrics: {
     eyebrow: "Proof points",
-    headline: "Trusted by families. Backed by outcomes.",
+    headline: "Trusted by clients. Backed by outcomes.",
     subheadline:
-      "These aren’t statistics — they’re signals of experience, lender access, and guidance you can trust.",
-    items: [
-      {
-        id: "partners",
-        icon: "network",
-        value: 40,
-        suffix: "+",
-        label: "Lending Partners",
-      },
-      {
-        id: "facilitated",
-        icon: "banknote",
-        value: 2500,
-        prefix: "₹",
-        suffix: "+ Cr",
-        label: "Facilitated",
-      },
-      {
-        id: "experience",
-        icon: "shield",
-        value: 15,
-        suffix: "+",
-        label: "Years of Expertise",
-      },
-      {
-        id: "families",
-        icon: "home",
-        value: 1100,
-        suffix: "+",
-        label: "Families Guided",
-      },
-    ],
+      "The same company figures you will see across COMPASS — business facilitated, clients served, lending partners, and advisory since 2017.",
+    items: COMPANY_STATISTICS.map((stat) => ({
+      id: stat.id,
+      icon: stat.icon,
+      displayValue: stat.value,
+      value: 0,
+      label: stat.label,
+    })),
   },
   thoughtStream: {
     eyebrow: "Common questions",

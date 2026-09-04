@@ -22,8 +22,8 @@ export function StrategyAssessmentSection() {
         />
         <div className="rounded-2xl glass-panel p-6 sm:p-8">
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Floating intelligence cards open this assessment. Calculators and matching logic stay
-            inside Catalyst One — COMPASS keeps the journey simple.
+            Floating intelligence cards open this assessment. Matching logic stays behind the
+            scenes — COMPASS keeps the journey simple.
           </p>
           <Button size="lg" className="mt-6 h-12" asChild>
             <Link href={ROUTES.CONTACT}>

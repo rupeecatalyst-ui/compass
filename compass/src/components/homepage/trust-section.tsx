@@ -26,10 +26,8 @@ export function TrustSection() {
           {trust.stats.map((stat) => (
             <AnimatedCounter
               key={stat.id}
-              value={"value" in stat ? stat.value : 0}
-              prefix={"prefix" in stat ? stat.prefix : undefined}
-              suffix={"suffix" in stat ? stat.suffix : undefined}
-              displayValue={"displayValue" in stat ? stat.displayValue : undefined}
+              value={0}
+              displayValue={stat.displayValue}
               label={stat.label}
             />
           ))}

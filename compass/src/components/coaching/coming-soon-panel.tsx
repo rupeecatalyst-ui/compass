@@ -22,7 +22,7 @@ export function ComingSoonPanel({
   description = "This experience is being prepared. Explore related coaches or speak with our team — no calculations run here yet.",
   outcomes = [
     "Clear next steps without pressure",
-    "Guidance shaped by Catalyst One Intelligence",
+    "Guidance shaped by Rupee Catalyst intelligence",
     "No hardcoded formulas on COMPASS",
   ],
   ctaHref = ROUTES.CONTACT,

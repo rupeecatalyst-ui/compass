@@ -52,7 +52,7 @@ export function ToolDetailContent({ tool }: ToolDetailContentProps) {
       <SectionContainer className="pt-2 pb-20">
         <ComingSoonPanel
           title="Coming Soon"
-          description={`${tool.title} will help customers make clearer decisions. Results will be powered by Catalyst One Intelligence — COMPASS will not hardcode formulas.`}
+          description={`${tool.title} will help customers make clearer decisions. Results will be powered by Rupee Catalyst intelligence — COMPASS will not hardcode formulas.`}
           ctaHref={ROUTES.CONTACT}
           ctaLabel={ctaCopy.secondary.talkToUs}
           secondaryHref={ROUTES.TOOLS}

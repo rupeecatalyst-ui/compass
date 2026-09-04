@@ -1,4 +1,4 @@
-export const INTELLIGENCE_ATTRIBUTION = "Powered by Catalyst One Intelligence" as const;
+export const INTELLIGENCE_ATTRIBUTION = "Powered by Rupee Catalyst intelligence" as const;
 
 export type CoachSlug =
   | "home-loan"

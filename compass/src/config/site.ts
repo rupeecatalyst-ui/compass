@@ -1,3 +1,10 @@
+import {
+  CAMPAIGN_TAGLINE,
+  LEGAL_OPERATOR,
+  LEGAL_OPERATOR_STATEMENT,
+  NOT_A_LENDER_DISCLOSURE,
+  PRIMARY_TAGLINE,
+} from "@/config/company-facts";
 import { buildPublicWhatsAppHref } from "@/lib/public-whatsapp";
 
 /** Production URL — set NEXT_PUBLIC_COMPASS_URL on Vercel (e.g. https://www.rupeecatalyst.com). */
@@ -9,8 +16,12 @@ const productionDefaultUrl = "https://www.rupeecatalyst.com";
  */
 export const siteConfig = {
   name: "COMPASS",
-  tagline: "Funding Growth. Building Wealth.",
-  companyTagline: "Funding Growth. Building Wealth.",
+  tagline: PRIMARY_TAGLINE,
+  companyTagline: PRIMARY_TAGLINE,
+  campaignTagline: CAMPAIGN_TAGLINE,
+  legalOperator: LEGAL_OPERATOR,
+  legalOperatorStatement: LEGAL_OPERATOR_STATEMENT,
+  notALenderDisclosure: NOT_A_LENDER_DISCLOSURE,
   description:
     "The intelligent financial platform from Rupee Catalyst — guiding you to borrow better, invest smarter, and build lasting financial confidence.",
   company: "Rupee Catalyst",

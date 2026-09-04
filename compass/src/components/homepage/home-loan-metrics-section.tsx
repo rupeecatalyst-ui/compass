@@ -49,9 +49,8 @@ export function HomeLoanMetricsSection() {
                 })()}
               </div>
             <AnimatedCounter
-              value={item.value}
-              prefix={"prefix" in item ? item.prefix : undefined}
-              suffix={item.suffix}
+              value={item.value ?? 0}
+              displayValue={item.displayValue}
               label={item.label}
               className="[&>p:first-child]:tabular-nums [&>p:first-child]:text-3xl [&>p:first-child]:sm:text-4xl [&>p:first-child]:lg:text-5xl [&>p:first-child]:text-gradient [&>p:last-child]:text-xs [&>p:last-child]:sm:text-sm [&>p:last-child]:tracking-wide"
             />

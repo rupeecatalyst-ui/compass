@@ -3,7 +3,8 @@ import { AboutPageContent } from "@/components/pages/about-page-content";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "Learn why COMPASS exists — intelligent borrowing guidance powered by Rupee Catalyst.",
+  description:
+    "Rupee Catalyst — Financial Fitness Champion. Founded in 2017 and operated by Peakprofits Capital Services Private Limited.",
 };
 
 export default function AboutPage() {

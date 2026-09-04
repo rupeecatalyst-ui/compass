@@ -1,3 +1,8 @@
+import {
+  COMPANY_STATISTICS,
+  formatCompanyStatistic,
+} from "@/config/company-facts";
+
 export const homepageV2 = {
   hero: {
     eyebrow: "Financial Discovery Platform",
@@ -5,28 +10,14 @@ export const homepageV2 = {
     headlineAccent: "Build Financial Confidence.",
     subheadline:
       "COMPASS helps you find the right financial path — with intelligence, expert guidance, and calm clarity at every step.",
-    trustIndicators: [
-      {
-        label: "40+ Lending Partners",
-        icon: "building" as const,
-        tooltip: "Leading Banks, HFCs & NBFCs",
-      },
-      {
-        label: "₹2,500+ Crores Facilitated",
-        icon: "trending" as const,
-        tooltip: "Across Home Loans, LAP & Business Loans",
-      },
-      {
-        label: "1,100+ Families Guided",
-        icon: "shield" as const,
-        tooltip: "Helping customers make confident financial decisions",
-      },
-      {
-        label: "15+ Years of Expertise",
-        icon: "shield" as const,
-        tooltip: "Trusted lending advisory experience",
-      },
-    ],
+    trustIndicators: COMPANY_STATISTICS.map((stat) => ({
+      label: formatCompanyStatistic(stat),
+      icon: (stat.id === "partners" ? "building" : stat.id === "facilitated" ? "trending" : "shield") as
+        | "building"
+        | "trending"
+        | "shield",
+      tooltip: stat.label,
+    })),
     journeyCards: {
       borrow: {
         title: "Borrow",
@@ -99,14 +90,13 @@ export const homepageV2 = {
     ],
   },
   trust: {
-    headline: "Trusted by Thousands",
-    subheadline: "Two decades of lending expertise. A new standard of intelligent guidance.",
-    stats: [
-      { id: "experience", value: 20, suffix: "+", label: "Years of Experience" },
-      { id: "loans", value: 1000, prefix: "₹", suffix: "Cr+", label: "Loans Facilitated" },
-      { id: "partners", value: 100, suffix: "+", label: "Lending Partners" },
-      { id: "customers", displayValue: "10,000+", label: "Families Guided" },
-    ],
+    headline: "Trusted financial advisory",
+    subheadline: "Clear outcomes, measured with the same figures across COMPASS.",
+    stats: COMPANY_STATISTICS.map((stat) => ({
+      id: stat.id,
+      displayValue: stat.value,
+      label: stat.label,
+    })),
     lenders: ["HDFC Bank", "ICICI Bank", "SBI", "Axis Bank", "Kotak", "Bajaj Finserv", "LIC Housing", "Tata Capital"],
     testimonials: [
       {
@@ -134,7 +124,7 @@ export const homepageV2 = {
   },
   finalCta: {
     headline: "Your Financial Future Starts Here",
-    subheadline: "Join thousands who chose clarity over confusion.",
+    subheadline: "Choose clarity over confusion.",
     primaryCta: "Start Borrowing",
     secondaryCta: "Get Started",
   },

@@ -40,7 +40,7 @@ export function FinancialToolsSection() {
       <SectionHeader
         eyebrow="Financial Intelligence"
         headline="Tools for clearer home loan decisions"
-        subheadline="Premium guidance instruments — Coming Soon. Each tool will be powered by Catalyst One Intelligence."
+        subheadline="Premium guidance instruments — Coming Soon. Each tool will be powered by Rupee Catalyst intelligence."
       />
 
       <div className="mt-6 flex justify-center">

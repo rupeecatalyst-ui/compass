@@ -40,7 +40,7 @@ export const homepageContent = {
   features: [
     {
       title: "AI Eligibility Matching",
-      description: "Intelligent pre-screening across 100+ lending partners before you apply.",
+      description: "Intelligent pre-screening across 40+ lending partners before you apply.",
     },
     {
       title: "Human Loan Specialists",
@@ -65,10 +65,10 @@ export const homepageContent = {
   ],
   journey: ["Understand", "Evaluate", "Match", "Apply", "Track", "Get Funded"],
   trustStats: [
-    { value: "20+", label: "Years Experience" },
-    { value: "₹1000Cr+", label: "Loans Facilitated" },
-    { value: "100+", label: "Lending Partners" },
-    { value: "Thousands", label: "Happy Customers" },
+    { value: "₹2,500+ Crore", label: "Business Facilitated" },
+    { value: "1,000+", label: "Clients Served" },
+    { value: "40+", label: "Lending Partners" },
+    { value: "Since 2017", label: "Financial Advisory" },
   ],
   finalCta: {
     headline: "Ready to Borrow Smarter?",
@@ -78,9 +78,9 @@ export const homepageContent = {
 } as const;
 
 export const aboutContent = {
-  headline: "Built for clearer financial decisions",
+  headline: "Your Financial Fitness Champion",
   intro:
-    "Borrowing in India sits between slow, opaque brokers and fast but impersonal marketplaces. COMPASS brings intelligent guidance and human expertise together — with transparency at every step.",
+    "Founded in 2017, Rupee Catalyst is a financial advisory and transaction-execution platform helping individuals, families and businesses make better borrowing and investment decisions.",
   pillars: [
     {
       title: "Intelligence First",

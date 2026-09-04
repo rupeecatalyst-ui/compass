@@ -4,7 +4,7 @@ import { ToolsHubContent } from "@/components/pages/tools-hub-content";
 export const metadata: Metadata = {
   title: "Financial Intelligence Tools",
   description:
-    "COMPASS financial intelligence tools powered by Catalyst One Intelligence — Coming Soon.",
+    "COMPASS financial intelligence tools powered by Rupee Catalyst intelligence — Coming Soon.",
 };
 
 export default function ToolsPage() {
