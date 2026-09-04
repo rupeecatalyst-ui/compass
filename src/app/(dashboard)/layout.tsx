@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { DashboardLayout } from "@/layouts/dashboard-layout";
 
 /**
@@ -8,5 +9,9 @@ import { DashboardLayout } from "@/layouts/dashboard-layout";
 export const dynamic = "force-dynamic";
 
 export default function DashboardRootLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardLayout>{children}</DashboardLayout>;
+  return (
+    <Suspense>
+      <DashboardLayout>{children}</DashboardLayout>
+    </Suspense>
+  );
 }

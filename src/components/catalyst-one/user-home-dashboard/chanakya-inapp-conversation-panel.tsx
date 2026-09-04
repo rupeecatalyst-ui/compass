@@ -18,6 +18,7 @@ import {
 } from "react";
 import {
   ArrowDown,
+  Menu,
   Copy,
   Download,
   Mic,
@@ -54,7 +55,11 @@ import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-he
 import type { ChanakyaConversationPrompt } from "@/types/chanakya-dashboard-intelligence";
 import type { ChanakyaInappMessage } from "@/types/chanakya-inapp-conversation";
 import type { ChanakyaCreditProposalDraft } from "@/types/chanakya-credit-proposal";
+import { CHANAKYA_CHAT_JUMP_TO_LATEST_LABEL, CHANAKYA_CHAT_NEAR_BOTTOM_PX } from "@/constants/chanakya-chat-ux";
+import { isChanakyaChatNearBottom } from "@/lib/chanakya-chat-ux/auto-scroll";
 import { cn } from "@/lib/utils";
+import { ChanakyaSafeMarkdown } from "@/components/catalyst-one/user-home-dashboard/chanakya-safe-markdown";
+import { ChanakyaProposalResponse } from "@/components/catalyst-one/user-home-dashboard/chanakya-proposal-response";
 
 type Props = {
   prompts?: ChanakyaConversationPrompt[];
@@ -65,6 +70,9 @@ type Props = {
   onMessagesChange?: (messages: ChanakyaInappMessage[]) => void;
   queuedPrompt?: string | null;
   onQueuedPromptConsumed?: () => void;
+  sessionTitle?: string;
+  retentionNotice?: string;
+  onOpenRail?: () => void;
 };
 
 function formatClock(iso: string): string {
@@ -103,9 +111,12 @@ export function ChanakyaInappConversationPanel({
   onMessagesChange,
   queuedPrompt,
   onQueuedPromptConsumed,
+  sessionTitle = "Conversation",
+  retentionNotice,
+  onOpenRail,
 }: Props) {
   const listId = useId();
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const sttRef = useRef<ReturnType<typeof startLiveBrowserStt> | null>(null);
   const [draft, setDraft] = useState("");
@@ -117,6 +128,7 @@ export function ChanakyaInappConversationPanel({
   const [error, setError] = useState<string | null>(null);
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
   const [showJump, setShowJump] = useState(false);
+  const [followLatest, setFollowLatest] = useState(true);
   const [proposalDraft, setProposalDraft] = useState<ChanakyaCreditProposalDraft | null>(null);
   const [authorisedDealId, setAuthorisedDealId] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState("");
@@ -130,13 +142,19 @@ export function ChanakyaInappConversationPanel({
   }, [messagesProp]);
 
   const jumpToLatest = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
     setShowJump(false);
+    setFollowLatest(true);
   }, []);
 
   useEffect(() => {
-    jumpToLatest();
-  }, [messages, streamingText, awaitingFirstToken, jumpToLatest]);
+    if (!followLatest) return;
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages, streamingText, awaitingFirstToken, followLatest]);
 
   const resolveEntity = useCallback(() => {
     const active = getActiveOpportunityContext();
@@ -146,6 +164,9 @@ export function ChanakyaInappConversationPanel({
     return {
       opportunityId,
       dealId,
+      customer: active?.customer?.trim() || null,
+      opportunityReference: active?.opportunityReference?.trim() || null,
+      product: active?.product?.trim() || null,
     };
   }, [authorisedDealId]);
 
@@ -346,14 +367,21 @@ export function ChanakyaInappConversationPanel({
     return out;
   }, [messages]);
 
+  const entity = resolveEntity();
   const workspaceHref = proposalDraft
     ? proposalWorkspaceHref(
         proposalDraft.opportunityId,
-        authorisedDealId || resolveEntity().dealId,
+        authorisedDealId || entity.dealId,
       )
     : null;
 
   const suggested = prompts.length > 0 ? prompts : CHANAKYA_SUGGESTED_QUESTIONS;
+  const contextBits = [
+    entity.customer,
+    entity.opportunityReference,
+    entity.product,
+    entity.dealId ? `Deal ${entity.dealId.slice(0, 8)}` : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div
@@ -362,10 +390,38 @@ export function ChanakyaInappConversationPanel({
       data-chanakya-conversational="009"
       data-read-only="true"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-1 pb-2">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--ei-teal)]">
-          {CHANAKYA_PHASE1_READ_ONLY_INDICATOR}
-        </p>
+      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-3 pb-2 pt-2">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            {onOpenRail ? (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 md:hidden"
+                aria-label="Open chat menu"
+                onClick={onOpenRail}
+              >
+                <Menu className="h-4 w-4" aria-hidden />
+              </Button>
+            ) : null}
+            <p className="truncate text-sm font-semibold text-[var(--ei-ink)]">{sessionTitle}</p>
+          </div>
+
+          {contextBits.length ? (
+            <p className="truncate text-[11px] text-muted-foreground">{contextBits.join(" · ")}</p>
+          ) : null}
+
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--ei-teal)]">
+              {CHANAKYA_PHASE1_READ_ONLY_INDICATOR}
+            </p>
+            {retentionNotice ? (
+              <p className="text-[10px] leading-snug text-muted-foreground">{retentionNotice}</p>
+            ) : null}
+          </div>
+        </div>
+
         <Button
           type="button"
           variant="ghost"
@@ -374,7 +430,7 @@ export function ChanakyaInappConversationPanel({
           onClick={jumpToLatest}
         >
           <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-          Jump to Latest
+          {CHANAKYA_CHAT_JUMP_TO_LATEST_LABEL}
         </Button>
       </div>
 
@@ -383,10 +439,13 @@ export function ChanakyaInappConversationPanel({
         role="log"
         aria-live="polite"
         aria-relevant="additions"
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 py-3"
+        ref={messagesScrollRef}
+        data-chanakya-chat-messages="011"
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 pb-4"
         onScroll={(event) => {
           const el = event.currentTarget;
-          const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          const nearBottom = isChanakyaChatNearBottom(el, CHANAKYA_CHAT_NEAR_BOTTOM_PX);
+          setFollowLatest(nearBottom);
           setShowJump(!nearBottom);
         }}
       >
@@ -420,7 +479,7 @@ export function ChanakyaInappConversationPanel({
                 <div
                   key={msg.id}
                   className={cn(
-                    "max-w-[92%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap shadow-[var(--ei-depth-1)]",
+                    "max-w-[min(92%,42rem)] rounded-2xl px-3 py-2 shadow-[var(--ei-depth-1)]",
                     msg.role === "user"
                       ? "ml-auto bg-[var(--ei-teal)]/12 text-[var(--ei-ink)]"
                       : "mr-auto border border-border/70 bg-background/90 text-[var(--ei-ink-soft)]",
@@ -430,7 +489,11 @@ export function ChanakyaInappConversationPanel({
                     <span>{msg.role === "user" ? "You" : "CHANAKYA"}</span>
                     <span className="font-normal normal-case">{formatClock(msg.createdAt)}</span>
                   </p>
-                  <p>{msg.text}</p>
+                  {msg.role === "assistant" ? (
+                    <ChanakyaSafeMarkdown text={msg.text} />
+                  ) : (
+                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.text}</p>
+                  )}
                   {msg.role === "assistant" && msg.evidence && msg.evidence.length > 0 ? (
                     <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
                       {msg.evidence.slice(0, 6).map((item) => (
@@ -513,19 +576,17 @@ export function ChanakyaInappConversationPanel({
         ) : null}
 
         {streamingText && !awaitingFirstToken ? (
-          <div className="mr-auto max-w-[92%] rounded-2xl border border-border/70 bg-background/90 px-3 py-2 text-sm whitespace-pre-wrap">
+          <div className="mr-auto max-w-[min(92%,42rem)] rounded-2xl border border-border/70 bg-background/90 px-3 py-2 text-[13px]">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               CHANAKYA
             </p>
-            <p>{streamingText}</p>
+            <ChanakyaSafeMarkdown text={streamingText} streaming />
           </div>
         ) : null}
 
         {proposalDraft ? (
-          <div className="rounded-xl border border-[var(--ei-teal)]/30 bg-[var(--ei-teal)]/5 p-3 text-[12px]">
-            <p className="font-medium">
-              Proposal draft ready · not sent · not saved as a business record
-            </p>
+          <div data-chanakya-proposal-actions="011">
+            <ChanakyaProposalResponse draft={proposalDraft} />
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Button
                 type="button"
@@ -574,7 +635,6 @@ export function ChanakyaInappConversationPanel({
             </div>
           </div>
         ) : null}
-        <div ref={bottomRef} />
       </div>
 
       {error ? (
@@ -599,7 +659,11 @@ export function ChanakyaInappConversationPanel({
         </div>
       ) : null}
 
-      <form onSubmit={onSubmit} className="shrink-0 space-y-2 border-t border-border/60 pt-2">
+      <form
+        onSubmit={onSubmit}
+        data-chanakya-chat-composer="011"
+        className="shrink-0 space-y-2 border-t border-border/60 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2"
+      >
         <div className="relative">
           <Textarea
             value={draft}

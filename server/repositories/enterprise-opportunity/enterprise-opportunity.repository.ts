@@ -24,6 +24,7 @@ import {
 } from "@server/services/enterprise-opportunity/opportunity-validation";
 import { buildOpportunityVisibilityOrFilters } from "@server/services/enterprise-case-visibility/build-visibility-where";
 import { decideOpportunityBorrowerCreate } from "@/constants/enterprise-opportunity/company-borrower-create";
+import { resolveEnterpriseOpportunitySearchOrderBy } from "@/lib/enterprise-opportunity/search-order";
 
 function sourceCodesForBucket(bucket: string): string[] {
   return businessSourceCodesForKpiBucket(bucket);
@@ -378,12 +379,12 @@ export class EnterpriseOpportunityRepository {
       }
     }
 
-    const orderField = query.orderBy === "createdAt" ? "createdAt" : "updatedAt";
+    const orderBy = resolveEnterpriseOpportunitySearchOrderBy(query.orderBy);
 
     const [items, total] = await Promise.all([
       prisma.enterpriseOpportunity.findMany({
         where,
-        orderBy: { [orderField]: "desc" },
+        orderBy,
         take: limit,
         skip: offset,
       }),

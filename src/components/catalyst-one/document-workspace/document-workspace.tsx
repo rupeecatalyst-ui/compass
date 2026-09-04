@@ -553,12 +553,19 @@ export function DocumentWorkspace() {
 
   if (!opportunityId && !dealIdFromUrl) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
-        <header>
+      <div
+        data-document-workspace-opener="012"
+        className="flex min-h-[calc(100dvh-4rem)] w-full min-w-0 flex-col gap-4 overflow-x-hidden p-4 sm:p-6"
+      >
+        <header className="shrink-0">
           <h1 className="text-xl font-semibold tracking-tight">{DOCUMENT_WORKSPACE_TITLE}</h1>
           <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_SUBTITLE}</p>
         </header>
-        <DocumentWorkspaceSwitcher onSelect={selectTransaction} />
+        <DocumentWorkspaceSwitcher
+          onSelect={selectTransaction}
+          actorUserId={user?.id ?? null}
+          actorName={actor}
+        />
       </div>
     );
   }
@@ -662,7 +669,12 @@ export function DocumentWorkspace() {
         ) : null}
         {switcherOpen ? (
           <div className="mt-3 rounded-lg border border-border/70 bg-background p-3">
-            <DocumentWorkspaceSwitcher compact onSelect={selectTransaction} />
+            <DocumentWorkspaceSwitcher
+              compact
+              onSelect={selectTransaction}
+              actorUserId={user?.id ?? null}
+              actorName={actor}
+            />
           </div>
         ) : null}
       </header>
