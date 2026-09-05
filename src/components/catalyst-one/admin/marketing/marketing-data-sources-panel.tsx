@@ -40,6 +40,12 @@ type ModeInfo = {
   audienceImportEnabled: boolean;
   previewMaxRows: number;
   pageMaxRows: number;
+  sourceStatus?: "OFF" | "FIXTURE" | "LIVE" | "NOT_CONFIGURED";
+  sourceLabel?: string;
+  sourceNotice?: string;
+  authorisedWorkbookId?: string | null;
+  authorisedWorkbookDisplayName?: string | null;
+  fixtureVisible?: boolean;
 };
 
 type PreviewPayload = {
@@ -80,7 +86,6 @@ export function MarketingDataSourcesPanel() {
     null,
   );
   const [newName, setNewName] = useState("Marketing Master Database");
-  const [newSpreadsheetId, setNewSpreadsheetId] = useState("");
 
   const refreshList = useCallback(async () => {
     setLoading(true);
@@ -163,10 +168,6 @@ export function MarketingDataSourcesPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           displayName: newName,
-          spreadsheetId:
-            mode?.sheetsMode === "fixture"
-              ? "fixture-marketing-master"
-              : newSpreadsheetId.trim(),
         }),
       });
       const body = (await res.json()) as ApiEnvelope<{ binding: MarketingDataSourceBinding }>;
@@ -205,20 +206,27 @@ export function MarketingDataSourcesPanel() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <ShieldAlert className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-            MKT-02 safety
+            Workbook security
           </CardTitle>
           <CardDescription>
-            Sheets mode: <strong>{mode?.sheetsMode ?? "…"}</strong>
-            {" · "}
-            Read: {mode?.sheetsReadEnabled ? "enabled" : "off"}
+            Source: <strong>{mode?.sourceStatus ?? "…"}</strong>
+            {mode?.sourceLabel ? ` · ${mode.sourceLabel}` : ""}
             {" · "}
             Import: disabled · Send: disabled · Contact/Opportunity: disabled
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Set <code className="text-xs">ENTERPRISE_MARKETING_SHEETS_MODE=fixture</code> for the
-          controlled non-production dataset, or <code className="text-xs">live</code> with server
-          service-account credentials. Never put private keys in the browser.
+          {mode?.sourceNotice}
+          {mode?.sourceStatus === "FIXTURE" ? (
+            <p className="mt-2 rounded-md border border-amber-600 bg-amber-100 px-3 py-2 font-semibold text-amber-950 dark:bg-amber-900/40 dark:text-amber-100">
+              FIXTURE MODE — controlled non-production dataset. Not live Google Sheets.
+            </p>
+          ) : null}
+          {mode?.sourceStatus === "NOT_CONFIGURED" ? (
+            <p className="mt-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 font-semibold text-destructive">
+              NOT_CONFIGURED — Google Sheets is not available. Fixture data is not being used.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -317,10 +325,10 @@ export function MarketingDataSourcesPanel() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Add / update binding</CardTitle>
+                <CardTitle className="text-base">Authorised workbook</CardTitle>
                 <CardDescription>
-                  Paste a Google Spreadsheet ID (live) or use fixture id. Credentials stay in server
-                  env.
+                  Organisation-scoped allowlist only. Administrators cannot paste an arbitrary
+                  spreadsheet ID. Google credentials stay on the server.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -333,28 +341,22 @@ export function MarketingDataSourcesPanel() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="mkt-ds-sheet">Spreadsheet ID</Label>
+                  <Label htmlFor="mkt-ds-workbook">Authorised workbook ID</Label>
                   <Input
-                    id="mkt-ds-sheet"
-                    placeholder={
-                      mode?.sheetsMode === "fixture"
-                        ? "fixture-marketing-master"
-                        : "1BxiM… (from Google Sheets URL)"
-                    }
-                    value={
-                      mode?.sheetsMode === "fixture"
-                        ? "fixture-marketing-master"
-                        : newSpreadsheetId
-                    }
-                    disabled={mode?.sheetsMode === "fixture"}
-                    onChange={(e) => setNewSpreadsheetId(e.target.value)}
+                    id="mkt-ds-workbook"
+                    readOnly
+                    value={mode?.authorisedWorkbookId ?? ""}
+                    placeholder="NOT_CONFIGURED"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {mode?.authorisedWorkbookDisplayName ?? "No authorised workbook is configured."}
+                  </p>
                 </div>
                 <Button
-                  disabled={busy || !mode?.sheetsReadEnabled}
+                  disabled={busy || !mode?.sheetsReadEnabled || mode?.sourceStatus === "NOT_CONFIGURED"}
                   onClick={() => void upsertBinding()}
                 >
-                  Save binding
+                  Bind authorised workbook
                 </Button>
               </CardContent>
             </Card>

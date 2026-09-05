@@ -4,7 +4,7 @@
 
 export { enterpriseMarketingFoundationService } from "./foundation.service";
 export { marketingDataSourceService } from "./data-source.service";
-export { marketingAudienceService } from "./audience.service";
+export { marketingAudienceService, seedMarketingPreviouslyContacted, resetMarketingPreviouslyContacted } from "./audience.service";
 export { marketingCampaignService } from "./campaign.service";
 export { marketingAssetService } from "./asset.service";
 export { marketingExecutionService } from "./execution.service";
@@ -29,7 +29,24 @@ export {
   listRecentMarketingAuditEvents,
   recordMarketingAuditEvent,
 } from "./audit";
-export { marketingDataSourceBindingStore } from "./binding-store";
+export {
+  createFixtureMarketingDataSourcePort,
+  resetMarketingFixtureWorkbook,
+  upsertMarketingFixtureTab,
+  replaceMarketingFixtureTabRows,
+  replaceMarketingFixtureTabHeaders,
+  getMarketingFixtureTabs,
+  FIXTURE_MARKETING_TAB_TITLES,
+  FIXTURE_MARKETING_WORKBOOK_ID,
+} from "./adapters/fixture-sheets.adapter";
 export { marketingAudienceDefinitionStore } from "./audience-definition-store";
 export { marketingSuppressionStore } from "./suppression-store";
+export { marketingConsentService } from "./consent.service";
 export { marketingSenderIdentityStore } from "./sender-identity-store";
+export { marketingSenderService } from "./sender.service";
+export { marketingDeliverabilityService } from "./deliverability.service";
+export { marketingProviderContractService } from "./provider-webhook.service";
+export { marketingProviderWebhookStore } from "./provider-webhook-store";
+export { createFixtureEmailProviderPort } from "./adapters/fixture-email-provider.adapter";
+export { marketingCampaignMonitoringService } from "./campaign-monitoring.service";
+export { marketingOperationalHealthService } from "./operational-health.service";

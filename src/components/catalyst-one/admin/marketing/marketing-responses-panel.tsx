@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
-  MARKETING_QUALIFICATION_BUSINESS_STATES,
+  MARKETING_QUALIFICATION_INBOX_STATUS_LABELS,
   MARKETING_QUALIFICATION_STATE_LABELS,
   MARKETING_ROUTING_CRITERION_FIELDS,
   MARKETING_ROUTING_CRITERION_LABELS,
@@ -30,6 +30,7 @@ import type { MarketingRoutingMode } from "@/lib/enterprise-marketing-engine/por
 import type {
   MarketingNotificationAttempt,
   MarketingNotificationPolicy,
+  MarketingQualificationInboxRow,
   MarketingQualificationPublicDto,
   MarketingRoutingPolicy,
 } from "@/types/enterprise-marketing-qualification";
@@ -42,6 +43,7 @@ export function MarketingResponsesPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<MarketingQualificationPublicDto[]>([]);
+  const [inbox, setInbox] = useState<MarketingQualificationInboxRow[]>([]);
   const [policies, setPolicies] = useState<MarketingRoutingPolicy[]>([]);
   const [notificationPolicies, setNotificationPolicies] = useState<MarketingNotificationPolicy[]>([]);
   const [attempts, setAttempts] = useState<MarketingNotificationAttempt[]>([]);
@@ -66,6 +68,7 @@ export function MarketingResponsesPanel() {
     const res = await authenticatedJsonFetch("/api/admin/marketing/qualifications");
     const body = (await res.json()) as ApiEnvelope<{
       qualifications: MarketingQualificationPublicDto[];
+      inbox?: MarketingQualificationInboxRow[];
       routingPolicies: MarketingRoutingPolicy[];
       notificationPolicies: MarketingNotificationPolicy[];
       notificationAttempts: MarketingNotificationAttempt[];
@@ -74,6 +77,7 @@ export function MarketingResponsesPanel() {
       throw new Error(body.error?.message || "Failed to load qualifications");
     }
     setRows(body.data.qualifications);
+    setInbox(body.data.inbox ?? []);
     setPolicies(body.data.routingPolicies);
     setNotificationPolicies(body.data.notificationPolicies ?? []);
     setAttempts(body.data.notificationAttempts ?? []);
@@ -149,7 +153,7 @@ export function MarketingResponsesPanel() {
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Marketing Command Center
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight">Responses & qualification</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Qualification Inbox</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           After a response is qualified, routing decides who owns it and which notification channels
           fire. In-app alerts use the Enterprise Notification Engine — not a second inbox.
@@ -165,8 +169,10 @@ export function MarketingResponsesPanel() {
             Controlled boundary
           </CardTitle>
           <CardDescription>
-            Opens and clicks do not qualify. Mass conversion is blocked. Notification failure never
-            rolls back a handed-off Opportunity.
+            Opens and clicks do not qualify and do not create a Contact or Opportunity. An explicit
+            qualified-interest decision is required. Existing Contacts are matched before create.
+            Duplicate Contact and Opportunity writes are refused. Opportunity is created only through
+            approved live handoff. Default handoff remains fixture / dry-run. There is no Lead entity.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -230,7 +236,7 @@ export function MarketingResponsesPanel() {
                 matchEmail: ingestEmail.trim() || null,
                 product: "Home Loan",
                 source: "marketing_test_mode",
-                intent: "interested",
+                intent: "manual_qualification",
                 operatorConfirmed: true,
                 channel: "EMAIL",
               })
@@ -390,7 +396,8 @@ export function MarketingResponsesPanel() {
           <CardTitle className="text-base">Internal notification channels</CardTitle>
           <CardDescription>
             Catalyst One in-app is delivered by ENE. Email and WhatsApp stay dry-run until live
-            employee send is approved.
+            employee send is approved. {notificationPolicies.length} notification
+            {notificationPolicies.length === 1 ? " policy" : " policies"} loaded.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
@@ -431,62 +438,90 @@ export function MarketingResponsesPanel() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Qualification queue</CardTitle>
+          <CardTitle className="text-base">Qualification Inbox</CardTitle>
+          <CardDescription>
+            Genuine campaign responses only. Delivered, opened, clicked, and landing-page visits without
+            an affirmative submission stay engagement and never enter this inbox.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading…
             </p>
-          ) : rows.length === 0 ? (
+          ) : inbox.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No qualification records. Engagement alone does not create a response.
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full min-w-[1080px] text-left text-sm">
                 <thead>
                   <tr className="border-b text-xs uppercase text-muted-foreground">
+                    <th className="py-2 pr-3">Name</th>
                     <th className="py-2 pr-3">Campaign</th>
-                    <th className="py-2 pr-3">State</th>
-                    <th className="py-2 pr-3">Intent</th>
-                    <th className="py-2 pr-3">Identity</th>
+                    <th className="py-2 pr-3">Source tab</th>
+                    <th className="py-2 pr-3">Response</th>
+                    <th className="py-2 pr-3">Product</th>
+                    <th className="py-2 pr-3">Response time</th>
                     <th className="py-2 pr-3">Assignee</th>
-                    <th className="py-2 pr-3">Contact / Opportunity</th>
-                    <th className="py-2 pr-3">Notify</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3">Duplicate match</th>
+                    <th className="py-2 pr-3">Next action</th>
+                    <th className="py-2 pr-3">Notifications</th>
                     <th className="py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id} className="border-b border-border/60">
-                      <td className="py-2 pr-3">{row.campaignName ?? row.campaignId}</td>
+                  {inbox.map((item) => {
+                    const row = rows.find((entry) => entry.id === item.id);
+                    const inboxLabel = MARKETING_QUALIFICATION_INBOX_STATUS_LABELS[item.inboxStatus];
+                    const businessLabel = MARKETING_QUALIFICATION_STATE_LABELS[item.businessState];
+                    return (
+                    <tr key={item.id} className="border-b border-border/60">
+                      <td className="py-2 pr-3">{item.displayName}</td>
+                      <td className="py-2 pr-3">{item.campaignName ?? item.campaignId}</td>
+                      <td className="py-2 pr-3">{item.sourceTabName ?? "—"}</td>
+                      <td className="py-2 pr-3 text-xs">{item.responseSummary}</td>
+                      <td className="py-2 pr-3">{item.productInterest ?? "—"}</td>
+                      <td className="py-2 pr-3 text-xs">{item.responseTime}</td>
+                      <td className="py-2 pr-3 text-xs">{item.assigneeUserId ?? "—"}</td>
                       <td className="py-2 pr-3">
-                        {MARKETING_QUALIFICATION_STATE_LABELS[row.businessState]}
-                      </td>
-                      <td className="py-2 pr-3">{row.intent}</td>
-                      <td className="py-2 pr-3 text-xs">
-                        {row.matchEmailPreview ?? "—"}
-                        <br />
-                        {row.matchPhonePreview ?? "—"}
-                      </td>
-                      <td className="py-2 pr-3 text-xs">{row.assigneeUserId ?? "—"}</td>
-                      <td className="py-2 pr-3 text-xs">
-                        {row.contactId ?? "—"}
-                        <br />
-                        {row.opportunityId ?? "—"}
+                        {inboxLabel}
+                        {businessLabel && businessLabel !== inboxLabel ? (
+                          <span className="block text-[10px] text-muted-foreground">{businessLabel}</span>
+                        ) : null}
                       </td>
                       <td className="py-2 pr-3 text-xs">
-                        {row.notificationStatus ?? "—"}
-                        <br />
-                        {attemptsByQualification(row.id)
-                          .map((a) => `${a.channel}:${a.status}`)
-                          .join(" · ") || "—"}
+                        {item.duplicateMatch.result === "none"
+                          ? "No match"
+                          : item.duplicateMatch.result.replaceAll("_", " ")}
+                      </td>
+                      <td className="py-2 pr-3 text-xs">{item.nextAction.replaceAll("_", " ")}</td>
+                      <td className="py-2 pr-3 text-xs">
+                        {attemptsByQualification(item.id).length} notification attempts
                       </td>
                       <td className="py-2">
                         <div className="flex flex-wrap gap-1">
-                          {row.businessState !== "HANDED_OFF" &&
-                          row.businessState !== "QUALIFIED" ? (
+                          {item.inboxStatus === "NEW" ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() =>
+                                void post({
+                                  action: "set_inbox_status",
+                                  qualificationId: item.id,
+                                  inboxStatus: "UNDER_REVIEW",
+                                })
+                              }
+                            >
+                              Review
+                            </Button>
+                          ) : null}
+                          {item.inboxStatus !== "CONVERTED" &&
+                          item.inboxStatus !== "QUALIFIED" &&
+                          item.inboxStatus !== "CLOSED" ? (
                             <Button
                               size="sm"
                               variant="outline"
@@ -494,7 +529,7 @@ export function MarketingResponsesPanel() {
                               onClick={() =>
                                 post({
                                   action: "set_state",
-                                  qualificationId: row.id,
+                                  qualificationId: item.id,
                                   businessState: "QUALIFIED",
                                 })
                               }
@@ -502,14 +537,14 @@ export function MarketingResponsesPanel() {
                               Qualify
                             </Button>
                           ) : null}
-                          {row.businessState === "QUALIFIED" ? (
+                          {item.inboxStatus === "QUALIFIED" || row?.businessState === "QUALIFIED" ? (
                             <Button
                               size="sm"
                               disabled={busy || !(routingPolicyId || policies[0]?.id)}
                               onClick={() =>
                                 post({
                                   action: "handoff",
-                                  qualificationId: row.id,
+                                  qualificationId: item.id,
                                   routingPolicyId: routingPolicyId || policies[0]?.id,
                                   notificationPolicyId: notificationPolicyId || undefined,
                                 })
@@ -518,7 +553,7 @@ export function MarketingResponsesPanel() {
                               Handoff
                             </Button>
                           ) : null}
-                          {row.businessState === "HANDED_OFF" &&
+                          {row?.businessState === "HANDED_OFF" &&
                           row.notificationStatus === "FAILED" ? (
                             <Button
                               size="sm"
@@ -527,7 +562,7 @@ export function MarketingResponsesPanel() {
                               onClick={() =>
                                 post({
                                   action: "retry_notification",
-                                  qualificationId: row.id,
+                                  qualificationId: item.id,
                                   notificationPolicyId: notificationPolicyId || undefined,
                                 })
                               }
@@ -538,14 +573,15 @@ export function MarketingResponsesPanel() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </CardContent>
       </Card>
-      <p className="sr-only">{MARKETING_QUALIFICATION_BUSINESS_STATES.join(" ")}</p>
+      <p className="sr-only">{Object.keys(MARKETING_QUALIFICATION_INBOX_STATUS_LABELS).join(" ")}</p>
     </div>
   );
 }

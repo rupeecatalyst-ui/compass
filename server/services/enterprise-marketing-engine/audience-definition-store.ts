@@ -10,6 +10,10 @@ import type {
   MarketingFilterDefinition,
   MarketingSuppressionPolicy,
 } from "@/types/enterprise-marketing-audience";
+import type {
+  MarketingColumnMap,
+  MarketingConfirmedColumnMapping,
+} from "@/types/enterprise-marketing-durability";
 
 const store = new Map<string, MarketingAudienceDefinition>();
 
@@ -54,6 +58,10 @@ export const marketingAudienceDefinitionStore = {
     datasetId: string;
     datasetDisplayName?: string | null;
     filterDefinition?: MarketingFilterDefinition;
+    exclusionDefinition?: MarketingFilterDefinition;
+    columnMap?: MarketingColumnMap | null;
+    mapping?: MarketingConfirmedColumnMapping | null;
+    mappingConfirmed?: boolean;
     suppressionPolicy?: MarketingSuppressionPolicy;
     eligibilityRules?: MarketingEligibilityRules;
   }): MarketingAudienceDefinition {
@@ -87,6 +95,13 @@ export const marketingAudienceDefinitionStore = {
       datasetId: input.datasetId.trim(),
       datasetDisplayName: input.datasetDisplayName ?? null,
       filterDefinition: input.filterDefinition ?? prev?.filterDefinition ?? emptyFilterDefinition(),
+      exclusionDefinition:
+        input.exclusionDefinition ?? prev?.exclusionDefinition ?? emptyFilterDefinition(),
+      columnMap: input.columnMap ?? prev?.columnMap ?? null,
+      mapping: input.mapping ?? prev?.mapping ?? null,
+      mappingConfirmed: Boolean(
+        input.mappingConfirmed ?? input.mapping?.confirmed ?? prev?.mappingConfirmed,
+      ),
       suppressionPolicy: input.suppressionPolicy ?? prev?.suppressionPolicy ?? DEFAULT_SUPPRESSION,
       eligibilityRules: input.eligibilityRules ?? prev?.eligibilityRules ?? DEFAULT_ELIGIBILITY,
       createdAt: prev?.createdAt ?? ts,

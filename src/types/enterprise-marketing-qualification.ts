@@ -36,13 +36,54 @@ export type MarketingHandoffProcessState = (typeof MARKETING_HANDOFF_PROCESS_STA
 
 export type MarketingQualificationIntent =
   | "none"
+  | "delivered"
   | "open"
   | "click"
+  | "landing_page"
   | "reply"
   | "enquiry"
+  | "callback_request"
+  | "campaign_form"
+  | "affirmative_response"
   | "explicit_requirement"
+  | "manual_qualification"
   | "not_interested"
   | "unsubscribe";
+
+/** Operator-facing Qualification Inbox statuses (Prompt 16). */
+export const MARKETING_QUALIFICATION_INBOX_STATUSES = [
+  "NEW",
+  "UNDER_REVIEW",
+  "QUALIFIED",
+  "NOT_QUALIFIED",
+  "DUPLICATE",
+  "CONVERTED",
+  "CLOSED",
+] as const;
+
+export type MarketingQualificationInboxStatus =
+  (typeof MARKETING_QUALIFICATION_INBOX_STATUSES)[number];
+
+export type MarketingQualificationDuplicateMatchResult =
+  | "none"
+  | "existing_response"
+  | "existing_contact"
+  | "existing_opportunity";
+
+export type MarketingQualificationDuplicateMatch = {
+  result: MarketingQualificationDuplicateMatchResult;
+  contactId?: string | null;
+  opportunityId?: string | null;
+  qualificationId?: string | null;
+  reused: boolean;
+};
+
+export type MarketingInboxNextAction =
+  | "review"
+  | "qualify"
+  | "handoff"
+  | "view_existing"
+  | "none";
 
 export type MarketingQualificationPolicy = {
   /** Opens/clicks never auto-qualify. */
@@ -157,6 +198,12 @@ export type MarketingQualificationRecord = {
   intent: MarketingQualificationIntent;
   businessState: MarketingQualificationBusinessState;
   processState: MarketingHandoffProcessState;
+  inboxStatus?: MarketingQualificationInboxStatus;
+  sourceTabName?: string | null;
+  responseSummary?: string | null;
+  snapshotId?: string | null;
+  snapshotRecipientId?: string | null;
+  duplicateMatch?: MarketingQualificationDuplicateMatch;
   evidenceEventId?: string | null;
   assigneeUserId?: string | null;
   contactId?: string | null;
@@ -185,18 +232,43 @@ export type MarketingIdentityMatchResult = {
   created: boolean;
   matchedBy: "email" | "phone" | "created";
   name: string;
+  filledFields?: string[];
+  overwroteExisting?: false;
 };
 
 export type MarketingOpportunityHandoffResult = {
   opportunityId: string;
   created: boolean;
   lifecycle: "dialogue";
+  campaignId?: string;
+  snapshotId?: string | null;
+  snapshotRecipientId?: string | null;
+  qualificationId?: string | null;
+  assigneeUserId?: string | null;
 };
 
 export type MarketingHandoffNotificationSummary = {
   status: "SENT" | "FAILED" | "PARTIAL" | "SKIPPED";
   duplicate: boolean;
   attempts: MarketingNotificationAttempt[];
+};
+
+export type MarketingQualificationInboxRow = {
+  id: string;
+  organizationId: string;
+  displayName: string;
+  campaignId: string;
+  campaignName: string | null;
+  sourceTabName: string | null;
+  responseSummary: string;
+  productInterest: string | null;
+  responseTime: string;
+  assigneeUserId: string | null;
+  inboxStatus: MarketingQualificationInboxStatus;
+  businessState: MarketingQualificationBusinessState;
+  duplicateMatch: MarketingQualificationDuplicateMatch;
+  nextAction: MarketingInboxNextAction;
+  qualificationId: string;
 };
 
 export type MarketingHandoffResult = {

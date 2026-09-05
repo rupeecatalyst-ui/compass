@@ -11,10 +11,18 @@ export function marketingQualificationReason(intent: MarketingQualificationInten
   switch (intent) {
     case "explicit_requirement":
       return "Explicit business requirement confirmed by operator";
+    case "affirmative_response":
+      return "Verified affirmative campaign response";
+    case "manual_qualification":
+      return "Authorised manual qualification";
+    case "callback_request":
+      return "Submitted callback request";
+    case "campaign_form":
+      return "Completed campaign form";
     case "enquiry":
       return "Customer enquiry received";
     case "reply":
-      return "Customer reply received";
+      return "Direct email reply received";
     case "not_interested":
       return "Marked not interested";
     case "unsubscribe":
@@ -23,6 +31,10 @@ export function marketingQualificationReason(intent: MarketingQualificationInten
       return "Campaign open (not a qualification by itself)";
     case "click":
       return "Campaign click (not a qualification by itself)";
+    case "delivered":
+      return "Message delivered (not a qualification by itself)";
+    case "landing_page":
+      return "Landing page visit without affirmative submission";
     default:
       return "Operator-confirmed qualified marketing response";
   }

@@ -16,6 +16,7 @@ import {
   MARKETING_ACTION_TARGET_STATUS,
 } from "@/constants/enterprise-marketing-engine/transitions";
 import { cloneContentDocument, syncCampaignFormFieldsIntoContent } from "@/lib/enterprise-marketing-engine/content-blocks";
+import { paragraphTextFromDocument, sanitizeMarketingContentDocument } from "@/lib/enterprise-marketing-engine/visual-editor";
 import {
   renderMarketingEmailHtml,
   renderMarketingEmailPlaintext,
@@ -23,17 +24,57 @@ import {
 import {
   applyPersonalization,
   assertSafePersonalizationTokens,
-  defaultPersonalizationSample,
   scanDocumentTokens,
 } from "@/lib/enterprise-marketing-engine/personalization";
+import { MARKETING_PERSONALIZATION_FALLBACKS } from "@/constants/enterprise-marketing-engine/content";
+import {
+  projectAllowlistedSampleValues,
+  resolvePersonalisationWithFallbacks,
+  mappedPersonalisationTokenNames,
+  type MarketingPersonalisationSampleRecipient,
+} from "@/lib/enterprise-marketing-engine/personalisation-catalogue";
+import {
+  describeMarketingPreviewSample,
+  inspectMarketingPreviewWorkspace,
+  pickAudiencePreviewSample,
+} from "@/lib/enterprise-marketing-engine/preview-workspace";
+import {
+  assertMarketingInternalTestRecipient,
+  assertMarketingTestSendConfirmed,
+  assertMarketingTestSendDryRunOnly,
+  forceMarketingTestSendNotActuallySent,
+  listMarketingTestSendHistory,
+  recordMarketingTestSendHistory,
+} from "@/lib/enterprise-marketing-engine/test-send-safety";
+import { MARKETING_TEST_SEND_DRY_RUN_NOTICE } from "@/constants/enterprise-marketing-engine/personalisation";
+import { MARKETING_LIVE_PROVIDER_SENDING_DISABLED } from "@/constants/enterprise-marketing-engine/delivery-operations";
 import {
   assertMarketingPermission,
+  assertCanEditMarketingCampaign,
   type MarketingPermissionActor,
 } from "@/lib/enterprise-marketing-engine/permissions";
+import {
+  assertMarketingOperationPermission,
+  permissionForMarketingLifecycleAction,
+} from "@/lib/enterprise-marketing-engine/operation-permissions";
+import {
+  assertApprovalFreezesContentAndAudience,
+  assertLaunchBlockersPass,
+  assertScheduleRequiresApproval,
+  buildMarketingLaunchBlockers,
+  simulateMarketingTestModeLaunch,
+} from "@/lib/enterprise-marketing-engine/approval-rules";
+import {
+  assertMarketingDeliveryConfirmation,
+  retryEligibleMarketingFailures,
+} from "@/lib/enterprise-marketing-engine/delivery-operations";
+import { composeMarketingReadinessReview } from "@/lib/enterprise-marketing-engine/readiness-review";
+import { unresolvedPersonalisationTokens } from "@/lib/enterprise-marketing-engine/campaign-builder-shell";
 import {
   assertReadyForApproval,
   runMarketingPrePublishChecks,
 } from "@/lib/enterprise-marketing-engine/pre-publish";
+import { assertMarketingSenderEligibleForCampaignApproval } from "@/lib/enterprise-marketing-engine/sender-eligibility";
 import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import type {
   MarketingCampaign,
@@ -49,10 +90,18 @@ import type {
 import type { MarketingBatchPolicy } from "@/types/enterprise-marketing-execution";
 import { recordMarketingAuditEvent } from "./audit";
 import { marketingAudienceDefinitionStore } from "./audience-definition-store";
+import { marketingAudienceService } from "./audience.service";
 import { marketingCampaignStore } from "./campaign-store";
 import { marketingEmailDeliveryService } from "./email-delivery.service";
+import { marketingSenderIdentityStore } from "./sender-identity-store";
 import { marketingExecutionService } from "./execution.service";
 import { marketingTemplateStore, marketingReusableBlockStore } from "./template-store";
+import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import {
+  applyMarketingOperationalControl,
+  getConfiguredMarketingDurabilityPorts,
+} from "@/lib/enterprise-marketing-engine/durability";
+import { ensureProductionMarketingDurabilityPorts } from "./durability-runtime";
 
 type Actor = MarketingPermissionActor;
 
@@ -71,6 +120,19 @@ function orgId(actorOrg?: string | null) {
     });
   }
   return trimmed;
+}
+
+function loadCampaignMapping(
+  actor: Actor,
+  audienceId?: string | null,
+): { columnMap: import("@/types/enterprise-marketing-durability").MarketingColumnMap | null; mappingConfirmed: boolean } {
+  if (!audienceId?.trim()) return { columnMap: null, mappingConfirmed: false };
+  try {
+    const def = marketingAudienceService.get(actor, audienceId);
+    return { columnMap: def.columnMap, mappingConfirmed: def.mappingConfirmed };
+  } catch {
+    return { columnMap: null, mappingConfirmed: false };
+  }
 }
 
 function validateContentTokens(content: MarketingContentDocument, subject: string, previewText: string) {
@@ -118,11 +180,13 @@ function resolveActionTarget(
 export const marketingCampaignService = {
   async list(actor: Actor) {
     assertNoSend();
+    assertMarketingPermission(actor, MARKETING_PERMISSIONS.COMMAND_CENTER);
     return await marketingCampaignStore.list(orgId(actor.organizationId));
   },
 
   async get(actor: Actor, campaignId: string) {
     assertNoSend();
+    assertMarketingPermission(actor, MARKETING_PERMISSIONS.COMMAND_CENTER);
     const organizationId = orgId(actor.organizationId);
     const campaign = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!campaign) {
@@ -152,7 +216,7 @@ export const marketingCampaignService = {
     let subject: string | undefined;
     let previewText: string | undefined;
     if (input.templateId) {
-      const tpl = marketingTemplateStore.getForOrg(input.templateId, organizationId);
+      const tpl = await marketingTemplateStore.getForOrgDurable(input.templateId, organizationId);
       if (!tpl) {
         throw Object.assign(new Error("Template not found"), { statusCode: 404, code: "NOT_FOUND" });
       }
@@ -182,11 +246,18 @@ export const marketingCampaignService = {
       await marketingCampaignStore.updateCampaign(created.campaign.id, organizationId, {
         templateId: input.templateId,
       });
+      marketingTemplateStore.markUsed(input.templateId, organizationId);
     }
     recordMarketingAuditEvent({
       kind: "campaign.create",
       actorUserId: actor.userId ?? null,
       organizationId,
+      action: "create",
+      objectType: "campaign",
+      objectId: created.campaign.id,
+      campaignId: created.campaign.id,
+      previousState: null,
+      resultingState: "DRAFT",
       detail: { campaignId: created.campaign.id },
     });
     return await this.get(actor, created.campaign.id);
@@ -213,6 +284,7 @@ export const marketingCampaignService = {
       batchPolicy?: MarketingBatchPolicy | null;
       senderIdentityId?: string | null;
       whatsappTemplateId?: string | null;
+      templateId?: string | null;
       subject?: string;
       previewText?: string;
       content?: MarketingContentDocument;
@@ -225,11 +297,33 @@ export const marketingCampaignService = {
     },
   ) {
     assertNoSend();
-    assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
     const organizationId = orgId(actor.organizationId);
-    const existing = await marketingCampaignStore.getForOrg(campaignId, organizationId);
+    let existing = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!existing) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
+    }
+    assertCanEditMarketingCampaign(actor, existing);
+
+    const wantsContent =
+      input.subject !== undefined ||
+      input.previewText !== undefined ||
+      input.content !== undefined ||
+      input.disclaimer !== undefined ||
+      input.trackingEnabled !== undefined ||
+      input.plainTextOverride !== undefined ||
+      input.utm !== undefined ||
+      input.ctaLabel !== undefined ||
+      input.ctaUrl !== undefined;
+    const wantsAudience = input.audienceId !== undefined;
+    if (
+      (existing.status === "APPROVED" || existing.status === "SCHEDULED") &&
+      (wantsContent || wantsAudience)
+    ) {
+      await this.reopenApprovedAsDraft(actor, campaignId);
+      existing = await marketingCampaignStore.getForOrg(campaignId, organizationId);
+      if (!existing) {
+        throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
+      }
     }
 
     const policy = marketingCampaignEditPolicy(existing.status);
@@ -245,17 +339,6 @@ export const marketingCampaignService = {
         { statusCode: 400, code: "OPERATIONAL_CONTROLS_ONLY" },
       );
     }
-
-    const wantsContent =
-      input.subject !== undefined ||
-      input.previewText !== undefined ||
-      input.content !== undefined ||
-      input.disclaimer !== undefined ||
-      input.trackingEnabled !== undefined ||
-      input.plainTextOverride !== undefined ||
-      input.utm !== undefined ||
-      input.ctaLabel !== undefined ||
-      input.ctaUrl !== undefined;
 
     if (wantsContent && !policy.contentEditable) {
       throw Object.assign(
@@ -279,7 +362,8 @@ export const marketingCampaignService = {
         input.notificationPlaceholder !== undefined ||
         input.batchPolicy !== undefined ||
         input.senderIdentityId !== undefined ||
-        input.whatsappTemplateId !== undefined;
+        input.whatsappTemplateId !== undefined ||
+        input.templateId !== undefined;
       if (wantsMeta) {
         throw Object.assign(
           new Error(`Campaign metadata locked in status ${existing.status}`),
@@ -292,7 +376,9 @@ export const marketingCampaignService = {
       const draft = await marketingCampaignStore.getVersion(existing.currentDraftVersionId);
       const subject = input.subject ?? draft?.subject ?? "";
       const previewText = input.previewText ?? draft?.previewText ?? "";
-      const content = input.content ?? draft?.content;
+      const content = input.content
+        ? sanitizeMarketingContentDocument(input.content)
+        : draft?.content;
       if (content) validateContentTokens(content, subject, previewText);
     }
 
@@ -324,6 +410,10 @@ export const marketingCampaignService = {
     if (input.whatsappTemplateId !== undefined) {
       campaignPatch.whatsappTemplateId = input.whatsappTemplateId;
     }
+    if (input.templateId !== undefined) {
+      campaignPatch.templateId = input.templateId;
+      if (input.templateId) marketingTemplateStore.markUsed(input.templateId, organizationId);
+    }
     if (Object.keys(campaignPatch).length) {
       await marketingCampaignStore.updateCampaign(campaignId, organizationId, campaignPatch);
     }
@@ -342,7 +432,9 @@ export const marketingCampaignService = {
       if (input.ctaLabel !== undefined) versionPatch.ctaLabel = input.ctaLabel;
       if (input.ctaUrl !== undefined) versionPatch.ctaUrl = input.ctaUrl;
 
-      const baseContent = input.content ?? draftBefore?.content ?? null;
+      const baseContent = input.content
+        ? sanitizeMarketingContentDocument(input.content)
+        : draftBefore?.content ?? null;
       if (baseContent) {
         versionPatch.content = syncCampaignFormFieldsIntoContent(baseContent, {
           ctaLabel:
@@ -361,6 +453,13 @@ export const marketingCampaignService = {
       kind: "campaign.save",
       actorUserId: actor.userId ?? null,
       organizationId,
+      action: "save",
+      objectType: "campaign",
+      objectId: campaignId,
+      campaignId,
+      versionId: existing.currentDraftVersionId,
+      previousState: existing.status,
+      resultingState: existing.status,
       detail: { campaignId, note: "SAVE does not publish" },
     });
     return await this.get(actor, campaignId);
@@ -372,18 +471,29 @@ export const marketingCampaignService = {
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
-    return runMarketingPrePublishChecks({ campaign, version: draft });
+    const mapping = loadCampaignMapping(actor, campaign.audienceId);
+    return runMarketingPrePublishChecks({
+      campaign,
+      version: draft,
+      columnMap: mapping.columnMap,
+      mappingConfirmed: mapping.mappingConfirmed,
+    });
   },
 
   /**
    * Explicit lifecycle action. SAVE is not a publish path.
    * APPROVE requires CAMPAIGN_APPROVE. No provider send.
    */
-  async transition(
+    async transition(
     actor: Actor,
     campaignId: string,
     action: MarketingCampaignAction,
-    opts?: { resumeTarget?: "RUNNING" | "SCHEDULED"; note?: string },
+    opts?: {
+      resumeTarget?: "RUNNING" | "SCHEDULED";
+      note?: string;
+      confirmed?: boolean;
+      confirmationPhrase?: string;
+    },
   ) {
     assertNoSend();
     if (action === "SAVE") {
@@ -399,10 +509,13 @@ export const marketingCampaignService = {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
 
-    if (action === "APPROVE") {
-      assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_APPROVE);
-    } else {
-      assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
+    assertMarketingPermission(actor, permissionForMarketingLifecycleAction(action));
+    if (action === "STOP") {
+      assertMarketingDeliveryConfirmation({
+        action: "STOP",
+        confirmed: opts?.confirmed,
+        confirmationPhrase: opts?.confirmationPhrase,
+      });
     }
 
     // SEND-capable actions remain state-only — never call providers
@@ -422,9 +535,42 @@ export const marketingCampaignService = {
     }
 
     if (action === "APPROVE") {
-      const checks = runMarketingPrePublishChecks({ campaign: existing, version: draft });
+      const linkedSender = existing.senderIdentityId
+        ? marketingSenderIdentityStore.get(existing.senderIdentityId, organizationId)
+        : null;
+      assertMarketingSenderEligibleForCampaignApproval({
+        identity: linkedSender,
+        senderIdentityId: existing.senderIdentityId,
+        productionCapable: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+      });
+      const mapping = loadCampaignMapping(actor, existing.audienceId);
+      const checks = runMarketingPrePublishChecks({
+        campaign: existing,
+        version: draft,
+        columnMap: mapping.columnMap,
+        mappingConfirmed: mapping.mappingConfirmed,
+      });
       assertReadyForApproval(checks);
       const frozen = await marketingCampaignStore.freezeVersion(draft.id, "APPROVED");
+      const durabilityPorts = getConfiguredMarketingDurabilityPorts();
+      let snapshotFrozen = !durabilityPorts;
+      if (durabilityPorts && existing.audienceId) {
+        await marketingAudienceService.freezeForCampaign(
+          { userId: actor.userId, organizationId },
+          {
+            audienceId: existing.audienceId,
+            campaignId,
+            campaignVersionId: frozen.id,
+            channel: existing.channel,
+          },
+        );
+        const snaps = await durabilityPorts.snapshots.listByCampaign(organizationId, campaignId);
+        snapshotFrozen = snaps.some((row) => Boolean(row.frozenAt));
+      }
+      assertApprovalFreezesContentAndAudience({
+        contentFrozen: Boolean(frozen.immutable && frozen.frozenAt),
+        snapshotFrozen,
+      });
       await marketingCampaignStore.updateCampaign(campaignId, organizationId, {
         activePublishedVersionId: frozen.id,
         governance: {
@@ -448,11 +594,51 @@ export const marketingCampaignService = {
     }
 
     if (action === "SCHEDULE") {
+      assertScheduleRequiresApproval(from);
       await marketingCampaignStore.updateCampaign(campaignId, organizationId, {
         governance: {
           ...existing.governance,
           scheduledByUserId: actor.userId ?? null,
           scheduledAt: new Date().toISOString(),
+          modifiedByUserId: actor.userId ?? null,
+        },
+      });
+    }
+
+    if (action === "RUN") {
+      const mapping = loadCampaignMapping(actor, existing.audienceId);
+      const checks = runMarketingPrePublishChecks({
+        campaign: existing,
+        version: draft,
+        columnMap: mapping.columnMap,
+        mappingConfirmed: mapping.mappingConfirmed,
+      });
+      const ports = getConfiguredMarketingDurabilityPorts();
+      let snapshotFrozen = !ports;
+      if (ports) {
+        const snaps = await ports.snapshots.listByCampaign(organizationId, campaignId);
+        snapshotFrozen = snaps.some((row) => Boolean(row.frozenAt));
+      }
+      assertLaunchBlockersPass(
+        buildMarketingLaunchBlockers({
+          prePublishBlockingCodes: checks.blockingCodes,
+          contentFrozen: Boolean(draft.immutable && draft.frozenAt),
+          snapshotFrozen,
+        }),
+      );
+    }
+
+    if (action === "REOPEN_DRAFT") {
+      if (draft.immutable) {
+        await marketingCampaignStore.updateDraftVersion(campaignId, organizationId, {});
+      }
+      await marketingCampaignStore.updateCampaign(campaignId, organizationId, {
+        governance: {
+          ...existing.governance,
+          approvedByUserId: null,
+          approvedAt: null,
+          scheduledByUserId: null,
+          scheduledAt: null,
           modifiedByUserId: actor.userId ?? null,
         },
       });
@@ -508,6 +694,14 @@ export const marketingCampaignService = {
       kind: auditKind,
       actorUserId: actor.userId ?? null,
       organizationId,
+      action,
+      objectType: "campaign",
+      objectId: campaignId,
+      campaignId,
+      versionId: draft.id,
+      previousState: from,
+      resultingState: to,
+      reason: opts?.note ?? null,
       detail: {
         campaignId,
         action,
@@ -518,11 +712,28 @@ export const marketingCampaignService = {
       },
     });
 
-    if (action === "PAUSE" || action === "STOP" || action === "CANCEL") {
-      marketingExecutionService.onStop(campaignId);
-    }
-    if (action === "RESUME") {
-      marketingExecutionService.onResume(campaignId);
+    if (action === "PAUSE" || action === "STOP" || action === "CANCEL" || action === "RESUME") {
+      const ports = isEnterprisePersistencePrisma()
+        ? ensureProductionMarketingDurabilityPorts()
+        : getConfiguredMarketingDurabilityPorts();
+      if (ports) {
+        await applyMarketingOperationalControl({
+          ports,
+          organizationId,
+          campaignId,
+          fromStatus: from,
+          action,
+          actorUserId: actor.userId ?? null,
+        });
+      } else if (action === "PAUSE") {
+        marketingExecutionService.onPause(campaignId);
+      } else if (action === "STOP") {
+        marketingExecutionService.onStop(campaignId);
+      } else if (action === "CANCEL") {
+        marketingExecutionService.onCancel(campaignId);
+      } else {
+        marketingExecutionService.onResume(campaignId);
+      }
     }
     if (action === "SCHEDULE" || action === "RUN") {
       await marketingExecutionService.initializeFromTransition(campaignId, organizationId);
@@ -552,13 +763,13 @@ export const marketingCampaignService = {
 
   async saveAsTemplate(actor: Actor, campaignId: string, templateName: string) {
     assertNoSend();
-    assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
+    assertMarketingPermission(actor, MARKETING_PERMISSIONS.TEMPLATE_MANAGE);
     const organizationId = orgId(actor.organizationId);
     const { campaign, draft } = await this.get(actor, campaignId);
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
-    const template = marketingTemplateStore.save({
+    const template = await marketingTemplateStore.saveDurable({
       organizationId,
       name: templateName,
       channel: campaign.channel,
@@ -566,6 +777,9 @@ export const marketingCampaignService = {
       previewText: draft.previewText,
       content: draft.content,
       disclaimer: draft.disclaimer,
+      category: "organisation",
+      status: "DRAFT",
+      origin: "organisation",
     });
     recordMarketingAuditEvent({
       kind: "campaign.save_template",
@@ -576,8 +790,8 @@ export const marketingCampaignService = {
     return template;
   },
 
-  listTemplates(actor: Actor) {
-    return marketingTemplateStore.list(orgId(actor.organizationId));
+  async listTemplates(actor: Actor) {
+    return marketingTemplateStore.listDurable(orgId(actor.organizationId));
   },
 
   saveReusableBlock(
@@ -600,17 +814,35 @@ export const marketingCampaignService = {
     actor: Actor,
     campaignId: string,
     personalization?: Record<string, string>,
+    opts?: { sampleRecipientId?: string | null },
   ): Promise<MarketingCampaignPreviewPayload> {
     assertNoSend();
     const { campaign, draft } = await this.get(actor, campaignId);
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
-    const sample = {
-      ...defaultPersonalizationSample(),
-      senderName: campaign.sender.fromName || defaultPersonalizationSample().senderName,
-      ...personalization,
-    };
+
+    let audienceSamples: MarketingPersonalisationSampleRecipient[] = [];
+    if (campaign.audienceId) {
+      try {
+        const preview = await marketingAudienceService.previewSaved(actor, campaign.audienceId);
+        audienceSamples = preview.sampleRecipients ?? [];
+      } catch {
+        audienceSamples = [];
+      }
+    }
+    const picked = pickAudiencePreviewSample(audienceSamples, opts?.sampleRecipientId);
+    const described = describeMarketingPreviewSample({
+      sample: picked,
+      senderName: campaign.sender.fromName || MARKETING_PERSONALIZATION_FALLBACKS.senderName,
+    });
+    const sample = resolvePersonalisationWithFallbacks({
+      ...described.values,
+      ...projectAllowlistedSampleValues({ extras: personalization ?? {} }),
+      ...(personalization ?? {}),
+      senderName: campaign.sender.fromName || described.values.senderName,
+    });
+
     validateContentTokens(draft.content, draft.subject, draft.previewText);
     if (draft.plainTextOverride) {
       assertSafePersonalizationTokens(draft.plainTextOverride);
@@ -629,7 +861,7 @@ export const marketingCampaignService = {
       kind: "campaign.preview",
       actorUserId: actor.userId ?? null,
       organizationId: orgId(actor.organizationId),
-      detail: { campaignId, tokens, delivery: "none" },
+      detail: { campaignId, tokens, delivery: "none", sampleSource: described.source },
     });
 
     const renderArgs = {
@@ -640,6 +872,13 @@ export const marketingCampaignService = {
       trackingEnabled: draft.trackingEnabled,
       utm: draft.utm ?? null,
     };
+    const htmlDesktop = renderMarketingEmailHtml({ ...renderArgs, mode: "desktop" });
+    const htmlMobile = renderMarketingEmailHtml({ ...renderArgs, mode: "mobile" });
+    const inspection = inspectMarketingPreviewWorkspace({
+      content: draft.content,
+      htmlDesktop,
+      htmlMobile,
+    });
 
     return {
       campaignId: campaign.id,
@@ -649,8 +888,8 @@ export const marketingCampaignService = {
       previewText: applyPersonalization(draft.previewText, sample),
       preheader: applyPersonalization(draft.previewText, sample),
       sender: campaign.sender,
-      htmlDesktop: renderMarketingEmailHtml({ ...renderArgs, mode: "desktop" }),
-      htmlMobile: renderMarketingEmailHtml({ ...renderArgs, mode: "mobile" }),
+      htmlDesktop,
+      htmlMobile,
       plaintext: renderMarketingEmailPlaintext({
         content: draft.content,
         personalization: sample,
@@ -660,10 +899,17 @@ export const marketingCampaignService = {
       }),
       plainTextIsOverride: Boolean(draft.plainTextOverride?.trim()),
       personalizationSample: sample,
+      sampleRecipientAvailable: described.available,
+      sampleRecipientLabel: described.label,
+      sampleSource: described.source,
+      linkInventory: inspection.linkInventory,
+      missingImageWarnings: inspection.missingImageWarnings,
+      unsubscribeVerified: inspection.unsubscribeVerified,
       utm: draft.utm ?? null,
       trackingEnabled: draft.trackingEnabled,
-      notice:
-        "Live preview of the customer-facing email (same renderer used at send time). Preview does not send. SAVE never publishes.",
+      notice: described.available
+        ? `${described.notice} Live preview does not send. SAVE never publishes.`
+        : `${described.notice} Preview does not send. SAVE never publishes.`,
     };
   },
 
@@ -675,19 +921,25 @@ export const marketingCampaignService = {
   async testSend(
     actor: Actor,
     campaignId: string,
-    input: { recipientEmail: string; personalization?: Record<string, string> },
+    input: {
+      recipientEmail: string;
+      personalization?: Record<string, string>;
+      confirmed?: boolean;
+      confirmationPhrase?: string;
+      sampleRecipientId?: string | null;
+    },
   ) {
     assertNoSend();
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
-    const recipientEmail = (input.recipientEmail ?? "").trim();
-    if (!recipientEmail || !recipientEmail.includes("@")) {
-      throw Object.assign(new Error("Enter a valid test recipient email"), {
-        statusCode: 400,
-        code: "INVALID_TEST_RECIPIENT",
-      });
-    }
+    assertMarketingTestSendConfirmed({
+      confirmed: input.confirmed,
+      confirmationPhrase: input.confirmationPhrase,
+    });
+    const recipientEmail = assertMarketingInternalTestRecipient(input.recipientEmail ?? "");
 
-    const preview = await this.preview(actor, campaignId, input.personalization);
+    const preview = await this.preview(actor, campaignId, input.personalization, {
+      sampleRecipientId: input.sampleRecipientId,
+    });
     const { campaign, draft } = await this.get(actor, campaignId);
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
@@ -695,7 +947,7 @@ export const marketingCampaignService = {
 
     const organizationId = orgId(actor.organizationId);
     const batchId = `test-send-${Date.now()}`;
-    const idempotencyKey = `mkt-test:${campaignId}:${recipientEmail.toLowerCase()}:${batchId}`;
+    const idempotencyKey = `mkt-test:${campaignId}:${recipientEmail}:${batchId}`;
 
     const delivery = await marketingEmailDeliveryService.deliver({
       idempotencyKey,
@@ -703,7 +955,7 @@ export const marketingCampaignService = {
       campaignId,
       campaignVersionId: draft.id,
       batchId,
-      recipientFingerprint: `test:${recipientEmail.toLowerCase()}`,
+      recipientFingerprint: `test:${recipientEmail}`,
       recipientEmail,
       sender: {
         senderIdentityId: campaign.senderIdentityId || "inline",
@@ -720,9 +972,46 @@ export const marketingCampaignService = {
         campaignId,
         batchId,
         campaignVersionId: draft.id,
-        recipientFingerprint: `test:${recipientEmail.toLowerCase()}`,
+        recipientFingerprint: `test:${recipientEmail}`,
       },
     });
+
+    assertMarketingTestSendDryRunOnly({ dryRun: delivery.dryRun });
+    const actuallySent = forceMarketingTestSendNotActuallySent();
+    const failureReason =
+      delivery.errorMessage ??
+      (delivery.outcome !== "SENT" && delivery.outcome !== "ACCEPTED" ? delivery.outcome : null) ??
+      null;
+
+    const history = recordMarketingTestSendHistory({
+      id: `hist-${idempotencyKey}`,
+      campaignId,
+      campaignVersionId: draft.id,
+      campaignVersionNumber: draft.versionNumber,
+      requesterUserId: actor.userId ?? null,
+      recipientEmail,
+      timestamp: new Date().toISOString(),
+      adapterResult: `${delivery.dryRun ? "dry_run" : "provider"}:${delivery.outcome}`,
+      failureReason,
+    });
+
+    const ports = getConfiguredMarketingDurabilityPorts();
+    if (ports) {
+      await ports.testSends.record({
+        id: history.id,
+        organizationId,
+        campaignId,
+        campaignVersionId: draft.id,
+        testRecipientEmail: recipientEmail,
+        dryRun: true,
+        actuallySent: false,
+        idempotencyKey,
+        providerMessageId: delivery.providerMessageId ?? null,
+        createdByUserId: actor.userId ?? null,
+        createdAt: history.timestamp,
+        updatedAt: history.timestamp,
+      });
+    }
 
     recordMarketingAuditEvent({
       kind: "campaign.test_send",
@@ -731,23 +1020,26 @@ export const marketingCampaignService = {
       detail: {
         campaignId,
         outcome: delivery.outcome,
-        dryRun: delivery.dryRun,
-        actuallySent: !delivery.dryRun && (delivery.outcome === "SENT" || delivery.outcome === "ACCEPTED"),
-        delivery: delivery.dryRun ? "dry_run" : "provider",
+        dryRun: true,
+        actuallySent,
+        delivery: "dry_run",
+        notice: MARKETING_TEST_SEND_DRY_RUN_NOTICE,
       },
     });
 
-    const actuallySent =
-      !delivery.dryRun && (delivery.outcome === "SENT" || delivery.outcome === "ACCEPTED");
-
     return {
       preview,
-      delivery,
+      delivery: { ...delivery, dryRun: true as const },
       actuallySent,
-      notice: actuallySent
-        ? "Test send delivered via the Marketing email provider using the same rendered content as Preview."
-        : "Test send ran the real render path and the Marketing delivery port. Live mailbox delivery remains unavailable until the Marketing email live adapter is authorised — this was a dry-run of the exact customer-facing HTML.",
+      history,
+      notice: MARKETING_TEST_SEND_DRY_RUN_NOTICE,
     };
+  },
+
+  listTestHistory(actor: Actor, campaignId: string) {
+    assertNoSend();
+    orgId(actor.organizationId);
+    return listMarketingTestSendHistory(campaignId);
   },
 
   /**
@@ -756,12 +1048,12 @@ export const marketingCampaignService = {
    */
   async restoreVersionAsDraft(actor: Actor, campaignId: string, versionId: string) {
     assertNoSend();
-    assertMarketingPermission(actor, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
     const organizationId = orgId(actor.organizationId);
     const existing = await marketingCampaignStore.getForOrg(campaignId, organizationId);
     if (!existing) {
       throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
     }
+    assertCanEditMarketingCampaign(actor, existing);
     const policy = marketingCampaignEditPolicy(existing.status);
     if (policy.operationalControlsOnly || policy.readOnly) {
       throw Object.assign(
@@ -809,6 +1101,112 @@ export const marketingCampaignService = {
       },
     });
     return await this.get(actor, campaignId);
+  },
+
+  async reopenApprovedAsDraft(actor: Actor, campaignId: string) {
+    return this.transition(actor, campaignId, "REOPEN_DRAFT", {
+      note: "Edit of approved content or audience requires reapproval",
+    });
+  },
+
+  async simulateLaunch(actor: Actor, campaignId: string) {
+    assertNoSend();
+    assertMarketingOperationPermission(actor, "run");
+    const { campaign, draft } = await this.get(actor, campaignId);
+    if (!draft) {
+      throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
+    }
+    const organizationId = orgId(actor.organizationId);
+    const mapping = loadCampaignMapping(actor, campaign.audienceId);
+    const checks = runMarketingPrePublishChecks({
+      campaign,
+      version: draft,
+      columnMap: mapping.columnMap,
+      mappingConfirmed: mapping.mappingConfirmed,
+    });
+    const ports = getConfiguredMarketingDurabilityPorts();
+    let snapshotFrozen = !ports;
+    if (ports) {
+      const snaps = await ports.snapshots.listByCampaign(organizationId, campaignId);
+      snapshotFrozen = snaps.some((row) => Boolean(row.frozenAt));
+    }
+    const blockers = buildMarketingLaunchBlockers({
+      prePublishBlockingCodes: checks.blockingCodes,
+      contentFrozen: Boolean(draft.immutable && draft.frozenAt),
+      snapshotFrozen,
+    });
+    const result = simulateMarketingTestModeLaunch({
+      approved: campaign.status === "APPROVED" || campaign.status === "SCHEDULED",
+      blockers,
+      hasRunPermission: true,
+    });
+    if (!result.ok) {
+      throw Object.assign(new Error(result.reason ?? "Launch simulation blocked"), {
+        statusCode: 400,
+        code: "LAUNCH_BLOCKERS_PRESENT",
+      });
+    }
+    recordMarketingAuditEvent({
+      kind: "campaign.run",
+      actorUserId: actor.userId ?? null,
+      organizationId,
+      detail: { campaignId, actuallySent: false, simulated: true },
+    });
+    return result;
+  },
+
+  async retryEligibleFailures(
+    actor: Actor,
+    campaignId: string,
+    opts?: { confirmed?: boolean; confirmationPhrase?: string },
+  ) {
+    assertNoSend();
+    assertMarketingOperationPermission(actor, "retry");
+    assertMarketingDeliveryConfirmation({
+      action: "RETRY",
+      confirmed: opts?.confirmed,
+      confirmationPhrase: opts?.confirmationPhrase,
+    });
+    const organizationId = orgId(actor.organizationId);
+    const ports = getConfiguredMarketingDurabilityPorts();
+    if (!ports) {
+      return { retried: 0, skipped: 0, actuallySent: false as const, notice: MARKETING_LIVE_PROVIDER_SENDING_DISABLED };
+    }
+    const result = await retryEligibleMarketingFailures({
+      ports,
+      organizationId,
+      campaignId,
+      workerId: actor.userId ?? "retry-worker",
+    });
+    return { ...result, notice: MARKETING_LIVE_PROVIDER_SENDING_DISABLED };
+  },
+
+  async readinessReview(actor: Actor, campaignId: string) {
+    assertNoSend();
+    const { campaign, draft } = await this.get(actor, campaignId);
+    if (!draft) {
+      throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
+    }
+    const organizationId = orgId(actor.organizationId);
+    const mapping = loadCampaignMapping(actor, campaign.audienceId);
+    const history = listMarketingTestSendHistory(campaignId);
+    const ports = getConfiguredMarketingDurabilityPorts();
+    const snaps = ports ? await ports.snapshots.listByCampaign(organizationId, campaignId) : [];
+    const snapshot = [...snaps].sort((a, b) => b.frozenAt.localeCompare(a.frozenAt))[0] ?? null;
+    return composeMarketingReadinessReview({
+      campaign,
+      version: draft,
+      columnMap: mapping.columnMap,
+      snapshot,
+      unresolvedWarnings: unresolvedPersonalisationTokens({
+        subject: draft.subject,
+        preheader: draft.previewText,
+        messageBody: paragraphTextFromDocument(draft.content),
+        mappedVariables: mappedPersonalisationTokenNames(mapping.columnMap ?? { email: "" }),
+        content: draft.content,
+      }),
+      latestTestSend: history[0] ?? null,
+    });
   },
 };
 

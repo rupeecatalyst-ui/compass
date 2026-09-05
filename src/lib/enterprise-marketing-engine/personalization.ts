@@ -14,6 +14,8 @@ const TOKEN_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g;
 /** Any mustache pair — used to reject expressions, prototypes, and unknown tokens. */
 const ANY_MUSTACHE_RE = /\{\{([^}]*)\}\}/g;
 const ALLOWED = new Set<string>(MARKETING_PERSONALIZATION_TOKENS);
+/** Structural tokens that are not audience personalisation — left intact for delivery. */
+const RESERVED_STRUCTURAL_TOKENS = new Set(["unsubscribeUrl"]);
 
 /** Resolve alias (e.g. first_name) to canonical allowlisted token (firstName). */
 export function resolveCanonicalPersonalizationToken(
@@ -38,6 +40,7 @@ export function listPersonalizationTokensInText(text: string): string[] {
 export function assertSafePersonalizationTokens(text: string): void {
   for (const match of text.matchAll(ANY_MUSTACHE_RE)) {
     const inner = (match[1] ?? "").trim();
+    if (RESERVED_STRUCTURAL_TOKENS.has(inner)) continue;
     if (!resolveCanonicalPersonalizationToken(inner)) {
       throw Object.assign(
         new Error(
@@ -71,6 +74,7 @@ export function applyPersonalization(
   }
 
   return text.replace(TOKEN_RE, (_full, name: string) => {
+    if (RESERVED_STRUCTURAL_TOKENS.has(name)) return `{{${name}}}`;
     const key = resolveCanonicalPersonalizationToken(name);
     if (!key) {
       if (opts?.leavePlaceholders) return `{{${name}}}`;

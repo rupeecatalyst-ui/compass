@@ -52,7 +52,7 @@ function emptyGovernance(userId: string | null): MarketingCampaignGovernance {
   };
 }
 
-function usePrisma(): boolean {
+function isMarketingCampaignPrismaPersistence(): boolean {
   return isEnterprisePersistencePrisma();
 }
 
@@ -575,7 +575,7 @@ const memoryStore = {
 export async function ensureProductOwnerDemoCampaign(
   organizationId: string,
 ): Promise<MarketingCampaign> {
-  if (!usePrisma()) {
+  if (!isMarketingCampaignPrismaPersistence()) {
     const existing = memoryStore
       .list(organizationId)
       .find((c) => c.id.endsWith(`-${MARKETING_PO_DEMO_KEY}`) || c.name === MARKETING_PO_DEMO_NAME);
@@ -635,8 +635,17 @@ export async function ensureProductOwnerDemoCampaign(
 }
 
 export const marketingCampaignStore = {
+  /** Sync memory scan for Marketing Asset usage history (fixture runtime). */
+  listMemory(organizationId: string): MarketingCampaign[] {
+    return memoryStore.list(organizationId);
+  },
+
+  listVersionsMemory(campaignId: string): MarketingCampaignVersion[] {
+    return memoryStore.listVersions(campaignId);
+  },
+
   async list(organizationId: string): Promise<MarketingCampaign[]> {
-    if (usePrisma()) {
+    if (isMarketingCampaignPrismaPersistence()) {
       await ensureProductOwnerDemoCampaign(organizationId);
       return persistList(organizationId);
     }
@@ -644,7 +653,7 @@ export const marketingCampaignStore = {
   },
 
   async listAll(): Promise<MarketingCampaign[]> {
-    if (usePrisma()) {
+    if (isMarketingCampaignPrismaPersistence()) {
       const rows = await prisma.enterpriseMarketingCampaign.findMany({
         orderBy: { updatedAt: "desc" },
       });
@@ -654,22 +663,22 @@ export const marketingCampaignStore = {
   },
 
   async get(id: string): Promise<MarketingCampaign | null> {
-    if (usePrisma()) return persistGet(id);
+    if (isMarketingCampaignPrismaPersistence()) return persistGet(id);
     return memoryStore.get(id);
   },
 
   async getForOrg(id: string, organizationId: string): Promise<MarketingCampaign | null> {
-    if (usePrisma()) return persistGetForOrg(id, organizationId);
+    if (isMarketingCampaignPrismaPersistence()) return persistGetForOrg(id, organizationId);
     return memoryStore.getForOrg(id, organizationId);
   },
 
   async getVersion(versionId: string): Promise<MarketingCampaignVersion | null> {
-    if (usePrisma()) return persistGetVersion(versionId);
+    if (isMarketingCampaignPrismaPersistence()) return persistGetVersion(versionId);
     return memoryStore.getVersion(versionId);
   },
 
   async listVersions(campaignId: string): Promise<MarketingCampaignVersion[]> {
-    if (usePrisma()) return persistListVersions(campaignId);
+    if (isMarketingCampaignPrismaPersistence()) return persistListVersions(campaignId);
     return memoryStore.listVersions(campaignId);
   },
 
@@ -685,7 +694,7 @@ export const marketingCampaignStore = {
       }
     }
     const created = memoryStore.create(input);
-    if (usePrisma()) {
+    if (isMarketingCampaignPrismaPersistence()) {
       await persistWriteCampaign(created.campaign, input.demoKey ?? null);
       await persistWriteVersion(created.version, input.organizationId);
       const persisted = await persistGetForOrg(created.campaign.id, input.organizationId);
@@ -700,7 +709,7 @@ export const marketingCampaignStore = {
     organizationId: string,
     patch: Parameters<typeof memoryStore.updateCampaign>[2],
   ) {
-    if (usePrisma()) {
+    if (isMarketingCampaignPrismaPersistence()) {
       const current = await persistGetForOrg(campaignId, organizationId);
       if (!current) {
         throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
@@ -717,7 +726,7 @@ export const marketingCampaignStore = {
     organizationId: string,
     entry: Parameters<typeof memoryStore.recordStateChange>[2],
   ) {
-    if (usePrisma()) {
+    if (isMarketingCampaignPrismaPersistence()) {
       const current = await persistGetForOrg(campaignId, organizationId);
       if (!current) {
         throw Object.assign(new Error("Campaign not found"), { statusCode: 404, code: "NOT_FOUND" });
@@ -746,7 +755,7 @@ export const marketingCampaignStore = {
     organizationId: string,
     patch: Parameters<typeof memoryStore.updateDraftVersion>[2],
   ) {
-    if (!usePrisma()) {
+    if (!isMarketingCampaignPrismaPersistence()) {
       return memoryStore.updateDraftVersion(campaignId, organizationId, patch);
     }
     const current = await persistGetForOrg(campaignId, organizationId);
@@ -798,7 +807,7 @@ export const marketingCampaignStore = {
   },
 
   async freezeVersion(versionId: string, reason: "APPROVED" | "MANUAL_FREEZE") {
-    if (!usePrisma()) return memoryStore.freezeVersion(versionId, reason);
+    if (!isMarketingCampaignPrismaPersistence()) return memoryStore.freezeVersion(versionId, reason);
     const v = await persistGetVersion(versionId);
     if (!v) {
       throw Object.assign(new Error("Version not found"), { statusCode: 404, code: "NOT_FOUND" });
@@ -822,7 +831,7 @@ export const marketingCampaignStore = {
     name?: string,
     createdByUserId?: string | null,
   ) {
-    if (!usePrisma()) {
+    if (!isMarketingCampaignPrismaPersistence()) {
       return memoryStore.cloneCampaign(sourceId, organizationId, name, createdByUserId);
     }
     const src = await persistGetForOrg(sourceId, organizationId);

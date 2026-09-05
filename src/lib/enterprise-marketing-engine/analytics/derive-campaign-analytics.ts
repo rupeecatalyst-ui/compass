@@ -4,7 +4,7 @@
  * Does not copy audience source rows. Does not invent unsupported provider metrics.
  */
 
-import type { MarketingCampaignStatus, MarketingChannel } from "@/constants/enterprise-marketing-engine";
+import type { MarketingChannel } from "@/constants/enterprise-marketing-engine";
 import { MARKETING_CAMPAIGN_STATUSES } from "@/constants/enterprise-marketing-engine";
 import { MARKETING_ANALYTICS_NOTICE } from "@/constants/enterprise-marketing-engine/analytics";
 import type { MarketingAudienceDefinition } from "@/types/enterprise-marketing-audience";

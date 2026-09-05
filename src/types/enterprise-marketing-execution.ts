@@ -8,7 +8,7 @@ import type { MarketingChannel } from "@/constants/enterprise-marketing-engine";
 /** Pacing / schedule configuration (BatchPolicy). */
 export type MarketingBatchPolicy = {
   batchSize: number;
-  /** Milliseconds between batch ticks (e.g. 2.5h = 9_000_000). */
+  /** Milliseconds between batch ticks (default 60 minutes = 3_600_000). */
   intervalMs: number;
   dailyMax: number;
   /** Local time HH:mm (24h). */

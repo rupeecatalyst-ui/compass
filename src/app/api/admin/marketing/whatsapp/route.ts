@@ -5,12 +5,10 @@
 
 import {
   errorResponse,
-  fromAuthError,
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
-import type { ApiResponse } from "@/types/api";
+import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
 import type {
   MarketingWhatsAppTemplateApprovalState,
   MarketingWhatsAppTemplateCategory,
@@ -28,17 +26,9 @@ function requireAdministrator(actor: { role: string }) {
 }
 
 function fromUnknown(err: unknown) {
-  if (err instanceof EnterpriseMarketingSafetyError) {
-    return errorResponse(403, err.code, err.message);
-  }
-  const statusCode = (err as { statusCode?: number }).statusCode;
-  const code = (err as { code?: string }).code;
-  if (statusCode === 401 || statusCode === 403) {
-    return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
-  }
-  return errorResponse(
-    statusCode && statusCode >= 400 && statusCode < 600 ? statusCode : 500,
-    code ?? "MARKETING_WHATSAPP_FAILED",
+  return fromMarketingUnknownError(
+    err,
+    "MARKETING_WHATSAPP_FAILED",
     err instanceof Error ? err.message : "Marketing WhatsApp request failed",
   );
 }

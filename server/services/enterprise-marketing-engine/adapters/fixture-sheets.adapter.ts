@@ -95,6 +95,77 @@ const FIXTURE_TABS: FixtureTab[] = [
   },
 ];
 
+export type MarketingFixtureTab = FixtureTab;
+
+function cloneFixtureTabs(tabs: FixtureTab[]): FixtureTab[] {
+  return structuredClone(tabs);
+}
+
+const workbookByOrg = new Map<string, FixtureTab[]>();
+
+export function getDefaultMarketingFixtureTabs(): FixtureTab[] {
+  return cloneFixtureTabs(FIXTURE_TABS);
+}
+
+export function resetMarketingFixtureWorkbook(
+  organizationId: string,
+  tabs?: FixtureTab[],
+): FixtureTab[] {
+  const next = cloneFixtureTabs(tabs ?? FIXTURE_TABS);
+  workbookByOrg.set(organizationId, next);
+  return next;
+}
+
+export function getMarketingFixtureTabs(organizationId: string): FixtureTab[] {
+  const existing = workbookByOrg.get(organizationId);
+  if (existing) return existing;
+  return resetMarketingFixtureWorkbook(organizationId);
+}
+
+export function upsertMarketingFixtureTab(organizationId: string, tab: FixtureTab): FixtureTab {
+  const tabs = getMarketingFixtureTabs(organizationId);
+  const copy: FixtureTab = {
+    id: tab.id,
+    title: tab.title,
+    headers: [...tab.headers],
+    rows: tab.rows.map((row) => ({ ...row })),
+  };
+  const idx = tabs.findIndex((item) => item.id === tab.id);
+  if (idx >= 0) tabs[idx] = copy;
+  else tabs.push(copy);
+  return copy;
+}
+
+export function replaceMarketingFixtureTabRows(
+  organizationId: string,
+  tabId: string,
+  rows: Record<string, string>[],
+): void {
+  const tab = getMarketingFixtureTabs(organizationId).find((item) => item.id === tabId);
+  if (!tab) {
+    throw Object.assign(new Error(`Unknown fixture tab: ${tabId}`), {
+      statusCode: 404,
+      code: "DATASET_NOT_FOUND",
+    });
+  }
+  tab.rows = rows.map((row) => ({ ...row }));
+}
+
+export function replaceMarketingFixtureTabHeaders(
+  organizationId: string,
+  tabId: string,
+  headers: string[],
+): void {
+  const tab = getMarketingFixtureTabs(organizationId).find((item) => item.id === tabId);
+  if (!tab) {
+    throw Object.assign(new Error(`Unknown fixture tab: ${tabId}`), {
+      statusCode: 404,
+      code: "DATASET_NOT_FOUND",
+    });
+  }
+  tab.headers = [...headers];
+}
+
 function requireFixtureBinding(bindingId: string, organizationId: string) {
   ensureFixtureBinding(organizationId);
   const b = marketingDataSourceBindingStore.getForOrg(bindingId, organizationId);
@@ -148,8 +219,8 @@ function pageSyntheticScale(count: number, cursor: string | undefined, limit: nu
   };
 }
 
-function getTab(datasetId: string): FixtureTab {
-  const tab = FIXTURE_TABS.find((t) => t.id === datasetId);
+function getTab(organizationId: string, datasetId: string): FixtureTab {
+  const tab = getMarketingFixtureTabs(organizationId).find((t) => t.id === datasetId);
   if (!tab) {
     throw Object.assign(new Error(`Unknown fixture tab: ${datasetId}`), {
       statusCode: 404,
@@ -189,20 +260,29 @@ export function createFixtureMarketingDataSourcePort(
       marketingDataSourceBindingStore.patch(bindingId, organizationId, {
         lastDiscoverAt: new Date().toISOString(),
       });
-      return FIXTURE_TABS.map(
-        (t): MarketingDatasetDescriptor => ({
-          externalDatasetId: t.id,
-          displayName: t.title,
-          rowCountEstimate: t.rows.length,
-          schemaFingerprint: fingerprintSchemaHeaders(t.headers),
-        }),
-      );
+      const tabs = getMarketingFixtureTabs(organizationId);
+      const discovered: MarketingDatasetDescriptor[] = tabs.map((t) => ({
+        externalDatasetId: t.id,
+        displayName: t.title,
+        rowCountEstimate: t.rows.length,
+        schemaFingerprint: fingerprintSchemaHeaders(t.headers),
+      }));
+      for (const [id, scale] of Object.entries(SYNTHETIC_SCALE_TABS)) {
+        if (tabs.some((t) => t.id === id)) continue;
+        discovered.push({
+          externalDatasetId: id,
+          displayName: scale.title,
+          rowCountEstimate: scale.count,
+          schemaFingerprint: fingerprintSchemaHeaders(SCALE_HEADERS),
+        });
+      }
+      return discovered;
     },
 
     async getSchema(bindingId, datasetId): Promise<MarketingDatasetSchema> {
       requireFixtureBinding(bindingId, organizationId);
       const scale = SYNTHETIC_SCALE_TABS[datasetId];
-      const headers = scale ? SCALE_HEADERS : getTab(datasetId).headers;
+      const headers = scale ? SCALE_HEADERS : getTab(organizationId, datasetId).headers;
       const detected = detectMarketingSheetColumns(headers);
       return {
         headers: [...headers],
@@ -217,7 +297,7 @@ export function createFixtureMarketingDataSourcePort(
       requireFixtureBinding(bindingId, organizationId);
       const scale = SYNTHETIC_SCALE_TABS[datasetId];
       if (scale) return pageSyntheticScale(scale.count, undefined, Math.max(1, limit));
-      const tab = getTab(datasetId);
+      const tab = getTab(organizationId, datasetId);
       return pageRows(tab, undefined, Math.max(1, limit));
     },
 
@@ -232,12 +312,12 @@ export function createFixtureMarketingDataSourcePort(
           note: "Synthetic external-source simulation — rows are generated, not imported.",
         };
       }
-      const tab = getTab(datasetId);
+      const tab = getTab(organizationId, datasetId);
       return {
         approximateRowCount: tab.rows.length + 1,
         dataRowEstimate: tab.rows.length,
         method: "fixture",
-        note: "Controlled fixture dataset — not production marketing database.",
+        note: "FIXTURE MODE — controlled non-production dataset. Not live Google Sheets.",
       };
     },
 
@@ -245,13 +325,13 @@ export function createFixtureMarketingDataSourcePort(
       requireFixtureBinding(bindingId, organizationId);
       const scale = SYNTHETIC_SCALE_TABS[datasetId];
       if (scale) return pageSyntheticScale(scale.count, cursor, Math.max(1, limit));
-      const tab = getTab(datasetId);
+      const tab = getTab(organizationId, datasetId);
       return pageRows(tab, cursor, Math.max(1, limit));
     },
 
     async healthCheck(bindingId) {
       requireFixtureBinding(bindingId, organizationId);
-      const message = "Fixture Sheets adapter healthy (non-production).";
+      const message = "FIXTURE MODE — controlled non-production dataset. Not live Google Sheets.";
       marketingDataSourceBindingStore.patch(bindingId, organizationId, {
         lastHealthAt: new Date().toISOString(),
         lastHealthOk: true,
@@ -264,4 +344,5 @@ export function createFixtureMarketingDataSourcePort(
 
 /** Exported for verify scripts — tab titles are dynamic fixture labels, not production categories. */
 export const FIXTURE_MARKETING_TAB_TITLES = FIXTURE_TABS.map((t) => t.title);
+export const FIXTURE_MARKETING_WORKBOOK_ID = "fixture-marketing-master";
 export const FIXTURE_SYNTHETIC_SCALE_DATASET_IDS = Object.keys(SYNTHETIC_SCALE_TABS);

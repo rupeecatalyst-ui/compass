@@ -18,6 +18,9 @@ export const MARKETING_CONTENT_BLOCK_TYPES = [
   "contact",
   "footer",
   "disclaimer",
+  "columns",
+  "social",
+  "unsubscribe",
 ] as const;
 
 export type MarketingContentBlockType = (typeof MARKETING_CONTENT_BLOCK_TYPES)[number];
@@ -39,7 +42,51 @@ export const MARKETING_CONTENT_BLOCK_LABELS: Record<MarketingContentBlockType, s
   contact: "Contact information",
   footer: "Footer",
   disclaimer: "Disclaimer",
+  columns: "Columns",
+  social: "Social links",
+  unsubscribe: "Unsubscribe",
 };
+
+/** Visual editor palette — operator labels; types are the structured schema. */
+export const MARKETING_VISUAL_EDITOR_PALETTE = [
+  { type: "header", label: "Heading" },
+  { type: "text", label: "Paragraph" },
+  { type: "image", label: "Image" },
+  { type: "cta", label: "Button" },
+  { type: "divider", label: "Divider" },
+  { type: "spacer", label: "Spacer" },
+  { type: "columns", label: "Columns" },
+  { type: "social", label: "Social links" },
+  { type: "footer", label: "Footer" },
+  { type: "unsubscribe", label: "Unsubscribe block" },
+] as const;
+
+export const MARKETING_UNSUBSCRIBE_BLOCK_TYPE = "unsubscribe" as const;
+
+export const MARKETING_EMAIL_SAFE_COLORS = [
+  "#0f172a",
+  "#1f2937",
+  "#334155",
+  "#64748b",
+  "#0f766e",
+  "#ffffff",
+] as const;
+
+export const MARKETING_EMAIL_SAFE_FONT_STACK = "Arial, Helvetica, sans-serif" as const;
+
+export const MARKETING_TEMPLATE_CATEGORIES = [
+  "blank",
+  "organisation",
+  "standard",
+  "recent",
+] as const;
+
+export type MarketingTemplateCategory = (typeof MARKETING_TEMPLATE_CATEGORIES)[number];
+
+export const MARKETING_TEMPLATE_STATUSES = ["DRAFT", "APPROVED", "ARCHIVED"] as const;
+export type MarketingTemplateStatus = (typeof MARKETING_TEMPLATE_STATUSES)[number];
+
+export const MARKETING_HTML_SOURCE_MODE_DEFAULT = false as const;
 
 /** Allowlisted personalization tokens — never arbitrary code. */
 export const MARKETING_PERSONALIZATION_TOKENS = [
@@ -74,10 +121,10 @@ export const MARKETING_PERSONALIZATION_FALLBACKS: Record<
   string
 > = {
   firstName: "there",
-  lastName: "",
+  lastName: "Customer",
   fullName: "Valued Customer",
-  city: "",
-  state: "",
+  city: "your city",
+  state: "your state",
   profession: "Professional",
   company: "your organization",
   companyName: "your organization",

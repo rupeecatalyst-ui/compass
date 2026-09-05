@@ -1,13 +1,17 @@
 /**
- * CO-MARKETING-MKT-06 — Batch execution + ledger constants.
+ * CO-MARKETING-MKT-06 / CO-MARKETING-REDESIGN-001 — Batch execution + ledger constants.
+ * Default delivery policy: 100 eligible emails every 60 minutes. Live send remains OFF.
  */
 
 import type { MarketingBatchPolicy } from "@/types/enterprise-marketing-execution";
 
-/** Default example: 100 per batch, 2.5h interval, 9–7 window. */
+export const MARKETING_DEFAULT_BATCH_SIZE = 100 as const;
+export const MARKETING_DEFAULT_BATCH_INTERVAL_MS = 60 * 60 * 1000;
+
+/** Default: 100 eligible emails every 60 minutes, 9–7 IST window. */
 export const MARKETING_DEFAULT_BATCH_POLICY: MarketingBatchPolicy = {
-  batchSize: 100,
-  intervalMs: 2.5 * 60 * 60 * 1000,
+  batchSize: MARKETING_DEFAULT_BATCH_SIZE,
+  intervalMs: MARKETING_DEFAULT_BATCH_INTERVAL_MS,
   dailyMax: 500,
   sendWindowStart: "09:00",
   sendWindowEnd: "19:00",

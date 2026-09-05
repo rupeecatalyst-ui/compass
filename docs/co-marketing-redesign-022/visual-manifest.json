@@ -1,0 +1,428 @@
+{
+  "harness": "scripts/marketing-visual-harness",
+  "origin": "http://127.0.0.1:4070",
+  "capturedAt": "2026-09-05T21:36:00.271Z",
+  "failed": false,
+  "shots": [
+    {
+      "file": "01-home.png",
+      "surface": "home",
+      "componentName": "MarketingCommandCenter",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-command-center.tsx",
+      "realApplicationPage": "/admin/marketing",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Marketing Command Center",
+      "headingFound": "Marketing Command Center",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 92304,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "02-registry.png",
+      "surface": "registry",
+      "componentName": "MarketingCampaignRegistryPanel",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-registry-panel.tsx",
+      "realApplicationPage": "/admin/marketing/registry",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Campaign Registry",
+      "headingFound": "Campaign Registry",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 66586,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "03-basics.png",
+      "surface": "basics",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Basics",
+      "headingFound": "Basics",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 70925,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "03-builder-mobile.png",
+      "surface": "basics",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Basics",
+      "headingFound": "Basics",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "screenshotBytes": 59094,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "04-audience-source.png",
+      "surface": "audience-source",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Audience source",
+      "headingFound": "Audience source",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 83089,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "05-column-mapping.png",
+      "surface": "column-mapping",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Column mapping",
+      "headingFound": "Column mapping",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 83089,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "06-eligibility-preview.png",
+      "surface": "eligibility-preview",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Eligibility preview",
+      "headingFound": "Eligibility preview",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 83089,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "07-template-gallery.png",
+      "surface": "template-gallery",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Template gallery",
+      "headingFound": "Template gallery",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 171591,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "08-visual-editor.png",
+      "surface": "visual-editor",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Visual editor",
+      "headingFound": "Visual editor",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 171559,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "09-personalisation.png",
+      "surface": "personalisation",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Personalisation",
+      "headingFound": "Personalisation",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 149119,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "10-desktop-preview.png",
+      "surface": "desktop-preview",
+      "componentName": "MarketingPreviewWorkspace",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-preview-workspace.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Desktop preview",
+      "headingFound": "Desktop preview",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 157055,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "11-mobile-preview.png",
+      "surface": "mobile-preview",
+      "componentName": "MarketingPreviewWorkspace",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-preview-workspace.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Mobile preview",
+      "headingFound": "Mobile preview",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "screenshotBytes": 133774,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "12-schedule-delivery.png",
+      "surface": "schedule-delivery",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Schedule & Delivery",
+      "headingFound": "Schedule & Delivery",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 70178,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "13-review-approval.png",
+      "surface": "review-approval",
+      "componentName": "MarketingCampaignBuilderPage",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx",
+      "realApplicationPage": "/admin/marketing/campaigns/[campaignId]",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Review and Approval",
+      "headingFound": "Review and Approval",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 215532,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "14-monitoring.png",
+      "surface": "monitoring",
+      "componentName": "MarketingCampaignMonitoringWorkspace",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-monitoring-workspace.tsx",
+      "realApplicationPage": "/admin/marketing/monitoring",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Campaign monitoring",
+      "headingFound": "Campaign monitoring",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 116780,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "15-recipient-timeline.png",
+      "surface": "recipient-timeline",
+      "componentName": "MarketingCampaignMonitoringWorkspace",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-campaign-monitoring-workspace.tsx",
+      "realApplicationPage": "/admin/marketing/monitoring",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Recipient timeline",
+      "headingFound": "Recipient timeline",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 142090,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "16-consent.png",
+      "surface": "consent",
+      "componentName": "MarketingConsentPanel",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-consent-panel.tsx",
+      "realApplicationPage": "/admin/marketing/consent",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Consent and Suppression Centre",
+      "headingFound": "Consent and Suppression Centre",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 103802,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "17-qualification.png",
+      "surface": "qualification",
+      "componentName": "MarketingResponsesPanel",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-responses-panel.tsx",
+      "realApplicationPage": "/admin/marketing/responses",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Qualification Inbox",
+      "headingFound": "Qualification Inbox",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 106309,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "18-analytics.png",
+      "surface": "analytics",
+      "componentName": "MarketingAttributionPanel",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-attribution-panel.tsx",
+      "realApplicationPage": "/admin/marketing/attribution",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Analytics and Attribution",
+      "headingFound": "Analytics and Attribution",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 115715,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "19-assets.png",
+      "surface": "assets",
+      "componentName": "MarketingAssetsPanel",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-assets-panel.tsx",
+      "realApplicationPage": "/admin/marketing/assets",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Marketing Asset Library",
+      "headingFound": "Marketing Asset Library",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 96365,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    },
+    {
+      "file": "20-deliverability.png",
+      "surface": "deliverability",
+      "componentName": "MarketingDeliverabilityPanel",
+      "productionImportPath": "src/components/catalyst-one/admin/marketing/marketing-deliverability-panel.tsx",
+      "realApplicationPage": "/admin/marketing/deliverability",
+      "fixtureProvider": "scripts/marketing-visual-harness/fixture-data.js via authenticatedJsonFetch stub",
+      "expectedHeading": "Sender identity and deliverability",
+      "headingFound": "Sender identity and deliverability",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshotBytes": 58922,
+      "runtimeErrors": [],
+      "externalRequests": [],
+      "loginCaptured": false,
+      "blank": false,
+      "pass": true
+    }
+  ]
+}

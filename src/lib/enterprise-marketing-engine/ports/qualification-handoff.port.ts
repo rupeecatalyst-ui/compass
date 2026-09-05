@@ -36,6 +36,9 @@ export type MarketingOpportunityCreatePort = {
     campaignId: string;
     campaignName?: string | null;
     qualificationId: string;
+    snapshotId?: string | null;
+    snapshotRecipientId?: string | null;
+    recipientFingerprint?: string | null;
   }): Promise<MarketingOpportunityHandoffResult>;
 };
 

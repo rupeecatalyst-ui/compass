@@ -22,9 +22,13 @@ import {
   evaluateMarketingQualificationState,
 } from "@/lib/enterprise-marketing-engine/qualification/evaluate";
 import {
+  emailsMatch,
   normalizeMarketingMatchEmail,
   normalizeMarketingMatchPhone,
+  phonesMatch,
 } from "@/lib/enterprise-marketing-engine/qualification/match-identity";
+import { composeMarketingQualificationInbox } from "@/lib/enterprise-marketing-engine/qualification/inbox";
+import { marketingEngagementOnlyIntent } from "@/lib/enterprise-marketing-engine/qualification/inbox-boundary";
 import {
   assertMarketingHandoffAllowed,
   assertMarketingMassHandoffForbidden,
@@ -35,14 +39,16 @@ import {
 } from "@/lib/enterprise-marketing-engine/permissions";
 import type {
   MarketingHandoffResult,
+  MarketingQualificationDuplicateMatch,
+  MarketingQualificationInboxStatus,
   MarketingQualificationIntent,
   MarketingQualificationPolicy,
   MarketingQualificationPublicDto,
   MarketingQualificationRecord,
 } from "@/types/enterprise-marketing-qualification";
 import { recordMarketingAuditEvent } from "./audit";
-import { createFixtureIdentityResolutionPort } from "./adapters/fixture-identity.adapter";
-import { createFixtureOpportunityCreatePort } from "./adapters/fixture-opportunity.adapter";
+import { createFixtureIdentityResolutionPort, marketingFixtureIdentityDirectory } from "./adapters/fixture-identity.adapter";
+import { createFixtureOpportunityCreatePort, marketingFixtureOpportunityDirectory } from "./adapters/fixture-opportunity.adapter";
 import { marketingCampaignStore } from "./campaign-store";
 import { emitMarketingEngagementEvent } from "./engagement.service";
 import { marketingNotificationAttemptStore } from "./notification-attempt-store";
@@ -57,15 +63,11 @@ function nowIso() {
 }
 
 function toPublicDto(row: MarketingQualificationRecord): MarketingQualificationPublicDto {
-  const { matchEmail: _email, matchPhone: _phone, ...rest } = row;
+  const { matchEmail, matchPhone, ...rest } = row;
   return {
     ...rest,
-    matchEmailPreview: row.matchEmail
-      ? redactMarketingFingerprint(`email:${row.matchEmail}`)
-      : null,
-    matchPhonePreview: row.matchPhone
-      ? redactMarketingFingerprint(`phone:${row.matchPhone}`)
-      : null,
+    matchEmailPreview: matchEmail ? redactMarketingFingerprint(`email:${matchEmail}`) : null,
+    matchPhonePreview: matchPhone ? redactMarketingFingerprint(`phone:${matchPhone}`) : null,
   };
 }
 
@@ -131,6 +133,37 @@ async function notifyHandoffBestEffort(input: {
   }
 }
 
+function previewFixtureDuplicateMatch(input: {
+  organizationId: string;
+  campaignId: string;
+  matchEmail: string | null;
+  matchPhone: string | null;
+}): MarketingQualificationDuplicateMatch {
+  const contacts = marketingFixtureIdentityDirectory.list(input.organizationId);
+  const byEmail = input.matchEmail
+    ? contacts.find((row) => emailsMatch(row.email, input.matchEmail))
+    : undefined;
+  const byPhone = input.matchPhone
+    ? contacts.find((row) => phonesMatch(row.phone, input.matchPhone))
+    : undefined;
+  const contact = byEmail ?? byPhone;
+  if (contact) {
+    const opportunity = marketingFixtureOpportunityDirectory
+      .list()
+      .find((row) => row.contactId === contact.id && row.campaignId === input.campaignId);
+    if (opportunity) {
+      return {
+        result: "existing_opportunity",
+        contactId: contact.id,
+        opportunityId: opportunity.id,
+        reused: true,
+      };
+    }
+    return { result: "existing_contact", contactId: contact.id, reused: true };
+  }
+  return { result: "none", reused: false };
+}
+
 function resolveIdentityPort(): MarketingIdentityResolutionPort {
   if (ENTERPRISE_MARKETING_HANDOFF_MODE === "live") {
     // Lazy require so fixture verify does not load Prisma ECM adapters.
@@ -167,11 +200,13 @@ export const marketingQualificationService = {
   list(actor: MarketingPermissionActor) {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.COMMAND_CENTER);
     const organizationId = actor.organizationId ?? "default";
+    const qualifications = marketingQualificationStore.list(organizationId);
     return {
-      qualifications: marketingQualificationStore.list(organizationId).map(toPublicDto),
+      qualifications: qualifications.map(toPublicDto),
+      inbox: composeMarketingQualificationInbox(qualifications),
       routingPolicies: marketingRoutingPolicyStore.list(organizationId),
       notificationPolicies: marketingNotificationPolicyStore.list(organizationId),
-      notificationAttempts: marketingQualificationStore.list(organizationId).flatMap((q) =>
+      notificationAttempts: qualifications.flatMap((q) =>
         marketingNotificationAttemptStore.listForQualification(q.id),
       ),
       mode: this.getMode(),
@@ -194,6 +229,10 @@ export const marketingQualificationService = {
       source?: string | null;
       partnerId?: string | null;
       teamId?: string | null;
+      sourceTabName?: string | null;
+      responseSummary?: string | null;
+      snapshotId?: string | null;
+      snapshotRecipientId?: string | null;
       intent: MarketingQualificationIntent;
       evidenceEventId?: string | null;
       operatorConfirmed?: boolean;
@@ -216,6 +255,77 @@ export const marketingQualificationService = {
       policy,
       operatorConfirmed: input.operatorConfirmed,
     });
+    const existing = marketingQualificationStore.findByCampaignFingerprint(
+      organizationId,
+      campaign.id,
+      input.recipientFingerprint,
+    );
+    const identityDuplicate = marketingQualificationStore.findByCampaignIdentity(organizationId, campaign.id, {
+      matchEmail,
+      matchPhone,
+    });
+    const previewMatch = previewFixtureDuplicateMatch({
+      organizationId,
+      campaignId: campaign.id,
+      matchEmail,
+      matchPhone,
+    });
+    const attributionSource = existing ?? identityDuplicate;
+    const snapshotId = input.snapshotId ?? attributionSource?.snapshotId ?? null;
+    const snapshotRecipientId = input.snapshotRecipientId ?? attributionSource?.snapshotRecipientId ?? null;
+    const duplicateMatch: MarketingQualificationDuplicateMatch =
+      existing || (identityDuplicate && identityDuplicate.recipientFingerprint !== input.recipientFingerprint)
+        ? {
+            result: "existing_response",
+            qualificationId: (existing ?? identityDuplicate)?.id ?? null,
+            contactId: previewMatch.contactId ?? null,
+            reused: true,
+          }
+        : previewMatch;
+    const inboxStatus: MarketingQualificationInboxStatus | undefined = marketingEngagementOnlyIntent(input.intent)
+      ? undefined
+      : duplicateMatch.result === "existing_response"
+        ? "DUPLICATE"
+        : businessState === "QUALIFIED"
+          ? "QUALIFIED"
+          : businessState === "NOT_INTERESTED"
+            ? "NOT_QUALIFIED"
+            : businessState === "SUPPRESSED"
+              ? "CLOSED"
+              : "NEW";
+    if (existing) {
+      if (existing.businessState === "HANDED_OFF") {
+        return toPublicDto(existing);
+      }
+      const next = marketingQualificationStore.patch(existing.id, {
+        intent: input.intent,
+        businessState,
+        matchEmail,
+        matchPhone,
+        displayName: input.displayName ?? existing.displayName,
+        evidenceEventId: input.evidenceEventId ?? existing.evidenceEventId,
+        sourceTabName: input.sourceTabName ?? existing.sourceTabName,
+        responseSummary: input.responseSummary ?? existing.responseSummary,
+        snapshotId,
+        snapshotRecipientId,
+        duplicateMatch,
+        inboxStatus: inboxStatus ?? existing.inboxStatus,
+      });
+      recordMarketingAuditEvent({
+        kind: "qualification.ingested",
+        organizationId,
+        actorUserId: actor.userId ?? null,
+        detail: {
+          qualificationId: existing.id,
+          campaignId: campaign.id,
+          businessState,
+          intent: input.intent,
+          fingerprint: redactMarketingFingerprint(existing.recipientFingerprint),
+          duplicatePrevented: true,
+        },
+      });
+      return toPublicDto(next ?? existing);
+    }
     const row = marketingQualificationStore.create({
       organizationId,
       campaignId: campaign.id,
@@ -232,6 +342,12 @@ export const marketingQualificationService = {
       source: input.source ?? campaign.channel,
       partnerId: input.partnerId ?? null,
       teamId: input.teamId ?? null,
+      sourceTabName: input.sourceTabName ?? null,
+      responseSummary: input.responseSummary ?? null,
+      snapshotId,
+      snapshotRecipientId,
+      duplicateMatch,
+      inboxStatus,
       intent: input.intent,
       businessState,
       processState: "NEW",
@@ -270,7 +386,17 @@ export const marketingQualificationService = {
         code: "ALREADY_HANDED_OFF",
       });
     }
-    const next = marketingQualificationStore.patch(qualificationId, { businessState });
+    const next = marketingQualificationStore.patch(qualificationId, {
+      businessState,
+      inboxStatus:
+        businessState === "QUALIFIED"
+          ? "QUALIFIED"
+          : businessState === "NOT_INTERESTED"
+            ? "NOT_QUALIFIED"
+            : businessState === "SUPPRESSED"
+              ? "CLOSED"
+              : existing.inboxStatus,
+    });
     recordMarketingAuditEvent({
       kind: "qualification.state_changed",
       organizationId,
@@ -295,6 +421,53 @@ export const marketingQualificationService = {
         /* engagement store is optional observability */
       }
     }
+    return toPublicDto(next!);
+  },
+
+  async setInboxStatus(
+    actor: MarketingPermissionActor,
+    qualificationId: string,
+    inboxStatus: MarketingQualificationInboxStatus,
+  ): Promise<MarketingQualificationPublicDto> {
+    assertMarketingPermission(actor, MARKETING_PERMISSIONS.COMMAND_CENTER);
+    const organizationId = actor.organizationId ?? "default";
+    const existing = marketingQualificationStore.getForOrg(qualificationId, organizationId);
+    if (!existing) {
+      throw Object.assign(new Error("Qualification not found"), { statusCode: 404, code: "NOT_FOUND" });
+    }
+    if (existing.businessState === "HANDED_OFF") {
+      throw Object.assign(new Error("Handed-off qualifications cannot be reopened from Marketing"), {
+        statusCode: 409,
+        code: "ALREADY_HANDED_OFF",
+      });
+    }
+    const businessState =
+      inboxStatus === "QUALIFIED"
+        ? "QUALIFIED"
+        : inboxStatus === "NOT_QUALIFIED"
+          ? "NOT_INTERESTED"
+          : inboxStatus === "CLOSED"
+            ? "SUPPRESSED"
+            : inboxStatus === "UNDER_REVIEW"
+              ? existing.businessState === "UNQUALIFIED"
+                ? "QUALIFICATION_REQUIRED"
+                : existing.businessState
+              : existing.businessState;
+    const next = marketingQualificationStore.patch(qualificationId, {
+      inboxStatus,
+      businessState,
+      processState: inboxStatus === "UNDER_REVIEW" ? "ROUTING" : existing.processState,
+    });
+    recordMarketingAuditEvent({
+      kind: "qualification.state_changed",
+      organizationId,
+      actorUserId: actor.userId ?? null,
+      detail: {
+        qualificationId,
+        from: existing.inboxStatus ?? existing.businessState,
+        to: inboxStatus,
+      },
+    });
     return toPublicDto(next!);
   },
 
@@ -401,6 +574,9 @@ export const marketingQualificationService = {
           campaignId: qualification.campaignId,
           campaignName: qualification.campaignName ?? null,
           qualificationId: qualification.id,
+          snapshotId: qualification.snapshotId ?? null,
+          snapshotRecipientId: qualification.snapshotRecipientId ?? null,
+          recipientFingerprint: qualification.recipientFingerprint,
         });
       }
 
@@ -408,6 +584,7 @@ export const marketingQualificationService = {
       const next = marketingQualificationStore.patch(qualification.id, {
         businessState: "HANDED_OFF",
         processState: "HANDOFF_COMPLETE",
+        inboxStatus: "CONVERTED",
         assigneeUserId: claimed.assignment.assigneeUserId,
         contactId: contact.contactId,
         contactCreated: contact.created,
@@ -437,6 +614,12 @@ export const marketingQualificationService = {
           assigneeUserId: claimed.assignment.assigneeUserId,
           routingMode: claimed.assignment.mode,
           sourceCampaign: next.campaignName ?? next.campaignId,
+          snapshotId: next.snapshotId ?? opportunity?.snapshotId ?? qualification.snapshotId ?? null,
+          snapshotRecipientId:
+            next.snapshotRecipientId ?? opportunity?.snapshotRecipientId ?? qualification.snapshotRecipientId ?? null,
+          recipientFingerprint: redactMarketingFingerprint(next.recipientFingerprint),
+          filledFields: contact.filledFields ?? [],
+          overwroteExisting: false,
           noLeadEntity: true,
         },
       });

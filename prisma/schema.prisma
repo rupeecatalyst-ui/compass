@@ -270,6 +270,26 @@ model Organization {
 
   /// Durable Marketing Campaign Registry (organization-scoped; no live send)
   enterpriseMarketingCampaigns             EnterpriseMarketingCampaign[]
+  /// CO-MARKETING-REDESIGN-007 — reusable visual email templates
+  enterpriseMarketingContentTemplates      EnterpriseMarketingContentTemplate[]
+  /// CO-MARKETING-REDESIGN-001 — operational records only (no prospect mirror)
+  enterpriseMarketingSheetBindings         EnterpriseMarketingSheetBinding[]
+  enterpriseMarketingAudienceDefinitions   EnterpriseMarketingAudienceDefinition[]
+  enterpriseMarketingAudienceSnapshots     EnterpriseMarketingAudienceSnapshot[]
+  enterpriseMarketingSnapshotRecipients    EnterpriseMarketingSnapshotRecipient[]
+  enterpriseMarketingDeliveryBatches       EnterpriseMarketingDeliveryBatch[]
+  enterpriseMarketingRecipientLedgers      EnterpriseMarketingRecipientLedger[]
+  enterpriseMarketingExecutionLeases       EnterpriseMarketingExecutionLease[]
+  enterpriseMarketingSuppressions          EnterpriseMarketingSuppression[]
+  enterpriseMarketingEngagementEvents      EnterpriseMarketingEngagementEvent[]
+  enterpriseMarketingTestSends             EnterpriseMarketingTestSend[]
+  enterpriseMarketingQualifications        EnterpriseMarketingQualification[]
+  enterpriseMarketingAuditEvents           EnterpriseMarketingAuditEvent[]
+  enterpriseMarketingAssets                EnterpriseMarketingAsset[]
+  enterpriseMarketingAssetVersions         EnterpriseMarketingAssetVersion[]
+  enterpriseMarketingSenderIdentities      EnterpriseMarketingSenderIdentity[]
+  enterpriseMarketingDeliverabilityObservations EnterpriseMarketingDeliverabilityObservation[]
+  enterpriseMarketingProviderWebhookEvents EnterpriseMarketingProviderWebhookEvent[]
   /// CO-C1-COMMUNICATION-002 — Inbound operational mailbox ingestion ledger
   enterpriseInboundEmailMessages           EnterpriseInboundEmailMessage[]
   enterpriseInboundEmailAttachments        EnterpriseInboundEmailAttachment[]
@@ -673,6 +693,7 @@ model EnterpriseNotification {
 
 /// Durable Marketing Campaign Registry — organization-scoped Prisma persistence.
 /// Live bulk email/WhatsApp remain disabled. Demo campaigns use demoKey uniqueness.
+/// CO-MARKETING-REDESIGN-001 extends this table additively (actors, snapshot, binding).
 model EnterpriseMarketingCampaign {
   id                       String   @id
   organizationId           String   @map("organization_id")
@@ -699,13 +720,32 @@ model EnterpriseMarketingCampaign {
   stateHistoryJson         Json     @map("state_history_json")
   createdAt                DateTime @map("created_at")
   updatedAt                DateTime @map("updated_at")
+  /// CO-MARKETING-REDESIGN-001
+  createdByUserId          String?  @map("created_by_user_id")
+  updatedByUserId          String?  @map("updated_by_user_id")
+  sourceBindingId          String?  @map("source_binding_id")
+  approvedSnapshotId       String?  @map("approved_snapshot_id")
 
-  organization Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  versions     EnterpriseMarketingCampaignVersion[]
+  organization       Organization                            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  versions           EnterpriseMarketingCampaignVersion[]
+  sourceBinding      EnterpriseMarketingSheetBinding?        @relation("CampaignSourceBinding", fields: [sourceBindingId], references: [id], onDelete: SetNull)
+  approvedSnapshot   EnterpriseMarketingAudienceSnapshot?    @relation("CampaignApprovedSnapshot", fields: [approvedSnapshotId], references: [id], onDelete: SetNull)
+  audienceDefinitions EnterpriseMarketingAudienceDefinition[]
+  snapshots          EnterpriseMarketingAudienceSnapshot[]   @relation("CampaignSnapshots")
+  snapshotRecipients EnterpriseMarketingSnapshotRecipient[]
+  deliveryBatches    EnterpriseMarketingDeliveryBatch[]
+  recipientLedgers   EnterpriseMarketingRecipientLedger[]
+  executionLease     EnterpriseMarketingExecutionLease?
+  testSends          EnterpriseMarketingTestSend[]
+  qualifications     EnterpriseMarketingQualification[]
+  auditEvents        EnterpriseMarketingAuditEvent[]
+  engagementEvents   EnterpriseMarketingEngagementEvent[]
 
   @@unique([organizationId, demoKey], map: "emc_org_demo_uidx")
+  @@unique([approvedSnapshotId], map: "emc_approved_snapshot_uidx")
   @@index([organizationId, updatedAt(sort: Desc)], map: "emc_org_updated_idx")
   @@index([organizationId, status], map: "emc_org_status_idx")
+  @@index([organizationId, sourceBindingId], map: "emc_org_binding_idx")
   @@map("enterprise_marketing_campaigns")
 }
 
@@ -728,12 +768,564 @@ model EnterpriseMarketingCampaignVersion {
   ctaUrl             String?   @map("cta_url")
   createdAt          DateTime  @map("created_at")
   updatedAt          DateTime  @map("updated_at")
+  /// CO-MARKETING-REDESIGN-001
+  createdByUserId    String?   @map("created_by_user_id")
+  updatedByUserId    String?   @map("updated_by_user_id")
 
-  campaign EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign  EnterpriseMarketingCampaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  snapshots EnterpriseMarketingAudienceSnapshot[]
 
   @@unique([campaignId, versionNumber], map: "emcv_campaign_version_uidx")
   @@index([organizationId, campaignId], map: "emcv_org_campaign_idx")
   @@map("enterprise_marketing_campaign_versions")
+}
+
+/// CO-MARKETING-REDESIGN-007 — Organisation-scoped reusable email templates.
+/// Structured content is SSOT; HTML is derived. Unapplied until Product Owner approves migrate.
+model EnterpriseMarketingContentTemplate {
+  id               String    @id
+  organizationId   String    @map("organization_id")
+  name             String
+  description      String?   @db.Text
+  channel          String
+  subject          String
+  previewText      String    @map("preview_text")
+  contentJson      Json      @map("content_json")
+  disclaimer       String?   @db.Text
+  category         String
+  status           String
+  origin           String
+  versionNumber    Int       @map("version_number")
+  parentTemplateId String?   @map("parent_template_id")
+  immutable        Boolean   @default(false)
+  lastUsedAt       DateTime? @map("last_used_at")
+  createdByUserId  String?   @map("created_by_user_id")
+  updatedByUserId  String?   @map("updated_by_user_id")
+  createdAt        DateTime  @map("created_at")
+  updatedAt        DateTime  @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, updatedAt(sort: Desc)], map: "emct_org_updated_idx")
+  @@index([organizationId, lastUsedAt(sort: Desc)], map: "emct_org_last_used_idx")
+  @@map("enterprise_marketing_content_templates")
+}
+
+/// Authorised Google Sheet binding metadata only — never stores sheet rows.
+model EnterpriseMarketingSheetBinding {
+  id              String   @id
+  organizationId  String   @map("organization_id")
+  displayName     String   @map("display_name")
+  spreadsheetId   String   @map("spreadsheet_id")
+  driveFileId     String   @map("drive_file_id")
+  authorised      Boolean  @default(false)
+  authRef         String   @map("auth_ref")
+  status          String
+  createdByUserId String?  @map("created_by_user_id")
+  updatedByUserId String?  @map("updated_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization         Organization                          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaigns            EnterpriseMarketingCampaign[]         @relation("CampaignSourceBinding")
+  audienceDefinitions  EnterpriseMarketingAudienceDefinition[]
+  snapshots            EnterpriseMarketingAudienceSnapshot[]
+
+  @@unique([organizationId, spreadsheetId], map: "emsb_org_sheet_uidx")
+  @@index([organizationId, authorised, status], map: "emsb_org_auth_status_idx")
+  @@map("enterprise_marketing_sheet_bindings")
+}
+
+/// Reusable audience definition (filters + column map). Does not store prospects.
+model EnterpriseMarketingAudienceDefinition {
+  id                  String   @id
+  organizationId      String   @map("organization_id")
+  campaignId          String?  @map("campaign_id")
+  bindingId           String   @map("binding_id")
+  name                String
+  description         String?  @db.Text
+  sourceTabId         String   @map("source_tab_id")
+  sourceTabName       String   @map("source_tab_name")
+  columnMapJson       Json     @map("column_map_json")
+  filterDefinitionJson Json    @map("filter_definition_json")
+  exclusionJson       Json?    @map("exclusion_json")
+  suppressionPolicyJson Json   @map("suppression_policy_json")
+  eligibilityRulesJson Json    @map("eligibility_rules_json")
+  createdByUserId     String?  @map("created_by_user_id")
+  updatedByUserId     String?  @map("updated_by_user_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  organization Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  binding      EnterpriseMarketingSheetBinding   @relation(fields: [bindingId], references: [id], onDelete: Restrict)
+  snapshots    EnterpriseMarketingAudienceSnapshot[]
+
+  @@index([organizationId, updatedAt(sort: Desc)], map: "emad_org_updated_idx")
+  @@index([organizationId, bindingId], map: "emad_org_binding_idx")
+  @@map("enterprise_marketing_audience_definitions")
+}
+
+/// Frozen eligible audience for one campaign version at approval/launch.
+model EnterpriseMarketingAudienceSnapshot {
+  id                     String    @id
+  organizationId         String    @map("organization_id")
+  campaignId             String    @map("campaign_id")
+  campaignVersionId      String    @map("campaign_version_id")
+  audienceDefinitionId   String?   @map("audience_definition_id")
+  sourceBindingId        String    @map("source_binding_id")
+  sourceWorkbookId       String    @map("source_workbook_id")
+  sourceTabId            String    @map("source_tab_id")
+  sourceTabName          String    @map("source_tab_name")
+  extractedAt            DateTime  @map("extracted_at")
+  columnMapJson          Json      @map("column_map_json")
+  filterSnapshotJson     Json      @map("filter_snapshot_json")
+  exclusionSnapshotJson  Json?     @map("exclusion_snapshot_json")
+  sourceRowCount         Int       @map("source_row_count")
+  validEmailCount        Int       @map("valid_email_count")
+  duplicateCount         Int       @map("duplicate_count")
+  invalidCount           Int       @map("invalid_count")
+  suppressedCount        Int       @map("suppressed_count")
+  previouslyContactedCount Int     @default(0) @map("previously_contacted_count")
+  eligibleCount          Int       @map("eligible_count")
+  estimatedBatchCount    Int       @map("estimated_batch_count")
+  frozenAt               DateTime  @map("frozen_at")
+  frozenByUserId         String?   @map("frozen_by_user_id")
+  createdByUserId        String?   @map("created_by_user_id")
+  updatedByUserId        String?   @map("updated_by_user_id")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  organization       Organization                         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign           EnterpriseMarketingCampaign          @relation("CampaignSnapshots", fields: [campaignId], references: [id], onDelete: Cascade)
+  approvedForCampaign EnterpriseMarketingCampaign?        @relation("CampaignApprovedSnapshot")
+  campaignVersion    EnterpriseMarketingCampaignVersion   @relation(fields: [campaignVersionId], references: [id], onDelete: Restrict)
+  audienceDefinition EnterpriseMarketingAudienceDefinition? @relation(fields: [audienceDefinitionId], references: [id], onDelete: SetNull)
+  sourceBinding      EnterpriseMarketingSheetBinding      @relation(fields: [sourceBindingId], references: [id], onDelete: Restrict)
+  recipients         EnterpriseMarketingSnapshotRecipient[]
+  deliveryBatches    EnterpriseMarketingDeliveryBatch[]
+  ledgerEntries      EnterpriseMarketingRecipientLedger[]
+
+  @@index([organizationId, campaignId], map: "emas_org_campaign_idx")
+  @@index([organizationId, extractedAt(sort: Desc)], map: "emas_org_extracted_idx")
+  @@map("enterprise_marketing_audience_snapshots")
+}
+
+/// Frozen send-eligible recipients for one snapshot — not a marketing prospect database.
+model EnterpriseMarketingSnapshotRecipient {
+  id                   String   @id
+  organizationId       String   @map("organization_id")
+  snapshotId           String   @map("snapshot_id")
+  campaignId           String   @map("campaign_id")
+  sourceWorkbookId     String   @map("source_workbook_id")
+  sourceTabId          String   @map("source_tab_id")
+  sourceTabName        String   @map("source_tab_name")
+  sourceRowNumber      Int?     @map("source_row_number")
+  sourceStableKey      String   @map("source_stable_key")
+  recipientFingerprint String   @map("recipient_fingerprint")
+  normalizedEmail      String   @map("normalized_email")
+  displayName          String?  @map("display_name")
+  normalizedMobile     String?  @map("normalized_mobile")
+  mappedAttributesJson Json?    @map("mapped_attributes_json")
+  assignedBatchNumber  Int?     @map("assigned_batch_number")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  organization Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  snapshot     EnterpriseMarketingAudienceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  campaign     EnterpriseMarketingCampaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  ledgerEntries EnterpriseMarketingRecipientLedger[]
+
+  @@unique([snapshotId, normalizedEmail], map: "emsr_snapshot_email_uidx")
+  @@unique([snapshotId, sourceStableKey], map: "emsr_snapshot_key_uidx")
+  @@index([organizationId, campaignId], map: "emsr_org_campaign_idx")
+  @@index([organizationId, normalizedEmail], map: "emsr_org_email_idx")
+  @@map("enterprise_marketing_snapshot_recipients")
+}
+
+model EnterpriseMarketingDeliveryBatch {
+  id                 String    @id
+  organizationId     String    @map("organization_id")
+  campaignId         String    @map("campaign_id")
+  snapshotId         String    @map("snapshot_id")
+  batchNumber        Int       @map("batch_number")
+  scheduledAt        DateTime  @map("scheduled_at")
+  startedAt          DateTime? @map("started_at")
+  processedAt        DateTime? @map("processed_at")
+  completedAt        DateTime? @map("completed_at")
+  plannedSize        Int       @map("planned_size")
+  selectedCount      Int       @default(0) @map("selected_count")
+  processedCount     Int       @default(0) @map("processed_count")
+  failedCount        Int       @default(0) @map("failed_count")
+  skippedCount       Int       @default(0) @map("skipped_count")
+  status             String
+  dryRun             Boolean   @default(true) @map("dry_run")
+  createdByUserId    String?   @map("created_by_user_id")
+  updatedByUserId    String?   @map("updated_by_user_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  snapshot     EnterpriseMarketingAudienceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  ledgerEntries EnterpriseMarketingRecipientLedger[]
+
+  @@unique([campaignId, batchNumber], map: "emdb_campaign_batch_uidx")
+  @@index([organizationId, campaignId, scheduledAt], map: "emdb_org_campaign_sched_idx")
+  @@map("enterprise_marketing_delivery_batches")
+}
+
+model EnterpriseMarketingRecipientLedger {
+  id                     String    @id
+  organizationId         String    @map("organization_id")
+  campaignId             String    @map("campaign_id")
+  campaignVersionId      String    @map("campaign_version_id")
+  snapshotId             String    @map("snapshot_id")
+  snapshotRecipientId    String    @map("snapshot_recipient_id")
+  batchId                String?   @map("batch_id")
+  batchNumber            Int?      @map("batch_number")
+  channel                String
+  sourceWorkbookId       String    @map("source_workbook_id")
+  sourceTabId            String    @map("source_tab_id")
+  sourceTabName          String    @map("source_tab_name")
+  sourceRowNumber        Int?      @map("source_row_number")
+  sourceStableKey        String    @map("source_stable_key")
+  recipientFingerprint   String    @map("recipient_fingerprint")
+  normalizedEmail        String    @map("normalized_email")
+  status                 String
+  idempotencyKey         String    @map("idempotency_key")
+  scheduledAt            DateTime? @map("scheduled_at")
+  claimedAt              DateTime? @map("claimed_at")
+  sentAt                 DateTime? @map("sent_at")
+  deliveredAt            DateTime? @map("delivered_at")
+  failedAt               DateTime? @map("failed_at")
+  processedAt            DateTime? @map("processed_at")
+  openedAt               DateTime? @map("opened_at")
+  clickedAt              DateTime? @map("clicked_at")
+  repliedAt              DateTime? @map("replied_at")
+  unsubscribedAt         DateTime? @map("unsubscribed_at")
+  attemptCount           Int       @default(0) @map("attempt_count")
+  providerMessageId      String?   @map("provider_message_id")
+  lastError              String?   @map("last_error")
+  suppressionReason      String?   @map("suppression_reason")
+  qualificationStatus    String?   @map("qualification_status")
+  linkedContactId        String?   @map("linked_contact_id")
+  linkedOpportunityId    String?   @map("linked_opportunity_id")
+  createdByUserId        String?   @map("created_by_user_id")
+  updatedByUserId        String?   @map("updated_by_user_id")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  organization       Organization                        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign           EnterpriseMarketingCampaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  snapshot           EnterpriseMarketingAudienceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict)
+  snapshotRecipient  EnterpriseMarketingSnapshotRecipient @relation(fields: [snapshotRecipientId], references: [id], onDelete: Restrict)
+  batch              EnterpriseMarketingDeliveryBatch?   @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, idempotencyKey], map: "emrl_org_idempotency_uidx")
+  @@unique([campaignId, channel, normalizedEmail], map: "emrl_campaign_channel_email_uidx")
+  @@index([organizationId, campaignId, status], map: "emrl_org_campaign_status_idx")
+  @@index([organizationId, providerMessageId], map: "emrl_org_provider_msg_idx")
+  @@index([organizationId, linkedContactId], map: "emrl_org_contact_idx")
+  @@index([organizationId, linkedOpportunityId], map: "emrl_org_opportunity_idx")
+  @@map("enterprise_marketing_recipient_ledgers")
+}
+
+/// One execution cursor/lease per campaign — pause/resume/stop without losing place.
+model EnterpriseMarketingExecutionLease {
+  id                   String    @id
+  organizationId       String    @map("organization_id")
+  campaignId           String    @unique @map("campaign_id")
+  snapshotId           String?   @map("snapshot_id")
+  batchPolicyJson      Json      @map("batch_policy_json")
+  nextRunAt            DateTime? @map("next_run_at")
+  streamCursor         String?   @map("stream_cursor")
+  lastCompletedBatchNumber Int?  @map("last_completed_batch_number")
+  dailyProcessedCount  Int       @default(0) @map("daily_processed_count")
+  dailyCountResetDate  String    @map("daily_count_reset_date")
+  leaseHolder          String?   @map("lease_holder")
+  leaseExpiresAt       DateTime? @map("lease_expires_at")
+  pauseState           String    @default("ACTIVE") @map("pause_state")
+  lastError            String?   @map("last_error")
+  createdByUserId      String?   @map("created_by_user_id")
+  updatedByUserId      String?   @map("updated_by_user_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, nextRunAt], map: "emel_org_nextrun_idx")
+  @@map("enterprise_marketing_execution_leases")
+}
+
+model EnterpriseMarketingSuppression {
+  id                   String    @id
+  organizationId       String    @map("organization_id")
+  identityFingerprint  String    @map("identity_fingerprint")
+  normalizedEmail      String?   @map("normalized_email")
+  normalizedMobile     String?   @map("normalized_mobile")
+  channel              String
+  reason               String
+  consentStatus        String    @map("consent_status")
+  note                 String?   @db.Text
+  sourceCampaignId     String?   @map("source_campaign_id")
+  createdByUserId      String?   @map("created_by_user_id")
+  updatedByUserId      String?   @map("updated_by_user_id")
+  kind                 String?
+  status               String?
+  duration             String?
+  source               String?
+  normalizedIdentity   String?   @map("normalized_identity")
+  effectiveAt          DateTime? @map("effective_at")
+  expiresAt            DateTime? @map("expires_at")
+  providerEventId      String?   @map("provider_event_id")
+  auditTimestamp       DateTime? @map("audit_timestamp")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, identityFingerprint, channel], map: "emsup_org_fp_channel_uidx")
+  @@index([organizationId, normalizedEmail], map: "emsup_org_email_idx")
+  @@index([organizationId, reason], map: "emsup_org_reason_idx")
+  @@index([organizationId, kind], map: "emsup_org_kind_idx")
+  @@index([organizationId, status], map: "emsup_org_status_idx")
+  @@map("enterprise_marketing_suppressions")
+}
+
+model EnterpriseMarketingEngagementEvent {
+  id                   String   @id
+  organizationId       String   @map("organization_id")
+  campaignId           String   @map("campaign_id")
+  campaignVersionId    String?  @map("campaign_version_id")
+  ledgerId             String?  @map("ledger_id")
+  channel              String
+  eventType            String   @map("event_type")
+  recipientFingerprint String   @map("recipient_fingerprint")
+  normalizedEmail      String?  @map("normalized_email")
+  providerEventId      String   @map("provider_event_id")
+  idempotencyKey       String?  @map("idempotency_key")
+  occurredAt           DateTime @map("occurred_at")
+  metadataJson         Json?    @map("metadata_json")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, providerEventId], map: "emee_org_provider_event_uidx")
+  @@index([organizationId, campaignId, occurredAt(sort: Desc)], map: "emee_org_campaign_occurred_idx")
+  @@index([organizationId, eventType], map: "emee_org_type_idx")
+  @@map("enterprise_marketing_engagement_events")
+}
+
+/// Internal test-send history. Default dry-run; live mailbox remains gated.
+model EnterpriseMarketingTestSend {
+  id                   String    @id
+  organizationId       String    @map("organization_id")
+  campaignId           String    @map("campaign_id")
+  campaignVersionId    String    @map("campaign_version_id")
+  testRecipientEmail   String    @map("test_recipient_email")
+  dryRun               Boolean   @default(true) @map("dry_run")
+  actuallySent         Boolean   @default(false) @map("actually_sent")
+  outcome              String
+  providerMessageId    String?   @map("provider_message_id")
+  idempotencyKey       String    @map("idempotency_key")
+  errorMessage         String?   @map("error_message")
+  createdByUserId      String?   @map("created_by_user_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, idempotencyKey], map: "emts_org_idempotency_uidx")
+  @@index([organizationId, campaignId, createdAt(sort: Desc)], map: "emts_org_campaign_created_idx")
+  @@map("enterprise_marketing_test_sends")
+}
+
+/// Qualified-interest handoff only — never created by browsing or sending a sheet row.
+model EnterpriseMarketingQualification {
+  id                   String    @id
+  organizationId       String    @map("organization_id")
+  campaignId           String    @map("campaign_id")
+  ledgerId             String?   @map("ledger_id")
+  snapshotRecipientId  String?   @map("snapshot_recipient_id")
+  recipientFingerprint String    @map("recipient_fingerprint")
+  normalizedEmail      String?   @map("normalized_email")
+  normalizedMobile     String?   @map("normalized_mobile")
+  intent               String
+  businessState        String    @map("business_state")
+  linkedContactId      String?   @map("linked_contact_id")
+  linkedOpportunityId  String?   @map("linked_opportunity_id")
+  contactCreated       Boolean   @default(false) @map("contact_created")
+  opportunityCreated   Boolean   @default(false) @map("opportunity_created")
+  createdByUserId      String?   @map("created_by_user_id")
+  updatedByUserId      String?   @map("updated_by_user_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, campaignId, recipientFingerprint], map: "emq_org_campaign_fp_uidx")
+  @@index([organizationId, linkedContactId], map: "emq_org_contact_idx")
+  @@index([organizationId, linkedOpportunityId], map: "emq_org_opportunity_idx")
+  @@index([organizationId, businessState], map: "emq_org_state_idx")
+  @@map("enterprise_marketing_qualifications")
+}
+
+model EnterpriseMarketingAuditEvent {
+  id              String   @id
+  organizationId  String   @map("organization_id")
+  campaignId      String?  @map("campaign_id")
+  actorUserId     String?  @map("actor_user_id")
+  kind            String
+  detailJson      Json     @map("detail_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  campaign     EnterpriseMarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)], map: "emae_org_created_idx")
+  @@index([organizationId, campaignId, createdAt(sort: Desc)], map: "emae_org_campaign_created_idx")
+  @@map("enterprise_marketing_audit_events")
+}
+
+/// CO-MARKETING-REDESIGN-011 — Campaign collateral only. Not Document Registry.
+model EnterpriseMarketingAsset {
+  id                   String   @id
+  organizationId       String   @map("organization_id")
+  name                 String
+  title                String
+  assetType            String   @map("asset_type")
+  category             String
+  mimeType             String   @map("mime_type")
+  storageProvider      String   @map("storage_provider")
+  storageRef           String   @map("storage_ref")
+  previewUrl           String   @map("preview_url")
+  byteSize             Int      @map("byte_size")
+  width                Int?
+  height               Int?
+  uploadedByUserId     String?  @map("uploaded_by_user_id")
+  uploadedAt           DateTime @map("uploaded_at")
+  tagsJson             Json     @map("tags_json")
+  productCategory      String   @map("product_category")
+  approvalStatus       String   @map("approval_status")
+  altText              String   @map("alt_text")
+  archived             Boolean  @default(false)
+  currentVersionNumber Int      @map("current_version_number")
+  checksum             String
+  createdAt            DateTime @map("created_at")
+  updatedAt            DateTime @map("updated_at")
+
+  organization Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  versions     EnterpriseMarketingAssetVersion[]
+
+  @@index([organizationId, updatedAt(sort: Desc)], map: "ema_org_updated_idx")
+  @@index([organizationId, assetType], map: "ema_org_type_idx")
+  @@index([organizationId, productCategory], map: "ema_org_product_idx")
+  @@index([organizationId, approvalStatus], map: "ema_org_approval_idx")
+  @@map("enterprise_marketing_assets")
+}
+
+model EnterpriseMarketingAssetVersion {
+  id               String   @id
+  organizationId   String   @map("organization_id")
+  assetId          String   @map("asset_id")
+  versionNumber    Int      @map("version_number")
+  storageRef       String   @map("storage_ref")
+  mimeType         String   @map("mime_type")
+  byteSize         Int      @map("byte_size")
+  width            Int?
+  height           Int?
+  altText          String   @map("alt_text")
+  uploadedByUserId String?  @map("uploaded_by_user_id")
+  uploadedAt       DateTime @map("uploaded_at")
+  checksum         String
+  createdAt        DateTime @map("created_at")
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  asset        EnterpriseMarketingAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([assetId, versionNumber], map: "emav_asset_version_key")
+  @@index([organizationId, assetId], map: "emav_org_asset_idx")
+  @@map("enterprise_marketing_asset_versions")
+}
+
+/// CO-MARKETING-REDESIGN-013 — Sender identities. DNS observations are never permanent truth.
+model EnterpriseMarketingSenderIdentity {
+  id                              String    @id
+  organizationId                  String    @map("organization_id")
+  displayName                     String    @map("display_name")
+  fromAddress                     String    @map("from_address")
+  replyTo                         String?   @map("reply_to")
+  channel                         String
+  active                          Boolean   @default(true)
+  isDefault                       Boolean   @default(false) @map("is_default")
+  simulated                       Boolean   @default(true)
+  approvalStatus                  String    @map("approval_status")
+  verificationStatus              String    @map("verification_status")
+  permittedCampaignCategoriesJson Json      @map("permitted_campaign_categories_json")
+  createdByUserId                 String?   @map("created_by_user_id")
+  approvedByUserId                String?   @map("approved_by_user_id")
+  approvedAt                      DateTime? @map("approved_at")
+  lastValidationAt                DateTime? @map("last_validation_at")
+  validationFreshUntil            DateTime? @map("validation_fresh_until")
+  providerType                    String    @map("provider_type")
+  providerProfileId               String?   @map("provider_profile_id")
+  createdAt                       DateTime  @map("created_at")
+  updatedAt                       DateTime  @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, updatedAt(sort: Desc)], map: "emsi_org_updated_idx")
+  @@map("enterprise_marketing_sender_identities")
+}
+
+model EnterpriseMarketingDeliverabilityObservation {
+  id              String    @id
+  organizationId  String    @map("organization_id")
+  checkId         String    @map("check_id")
+  state           String
+  simulated       Boolean   @default(true)
+  permanentTruth  Boolean   @default(false) @map("permanent_truth")
+  lastValidatedAt DateTime? @map("last_validated_at")
+  freshUntil      DateTime? @map("fresh_until")
+  note            String?   @db.Text
+  createdAt       DateTime  @map("created_at")
+  updatedAt       DateTime  @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, checkId], map: "emdo_org_check_idx")
+  @@map("enterprise_marketing_deliverability_observations")
+}
+
+/// CO-MARKETING-REDESIGN-014 — Provider webhook chronology. Secrets are never stored.
+model EnterpriseMarketingProviderWebhookEvent {
+  id                    String   @id
+  organizationId        String   @map("organization_id")
+  campaignId            String   @map("campaign_id")
+  campaignVersionId     String?  @map("campaign_version_id")
+  recipientLedgerId     String   @map("recipient_ledger_id")
+  recipientFingerprint  String   @map("recipient_fingerprint")
+  eventType             String   @map("event_type")
+  providerEventId       String   @map("provider_event_id")
+  providerMessageId     String   @map("provider_message_id")
+  providerStatus        String?  @map("provider_status")
+  suppressionKind       String?  @map("suppression_kind")
+  qualifiesRecipient    Boolean  @default(false) @map("qualifies_recipient")
+  rawProviderReference  String   @map("raw_provider_reference")
+  occurredAt            DateTime @map("occurred_at")
+  recordedAt            DateTime @map("recorded_at")
+  createdAt             DateTime @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, providerEventId], map: "empwe_org_provider_event_idx")
+  @@index([organizationId, occurredAt], map: "empwe_org_occurred_idx")
+  @@map("enterprise_marketing_provider_webhook_events")
 }
 
 /// CO-C1-COMMUNICATION-002 — Incoming Email Server settings (org-scoped, non-secret).

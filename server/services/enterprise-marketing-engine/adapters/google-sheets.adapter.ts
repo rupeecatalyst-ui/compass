@@ -21,6 +21,7 @@ import type {
   MarketingRowPage,
 } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
 import { marketingDataSourceBindingStore } from "../binding-store";
+import { assertSpreadsheetIsAuthorised } from "@/lib/enterprise-marketing-engine/authorised-workbook";
 
 function loadServiceAccount() {
   const clientEmail = (process.env.GOOGLE_SHEETS_CLIENT_EMAIL ?? "").trim();
@@ -57,6 +58,7 @@ function requireBinding(bindingId: string, organizationId: string) {
       code: "NOT_FOUND",
     });
   }
+  assertSpreadsheetIsAuthorised(b.spreadsheetId);
   return b;
 }
 

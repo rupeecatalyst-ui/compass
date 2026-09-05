@@ -1,0 +1,10 @@
+{
+  "available": false,
+  "status": "BLOCKED",
+  "reason": "No safe disposable PostgreSQL facility is already installed on this machine (docker and psql are absent). Infrastructure was not installed. Repository environment databases were not used.",
+  "dockerPresent": false,
+  "psqlPresent": false,
+  "databaseCreated": false,
+  "databaseDropped": false,
+  "testsPerformed": []
+}

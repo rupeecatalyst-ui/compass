@@ -12,6 +12,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import {
+  MARKETING_CAMPAIGN_CHANNEL_KINDS,
+  MARKETING_CHANNEL_CONTRACTS,
+  MARKETING_CHANNEL_NOT_CONFIGURED_LABEL,
+} from "@/constants/enterprise-marketing-engine";
 import { MarketingModuleNav } from "./marketing-module-nav";
 import { toast } from "sonner";
 
@@ -19,12 +24,21 @@ type ApiEnvelope<T> = { success: boolean; data?: T; error?: { message?: string }
 
 type SenderIdentity = {
   id: string;
+  organizationId?: string;
   displayName: string;
   fromAddress: string;
   replyTo?: string | null;
+  channel?: string;
   active: boolean;
+  isDefault?: boolean;
+  simulated?: boolean;
+  approvalStatus?: string;
   verificationStatus: string;
-  providerType: string;
+  permittedCampaignCategories?: string[];
+  createdByUserId?: string | null;
+  approvedByUserId?: string | null;
+  lastValidationAt?: string | null;
+  providerMapping?: { providerType: string };
 };
 
 export function MarketingSettingsPanel() {
@@ -101,7 +115,8 @@ export function MarketingSettingsPanel() {
           fromAddress,
           replyTo: replyTo || null,
           active: true,
-          verificationStatus: "UNVERIFIED",
+          verificationStatus: "PENDING",
+          simulated: true,
           providerType: "dry_run",
         }),
       });
@@ -181,6 +196,31 @@ export function MarketingSettingsPanel() {
 
       <Card>
         <CardHeader className="pb-2">
+          <CardTitle className="text-base">Campaign channels</CardTitle>
+          <CardDescription>
+            Shared campaign basics, audience, approval, audit, qualification, and attribution apply to every
+            channel. Only Email is an operational product. Other channels remain domain contracts.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2 text-sm">
+            {MARKETING_CAMPAIGN_CHANNEL_KINDS.map((kind) => {
+              const contract = MARKETING_CHANNEL_CONTRACTS[kind];
+              const surface =
+                contract.productSurface === "operational" ? "Operational" : MARKETING_CHANNEL_NOT_CONFIGURED_LABEL;
+              return (
+                <li key={kind} className="flex items-center justify-between rounded-md border px-3 py-2">
+                  <span>{contract.label}</span>
+                  <span className="text-xs text-muted-foreground">{surface}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
           <CardTitle className="text-base">Sender identities</CardTitle>
           <CardDescription>
             Non-secret from-name / from-address metadata for campaigns. Do not paste API keys here.
@@ -201,9 +241,16 @@ export function MarketingSettingsPanel() {
                     <p className="font-medium">{id.displayName}</p>
                     <p className="text-xs text-muted-foreground">
                       {id.fromAddress}
-                      {id.replyTo ? ` · reply ${id.replyTo}` : ""} · {id.providerType} ·{" "}
-                      {id.verificationStatus}
+                      {id.replyTo ? ` · reply ${id.replyTo}` : ""} · {id.channel ?? "EMAIL"} ·{" "}
+                      {id.providerMapping?.providerType ?? "dry_run"}
+                      {id.organizationId ? ` · organisation ${id.organizationId}` : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Approval: {id.approvalStatus ?? "DRAFT"} · Verification:{" "}
+                      {id.simulated ? "simulated (not verified)" : id.verificationStatus}
+                      {id.isDefault ? " · default" : ""}
                       {!id.active ? " · inactive" : ""}
+                      {id.approvedByUserId ? ` · approved by ${id.approvedByUserId}` : ""}
                     </p>
                   </li>
                 ))
@@ -212,16 +259,16 @@ export function MarketingSettingsPanel() {
           )}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <Label>From name</Label>
-              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+              <Label htmlFor="mkt-settings-from-name">From name</Label>
+              <Input id="mkt-settings-from-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>From address</Label>
-              <Input value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} />
+              <Label htmlFor="mkt-settings-from-address">From address</Label>
+              <Input id="mkt-settings-from-address" value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>Reply-to (optional)</Label>
-              <Input value={replyTo} onChange={(e) => setReplyTo(e.target.value)} />
+              <Label htmlFor="mkt-settings-reply-to">Reply-to (optional)</Label>
+              <Input id="mkt-settings-reply-to" value={replyTo} onChange={(e) => setReplyTo(e.target.value)} />
             </div>
           </div>
           <Button size="sm" disabled={busy} onClick={() => void upsert()}>

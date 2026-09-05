@@ -8,11 +8,13 @@ import type {
   MarketingChannel,
 } from "@/constants/enterprise-marketing-engine";
 import type {
-  MarketingAssetCategory,
   MarketingContentBlockType,
+  MarketingTemplateCategory,
+  MarketingTemplateStatus,
 } from "@/constants/enterprise-marketing-engine/content";
 import type { MarketingBatchPolicy } from "@/types/enterprise-marketing-execution";
 import type { MarketingUtmConfig } from "@/lib/enterprise-marketing-engine/utm";
+import type { MarketingAssetRecord } from "@/types/enterprise-marketing-assets";
 
 export type { MarketingUtmConfig };
 
@@ -45,6 +47,10 @@ export type MarketingSchedulePlaceholder = {
 export type MarketingRoutingPlaceholder = {
   mode: "SINGLE_USER" | "TEAM" | "ROUND_ROBIN" | "USER_POOL" | "RULE_BASED" | "UNCONFIGURED";
   notes?: string | null;
+  /** Operator tags — persisted in routing JSON, not a CRM field. */
+  tags?: string[];
+  /** Display owner override when distinct from createdBy. */
+  ownerUserId?: string | null;
 };
 
 export type MarketingNotificationPlaceholder = {
@@ -154,6 +160,13 @@ export type MarketingContentTemplate = {
   previewText: string;
   content: MarketingContentDocument;
   disclaimer?: string | null;
+  category: MarketingTemplateCategory;
+  status: MarketingTemplateStatus;
+  origin: "blank" | "organisation" | "standard";
+  versionNumber: number;
+  parentTemplateId: string | null;
+  immutable: boolean;
+  lastUsedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -167,27 +180,8 @@ export type MarketingReusableBlock = {
   updatedAt: string;
 };
 
-export type MarketingAsset = {
-  id: string;
-  organizationId: string;
-  title: string;
-  mimeType: string;
-  category: MarketingAssetCategory;
-  tags: string[];
-  /** Preview / CDN URL or data URL for foundation. */
-  url: string;
-  byteSize: number;
-  checksum: string;
-  archived: boolean;
-  /** Active = not archived (MKT-08 vocabulary). */
-  active: boolean;
-  permissionScope: "ORG_MARKETING";
-  /** Email display guidance from asset optimization. */
-  suggestedMaxWidth?: number | null;
-  optimizationWarnings?: string[];
-  createdAt: string;
-  updatedAt: string;
-};
+/** Organisation-scoped campaign collateral. Not a Document Registry record. */
+export type MarketingAsset = MarketingAssetRecord;
 
 export type MarketingCampaignPreviewPayload = {
   campaignId: string;
@@ -203,6 +197,12 @@ export type MarketingCampaignPreviewPayload = {
   plaintext: string;
   plainTextIsOverride: boolean;
   personalizationSample: Record<string, string>;
+  sampleRecipientAvailable: boolean;
+  sampleRecipientLabel: string | null;
+  sampleSource: "audience_preview" | "unavailable";
+  linkInventory: Array<{ href: string; kind: "cta" | "social" | "unsubscribe" | "other" }>;
+  missingImageWarnings: string[];
+  unsubscribeVerified: boolean;
   utm: MarketingUtmConfig | null;
   trackingEnabled: boolean;
   notice: string;

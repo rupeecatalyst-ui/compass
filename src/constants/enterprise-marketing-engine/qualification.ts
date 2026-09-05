@@ -5,17 +5,20 @@
 
 import type {
   MarketingQualificationBusinessState,
+  MarketingQualificationInboxStatus,
   MarketingQualificationIntent,
   MarketingQualificationPolicy,
 } from "@/types/enterprise-marketing-qualification";
 import {
   MARKETING_HANDOFF_PROCESS_STATES,
   MARKETING_QUALIFICATION_BUSINESS_STATES,
+  MARKETING_QUALIFICATION_INBOX_STATUSES,
 } from "@/types/enterprise-marketing-qualification";
 
 export {
   MARKETING_HANDOFF_PROCESS_STATES,
   MARKETING_QUALIFICATION_BUSINESS_STATES,
+  MARKETING_QUALIFICATION_INBOX_STATUSES,
 };
 
 export const MARKETING_QUALIFICATION_STATE_LABELS: Record<
@@ -32,6 +35,38 @@ export const MARKETING_QUALIFICATION_STATE_LABELS: Record<
   HANDED_OFF: "Handed off",
 };
 
+export const MARKETING_QUALIFICATION_INBOX_STATUS_LABELS: Record<
+  MarketingQualificationInboxStatus,
+  string
+> = {
+  NEW: "New",
+  UNDER_REVIEW: "Under Review",
+  QUALIFIED: "Qualified",
+  NOT_QUALIFIED: "Not Qualified",
+  DUPLICATE: "Duplicate",
+  CONVERTED: "Converted",
+  CLOSED: "Closed",
+};
+
+/** Engagement-only — never automatic qualification and never Contact/Opportunity. */
+export const MARKETING_ENGAGEMENT_ONLY_INTENTS: MarketingQualificationIntent[] = [
+  "delivered",
+  "open",
+  "click",
+  "landing_page",
+];
+
+/** Genuine campaign responses that may enter the Qualification Inbox. */
+export const MARKETING_GENUINE_RESPONSE_INTENTS: MarketingQualificationIntent[] = [
+  "reply",
+  "enquiry",
+  "callback_request",
+  "campaign_form",
+  "affirmative_response",
+  "explicit_requirement",
+  "manual_qualification",
+];
+
 /** Default policy — no automatic mass conversion. */
 export const MARKETING_DEFAULT_QUALIFICATION_POLICY: MarketingQualificationPolicy = {
   autoQualifyOnOpen: false,
@@ -45,10 +80,10 @@ export const MARKETING_DEFAULT_QUALIFICATION_POLICY: MarketingQualificationPolic
 
 export const MARKETING_EXPLICIT_INTENTS: MarketingQualificationIntent[] = [
   "explicit_requirement",
+  "affirmative_response",
+  "manual_qualification",
 ];
 
 export const MARKETING_RESPONSE_INTENTS: MarketingQualificationIntent[] = [
-  "reply",
-  "enquiry",
-  "explicit_requirement",
+  ...MARKETING_GENUINE_RESPONSE_INTENTS,
 ];

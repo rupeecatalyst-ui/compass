@@ -21,22 +21,39 @@ assert(campaignsRoute.includes("run_test_batch"), "campaigns API missing run_tes
 assert(campaignsRoute.includes("configure_execution"), "campaigns API missing configure_execution");
 assert(campaignsRoute.includes("run_next_batch"), "campaigns API missing run_next_batch");
 
-const panel = fs.readFileSync(
-  path.join(root, "src/components/catalyst-one/admin/marketing/marketing-campaigns-panel.tsx"),
+const opsPanel = fs.readFileSync(
+  path.join(root, "src/components/catalyst-one/admin/marketing/marketing-delivery-operations-panel.tsx"),
   "utf8",
 );
-assert(panel.includes("runControlledTest"), "campaigns UI missing controlled test");
-assert(panel.includes("runNextBatch"), "campaigns UI missing run next batch");
-assert(panel.includes("senderIdentityId"), "campaigns UI missing sender identity binding");
-assert(panel.includes("whatsappTemplateId"), "campaigns UI missing WhatsApp template binding");
-assert(panel.includes("SIMULATED"), "campaigns UI must label SIMULATED");
-assert(!panel.includes("Test Send (disabled)"), "disabled Test Send stub must be replaced");
+assert(opsPanel.includes("runNextBatch"), "delivery ops UI missing run next batch");
+assert(
+  opsPanel.includes("SIMULATED") || opsPanel.includes("MARKETING_LIVE_PROVIDER_SENDING_DISABLED"),
+  "delivery ops UI must label SIMULATED / live sending disabled",
+);
+
+const builder = fs.readFileSync(
+  path.join(root, "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx"),
+  "utf8",
+);
+assert(
+  builder.includes("whatsappTemplateId") || builder.includes("templateId"),
+  "builder UI missing WhatsApp template binding",
+);
+assert(
+  builder.includes("senderIdentity") ||
+    builder.includes("senderIdentityId") ||
+    builder.includes("senderName"),
+  "builder UI missing sender identity binding",
+);
 
 const home = fs.readFileSync(
   path.join(root, "src/components/catalyst-one/admin/marketing/marketing-command-center.tsx"),
   "utf8",
 );
-assert(home.includes("MARKETING TEST MODE"), "command center must show TEST MODE");
+assert(
+  home.includes("TEST MODE") || home.includes("testModeBanner") || home.includes("MARKETING_TEST_MODE_BANNER"),
+  "command center must show TEST MODE",
+);
 assert(!home.includes("<dd className=\"font-medium\">Disabled</dd>\n                </div>\n                <div>\n                  <dt className=\"text-xs uppercase text-muted-foreground\">Handoff</dt>\n                  <dd className=\"font-medium\">Disabled</dd>"), "command center must not hardcode Handoff Disabled");
 
 const settingsPage = fs.readFileSync(

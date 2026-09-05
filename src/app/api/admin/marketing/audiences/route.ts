@@ -5,17 +5,19 @@
 
 import {
   errorResponse,
-  fromAuthError,
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
-import type { ApiResponse } from "@/types/api";
+import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
 import type {
   MarketingEligibilityRules,
   MarketingFilterDefinition,
   MarketingSuppressionPolicy,
 } from "@/types/enterprise-marketing-audience";
+import type {
+  MarketingColumnMap,
+  MarketingConfirmedColumnMapping,
+} from "@/types/enterprise-marketing-durability";
 import { marketingAudienceService } from "@server/services/enterprise-marketing-engine";
 
 function requireAdministrator(actor: { role: string }) {
@@ -28,17 +30,9 @@ function requireAdministrator(actor: { role: string }) {
 }
 
 function fromUnknown(err: unknown) {
-  if (err instanceof EnterpriseMarketingSafetyError) {
-    return errorResponse(403, err.code, err.message);
-  }
-  const statusCode = (err as { statusCode?: number }).statusCode;
-  const code = (err as { code?: string }).code;
-  if (statusCode === 401 || statusCode === 403) {
-    return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
-  }
-  return errorResponse(
-    statusCode && statusCode >= 400 && statusCode < 600 ? statusCode : 500,
-    code ?? "MARKETING_AUDIENCE_FAILED",
+  return fromMarketingUnknownError(
+    err,
+    "MARKETING_AUDIENCE_FAILED",
     err instanceof Error ? err.message : "Marketing audience request failed",
   );
 }
@@ -80,9 +74,16 @@ export async function POST(request: Request) {
       datasetId?: string;
       datasetDisplayName?: string | null;
       filterDefinition?: MarketingFilterDefinition;
+      exclusionDefinition?: MarketingFilterDefinition;
       suppressionPolicy?: MarketingSuppressionPolicy;
       eligibilityRules?: MarketingEligibilityRules;
       audienceId?: string;
+      columnMap?: MarketingColumnMap | null;
+      mapping?: MarketingConfirmedColumnMapping | null;
+      mappingConfirmed?: boolean;
+      confirmMapping?: boolean;
+      headers?: string[];
+      fullScan?: boolean;
     };
 
     const action = body.action ?? "upsert";
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
         const preview = await marketingAudienceService.previewSaved(
           actorCtx(actor),
           body.audienceId,
+          { fullScan: body.fullScan },
         );
         return successResponse({ preview });
       }
@@ -117,8 +119,13 @@ export async function POST(request: Request) {
         bindingId: body.bindingId,
         datasetId: body.datasetId,
         filterDefinition: body.filterDefinition,
+        exclusionDefinition: body.exclusionDefinition,
         suppressionPolicy: body.suppressionPolicy,
         eligibilityRules: body.eligibilityRules,
+        columnMap: body.columnMap,
+        mapping: body.mapping,
+        mappingConfirmed: body.mappingConfirmed,
+        fullScan: body.fullScan,
       });
       return successResponse({ preview });
     }
@@ -135,8 +142,14 @@ export async function POST(request: Request) {
       datasetId: body.datasetId,
       datasetDisplayName: body.datasetDisplayName,
       filterDefinition: body.filterDefinition,
+      exclusionDefinition: body.exclusionDefinition,
       suppressionPolicy: body.suppressionPolicy,
       eligibilityRules: body.eligibilityRules,
+      columnMap: body.columnMap,
+      mapping: body.mapping,
+      mappingConfirmed: body.mappingConfirmed,
+      confirmMapping: body.confirmMapping,
+      headers: body.headers,
     });
     return successResponse({ audience });
   } catch (err) {

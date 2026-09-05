@@ -1,16 +1,30 @@
 /**
- * CO-MARKETING-MKT-11 — Fixture Dialogue Opportunity create (isolated from live Opportunity Registry).
- * Live mode uses enterpriseOpportunityService without changing Opportunity lifecycle.
+ * CO-MARKETING-MKT-11 / REDESIGN-016 — Fixture Dialogue Opportunity create.
+ * Isolated from live Opportunity Registry. Reuses contact+campaign. Stores attribution.
  */
 
 import type { MarketingOpportunityCreatePort } from "@/lib/enterprise-marketing-engine/ports/qualification-handoff.port";
 
-const opportunities = new Map<string, { id: string; contactId: string; campaignId: string }>();
+type FixtureOpportunity = {
+  id: string;
+  contactId: string;
+  campaignId: string;
+  snapshotId: string | null;
+  snapshotRecipientId: string | null;
+  qualificationId: string | null;
+  recipientFingerprint: string | null;
+  assigneeUserId: string | null;
+};
+
+const opportunities = new Map<string, FixtureOpportunity>();
 let seq = 0;
 
 export const marketingFixtureOpportunityDirectory = {
   list() {
     return [...opportunities.values()];
+  },
+  get(id: string) {
+    return opportunities.get(id) ?? null;
   },
   reset() {
     opportunities.clear();
@@ -25,15 +39,39 @@ export function createFixtureOpportunityCreatePort(): MarketingOpportunityCreate
         (o) => o.contactId === input.contactId && o.campaignId === input.campaignId,
       );
       if (existing) {
-        return { opportunityId: existing.id, created: false, lifecycle: "dialogue" };
+        return {
+          opportunityId: existing.id,
+          created: false,
+          lifecycle: "dialogue",
+          campaignId: existing.campaignId,
+          snapshotId: existing.snapshotId,
+          snapshotRecipientId: existing.snapshotRecipientId,
+          qualificationId: existing.qualificationId,
+          assigneeUserId: existing.assigneeUserId,
+        };
       }
       const id = `mkt-fix-opp-${++seq}`;
-      opportunities.set(id, {
+      const row: FixtureOpportunity = {
         id,
         contactId: input.contactId,
         campaignId: input.campaignId,
-      });
-      return { opportunityId: id, created: true, lifecycle: "dialogue" };
+        snapshotId: input.snapshotId ?? null,
+        snapshotRecipientId: input.snapshotRecipientId ?? null,
+        qualificationId: input.qualificationId ?? null,
+        recipientFingerprint: input.recipientFingerprint ?? null,
+        assigneeUserId: input.assigneeUserId ?? null,
+      };
+      opportunities.set(id, row);
+      return {
+        opportunityId: id,
+        created: true,
+        lifecycle: "dialogue",
+        campaignId: row.campaignId,
+        snapshotId: row.snapshotId,
+        snapshotRecipientId: row.snapshotRecipientId,
+        qualificationId: row.qualificationId,
+        assigneeUserId: row.assigneeUserId,
+      };
     },
   };
 }

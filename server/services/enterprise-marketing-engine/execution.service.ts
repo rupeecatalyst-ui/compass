@@ -30,12 +30,19 @@ import {
   assertDryRunExecutionAllowed,
   EnterpriseMarketingSafetyError,
 } from "@/lib/enterprise-marketing-engine/safety";
+import type { MarketingCampaign } from "@/types/enterprise-marketing-campaign";
+import type { MarketingDurabilityPorts } from "@/types/enterprise-marketing-durability-ports";
 import type { MarketingBatchPolicy, MarketingExecutionSummary, MarketingExecutionTickResult } from "@/types/enterprise-marketing-execution";
 import type { MarketingCampaignExecutionPort } from "@/lib/enterprise-marketing-engine/ports/campaign-execution.port";
 import { recordMarketingAuditEvent } from "./audit";
 import { marketingAudienceDefinitionStore } from "./audience-definition-store";
 import { marketingCampaignStore } from "./campaign-store";
 import { marketingDataSourceService } from "./data-source.service";
+import { getConfiguredMarketingDurabilityPorts } from "@/lib/enterprise-marketing-engine/durability/composition";
+import {
+  marketingPacingTickToExecutionResult,
+  runMarketingSnapshotPacingTick,
+} from "@/lib/enterprise-marketing-engine/execution/snapshot-pacing-worker";
 import { marketingExecutionBatchStore } from "./execution-batch-store";
 import { marketingExecutionLedgerStore } from "./execution-ledger-store";
 import { emitMarketingEngagementEvent } from "./engagement.service";
@@ -93,6 +100,73 @@ function resolveBatchPolicy(
   return stored ?? MARKETING_DEFAULT_BATCH_POLICY;
 }
 
+async function tickFromFrozenSnapshot(input: {
+  campaignId: string;
+  campaign: MarketingCampaign;
+  versionId: string;
+  lease: NonNullable<ReturnType<typeof marketingExecutionLeaseStore.get>>;
+  holderId: string;
+  adminTriggered: boolean;
+  forceRun?: boolean;
+  now?: Date;
+  ports: MarketingDurabilityPorts;
+}): Promise<MarketingExecutionTickResult> {
+  // SNAPSHOT_REQUIRED — approved execution never rereads the live Google Sheet.
+  const tick = await runMarketingSnapshotPacingTick({
+    ports: input.ports,
+    organizationId: input.campaign.organizationId,
+    campaignId: input.campaignId,
+    campaignVersionId: input.versionId,
+    channel: input.campaign.channel,
+    policy: input.lease.batchPolicy,
+    holderId: input.holderId,
+    now: input.now,
+    forceRun: input.forceRun,
+    adminTriggered: input.adminTriggered,
+    campaignStatus: input.campaign.status,
+    shouldSuppressDelivery: (recipient) =>
+      marketingSuppressionStore.evaluateDelivery({
+        organizationId: input.campaign.organizationId,
+        fingerprints: [
+          recipient.recipientFingerprint,
+          recipient.normalizedEmail ? `email:${recipient.normalizedEmail}` : "",
+        ].filter(Boolean),
+        channel: input.campaign.channel,
+        phase: "delivery",
+        campaignId: input.campaignId,
+        applyOptionalOrgSuppression: true,
+      }).blocked,
+  });
+
+  recordMarketingAuditEvent({
+    kind: "execution.batch.frozen_snapshot",
+    organizationId: input.campaign.organizationId,
+    detail: {
+      campaignId: input.campaignId,
+      snapshotId: tick.snapshotId,
+      claimed: tick.claimed,
+      processed: tick.processed,
+      skipped: tick.skipped,
+      batchNumber: tick.batchNumber,
+      liveSheetReread: false,
+      liveProviderInvoked: tick.liveProviderInvoked,
+      adminTriggered: input.adminTriggered,
+    },
+  });
+
+  marketingExecutionLeaseStore.upsert({
+    ...input.lease,
+    streamCursor: tick.streamCursor,
+    nextRunAt: tick.nextRunAt,
+    lastBatchId: tick.batchId || input.lease.lastBatchId,
+    completedAt: tick.campaignComplete ? nowIso() : null,
+    errorState: tick.skippedReason === "campaign_stopped" ? "stopped" : null,
+    updatedAt: nowIso(),
+  });
+
+  return marketingPacingTickToExecutionResult(tick);
+}
+
 async function tickBatchInternal(
   campaignId: string,
   opts?: { forceRun?: boolean; holderId?: string; adminTriggered?: boolean },
@@ -130,6 +204,24 @@ async function tickBatchInternal(
   lease = marketingExecutionLeaseStore.resetDailyIfNeeded(lease, now);
 
   try {
+    const versionId =
+      campaign.activePublishedVersionId ?? campaign.currentDraftVersionId;
+
+    const durabilityPorts = getConfiguredMarketingDurabilityPorts();
+    if (durabilityPorts) {
+      return tickFromFrozenSnapshot({
+        campaignId,
+        campaign,
+        versionId,
+        lease,
+        holderId,
+        adminTriggered: opts?.adminTriggered ?? false,
+        forceRun: opts?.forceRun,
+        now,
+        ports: durabilityPorts,
+      });
+    }
+
     if (
       !opts?.forceRun &&
       lease.nextRunAt &&
@@ -166,8 +258,6 @@ async function tickBatchInternal(
       opts?.forceRun ? lease.batchPolicy.batchSize : dailyRemaining,
     );
 
-    const versionId =
-      campaign.activePublishedVersionId ?? campaign.currentDraftVersionId;
     const audienceId = campaign.audienceId;
     if (!audienceId) {
       return failBatch(campaignId, lease, "missing_audience");
@@ -273,20 +363,16 @@ async function tickBatchInternal(
         });
 
         const candidates = suppressionCandidates(quality);
-        let suppressedMatch = false;
-        if (audience.suppressionPolicy.applyOrgSuppression) {
-          for (const c of candidates) {
-            const hit = marketingSuppressionStore.findMatch(
-              campaign.organizationId,
-              c,
-              audience.suppressionPolicy.reasons,
-            );
-            if (hit) {
-              suppressedMatch = true;
-              break;
-            }
-          }
-        }
+        const suppressionDecision = marketingSuppressionStore.evaluateDelivery({
+          organizationId: campaign.organizationId,
+          fingerprints: candidates,
+          channel: campaign.channel,
+          phase: "delivery",
+          campaignId,
+          applyOptionalOrgSuppression: audience.suppressionPolicy.applyOrgSuppression,
+          allowedReasons: audience.suppressionPolicy.reasons,
+        });
+        const suppressedMatch = suppressionDecision.blocked;
 
         if (suppressedMatch) {
           suppressed += 1;
@@ -637,9 +723,20 @@ export const marketingExecutionService = {
   onResume(campaignId: string) {
     const lease = marketingExecutionLeaseStore.get(campaignId);
     if (!lease) return;
+    if (lease.completedAt) return;
     marketingExecutionLeaseStore.upsert({
       ...lease,
       nextRunAt: computeNextRunAt(new Date(), lease.batchPolicy, false),
+      errorState: null,
+      updatedAt: nowIso(),
+    });
+  },
+
+  onPause(campaignId: string) {
+    const lease = marketingExecutionLeaseStore.get(campaignId);
+    if (!lease) return;
+    marketingExecutionLeaseStore.upsert({
+      ...lease,
       errorState: null,
       updatedAt: nowIso(),
     });
@@ -651,7 +748,19 @@ export const marketingExecutionService = {
     marketingExecutionLeaseStore.upsert({
       ...lease,
       nextRunAt: null,
-      completedAt: nowIso(),
+      completedAt: null,
+      errorState: "stopped",
+      updatedAt: nowIso(),
+    });
+  },
+
+  onCancel(campaignId: string) {
+    const lease = marketingExecutionLeaseStore.get(campaignId);
+    if (!lease) return;
+    marketingExecutionLeaseStore.upsert({
+      ...lease,
+      nextRunAt: null,
+      errorState: "cancelled_before_execution",
       updatedAt: nowIso(),
     });
   },
@@ -748,6 +857,7 @@ export const marketingExecutionService = {
       if (!RUNNABLE.includes(campaign.status)) continue;
       const lease = marketingExecutionLeaseStore.get(campaign.id);
       if (!lease || lease.completedAt) continue;
+      if (lease.errorState === "stopped") continue;
       if (lease.nextRunAt && Date.parse(lease.nextRunAt) > now) continue;
       const result = await tickBatchInternal(campaign.id, {
         holderId: `cron-${Date.now()}-${campaign.id}`,
@@ -771,7 +881,7 @@ export const marketingExecutionService = {
 export const marketingCampaignExecutionPort: MarketingCampaignExecutionPort = {
   tickBatch: (campaignId) => marketingExecutionService.tickBatch(campaignId),
   pause: async (campaignId) => {
-    marketingExecutionService.onStop(campaignId);
+    marketingExecutionService.onPause(campaignId);
   },
   resume: async (campaignId) => {
     marketingExecutionService.onResume(campaignId);

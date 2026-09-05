@@ -28,6 +28,40 @@ export const marketingQualificationStore = {
     return row;
   },
 
+  findByCampaignFingerprint(
+    organizationId: string,
+    campaignId: string,
+    recipientFingerprint: string,
+  ): MarketingQualificationRecord | null {
+    const fingerprint = recipientFingerprint.trim();
+    if (!fingerprint) return null;
+    return (
+      [...records.values()].find(
+        (row) =>
+          row.organizationId === organizationId &&
+          row.campaignId === campaignId &&
+          row.recipientFingerprint === fingerprint,
+      ) ?? null
+    );
+  },
+
+  findByCampaignIdentity(
+    organizationId: string,
+    campaignId: string,
+    input: { matchEmail?: string | null; matchPhone?: string | null },
+  ): MarketingQualificationRecord | null {
+    const email = (input.matchEmail ?? "").trim().toLowerCase();
+    const phone = (input.matchPhone ?? "").replace(/\D/g, "").slice(-10);
+    return (
+      [...records.values()].find((row) => {
+        if (row.organizationId !== organizationId || row.campaignId !== campaignId) return false;
+        if (email && (row.matchEmail ?? "").trim().toLowerCase() === email) return true;
+        if (phone && (row.matchPhone ?? "").replace(/\D/g, "").slice(-10) === phone) return true;
+        return false;
+      }) ?? null
+    );
+  },
+
   upsert(record: MarketingQualificationRecord): MarketingQualificationRecord {
     records.set(record.id, record);
     return record;

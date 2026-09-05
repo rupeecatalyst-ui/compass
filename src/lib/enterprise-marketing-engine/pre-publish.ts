@@ -7,20 +7,11 @@ import type {
   MarketingCampaignVersion,
 } from "@/types/enterprise-marketing-campaign";
 import type { MarketingPrePublishCheckResult } from "@/types/enterprise-marketing-campaign";
-
-function hasDisclaimer(campaign: MarketingCampaign, version: MarketingCampaignVersion): boolean {
-  if (version.disclaimer && version.disclaimer.trim().length > 0) return true;
-  return version.content.blocks.some((b) => {
-    if (b.type === "disclaimer" && typeof b.props.text === "string" && b.props.text.trim()) {
-      return true;
-    }
-    if (b.type === "footer" && typeof b.props.text === "string") {
-      const t = b.props.text.toLowerCase();
-      return t.includes("unsubscrib") || t.includes("disclaimer") || t.includes("terms");
-    }
-    return false;
-  });
-}
+import type { MarketingColumnMap } from "@/types/enterprise-marketing-durability";
+import type { MarketingSenderIdentity } from "@/types/enterprise-marketing-email-delivery";
+import { inspectMarketingPersonalisationUsage } from "@/lib/enterprise-marketing-engine/personalisation-catalogue";
+import { hasMarketingUnsubscribeBlock } from "@/lib/enterprise-marketing-engine/visual-editor";
+import { collectMarketingImageBlocksMissingAlt } from "@/lib/enterprise-marketing-engine/asset-alt-text";
 
 function hasCta(version: MarketingCampaignVersion): boolean {
   if (version.ctaLabel?.trim() && version.ctaUrl?.trim()) return true;
@@ -50,6 +41,10 @@ function senderConfigured(campaign: MarketingCampaign): boolean {
 export function runMarketingPrePublishChecks(input: {
   campaign: MarketingCampaign;
   version: MarketingCampaignVersion;
+  columnMap?: MarketingColumnMap | null;
+  mappingConfirmed?: boolean;
+  senderIdentity?: MarketingSenderIdentity | null;
+  requireApprovedSender?: boolean;
 }): MarketingPrePublishCheckResult {
   const { campaign, version } = input;
   const checks: MarketingPrePublishCheckResult["checks"] = [];
@@ -84,15 +79,31 @@ export function runMarketingPrePublishChecks(input: {
     message: senderOk ? "Sender identity set" : "Configure sender name and address",
   });
 
-  const complianceOk = hasDisclaimer(campaign, version);
+  const senderApproved =
+    !input.requireApprovedSender ||
+    (input.senderIdentity != null &&
+      input.senderIdentity.approvalStatus === "APPROVED" &&
+      input.senderIdentity.simulated !== true &&
+      input.senderIdentity.active);
   checks.push({
-    id: "compliance",
-    label: "Unsubscribe / compliance elements",
+    id: "sender_approved",
+    label: "Approved sender identity",
+    severity: input.requireApprovedSender ? "error" : "warning",
+    passed: senderApproved,
+    message: senderApproved
+      ? "Approved sender identity is linked"
+      : "Production-capable execution requires an approved, non-simulated sender identity",
+  });
+
+  const unsubscribeOk = hasMarketingUnsubscribeBlock(version.content);
+  checks.push({
+    id: "unsubscribe",
+    label: "Mandatory unsubscribe block",
     severity: "error",
-    passed: complianceOk,
-    message: complianceOk
-      ? "Disclaimer or unsubscribe footer present"
-      : "Add disclaimer block/field or unsubscribe footer text",
+    passed: unsubscribeOk,
+    message: unsubscribeOk
+      ? "Structural unsubscribe block present"
+      : "Add an Unsubscribe block. Footer wording is not a substitute.",
   });
 
   const ctaOk = hasCta(version);
@@ -102,6 +113,50 @@ export function runMarketingPrePublishChecks(input: {
     severity: "error",
     passed: ctaOk,
     message: ctaOk ? "CTA configured" : "Add a CTA with label and URL",
+  });
+
+  const missingAltIds = collectMarketingImageBlocksMissingAlt(version.content);
+  const altOk = missingAltIds.length === 0;
+  checks.push({
+    id: "alt_text",
+    label: "Image accessibility alt text",
+    severity: "error",
+    passed: altOk,
+    message: altOk
+      ? "Image blocks include accessibility alt text"
+      : "Images require accessibility alt text before campaign approval",
+  });
+
+  const personalisation = inspectMarketingPersonalisationUsage({
+    subject: version.subject,
+    preheader: version.previewText,
+    content: version.content,
+    columnMap: input.columnMap ?? null,
+    mappingConfirmed: input.mappingConfirmed === true,
+  });
+  const hasUnsupported = personalisation.unsupportedTokens.length > 0;
+  const hasUnresolved = personalisation.unresolvedTokens.length > 0;
+  const hasMissingFallback = personalisation.missingFallbackTokens.length > 0;
+  const personalisationBlocks =
+    hasUnsupported || hasMissingFallback || (input.mappingConfirmed === true && hasUnresolved);
+  const personalisationParts = [
+    hasUnsupported
+      ? `Unsupported tokens: ${personalisation.unsupportedTokens.map((t) => `{{${t}}}`).join(", ")}`
+      : "",
+    hasUnresolved
+      ? `Unresolved mapped variables: ${personalisation.unresolvedTokens.map((t) => `{{${t}}}`).join(", ")}`
+      : "",
+    hasMissingFallback ? `Missing fallbacks: ${personalisation.missingFallbackTokens.join(", ")}` : "",
+  ].filter(Boolean);
+  checks.push({
+    id: "personalisation",
+    label: "Personalisation tokens",
+    severity: personalisationBlocks ? "error" : "warning",
+    passed: !personalisationBlocks,
+    message: !hasUnsupported && !hasUnresolved && !hasMissingFallback
+      ? "Personalisation tokens are allowlisted and resolved"
+      : personalisationParts.join(". ") ||
+        "Fix unsupported or unresolved personalisation tokens before approval",
   });
 
   // Scheduling validity — placeholder: if enabled, require notes; otherwise advisory pass

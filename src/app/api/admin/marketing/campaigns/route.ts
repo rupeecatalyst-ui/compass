@@ -5,12 +5,10 @@
 
 import {
   errorResponse,
-  fromAuthError,
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
-import type { ApiResponse } from "@/types/api";
+import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
 import type {
   MarketingContentDocument,
   MarketingNotificationPlaceholder,
@@ -31,6 +29,13 @@ import {
   MARKETING_CONTROLLED_TEST_BATCH_SIZES,
   MARKETING_DEFAULT_BATCH_POLICY,
 } from "@/constants/enterprise-marketing-engine/execution";
+import { MARKETING_LIVE_PROVIDER_SENDING_DISABLED } from "@/constants/enterprise-marketing-engine/delivery-operations";
+import {
+  assertMarketingDeliveryConfirmation,
+} from "@/lib/enterprise-marketing-engine/delivery-operations";
+import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/permissions";
+import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
+import { assertMarketingOperationPermission } from "@/lib/enterprise-marketing-engine/operation-permissions";
 
 function requireAdministrator(actor: { role: string }) {
   if (actor.role !== "SUPER_ADMIN" && actor.role !== "ADMIN") {
@@ -42,17 +47,9 @@ function requireAdministrator(actor: { role: string }) {
 }
 
 function fromUnknown(err: unknown) {
-  if (err instanceof EnterpriseMarketingSafetyError) {
-    return errorResponse(403, err.code, err.message);
-  }
-  const statusCode = (err as { statusCode?: number }).statusCode;
-  const code = (err as { code?: string }).code;
-  if (statusCode === 401 || statusCode === 403) {
-    return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
-  }
-  return errorResponse(
-    statusCode && statusCode >= 400 && statusCode < 600 ? statusCode : 500,
-    code ?? "MARKETING_CAMPAIGN_FAILED",
+  return fromMarketingUnknownError(
+    err,
+    "MARKETING_CAMPAIGN_FAILED",
     err instanceof Error ? err.message : "Marketing campaign request failed",
   );
 }
@@ -77,6 +74,7 @@ export async function GET(request: Request) {
     const campaignId = url.searchParams.get("id");
     const view = url.searchParams.get("view");
     const ctx = await actorCtx(actor);
+    assertMarketingPermission(ctx, MARKETING_PERMISSIONS.COMMAND_CENTER);
 
     if (view === "templates") {
       const templates = await marketingCampaignService.listTemplates(ctx);
@@ -90,11 +88,19 @@ export async function GET(request: Request) {
       const checks = await marketingCampaignService.prePublishChecks(ctx, campaignId);
       return successResponse({ checks });
     }
+    if (view === "test-history" && campaignId) {
+      const history = marketingCampaignService.listTestHistory(ctx, campaignId);
+      return successResponse({ history });
+    }
     if (campaignId) {
       const detail = await marketingCampaignService.get(ctx, campaignId);
       if (view === "execution") {
         const summary = marketingExecutionService.getSummary(campaignId);
         return successResponse({ ...detail, execution: summary });
+      }
+      if (view === "readiness") {
+        const review = await marketingCampaignService.readinessReview(ctx, campaignId);
+        return successResponse({ review });
       }
       return successResponse(detail);
     }
@@ -124,7 +130,10 @@ export async function POST(request: Request) {
         | "run_test_batch"
         | "run_next_batch"
         | "execution_summary"
-        | "test_send";
+        | "test_send"
+        | "reopen_draft"
+        | "simulate_launch"
+        | "retry_eligible_failures";
       /** Lifecycle action when action=transition */
       lifecycleAction?: MarketingCampaignAction;
       campaignId?: string;
@@ -146,6 +155,9 @@ export async function POST(request: Request) {
       testBatchSize?: number;
       /** Single mailbox for action=test_send (render path + delivery port). */
       testRecipientEmail?: string;
+      testSendConfirmed?: boolean;
+      testSendConfirmationPhrase?: string;
+      sampleRecipientId?: string | null;
       resetCursor?: boolean;
       subject?: string;
       previewText?: string;
@@ -168,6 +180,8 @@ export async function POST(request: Request) {
       blockName?: string;
       resumeTarget?: "RUNNING" | "SCHEDULED";
       note?: string;
+      confirmed?: boolean;
+      confirmationPhrase?: string;
       /** Test / EUM grant overrides — never enables send. */
       marketingPermissions?: string[];
       /** Rejected if present — SAVE must not publish. */
@@ -218,6 +232,7 @@ export async function POST(request: Request) {
         batchPolicy: body.batchPolicy,
         senderIdentityId: body.senderIdentityId,
         whatsappTemplateId: body.whatsappTemplateId,
+        templateId: body.templateId,
         subject: body.subject,
         previewText: body.previewText,
         content: body.content,
@@ -266,7 +281,12 @@ export async function POST(request: Request) {
         ctx,
         body.campaignId,
         body.lifecycleAction,
-        { resumeTarget: body.resumeTarget, note: body.note },
+        {
+          resumeTarget: body.resumeTarget,
+          note: body.note,
+          confirmed: body.confirmed,
+          confirmationPhrase: body.confirmationPhrase,
+        },
       );
       return successResponse(detail);
     }
@@ -295,6 +315,7 @@ export async function POST(request: Request) {
         ctx,
         body.campaignId,
         body.personalization,
+        { sampleRecipientId: body.sampleRecipientId },
       );
       return successResponse({ preview });
     }
@@ -309,6 +330,9 @@ export async function POST(request: Request) {
       const result = await marketingCampaignService.testSend(ctx, body.campaignId, {
         recipientEmail: body.testRecipientEmail,
         personalization: body.personalization,
+        confirmed: body.testSendConfirmed,
+        confirmationPhrase: body.testSendConfirmationPhrase,
+        sampleRecipientId: body.sampleRecipientId,
       });
       return successResponse(result);
     }
@@ -370,12 +394,19 @@ export async function POST(request: Request) {
       }
       const org = ctx.organizationId;
       if (action === "run_next_batch") {
+        assertMarketingOperationPermission(ctx, "run");
+        assertMarketingDeliveryConfirmation({
+          action: "RUN_NEXT_BATCH",
+          confirmed: body.confirmed,
+          confirmationPhrase: body.confirmationPhrase,
+        });
         const tick = await marketingExecutionService.runNextBatch(body.campaignId, org);
         return successResponse({
           tick,
           execution: marketingExecutionService.getSummary(body.campaignId),
           deliveryLabel: "SIMULATED",
           actuallySent: false,
+          notice: MARKETING_LIVE_PROVIDER_SENDING_DISABLED,
         });
       }
       const requested = Number(body.testBatchSize ?? 5);
@@ -412,6 +443,33 @@ export async function POST(request: Request) {
         block: body.block,
       });
       return successResponse({ block });
+    }
+
+    if (action === "reopen_draft") {
+      if (!body.campaignId) {
+        return errorResponse(400, "INVALID_INPUT", "campaignId is required");
+      }
+      const detail = await marketingCampaignService.reopenApprovedAsDraft(ctx, body.campaignId);
+      return successResponse(detail);
+    }
+
+    if (action === "simulate_launch") {
+      if (!body.campaignId) {
+        return errorResponse(400, "INVALID_INPUT", "campaignId is required");
+      }
+      const result = await marketingCampaignService.simulateLaunch(ctx, body.campaignId);
+      return successResponse(result);
+    }
+
+    if (action === "retry_eligible_failures") {
+      if (!body.campaignId) {
+        return errorResponse(400, "INVALID_INPUT", "campaignId is required");
+      }
+      const result = await marketingCampaignService.retryEligibleFailures(ctx, body.campaignId, {
+        confirmed: body.confirmed,
+        confirmationPhrase: body.confirmationPhrase,
+      });
+      return successResponse(result);
     }
 
     return errorResponse(400, "INVALID_ACTION", `Unknown action: ${action}`);

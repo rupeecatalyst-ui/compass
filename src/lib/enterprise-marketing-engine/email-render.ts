@@ -9,21 +9,28 @@ import type { MarketingUtmConfig } from "@/lib/enterprise-marketing-engine/utm";
 import { appendMarketingUtmParams } from "@/lib/enterprise-marketing-engine/utm";
 import { applyPersonalization } from "./personalization";
 import type { MarketingPersonalizationToken } from "@/constants/enterprise-marketing-engine/content";
+import {
+  MARKETING_EMAIL_SAFE_COLORS,
+  MARKETING_EMAIL_SAFE_FONT_STACK,
+} from "@/constants/enterprise-marketing-engine/content";
+import {
+  isUnsafeMarketingHref,
+  sanitizeMarketingPlainText,
+  sanitizeMarketingRichText,
+} from "@/lib/enterprise-marketing-engine/html-sanitize";
 
 function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return sanitizeMarketingPlainText(s);
 }
 
 function textToHtmlParagraphs(raw: string): string {
+  const sanitised = sanitizeMarketingRichText(raw);
+  if (/<[a-z][\s\S]*>/i.test(sanitised)) return sanitised;
   return esc(raw)
     .split(/\n{2,}/)
     .map(
       (p) =>
-        `<p style="margin:0 0 12px 0;font-size:15px;line-height:1.5;color:#1f2937;">${p.replace(/\n/g, "<br/>")}</p>`,
+        `<p style="margin:0 0 12px 0;font-size:15px;line-height:1.5;color:#1f2937;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${p.replace(/\n/g, "<br/>")}</p>`,
     )
     .join("");
 }
@@ -31,6 +38,23 @@ function textToHtmlParagraphs(raw: string): string {
 function propString(props: Record<string, unknown>, key: string, fallback = ""): string {
   const v = props[key];
   return typeof v === "string" ? v : fallback;
+}
+
+function cellPad(props: Record<string, unknown>, fallback = "8"): string {
+  const raw = Number.parseInt(propString(props, "padding", fallback), 10);
+  const pad = Number.isFinite(raw) ? Math.min(Math.max(raw, 0), 48) : Number(fallback);
+  return `${pad}px 24px`;
+}
+
+function alignOf(props: Record<string, unknown>, fallback = "left"): "left" | "center" | "right" {
+  const value = propString(props, "align", fallback);
+  if (value === "center" || value === "right" || value === "left") return value;
+  return fallback as "left" | "center" | "right";
+}
+
+function safeColor(props: Record<string, unknown>, key: string, fallback: string): string {
+  const value = propString(props, key, fallback);
+  return (MARKETING_EMAIL_SAFE_COLORS as readonly string[]).includes(value) ? value : fallback;
 }
 
 function renderBlock(
@@ -41,25 +65,25 @@ function renderBlock(
 ): string {
   switch (type) {
     case "header":
-      return `<tr><td style="padding:20px 24px 8px 24px;">
-        <div style="font-size:20px;font-weight:700;color:#0f172a;">${esc(personalize(propString(props, "title")))}</div>
-        ${propString(props, "subtitle") ? `<div style="font-size:13px;color:#64748b;margin-top:4px;">${esc(personalize(propString(props, "subtitle")))}</div>` : ""}
+      return `<tr><td style="padding:${cellPad(props, "16")};" align="${alignOf(props)}">
+        <div style="font-size:20px;font-weight:700;color:${safeColor(props, "color", "#0f172a")};font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "title")))}</div>
+        ${propString(props, "subtitle") ? `<div style="font-size:13px;color:#64748b;margin-top:4px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "subtitle")))}</div>` : ""}
       </td></tr>`;
     case "logo": {
       const url = propString(props, "url");
-      if (!url) return "";
+      if (!url || isUnsafeMarketingHref(url)) return "";
       return `<tr><td style="padding:16px 24px;" align="center"><img src="${esc(url)}" alt="${esc(propString(props, "alt", "Logo"))}" width="140" style="display:block;max-width:140px;height:auto;border:0;" /></td></tr>`;
     }
     case "hero_image":
     case "image": {
       const url = propString(props, "url");
-      if (!url) return "";
-      return `<tr><td style="padding:8px 24px;" align="center"><img src="${esc(url)}" alt="${esc(propString(props, "alt", "Image"))}" width="520" style="display:block;width:100%;max-width:520px;height:auto;border:0;border-radius:8px;" />
-        ${propString(props, "caption") ? `<div style="font-size:12px;color:#64748b;margin-top:6px;">${esc(personalize(propString(props, "caption")))}</div>` : ""}
+      if (!url || isUnsafeMarketingHref(url)) return "";
+      return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props, "center")}"><img src="${esc(url)}" alt="${esc(propString(props, "alt", "Image"))}" width="520" style="display:block;width:100%;max-width:520px;height:auto;border:0;border-radius:8px;" />
+        ${propString(props, "caption") ? `<div style="font-size:12px;color:#64748b;margin-top:6px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(propString(props, "caption")))}</div>` : ""}
       </td></tr>`;
     }
     case "text":
-      return `<tr><td style="padding:8px 24px;">${textToHtmlParagraphs(personalize(propString(props, "html")))}</td></tr>`;
+      return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props)}">${textToHtmlParagraphs(personalize(propString(props, "html")))}</td></tr>`;
     case "image_text": {
       const url = propString(props, "url");
       return `<tr><td style="padding:8px 24px;">
@@ -122,7 +146,38 @@ function renderBlock(
       return `<tr><td style="padding:8px 24px;"><div style="font-size:11px;line-height:1.4;color:#94a3b8;">${esc(personalize(propString(props, "text")))}</div></td></tr>`;
     case "footer": {
       const footerCopy = propString(props, "text") || propString(props, "html");
-      return `<tr><td style="padding:16px 24px 24px 24px;"><div style="font-size:12px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:12px;">${esc(personalize(footerCopy))}</div></td></tr>`;
+      return `<tr><td style="padding:${cellPad(props, "16")};" align="${alignOf(props, "center")}"><div style="font-size:12px;color:#64748b;border-top:1px solid #e2e8f0;padding-top:12px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(personalize(footerCopy))}</div></td></tr>`;
+    }
+    case "columns":
+      return `<tr><td style="padding:${cellPad(props)};">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td width="50%" valign="top" style="padding-right:8px;font-size:14px;color:#1f2937;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${textToHtmlParagraphs(personalize(propString(props, "left")))}</td>
+          <td width="50%" valign="top" style="padding-left:8px;font-size:14px;color:#1f2937;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${textToHtmlParagraphs(personalize(propString(props, "right")))}</td>
+        </tr></table>
+      </td></tr>`;
+    case "social": {
+      const items: Array<[string, string]> = (
+        [
+          ["LinkedIn", propString(props, "linkedin")],
+          ["Website", propString(props, "website")],
+        ] as Array<[string, string]>
+      ).filter(([, url]) => Boolean(url) && !isUnsafeMarketingHref(url));
+      if (items.length === 0) return "";
+      return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props, "center")}">${items
+        .map(
+          ([label, url]) =>
+            `<a href="${esc(url)}" style="color:#0f766e;font-size:13px;text-decoration:underline;margin:0 8px;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(label)}</a>`,
+        )
+        .join(" ")}</td></tr>`;
+    }
+    case "unsubscribe": {
+      const href = propString(props, "href", "{{unsubscribeUrl}}");
+      const label = personalize(propString(props, "label", "Unsubscribe"));
+      const safeHref =
+        href === "{{unsubscribeUrl}}" || !isUnsafeMarketingHref(href) ? href : "{{unsubscribeUrl}}";
+      return `<tr><td data-marketing-unsubscribe="true" style="padding:${cellPad(props, "16")};" align="${alignOf(props, "center")}">
+        <a href="${esc(safeHref)}" style="color:#64748b;font-size:12px;text-decoration:underline;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${esc(label)}</a>
+      </td></tr>`;
     }
     default:
       return "";
@@ -216,6 +271,20 @@ export function renderMarketingEmailPlaintext(args: {
         lines.push(`${personalize(String(p.label ?? "CTA"))}: ${url}`);
         break;
       }
+      case "columns":
+        lines.push(personalize(String(p.left ?? "")), personalize(String(p.right ?? "")));
+        break;
+      case "social":
+        lines.push(String(p.linkedin ?? ""), String(p.website ?? ""));
+        break;
+      case "unsubscribe":
+        lines.push(`${personalize(String(p.label ?? "Unsubscribe"))}: ${String(p.href ?? "{{unsubscribeUrl}}")}`);
+        break;
+      case "image":
+      case "hero_image":
+      case "logo":
+        lines.push(personalize(String(p.alt ?? p.caption ?? "")));
+        break;
       case "product_card":
       case "offer_card":
         lines.push(personalize(String(p.title ?? "")), personalize(String(p.body ?? "")));

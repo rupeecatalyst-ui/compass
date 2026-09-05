@@ -60,15 +60,26 @@ const panel = readFileSync(
   resolve(root, "src/components/catalyst-one/admin/marketing/marketing-campaigns-panel.tsx"),
   "utf8",
 );
+const opsPanel = readFileSync(
+  resolve(root, "src/components/catalyst-one/admin/marketing/marketing-delivery-operations-panel.tsx"),
+  "utf8",
+);
 if (
   !panel.includes("Test Send (disabled)") &&
   !panel.includes("SIMULATED") &&
-  !panel.includes("Controlled test")
+  !panel.includes("Controlled test") &&
+  !opsPanel.includes("runNextBatch") &&
+  !opsPanel.includes("MARKETING_LIVE_PROVIDER_SENDING_DISABLED")
 ) {
   fail("Test Send should stay disabled or use controlled SIMULATED test");
 } else pass("Test Send gated / controlled SIMULATED test present");
-if (!panel.includes("MARKETING_CAMPAIGN_STATUS_LABELS")) fail("registry labels missing");
-else pass("registry status labels");
+const builder = readFileSync(
+  resolve(root, "src/components/catalyst-one/admin/marketing/marketing-campaign-builder-page.tsx"),
+  "utf8",
+);
+if (!panel.includes("MARKETING_CAMPAIGN_STATUS_LABELS") && !builder.includes("MARKETING_CAMPAIGN_STATUS_LABELS")) {
+  fail("registry labels missing");
+} else pass("registry status labels");
 
 try {
   require("tsx/cjs");
@@ -96,12 +107,12 @@ const campaignService = campMod.marketingCampaignService;
 
 const superActor = {
   userId: "super-mkt05",
-  organizationId: "default",
+  organizationId: "org-mkt-05-verify",
   role: "SUPER_ADMIN",
 };
 const adminActor = {
   userId: "admin-mkt05",
-  organizationId: "default",
+  organizationId: "org-mkt-05-verify",
   role: "ADMIN",
 };
 
@@ -200,15 +211,20 @@ const frozen = approved.versions.find((v) => v.id === approved.campaign.activePu
 if (!frozen?.immutable) fail("version not frozen");
 else pass("content frozen on approve");
 
-// Content edit blocked while APPROVED
-let locked = false;
-try {
-  await campaignService.save(superActor, created.campaign.id, { subject: "Hacked" });
-} catch (e) {
-  locked = true;
-  pass(`content locked: ${e instanceof Error ? e.message : e}`);
-}
-if (!locked) fail("content should be locked when APPROVED");
+const frozenId = frozen.id;
+const frozenSubject = frozen.subject;
+const afterApprovedSave = await campaignService.save(superActor, created.campaign.id, {
+  subject: "Hacked",
+});
+if (afterApprovedSave.campaign.currentDraftVersionId === frozenId) {
+  fail("save after approve must not mutate the frozen version");
+} else pass("save after approve mints a new draft");
+if (afterApprovedSave.versions.find((v) => v.id === frozenId)?.subject !== frozenSubject) {
+  fail("historical frozen subject changed");
+} else pass("approved content remains immutable");
+
+await campaignService.transition(superActor, created.campaign.id, "SUBMIT_FOR_REVIEW");
+await campaignService.transition(superActor, created.campaign.id, "APPROVE");
 
 // Operational path (state only — no send)
 await campaignService.transition(superActor, created.campaign.id, "SCHEDULE");

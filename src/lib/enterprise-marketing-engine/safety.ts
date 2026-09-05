@@ -100,6 +100,18 @@ export function refuseDigitalLaunch(): never {
   return assertMarketingExecutionAllowed("digital.launch");
 }
 
+export function refuseSmsSend(): never {
+  throw new EnterpriseMarketingSafetyError("sms.send");
+}
+
+export function refuseMessengerSend(): never {
+  throw new EnterpriseMarketingSafetyError("messenger.send");
+}
+
+export function refuseLandingPagePublish(): never {
+  throw new EnterpriseMarketingSafetyError("landing_page.publish");
+}
+
 export function refuseContactCreate(): never {
   throw new EnterpriseMarketingSafetyError("contact.create.direct");
 }

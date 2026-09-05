@@ -4,13 +4,10 @@
  */
 
 import {
-  errorResponse,
-  fromAuthError,
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
-import type { ApiResponse } from "@/types/api";
+import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
 import { marketingDataSourceService } from "@server/services/enterprise-marketing-engine";
 
 function requireAdministrator(actor: { role: string }) {
@@ -23,17 +20,9 @@ function requireAdministrator(actor: { role: string }) {
 }
 
 function fromUnknown(err: unknown) {
-  if (err instanceof EnterpriseMarketingSafetyError) {
-    return errorResponse(403, err.code, err.message);
-  }
-  const statusCode = (err as { statusCode?: number }).statusCode;
-  const code = (err as { code?: string }).code;
-  if (statusCode === 401 || statusCode === 403) {
-    return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
-  }
-  return errorResponse(
-    statusCode && statusCode >= 400 && statusCode < 600 ? statusCode : 500,
-    code ?? "MARKETING_DATA_SOURCE_FAILED",
+  return fromMarketingUnknownError(
+    err,
+    "MARKETING_DATA_SOURCE_FAILED",
     err instanceof Error ? err.message : "Marketing data source request failed",
   );
 }
@@ -66,15 +55,12 @@ export async function POST(request: Request) {
       spreadsheetId?: string;
       id?: string;
     };
-    if (!body.spreadsheetId?.trim()) {
-      return errorResponse(400, "INVALID_INPUT", "spreadsheetId is required");
-    }
     const binding = marketingDataSourceService.upsertBinding(
       { userId: actor.userId, organizationId: "default" },
       {
         id: body.id,
         displayName: body.displayName?.trim() || "Marketing Data Source",
-        spreadsheetId: body.spreadsheetId.trim(),
+        spreadsheetId: body.spreadsheetId?.trim(),
       },
     );
     return successResponse({ binding });

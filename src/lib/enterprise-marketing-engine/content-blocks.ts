@@ -8,38 +8,47 @@ import type {
   MarketingContentDocument,
 } from "@/types/enterprise-marketing-campaign";
 
+import { MARKETING_UNSUBSCRIBE_BLOCK_TYPE } from "@/constants/enterprise-marketing-engine/content";
+
 export function createEmptyContentDocument(): MarketingContentDocument {
   return {
     version: 1,
     blocks: [
       {
-        id: `blk-${Date.now()}-header`,
+        id: "blk-blank-header",
         type: "header",
-        props: { title: "Rupee Catalyst", subtitle: "" },
+        props: { title: "Rupee Catalyst", subtitle: "", align: "left", padding: "16", color: "#0f172a" },
       },
       {
-        id: `blk-${Date.now()}-text`,
+        id: "blk-blank-text",
         type: "text",
         props: {
           html: "Hello {{firstName}},\n\nWe have an update for professionals in {{city}} from {{senderName}} regarding {{product}}.",
+          align: "left",
+          padding: "8",
+          color: "#1f2937",
         },
       },
       {
-        id: `blk-${Date.now()}-cta`,
+        id: "blk-blank-cta",
         type: "cta",
-        props: { label: "Learn more", url: "https://rupeecatalyst.com" },
+        props: { label: "Learn more", url: "https://rupeecatalyst.com", align: "center", padding: "16" },
       },
       {
-        id: `blk-${Date.now()}-disclaimer`,
-        type: "disclaimer",
+        id: "blk-blank-unsubscribe",
+        type: MARKETING_UNSUBSCRIBE_BLOCK_TYPE,
         props: {
-          text: "This communication is for informational purposes. Terms apply.",
+          required: true,
+          label: "Unsubscribe",
+          href: "{{unsubscribeUrl}}",
+          align: "center",
+          padding: "16",
         },
       },
       {
-        id: `blk-${Date.now()}-footer`,
+        id: "blk-blank-footer",
         type: "footer",
-        props: { text: "© Rupee Catalyst · Unsubscribe link will appear at send time." },
+        props: { text: "© Rupee Catalyst", align: "center", padding: "16" },
       },
     ],
   };
@@ -51,10 +60,10 @@ export function createBlock(
 ): MarketingContentBlock {
   const id = `blk-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const defaults: Record<MarketingContentBlockType, Record<string, unknown>> = {
-    header: { title: "Campaign header", subtitle: "" },
+    header: { title: "Campaign header", subtitle: "", align: "left", padding: "16", color: "#0f172a" },
     logo: { assetId: null, alt: "Logo", url: "" },
     hero_image: { assetId: null, alt: "Hero", url: "", caption: "" },
-    text: { html: "Enter your message. Use {{firstName}} for personalization." },
+    text: { html: "Enter your message. Use {{firstName}} for personalization.", align: "left", padding: "8" },
     image: { assetId: null, alt: "Image", url: "" },
     image_text: { assetId: null, alt: "Image", url: "", html: "Supporting text" },
     product_card: { title: "Product", body: "Description", amountLabel: "" },
@@ -73,8 +82,24 @@ export function createBlock(
       phone: "",
       address: "",
     },
-    footer: { text: "Footer / signature" },
+    footer: { text: "© Rupee Catalyst" },
     disclaimer: { text: "Disclaimer text" },
+    columns: {
+      left: "Column one",
+      right: "Column two",
+      align: "left",
+      padding: "8",
+    },
+    social: {
+      linkedin: "https://www.linkedin.com/company/rupeecatalyst",
+      website: "https://rupeecatalyst.com",
+      align: "center",
+    },
+    unsubscribe: {
+      required: true,
+      label: "Unsubscribe",
+      href: "{{unsubscribeUrl}}",
+    },
   };
   return { id, type, props: { ...defaults[type], ...(props ?? {}) } };
 }

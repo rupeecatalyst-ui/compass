@@ -105,7 +105,9 @@ function personalizationFromRow(row: Record<string, unknown>, columns: {
     const v = row[key];
     return typeof v === "string" ? v : v != null ? String(v) : "";
   };
-  const fullName = str("Full Name") || str("Name") || str("full name");
+  const emailHeader = columns.emailColumn;
+  const emailValue = emailHeader ? str(emailHeader) : "";
+  const fullName = str("Full Name") || str("Name") || str("full name") || emailValue;
   const parts = fullName.trim().split(/\s+/);
   return {
     firstName: parts[0] ?? "",

@@ -9,6 +9,7 @@ import {
   normalizeMarketingMatchPhone,
   phonesMatch,
 } from "@/lib/enterprise-marketing-engine/qualification/match-identity";
+import { fillMissingMarketingContactIdentity } from "@/lib/enterprise-marketing-engine/qualification/identity-fill";
 import type { MarketingIdentityMatchResult } from "@/types/enterprise-marketing-qualification";
 import type { MarketingIdentityResolutionPort } from "@/lib/enterprise-marketing-engine/ports/qualification-handoff.port";
 
@@ -41,6 +42,10 @@ export const marketingFixtureIdentityDirectory = {
     return [...contacts.values()].filter((c) => c.organizationId === organizationId);
   },
 
+  get(id: string): FixtureContact | null {
+    return contacts.get(id) ?? null;
+  },
+
   resetOrganization(organizationId: string) {
     for (const [id, c] of [...contacts.entries()]) {
       if (c.organizationId === organizationId) contacts.delete(id);
@@ -61,21 +66,26 @@ export function createFixtureIdentityResolutionPort(): MarketingIdentityResoluti
       }
       const existing = marketingFixtureIdentityDirectory.list(input.organizationId);
       const byEmail = email ? existing.find((c) => emailsMatch(c.email, email)) : undefined;
-      if (byEmail) {
+      const matched = byEmail ?? (phone ? existing.find((c) => phonesMatch(c.phone, phone)) : undefined);
+      if (matched) {
+        const filled = fillMissingMarketingContactIdentity(matched, {
+          name: input.name,
+          email,
+          phone,
+        });
+        marketingFixtureIdentityDirectory.upsert({
+          ...matched,
+          name: filled.next.name,
+          email: filled.next.email,
+          phone: filled.next.phone,
+        });
         return {
-          contactId: byEmail.id,
+          contactId: matched.id,
           created: false,
-          matchedBy: "email",
-          name: byEmail.name,
-        } satisfies MarketingIdentityMatchResult;
-      }
-      const byPhone = phone ? existing.find((c) => phonesMatch(c.phone, phone)) : undefined;
-      if (byPhone) {
-        return {
-          contactId: byPhone.id,
-          created: false,
-          matchedBy: "phone",
-          name: byPhone.name,
+          matchedBy: byEmail ? "email" : "phone",
+          name: filled.next.name,
+          filledFields: filled.filledFields,
+          overwroteExisting: false,
         } satisfies MarketingIdentityMatchResult;
       }
       const created = marketingFixtureIdentityDirectory.upsert({

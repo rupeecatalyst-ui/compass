@@ -6,49 +6,72 @@ export const MARKETING_CAMPAIGN_BUILDER_STEPS = [
   {
     id: "basics",
     number: 1,
-    title: "Campaign Basics",
+    title: "Basics",
     shortTitle: "Basics",
-    description: "Name, objective, product, and description.",
+    description: "Campaign name, internal description, objective, channel, owner, and tags.",
   },
   {
     id: "audience",
     number: 2,
     title: "Audience",
     shortTitle: "Audience",
-    description: "Who should receive this campaign.",
+    description: "Authorised workbook, tab, mapping, filters, exclusions, eligibility, snapshot.",
   },
   {
     id: "channel_message",
     number: 3,
     title: "Channel & Message",
-    shortTitle: "Message",
-    description: "Channel, content, and live customer-facing preview.",
+    shortTitle: "Channel & Message",
+    description:
+      "Email: sender, subject, preheader, and message editor. Other channels are Not configured.",
   },
   {
     id: "personalisation",
     number: 4,
     title: "Personalisation",
-    shortTitle: "Personalise",
-    description: "Variables and sample values for preview.",
+    shortTitle: "Personalisation",
+    description: "Mapped variables, fallbacks, sample preview, and unresolved warnings.",
   },
   {
     id: "schedule",
     number: 5,
     title: "Schedule & Delivery",
-    shortTitle: "Schedule",
-    description: "When to send, pacing, and test send.",
+    shortTitle: "Schedule & Delivery",
+    description: "Start, timezone, batch size, interval, window, cap, and completion estimate.",
   },
   {
     id: "review",
     number: 6,
     title: "Review & Launch",
-    shortTitle: "Review",
-    description: "Confirm everything before launch.",
+    shortTitle: "Review & Launch",
+    description: "Readiness, warnings, blockers, test status, approval, and eligible launch.",
   },
 ] as const;
 
 export type MarketingCampaignBuilderStepId =
   (typeof MARKETING_CAMPAIGN_BUILDER_STEPS)[number]["id"];
+
+/** Steps 1–5 must never expose send / launch / test-send. */
+export const MARKETING_BUILDER_SEND_FORBIDDEN_STEP_NUMBERS = [1, 2, 3, 4, 5] as const;
+
+export const MARKETING_BUILDER_TIMEZONES = ["Asia/Kolkata", "UTC"] as const;
+
+export const MARKETING_BUILDER_UNSAVED_TITLE = "Unsaved changes" as const;
+export const MARKETING_BUILDER_UNSAVED_MESSAGE =
+  "You have unsaved campaign draft changes. Save Draft, discard, or cancel to stay." as const;
+
+export const MARKETING_BUILDER_DRAFT_SAVE_CONTRACT = {
+  apiAction: "save",
+  neverPublishes: true,
+  neverSends: true,
+  forbidsStatusMutation: true,
+  distinctFromApproval: true,
+  distinctFromLaunch: true,
+} as const;
+
+export function marketingCampaignBuilderHref(campaignId: string): string {
+  return `/admin/marketing/campaigns/${encodeURIComponent(campaignId)}`;
+}
 
 /** Common campaign objectives — presentation labels only. */
 export const MARKETING_CAMPAIGN_OBJECTIVE_OPTIONS = [

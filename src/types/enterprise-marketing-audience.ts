@@ -6,6 +6,10 @@ import type {
   MarketingFilterOp,
   MarketingSuppressionReason,
 } from "@/constants/enterprise-marketing-engine/audience";
+import type {
+  MarketingColumnMap,
+  MarketingConfirmedColumnMapping,
+} from "@/types/enterprise-marketing-durability";
 
 export type MarketingFilterRule = {
   id: string;
@@ -35,6 +39,8 @@ export type MarketingEligibilityRules = {
   requireIdentity: boolean;
   requireValidEmailIfPresent: boolean;
   excludeDuplicatesInScan: boolean;
+  /** When true, skip identities already sent/delivered on a prior campaign in this org. */
+  excludePreviouslyContacted?: boolean;
 };
 
 export type MarketingAudienceDefinition = {
@@ -47,6 +53,11 @@ export type MarketingAudienceDefinition = {
   /** Display cache only — tabs remain dynamically discovered. */
   datasetDisplayName?: string | null;
   filterDefinition: MarketingFilterDefinition;
+  /** Rows matching exclusion rules are removed even if they pass inclusion. */
+  exclusionDefinition: MarketingFilterDefinition;
+  columnMap: MarketingColumnMap | null;
+  mapping: MarketingConfirmedColumnMapping | null;
+  mappingConfirmed: boolean;
   suppressionPolicy: MarketingSuppressionPolicy;
   eligibilityRules: MarketingEligibilityRules;
   createdAt: string;
@@ -66,22 +77,37 @@ export type MarketingAudiencePreviewResult = {
   };
   scannedRows: number;
   scanCapped: boolean;
+/** Preview diagnostics may paginate; 0 means the approval/full scan had no cap. */
   scanMaxRows: number;
   estimatedSourceRows: number | null;
+  mappingConfirmed: boolean;
+  usingSuggestedMapping: boolean;
   counts: {
+    totalRows: number;
     scanned: number;
+    validEmails: number;
+    invalidEmails: number;
     eligible: number;
     excludedByFilter: number;
     invalid: number;
     duplicate: number;
     suppressed: number;
+    previouslyContacted: number;
   };
   /** Non-PII row diagnostics for operator trust (row # + issue codes only). */
   sampleDiagnostics: Array<{
     sourceRowNumber?: number;
-    disposition: "eligible" | "excluded" | "invalid" | "duplicate" | "suppressed";
+    disposition:
+      | "eligible"
+      | "excluded"
+      | "invalid"
+      | "duplicate"
+      | "suppressed"
+      | "previously_contacted";
     issues: string[];
   }>;
+  /** Allowlisted mapped fields from eligible preview rows — never mobile/consent/email. */
+  sampleRecipients: import("@/lib/enterprise-marketing-engine/personalisation-catalogue").MarketingPersonalisationSampleRecipient[];
   notice: string;
 };
 

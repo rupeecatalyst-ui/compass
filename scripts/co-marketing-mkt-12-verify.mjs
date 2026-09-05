@@ -297,7 +297,7 @@ const notifyPolicy = marketingNotificationPolicyStore.upsert({
   whatsapp: false,
 });
 
-const qualified = marketingQualificationService.ingestResponse(actor, {
+const qualified = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:asha.mkt12@example.com",
   matchEmail: "asha.mkt12@example.com",
@@ -342,7 +342,7 @@ if (inAppAfter?.status !== "SENT" && inAppAfter?.status !== "SKIPPED") fail("ret
 else pass("successful channel not re-sent");
 
 marketingNotificationService.setTestFailure("in_app", true);
-const failRow = marketingQualificationService.ingestResponse(actor, {
+const failRow = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:fail.notify@example.com",
   matchEmail: "fail.notify@example.com",
@@ -381,7 +381,7 @@ const rrStore = marketingRoutingPolicyStore.upsert({
     { userId: "rm-b", displayName: "B" },
   ],
 });
-const qA = marketingQualificationService.ingestResponse(actor, {
+const qA = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:rr.a@example.com",
   matchEmail: "rr.a@example.com",
@@ -390,7 +390,7 @@ const qA = marketingQualificationService.ingestResponse(actor, {
   intent: "explicit_requirement",
   operatorConfirmed: true,
 });
-const qB = marketingQualificationService.ingestResponse(actor, {
+const qB = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:rr.b@example.com",
   matchEmail: "rr.b@example.com",
@@ -423,7 +423,7 @@ const teamStore = marketingRoutingPolicyStore.upsert({
     { userId: "rm-south-1", displayName: "S1", teamId: "south" },
   ],
 });
-const qTeam = marketingQualificationService.ingestResponse(actor, {
+const qTeam = await marketingQualificationService.ingestResponse(actor, {
   campaignId: campaign.id,
   recipientFingerprint: "email:team.n@example.com",
   matchEmail: "team.n@example.com",
