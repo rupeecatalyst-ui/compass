@@ -25,7 +25,9 @@ export function mergeEdieAndProgrammeLod(input: {
     });
   }
   const overlay = normalizeProgramLodRequirements(
-    input.program?.requiredDocuments ?? input.program?.requiredDocumentTypeIds ?? [],
+    (input.program?.requiredDocuments && input.program.requiredDocuments.length > 0
+      ? input.program.requiredDocuments
+      : input.program?.requiredDocumentTypeIds) ?? [],
   );
   for (const item of overlay) {
     const catalog = Object.values(EDIE_CATALOG).find((entry) => entry.typeRef === item.typeRef);

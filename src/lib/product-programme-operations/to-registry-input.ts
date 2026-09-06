@@ -68,6 +68,8 @@ export function structuredPayloadToUpdateInput(
   modifiedBy: string,
 ): UpdateLenderProgramInput {
   const created = structuredPayloadToCreateInput(payload, modifiedBy);
-  const { createdBy: _createdBy, code: _code, ...rest } = created;
+  const { createdBy, code, ...rest } = created;
+  void createdBy;
+  void code;
   return { ...rest, modifiedBy };
 }

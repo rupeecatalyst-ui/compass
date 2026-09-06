@@ -76,11 +76,11 @@ function participantTypeLabel(participant: LoanParticipant): string {
 }
 
 function isSecurityRequirement(item: DocumentRequestLodItem): boolean {
-  const module = item.moduleId.toLowerCase();
+  const moduleId = item.moduleId.toLowerCase();
   return (
-    module.includes("property") ||
-    module.includes("security") ||
-    module.includes("collateral")
+    moduleId.includes("property") ||
+    moduleId.includes("security") ||
+    moduleId.includes("collateral")
   );
 }
 

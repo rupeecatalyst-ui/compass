@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { IsolatedProgrammeDurableStore } from "@/lib/product-programme-operations/isolated-durable-store";
@@ -145,7 +145,6 @@ export function runSprint1ProgrammeProof() {
     live.publicationState = "published";
     live.isLivePublished = true;
     live.approvalStatus = "approved";
-    const { writeFileSync } = require("node:fs") as typeof import("node:fs");
     writeFileSync(bagPath, JSON.stringify(bag, null, 2));
 
     const liveStore = new IsolatedProgrammeDurableStore(storePath);

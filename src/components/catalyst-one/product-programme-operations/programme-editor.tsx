@@ -33,7 +33,10 @@ import {
   recordToEditorState,
   type ProgrammeEditorState,
 } from "@/lib/product-programme-operations/editor-state";
+import { toProgrammeWritePayload } from "@/lib/product-programme-operations/to-write-payload";
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
+import { EDIE_CATALOG } from "@/constants/edie-certified/document-catalog";
 import { listEcmMasterOptions } from "@/constants/enterprise-contact-master/masters";
 import type { EnterpriseLenderProgramRecord, EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
 import { cn } from "@/lib/utils";
@@ -177,6 +180,7 @@ export function ProductProgrammeEditor({
       setSaving(false);
     }
   }
+  function requestClose() {
     if (dirty && !window.confirm("You have unsaved changes. Discard and close?")) return;
     onClose();
   }
@@ -455,7 +459,7 @@ export function ProductProgrammeEditor({
         <ControlledMultiSelect
           label="EDIE document catalogue"
           values={state.requiredDocumentTypeIds}
-          options={listEdieDocumentTypeOptions().map((item) => ({ id: item.typeRef, label: item.label }))}
+          options={Object.values(EDIE_CATALOG).map((item) => ({ id: item.typeRef, label: item.label }))}
           onChange={(requiredDocumentTypeIds) =>
             patch({
               requiredDocumentTypeIds,

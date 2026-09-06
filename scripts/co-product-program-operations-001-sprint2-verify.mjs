@@ -28,7 +28,7 @@ const required = [
   "Review and Publication",
   "Save Draft",
   "ControlledMultiSelect",
-  "listEdieDocumentTypeOptions",
+  "EDIE_CATALOG",
 ];
 for (const token of required) {
   if (!editor.includes(token)) {
@@ -45,7 +45,12 @@ if (workspace.includes("e.g. Salaried")) {
   process.exit(1);
 }
 
-const payload = toProgrammeWritePayload(emptyProgrammeEditorState());
+const payload = toProgrammeWritePayload({
+  ...emptyProgrammeEditorState(),
+  lenderId: "fixture-lender",
+  code: "FIX-HL",
+  label: "Fixture programme",
+});
 if ("employmentFamily" in payload) {
   console.error("Derived employment family must not be written.");
   process.exit(1);
@@ -56,3 +61,4 @@ if (deriveEmploymentFamily(["salaried", "self-employed-professional"]) !== "both
 }
 
 console.log(JSON.stringify({ ok: true, sections: 10, wizardRemoved: true }, null, 2));
+process.exit(0);

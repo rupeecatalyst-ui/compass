@@ -130,3 +130,4 @@ console.log(
     draftVersion: draft.versionNumber,
   }),
 );
+process.exit(0);

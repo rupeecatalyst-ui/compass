@@ -168,3 +168,4 @@ console.log(
     marketingExecution: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
   }),
 );
+process.exit(0);

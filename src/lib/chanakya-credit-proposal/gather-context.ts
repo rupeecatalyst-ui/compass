@@ -27,6 +27,7 @@ import { assembleCreditIntelligence } from "@/lib/chanakya-credit-intelligence/c
 import type { ChanakyaCreditIntelligenceContext } from "@/types/chanakya-credit-intelligence";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import { readDealProgrammeStamp } from "@/lib/product-programme-operations/deal-stamp";
+import { resolveOpportunityLoanPurpose } from "@/lib/enterprise-opportunity/resolve-loan-purpose";
 
 function displayOrUnavailable(value: unknown): { text: string; available: boolean } {
   if (value == null) return { text: CHANAKYA_CREDIT_PROPOSAL_UNAVAILABLE, available: false };
@@ -66,6 +67,7 @@ export interface ChanakyaCreditProposalContextPack {
   /** CO-CHANAKYA-003E — internal product/lender fit intelligence for proposal engine. */
   productLenderIntelligence: Record<string, unknown>;
   /** CO-CHANAKYA-CREDIT-INTELLIGENCE-010 — evidence-first credit analysis for proposal engine. */
+  creditIntelligence: ChanakyaCreditIntelligenceContext;
   programmeCitation?: {
     lenderId: string;
     programmeId: string;
@@ -76,6 +78,7 @@ export interface ChanakyaCreditProposalContextPack {
     requiredDocuments: string[];
     effectiveFrom: string | null;
   } | null;
+}
 
 export async function gatherChanakyaCreditProposalContext(
   input: ChanakyaCreditProposalStreamRequest,

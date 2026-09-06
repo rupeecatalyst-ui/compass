@@ -2,10 +2,12 @@ import { Prisma } from "@prisma/client";
 import { toLegacyFloat } from "@/lib/product-programme-operations/money";
 import type { CreateLenderProgramInput, UpdateLenderProgramInput } from "@/types/enterprise-lender-registry";
 
-function jsonOrUndefined(value: unknown[] | null | undefined) {
+export function jsonOrUndefined(
+  value: Prisma.JsonValue | unknown[] | null | undefined,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull | undefined {
   if (value === undefined) return undefined;
   if (value === null) return Prisma.JsonNull;
-  return value;
+  return value as Prisma.InputJsonValue;
 }
 
 function exactOrNull(value: string | null | undefined) {

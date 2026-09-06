@@ -77,7 +77,7 @@ function buildSnapshot(
         },
       ]
     : [];
-  return {
+  const snapshot = {
     source: "enterprise_deal_derived",
     opportunityId: opportunity.id,
     opportunityNumber: opportunity.opportunityNumber,

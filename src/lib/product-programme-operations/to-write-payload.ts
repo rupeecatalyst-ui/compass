@@ -1,72 +1,15 @@
 import type { ProgrammeEditorState } from "@/lib/product-programme-operations/editor-state";
-
-const WRITE_KEYS = [
-  "lenderId",
-  "productId",
-  "productCode",
-  "productVariantCode",
-  "code",
-  "label",
-  "description",
-  "applicantTypes",
-  "employmentTypes",
-  "legalConstitutions",
-  "residencyEligibility",
-  "customerSegments",
-  "propertyTypes",
-  "transactionTypes",
-  "eligibleStates",
-  "eligibleCities",
-  "geographyStates",
-  "geographyCities",
-  "minCibil",
-  "maxCibil",
-  "minAge",
-  "maxAge",
-  "incomeAssessmentMethods",
-  "minTenureMonths",
-  "maxTenureMonths",
-  "minLoanAmountExact",
-  "maxLoanAmountExact",
-  "minIncomeExact",
-  "maxIncomeExact",
-  "processingFeeAmountExact",
-  "minRoiExact",
-  "maxRoiExact",
-  "processingFeePctExact",
-  "minLtvExact",
-  "maxLtvExact",
-  "minFoirExact",
-  "maxFoirExact",
-  "minDbrExact",
-  "maxDbrExact",
-  "spreadExact",
-  "rateType",
-  "benchmarkCode",
-  "processingFeeLabel",
-  "concessions",
-  "deviationCategories",
-  "policyVersionId",
-  "creditRiskPolicyRef",
-  "requiredDocumentTypeIds",
-  "requiredDocuments",
-  "averageTatDays",
-  "effectiveFrom",
-  "reviewAt",
-  "effectiveUntil",
-  "notes",
-  "remarks",
-] as const;
+import { structuredPayloadToCreateInput } from "@/lib/product-programme-operations/to-registry-input";
+import type { CreateLenderProgramInput } from "@/types/enterprise-lender-registry";
 
 export function toProgrammeWritePayload(
   state: ProgrammeEditorState,
-  extra?: Record<string, unknown>,
-): Record<string, unknown> {
-  const payload: Record<string, unknown> = {};
-  for (const key of WRITE_KEYS) {
-    payload[key] = state[key as keyof ProgrammeEditorState];
+): Omit<CreateLenderProgramInput, "createdBy"> {
+  if (!state.lenderId.trim() || !state.code.trim() || !state.label.trim()) {
+    throw new Error("Lender, programme code and name are required.");
   }
-  payload.eligibleStates = state.geographyStates;
-  payload.eligibleCities = state.geographyCities;
-  return { ...payload, ...extra };
+  const input = structuredPayloadToCreateInput(state, "ui");
+  return Object.fromEntries(
+    Object.entries(input).filter(([key]) => key !== "createdBy"),
+  ) as Omit<CreateLenderProgramInput, "createdBy">;
 }

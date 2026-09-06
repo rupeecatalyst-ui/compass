@@ -95,4 +95,4 @@ if (!publishBlocked || !selfApproveBlocked || !published.isLivePublished || poli
   process.exit(1);
 }
 console.log(JSON.stringify({ ok: true, publishGate: true, makerChecker: true, policySurface: policy.status }, null, 2));
-void writeFileSync;
+process.exit(0);

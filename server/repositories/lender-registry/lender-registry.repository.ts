@@ -2,7 +2,7 @@ import { Prisma, type RegistryStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "@server/lib/prisma";
-import { structuredCreateData, structuredUpdateData } from "@server/repositories/lender-registry/structured-program-data";
+import { jsonOrUndefined, structuredCreateData, structuredUpdateData } from "@server/repositories/lender-registry/structured-program-data";
 import { classifyIncompleteStub } from "@/lib/product-programme-operations/versioning";
 
 import type {
@@ -1005,24 +1005,14 @@ export class LenderRegistryRepository {
       data: {
         label: input.label?.trim(),
         description: input.description,
-        lenderId: input.lenderId,
         productId: input.productId,
         productCode: input.productCode === undefined ? undefined : input.productCode,
         borrowerType: input.borrowerType,
         employmentType: input.employmentType,
         roiPercent: input.roiPercent,
-        minRoiPercent: input.minRoiPercent,
-        maxRoiPercent: input.maxRoiPercent,
         processingFeeLabel: input.processingFeeLabel,
-        processingFeePct: input.processingFeePct,
-        maxFundingAmount: input.maxFundingAmount,
-        maxLtvPercent: input.maxLtvPercent,
         maxTenureMonths: input.maxTenureMonths,
         minCibil: input.minCibil,
-        minIncomeAmount: input.minIncomeAmount,
-        maxFoirPercent: input.maxFoirPercent,
-        maxDbrPercent: input.maxDbrPercent,
-        minFundingAmount: input.minFundingAmount,
         minAge: input.minAge,
         maxAge: input.maxAge,
         creditRiskPolicyRef: input.creditRiskPolicyRef,
@@ -1053,7 +1043,7 @@ export class LenderRegistryRepository {
         modifiedBy: input.modifiedBy,
         lockVersion: { increment: 1 },
         ...structuredUpdateData(input),
-      },
+      } as Prisma.EnterpriseLenderProgramUncheckedUpdateInput,
     });
 
     return mapProgramRow(row);
@@ -1091,12 +1081,16 @@ export class LenderRegistryRepository {
           input.creditRiskPolicyRef === undefined ? published.creditRiskPolicyRef : input.creditRiskPolicyRef,
         requiredDocumentTypeIds:
           input.requiredDocumentTypeIds === undefined
-            ? published.requiredDocumentTypeIds ?? undefined
-            : input.requiredDocumentTypeIds,
+            ? jsonOrUndefined(published.requiredDocumentTypeIds)
+            : jsonOrUndefined(input.requiredDocumentTypeIds),
         eligibleStates:
-          input.eligibleStates === undefined ? published.eligibleStates ?? undefined : input.eligibleStates,
+          input.eligibleStates === undefined
+            ? jsonOrUndefined(published.eligibleStates)
+            : jsonOrUndefined(input.eligibleStates),
         eligibleCities:
-          input.eligibleCities === undefined ? published.eligibleCities ?? undefined : input.eligibleCities,
+          input.eligibleCities === undefined
+            ? jsonOrUndefined(published.eligibleCities)
+            : jsonOrUndefined(input.eligibleCities),
         ...structured,
       },
     });
