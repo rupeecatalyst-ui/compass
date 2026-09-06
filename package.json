@@ -208,6 +208,7 @@
     "verify:co-marketing-redesign-bat-001": "node --import tsx scripts/co-marketing-redesign-bat-001.mjs",
     "verify:co-marketing-redesign-bat-visual": "node scripts/marketing-visual-harness/capture-bat.mjs",
     "verify:co-compass-advantage-commercial": "node --import tsx scripts/co-compass-advantage-commercial-verify.mjs",
+    "verify:co-advantage-committed": "node --import tsx scripts/co-advantage-committed-verify.mjs",
     "verify:co-notification-toast-once": "node --import tsx scripts/co-notification-toast-once-verify.mjs",
     "verify:co-accounting-invoice-operations-015": "node --import tsx scripts/co-accounting-invoice-operations-015-verify.mjs",
     "verify:co-revenue-analytics-gst-mapping": "node --import tsx scripts/co-revenue-analytics-gst-mapping-verify.mjs",

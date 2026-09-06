@@ -48,6 +48,8 @@ import {
 } from "@server/services/enterprise-deal/rc-employee-assignment.service";
 import type { RcEmployeeAssignmentAction } from "@/constants/enterprise-deal/rc-employee-assignment";
 import { overlayDealRcEmployeeDisplay } from "@/lib/enterprise-deal/rc-employee-assignment";
+import { decideDealCannotIntroduceCommitment, serializeAdvantageCommittedApi } from "@/lib/advantage-committed";
+import { loadOpportunityCommitmentByIds } from "@server/services/advantage-committed/advantage-committed.service";
 import { POST_DISBURSEMENT_CONFIRMATION_STAGE } from "@/constants/post-disbursement-confirmation";
 import type {
   CreateActivityInput,
@@ -73,6 +75,21 @@ function parseDate(value?: string | null): Date | null | undefined {
   return d;
 }
 
+function inheritAdvantageCommitted(
+  serialized: Record<string, unknown>,
+  opportunity?: { productCode?: string | null; productLabel?: string | null } | null,
+  overlay?: ReturnType<typeof serializeAdvantageCommittedApi> | null,
+) {
+  return {
+    ...serialized,
+    ...(overlay ??
+      serializeAdvantageCommittedApi({
+        productCode: opportunity?.productCode,
+        productLabel: opportunity?.productLabel,
+      })),
+  };
+}
+
 export class EnterpriseDealService {
   private async orgId() {
     return resolvePilotOrganizationId();
@@ -84,6 +101,13 @@ export class EnterpriseDealService {
   ) {
     const organizationId = await this.orgId();
     const opportunityId = assertNonEmpty(body.opportunityId, "opportunityId");
+    const introduced = decideDealCannotIntroduceCommitment({
+      opportunityAmount: null,
+      incomingDealAmount: body.advantageCommittedAmount,
+    });
+    if (!introduced.ok) {
+      throw new DealValidationError(introduced.message);
+    }
     const lenderId = assertNonEmpty(body.lenderId, "lenderId");
     const productFamily = assertProductFamily(body.productFamily);
     // CO-DEAL-PIPELINE-TRANSITION-002 — Canonicalize create stage (never invent Logged In – WIP).
@@ -319,13 +343,25 @@ export class EnterpriseDealService {
             primaryOwnerUserId: true,
             lendingExtension: true,
             createdBy: true,
+            productCode: true,
+            productLabel: true,
+            sourceCode: true,
+            sourceCampaignLabel: true,
           },
         })
       : null;
     opportunityNumber = opportunity?.opportunityNumber ?? null;
-    const withOpp = applyDisplayedRcEmployee(
-      { ...base, opportunityNumber },
+    const commitmentMap = await loadOpportunityCommitmentByIds(
+      organizationId,
+      deal.opportunityId ? [deal.opportunityId] : [],
+    );
+    const withOpp = inheritAdvantageCommitted(
+      applyDisplayedRcEmployee(
+        { ...base, opportunityNumber },
+        opportunity,
+      ),
       opportunity,
+      deal.opportunityId ? commitmentMap.get(deal.opportunityId) : undefined,
     );
     if (include.length === 0) return withOpp;
 
@@ -368,12 +404,16 @@ export class EnterpriseDealService {
       );
       extras.siblings = await Promise.all(
         siblingRows.map(async (row) =>
-          applyDisplayedRcEmployee(
-            {
-              ...(await serializeDealWithContactSsot(row)),
-              opportunityNumber,
-            },
+          inheritAdvantageCommitted(
+            applyDisplayedRcEmployee(
+              {
+                ...(await serializeDealWithContactSsot(row)),
+                opportunityNumber,
+              },
+              opportunity,
+            ),
             opportunity,
+            deal.opportunityId ? commitmentMap.get(deal.opportunityId) : undefined,
           ),
         ),
       );
@@ -385,15 +425,26 @@ export class EnterpriseDealService {
     const organizationId = await this.orgId();
     const result = await enterpriseDealRepository.searchDeals(organizationId, query);
     const serialize = query.view === "summary" ? serializeDealSummary : serializeDeal;
+    const commitmentMap = await loadOpportunityCommitmentByIds(
+      organizationId,
+      result.items.map((row) => row.opportunityId).filter((id): id is string => Boolean(id)),
+    );
     return {
       ...result,
       items: result.items.map((row) =>
-        applyDisplayedRcEmployee(
+        inheritAdvantageCommitted(
+          applyDisplayedRcEmployee(
+            {
+              ...serialize(row),
+              opportunityNumber: row.opportunity?.opportunityNumber ?? null,
+            },
+            row.opportunity,
+          ),
           {
-            ...serialize(row),
-            opportunityNumber: row.opportunity?.opportunityNumber ?? null,
+            productCode: row.productCode,
+            productLabel: row.productLabel,
           },
-          row.opportunity,
+          row.opportunityId ? commitmentMap.get(row.opportunityId) : undefined,
         ),
       ),
       view: query.view === "summary" ? "summary" : "full",
@@ -403,6 +454,13 @@ export class EnterpriseDealService {
   async updateDeal(dealId: string, input: UpdateEnterpriseDealInput) {
     const organizationId = await this.orgId();
     assertRowVersion(input.rowVersion);
+    const introduced = decideDealCannotIntroduceCommitment({
+      opportunityAmount: null,
+      incomingDealAmount: (input as Record<string, unknown>).advantageCommittedAmount,
+    });
+    if (!introduced.ok) {
+      throw new DealValidationError(introduced.message);
+    }
 
     const existing = await enterpriseDealRepository.requireDeal(organizationId, dealId);
     await syncContactIdentityPatchToEcm({

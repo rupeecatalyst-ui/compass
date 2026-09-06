@@ -184,6 +184,7 @@ export function deriveContact360BusinessValue(
   opportunities: ReadonlyArray<Pick<EnterpriseOpportunityApiRecord, "id" | "requestedAmount">>,
   deals: ReadonlyArray<Pick<EnterpriseDealApiRecord, "opportunityId" | "requestedAmount" | "approvedAmount" | "fulfilledAmount">>,
 ): number {
+  // Loan / Deal amounts only. Never aggregate Advantage Committed (₹).
   const oppIdsWithDeals = new Set(
     deals.map((d) => d.opportunityId).filter((id): id is string => Boolean(id)),
   );

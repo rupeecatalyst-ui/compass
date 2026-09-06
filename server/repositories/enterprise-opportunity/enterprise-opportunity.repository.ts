@@ -70,6 +70,9 @@ export type CreateEnterpriseOpportunityInput = {
   participationRole?: string | null;
   commercialRevenueSharePercent?: number | null;
   sourceCampaignLabel?: string | null;
+  marketingCampaignId?: string | null;
+  marketingSourceDetail?: string | null;
+  marketingProspectRef?: string | null;
 };
 
 export type UpdateEnterpriseOpportunityInput = {
@@ -106,6 +109,9 @@ export type UpdateEnterpriseOpportunityInput = {
   participationRole?: string | null;
   commercialRevenueSharePercent?: number | null;
   sourceCampaignLabel?: string | null;
+  marketingCampaignId?: string | null;
+  marketingSourceDetail?: string | null;
+  marketingProspectRef?: string | null;
   updatedBy?: string | null;
   expectedRowVersion?: number | null;
 };
@@ -521,9 +527,12 @@ export class EnterpriseOpportunityRepository {
         participationRole: input.participationRole ?? null,
         commercialRevenueSharePercent: input.commercialRevenueSharePercent ?? null,
         sourceCampaignLabel: input.sourceCampaignLabel ?? null,
+        marketingCampaignId: input.marketingCampaignId ?? null,
+        marketingSourceDetail: input.marketingSourceDetail ?? null,
+        marketingProspectRef: input.marketingProspectRef ?? null,
         createdBy: actor,
         updatedBy: actor,
-      },
+      } as Prisma.EnterpriseOpportunityUncheckedCreateInput,
     });
   }
 
@@ -632,6 +641,15 @@ export class EnterpriseOpportunityRepository {
     }
     if (input.sourceCampaignLabel !== undefined) {
       data.sourceCampaignLabel = input.sourceCampaignLabel;
+    }
+    if (input.marketingCampaignId !== undefined) {
+      (data as Record<string, unknown>).marketingCampaignId = input.marketingCampaignId;
+    }
+    if (input.marketingSourceDetail !== undefined) {
+      (data as Record<string, unknown>).marketingSourceDetail = input.marketingSourceDetail;
+    }
+    if (input.marketingProspectRef !== undefined) {
+      (data as Record<string, unknown>).marketingProspectRef = input.marketingProspectRef;
     }
 
     return prisma.enterpriseOpportunity.update({

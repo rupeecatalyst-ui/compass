@@ -7,6 +7,8 @@ import type {
   EnterpriseAccountingCaseQuery,
   UpdateEnterpriseAccountingCaseInput,
 } from "@/types/enterprise-accounting-case";
+import { decideDealCannotIntroduceCommitment } from "@/lib/advantage-committed";
+import { loadOpportunityCommitmentByIds } from "@server/services/advantage-committed/advantage-committed.service";
 
 function decimal(value: number | null | undefined, field: string) {
   if (value === undefined) return undefined;
@@ -72,11 +74,83 @@ function serialize(row: Record<string, unknown> | null) {
   return result;
 }
 
+async function attachAdvantageCommitted(
+  organizationId: string,
+  serialized: Record<string, unknown> | null,
+) {
+  if (!serialized) return serialized;
+  const deal = serialized.deal as { opportunityId?: string | null } | null | undefined;
+  const opportunityId = deal?.opportunityId?.trim();
+  if (!opportunityId) {
+    return {
+      ...serialized,
+      advantageCommittedDisplay: "Not applicable",
+      advantageCommittedStatus: "not_applicable",
+      advantageCommittedMismatch: false,
+    };
+  }
+  const map = await loadOpportunityCommitmentByIds(organizationId, [opportunityId]);
+  const commitment = map.get(opportunityId);
+  const snapshot =
+    serialized.upstreamSnapshot && typeof serialized.upstreamSnapshot === "object"
+      ? (serialized.upstreamSnapshot as Record<string, unknown>)
+      : null;
+  const snapAmount =
+    snapshot && typeof snapshot.advantageCommitted === "object"
+      ? (snapshot.advantageCommitted as { advantageCommittedAmount?: string | null })
+          .advantageCommittedAmount
+      : null;
+  const mismatch = Boolean(
+    snapAmount &&
+      commitment?.advantageCommittedAmount &&
+      snapAmount !== commitment.advantageCommittedAmount,
+  );
+  return {
+    ...serialized,
+    ...(commitment ?? {}),
+    advantageCommittedMismatch: mismatch,
+    advantageCommittedMismatchLabel: mismatch
+      ? "Advantage Committed (₹) does not match the Opportunity. Handoff blocked until corrected."
+      : null,
+  };
+}
+
 export class EnterpriseAccountingCaseService {
   async list(query: EnterpriseAccountingCaseQuery) {
     const organizationId = await resolvePilotOrganizationId();
     const result = await enterpriseAccountingCaseRepository.list(organizationId, query);
-    return { ...result, items: result.items.map((row) => serialize(row as unknown as Record<string, unknown>)) };
+    const opportunityIds = result.items
+      .map((row) => (row as { deal?: { opportunityId?: string | null } }).deal?.opportunityId)
+      .filter((id): id is string => Boolean(id));
+    const map = await loadOpportunityCommitmentByIds(organizationId, opportunityIds);
+    return {
+      ...result,
+      items: result.items.map((row) => {
+        const serialized = serialize(row as unknown as Record<string, unknown>) ?? {};
+        const opportunityId = (row as { deal?: { opportunityId?: string | null } }).deal
+          ?.opportunityId;
+        const commitment = opportunityId ? map.get(opportunityId) : undefined;
+        const snapshot =
+          serialized.upstreamSnapshot && typeof serialized.upstreamSnapshot === "object"
+            ? (serialized.upstreamSnapshot as Record<string, unknown>)
+            : null;
+        const snapAmount =
+          snapshot && typeof snapshot.advantageCommitted === "object"
+            ? (snapshot.advantageCommitted as { advantageCommittedAmount?: string | null })
+                .advantageCommittedAmount
+            : null;
+        const mismatch = Boolean(
+          snapAmount &&
+            commitment?.advantageCommittedAmount &&
+            snapAmount !== commitment.advantageCommittedAmount,
+        );
+        return {
+          ...serialized,
+          ...(commitment ?? {}),
+          advantageCommittedMismatch: mismatch,
+        };
+      }),
+    };
   }
 
   async get(caseId: string) {
@@ -88,7 +162,10 @@ export class EnterpriseAccountingCaseService {
         code: "ACCOUNTING_CASE_NOT_FOUND",
       });
     }
-    return serialize(row as unknown as Record<string, unknown>);
+    return attachAdvantageCommitted(
+      organizationId,
+      serialize(row as unknown as Record<string, unknown>),
+    );
   }
 
   async update(
@@ -100,6 +177,16 @@ export class EnterpriseAccountingCaseService {
       throw Object.assign(new Error("rowVersion must be a positive integer"), {
         statusCode: 400,
         code: "INVALID_ROW_VERSION",
+      });
+    }
+    const introduced = decideDealCannotIntroduceCommitment({
+      opportunityAmount: null,
+      incomingDealAmount: (input as Record<string, unknown>).advantageCommittedAmount,
+    });
+    if (!introduced.ok) {
+      throw Object.assign(new Error(introduced.message), {
+        statusCode: 403,
+        code: "ADVANTAGE_COMMITTED_IMMUTABLE",
       });
     }
     const data: Prisma.EnterpriseAccountingCaseUpdateManyMutationInput = {};

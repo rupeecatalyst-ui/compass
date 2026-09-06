@@ -89,6 +89,11 @@ export interface DealRegistryRow {
   accountingStatus?: string;
   invoiceStatus?: string;
   paymentStatus?: string;
+  advantageCommittedAmount?: string | null;
+  advantageCommittedDisplay?: string;
+  advantageCommittedStatus?: string;
+  marketingCampaignName?: string | null;
+  marketingSource?: string | null;
 }
 
 export const DEAL_REGISTRY_PAGE_SIZES = [20, 50, 100] as const;
@@ -125,7 +130,8 @@ export type DealRegistrySortField =
   | "riskIndicator"
   /** CO-UX-018 — Opportunity-level executive sorts */
   | "opportunityHealth"
-  | "activeDealCount";
+  | "activeDealCount"
+  | "advantageCommittedDisplay";
 
 export interface DealRegistryFilters {
   search: string;
@@ -140,6 +146,7 @@ export interface DealRegistryFilters {
   priority: string;
   status: string;
   source: string;
+  advantageCommitted: string;
   amountMin: string;
   amountMax: string;
   revenueMin: string;
@@ -169,6 +176,7 @@ export const EMPTY_DEAL_REGISTRY_FILTERS: DealRegistryFilters = {
   priority: "all",
   status: "all",
   source: "all",
+  advantageCommitted: "all",
   amountMin: "",
   amountMax: "",
   revenueMin: "",

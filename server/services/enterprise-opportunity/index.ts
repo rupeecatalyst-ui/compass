@@ -48,6 +48,7 @@ import {
   parseOptionalAmount,
   assertProductRequestedAmountLimit,
 } from "@server/services/enterprise-opportunity/opportunity-validation";
+import { rejectOrdinaryAdvantageCommittedMutation } from "@server/services/advantage-committed/advantage-committed.service";
 
 const DEFAULT_REQUIREMENT_STAGE = "raw_lead";
 const DIALOGUE_REQUIREMENT_STAGE = "dialogue";
@@ -301,6 +302,7 @@ export class EnterpriseOpportunityService {
         "Opportunity must not accept lender pipeline fields (grossStage / lenderId). Create a Deal after lender assignment.",
       );
     }
+    rejectOrdinaryAdvantageCommittedMutation(null, body);
 
     let productId = body.productId ? String(body.productId) : null;
     let productCode = body.productCode ? String(body.productCode) : null;
@@ -427,6 +429,15 @@ export class EnterpriseOpportunityService {
         : null,
       sourceCampaignLabel: body.sourceCampaignLabel
         ? String(body.sourceCampaignLabel).trim()
+        : null,
+      marketingCampaignId: body.marketingCampaignId
+        ? String(body.marketingCampaignId).trim()
+        : null,
+      marketingSourceDetail: body.marketingSourceDetail
+        ? String(body.marketingSourceDetail).trim()
+        : null,
+      marketingProspectRef: body.marketingProspectRef
+        ? String(body.marketingProspectRef).trim()
         : null,
       commercialRevenueSharePercent: await resolveOpportunityCommercialShare({
         organizationId,
@@ -594,6 +605,10 @@ export class EnterpriseOpportunityService {
         "Opportunity must not accept lender pipeline fields (grossStage / lenderId).",
       );
     }
+    rejectOrdinaryAdvantageCommittedMutation(
+      (existing as { advantageCommittedAmount?: unknown }).advantageCommittedAmount,
+      body,
+    );
 
     const nextProductId =
       body.productId !== undefined
@@ -841,6 +856,21 @@ export class EnterpriseOpportunityService {
     if (body.sourceCampaignLabel !== undefined) {
       patch.sourceCampaignLabel = body.sourceCampaignLabel
         ? String(body.sourceCampaignLabel).trim()
+        : null;
+    }
+    if (body.marketingCampaignId !== undefined) {
+      patch.marketingCampaignId = body.marketingCampaignId
+        ? String(body.marketingCampaignId).trim()
+        : null;
+    }
+    if (body.marketingSourceDetail !== undefined) {
+      patch.marketingSourceDetail = body.marketingSourceDetail
+        ? String(body.marketingSourceDetail).trim()
+        : null;
+    }
+    if (body.marketingProspectRef !== undefined) {
+      patch.marketingProspectRef = body.marketingProspectRef
+        ? String(body.marketingProspectRef).trim()
         : null;
     }
 

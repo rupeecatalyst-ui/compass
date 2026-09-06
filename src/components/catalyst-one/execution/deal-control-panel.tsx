@@ -42,6 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
+import { AdvantageCommittedReadout } from "@/components/catalyst-one/shared/advantage-committed-readout";
 import {
   LENDER_CASE_STAGES,
   LENDER_CASE_STAGE_LABELS,
@@ -131,12 +132,34 @@ export function DealControlPanel({
   const [registryTimeline, setRegistryTimeline] = useState<
     Array<{ id: string; title: string; at: string; kind: string }>
   >([]);
+  const [advantageCommitted, setAdvantageCommitted] = useState<{
+    amount?: string | null;
+    display?: string | null;
+  }>({});
 
   useEffect(() => {
     if (!open || !caseExecution) return;
     const dealId = caseExecution.enterpriseDealId || context.dealId || caseExecution.id;
     if (!dealId) return;
     let cancelled = false;
+    void authenticatedJsonFetch(`/api/enterprise-deals/${encodeURIComponent(dealId)}`)
+      .then(async (res) => {
+        const body = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          data?: {
+            advantageCommittedAmount?: string | null;
+            advantageCommittedDisplay?: string | null;
+          };
+        };
+        if (cancelled || !body.success) return;
+        setAdvantageCommitted({
+          amount: body.data?.advantageCommittedAmount ?? null,
+          display: body.data?.advantageCommittedDisplay ?? null,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setAdvantageCommitted({});
+      });
     void authenticatedJsonFetch(`/api/enterprise-deals/${dealId}/timeline?take=20`)
       .then(async (res) => {
         const body = (await res.json().catch(() => ({}))) as {
@@ -368,6 +391,12 @@ export function DealControlPanel({
                   className="h-8 text-xs"
                 />
               </div>
+              <AdvantageCommittedReadout
+                amount={advantageCommitted.amount}
+                display={advantageCommitted.display}
+                productLabel={product}
+                compact
+              />
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Product</Label>
                 <Input

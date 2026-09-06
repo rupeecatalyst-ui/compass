@@ -5,6 +5,7 @@ import type { EnterpriseOpportunity, Prisma } from "@prisma/client";
 import { hasRequirementCaptureFields } from "@/constants/opportunity-lifecycle";
 import type { TransactionContactIdentityFields } from "@server/services/ecm/contact-ssot-propagate";
 import { hydrateTransactionContactIdentity } from "@server/services/ecm/contact-ssot-propagate";
+import { serializeAdvantageCommittedApi } from "@/lib/advantage-committed";
 
 function decimalToNumber(value: Prisma.Decimal | number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
@@ -90,6 +91,7 @@ function buildSerializedOpportunity(
     participationRole: row.participationRole,
     commercialRevenueSharePercent: row.commercialRevenueSharePercent,
     sourceCampaignLabel: row.sourceCampaignLabel,
+    ...serializeAdvantageCommittedApi(row),
     snapshot: row.snapshot,
     lendingExtension: row.lendingExtension,
     versionNumber: row.versionNumber,

@@ -2,6 +2,10 @@
  * Current COMPASS Advantage result vs schedule pin.
  * Pin = published schedule identity. Current result = latest calculation for the
  * Opportunity’s current requested loan amount.
+ *
+ * CompassAdvantageSnapshot is a live calculation. Recalculation may replace the
+ * snapshot when loan amount changes. It must never write or mutate Opportunity
+ * `advantageCommittedAmount` (Advantage Committed (₹) is a separate immutable fact).
  */
 
 import { compareExactDecimal, isValidNonNegativeDecimal, parseExactDecimal } from "./exact-decimal";

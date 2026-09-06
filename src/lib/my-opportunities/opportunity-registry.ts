@@ -17,6 +17,12 @@ export function filterOpportunityRegistryRows(
     if (filters.stage !== "all" && row.opportunityStage !== filters.stage) return false;
     if (filters.status !== "all" && row.status !== filters.status) return false;
     if (filters.source !== "all" && (row.sourceCode || "") !== filters.source) return false;
+    if (
+      filters.advantageCommitted !== "all" &&
+      row.advantageCommittedStatus !== filters.advantageCommitted
+    ) {
+      return false;
+    }
     if (!q) return true;
     const hay = [
       row.opportunityNumber,
@@ -27,6 +33,7 @@ export function filterOpportunityRegistryRows(
       row.statusLabel,
       row.sourceLabel,
       row.sourceCode ?? "",
+      row.advantageCommittedDisplay,
     ]
       .join(" ")
       .toLowerCase();
@@ -47,6 +54,13 @@ export function sortOpportunityRegistryRows(
       const at = new Date(String(av || 0)).getTime();
       const bt = new Date(String(bv || 0)).getTime();
       return (at - bt) * mul;
+    }
+    if (field === "advantageCommittedDisplay") {
+      return String(a.advantageCommittedAmount ?? a.advantageCommittedDisplay ?? "").localeCompare(
+        String(b.advantageCommittedAmount ?? b.advantageCommittedDisplay ?? ""),
+        undefined,
+        { numeric: true, sensitivity: "base" },
+      ) * mul;
     }
     return String(av ?? "").localeCompare(String(bv ?? ""), undefined, {
       numeric: true,

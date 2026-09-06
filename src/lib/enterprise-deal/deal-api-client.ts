@@ -77,6 +77,11 @@ export type EnterpriseDealApiRecord = {
   healthBand?: string | null;
   /** Deal snapshot — may include lenders[] for Pipeline rehydrate. */
   snapshot?: unknown;
+  advantageCommittedAmount?: string | null;
+  advantageCommittedDisplay?: string | null;
+  advantageCommittedStatus?: string | null;
+  marketingCampaignName?: string | null;
+  marketingSource?: string | null;
 };
 
 type ApiEnvelope<T> = {

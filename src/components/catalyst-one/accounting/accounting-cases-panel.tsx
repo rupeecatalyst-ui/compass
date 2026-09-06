@@ -29,6 +29,7 @@ import { determineAccountingGst } from "@/lib/enterprise-accounting-regulatory-t
 import { ACCOUNTING_GST_DEFAULT_RATE_PERCENT } from "@/constants/enterprise-accounting-regulatory-tax";
 import { todayIsoDateInTimeZone } from "@/lib/enterprise-accounting-invoice/financial-year";
 import { formatINR } from "@/lib/format-currency";
+import { ADVANTAGE_COMMITTED_LABEL } from "@/constants/advantage-committed";
 import { ROUTES } from "@/constants/routes";
 import type { EnterpriseAccountingGstRateDto } from "@/types/enterprise-accounting-gst-rate";
 import { AccountingDurableInvoiceWorkspace } from "@/components/catalyst-one/accounting/accounting-durable-invoice-workspace";
@@ -222,6 +223,7 @@ export function AccountingCasesPanel(props: {
               <tr>
                 <th className="py-1.5 pr-2">Deal</th>
                 <th className="py-1.5 pr-2">Customer / Product</th>
+                <th className="py-1.5 pr-2">{ADVANTAGE_COMMITTED_LABEL}</th>
                 <th className="py-1.5 pr-2">Invoice Party</th>
                 <th className="py-1.5 pr-2">Final / Disbursed</th>
                 <th className="py-1.5 pr-2">Pending loan</th>
@@ -254,6 +256,23 @@ export function AccountingCasesPanel(props: {
                     <td className="py-2 pr-2 text-muted-foreground">
                       {item.deal?.primaryContactName ?? "—"}
                       {item.deal?.productLabel ? ` · ${item.deal.productLabel}` : ""}
+                    </td>
+                    <td
+                      className="py-2 pr-2 tabular-nums"
+                      data-field="advantage-committed"
+                      data-mismatch={item.advantageCommittedMismatch ? "true" : "false"}
+                    >
+                      <span className="text-foreground">
+                        {String(item.advantageCommittedDisplay ?? "Not applicable")}
+                      </span>
+                      {item.advantageCommittedMismatch ? (
+                        <p className="mt-0.5 text-[10px] text-destructive">
+                          {String(
+                            item.advantageCommittedMismatchLabel ??
+                              "Advantage Committed (₹) does not match the Opportunity.",
+                          )}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="py-2 pr-2">
                       {item.deal?.invoiceParty?.displayName ?? "Not specified"}
@@ -337,8 +356,26 @@ export function AccountingCasesPanel(props: {
           </DialogHeader>
           <p className="text-[11px] text-muted-foreground">
             Payout / Commission = Amount Disbursed × Payout %. Pending Loan Amount is read-only.
-            This does not raise or send an invoice.
+            This does not raise or send an invoice. Advantage Committed (₹) is inherited from the
+            Opportunity and is not revenue or invoice.
           </p>
+          {editing?.advantageCommittedMismatch ? (
+            <div
+              className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive"
+              data-field="advantage-committed-mismatch"
+            >
+              {String(
+                editing.advantageCommittedMismatchLabel ??
+                  "Advantage Committed (₹) does not match the Opportunity. Handoff blocked until corrected.",
+              )}
+            </div>
+          ) : null}
+          <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-[11px]" data-field="advantage-committed">
+            <p className="font-semibold text-foreground">{ADVANTAGE_COMMITTED_LABEL}</p>
+            <p className="tabular-nums text-foreground">
+              {String(editing?.advantageCommittedDisplay ?? "Not applicable")}
+            </p>
+          </div>
           {editing?.deal?.invoiceParty ? (
             <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-[11px]">
               <p className="font-semibold text-foreground">Invoice Party (from Master)</p>

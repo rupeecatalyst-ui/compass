@@ -95,6 +95,14 @@ export function MyDealsKanbanCard({
       <p className="truncate text-[12px] font-semibold tabular-nums text-teal-200">
         {row.loanAmountLabel}
       </p>
+      <p
+        className="truncate text-[10px] tabular-nums text-zinc-300"
+        data-field="advantage-committed"
+        data-status={row.advantageCommittedStatus}
+      >
+        <span className="text-zinc-500">Advantage Committed (₹): </span>
+        {row.advantageCommittedDisplay ?? "Not applicable"}
+      </p>
 
       {alert.primary ? (
         <div className="mt-1.5 flex items-start justify-between gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-1">

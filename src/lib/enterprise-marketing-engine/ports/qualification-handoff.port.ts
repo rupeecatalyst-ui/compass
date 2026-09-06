@@ -39,6 +39,11 @@ export type MarketingOpportunityCreatePort = {
     snapshotId?: string | null;
     snapshotRecipientId?: string | null;
     recipientFingerprint?: string | null;
+    source?: string | null;
+    sourceDetail?: string | null;
+    productCode?: string | null;
+    productLabel?: string | null;
+    authorizedAdvantageCommittedAmount?: string | null;
   }): Promise<MarketingOpportunityHandoffResult>;
 };
 

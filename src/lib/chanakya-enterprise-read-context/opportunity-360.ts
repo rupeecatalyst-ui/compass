@@ -132,6 +132,16 @@ function sanitizeOpportunityCore(
       sourceContactName: opp.sourceContactName ?? null,
       sourceCampaignLabel: opp.sourceCampaignLabel ?? null,
     },
+    advantageCommitted: {
+      label: "Advantage Committed (₹)",
+      amount: opp.advantageCommittedAmount ?? null,
+      display: opp.advantageCommittedDisplay ?? null,
+      status: opp.advantageCommittedStatus ?? null,
+      committedAt: opp.advantageCommittedAt ?? null,
+      committedByUserId: opp.advantageCommittedByUserId ?? null,
+      marketingCampaignName: opp.marketingCampaignName ?? opp.sourceCampaignLabel ?? null,
+      marketingSource: opp.marketingSource ?? opp.sourceCode ?? null,
+    },
     wealthPartner: sourceWealthPartnerId
       ? {
           id: sourceWealthPartnerId,

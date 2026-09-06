@@ -195,6 +195,9 @@ export type MarketingQualificationRecord = {
   source?: string | null;
   partnerId?: string | null;
   teamId?: string | null;
+  sourceDetail?: string | null;
+  authorizedAdvantageCommittedAmount?: string | null;
+  advantageProductCode?: string | null;
   intent: MarketingQualificationIntent;
   businessState: MarketingQualificationBusinessState;
   processState: MarketingHandoffProcessState;

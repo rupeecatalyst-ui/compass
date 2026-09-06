@@ -77,6 +77,12 @@ export function OpportunityLenderJourneyCard({
               {group.loanAmountLabel}
             </span>
           </span>
+          <span data-field="advantage-committed">
+            <span className="text-zinc-500">Advantage Committed (₹) · </span>
+            <span className="font-medium tabular-nums text-zinc-100">
+              {head?.advantageCommittedDisplay ?? "Not applicable"}
+            </span>
+          </span>
           <span>
             <span className="text-zinc-500">Source · </span>
             <span className="text-zinc-200">{sourceLine}</span>

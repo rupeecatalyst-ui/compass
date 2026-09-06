@@ -391,12 +391,22 @@ export async function composeContact360Snapshot(
 
   for (const o of opportunities) {
     const href = opportunityHref(o);
+    const committed = o.advantageCommittedDisplay?.trim() || "Not applicable";
+    const campaign = o.marketingCampaignName?.trim() || o.sourceCampaignLabel?.trim() || null;
+    const source = o.marketingSource?.trim() || o.sourceCode?.trim() || null;
     pushUnique(derivedLinks, seen, {
       id: `opp:${o.id}`,
       kind: "opportunity",
       category: "opportunities",
       label: o.opportunityNumber || o.id,
-      detail: [o.productLabel, o.lifecycleStatus || o.requirementStage, o.companyName]
+      detail: [
+        o.productLabel,
+        o.lifecycleStatus || o.requirementStage,
+        `Advantage Committed (₹): ${committed}`,
+        campaign ? `Campaign: ${campaign}` : null,
+        source ? `Source: ${source}` : null,
+        o.companyName,
+      ]
         .filter(Boolean)
         .join(" · "),
       derived: true,

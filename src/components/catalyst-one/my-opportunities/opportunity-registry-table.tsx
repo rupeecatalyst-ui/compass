@@ -45,6 +45,7 @@ const SORT_MAP: Record<string, OpportunityRegistrySortField> = {
   product: "product",
   opportunityStage: "opportunityStageLabel",
   source: "sourceLabel",
+  advantageCommitted: "advantageCommittedDisplay",
   assignedUsers: "owner",
   owner: "owner",
   createdAt: "createdAt",
@@ -122,7 +123,7 @@ export function OpportunityRegistryTable({
 
   useEffect(() => {
     setPage(1);
-  }, [filters.search, filters.stage, filters.status, filters.source, pageSize]);
+  }, [filters.search, filters.stage, filters.status, filters.source, filters.advantageCommitted, pageSize]);
 
   const handleSort = (columnId: string) => {
     const field = SORT_MAP[columnId];
@@ -173,6 +174,24 @@ export function OpportunityRegistryTable({
         defaultWidth: 130,
         render: (row) => row.product,
         exportValue: (row) => row.product,
+      },
+      {
+        id: "advantageCommitted",
+        label: "Advantage Committed (₹)",
+        sortable: true,
+        defaultOrder: 4,
+        defaultWidth: 160,
+        align: "right",
+        render: (row) => (
+          <span
+            className="tabular-nums"
+            data-field="advantage-committed"
+            data-status={row.advantageCommittedStatus}
+          >
+            {row.advantageCommittedDisplay}
+          </span>
+        ),
+        exportValue: (row) => row.advantageCommittedDisplay,
       },
       {
         id: "opportunityStage",
@@ -283,7 +302,8 @@ export function OpportunityRegistryTable({
     Boolean(filters.search.trim()) ||
     filters.stage !== "all" ||
     filters.status !== "all" ||
-    filters.source !== "all";
+    filters.source !== "all" ||
+    filters.advantageCommitted !== "all";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1.5">
@@ -405,6 +425,22 @@ export function OpportunityRegistryTable({
                   {opportunityBusinessSourceLabel(s)}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={filters.advantageCommitted}
+            onValueChange={(advantageCommitted) =>
+              setFilters((f) => ({ ...f, advantageCommitted }))
+            }
+          >
+            <SelectTrigger className="h-8 w-[220px] text-xs" aria-label="Advantage Committed (₹)">
+              <SelectValue placeholder="Advantage Committed (₹)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Advantage Committed (₹)</SelectItem>
+              <SelectItem value="committed">Committed</SelectItem>
+              <SelectItem value="not_committed">Not committed</SelectItem>
+              <SelectItem value="not_applicable">Not applicable</SelectItem>
             </SelectContent>
           </Select>
         </div>

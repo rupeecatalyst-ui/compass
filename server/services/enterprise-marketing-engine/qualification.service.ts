@@ -577,6 +577,12 @@ export const marketingQualificationService = {
           snapshotId: qualification.snapshotId ?? null,
           snapshotRecipientId: qualification.snapshotRecipientId ?? null,
           recipientFingerprint: qualification.recipientFingerprint,
+          source: qualification.source ?? "marketing_engine",
+          sourceDetail: qualification.sourceDetail ?? qualification.sourceTabName ?? null,
+          productCode: qualification.advantageProductCode ?? qualification.product ?? null,
+          productLabel: qualification.product ?? null,
+          authorizedAdvantageCommittedAmount:
+            qualification.authorizedAdvantageCommittedAmount ?? null,
         });
       }
 

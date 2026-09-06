@@ -225,5 +225,10 @@ export function mapEnterpriseDealToDealRegistryRow(
     sourceContactMobile: snapString(snap, ["sourceContactMobile"]),
     expectedDateLabel: snapString(snap, ["expectedDisbursementDate", "expectedLoginDate"]),
     confirmationStatus,
+    advantageCommittedAmount: deal.advantageCommittedAmount ?? null,
+    advantageCommittedDisplay: deal.advantageCommittedDisplay ?? "Not applicable",
+    advantageCommittedStatus: deal.advantageCommittedStatus ?? "not_applicable",
+    marketingCampaignName: deal.marketingCampaignName ?? null,
+    marketingSource: deal.marketingSource ?? deal.sourceCode ?? null,
   };
 }

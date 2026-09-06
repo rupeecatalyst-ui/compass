@@ -82,5 +82,10 @@ export function mapEnterpriseOpportunityToRegistryRow(
     requestedAmount: opp.requestedAmount ?? null,
     sourceCode: opp.sourceCode?.trim() || null,
     sourceLabel: opportunityBusinessSourceLabel(opp.sourceCode),
+    advantageCommittedAmount: opp.advantageCommittedAmount ?? null,
+    advantageCommittedDisplay: opp.advantageCommittedDisplay ?? "Not applicable",
+    advantageCommittedStatus: opp.advantageCommittedStatus ?? "not_applicable",
+    marketingCampaignName: opp.marketingCampaignName ?? opp.sourceCampaignLabel ?? null,
+    marketingSource: opp.marketingSource ?? opp.sourceCode ?? null,
   };
 }

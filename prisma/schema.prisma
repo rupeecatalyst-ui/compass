@@ -198,6 +198,7 @@ model Organization {
   /// CO-ARCH-003 — Opportunity Registry
   enterpriseOpportunities              EnterpriseOpportunity[]
   enterpriseOpportunityNumberSequences EnterpriseOpportunityNumberSequence[]
+  enterpriseOpportunityAdvantageCommitmentEvents EnterpriseOpportunityAdvantageCommitmentEvent[]
   /// CO-ARCH-003 Phase 2B Sprint 1 — Invoice Party Master (Accounting)
   enterpriseInvoiceParties           EnterpriseInvoiceParty[]
   enterpriseAccountingGstRates       EnterpriseAccountingGstRate[]
@@ -3161,6 +3162,17 @@ model EnterpriseOpportunity {
   commercialRevenueSharePercent Float?                  @map("commercial_revenue_share_percent")
   /// CO-OPP-003 — Marketing campaign label (future-ready).
   sourceCampaignLabel       String?                     @map("source_campaign_label")
+  /// Canonical Advantage Committed (₹) — Opportunity SSOT. Null = not committed. Never treat as ₹0.
+  advantageCommittedAmount        Decimal?  @map("advantage_committed_amount") @db.Decimal(18, 2)
+  advantageCommittedCurrency      String?   @map("advantage_committed_currency")
+  advantageCommittedAt            DateTime? @map("advantage_committed_at")
+  advantageCommittedByUserId      String?   @map("advantage_committed_by_user_id")
+  advantageCommittedProductCode   String?   @map("advantage_committed_product_code")
+  advantageCommitmentId           String?   @map("advantage_commitment_id")
+  advantageCommitmentVersion      Int       @default(0) @map("advantage_commitment_version")
+  marketingCampaignId             String?   @map("marketing_campaign_id")
+  marketingSourceDetail           String?   @map("marketing_source_detail")
+  marketingProspectRef            String?   @map("marketing_prospect_ref")
   snapshot                  Json?
   lendingExtension          Json?                       @map("lending_extension")
   versionNumber             Int                         @default(1) @map("version_number")
@@ -3179,6 +3191,7 @@ model EnterpriseOpportunity {
   company        EcmCompany?        @relation("EnterpriseOpportunityCompany", fields: [companyId], references: [id], onDelete: Restrict)
   product        EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   deals          EnterpriseDeal[]
+  advantageCommitmentEvents EnterpriseOpportunityAdvantageCommitmentEvent[]
 
   @@unique([organizationId, opportunityNumber], map: "eopp_org_number_key")
   @@unique([organizationId, legacyLoanFileId], map: "eopp_org_legacy_loan_file_key")
@@ -3193,7 +3206,35 @@ model EnterpriseOpportunity {
   @@index([organizationId, sourceCode, isDeleted], map: "eopp_org_source_idx")
   @@index([organizationId, sourceWealthPartnerId], map: "eopp_org_source_wp_idx")
   @@index([organizationId, participationRole], map: "eopp_org_participation_idx")
+  @@index([organizationId, advantageCommittedAmount, isDeleted], map: "eopp_org_advantage_committed_idx")
+  @@index([organizationId, marketingCampaignId, isDeleted], map: "eopp_org_marketing_campaign_idx")
   @@map("enterprise_opportunities")
+}
+
+/// Append-only Advantage Committed (₹) history. Original amount is never erased.
+model EnterpriseOpportunityAdvantageCommitmentEvent {
+  id                       String   @id @default(cuid())
+  organizationId           String   @map("organization_id")
+  opportunityId            String   @map("opportunity_id")
+  eventKind                String   @map("event_kind")
+  amount                   Decimal  @db.Decimal(18, 2)
+  previousAmount           Decimal? @map("previous_amount") @db.Decimal(18, 2)
+  currency                 String   @default("INR")
+  productCode              String?  @map("product_code")
+  reason                   String?  @db.Text
+  requestedByUserId        String   @map("requested_by_user_id")
+  approvedByUserId         String?  @map("approved_by_user_id")
+  originatingOpportunityId String   @map("originating_opportunity_id")
+  originalCommitmentId     String?  @map("original_commitment_id")
+  version                  Int
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, opportunityId, createdAt], map: "eopp_ace_org_opp_created_idx")
+  @@index([organizationId, originalCommitmentId], map: "eopp_ace_org_original_idx")
+  @@map("enterprise_opportunity_advantage_commitment_events")
 }
 
 /// CO-ARCH-003 Phase 2B Sprint 1 — Accounting Invoice Party Master

@@ -177,6 +177,9 @@ export function OpportunityContextPicker({
                     {opportunity.requestedAmount != null
                       ? ` · ${formatINR(opportunity.requestedAmount)}`
                       : ""}
+                    {opportunity.advantageCommittedDisplay
+                      ? ` · Advantage Committed (₹): ${opportunity.advantageCommittedDisplay}`
+                      : ""}
                     {" · "}
                     {humanize(opportunity.requirementStage)}
                   </span>

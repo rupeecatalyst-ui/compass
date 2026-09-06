@@ -32,6 +32,11 @@ export interface OpportunityRegistryRow {
   /** CO-UX-006 — Opportunity.sourceCode */
   sourceCode: string | null;
   sourceLabel: string;
+  advantageCommittedAmount: string | null;
+  advantageCommittedDisplay: string;
+  advantageCommittedStatus: string;
+  marketingCampaignName: string | null;
+  marketingSource: string | null;
 }
 
 export type OpportunityRegistrySortField =
@@ -44,7 +49,8 @@ export type OpportunityRegistrySortField =
   | "createdAt"
   | "updatedAt"
   | "status"
-  | "sourceLabel";
+  | "sourceLabel"
+  | "advantageCommittedDisplay";
 
 export type OpportunityRegistrySortDir = "asc" | "desc";
 
@@ -54,6 +60,7 @@ export interface OpportunityRegistryFilters {
   status: string;
   /** Exact sourceCode, or "all" */
   source: string;
+  advantageCommitted: string;
 }
 
 export const EMPTY_OPPORTUNITY_REGISTRY_FILTERS: OpportunityRegistryFilters = {
@@ -61,6 +68,7 @@ export const EMPTY_OPPORTUNITY_REGISTRY_FILTERS: OpportunityRegistryFilters = {
   stage: "all",
   status: "all",
   source: "all",
+  advantageCommitted: "all",
 };
 
 export const OPPORTUNITY_REGISTRY_PAGE_SIZES = [20, 50, 100] as const;

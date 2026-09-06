@@ -52,6 +52,16 @@ export type EnterpriseOpportunityApiRecord = {
   participationRole?: string | null;
   commercialRevenueSharePercent?: number | null;
   sourceCampaignLabel?: string | null;
+  advantageCommittedAmount?: string | null;
+  advantageCommittedDisplay?: string | null;
+  advantageCommittedStatus?: string | null;
+  advantageCommittedAt?: string | null;
+  advantageCommittedByUserId?: string | null;
+  marketingCampaignId?: string | null;
+  marketingCampaignName?: string | null;
+  marketingSource?: string | null;
+  marketingSourceDetail?: string | null;
+  marketingProspectRef?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   rowVersion?: number;
