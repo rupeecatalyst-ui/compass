@@ -259,6 +259,31 @@ export class IsolatedProgrammeDurableStore {
     return clone(draft);
   }
 
+  deactivate(input: {
+    organizationId: string;
+    actorUserId: string;
+    actorRole: string;
+    programId: string;
+  }): ProgrammeVersionRecord {
+    this.assertAdmin(input.actorRole);
+    const bag = this.read();
+    const row = bag.programmes.find((item) => item.id === input.programId && !item.isDeleted);
+    if (!row) throw new Error("Lender program not found.");
+    if (row.organizationId !== input.organizationId) {
+      throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
+    }
+    row.isLivePublished = false;
+    row.publicationState = "archived";
+    row.lifecycleStatus = "inactive";
+    row.status = "inactive";
+    row.enabled = false;
+    row.modifiedBy = input.actorUserId;
+    row.updatedAt = new Date().toISOString();
+    bag.audits.push(this.audit(input.organizationId, row, "deactivated", null, row, input.actorUserId));
+    this.write(bag);
+    return clone(row);
+  }
+
   createPublishedPolicy(input: {
     organizationId: string;
     actorUserId: string;

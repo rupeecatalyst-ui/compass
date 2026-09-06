@@ -5,6 +5,7 @@
 
 import { lenderSupportsProduct } from "@/lib/deal-workspace/product-lender-eligibility";
 import { resolveCanonicalProductCode } from "@/constants/enterprise-product-master";
+import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import type { EnterpriseProductRecord } from "@/types/enterprise-product-registry";
 import { resolveOpportunityLoanPurpose } from "@/lib/enterprise-opportunity/resolve-loan-purpose";
@@ -581,7 +582,7 @@ export function buildPotentialLenderFitAssessments(input: {
     if (!lenderSupportsProduct(lender.productsSupported, input.productCode)) continue;
 
     const programs = (input.programsByLender.get(lender.lenderId) ?? []).filter(
-      (p) => !p.isDeleted && p.enabled !== false,
+      (p) => !p.isDeleted && isPublishedCommercialProgram(p),
     );
     const programAvailability: ChanakyaProgramAvailabilityEvidence[] = programs.map(
       (program) => ({

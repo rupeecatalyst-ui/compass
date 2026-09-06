@@ -11,6 +11,8 @@ import { productRegistryService } from "@server/services/product-registry/produc
 import { isDatabaseAvailable } from "@server/lib/prisma";
 import { resolveProductLibraryCode } from "@/lib/deal-workspace/product-lender-eligibility";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 import {
   CHANAKYA_FIELD_AVAILABILITY,
@@ -170,11 +172,12 @@ async function loadRegistryEvidence(productCode: string | null): Promise<{
 
     if (productCode) {
       const programs = await lenderRegistryService.queryPrograms({
-        productCode,
-        pageSize: 200,
+        pageSize: 500,
         enabled: true,
       });
       for (const program of programs.items) {
+        if (!productCodesEquivalent(program.productCode, productCode)) continue;
+        if (!isPublishedCommercialProgram(program)) continue;
         const bucket = programsByLender.get(program.lenderId) ?? [];
         bucket.push(program);
         programsByLender.set(program.lenderId, bucket);

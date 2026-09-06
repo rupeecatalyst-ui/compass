@@ -6,3 +6,8 @@ export { parseExactMoney, parseExactPercent } from "@/lib/product-programme-oper
 export { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
 export { canonicalizeProductCode, productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
 export { filterProgrammeRegistry, dedupePublishedProgrammes } from "@/lib/product-programme-operations/registry-filters";
+export { matchPublishedProgramme, selectApplicablePublishedProgrammes } from "@/lib/product-programme-operations/match-published";
+export { mergeEdieAndProgrammeLod } from "@/lib/product-programme-operations/lod-merge";
+export { citePublishedProgramme } from "@/lib/product-programme-operations/proposal-citation";
+export { stampDealProgrammeSelection, readDealProgrammeStamp, preserveExistingProgrammeStamp } from "@/lib/product-programme-operations/deal-stamp";
+export { buildChanakyaProgrammeEvidence } from "@/lib/product-programme-operations/chanakya-evidence";

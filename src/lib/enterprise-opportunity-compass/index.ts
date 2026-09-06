@@ -3,5 +3,6 @@ export {
   computeOpportunityPulse,
   listOpportunityRecommendations,
   registerOpportunityRecommendation,
+  recommendOpportunityFromPublishedProgramme,
   resetOpportunityCompassRecommendations,
 } from "./compass-engine";

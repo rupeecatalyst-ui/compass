@@ -11,6 +11,11 @@ import {
 } from "@/lib/enterprise-lender-registry/published-directory";
 import { dedupeLendersForSelection } from "@/lib/enterprise-lender-registry/presentation-canonical";
 import type { LoanFile } from "@/types/catalyst-one";
+import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
+import { authenticatedJsonFetch } from "@/lib/api-client";
+import { matchPublishedProgramme } from "@/lib/product-programme-operations/match-published";
+import { canonicalizeProductCode } from "@/lib/product-programme-operations/product-aliases";
+import { approxCibilBandToLowerBound } from "@/lib/product-programme-operations/cibil-band";
 
 export type RegistryLenderRecommendation = {
   rank: number;
@@ -26,82 +31,40 @@ export type RegistryLenderRecommendation = {
   reason: string;
   classification?: string | null;
   institutionCategory: string;
+  programmeId?: string;
+  programmeVersion?: number;
+  unavailableReason?: string;
 };
-
-function productTokens(product?: string): string[] {
-  const p = (product || "").toLowerCase();
-  if (!p) return [];
-  const tokens: string[] = [];
-  if (/home|housing|hl\b/.test(p)) tokens.push("home_loan", "home_loan_bt");
-  if (/lap|against property/.test(p)) tokens.push("lap");
-  if (/personal/.test(p)) tokens.push("personal_loan");
-  if (/business|msme|ubl/.test(p)) tokens.push("business_loan");
-  if (/working capital|wc\b/.test(p)) tokens.push("working_capital");
-  if (/gold/.test(p)) tokens.push("gold_loan");
-  if (/construction/.test(p)) tokens.push("construction_funding");
-  if (/bt|balance transfer/.test(p)) tokens.push("home_loan_bt");
-  return tokens;
-}
 
 function scoreLender(
   lender: PublishedLenderOption,
   file: LoanFile,
+  programme?: EnterpriseLenderProgramRecord | null,
 ): { score: number; reason: string } {
-  let score = 62;
-  const reasons: string[] = [];
-  const tokens = productTokens(file.loanProduct);
-  const supported = (lender as PublishedLenderOption & { productsSupported?: string[] })
-    .productsSupported;
-  // productsSupported may not be on option — use classification / category heuristics
-  const cat = (lender.institutionCategory || "").toLowerCase();
-  const classif = (lender.classification || "").toLowerCase();
-
-  if (tokens.includes("home_loan") || tokens.includes("home_loan_bt")) {
-    if (cat === "hfc" || classif.includes("housing")) {
-      score += 18;
-      reasons.push("Housing finance fit");
-    } else if (cat === "bank") {
-      score += 14;
-      reasons.push("Bank home-loan strength");
-    } else {
-      score += 6;
+  if (programme) {
+    const match = matchPublishedProgramme(programme, {
+      productCode: canonicalizeProductCode(file.loanProduct) ?? file.loanProduct,
+      employmentType: file.employmentType,
+      constitution: file.businessDetails?.constitution ?? null,
+      residency: null,
+      loanAmountExact: file.loanAmount != null ? String(Math.round(file.loanAmount)) + ".00" : null,
+      cibil: approxCibilBandToLowerBound(file.approxCibilScore),
+      city: file.city ?? null,
+      transactionType: file.transactionType ?? null,
+      propertyType: file.propertyType ?? null,
+    });
+    if (!match.matched) {
+      return { score: 0, reason: match.reason };
     }
+    return {
+      score: 88,
+      reason: `${match.reason} Policy ${programme.policyVersionId ?? programme.creditRiskPolicyRef ?? "mapped"}.`,
+    };
   }
-  if (tokens.includes("personal_loan") || tokens.includes("business_loan")) {
-    if (cat === "nbfc" || cat === "fintech") {
-      score += 12;
-      reasons.push("NBFC / Fintech product fit");
-    } else if (cat === "bank") {
-      score += 10;
-      reasons.push("Bank unsecured/business coverage");
-    }
-  }
-  if (tokens.includes("gold_loan") && (cat === "nbfc" || /gold/i.test(lender.displayName))) {
-    score += 16;
-    reasons.push("Gold loan specialist");
-  }
-  if (file.lendingType === "secured" && (cat === "bank" || cat === "hfc")) {
-    score += 6;
-  }
-  if (file.city && lender.headquartersLabel) {
-    const city = file.city.toLowerCase();
-    const hq = lender.headquartersLabel.toLowerCase();
-    if (hq.includes(city) || city.includes(hq.split(",")[0] || "")) {
-      score += 8;
-      reasons.push(`Strong presence near ${file.city}`);
-    }
-  }
-  if (file.loanAmount && file.loanAmount >= 50_00_000 && cat === "bank") {
-    score += 5;
-    reasons.push("Ticket-size fit for banks");
-  }
-  void supported;
-
-  score = Math.max(55, Math.min(96, score));
-  if (reasons.length === 0) {
-    reasons.push("Published Enterprise Lender — eligible for this Opportunity");
-  }
-  return { score, reason: reasons.slice(0, 2).join(" · ") };
+  return {
+    score: 0,
+    reason: "No applicable published programme is available. A category heuristic was not used.",
+  };
 }
 
 function starsFromRank(rank: number, confidencePct: number): number {
@@ -137,18 +100,35 @@ export function recommendPublishedLendersFromRegistry(input: {
       })),
   );
   if (options.length === 0) return [];
-  return scoreAndRank(options, input.file, limit);
+  return scoreAndRank(options, input.file, limit, []);
 }
 
 /** CO-LR-008 — AI / Chanakya recommendations from Prisma Registry only (browser / employee UI). */
 export async function recommendPublishedLendersFromRegistryAsync(input: {
   file: LoanFile;
   limit?: number;
+  programmes?: EnterpriseLenderProgramRecord[];
 }): Promise<RegistryLenderRecommendation[]> {
   const limit = input.limit ?? 8;
   const options = await listCanonicalEnterpriseLenderOptionsAsync();
   if (options.length === 0) return [];
-  return recommendPublishedLendersFromOptions(options, input);
+  let programmes = input.programmes ?? [];
+  if (programmes.length === 0) {
+    try {
+      const res = await authenticatedJsonFetch("/api/lender-registry/programs?pageSize=500&status=active&enabled=true");
+      const body = await res.json().catch(() => ({}));
+      const items = Array.isArray(body?.data?.items) ? body.data.items : [];
+      programmes = items.filter(
+        (p: EnterpriseLenderProgramRecord) =>
+          p.isLivePublished === true &&
+          p.publicationState === "published" &&
+          p.completenessState === "complete",
+      );
+    } catch {
+      programmes = [];
+    }
+  }
+  return recommendPublishedLendersFromOptions(options, { ...input, programmes, limit });
 }
 
 /**
@@ -157,25 +137,41 @@ export async function recommendPublishedLendersFromRegistryAsync(input: {
  */
 export function recommendPublishedLendersFromOptions(
   options: PublishedLenderOption[],
-  input: { file: LoanFile; limit?: number },
+  input: { file: LoanFile; limit?: number; programmes?: EnterpriseLenderProgramRecord[] },
 ): RegistryLenderRecommendation[] {
   const limit = input.limit ?? 8;
   const canonical = options.filter(isCanonicalDealLenderOption);
   if (canonical.length === 0) return [];
-  return scoreAndRank(canonical, input.file, limit);
+  return scoreAndRank(canonical, input.file, limit, input.programmes ?? []);
 }
 
 function scoreAndRank(
   options: PublishedLenderOption[],
   file: LoanFile,
   limit: number,
+  programmes: EnterpriseLenderProgramRecord[],
 ): RegistryLenderRecommendation[] {
   const scored = options.map((lender) => {
-    const { score, reason } = scoreLender(lender, file);
-    return { lender, score, reason };
+    const programme =
+      programmes.find((item) => {
+        if (item.lenderId !== lender.id) return false;
+        return matchPublishedProgramme(item, {
+          productCode: canonicalizeProductCode(file.loanProduct) ?? file.loanProduct,
+          employmentType: file.employmentType,
+          constitution: file.businessDetails?.constitution ?? null,
+          loanAmountExact: file.loanAmount != null ? String(Math.round(file.loanAmount)) + ".00" : null,
+          cibil: approxCibilBandToLowerBound(file.approxCibilScore),
+          city: file.city ?? null,
+          transactionType: file.transactionType ?? null,
+          propertyType: file.propertyType ?? null,
+        }).matched;
+      }) ?? null;
+    const { score, reason } = scoreLender(lender, file, programme);
+    return { lender, score, reason, programme };
   });
 
   return scored
+    .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score || a.lender.displayName.localeCompare(b.lender.displayName))
     .slice(0, limit)
     .map((row, index) => {
@@ -193,6 +189,8 @@ function scoreAndRank(
         reason: row.reason,
         classification: row.lender.classification,
         institutionCategory: row.lender.institutionCategory,
+        programmeId: row.programme?.id,
+        programmeVersion: row.programme?.versionNumber,
       };
     });
 }

@@ -7,6 +7,9 @@ import { deriveChanakyaOpportunityRecommendationsFromOptions } from "@/lib/chana
 import { buildPartnerRecommendationLoanFile } from "@/lib/enterprise-partner-recommendations/project";
 import type { PartnerOpportunityDetailDto } from "@/types/enterprise-partner-business";
 import type { PublishedLenderOption } from "@/lib/enterprise-lender-registry/published-directory";
+import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
+import { lenderRegistryService } from "@server/services/lender-registry/lender-registry.service";
+import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
 
 function tierForRank(rank: number): CompassRecommendationCardDto["tier"] {
   if (rank <= 1) return "best";
@@ -26,9 +29,18 @@ export async function projectCompassRecommendations(input: {
     approxCibilScore: input.approxCibilScore,
   });
 
+  let programmes: EnterpriseLenderProgramRecord[] = [];
+  try {
+    const listed = await lenderRegistryService.queryPrograms({ pageSize: 500, enabled: true });
+    programmes = listed.items.filter(isPublishedCommercialProgram);
+  } catch {
+    programmes = [];
+  }
+
   const chanakya = deriveChanakyaOpportunityRecommendationsFromOptions({
     file,
     registryOptions: input.registryOptions,
+    programmes,
     limit: 5,
   });
 

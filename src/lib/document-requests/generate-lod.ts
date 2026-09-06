@@ -17,6 +17,8 @@ import {
 } from "@/lib/edie-certified/resolve-context";
 import { evaluateDocumentRequestLodReadiness, buildDocumentRequestLodContext } from "@/lib/document-requests/lod-readiness";
 import type { LoanFile } from "@/types/catalyst-one";
+import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
+import { mergeEdieAndProgrammeLod } from "@/lib/product-programme-operations/lod-merge";
 import {
   LOAN_PARTICIPANT_ROLE_LABELS,
   type LoanParticipant,
@@ -53,6 +55,10 @@ export type GenerateOpportunityLodInput = {
   runtimeFile?: LoanFile | null;
   /** COMPASS public LOD — skip Document Center email/name gates. Default full. */
   contactChannelPolicy?: "full" | "compass_public";
+  publishedProgramme?: {
+    requiredDocuments?: EnterpriseLenderProgramRecord["requiredDocuments"];
+    requiredDocumentTypeIds?: string[] | null;
+  } | null;
 };
 
 function participantRoleLabel(participant: LoanParticipant): string {
@@ -179,6 +185,29 @@ function resolveMasterLod(
       mandatory: item.mandatory,
       critical: item.critical,
     });
+  }
+
+  for (const overlay of mergeEdieAndProgrammeLod({
+    edieTypeRefs: [...byRef.keys()],
+    program: input.publishedProgramme ?? null,
+  })) {
+    const existing = byRef.get(overlay.typeRef);
+    if (!existing) {
+      byRef.set(overlay.typeRef, {
+        typeRef: overlay.typeRef,
+        label: overlay.label,
+        category: overlay.mandatory ? "critical" : "journey",
+        moduleId: "programme_overlay",
+        moduleLabel: "Programme overlay",
+        mandatory: overlay.mandatory,
+        critical: overlay.mandatory,
+      });
+      continue;
+    }
+    if (overlay.source === "programme_overlay") {
+      existing.mandatory = overlay.mandatory;
+      existing.critical = overlay.mandatory;
+    }
   }
 
   return Array.from(byRef.values()).sort((a, b) => {

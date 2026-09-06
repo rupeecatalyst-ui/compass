@@ -16,6 +16,7 @@ import { listDocumentsForOpportunityRuntime } from "@/lib/document-registry";
 import {
   EdieLodCertificationError,
   generateOpportunityLod,
+  type GenerateOpportunityLodInput,
 } from "@/lib/document-requests/generate-lod";
 import { evaluateDocumentRequestLodReadiness, buildDocumentRequestLodContext } from "@/lib/document-requests/lod-readiness";
 import {
@@ -259,6 +260,7 @@ export function generateAndPersistLod(input: {
   runtimeFile?: LoanFile | null;
   actor: string;
   opportunityReference?: string;
+  publishedProgramme?: GenerateOpportunityLodInput["publishedProgramme"];
 }): DocumentRequestWorkspaceState {
   const gate = evaluateDocumentRequestLodReadiness(
     buildDocumentRequestLodContext({
