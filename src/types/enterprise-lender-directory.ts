@@ -14,8 +14,10 @@ export interface ElwLenderProgramRow {
   lenderId: string;
   lenderName: string;
   programName: string;
+  programCode?: string;
   productId: string;
   productLabel: string;
+  productVariant?: string | null;
   /** Display ROI % (numeric for sort) */
   roi: number;
   roiLabel: string;
@@ -40,6 +42,14 @@ export interface ElwLenderProgramRow {
   status: LenderProgramStatus;
   institutionType: LenderInstitutionType;
   employmentSegment: LenderEmploymentSegment;
+  employmentTypes?: string[];
+  constitutions?: string[];
+  policyLabel?: string | null;
+  documentCount?: number;
+  effectiveFrom?: string | null;
+  effectiveUntil?: string | null;
+  publishedVersion?: number;
+  lastUpdated?: string | null;
   state: string;
   city: string;
   minCibil: number;

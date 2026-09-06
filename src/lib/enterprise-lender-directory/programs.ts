@@ -216,6 +216,7 @@ export interface LenderDirectoryFilters {
   /** Per-column text filters */
   columnLender: string;
   columnProgram: string;
+  effectiveWindow: "all" | "effective" | "expired";
 }
 
 export const EMPTY_LENDER_DIRECTORY_FILTERS: LenderDirectoryFilters = {
@@ -232,6 +233,7 @@ export const EMPTY_LENDER_DIRECTORY_FILTERS: LenderDirectoryFilters = {
   feeMax: "",
   columnLender: "",
   columnProgram: "",
+  effectiveWindow: "all",
 };
 
 /** Default hierarchy: lowest ROI → highest Lender Score → highest Contact Score */
@@ -294,6 +296,14 @@ export function filterLenderPrograms(
     if (feeMax != null && !Number.isNaN(feeMax) && row.processingFeePct > feeMax) return false;
     if (colLender && !row.lenderName.toLowerCase().includes(colLender)) return false;
     if (colProgram && !row.programName.toLowerCase().includes(colProgram)) return false;
+    if (filters.effectiveWindow === "expired") {
+      const until = row.effectiveUntil ? Date.parse(row.effectiveUntil) : NaN;
+      if (!Number.isFinite(until) || until >= Date.now()) return false;
+    }
+    if (filters.effectiveWindow === "effective") {
+      const until = row.effectiveUntil ? Date.parse(row.effectiveUntil) : NaN;
+      if (Number.isFinite(until) && until < Date.now()) return false;
+    }
     return true;
   });
 }

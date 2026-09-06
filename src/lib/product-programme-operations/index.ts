@@ -4,3 +4,5 @@ export { evaluateProgrammeCompleteness } from "@/lib/product-programme-operation
 export { IsolatedProgrammeDurableStore } from "@/lib/product-programme-operations/isolated-durable-store";
 export { parseExactMoney, parseExactPercent } from "@/lib/product-programme-operations/money";
 export { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
+export { canonicalizeProductCode, productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
+export { filterProgrammeRegistry, dedupePublishedProgrammes } from "@/lib/product-programme-operations/registry-filters";

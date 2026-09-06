@@ -32,6 +32,11 @@ import {
   resolveProgrammeDocumentSurface,
   resolveProgrammePolicySurface,
 } from "@/lib/product-programme-operations/policy-surface";
+import {
+  dedupePublishedProgrammes,
+  draftRevisionFor,
+  lineageVersions,
+} from "@/lib/product-programme-operations/registry-filters";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
 import { useProductMasterOptions } from "@/lib/enterprise-product-master";
@@ -180,7 +185,6 @@ export function EnterpriseLenderDirectorySlideOver({
         const [prog, docs, dealsResult] = await Promise.all([
           lenderRegistryClient.queryPrograms({
             lenderId,
-            publishedOnly: true,
             pageSize: 200,
           }),
           lenderRegistryClient.listDocuments(lenderId),
@@ -238,10 +242,12 @@ export function EnterpriseLenderDirectorySlideOver({
     return { ...f, lenderId };
   }, [employees, lenderId]);
 
+  const publishedCards = useMemo(() => dedupePublishedProgrammes(programs), [programs]);
+
   const chanakyaInsights = useMemo(() => {
     if (!row) return [];
-    return composeEldLenderChanakyaInsights({ row, employees, programs });
-  }, [row, employees, programs]);
+    return composeEldLenderChanakyaInsights({ row, employees, programs: publishedCards });
+  }, [row, employees, publishedCards]);
 
   const filteredContacts = useMemo(() => {
     const q = contactQuery.trim().toLowerCase();
@@ -403,7 +409,7 @@ export function EnterpriseLenderDirectorySlideOver({
                     },
                     {
                       label: "Programs",
-                      value: displayMetric(programs.length),
+                      value: displayMetric(publishedCards.length),
                     },
                   ].map((k) => (
                     <div
@@ -491,20 +497,20 @@ export function EnterpriseLenderDirectorySlideOver({
                           Products / Programmes
                         </p>
                         <span className="tabular-nums text-[10px] text-muted-foreground">
-                          {programs.length}
+                          {publishedCards.length}
                         </span>
                       </div>
-                      {programs.length === 0 ? (
+                      {publishedCards.length === 0 ? (
                         <p className="px-2.5 py-1.5 text-[11px] text-muted-foreground">
                           No published programmes
                         </p>
                       ) : (
                         <ul className="max-h-32 divide-y divide-border/40 overflow-y-auto">
-                          {programs.slice(0, 8).map((p) => (
+                          {publishedCards.slice(0, 8).map((p) => (
                             <li key={p.id} className="px-2.5 py-1.5 text-[11px]">
                               <p className="truncate font-medium text-foreground">{p.label}</p>
                               <p className="truncate text-muted-foreground">
-                                {[p.productCode, p.employmentType].filter(Boolean).join(" · ")}
+                                {[p.code, p.productCode].filter(Boolean).join(" · ")}
                               </p>
                             </li>
                           ))}
@@ -544,18 +550,20 @@ export function EnterpriseLenderDirectorySlideOver({
                     <Link href={ROUTES.ADMIN_PRODUCT_PROGRAMS}>Open Product Programs</Link>
                   </Button>
                 </div>
-                {programs.length === 0 ? (
+                {publishedCards.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No published product programmes for this lender.
                   </p>
                 ) : (
-                  programs.map((p) => {
+                  publishedCards.map((p) => {
                     const docs = Array.isArray(p.requiredDocuments)
                       ? p.requiredDocuments
                       : (p.requiredDocumentTypeIds ?? []).map((typeRef) => ({
                           typeRef,
                           mandatory: true,
                         }));
+                    const draft = draftRevisionFor(programs, p);
+                    const history = lineageVersions(programs, p.lineageId ?? p.id);
                     return (
                       <article
                         key={p.id}
@@ -564,11 +572,29 @@ export function EnterpriseLenderDirectorySlideOver({
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold">{p.label}</p>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {p.code} · v{p.versionNumber}
+                              {p.productVariantCode ? ` · ${p.productVariantCode}` : ""}
+                            </p>
                             <p className="mt-1 text-[11px] text-muted-foreground">
                               {[
                                 p.productCode,
-                                p.employmentType ? `Employment · ${p.employmentType}` : null,
-                                p.roiPercent != null ? `ROI ${p.roiPercent}%` : null,
+                                (p.employmentTypes ?? []).length
+                                  ? `Employment · ${(p.employmentTypes ?? []).join(", ")}`
+                                  : p.employmentType
+                                    ? `Employment · ${p.employmentType}`
+                                    : null,
+                                (p.legalConstitutions ?? []).length
+                                  ? `Constitution · ${(p.legalConstitutions ?? []).join(", ")}`
+                                  : null,
+                                p.minLoanAmountExact && p.maxLoanAmountExact
+                                  ? `Amount ${p.minLoanAmountExact}–${p.maxLoanAmountExact}`
+                                  : null,
+                                p.minRoiExact && p.maxRoiExact
+                                  ? `ROI ${p.minRoiExact}–${p.maxRoiExact}%`
+                                  : p.roiPercent != null
+                                    ? `ROI ${p.roiPercent}%`
+                                    : null,
                                 p.processingFeeLabel ||
                                   (p.processingFeePct != null
                                     ? `PF ${p.processingFeePct}%`
@@ -580,6 +606,10 @@ export function EnterpriseLenderDirectorySlideOver({
                                 p.minCibil != null ? `CIBIL ${p.minCibil}` : null,
                                 p.maxFoirPercent != null ? `FOIR ${p.maxFoirPercent}%` : null,
                                 p.maxDbrPercent != null ? `DBR ${p.maxDbrPercent}%` : null,
+                                p.effectiveFrom ? `Effective ${p.effectiveFrom.slice(0, 10)}` : null,
+                                p.reviewAt ? `Review ${p.reviewAt.slice(0, 10)}` : null,
+                                p.effectiveUntil ? `Expiry ${p.effectiveUntil.slice(0, 10)}` : null,
+                                p.updatedAt ? `Updated ${p.updatedAt.slice(0, 10)}` : null,
                               ]
                                 .filter(Boolean)
                                 .join(" · ")}
@@ -590,12 +620,42 @@ export function EnterpriseLenderDirectorySlideOver({
                             <p className="mt-0.5 text-[11px] text-muted-foreground">
                               Documents · {resolveProgrammeDocumentSurface(docs.length).label}
                             </p>
+                            {draft ? (
+                              <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                                Draft revision v{draft.versionNumber} is in {draft.publicationState}.
+                              </p>
+                            ) : null}
+                            {history.length > 1 ? (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                Version history ·{" "}
+                                {history
+                                  .map((row) => `v${row.versionNumber} (${row.publicationState ?? row.status})`)
+                                  .join(" · ")}
+                              </p>
+                            ) : null}
                           </div>
-                          <Button asChild size="sm" variant="ghost" className="h-7 text-[10px]">
-                            <Link href={`${ROUTES.ADMIN_PRODUCT_PROGRAMS}?programId=${p.id}`}>
-                              Edit programme
-                            </Link>
-                          </Button>
+                          <div className="flex flex-col items-end gap-1">
+                            <Button asChild size="sm" variant="ghost" className="h-7 text-[10px]">
+                              <Link href={`${ROUTES.ADMIN_PRODUCT_PROGRAMS}?programId=${p.id}`}>
+                                View full programme
+                              </Link>
+                            </Button>
+                            <Button asChild size="sm" variant="ghost" className="h-7 text-[10px]">
+                              <Link href={`${ROUTES.ADMIN_PRODUCT_PROGRAMS}?programId=${p.id}`}>
+                                View policy
+                              </Link>
+                            </Button>
+                            <Button asChild size="sm" variant="ghost" className="h-7 text-[10px]">
+                              <Link href={`${ROUTES.ADMIN_PRODUCT_PROGRAMS}?programId=${p.id}`}>
+                                View documents
+                              </Link>
+                            </Button>
+                            <Button asChild size="sm" variant="outline" className="h-7 text-[10px]">
+                              <Link href={`${ROUTES.ADMIN_PRODUCT_PROGRAMS}?programId=${p.id}`}>
+                                Edit programme
+                              </Link>
+                            </Button>
+                          </div>
                         </div>
                         {p.remarks || p.notes ? (
                           <p className="mt-1 text-[11px] text-muted-foreground">

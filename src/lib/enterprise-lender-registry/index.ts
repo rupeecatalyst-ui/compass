@@ -5,6 +5,7 @@
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { localLenderRegistryStore } from "@/lib/enterprise-lender-registry/local-store";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
+import { canonicalizeProductCode } from "@/lib/product-programme-operations/product-aliases";
 import type {
   CreateLenderContactInput,
   CreateLenderDocumentInput,
@@ -226,7 +227,12 @@ export const lenderRegistryClient = {
         );
       }
       if (query.productCode) {
-        items = items.filter((p) => p.productCode === query.productCode);
+        const wanted = query.productCode;
+        items = items.filter(
+          (p) =>
+            p.productCode === wanted ||
+            canonicalizeProductCode(p.productCode) === canonicalizeProductCode(wanted),
+        );
       }
       return { items, total: items.length, source: "api" as const };
     }

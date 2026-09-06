@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
@@ -11,6 +11,14 @@ import { PageHeader } from "@/components/design-system/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -24,6 +32,12 @@ import type {
   EnterpriseLenderRecord,
 } from "@/types/enterprise-lender-registry";
 import { listSelectableCreditRiskPolicies } from "@/lib/enterprise-lender-registry/resolve-program-policy";
+import {
+  EMPTY_PROGRAMME_REGISTRY_FILTERS,
+  filterProgrammeRegistry,
+  programmeStatusLabel,
+} from "@/lib/product-programme-operations/registry-filters";
+import { PROGRAMME_EMPLOYMENT_TYPES } from "@/constants/product-programme-operations/controlled-masters";
 
 export function ProductProgramsWorkspace() {
   const { user } = useAuthContext();
@@ -37,6 +51,7 @@ export function ProductProgramsWorkspace() {
   const [loading, setLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<EnterpriseLenderProgramRecord | null>(null);
+  const [filters, setFilters] = useState(EMPTY_PROGRAMME_REGISTRY_FILTERS);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,6 +82,21 @@ export function ProductProgramsWorkspace() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const programId = new URLSearchParams(window.location.search).get("programId");
+    if (!programId || programs.length === 0) return;
+    const match = programs.find((row) => row.id === programId);
+    if (match) {
+      setEditing(match);
+      setEditorOpen(true);
+    }
+  }, [programs]);
+
+  const filtered = useMemo(
+    () => filterProgrammeRegistry(programs, filters),
+    [programs, filters],
+  );
 
   const productLabel = (code: string | null | undefined) =>
     products.find((item) => item.code === code)?.label ?? code ?? "—";
@@ -131,15 +161,89 @@ export function ProductProgramsWorkspace() {
       />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={filters.search}
+          onChange={(e) => setFilters((current) => ({ ...current, search: e.target.value }))}
+          placeholder="Search programme, code, product…"
+          className="h-8 max-w-xs"
+        />
+        <Select
+          value={filters.productCode}
+          onValueChange={(value) => setFilters((current) => ({ ...current, productCode: value }))}
+        >
+          <SelectTrigger className="h-8 w-[180px]"><SelectValue placeholder="Product" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All products</SelectItem>
+            {products.map((product) => (
+              <SelectItem key={product.code} value={product.code}>
+                {product.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={filters.employmentType}
+          onValueChange={(value) => setFilters((current) => ({ ...current, employmentType: value }))}
+        >
+          <SelectTrigger className="h-8 w-[180px]"><SelectValue placeholder="Applicant" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All applicants</SelectItem>
+            {PROGRAMME_EMPLOYMENT_TYPES.map((item) => (
+              <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={filters.status}
+          onValueChange={(value) =>
+            setFilters((current) => ({ ...current, status: value as typeof current.status }))
+          }
+        >
+          <SelectTrigger className="h-8 w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="published">Published</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="pending_approval">Pending approval</SelectItem>
+            <SelectItem value="incomplete">Incomplete</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+            <SelectItem value="superseded">Superseded</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={filters.effectiveWindow}
+          onValueChange={(value) =>
+            setFilters((current) => ({
+              ...current,
+              effectiveWindow: value as typeof current.effectiveWindow,
+            }))
+          }
+        >
+          <SelectTrigger className="h-8 w-[160px]"><SelectValue placeholder="Effective" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Effective / expired</SelectItem>
+            <SelectItem value="effective">Effective now</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <Card className="overflow-hidden border-border/60">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Programme</TableHead>
+              <TableHead>Code</TableHead>
               <TableHead>Lender</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>Employment</TableHead>
+              <TableHead>Constitution</TableHead>
+              <TableHead>Amount</TableHead>
               <TableHead>ROI</TableHead>
+              <TableHead>Policy</TableHead>
+              <TableHead>Docs</TableHead>
+              <TableHead>Version</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-24" />
             </TableRow>
@@ -147,23 +251,30 @@ export function ProductProgramsWorkspace() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-sm text-muted-foreground">
+                <TableCell colSpan={13} className="text-sm text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
-            ) : programs.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-sm text-muted-foreground">
+                <TableCell colSpan={13} className="text-sm text-muted-foreground">
                   No programmes yet. Create a structured draft — the matrix will not auto-publish empty programmes.
                 </TableCell>
               </TableRow>
             ) : (
-              programs.map((row) => (
+              filtered.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="text-xs font-medium">{row.label}</TableCell>
+                  <TableCell className="text-xs tabular-nums">{row.code}</TableCell>
                   <TableCell className="text-xs">{lenderLabel(row.lenderId)}</TableCell>
                   <TableCell className="text-xs">{productLabel(row.productCode)}</TableCell>
                   <TableCell className="text-xs">{(row.employmentTypes ?? []).join(", ") || "—"}</TableCell>
+                  <TableCell className="text-xs">{(row.legalConstitutions ?? []).join(", ") || "—"}</TableCell>
+                  <TableCell className="text-xs">
+                    {row.minLoanAmountExact && row.maxLoanAmountExact
+                      ? `${row.minLoanAmountExact}–${row.maxLoanAmountExact}`
+                      : "—"}
+                  </TableCell>
                   <TableCell className="text-xs">
                     {row.minRoiExact && row.maxRoiExact
                       ? `${row.minRoiExact}–${row.maxRoiExact}%`
@@ -171,9 +282,12 @@ export function ProductProgramsWorkspace() {
                         ? `${row.roiPercent}%`
                         : "—"}
                   </TableCell>
+                  <TableCell className="text-xs">{row.policyVersionId ?? row.creditRiskPolicyRef ?? "—"}</TableCell>
+                  <TableCell className="text-xs tabular-nums">{(row.requiredDocumentTypeIds ?? []).length}</TableCell>
+                  <TableCell className="text-xs tabular-nums">v{row.versionNumber}</TableCell>
                   <TableCell>
                     <Badge variant={row.isLivePublished ? "default" : "outline"}>
-                      {row.publicationState ?? row.status ?? "draft"}
+                      {programmeStatusLabel(row)}
                     </Badge>
                   </TableCell>
                   <TableCell>

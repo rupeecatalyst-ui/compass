@@ -198,6 +198,43 @@ export function ElwLenderRegistry() {
         exportValue: (row) => row.programName,
       },
       {
+        id: "programCode",
+        label: "Programme code",
+        defaultOrder: 2.1,
+        defaultWidth: 120,
+        render: (row) => <span className="tabular-nums text-muted-foreground">{row.programCode ?? "—"}</span>,
+        exportValue: (row) => row.programCode ?? "",
+      },
+      {
+        id: "productVariant",
+        label: "Variant",
+        defaultOrder: 2.2,
+        defaultWidth: 110,
+        render: (row) => <span className="text-muted-foreground">{row.productVariant || row.productLabel}</span>,
+        exportValue: (row) => row.productVariant || row.productLabel,
+      },
+      {
+        id: "policy",
+        label: "Policy",
+        defaultOrder: 2.3,
+        defaultWidth: 140,
+        render: (row) => (
+          <span className="text-muted-foreground">
+            {row.policyLabel ? `${row.policyLabel}${row.publishedVersion ? ` · v${row.publishedVersion}` : ""}` : "Not mapped"}
+          </span>
+        ),
+        exportValue: (row) => row.policyLabel ?? "",
+      },
+      {
+        id: "documents",
+        label: "Docs",
+        defaultOrder: 2.4,
+        defaultWidth: 64,
+        align: "center",
+        render: (row) => <span className="tabular-nums">{row.documentCount ?? 0}</span>,
+        exportValue: (row) => String(row.documentCount ?? 0),
+      },
+      {
         id: "roi",
         label: "Interest Rate (ROI)",
         sortable: true,
@@ -477,6 +514,21 @@ export function ElwLenderRegistry() {
               <SelectItem value="all">Salaried / Self-employed</SelectItem>
               <SelectItem value="salaried">Salaried</SelectItem>
               <SelectItem value="self_employed">Self-employed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={filters.effectiveWindow}
+            onValueChange={(v) =>
+              patchFilters({ effectiveWindow: v as LenderDirectoryFilters["effectiveWindow"] })
+            }
+          >
+            <SelectTrigger className="h-7 w-[140px] rounded-sm text-[11px]">
+              <SelectValue placeholder="Effective" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Effective / Expired</SelectItem>
+              <SelectItem value="effective">Effective now</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
             </SelectContent>
           </Select>
         </div>
