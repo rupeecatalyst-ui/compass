@@ -28,6 +28,10 @@ import {
   filterEmployeesForInstitution,
   loadEldLenderEmployeeContacts,
 } from "@/lib/enterprise-lender-directory";
+import {
+  resolveProgrammeDocumentSurface,
+  resolveProgrammePolicySurface,
+} from "@/lib/product-programme-operations/policy-surface";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
 import { useProductMasterOptions } from "@/lib/enterprise-product-master";
@@ -581,23 +585,10 @@ export function EnterpriseLenderDirectorySlideOver({
                                 .join(" · ")}
                             </p>
                             <p className="mt-1 text-[11px] text-muted-foreground">
-                              Policy ·{" "}
-                              {p.creditRiskPolicyRef?.trim() || "Not available"}
+                              Policy · {resolveProgrammePolicySurface({ program: p }).label}
                             </p>
                             <p className="mt-0.5 text-[11px] text-muted-foreground">
-                              Documents ·{" "}
-                              {docs.length === 0
-                                ? "Not available"
-                                : docs
-                                    .map(
-                                      (d) =>
-                                        `${"typeRef" in d ? d.typeRef : String(d)}${
-                                          "mandatory" in d && d.mandatory === false
-                                            ? " (optional)"
-                                            : ""
-                                        }`,
-                                    )
-                                    .join(", ")}
+                              Documents · {resolveProgrammeDocumentSurface(docs.length).label}
                             </p>
                           </div>
                           <Button asChild size="sm" variant="ghost" className="h-7 text-[10px]">

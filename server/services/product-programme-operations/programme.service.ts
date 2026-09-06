@@ -13,6 +13,7 @@ import {
   ProgrammeValidationError,
   type ProgrammeVersionRecord,
 } from "@/types/product-programme-operations";
+import { evaluateProgrammeCompleteness } from "@/lib/product-programme-operations/completeness";
 import { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
 
 function assertAdmin(role: string): void {
@@ -111,6 +112,165 @@ export const productProgrammeOperationsService = {
       actorUserId: input.actorUserId,
       actorName: input.actorName,
       reason: createDraftRevision ? "draft_revision_created" : "lender_program_updated",
+    });
+    return updated;
+  },
+
+  async submit(input: {
+    organizationId: string;
+    actorUserId: string;
+    actorRole: string;
+    programId: string;
+    actorName?: string;
+  }) {
+    assertAdmin(input.actorRole);
+    const existing = await lenderRegistryRepository.findProgramById(input.programId);
+    if (!existing) throw new Error("Lender program not found.");
+    if (existing.organizationId !== input.organizationId) {
+      throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
+    }
+    const updated = await lenderRegistryRepository.submitProgram(input.programId, input.actorUserId);
+    await lenderRegistryRepository.recordProgramAudit({
+      organizationId: input.organizationId,
+      programId: updated.id,
+      lineageId: updated.lineageId ?? existing.id,
+      action: "submitted",
+      previousValue: existing,
+      newValue: updated,
+      actorUserId: input.actorUserId,
+      actorName: input.actorName,
+      reason: "submitted_for_approval",
+    });
+    return updated;
+  },
+
+  async approve(input: {
+    organizationId: string;
+    actorUserId: string;
+    actorRole: string;
+    programId: string;
+    actorName?: string;
+    approvalReason?: string;
+  }) {
+    assertAdmin(input.actorRole);
+    const existing = await lenderRegistryRepository.findProgramById(input.programId);
+    if (!existing) throw new Error("Lender program not found.");
+    if (existing.organizationId !== input.organizationId) {
+      throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
+    }
+    if (existing.createdBy === input.actorUserId && input.actorRole !== "SUPER_ADMIN") {
+      throw new ProgrammePermissionError("Creator cannot approve their own programme.");
+    }
+    if (existing.createdBy === input.actorUserId && input.actorRole === "SUPER_ADMIN" && !input.approvalReason?.trim()) {
+      throw new ProgrammePermissionError("Super Admin self-approval requires an audit reason.");
+    }
+    const updated = await lenderRegistryRepository.approveProgram(
+      input.programId,
+      input.actorUserId,
+      input.approvalReason?.trim() || "approved",
+    );
+    await lenderRegistryRepository.recordProgramAudit({
+      organizationId: input.organizationId,
+      programId: updated.id,
+      lineageId: updated.lineageId ?? existing.id,
+      action: "approved",
+      previousValue: existing,
+      newValue: updated,
+      actorUserId: input.actorUserId,
+      actorName: input.actorName,
+      reason: input.approvalReason?.trim() || "approved",
+    });
+    return updated;
+  },
+
+  async publish(input: {
+    organizationId: string;
+    actorUserId: string;
+    actorRole: string;
+    programId: string;
+    actorName?: string;
+  }) {
+    assertAdmin(input.actorRole);
+    const existing = await lenderRegistryRepository.findProgramById(input.programId);
+    if (!existing) throw new Error("Lender program not found.");
+    if (existing.organizationId !== input.organizationId) {
+      throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
+    }
+    if (existing.approvalStatus !== "approved") {
+      throw new ProgrammeValidationError("Programme must be approved before publish", [
+        { field: "approvalStatus", message: "Only an approved draft can be published." },
+      ]);
+    }
+    const completeness = evaluateProgrammeCompleteness({
+      lenderId: existing.lenderId,
+      productId: existing.productId,
+      productCode: existing.productCode,
+      productVariantCode: existing.productVariantCode,
+      code: existing.code,
+      label: existing.label,
+      description: existing.description,
+      applicantTypes: existing.applicantTypes ?? [],
+      employmentTypes: (existing.employmentTypes ?? []) as never,
+      employmentFamily: deriveEmploymentFamily((existing.employmentTypes ?? []) as never),
+      legalConstitutions: (existing.legalConstitutions ?? []) as never,
+      residencyEligibility: (existing.residencyEligibility ?? []) as never,
+      customerSegments: existing.customerSegments ?? [],
+      propertyTypes: existing.propertyTypes ?? [],
+      transactionTypes: existing.transactionTypes ?? [],
+      geographyStates: existing.eligibleStates ?? [],
+      geographyCities: existing.eligibleCities ?? [],
+      minCibil: existing.minCibil ?? null,
+      maxCibil: existing.maxCibil ?? null,
+      minAge: existing.minAge ?? null,
+      maxAge: existing.maxAge ?? null,
+      incomeAssessmentMethods: existing.incomeAssessmentMethods ?? [],
+      minTenureMonths: existing.minTenureMonths ?? null,
+      maxTenureMonths: existing.maxTenureMonths ?? null,
+      minLoanAmountExact: existing.minLoanAmountExact ?? null,
+      maxLoanAmountExact: existing.maxLoanAmountExact ?? null,
+      minIncomeExact: existing.minIncomeExact ?? null,
+      maxIncomeExact: existing.maxIncomeExact ?? null,
+      processingFeeAmountExact: existing.processingFeeAmountExact ?? null,
+      minRoiExact: existing.minRoiExact ?? null,
+      maxRoiExact: existing.maxRoiExact ?? null,
+      processingFeePctExact: existing.processingFeePctExact ?? null,
+      minLtvExact: existing.minLtvExact ?? null,
+      maxLtvExact: existing.maxLtvExact ?? null,
+      minFoirExact: existing.minFoirExact ?? null,
+      maxFoirExact: existing.maxFoirExact ?? null,
+      minDbrExact: existing.minDbrExact ?? null,
+      maxDbrExact: existing.maxDbrExact ?? null,
+      spreadExact: existing.spreadExact ?? null,
+      rateType: existing.rateType ?? null,
+      benchmarkCode: existing.benchmarkCode ?? null,
+      processingFeeLabel: existing.processingFeeLabel ?? null,
+      concessions: existing.concessions ?? [],
+      deviationCategories: existing.deviationCategories ?? [],
+      policyVersionId: existing.policyVersionId ?? null,
+      creditRiskPolicyRef: existing.creditRiskPolicyRef ?? null,
+      requiredDocumentTypeIds: existing.requiredDocumentTypeIds ?? [],
+      requiredDocuments: existing.requiredDocuments ?? [],
+      averageTatDays: existing.averageTatDays ?? null,
+      effectiveFrom: existing.effectiveFrom ?? null,
+      reviewAt: existing.reviewAt ?? null,
+      effectiveUntil: existing.effectiveUntil ?? null,
+      notes: existing.notes ?? null,
+      remarks: existing.remarks ?? null,
+    });
+    if (!completeness.complete) {
+      throw new ProgrammeValidationError("Programme is not complete enough to publish", completeness.errors);
+    }
+    const updated = await lenderRegistryRepository.publishApprovedProgram(input.programId, input.actorUserId);
+    await lenderRegistryRepository.recordProgramAudit({
+      organizationId: input.organizationId,
+      programId: updated.id,
+      lineageId: updated.lineageId ?? existing.id,
+      action: "published",
+      previousValue: existing,
+      newValue: updated,
+      actorUserId: input.actorUserId,
+      actorName: input.actorName,
+      reason: "published",
     });
     return updated;
   },

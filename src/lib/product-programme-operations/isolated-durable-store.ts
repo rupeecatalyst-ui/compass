@@ -14,7 +14,7 @@ import {
   classifyIncompleteStub,
   nextDraftVersionNumber,
 } from "@/lib/product-programme-operations/versioning";
-import { ProgrammePermissionError } from "@/types/product-programme-operations";
+import { ProgrammePermissionError, ProgrammeValidationError } from "@/types/product-programme-operations";
 
 type DurableBag = {
   programmes: ProgrammeVersionRecord[];
@@ -165,6 +165,59 @@ export class IsolatedProgrammeDurableStore {
     return clone(existing);
   }
 
+  submit(input: {
+    organizationId: string;
+    actorUserId: string;
+    actorRole: string;
+    programId: string;
+  }): ProgrammeVersionRecord {
+    this.assertAdmin(input.actorRole);
+    const bag = this.read();
+    const row = bag.programmes.find((item) => item.id === input.programId && !item.isDeleted);
+    if (!row) throw new Error("Lender program not found.");
+    if (row.organizationId !== input.organizationId) {
+      throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
+    }
+    row.publicationState = "pending_approval";
+    row.approvalStatus = "pending";
+    row.submittedByUserId = input.actorUserId;
+    row.submittedAt = new Date().toISOString();
+    row.modifiedBy = input.actorUserId;
+    bag.audits.push(this.audit(input.organizationId, row, "submitted", null, row, input.actorUserId));
+    this.write(bag);
+    return clone(row);
+  }
+
+  approve(input: {
+    organizationId: string;
+    actorUserId: string;
+    actorRole: string;
+    programId: string;
+    approvalReason?: string;
+  }): ProgrammeVersionRecord {
+    this.assertAdmin(input.actorRole);
+    const bag = this.read();
+    const row = bag.programmes.find((item) => item.id === input.programId && !item.isDeleted);
+    if (!row) throw new Error("Lender program not found.");
+    if (row.organizationId !== input.organizationId) {
+      throw new ProgrammePermissionError("Cross-tenant programme access is forbidden.", "TENANT_FORBIDDEN");
+    }
+    if (row.createdBy === input.actorUserId && input.actorRole !== "SUPER_ADMIN") {
+      throw new ProgrammePermissionError("Creator cannot approve their own programme.");
+    }
+    if (row.createdBy === input.actorUserId && input.actorRole === "SUPER_ADMIN" && !input.approvalReason?.trim()) {
+      throw new ProgrammePermissionError("Super Admin self-approval requires an audit reason.");
+    }
+    row.approvalStatus = "approved";
+    row.approvedBy = input.actorUserId;
+    row.approvedAt = new Date().toISOString();
+    row.approvalReason = input.approvalReason ?? "approved";
+    row.modifiedBy = input.actorUserId;
+    bag.audits.push(this.audit(input.organizationId, row, "approved", null, row, input.actorUserId, input.approvalReason));
+    this.write(bag);
+    return clone(row);
+  }
+
   publishApproved(input: {
     organizationId: string;
     actorUserId: string;
@@ -180,6 +233,10 @@ export class IsolatedProgrammeDurableStore {
     }
     if (draft.approvalStatus !== "approved") {
       throw new Error("Only an approved draft can replace the active published version.");
+    }
+    const completeness = evaluateProgrammeCompleteness(draft);
+    if (!completeness.complete) {
+      throw new ProgrammeValidationError("Programme is not complete enough to publish", completeness.errors);
     }
     for (const row of bag.programmes) {
       if (row.lineageId === draft.lineageId && row.isLivePublished) {

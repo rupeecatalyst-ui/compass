@@ -33,7 +33,7 @@ import {
   recordToEditorState,
   type ProgrammeEditorState,
 } from "@/lib/product-programme-operations/editor-state";
-import { toProgrammeWritePayload } from "@/lib/product-programme-operations/to-write-payload";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import { listEcmMasterOptions } from "@/constants/enterprise-contact-master/masters";
 import type { EnterpriseLenderProgramRecord, EnterpriseLenderRecord } from "@/types/enterprise-lender-registry";
 import { cn } from "@/lib/utils";
@@ -151,7 +151,32 @@ export function ProductProgrammeEditor({
     }
   }
 
-  function requestClose() {
+  async function runWorkflow(action: "submit" | "approve" | "publish") {
+    if (!state.id) return;
+    setSaving(true);
+    try {
+      const approvalReason =
+        action === "approve" ? window.prompt("Approval reason (required for Super Admin self-approval)") ?? "" : undefined;
+      const res = await authenticatedJsonFetch(`/api/lender-registry/programs/${state.id}/workflow`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, approvalReason }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.success) {
+        const fields = Array.isArray(body?.error?.fieldErrors)
+          ? body.error.fieldErrors.map((item: { field: string; message: string }) => `${item.field}: ${item.message}`).join("; ")
+          : "";
+        throw new Error(body?.error?.message || fields || "Workflow failed");
+      }
+      toast.success(`${action} succeeded.`);
+      onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Workflow failed");
+    } finally {
+      setSaving(false);
+    }
+  }
     if (dirty && !window.confirm("You have unsaved changes. Discard and close?")) return;
     onClose();
   }
@@ -467,9 +492,26 @@ export function ProductProgrammeEditor({
         </ul>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => void saveDraft()} disabled={saving}>Save Draft</Button>
-          <Button variant="secondary" disabled title="Submit is available after Sprint 3 publication workflow.">Submit</Button>
-          <Button variant="secondary" disabled title="Approve is a maker-checker action.">Approve</Button>
-          <Button variant="secondary" disabled={!completeness.complete} title="Publish requires an approved complete programme.">Publish</Button>
+          <Button
+            variant="secondary"
+            disabled={saving || !state.id}
+            onClick={() => void runWorkflow("submit")}
+          >
+            Submit
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={saving || !state.id}
+            onClick={() => void runWorkflow("approve")}
+          >
+            Approve
+          </Button>
+          <Button
+            disabled={saving || !state.id || !completeness.complete}
+            onClick={() => void runWorkflow("publish")}
+          >
+            Publish
+          </Button>
         </div>
         {dirty ? <p className="text-sm text-muted-foreground">Unsaved changes on this programme.</p> : null}
       </section>

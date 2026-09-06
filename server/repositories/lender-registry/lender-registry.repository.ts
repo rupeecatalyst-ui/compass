@@ -1129,6 +1129,69 @@ export class LenderRegistryRepository {
     });
   }
 
+  async submitProgram(id: string, actorId: string) {
+    const row = await prisma.enterpriseLenderProgram.update({
+      where: { id },
+      data: {
+        publicationState: "pending_approval",
+        approvalStatus: "pending",
+        submittedByUserId: actorId,
+        submittedAt: new Date(),
+        modifiedBy: actorId,
+        lockVersion: { increment: 1 },
+      },
+    });
+    return mapProgramRow(row);
+  }
+
+  async approveProgram(id: string, actorId: string, reason: string) {
+    const row = await prisma.enterpriseLenderProgram.update({
+      where: { id },
+      data: {
+        approvalStatus: "approved",
+        approvedBy: actorId,
+        approvedAt: new Date(),
+        approvalReason: reason,
+        modifiedBy: actorId,
+        lockVersion: { increment: 1 },
+      },
+    });
+    return mapProgramRow(row);
+  }
+
+  async publishApprovedProgram(id: string, actorId: string) {
+    const current = await prisma.enterpriseLenderProgram.findUnique({ where: { id } });
+    if (!current) throw new Error("Lender program not found.");
+    await prisma.enterpriseLenderProgram.updateMany({
+      where: {
+        lineageId: current.lineageId,
+        isLivePublished: true,
+        id: { not: id },
+      },
+      data: {
+        isLivePublished: false,
+        publicationState: "superseded",
+        lifecycleStatus: "inactive",
+        status: "inactive",
+        modifiedBy: actorId,
+      },
+    });
+    const row = await prisma.enterpriseLenderProgram.update({
+      where: { id },
+      data: {
+        publicationState: "published",
+        isLivePublished: true,
+        completenessState: "complete",
+        lifecycleStatus: "active",
+        status: "active",
+        enabled: true,
+        modifiedBy: actorId,
+        lockVersion: { increment: 1 },
+      },
+    });
+    return mapProgramRow(row);
+  }
+
   async setProgramStatus(
 
     id: string,

@@ -222,7 +222,7 @@ export const lenderRegistryClient = {
       let items = api.items;
       if (query.publishedOnly) {
         items = items.filter(
-          (p) => p.status === "active" && p.lifecycleStatus === "active" && p.enabled,
+          (p) => p.isLivePublished === true && p.publicationState === "published" && p.completenessState === "complete",
         );
       }
       if (query.productCode) {

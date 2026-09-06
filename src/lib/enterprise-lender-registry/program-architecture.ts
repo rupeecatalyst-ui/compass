@@ -18,8 +18,9 @@ export function isPublishedCommercialProgram(
   return (
     !program.isDeleted &&
     program.enabled &&
-    program.status === "active" &&
-    program.lifecycleStatus === "active"
+    program.isLivePublished === true &&
+    program.publicationState === "published" &&
+    program.completenessState === "complete"
   );
 }
 
