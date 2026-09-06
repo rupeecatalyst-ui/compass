@@ -3,9 +3,12 @@
  * Runs redesign 001–021 plus existing Marketing safety verifiers.
  * Does not migrate, send, commit, push, or invoke `npm run build` (that script runs Prisma migrate).
  */
-import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  MARKETING_PRESTAGING_GATE_SCRIPTS,
+  runAllowlistedMarketingNpmScript,
+} from "./lib/marketing-safe-spawn.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -16,8 +19,7 @@ if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 3
   process.env.JWT_REFRESH_SECRET = "marketing-pre-staging-local-jwt-refresh-bbbb";
 }
 
-const requested = process.argv.slice(2);
-const gates = [
+const PRESTAGING_GATE_IDENTITY = Object.freeze([
   "verify:co-marketing-redesign-001",
   "verify:co-marketing-redesign-002",
   "verify:co-marketing-redesign-003",
@@ -53,11 +55,18 @@ const gates = [
   "verify:co-marketing-mkt-13",
   "verify:co-marketing-activation-002",
   "verify:co-marketing-campaign-durability",
-];
+]);
 
+if (PRESTAGING_GATE_IDENTITY.join("\n") !== MARKETING_PRESTAGING_GATE_SCRIPTS.join("\n")) {
+  console.error("Pre-staging identity list drifted from spawn allowlist");
+  process.exit(1);
+}
+
+const requested = process.argv.slice(2);
+const gates = PRESTAGING_GATE_IDENTITY;
 const selected = requested.length
   ? gates.filter((script) => requested.includes(script))
-  : gates;
+  : [...gates];
 if (requested.length && selected.length !== requested.length) {
   const unknown = requested.filter((script) => !gates.includes(script));
   console.error(`Unknown pre-staging gate(s): ${unknown.join(", ")}`);
@@ -69,10 +78,8 @@ let failed = false;
 
 for (const script of selected) {
   console.log(`\n======== ${script} ========`);
-  const run = spawnSync("npm", ["run", script], {
+  const run = runAllowlistedMarketingNpmScript(script, {
     cwd: root,
-    stdio: "inherit",
-    shell: true,
     env: {
       ...process.env,
       ENTERPRISE_MARKETING_EXECUTION_ENABLED: "false",

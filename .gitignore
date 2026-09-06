@@ -46,6 +46,12 @@ vercel.json.backup
 .tmp*
 *.tmp
 
+# Marketing BAT visual evidence (PNG) — never commit unless Product Owner approves
+docs/co-marketing-bat-001/screenshots/
+docs/co-marketing-bat-001/_gate-logs/
+docs/co-marketing-redesign-022/screenshots/
+scripts/marketing-visual-harness/dist/
+
 # TypeScript incremental
 *.tsbuildinfo
 tsconfig.tsbuildinfo

@@ -34,6 +34,7 @@ window.fetch = (input, init) => {
 
 const params = new URLSearchParams(window.location.search);
 const surface = (params.get("surface") || "home") as keyof typeof VISUAL_SURFACES;
+window.__MARKETING_BAT_STATE = params.get("batState") || "default";
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("visual harness missing #root");
 

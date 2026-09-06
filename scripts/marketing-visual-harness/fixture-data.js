@@ -132,6 +132,10 @@ export function resolveMarketingFixture(url, init) {
   const path = parsed.pathname;
   const view = parsed.searchParams.get("view");
   const method = (init?.method || "GET").toUpperCase();
+  const batState =
+    (typeof globalThis !== "undefined" && globalThis.__MARKETING_BAT_STATE) ||
+    parsed.searchParams.get("batState") ||
+    "default";
 
   if (!path.startsWith("/api/admin/marketing")) {
     throw new Error(`visual harness blocked non-Marketing request: ${path}`);
@@ -182,6 +186,9 @@ export function resolveMarketingFixture(url, init) {
   }
 
   if (path === "/api/admin/marketing/campaigns") {
+    if (batState === "empty") {
+      return jsonOk({ campaigns: [] });
+    }
     if (parsed.searchParams.get("id") === CAMPAIGN_ID) {
       if (view === "pre-publish") {
         return jsonOk({
@@ -211,12 +218,22 @@ export function resolveMarketingFixture(url, init) {
           },
         });
       }
-      return jsonOk({ campaign: FIXTURE_CAMPAIGN, draft: FIXTURE_VERSION });
+      const campaign = {
+        ...FIXTURE_CAMPAIGN,
+        status:
+          batState === "paused" ? "PAUSED" : batState === "stopped" ? "STOPPED" : FIXTURE_CAMPAIGN.status,
+      };
+      return jsonOk({ campaign, draft: FIXTURE_VERSION });
     }
     if (view === "templates") {
       return jsonOk({ templates: [] });
     }
-    return jsonOk({ campaigns: [FIXTURE_CAMPAIGN] });
+    const listed = {
+      ...FIXTURE_CAMPAIGN,
+      status:
+        batState === "paused" ? "PAUSED" : batState === "stopped" ? "STOPPED" : FIXTURE_CAMPAIGN.status,
+    };
+    return jsonOk({ campaigns: [listed] });
   }
 
   if (path === "/api/admin/marketing/qualifications") {
