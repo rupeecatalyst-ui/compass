@@ -190,6 +190,11 @@ model Organization {
   lenderPrograms            EnterpriseLenderProgram[]
   lenderContacts            EnterpriseLenderContact[]
   lenderDocuments           EnterpriseLenderDocument[]
+  /// CO-PRODUCT-PROGRAM-OPERATIONS-001 — durable Credit & Risk policy + programme audit
+  enterpriseCreditRiskPolicies          EnterpriseCreditRiskPolicy[]
+  enterpriseCreditRiskPolicyVersions    EnterpriseCreditRiskPolicyVersion[]
+  enterpriseCreditRiskPolicyAuditEvents EnterpriseCreditRiskPolicyAuditEvent[]
+  enterpriseLenderProgramAuditEvents    EnterpriseLenderProgramAuditEvent[]
   /// CO-ARCH-003 — Opportunity Registry
   enterpriseOpportunities              EnterpriseOpportunity[]
   enterpriseOpportunityNumberSequences EnterpriseOpportunityNumberSequence[]
@@ -2046,6 +2051,28 @@ enum RegistryImportBatchStatus {
   failed
 }
 
+/// CO-PRODUCT-PROGRAM-OPERATIONS-001 — publication lineage (never overwrite published rows)
+enum ProgrammePublicationState {
+  draft
+  pending_approval
+  published
+  superseded
+  archived
+}
+
+enum ProgrammeCompletenessState {
+  incomplete
+  complete
+}
+
+enum DurablePolicyStatus {
+  draft
+  pending_approval
+  published
+  superseded
+  retired
+}
+
 enum RegistryAuditAction {
   created
   updated
@@ -2713,6 +2740,48 @@ model EnterpriseLenderProgram {
   effectiveFrom     DateTime?                    @map("effective_from")
   effectiveUntil    DateTime?                    @map("effective_until")
   notes             String?                      @db.Text
+  /// CO-PRODUCT-PROGRAM-OPERATIONS-001 — structured programme + version lineage
+  lineageId         String                       @map("lineage_id")
+  lockVersion       Int                          @default(1) @map("lock_version")
+  productVariantCode String?                     @map("product_variant_code")
+  applicantTypes    Json?                        @map("applicant_types")
+  employmentTypes   Json?                        @map("employment_types")
+  legalConstitutions Json?                       @map("legal_constitutions")
+  residencyEligibility Json?                     @map("residency_eligibility")
+  customerSegments  Json?                        @map("customer_segments")
+  propertyTypes     Json?                        @map("property_types")
+  transactionTypes  Json?                        @map("transaction_types")
+  incomeAssessmentMethods Json?                  @map("income_assessment_methods")
+  rateType          String?                      @map("rate_type")
+  benchmarkCode     String?                      @map("benchmark_code")
+  concessions       Json?
+  deviationCategories Json?                      @map("deviation_categories")
+  completenessState ProgrammeCompletenessState   @default(incomplete) @map("completeness_state")
+  publicationState  ProgrammePublicationState    @default(draft) @map("publication_state")
+  isLivePublished   Boolean                      @default(false) @map("is_live_published")
+  reviewAt          DateTime?                    @map("review_at")
+  submittedByUserId String?                      @map("submitted_by_user_id")
+  submittedAt       DateTime?                    @map("submitted_at")
+  approvalReason    String?                      @map("approval_reason") @db.Text
+  supersedesProgramId String?                    @map("supersedes_program_id")
+  policyVersionId   String?                      @map("policy_version_id")
+  minTenureMonths   Int?                         @map("min_tenure_months")
+  maxCibil          Int?                         @map("max_cibil")
+  minRoiExact       Decimal?                     @map("min_roi_exact") @db.Decimal(9, 6)
+  maxRoiExact       Decimal?                     @map("max_roi_exact") @db.Decimal(9, 6)
+  minLoanAmountExact Decimal?                    @map("min_loan_amount_exact") @db.Decimal(18, 2)
+  maxLoanAmountExact Decimal?                    @map("max_loan_amount_exact") @db.Decimal(18, 2)
+  minIncomeExact    Decimal?                     @map("min_income_exact") @db.Decimal(18, 2)
+  maxIncomeExact    Decimal?                     @map("max_income_exact") @db.Decimal(18, 2)
+  processingFeeAmountExact Decimal?              @map("processing_fee_amount_exact") @db.Decimal(18, 2)
+  processingFeePctExact Decimal?                 @map("processing_fee_pct_exact") @db.Decimal(9, 6)
+  minLtvExact       Decimal?                     @map("min_ltv_exact") @db.Decimal(9, 6)
+  maxLtvExact       Decimal?                     @map("max_ltv_exact") @db.Decimal(9, 6)
+  minFoirExact      Decimal?                     @map("min_foir_exact") @db.Decimal(9, 6)
+  maxFoirExact      Decimal?                     @map("max_foir_exact") @db.Decimal(9, 6)
+  minDbrExact       Decimal?                     @map("min_dbr_exact") @db.Decimal(9, 6)
+  maxDbrExact       Decimal?                     @map("max_dbr_exact") @db.Decimal(9, 6)
+  spreadExact       Decimal?                     @map("spread_exact") @db.Decimal(9, 6)
   isDeleted         Boolean                      @default(false) @map("is_deleted")
   deletedAt         DateTime?                    @map("deleted_at")
   deletedBy         String?                      @map("deleted_by")
@@ -2728,13 +2797,114 @@ model EnterpriseLenderProgram {
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   lender       EnterpriseLender @relation(fields: [lenderId], references: [id], onDelete: Restrict)
   product      EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  policyVersion EnterpriseCreditRiskPolicyVersion? @relation(fields: [policyVersionId], references: [id], onDelete: SetNull)
   deals        EnterpriseDeal[]
+  auditEvents  EnterpriseLenderProgramAuditEvent[]
 
-  @@unique([organizationId, code], map: "elprog_org_code_key")
+  @@unique([organizationId, lineageId, versionNumber], map: "elprog_org_lineage_version_key")
+  @@index([organizationId, code], map: "elprog_org_code_idx")
   @@index([organizationId, lenderId, status, enabled], map: "elprog_org_lender_status_idx")
   @@index([organizationId, lifecycleStatus], map: "elprog_org_lifecycle_idx")
   @@index([organizationId, isDeleted], map: "elprog_org_deleted_idx")
+  @@index([organizationId, publicationState, isLivePublished], map: "elprog_org_publication_idx")
   @@map("enterprise_lender_programs")
+}
+
+model EnterpriseCreditRiskPolicy {
+  id                         String              @id @default(cuid())
+  organizationId             String              @map("organization_id")
+  policyCode                 String              @map("policy_code")
+  name                       String
+  lenderId                   String?             @map("lender_id")
+  productCode                String?             @map("product_code")
+  productVariantCode         String?             @map("product_variant_code")
+  status                     DurablePolicyStatus @default(draft)
+  currentPublishedVersionId  String?             @map("current_published_version_id")
+  sourceRef                  String?             @map("source_ref")
+  createdBy                  String              @map("created_by")
+  modifiedBy                 String              @map("modified_by")
+  createdAt                  DateTime            @default(now()) @map("created_at")
+  updatedAt                  DateTime            @updatedAt @map("updated_at")
+  isDeleted                  Boolean             @default(false) @map("is_deleted")
+
+  organization Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  versions     EnterpriseCreditRiskPolicyVersion[]
+  auditEvents  EnterpriseCreditRiskPolicyAuditEvent[]
+
+  @@unique([organizationId, policyCode], map: "ecrp_org_code_key")
+  @@index([organizationId, status], map: "ecrp_org_status_idx")
+  @@map("enterprise_credit_risk_policies")
+}
+
+model EnterpriseCreditRiskPolicyVersion {
+  id                 String              @id @default(cuid())
+  organizationId     String              @map("organization_id")
+  policyId           String              @map("policy_id")
+  versionNumber      Int                 @map("version_number")
+  status             DurablePolicyStatus @default(draft)
+  eligibilityRules   Json                @default("{}") @map("eligibility_rules")
+  creditRules        Json                @default("{}") @map("credit_rules")
+  payload            Json                @default("{}")
+  sourceRef          String?             @map("source_ref")
+  effectiveFrom      DateTime?           @map("effective_from")
+  reviewAt           DateTime?           @map("review_at")
+  effectiveUntil     DateTime?           @map("effective_until")
+  createdBy          String              @map("created_by")
+  approvedBy         String?             @map("approved_by")
+  approvedAt         DateTime?           @map("approved_at")
+  publishedBy        String?             @map("published_by")
+  publishedAt        DateTime?           @map("published_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  policy       EnterpriseCreditRiskPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+  programmes   EnterpriseLenderProgram[]
+
+  @@unique([policyId, versionNumber], map: "ecrpv_policy_version_key")
+  @@index([organizationId, status], map: "ecrpv_org_status_idx")
+  @@map("enterprise_credit_risk_policy_versions")
+}
+
+model EnterpriseCreditRiskPolicyAuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  policyId       String   @map("policy_id")
+  versionId      String?  @map("version_id")
+  action         String
+  previousValue  Json?    @map("previous_value")
+  newValue       Json?    @map("new_value")
+  actorUserId    String   @map("actor_user_id")
+  actorName      String?  @map("actor_name")
+  reason         String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  policy       EnterpriseCreditRiskPolicy @relation(fields: [policyId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, policyId, createdAt], map: "ecrpa_org_policy_idx")
+  @@map("enterprise_credit_risk_policy_audit_events")
+}
+
+model EnterpriseLenderProgramAuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  programId      String   @map("program_id")
+  lineageId      String   @map("lineage_id")
+  action         String
+  previousValue  Json?    @map("previous_value")
+  newValue       Json?    @map("new_value")
+  actorUserId    String   @map("actor_user_id")
+  actorName      String?  @map("actor_name")
+  reason         String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  program      EnterpriseLenderProgram @relation(fields: [programId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, programId, createdAt], map: "elpae_org_program_idx")
+  @@index([lineageId], map: "elpae_lineage_idx")
+  @@map("enterprise_lender_program_audit_events")
 }
 
 model EnterpriseLenderContact {

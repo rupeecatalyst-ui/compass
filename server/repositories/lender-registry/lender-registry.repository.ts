@@ -1,6 +1,9 @@
 import { Prisma, type RegistryStatus } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 
 import { prisma } from "@server/lib/prisma";
+import { structuredCreateData, structuredUpdateData } from "@server/repositories/lender-registry/structured-program-data";
+import { classifyIncompleteStub } from "@/lib/product-programme-operations/versioning";
 
 import type {
 
@@ -898,8 +901,20 @@ export class LenderRegistryRepository {
 
 
 
+    const id = randomUUID();
+    const structured = structuredCreateData(input);
+    const completeness = classifyIncompleteStub({
+      policyVersionId: input.policyVersionId,
+      creditRiskPolicyRef: input.creditRiskPolicyRef,
+      requiredDocumentTypeIds: input.requiredDocumentTypeIds,
+      minRoiExact: input.minRoiExact,
+      maxRoiExact: input.maxRoiExact,
+    });
+
     const row = await prisma.enterpriseLenderProgram.create({
       data: {
+        id,
+        lineageId: id,
         organizationId,
         lenderId: input.lenderId,
         productId: input.productId,
@@ -908,20 +923,20 @@ export class LenderRegistryRepository {
         label: input.label.trim(),
         description: input.description?.trim(),
         borrowerType: input.borrowerType?.trim() || null,
-        employmentType: input.employmentType?.trim() || null,
+        employmentType: input.employmentType?.trim() || (input.employmentTypes ?? []).join(",") || null,
         roiPercent: input.roiPercent ?? null,
-        minRoiPercent: input.minRoiPercent ?? null,
-        maxRoiPercent: input.maxRoiPercent ?? null,
+        minRoiPercent: structured.minRoiPercent ?? null,
+        maxRoiPercent: structured.maxRoiPercent ?? null,
         processingFeeLabel: input.processingFeeLabel?.trim() || null,
-        processingFeePct: input.processingFeePct ?? null,
-        maxFundingAmount: input.maxFundingAmount ?? null,
-        maxLtvPercent: input.maxLtvPercent ?? null,
+        processingFeePct: structured.processingFeePct ?? null,
+        maxFundingAmount: structured.maxFundingAmount ?? null,
+        maxLtvPercent: structured.maxLtvPercent ?? null,
         maxTenureMonths: input.maxTenureMonths ?? null,
         minCibil: input.minCibil ?? null,
-        minIncomeAmount: input.minIncomeAmount ?? null,
-        maxFoirPercent: input.maxFoirPercent ?? null,
-        maxDbrPercent: input.maxDbrPercent ?? null,
-        minFundingAmount: input.minFundingAmount ?? null,
+        minIncomeAmount: structured.minIncomeAmount ?? null,
+        maxFoirPercent: structured.maxFoirPercent ?? null,
+        maxDbrPercent: structured.maxDbrPercent ?? null,
+        minFundingAmount: structured.minFundingAmount ?? null,
         minAge: input.minAge ?? null,
         maxAge: input.maxAge ?? null,
         creditRiskPolicyRef: input.creditRiskPolicyRef?.trim() || null,
@@ -936,6 +951,43 @@ export class LenderRegistryRepository {
         notes: input.notes?.trim(),
         createdBy: input.createdBy,
         modifiedBy: input.createdBy,
+        completenessState: completeness.completenessState,
+        publicationState: "draft",
+        isLivePublished: false,
+        productVariantCode: structured.productVariantCode,
+        applicantTypes: structured.applicantTypes,
+        employmentTypes: structured.employmentTypes,
+        legalConstitutions: structured.legalConstitutions,
+        residencyEligibility: structured.residencyEligibility,
+        customerSegments: structured.customerSegments,
+        propertyTypes: structured.propertyTypes,
+        transactionTypes: structured.transactionTypes,
+        incomeAssessmentMethods: structured.incomeAssessmentMethods,
+        rateType: structured.rateType,
+        benchmarkCode: structured.benchmarkCode,
+        concessions: structured.concessions,
+        deviationCategories: structured.deviationCategories,
+        policyVersionId: structured.policyVersionId,
+        minTenureMonths: structured.minTenureMonths,
+        maxCibil: structured.maxCibil,
+        minRoiExact: structured.minRoiExact,
+        maxRoiExact: structured.maxRoiExact,
+        minLoanAmountExact: structured.minLoanAmountExact,
+        maxLoanAmountExact: structured.maxLoanAmountExact,
+        minIncomeExact: structured.minIncomeExact,
+        maxIncomeExact: structured.maxIncomeExact,
+        processingFeeAmountExact: structured.processingFeeAmountExact,
+        processingFeePctExact: structured.processingFeePctExact,
+        minLtvExact: structured.minLtvExact,
+        maxLtvExact: structured.maxLtvExact,
+        minFoirExact: structured.minFoirExact,
+        maxFoirExact: structured.maxFoirExact,
+        minDbrExact: structured.minDbrExact,
+        maxDbrExact: structured.maxDbrExact,
+        spreadExact: structured.spreadExact,
+        reviewAt: structured.reviewAt,
+        effectiveFrom: structured.effectiveFrom,
+        effectiveUntil: structured.effectiveUntil,
       },
     });
 
@@ -999,13 +1051,82 @@ export class LenderRegistryRepository {
         enabled: input.enabled,
         notes: input.notes,
         modifiedBy: input.modifiedBy,
-        versionNumber: {
-          increment: 1,
-        },
+        lockVersion: { increment: 1 },
+        ...structuredUpdateData(input),
       },
     });
 
     return mapProgramRow(row);
+  }
+
+  async createDraftFromPublished(publishedId: string, input: UpdateLenderProgramInput) {
+    const published = await prisma.enterpriseLenderProgram.findUnique({ where: { id: publishedId } });
+    if (!published) throw new Error("Lender program not found.");
+    const id = randomUUID();
+    const structured = structuredUpdateData(input);
+    const row = await prisma.enterpriseLenderProgram.create({
+      data: {
+        id,
+        organizationId: published.organizationId,
+        lenderId: input.lenderId ?? published.lenderId,
+        productId: input.productId === undefined ? published.productId : input.productId,
+        productCode: input.productCode === undefined ? published.productCode : input.productCode,
+        code: published.code,
+        label: (input.label ?? published.label).trim(),
+        description: input.description === undefined ? published.description : input.description,
+        lineageId: published.lineageId,
+        versionNumber: published.versionNumber + 1,
+        lockVersion: 1,
+        publicationState: "draft",
+        isLivePublished: false,
+        completenessState: "incomplete",
+        lifecycleStatus: "draft",
+        status: "draft",
+        approvalStatus: "none",
+        supersedesProgramId: published.id,
+        enabled: true,
+        createdBy: input.modifiedBy,
+        modifiedBy: input.modifiedBy,
+        creditRiskPolicyRef:
+          input.creditRiskPolicyRef === undefined ? published.creditRiskPolicyRef : input.creditRiskPolicyRef,
+        requiredDocumentTypeIds:
+          input.requiredDocumentTypeIds === undefined
+            ? published.requiredDocumentTypeIds ?? undefined
+            : input.requiredDocumentTypeIds,
+        eligibleStates:
+          input.eligibleStates === undefined ? published.eligibleStates ?? undefined : input.eligibleStates,
+        eligibleCities:
+          input.eligibleCities === undefined ? published.eligibleCities ?? undefined : input.eligibleCities,
+        ...structured,
+      },
+    });
+    return mapProgramRow(row);
+  }
+
+  async recordProgramAudit(input: {
+    organizationId: string;
+    programId: string;
+    lineageId: string;
+    action: string;
+    previousValue?: object | null;
+    newValue?: object | null;
+    actorUserId: string;
+    actorName?: string;
+    reason: string;
+  }) {
+    await prisma.enterpriseLenderProgramAuditEvent.create({
+      data: {
+        organizationId: input.organizationId,
+        programId: input.programId,
+        lineageId: input.lineageId,
+        action: input.action,
+        previousValue: input.previousValue === undefined ? undefined : (input.previousValue as object),
+        newValue: input.newValue === undefined ? undefined : (input.newValue as object),
+        actorUserId: input.actorUserId,
+        actorName: input.actorName,
+        reason: input.reason,
+      },
+    });
   }
 
   async setProgramStatus(

@@ -36,6 +36,11 @@ function jsonToStringArray(value: Prisma.JsonValue | null): string[] | null {
 
 }
 
+function decimalToExact(value: unknown): string | null {
+  if (value == null) return null;
+  return String(value);
+}
+
 
 
 export function normalizeLenderRegistryCode(code: string): string {
@@ -426,6 +431,47 @@ export function mapProgramRow(row: {
   modifiedBy: string;
   createdAt: Date;
   updatedAt: Date;
+  lineageId?: string | null;
+  lockVersion?: number | null;
+  productVariantCode?: string | null;
+  applicantTypes?: unknown;
+  employmentTypes?: unknown;
+  legalConstitutions?: unknown;
+  residencyEligibility?: unknown;
+  customerSegments?: unknown;
+  propertyTypes?: unknown;
+  transactionTypes?: unknown;
+  incomeAssessmentMethods?: unknown;
+  rateType?: string | null;
+  benchmarkCode?: string | null;
+  concessions?: unknown;
+  deviationCategories?: unknown;
+  completenessState?: EnterpriseLenderProgramRecord["completenessState"];
+  publicationState?: EnterpriseLenderProgramRecord["publicationState"];
+  isLivePublished?: boolean | null;
+  reviewAt?: Date | null;
+  submittedByUserId?: string | null;
+  submittedAt?: Date | null;
+  approvalReason?: string | null;
+  supersedesProgramId?: string | null;
+  policyVersionId?: string | null;
+  minTenureMonths?: number | null;
+  maxCibil?: number | null;
+  minRoiExact?: unknown;
+  maxRoiExact?: unknown;
+  minLoanAmountExact?: unknown;
+  maxLoanAmountExact?: unknown;
+  minIncomeExact?: unknown;
+  maxIncomeExact?: unknown;
+  processingFeeAmountExact?: unknown;
+  processingFeePctExact?: unknown;
+  minLtvExact?: unknown;
+  maxLtvExact?: unknown;
+  minFoirExact?: unknown;
+  maxFoirExact?: unknown;
+  minDbrExact?: unknown;
+  maxDbrExact?: unknown;
+  spreadExact?: unknown;
 }): EnterpriseLenderProgramRecord {
   return {
     id: row.id,
@@ -505,6 +551,47 @@ export function mapProgramRow(row: {
     modifiedBy: row.modifiedBy,
     createdAt: toIso(row.createdAt),
     updatedAt: toIso(row.updatedAt),
+    lineageId: row.lineageId ?? row.id,
+    lockVersion: row.lockVersion ?? 1,
+    productVariantCode: row.productVariantCode ?? null,
+    applicantTypes: jsonToStringArray((row.applicantTypes as never) ?? null),
+    employmentTypes: jsonToStringArray((row.employmentTypes as never) ?? null),
+    legalConstitutions: jsonToStringArray((row.legalConstitutions as never) ?? null),
+    residencyEligibility: jsonToStringArray((row.residencyEligibility as never) ?? null),
+    customerSegments: jsonToStringArray((row.customerSegments as never) ?? null),
+    propertyTypes: jsonToStringArray((row.propertyTypes as never) ?? null),
+    transactionTypes: jsonToStringArray((row.transactionTypes as never) ?? null),
+    incomeAssessmentMethods: jsonToStringArray((row.incomeAssessmentMethods as never) ?? null),
+    rateType: row.rateType ?? null,
+    benchmarkCode: row.benchmarkCode ?? null,
+    concessions: jsonToStringArray((row.concessions as never) ?? null),
+    deviationCategories: jsonToStringArray((row.deviationCategories as never) ?? null),
+    completenessState: row.completenessState ?? "incomplete",
+    publicationState: row.publicationState ?? "draft",
+    isLivePublished: row.isLivePublished ?? false,
+    reviewAt: row.reviewAt ? toIso(row.reviewAt) : null,
+    submittedByUserId: row.submittedByUserId ?? null,
+    submittedAt: row.submittedAt ? toIso(row.submittedAt) : null,
+    approvalReason: row.approvalReason ?? null,
+    supersedesProgramId: row.supersedesProgramId ?? null,
+    policyVersionId: row.policyVersionId ?? null,
+    minTenureMonths: row.minTenureMonths ?? null,
+    maxCibil: row.maxCibil ?? null,
+    minRoiExact: decimalToExact(row.minRoiExact),
+    maxRoiExact: decimalToExact(row.maxRoiExact),
+    minLoanAmountExact: decimalToExact(row.minLoanAmountExact),
+    maxLoanAmountExact: decimalToExact(row.maxLoanAmountExact),
+    minIncomeExact: decimalToExact(row.minIncomeExact),
+    maxIncomeExact: decimalToExact(row.maxIncomeExact),
+    processingFeeAmountExact: decimalToExact(row.processingFeeAmountExact),
+    processingFeePctExact: decimalToExact(row.processingFeePctExact),
+    minLtvExact: decimalToExact(row.minLtvExact),
+    maxLtvExact: decimalToExact(row.maxLtvExact),
+    minFoirExact: decimalToExact(row.minFoirExact),
+    maxFoirExact: decimalToExact(row.maxFoirExact),
+    minDbrExact: decimalToExact(row.minDbrExact),
+    maxDbrExact: decimalToExact(row.maxDbrExact),
+    spreadExact: decimalToExact(row.spreadExact),
   };
 }
 

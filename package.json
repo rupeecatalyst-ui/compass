@@ -96,6 +96,7 @@
     "verify:co-deal-pipeline-transition-001": "node --import tsx scripts/co-deal-pipeline-transition-001-verify.mjs",
     "verify:co-deal-pipeline-transition-002": "node --import tsx scripts/co-deal-pipeline-transition-002-verify.mjs",
     "verify:co-prog-004": "node scripts/co-prog-004-verify.mjs",
+    "verify:co-product-program-operations-001": "node --import tsx scripts/co-product-program-operations-001-sprint1-verify.mjs",
     "verify:co-dws-001": "node scripts/co-dws-001-verify.mjs",
     "verify:co-dws-001c": "node scripts/co-dws-001c-verify.mjs",
     "verify:co-bug-001": "node scripts/co-bug-001-verify.mjs",
