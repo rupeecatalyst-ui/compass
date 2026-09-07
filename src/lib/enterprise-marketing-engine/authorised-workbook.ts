@@ -9,7 +9,9 @@ import {
   MARKETING_FIXTURE_VISIBLE_LABEL,
   MARKETING_FIXTURE_WORKBOOK_ID,
   MARKETING_NOT_CONFIGURED_LABEL,
+  MARKETING_WORKBOOK_CONNECTION_LABELS,
   type MarketingSheetsSourceStatus,
+  type MarketingWorkbookConnectionState,
 } from "@/constants/enterprise-marketing-engine/authorised-workbook";
 
 export type MarketingSheetsSourceResolution = {
@@ -80,13 +82,13 @@ export function resolveMarketingSheetsSourceStatus(): MarketingSheetsSourceResol
   }
 
   if (sheetsMode === "live") {
-    if (!googleConfigured || !authorisedFromEnv) {
+    if (!googleConfigured) {
       return {
         status: "NOT_CONFIGURED",
         sheetsMode,
         authorisedWorkbookId: authorisedFromEnv,
         authorisedWorkbookDisplayName: env("MARKETING_SHEETS_DEFAULT_DISPLAY_NAME") || null,
-        googleCredentialsConfigured: googleConfigured,
+        googleCredentialsConfigured: false,
         fixtureAllowed: false,
         label: "NOT_CONFIGURED",
         notice: MARKETING_NOT_CONFIGURED_LABEL,
@@ -102,7 +104,7 @@ export function resolveMarketingSheetsSourceStatus(): MarketingSheetsSourceResol
       fixtureAllowed: false,
       label: "LIVE GOOGLE SHEETS (server-side, read-only)",
       notice:
-        "Using the organisation-authorised Google workbook. Credentials stay on the server and are never sent to the browser.",
+        "Using organisation-authorised Google workbooks. Credentials stay on the server and are never sent to the browser.",
     };
   }
 
@@ -169,4 +171,68 @@ export function marketingSheetsNotConfiguredError(): Error {
     statusCode: 503,
     code: "NOT_CONFIGURED",
   });
+}
+
+function looksLikeGoogleDriveBrowse(value: string): boolean {
+  return /drive\.google\.com|docs\.google\.com\/drive|\/folders\//i.test(value);
+}
+
+/**
+ * Admin register path: fixture IDs stay locked; live mode accepts an explicit
+ * spreadsheet ID (typed by an administrator) — never Drive folder browsing.
+ */
+export function assertWorkbookIdMayBeRegistered(spreadsheetId: string): string {
+  const incoming = spreadsheetId.trim();
+  if (!incoming) {
+    throw Object.assign(new Error("Spreadsheet ID is required to authorise a workbook"), {
+      statusCode: 400,
+      code: "INVALID_INPUT",
+    });
+  }
+  if (looksLikeGoogleDriveBrowse(incoming)) {
+    throw Object.assign(
+      new Error("Arbitrary Google Drive browsing is not permitted. Register a specific spreadsheet ID."),
+      { statusCode: 400, code: "DRIVE_BROWSE_FORBIDDEN" },
+    );
+  }
+  const source = assertMarketingSheetsConfigured();
+  if (source.status === "FIXTURE" && incoming !== MARKETING_FIXTURE_WORKBOOK_ID) {
+    throw Object.assign(
+      new Error(
+        "Only the organisation-authorised Marketing workbook may be bound. Arbitrary spreadsheet IDs are rejected.",
+      ),
+      { statusCode: 400, code: "UNAUTHORISED_WORKBOOK" },
+    );
+  }
+  return incoming;
+}
+
+export function resolveMarketingWorkbookConnectionState(input: {
+  sourceStatus: MarketingSheetsSourceStatus;
+  bindingStatus?: string | null;
+  healthOk?: boolean | null;
+  healthCode?: string | null;
+  healthMessage?: string | null;
+}): MarketingWorkbookConnectionState {
+  if (input.sourceStatus === "NOT_CONFIGURED" || input.sourceStatus === "OFF") {
+    return "CONFIGURATION_REQUIRED";
+  }
+  const status = (input.bindingStatus ?? "").toUpperCase();
+  if (status === "DISABLED" || status === "REVOKED") return "ACCESS_REVOKED";
+  const code = (input.healthCode ?? "").toUpperCase();
+  const message = (input.healthMessage ?? "").toLowerCase();
+  const revoked =
+    code === "ACCESS_REVOKED" ||
+    code === "403" ||
+    code === "401" ||
+    /permission|not have access|access denied|revoked|unauth/i.test(message);
+  if (input.healthOk === false && revoked) return "ACCESS_REVOKED";
+  if (input.healthOk === false || status === "ERROR") return "VALIDATION_FAILED";
+  return "CONNECTED";
+}
+
+export function marketingWorkbookConnectionLabel(
+  state: MarketingWorkbookConnectionState,
+): string {
+  return MARKETING_WORKBOOK_CONNECTION_LABELS[state];
 }

@@ -1,5 +1,5 @@
 /**
- * CO-MARKETING-MKT-02 — Per-binding data source operations.
+ * CO-MARKETING-GOOGLE-ACTIVATION-001 — Per-binding data source operations.
  * GET ?view=health|datasets|schema|preview|estimate
  */
 
@@ -9,6 +9,9 @@ import {
   successResponse,
 } from "@/lib/api/auth-route-utils";
 import { fromMarketingUnknownError } from "@/lib/enterprise-marketing-engine/api-error";
+import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/permissions";
+import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
+import { resolveMarketingOrganizationId } from "@server/services/enterprise-marketing-engine/organization";
 import { marketingDataSourceService } from "@server/services/enterprise-marketing-engine";
 
 type Ctx = { params: Promise<{ bindingId: string }> };
@@ -38,7 +41,12 @@ export async function GET(request: Request, context: Ctx) {
     const url = new URL(request.url);
     const view = url.searchParams.get("view") ?? "health";
     const datasetId = url.searchParams.get("datasetId") ?? "";
-    const actorCtx = { userId: actor.userId, organizationId: "default" as string | null };
+    const actorCtx = {
+      userId: actor.userId,
+      role: actor.role,
+      organizationId: await resolveMarketingOrganizationId(),
+    };
+    assertMarketingPermission(actorCtx, MARKETING_PERMISSIONS.CAMPAIGN_CREATE);
 
     if (view === "health") {
       const health = await marketingDataSourceService.health(actorCtx, bindingId);

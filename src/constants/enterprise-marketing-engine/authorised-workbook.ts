@@ -19,3 +19,23 @@ export const MARKETING_FIXTURE_VISIBLE_LABEL =
 
 export const MARKETING_NOT_CONFIGURED_LABEL =
   "NOT_CONFIGURED — Google Sheets is not available. Fixture data is not being used." as const;
+
+export const MARKETING_WORKBOOK_CONNECTION_STATES = [
+  "CONNECTED",
+  "CONFIGURATION_REQUIRED",
+  "ACCESS_REVOKED",
+  "VALIDATION_FAILED",
+] as const;
+
+export type MarketingWorkbookConnectionState =
+  (typeof MARKETING_WORKBOOK_CONNECTION_STATES)[number];
+
+export const MARKETING_WORKBOOK_CONNECTION_LABELS: Record<
+  MarketingWorkbookConnectionState,
+  string
+> = {
+  CONNECTED: "Connected",
+  CONFIGURATION_REQUIRED: "Configuration Required",
+  ACCESS_REVOKED: "Access Revoked",
+  VALIDATION_FAILED: "Validation Failed",
+};

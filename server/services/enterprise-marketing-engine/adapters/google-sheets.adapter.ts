@@ -21,7 +21,7 @@ import type {
   MarketingRowPage,
 } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
 import { marketingDataSourceBindingStore } from "../binding-store";
-import { assertSpreadsheetIsAuthorised } from "@/lib/enterprise-marketing-engine/authorised-workbook";
+import { classifyGoogleSheetsAccessError } from "./google-sheets-errors";
 
 function loadServiceAccount() {
   const clientEmail = (process.env.GOOGLE_SHEETS_CLIENT_EMAIL ?? "").trim();
@@ -58,7 +58,12 @@ function requireBinding(bindingId: string, organizationId: string) {
       code: "NOT_FOUND",
     });
   }
-  assertSpreadsheetIsAuthorised(b.spreadsheetId);
+  if (b.status === "DISABLED") {
+    throw Object.assign(new Error("Access to this authorised workbook has been revoked"), {
+      statusCode: 403,
+      code: "ACCESS_REVOKED",
+    });
+  }
   return b;
 }
 
@@ -229,12 +234,15 @@ export function createGoogleSheetsMarketingDataSourcePort(
         });
         return datasets;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Discover failed";
+        const classified = classifyGoogleSheetsAccessError(err);
         marketingDataSourceBindingStore.patch(bindingId, organizationId, {
-          status: "ERROR",
-          lastError: message,
+          status: classified.code === "ACCESS_REVOKED" ? "DISABLED" : "ERROR",
+          lastError: classified.message,
         });
-        throw err;
+        throw Object.assign(new Error(classified.message), {
+          statusCode: classified.code === "ACCESS_REVOKED" ? 403 : 502,
+          code: classified.code,
+        });
       }
     },
 
@@ -313,15 +321,21 @@ export function createGoogleSheetsMarketingDataSourcePort(
         });
         return { ok: true, message, mode: "live" };
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Health check failed";
+        const classified = classifyGoogleSheetsAccessError(err);
         marketingDataSourceBindingStore.patch(bindingId, organizationId, {
           lastHealthAt: new Date().toISOString(),
           lastHealthOk: false,
-          lastHealthMessage: message,
-          lastError: message,
-          status: "ERROR",
+          lastHealthMessage: classified.message,
+          lastError: classified.message,
+          status: classified.code === "ACCESS_REVOKED" ? "DISABLED" : "ERROR",
         });
-        return { ok: false, message, mode: "live" };
+        return {
+          ok: false,
+          message: classified.message,
+          mode: "live",
+          connectionState:
+            classified.code === "ACCESS_REVOKED" ? "ACCESS_REVOKED" : "VALIDATION_FAILED",
+        };
       }
     },
   };

@@ -19,8 +19,8 @@ import {
 import { suggestMarketingColumnMap } from "@/lib/enterprise-marketing-engine/column-mapping";
 import {
   assertMarketingSheetsConfigured,
-  assertSpreadsheetIsAuthorised,
   resolveMarketingSheetsSourceStatus,
+  resolveMarketingWorkbookConnectionState,
 } from "@/lib/enterprise-marketing-engine/authorised-workbook";
 import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import type { MarketingDataSourcePort } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
@@ -28,10 +28,15 @@ import type { MarketingDataSourceBinding } from "@/types/enterprise-marketing-da
 import { recordMarketingAuditEvent } from "./audit";
 import { createFixtureMarketingDataSourcePort } from "./adapters/fixture-sheets.adapter";
 import { createGoogleSheetsMarketingDataSourcePort } from "./adapters/google-sheets.adapter";
+import { marketingDataSourceBindingStore } from "./binding-store";
 import {
-  ensureFixtureBinding,
-  marketingDataSourceBindingStore,
-} from "./binding-store";
+  connectionStateForBinding,
+  ensureConfiguredOrgWorkbook,
+  getDurableWorkbookForOrg,
+  listDurableAuthorisedWorkbooks,
+  registerAuthorisedWorkbook,
+  revokeAuthorisedWorkbook,
+} from "./workbook-registry";
 
 function assertSheetsReadEnabled() {
   if (!ENTERPRISE_MARKETING_SHEETS_READ_ENABLED) {
@@ -50,7 +55,6 @@ function resolvePort(organizationId: string): MarketingDataSourcePort {
   assertNoAudienceImport();
   const source = assertMarketingSheetsConfigured();
   if (source.status === "FIXTURE") {
-    ensureFixtureBinding(organizationId);
     return createFixtureMarketingDataSourcePort(organizationId);
   }
   if (source.status === "LIVE") {
@@ -79,6 +83,7 @@ export const marketingDataSourceService = {
       authorisedWorkbookDisplayName: source.authorisedWorkbookDisplayName,
       googleCredentialsConfigured: source.googleCredentialsConfigured,
       fixtureVisible: source.status === "FIXTURE",
+      connectionState: resolveMarketingWorkbookConnectionState({ sourceStatus: source.status }),
     };
   },
 
@@ -91,7 +96,10 @@ export const marketingDataSourceService = {
     return orgId(organizationId);
   },
 
-  listBindings(actor: { userId?: string; organizationId?: string | null }) {
+  async listBindings(
+    actor: { userId?: string; organizationId?: string | null },
+    opts?: { operatorOnly?: boolean },
+  ) {
     const organizationId = orgId(actor.organizationId);
     const source = resolveMarketingSheetsSourceStatus();
     if (source.status === "NOT_CONFIGURED" || source.status === "OFF") {
@@ -103,12 +111,14 @@ export const marketingDataSourceService = {
       });
       return [] as MarketingDataSourceBinding[];
     }
+    await ensureConfiguredOrgWorkbook(organizationId, actor.userId ?? null);
+    const durable = await listDurableAuthorisedWorkbooks(organizationId);
+    let items = durable ?? marketingDataSourceBindingStore.list(organizationId);
     if (source.status === "FIXTURE") {
-      ensureFixtureBinding(organizationId);
-    }
-    let items = marketingDataSourceBindingStore.list(organizationId);
-    if (source.authorisedWorkbookId) {
       items = items.filter((b) => b.spreadsheetId === source.authorisedWorkbookId);
+    }
+    if (opts?.operatorOnly) {
+      items = items.filter((b) => b.status === "ACTIVE");
     }
     recordMarketingAuditEvent({
       kind: "data_source.list",
@@ -116,24 +126,37 @@ export const marketingDataSourceService = {
       organizationId,
       detail: { count: items.length, sourceStatus: source.status },
     });
-    return items;
+    return items.map((binding) => ({
+      ...binding,
+      connectionState: connectionStateForBinding(binding),
+    }));
   },
 
-  upsertBinding(
+  async getBinding(actor: { userId?: string; organizationId?: string | null }, bindingId: string) {
+    const organizationId = orgId(actor.organizationId);
+    const binding = await getDurableWorkbookForOrg(bindingId, organizationId);
+    if (!binding) {
+      throw Object.assign(new Error("Authorised workbook not found for organization"), {
+        statusCode: 404,
+        code: "BINDING_NOT_FOUND",
+      });
+    }
+    return { ...binding, connectionState: connectionStateForBinding(binding) };
+  },
+
+  async upsertBinding(
     actor: { userId?: string; organizationId?: string | null },
     input: { id?: string; displayName: string; spreadsheetId?: string },
-  ): MarketingDataSourceBinding {
+  ): Promise<MarketingDataSourceBinding> {
     assertSheetsReadEnabled();
-    const source = assertMarketingSheetsConfigured();
+    assertMarketingSheetsConfigured();
     const organizationId = orgId(actor.organizationId);
-    const spreadsheetId = assertSpreadsheetIsAuthorised(
-      input.spreadsheetId?.trim() || source.authorisedWorkbookId || "",
-    );
-    const binding = marketingDataSourceBindingStore.upsert({
-      id: input.id,
+    const binding = await registerAuthorisedWorkbook({
       organizationId,
+      actorUserId: actor.userId ?? null,
+      id: input.id,
       displayName: input.displayName,
-      spreadsheetId,
+      spreadsheetId: input.spreadsheetId,
     });
     recordMarketingAuditEvent({
       kind: "data_source.upsert",
@@ -141,7 +164,26 @@ export const marketingDataSourceService = {
       organizationId,
       detail: { bindingId: binding.id, authorised: true },
     });
-    return binding;
+    return { ...binding, connectionState: connectionStateForBinding(binding) };
+  },
+
+  async revokeBinding(
+    actor: { userId?: string; organizationId?: string | null },
+    bindingId: string,
+  ) {
+    const organizationId = orgId(actor.organizationId);
+    const binding = await revokeAuthorisedWorkbook({
+      organizationId,
+      bindingId,
+      actorUserId: actor.userId ?? null,
+    });
+    recordMarketingAuditEvent({
+      kind: "data_source.revoke",
+      actorUserId: actor.userId ?? null,
+      organizationId,
+      detail: { bindingId, authorised: false },
+    });
+    return { ...binding, connectionState: connectionStateForBinding(binding) };
   },
 
   async health(actor: { userId?: string; organizationId?: string | null }, bindingId: string) {
@@ -152,11 +194,13 @@ export const marketingDataSourceService = {
       throw new EnterpriseMarketingSafetyError("dataSource.healthCheck");
     }
     const health = await port.healthCheck(bindingId);
+    const binding = marketingDataSourceBindingStore.getForOrg(bindingId, organizationId);
     return {
       ...health,
       sourceStatus: source.status,
       sourceLabel: source.label,
       fixtureVisible: source.status === "FIXTURE",
+      connectionState: connectionStateForBinding(binding),
     };
   },
 
