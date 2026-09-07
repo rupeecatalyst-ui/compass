@@ -90,6 +90,9 @@ export const productProgrammeOperationsService = {
         id: existing.id,
         publicationState: existing.publicationState ?? "draft",
         isLivePublished: existing.isLivePublished ?? false,
+        status: existing.status,
+        lifecycleStatus: existing.lifecycleStatus,
+        isDeleted: existing.isDeleted,
       },
       createDraftRevision,
     );

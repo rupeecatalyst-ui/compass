@@ -34,9 +34,14 @@ import {
 } from "@/lib/product-programme-operations/policy-surface";
 import {
   dedupePublishedProgrammes,
+  dedupeRegistryReviewProgrammes,
   draftRevisionFor,
   lineageVersions,
 } from "@/lib/product-programme-operations/registry-filters";
+import {
+  LEGACY_PROGRAMME_REVIEW_LABEL,
+  isLegacyProgrammeReviewRequired,
+} from "@/lib/product-programme-operations/legacy-review";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import { ensureEnterpriseRegistryHydrated } from "@/lib/enterprise-registry/hydrate";
 import { useProductMasterOptions } from "@/lib/enterprise-product-master";
@@ -243,6 +248,7 @@ export function EnterpriseLenderDirectorySlideOver({
   }, [employees, lenderId]);
 
   const publishedCards = useMemo(() => dedupePublishedProgrammes(programs), [programs]);
+  const reviewCards = useMemo(() => dedupeRegistryReviewProgrammes(programs), [programs]);
 
   const chanakyaInsights = useMemo(() => {
     if (!row) return [];
@@ -413,7 +419,7 @@ export function EnterpriseLenderDirectorySlideOver({
                     },
                     {
                       label: "Programs",
-                      value: displayMetric(publishedCards.length),
+                      value: displayMetric(reviewCards.length),
                     },
                   ].map((k) => (
                     <div
@@ -501,20 +507,23 @@ export function EnterpriseLenderDirectorySlideOver({
                           Products / Programmes
                         </p>
                         <span className="tabular-nums text-[10px] text-muted-foreground">
-                          {publishedCards.length}
+                          {reviewCards.length}
                         </span>
                       </div>
-                      {publishedCards.length === 0 ? (
+                      {reviewCards.length === 0 ? (
                         <p className="px-2.5 py-1.5 text-[11px] text-muted-foreground">
-                          No published programmes
+                          No programmes for administrator review
                         </p>
                       ) : (
                         <ul className="max-h-32 divide-y divide-border/40 overflow-y-auto">
-                          {publishedCards.slice(0, 8).map((p) => (
+                          {reviewCards.slice(0, 8).map((p) => (
                             <li key={p.id} className="px-2.5 py-1.5 text-[11px]">
                               <p className="truncate font-medium text-foreground">{p.label}</p>
                               <p className="truncate text-muted-foreground">
                                 {[p.code, p.productCode].filter(Boolean).join(" · ")}
+                                {isLegacyProgrammeReviewRequired(p)
+                                  ? ` · ${LEGACY_PROGRAMME_REVIEW_LABEL}`
+                                  : ""}
                               </p>
                             </li>
                           ))}
@@ -548,18 +557,18 @@ export function EnterpriseLenderDirectorySlideOver({
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-[11px] text-muted-foreground">
-                    Published programmes from Enterprise Lender Program registry.
+                    Published and legacy programmes from Enterprise Lender Program registry.
                   </p>
                   <Button asChild size="sm" variant="outline" className="h-7 text-[10px]">
                     <Link href={ROUTES.ADMIN_PRODUCT_PROGRAMS}>Open Product Programs</Link>
                   </Button>
                 </div>
-                {publishedCards.length === 0 ? (
+                {reviewCards.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No published product programmes for this lender.
+                    No product programmes for this lender.
                   </p>
                 ) : (
-                  publishedCards.map((p) => {
+                  reviewCards.map((p) => {
                     const docs = Array.isArray(p.requiredDocuments)
                       ? p.requiredDocuments
                       : (p.requiredDocumentTypeIds ?? []).map((typeRef) => ({
@@ -577,6 +586,14 @@ export function EnterpriseLenderDirectorySlideOver({
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold">{p.label}</p>
+                            {isLegacyProgrammeReviewRequired(p) ? (
+                              <p
+                                className="mt-0.5 text-[11px] font-medium text-amber-800 dark:text-amber-300"
+                                data-testid="legacy-programme-review-required"
+                              >
+                                {LEGACY_PROGRAMME_REVIEW_LABEL}
+                              </p>
+                            ) : null}
                             <p className="mt-0.5 text-[11px] text-muted-foreground">
                               {p.code} · v{p.versionNumber}
                               {p.productVariantCode ? ` · ${p.productVariantCode}` : ""}

@@ -20,6 +20,8 @@ if (!PRE_DB || PRE_DB.startsWith("-")) {
 const FORBIDDEN = new Set([
   "catalyst_one_product_program_bat_001",
   "catalyst_one_product_program_bat_pre_001",
+  "catalyst_one_product_program_bat_clean_002",
+  "ppo_sql_preflight_review_001",
 ]);
 if (FORBIDDEN.has(PRE_DB)) {
   throw new Error(`Refusing to mutate preserved evidence database ${PRE_DB}.`);
@@ -97,7 +99,7 @@ async function withClient(fn) {
   }
 }
 
-function programInsert({ id, code, label, status, lifecycle, enabled, policy, lod, roi, archived }) {
+function programInsert({ id, code, label, status, lifecycle, enabled, policy, lod, roi, archived, deleted }) {
   return {
     text: `INSERT INTO "enterprise_lender_programs" (
       "id","organization_id","lender_id","product_code","code","label",
@@ -110,7 +112,7 @@ function programInsert({ id, code, label, status, lifecycle, enabled, policy, lo
       $6::"LenderProgramLifecycleStatus",$7::"RegistryStatus",$8,1,
       $9,$10::jsonb,
       $11,$11,$11,
-      false,'none','prestate','prestate',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP
+      $12,'none','prestate','prestate',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP
     )`,
     values: [
       id,
@@ -124,6 +126,7 @@ function programInsert({ id, code, label, status, lifecycle, enabled, policy, lo
       policy,
       lod,
       roi,
+      Boolean(deleted),
     ],
   };
 }
@@ -137,18 +140,38 @@ function record(id, ok, detail) {
 
 async function assertFinal(client) {
   const surviving = await client.query(`
-    SELECT "id","code","status","lifecycle_status","completeness_state","publication_state","is_live_published",
+    SELECT "id","code","status","lifecycle_status","completeness_state","publication_state","is_live_published","is_deleted",
            "credit_risk_policy_ref","required_document_type_ids","roi_percent","min_roi_exact"
     FROM "enterprise_lender_programs" ORDER BY "code"
   `);
-  record("NO-DELETES", surviving.rows.length === 8, { count: surviving.rows.length });
+  record("NO-DELETES", surviving.rows.length === 10, { count: surviving.rows.length });
   const live = surviving.rows.filter((row) => row.is_live_published === true);
   record("NO-THIN-LIVE", live.length === 0, { live: live.map((row) => row.code) });
   const archived = surviving.rows.find((row) => row.id === "prog_archived");
-  record("ARCHIVED-REMAINS", archived?.publication_state === "archived" && archived?.lifecycle_status === "archived", {
+  record("ARCHIVED-REMAINS", archived?.publication_state === "archived" && archived?.lifecycle_status === "archived" && archived?.status === "archived", {
     publication_state: archived?.publication_state,
     lifecycle_status: archived?.lifecycle_status,
+    status: archived?.status,
   });
+  const archivedIncomplete = surviving.rows.find((row) => row.id === "prog_archived_incomplete");
+  record(
+    "ARCHIVED-INCOMPLETE-REMAINS",
+    archivedIncomplete?.publication_state === "archived" &&
+      archivedIncomplete?.lifecycle_status === "archived" &&
+      archivedIncomplete?.status === "archived" &&
+      archivedIncomplete?.is_live_published === false,
+    {
+      publication_state: archivedIncomplete?.publication_state,
+      lifecycle_status: archivedIncomplete?.lifecycle_status,
+      status: archivedIncomplete?.status,
+    },
+  );
+  const deleted = surviving.rows.find((row) => row.id === "prog_deleted");
+  record(
+    "DELETED-UNCHANGED",
+    deleted?.is_deleted === true && deleted?.status === "active" && deleted?.lifecycle_status === "active",
+    { is_deleted: deleted?.is_deleted, status: deleted?.status, lifecycle_status: deleted?.lifecycle_status },
+  );
   const stub = surviving.rows.find((row) => row.id === "prog_empty_stub");
   record("STUB-DRAFT-INCOMPLETE", stub?.completeness_state === "incomplete" && stub?.publication_state === "draft", {
     completeness_state: stub?.completeness_state,
@@ -162,6 +185,21 @@ async function assertFinal(client) {
     required_document_type_ids: complete?.required_document_type_ids,
   });
   record("NO-FABRICATED-ROI-EXACT", complete?.min_roi_exact == null, { min_roi_exact: complete?.min_roi_exact });
+  record(
+    "COMPLETE-ACTIVE-REGISTRY-VISIBLE",
+    complete?.status === "active" &&
+      complete?.lifecycle_status === "active" &&
+      complete?.publication_state === "published" &&
+      complete?.completeness_state === "incomplete" &&
+      complete?.is_live_published === false,
+    {
+      status: complete?.status,
+      lifecycle_status: complete?.lifecycle_status,
+      publication_state: complete?.publication_state,
+      completeness_state: complete?.completeness_state,
+      is_live_published: complete?.is_live_published,
+    },
+  );
   const opps = await client.query(`
     SELECT "id", "advantage_committed_amount" AS amt
     FROM "enterprise_opportunities" ORDER BY "id"
@@ -170,8 +208,16 @@ async function assertFinal(client) {
   const nullRow = opps.rows.find((row) => row.id === "opp_null_adv");
   record("ADV-PRESERVED", Number(setRow?.amt) === 12345, { amt: setRow?.amt });
   record("ADV-NULL-UNCHANGED", nullRow?.amt == null, { amt: nullRow?.amt });
-  const deal = await client.query(`SELECT "id","lender_program_id" FROM "enterprise_deals" WHERE "id"='deal_pre_001'`);
-  record("DEAL-SURVIVED", deal.rows[0]?.lender_program_id === "prog_complete_active", deal.rows[0]);
+  const deal = await client.query(`SELECT "id","lender_program_id","snapshot" FROM "enterprise_deals" WHERE "id"='deal_pre_001'`);
+  record("DEAL-SURVIVED", deal.rows[0]?.lender_program_id === "prog_complete_active", {
+    lender_program_id: deal.rows[0]?.lender_program_id,
+  });
+  const stamp = deal.rows[0]?.snapshot?.publishedProgrammeStamp;
+  record(
+    "DEAL-STAMP-UNCHANGED",
+    stamp?.programmeId === "prog_complete_active" && stamp?.programmeCode === "PRE-COMPLETE" && stamp?.programmeVersion === 1,
+    stamp ?? null,
+  );
   const payee = await client.query(`SELECT COUNT(*)::int AS n FROM "enterprise_accounting_payees"`);
   record("ACCOUNTING-SURVIVED", payee.rows[0].n === 1, payee.rows[0]);
 }
@@ -311,6 +357,31 @@ try {
         roi: 8.2,
         archived: true,
       }),
+      programInsert({
+        id: "prog_archived_incomplete",
+        code: "PRE-ARCH-INCOMPLETE",
+        label: "Pre archived incomplete",
+        status: "archived",
+        lifecycle: "archived",
+        enabled: false,
+        policy: null,
+        lod: "[]",
+        roi: null,
+        archived: true,
+      }),
+      programInsert({
+        id: "prog_deleted",
+        code: "PRE-DELETED",
+        label: "Pre deleted",
+        status: "active",
+        lifecycle: "active",
+        enabled: true,
+        policy: null,
+        lod: "[]",
+        roi: null,
+        archived: false,
+        deleted: true,
+      }),
     ];
     for (const stmt of programs) {
       await client.query(stmt.text, stmt.values);
@@ -329,10 +400,11 @@ try {
     await client.query(`
       INSERT INTO "enterprise_deals" (
         "id","organization_id","deal_number","opportunity_id","lender_id","lender_program_id",
-        "product_family","gross_stage","stage_entered_at","updated_at"
+        "product_family","gross_stage","stage_entered_at","updated_at","snapshot"
       ) VALUES (
         'deal_pre_001','org_ppo_bat','DEAL-PRE-001','opp_null_adv','lender_ppo_bat','prog_complete_active',
-        'lending','identified',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP
+        'lending','identified',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,
+        '{"publishedProgrammeStamp":{"lenderId":"lender_ppo_bat","programmeId":"prog_complete_active","programmeCode":"PRE-COMPLETE","programmeVersion":1,"policyVersionId":null,"roiRange":null,"eligibilityBasis":"prestate","requiredDocuments":["doc:pan"],"effectiveFrom":null,"stampedAt":"2026-01-01T00:00:00.000Z","lineageId":"prog_complete_active"}}'::jsonb
       )
     `);
 

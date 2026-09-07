@@ -28,6 +28,8 @@ if (!database || database.startsWith("-")) {
 const FORBIDDEN = new Set([
   "catalyst_one_product_program_bat_001",
   "catalyst_one_product_program_bat_pre_001",
+  "catalyst_one_product_program_bat_clean_002",
+  "ppo_sql_preflight_review_001",
 ]);
 if (FORBIDDEN.has(database)) {
   throw new Error(`Refusing to migrate preserved evidence database ${database}.`);

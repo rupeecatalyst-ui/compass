@@ -8,6 +8,8 @@ export type ProgrammeEditorState = StructuredProgrammePayload & {
   lockVersion?: number;
   publicationState?: string;
   isLivePublished?: boolean;
+  status?: string;
+  lifecycleStatus?: string;
 };
 
 export function emptyProgrammeEditorState(): ProgrammeEditorState {
@@ -77,6 +79,8 @@ export function recordToEditorState(record: EnterpriseLenderProgramRecord): Prog
     lockVersion: record.lockVersion ?? 1,
     publicationState: record.publicationState ?? "draft",
     isLivePublished: record.isLivePublished ?? false,
+    status: record.status,
+    lifecycleStatus: record.lifecycleStatus,
     lenderId: record.lenderId,
     productId: record.productId ?? null,
     productCode: record.productCode ?? null,

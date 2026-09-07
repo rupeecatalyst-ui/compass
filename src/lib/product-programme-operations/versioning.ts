@@ -1,5 +1,9 @@
 import { evaluateProgrammeCompleteness } from "@/lib/product-programme-operations/completeness";
 import {
+  isLegacyProgrammeReviewRequired,
+  mustCreateDraftRevision,
+} from "@/lib/product-programme-operations/legacy-review";
+import {
   ProgrammeConflictError,
   type ProgrammeVersionRecord,
   type StructuredProgrammePayload,
@@ -10,12 +14,17 @@ export function isLivePublishedProgramme(record: Pick<ProgrammeVersionRecord, "i
 }
 
 export function assertPublishedNotOverwritten(
-  existing: Pick<ProgrammeVersionRecord, "publicationState" | "isLivePublished" | "id">,
+  existing: Pick<
+    ProgrammeVersionRecord,
+    "publicationState" | "isLivePublished" | "id" | "status" | "lifecycleStatus" | "isDeleted"
+  >,
   createDraftRevision: boolean,
 ): void {
-  if (existing.publicationState === "published" && existing.isLivePublished && !createDraftRevision) {
+  if (mustCreateDraftRevision(existing) && !createDraftRevision) {
     throw new ProgrammeConflictError(
-      `Published programme ${existing.id} cannot be overwritten. Create a draft revision instead.`,
+      isLegacyProgrammeReviewRequired(existing)
+        ? `Legacy programme ${existing.id} cannot be overwritten. Create a draft revision instead.`
+        : `Published programme ${existing.id} cannot be overwritten. Create a draft revision instead.`,
     );
   }
 }

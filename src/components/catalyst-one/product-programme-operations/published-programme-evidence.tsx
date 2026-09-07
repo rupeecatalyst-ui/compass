@@ -6,6 +6,7 @@ import { mergeEdieAndProgrammeLod } from "@/lib/product-programme-operations/lod
 import { readDealProgrammeStamp } from "@/lib/product-programme-operations/deal-stamp";
 import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
+import { canCitePublishedProgramme } from "@/lib/product-programme-operations/legacy-review";
 import { cn } from "@/lib/utils";
 
 export function useLivePublishedProgrammes(lenderId?: string | null) {
@@ -109,7 +110,7 @@ export function ProgrammeLodOverlayBanner({
       ),
     [edieTypeRefs, program],
   );
-  if (!program) {
+  if (!program || !canCitePublishedProgramme(program)) {
     return (
       <p
         data-testid="programme-lod-overlay"

@@ -27,8 +27,12 @@ if (!sql.includes("lineage_id")) {
   console.error("Programme lineage_id missing from migration.");
   process.exit(1);
 }
-if (!sql.includes("min_roi_exact")) {
-  console.error("Exact ROI decimal column missing.");
+if (sql.includes('"completeness_state" = \'complete\'') || /SET[\s\S]{0,400}"is_live_published" = true/.test(sql.replace(/CREATE UNIQUE INDEX[\s\S]*?;/g, ""))) {
+  console.error("180000 must not auto-promote complete-active programmes to CHANAKYA-live.");
+  process.exit(1);
+}
+if (!sql.includes("lifecycle_status\" <> 'archived'")) {
+  console.error("180000 incomplete classification must exclude archived programmes.");
   process.exit(1);
 }
 

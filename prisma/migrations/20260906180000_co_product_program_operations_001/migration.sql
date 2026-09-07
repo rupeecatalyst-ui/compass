@@ -74,6 +74,8 @@ ALTER TABLE "enterprise_lender_programs"
 
 -- Deterministic stub classification: missing policy OR missing LOD OR missing ROI.
 -- Does not invent policy, LOD, or commercial values.
+-- Archived programmes stay archived, including incomplete archived rows.
+-- Deleted rows are never touched.
 UPDATE "enterprise_lender_programs"
 SET
   "completeness_state" = 'incomplete',
@@ -82,6 +84,8 @@ SET
   "lifecycle_status" = 'draft',
   "status" = 'draft'
 WHERE "is_deleted" = false
+  AND "lifecycle_status" <> 'archived'::"LenderProgramLifecycleStatus"
+  AND "status" <> 'archived'::"RegistryStatus"
   AND (
     "credit_risk_policy_ref" IS NULL
     OR btrim("credit_risk_policy_ref") = ''
@@ -95,14 +99,17 @@ WHERE "is_deleted" = false
     )
   );
 
+-- Option 1: complete active legacy programmes stay visible for administrator review.
+-- They are not CHANAKYA-live. SQL cannot run evaluateProgrammeCompleteness, so
+-- completeness_state stays incomplete until structured completion and republication.
 UPDATE "enterprise_lender_programs"
 SET
-  "completeness_state" = 'complete',
+  "completeness_state" = 'incomplete',
   "publication_state" = 'published',
-  "is_live_published" = true
+  "is_live_published" = false
 WHERE "is_deleted" = false
-  AND "status" = 'active'
-  AND "lifecycle_status" = 'active'
+  AND "status" = 'active'::"RegistryStatus"
+  AND "lifecycle_status" = 'active'::"LenderProgramLifecycleStatus"
   AND "enabled" = true
   AND "credit_risk_policy_ref" IS NOT NULL
   AND btrim("credit_risk_policy_ref") <> ''

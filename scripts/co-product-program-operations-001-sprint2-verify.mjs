@@ -44,6 +44,10 @@ if (workspace.includes("e.g. Salaried")) {
   console.error("Free-text employment placeholder remains.");
   process.exit(1);
 }
+if (!editor.includes("LEGACY_PROGRAMME_REVIEW_LABEL") || !workspace.includes("legacy-programme-review-required")) {
+  console.error("Option 1 legacy review label is missing from the programmes desk.");
+  process.exit(1);
+}
 
 const payload = toProgrammeWritePayload({
   ...emptyProgrammeEditorState(),

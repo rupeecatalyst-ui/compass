@@ -15,6 +15,7 @@ import {
   preserveExistingProgrammeStamp,
 } from "../src/lib/product-programme-operations/deal-stamp.ts";
 import { recommendPublishedLendersFromOptions } from "../src/lib/enterprise-lender-registry/recommend-from-registry.ts";
+import { isPublishedCommercialProgram } from "../src/lib/enterprise-lender-registry/program-architecture.ts";
 import { recommendOpportunityFromPublishedProgramme, resetOpportunityCompassRecommendations } from "../src/lib/enterprise-opportunity-compass/compass-engine.ts";
 import { ENTERPRISE_MARKETING_EXECUTION_ENABLED } from "../src/constants/enterprise-marketing-engine/safety.ts";
 import { PROGRAMME_EMPLOYMENT_TYPES, PROGRAMME_LEGAL_CONSTITUTIONS } from "../src/constants/product-programme-operations/controlled-masters.ts";
@@ -269,6 +270,69 @@ const both = cycle(store, PROGRAMME_BAT_FIXTURES.multiEmployment());
 record("FIXTURE-SE", se.employmentTypes.includes("self-employed-professional"), se.code);
 record("FIXTURE-BT", bt.productCode === "HOME_LOAN_BT" && bt.transactionTypes.includes("balance_transfer"), bt.code);
 record("FIXTURE-BOTH", deriveEmploymentFamily(both.employmentTypes) === "both", both.employmentTypes.join(","));
+
+const {
+  LEGACY_PROGRAMME_REVIEW_LABEL,
+  isLegacyProgrammeReviewRequired,
+  isRegistryVisibleProgramme,
+  mustCreateDraftRevision,
+} = await import("../src/lib/product-programme-operations/legacy-review.ts");
+const { programmeStatusLabel } = await import("../src/lib/product-programme-operations/registry-filters.ts");
+const { buildChanakyaProgrammeEvidence } = await import("../src/lib/product-programme-operations/chanakya-evidence.ts");
+
+const legacy = {
+  ...active,
+  isLivePublished: false,
+  publicationState: "published",
+  completenessState: "incomplete",
+  status: "active",
+  lifecycleStatus: "active",
+  enabled: true,
+  isDeleted: false,
+};
+record("BAT-LEGACY-01", isLegacyProgrammeReviewRequired(legacy) === true, "legacy detector");
+record("BAT-LEGACY-02", isRegistryVisibleProgramme(legacy) === true && !isPublishedCommercialProgram(legacy), "visible not live");
+record("BAT-LEGACY-03", programmeStatusLabel(legacy) === LEGACY_PROGRAMME_REVIEW_LABEL, programmeStatusLabel(legacy));
+record("BAT-LEGACY-04", mustCreateDraftRevision(legacy) === true, "draft revision required");
+resetOpportunityCompassRecommendations();
+record(
+  "BAT-LEGACY-05",
+  recommendOpportunityFromPublishedProgramme({ contextRef: "opp-legacy", program: legacy }) === null,
+  "compass excludes legacy",
+);
+const legacyLod = mergeEdieAndProgrammeLod({
+  edieTypeRefs: ["doc:identity:aadhaar"],
+  program: legacy,
+});
+record("BAT-LEGACY-06", !legacyLod.some((item) => item.source === "programme_overlay"), "lod overlay skipped");
+let citationBlocked = false;
+try {
+  citePublishedProgramme(legacy);
+} catch {
+  citationBlocked = true;
+}
+record("BAT-LEGACY-07", citationBlocked, "citation blocked");
+const stamped = stampDealProgrammeSelection({
+  snapshot: { publishedProgrammeStamp: { programmeId: "existing-stamp", programmeVersion: 1 } },
+  program: legacy,
+});
+record(
+  "BAT-LEGACY-08",
+  stamped.publishedProgrammeStamp?.programmeId === "existing-stamp",
+  "existing deal stamp preserved",
+);
+const rankedLegacy = recommendPublishedLendersFromOptions([lenderOption()], {
+  file: fileShape(),
+  programmes: [legacy],
+});
+record("BAT-LEGACY-09", rankedLegacy.length === 0, `count=${rankedLegacy.length}`);
+const evidence = buildChanakyaProgrammeEvidence(legacy);
+record(
+  "BAT-LEGACY-10",
+  evidence.available === false && evidence.reason.includes(LEGACY_PROGRAMME_REVIEW_LABEL),
+  evidence.reason,
+);
+record("BAT-LEGACY-11", ENTERPRISE_MARKETING_EXECUTION_ENABLED === false, "marketing remains disabled");
 
 rmSync(dir, { recursive: true, force: true });
 console.log(JSON.stringify({ ok: true, passed: results.length, results }, null, 2));

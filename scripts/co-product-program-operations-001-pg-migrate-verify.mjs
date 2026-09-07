@@ -1,6 +1,8 @@
 /**
  * Isolated BAT migration checksum / history verification.
  * Never prints DATABASE_URL or passwords.
+ *
+ * Usage: node scripts/co-product-program-operations-001-pg-migrate-verify.mjs --database <name>
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -10,7 +12,20 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const secret = JSON.parse(readFileSync(join(root, ".tmp/ppo-bat.secret.json"), "utf8"));
 const HOST = "127.0.0.1";
-const CLEAN_DB = "catalyst_one_product_program_bat_clean_002";
+const dbIdx = process.argv.indexOf("--database");
+const CLEAN_DB = dbIdx >= 0 ? process.argv[dbIdx + 1] : null;
+if (!CLEAN_DB || CLEAN_DB.startsWith("-")) {
+  throw new Error("Required: --database <name>. Refusing to default to a tainted BAT database.");
+}
+const FORBIDDEN = new Set([
+  "catalyst_one_product_program_bat_001",
+  "catalyst_one_product_program_bat_pre_001",
+  "catalyst_one_product_program_bat_clean_002",
+  "ppo_sql_preflight_review_001",
+]);
+if (FORBIDDEN.has(CLEAN_DB)) {
+  throw new Error(`Refusing to verify preserved evidence database ${CLEAN_DB}.`);
+}
 const url = `postgresql://${encodeURIComponent(secret.user)}:${encodeURIComponent(secret.password)}@${HOST}:${secret.port}/${CLEAN_DB}?schema=public`;
 
 function sha256File(file) {

@@ -1,6 +1,11 @@
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
 import { canonicalizeProductCode, programmeIdentityKey } from "@/lib/product-programme-operations/product-aliases";
 import { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
+import {
+  LEGACY_PROGRAMME_REVIEW_LABEL,
+  isLegacyProgrammeReviewRequired,
+  isRegistryVisibleProgramme,
+} from "@/lib/product-programme-operations/legacy-review";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
 export type ProgrammeRegistryStatusFilter =
@@ -10,7 +15,8 @@ export type ProgrammeRegistryStatusFilter =
   | "pending_approval"
   | "expired"
   | "superseded"
-  | "incomplete";
+  | "incomplete"
+  | "legacy_review";
 
 export type ProgrammeRegistryFilters = {
   search: string;
@@ -48,6 +54,7 @@ function isEffective(program: EnterpriseLenderProgramRecord, now = Date.now()): 
 
 export function programmeStatusLabel(program: EnterpriseLenderProgramRecord): string {
   if (program.isDeleted) return "deleted";
+  if (isLegacyProgrammeReviewRequired(program)) return LEGACY_PROGRAMME_REVIEW_LABEL;
   if (isExpired(program)) return "expired";
   if (program.publicationState === "superseded") return "superseded";
   if (program.isLivePublished && program.publicationState === "published") return "published";
@@ -100,22 +107,25 @@ export function filterProgrammeRegistry(
     ) {
       return false;
     }
-    const status = programmeStatusLabel(program);
-    if (filters.status !== "all" && status !== filters.status) return false;
+    if (filters.status !== "all") {
+      if (filters.status === "legacy_review") {
+        if (!isLegacyProgrammeReviewRequired(program)) return false;
+      } else if (programmeStatusLabel(program) !== filters.status) {
+        return false;
+      }
+    }
     if (filters.effectiveWindow === "expired" && !isExpired(program, now)) return false;
     if (filters.effectiveWindow === "effective" && !isEffective(program, now)) return false;
     return true;
   });
 }
 
-/** Collapse alias-only duplicates to one published lineage per lender + canonical product. */
-export function dedupePublishedProgrammes(
+function dedupeProgrammeLineage(
   programs: EnterpriseLenderProgramRecord[],
 ): EnterpriseLenderProgramRecord[] {
-  const published = programs.filter(isPublishedCommercialProgram);
   const seen = new Set<string>();
   const out: EnterpriseLenderProgramRecord[] = [];
-  for (const program of published) {
+  for (const program of programs) {
     const key = programmeIdentityKey({
       lenderId: program.lenderId,
       productCode: program.productCode,
@@ -127,6 +137,20 @@ export function dedupePublishedProgrammes(
     out.push(program);
   }
   return out;
+}
+
+/** Collapse alias-only duplicates to one published lineage per lender + canonical product. */
+export function dedupePublishedProgrammes(
+  programs: EnterpriseLenderProgramRecord[],
+): EnterpriseLenderProgramRecord[] {
+  return dedupeProgrammeLineage(programs.filter(isPublishedCommercialProgram));
+}
+
+/** Administrator-visible programmes: live published plus Option 1 legacy review. */
+export function dedupeRegistryReviewProgrammes(
+  programs: EnterpriseLenderProgramRecord[],
+): EnterpriseLenderProgramRecord[] {
+  return dedupeProgrammeLineage(programs.filter(isRegistryVisibleProgramme));
 }
 
 export function lineageVersions(

@@ -1,4 +1,5 @@
 import { citePublishedProgramme, type ProgrammeCitation } from "@/lib/product-programme-operations/proposal-citation";
+import { canCitePublishedProgramme } from "@/lib/product-programme-operations/legacy-review";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
 export const DEAL_PROGRAMME_STAMP_KEY = "publishedProgrammeStamp" as const;
@@ -14,6 +15,9 @@ export function stampDealProgrammeSelection(input: {
   now?: string;
 }): Record<string, unknown> {
   const snapshot = { ...(input.snapshot ?? {}) };
+  if (!canCitePublishedProgramme(input.program)) {
+    return snapshot;
+  }
   const citation = citePublishedProgramme(input.program);
   const stamp: DealProgrammeStamp = {
     ...citation,

@@ -19,7 +19,9 @@ if (!CLEAN_DB || CLEAN_DB.startsWith("-")) {
 }
 if (
   CLEAN_DB === "catalyst_one_product_program_bat_001" ||
-  CLEAN_DB === "catalyst_one_product_program_bat_pre_001"
+  CLEAN_DB === "catalyst_one_product_program_bat_pre_001" ||
+  CLEAN_DB === "catalyst_one_product_program_bat_clean_002" ||
+  CLEAN_DB === "ppo_sql_preflight_review_001"
 ) {
   throw new Error(`Refusing to run repository lifecycle against preserved evidence database ${CLEAN_DB}.`);
 }

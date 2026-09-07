@@ -4,6 +4,7 @@
 import { ELW_DIRECTORY_PRODUCTS } from "@/constants/enterprise-lender-directory";
 import { canonicalizeProductCode, productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
 import { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
+import { isLegacyProgrammeReviewRequired } from "@/lib/product-programme-operations/legacy-review";
 import type { ElwLenderProgramRow, LenderInstitutionType } from "@/types/enterprise-lender-directory";
 import type {
   EnterpriseLenderProgramRecord,
@@ -107,6 +108,7 @@ export function mapRegistryProgramToDirectoryRow(
     effectiveUntil: program.effectiveUntil ?? null,
     publishedVersion: program.versionNumber,
     lastUpdated: program.updatedAt ?? null,
+    legacyReviewRequired: isLegacyProgrammeReviewRequired(program),
     state,
     city,
     minCibil: program.minCibil ?? 0,

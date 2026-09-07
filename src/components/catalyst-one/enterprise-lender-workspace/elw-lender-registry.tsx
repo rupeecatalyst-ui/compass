@@ -27,6 +27,10 @@ import {
 } from "@/lib/enterprise-lender-registry/map-to-directory";
 import { countLendersSupportingDirectoryProduct } from "@/lib/enterprise-lender-registry/program-architecture";
 import {
+  LEGACY_PROGRAMME_REVIEW_LABEL,
+  isRegistryVisibleProgramme,
+} from "@/lib/product-programme-operations/legacy-review";
+import {
   lenderRegistryClient,
   subscribeLenderRegistryUpdated,
 } from "@/lib/enterprise-lender-registry";
@@ -97,9 +101,10 @@ export function ElwLenderRegistry() {
         const productCode = mapDirectoryProductIdToRegistryCode(productId);
         const [programsResult, lendersResult] = await Promise.all([
           lenderRegistryClient.queryPrograms({
-            publishedOnly: true,
             productCode,
             pageSize: 500,
+            status: "active",
+            enabled: true,
           }),
           lenderRegistryClient.queryLenders({
             status: "active",
@@ -112,7 +117,11 @@ export function ElwLenderRegistry() {
           countLendersSupportingDirectoryProduct(lendersResult.items, productId),
         );
         setProductPrograms(
-          buildPublishedDirectoryRows(programsResult.items, lendersResult.items, productId),
+          buildPublishedDirectoryRows(
+            (programsResult.items ?? []).filter(isRegistryVisibleProgramme),
+            lendersResult.items,
+            productId,
+          ),
         );
       } catch {
         if (!cancelled) setProductPrograms([]);
@@ -194,8 +203,23 @@ export function ElwLenderRegistry() {
         sortable: true,
         defaultOrder: 2,
         defaultWidth: 200,
-        render: (row) => <span className="text-muted-foreground">{row.programName}</span>,
-        exportValue: (row) => row.programName,
+        render: (row) => (
+          <span className="text-muted-foreground">
+            {row.programName}
+            {row.legacyReviewRequired ? (
+              <span
+                className="mt-0.5 block text-[10px] font-medium text-amber-800 dark:text-amber-300"
+                data-testid="legacy-programme-review-required"
+              >
+                {LEGACY_PROGRAMME_REVIEW_LABEL}
+              </span>
+            ) : null}
+          </span>
+        ),
+        exportValue: (row) =>
+          row.legacyReviewRequired
+            ? `${row.programName} · ${LEGACY_PROGRAMME_REVIEW_LABEL}`
+            : row.programName,
       },
       {
         id: "programCode",

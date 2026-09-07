@@ -14,6 +14,7 @@ import {
   classifyIncompleteStub,
   nextDraftVersionNumber,
 } from "@/lib/product-programme-operations/versioning";
+import { mustCreateDraftRevision } from "@/lib/product-programme-operations/legacy-review";
 import { ProgrammePermissionError, ProgrammeValidationError } from "@/types/product-programme-operations";
 
 type DurableBag = {
@@ -118,7 +119,7 @@ export class IsolatedProgrammeDurableStore {
     assertLockVersion(existing, input.expectedLockVersion);
     assertPublishedNotOverwritten(existing, input.createDraftRevision === true);
 
-    if (existing.publicationState === "published" && existing.isLivePublished && input.createDraftRevision) {
+    if (mustCreateDraftRevision(existing) && input.createDraftRevision) {
       const now = new Date().toISOString();
       const existingDraft = bag.programmes.find(
         (row) =>

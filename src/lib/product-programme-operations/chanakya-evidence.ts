@@ -1,6 +1,7 @@
 import { resolveProgrammeDocumentSurface, resolveProgrammePolicySurface } from "@/lib/product-programme-operations/policy-surface";
 import { citePublishedProgramme } from "@/lib/product-programme-operations/proposal-citation";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
+import { isLegacyProgrammeReviewRequired } from "@/lib/product-programme-operations/legacy-review";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
 export type ChanakyaProgrammeEvidence = {
@@ -31,6 +32,7 @@ export function buildChanakyaProgrammeEvidence(
   }
   if (!isPublishedCommercialProgram(program)) {
     const policy = resolveProgrammePolicySurface({ program });
+    const legacy = isLegacyProgrammeReviewRequired(program);
     return {
       available: false,
       programmeId: program.id,
@@ -42,7 +44,9 @@ export function buildChanakyaProgrammeEvidence(
           ? program.requiredDocuments.length
           : (program.requiredDocumentTypeIds ?? []).length,
       ).label,
-      reason: `Programme ${program.code} is ${program.publicationState ?? program.status}, not a live published commercial programme.`,
+      reason: legacy
+        ? "Legacy programme — review required. Not available for recommendation until republished."
+        : `Programme ${program.code} is ${program.publicationState ?? program.status}, not a live published commercial programme.`,
       citation: null,
     };
   }

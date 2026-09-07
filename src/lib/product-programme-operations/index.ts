@@ -5,7 +5,14 @@ export { IsolatedProgrammeDurableStore } from "@/lib/product-programme-operation
 export { parseExactMoney, parseExactPercent } from "@/lib/product-programme-operations/money";
 export { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
 export { canonicalizeProductCode, productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
-export { filterProgrammeRegistry, dedupePublishedProgrammes } from "@/lib/product-programme-operations/registry-filters";
+export { filterProgrammeRegistry, dedupePublishedProgrammes, dedupeRegistryReviewProgrammes } from "@/lib/product-programme-operations/registry-filters";
+export {
+  LEGACY_PROGRAMME_REVIEW_LABEL,
+  isLegacyProgrammeReviewRequired,
+  isRegistryVisibleProgramme,
+  mustCreateDraftRevision,
+  canCitePublishedProgramme,
+} from "@/lib/product-programme-operations/legacy-review";
 export { matchPublishedProgramme, selectApplicablePublishedProgrammes } from "@/lib/product-programme-operations/match-published";
 export { mergeEdieAndProgrammeLod } from "@/lib/product-programme-operations/lod-merge";
 export { citePublishedProgramme } from "@/lib/product-programme-operations/proposal-citation";

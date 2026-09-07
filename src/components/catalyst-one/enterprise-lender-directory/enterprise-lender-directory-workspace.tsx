@@ -34,6 +34,7 @@ import {
   subscribeLenderRegistryUpdated,
 } from "@/lib/enterprise-lender-registry";
 import { downloadCsv } from "@/lib/loan-files-utils";
+import { isRegistryVisibleProgramme } from "@/lib/product-programme-operations/legacy-review";
 import type {
   EnterpriseLenderDirectoryCategoryId,
   EnterpriseLenderDirectoryFilters,
@@ -105,7 +106,6 @@ export function EnterpriseLenderDirectoryWorkspace() {
             pageSize: 500,
           }),
           lenderRegistryClient.queryPrograms({
-            publishedOnly: true,
             pageSize: 1000,
           }),
         ]);
@@ -113,7 +113,7 @@ export function EnterpriseLenderDirectoryWorkspace() {
         if (cancelled) return;
         const composed = composeEnterpriseLenderDirectoryRows({
           lenders: lendersResult.items,
-          programs: programsResult.items,
+          programs: (programsResult.items ?? []).filter(isRegistryVisibleProgramme),
         });
         setRows(
           enrichDirectoryRowsWithBankerProducts(

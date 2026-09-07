@@ -33,6 +33,11 @@ import {
   recordToEditorState,
   type ProgrammeEditorState,
 } from "@/lib/product-programme-operations/editor-state";
+import {
+  LEGACY_PROGRAMME_REVIEW_LABEL,
+  isLegacyProgrammeReviewRequired,
+  mustCreateDraftRevision,
+} from "@/lib/product-programme-operations/legacy-review";
 import { toProgrammeWritePayload } from "@/lib/product-programme-operations/to-write-payload";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
@@ -130,8 +135,15 @@ export function ProductProgrammeEditor({
     setSaving(true);
     try {
       const payload = toProgrammeWritePayload(state);
+      const needsDraftRevision = mustCreateDraftRevision({
+        isDeleted: false,
+        status: state.status,
+        lifecycleStatus: state.lifecycleStatus,
+        isLivePublished: state.isLivePublished,
+        publicationState: state.publicationState,
+      });
       const saved =
-        state.id && state.isLivePublished
+        state.id && needsDraftRevision
           ? await lenderRegistryClient.updateProgram(
               state.id,
               { ...payload, createDraftRevision: true, expectedLockVersion: state.lockVersion },
@@ -202,6 +214,21 @@ export function ProductProgrammeEditor({
           <p className="text-sm text-muted-foreground">
             Controlled inputs only. Save Draft does not publish.
           </p>
+          {isLegacyProgrammeReviewRequired({
+            isDeleted: false,
+            status: state.status,
+            lifecycleStatus: state.lifecycleStatus,
+            isLivePublished: state.isLivePublished,
+            publicationState: state.publicationState,
+          }) ? (
+            <p
+              className="mt-2 text-sm font-medium text-amber-800 dark:text-amber-300"
+              data-testid="legacy-programme-review-required"
+            >
+              {LEGACY_PROGRAMME_REVIEW_LABEL}. Structured completion, maker-checker approval and
+              explicit republication are required before recommendation use.
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={requestClose}>

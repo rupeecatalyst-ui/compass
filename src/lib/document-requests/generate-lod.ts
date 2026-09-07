@@ -17,8 +17,10 @@ import {
 } from "@/lib/edie-certified/resolve-context";
 import { evaluateDocumentRequestLodReadiness, buildDocumentRequestLodContext } from "@/lib/document-requests/lod-readiness";
 import type { LoanFile } from "@/types/catalyst-one";
-import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
-import { mergeEdieAndProgrammeLod } from "@/lib/product-programme-operations/lod-merge";
+import {
+  mergeEdieAndProgrammeLod,
+  type ProgrammeLodOverlayLike,
+} from "@/lib/product-programme-operations/lod-merge";
 import {
   LOAN_PARTICIPANT_ROLE_LABELS,
   type LoanParticipant,
@@ -55,10 +57,7 @@ export type GenerateOpportunityLodInput = {
   runtimeFile?: LoanFile | null;
   /** COMPASS public LOD — skip Document Center email/name gates. Default full. */
   contactChannelPolicy?: "full" | "compass_public";
-  publishedProgramme?: {
-    requiredDocuments?: EnterpriseLenderProgramRecord["requiredDocuments"];
-    requiredDocumentTypeIds?: string[] | null;
-  } | null;
+  publishedProgramme?: ProgrammeLodOverlayLike | null;
 };
 
 function participantRoleLabel(participant: LoanParticipant): string {

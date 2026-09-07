@@ -20,6 +20,8 @@ if (!database || !/^[a-z0-9_]+$/.test(database)) {
 const PRESERVED = new Set([
   "catalyst_one_product_program_bat_001",
   "catalyst_one_product_program_bat_pre_001",
+  "catalyst_one_product_program_bat_clean_002",
+  "ppo_sql_preflight_review_001",
   "postgres",
   "template0",
   "template1",

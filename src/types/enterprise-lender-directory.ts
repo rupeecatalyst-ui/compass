@@ -50,6 +50,7 @@ export interface ElwLenderProgramRow {
   effectiveUntil?: string | null;
   publishedVersion?: number;
   lastUpdated?: string | null;
+  legacyReviewRequired?: boolean;
   state: string;
   city: string;
   minCibil: number;

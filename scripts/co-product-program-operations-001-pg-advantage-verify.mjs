@@ -8,7 +8,20 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const secret = JSON.parse(readFileSync(join(root, ".tmp/ppo-bat.secret.json"), "utf8"));
-const CLEAN_DB = "catalyst_one_product_program_bat_clean_002";
+const dbIdx = process.argv.indexOf("--database");
+const CLEAN_DB = dbIdx >= 0 ? process.argv[dbIdx + 1] : null;
+if (!CLEAN_DB || CLEAN_DB.startsWith("-")) {
+  throw new Error("Required: --database <name>. Refusing to default to a tainted BAT database.");
+}
+const FORBIDDEN = new Set([
+  "catalyst_one_product_program_bat_001",
+  "catalyst_one_product_program_bat_pre_001",
+  "catalyst_one_product_program_bat_clean_002",
+  "ppo_sql_preflight_review_001",
+]);
+if (FORBIDDEN.has(CLEAN_DB)) {
+  throw new Error(`Refusing to run against preserved evidence database ${CLEAN_DB}.`);
+}
 const HOST = "127.0.0.1";
 process.env.NODE_PATH = "C:\\Compass by Rupee Catalyst (3)\\node_modules";
 process.env.DATABASE_URL = `postgresql://${encodeURIComponent(secret.user)}:${encodeURIComponent(secret.password)}@${HOST}:${secret.port}/${CLEAN_DB}?schema=public`;

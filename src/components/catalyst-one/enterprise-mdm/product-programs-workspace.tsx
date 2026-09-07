@@ -208,6 +208,7 @@ export function ProductProgramsWorkspace() {
             <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="pending_approval">Pending approval</SelectItem>
             <SelectItem value="incomplete">Incomplete</SelectItem>
+            <SelectItem value="legacy_review">Legacy programme — review required</SelectItem>
             <SelectItem value="expired">Expired</SelectItem>
             <SelectItem value="superseded">Superseded</SelectItem>
           </SelectContent>
@@ -287,7 +288,14 @@ export function ProductProgramsWorkspace() {
                   <TableCell className="text-xs tabular-nums">{(row.requiredDocumentTypeIds ?? []).length}</TableCell>
                   <TableCell className="text-xs tabular-nums">v{row.versionNumber}</TableCell>
                   <TableCell>
-                    <Badge variant={row.isLivePublished ? "default" : "outline"}>
+                    <Badge
+                      variant={row.isLivePublished ? "default" : "outline"}
+                      data-testid={
+                        programmeStatusLabel(row) === "Legacy programme — review required"
+                          ? "legacy-programme-review-required"
+                          : undefined
+                      }
+                    >
                       {programmeStatusLabel(row)}
                     </Badge>
                   </TableCell>

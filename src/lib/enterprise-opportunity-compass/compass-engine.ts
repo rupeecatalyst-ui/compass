@@ -9,6 +9,7 @@ import type {
   OpportunityRecommendation,
 } from "@/types/enterprise-opportunity-compass";
 import { citePublishedProgramme } from "@/lib/product-programme-operations/proposal-citation";
+import { canCitePublishedProgramme } from "@/lib/product-programme-operations/legacy-review";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
 let recommendations: OpportunityRecommendation[] = [];
@@ -93,7 +94,7 @@ export function recommendOpportunityFromPublishedProgramme(input: {
   contextRef: string;
   program: EnterpriseLenderProgramRecord | null;
 }): OpportunityRecommendation | null {
-  if (!input.program) return null;
+  if (!input.program || !canCitePublishedProgramme(input.program)) return null;
   const citation = citePublishedProgramme(input.program);
   return registerOpportunityRecommendation({
     contextRef: input.contextRef,

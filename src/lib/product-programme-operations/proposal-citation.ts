@@ -1,3 +1,4 @@
+import { canCitePublishedProgramme } from "@/lib/product-programme-operations/legacy-review";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
 export type ProgrammeCitation = {
@@ -13,6 +14,9 @@ export type ProgrammeCitation = {
 };
 
 export function citePublishedProgramme(program: EnterpriseLenderProgramRecord): ProgrammeCitation {
+  if (!canCitePublishedProgramme(program)) {
+    throw new Error("Unpublished or legacy programmes cannot be cited.");
+  }
   const roi =
     program.minRoiExact && program.maxRoiExact
       ? `${program.minRoiExact}–${program.maxRoiExact}%`
