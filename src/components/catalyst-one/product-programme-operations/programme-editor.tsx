@@ -57,8 +57,9 @@ const SECTIONS = [
 const PROPERTY_PRODUCTS = new Set(["HOME_LOAN", "HOME_LOAN_BT", "LAP"]);
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const fieldId = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5" data-field={fieldId}>
       <Label>{label}</Label>
       {children}
     </div>
@@ -129,23 +130,24 @@ export function ProductProgrammeEditor({
     setSaving(true);
     try {
       const payload = toProgrammeWritePayload(state);
-      if (state.id && state.isLivePublished) {
-        await lenderRegistryClient.updateProgram(
-          state.id,
-          { ...payload, createDraftRevision: true, expectedLockVersion: state.lockVersion },
-          actor,
-        );
-      } else if (state.id) {
-        await lenderRegistryClient.updateProgram(
-          state.id,
-          { ...payload, expectedLockVersion: state.lockVersion },
-          actor,
-        );
-      } else {
-        await lenderRegistryClient.createProgram(payload, actor);
-      }
+      const saved =
+        state.id && state.isLivePublished
+          ? await lenderRegistryClient.updateProgram(
+              state.id,
+              { ...payload, createDraftRevision: true, expectedLockVersion: state.lockVersion },
+              actor,
+            )
+          : state.id
+            ? await lenderRegistryClient.updateProgram(
+                state.id,
+                { ...payload, expectedLockVersion: state.lockVersion },
+                actor,
+              )
+            : await lenderRegistryClient.createProgram(payload, actor);
+      const next = recordToEditorState(saved);
+      setState(next);
+      setBaseline(JSON.stringify(next));
       toast.success("Draft saved.");
-      setBaseline(JSON.stringify(state));
       onSaved();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Save failed");
@@ -171,6 +173,11 @@ export function ProductProgrammeEditor({
           ? body.error.fieldErrors.map((item: { field: string; message: string }) => `${item.field}: ${item.message}`).join("; ")
           : "";
         throw new Error(body?.error?.message || fields || "Workflow failed");
+      }
+      if (body.data) {
+        const next = recordToEditorState(body.data);
+        setState(next);
+        setBaseline(JSON.stringify(next));
       }
       toast.success(`${action} succeeded.`);
       onSaved();
@@ -200,7 +207,7 @@ export function ProductProgrammeEditor({
           <Button variant="outline" onClick={requestClose}>
             Close
           </Button>
-          <Button onClick={() => void saveDraft()} disabled={saving}>
+          <Button data-testid="programme-save-draft" onClick={() => void saveDraft()} disabled={saving}>
             Save Draft
           </Button>
         </div>
@@ -214,12 +221,12 @@ export function ProductProgrammeEditor({
         ))}
       </div>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="programme-identity">
         <h3 className="text-lg font-semibold">1. Programme Identity</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Lender">
             <Select value={state.lenderId || undefined} onValueChange={(value) => patch({ lenderId: value })}>
-              <SelectTrigger><SelectValue placeholder="Select lender" /></SelectTrigger>
+              <SelectTrigger data-testid="programme-lender"><SelectValue placeholder="Select lender" /></SelectTrigger>
               <SelectContent>
                 {lenders.filter((lender) => !lender.isDeleted).map((lender) => (
                   <SelectItem key={lender.id} value={lender.id}>
@@ -245,7 +252,7 @@ export function ProductProgrammeEditor({
                 });
               }}
             >
-              <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+              <SelectTrigger data-testid="programme-product"><SelectValue placeholder="Select product" /></SelectTrigger>
               <SelectContent>
                 {products.map((product) => (
                   <SelectItem key={product.code} value={product.code}>
@@ -276,7 +283,7 @@ export function ProductProgrammeEditor({
         </Field>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="applicant-constitution">
         <h3 className="text-lg font-semibold">2. Applicant and Constitution</h3>
         <ControlledMultiSelect
           label="Applicant types"
@@ -312,7 +319,7 @@ export function ProductProgrammeEditor({
         />
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="geography-transaction">
         <h3 className="text-lg font-semibold">3. Geography and Transaction</h3>
         <ControlledMultiSelect
           label="Eligible states"
@@ -347,7 +354,7 @@ export function ProductProgrammeEditor({
         )}
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="eligibility">
         <h3 className="text-lg font-semibold">4. Eligibility</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Minimum CIBIL"><Input type="number" value={state.minCibil ?? ""} onChange={(event) => patch({ minCibil: event.target.value ? Number(event.target.value) : null })} /></Field>
@@ -382,7 +389,7 @@ export function ProductProgrammeEditor({
         ) : null}
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="loan-amount-tenure">
         <h3 className="text-lg font-semibold">5. Loan Amount and Tenure</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Minimum loan amount"><Input value={state.minLoanAmountExact ?? ""} onChange={(event) => patch({ minLoanAmountExact: event.target.value || null })} /><p className="text-xs text-muted-foreground">{formatIndianCurrency(state.minLoanAmountExact)}</p></Field>
@@ -402,10 +409,10 @@ export function ProductProgrammeEditor({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="pricing-roi">
         <h3 className="text-lg font-semibold">6. Pricing and Charges</h3>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Minimum ROI %"><Input value={state.minRoiExact ?? ""} onChange={(event) => patch({ minRoiExact: event.target.value || null })} /></Field>
+          <Field label="Minimum ROI %"><Input data-testid="programme-min-roi" value={state.minRoiExact ?? ""} onChange={(event) => patch({ minRoiExact: event.target.value || null })} /></Field>
           <Field label="Maximum ROI %"><Input value={state.maxRoiExact ?? ""} onChange={(event) => patch({ maxRoiExact: event.target.value || null })} /></Field>
           <Field label="Rate type">
             <Select value={state.rateType ?? undefined} onValueChange={(value) => patch({ rateType: value })}>
@@ -434,7 +441,7 @@ export function ProductProgrammeEditor({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="policy">
         <h3 className="text-lg font-semibold">7. Policy</h3>
         <Field label="Published policy version">
           <Select
@@ -454,7 +461,7 @@ export function ProductProgrammeEditor({
         </Field>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="lod">
         <h3 className="text-lg font-semibold">8. Required Documents</h3>
         <ControlledMultiSelect
           label="EDIE document catalogue"
@@ -474,7 +481,7 @@ export function ProductProgrammeEditor({
         />
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="effective-dates">
         <h3 className="text-lg font-semibold">9. Effective Dates</h3>
         <div className="grid gap-4 md:grid-cols-3">
           <Field label="Effective date"><Input type="date" value={(state.effectiveFrom ?? "").slice(0, 10)} onChange={(event) => patch({ effectiveFrom: event.target.value ? new Date(event.target.value).toISOString() : null })} /></Field>
@@ -484,7 +491,7 @@ export function ProductProgrammeEditor({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl border border-border p-5">
+      <section className="space-y-4 rounded-xl border border-border p-5" data-section="completeness-review">
         <h3 className="text-lg font-semibold">10. Review and Publication</h3>
         <p className={cn("text-sm", completeness.complete ? "text-foreground" : "text-destructive")}>
           Completeness: {completeness.complete ? "Complete" : `${completeness.errors.length} field(s) remaining`}
@@ -495,8 +502,9 @@ export function ProductProgrammeEditor({
           ))}
         </ul>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void saveDraft()} disabled={saving}>Save Draft</Button>
+          <Button data-testid="programme-save-draft-review" onClick={() => void saveDraft()} disabled={saving}>Save Draft</Button>
           <Button
+            data-testid="programme-submit"
             variant="secondary"
             disabled={saving || !state.id}
             onClick={() => void runWorkflow("submit")}
@@ -504,6 +512,7 @@ export function ProductProgrammeEditor({
             Submit
           </Button>
           <Button
+            data-testid="programme-approve"
             variant="secondary"
             disabled={saving || !state.id}
             onClick={() => void runWorkflow("approve")}
@@ -511,6 +520,7 @@ export function ProductProgrammeEditor({
             Approve
           </Button>
           <Button
+            data-testid="programme-publish"
             disabled={saving || !state.id || !completeness.complete}
             onClick={() => void runWorkflow("publish")}
           >

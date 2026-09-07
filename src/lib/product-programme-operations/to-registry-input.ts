@@ -1,5 +1,11 @@
 import type { StructuredProgrammePayload } from "@/types/product-programme-operations";
-import type { CreateLenderProgramInput, UpdateLenderProgramInput } from "@/types/enterprise-lender-registry";
+import type {
+  CreateLenderProgramInput,
+  EnterpriseLenderProgramRecord,
+  UpdateLenderProgramInput,
+} from "@/types/enterprise-lender-registry";
+import { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
+import type { ProgrammeEmploymentTypeId } from "@/constants/product-programme-operations/controlled-masters";
 
 export function structuredPayloadToCreateInput(
   payload: StructuredProgrammePayload,
@@ -63,6 +69,66 @@ export function structuredPayloadToCreateInput(
   };
 }
 
+export function createInputToStructuredPayload(input: CreateLenderProgramInput): StructuredProgrammePayload {
+  const employmentTypes = (input.employmentTypes ?? []) as ProgrammeEmploymentTypeId[];
+  return {
+    lenderId: input.lenderId,
+    productId: input.productId ?? null,
+    productCode: input.productCode ?? null,
+    productVariantCode: input.productVariantCode ?? null,
+    code: input.code,
+    label: input.label,
+    description: input.description ?? null,
+    applicantTypes: input.applicantTypes ?? [],
+    employmentTypes,
+    employmentFamily: deriveEmploymentFamily(employmentTypes),
+    legalConstitutions: (input.legalConstitutions ?? []) as StructuredProgrammePayload["legalConstitutions"],
+    residencyEligibility: (input.residencyEligibility ?? []) as StructuredProgrammePayload["residencyEligibility"],
+    customerSegments: input.customerSegments ?? [],
+    propertyTypes: input.propertyTypes ?? [],
+    transactionTypes: input.transactionTypes ?? [],
+    geographyStates: input.eligibleStates ?? [],
+    geographyCities: input.eligibleCities ?? [],
+    minCibil: input.minCibil ?? null,
+    maxCibil: input.maxCibil ?? null,
+    minAge: input.minAge ?? null,
+    maxAge: input.maxAge ?? null,
+    incomeAssessmentMethods: input.incomeAssessmentMethods ?? [],
+    minTenureMonths: input.minTenureMonths ?? null,
+    maxTenureMonths: input.maxTenureMonths ?? null,
+    rateType: input.rateType ?? null,
+    benchmarkCode: input.benchmarkCode ?? null,
+    processingFeeLabel: input.processingFeeLabel ?? null,
+    concessions: input.concessions ?? [],
+    deviationCategories: input.deviationCategories ?? [],
+    policyVersionId: input.policyVersionId ?? null,
+    creditRiskPolicyRef: input.creditRiskPolicyRef ?? null,
+    requiredDocumentTypeIds: input.requiredDocumentTypeIds ?? [],
+    requiredDocuments: input.requiredDocuments ?? [],
+    averageTatDays: input.averageTatDays ?? null,
+    effectiveFrom: input.effectiveFrom ?? null,
+    reviewAt: input.reviewAt ?? null,
+    effectiveUntil: input.effectiveUntil ?? null,
+    notes: input.notes ?? null,
+    remarks: input.remarks ?? null,
+    minLoanAmountExact: input.minLoanAmountExact ?? null,
+    maxLoanAmountExact: input.maxLoanAmountExact ?? null,
+    minIncomeExact: input.minIncomeExact ?? null,
+    maxIncomeExact: input.maxIncomeExact ?? null,
+    processingFeeAmountExact: input.processingFeeAmountExact ?? null,
+    minRoiExact: input.minRoiExact ?? null,
+    maxRoiExact: input.maxRoiExact ?? null,
+    processingFeePctExact: input.processingFeePctExact ?? null,
+    minLtvExact: input.minLtvExact ?? null,
+    maxLtvExact: input.maxLtvExact ?? null,
+    minFoirExact: input.minFoirExact ?? null,
+    maxFoirExact: input.maxFoirExact ?? null,
+    minDbrExact: input.minDbrExact ?? null,
+    maxDbrExact: input.maxDbrExact ?? null,
+    spreadExact: input.spreadExact ?? null,
+  };
+}
+
 export function structuredPayloadToUpdateInput(
   payload: StructuredProgrammePayload,
   modifiedBy: string,
@@ -72,4 +138,67 @@ export function structuredPayloadToUpdateInput(
   void createdBy;
   void code;
   return { ...rest, modifiedBy };
+}
+
+/** Published programme → structured payload so a sparse revision overlay cannot wipe completeness. */
+export function programRecordToStructuredPayload(
+  record: EnterpriseLenderProgramRecord,
+): Record<string, unknown> {
+  return {
+    lenderId: record.lenderId,
+    productId: record.productId ?? null,
+    productCode: record.productCode ?? null,
+    productVariantCode: record.productVariantCode ?? null,
+    code: record.code,
+    label: record.label,
+    description: record.description ?? null,
+    applicantTypes: record.applicantTypes ?? [],
+    employmentTypes: record.employmentTypes ?? [],
+    legalConstitutions: record.legalConstitutions ?? [],
+    residencyEligibility: record.residencyEligibility ?? [],
+    customerSegments: record.customerSegments ?? [],
+    propertyTypes: record.propertyTypes ?? [],
+    transactionTypes: record.transactionTypes ?? [],
+    geographyStates: record.eligibleStates ?? [],
+    geographyCities: record.eligibleCities ?? [],
+    eligibleStates: record.eligibleStates ?? [],
+    eligibleCities: record.eligibleCities ?? [],
+    minCibil: record.minCibil ?? null,
+    maxCibil: record.maxCibil ?? null,
+    minAge: record.minAge ?? null,
+    maxAge: record.maxAge ?? null,
+    incomeAssessmentMethods: record.incomeAssessmentMethods ?? [],
+    minTenureMonths: record.minTenureMonths ?? null,
+    maxTenureMonths: record.maxTenureMonths ?? null,
+    minLoanAmountExact: record.minLoanAmountExact ?? null,
+    maxLoanAmountExact: record.maxLoanAmountExact ?? null,
+    minIncomeExact: record.minIncomeExact ?? null,
+    maxIncomeExact: record.maxIncomeExact ?? null,
+    processingFeeAmountExact: record.processingFeeAmountExact ?? null,
+    minRoiExact: record.minRoiExact ?? null,
+    maxRoiExact: record.maxRoiExact ?? null,
+    processingFeePctExact: record.processingFeePctExact ?? null,
+    minLtvExact: record.minLtvExact ?? null,
+    maxLtvExact: record.maxLtvExact ?? null,
+    minFoirExact: record.minFoirExact ?? null,
+    maxFoirExact: record.maxFoirExact ?? null,
+    minDbrExact: record.minDbrExact ?? null,
+    maxDbrExact: record.maxDbrExact ?? null,
+    spreadExact: record.spreadExact ?? null,
+    rateType: record.rateType ?? null,
+    benchmarkCode: record.benchmarkCode ?? null,
+    processingFeeLabel: record.processingFeeLabel ?? null,
+    concessions: record.concessions ?? [],
+    deviationCategories: record.deviationCategories ?? [],
+    policyVersionId: record.policyVersionId ?? null,
+    creditRiskPolicyRef: record.creditRiskPolicyRef ?? null,
+    requiredDocumentTypeIds: record.requiredDocumentTypeIds ?? [],
+    requiredDocuments: record.requiredDocuments ?? [],
+    averageTatDays: record.averageTatDays ?? null,
+    effectiveFrom: record.effectiveFrom ?? null,
+    reviewAt: record.reviewAt ?? null,
+    effectiveUntil: record.effectiveUntil ?? null,
+    notes: record.notes ?? null,
+    remarks: record.remarks ?? null,
+  };
 }

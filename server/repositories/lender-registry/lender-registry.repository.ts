@@ -4,6 +4,203 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@server/lib/prisma";
 import { jsonOrUndefined, structuredCreateData, structuredUpdateData } from "@server/repositories/lender-registry/structured-program-data";
 import { classifyIncompleteStub } from "@/lib/product-programme-operations/versioning";
+import { createInputToStructuredPayload } from "@/lib/product-programme-operations/to-registry-input";
+
+function jsonStrings(value: Prisma.JsonValue | null | undefined): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function exactFromDecimal(value: unknown): string | null {
+  if (value == null) return null;
+  return String(value);
+}
+
+function publishedProgramToCreateInput(
+  published: {
+    lenderId: string;
+    productId: string | null;
+    productCode: string | null;
+    productVariantCode: string | null;
+    code: string;
+    label: string;
+    description: string | null;
+    borrowerType: string | null;
+    employmentType: string | null;
+    roiPercent: number | null;
+    processingFeeLabel: string | null;
+    maxTenureMonths: number | null;
+    minCibil: number | null;
+    minAge: number | null;
+    maxAge: number | null;
+    creditRiskPolicyRef: string | null;
+    requiredDocumentTypeIds: Prisma.JsonValue | null;
+    eligibleStates: Prisma.JsonValue | null;
+    eligibleCities: Prisma.JsonValue | null;
+    averageTatDays: number | null;
+    remarks: string | null;
+    notes: string | null;
+    applicantTypes: Prisma.JsonValue | null;
+    employmentTypes: Prisma.JsonValue | null;
+    legalConstitutions: Prisma.JsonValue | null;
+    residencyEligibility: Prisma.JsonValue | null;
+    customerSegments: Prisma.JsonValue | null;
+    propertyTypes: Prisma.JsonValue | null;
+    transactionTypes: Prisma.JsonValue | null;
+    incomeAssessmentMethods: Prisma.JsonValue | null;
+    rateType: string | null;
+    benchmarkCode: string | null;
+    concessions: Prisma.JsonValue | null;
+    deviationCategories: Prisma.JsonValue | null;
+    policyVersionId: string | null;
+    minTenureMonths: number | null;
+    maxCibil: number | null;
+    minRoiExact: unknown;
+    maxRoiExact: unknown;
+    minLoanAmountExact: unknown;
+    maxLoanAmountExact: unknown;
+    minIncomeExact: unknown;
+    maxIncomeExact: unknown;
+    processingFeeAmountExact: unknown;
+    processingFeePctExact: unknown;
+    minLtvExact: unknown;
+    maxLtvExact: unknown;
+    minFoirExact: unknown;
+    maxFoirExact: unknown;
+    minDbrExact: unknown;
+    maxDbrExact: unknown;
+    spreadExact: unknown;
+    reviewAt: Date | null;
+    effectiveFrom: Date | null;
+    effectiveUntil: Date | null;
+  },
+  modifiedBy: string,
+): CreateLenderProgramInput {
+  return {
+    lenderId: published.lenderId,
+    productId: published.productId ?? undefined,
+    productCode: published.productCode ?? undefined,
+    productVariantCode: published.productVariantCode ?? undefined,
+    code: published.code,
+    label: published.label,
+    description: published.description ?? undefined,
+    borrowerType: published.borrowerType ?? undefined,
+    employmentType: published.employmentType ?? undefined,
+    roiPercent: published.roiPercent ?? undefined,
+    processingFeeLabel: published.processingFeeLabel ?? undefined,
+    maxTenureMonths: published.maxTenureMonths ?? undefined,
+    minCibil: published.minCibil ?? undefined,
+    minAge: published.minAge ?? undefined,
+    maxAge: published.maxAge ?? undefined,
+    creditRiskPolicyRef: published.creditRiskPolicyRef ?? undefined,
+    requiredDocumentTypeIds: jsonStrings(published.requiredDocumentTypeIds),
+    eligibleStates: jsonStrings(published.eligibleStates),
+    eligibleCities: jsonStrings(published.eligibleCities),
+    averageTatDays: published.averageTatDays ?? undefined,
+    remarks: published.remarks ?? undefined,
+    notes: published.notes ?? undefined,
+    createdBy: modifiedBy,
+    applicantTypes: jsonStrings(published.applicantTypes),
+    employmentTypes: jsonStrings(published.employmentTypes),
+    legalConstitutions: jsonStrings(published.legalConstitutions),
+    residencyEligibility: jsonStrings(published.residencyEligibility),
+    customerSegments: jsonStrings(published.customerSegments),
+    propertyTypes: jsonStrings(published.propertyTypes),
+    transactionTypes: jsonStrings(published.transactionTypes),
+    incomeAssessmentMethods: jsonStrings(published.incomeAssessmentMethods),
+    rateType: published.rateType ?? undefined,
+    benchmarkCode: published.benchmarkCode ?? undefined,
+    concessions: jsonStrings(published.concessions),
+    deviationCategories: jsonStrings(published.deviationCategories),
+    policyVersionId: published.policyVersionId ?? undefined,
+    minTenureMonths: published.minTenureMonths ?? undefined,
+    maxCibil: published.maxCibil ?? undefined,
+    minRoiExact: exactFromDecimal(published.minRoiExact),
+    maxRoiExact: exactFromDecimal(published.maxRoiExact),
+    minLoanAmountExact: exactFromDecimal(published.minLoanAmountExact),
+    maxLoanAmountExact: exactFromDecimal(published.maxLoanAmountExact),
+    minIncomeExact: exactFromDecimal(published.minIncomeExact),
+    maxIncomeExact: exactFromDecimal(published.maxIncomeExact),
+    processingFeeAmountExact: exactFromDecimal(published.processingFeeAmountExact),
+    processingFeePctExact: exactFromDecimal(published.processingFeePctExact),
+    minLtvExact: exactFromDecimal(published.minLtvExact),
+    maxLtvExact: exactFromDecimal(published.maxLtvExact),
+    minFoirExact: exactFromDecimal(published.minFoirExact),
+    maxFoirExact: exactFromDecimal(published.maxFoirExact),
+    minDbrExact: exactFromDecimal(published.minDbrExact),
+    maxDbrExact: exactFromDecimal(published.maxDbrExact),
+    spreadExact: exactFromDecimal(published.spreadExact),
+    reviewAt: published.reviewAt ? published.reviewAt.toISOString() : null,
+    effectiveFrom: published.effectiveFrom ? published.effectiveFrom.toISOString() : null,
+    effectiveUntil: published.effectiveUntil ? published.effectiveUntil.toISOString() : null,
+  };
+}
+
+function overlayDefinedCreateInput(
+  published: CreateLenderProgramInput,
+  input: UpdateLenderProgramInput,
+): CreateLenderProgramInput {
+  const next: CreateLenderProgramInput = { ...published, createdBy: input.modifiedBy };
+  const assign = <K extends keyof CreateLenderProgramInput>(key: K, value: CreateLenderProgramInput[K] | undefined) => {
+    if (value !== undefined) next[key] = value;
+  };
+  assign("lenderId", input.lenderId);
+  assign("productId", input.productId ?? undefined);
+  assign("productCode", input.productCode ?? undefined);
+  assign("label", input.label);
+  assign("description", input.description ?? undefined);
+  assign("borrowerType", input.borrowerType ?? undefined);
+  assign("employmentType", input.employmentType ?? undefined);
+  assign("roiPercent", input.roiPercent ?? undefined);
+  assign("processingFeeLabel", input.processingFeeLabel ?? undefined);
+  assign("maxTenureMonths", input.maxTenureMonths ?? undefined);
+  assign("minCibil", input.minCibil ?? undefined);
+  assign("minAge", input.minAge ?? undefined);
+  assign("maxAge", input.maxAge ?? undefined);
+  assign("creditRiskPolicyRef", input.creditRiskPolicyRef ?? undefined);
+  assign("requiredDocumentTypeIds", input.requiredDocumentTypeIds ?? undefined);
+  assign("requiredDocuments", input.requiredDocuments ?? undefined);
+  assign("eligibleStates", input.eligibleStates ?? undefined);
+  assign("eligibleCities", input.eligibleCities ?? undefined);
+  assign("averageTatDays", input.averageTatDays ?? undefined);
+  assign("remarks", input.remarks ?? undefined);
+  assign("notes", input.notes ?? undefined);
+  assign("productVariantCode", input.productVariantCode ?? undefined);
+  assign("applicantTypes", input.applicantTypes ?? undefined);
+  assign("employmentTypes", input.employmentTypes ?? undefined);
+  assign("legalConstitutions", input.legalConstitutions ?? undefined);
+  assign("residencyEligibility", input.residencyEligibility ?? undefined);
+  assign("customerSegments", input.customerSegments ?? undefined);
+  assign("propertyTypes", input.propertyTypes ?? undefined);
+  assign("transactionTypes", input.transactionTypes ?? undefined);
+  assign("incomeAssessmentMethods", input.incomeAssessmentMethods ?? undefined);
+  assign("rateType", input.rateType ?? undefined);
+  assign("benchmarkCode", input.benchmarkCode ?? undefined);
+  assign("concessions", input.concessions ?? undefined);
+  assign("deviationCategories", input.deviationCategories ?? undefined);
+  assign("policyVersionId", input.policyVersionId ?? undefined);
+  assign("minTenureMonths", input.minTenureMonths ?? undefined);
+  assign("maxCibil", input.maxCibil ?? undefined);
+  assign("minRoiExact", input.minRoiExact);
+  assign("maxRoiExact", input.maxRoiExact);
+  assign("minLoanAmountExact", input.minLoanAmountExact);
+  assign("maxLoanAmountExact", input.maxLoanAmountExact);
+  assign("minIncomeExact", input.minIncomeExact);
+  assign("maxIncomeExact", input.maxIncomeExact);
+  assign("processingFeeAmountExact", input.processingFeeAmountExact);
+  assign("processingFeePctExact", input.processingFeePctExact);
+  assign("minLtvExact", input.minLtvExact);
+  assign("maxLtvExact", input.maxLtvExact);
+  assign("minFoirExact", input.minFoirExact);
+  assign("maxFoirExact", input.maxFoirExact);
+  assign("minDbrExact", input.minDbrExact);
+  assign("maxDbrExact", input.maxDbrExact);
+  assign("spreadExact", input.spreadExact);
+  assign("reviewAt", input.reviewAt);
+  assign("effectiveFrom", input.effectiveFrom);
+  assign("effectiveUntil", input.effectiveUntil);
+  return next;
+}
 
 import type {
 
@@ -903,13 +1100,7 @@ export class LenderRegistryRepository {
 
     const id = randomUUID();
     const structured = structuredCreateData(input);
-    const completeness = classifyIncompleteStub({
-      policyVersionId: input.policyVersionId,
-      creditRiskPolicyRef: input.creditRiskPolicyRef,
-      requiredDocumentTypeIds: input.requiredDocumentTypeIds,
-      minRoiExact: input.minRoiExact,
-      maxRoiExact: input.maxRoiExact,
-    });
+    const completeness = classifyIncompleteStub(createInputToStructuredPayload(input));
 
     const row = await prisma.enterpriseLenderProgram.create({
       data: {
@@ -1052,46 +1243,117 @@ export class LenderRegistryRepository {
   async createDraftFromPublished(publishedId: string, input: UpdateLenderProgramInput) {
     const published = await prisma.enterpriseLenderProgram.findUnique({ where: { id: publishedId } });
     if (!published) throw new Error("Lender program not found.");
+    const fromPublished = publishedProgramToCreateInput(published, input.modifiedBy);
+    const merged = overlayDefinedCreateInput(fromPublished, input);
+    const completeness = classifyIncompleteStub(createInputToStructuredPayload(merged));
+    const existingDraft = await prisma.enterpriseLenderProgram.findFirst({
+      where: {
+        organizationId: published.organizationId,
+        lineageId: published.lineageId,
+        id: { not: published.id },
+        isLivePublished: false,
+        publicationState: { in: ["draft", "pending_approval"] },
+      },
+      orderBy: { versionNumber: "desc" },
+    });
+    if (existingDraft?.publicationState === "draft") {
+      const row = await prisma.enterpriseLenderProgram.update({
+        where: { id: existingDraft.id },
+        data: {
+          lenderId: merged.lenderId,
+          productId: merged.productId ?? null,
+          productCode: merged.productCode ?? null,
+          label: merged.label.trim(),
+          description: merged.description ?? null,
+          borrowerType: merged.borrowerType ?? published.borrowerType,
+          employmentType: merged.employmentType ?? published.employmentType,
+          roiPercent: merged.roiPercent ?? published.roiPercent,
+          processingFeeLabel: merged.processingFeeLabel ?? null,
+          maxTenureMonths: merged.maxTenureMonths ?? null,
+          minCibil: merged.minCibil ?? null,
+          minAge: merged.minAge ?? null,
+          maxAge: merged.maxAge ?? null,
+          creditRiskPolicyRef: merged.creditRiskPolicyRef ?? null,
+          requiredDocumentTypeIds: jsonOrUndefined(merged.requiredDocumentTypeIds ?? []),
+          eligibleStates: jsonOrUndefined(merged.eligibleStates ?? []),
+          eligibleCities: jsonOrUndefined(merged.eligibleCities ?? []),
+          averageTatDays: merged.averageTatDays ?? null,
+          remarks: merged.remarks ?? null,
+          notes: merged.notes ?? null,
+          ...structuredCreateData(merged),
+          publicationState: "draft",
+          isLivePublished: false,
+          completenessState: completeness.completenessState,
+          lifecycleStatus: "draft",
+          status: "draft",
+          approvalStatus: "none",
+          submittedByUserId: null,
+          submittedAt: null,
+          approvedBy: null,
+          approvedAt: null,
+          approvalReason: null,
+          modifiedBy: input.modifiedBy,
+          lockVersion: { increment: 1 },
+        },
+      });
+      return mapProgramRow(row);
+    }
+    if (existingDraft) {
+      return mapProgramRow(existingDraft);
+    }
+    const maxVersion = await prisma.enterpriseLenderProgram.aggregate({
+      where: {
+        organizationId: published.organizationId,
+        lineageId: published.lineageId,
+      },
+      _max: { versionNumber: true },
+    });
     const id = randomUUID();
-    const structured = structuredUpdateData(input);
+    const structured = structuredCreateData(merged);
     const row = await prisma.enterpriseLenderProgram.create({
       data: {
         id,
         organizationId: published.organizationId,
-        lenderId: input.lenderId ?? published.lenderId,
-        productId: input.productId === undefined ? published.productId : input.productId,
-        productCode: input.productCode === undefined ? published.productCode : input.productCode,
+        lenderId: merged.lenderId,
+        productId: merged.productId ?? null,
+        productCode: merged.productCode ?? null,
         code: published.code,
-        label: (input.label ?? published.label).trim(),
-        description: input.description === undefined ? published.description : input.description,
+        label: merged.label.trim(),
+        description: merged.description ?? null,
         lineageId: published.lineageId,
-        versionNumber: published.versionNumber + 1,
+        versionNumber: (maxVersion._max.versionNumber ?? published.versionNumber) + 1,
         lockVersion: 1,
-        publicationState: "draft",
-        isLivePublished: false,
-        completenessState: "incomplete",
-        lifecycleStatus: "draft",
-        status: "draft",
-        approvalStatus: "none",
         supersedesProgramId: published.id,
         enabled: true,
         createdBy: input.modifiedBy,
         modifiedBy: input.modifiedBy,
-        creditRiskPolicyRef:
-          input.creditRiskPolicyRef === undefined ? published.creditRiskPolicyRef : input.creditRiskPolicyRef,
-        requiredDocumentTypeIds:
-          input.requiredDocumentTypeIds === undefined
-            ? jsonOrUndefined(published.requiredDocumentTypeIds)
-            : jsonOrUndefined(input.requiredDocumentTypeIds),
-        eligibleStates:
-          input.eligibleStates === undefined
-            ? jsonOrUndefined(published.eligibleStates)
-            : jsonOrUndefined(input.eligibleStates),
-        eligibleCities:
-          input.eligibleCities === undefined
-            ? jsonOrUndefined(published.eligibleCities)
-            : jsonOrUndefined(input.eligibleCities),
+        borrowerType: merged.borrowerType ?? published.borrowerType,
+        employmentType: merged.employmentType ?? published.employmentType,
+        roiPercent: merged.roiPercent ?? published.roiPercent,
+        processingFeeLabel: merged.processingFeeLabel ?? null,
+        maxTenureMonths: merged.maxTenureMonths ?? null,
+        minCibil: merged.minCibil ?? null,
+        minAge: merged.minAge ?? null,
+        maxAge: merged.maxAge ?? null,
+        creditRiskPolicyRef: merged.creditRiskPolicyRef ?? null,
+        requiredDocumentTypeIds: jsonOrUndefined(merged.requiredDocumentTypeIds ?? []),
+        eligibleStates: jsonOrUndefined(merged.eligibleStates ?? []),
+        eligibleCities: jsonOrUndefined(merged.eligibleCities ?? []),
+        averageTatDays: merged.averageTatDays ?? null,
+        remarks: merged.remarks ?? null,
+        notes: merged.notes ?? null,
         ...structured,
+        publicationState: "draft",
+        isLivePublished: false,
+        completenessState: completeness.completenessState,
+        lifecycleStatus: "draft",
+        status: "draft",
+        approvalStatus: "none",
+        submittedByUserId: null,
+        submittedAt: null,
+        approvedBy: null,
+        approvedAt: null,
+        approvalReason: null,
       },
     });
     return mapProgramRow(row);

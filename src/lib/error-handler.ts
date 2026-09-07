@@ -49,6 +49,16 @@ export function parseApiError(error: unknown): AppError {
   });
 }
 
+export function isUnauthorizedError(error: unknown): boolean {
+  const parsed = parseApiError(error);
+  return (
+    parsed.code === "UNAUTHORIZED" ||
+    parsed.code === "TOKEN_EXPIRED" ||
+    parsed.code === "INVALID_TOKEN" ||
+    parsed.code === "INVALID_REFRESH"
+  );
+}
+
 export function getErrorMessage(error: unknown): string {
   return parseApiError(error).message;
 }

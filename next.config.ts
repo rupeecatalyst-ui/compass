@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** Bake demo-seed policy at build time — Pilot/Production bundles never enable demo data. */
 function resolveDemoSeedsEnabledAtBuild(): "true" | "false" {
@@ -90,9 +91,23 @@ function resolveBuildIdentityEnv(): Record<string, string> {
 const demoSeedsEnabled = resolveDemoSeedsEnabledAtBuild();
 const buildIdentity = resolveBuildIdentityEnv();
 
+function isLocalBatIsolatedPrisma(): boolean {
+  if (process.env.CATALYST_BAT_ISOLATED_PRISMA !== "1") return false;
+  if (process.env.VERCEL === "1") {
+    throw new Error("CATALYST_BAT_ISOLATED_PRISMA is not allowed on Vercel.");
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("CATALYST_BAT_ISOLATED_PRISMA is not allowed in production.");
+  }
+  return true;
+}
+
+const batIsolatedPrisma = isLocalBatIsolatedPrisma();
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  outputFileTracingRoot: dirname(fileURLToPath(import.meta.url)),
   /**
    * Hostinger Next.js (`app_type: next`) starts `.next/standalone/server.js`
    * after a successful `next build`. Without standalone output, Hostinger
@@ -155,6 +170,12 @@ const nextConfig: NextConfig = {
   },
   webpack: (config) => {
     config.parallelism = 1;
+    if (batIsolatedPrisma) {
+      config.resolve.alias = {
+        ...(config.resolve.alias ?? {}),
+        "@prisma/client": join(process.cwd(), ".tmp/generated/prisma-client"),
+      };
+    }
     return config;
   },
   /**
@@ -169,7 +190,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  serverExternalPackages: ["bcryptjs", "jsonwebtoken", "@prisma/client"],
+  serverExternalPackages: batIsolatedPrisma
+    ? ["bcryptjs", "jsonwebtoken"]
+    : ["bcryptjs", "jsonwebtoken", "@prisma/client"],
   /**
    * Do not bake ENTERPRISE_PERSISTENCE_MODE (or its NEXT_PUBLIC_ mirror) into `env`.
    * Next.js `config.env` inlines values at BUILD TIME. Hostinger often injects

@@ -120,18 +120,63 @@ export class IsolatedProgrammeDurableStore {
 
     if (existing.publicationState === "published" && existing.isLivePublished && input.createDraftRevision) {
       const now = new Date().toISOString();
+      const existingDraft = bag.programmes.find(
+        (row) =>
+          row.lineageId === existing.lineageId &&
+          row.id !== existing.id &&
+          !row.isDeleted &&
+          row.isLivePublished === false &&
+          (row.publicationState === "draft" || row.publicationState === "pending_approval"),
+      );
+      if (existingDraft?.publicationState === "draft") {
+        Object.assign(existingDraft, input.payload, {
+          completenessState: evaluateProgrammeCompleteness({ ...existingDraft, ...input.payload }).complete
+            ? "complete"
+            : "incomplete",
+          publicationState: "draft",
+          isLivePublished: false,
+          lifecycleStatus: "draft",
+          status: "draft",
+          approvalStatus: "none",
+          submittedByUserId: null,
+          submittedAt: null,
+          approvedBy: null,
+          approvedAt: null,
+          approvalReason: null,
+          lockVersion: existingDraft.lockVersion + 1,
+          modifiedBy: input.actorUserId,
+          updatedAt: now,
+        });
+        bag.audits.push(
+          this.audit(input.organizationId, existingDraft, "draft_revision_created", existing, existingDraft, input.actorUserId, input.actorName),
+        );
+        this.write(bag);
+        return clone(existingDraft);
+      }
+      if (existingDraft) {
+        return clone(existingDraft);
+      }
       const draft: ProgrammeVersionRecord = {
         ...existing,
         ...input.payload,
         id: randomUUID(),
-        versionNumber: nextDraftVersionNumber(existing.versionNumber),
+        versionNumber: nextDraftVersionNumber(
+          Math.max(
+            existing.versionNumber,
+            ...bag.programmes
+              .filter((row) => row.lineageId === existing.lineageId && !row.isDeleted)
+              .map((row) => row.versionNumber),
+          ),
+        ),
         lockVersion: 1,
         publicationState: "draft",
         isLivePublished: false,
         lifecycleStatus: "draft",
         status: "draft",
         approvalStatus: "none",
-        completenessState: evaluateProgrammeCompleteness(input.payload).complete ? "complete" : "incomplete",
+        completenessState: evaluateProgrammeCompleteness({ ...existing, ...input.payload }).complete
+          ? "complete"
+          : "incomplete",
         supersedesProgramId: existing.id,
         submittedByUserId: null,
         submittedAt: null,

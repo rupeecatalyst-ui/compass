@@ -1,6 +1,7 @@
 import { lenderRegistryRepository } from "@server/repositories/lender-registry/lender-registry.repository";
 import { parseStructuredProgrammePayload } from "@/lib/product-programme-operations/request-schema";
 import {
+  programRecordToStructuredPayload,
   structuredPayloadToCreateInput,
   structuredPayloadToUpdateInput,
 } from "@/lib/product-programme-operations/to-registry-input";
@@ -92,12 +93,25 @@ export const productProgrammeOperationsService = {
       },
       createDraftRevision,
     );
-    const payload = parseStructuredProgrammePayload({
-      lenderId: existing.lenderId,
-      code: existing.code,
-      label: existing.label,
-      ...raw,
-    });
+    const revisionMetaKeys = new Set([
+      "createDraftRevision",
+      "expectedLockVersion",
+      "createdBy",
+      "modifiedBy",
+    ]);
+    const overlay = Object.fromEntries(
+      Object.entries(raw).filter(([key]) => !revisionMetaKeys.has(key)),
+    );
+    const payload = parseStructuredProgrammePayload(
+      createDraftRevision
+        ? { ...programRecordToStructuredPayload(existing), ...overlay }
+        : {
+            lenderId: existing.lenderId,
+            code: existing.code,
+            label: existing.label,
+            ...raw,
+          },
+    );
     const updateInput = structuredPayloadToUpdateInput(payload, input.actorUserId);
     const updated = createDraftRevision
       ? await lenderRegistryRepository.createDraftFromPublished(input.programId, updateInput)

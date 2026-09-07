@@ -36,7 +36,7 @@ export function ControlledMultiSelect({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-testid={`multi-select-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
       <p className="text-sm font-medium">{label}</p>
       <Input
         value={query}

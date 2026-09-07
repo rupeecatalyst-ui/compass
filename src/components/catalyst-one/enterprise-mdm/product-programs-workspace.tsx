@@ -149,6 +149,7 @@ export function ProductProgramsWorkspace() {
             <Button
               type="button"
               size="sm"
+              data-testid="programme-new"
               onClick={() => {
                 setEditing(null);
                 setEditorOpen(true);
@@ -295,6 +296,7 @@ export function ProductProgramsWorkspace() {
                       type="button"
                       size="sm"
                       variant="ghost"
+                      data-testid="programme-edit"
                       onClick={() => {
                         setEditing(row);
                         setEditorOpen(true);

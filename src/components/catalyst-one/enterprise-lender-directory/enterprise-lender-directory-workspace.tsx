@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Download, Search } from "lucide-react";
 import {
   ELD_CATEGORY_OPTIONS,
@@ -79,7 +79,6 @@ const SORT_FIELD: Record<string, EnterpriseLenderDirectorySortMode> = {
 
 export function EnterpriseLenderDirectoryWorkspace() {
   const { user } = useAuthContext();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [landingTab, setLandingTab] = useState<EldLandingTabId>("lenders");
   const [rows, setRows] = useState<EnterpriseLenderDirectoryRow[]>([]);
@@ -178,8 +177,8 @@ export function EnterpriseLenderDirectoryWorkspace() {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("workspace");
     const qs = next.toString();
-    router.replace(qs ? `${ROUTES.LENDERS}?${qs}` : ROUTES.LENDERS, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once when rows ready
+    const href = qs ? `${ROUTES.LENDERS}?${qs}` : ROUTES.LENDERS;
+    window.history.replaceState(null, "", href);
   }, [loading, rows, searchParams]);
 
   const handleSort = (columnId: string) => {

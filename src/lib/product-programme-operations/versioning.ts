@@ -1,6 +1,8 @@
+import { evaluateProgrammeCompleteness } from "@/lib/product-programme-operations/completeness";
 import {
   ProgrammeConflictError,
   type ProgrammeVersionRecord,
+  type StructuredProgrammePayload,
 } from "@/types/product-programme-operations";
 
 export function isLivePublishedProgramme(record: Pick<ProgrammeVersionRecord, "isLivePublished" | "publicationState" | "isDeleted">): boolean {
@@ -30,21 +32,15 @@ export function assertLockVersion(
   }
 }
 
-export function nextDraftVersionNumber(publishedVersionNumber: number): number {
-  return publishedVersionNumber + 1;
+export function nextDraftVersionNumber(maxExistingVersionNumber: number): number {
+  return maxExistingVersionNumber + 1;
 }
 
-export function classifyIncompleteStub(input: {
-  policyVersionId?: string | null;
-  creditRiskPolicyRef?: string | null;
-  requiredDocumentTypeIds?: string[] | null;
-  minRoiExact?: string | null;
-  maxRoiExact?: string | null;
-}): { completenessState: "incomplete" | "complete"; shouldDemoteFromPublished: boolean } {
-  const hasPolicy = Boolean((input.policyVersionId ?? "").trim() || (input.creditRiskPolicyRef ?? "").trim());
-  const hasLod = Array.isArray(input.requiredDocumentTypeIds) && input.requiredDocumentTypeIds.length > 0;
-  const hasRoi = Boolean(input.minRoiExact || input.maxRoiExact);
-  const complete = hasPolicy && hasLod && hasRoi;
+export function classifyIncompleteStub(payload: StructuredProgrammePayload): {
+  completenessState: "incomplete" | "complete";
+  shouldDemoteFromPublished: boolean;
+} {
+  const complete = evaluateProgrammeCompleteness(payload).complete;
   return {
     completenessState: complete ? "complete" : "incomplete",
     shouldDemoteFromPublished: !complete,

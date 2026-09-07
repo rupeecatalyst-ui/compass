@@ -14,7 +14,23 @@ export async function POST(request: Request) {
     { module: "Authentication", action: "login", endpoint: "/api/auth/login" },
     async ({ correlationId }) => {
       try {
-        const body = loginSchema.parse(await request.json());
+        const rawText = await request.text();
+        if (!rawText.trim()) {
+          throw Object.assign(new Error("Login request body is required."), {
+            statusCode: 400,
+            code: "EMPTY_BODY",
+          });
+        }
+        let parsedBody: unknown;
+        try {
+          parsedBody = JSON.parse(rawText);
+        } catch {
+          throw Object.assign(new Error("Login request body is not valid JSON."), {
+            statusCode: 400,
+            code: "INVALID_JSON",
+          });
+        }
+        const body = loginSchema.parse(parsedBody);
         // Never log password — schema parse only.
         const result = await authService.login(body.email, body.password);
         const userId =

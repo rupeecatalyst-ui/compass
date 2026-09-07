@@ -54,6 +54,44 @@ export function clearTokens(): void {
   document.cookie = "compass-access-token=; path=/; max-age=0; SameSite=Lax";
 }
 
+function isAuthoritativeAuthRejection(status: number | undefined): boolean {
+  return status === 401 || status === 403;
+}
+
+function redirectToLoginIfNeeded() {
+  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    window.location.href = "/login";
+  }
+}
+
+function invalidateBrowserSession() {
+  clearTokens();
+  redirectToLoginIfNeeded();
+}
+
+async function readJsonBody(res: Response): Promise<unknown> {
+  const text = await res.text();
+  if (!text.trim()) {
+    throw new Error(`Empty response body (${res.status})`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Response was not valid JSON (${res.status}, ${text.length} bytes)`);
+  }
+}
+
+function refreshRejectedAuthoritatively(status: number | undefined, body: ApiResponse<unknown> | undefined): boolean {
+  if (isAuthoritativeAuthRejection(status)) return true;
+  const code = body?.error?.code;
+  return (
+    code === "UNAUTHORIZED" ||
+    code === "TOKEN_EXPIRED" ||
+    code === "INVALID_TOKEN" ||
+    code === "INVALID_REFRESH"
+  );
+}
+
 /**
  * Browser fetch with Bearer auth + one refresh retry (same contract as axios interceptor).
  * Used by Enterprise Deal / Opportunity / ECM / registry API clients.
@@ -104,7 +142,7 @@ export async function authenticatedJsonFetch(
       credentials: "include",
       body: JSON.stringify({ refreshToken }),
     });
-    const refreshBody = (await refreshRes.json().catch(() => ({}))) as ApiResponse<{
+    const refreshBody = (await readJsonBody(refreshRes)) as ApiResponse<{
       accessToken: string;
       refreshToken: string;
     }>;
@@ -113,17 +151,12 @@ export async function authenticatedJsonFetch(
       onTokenRefreshed(refreshBody.data.accessToken);
       return doFetch(refreshBody.data.accessToken);
     }
-    clearTokens();
     flushTokenRefreshWaiters(null);
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-      window.location.href = "/login";
+    if (refreshRejectedAuthoritatively(refreshRes.status, refreshBody)) {
+      invalidateBrowserSession();
     }
   } catch {
-    clearTokens();
     flushTokenRefreshWaiters(null);
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-      window.location.href = "/login";
-    }
   } finally {
     isRefreshing = false;
   }
@@ -186,11 +219,12 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const { data } = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
+        const refreshResponse = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
           `${getApiBaseUrl()}/api/auth/refresh`,
           { refreshToken },
           { withCredentials: true },
         );
+        const data = refreshResponse.data;
 
         if (data.success && data.data) {
           setTokens(data.data.accessToken, data.data.refreshToken);
@@ -199,15 +233,17 @@ apiClient.interceptors.response.use(
           return apiClient(originalRequest);
         }
         flushTokenRefreshWaiters(null);
-        clearTokens();
-        if (typeof window !== "undefined") {
-          window.location.href = "/login";
+        if (refreshRejectedAuthoritatively(refreshResponse.status, data)) {
+          invalidateBrowserSession();
         }
-      } catch {
+      } catch (refreshErr) {
         flushTokenRefreshWaiters(null);
-        clearTokens();
-        if (typeof window !== "undefined") {
-          window.location.href = "/login";
+        const refreshStatus = axios.isAxiosError(refreshErr) ? refreshErr.response?.status : undefined;
+        const refreshBody = axios.isAxiosError(refreshErr)
+          ? (refreshErr.response?.data as ApiResponse<unknown> | undefined)
+          : undefined;
+        if (refreshRejectedAuthoritatively(refreshStatus, refreshBody)) {
+          invalidateBrowserSession();
         }
       } finally {
         isRefreshing = false;

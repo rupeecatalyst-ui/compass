@@ -27,6 +27,10 @@ import { DocumentViewerOverlay } from "@/components/catalyst-one/document-center
 import { DocumentVersionHistoryDrawer } from "@/components/catalyst-one/document-center/document-version-history-drawer";
 import { DocumentAttachmentsDrawer } from "@/components/catalyst-one/document-center/document-attachments-drawer";
 import {
+  ProgrammeLodOverlayBanner,
+  useLivePublishedProgrammes,
+} from "@/components/catalyst-one/product-programme-operations/published-programme-evidence";
+import {
   journeyContextFromLoanFile,
   loadOpportunityJourneyRuntime,
 } from "@/lib/lead-opportunity-journey/load-context";
@@ -149,6 +153,7 @@ export function DocumentCenterWorkspace() {
   const [attachmentsLabel, setAttachmentsLabel] = useState("");
   const [otherDocs, setOtherDocs] = useState<OtherDocumentEntry[]>([]);
   const [registryPreviewId, setRegistryPreviewId] = useState<string | null>(null);
+  const { program: publishedProgramme } = useLivePublishedProgrammes();
 
   const scrollRoot = useRef<HTMLDivElement | null>(null);
   const scrollPos = useRef(0);
@@ -897,6 +902,11 @@ export function DocumentCenterWorkspace() {
               {toast}
             </div>
           ) : null}
+
+          <ProgrammeLodOverlayBanner
+            program={publishedProgramme}
+            edieTypeRefs={(checklist?.items ?? []).map((item) => item.typeRef)}
+          />
 
           {uploadProgress ? (
             <DocumentUploadProgressBar
