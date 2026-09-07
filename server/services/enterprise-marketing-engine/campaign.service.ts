@@ -127,12 +127,10 @@ function loadCampaignMapping(
   audienceId?: string | null,
 ): { columnMap: import("@/types/enterprise-marketing-durability").MarketingColumnMap | null; mappingConfirmed: boolean } {
   if (!audienceId?.trim()) return { columnMap: null, mappingConfirmed: false };
-  try {
-    const def = marketingAudienceService.get(actor, audienceId);
-    return { columnMap: def.columnMap, mappingConfirmed: def.mappingConfirmed };
-  } catch {
-    return { columnMap: null, mappingConfirmed: false };
-  }
+  const organizationId = (actor.organizationId ?? "").trim();
+  const def = marketingAudienceDefinitionStore.getForOrg(audienceId, organizationId);
+  if (!def) return { columnMap: null, mappingConfirmed: false };
+  return { columnMap: def.columnMap, mappingConfirmed: def.mappingConfirmed };
 }
 
 function validateContentTokens(content: MarketingContentDocument, subject: string, previewText: string) {

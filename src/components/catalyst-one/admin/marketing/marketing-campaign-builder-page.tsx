@@ -37,6 +37,7 @@ import {
   MARKETING_PERMISSIONS,
   MARKETING_TEST_MODE_BANNER,
   MARKETING_LIVE_PROVIDER_SENDING_DISABLED,
+  MARKETING_WORKBOOK_CONNECTION_LABELS,
 } from "@/constants/enterprise-marketing-engine";
 import { ROUTES } from "@/constants/routes";
 import { createEmptyContentDocument } from "@/lib/enterprise-marketing-engine/content-blocks";
@@ -164,7 +165,15 @@ export function MarketingCampaignBuilderPage({
   const [windowStart, setWindowStart] = useState(MARKETING_DEFAULT_BATCH_POLICY.sendWindowStart);
   const [windowEnd, setWindowEnd] = useState(MARKETING_DEFAULT_BATCH_POLICY.sendWindowEnd);
   const [dailyMax, setDailyMax] = useState(MARKETING_DEFAULT_BATCH_POLICY.dailyMax);
-  const [bindings, setBindings] = useState<Array<{ id: string; displayName: string }>>([]);
+  const [bindings, setBindings] = useState<
+    Array<{ id: string; displayName: string; connectionState?: string; status?: string }>
+  >([]);
+  const [sourceMode, setSourceMode] = useState<{
+    sourceStatus?: string;
+    sourceNotice?: string;
+    connectionState?: string;
+    fixtureVisible?: boolean;
+  } | null>(null);
   const [datasets, setDatasets] = useState<Array<{ externalDatasetId: string; displayName: string }>>([]);
   const [templates, setTemplates] = useState<MarketingContentTemplate[]>([]);
   const [prePublish, setPrePublish] = useState<MarketingPrePublishCheckResult | null>(null);
@@ -296,15 +305,22 @@ export function MarketingCampaignBuilderPage({
       try {
         const [detail, sourceRes, tplRes] = await Promise.all([
           loadCampaign(),
-          authenticatedJsonFetch("/api/admin/marketing/data-sources"),
+          authenticatedJsonFetch("/api/admin/marketing/data-sources?scope=operator"),
           authenticatedJsonFetch("/api/admin/marketing/campaigns?view=templates"),
         ]);
         if (cancelled) return;
         if (sourceRes.ok) {
           const sourceBody = (await sourceRes.json()) as ApiEnvelope<{
-            bindings: Array<{ id: string; displayName: string }>;
+            bindings: Array<{ id: string; displayName: string; connectionState?: string; status?: string }>;
+            mode?: {
+              sourceStatus?: string;
+              sourceNotice?: string;
+              connectionState?: string;
+              fixtureVisible?: boolean;
+            };
           }>;
           setBindings(sourceBody.data?.bindings ?? []);
+          setSourceMode(sourceBody.data?.mode ?? null);
         }
         if (tplRes.ok) {
           const tplBody = (await tplRes.json()) as ApiEnvelope<{ templates: MarketingContentTemplate[] }>;
@@ -322,7 +338,7 @@ export function MarketingCampaignBuilderPage({
               setMappingConfirmed(audience.mappingConfirmed);
               setFilters(audience.filterDefinition ?? emptyMarketingFilters());
               setExclusions(audience.exclusionDefinition ?? emptyMarketingFilters());
-              setSnapshotStatus(audience.mappingConfirmed ? "Not frozen" : "Unavailable");
+              setSnapshotStatus(audience.lastSnapshotId ? "Frozen" : audience.mappingConfirmed ? "Not frozen" : "Unavailable");
             }
           }
         }
@@ -392,7 +408,6 @@ export function MarketingCampaignBuilderPage({
       setHeaders(nextHeaders);
       const suggested = suggestMarketingColumnMap(nextHeaders).suggested;
       setColumnMap((prev) => (prev.email ? prev : suggested));
-      setMappingConfirmed(false);
     })();
     return () => {
       cancelled = true;
@@ -410,6 +425,7 @@ export function MarketingCampaignBuilderPage({
         name: `${name || "Campaign"} audience`,
         bindingId,
         datasetId,
+        campaignId,
         filterDefinition: filters,
         exclusionDefinition: exclusions,
         columnMap,
@@ -536,6 +552,43 @@ export function MarketingCampaignBuilderPage({
       toast.error(err instanceof Error ? err.message : "Eligibility preview failed");
       setEligibleCount(null);
       setAudienceCounts(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function freezeAudienceSnapshot() {
+    if (!mappingConfirmed || !columnMap.email) {
+      toast.error("Confirm the email column mapping before freezing a snapshot");
+      return;
+    }
+    setBusy(true);
+    try {
+      const nextAudienceId = await persistAudience();
+      if (!nextAudienceId) throw new Error("Audience must be saved before freeze");
+      const versionId = campaign?.currentDraftVersionId;
+      if (!versionId) throw new Error("Campaign draft version is required to freeze");
+      const res = await authenticatedJsonFetch("/api/admin/marketing/audiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "freeze",
+          audienceId: nextAudienceId,
+          campaignId,
+          campaignVersionId: versionId,
+        }),
+      });
+      const body = (await res.json()) as ApiEnvelope<{
+        snapshot: { id: string; snapshotHash: string; eligibleCount: number; frozenAt: string };
+      }>;
+      if (!res.ok || !body.success || !body.data?.snapshot) {
+        throw new Error(body.error?.message ?? "Freeze snapshot failed");
+      }
+      setEligibleCount(body.data.snapshot.eligibleCount);
+      setSnapshotStatus("Frozen");
+      toast.success("Audience snapshot frozen. Later Google Sheet changes will not alter it.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Freeze snapshot failed");
     } finally {
       setBusy(false);
     }
@@ -891,19 +944,47 @@ export function MarketingCampaignBuilderPage({
           ) : null}
 
           {step === 2 ? (
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-4" data-mkt-audience-step="workbook">
               <h3 className="font-semibold">Audience source</h3>
+              {sourceMode ? (
+                <p
+                  className="rounded-md border px-3 py-2 text-sm"
+                  data-mkt-workbook-connection={sourceMode.connectionState ?? sourceMode.sourceStatus}
+                >
+                  {sourceMode.connectionState
+                    ? MARKETING_WORKBOOK_CONNECTION_LABELS[
+                        sourceMode.connectionState as keyof typeof MARKETING_WORKBOOK_CONNECTION_LABELS
+                      ] ?? sourceMode.connectionState
+                    : sourceMode.sourceStatus}
+                  {sourceMode.sourceNotice ? ` — ${sourceMode.sourceNotice}` : ""}
+                </p>
+              ) : null}
+              {sourceMode?.connectionState === "CONFIGURATION_REQUIRED" ||
+              sourceMode?.sourceStatus === "NOT_CONFIGURED" ? (
+                <p className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive">
+                  Configuration Required — authorise a workbook in Marketing Data Sources before selecting an audience.
+                </p>
+              ) : null}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Authorised workbook</Label>
-                  <Select value={bindingId || undefined} onValueChange={setBindingId}>
-                    <SelectTrigger>
+                  <Select
+                    value={bindingId || undefined}
+                    onValueChange={(value) => {
+                      setBindingId(value);
+                      setDatasetId("");
+                      setMappingConfirmed(false);
+                      setSnapshotStatus("Unavailable");
+                    }}
+                  >
+                    <SelectTrigger data-mkt-authorised-workbook="true">
                       <SelectValue placeholder="Select authorised workbook" />
                     </SelectTrigger>
                     <SelectContent>
                       {bindings.map((row) => (
                         <SelectItem key={row.id} value={row.id}>
                           {row.displayName}
+                          {row.connectionState ? ` (${row.connectionState})` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -911,7 +992,14 @@ export function MarketingCampaignBuilderPage({
                 </div>
                 <div className="space-y-1.5">
                   <Label>Worksheet tab</Label>
-                  <Select value={datasetId || undefined} onValueChange={setDatasetId}>
+                  <Select
+                    value={datasetId || undefined}
+                    onValueChange={(value) => {
+                      setDatasetId(value);
+                      setMappingConfirmed(false);
+                      setSnapshotStatus("Unavailable");
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select tab" />
                     </SelectTrigger>
@@ -1016,10 +1104,51 @@ export function MarketingCampaignBuilderPage({
                       Add exclusion
                     </Button>
                   </div>
-                  {exclusions.rules.map((rule) => (
-                    <p key={rule.id} className="mt-2 text-sm text-muted-foreground">
-                      {rule.field || "(field)"} {rule.op} {typeof rule.value === "string" ? rule.value : ""}
-                    </p>
+                  {exclusions.rules.map((rule, index) => (
+                    <div key={rule.id} className="mt-2 grid grid-cols-3 gap-2">
+                      <Input
+                        value={rule.field}
+                        onChange={(e) =>
+                          setExclusions((prev) => ({
+                            ...prev,
+                            rules: prev.rules.map((item, i) => (i === index ? { ...item, field: e.target.value } : item)),
+                          }))
+                        }
+                        placeholder="Field"
+                      />
+                      <Select
+                        value={rule.op}
+                        onValueChange={(value) =>
+                          setExclusions((prev) => ({
+                            ...prev,
+                            rules: prev.rules.map((item, i) =>
+                              i === index ? { ...item, op: value as (typeof MARKETING_FILTER_OPS)[number] } : item,
+                            ),
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MARKETING_FILTER_OPS.map((op) => (
+                            <SelectItem key={op} value={op}>
+                              {op}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={typeof rule.value === "string" ? rule.value : ""}
+                        onChange={(e) =>
+                          setExclusions((prev) => ({
+                            ...prev,
+                            rules: prev.rules.map((item, i) => (i === index ? { ...item, value: e.target.value } : item)),
+                          }))
+                        }
+                        placeholder="Value"
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1027,6 +1156,14 @@ export function MarketingCampaignBuilderPage({
               <div className="flex flex-wrap items-center gap-3">
                 <Button type="button" variant="outline" disabled={busy} onClick={() => void runPreviewEligibility()}>
                   Eligibility preview
+                </Button>
+                <Button
+                  type="button"
+                  disabled={busy || !mappingConfirmed || !columnMap.email}
+                  onClick={() => void freezeAudienceSnapshot()}
+                  data-mkt-freeze-snapshot="true"
+                >
+                  Freeze audience snapshot
                 </Button>
                 <p className="text-sm">Eligible: {eligibleCount ?? "Unavailable"}</p>
                 <p className="text-sm">Snapshot: {snapshotStatus}</p>

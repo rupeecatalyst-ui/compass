@@ -93,6 +93,13 @@ export type MarketingDurableAudienceDefinitionRecord = MarketingDurableActorStam
   sourceTabId: string;
   sourceTabName: string;
   columnMap: MarketingColumnMap;
+  name?: string;
+  description?: string | null;
+  filterDefinition?: unknown;
+  exclusionDefinition?: unknown;
+  suppressionPolicy?: unknown;
+  eligibilityRules?: unknown;
+  mappingConfirmed?: boolean;
 };
 
 export type MarketingDurableAudienceSnapshotRecord = MarketingDurableActorStamp & {
