@@ -28,9 +28,9 @@ const dataSourcesUi = read("src/components/catalyst-one/admin/marketing/marketin
 const audiencesUi = read("src/components/catalyst-one/admin/marketing/marketing-audiences-panel.tsx");
 
 mustInclude(pkg, "verify:co-marketing-redesign-003");
-mustInclude(dataSourceSrc, "assertSpreadsheetIsAuthorised");
 mustInclude(dataSourceSrc, "NOT_CONFIGURED");
 mustInclude(read("src/lib/enterprise-marketing-engine/authorised-workbook.ts"), "UNAUTHORISED_WORKBOOK");
+mustInclude(read("src/lib/enterprise-marketing-engine/authorised-workbook.ts"), "assertSpreadsheetIsAuthorised");
 mustInclude(mappingSrc, "MAPPING_NOT_CONFIRMED");
 mustInclude(mappingSrc, "Confirm the mapping");
 mustInclude(eligibilitySrc, 'purpose === "approval"');
@@ -347,7 +347,7 @@ assert.equal(mode.fixtureVisible, true);
 
 let unauthorised = false;
 try {
-  dataSource.marketingDataSourceService.upsertBinding(actor, {
+  await dataSource.marketingDataSourceService.upsertBinding(actor, {
     displayName: "Evil workbook",
     spreadsheetId: "1-arbitrary-spreadsheet-id",
   });

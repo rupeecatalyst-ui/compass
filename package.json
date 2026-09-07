@@ -180,6 +180,7 @@
     "verify:co-marketing-redesign-001": "node --import tsx scripts/co-marketing-redesign-001-schema-verify.mjs",
     "verify:co-marketing-redesign-002": "node --import tsx scripts/co-marketing-redesign-002-durability-verify.mjs",
     "verify:co-marketing-redesign-003": "node --import tsx scripts/co-marketing-redesign-003-sheets-snapshot-verify.mjs",
+    "verify:co-marketing-google-activation-001": "node --import tsx scripts/co-marketing-google-activation-001-verify.mjs",
     "verify:co-marketing-redesign-004": "node --import tsx scripts/co-marketing-redesign-004-pacing-verify.mjs",
     "verify:co-marketing-redesign-005": "node --import tsx scripts/co-marketing-redesign-005-home-registry-verify.mjs",
     "verify:co-marketing-redesign-006": "node --import tsx scripts/co-marketing-redesign-006-builder-shell-verify.mjs",
