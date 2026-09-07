@@ -1,12 +1,13 @@
 # CO-PRODUCT-PROGRAM-OPERATIONS-001 — Certification Report
 
-Status: **BLOCKED — PRODUCT PROGRAMMES NOT READY**  
-Date: 2026-09-06  
+Status: **PRODUCT PROGRAMMES CERTIFIED AND COMMITTED — GOOGLE ACTIVATION NEXT**  
+Date: 2026-09-07  
 Authority: Product Owner sequential sprint instruction  
-Hostinger / production: **unchanged**  
-Git: **not pushed** · **not deployed**
+Hostinger / production: **unchanged** · **not pushed** · **not deployed**
 
-This report does not claim Product Owner BAT readiness. PostgreSQL persistence, live HTTP against Prisma, visual BAT, and a migrate-free Next production build were not proven on this machine.
+Focused interactive publication BAT against isolated PostgreSQL `catalyst_one_product_program_bat_clean_002` **PASSED**. Creator Submit, creator self-approval **403**, separate approver Approve + Publish, Edit programme draft revision, revision Submit / Approve / Republish, Lender 360 version history, CHANAKYA / Opportunity Compass on the new live version, and Deal stamp preservation were clicked through on `http://127.0.0.1:3010`. The 22-minute full UI suite was **not** rerun.
+
+Isolated worktree HEAD before these certification commits: `f741802c1c40b352e45856aeed9dc0467ce7a05d` (Advantage Committed SSOT already committed).
 
 ---
 
@@ -45,7 +46,11 @@ Sprint 0 baseline: `docs/co-product-program-operations-001/CO-PRODUCT-PROGRAM-OP
 | 3 | `0a37470c41446b0282a76af53200cfb83f7cdc2e` | `9ca274f48c069188d1d52074523a77797a26e71a` | feat(product-programmes): gate publication and stop empty matrix stubs. |
 | 4 | `12680a5f05bfcd450427712ed51ac4164e921def` | `0a37470c41446b0282a76af53200cfb83f7cdc2e` | feat(product-programmes): surface published programmes in Lender Registry and 360. |
 | 5 | `09d08117f17eb83c9fe18d90482a97d81d837e9d` | `12680a5f05bfcd450427712ed51ac4164e921def` | feat(product-programmes): consume published programmes across CHANAKYA, LOD and deals. |
-| 6 | *(this certification commit)* | `09d08117f17eb83c9fe18d90482a97d81d837e9d` | certify(product-programmes): BAT fixtures, TypeScript gates, honest blocked status. |
+| 6 | `a74d8f0c2786969a96dd71fac72824fd1cffcdeb` | `09d08117f17eb83c9fe18d90482a97d81d837e9d` | certify(product-programmes): record Sprint 6 BAT and blocked readiness. |
+| Advantage SSOT | `f741802c1c40b352e45856aeed9dc0467ce7a05d` | `a74d8f0c2786969a96dd71fac72824fd1cffcdeb` | feat(opportunity): add immutable Advantage Committed (₹) SSOT |
+| 7 | `73e17dcc17f5e9a648d7d469b5c4a2d968761fab` | `f741802c1c40b352e45856aeed9dc0467ce7a05d` | feat(product-programmes): finish publication workflow and lineage versioning. |
+| 8 | `d41fa8009e819c13cae8fdfd3746dee482cec9b3` | `73e17dcc17f5e9a648d7d469b5c4a2d968761fab` | fix(opportunity): surface Advantage Committed on Deal, Kanban and Accounting. |
+| 9 | *(this certification commit)* | `d41fa8009e819c13cae8fdfd3746dee482cec9b3` | certify(product-programmes): record focused publication BAT and isolated gates. |
 
 Certified history was not squashed or amended.
 
@@ -353,36 +358,81 @@ Supporting verifies (file store / static): Sprint 1–5 scripts **PASS** after S
 
 | Gate | Result |
 |------|--------|
-| `npx tsc --noEmit` | **PASS** |
-| ESLint `--max-warnings=0` on programme files | **PASS** |
-| `npx prisma validate` with dummy `DATABASE_URL` | **PASS** (schema valid; database not running) |
-| Product Programme / policy / publication / versioning / registry / consumer tests | **PASS** against isolated file store only |
-| Permission and tenant tests | **PASS** against isolated file store only |
-| Safe Next production build without production migration | **PASS** — `node ./node_modules/next/dist/bin/next build` with dummy `DATABASE_URL=postgresql://127.0.0.1:55432/...`. Exit 0. `npm run build` was **not** used (it runs `prisma migrate deploy`). |
-| Secret scan (programme files) | **PASS** — only BAT-28 lists email provider needles as forbidden strings |
-| External-call scan (programme files) | **PASS** — no live Google Sheet, cron, Hostinger, or SMTP senders |
-| PostgreSQL round-trip | **FAIL / NOT RUN** — no local Postgres (port 5432 closed; no Docker) |
-| Visual BAT screenshots | **NOT RUN** — no local app against an isolated database |
+| Focused UI publication BAT (`--section publication`) | **PASS** — exit 0, `FOCUSED UI PUBLICATION BAT PASSED` |
+| `npx tsc --noEmit` (`NODE_OPTIONS=--max-old-space-size=8192`) | **PASS** |
+| ESLint `--max-warnings=0` on programme / publication / Advantage integration files | **PASS** |
+| File-store publication/versioning (`sprint6-bat.mjs`) | **PASS** — 31/31 |
+| Product Programme PostgreSQL tests (`pg-repo.mjs` on `clean_002`) | **PASS** including maker-checker, draft revision, republish, superseded, deal stamp |
+| Advantage Committed verifier (`pg-advantage-verify.mjs`) | **PASS** |
+| Safe Next production build (`node ./node_modules/next/dist/bin/next build` + dummy `DATABASE_URL=postgresql://127.0.0.1:1/...`) | **PASS** — compiled successfully; `npm run build` was **not** used |
+| Secret scan (programme paths) | **PASS** — no live credentials in committed programme sources |
+| External-call scan (programme paths) | **PASS** — no Google Sheets, SMTP senders, Hostinger, or cron activation |
+| Isolated Prisma parent hashes | **PASS** — `@prisma/client` `3e176d3792b70441a116417bea7b559df18e072acc4549d8a8d42294b13c8c6a` · `.prisma/client` `829828639f62712680fdbc3c7f175f92bcf8cfa8da509013b23070bfbb65b5b0` |
+| Migration history on `clean_002` | **PASS** — `20260906180000`, `20260906184500`, `20260906190000` finished, not rolled back |
+| Git scope | **PASS** — `.tmp`, screenshots, secrets, generated Prisma Client, `.next`, `node_modules.partial-npm` not committed |
+
+---
+
+## Focused UI publication BAT (2026-09-07)
+
+Runner: `node scripts/co-product-program-operations-001-pg-ui.mjs --database catalyst_one_product_program_bat_clean_002 --section publication`  
+App: `http://127.0.0.1:3010` · Isolated PostgreSQL `127.0.0.1:55434` · Marketing execution `false` · Email `dry_run`
+
+| Assertion | Result |
+|-----------|--------|
+| Creator login | PASS |
+| Complete draft created from live published (Save Draft) | PASS — v4 complete draft |
+| Submit → `pending_approval` (HTTP 200 + DB) | PASS |
+| Creator self-approval rejected | PASS — HTTP **403** `Creator cannot approve their own programme.` |
+| Approver login / Approve / Publish | PASS — v4 live published |
+| Lender Registry + Lender 360 | PASS |
+| Edit programme → complete new draft | PASS — v5 |
+| Harmless ROI field save + Submit | PASS |
+| Approver Approve + Republish | PASS — v5 live |
+| Earlier versions superseded and visible in version history | PASS — `v5 (published) · v4 (superseded) · v3 · v2 · v1` |
+| Policy / LOD / ROI / eligibility remain on Lender 360 | PASS |
+| CHANAKYA + Opportunity Compass use new published version | PASS — v5 `FIX-HL-SAL-087D06F6` |
+| Existing Deal retains originally stamped programme version | PASS — `HTTP-HL-SAL-50CAD7F9` **v1** unchanged while live lineage is v5 |
+
+Screenshots (untracked): `.tmp/ppo-bat-screenshots/pub-*.png` · HTTP/DB evidence: `.tmp/ppo-publication-evidence.json`
+
+Defect fixed during this BAT: draft revision version numbers now use **max lineage version + 1**, so a superseded higher version cannot block a new draft (`organization_id,lineage_id,version_number` unique).
+
+---
+
+## Why this is certified for commit (not Hostinger)
+
+The Product Owner instruction forbids claiming readiness if PostgreSQL persistence, publication gating, versioning, or downstream consumers were only statically inspected.
+
+This isolated worktree now has:
+
+1. Additive schema and HTTP wiring on isolated PostgreSQL `clean_002`
+2. Structured editor and clicked publication workflow
+3. File-store BAT covering the 28 scenarios **and** live UI publication BAT
+4. Engineering gates listed above
+
+It does **not** have:
+
+1. Git push
+2. Hostinger / production deploy
+3. Production migration
+4. Google / email / Marketing activation
+
+Google activation is the next Product Owner instruction. Hostinger remains frozen.
 
 ---
 
 ## Visual evidence paths
 
-None. Live screenshots were not captured. Capturing UI against production or Hostinger was forbidden. This workstation had no isolated Postgres and no running local Catalyst One against the new schema.
+Captured on `http://127.0.0.1:3010` against `clean_002` (untracked `.tmp`):
 
-Required captures remain outstanding for a later isolated BAT environment:
-
-- Programme Registry
-- Create/Edit wizard
-- Employment multi-select
-- Constitution multi-select
-- Eligibility / Pricing / Policy / LOD / Review
-- Publication errors
-- Lender Registry
-- Lender 360 programme card / full detail / version history / draft revision
-- CHANAKYA programme evidence
-- Opportunity Compass recommendation
-- Proposal programme reference
+- `.tmp/ppo-bat-screenshots/01-after-login.png`
+- `.tmp/ppo-bat-screenshots/02-my-opportunities.png` — **Advantage Committed (₹)** visible
+- `.tmp/ppo-bat-screenshots/03-my-deals-kanban.png`
+- `.tmp/ppo-bat-screenshots/04-deals.png`
+- `.tmp/ppo-bat-screenshots/05-accounting.png`
+- `.tmp/ppo-bat-screenshots/pub-01-programme-registry.png` through `pub-20-deal-original-stamp.png` — focused publication BAT
+- Historical Advantage Committed captures remain under the same folder from the earlier full UI run
 
 ---
 
@@ -407,27 +457,6 @@ Unchanged. No push. No Hostinger deploy. No production migration. No production 
 
 ---
 
-## Why this is blocked
-
-The Product Owner instruction forbids claiming readiness if PostgreSQL persistence, publication gating, versioning, or downstream consumers were only statically inspected.
-
-This build has:
-
-1. Additive schema and HTTP wiring
-2. Structured editor and publication workflow in code
-3. File-store BAT covering the 28 scenarios
-
-It does **not** have:
-
-1. An isolated local PostgreSQL
-2. Applied non-production migration + SQL round-trip
-3. Live HTTP create/update/publish against Prisma
-4. Visual BAT of Lender 360 / CHANAKYA / Compass (Next compile succeeded; UI was not exercised)
-
-Marketing campaign authorisation remains **blocked** until Product Owner BAT on a real isolated database succeeds.
-
----
-
 ## Final status
 
-**BLOCKED — PRODUCT PROGRAMMES NOT READY**
+**PRODUCT PROGRAMMES CERTIFIED AND COMMITTED — GOOGLE ACTIVATION NEXT**
