@@ -44,6 +44,11 @@ import {
 import { INRCurrencyInput } from "@/components/catalyst-one/shared/inr-currency-input";
 import { AdvantageCommittedReadout } from "@/components/catalyst-one/shared/advantage-committed-readout";
 import {
+  PublishedProgrammeEvidence,
+  useLivePublishedProgrammes,
+} from "@/components/catalyst-one/product-programme-operations/published-programme-evidence";
+import { readDealProgrammeStamp } from "@/lib/product-programme-operations/deal-stamp";
+import {
   LENDER_CASE_STAGES,
   LENDER_CASE_STAGE_LABELS,
   LENDER_PROBABILITY_LABELS,
@@ -136,6 +141,10 @@ export function DealControlPanel({
     amount?: string | null;
     display?: string | null;
   }>({});
+  const [dealSnapshot, setDealSnapshot] = useState<unknown>(null);
+  const { program: publishedProgramme } = useLivePublishedProgrammes(
+    caseExecution?.lenderRegistryId ?? null,
+  );
 
   useEffect(() => {
     if (!open || !caseExecution) return;
@@ -149,6 +158,7 @@ export function DealControlPanel({
           data?: {
             advantageCommittedAmount?: string | null;
             advantageCommittedDisplay?: string | null;
+            snapshot?: unknown;
           };
         };
         if (cancelled || !body.success) return;
@@ -156,6 +166,7 @@ export function DealControlPanel({
           amount: body.data?.advantageCommittedAmount ?? null,
           display: body.data?.advantageCommittedDisplay ?? null,
         });
+        setDealSnapshot(body.data?.snapshot ?? null);
       })
       .catch(() => {
         if (!cancelled) setAdvantageCommitted({});
@@ -396,6 +407,12 @@ export function DealControlPanel({
                 display={advantageCommitted.display}
                 productLabel={product}
                 compact
+              />
+              <PublishedProgrammeEvidence
+                program={publishedProgramme}
+                stamp={readDealProgrammeStamp(dealSnapshot)}
+                title="Deal programme / version"
+                className="bg-transparent p-0"
               />
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Product</Label>

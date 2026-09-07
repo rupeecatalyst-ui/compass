@@ -218,7 +218,7 @@ export function AccountingCasesPanel(props: {
         </p>
       ) : (
         <div className="mt-2 overflow-x-auto">
-          <table className="w-full min-w-[1100px] text-left text-xs">
+          <table className="w-full min-w-[1100px] text-left text-xs" data-testid="accounting-cases-table">
             <thead className="text-[10px] uppercase text-muted-foreground">
               <tr>
                 <th className="py-1.5 pr-2">Deal</th>
