@@ -83,8 +83,8 @@ expect(
     "all,pending_documents,recently_created,assigned_to_me",
 );
 expect("load more label", DOCUMENT_WORKSPACE_CARD_GRID_LOAD_MORE_LABEL === "Load more");
-expect("deal action label", DOCUMENT_WORKSPACE_CARD_GRID_OPEN_DEAL_LABEL === "Open Deal Documents");
-expect("opportunity action label", DOCUMENT_WORKSPACE_CARD_GRID_OPEN_LABEL === "Open Document Workspace");
+expect("deal action label", DOCUMENT_WORKSPACE_CARD_GRID_OPEN_DEAL_LABEL === "View Documents");
+expect("opportunity action label", DOCUMENT_WORKSPACE_CARD_GRID_OPEN_LABEL === "View Documents");
 
 mustContain(switcher, 'data-document-workspace-card-grid="012"', "card grid marker");
 mustContain(switcher, "grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3", "3/2/1 columns");
@@ -126,7 +126,7 @@ mustContain(cardUi, "LenderLogo", "lender logo");
 mustContain(cardUi, "aria-label", "accessible labels");
 mustContain(cardUi, "focus-visible:ring", "visible focus");
 mustContain(cardUi, "DOCUMENT_WORKSPACE_CARD_GRID_READINESS_UNAVAILABLE", "neutral readiness");
-mustContain(cardUi, "Required ", "required document count");
+mustContain(cardUi, "Categories ", "category completeness");
 mustContain(workspace, 'data-document-workspace-opener="012"', "opening screen");
 mustContain(workspace, "documentWorkspaceTransientUiAfterFingerprintChange", "stale UI cleared on context change");
 mustContain(workspace, "applyLockedHref", "canonical href lock");

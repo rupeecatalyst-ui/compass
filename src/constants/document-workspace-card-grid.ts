@@ -20,9 +20,9 @@ export const DOCUMENT_WORKSPACE_CARD_GRID_CHIPS = [
 
 export const DOCUMENT_WORKSPACE_CARD_GRID_DEFAULT_SORT = "newest_opportunity" as const;
 
-export const DOCUMENT_WORKSPACE_CARD_GRID_OPEN_LABEL = "Open Document Workspace";
+export const DOCUMENT_WORKSPACE_CARD_GRID_OPEN_LABEL = "View Documents";
 
-export const DOCUMENT_WORKSPACE_CARD_GRID_OPEN_DEAL_LABEL = "Open Deal Documents";
+export const DOCUMENT_WORKSPACE_CARD_GRID_OPEN_DEAL_LABEL = "View Documents";
 
 export const DOCUMENT_WORKSPACE_CARD_GRID_LOAD_MORE_LABEL = "Load more";
 

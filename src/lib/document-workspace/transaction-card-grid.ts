@@ -11,9 +11,10 @@ import {
 } from "@/constants/document-workspace-card-grid";
 import { compareOpportunityCreatedAtThenIdDesc } from "@/lib/enterprise-opportunity/search-order";
 import { documentWorkspaceContextLooksLikePii } from "@/lib/document-workspace/context-lock";
-import { mergeDocumentWorkspaceRows } from "@/lib/document-workspace/merge-rows";
-import { countDocumentWorkspaceReviews } from "@/lib/document-workspace/review-status";
-import { filterRegistryRecordsForLockedContext } from "@/lib/document-workspace/context-lock";
+import { mergeDocumentWorkspaceRows } from "./merge-rows";
+import { summarizeDocumentWorkspaceCategoryReadiness } from "./category-readiness";
+import { DOCUMENT_WORKSPACE_RECENT_MS } from "../../constants/document-workspace-contact-centric";
+import { filterRegistryRecordsForLockedContext } from "./context-lock";
 import type { DocumentRegistryRecord } from "@/types/document-registry";
 import type { DocumentRequestItemState } from "@/types/document-requests";
 import type { DocumentWorkspaceContextInput } from "@/types/document-workspace-context";
@@ -194,6 +195,11 @@ export function buildDocumentWorkspaceCardGroups(
     seen.add(group.opportunityId);
     if (filters.chip === "assigned_to_me" && !isAssignedToActor(group, actor)) continue;
 
+    if (filters.chip === "recently_created") {
+      const created = Date.parse(group.createdAt || "");
+      if (!Number.isFinite(created) || Date.now() - created > DOCUMENT_WORKSPACE_RECENT_MS) continue;
+    }
+
     const opportunity = toOpportunityCard(group);
     const deals = group.deals.map((deal) => toDealCard(group, deal));
     if (!groupMatchesSearch(opportunity, deals, query)) continue;
@@ -255,21 +261,7 @@ export function deriveDocumentWorkspaceCardReadiness(input: {
     lodItems: input.lodItems,
     participants: [],
   });
-  if (!rows.length) return { available: false };
-  const counts = countDocumentWorkspaceReviews(rows);
-  const received = counts.received + counts.under_review + counts.accepted;
-  return {
-    available: true,
-    percent: Math.round((received / rows.length) * 100),
-    required: rows.length,
-    received: counts.received,
-    accepted: counts.accepted,
-    pending: counts.pending,
-    rejected: counts.rejected,
-    expired: counts.expired,
-    reviewPending: counts.received > 0 || counts.under_review > 0,
-    replacementOrRejection: counts.rejected > 0 || counts.replacement_requested > 0,
-  };
+  return summarizeDocumentWorkspaceCategoryReadiness(rows);
 }
 
 export function mergeOpportunityGroups(
