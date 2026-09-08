@@ -11,6 +11,11 @@ type WindowState = { count: number; resetAt: number };
 
 const windows = new Map<string, WindowState>();
 
+export function uploadPortalRateLimitWindowStart(nowMs: number, windowMs: number): number {
+  const span = windowMs > 0 ? windowMs : WINDOW_MS;
+  return Math.floor(nowMs / span) * span;
+}
+
 export function consumeUploadPortalRateLimit(
   hashedBucket: string,
   maxAttempts = MAX_ATTEMPTS,

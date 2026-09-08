@@ -109,9 +109,11 @@ export function documentWorkspaceHttpError(err: unknown): {
   status: number;
   code: string;
   message: string;
+  retryAfterMs?: number;
 } {
-  const e = err as { statusCode?: number; code?: string };
+  const e = err as { statusCode?: number; code?: string; retryAfterMs?: number };
   const status = Number(e.statusCode) || 500;
+  const retryAfterMs = typeof e.retryAfterMs === "number" ? e.retryAfterMs : undefined;
   if (status === 401) {
     return { status, code: e.code || "UNAUTHENTICATED", message: publicDocumentWorkspaceAccessMessage(401) };
   }
@@ -125,7 +127,12 @@ export function documentWorkspaceHttpError(err: unknown): {
     return { status, code: e.code || "INVALID_FILE", message: DOCUMENT_WORKSPACE_GENERIC_FILE_REJECTED };
   }
   if (status === 429) {
-    return { status, code: e.code || "RATE_LIMITED", message: publicDocumentWorkspaceAccessMessage(429) };
+    return {
+      status,
+      code: e.code || "RATE_LIMITED",
+      message: publicDocumentWorkspaceAccessMessage(429),
+      retryAfterMs,
+    };
   }
   if (status === 400) {
     return { status, code: e.code || "BAD_REQUEST", message: publicDocumentWorkspaceAccessMessage(400) };
@@ -238,12 +245,19 @@ export function decideDocumentBelongsToContext(input: {
   opportunityId: string;
   dealId?: string | null;
   document: DocumentWorkspaceDocumentSnapshot | null;
+  allowDeletedLifecycle?: boolean;
 }): DocumentWorkspaceAccessFailure | { ok: true } {
   if (!input.document) {
     return deny(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
   }
   const status = String(input.document.status || "").toLowerCase();
-  if (status === "deleted" || status === "quarantined") {
+  if (status === "quarantined") {
+    return deny(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  }
+  if (
+    (status === "deleted" || status === "eligible_for_purge" || status === "superseded") &&
+    !input.allowDeletedLifecycle
+  ) {
     return deny(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
   }
   const selection = validateLockedDocumentSelection({

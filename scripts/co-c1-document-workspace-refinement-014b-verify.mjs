@@ -251,7 +251,8 @@ mustContain("src/app/api/enterprise-transaction-documents/binary/route.ts", "res
 mustContain("src/app/api/enterprise-transaction-documents/binary/route.ts", "export async function GET", "authorised binary GET");
 mustNotContain("src/app/api/enterprise-transaction-documents/route.ts", "includeContent=1", "no includeContent dump");
 mustNotContain("src/lib/document-registry/server-sync.ts", "includeContent=1", "hydrate no longer dumps binaries in list");
-mustContain("src/lib/document-registry/server-sync.ts", "/api/enterprise-transaction-documents/binary?", "hydrate uses authorised binary GET");
+mustContain("src/lib/document-registry/authorised-binary.ts", "/api/enterprise-transaction-documents/binary?", "authorised binary GET");
+mustNotContain("src/lib/document-registry/server-sync.ts", "saveDocumentBlob", "hydrate does not cache binaries");
 mustContain("src/app/api/document-workspace/upload-portal/route.ts", "receiveCustomerPortalUpload", "customer multipart upload");
 mustNotContain("src/app/api/document-workspace/upload-portal/route.ts", "registryRecordId", "customer cannot bind arbitrary registry ids");
 mustContain("server/services/document-workspace/document-workspace-refinement-014.service.ts", "attemptCount: { increment: 1 }", "atomic OTP attempts");

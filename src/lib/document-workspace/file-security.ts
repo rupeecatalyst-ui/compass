@@ -11,7 +11,7 @@ import {
   DOCUMENT_WORKSPACE_GENERIC_FILE_REJECTED,
   DOCUMENT_WORKSPACE_INLINE_PREVIEW_EXTENSIONS,
   DOCUMENT_WORKSPACE_INLINE_PREVIEW_MIMES,
-  DOCUMENT_WORKSPACE_UPLOAD_MAX_BYTES,
+  DOCUMENT_WORKSPACE_EFFECTIVE_UPLOAD_MAX_BYTES,
 } from "@/constants/document-workspace-security";
 
 export type DocumentWorkspaceFileValidationOk = {
@@ -180,7 +180,7 @@ export function validateDocumentWorkspaceUpload(input: {
   bytes?: Uint8Array | null;
   maxBytes?: number;
 }): DocumentWorkspaceFileValidationResult {
-  const maxBytes = input.maxBytes ?? DOCUMENT_WORKSPACE_UPLOAD_MAX_BYTES;
+  const maxBytes = input.maxBytes ?? DOCUMENT_WORKSPACE_EFFECTIVE_UPLOAD_MAX_BYTES;
   if (input.byteLength <= 0) {
     return fail("EMPTY", "The file is empty.");
   }

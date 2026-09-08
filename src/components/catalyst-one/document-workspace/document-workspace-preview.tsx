@@ -17,9 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   canPreviewDocument,
-  createBlobObjectUrl,
   downloadDocumentFromRegistry,
+  getDocumentPreviewUrl,
 } from "@/lib/document-registry";
+import { revokeDocumentObjectUrl } from "@/lib/document-registry/blob-store";
 import { documentWorkspaceReviewLabel } from "@/lib/document-workspace/review-status";
 import type { DocumentWorkspaceRow } from "@/lib/document-workspace";
 import { cn } from "@/lib/utils";
@@ -72,19 +73,20 @@ export function DocumentWorkspacePreview({
     setVersionId(currentVersionId);
   }, [row.id, currentVersionId]);
 
-  const versionBlobId = version?.blobId ?? null;
   const versionKey = version?.id ?? null;
+  const recordId = row.record?.id ?? null;
 
   useEffect(() => {
-    if (!versionBlobId) {
+    const record = row.record;
+    if (!record) {
       setPreviewUrl(null);
       return;
     }
     let revoked: string | null = null;
     let cancelled = false;
-    void createBlobObjectUrl(versionBlobId).then((url) => {
+    void getDocumentPreviewUrl(record, versionKey || undefined).then((url) => {
       if (cancelled) {
-        if (url) URL.revokeObjectURL(url);
+        if (url) revokeDocumentObjectUrl(url);
         return;
       }
       revoked = url;
@@ -92,9 +94,9 @@ export function DocumentWorkspacePreview({
     });
     return () => {
       cancelled = true;
-      if (revoked) URL.revokeObjectURL(revoked);
+      if (revoked) revokeDocumentObjectUrl(revoked);
     };
-  }, [versionBlobId, versionKey]);
+  }, [recordId, versionKey, row.record]);
 
   const previewable =
     version && previewUrl && canPreviewDocument(version.mimeType, version.originalFilename);

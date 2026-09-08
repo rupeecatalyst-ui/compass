@@ -7,7 +7,7 @@ import { authenticatedJsonFetch, getAccessToken } from "@/lib/api-client";
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { ETD_INLINE_CONTENT_BYTES_MAX } from "@/constants/enterprise-document-object-storage";
 import type { DocumentRegistryRecord } from "@/types/document-registry";
-import { getDocumentBlob, saveDocumentBlob } from "@/lib/document-registry/blob-store";
+import { clearLegacyIndexedDbDocumentBlobs, getDocumentBlob } from "@/lib/document-registry/blob-store";
 import {
   getAllDocumentRegistryRecords,
   mergeDurableDocumentsIntoLocalRegistry,
@@ -191,40 +191,46 @@ export async function hydrateDocumentRegistryFromServer(input: {
       },
     );
 
+    await clearLegacyIndexedDbDocumentBlobs();
+
     await backfillMetadataOnlyLargeDocumentsFromLocalBlob({
       opportunityId,
       serverItems: body.data.items,
     });
 
-    const token = getAccessToken();
-    for (const item of body.data.items) {
-      const documentId = typeof item.id === "string" ? item.id : null;
-      const clientRecordId =
-        typeof item.clientRecordId === "string" ? item.clientRecordId : null;
-      const hasContent = item.hasContent === true;
-      if (!documentId || !clientRecordId || !hasContent || !token) continue;
-      const local = getAllDocumentRegistryRecords().find((r) => r.id === clientRecordId);
-      const blobId = local?.versions.find((v) => v.isCurrent)?.blobId;
-      if (!blobId) continue;
-      try {
-        const binRes = await fetch(
-          `/api/enterprise-transaction-documents/binary?documentId=${encodeURIComponent(documentId)}&opportunityId=${encodeURIComponent(opportunityId)}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        if (!binRes.ok) continue;
-        const bytes = new Uint8Array(await binRes.arrayBuffer());
-        if (!bytes.byteLength) continue;
-        const mime =
-          typeof item.mimeType === "string" ? item.mimeType : "application/octet-stream";
-        await saveDocumentBlob(blobId, new Blob([bytes], { type: mime }));
-      } catch {
-        /* ignore blob restore failures */
-      }
-    }
-
     return restored;
   } catch {
     return 0;
+  }
+}
+
+export async function moveDocumentToDeletedOnServer(input: {
+  opportunityId: string;
+  documentId?: string | null;
+  clientRecordId?: string | null;
+  dealId?: string | null;
+  reason: string;
+}): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!isEnterprisePersistencePrisma()) return;
+  if (!getAccessToken()) return;
+  const opportunityId = input.opportunityId.trim();
+  const reason = input.reason.trim();
+  if (!opportunityId || !reason) return;
+  try {
+    await authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "move_to_deleted",
+        opportunityId,
+        documentId: input.documentId ?? null,
+        clientRecordId: input.clientRecordId ?? null,
+        dealId: input.dealId ?? null,
+        reason,
+      }),
+    });
+  } catch {
+    /* local registry already marked deleted */
   }
 }
 
@@ -233,21 +239,10 @@ export async function deleteDocumentRecordOnServer(input: {
   documentId?: string | null;
   clientRecordId?: string | null;
   dealId?: string | null;
+  reason?: string | null;
 }): Promise<void> {
-  if (typeof window === "undefined") return;
-  if (!isEnterprisePersistencePrisma()) return;
-  if (!getAccessToken()) return;
-  const opportunityId = input.opportunityId.trim();
-  if (!opportunityId) return;
-  const params = new URLSearchParams({ opportunityId });
-  if (input.documentId?.trim()) params.set("documentId", input.documentId.trim());
-  if (input.clientRecordId?.trim()) params.set("clientRecordId", input.clientRecordId.trim());
-  if (input.dealId?.trim()) params.set("dealId", input.dealId.trim());
-  try {
-    await authenticatedJsonFetch(`/api/enterprise-transaction-documents?${params.toString()}`, {
-      method: "DELETE",
-    });
-  } catch {
-    /* non-blocking — local registry remains the authoring cache */
-  }
+  await moveDocumentToDeletedOnServer({
+    ...input,
+    reason: input.reason?.trim() || "Recoverable deletion",
+  });
 }

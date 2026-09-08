@@ -234,7 +234,7 @@ export function DocumentPackagesPanel({
       toast.error("Delete not permitted for your role.");
       return;
     }
-    await deleteDocumentFromRegistry(record.id);
+    await deleteDocumentFromRegistry(record.id, "Removed from Document Package");
     removeDocumentIdFromPackage(pkg.id, record.id, record.fileSizeBytes);
     appendDocumentPackageTimeline({
       packageId: pkg.id,

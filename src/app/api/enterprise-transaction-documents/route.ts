@@ -15,6 +15,7 @@ import {
   type DurableDocumentInput,
 } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
 import { resolveDocumentWorkspaceAccess } from "@server/services/document-workspace/document-workspace-access.service";
+import { moveDocumentToDeletedDocuments } from "@server/services/document-workspace/document-workspace-lifecycle.service";
 import {
   capabilityAllowed,
   documentWorkspaceHttpError,
@@ -87,7 +88,38 @@ export async function POST(request: Request) {
       opportunityId: body.opportunityId,
       dealId: body.dealId,
     });
-    if (!deleting && body.contentBase64) {
+    if (deleting) {
+      const reason = String(
+        (body as DurableDocumentInput & { reason?: string; deletionReason?: string }).reason ||
+          (body as DurableDocumentInput & { deletionReason?: string }).deletionReason ||
+          "",
+      ).trim();
+      if (!reason) {
+        return errorResponse(400, "VALIDATION", "A deletion reason is required.");
+      }
+      const existing = await enterpriseTransactionDocumentService.listByOpportunityForOrganization(
+        authorised.organizationId,
+        authorised.opportunityId,
+        { includeContent: false },
+      );
+      const targetId =
+        existing.find((row) => row.clientRecordId === body.clientRecordId || row.id === body.clientRecordId)
+          ?.id || "";
+      if (!targetId) {
+        return errorResponse(404, "NOT_FOUND", "Resource is not available.");
+      }
+      await moveDocumentToDeletedDocuments({
+        organizationId: authorised.organizationId,
+        opportunityId: authorised.opportunityId,
+        documentId: targetId,
+        actorUserId: authorised.actor.userId,
+        actorRole: authorised.actor.role,
+        reason,
+        companyId: authorised.companyId,
+      });
+      return successResponse({ ok: true });
+    }
+    if (body.contentBase64) {
       const existing = await enterpriseTransactionDocumentService.listByOpportunityForOrganization(
         authorised.organizationId,
         authorised.opportunityId,
@@ -126,6 +158,10 @@ export async function DELETE(request: Request) {
     if (!opportunityId || (!documentId && !clientRecordId)) {
       return errorResponse(400, "VALIDATION", "opportunityId and documentId are required");
     }
+    const reason = url.searchParams.get("reason")?.trim() || "";
+    if (!reason) {
+      return errorResponse(400, "VALIDATION", "A deletion reason is required.");
+    }
     const authorised = await resolveDocumentWorkspaceAccess({
       userId: actor.userId,
       capability: "delete",
@@ -145,14 +181,15 @@ export async function DELETE(request: Request) {
     if (!targetId) {
       return errorResponse(404, "NOT_FOUND", "Resource is not available.");
     }
-    const removed = await enterpriseTransactionDocumentService.softDeleteForOrganization({
+    await moveDocumentToDeletedDocuments({
       organizationId: authorised.organizationId,
       opportunityId: authorised.opportunityId,
       documentId: targetId,
+      actorUserId: authorised.actor.userId,
+      actorRole: authorised.actor.role,
+      reason,
+      companyId: authorised.companyId,
     });
-    if (!removed) {
-      return errorResponse(404, "NOT_FOUND", "Resource is not available.");
-    }
     return successResponse({ ok: true });
   } catch (err) {
     return wrap(err);

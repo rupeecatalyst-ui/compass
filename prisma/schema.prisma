@@ -251,6 +251,9 @@ model Organization {
   enterpriseDocumentUploadSessions   EnterpriseDocumentUploadSession[]
   enterpriseDocumentShareEvents      EnterpriseDocumentShareEvent[]
   enterpriseDocumentVersionSeen      EnterpriseDocumentVersionSeen[]
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — append-only audit + durable portal rate limits
+  enterpriseDocumentWorkspaceAuditEvents EnterpriseDocumentWorkspaceAuditEvent[]
+  enterpriseDocumentWorkspaceRateLimits  EnterpriseDocumentWorkspaceRateLimit[]
   /// CO-WP-001 — Enterprise Wealth Partner Registry (additive; Contact/Company remain identity SSOT)
   enterpriseWealthPartners                 EnterpriseWealthPartner[]
   enterpriseWealthPartnerNetworkMembers    EnterpriseWealthPartnerNetworkMember[]
@@ -4445,6 +4448,19 @@ model EnterpriseTransactionDocument {
   storageProvider    String?   @map("storage_provider")
   contentHash        String?   @map("content_hash")
   contentVersion     Int       @default(1) @map("content_version")
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — recoverable deletion (binaries retained)
+  deletedAt          DateTime? @map("deleted_at")
+  deletedByUserId    String?   @map("deleted_by_user_id")
+  deletionReason     String?   @map("deletion_reason") @db.Text
+  priorStatus        String?   @map("prior_status")
+  retentionUntil     DateTime? @map("retention_until")
+  purgeEligibleAt    DateTime? @map("purge_eligible_at")
+  purgeStatus        String?   @map("purge_status")
+  restoredAt         DateTime? @map("restored_at")
+  restoredByUserId   String?   @map("restored_by_user_id")
+  restoreReason      String?   @map("restore_reason") @db.Text
+  supersededByDocumentId String? @map("superseded_by_document_id")
+  malwareScanStatus  String    @default("not_configured") @map("malware_scan_status")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -4452,6 +4468,8 @@ model EnterpriseTransactionDocument {
 
   @@unique([organizationId, clientRecordId], map: "etd_org_client_record_key")
   @@index([organizationId, opportunityId, status], map: "etd_org_opp_status_idx")
+  @@index([organizationId, deletedAt], map: "etd_org_deleted_at_idx")
+  @@index([organizationId, retentionUntil], map: "etd_org_retention_idx")
   @@index([organizationId, contactId], map: "etd_org_contact_idx")
   @@index([organizationId, storageKey], map: "etd_org_storage_key_idx")
   @@index([organizationId, dealId], map: "etd_org_deal_idx")
@@ -4481,6 +4499,61 @@ model EnterpriseDocumentObjectBlob {
   @@index([organizationId, opportunityId], map: "edob_org_opp_idx")
   @@index([organizationId, documentId], map: "edob_org_doc_idx")
   @@map("enterprise_document_object_blobs")
+}
+
+/// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — append-only Document Workspace audit ledger.
+/// No FK to documents/requests so history survives business-record deletion. Not editable via DW APIs.
+model EnterpriseDocumentWorkspaceAuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  actorType      String   @map("actor_type")
+  actorId        String?  @map("actor_id")
+  action         String
+  documentId     String?  @map("document_id")
+  contentVersion Int?     @map("content_version")
+  contactId      String?  @map("contact_id")
+  companyId      String?  @map("company_id")
+  opportunityId  String?  @map("opportunity_id")
+  dealId         String?  @map("deal_id")
+  requestId      String?  @map("request_id")
+  sessionId      String?  @map("session_id")
+  shareEventId   String?  @map("share_event_id")
+  sourceChannel  String?  @map("source_channel")
+  outcome        String   @default("success")
+  reason         String?  @db.Text
+  metadataJson   Json?    @map("metadata_json")
+  correlationId  String?  @map("correlation_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt], map: "edwae_org_time_idx")
+  @@index([organizationId, documentId, createdAt], map: "edwae_org_doc_time_idx")
+  @@index([organizationId, action, createdAt], map: "edwae_org_action_time_idx")
+  @@index([organizationId, opportunityId, createdAt], map: "edwae_org_opp_time_idx")
+  @@index([organizationId, correlationId], map: "edwae_org_corr_idx")
+  @@map("enterprise_document_workspace_audit_events")
+}
+
+/// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — durable hashed upload-portal rate windows (Postgres, multi-instance).
+model EnterpriseDocumentWorkspaceRateLimit {
+  id             String   @id @default(cuid())
+  hashedBucket   String   @map("hashed_bucket")
+  windowStart    DateTime @map("window_start")
+  windowMs       Int      @map("window_ms")
+  count          Int      @default(0)
+  maxAttempts    Int      @map("max_attempts")
+  organizationId String?  @map("organization_id")
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([hashedBucket, windowStart], map: "edwrl_bucket_window_key")
+  @@index([expiresAt], map: "edwrl_expires_idx")
+  @@index([organizationId, hashedBucket], map: "edwrl_org_bucket_idx")
+  @@map("enterprise_document_workspace_rate_limits")
 }
 
 /// CO-DOC-005 — Durable Document Package Registry (folder uploads).

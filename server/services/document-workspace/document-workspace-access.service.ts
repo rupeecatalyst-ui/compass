@@ -24,6 +24,9 @@ import {
 } from "@/lib/document-workspace/access-decision";
 import type { Role } from "@/constants/roles";
 import type { DocumentWorkspaceResolvedContext } from "@/types/document-workspace-context";
+import { appendDocumentWorkspaceAuditBestEffort } from "@server/services/document-workspace/document-workspace-audit.service";
+import { DOCUMENT_WORKSPACE_AUDIT_ACTIONS } from "@/constants/document-workspace-audit";
+import { DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE } from "@/constants/document-workspace-audit";
 
 export type DocumentWorkspaceAuthorisedContext = {
   ok: true;
@@ -117,6 +120,7 @@ export async function resolveDocumentWorkspaceAccess(input: {
   documentId?: string | null;
   participantEntityId?: string | null;
   allowedParticipantIds?: Array<string | null | undefined>;
+  allowDeletedLifecycle?: boolean;
 }): Promise<DocumentWorkspaceAuthorisedContext> {
   const actor = await resolveAuthenticatedDocumentWorkspaceActor({ userId: input.userId });
   if (!capabilityAllowed(actor.role as Role, input.capability)) {
@@ -280,6 +284,7 @@ export async function resolveDocumentWorkspaceAccess(input: {
       opportunityId: locked.context.opportunityId,
       dealId: locked.context.dealId,
       document: documentRow,
+      allowDeletedLifecycle: input.allowDeletedLifecycle,
     });
     if (!belongs.ok) throwDocumentWorkspaceAccessFailure(belongs);
   }
@@ -329,9 +334,34 @@ export async function assertDocumentsInAuthorisedContext(input: {
       organizationId: true,
       opportunityId: true,
       dealId: true,
+      status: true,
     },
   });
   if (rows.length !== input.documentIds.length) {
+    throwDocumentWorkspaceAccessFailure({
+      ok: false,
+      httpStatus: 404,
+      code: "NOT_FOUND",
+      message: publicDocumentWorkspaceAccessMessage(404),
+    });
+  }
+  if (rows.some((row) => decideDocumentBelongsToContext({
+    organizationId: input.context.organizationId,
+    opportunityId: input.context.opportunityId,
+    dealId: input.context.dealId,
+    document: row,
+  }).ok === false)) {
+    void appendDocumentWorkspaceAuditBestEffort({
+      organizationId: input.context.organizationId,
+      actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+      actorId: input.context.actor.userId,
+      action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.SELECTION_REJECTED_CROSS_TRANSACTION,
+      opportunityId: input.context.opportunityId,
+      dealId: input.context.dealId,
+      outcome: "rejected",
+      sourceChannel: "document_workspace",
+      metadata: { requestedCount: input.documentIds.length },
+    });
     throwDocumentWorkspaceAccessFailure({
       ok: false,
       httpStatus: 404,
@@ -345,5 +375,18 @@ export async function assertDocumentsInAuthorisedContext(input: {
     dealId: input.context.dealId,
     selected: rows,
   });
-  if (!selection.ok) throwDocumentWorkspaceAccessFailure(selection);
+  if (!selection.ok) {
+    void appendDocumentWorkspaceAuditBestEffort({
+      organizationId: input.context.organizationId,
+      actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+      actorId: input.context.actor.userId,
+      action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.SELECTION_REJECTED_CROSS_TRANSACTION,
+      opportunityId: input.context.opportunityId,
+      dealId: input.context.dealId,
+      outcome: "rejected",
+      sourceChannel: "document_workspace",
+      metadata: { requestedCount: input.documentIds.length },
+    });
+    throwDocumentWorkspaceAccessFailure(selection);
+  }
 }

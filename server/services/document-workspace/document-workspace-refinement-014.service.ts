@@ -36,7 +36,20 @@ import {
   DOCUMENT_WORKSPACE_GENERIC_UPLOAD_LINK,
 } from "@/constants/document-workspace-security";
 import { validateDocumentWorkspaceUpload } from "@/lib/document-workspace/file-security";
-import { consumeUploadPortalRateLimit } from "@/lib/document-workspace/upload-portal-rate-limit";
+import { consumeDurableUploadPortalRateLimit } from "@server/services/document-workspace/document-workspace-rate-limit.service";
+import { appendDocumentWorkspaceAuditBestEffort } from "@server/services/document-workspace/document-workspace-audit.service";
+import {
+  listDeletedDocumentsForOrganization,
+  moveDocumentToDeletedDocuments,
+  refusePermanentPurge,
+  restoreDeletedDocument,
+} from "@server/services/document-workspace/document-workspace-lifecycle.service";
+import { DOCUMENT_WORKSPACE_AUDIT_ACTIONS } from "@/constants/document-workspace-audit";
+import {
+  DOCUMENT_WORKSPACE_AUDIT_ACTOR_CUSTOMER,
+  DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+} from "@/constants/document-workspace-audit";
+import { safeCustomerActorReference } from "@/lib/document-workspace/audit-sanitize";
 import {
   resolveDocumentWorkspaceAccess,
   assertDocumentsInAuthorisedContext,
@@ -45,8 +58,8 @@ import {
 import { enterpriseTransactionDocumentService } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
 import type { DocumentWorkspaceCapability } from "@/lib/document-workspace/access-decision";
 
-function portalFailure(statusCode: number, code: string, message: string): never {
-  throw Object.assign(new Error(message), { statusCode, code, expose: false });
+function portalFailure(statusCode: number, code: string, message: string, retryAfterMs?: number): never {
+  throw Object.assign(new Error(message), { statusCode, code, expose: false, retryAfterMs });
 }
 
 function requireDb() {
@@ -74,6 +87,7 @@ async function requireAuthorisedWorkspace(input: {
   documentId?: string | null;
   participantEntityId?: string | null;
   claimedOrganizationId?: string | null;
+  allowDeletedLifecycle?: boolean;
 }): Promise<DocumentWorkspaceAuthorisedContext> {
   requireDb();
   return resolveDocumentWorkspaceAccess(input);
@@ -226,6 +240,31 @@ export async function createDocumentCustomerRequest(input: {
     include: { items: true, sessions: true },
   });
 
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+    actorId: authorised.actor.userId,
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.DOCUMENT_REQUEST_GENERATED,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    requestId: request.id,
+    sessionId: request.sessions[0]?.id ?? null,
+    sourceChannel: "document_workspace",
+    metadata: { itemCount: input.items.length },
+  });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+    actorId: authorised.actor.userId,
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.UPLOAD_LINK_CREATED,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    requestId: request.id,
+    sessionId: request.sessions[0]?.id ?? null,
+    sourceChannel: "document_workspace",
+    metadata: { tokenPrefix: token.prefix },
+  });
+
   return {
     requestId: request.id,
     expiresAt: expiresAt.toISOString(),
@@ -244,8 +283,11 @@ export async function createDocumentCustomerRequest(input: {
 
 async function loadActiveSessionByToken(token: string) {
   requireDb();
-  if (!consumeUploadPortalRateLimit(hashOpaqueToken(token || "missing").slice(0, 24))) {
-    portalFailure(429, "RATE_LIMITED", "Please wait and try again.");
+  const limited = await consumeDurableUploadPortalRateLimit({
+    hashedBucket: hashOpaqueToken(token || "missing").slice(0, 24),
+  });
+  if (!limited.allowed) {
+    portalFailure(429, "RATE_LIMITED", "Please wait and try again.", limited.retryAfterMs);
   }
   const hash = hashOpaqueToken(token);
   const session = await prisma.enterpriseDocumentUploadSession.findFirst({
@@ -323,6 +365,22 @@ export async function issueUploadOtp(input: { token: string }) {
       detail: isDocumentWorkspaceOtpDeliveryEnabled() ? "delivery_enabled" : "delivery_disabled",
     },
   });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId: loaded.session.organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_CUSTOMER,
+    actorId: safeCustomerActorReference({
+      sessionId: loaded.session.id,
+      requestId: loaded.session.requestId,
+      tokenPrefix: loaded.session.tokenPrefix,
+    }),
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.OTP_CHALLENGE_CREATED,
+    opportunityId: loaded.session.request.opportunityId,
+    dealId: loaded.session.request.dealId,
+    requestId: loaded.session.requestId,
+    sessionId: loaded.session.id,
+    sourceChannel: "customer_portal",
+    metadata: { deliveryEnabled: isDocumentWorkspaceOtpDeliveryEnabled() },
+  });
 
   return {
     ok: true as const,
@@ -348,6 +406,21 @@ export async function verifyUploadOtp(input: { token: string; otp: string }) {
     portalFailure(410, "OTP_EXPIRED", DOCUMENT_WORKSPACE_GENERIC_UPLOAD_LINK);
   }
   if (otpAttemptsExceeded(latest.attemptCount, latest.maxAttempts)) {
+    await appendDocumentWorkspaceAuditBestEffort({
+      organizationId: loaded.session.organizationId,
+      actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_CUSTOMER,
+      actorId: safeCustomerActorReference({
+        sessionId: loaded.session.id,
+        requestId: loaded.session.requestId,
+        tokenPrefix: loaded.session.tokenPrefix,
+      }),
+      action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.OTP_VERIFICATION_LOCK,
+      opportunityId: loaded.session.request.opportunityId,
+      requestId: loaded.session.requestId,
+      sessionId: loaded.session.id,
+      outcome: "locked",
+      sourceChannel: "customer_portal",
+    });
     portalFailure(429, "OTP_LOCKED", "Please wait and try again.");
   }
 
@@ -379,6 +452,23 @@ export async function verifyUploadOtp(input: { token: string; otp: string }) {
       sessionId: loaded.session.id,
       action: match ? "otp_verified" : "otp_failed",
     },
+  });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId: loaded.session.organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_CUSTOMER,
+    actorId: safeCustomerActorReference({
+      sessionId: loaded.session.id,
+      requestId: loaded.session.requestId,
+      tokenPrefix: loaded.session.tokenPrefix,
+    }),
+    action: match
+      ? DOCUMENT_WORKSPACE_AUDIT_ACTIONS.OTP_VERIFICATION_SUCCESS
+      : DOCUMENT_WORKSPACE_AUDIT_ACTIONS.OTP_VERIFICATION_FAILURE,
+    opportunityId: loaded.session.request.opportunityId,
+    requestId: loaded.session.requestId,
+    sessionId: loaded.session.id,
+    outcome: match ? "success" : "failure",
+    sourceChannel: "customer_portal",
   });
   if (!match) {
     portalFailure(401, "OTP_INVALID", "Verification failed.");
@@ -439,6 +529,16 @@ export async function revokeUploadSession(input: { requestId: string; actorUserI
       action: "session_revoked",
       actorUserId: authorised.actor.userId,
     },
+  });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+    actorId: authorised.actor.userId,
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.UPLOAD_LINK_REVOKED,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    requestId: request.id,
+    sourceChannel: "document_workspace",
   });
   return { ok: true };
 }
@@ -570,6 +670,36 @@ export async function receiveCustomerPortalUpload(input: {
       detail: item.typeRef,
     },
   });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId: session.organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_CUSTOMER,
+    actorId: safeCustomerActorReference({
+      sessionId: session.id,
+      requestId: session.requestId,
+      tokenPrefix: session.tokenPrefix,
+    }),
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.CUSTOMER_PORTAL_UPLOAD,
+    documentId: item.registryRecordId,
+    opportunityId: session.request.opportunityId,
+    dealId: session.request.dealId,
+    requestId: session.requestId,
+    sessionId: session.id,
+    sourceChannel: "customer_portal",
+    metadata: { typeRef: item.typeRef, requestItemChanged: true },
+  });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId: session.organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_CUSTOMER,
+    actorId: safeCustomerActorReference({
+      sessionId: session.id,
+      requestId: session.requestId,
+    }),
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.REQUEST_ITEM_CHANGED,
+    opportunityId: session.request.opportunityId,
+    requestId: session.requestId,
+    sourceChannel: "customer_portal",
+    metadata: { requestItemId: item.id, status: "under_review" },
+  });
   return { ok: true as const, status: "under_review" as const };
 }
 
@@ -698,6 +828,20 @@ export async function recordShareEvent(input: {
       outboxId: input.outboxId ?? null,
     },
   });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+    actorId: authorised.actor.userId,
+    action:
+      input.attachmentMode === "zip"
+        ? DOCUMENT_WORKSPACE_AUDIT_ACTIONS.ZIP_PREPARED
+        : DOCUMENT_WORKSPACE_AUDIT_ACTIONS.EMAIL_QUEUED,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    shareEventId: event.id,
+    sourceChannel: "document_workspace",
+    metadata: { documentCount: input.documentIds.length, attachmentMode: input.attachmentMode },
+  });
   return { shareEventId: event.id };
 }
 
@@ -738,6 +882,16 @@ export async function composeManualDocumentEmail(input: {
   });
   if (!sender.ok) return sender;
   const html = sanitizeDocumentWorkspaceHtml(input.htmlBody);
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId: authorised.organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+    actorId: authorised.actor.userId,
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.EMAIL_CHECKLIST_PREPARED,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    sourceChannel: "document_workspace",
+    metadata: { documentCount: input.documentIds?.length ?? 0 },
+  });
   return {
     ...sender,
     html,
@@ -755,6 +909,109 @@ export function assertManualRecipientAllowed(email: string, canonicalEmails: str
   }
   const canonical = canonicalEmails.some((item) => item.trim().toLowerCase() === trimmed.toLowerCase());
   return { canonical, email: trimmed };
+}
+
+export async function listDeletedDocumentWorkspaceDocuments(input: {
+  actorUserId: string;
+  opportunityId: string;
+  dealId?: string | null;
+}) {
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "delete",
+    opportunityId: input.opportunityId,
+    dealId: input.dealId,
+    allowDeletedLifecycle: true,
+  });
+  return listDeletedDocumentsForOrganization({
+    organizationId: authorised.organizationId,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    actorUserId: authorised.actor.userId,
+  });
+}
+
+export async function moveDocumentWorkspaceToDeleted(input: {
+  actorUserId: string;
+  opportunityId: string;
+  dealId?: string | null;
+  documentId?: string | null;
+  clientRecordId?: string | null;
+  reason: string;
+}) {
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "delete",
+    opportunityId: input.opportunityId,
+    dealId: input.dealId,
+    documentId: input.documentId,
+  });
+  let documentId = authorised.documentId || input.documentId?.trim() || "";
+  if (!documentId && input.clientRecordId?.trim()) {
+    const items = await enterpriseTransactionDocumentService.listByOpportunityForOrganization(
+      authorised.organizationId,
+      authorised.opportunityId,
+      { includeContent: false },
+    );
+    documentId = items.find((row) => row.clientRecordId === input.clientRecordId)?.id || "";
+  }
+  if (!documentId) {
+    portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  }
+  return moveDocumentToDeletedDocuments({
+    organizationId: authorised.organizationId,
+    opportunityId: authorised.opportunityId,
+    documentId,
+    actorUserId: authorised.actor.userId,
+    actorRole: authorised.actor.role,
+    reason: input.reason,
+    companyId: authorised.companyId,
+  });
+}
+
+export async function restoreDocumentWorkspaceDeleted(input: {
+  actorUserId: string;
+  opportunityId: string;
+  dealId?: string | null;
+  documentId: string;
+  reason: string;
+}) {
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "delete",
+    opportunityId: input.opportunityId,
+    dealId: input.dealId,
+    documentId: input.documentId,
+    allowDeletedLifecycle: true,
+  });
+  return restoreDeletedDocument({
+    organizationId: authorised.organizationId,
+    opportunityId: authorised.opportunityId,
+    documentId: authorised.documentId || input.documentId,
+    actorUserId: authorised.actor.userId,
+    actorRole: authorised.actor.role,
+    reason: input.reason,
+    companyId: authorised.companyId,
+  });
+}
+
+export async function refuseDocumentWorkspacePermanentPurge(input: {
+  actorUserId: string;
+  opportunityId: string;
+  documentId?: string | null;
+}): Promise<never> {
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "delete",
+    opportunityId: input.opportunityId,
+    documentId: input.documentId,
+    allowDeletedLifecycle: true,
+  });
+  return refusePermanentPurge({
+    organizationId: authorised.organizationId,
+    documentId: authorised.documentId || input.documentId,
+    actorUserId: authorised.actor.userId,
+  });
 }
 
 export { planDocumentWorkspaceZip, buildStoreZipBlob };

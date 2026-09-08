@@ -10,12 +10,18 @@ import {
   DOCUMENT_REGISTRY_ALLOWED_MIMES,
   DOCUMENT_REGISTRY_MAX_BYTES,
 } from "@/constants/document-registry";
+import { ETD_OBJECT_STORAGE_MAX_BYTES } from "@/constants/enterprise-document-object-storage";
 import { DOCUMENT_WORKSPACE_ZIP_MAX_BYTES } from "@/constants/document-workspace-refinement-014";
 
 export const DOCUMENT_WORKSPACE_SECURITY_ID =
   "CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014B" as const;
 
 export const DOCUMENT_WORKSPACE_UPLOAD_MAX_BYTES = DOCUMENT_REGISTRY_MAX_BYTES;
+/** Effective per-file ceiling: never above the active object-store max. ZIP cap stays separate. */
+export const DOCUMENT_WORKSPACE_EFFECTIVE_UPLOAD_MAX_BYTES = Math.min(
+  DOCUMENT_WORKSPACE_UPLOAD_MAX_BYTES,
+  ETD_OBJECT_STORAGE_MAX_BYTES,
+);
 export const DOCUMENT_WORKSPACE_SHARE_ZIP_MAX_BYTES = DOCUMENT_WORKSPACE_ZIP_MAX_BYTES;
 export const DOCUMENT_WORKSPACE_FILENAME_MAX_CHARS = 180;
 

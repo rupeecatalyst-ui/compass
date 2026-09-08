@@ -7,11 +7,15 @@ import {
 import {
   composeManualDocumentEmail,
   createDocumentCustomerRequest,
+  listDeletedDocumentWorkspaceDocuments,
   listDocumentWorkspaceLinkedParties,
   listUnseenInboundEmailDocuments,
   markDocumentVersionSeen,
+  moveDocumentWorkspaceToDeleted,
   recordShareEvent,
+  refuseDocumentWorkspacePermanentPurge,
   regenerateUploadSession,
+  restoreDocumentWorkspaceDeleted,
   revokeUploadSession,
 } from "@server/services/document-workspace/document-workspace-refinement-014.service";
 import {
@@ -45,6 +49,16 @@ export async function GET(request: Request) {
         dealId: url.searchParams.get("dealId"),
       });
       return successResponse(data);
+    }
+    if (view === "deleted") {
+      const opportunityId = url.searchParams.get("opportunityId")?.trim() || "";
+      if (!opportunityId) return errorResponse(400, "VALIDATION", "opportunityId is required");
+      const data = await listDeletedDocumentWorkspaceDocuments({
+        actorUserId: actor.userId,
+        opportunityId,
+        dealId: url.searchParams.get("dealId"),
+      });
+      return successResponse({ items: data });
     }
     const opportunityId = url.searchParams.get("opportunityId")?.trim() || "";
     if (!opportunityId) return errorResponse(400, "VALIDATION", "opportunityId is required");
@@ -139,6 +153,41 @@ export async function POST(request: Request) {
           to: Array.isArray(body.to) ? (body.to as string[]) : [],
           cc: Array.isArray(body.cc) ? (body.cc as string[]) : [],
           htmlBody: String(body.htmlBody || ""),
+        }),
+      );
+    }
+
+    if (action === "move_to_deleted") {
+      return successResponse(
+        await moveDocumentWorkspaceToDeleted({
+          actorUserId: actor.userId,
+          opportunityId: String(body.opportunityId || ""),
+          dealId: typeof body.dealId === "string" ? body.dealId : null,
+          documentId: typeof body.documentId === "string" ? body.documentId : null,
+          clientRecordId: typeof body.clientRecordId === "string" ? body.clientRecordId : null,
+          reason: String(body.reason || ""),
+        }),
+      );
+    }
+
+    if (action === "restore_deleted") {
+      return successResponse(
+        await restoreDocumentWorkspaceDeleted({
+          actorUserId: actor.userId,
+          opportunityId: String(body.opportunityId || ""),
+          dealId: typeof body.dealId === "string" ? body.dealId : null,
+          documentId: String(body.documentId || ""),
+          reason: String(body.reason || ""),
+        }),
+      );
+    }
+
+    if (action === "permanent_purge") {
+      return successResponse(
+        await refuseDocumentWorkspacePermanentPurge({
+          actorUserId: actor.userId,
+          opportunityId: String(body.opportunityId || ""),
+          documentId: typeof body.documentId === "string" ? body.documentId : null,
         }),
       );
     }

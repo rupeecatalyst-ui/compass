@@ -12,7 +12,11 @@ export const dynamic = "force-dynamic";
 
 function wrap(err: unknown) {
   const mapped = documentWorkspaceHttpError(err);
-  return errorResponse(mapped.status, mapped.code, mapped.message);
+  const res = errorResponse(mapped.status, mapped.code, mapped.message);
+  if (mapped.status === 429 && mapped.retryAfterMs && mapped.retryAfterMs > 0) {
+    res.headers.set("Retry-After", String(Math.max(1, Math.ceil(mapped.retryAfterMs / 1000))));
+  }
+  return res;
 }
 
 export async function GET(request: Request) {

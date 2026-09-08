@@ -11,6 +11,11 @@ import {
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import { enterpriseTransactionDocumentService } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
 import { resolveDocumentWorkspaceAccess } from "@server/services/document-workspace/document-workspace-access.service";
+import { appendDocumentWorkspaceAuditBestEffort } from "@server/services/document-workspace/document-workspace-audit.service";
+import {
+  DOCUMENT_WORKSPACE_AUDIT_ACTIONS,
+  DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+} from "@/constants/document-workspace-audit";
 import {
   documentWorkspaceDownloadHeaders,
   shouldInlinePreview,
@@ -77,6 +82,18 @@ export async function GET(request: Request) {
       mimeType: resolved.mimeType,
       filename,
       inline,
+    });
+    await appendDocumentWorkspaceAuditBestEffort({
+      organizationId: authorised.organizationId,
+      actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+      actorId: authorised.actor.userId,
+      action: inline
+        ? DOCUMENT_WORKSPACE_AUDIT_ACTIONS.DOCUMENT_PREVIEWED
+        : DOCUMENT_WORKSPACE_AUDIT_ACTIONS.DOCUMENT_DOWNLOADED,
+      documentId: authorised.documentId || documentId,
+      opportunityId: authorised.opportunityId,
+      dealId: authorised.dealId,
+      sourceChannel: "document_workspace",
     });
     return new NextResponse(Buffer.from(resolved.bytes), { status: 200, headers });
   } catch (err) {

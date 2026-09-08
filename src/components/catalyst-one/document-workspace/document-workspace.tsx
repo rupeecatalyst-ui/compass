@@ -135,6 +135,14 @@ import { validateLockedDocumentSelection } from "@/lib/document-workspace/select
 import { inboundEmailVersionKey } from "@/lib/document-workspace/inbound-email-new";
 import { downloadTemporaryDocumentWorkspaceZip } from "@/lib/document-workspace/temporary-zip";
 import { DOCUMENT_WORKSPACE_NEW_FROM_EMAIL_BADGE, DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL, DOCUMENT_WORKSPACE_SENDER_CC_MISSING, DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL, DOCUMENT_WORKSPACE_DESK_DIALOG_DESCRIPTION, DOCUMENT_WORKSPACE_DESK_DIALOG_TITLE, DOCUMENT_WORKSPACE_DESK_LIST_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME, DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME } from "@/constants/document-workspace-refinement-014";
+import {
+  DOCUMENT_WORKSPACE_DELETED_DOCUMENTS_LABEL,
+  DOCUMENT_WORKSPACE_MOVE_TO_DELETED_LABEL,
+  DOCUMENT_WORKSPACE_NEWER_VERSION_CURRENT,
+  DOCUMENT_WORKSPACE_RESTORE_LABEL,
+  DOCUMENT_WORKSPACE_RESTORE_REASON_REQUIRED,
+} from "@/constants/document-workspace-lifecycle";
+import { Textarea } from "@/components/ui/textarea";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { Mail } from "lucide-react";
 import type { OutboxMessage } from "@/types/enterprise-action-center";
@@ -187,6 +195,21 @@ export function DocumentWorkspace() {
     row: DocumentWorkspaceRow;
     mode: "replace" | "remove" | "email" | "note";
   } | null>(null);
+  const [deletedOpen, setDeletedOpen] = useState(false);
+  const [deletedItems, setDeletedItems] = useState<
+    Array<{
+      id: string;
+      originalFilename: string;
+      typeRef: string;
+      status: string;
+      deletionReason: string | null;
+      deletedAt: string | null;
+      retentionUntil: string | null;
+      eligibleForPurge: boolean;
+    }>
+  >([]);
+  const [restoreReason, setRestoreReason] = useState("");
+  const [restoreTargetId, setRestoreTargetId] = useState<string | null>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(0);
   const previousContextKey = useRef<string | null>(null);
@@ -367,6 +390,20 @@ export function DocumentWorkspace() {
     : "";
   const dealId = lockMatchesRequest ? lock?.dealId || "" : "";
   const requestState = lockedOpportunityId ? getDocumentRequestState(lockedOpportunityId) : null;
+
+  const loadDeletedDocuments = useCallback(async () => {
+    if (!lockedOpportunityId) return;
+    const params = new URLSearchParams({ view: "deleted", opportunityId: lockedOpportunityId });
+    if (dealId) params.set("dealId", dealId);
+    const res = await authenticatedJsonFetch(`/api/document-workspace/refinement-014?${params.toString()}`);
+    const body = (await res.json()) as {
+      success?: boolean;
+      data?: { items?: typeof deletedItems };
+    };
+    if (res.ok && body.success && Array.isArray(body.data?.items)) {
+      setDeletedItems(body.data.items);
+    }
+  }, [lockedOpportunityId, dealId]);
   const records = useMemo(
     () =>
       listLockedWorkspaceRegistryRecords({
@@ -997,6 +1034,22 @@ export function DocumentWorkspace() {
             >
               {DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL}
             </Button>
+            {canDeleteDocuments(user) ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                data-document-workspace-deleted-documents=""
+                onClick={() => {
+                  setDeletedOpen(true);
+                  setRestoreReason("");
+                  setRestoreTargetId(null);
+                  void loadDeletedDocuments();
+                }}
+              >
+                {DOCUMENT_WORKSPACE_DELETED_DOCUMENTS_LABEL}
+              </Button>
+            ) : null}
             <Button type="button" size="sm" variant="outline" onClick={closeDesk}>
               {DOCUMENT_WORKSPACE_CHANGE_TRANSACTION}
             </Button>
@@ -1225,7 +1278,7 @@ export function DocumentWorkspace() {
                         disabled={!row.record || !canDeleteDocuments(user)}
                         onClick={() => setRowDialog({ row, mode: "remove" })}
                       >
-                        Remove
+                        {DOCUMENT_WORKSPACE_MOVE_TO_DELETED_LABEL}
                       </Button>
                       <Button
                         type="button"
@@ -1582,11 +1635,11 @@ export function DocumentWorkspace() {
           setRowDialog(null);
           toast.success("Replacement stored as a new version.");
         }}
-        onRemove={async () => {
+        onRemove={async (reason) => {
           if (!rowDialog?.row.record || !canDeleteDocuments(user)) return;
-          await deleteDocumentFromRegistry(rowDialog.row.record.id);
+          await deleteDocumentFromRegistry(rowDialog.row.record.id, reason);
           setRowDialog(null);
-          toast.success("Document marked deleted. Audit history is preserved.");
+          toast.success("Document moved to Deleted Documents. The file was not destroyed.");
         }}
         onEmail={(recipientId) => {
           const recipient = commParticipants.find((item) => item.id === recipientId) || commParticipants[0];
@@ -1623,6 +1676,99 @@ export function DocumentWorkspace() {
           toast.success("Internal note recorded on the registry row.");
         }}
       />
+      <Dialog
+        open={deletedOpen}
+        onOpenChange={(open) => {
+          setDeletedOpen(open);
+          if (!open) {
+            setRestoreReason("");
+            setRestoreTargetId(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg" allowOutsideClose data-document-workspace-recycle-bin="">
+          <DialogHeader>
+            <DialogTitle className="text-sm">{DOCUMENT_WORKSPACE_DELETED_DOCUMENTS_LABEL}</DialogTitle>
+            <DialogDescription>
+              Recoverable documents stay on the locked transaction. Permanent purge is not authorised.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-64 space-y-2 overflow-auto">
+            {deletedItems.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No deleted documents on this transaction.</p>
+            ) : (
+              deletedItems.map((item) => (
+                <div key={item.id} className="rounded-md border border-border/60 px-3 py-2">
+                  <p className="truncate text-sm font-medium">{item.originalFilename}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {item.status}
+                    {item.eligibleForPurge ? " · eligible for purge" : ""}
+                    {item.retentionUntil ? ` · retain until ${fmt(item.retentionUntil)}` : ""}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{item.deletionReason || "No reason recorded"}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2 h-7"
+                    onClick={() => setRestoreTargetId(item.id)}
+                  >
+                    {DOCUMENT_WORKSPACE_RESTORE_LABEL}
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+          {restoreTargetId ? (
+            <div className="space-y-2">
+              <Textarea
+                value={restoreReason}
+                onChange={(e) => setRestoreReason(e.target.value)}
+                placeholder={DOCUMENT_WORKSPACE_RESTORE_REASON_REQUIRED}
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={!restoreReason.trim()}
+                onClick={() => {
+                  void (async () => {
+                    const res = await authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        action: "restore_deleted",
+                        opportunityId: lockedOpportunityId,
+                        dealId: dealId || null,
+                        documentId: restoreTargetId,
+                        reason: restoreReason.trim(),
+                      }),
+                    });
+                    const body = (await res.json()) as {
+                      success?: boolean;
+                      data?: { blockedByNewer?: boolean };
+                      error?: { message?: string };
+                    };
+                    if (!res.ok || !body.success) {
+                      toast.error(body.error?.message || "Restore failed.");
+                      return;
+                    }
+                    if (body.data?.blockedByNewer) {
+                      toast.message(DOCUMENT_WORKSPACE_NEWER_VERSION_CURRENT);
+                    } else {
+                      toast.success("Document restored.");
+                    }
+                    await hydrateDocumentRegistryFromServer({ opportunityId: lockedOpportunityId });
+                    setRestoreReason("");
+                    setRestoreTargetId(null);
+                    await loadDeletedDocuments();
+                  })();
+                }}
+              >
+                Confirm restore
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
       </>
   );
 }
