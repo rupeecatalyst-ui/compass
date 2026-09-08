@@ -30,11 +30,24 @@ export type CustomerAssessmentInput = {
   monthlyIncomeRupees?: number | null;
   existingMonthlyEmiRupees?: number | null;
   currentHomeLoanEmiRupees?: number | null;
+  currentHomeLoanEmiCertainty?: "exact" | "approximate" | "not_known" | null;
   currentOutstandingRupees?: number | null;
+  currentOutstandingCertainty?: "exact" | "approximate" | "not_known" | null;
+  originalSanctionedRupees?: number | null;
+  loanStartDate?: string | null;
+  loanStartDateCertainty?: "exact" | "approximate" | "not_known" | null;
   currentRoiPercent?: number | null;
+  currentRoiCertainty?: "exact" | "approximate" | "not_known" | null;
+  rateType?: "floating" | "fixed" | "hybrid" | "not_known" | null;
   remainingTenureMonths?: number | null;
+  remainingTenureCertainty?: "exact" | "approximate" | "not_known" | null;
+  originalTenureMonths?: number | null;
   repaymentTrack?: "yes" | "no" | "not_sure" | null;
   delayedEmiCount?: number | null;
+  propertyKind?: string | null;
+  possessionStatus?: string | null;
+  registrationStatus?: string | null;
+  topUpPurpose?: string | null;
   customerSelectedTenureMonths?: number | null;
   coApplicant?: {
     relationship?: string | null;

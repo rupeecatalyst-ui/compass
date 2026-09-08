@@ -1,10 +1,16 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@server/lib/prisma";
 import { runHomeLoanRecommendationEngine, type AssessableProgramme } from "@/lib/home-loan-recommendation/engine";
-import type { CustomerAssessmentInput, HlBtJourneyKind } from "@/lib/home-loan-recommendation/assisted-offer";
 import { isPublishedCommercialProgram } from "@/lib/enterprise-lender-registry/program-architecture";
 import type { CompassProductCode } from "@/types/compass-customer-gateway";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
+import { buildBtAssessmentDisplay } from "@/lib/home-loan-recommendation/bt-assessment-display";
+import {
+  customerInputFromCompassAnswers,
+  journeyKindFromProduct,
+} from "@/lib/home-loan-recommendation/compass-answers";
+
+export { customerInputFromCompassAnswers, journeyKindFromProduct };
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -12,83 +18,10 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function num(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
-  if (typeof value === "string" && value.trim()) {
-    const n = Number(value.replace(/,/g, ""));
-    return Number.isFinite(n) ? Math.round(n) : null;
-  }
-  return null;
-}
-
-export function journeyKindFromProduct(productCode: CompassProductCode, answers: Record<string, unknown>): HlBtJourneyKind {
-  if (productCode !== "home-loan-balance-transfer") return "home_loan";
-  if (answers.topUpChoice === "with_topup" || num(answers.topUpAmount) != null) {
-    return "home_loan_balance_transfer_topup";
-  }
-  return "home_loan_balance_transfer";
-}
-
-export function customerInputFromCompassAnswers(
-  productCode: CompassProductCode,
-  answers: Record<string, unknown>,
-): CustomerAssessmentInput {
-  const incomeType = String(answers.incomeType || answers.employmentTypeCode || "");
-  const employmentFamily: CustomerAssessmentInput["employmentFamily"] = incomeType.startsWith("self-employed")
-    ? "self_employed"
-    : incomeType === "salaried"
-      ? "salaried"
-      : "unknown";
-  const required =
-    productCode === "home-loan-balance-transfer"
-      ? num(answers.outstandingLoanAmount) ?? num(answers.loanAmount)
-      : num(answers.loanAmount);
-  return {
-    journeyKind: journeyKindFromProduct(productCode, answers),
-    requiredAmountRupees: required,
-    topUpAmountRupees: num(answers.topUpAmount),
-    propertyValueRupees: num(answers.propertyValue),
-    propertyValueIsCustomerDeclared: true,
-    city: typeof answers.city === "string" ? answers.city : null,
-    pincode: typeof answers.pincode === "string" ? answers.pincode : null,
-    propertyType: typeof answers.propertyKind === "string" ? answers.propertyKind : typeof answers.propertyType === "string" ? answers.propertyType : null,
-    occupancy: typeof answers.occupancy === "string" ? answers.occupancy : typeof answers.propertyUsage === "string" ? answers.propertyUsage : null,
-    constructionStatus: typeof answers.constructionStatus === "string" ? answers.constructionStatus : null,
-    loanPurpose: typeof answers.loanPurpose === "string" ? answers.loanPurpose : null,
-    builderSource: typeof answers.builderSource === "string" ? answers.builderSource : null,
-    dateOfBirth: typeof answers.dateOfBirth === "string" ? answers.dateOfBirth : null,
-    employmentFamily,
-    constitution: typeof answers.constitution === "string" ? answers.constitution : null,
-    residency: typeof answers.residency === "string" ? answers.residency : null,
-    cibilBand: (answers.approxCibilScore as string | number | null) ?? null,
-    monthlyIncomeRupees: num(answers.monthlyIncome),
-    existingMonthlyEmiRupees: num(answers.existingEmi),
-    currentHomeLoanEmiRupees: num(answers.currentEmi),
-    currentOutstandingRupees: num(answers.outstandingLoanAmount),
-    currentRoiPercent: num(answers.currentRoi),
-    remainingTenureMonths: num(answers.remainingTenureMonths),
-    repaymentTrack:
-      answers.repaymentTrack === "yes" || answers.repaymentTrack === "no" || answers.repaymentTrack === "not_sure"
-        ? answers.repaymentTrack
-        : null,
-    delayedEmiCount: num(answers.delayedEmiCount),
-    coApplicantDecision:
-      answers.coApplicantDecision === "yes" ||
-      answers.coApplicantDecision === "no" ||
-      answers.coApplicantDecision === "not_decided"
-        ? answers.coApplicantDecision
-        : null,
-    coApplicant:
-      answers.coApplicantDecision === "yes"
-        ? {
-            relationship: typeof answers.coApplicantRelationship === "string" ? answers.coApplicantRelationship : null,
-            dateOfBirth: typeof answers.coApplicantDob === "string" ? answers.coApplicantDob : null,
-            employmentType: typeof answers.coApplicantEmployment === "string" ? answers.coApplicantEmployment : null,
-            monthlyIncomeRupees: num(answers.coApplicantIncome),
-            existingMonthlyEmiRupees: num(answers.coApplicantExistingEmi),
-          }
-        : null,
-  };
+function stringList(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const items = value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()));
+  return items.length ? items : null;
 }
 
 function mapProgram(row: {
@@ -164,6 +97,17 @@ function mapProgram(row: {
         ? policy.ageGoverningParty
         : "applicant",
     selfEmployedMethodologyPresent: policy.selfEmployedMethodologyPresent === true,
+    requiredSeasoningMonths:
+      typeof policy.requiredSeasoningMonths === "number" ? policy.requiredSeasoningMonths : null,
+    allowedPropertyKinds: stringList(policy.allowedPropertyKinds),
+    allowedConstructionStatuses: stringList(policy.allowedConstructionStatuses),
+    allowedOccupancy: stringList(policy.allowedOccupancy),
+    allowedPossession: stringList(policy.allowedPossession),
+    allowedRegistration: stringList(policy.allowedRegistration),
+    repaymentCleanRequired: policy.repaymentCleanRequired === true ? true : null,
+    maxDelayedEmis: typeof policy.maxDelayedEmis === "number" ? policy.maxDelayedEmis : null,
+    topUpAllowed: typeof policy.topUpAllowed === "boolean" ? policy.topUpAllowed : null,
+    topUpPurposeRequired: policy.topUpPurposeRequired === true,
     calculationComplete: isPublishedCommercialProgram(row),
   } as AssessableProgramme;
 }
@@ -228,6 +172,21 @@ export async function evaluateAndPersistCompassHomeLoanAssessment(input: {
     categoryRuleVersion: activeRule ? `v${activeRule.versionNumber}` : null,
   });
 
+  const existing = await prisma.compassHomeLoanAssessment.findUnique({
+    where: { opportunityId: input.opportunityId },
+    select: { normalisedAnswersJson: true },
+  });
+  const priorNormalised = asRecord(existing?.normalisedAnswersJson);
+  const originalDeclared = asRecord(priorNormalised.originalDeclared);
+  const preservedOriginal = Object.keys(originalDeclared).length > 0 ? originalDeclared : answers;
+  const display =
+    input.productCode === "home-loan-balance-transfer" ? buildBtAssessmentDisplay(answers) : null;
+  const normalisedPayload = {
+    customer,
+    originalDeclared: preservedOriginal,
+    display,
+  };
+
   const assessment = await prisma.compassHomeLoanAssessment.upsert({
     where: { opportunityId: input.opportunityId },
     create: {
@@ -237,7 +196,7 @@ export async function evaluateAndPersistCompassHomeLoanAssessment(input: {
       journeySessionRef: input.journeySessionRef ?? null,
       journeyStatus: "assessed",
       rawAnswersJson: answers as object as never,
-      normalisedAnswersJson: customer as object,
+      normalisedAnswersJson: normalisedPayload as object,
       lenderAssessmentsJson: result.cards as object,
       recommendationSnapshotJson: {
         outcome: result.outcome,
@@ -258,7 +217,7 @@ export async function evaluateAndPersistCompassHomeLoanAssessment(input: {
       journeySessionRef: input.journeySessionRef ?? undefined,
       journeyStatus: "assessed",
       rawAnswersJson: answers as object as never,
-      normalisedAnswersJson: customer as object,
+      normalisedAnswersJson: normalisedPayload as object,
       lenderAssessmentsJson: result.cards as object,
       recommendationSnapshotJson: {
         outcome: result.outcome,

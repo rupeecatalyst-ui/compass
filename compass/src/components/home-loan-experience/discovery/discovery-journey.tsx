@@ -104,6 +104,79 @@ function OptionCards({
   );
 }
 
+type Certainty = "exact" | "approximate" | "not_known";
+
+function KnownValueStep({
+  stepKey,
+  heading,
+  helper,
+  inputMode,
+  placeholder,
+  displayValue,
+  certainty,
+  onChangeValue,
+  onChangeCertainty,
+  onContinue,
+  htmlType = "text",
+}: {
+  stepKey: string;
+  heading: string;
+  helper: string;
+  inputMode: "numeric" | "decimal" | "text";
+  placeholder: string;
+  displayValue: string;
+  certainty?: Certainty;
+  onChangeValue: (raw: string) => void;
+  onChangeCertainty: (certainty: Certainty) => void;
+  onContinue: (certainty?: Certainty) => void;
+  htmlType?: "text" | "date";
+}) {
+  const canContinue = certainty === "not_known" || Boolean(displayValue.trim());
+  return (
+    <DiscoveryScreen stepKey={stepKey}>
+      <QuestionHeader heading={heading} helper={helper} />
+      <div className="mx-auto w-full max-w-md space-y-4">
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            ["exact", "Exact"],
+            ["approximate", "Approximate"],
+            ["not_known", "Not known"],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChangeCertainty(id)}
+              className={cn(
+                "rounded-2xl border px-2 py-3 text-xs font-medium transition-all",
+                "border-white/[0.08] bg-white/[0.02] hover:border-primary/30",
+                certainty === id && "border-primary/35 bg-primary/[0.08]",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {certainty !== "not_known" ? (
+          <input
+            type={htmlType}
+            inputMode={htmlType === "date" ? undefined : inputMode}
+            value={displayValue}
+            onChange={(e) => onChangeValue(e.target.value)}
+            placeholder={placeholder}
+            className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+          />
+        ) : (
+          <p className="text-center text-sm text-muted-foreground">We’ll keep this as not known. It will not be treated as zero.</p>
+        )}
+        <Button size="lg" className="h-12 w-full" disabled={!canContinue} onClick={() => onContinue(certainty)}>
+          Continue
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </DiscoveryScreen>
+  );
+}
+
 function MiniHomePreview({ scale }: { scale: number }) {
   return (
     <motion.div
@@ -432,6 +505,27 @@ export function DiscoveryJourney() {
       }
 
       case "propertyValue": {
+        if (productCode === "home-loan-balance-transfer") {
+          return (
+            <KnownValueStep
+              stepKey="propertyValue"
+              heading="What is the current estimated value of the property?"
+              helper="Customer-declared estimate. Exact, approximate, or not known."
+              inputMode="numeric"
+              placeholder="Estimated value in ₹"
+              displayValue={answers.propertyValue ? String(answers.propertyValue) : ""}
+              certainty={answers.propertyValueCertainty}
+              onChangeValue={(raw) => {
+                const n = Number(raw.replace(/\D/g, ""));
+                setAnswer("propertyValue", raw.replace(/\D/g, "") ? n : 0);
+              }}
+              onChangeCertainty={(certainty) => {
+                setAnswer("propertyValueCertainty", certainty);
+              }}
+              onContinue={() => goNext({ propertyValueCertainty: answers.propertyValueCertainty })}
+            />
+          );
+        }
         const c = discoveryCopy.propertyValue;
         return (
           <DiscoveryScreen stepKey="propertyValue">
@@ -464,63 +558,164 @@ export function DiscoveryJourney() {
         const c = discoveryCopy.currentLender;
         return (
           <DiscoveryScreen stepKey="currentLender">
-            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <QuestionHeader heading="Which institution currently holds this Home Loan?" helper="You can name the lender or mark it as not known. We will not invent a lender." />
             <div className="mx-auto w-full max-w-md space-y-4">
               <input
-                value={answers.currentLender ?? ""}
+                value={answers.currentLender === "not_known" ? "" : answers.currentLender ?? ""}
                 onChange={(e) => setAnswer("currentLender", e.target.value)}
                 placeholder={c.placeholder}
                 className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
               />
-              <div className="flex justify-center">
-                <Button
-                  size="lg"
-                  className="h-12 px-10"
-                  disabled={(answers.currentLender ?? "").trim().length < 2}
-                  onClick={goNext}
-                >
-                  {discoveryCopy.buttons.next}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                size="lg"
+                className="h-12 w-full"
+                disabled={
+                  answers.currentLender !== "not_known" &&
+                  (answers.currentLender ?? "").trim().length < 2
+                }
+                onClick={goNext}
+              >
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <button
+                type="button"
+                className="w-full text-sm text-muted-foreground underline-offset-4 hover:underline"
+                onClick={() => {
+                  setAnswer("currentLender", "not_known");
+                  goNext({ currentLender: "not_known" });
+                }}
+              >
+                Not known
+              </button>
             </div>
           </DiscoveryScreen>
         );
       }
 
-      case "outstandingLoanAmount": {
-        const c = discoveryCopy.outstandingLoanAmount;
+      case "outstandingLoanAmount":
         return (
-          <DiscoveryScreen stepKey="outstandingLoanAmount">
-            <QuestionHeader heading={c.heading} helper={c.helper} />
-            <div className="mx-auto w-full max-w-lg">
-              <PremiumSlider
-                value={answers.outstandingLoanAmount ?? c.default}
-                min={c.min}
-                max={c.max}
-                minLabel={c.minLabel}
-                maxLabel={c.maxLabel}
-                onChange={(v) => setAnswer("outstandingLoanAmount", v)}
-              />
-              <div className="mt-8 flex justify-center">
-                <Button
-                  size="lg"
-                  className="h-12 px-10"
-                  onClick={() => {
-                    if (answers.outstandingLoanAmount == null) {
-                      setAnswer("outstandingLoanAmount", c.default);
-                    }
-                    goNext();
-                  }}
-                >
-                  {c.cta}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </DiscoveryScreen>
+          <KnownValueStep
+            stepKey="outstandingLoanAmount"
+            heading="What is the current principal outstanding?"
+            helper="Exact, approximate, or not known. Unknown is not converted to zero."
+            inputMode="numeric"
+            placeholder="Outstanding amount in ₹"
+            displayValue={answers.outstandingLoanAmount != null ? String(answers.outstandingLoanAmount) : ""}
+            certainty={answers.outstandingCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("outstandingLoanAmount", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("outstandingCertainty", certainty);
+              if (certainty === "not_known") setAnswer("outstandingLoanAmount", undefined);
+            }}
+            onContinue={(certainty) => goNext({ outstandingCertainty: certainty })}
+          />
         );
-      }
+
+      case "originalSanctionedAmount":
+        return (
+          <KnownValueStep
+            stepKey="originalSanctionedAmount"
+            heading="What was the original sanctioned loan amount?"
+            helper="The amount originally sanctioned, not the current outstanding. Exact, approximate, or not known."
+            inputMode="numeric"
+            placeholder="Sanctioned amount in ₹"
+            displayValue={answers.originalSanctionedAmount != null ? String(answers.originalSanctionedAmount) : ""}
+            certainty={answers.originalSanctionedCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("originalSanctionedAmount", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("originalSanctionedCertainty", certainty);
+              if (certainty === "not_known") setAnswer("originalSanctionedAmount", undefined);
+            }}
+            onContinue={(certainty) => goNext({ originalSanctionedCertainty: certainty })}
+          />
+        );
+
+      case "loanStartDate":
+        return (
+          <KnownValueStep
+            stepKey="loanStartDate"
+            heading="When was this Home Loan disbursed?"
+            helper="Used only for programme-specific seasoning. There is no universal seasoning rule. Exact, approximate, or not known."
+            inputMode="text"
+            htmlType="date"
+            placeholder="Disbursement date"
+            displayValue={answers.loanStartDate ?? ""}
+            certainty={answers.loanStartDateCertainty}
+            onChangeValue={(raw) => setAnswer("loanStartDate", raw || undefined)}
+            onChangeCertainty={(certainty) => {
+              setAnswer("loanStartDateCertainty", certainty);
+              if (certainty === "not_known") setAnswer("loanStartDate", undefined);
+            }}
+            onContinue={(certainty) => goNext({ loanStartDateCertainty: certainty })}
+          />
+        );
+
+      case "rateType":
+        return (
+          <OptionCards
+            heading="What is the current interest-rate type?"
+            helper="Floating, fixed, hybrid, or not known. Unknown is preserved — it is not assumed."
+            value={answers.rateType}
+            options={[
+              { id: "floating", label: "Floating" },
+              { id: "fixed", label: "Fixed" },
+              { id: "hybrid", label: "Hybrid" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("rateType", id as DiscoveryAnswers["rateType"]);
+              goNext({ rateType: id as DiscoveryAnswers["rateType"] });
+            }}
+          />
+        );
+
+      case "originalTenureMonths":
+        return (
+          <KnownValueStep
+            stepKey="originalTenureMonths"
+            heading="What was the original tenure of this Home Loan?"
+            helper="Asked only when remaining tenure is not known."
+            inputMode="numeric"
+            placeholder="Original tenure in months"
+            displayValue={answers.originalTenureMonths != null ? String(answers.originalTenureMonths) : ""}
+            certainty={answers.originalTenureCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("originalTenureMonths", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("originalTenureCertainty", certainty);
+              if (certainty === "not_known") setAnswer("originalTenureMonths", undefined);
+            }}
+            onContinue={(certainty) => goNext({ originalTenureCertainty: certainty })}
+          />
+        );
+
+      case "pincode":
+        return (
+          <KnownValueStep
+            stepKey="pincode"
+            heading="What is the property pincode?"
+            helper="Location is used with city. Exact, approximate, or not known."
+            inputMode="numeric"
+            placeholder="6-digit pincode"
+            displayValue={answers.pincode ?? ""}
+            certainty={answers.pincodeCertainty}
+            onChangeValue={(raw) => setAnswer("pincode", raw.replace(/\D/g, "").slice(0, 6) || undefined)}
+            onChangeCertainty={(certainty) => {
+              setAnswer("pincodeCertainty", certainty);
+              if (certainty === "not_known") setAnswer("pincode", undefined);
+            }}
+            onContinue={(certainty) => goNext({ pincodeCertainty: certainty })}
+          />
+        );
 
       case "propertyUsage": {
         const c = discoveryCopy.propertyUsage;
@@ -931,6 +1126,82 @@ export function DiscoveryJourney() {
           />
         );
 
+      case "propertyKind":
+        return (
+          <OptionCards
+            heading="What type of property is this?"
+            helper="Programme rules, if uploaded, use this property type. Unknown is preserved."
+            value={answers.propertyKind}
+            options={[
+              { id: "apartment", label: "Apartment" },
+              { id: "independent_house", label: "Independent house" },
+              { id: "villa", label: "Villa" },
+              { id: "plot", label: "Plot" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("propertyKind", id);
+              goNext({ propertyKind: id });
+            }}
+          />
+        );
+
+      case "possessionStatus":
+        return (
+          <OptionCards
+            heading="Do you already have possession of the property?"
+            helper="Possession is asked separately from construction status."
+            value={answers.possessionStatus}
+            options={[
+              { id: "possessed", label: "Yes — possessed" },
+              { id: "not_possessed", label: "Not yet possessed" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("possessionStatus", id);
+              goNext({ possessionStatus: id });
+            }}
+          />
+        );
+
+      case "registrationStatus":
+        return (
+          <OptionCards
+            heading="Is the property registered?"
+            helper="Asked only when possession or ready status makes registration relevant."
+            value={answers.registrationStatus}
+            options={[
+              { id: "registered", label: "Registered" },
+              { id: "not_registered", label: "Not registered" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("registrationStatus", id);
+              goNext({ registrationStatus: id });
+            }}
+          />
+        );
+
+      case "topUpPurpose":
+        return (
+          <OptionCards
+            heading="What is the purpose of the top-up?"
+            helper="Asked only when an active verified lender programme requires a top-up purpose."
+            value={answers.topUpPurpose}
+            options={[
+              { id: "renovation", label: "Renovation / improvement" },
+              { id: "personal", label: "Personal use" },
+              { id: "business", label: "Business use" },
+              { id: "other", label: "Other" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("topUpPurpose", id);
+              goNext({ topUpPurpose: id });
+            }}
+          />
+        );
+
       case "displayName":
         return (
           <DiscoveryScreen stepKey="displayName">
@@ -1084,95 +1355,117 @@ export function DiscoveryJourney() {
 
       case "topUpAmount":
         return (
-          <DiscoveryScreen stepKey="topUpAmount">
-            <QuestionHeader heading="How much top-up do you require?" helper="Enter the additional amount over the Balance Transfer." />
-            <div className="mx-auto w-full max-w-md space-y-4">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={answers.topUpAmount ? String(answers.topUpAmount) : ""}
-                onChange={(e) => setAnswer("topUpAmount", Number(e.target.value.replace(/\D/g, "")) || 0)}
-                placeholder="Amount in ₹"
-                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
-              />
-              <Button size="lg" className="h-12 w-full" onClick={() => goNext()}>Continue<ArrowRight className="h-4 w-4" /></Button>
-            </div>
-          </DiscoveryScreen>
+          <KnownValueStep
+            stepKey="topUpAmount"
+            heading="How much top-up do you require?"
+            helper="Asked only for Balance Transfer with Top-up. Exact, approximate, or not known."
+            inputMode="numeric"
+            placeholder="Top-up amount in ₹"
+            displayValue={answers.topUpAmount ? String(answers.topUpAmount) : ""}
+            certainty={answers.topUpAmountCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("topUpAmount", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("topUpAmountCertainty", certainty);
+              if (certainty === "not_known") setAnswer("topUpAmount", undefined);
+            }}
+            onContinue={(certainty) => goNext({ topUpAmountCertainty: certainty })}
+          />
         );
 
       case "currentRoi":
         return (
-          <DiscoveryScreen stepKey="currentRoi">
-            <QuestionHeader heading="What is the current interest rate on your Home Loan?" helper="Exact, approximate, or leave blank if not known. Unknown values are marked for later verification." />
-            <div className="mx-auto w-full max-w-md space-y-4">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={answers.currentRoi != null ? String(answers.currentRoi) : ""}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  setAnswer("currentRoi", Number.isFinite(n) ? n : undefined);
-                }}
-                placeholder="% p.a. (optional)"
-                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
-              />
-              <Button size="lg" className="h-12 w-full" onClick={() => goNext()}>Continue<ArrowRight className="h-4 w-4" /></Button>
-            </div>
-          </DiscoveryScreen>
+          <KnownValueStep
+            stepKey="currentRoi"
+            heading="What is the current interest rate on your Home Loan?"
+            helper="Exact, approximate, or not known. Unknown values are not treated as zero."
+            inputMode="decimal"
+            placeholder="% p.a."
+            displayValue={answers.currentRoi != null ? String(answers.currentRoi) : ""}
+            certainty={answers.currentRoiCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/[^\d.]/g, ""));
+              setAnswer("currentRoi", Number.isFinite(n) && raw.trim() ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("currentRoiCertainty", certainty);
+              if (certainty === "not_known") setAnswer("currentRoi", undefined);
+            }}
+            onContinue={(certainty) => goNext({ currentRoiCertainty: certainty })}
+          />
         );
 
       case "currentEmi":
         return (
-          <DiscoveryScreen stepKey="currentEmi">
-            <QuestionHeader heading="What is your current Home Loan EMI?" helper="Used for comparison. In post-transfer FOIR it is replaced by the proposed EMI, not added to it." />
-            <div className="mx-auto w-full max-w-md space-y-4">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={answers.currentEmi ? String(answers.currentEmi) : ""}
-                onChange={(e) => setAnswer("currentEmi", Number(e.target.value.replace(/\D/g, "")) || 0)}
-                placeholder="Monthly EMI in ₹"
-                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
-              />
-              <Button size="lg" className="h-12 w-full" onClick={() => goNext()}>Continue<ArrowRight className="h-4 w-4" /></Button>
-            </div>
-          </DiscoveryScreen>
+          <KnownValueStep
+            stepKey="currentEmi"
+            heading="What is your current Home Loan EMI?"
+            helper="Used for before/after comparison. In post-transfer FOIR it is replaced by the proposed EMI, not added to it."
+            inputMode="numeric"
+            placeholder="Monthly EMI in ₹"
+            displayValue={answers.currentEmi ? String(answers.currentEmi) : ""}
+            certainty={answers.currentEmiCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("currentEmi", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("currentEmiCertainty", certainty);
+              if (certainty === "not_known") setAnswer("currentEmi", undefined);
+            }}
+            onContinue={(certainty) => goNext({ currentEmiCertainty: certainty })}
+          />
         );
 
       case "remainingTenureMonths":
         return (
-          <DiscoveryScreen stepKey="remainingTenureMonths">
-            <QuestionHeader heading="How many months remain on the current Home Loan?" helper="Required for an indicative saving. If unknown, we will not show a saving or break-even figure." />
-            <div className="mx-auto w-full max-w-md space-y-4">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={answers.remainingTenureMonths ? String(answers.remainingTenureMonths) : ""}
-                onChange={(e) => setAnswer("remainingTenureMonths", Number(e.target.value.replace(/\D/g, "")) || 0)}
-                placeholder="Months remaining (optional)"
-                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
-              />
-              <Button size="lg" className="h-12 w-full" onClick={() => goNext()}>Continue<ArrowRight className="h-4 w-4" /></Button>
-            </div>
-          </DiscoveryScreen>
+          <KnownValueStep
+            stepKey="remainingTenureMonths"
+            heading="How many months remain on the current Home Loan?"
+            helper="Required for an indicative saving. If not known, we will not show a saving or break-even figure."
+            inputMode="numeric"
+            placeholder="Months remaining"
+            displayValue={answers.remainingTenureMonths != null ? String(answers.remainingTenureMonths) : ""}
+            certainty={answers.remainingTenureCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("remainingTenureMonths", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("remainingTenureCertainty", certainty);
+              if (certainty === "not_known") setAnswer("remainingTenureMonths", undefined);
+            }}
+            onContinue={(certainty) =>
+              goNext({
+                remainingTenureCertainty: certainty,
+                remainingTenureMonths: certainty === "not_known" ? undefined : answers.remainingTenureMonths,
+              })
+            }
+          />
         );
 
       case "delayedEmiCount":
         return (
-          <DiscoveryScreen stepKey="delayedEmiCount">
-            <QuestionHeader heading="How many EMIs were delayed or missed?" helper="The acceptable repayment track remains programme-specific." />
-            <div className="mx-auto w-full max-w-md space-y-4">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={answers.delayedEmiCount != null ? String(answers.delayedEmiCount) : ""}
-                onChange={(e) => setAnswer("delayedEmiCount", Number(e.target.value.replace(/\D/g, "")) || 0)}
-                placeholder="Number of delayed EMIs"
-                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
-              />
-              <Button size="lg" className="h-12 w-full" onClick={() => goNext()}>Continue<ArrowRight className="h-4 w-4" /></Button>
-            </div>
-          </DiscoveryScreen>
+          <KnownValueStep
+            stepKey="delayedEmiCount"
+            heading="How many EMIs were delayed or missed?"
+            helper="Asked only when repayment is not clean. Unknown is not converted to zero. The acceptable track remains programme-specific."
+            inputMode="numeric"
+            placeholder="Number of delayed EMIs"
+            displayValue={answers.delayedEmiCount != null ? String(answers.delayedEmiCount) : ""}
+            certainty={answers.delayedEmiCountCertainty}
+            onChangeValue={(raw) => {
+              const digits = raw.replace(/\D/g, "");
+              setAnswer("delayedEmiCount", digits ? Number(digits) : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("delayedEmiCountCertainty", certainty);
+              if (certainty === "not_known") setAnswer("delayedEmiCount", undefined);
+            }}
+            onContinue={(certainty) => goNext({ delayedEmiCountCertainty: certainty })}
+          />
         );
 
       case "coApplicantRelationship":

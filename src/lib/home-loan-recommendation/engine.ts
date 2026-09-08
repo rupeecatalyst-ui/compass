@@ -17,6 +17,7 @@ import {
   type EligibilityMatchState,
   type HlBtJourneyKind,
 } from "./assisted-offer";
+import { calculateIndicativeBtSaving, evaluateProgrammeSeasoning } from "./bt-journey";
 import type { EnterpriseLenderProgramRecord } from "@/types/enterprise-lender-registry";
 
 export type AssessableProgramme = EnterpriseLenderProgramRecord & {
@@ -30,6 +31,16 @@ export type AssessableProgramme = EnterpriseLenderProgramRecord & {
   acceptsCoApplicantIncome?: boolean | null;
   ageGoverningParty?: "applicant" | "co_applicant" | "younger" | "older" | null;
   selfEmployedMethodologyPresent?: boolean | null;
+  requiredSeasoningMonths?: number | null;
+  allowedPropertyKinds?: string[] | null;
+  allowedConstructionStatuses?: string[] | null;
+  allowedOccupancy?: string[] | null;
+  allowedPossession?: string[] | null;
+  allowedRegistration?: string[] | null;
+  repaymentCleanRequired?: boolean | null;
+  maxDelayedEmis?: number | null;
+  topUpAllowed?: boolean | null;
+  topUpPurposeRequired?: boolean;
 };
 
 export type ProgrammeAssessmentCard = {
@@ -62,6 +73,7 @@ export type ProgrammeAssessmentCard = {
   topUpComponentRupees?: number | null;
   monthlyEmiDifferenceRupees?: number | null;
   indicativeSavingRupees?: number | null;
+  savingSuppressed?: boolean;
 };
 
 export type HomeLoanRecommendationEngineResult = {
@@ -264,6 +276,57 @@ export function runHomeLoanRecommendationEngine(input: {
   };
 }
 
+function valueAllowed(value: string | null | undefined, allowed: string[] | null | undefined): boolean {
+  if (!allowed || allowed.length === 0) return true;
+  if (!value) return false;
+  return allowed.includes(value);
+}
+
+function assessProgrammePolicyFit(program: AssessableProgramme, customer: CustomerAssessmentInput): EligibilityMatchState | null {
+  if (customer.journeyKind === "home_loan") return null;
+  if (program.topUpAllowed === false && customer.journeyKind === "home_loan_balance_transfer_topup") {
+    return "more_information_required";
+  }
+  if (program.topUpPurposeRequired && customer.journeyKind === "home_loan_balance_transfer_topup" && !customer.topUpPurpose) {
+    return "more_information_required";
+  }
+  if (program.repaymentCleanRequired === true && customer.repaymentTrack === "no") {
+    return "more_information_required";
+  }
+  if (
+    program.maxDelayedEmis != null &&
+    customer.delayedEmiCount != null &&
+    customer.delayedEmiCount > program.maxDelayedEmis
+  ) {
+    return "more_information_required";
+  }
+  if (!valueAllowed(customer.propertyKind ?? customer.propertyType, program.allowedPropertyKinds)) {
+    return "more_information_required";
+  }
+  if (!valueAllowed(customer.constructionStatus, program.allowedConstructionStatuses)) {
+    return "more_information_required";
+  }
+  if (!valueAllowed(customer.occupancy, program.allowedOccupancy)) {
+    return "more_information_required";
+  }
+  if (!valueAllowed(customer.possessionStatus, program.allowedPossession)) {
+    return "more_information_required";
+  }
+  if (!valueAllowed(customer.registrationStatus, program.allowedRegistration)) {
+    return "more_information_required";
+  }
+  const seasoning = evaluateProgrammeSeasoning({
+    loanStartIsoDate: customer.loanStartDate,
+    loanStartCertainty: customer.loanStartDateCertainty,
+    requiredSeasoningMonths: program.requiredSeasoningMonths ?? null,
+  });
+  if (seasoning.status === "not_met") return "more_information_required";
+  if (seasoning.status === "unknown" && program.requiredSeasoningMonths != null) {
+    return "more_information_required";
+  }
+  return null;
+}
+
 function assessOneProgramme(
   program: AssessableProgramme,
   customer: CustomerAssessmentInput,
@@ -344,9 +407,16 @@ function assessOneProgramme(
     }
   }
 
+  const policyFit = assessProgrammePolicyFit(program, customer);
+  if (policyFit) matchState = policyFit;
+
   const required =
     customer.journeyKind === "home_loan_balance_transfer_topup"
-      ? (customer.requiredAmountRupees ?? 0) + (customer.topUpAmountRupees ?? 0)
+      ? customer.requiredAmountRupees == null
+        ? null
+        : customer.topUpAmountRupees == null
+          ? customer.requiredAmountRupees
+          : customer.requiredAmountRupees + customer.topUpAmountRupees
       : customer.requiredAmountRupees;
 
   const offer = calculateTentativeOffer({
@@ -396,17 +466,22 @@ function assessOneProgramme(
 
   let monthlyEmiDifference: number | null = null;
   let indicativeSaving: number | null = null;
-  if (
-    customer.journeyKind !== "home_loan" &&
-    emi != null &&
-    customer.currentHomeLoanEmiRupees != null &&
-    customer.currentOutstandingRupees != null &&
-    customer.remainingTenureMonths != null
-  ) {
-    monthlyEmiDifference = customer.currentHomeLoanEmiRupees - emi;
-    if (customer.currentRoiPercent != null && roi.percent != null && customer.remainingTenureMonths > 0) {
-      indicativeSaving = monthlyEmiDifference * customer.remainingTenureMonths;
-      if (indicativeSaving > 0) reasonCodes.push("BALANCE_TRANSFER_SAVING");
+  let savingSuppressed = false;
+  if (customer.journeyKind !== "home_loan") {
+    const saving = calculateIndicativeBtSaving({
+      currentEmiRupees: customer.currentHomeLoanEmiRupees,
+      currentEmiCertainty: customer.currentHomeLoanEmiCertainty,
+      remainingTenureMonths: customer.remainingTenureMonths,
+      remainingTenureCertainty: customer.remainingTenureCertainty,
+      currentRoiPercent: customer.currentRoiPercent,
+      currentRoiCertainty: customer.currentRoiCertainty,
+      proposedEmiRupees: emi,
+    });
+    savingSuppressed = saving.suppressed;
+    monthlyEmiDifference = saving.monthlyDifferenceRupees;
+    indicativeSaving = saving.indicativeSavingRupees;
+    if (!saving.suppressed && (indicativeSaving ?? 0) > 0) {
+      reasonCodes.push("BALANCE_TRANSFER_SAVING");
     }
   }
 
@@ -454,5 +529,6 @@ function assessOneProgramme(
     topUpComponentRupees: topUpComponent,
     monthlyEmiDifferenceRupees: monthlyEmiDifference,
     indicativeSavingRupees: indicativeSaving,
+    savingSuppressed,
   };
 }

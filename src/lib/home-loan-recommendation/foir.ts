@@ -51,12 +51,10 @@ export function calculateSalariedFoir(input: FoirCalculationInput): FoirCalculat
   }
 
   const existing = Math.max(0, Math.round(input.existingMonthlyEmiRupees || 0));
-  const replaced = input.isBalanceTransfer
-    ? Math.max(0, Math.round(input.replacedHomeLoanEmiRupees || 0))
-    : 0;
-  const otherExisting = Math.max(0, existing - replaced);
+  // BT: existingMonthlyEmiRupees is other obligations only. The Home Loan EMI being
+  // transferred is comparison-only and must never be added to post-transfer FOIR.
   const proposed = Math.round(input.proposedMonthlyEmiRupees);
-  const numerator = otherExisting + proposed;
+  const numerator = existing + proposed;
   const foirPercent = (numerator / input.eligibleMonthlyIncomeRupees) * 100;
   const rounded = Math.round(foirPercent * 100) / 100;
   const cap = input.maxFoirPercent;
@@ -80,10 +78,6 @@ export function maxEmiFromFoirCap(input: {
   isBalanceTransfer?: boolean;
 }): number {
   const existing = Math.max(0, Math.round(input.existingMonthlyEmiRupees || 0));
-  const replaced = input.isBalanceTransfer
-    ? Math.max(0, Math.round(input.replacedHomeLoanEmiRupees || 0))
-    : 0;
-  const otherExisting = Math.max(0, existing - replaced);
   const maxTotalObligations = (input.eligibleMonthlyIncomeRupees * input.maxFoirPercent) / 100;
-  return Math.max(0, Math.floor(maxTotalObligations - otherExisting));
+  return Math.max(0, Math.floor(maxTotalObligations - existing));
 }

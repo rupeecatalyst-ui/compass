@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  buildBtAssessmentDisplay,
+  type AssessmentFact,
+  type BtAssessmentDisplay,
+} from "@/lib/home-loan-recommendation/bt-assessment-display";
 
 type AssessmentPayload = {
   journeyKind?: string;
@@ -38,11 +43,27 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Fact({ label, value }: { label: string; value: unknown }) {
   if (value == null || value === "") return null;
   return (
-    <div className="grid grid-cols-[9rem_1fr] gap-2 text-sm">
+    <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-2 text-sm sm:grid-cols-[11rem_minmax(0,1fr)]">
       <dt className="text-zinc-400">{label}</dt>
       <dd className="text-zinc-100">{typeof value === "object" ? JSON.stringify(value) : String(value)}</dd>
     </div>
   );
+}
+
+function FactList({ items }: { items: AssessmentFact[] }) {
+  return (
+    <dl className="space-y-1">
+      {items.map((item) => (
+        <Fact key={item.label} label={item.label} value={item.value} />
+      ))}
+    </dl>
+  );
+}
+
+function isBtDisplay(value: unknown): value is BtAssessmentDisplay {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return Array.isArray(row.existingLoan) && Array.isArray(row.property);
 }
 
 export function WorkspaceCompassAssessmentPanel({ opportunityId }: { opportunityId: string }) {
@@ -82,6 +103,14 @@ export function WorkspaceCompassAssessmentPanel({ opportunityId }: { opportunity
     }
   };
 
+  const btDisplay = useMemo(() => {
+    if (!data?.journeyKind?.includes("balance_transfer")) return null;
+    const raw = data.rawAnswersJson ?? {};
+    const stored = data.normalisedAnswersJson?.display;
+    if (isBtDisplay(stored)) return stored;
+    return buildBtAssessmentDisplay(raw);
+  }, [data]);
+
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (!data) {
     return (
@@ -92,6 +121,7 @@ export function WorkspaceCompassAssessmentPanel({ opportunityId }: { opportunity
   }
 
   const answers = data.rawAnswersJson ?? {};
+
   const lenders = Array.isArray(data.lenderAssessmentsJson) ? data.lenderAssessmentsJson : [];
 
   return (
@@ -114,30 +144,47 @@ export function WorkspaceCompassAssessmentPanel({ opportunityId }: { opportunity
         </dl>
       </Section>
 
-      <Section title="Requirement">
-        <dl className="space-y-1">
-          <Fact label="Purpose" value={answers.loanPurpose} />
-          <Fact label="Required amount" value={answers.loanAmount ?? answers.outstandingLoanAmount} />
-          <Fact label="Top-up" value={answers.topUpChoice} />
-          <Fact label="Property value" value={answers.propertyValue} />
-          <Fact label="Location" value={answers.city} />
-          <Fact label="Occupancy" value={answers.occupancy} />
-          <Fact label="Construction" value={answers.constructionStatus} />
-        </dl>
-      </Section>
-
-      {data.journeyKind?.includes("balance_transfer") ? (
-        <Section title="Existing Loan — Balance Transfer">
+      {btDisplay ? (
+        <>
+          <Section title="Existing Loan">
+            <FactList items={btDisplay.existingLoan} />
+          </Section>
+          <Section title="Property">
+            <FactList items={btDisplay.property} />
+          </Section>
+          <Section title="Repayment Conduct">
+            <FactList items={btDisplay.repaymentConduct} />
+          </Section>
+          <Section title="Top-up Requirement">
+            <FactList items={btDisplay.topUpRequirement} />
+          </Section>
+          <Section title="Missing Information">
+            {btDisplay.missingInformation.length === 0 ? (
+              <p className="text-sm text-zinc-400">No missing Balance Transfer information recorded.</p>
+            ) : (
+              <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-100">
+                {btDisplay.missingInformation.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </Section>
+          <Section title="Calculation Inputs">
+            <FactList items={btDisplay.calculationInputs} />
+          </Section>
+        </>
+      ) : (
+        <Section title="Requirement">
           <dl className="space-y-1">
-            <Fact label="Current lender" value={answers.currentLender} />
-            <Fact label="Outstanding" value={answers.outstandingLoanAmount} />
-            <Fact label="Current ROI" value={answers.currentRoi} />
-            <Fact label="Current EMI" value={answers.currentEmi} />
-            <Fact label="Remaining tenure" value={answers.remainingTenureMonths} />
-            <Fact label="Repayment track" value={answers.repaymentTrack} />
+            <Fact label="Purpose" value={answers.loanPurpose} />
+            <Fact label="Required amount" value={answers.loanAmount} />
+            <Fact label="Property value" value={answers.propertyValue} />
+            <Fact label="Location" value={answers.city} />
+            <Fact label="Occupancy" value={answers.occupancy} />
+            <Fact label="Construction" value={answers.constructionStatus} />
           </dl>
         </Section>
-      ) : null}
+      )}
 
       <Section title="Applicant Profile">
         <dl className="space-y-1">
@@ -146,7 +193,7 @@ export function WorkspaceCompassAssessmentPanel({ opportunityId }: { opportunity
           <Fact label="Residency" value={answers.residency} />
           <Fact label="CIBIL" value={answers.approxCibilScore} />
           <Fact label="Income" value={answers.monthlyIncome} />
-          <Fact label="Existing EMIs" value={answers.existingEmi} />
+          <Fact label="Other EMIs" value={answers.existingEmi} />
         </dl>
       </Section>
 
@@ -176,6 +223,13 @@ export function WorkspaceCompassAssessmentPanel({ opportunityId }: { opportunity
                   <p className="mt-1 text-zinc-300">
                     Tentative offer {String(card.tentativeOfferRupees ?? "unknown")} · Match {String(card.matchState ?? "")}
                   </p>
+                  {card.savingSuppressed ? (
+                    <p className="mt-1 text-zinc-400">
+                      Indicative saving is suppressed until EMI, remaining tenure and ROI are known. Fees are not invented.
+                    </p>
+                  ) : card.indicativeSavingRupees != null ? (
+                    <p className="mt-1 text-zinc-300">Indicative EMI difference {String(card.monthlyEmiDifferenceRupees)}</p>
+                  ) : null}
                 </div>
               );
             })}
@@ -187,7 +241,8 @@ export function WorkspaceCompassAssessmentPanel({ opportunityId }: { opportunity
         <dl className="space-y-1">
           <Fact label="Calculation version" value={data.calculationVersion} />
           <Fact label="Assisted offer" value={data.assistedOfferJson?.headline} />
-          <Fact label="Snapshot" value={data.recommendationSnapshotJson} />
+          <Fact label="Outcome" value={data.recommendationSnapshotJson?.outcome} />
+          <Fact label="Analyzed at" value={data.recommendationSnapshotJson?.analyzedAt} />
         </dl>
       </Section>
 

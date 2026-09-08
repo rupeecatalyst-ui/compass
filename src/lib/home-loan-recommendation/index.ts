@@ -21,3 +21,20 @@ export {
   ASSISTED_HOME_LOAN_COPY,
   ASSISTED_BALANCE_TRANSFER_COPY,
 } from "./assisted-offer";
+export {
+  parseCertaintyAmount,
+  parseCertaintyPercent,
+  parseCertaintyMonths,
+  parseCertaintyDate,
+  parseRateType,
+  evaluateProgrammeSeasoning,
+  calculateIndicativeBtSaving,
+  shouldAskOriginalTenure,
+  shouldAskDelayedEmiCount,
+  shouldAskTopUpAmount,
+  shouldAskTopUpPurpose,
+  shouldAskRegistrationStatus,
+  listMissingBtInformation,
+} from "./bt-journey";
+export { journeyKindFromProduct, customerInputFromCompassAnswers } from "./compass-answers";
+export { buildBtAssessmentDisplay } from "./bt-assessment-display";

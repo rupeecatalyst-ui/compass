@@ -55,6 +55,26 @@ function answersPayload(productCode: CompassProductCode, answers: DiscoveryAnswe
     remainingTenureMonths: answers.remainingTenureMonths,
     repaymentTrack: answers.repaymentTrack,
     delayedEmiCount: answers.delayedEmiCount,
+    delayedEmiCountCertainty: answers.delayedEmiCountCertainty,
+    originalSanctionedAmount: answers.originalSanctionedAmount,
+    originalSanctionedCertainty: answers.originalSanctionedCertainty,
+    outstandingCertainty: answers.outstandingCertainty,
+    loanStartDate: answers.loanStartDate,
+    loanStartDateCertainty: answers.loanStartDateCertainty,
+    currentRoiCertainty: answers.currentRoiCertainty,
+    rateType: answers.rateType,
+    currentEmiCertainty: answers.currentEmiCertainty,
+    remainingTenureCertainty: answers.remainingTenureCertainty,
+    originalTenureMonths: answers.originalTenureMonths,
+    originalTenureCertainty: answers.originalTenureCertainty,
+    pincode: answers.pincode,
+    pincodeCertainty: answers.pincodeCertainty,
+    propertyKind: answers.propertyKind,
+    propertyValueCertainty: answers.propertyValueCertainty,
+    possessionStatus: answers.possessionStatus,
+    registrationStatus: answers.registrationStatus,
+    topUpAmountCertainty: answers.topUpAmountCertainty,
+    topUpPurpose: answers.topUpPurpose,
     coApplicantDecision: answers.coApplicantDecision,
     coApplicantRelationship: answers.coApplicantRelationship,
     coApplicantDob: answers.coApplicantDob,
@@ -63,9 +83,26 @@ function answersPayload(productCode: CompassProductCode, answers: DiscoveryAnswe
     coApplicantExistingEmi: answers.coApplicantExistingEmi,
   };
   const allowed = new Set(getPersistedDiscoveryAnswerKeys(productCode));
+  const unknownCertainties: Array<[string, string | undefined]> = [
+    ["propertyValue", answers.propertyValueCertainty],
+    ["outstandingLoanAmount", answers.outstandingCertainty],
+    ["originalSanctionedAmount", answers.originalSanctionedCertainty],
+    ["currentRoi", answers.currentRoiCertainty],
+    ["currentEmi", answers.currentEmiCertainty],
+    ["remainingTenureMonths", answers.remainingTenureCertainty],
+    ["originalTenureMonths", answers.originalTenureCertainty],
+    ["topUpAmount", answers.topUpAmountCertainty],
+    ["loanStartDate", answers.loanStartDateCertainty],
+    ["pincode", answers.pincodeCertainty],
+    ["delayedEmiCount", answers.delayedEmiCountCertainty],
+  ];
+  const omitValues = new Set(
+    unknownCertainties.filter(([, certainty]) => certainty === "not_known").map(([key]) => key),
+  );
   const payload: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(raw)) {
     if (!allowed.has(key) || value == null) continue;
+    if (omitValues.has(key)) continue;
     if (typeof value === "string" && !value.trim()) continue;
     payload[key] = value;
   }

@@ -112,7 +112,16 @@ type ExtraDiscoveryStepId =
   | "currentEmi"
   | "remainingTenureMonths"
   | "repaymentTrack"
-  | "delayedEmiCount";
+  | "delayedEmiCount"
+  | "originalSanctionedAmount"
+  | "loanStartDate"
+  | "rateType"
+  | "originalTenureMonths"
+  | "pincode"
+  | "propertyKind"
+  | "possessionStatus"
+  | "registrationStatus"
+  | "topUpPurpose";
 
 const TAIL = ["approxCibilScore", "analysing", "lenders", "documents", "review", "confirmation"] as const;
 
@@ -123,19 +132,28 @@ export function getDiscoveryStepOrder(productCode: CompassProductCode): Discover
     case "home-loan-balance-transfer":
       return [
         "welcome",
-        "topUpChoice",
-        "topUpAmount",
         "currentLender",
+        "originalSanctionedAmount",
         "outstandingLoanAmount",
+        "loanStartDate",
         "currentRoi",
+        "rateType",
         "currentEmi",
         "remainingTenureMonths",
+        "originalTenureMonths",
         "repaymentTrack",
         "delayedEmiCount",
         "propertyValue",
         "city",
+        "pincode",
+        "propertyKind",
         "constructionStatus",
         "occupancy",
+        "possessionStatus",
+        "registrationStatus",
+        "topUpChoice",
+        "topUpAmount",
+        "topUpPurpose",
         "displayName",
         "dateOfBirth",
         "incomeType",
@@ -265,13 +283,33 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
       keys.add("existingEmi");
       keys.add("topUpChoice");
       keys.add("topUpAmount");
+      keys.add("topUpAmountCertainty");
+      keys.add("topUpPurpose");
+      keys.add("originalSanctionedAmount");
+      keys.add("originalSanctionedCertainty");
+      keys.add("outstandingCertainty");
+      keys.add("loanStartDate");
+      keys.add("loanStartDateCertainty");
       keys.add("currentRoi");
+      keys.add("currentRoiCertainty");
+      keys.add("rateType");
       keys.add("currentEmi");
+      keys.add("currentEmiCertainty");
       keys.add("remainingTenureMonths");
+      keys.add("remainingTenureCertainty");
+      keys.add("originalTenureMonths");
+      keys.add("originalTenureCertainty");
       keys.add("repaymentTrack");
       keys.add("delayedEmiCount");
+      keys.add("delayedEmiCountCertainty");
       keys.add("constructionStatus");
       keys.add("occupancy");
+      keys.add("pincode");
+      keys.add("pincodeCertainty");
+      keys.add("propertyKind");
+      keys.add("propertyValueCertainty");
+      keys.add("possessionStatus");
+      keys.add("registrationStatus");
       keys.add("dateOfBirth");
       keys.add("residency");
       keys.add("coApplicantDecision");
@@ -482,6 +520,10 @@ export function shouldShowDiscoveryStep(
     repaymentTrack?: string;
     coApplicantDecision?: string;
     needsCoApplicant?: boolean;
+    remainingTenureMonths?: number;
+    remainingTenureCertainty?: string;
+    possessionStatus?: string;
+    constructionStatus?: string;
   },
   productCode: CompassProductCode,
 ): boolean {
@@ -491,7 +533,17 @@ export function shouldShowDiscoveryStep(
     return productCode === "home-loan-balance-transfer" || answers.builderSource === "builder";
   }
   if (step === "topUpAmount") return answers.topUpChoice === "with_topup";
+  if (step === "topUpPurpose") return false;
+  if (step === "originalTenureMonths") {
+    return answers.remainingTenureCertainty === "not_known" || answers.remainingTenureMonths == null;
+  }
   if (step === "delayedEmiCount") return answers.repaymentTrack === "no";
+  if (step === "registrationStatus") {
+    return (
+      answers.possessionStatus === "possessed" ||
+      answers.constructionStatus === "ready"
+    );
+  }
   if (step === "coApplicant") {
     return Boolean(answers.needsCoApplicant) || Boolean(answers.coApplicantDecision);
   }
