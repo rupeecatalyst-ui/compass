@@ -25,6 +25,20 @@ export function compassPersistedAnswerKeys(productCode: CompassProductCode): Set
   if (definition.compassCode === "home-loan" || definition.compassCode === "home-loan-balance-transfer") {
     keys.add("propertyType");
     keys.add("propertyValue");
+    keys.add("loanPurpose");
+    keys.add("builderSource");
+    keys.add("constructionStatus");
+    keys.add("propertyKind");
+    keys.add("occupancy");
+    keys.add("pincode");
+    keys.add("dateOfBirth");
+    keys.add("residency");
+    keys.add("coApplicantDecision");
+    keys.add("coApplicantRelationship");
+    keys.add("coApplicantDob");
+    keys.add("coApplicantEmployment");
+    keys.add("coApplicantIncome");
+    keys.add("coApplicantExistingEmi");
   }
 
   if (definition.compassCode === "loan-against-property") {
@@ -54,6 +68,17 @@ export function compassPersistedAnswerKeys(productCode: CompassProductCode): Set
     keys.add("currentLendingInstitution");
     keys.add("outstandingLoanAmount");
     keys.add("outstandingLoanAmountLabel");
+    keys.add("topUpChoice");
+    keys.add("topUpAmount");
+    keys.add("originalSanctionedAmount");
+    keys.add("loanStartDate");
+    keys.add("currentRoi");
+    keys.add("rateType");
+    keys.add("currentEmi");
+    keys.add("remainingTenureMonths");
+    keys.add("repaymentTrack");
+    keys.add("delayedEmiCount");
+    keys.add("possessionStatus");
   }
 
   if (definition.compassCode === "personal-loan") {

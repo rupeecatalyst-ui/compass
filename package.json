@@ -76,6 +76,7 @@
     "verify:co-c1-overnight-refinements-007-010": "node --import tsx scripts/co-c1-overnight-refinements-007-010-verify.mjs",
     "verify:co-c1-my-deals-last-activity-001": "node --import tsx scripts/co-c1-my-deals-last-activity-001-verify.mjs",
     "verify:co-c1-pdc-schedule-repair-001": "node --import tsx scripts/co-c1-pdc-schedule-repair-001-verify.mjs",
+    "verify:co-c1-hl-bt-policy-recommendation-001": "node --import tsx scripts/co-c1-hl-bt-policy-recommendation-001-verify.mjs",
     "repair:co-c1-pdc-schedule-001:dry-run": "node --env-file=.env.local --import tsx scripts/co-c1-pdc-schedule-repair-001.mjs",
     "perf:request-reduction:verify": "node scripts/co-perf-002-request-reduction-verify.mjs",
     "arch:mc-snapshot:verify": "node scripts/co-arch-005-mission-control-snapshot-verify.mjs",

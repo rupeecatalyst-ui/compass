@@ -323,6 +323,16 @@ model Organization {
   organizationAuditEntries                 OrganizationAuditEntry[]
   /// CO-HL-PROGRAM-001 — Product-scoped lender selection priority (does not mutate lender master)
   enterpriseProductLenderPriorities        EnterpriseProductLenderPriority[]
+  /// CO-C1-HL-BT-POLICY-001 — recommendation masters (no live lender policies seeded)
+  hlRecommendationLenderCategories         HlRecommendationLenderCategoryAssignment[]
+  hlProductRecommendationRuleSets          HlProductRecommendationRuleSet[]
+  hlCibilCategoryRules                     HlCibilCategoryRule[]
+  hlRegulatoryLtvRules                     HlRegulatoryLtvRule[]
+  hlRecommendationOverrides                HlRecommendationOverride[]
+  organizationWorkingCalendarVersions      OrganizationWorkingCalendarVersion[]
+  compassHomeLoanAssessments               CompassHomeLoanAssessment[]
+  compassExpertSlaEvents                   CompassExpertSlaEvent[]
+  compassOtpChallenges                     CompassOtpChallenge[]
   /// CO-CCC-001 — Corporate Compliance Center
   cccLegalEntities                         CccLegalEntity[]
   cccInstitutionProfiles                   CccInstitutionProfile[]
@@ -386,6 +396,7 @@ model OrganizationWorkspaceSettings {
   updatedAt             DateTime @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  calendarVersions OrganizationWorkingCalendarVersion[]
 
   @@map("organization_workspace_settings")
 }
@@ -2666,6 +2677,8 @@ model EnterpriseLender {
   programSubmissions   LenderProgramSubmission[]
   /// CO-HL-PROGRAM-001 — product-family selection priority rows
   productLenderPriorities EnterpriseProductLenderPriority[]
+  hlRecommendationCategories HlRecommendationLenderCategoryAssignment[]
+  hlRecommendationOverrides  HlRecommendationOverride[]
 
   @@unique([organizationId, code], map: "elend_org_code_key")
   @@index([organizationId, categoryId, status, enabled], map: "elend_org_cat_status_idx")
@@ -2780,6 +2793,12 @@ model EnterpriseLenderProgram {
   maxLtvExact       Decimal?                     @map("max_ltv_exact") @db.Decimal(9, 6)
   minFoirExact      Decimal?                     @map("min_foir_exact") @db.Decimal(9, 6)
   maxFoirExact      Decimal?                     @map("max_foir_exact") @db.Decimal(9, 6)
+  /// CO-C1-HL-BT-POLICY-001 — optional verified policy payload (BT/top-up/FOIR/LOD). Empty until PO upload.
+  policyAssessmentJson Json?                     @map("policy_assessment_json")
+  sourceDocumentRef    String?                   @map("source_document_ref")
+  sourcePageSection    String?                   @map("source_page_section")
+  sourceVersionLabel   String?                   @map("source_version_label")
+  missingFlagsJson     Json?                     @map("missing_flags_json")
   minDbrExact       Decimal?                     @map("min_dbr_exact") @db.Decimal(9, 6)
   maxDbrExact       Decimal?                     @map("max_dbr_exact") @db.Decimal(9, 6)
   spreadExact       Decimal?                     @map("spread_exact") @db.Decimal(9, 6)
@@ -3192,6 +3211,8 @@ model EnterpriseOpportunity {
   product        EnterpriseProduct? @relation(fields: [productId], references: [id], onDelete: Restrict)
   deals          EnterpriseDeal[]
   advantageCommitmentEvents EnterpriseOpportunityAdvantageCommitmentEvent[]
+  compassHomeLoanAssessment CompassHomeLoanAssessment?
+  compassExpertSlaEvents    CompassExpertSlaEvent[]
 
   @@unique([organizationId, opportunityNumber], map: "eopp_org_number_key")
   @@unique([organizationId, legacyLoanFileId], map: "eopp_org_legacy_loan_file_key")
@@ -5156,5 +5177,280 @@ model CompassAdvantageAudit {
   @@index([organizationId, createdAt(sort: Desc)], map: "caaud_org_created_idx")
   @@index([scheduleId, createdAt(sort: Desc)], map: "caaud_schedule_created_idx")
   @@map("compass_advantage_audits")
+}
+
+// =============================================================================
+// CO-C1-HL-BT-POLICY-001 — Home Loan / HL BT recommendation masters
+// Additive. Do not seed live lender policies, categories, or pricing.
+// =============================================================================
+
+enum HlMasterLifecycleStatus {
+  draft
+  checker_review
+  approved
+  active
+  superseded
+  expired
+  rejected
+}
+
+enum HlRecommendationLenderBand {
+  A
+  B
+  C
+}
+
+model HlRecommendationLenderCategoryAssignment {
+  id               String                      @id @default(cuid())
+  organizationId   String                      @map("organization_id")
+  lenderId         String                      @map("lender_id")
+  category         HlRecommendationLenderBand
+  lineageId        String                      @map("lineage_id")
+  versionNumber    Int                         @default(1) @map("version_number")
+  previousVersionId String?                    @map("previous_version_id")
+  lifecycleStatus  HlMasterLifecycleStatus     @default(draft) @map("lifecycle_status")
+  effectiveFrom    DateTime?                   @map("effective_from")
+  effectiveUntil   DateTime?                   @map("effective_until")
+  reason           String?                     @db.Text
+  remarks          String?                     @db.Text
+  makerUserId      String                      @map("maker_user_id")
+  checkerUserId    String?                     @map("checker_user_id")
+  approvedAt       DateTime?                   @map("approved_at")
+  activatedAt      DateTime?                   @map("activated_at")
+  isDeleted        Boolean                     @default(false) @map("is_deleted")
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+  auditJson        Json                        @default("[]") @map("audit_json")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "hlcat_org_lineage_version_key")
+  @@index([organizationId, lenderId, lifecycleStatus], map: "hlcat_org_lender_status_idx")
+  @@map("hl_recommendation_lender_categories")
+}
+
+model HlProductRecommendationRuleSet {
+  id              String                  @id @default(cuid())
+  organizationId  String                  @map("organization_id")
+  productCode     String                  @map("product_code")
+  scoringMode     String                  @default("normal") @map("scoring_mode")
+  lineageId       String                  @map("lineage_id")
+  versionNumber   Int                     @default(1) @map("version_number")
+  previousVersionId String?               @map("previous_version_id")
+  lifecycleStatus HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  weightsJson     Json                    @map("weights_json")
+  weightsTotal    Int                     @default(0) @map("weights_total")
+  labelledUnapproved Boolean              @default(true) @map("labelled_unapproved")
+  effectiveFrom   DateTime?               @map("effective_from")
+  effectiveUntil  DateTime?               @map("effective_until")
+  makerUserId     String                  @map("maker_user_id")
+  checkerUserId   String?                 @map("checker_user_id")
+  approvedAt      DateTime?               @map("approved_at")
+  activatedAt     DateTime?               @map("activated_at")
+  simulationOnly  Boolean                 @default(true) @map("simulation_only")
+  isDeleted       Boolean                 @default(false) @map("is_deleted")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  auditJson       Json                    @default("[]") @map("audit_json")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "hlw_org_lineage_version_key")
+  @@index([organizationId, productCode, lifecycleStatus], map: "hlw_org_product_status_idx")
+  @@map("hl_product_recommendation_rule_sets")
+}
+
+model HlCibilCategoryRule {
+  id              String                  @id @default(cuid())
+  organizationId  String                  @map("organization_id")
+  lineageId       String                  @map("lineage_id")
+  versionNumber   Int                     @default(1) @map("version_number")
+  previousVersionId String?               @map("previous_version_id")
+  lifecycleStatus HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  payloadJson     Json                    @map("payload_json")
+  effectiveFrom   DateTime?               @map("effective_from")
+  effectiveUntil  DateTime?               @map("effective_until")
+  makerUserId     String                  @map("maker_user_id")
+  checkerUserId   String?                 @map("checker_user_id")
+  approvedAt      DateTime?               @map("approved_at")
+  activatedAt     DateTime?               @map("activated_at")
+  isDeleted       Boolean                 @default(false) @map("is_deleted")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  auditJson       Json                    @default("[]") @map("audit_json")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "hlcibil_org_lineage_version_key")
+  @@index([organizationId, lifecycleStatus], map: "hlcibil_org_status_idx")
+  @@map("hl_cibil_category_rules")
+}
+
+model HlRegulatoryLtvRule {
+  id              String                  @id @default(cuid())
+  organizationId  String                  @map("organization_id")
+  lineageId       String                  @map("lineage_id")
+  versionNumber   Int                     @default(1) @map("version_number")
+  previousVersionId String?               @map("previous_version_id")
+  lifecycleStatus HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  sourceLabel     String                  @map("source_label")
+  sourceVersion   String                  @map("source_version")
+  applicability   String
+  chargesIncludedInPropertyCost Boolean @default(false) @map("charges_included_in_property_cost")
+  slabsJson       Json                    @map("slabs_json")
+  effectiveFrom   DateTime?               @map("effective_from")
+  effectiveUntil  DateTime?               @map("effective_until")
+  makerUserId     String                  @map("maker_user_id")
+  checkerUserId   String?                 @map("checker_user_id")
+  approvedAt      DateTime?               @map("approved_at")
+  activatedAt     DateTime?               @map("activated_at")
+  isDeleted       Boolean                 @default(false) @map("is_deleted")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  auditJson       Json                    @default("[]") @map("audit_json")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "hlltv_org_lineage_version_key")
+  @@index([organizationId, lifecycleStatus], map: "hlltv_org_status_idx")
+  @@map("hl_regulatory_ltv_rules")
+}
+
+model HlRecommendationOverride {
+  id              String                  @id @default(cuid())
+  organizationId  String                  @map("organization_id")
+  lenderId        String?                 @map("lender_id")
+  programmeId     String?                 @map("programme_id")
+  overrideKind    String                  @map("override_kind")
+  reason          String                  @db.Text
+  geographyJson   Json?                   @map("geography_json")
+  lineageId       String                  @map("lineage_id")
+  versionNumber   Int                     @default(1) @map("version_number")
+  lifecycleStatus HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  startsAt        DateTime                @map("starts_at")
+  endsAt          DateTime?               @map("ends_at")
+  makerUserId     String                  @map("maker_user_id")
+  checkerUserId   String?                 @map("checker_user_id")
+  approvedAt      DateTime?               @map("approved_at")
+  activatedAt     DateTime?               @map("activated_at")
+  isDeleted       Boolean                 @default(false) @map("is_deleted")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+  auditJson       Json                    @default("[]") @map("audit_json")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lender       EnterpriseLender? @relation(fields: [lenderId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, lifecycleStatus, startsAt], map: "hlover_org_status_start_idx")
+  @@map("hl_recommendation_overrides")
+}
+
+model OrganizationWorkingCalendarVersion {
+  id                    String   @id @default(cuid())
+  organizationId        String   @map("organization_id")
+  settingsId            String?  @map("settings_id")
+  versionNumber         Int      @map("version_number")
+  timeZone              String   @map("time_zone")
+  workingDaysJson       Json     @map("working_days_json")
+  workingHoursJson      Json     @map("working_hours_json")
+  holidayCalendarJson   Json     @map("holiday_calendar_json")
+  effectiveFrom         DateTime @map("effective_from")
+  effectiveUntil        DateTime? @map("effective_until")
+  lifecycleStatus       HlMasterLifecycleStatus @default(draft) @map("lifecycle_status")
+  createdBy             String   @map("created_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  organization Organization                   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  settings     OrganizationWorkspaceSettings? @relation(fields: [settingsId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, versionNumber], map: "orgcal_org_version_key")
+  @@index([organizationId, lifecycleStatus, effectiveFrom], map: "orgcal_org_status_effective_idx")
+  @@map("organization_working_calendar_versions")
+}
+
+model CompassHomeLoanAssessment {
+  id                         String    @id @default(cuid())
+  organizationId             String    @map("organization_id")
+  opportunityId              String    @unique @map("opportunity_id")
+  journeyKind                String    @map("journey_kind")
+  journeySessionRef          String?   @map("journey_session_ref")
+  journeyStatus              String    @default("in_progress") @map("journey_status")
+  mobileVerifiedAt           DateTime? @map("mobile_verified_at")
+  rawAnswersJson             Json      @default("{}") @map("raw_answers_json")
+  normalisedAnswersJson      Json      @default("{}") @map("normalised_answers_json")
+  questionTimelineJson       Json      @default("[]") @map("question_timeline_json")
+  lenderAssessmentsJson      Json      @default("[]") @map("lender_assessments_json")
+  recommendationSnapshotJson Json      @default("{}") @map("recommendation_snapshot_json")
+  calculationVersion         String    @map("calculation_version")
+  ruleSetVersion             String?   @map("rule_set_version")
+  categoryRuleVersion        String?   @map("category_rule_version")
+  lenderScoreVersion         String?   @map("lender_score_version")
+  ltvMasterVersion           String?   @map("ltv_master_version")
+  calendarVersionNumber      Int?      @map("calendar_version_number")
+  assistedOfferJson          Json?     @map("assisted_offer_json")
+  expertRequestId            String?   @unique @map("expert_request_id")
+  expertRequestedAt          DateTime? @map("expert_requested_at")
+  expertDeadlineAt           DateTime? @map("expert_deadline_at")
+  expertContactedAt          DateTime? @map("expert_contacted_at")
+  expertContactOutcome       String?   @map("expert_contact_outcome")
+  expertSlaState             String?   @map("expert_sla_state")
+  assignedUserId             String?   @map("assigned_user_id")
+  assignedTaskId             String?   @map("assigned_task_id")
+  assessedAt                 DateTime? @map("assessed_at")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  slaEvents    CompassExpertSlaEvent[]
+
+  @@index([organizationId, journeyKind], map: "chla_org_journey_idx")
+  @@index([organizationId, expertSlaState], map: "chla_org_sla_idx")
+  @@map("compass_home_loan_assessments")
+}
+
+model CompassExpertSlaEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  opportunityId  String   @map("opportunity_id")
+  assessmentId   String   @map("assessment_id")
+  eventKind      String   @map("event_kind")
+  payloadJson    Json     @default("{}") @map("payload_json")
+  actorUserId    String?  @map("actor_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity   @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  assessment   CompassHomeLoanAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, opportunityId, createdAt], map: "cesla_org_opp_idx")
+  @@map("compass_expert_sla_events")
+}
+
+model CompassOtpChallenge {
+  id               String    @id @default(cuid())
+  organizationId   String    @map("organization_id")
+  journeyRef       String    @map("journey_ref")
+  mobile           String
+  otpHash          String    @map("otp_hash")
+  salt             String
+  expiresAt        DateTime  @map("expires_at")
+  attemptCount     Int       @default(0) @map("attempt_count")
+  maxAttempts      Int       @default(5) @map("max_attempts")
+  verifiedAt       DateTime? @map("verified_at")
+  providerRef      String?   @map("provider_ref")
+  deliveryStatus   String    @default("disabled") @map("delivery_status")
+  dltPrincipalEntityId String? @map("dlt_principal_entity_id")
+  approvedHeader   String?   @map("approved_header")
+  approvedTemplateId String? @map("approved_template_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, journeyRef], map: "cotp_org_journey_idx")
+  @@index([organizationId, mobile, createdAt], map: "cotp_org_mobile_idx")
+  @@map("compass_otp_challenges")
 }
 

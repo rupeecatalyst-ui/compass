@@ -11,17 +11,20 @@ import { OW_STRATEGIC_NAV, type OwStrategicTabId } from "./strategic-tabs";
 export function WorkspaceStrategicTabs({
   active,
   onSelect,
+  extraTabs = [],
 }: {
   active: OwStrategicTabId;
   onSelect: (id: OwStrategicTabId) => void;
+  extraTabs?: Array<{ id: OwStrategicTabId; label: string }>;
 }) {
+  const items = [...OW_STRATEGIC_NAV, ...extraTabs];
   return (
     <div className="border-b border-white/10 bg-zinc-950/40">
       <nav
         className="flex gap-0.5 overflow-x-auto px-2 py-1.5 scrollbar-thin"
         aria-label="Strategic Workspace tabs"
       >
-        {OW_STRATEGIC_NAV.map((item) => {
+        {items.map((item) => {
           const selected = active === item.id;
           const isLife = item.id === "funding_strategy";
           const isTimeline = item.id === "timeline";
@@ -42,6 +45,12 @@ export function WorkspaceStrategicTabs({
                 isTimeline &&
                   !selected &&
                   "border border-teal-500/30 bg-teal-500/5 text-teal-100 hover:bg-teal-500/15",
+                isTimeline &&
+                  selected &&
+                  "bg-teal-500/20 text-teal-50 ring-1 ring-teal-400/40",
+                item.id === "compass_assessment" &&
+                  !selected &&
+                  "border border-sky-500/30 bg-sky-500/5 text-sky-100 hover:bg-sky-500/15",
                 !isLife &&
                   selected &&
                   "bg-teal-500/20 text-teal-50 ring-1 ring-teal-400/40",

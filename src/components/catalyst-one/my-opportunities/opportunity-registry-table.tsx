@@ -211,7 +211,25 @@ export function OpportunityRegistryTable({
         defaultOrder: 5,
         defaultWidth: 130,
         render: (row) => (
-          <span className="text-muted-foreground">{row.sourceLabel}</span>
+          <span className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground">{row.sourceLabel}</span>
+            {row.sourceCode === "website_compass" ? (
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-sky-300">
+                COMPASS
+                {typeof row.requestedAmount === "number"
+                  ? ` · ₹${row.requestedAmount.toLocaleString("en-IN")}`
+                  : ""}
+                {row.compassDesk?.offerKind === "assisted_offer"
+                  ? " · Assisted Offer"
+                  : row.compassDesk?.offerKind === "tentative_offer"
+                    ? " · Tentative Offer"
+                    : ""}
+                {row.compassDesk?.expertSlaState
+                  ? ` · SLA ${row.compassDesk.expertSlaState.replace(/_/g, " ")}`
+                  : ""}
+              </span>
+            ) : null}
+          </span>
         ),
         exportValue: (row) => row.sourceLabel,
       },

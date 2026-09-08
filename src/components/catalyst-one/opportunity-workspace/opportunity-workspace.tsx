@@ -29,6 +29,10 @@ import { WorkspaceNotesPanel } from "./workspace-notes-panel";
 import { WorkspaceDialoguePanel } from "./workspace-dialogue-panel";
 import { WorkspaceStrategicTabs } from "./workspace-strategic-tabs";
 import type { OwStrategicTabId } from "./strategic-tabs";
+import { OW_COMPASS_ASSESSMENT_NAV } from "./strategic-tabs";
+import { WorkspaceCompassAssessmentPanel } from "./workspace-compass-assessment-panel";
+import { WorkspaceCompassDeskStrip } from "./workspace-compass-desk-strip";
+import { COMPASS_WEBSITE_SOURCE_CODE } from "@/constants/enterprise-opportunity/company-borrower-create";
 import { getStrategicCompetition } from "@/lib/strategic-competition";
 import {
   ContactCreationIntentScreen,
@@ -190,6 +194,7 @@ function OpportunityWorkspaceShell() {
       documents: "documents",
       tasks: "tasks",
       workflow: "workflow",
+      compass_assessment: "overview",
     };
     const mapped = focusMap[next];
     if (mapped) setFocus(mapped);
@@ -535,7 +540,18 @@ function OpportunityWorkspaceShell() {
           <div className="pointer-events-none absolute inset-0 -z-10 rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(15,118,110,0.18),transparent_55%)]" />
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <WorkspaceStrategicTabs active={tab} onSelect={openTab} />
+            <WorkspaceStrategicTabs
+              active={tab}
+              onSelect={openTab}
+              extraTabs={
+                registryOpportunity?.sourceCode === COMPASS_WEBSITE_SOURCE_CODE
+                  ? [OW_COMPASS_ASSESSMENT_NAV]
+                  : []
+              }
+            />
+            {registryOpportunity?.sourceCode === COMPASS_WEBSITE_SOURCE_CODE && opportunityId ? (
+              <WorkspaceCompassDeskStrip opportunityId={opportunityId} />
+            ) : null}
             <div
               className={cn(
                 "min-h-0 flex-1",
@@ -568,6 +584,9 @@ function OpportunityWorkspaceShell() {
               {tab === "documents" && <WorkspaceDocumentRequestsPanel />}
               {tab === "tasks" && <WorkspaceTasksPanel />}
               {tab === "workflow" && <WorkspaceWorkflowPanel />}
+              {tab === "compass_assessment" && opportunityId ? (
+                <WorkspaceCompassAssessmentPanel opportunityId={opportunityId} />
+              ) : null}
             </div>
           </div>
 

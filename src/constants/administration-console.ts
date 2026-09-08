@@ -328,6 +328,14 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
         keywords: ["program", "product", "lender"],
       },
       {
+        id: "home-loan-recommendation-masters",
+        title: "Home Loan Recommendation Masters",
+        description:
+          "Versioned lender category, weightage, CIBIL-to-category, regulatory LTV and override masters for Home Loan / HL BT.",
+        href: ROUTES.ADMIN_HOME_LOAN_RECOMMENDATION_MASTERS,
+        keywords: ["home loan", "balance transfer", "recommendation", "cibil", "ltv", "foir"],
+      },
+      {
         id: "document-types",
         title: "Document Types",
         description: "Document Type Master for Document Center.",

@@ -15,7 +15,8 @@ export type OwStrategicTabId =
   | "timeline"
   | "documents"
   | "tasks"
-  | "workflow";
+  | "workflow"
+  | "compass_assessment";
 
 /**
  * Horizontal Strategic Tabs — frozen order (Business Certified UX Spec v2.0).
@@ -38,6 +39,12 @@ export const OW_STRATEGIC_NAV: Array<{ id: OwStrategicTabId; label: string }> = 
   { id: "funding_strategy", label: "Lender Strategy (LIFE)" },
   { id: "notes", label: "Notes" },
 ];
+
+/** COMPASS-originated Opportunities only — not part of the frozen default nav. */
+export const OW_COMPASS_ASSESSMENT_NAV = {
+  id: "compass_assessment" as const,
+  label: "COMPASS Assessment",
+};
 
 export function getOwChanakyaTabGuidance(tab: OwStrategicTabId): {
   headline: string;
@@ -123,6 +130,16 @@ export function getOwChanakyaTabGuidance(tab: OwStrategicTabId): {
         headline: "Workflow",
         message: "Advance stages only when planning gates are clear.",
         nudges: [],
+      };
+    case "compass_assessment":
+      return {
+        headline: "COMPASS Assessment",
+        message:
+          "Review the complete COMPASS Home Loan or Balance Transfer assessment for this Opportunity — not the Overview.",
+        nudges: [
+          "Record a Talk to an Expert contact outcome to stop the working-hour SLA.",
+          "Declared customer answers remain separate from later verified values.",
+        ],
       };
     case "overview":
     default:

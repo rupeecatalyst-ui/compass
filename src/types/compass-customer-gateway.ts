@@ -123,13 +123,37 @@ export type CompassRecommendationCardDto = {
   processingTimeLabel: string | null;
   reasons: string[];
   benefits: string[];
+  tentativeOfferLabel?: string | null;
+  tentativeOfferRupees?: number | null;
+  requestedAmountLabel?: string | null;
+  shortfallLabel?: string | null;
+  tenureLabel?: string | null;
+  foirLabel?: string | null;
+  compassAdvantageLabel?: string | null;
+  whyThisRecommendation?: string | null;
+  matchState?: string | null;
+  programmeVersion?: number | null;
   dtoSource: "enterprise_compass_recommendations";
+};
+
+export type CompassAssistedOfferDto = {
+  headline: string;
+  body: string;
+  requestedAmountRupees: number | null;
+  ltvSupportedAmountRupees: number | null;
+  incomeSupportedAmountRupees: number | null;
+  eligibilityGapRupees: number | null;
+  enhancementRoutes: string[];
+  specialistReviewRequired: true;
 };
 
 export type CompassRecommendationsDto = {
   status: "ready" | "pending" | "unavailable";
   message: string;
   cards: CompassRecommendationCardDto[];
+  assistedOffer?: CompassAssistedOfferDto | null;
+  needsCoApplicantPrompt?: boolean;
+  cibilNotKnownDisclaimer?: boolean;
   dtoSource: "enterprise_compass_recommendations";
 };
 
@@ -160,6 +184,13 @@ export type CompassAnalysisDto = {
   sarathiMessages: string[];
   requestedAmount: number | null;
   requestedAmountMax: number | null;
+  expertSla?: {
+    deadlineIso: string;
+    expectedContactAtIso: string;
+    remainingWorkingMs: number;
+    state: string;
+    borrowerCopy: string;
+  } | null;
   dtoSource: "enterprise_compass_analysis";
 };
 

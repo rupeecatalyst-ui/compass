@@ -6,6 +6,7 @@ import { discoveryCopy } from "@/config/home-loan-discovery";
 import {
   getDiscoveryStepOrder,
   readProductCodeFromPathname,
+  shouldShowDiscoveryStep,
 } from "@/config/compass-lending-products";
 import { persistDiscoveryAnswers, restoreDiscoveryAnswers } from "@/lib/discovery-session";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
@@ -15,6 +16,7 @@ import {
   fetchCompassJourneyConfig,
   fetchCompassLod,
   fetchDiscoveryIntelligence,
+  requestCompassTalkToExpert,
   startCompassJourney,
   submitCompassApplication,
   uploadCompassDocuments,
@@ -49,6 +51,24 @@ export type DiscoveryAnswers = {
   currentLender?: string;
   outstandingLoanAmount?: number;
   approxCibilScore?: string;
+  builderSource?: string;
+  constructionStatus?: string;
+  occupancy?: string;
+  dateOfBirth?: string;
+  residency?: string;
+  topUpChoice?: string;
+  topUpAmount?: number;
+  currentRoi?: number;
+  currentEmi?: number;
+  remainingTenureMonths?: number;
+  repaymentTrack?: "yes" | "no" | "not_sure";
+  delayedEmiCount?: number;
+  coApplicantDecision?: "yes" | "no" | "not_decided";
+  coApplicantRelationship?: string;
+  coApplicantDob?: string;
+  coApplicantEmployment?: string;
+  coApplicantIncome?: number;
+  coApplicantExistingEmi?: number;
 };
 
 const defaultAnswers: DiscoveryAnswers = {
@@ -86,6 +106,7 @@ type DiscoveryContextValue = {
   intelligence: DiscoveryIntelligenceResult | null;
   intelligenceLoading: boolean;
   intelligenceError: string | null;
+  needsCoApplicant: boolean;
   lod: CompassLodDto | null;
   lodLoading: boolean;
   lodError: string | null;
@@ -93,6 +114,7 @@ type DiscoveryContextValue = {
   submitting: boolean;
   submissionResult: CompassSubmitResponse | null;
   submissionError: string | null;
+  requestTalkToExpert: () => Promise<DiscoveryIntelligenceResult["expertSla"]>;
   launchDiscovery: (productCode?: CompassProductCode) => void;
   openDiscovery: () => void;
   closeDiscovery: () => void;
@@ -257,12 +279,20 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         ) {
           continue;
         }
+        if (
+          !shouldShowDiscoveryStep(candidate, {
+            ...merged,
+            needsCoApplicant: Boolean(intelligence?.needsCoApplicant),
+          }, productCode)
+        ) {
+          continue;
+        }
         return candidate ?? current;
       }
       return current;
     });
     nudgeCompass();
-  }, [nudgeCompass, productCode, journeyConfig, answers]);
+  }, [nudgeCompass, productCode, journeyConfig, answers, intelligence]);
 
   const goBack = useCallback(() => {
     setStep((current) => {
@@ -281,11 +311,23 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         ) {
           continue;
         }
+        if (
+          !shouldShowDiscoveryStep(
+            candidate,
+            {
+              ...answers,
+              needsCoApplicant: Boolean(intelligence?.needsCoApplicant),
+            },
+            productCode,
+          )
+        ) {
+          continue;
+        }
         return candidate ?? current;
       }
       return current;
     });
-  }, [productCode, journeyConfig, answers]);
+  }, [productCode, journeyConfig, answers, intelligence]);
 
   const completeJourney = useCallback(() => {
     setJourneyComplete(true);
@@ -415,6 +457,21 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     }, 450);
   }, []);
 
+  const requestTalkToExpert = useCallback(async () => {
+    if (!journeySessionToken) {
+      setIntelligenceError("Your session could not be verified. Please restart the journey.");
+      return null;
+    }
+    try {
+      const sla = await requestCompassTalkToExpert(journeySessionToken);
+      setIntelligence((prev) => (prev ? { ...prev, expertSla: sla } : prev));
+      return sla;
+    } catch (err) {
+      setIntelligenceError(err instanceof Error ? err.message : "Unable to request a specialist right now.");
+      return null;
+    }
+  }, [journeySessionToken]);
+
   const value = useMemo(
     () => ({
       isOpen,
@@ -432,6 +489,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       intelligence,
       intelligenceLoading,
       intelligenceError,
+      needsCoApplicant: Boolean(intelligence?.needsCoApplicant),
       lod,
       lodLoading,
       lodError,
@@ -452,6 +510,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       loadLod,
       uploadDocumentFiles,
       submitApplication,
+      requestTalkToExpert,
       activateSarathi,
     }),
     [
@@ -490,6 +549,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
       loadLod,
       uploadDocumentFiles,
       submitApplication,
+      requestTalkToExpert,
       activateSarathi,
     ],
   );

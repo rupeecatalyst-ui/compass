@@ -58,7 +58,11 @@ import {
   projectCompassOpportunityDetail,
 } from "./compass-opportunity-projection";
 import { projectCompassLod } from "./compass-lod.service";
-import { projectCompassRecommendations } from "./compass-recommendations.service";
+import { projectCompassRecommendations, projectHlBtEngineRecommendations } from "./compass-recommendations.service";
+import { evaluateAndPersistCompassHomeLoanAssessment } from "./compass-hl-bt-assessment.service";
+import { projectExpertSla } from "./compass-expert-sla.service";
+import { compassOtpUiEnabled } from "@/lib/compass-otp/adapter";
+import { borrowerSlaCopy } from "@/lib/home-loan-recommendation/working-hour-sla";
 import {
   issueCompassJourneyToken,
   newJourneyRef,
@@ -478,7 +482,7 @@ export const compassJourneyService = {
       journeyRef,
       contactRef,
       opportunityRef: row.opportunityNumber,
-      otpRequired: process.env.COMPASS_OTP_ENABLED === "true",
+      otpRequired: compassOtpUiEnabled(),
       dtoSource: "enterprise_compass_journey",
     };
   },
@@ -567,7 +571,10 @@ export const compassJourneyService = {
         : {};
 
     const registryOptions = await listCompassGatewayPublishedLenderOptions(organizationId);
-    const recommendations = await projectCompassRecommendations({
+    const isHlBt =
+      claims.productCode === "home-loan" || claims.productCode === "home-loan-balance-transfer";
+
+    let recommendations = await projectCompassRecommendations({
       detail,
       productCode: claims.productCode,
       registryOptions,
@@ -575,15 +582,56 @@ export const compassJourneyService = {
       approxCibilScore: detail.borrowerFields?.approxCibilScore,
     });
 
+    if (isHlBt) {
+      try {
+        const { result } = await evaluateAndPersistCompassHomeLoanAssessment({
+          organizationId,
+          opportunityId: row.id,
+          productCode: claims.productCode,
+          snapshot: row.snapshot,
+          journeySessionRef: claims.journeyRef,
+        });
+        recommendations = projectHlBtEngineRecommendations(result);
+      } catch {
+        recommendations = {
+          status: "pending",
+          message:
+            "Based on the information provided, we will review alternate lenders and permissible policy structures to identify the best possible offer.",
+          cards: [],
+          assistedOffer: {
+            headline:
+              claims.productCode === "home-loan-balance-transfer"
+                ? "Assisted Balance Transfer Offer"
+                : "Assisted Home Loan Offer",
+            body:
+              claims.productCode === "home-loan-balance-transfer"
+                ? "Your Balance Transfer requirement needs a specialist review. We will assess alternate lenders, outstanding balance, repayment track, top-up options and permissible policy structures to identify the best possible offer."
+                : "Based on the information provided, your requested loan does not currently fit the available standard programme criteria. We will review alternate lenders, co-applicant options, income assessment and permissible policy structures to identify the best possible offer.",
+            requestedAmountRupees: toIntegerRupees(row.requestedAmount) ?? null,
+            ltvSupportedAmountRupees: null,
+            incomeSupportedAmountRupees: null,
+            eligibilityGapRupees: null,
+            enhancementRoutes: ["Talk to an Expert"],
+            specialistReviewRequired: true,
+          },
+          dtoSource: "enterprise_compass_recommendations",
+        };
+      }
+    }
+
     const definition = getCompassProductDefinition(claims.productCode);
     const requestedAmount =
       toIntegerRupees(row.requestedAmount) ?? parseLoanAmount(snapshotAnswers.loanAmount);
+    const advantageBase =
+      isHlBt && recommendations.cards[0]?.tentativeOfferRupees
+        ? recommendations.cards[0].tentativeOfferRupees
+        : requestedAmount;
     const advantage = await computeCompassAdvantage({
       organizationId,
       opportunityId: row.id,
       opportunityReference: row.opportunityNumber,
       productCode: claims.productCode,
-      loanAmount: requestedAmount || undefined,
+      loanAmount: advantageBase || undefined,
       caseReceivedAt: row.createdAt,
       snapshot: row.snapshot,
       persist: true,
@@ -603,12 +651,23 @@ export const compassJourneyService = {
       );
     }
 
+    const expertSla = isHlBt ? await projectExpertSla(row.id) : null;
+
     return {
       recommendations,
       advantage,
       sarathiMessages,
       requestedAmount: requestedAmount || null,
       requestedAmountMax: getApprovedMaxRequestedAmountRupees(definition.enterpriseProductCode),
+      expertSla: expertSla
+        ? {
+            deadlineIso: expertSla.deadlineIso,
+            expectedContactAtIso: expertSla.expectedContactAtIso,
+            remainingWorkingMs: expertSla.remainingWorkingMs,
+            state: expertSla.state,
+            borrowerCopy: borrowerSlaCopy(expertSla.state, expertSla.queuedUntilOpen),
+          }
+        : null,
       dtoSource: "enterprise_compass_analysis",
     };
   },
@@ -824,5 +883,15 @@ export const compassJourneyService = {
       pendingItems,
       dtoSource: "enterprise_compass_submission",
     };
+  },
+
+  async talkToExpert(token: string) {
+    const claims = verifyCompassJourneyToken(token);
+    const { organizationId, row } = await verifySessionClaims(claims);
+    const { requestTalkToExpert } = await import("./compass-expert-sla.service");
+    return requestTalkToExpert({
+      organizationId,
+      opportunityId: row.id,
+    });
   },
 };

@@ -47,18 +47,32 @@ export const COMPASS_PATH_TO_PRODUCT: Record<string, CompassProductCode> = {
 
 const HL_STEPS = [
   "welcome",
-  "propertyType",
+  "loanPurpose",
+  "builderSource",
+  "constructionStatus",
   "loanAmount",
   "propertyValue",
-  "mobile",
+  "city",
+  "occupancy",
+  "displayName",
+  "dateOfBirth",
   "incomeType",
+  "residency",
+  "approxCibilScore",
+  "mobile",
   "monthlyIncome",
   "existingEmi",
-  "city",
-  "approxCibilScore",
   "analysing",
+  "coApplicant",
+  "coApplicantRelationship",
+  "coApplicantDob",
+  "coApplicantEmployment",
+  "coApplicantIncome",
+  "coApplicantExistingEmi",
+  "reanalyse",
   "advantage",
   "lenders",
+  "email",
   "documents",
   "review",
   "confirmation",
@@ -68,6 +82,7 @@ export type DiscoveryStepId = (typeof HL_STEPS)[number] | ExtraDiscoveryStepId;
 
 type ExtraDiscoveryStepId =
   | "approxCibilScore"
+  | "propertyType"
   | "propertyUsage"
   | "loanPurpose"
   | "companyName"
@@ -76,7 +91,28 @@ type ExtraDiscoveryStepId =
   | "facilityType"
   | "projectCost"
   | "currentLender"
-  | "outstandingLoanAmount";
+  | "outstandingLoanAmount"
+  | "builderSource"
+  | "constructionStatus"
+  | "occupancy"
+  | "displayName"
+  | "dateOfBirth"
+  | "residency"
+  | "coApplicant"
+  | "coApplicantRelationship"
+  | "coApplicantDob"
+  | "coApplicantEmployment"
+  | "coApplicantIncome"
+  | "coApplicantExistingEmi"
+  | "reanalyse"
+  | "email"
+  | "topUpChoice"
+  | "topUpAmount"
+  | "currentRoi"
+  | "currentEmi"
+  | "remainingTenureMonths"
+  | "repaymentTrack"
+  | "delayedEmiCount";
 
 const TAIL = ["approxCibilScore", "analysing", "lenders", "documents", "review", "confirmation"] as const;
 
@@ -87,20 +123,38 @@ export function getDiscoveryStepOrder(productCode: CompassProductCode): Discover
     case "home-loan-balance-transfer":
       return [
         "welcome",
-        "propertyType",
-        "loanAmount",
-        "propertyValue",
+        "topUpChoice",
+        "topUpAmount",
         "currentLender",
         "outstandingLoanAmount",
-        "mobile",
+        "currentRoi",
+        "currentEmi",
+        "remainingTenureMonths",
+        "repaymentTrack",
+        "delayedEmiCount",
+        "propertyValue",
+        "city",
+        "constructionStatus",
+        "occupancy",
+        "displayName",
+        "dateOfBirth",
         "incomeType",
+        "residency",
+        "approxCibilScore",
+        "mobile",
         "monthlyIncome",
         "existingEmi",
-        "city",
-        "approxCibilScore",
         "analysing",
+        "coApplicant",
+        "coApplicantRelationship",
+        "coApplicantDob",
+        "coApplicantEmployment",
+        "coApplicantIncome",
+        "coApplicantExistingEmi",
+        "reanalyse",
         "advantage",
         "lenders",
+        "email",
         "documents",
         "review",
         "confirmation",
@@ -188,6 +242,18 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
       keys.add("incomeType");
       keys.add("monthlyIncome");
       keys.add("existingEmi");
+      keys.add("loanPurpose");
+      keys.add("builderSource");
+      keys.add("constructionStatus");
+      keys.add("occupancy");
+      keys.add("dateOfBirth");
+      keys.add("residency");
+      keys.add("coApplicantDecision");
+      keys.add("coApplicantRelationship");
+      keys.add("coApplicantDob");
+      keys.add("coApplicantEmployment");
+      keys.add("coApplicantIncome");
+      keys.add("coApplicantExistingEmi");
       break;
     case "home-loan-balance-transfer":
       keys.add("propertyType");
@@ -197,6 +263,23 @@ export function getPersistedDiscoveryAnswerKeys(productCode: CompassProductCode)
       keys.add("incomeType");
       keys.add("monthlyIncome");
       keys.add("existingEmi");
+      keys.add("topUpChoice");
+      keys.add("topUpAmount");
+      keys.add("currentRoi");
+      keys.add("currentEmi");
+      keys.add("remainingTenureMonths");
+      keys.add("repaymentTrack");
+      keys.add("delayedEmiCount");
+      keys.add("constructionStatus");
+      keys.add("occupancy");
+      keys.add("dateOfBirth");
+      keys.add("residency");
+      keys.add("coApplicantDecision");
+      keys.add("coApplicantRelationship");
+      keys.add("coApplicantDob");
+      keys.add("coApplicantEmployment");
+      keys.add("coApplicantIncome");
+      keys.add("coApplicantExistingEmi");
       break;
     case "personal-loan":
       keys.add("incomeType");
@@ -388,4 +471,39 @@ export function getCompassProductHref(code: CompassProductCode): string {
 
 export function getCompassProductExploreHref(code: CompassProductCode): string {
   return appendDiscoveryLaunch(getCompassProductHref(code));
+}
+
+export function shouldShowDiscoveryStep(
+  step: DiscoveryStepId,
+  answers: {
+    loanPurpose?: string;
+    builderSource?: string;
+    topUpChoice?: string;
+    repaymentTrack?: string;
+    coApplicantDecision?: string;
+    needsCoApplicant?: boolean;
+  },
+  productCode: CompassProductCode,
+): boolean {
+  if (productCode !== "home-loan" && productCode !== "home-loan-balance-transfer") return true;
+  if (step === "builderSource") return answers.loanPurpose === "purchase_home";
+  if (step === "constructionStatus") {
+    return productCode === "home-loan-balance-transfer" || answers.builderSource === "builder";
+  }
+  if (step === "topUpAmount") return answers.topUpChoice === "with_topup";
+  if (step === "delayedEmiCount") return answers.repaymentTrack === "no";
+  if (step === "coApplicant") {
+    return Boolean(answers.needsCoApplicant) || Boolean(answers.coApplicantDecision);
+  }
+  if (
+    step === "coApplicantRelationship" ||
+    step === "coApplicantDob" ||
+    step === "coApplicantEmployment" ||
+    step === "coApplicantIncome" ||
+    step === "coApplicantExistingEmi"
+  ) {
+    return answers.coApplicantDecision === "yes";
+  }
+  if (step === "reanalyse") return Boolean(answers.coApplicantDecision);
+  return true;
 }

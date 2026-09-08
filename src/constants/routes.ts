@@ -208,6 +208,7 @@ export const ROUTES = {
   ADMIN_ENTERPRISE_MDM: "/admin/enterprise-mdm",
   /** CO-MDM-001 — Product Programs desk */
   ADMIN_PRODUCT_PROGRAMS: "/admin/product-programs",
+  ADMIN_HOME_LOAN_RECOMMENDATION_MASTERS: "/admin/home-loan-recommendation-masters",
   /** CO-MDM-001 — Document Type Master */
   ADMIN_DOCUMENT_TYPES: "/admin/document-types",
   ADMIN_ACCOUNTING_GST_RATES: "/admin/accounting/gst-rates",
@@ -383,6 +384,7 @@ export const PROTECTED_ROUTES = [
   ROUTES.ADMIN_LENDER_PROGRAM_PORTAL,
   ROUTES.ADMIN_ENTERPRISE_MDM,
   ROUTES.ADMIN_PRODUCT_PROGRAMS,
+  ROUTES.ADMIN_HOME_LOAN_RECOMMENDATION_MASTERS,
   ROUTES.ADMIN_DOCUMENT_TYPES,
   ROUTES.ADMIN_ACCOUNTING_GST_RATES,
   ROUTES.ADMIN_ENTERPRISE_ASSETS,

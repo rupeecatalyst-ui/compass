@@ -29,6 +29,11 @@ export interface OpportunityRegistryRow {
   companyId?: string | null;
   companyName?: string | null;
   requestedAmount: number | null;
+  /** Compact COMPASS desk projection from lendingExtension.compassDesk */
+  compassDesk?: {
+    offerKind?: string;
+    expertSlaState?: string | null;
+  } | null;
   /** CO-UX-006 — Opportunity.sourceCode */
   sourceCode: string | null;
   sourceLabel: string;
