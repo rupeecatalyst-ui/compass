@@ -644,6 +644,47 @@ export function stampDocumentReview(input: {
   return snap.records[idx]!;
 }
 
+export function reclassifyDocumentRegistryRecord(input: {
+  recordId: string;
+  typeRef: string;
+  categoryLabel: string;
+  expectedOpportunityId: string;
+  expectedDealId?: string | null;
+  participantId?: string | null;
+  documentScope?: DocumentEntityLinks["documentScope"];
+  displayName?: string;
+}): DocumentRegistryRecord | null {
+  const snap = readSnapshot();
+  const idx = snap.records.findIndex((r) => r.id === input.recordId);
+  if (idx < 0) return null;
+  const current = snap.records[idx]!;
+  if (current.status === "deleted") return null;
+  const recordOpp = current.links.opportunityId?.trim() || "";
+  const expectedOpp = input.expectedOpportunityId.trim();
+  if (!expectedOpp || (recordOpp && recordOpp !== expectedOpp)) return null;
+  const expectedDeal = input.expectedDealId?.trim() || "";
+  const recordDeal = current.links.dealId?.trim() || "";
+  if (expectedDeal && recordDeal && recordDeal !== expectedDeal) return null;
+  const now = new Date().toISOString();
+  snap.records[idx] = {
+    ...current,
+    typeRef: input.typeRef.trim() || current.typeRef,
+    categoryLabel: input.categoryLabel.trim() || current.categoryLabel,
+    displayName: input.displayName?.trim() || current.displayName,
+    links: {
+      ...current.links,
+      opportunityId: expectedOpp,
+      dealId: expectedDeal || current.links.dealId,
+      participantId: input.participantId?.trim() || current.links.participantId,
+      documentScope: input.documentScope || current.links.documentScope,
+    },
+    reviewStatus: current.reviewStatus || "received",
+    updatedAt: now,
+  };
+  writeSnapshot(snap);
+  return snap.records[idx]!;
+}
+
 export async function deleteDocumentFromRegistry(recordId: string): Promise<boolean> {
   const snap = readSnapshot();
   const idx = snap.records.findIndex((r) => r.id === recordId);

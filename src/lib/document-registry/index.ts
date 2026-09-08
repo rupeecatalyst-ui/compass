@@ -4,6 +4,7 @@ export {
   renameDocumentInRegistry,
   markDocumentVerified,
   stampDocumentReview,
+  reclassifyDocumentRegistryRecord,
   deleteDocumentFromRegistry,
   downloadDocumentFromRegistry,
   getDocumentPreviewUrl,

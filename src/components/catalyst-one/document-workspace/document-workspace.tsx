@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   FolderUp,
+  Maximize2,
+  Minimize2,
   PanelRight,
   Upload,
 } from "lucide-react";
@@ -29,6 +31,11 @@ import {
   type DocumentWorkspaceActionId,
   type DocumentWorkspaceOwnerTabId,
 } from "@/constants/document-workspace";
+import {
+  DOCUMENT_WORKSPACE_EMAIL_DOCUMENT_LABEL,
+  DOCUMENT_WORKSPACE_MARK_RECEIVED_LABEL,
+  DOCUMENT_WORKSPACE_OPEN_CONTACT_LABEL,
+} from "@/constants/document-workspace-contact-centric";
 import { DOCUMENT_REGISTRY_ACCEPT } from "@/constants/document-registry";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { DocumentWorkspaceSwitcher } from "@/components/catalyst-one/document-workspace/document-workspace-switcher";
@@ -40,20 +47,27 @@ import { EnterpriseActivityComposer } from "@/components/catalyst-one/action-cen
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import {
   buildEntityLinksFromLoanFile,
+  canDeleteDocuments,
+  canReplaceDocuments,
   canReviewDocuments,
   canUploadDocuments,
+  deleteDocumentFromRegistry,
   downloadDocumentFromRegistry,
   hydrateDocumentRegistryFromServer,
   listDocumentsForOpportunityRuntime,
+  reclassifyDocumentRegistryRecord,
+  replaceDocumentInRegistry,
   stampDocumentReview,
   subscribeDocumentRegistryUpdated,
   uploadDocumentToRegistry,
 } from "@/lib/document-registry";
 import {
+  addCustomDocumentRequirement,
   buildCustomerUploadPortalPath,
   createOrRegenerateUploadSession,
   deriveOpportunityDocumentReadiness,
   getDocumentRequestState,
+  markItemRemarks,
   refreshDocumentRequestFromRegistry,
   requestDocumentItems,
   setDocumentRequestItemReview,
@@ -95,11 +109,17 @@ import { resolveLoanParticipants } from "@/lib/loan-participants";
 import { loadOpportunityJourneyRuntime } from "@/lib/lead-opportunity-journey/load-context";
 import { buildOpportunityWorkspaceEntryHref } from "@/lib/loan-journey/adr-018-routing";
 import { displayOpportunityText } from "@/lib/lead-opportunity-journey/opportunity-field-display";
+import { cn } from "@/lib/utils";
 import { resolveLoanCommunicationParticipants, queueOutboxMessage, pauseOutboxCountdown } from "@/lib/enterprise-action-center";
 import { enterpriseDealApiClient } from "@/lib/enterprise-deal/deal-api-client";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import type { LoanFile } from "@/types/catalyst-one";
-import { cn } from "@/lib/utils";
+import { uploadFolderAsDocumentPackage } from "@/lib/document-package";
+import { DocumentWorkspaceOpsBar, DocumentWorkspaceRowDialogs } from "@/components/catalyst-one/document-workspace/document-workspace-ops-bar";
+import {
+  buildContact360Href,
+  groupDocumentWorkspaceRowsByCategory,
+} from "@/lib/document-workspace";
 import type { OutboxMessage } from "@/types/enterprise-action-center";
 
 export function DocumentWorkspace() {
@@ -141,6 +161,11 @@ export function DocumentWorkspace() {
   const [secureLink, setSecureLink] = useState("");
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [pendingSwitch, setPendingSwitch] = useState<DocumentWorkspaceContextInput | null>(null);
+  const [deskExpanded, setDeskExpanded] = useState(false);
+  const [rowDialog, setRowDialog] = useState<{
+    row: DocumentWorkspaceRow;
+    mode: "replace" | "remove" | "email" | "note";
+  } | null>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(0);
   const previousContextKey = useRef<string | null>(null);
@@ -551,10 +576,139 @@ export function DocumentWorkspace() {
     }
   };
 
-  if (!opportunityId && !dealIdFromUrl) {
-    return (
+  const lockedLinks = file
+    ? {
+        ...buildEntityLinksFromLoanFile(file, {}),
+        opportunityId: lockedOpportunityId,
+        dealId: dealId || undefined,
+        contactId: lock?.contactId || undefined,
+        companyId: lock?.companyId || undefined,
+      }
+    : null;
+
+  const uploadFilesToCategory = async (input: {
+    typeRef: string;
+    categoryLabel: string;
+    files: File[];
+    replaceRecordId?: string;
+    participantId?: string;
+  }) => {
+    if (!file || !lockedLinks || !canUploadDocuments(user)) {
+      toast.error("You do not have permission to upload documents.");
+      return;
+    }
+    for (const uploaded of input.files) {
+      await uploadDocumentToRegistry({
+        file: uploaded,
+        typeRef: input.typeRef,
+        categoryLabel: input.categoryLabel,
+        uploadedBy: actor,
+        uploadedByUserId: user?.id,
+        links: {
+          ...lockedLinks,
+          participantId: input.participantId,
+          documentScope: input.participantId ? "applicant" : "shared",
+        },
+        replaceRecordId: input.replaceRecordId,
+        uploadSource: "manual_upload",
+      });
+    }
+    refreshDocumentRequestFromRegistry(lockedOpportunityId, file.id);
+    toast.success("Stored in Enterprise Document Registry.");
+  };
+
+  const onFolderFiles = async (files: File[]) => {
+    if (!file || !lockedLinks || !canUploadDocuments(user)) {
+      toast.error("You do not have permission to upload documents.");
+      return;
+    }
+    const classified = files.map((item) => ({
+      file: item,
+      typeRef: `doc:other:${item.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)}`,
+      categoryLabel: item.name.replace(/\.[^.]+$/, "") || "Other Documents",
+      isOther: true as const,
+      label: item.name.replace(/\.[^.]+$/, "") || "Other Documents",
+    }));
+    await uploadFolderAsDocumentPackage({
+      files: classified.map((item) => ({
+        file: item.file,
+        typeRef: item.typeRef,
+        categoryLabel: item.label,
+      })),
+      uploadedBy: actor,
+      links: lockedLinks,
+    });
+    for (const item of classified) {
+      if (item.isOther) {
+        addCustomDocumentRequirement({
+          opportunityId: lockedOpportunityId,
+          label: item.label,
+          category: "journey",
+          actor,
+          ownerScope: "security",
+          ownerName: lock?.customerName || file.customerName || "Customer",
+          ownerRoleLabel: "Shared",
+          ownerTypeLabel: "Other Documents",
+        });
+      }
+    }
+    refreshDocumentRequestFromRegistry(lockedOpportunityId, file.id);
+    toast.success("Folder uploaded to Enterprise Document Registry.");
+  };
+
+  const onOtherSave = async (input: { name: string; files: File[] }) => {
+    if (!file) return;
+    addCustomDocumentRequirement({
+      opportunityId: lockedOpportunityId,
+      label: input.name,
+      category: "journey",
+      actor,
+      ownerScope: "security",
+      ownerName: lock?.customerName || file.customerName || "Customer",
+      ownerRoleLabel: "Shared",
+      ownerTypeLabel: "Other Documents",
+    });
+    await uploadFilesToCategory({
+      typeRef: `custom:${input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      categoryLabel: input.name,
+      files: input.files,
+    });
+  };
+
+  const onAttachInbound = (input: { recordId: string; typeRef: string; categoryLabel: string }) => {
+    const updated = reclassifyDocumentRegistryRecord({
+      recordId: input.recordId,
+      typeRef: input.typeRef,
+      categoryLabel: input.categoryLabel,
+      expectedOpportunityId: lockedOpportunityId,
+      expectedDealId: dealId || null,
+    });
+    if (!updated) {
+      toast.error("Inbound document does not belong to this locked transaction.");
+      return;
+    }
+    toast.success("Inbound document attached to the locked category.");
+  };
+
+  const contactHref = buildContact360Href({
+    contactId: lock?.contactId,
+    companyId: lock?.companyId,
+  });
+  const groupedTabRows = groupDocumentWorkspaceRowsByCategory(tabRows);
+
+  const deskOpen = Boolean(opportunityId || dealIdFromUrl);
+  const oppHref = lock
+    ? buildOpportunityWorkspaceEntryHref({
+        id: lock.opportunityId,
+      })
+    : `/opportunities?opportunityId=${encodeURIComponent(lockedOpportunityId)}`;
+  const contextLabel =
+    lock?.companyName || lock?.customerName || displayOpportunityText(file?.customerName);
+
+  const opener = (
       <div
         data-document-workspace-opener="012"
+        data-document-workspace-opener-013=""
         className="flex min-h-[calc(100dvh-4rem)] w-full min-w-0 flex-col gap-4 overflow-x-hidden p-4 sm:p-6"
       >
         <header className="shrink-0">
@@ -567,12 +721,25 @@ export function DocumentWorkspace() {
           actorName={actor}
         />
       </div>
-    );
+  );
+
+  if (!deskOpen) {
+    return opener;
   }
+
+  const deskClass = cn(
+    "flex min-h-[calc(100dvh-4rem)] min-w-0 flex-col border-l border-border/70 bg-background",
+    deskExpanded
+      ? "fixed inset-0 z-40 w-full"
+      : "fixed inset-0 z-40 w-full lg:static lg:w-1/2 lg:min-w-[50vw] lg:max-w-none",
+  );
 
   if (lockError) {
     return (
-      <div className="space-y-4 p-4 sm:p-6">
+      <div className="relative flex min-h-[calc(100dvh-4rem)] w-full">
+        <div className="hidden min-w-0 lg:block lg:w-1/2">{opener}</div>
+        <aside className={deskClass} data-document-workspace-desk="013">
+        <div className="space-y-4 p-4 sm:p-6">
         <header>
           <h1 className="text-xl font-semibold tracking-tight">{DOCUMENT_WORKSPACE_TITLE}</h1>
           <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_SUBTITLE}</p>
@@ -588,26 +755,29 @@ export function DocumentWorkspace() {
           {DOCUMENT_WORKSPACE_CHANGE_TRANSACTION}
         </Button>
       </div>
+        </aside>
+      </div>
     );
   }
 
   if (loading && !file) {
     return (
+      <div className="relative flex min-h-[calc(100dvh-4rem)] w-full">
+        <div className="hidden min-w-0 lg:block lg:w-1/2">{opener}</div>
+        <aside className={deskClass} data-document-workspace-desk="013">
       <ChanakyaLoadingExperience
         module="documents"
         statusLabel="Opening Document Workspace…"
       />
+        </aside>
+      </div>
     );
   }
 
-  const oppHref = lock
-    ? buildOpportunityWorkspaceEntryHref({
-        id: lock.opportunityId,
-      })
-    : `/opportunities?opportunityId=${encodeURIComponent(lockedOpportunityId)}`;
-  const contextLabel = lock?.companyName || lock?.customerName || displayOpportunityText(file?.customerName);
-
   return (
+    <div className="relative flex min-h-[calc(100dvh-4rem)] w-full">
+      <div className={cn("min-w-0", deskExpanded ? "hidden" : "hidden lg:block lg:w-1/2")}>{opener}</div>
+      <aside className={deskClass} data-document-workspace-desk="013">
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       <header className="border-b border-border/60 px-4 py-3 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -616,10 +786,29 @@ export function DocumentWorkspace() {
             <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_SUBTITLE}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {contactHref ? (
+              <Link
+                href={contactHref}
+                data-open-contact-header=""
+                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+              >
+                {DOCUMENT_WORKSPACE_OPEN_CONTACT_LABEL}
+              </Link>
+            ) : null}
             <Link href={oppHref} className="text-xs text-muted-foreground underline-offset-4 hover:underline">
               Open Opportunity
             </Link>
-            <Button type="button" size="sm" variant="outline" onClick={() => setSwitcherOpen(true)}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              data-document-workspace-expand=""
+              onClick={() => setDeskExpanded((v) => !v)}
+            >
+              {deskExpanded ? <Minimize2 className="mr-1 h-3.5 w-3.5" /> : <Maximize2 className="mr-1 h-3.5 w-3.5" />}
+              {deskExpanded ? "Half workspace" : "Expand workspace"}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => applyLockedHref({})}>
               {DOCUMENT_WORKSPACE_CHANGE_TRANSACTION}
             </Button>
             <Button
@@ -710,7 +899,15 @@ export function DocumentWorkspace() {
           key={`document-workspace-rows:${registryTick}:${requestTick}`}
           className="min-w-0 flex-1 overflow-auto px-4 py-3 sm:px-6"
         >
-          <table className="w-full min-w-[64rem] text-left text-xs">
+          <DocumentWorkspaceOpsBar
+            canUpload={canUploadDocuments(user)}
+            inboundRecords={unclassified}
+            onAddFiles={(input) => void uploadFilesToCategory(input)}
+            onFolderFiles={(files) => void onFolderFiles(files)}
+            onOtherSave={(input) => void onOtherSave(input)}
+            onAttachInbound={onAttachInbound}
+          />
+          <table className="w-full min-w-[64rem] text-left text-xs" data-category-groups={String(groupedTabRows.size)}>
             <thead className="sticky top-0 bg-background">
               <tr className="border-b border-border/70 text-[10px] uppercase tracking-wide text-muted-foreground">
                 <th className="w-8 py-2"> </th>
@@ -753,6 +950,62 @@ export function DocumentWorkspace() {
                     <div className="flex flex-wrap gap-1">
                       <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={() => openPreview(row.id)}>
                         Preview
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        disabled={!row.record || !canReplaceDocuments(user)}
+                        onClick={() => setRowDialog({ row, mode: "replace" })}
+                      >
+                        Replace
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        disabled={!row.record || !canDeleteDocuments(user)}
+                        onClick={() => setRowDialog({ row, mode: "remove" })}
+                      >
+                        Remove
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        disabled={!row.record}
+                        onClick={() => setRowDialog({ row, mode: "email" })}
+                      >
+                        {DOCUMENT_WORKSPACE_EMAIL_DOCUMENT_LABEL}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        onClick={() => {
+                          if (!row.record) return;
+                          stampDocumentReview({
+                            recordId: row.record.id,
+                            reviewStatus: "received",
+                            reviewedBy: actor,
+                          });
+                          toast.success(DOCUMENT_WORKSPACE_MARK_RECEIVED_LABEL);
+                        }}
+                      >
+                        {DOCUMENT_WORKSPACE_MARK_RECEIVED_LABEL}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        onClick={() => setRowDialog({ row, mode: "note" })}
+                      >
+                        Note
                       </Button>
                       <label className="inline-flex h-7 cursor-pointer items-center rounded-md px-2 text-[11px] hover:bg-muted">
                         <Upload className="mr-1 h-3 w-3" />
@@ -940,6 +1193,66 @@ export function DocumentWorkspace() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <DocumentWorkspaceRowDialogs
+        row={rowDialog?.row ?? null}
+        mode={rowDialog?.mode ?? null}
+        recipients={commParticipants.map((item) => ({ id: item.id, name: item.name }))}
+        onClose={() => setRowDialog(null)}
+        onReplace={async (reason, file) => {
+          if (!rowDialog?.row.record || !canReplaceDocuments(user)) return;
+          await replaceDocumentInRegistry(rowDialog.row.record.id, file, actor);
+          stampDocumentReview({
+            recordId: rowDialog.row.record.id,
+            reviewStatus: "under_review",
+            reviewedBy: actor,
+            remarks: reason,
+          });
+          setRowDialog(null);
+          toast.success("Replacement stored as a new version.");
+        }}
+        onRemove={async () => {
+          if (!rowDialog?.row.record || !canDeleteDocuments(user)) return;
+          await deleteDocumentFromRegistry(rowDialog.row.record.id);
+          setRowDialog(null);
+          toast.success("Document marked deleted. Audit history is preserved.");
+        }}
+        onEmail={(recipientId) => {
+          const recipient = commParticipants.find((item) => item.id === recipientId) || commParticipants[0];
+          const queued = queueOutboxMessage({
+            channel: "email",
+            entityType: "opportunity",
+            entityId: lockedOpportunityId,
+            recipientId: recipient?.id || "customer",
+            recipientName: recipient?.name || lock?.customerName || file?.customerName || "Customer",
+            recipientType: "customer",
+            subject: `Document: ${rowDialog?.row.typeLabel || "Attachment"}`,
+            body: `Please find ${rowDialog?.row.record?.displayName || rowDialog?.row.typeLabel}. Live send is not authorised from Document Workspace.`,
+          });
+          pauseOutboxCountdown(queued.id);
+          setEditingMessage(queued);
+          setComposerFingerprint(lock?.fingerprint || contextKey);
+          setComposer("email");
+          setRowDialog(null);
+          toast.message("Document email queued to Outbox. Nothing was sent.");
+        }}
+        onNote={(note) => {
+          if (rowDialog?.row.requestRef) {
+            markItemRemarks(lockedOpportunityId, rowDialog.row.requestRef, note);
+          }
+          if (rowDialog?.row.record) {
+            stampDocumentReview({
+              recordId: rowDialog.row.record.id,
+              reviewStatus: rowDialog.row.record.reviewStatus || "under_review",
+              reviewedBy: actor,
+              remarks: note,
+            });
+          }
+          setRowDialog(null);
+          toast.success("Internal note recorded on the registry row.");
+        }}
+      />
+    </div>
+      </aside>
     </div>
   );
 }
