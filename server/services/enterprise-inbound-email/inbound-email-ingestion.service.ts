@@ -20,6 +20,7 @@ import {
 import { inboundEmailServerConfigService } from "@server/services/enterprise-inbound-email/inbound-email-server-config.service";
 import { enterpriseNotificationService } from "@server/services/enterprise-notification/enterprise-notification.service";
 import { enterpriseTransactionDocumentService } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
+import { validateDocumentWorkspaceUpload } from "@/lib/document-workspace/file-security";
 import { enterpriseInboundEmailRepository } from "@server/repositories/enterprise-inbound-email/enterprise-inbound-email.repository";
 import { prisma } from "@server/lib/prisma";
 
@@ -335,6 +336,17 @@ async function processMatchedInbound(args: {
   });
 
   for (const attachment of email.attachments) {
+    const bytes = attachment.content ? Uint8Array.from(attachment.content) : new Uint8Array();
+    const validation = validateDocumentWorkspaceUpload({
+      filename: attachment.filename,
+      declaredMime: attachment.mimeType,
+      byteLength: attachment.sizeBytes || bytes.byteLength,
+      bytes,
+    });
+    if (!validation.ok) {
+      continue;
+    }
+
     const existingAtt = await enterpriseInboundEmailRepository.findAttachmentByHash(
       organizationId,
       ledgerId,

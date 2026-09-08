@@ -1,7 +1,6 @@
 import "server-only";
 
 import { prisma, isDatabaseAvailable } from "@server/lib/prisma";
-import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import { readOpportunityParticipantsFromExtension } from "@/lib/lead-opportunity-journey/opportunity-loan-structure";
 import {
   defaultLinkedPartyKey,
@@ -9,7 +8,6 @@ import {
   type DealParticipantSnapshot,
   type DocumentWorkspaceLinkedParty,
 } from "@/lib/document-workspace/linked-parties";
-import { validateLockedDocumentSelection } from "@/lib/document-workspace/selection";
 import { planDocumentWorkspaceZip } from "@/lib/document-workspace/zip-package";
 import { buildStoreZipBlob } from "@/lib/document-package/zip";
 import {
@@ -32,6 +30,24 @@ import {
   inboundEmailVersionKey,
 } from "@/lib/document-workspace/inbound-email-new";
 import { isValidEmailAddress } from "@/lib/enterprise-communication-center/recipient-router";
+import {
+  DOCUMENT_WORKSPACE_GENERIC_FILE_REJECTED,
+  DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE,
+  DOCUMENT_WORKSPACE_GENERIC_UPLOAD_LINK,
+} from "@/constants/document-workspace-security";
+import { validateDocumentWorkspaceUpload } from "@/lib/document-workspace/file-security";
+import { consumeUploadPortalRateLimit } from "@/lib/document-workspace/upload-portal-rate-limit";
+import {
+  resolveDocumentWorkspaceAccess,
+  assertDocumentsInAuthorisedContext,
+  type DocumentWorkspaceAuthorisedContext,
+} from "@server/services/document-workspace/document-workspace-access.service";
+import { enterpriseTransactionDocumentService } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
+import type { DocumentWorkspaceCapability } from "@/lib/document-workspace/access-decision";
+
+function portalFailure(statusCode: number, code: string, message: string): never {
+  throw Object.assign(new Error(message), { statusCode, code, expose: false });
+}
 
 function requireDb() {
   if (!isDatabaseAvailable()) {
@@ -42,17 +58,6 @@ function requireDb() {
   }
 }
 
-async function requireOrg() {
-  const organizationId = await resolvePilotOrganizationId();
-  if (!organizationId) {
-    throw Object.assign(new Error("Organization context unavailable."), {
-      statusCode: 503,
-      code: "ORG_CONTEXT_UNAVAILABLE",
-    });
-  }
-  return organizationId;
-}
-
 async function loadActiveUserEmail(userId: string) {
   const user = await prisma.user.findFirst({
     where: { id: userId },
@@ -61,33 +66,57 @@ async function loadActiveUserEmail(userId: string) {
   return user;
 }
 
+async function requireAuthorisedWorkspace(input: {
+  userId: string;
+  capability: DocumentWorkspaceCapability;
+  opportunityId?: string | null;
+  dealId?: string | null;
+  documentId?: string | null;
+  participantEntityId?: string | null;
+  claimedOrganizationId?: string | null;
+}): Promise<DocumentWorkspaceAuthorisedContext> {
+  requireDb();
+  return resolveDocumentWorkspaceAccess(input);
+}
+
 export async function listDocumentWorkspaceLinkedParties(input: {
+  actorUserId: string;
   opportunityId: string;
   dealId?: string | null;
+  claimedOrganizationId?: string | null;
 }): Promise<{ parties: DocumentWorkspaceLinkedParty[]; defaultKey: string }> {
-  requireDb();
-  const organizationId = await requireOrg();
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "view",
+    opportunityId: input.opportunityId,
+    dealId: input.dealId,
+    claimedOrganizationId: input.claimedOrganizationId,
+  });
+  return loadLinkedPartiesForAuthorised(authorised);
+}
+
+async function loadLinkedPartiesForAuthorised(
+  authorised: DocumentWorkspaceAuthorisedContext,
+): Promise<{ parties: DocumentWorkspaceLinkedParty[]; defaultKey: string }> {
+  const organizationId = authorised.organizationId;
   const opportunity = await prisma.enterpriseOpportunity.findFirst({
-    where: { id: input.opportunityId, organizationId, isDeleted: false },
+    where: { id: authorised.opportunityId, organizationId, isDeleted: false },
     select: { id: true, lendingExtension: true },
   });
   if (!opportunity) {
-    throw Object.assign(new Error("Opportunity was not found."), { statusCode: 404, code: "NOT_FOUND" });
+    portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
   }
 
   const opportunityParticipants = readOpportunityParticipantsFromExtension(opportunity.lendingExtension);
   let dealParticipants: DealParticipantSnapshot[] = [];
-  const dealId = input.dealId?.trim() || "";
+  const dealId = authorised.dealId?.trim() || "";
   if (dealId) {
     const deal = await prisma.enterpriseDeal.findFirst({
       where: { id: dealId, organizationId, isDeleted: false },
       select: { id: true, opportunityId: true },
     });
     if (!deal || deal.opportunityId !== opportunity.id) {
-      throw Object.assign(new Error("Deal does not belong to the selected Opportunity."), {
-        statusCode: 409,
-        code: "OPPORTUNITY_DEAL_MISMATCH",
-      });
+      portalFailure(404, "OPPORTUNITY_DEAL_MISMATCH", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
     }
     const rows = await prisma.enterpriseDealParticipant.findMany({
       where: { dealId, organizationId, isDeleted: false },
@@ -121,9 +150,17 @@ export async function createDocumentCustomerRequest(input: {
   participantRowId?: string | null;
   participantRole?: string | null;
   items: Array<{ typeRef: string; categoryLabel: string; requestRef: string }>;
+  claimedOrganizationId?: string | null;
 }) {
-  requireDb();
-  const organizationId = await requireOrg();
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "request",
+    opportunityId: input.opportunityId,
+    dealId: input.dealId,
+    participantEntityId: input.partyEntityKind === "context" ? null : input.partyEntityId,
+    claimedOrganizationId: input.claimedOrganizationId,
+  });
+  const organizationId = authorised.organizationId;
   if (!input.items.length) {
     throw Object.assign(new Error("Select at least one document category."), {
       statusCode: 400,
@@ -136,18 +173,28 @@ export async function createDocumentCustomerRequest(input: {
       code: "INVALID_PARTY",
     });
   }
+  const { parties } = await loadLinkedPartiesForAuthorised(authorised);
+  const party = parties.find(
+    (row) =>
+      row.entityId === input.partyEntityId &&
+      row.entityKind === input.partyEntityKind &&
+      row.selectable,
+  );
+  if (!party) {
+    portalFailure(404, "PARTICIPANT_MISMATCH", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  }
   const token = createOpaqueUploadToken();
   const expiresAt = defaultUploadExpiry();
   const request = await prisma.enterpriseDocumentCustomerRequest.create({
     data: {
       organizationId,
-      opportunityId: input.opportunityId,
-      dealId: input.dealId?.trim() || null,
-      partyEntityId: input.partyEntityId,
+      opportunityId: authorised.opportunityId,
+      dealId: authorised.dealId,
+      partyEntityId: party.entityId || input.partyEntityId,
       partyEntityKind: input.partyEntityKind,
-      participantRowId: input.participantRowId ?? null,
-      participantRole: input.participantRole ?? null,
-      createdByUserId: input.actorUserId,
+      participantRowId: party.participantRowId ?? input.participantRowId ?? null,
+      participantRole: party.role ?? input.participantRole ?? null,
+      createdByUserId: authorised.actor.userId,
       expiresAt,
       items: {
         create: input.items.map((item) => ({
@@ -197,6 +244,9 @@ export async function createDocumentCustomerRequest(input: {
 
 async function loadActiveSessionByToken(token: string) {
   requireDb();
+  if (!consumeUploadPortalRateLimit(hashOpaqueToken(token || "missing").slice(0, 24))) {
+    portalFailure(429, "RATE_LIMITED", "Please wait and try again.");
+  }
   const hash = hashOpaqueToken(token);
   const session = await prisma.enterpriseDocumentUploadSession.findFirst({
     where: { tokenHash: hash },
@@ -211,11 +261,33 @@ async function loadActiveSessionByToken(token: string) {
   return { ok: true as const, session };
 }
 
+function throwPortalLinkFailure(code: "REVOKED" | "EXPIRED"): never {
+  portalFailure(
+    code === "EXPIRED" ? 410 : 401,
+    "UPLOAD_LINK",
+    DOCUMENT_WORKSPACE_GENERIC_UPLOAD_LINK,
+  );
+}
+
+async function requireVerifiedUploadSession(token: string) {
+  const loaded = await loadActiveSessionByToken(token);
+  if (!loaded.ok) throwPortalLinkFailure(loaded.code);
+  const verified = await prisma.enterpriseDocumentUploadOtp.findFirst({
+    where: {
+      sessionId: loaded.session.id,
+      verifiedAt: { not: null },
+    },
+    orderBy: { verifiedAt: "desc" },
+  });
+  if (!verified) {
+    portalFailure(401, "UPLOAD_LINK", DOCUMENT_WORKSPACE_GENERIC_UPLOAD_LINK);
+  }
+  return loaded.session;
+}
+
 export async function issueUploadOtp(input: { token: string }) {
   const loaded = await loadActiveSessionByToken(input.token);
-  if (!loaded.ok) {
-    return { ok: false as const, code: loaded.code, message: "Upload link is not available." };
-  }
+  if (!loaded.ok) throwPortalLinkFailure(loaded.code);
   const latest = await prisma.enterpriseDocumentUploadOtp.findFirst({
     where: { sessionId: loaded.session.id },
     orderBy: { createdAt: "desc" },
@@ -261,36 +333,46 @@ export async function issueUploadOtp(input: { token: string }) {
 
 export async function verifyUploadOtp(input: { token: string; otp: string }) {
   const loaded = await loadActiveSessionByToken(input.token);
-  if (!loaded.ok) {
-    return { ok: false as const, code: loaded.code, message: "Upload link is not available." };
-  }
+  if (!loaded.ok) throwPortalLinkFailure(loaded.code);
   const latest = await prisma.enterpriseDocumentUploadOtp.findFirst({
     where: { sessionId: loaded.session.id },
     orderBy: { createdAt: "desc" },
   });
   if (!latest) {
-    return { ok: false as const, code: "NO_OTP" as const, message: "No verification code is pending." };
+    portalFailure(401, "UPLOAD_LINK", DOCUMENT_WORKSPACE_GENERIC_UPLOAD_LINK);
   }
   if (latest.verifiedAt) {
-    return { ok: true as const, requestId: loaded.session.requestId };
+    return { ok: true as const };
   }
   if (latest.expiresAt.getTime() < Date.now()) {
-    return { ok: false as const, code: "OTP_EXPIRED" as const, message: "Verification code expired." };
+    portalFailure(410, "OTP_EXPIRED", DOCUMENT_WORKSPACE_GENERIC_UPLOAD_LINK);
   }
   if (otpAttemptsExceeded(latest.attemptCount, latest.maxAttempts)) {
-    return { ok: false as const, code: "OTP_LOCKED" as const, message: "Too many attempts." };
+    portalFailure(429, "OTP_LOCKED", "Please wait and try again.");
   }
 
-  const nextAttempts = latest.attemptCount + 1;
-  const match = otpMatches(input.otp.trim(), latest.otpHash);
-  await prisma.enterpriseDocumentUploadOtp.update({
-    where: { id: latest.id },
+  const incremented = await prisma.enterpriseDocumentUploadOtp.updateMany({
+    where: {
+      id: latest.id,
+      verifiedAt: null,
+      expiresAt: { gt: new Date() },
+      attemptCount: { lt: latest.maxAttempts },
+    },
     data: {
-      attemptCount: nextAttempts,
+      attemptCount: { increment: 1 },
       lastAttemptAt: new Date(),
-      verifiedAt: match ? new Date() : null,
     },
   });
+  if (incremented.count !== 1) {
+    const fresh = await prisma.enterpriseDocumentUploadOtp.findFirst({ where: { id: latest.id } });
+    if (fresh?.verifiedAt) return { ok: true as const };
+    if (fresh && otpAttemptsExceeded(fresh.attemptCount, fresh.maxAttempts)) {
+      portalFailure(429, "OTP_LOCKED", "Please wait and try again.");
+    }
+    portalFailure(410, "OTP_EXPIRED", DOCUMENT_WORKSPACE_GENERIC_UPLOAD_LINK);
+  }
+
+  const match = otpMatches(input.otp.trim(), latest.otpHash);
   await prisma.enterpriseDocumentUploadAudit.create({
     data: {
       organizationId: loaded.session.organizationId,
@@ -299,24 +381,22 @@ export async function verifyUploadOtp(input: { token: string; otp: string }) {
     },
   });
   if (!match) {
-    return { ok: false as const, code: "OTP_INVALID" as const, message: "Verification failed." };
+    portalFailure(401, "OTP_INVALID", "Verification failed.");
   }
-  return { ok: true as const, requestId: loaded.session.requestId };
+  await prisma.enterpriseDocumentUploadOtp.updateMany({
+    where: { id: latest.id, verifiedAt: null },
+    data: { verifiedAt: new Date() },
+  });
+  return { ok: true as const };
 }
 
 export async function describeUploadPortal(input: { token: string }) {
   const loaded = await loadActiveSessionByToken(input.token);
-  if (!loaded.ok) {
-    return { ok: false as const, code: loaded.code };
-  }
+  if (!loaded.ok) throwPortalLinkFailure(loaded.code);
   const request = loaded.session.request;
   return {
     ok: true as const,
-    opportunityId: request.opportunityId,
-    dealId: request.dealId,
-    partyEntityId: request.partyEntityId,
     partyEntityKind: request.partyEntityKind,
-    participantRowId: request.participantRowId,
     participantRole: request.participantRole,
     items: request.items.map((item) => ({
       id: item.id,
@@ -331,17 +411,33 @@ export async function describeUploadPortal(input: { token: string }) {
 
 export async function revokeUploadSession(input: { requestId: string; actorUserId: string }) {
   requireDb();
-  const organizationId = await requireOrg();
+  const request = await prisma.enterpriseDocumentCustomerRequest.findFirst({
+    where: { id: input.requestId },
+    select: { id: true, organizationId: true, opportunityId: true, dealId: true },
+  });
+  if (!request) {
+    portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  }
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "request",
+    opportunityId: request.opportunityId,
+    dealId: request.dealId,
+  });
+  if (request.organizationId !== authorised.organizationId) {
+    portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  }
+  const organizationId = authorised.organizationId;
   await prisma.enterpriseDocumentUploadSession.updateMany({
-    where: { requestId: input.requestId, organizationId, active: true },
-    data: { active: false, revokedAt: new Date(), revokedByUserId: input.actorUserId },
+    where: { requestId: request.id, organizationId, active: true },
+    data: { active: false, revokedAt: new Date(), revokedByUserId: authorised.actor.userId },
   });
   await prisma.enterpriseDocumentRequestAudit.create({
     data: {
       organizationId,
-      requestId: input.requestId,
+      requestId: request.id,
       action: "session_revoked",
-      actorUserId: input.actorUserId,
+      actorUserId: authorised.actor.userId,
     },
   });
   return { ok: true };
@@ -350,13 +446,22 @@ export async function revokeUploadSession(input: { requestId: string; actorUserI
 export async function regenerateUploadSession(input: { requestId: string; actorUserId: string }) {
   await revokeUploadSession(input);
   requireDb();
-  const organizationId = await requireOrg();
   const request = await prisma.enterpriseDocumentCustomerRequest.findFirst({
-    where: { id: input.requestId, organizationId },
+    where: { id: input.requestId },
   });
   if (!request) {
-    throw Object.assign(new Error("Request was not found."), { statusCode: 404, code: "NOT_FOUND" });
+    portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
   }
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "request",
+    opportunityId: request.opportunityId,
+    dealId: request.dealId,
+  });
+  if (request.organizationId !== authorised.organizationId) {
+    portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+  }
+  const organizationId = authorised.organizationId;
   const token = createOpaqueUploadToken();
   const expiresAt = defaultUploadExpiry();
   await prisma.enterpriseDocumentUploadSession.create({
@@ -384,27 +489,85 @@ export async function regenerateUploadSession(input: { requestId: string; actorU
   };
 }
 
-export async function markCustomerUploadReceived(input: {
+export async function receiveCustomerPortalUpload(input: {
   token: string;
   requestItemId: string;
-  registryRecordId: string;
+  filename: string;
+  declaredMime?: string | null;
+  bytes: Uint8Array;
 }) {
-  const loaded = await loadActiveSessionByToken(input.token);
-  if (!loaded.ok) return loaded;
-  const item = loaded.session.request.items.find((row) => row.id === input.requestItemId);
+  const session = await requireVerifiedUploadSession(input.token);
+  const item = session.request.items.find((row) => row.id === input.requestItemId);
   if (!item) {
-    return { ok: false as const, code: "UNKNOWN_ITEM" as const };
+    portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
   }
-  await prisma.enterpriseDocumentCustomerRequestItem.update({
-    where: { id: item.id },
-    data: { status: "under_review", registryRecordId: input.registryRecordId },
+  const validation = validateDocumentWorkspaceUpload({
+    filename: input.filename,
+    declaredMime: input.declaredMime,
+    byteLength: input.bytes.byteLength,
+    bytes: input.bytes,
   });
+  if (!validation.ok) {
+    portalFailure(422, "INVALID_FILE", validation.message || DOCUMENT_WORKSPACE_GENERIC_FILE_REJECTED);
+  }
+
+  if (item.registryRecordId) {
+    const existing = await prisma.enterpriseTransactionDocument.findFirst({
+      where: {
+        id: item.registryRecordId,
+        organizationId: session.organizationId,
+      },
+    });
+    if (!existing || existing.opportunityId !== session.request.opportunityId) {
+      portalFailure(404, "NOT_FOUND", DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE);
+    }
+    if (existing.uploadSource !== "customer_portal") {
+      portalFailure(403, "FORBIDDEN", "This document cannot be replaced through the upload link.");
+    }
+    await enterpriseTransactionDocumentService.putBinaryForOrganization({
+      organizationId: session.organizationId,
+      opportunityId: session.request.opportunityId,
+      documentId: existing.id,
+      mimeType: validation.mimeType,
+      bytes: input.bytes,
+    });
+    await prisma.enterpriseDocumentCustomerRequestItem.update({
+      where: { id: item.id },
+      data: { status: "under_review" },
+    });
+  } else {
+    const created = await enterpriseTransactionDocumentService.upsertForOrganization(
+      session.organizationId,
+      {
+        opportunityId: session.request.opportunityId,
+        dealId: session.request.dealId,
+        contactId: session.request.partyEntityKind === "contact" ? session.request.partyEntityId : null,
+        clientRecordId: `customer-portal:${session.requestId}:${item.id}`,
+        typeRef: item.typeRef,
+        categoryLabel: item.categoryLabel,
+        originalFilename: validation.safeFilename,
+        displayName: validation.safeFilename,
+        mimeType: validation.mimeType,
+        fileSizeBytes: input.bytes.byteLength,
+        status: "active",
+        uploadSource: "customer_portal",
+        uploadedBy: "customer-portal",
+        documentScope: session.request.partyEntityKind === "contact" ? "applicant" : "shared",
+        contentBase64: Buffer.from(input.bytes).toString("base64"),
+      },
+    );
+    await prisma.enterpriseDocumentCustomerRequestItem.update({
+      where: { id: item.id },
+      data: { status: "under_review", registryRecordId: created.id },
+    });
+  }
+
   await prisma.enterpriseDocumentUploadAudit.create({
     data: {
-      organizationId: loaded.session.organizationId,
-      sessionId: loaded.session.id,
+      organizationId: session.organizationId,
+      sessionId: session.id,
       action: "customer_uploaded",
-      detail: input.registryRecordId,
+      detail: item.typeRef,
     },
   });
   return { ok: true as const, status: "under_review" as const };
@@ -415,15 +578,20 @@ export async function listUnseenInboundEmailDocuments(input: {
   opportunityId: string;
   dealId?: string | null;
 }) {
-  requireDb();
-  const organizationId = await requireOrg();
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.userId,
+    capability: "view",
+    opportunityId: input.opportunityId,
+    dealId: input.dealId,
+  });
+  const organizationId = authorised.organizationId;
   const records = await prisma.enterpriseTransactionDocument.findMany({
     where: {
       organizationId,
-      opportunityId: input.opportunityId,
+      opportunityId: authorised.opportunityId,
       status: "active",
       uploadSource: "email",
-      ...(input.dealId?.trim() ? { dealId: input.dealId.trim() } : {}),
+      ...(authorised.dealId ? { dealId: authorised.dealId } : {}),
     },
     select: {
       id: true,
@@ -439,7 +607,7 @@ export async function listUnseenInboundEmailDocuments(input: {
   const seen = await prisma.enterpriseDocumentVersionSeen.findMany({
     where: {
       organizationId,
-      userId: input.userId,
+      userId: authorised.actor.userId,
       documentId: { in: records.map((row) => row.id) },
     },
     select: { documentId: true, versionKey: true },
@@ -464,22 +632,26 @@ export async function markDocumentVersionSeen(input: {
   documentId: string;
   versionKey: string;
 }) {
-  requireDb();
-  const organizationId = await requireOrg();
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.userId,
+    capability: "view",
+    documentId: input.documentId,
+  });
+  const organizationId = authorised.organizationId;
   await prisma.enterpriseDocumentVersionSeen.upsert({
     where: {
       organizationId_userId_documentId_versionKey: {
         organizationId,
-        userId: input.userId,
-        documentId: input.documentId,
+        userId: authorised.actor.userId,
+        documentId: authorised.documentId || input.documentId,
         versionKey: input.versionKey,
       },
     },
     update: { seenAt: new Date() },
     create: {
       organizationId,
-      userId: input.userId,
-      documentId: input.documentId,
+      userId: authorised.actor.userId,
+      documentId: authorised.documentId || input.documentId,
       versionKey: input.versionKey,
     },
   });
@@ -499,31 +671,23 @@ export async function recordShareEvent(input: {
   zipFilename?: string | null;
   outboxId?: string | null;
 }) {
-  requireDb();
-  const organizationId = await requireOrg();
-  const lock = validateLockedDocumentSelection({
-    organizationId,
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "share",
     opportunityId: input.opportunityId,
     dealId: input.dealId,
-    selected: input.documentIds.map((id) => ({
-      id,
-      organizationId,
-      opportunityId: input.opportunityId,
-      dealId: input.dealId,
-    })),
   });
-  if (!lock.ok) {
-    throw Object.assign(new Error("Selection is outside the locked transaction."), {
-      statusCode: 409,
-      code: lock.code,
-    });
-  }
+  await assertDocumentsInAuthorisedContext({
+    context: authorised,
+    documentIds: input.documentIds,
+  });
+  const organizationId = authorised.organizationId;
   const event = await prisma.enterpriseDocumentShareEvent.create({
     data: {
       organizationId,
-      opportunityId: input.opportunityId,
-      dealId: input.dealId?.trim() || null,
-      actorUserId: input.actorUserId,
+      opportunityId: authorised.opportunityId,
+      dealId: authorised.dealId,
+      actorUserId: authorised.actor.userId,
       recipientLabel: input.recipientLabel,
       recipientEmail: input.recipientEmail ?? null,
       recipientContactId: input.recipientContactId ?? null,
@@ -539,19 +703,37 @@ export async function recordShareEvent(input: {
 
 export async function composeManualDocumentEmail(input: {
   actorUserId: string;
+  opportunityId: string;
+  dealId?: string | null;
+  documentIds?: string[];
   to: string[];
   cc: string[];
   htmlBody: string;
 }) {
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "share",
+    opportunityId: input.opportunityId,
+    dealId: input.dealId,
+  });
+  if (input.documentIds?.length) {
+    await assertDocumentsInAuthorisedContext({
+      context: authorised,
+      documentIds: input.documentIds,
+    });
+  }
   requireDb();
-  const user = await loadActiveUserEmail(input.actorUserId);
+  const user = await loadActiveUserEmail(authorised.actor.userId);
+  if (!user?.isActive) {
+    portalFailure(403, "INACTIVE_USER", "You are not allowed to perform this action.");
+  }
   const sender = enforceMandatoryInitiatingSenderCc({
     to: input.to,
     cc: input.cc,
     initiatingUser: {
-      id: input.actorUserId,
-      email: user?.email,
-      isActive: user?.isActive,
+      id: authorised.actor.userId,
+      email: user?.email || authorised.actor.email,
+      isActive: user?.isActive ?? authorised.actor.isActive,
     },
   });
   if (!sender.ok) return sender;

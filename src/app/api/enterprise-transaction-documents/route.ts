@@ -1,5 +1,6 @@
 /**
- * CO-DOC-002 — List / upsert durable Opportunity documents.
+ * CO-DOC-002 / 014B — List / upsert / delete durable Opportunity documents.
+ * Access is resolved server-side. Binaries are never listed as base64 or storage keys.
  */
 import {
   errorResponse,
@@ -10,8 +11,16 @@ import {
 import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
 import {
   enterpriseTransactionDocumentService,
+  toPublicDurableDocumentDto,
   type DurableDocumentInput,
 } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
+import { resolveDocumentWorkspaceAccess } from "@server/services/document-workspace/document-workspace-access.service";
+import {
+  capabilityAllowed,
+  documentWorkspaceHttpError,
+  isTokenAuthFailure,
+} from "@/lib/document-workspace/access-decision";
+import type { Role } from "@/constants/roles";
 
 function guard() {
   if (!isEnterprisePersistencePrisma()) {
@@ -22,29 +31,40 @@ function guard() {
   }
 }
 
+function wrap(err: unknown) {
+  if (isTokenAuthFailure(err)) return fromAuthError(err);
+  const mapped = documentWorkspaceHttpError(err);
+  return errorResponse(mapped.status, mapped.code, mapped.message);
+}
+
 export async function GET(request: Request) {
   try {
     guard();
-    requireAccessToken(request);
+    const actor = requireAccessToken(request);
     const url = new URL(request.url);
     const opportunityId = url.searchParams.get("opportunityId")?.trim();
     if (!opportunityId) {
       return errorResponse(400, "VALIDATION", "opportunityId is required");
     }
-    const includeContent = url.searchParams.get("includeContent") === "1";
-    const items = await enterpriseTransactionDocumentService.listByOpportunity(
+    const authorised = await resolveDocumentWorkspaceAccess({
+      userId: actor.userId,
+      capability: "view",
+      claimedOrganizationId: url.searchParams.get("organizationId"),
       opportunityId,
-      { includeContent },
+      dealId: url.searchParams.get("dealId"),
+      documentId: url.searchParams.get("documentId"),
+    });
+    const items = await enterpriseTransactionDocumentService.listByOpportunityForOrganization(
+      authorised.organizationId,
+      authorised.opportunityId,
+      { includeContent: false },
     );
-    return successResponse({ items });
+    const scoped = authorised.dealId
+      ? items.filter((item) => (item.dealId || "") === authorised.dealId)
+      : items;
+    return successResponse({ items: scoped.map(toPublicDurableDocumentDto) });
   } catch (err) {
-    const e = err as { statusCode?: number; code?: string; message?: string };
-    if (e.statusCode === 401) return fromAuthError(err as never);
-    return errorResponse(
-      e.statusCode || 500,
-      e.code || "TRANSACTION_DOCUMENT_ERROR",
-      e.message || "Failed to list documents",
-    );
+    return wrap(err);
   }
 }
 
@@ -60,18 +80,81 @@ export async function POST(request: Request) {
         "opportunityId, clientRecordId and typeRef are required",
       );
     }
-    const item = await enterpriseTransactionDocumentService.upsert({
-      ...body,
-      uploadedBy: body.uploadedBy || actor.email || actor.userId,
+    const deleting = String(body.status || "").toLowerCase() === "deleted";
+    const authorised = await resolveDocumentWorkspaceAccess({
+      userId: actor.userId,
+      capability: deleting ? "delete" : "upload",
+      opportunityId: body.opportunityId,
+      dealId: body.dealId,
     });
-    return successResponse(item, 201);
-  } catch (err) {
-    const e = err as { statusCode?: number; code?: string; message?: string };
-    if (e.statusCode === 401) return fromAuthError(err as never);
-    return errorResponse(
-      e.statusCode || 500,
-      e.code || "TRANSACTION_DOCUMENT_ERROR",
-      e.message || "Failed to upsert document",
+    if (!deleting && body.contentBase64) {
+      const existing = await enterpriseTransactionDocumentService.listByOpportunityForOrganization(
+        authorised.organizationId,
+        authorised.opportunityId,
+        { includeContent: false },
+      );
+      const already = existing.some(
+        (row) => row.clientRecordId === body.clientRecordId || row.id === body.clientRecordId,
+      );
+      if (already && !capabilityAllowed(authorised.actor.role as Role, "replace")) {
+        return errorResponse(403, "FORBIDDEN", "You are not allowed to perform this action.");
+      }
+    }
+    const item = await enterpriseTransactionDocumentService.upsertForOrganization(
+      authorised.organizationId,
+      {
+        ...body,
+        opportunityId: authorised.opportunityId,
+        dealId: authorised.dealId ?? body.dealId ?? null,
+        uploadedBy: authorised.actor.email || authorised.actor.userId,
+      },
     );
+    return successResponse(toPublicDurableDocumentDto(item), 201);
+  } catch (err) {
+    return wrap(err);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    guard();
+    const actor = requireAccessToken(request);
+    const url = new URL(request.url);
+    const opportunityId = url.searchParams.get("opportunityId")?.trim() || "";
+    const documentId = url.searchParams.get("documentId")?.trim() || "";
+    const clientRecordId = url.searchParams.get("clientRecordId")?.trim() || "";
+    if (!opportunityId || (!documentId && !clientRecordId)) {
+      return errorResponse(400, "VALIDATION", "opportunityId and documentId are required");
+    }
+    const authorised = await resolveDocumentWorkspaceAccess({
+      userId: actor.userId,
+      capability: "delete",
+      opportunityId,
+      dealId: url.searchParams.get("dealId"),
+      documentId: documentId || null,
+    });
+    let targetId = authorised.documentId || documentId;
+    if (!targetId && clientRecordId) {
+      const items = await enterpriseTransactionDocumentService.listByOpportunityForOrganization(
+        authorised.organizationId,
+        authorised.opportunityId,
+        { includeContent: false },
+      );
+      targetId = items.find((row) => row.clientRecordId === clientRecordId)?.id || "";
+    }
+    if (!targetId) {
+      return errorResponse(404, "NOT_FOUND", "Resource is not available.");
+    }
+    const removed = await enterpriseTransactionDocumentService.softDeleteForOrganization({
+      organizationId: authorised.organizationId,
+      opportunityId: authorised.opportunityId,
+      documentId: targetId,
+    });
+    if (!removed) {
+      return errorResponse(404, "NOT_FOUND", "Resource is not available.");
+    }
+    return successResponse({ ok: true });
+  } catch (err) {
+    return wrap(err);
   }
 }

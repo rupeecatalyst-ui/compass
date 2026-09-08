@@ -1491,6 +1491,9 @@ export function DocumentWorkspace() {
             method: "POST",
             body: JSON.stringify({
               action: "compose_validate",
+              opportunityId: lockedOpportunityId,
+              dealId: dealId || null,
+              documentIds: selectedRows.map((row) => row.record?.id).filter(Boolean),
               to,
               cc,
               htmlBody,

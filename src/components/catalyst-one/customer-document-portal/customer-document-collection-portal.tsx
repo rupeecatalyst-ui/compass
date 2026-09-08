@@ -237,6 +237,28 @@ export function CustomerDocumentCollectionPortal({
     }
     setBusyRef(getDocumentRequestRef(item));
     setFlash(null);
+    if (otpVerified) {
+      const requestItemId = durableItemIds[getDocumentRequestRef(item)];
+      if (!requestItemId) {
+        setFlash("This upload link does not include that document.");
+        setBusyRef(null);
+        return;
+      }
+      const form = new FormData();
+      form.set("token", token);
+      form.set("requestItemId", requestItemId);
+      form.set("file", file, file.name);
+      const res = await fetch("/api/document-workspace/upload-portal", {
+        method: "POST",
+        body: form,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        setFlash(json?.error?.message || json?.data?.message || "This file could not be accepted.");
+        setBusyRef(null);
+        return;
+      }
+    }
     const result = await ingestCustomerPortalDocument({
       session,
       item,
@@ -251,19 +273,6 @@ export function CustomerDocumentCollectionPortal({
           ? `${item.label} replaced successfully.`
           : `${item.label} uploaded successfully.`,
       );
-      const requestItemId = durableItemIds[getDocumentRequestRef(item)];
-      if (requestItemId && result.ok && result.record?.id) {
-        void fetch("/api/document-workspace/upload-portal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "customer_uploaded",
-            token,
-            requestItemId,
-            registryRecordId: result.record.id,
-          }),
-        });
-      }
       reload({ audit: false });
     }
     setBusyRef(null);

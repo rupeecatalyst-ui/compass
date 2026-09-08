@@ -31,6 +31,22 @@ export {
 export type { DocumentWorkspaceLinkedParty } from "./linked-parties";
 export { validateLockedDocumentSelection } from "./selection";
 export { planDocumentWorkspaceZip } from "./zip-package";
+export {
+  validateDocumentWorkspaceUpload,
+  sanitizeDownloadFilename,
+  shouldInlinePreview,
+  isSafeDocumentStorageKey,
+} from "./file-security";
+export {
+  capabilityAllowed,
+  decideAuthenticatedActor,
+  decideOrganizationScope,
+  decideHierarchyVisibility,
+  decideDocumentBelongsToContext,
+  decideDealBelongsToOpportunity,
+  decideParticipantBelongsToTransaction,
+  decideCrossTransactionSelection,
+} from "./access-decision";
 export { filterUnseenInboundEmailDocuments, inboundEmailVersionKey } from "./inbound-email-new";
 export {
   deriveDocumentWorkspaceCategoryReadiness,

@@ -14,20 +14,20 @@ import {
   regenerateUploadSession,
   revokeUploadSession,
 } from "@server/services/document-workspace/document-workspace-refinement-014.service";
+import {
+  documentWorkspaceHttpError,
+  isTokenAuthFailure,
+} from "@/lib/document-workspace/access-decision";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function wrap(err: unknown) {
-  if (typeof err === "object" && err && "status" in err) {
-    return fromAuthError(err as { status: number; body: never });
+  if (isTokenAuthFailure(err)) {
+    return fromAuthError(err);
   }
-  const e = err as { statusCode?: number; code?: string; message?: string };
-  return errorResponse(
-    e.statusCode || 500,
-    e.code || "DOCUMENT_WORKSPACE_014_FAILED",
-    e.message || "Document Workspace request failed",
-  );
+  const mapped = documentWorkspaceHttpError(err);
+  return errorResponse(mapped.status, mapped.code, mapped.message);
 }
 
 export async function GET(request: Request) {
@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     const actor = requireAccessToken(request);
     const url = new URL(request.url);
     const view = url.searchParams.get("view")?.trim() || "parties";
+    const claimedOrganizationId = url.searchParams.get("organizationId");
     if (view === "inbound-new") {
       const opportunityId = url.searchParams.get("opportunityId")?.trim() || "";
       if (!opportunityId) return errorResponse(400, "VALIDATION", "opportunityId is required");
@@ -48,8 +49,10 @@ export async function GET(request: Request) {
     const opportunityId = url.searchParams.get("opportunityId")?.trim() || "";
     if (!opportunityId) return errorResponse(400, "VALIDATION", "opportunityId is required");
     const data = await listDocumentWorkspaceLinkedParties({
+      actorUserId: actor.userId,
       opportunityId,
       dealId: url.searchParams.get("dealId"),
+      claimedOrganizationId,
     });
     return successResponse(data);
   } catch (err) {
@@ -68,6 +71,7 @@ export async function POST(request: Request) {
         actorUserId: actor.userId,
         opportunityId: String(body.opportunityId || ""),
         dealId: typeof body.dealId === "string" ? body.dealId : null,
+        claimedOrganizationId: typeof body.organizationId === "string" ? body.organizationId : null,
         partyEntityId: String(body.partyEntityId || ""),
         partyEntityKind: (body.partyEntityKind as "contact" | "company" | "context") || "contact",
         participantRowId: typeof body.participantRowId === "string" ? body.participantRowId : null,
@@ -129,6 +133,9 @@ export async function POST(request: Request) {
       return successResponse(
         await composeManualDocumentEmail({
           actorUserId: actor.userId,
+          opportunityId: String(body.opportunityId || ""),
+          dealId: typeof body.dealId === "string" ? body.dealId : null,
+          documentIds: Array.isArray(body.documentIds) ? (body.documentIds as string[]) : [],
           to: Array.isArray(body.to) ? (body.to as string[]) : [],
           cc: Array.isArray(body.cc) ? (body.cc as string[]) : [],
           htmlBody: String(body.htmlBody || ""),

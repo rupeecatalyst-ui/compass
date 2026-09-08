@@ -41,17 +41,14 @@ async function syncLargeBinaryToServer(input: {
   opportunityId: string;
   clientRecordId: string;
   contentBlob: Blob;
+  filename?: string;
 }): Promise<boolean> {
   const token = getAccessToken();
   if (!token) return false;
   const form = new FormData();
   form.set("opportunityId", input.opportunityId);
   form.set("clientRecordId", input.clientRecordId);
-  form.set(
-    "file",
-    input.contentBlob,
-    "document.bin",
-  );
+  form.set("file", input.contentBlob, input.filename || "document.pdf");
   try {
     const res = await fetch("/api/enterprise-transaction-documents/binary", {
       method: "POST",
@@ -61,8 +58,8 @@ async function syncLargeBinaryToServer(input: {
       body: form,
     });
     if (!res.ok) return false;
-    const body = (await res.json()) as Envelope<{ storageKey?: string | null }>;
-    return Boolean(body.success && body.data?.storageKey);
+    const body = (await res.json()) as Envelope<{ hasContent?: boolean }>;
+    return Boolean(body.success && body.data?.hasContent);
   } catch {
     return false;
   }
@@ -77,16 +74,11 @@ async function backfillMetadataOnlyLargeDocumentsFromLocalBlob(input: {
   for (const item of input.serverItems) {
     const fileSizeBytes =
       typeof item.fileSizeBytes === "number" ? item.fileSizeBytes : 0;
-    const storageKey =
-      typeof item.storageKey === "string" && item.storageKey.trim()
-        ? item.storageKey.trim()
-        : null;
-    const contentBase64 =
-      typeof item.contentBase64 === "string" ? item.contentBase64 : null;
+    const hasContent = item.hasContent === true;
     const clientRecordId =
       typeof item.clientRecordId === "string" ? item.clientRecordId : null;
     if (!clientRecordId || fileSizeBytes <= ETD_INLINE_CONTENT_BYTES_MAX) continue;
-    if (storageKey || contentBase64) continue;
+    if (hasContent) continue;
 
     const local = getAllDocumentRegistryRecords().find((r) => r.id === clientRecordId);
     if (!local) continue;
@@ -99,6 +91,7 @@ async function backfillMetadataOnlyLargeDocumentsFromLocalBlob(input: {
       opportunityId: input.opportunityId,
       clientRecordId,
       contentBlob: blob,
+      filename: local.originalFilename,
     });
     if (stored) pushed += 1;
   }
@@ -164,6 +157,7 @@ export async function syncDocumentRecordToServer(
         opportunityId,
         clientRecordId: record.id,
         contentBlob: blob,
+        filename: record.originalFilename,
       });
     }
   } catch {
@@ -184,7 +178,7 @@ export async function hydrateDocumentRegistryFromServer(input: {
 
   try {
     const res = await authenticatedJsonFetch(
-      `/api/enterprise-transaction-documents?opportunityId=${encodeURIComponent(opportunityId)}&includeContent=1`,
+      `/api/enterprise-transaction-documents?opportunityId=${encodeURIComponent(opportunityId)}`,
     );
     const body = (await res.json()) as Envelope<{ items: Array<Record<string, unknown>> }>;
     if (!res.ok || !body.success || !body.data?.items) return 0;
@@ -202,20 +196,24 @@ export async function hydrateDocumentRegistryFromServer(input: {
       serverItems: body.data.items,
     });
 
-    // Restore blobs from inline content when local blob missing
+    const token = getAccessToken();
     for (const item of body.data.items) {
-      const contentBase64 =
-        typeof item.contentBase64 === "string" ? item.contentBase64 : null;
+      const documentId = typeof item.id === "string" ? item.id : null;
       const clientRecordId =
         typeof item.clientRecordId === "string" ? item.clientRecordId : null;
-      if (!contentBase64 || !clientRecordId) continue;
+      const hasContent = item.hasContent === true;
+      if (!documentId || !clientRecordId || !hasContent || !token) continue;
       const local = getAllDocumentRegistryRecords().find((r) => r.id === clientRecordId);
       const blobId = local?.versions.find((v) => v.isCurrent)?.blobId;
       if (!blobId) continue;
       try {
-        const raw = atob(contentBase64);
-        const bytes = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+        const binRes = await fetch(
+          `/api/enterprise-transaction-documents/binary?documentId=${encodeURIComponent(documentId)}&opportunityId=${encodeURIComponent(opportunityId)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!binRes.ok) continue;
+        const bytes = new Uint8Array(await binRes.arrayBuffer());
+        if (!bytes.byteLength) continue;
         const mime =
           typeof item.mimeType === "string" ? item.mimeType : "application/octet-stream";
         await saveDocumentBlob(blobId, new Blob([bytes], { type: mime }));
@@ -227,5 +225,29 @@ export async function hydrateDocumentRegistryFromServer(input: {
     return restored;
   } catch {
     return 0;
+  }
+}
+
+export async function deleteDocumentRecordOnServer(input: {
+  opportunityId: string;
+  documentId?: string | null;
+  clientRecordId?: string | null;
+  dealId?: string | null;
+}): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!isEnterprisePersistencePrisma()) return;
+  if (!getAccessToken()) return;
+  const opportunityId = input.opportunityId.trim();
+  if (!opportunityId) return;
+  const params = new URLSearchParams({ opportunityId });
+  if (input.documentId?.trim()) params.set("documentId", input.documentId.trim());
+  if (input.clientRecordId?.trim()) params.set("clientRecordId", input.clientRecordId.trim());
+  if (input.dealId?.trim()) params.set("dealId", input.dealId.trim());
+  try {
+    await authenticatedJsonFetch(`/api/enterprise-transaction-documents?${params.toString()}`, {
+      method: "DELETE",
+    });
+  } catch {
+    /* non-blocking — local registry remains the authoring cache */
   }
 }

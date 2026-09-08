@@ -1,10 +1,10 @@
 /**
  * Virus scan hook — pluggable pre-ingest gate for Customer Portal uploads.
- * Current certification adapter always passes; swap for AV provider later.
+ * No malware scanner is wired. Do not invent scan-pass results.
  */
 
 export type VirusScanHookResult =
-  | { ok: true; provider: string; scannedAt: string }
+  | { ok: true; provider: string; scannedAt: string; skipped?: boolean }
   | { ok: false; provider: string; scannedAt: string; reason: string };
 
 export type VirusScanHook = (file: File) => Promise<VirusScanHookResult>;
@@ -21,8 +21,9 @@ const defaultVirusScanHook: VirusScanHook = async (file) => {
   }
   return {
     ok: true,
-    provider: "noop-av-hook",
+    provider: "none",
     scannedAt: new Date().toISOString(),
+    skipped: true,
   };
 };
 

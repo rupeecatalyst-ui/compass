@@ -63,6 +63,7 @@
     "verify:co-c1-document-workspace-card-grid-012": "node --import tsx scripts/co-c1-document-workspace-card-grid-012-verify.mjs",
     "verify:co-c1-document-workspace-contact-centric-013": "node --import tsx scripts/co-c1-document-workspace-contact-centric-013-verify.mjs",
     "verify:co-c1-document-workspace-refinement-014": "node --import tsx scripts/co-c1-document-workspace-refinement-014-verify.mjs",
+    "verify:co-c1-document-workspace-refinement-014b": "node --import tsx scripts/co-c1-document-workspace-refinement-014b-verify.mjs",
     "verify:co-c1-chanakya-realtime-intelligence-001": "node --import tsx scripts/co-c1-chanakya-realtime-intelligence-001-verify.mjs",
     "verify:co-c1-enterprise-chart-readability-001": "node --import tsx scripts/co-c1-enterprise-chart-readability-001-verify.mjs",
     "bat:co-c1-morning-refinements-001-006": "node --import tsx scripts/co-c1-morning-bat-refinements-001-006.mjs",

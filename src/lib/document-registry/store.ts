@@ -704,6 +704,17 @@ export async function deleteDocumentFromRegistry(recordId: string): Promise<bool
   snap.records[idx] = { ...record, status: "deleted", updatedAt: now };
   writeSnapshot(snap);
 
+  if (record.links.opportunityId) {
+    void import("./server-sync").then(({ deleteDocumentRecordOnServer }) =>
+      deleteDocumentRecordOnServer({
+        opportunityId: record.links.opportunityId!,
+        documentId: record.id,
+        clientRecordId: record.id,
+        dealId: record.links.dealId,
+      }),
+    );
+  }
+
   if (record.links.loanFileId) {
     removeLoanFileDocumentLink(record.links.loanFileId, record.categoryLabel);
   }

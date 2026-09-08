@@ -13,7 +13,10 @@ import {
 import {
   hashDocumentObjectBytes,
   resolveDocumentObjectStorage,
+  assertStorageKeyMatchesOpportunity,
 } from "@/lib/enterprise-document-object-storage";
+import { validateDocumentWorkspaceUpload, isSafeDocumentStorageKey } from "@/lib/document-workspace/file-security";
+import { DOCUMENT_WORKSPACE_GENERIC_FILE_REJECTED } from "@/constants/document-workspace-security";
 
 const MAX_CONTENT_BYTES = ETD_INLINE_CONTENT_BYTES_MAX;
 
@@ -134,7 +137,7 @@ function decodeBase64ToBytes(contentBase64: string): Uint8Array | null {
   return Uint8Array.from(buf);
 }
 
-function serialize(row: EtdRow, includeContent: boolean): DurableDocumentDto {
+function serialize(row: EtdRow): DurableDocumentDto {
   const hasInline = Boolean(row.contentBytes && row.contentBytes.length > 0);
   const hasObject = Boolean(row.storageKey);
   return {
@@ -165,16 +168,20 @@ function serialize(row: EtdRow, includeContent: boolean): DurableDocumentDto {
     verifiedAt: row.verifiedAt?.toISOString() ?? null,
     verifiedBy: row.verifiedBy,
     hasContent: hasInline || hasObject,
-    storageKey: row.storageKey,
-    storageProvider: row.storageProvider,
-    contentHash: row.contentHash,
     contentVersion: row.contentVersion ?? 1,
-    contentBase64:
-      includeContent && hasInline && row.contentBytes
-        ? Buffer.from(row.contentBytes).toString("base64")
-        : null,
+    contentBase64: null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toPublicDurableDocumentDto(item: DurableDocumentDto): DurableDocumentDto {
+  return {
+    ...item,
+    storageKey: undefined,
+    storageProvider: undefined,
+    contentHash: undefined,
+    contentBase64: null,
   };
 }
 
@@ -273,10 +280,10 @@ export const enterpriseTransactionDocumentService = {
     const existing = await prisma.enterpriseTransactionDocument.findFirst({
       where: {
         organizationId,
+        opportunityId: input.opportunityId,
         OR: [
           { clientRecordId: input.clientRecordId },
           {
-            opportunityId: input.opportunityId,
             typeRef: input.typeRef,
             originalFilename: input.originalFilename,
             status: "active",
@@ -299,6 +306,20 @@ export const enterpriseTransactionDocumentService = {
     } = {};
 
     if (incomingBytes && incomingBytes.byteLength > 0) {
+      const validation = validateDocumentWorkspaceUpload({
+        filename: input.originalFilename,
+        declaredMime: input.mimeType,
+        byteLength: incomingBytes.byteLength,
+        bytes: incomingBytes,
+      });
+      if (!validation.ok) {
+        throw Object.assign(new Error(validation.message || DOCUMENT_WORKSPACE_GENERIC_FILE_REJECTED), {
+          statusCode: 422,
+          code: "INVALID_FILE",
+        });
+      }
+      input.originalFilename = validation.safeFilename;
+      input.mimeType = validation.mimeType;
       const persisted = await persistBinaryForDocument({
         organizationId,
         documentId,
@@ -366,7 +387,7 @@ export const enterpriseTransactionDocumentService = {
           } as Parameters<typeof prisma.enterpriseTransactionDocument.create>[0]["data"],
         });
 
-    return serialize(row as EtdRow, false);
+    return serialize(row as EtdRow);
   },
 
   /**
@@ -400,11 +421,24 @@ export const enterpriseTransactionDocumentService = {
       });
     }
 
+    const validation = validateDocumentWorkspaceUpload({
+      filename: row.originalFilename,
+      declaredMime: input.mimeType || row.mimeType,
+      byteLength: input.bytes.byteLength,
+      bytes: input.bytes,
+    });
+    if (!validation.ok) {
+      throw Object.assign(new Error(validation.message || DOCUMENT_WORKSPACE_GENERIC_FILE_REJECTED), {
+        statusCode: 422,
+        code: "INVALID_FILE",
+      });
+    }
+
     const persisted = await persistBinaryForDocument({
       organizationId: input.organizationId,
       documentId: row.id,
       opportunityId: input.opportunityId,
-      mimeType: input.mimeType || row.mimeType,
+      mimeType: validation.mimeType,
       bytes: input.bytes,
       contentVersion: nextContentVersion(row),
     });
@@ -413,7 +447,7 @@ export const enterpriseTransactionDocumentService = {
       where: { id: row.id },
       data: {
         fileSizeBytes: input.bytes.byteLength,
-        mimeType: input.mimeType || row.mimeType,
+        mimeType: validation.mimeType,
         contentHash: persisted.contentHash,
         contentVersion: persisted.contentVersion,
         ...(persisted.clearInline
@@ -430,7 +464,7 @@ export const enterpriseTransactionDocumentService = {
       },
     });
 
-    return serialize(updated as EtdRow, false);
+    return serialize(updated as EtdRow);
   },
 
   async listByOpportunity(
@@ -446,6 +480,7 @@ export const enterpriseTransactionDocumentService = {
     opportunityId: string,
     opts?: { includeContent?: boolean },
   ): Promise<DurableDocumentDto[]> {
+    void opts;
     const rows = await prisma.enterpriseTransactionDocument.findMany({
       where: {
         organizationId,
@@ -455,7 +490,7 @@ export const enterpriseTransactionDocumentService = {
       orderBy: { updatedAt: "desc" },
       take: 500,
     });
-    return rows.map((r) => serialize(r as EtdRow, Boolean(opts?.includeContent)));
+    return rows.map((r) => serialize(r as EtdRow));
   },
 
   /**
@@ -502,6 +537,22 @@ export const enterpriseTransactionDocumentService = {
     }
 
     if (row.storageKey) {
+      if (
+        !isSafeDocumentStorageKey(row.storageKey) ||
+        !assertStorageKeyMatchesOpportunity(
+          row.storageKey,
+          input.organizationId,
+          input.opportunityId,
+        )
+      ) {
+        return {
+          bytes: null,
+          mimeType: row.mimeType,
+          contentHash: row.contentHash,
+          contentVersion: row.contentVersion ?? 1,
+          source: "none",
+        };
+      }
       const store = resolveDocumentObjectStorage();
       const obj = await store.get({
         organizationId: input.organizationId,
