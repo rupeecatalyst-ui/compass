@@ -121,6 +121,8 @@ import { DocumentWorkspaceOpsBar, DocumentWorkspaceRowDialogs } from "@/componen
 import { DocumentWorkspaceLinkedParties } from "@/components/catalyst-one/document-workspace/document-workspace-linked-parties";
 import { DocumentWorkspaceMailbox } from "@/components/catalyst-one/document-workspace/document-workspace-mailbox";
 import { DocumentWorkspaceSelectionBar } from "@/components/catalyst-one/document-workspace/document-workspace-selection-bar";
+import { DocumentWorkspaceInboundReview, type DocumentWorkspaceInboundReviewItem } from "@/components/catalyst-one/document-workspace/document-workspace-inbound-review";
+import { DocumentWorkspaceChecklistShareDialog } from "@/components/catalyst-one/document-workspace/document-workspace-checklist-share";
 import {
   buildContact360Href,
   groupDocumentWorkspaceRowsByCategory,
@@ -132,6 +134,7 @@ import {
   type DocumentWorkspaceLinkedParty,
 } from "@/lib/document-workspace/linked-parties";
 import { validateLockedDocumentSelection } from "@/lib/document-workspace/selection";
+import { mapReviewStatusToRequestable } from "@/lib/document-workspace/checklist-selection";
 import { inboundEmailVersionKey } from "@/lib/document-workspace/inbound-email-new";
 import { downloadTemporaryDocumentWorkspaceZip } from "@/lib/document-workspace/temporary-zip";
 import { DOCUMENT_WORKSPACE_NEW_FROM_EMAIL_BADGE, DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL, DOCUMENT_WORKSPACE_SENDER_CC_MISSING, DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL, DOCUMENT_WORKSPACE_DESK_DIALOG_DESCRIPTION, DOCUMENT_WORKSPACE_DESK_DIALOG_TITLE, DOCUMENT_WORKSPACE_DESK_LIST_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME, DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME } from "@/constants/document-workspace-refinement-014";
@@ -191,6 +194,9 @@ export function DocumentWorkspace() {
   const [activePartyKey, setActivePartyKey] = useState("primary");
   const [mailbox, setMailbox] = useState<"request" | "send" | null>(null);
   const [inboundNewIds, setInboundNewIds] = useState<string[]>([]);
+  const [inboundReviewItems, setInboundReviewItems] = useState<DocumentWorkspaceInboundReviewItem[]>([]);
+  const [inboundNewByOwner, setInboundNewByOwner] = useState<Record<string, number>>({});
+  const [whatsappShareOpen, setWhatsappShareOpen] = useState(false);
   const [rowDialog, setRowDialog] = useState<{
     row: DocumentWorkspaceRow;
     mode: "replace" | "remove" | "email" | "note";
@@ -306,10 +312,31 @@ export function DocumentWorkspace() {
           `/api/document-workspace/refinement-014?view=inbound-new&opportunityId=${encodeURIComponent(lock.opportunityId)}&dealId=${encodeURIComponent(lock.dealId || "")}`,
         );
         const json = await inbound.json().catch(() => ({}));
-        const unseen = (json?.data?.unseen ?? []) as Array<{ documentId: string }>;
-        if (!cancelled) setInboundNewIds(unseen.map((row) => row.documentId));
+        const unseen = (json?.data?.unseen ?? []) as Array<{ documentId: string; ownerEntityId?: string | null; contactId?: string | null }>;
+        if (!cancelled) {
+          setInboundNewIds(unseen.map((row) => row.documentId));
+          const byOwner: Record<string, number> = {};
+          for (const row of unseen) {
+            const owner = row.ownerEntityId || row.contactId;
+            if (!owner) continue;
+            byOwner[owner] = (byOwner[owner] ?? 0) + 1;
+          }
+          setInboundNewByOwner(byOwner);
+        }
       } catch {
-        if (!cancelled) setInboundNewIds([]);
+        if (!cancelled) {
+          setInboundNewIds([]);
+          setInboundNewByOwner({});
+        }
+      }
+      try {
+        const review = await authenticatedJsonFetch(
+          `/api/document-workspace/refinement-014?view=inbound-review&opportunityId=${encodeURIComponent(lock.opportunityId)}&dealId=${encodeURIComponent(lock.dealId || "")}`,
+        );
+        const json = await review.json().catch(() => ({}));
+        if (!cancelled) setInboundReviewItems((json?.data?.items ?? []) as DocumentWorkspaceInboundReviewItem[]);
+      } catch {
+        if (!cancelled) setInboundReviewItems([]);
       }
     })();
     return () => {
@@ -491,6 +518,24 @@ export function DocumentWorkspace() {
   const openPreview = (id: string) => {
     savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
     setPreviewId(id);
+    const row = rows.find((item) => item.id === id);
+    if (row?.record && inboundNewIds.includes(row.record.id)) {
+      const version = row.record.versions.find((v) => v.isCurrent) ?? row.record.versions[0];
+      void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "mark_seen",
+          documentId: row.record.id,
+          versionKey: inboundEmailVersionKey({
+            versionId: version?.id,
+            versionNumber: version?.version,
+            uploadedAt: version?.uploadedAt,
+          }),
+        }),
+      }).then(() => {
+        setInboundNewIds((ids) => ids.filter((item) => item !== row.record?.id));
+      });
+    }
   };
   const closePreview = () => {
     setPreviewId(null);
@@ -601,8 +646,9 @@ export function DocumentWorkspace() {
       toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
       return;
     }
-    const pending = rows.filter((row) => row.reviewStatus === "pending");
-    const target = id === "request_all_pending" ? pending : selectedRows.length ? selectedRows : pending;
+    const requestable = rows.filter((row) => mapReviewStatusToRequestable(row.reviewStatus));
+    const pending = requestable;
+    const target = id === "request_all_pending" ? pending : selectedRows.filter((row) => mapReviewStatusToRequestable(row.reviewStatus));
     if (id === "request_selected" || id === "request_all_pending") {
       const refs = selectedRequestRefs(target.map((row) => row.lodItem!).filter(Boolean));
       if (refs.length) requestDocumentItems(lockedOpportunityId, refs);
@@ -686,8 +732,16 @@ export function DocumentWorkspace() {
       return;
     }
     if (id === "whatsapp") {
-      setComposerFingerprint(lock?.fingerprint || contextKey);
-      setComposer("whatsapp");
+      const refs = selectedRequestRefs(
+        selectedRows
+          .filter((row) => mapReviewStatusToRequestable(row.reviewStatus) && row.lodItem)
+          .map((row) => row.lodItem!),
+      );
+      if (!refs.length) {
+        toast.error("Select pending, rejected or expired requirements to share.");
+        return;
+      }
+      setWhatsappShareOpen(true);
       return;
     }
     if (id === "schedule_followup") {
@@ -1115,6 +1169,7 @@ export function DocumentWorkspace() {
       <div className="hidden border-b border-border/60 px-4 py-2 sm:px-6 min-[1280px]:block">
         <DocumentWorkspaceLinkedParties
           parties={parties}
+          newCountsByEntityId={inboundNewByOwner}
           activeKey={activePartyKey}
           onSelect={(party) => {
             setActivePartyKey(party.key);
@@ -1161,6 +1216,20 @@ export function DocumentWorkspace() {
             previewRow && "max-md:hidden",
           )}
         >
+          <DocumentWorkspaceInboundReview
+            items={inboundReviewItems}
+            opportunityId={lockedOpportunityId}
+            dealId={dealId || null}
+            inboundNewIds={inboundNewIds}
+            onChanged={() => {
+              void authenticatedJsonFetch(
+                `/api/document-workspace/refinement-014?view=inbound-review&opportunityId=${encodeURIComponent(lockedOpportunityId)}&dealId=${encodeURIComponent(dealId || "")}`,
+              ).then(async (res) => {
+                const json = await res.json().catch(() => ({}));
+                setInboundReviewItems((json?.data?.items ?? []) as DocumentWorkspaceInboundReviewItem[]);
+              });
+            }}
+          />
           <DocumentWorkspaceOpsBar
             canUpload={canUploadDocuments(user)}
             inboundRecords={unclassified}
@@ -1174,6 +1243,7 @@ export function DocumentWorkspace() {
             onClear={() => setSelectedIds([])}
             onRequest={() => onAction("request_selected")}
             onSend={() => onAction("custom_email")}
+            onWhatsApp={() => onAction("whatsapp")}
           />
           <table className="w-full min-w-[64rem] text-left text-xs" data-category-groups={String(groupedTabRows.size)}>
             <thead className="sticky top-0 bg-background">
@@ -1206,6 +1276,8 @@ export function DocumentWorkspace() {
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(row.id)}
+                      disabled={!mapReviewStatusToRequestable(row.reviewStatus) && !row.record}
+                      data-requestable={String(mapReviewStatusToRequestable(row.reviewStatus))}
                       onChange={() => {
                         const next = selectedIds.includes(row.id)
                           ? selectedIds.filter((x) => x !== row.id)
@@ -1511,6 +1583,20 @@ export function DocumentWorkspace() {
         />
       ) : null}
 
+      {whatsappShareOpen ? (
+        <DocumentWorkspaceChecklistShareDialog
+          open={whatsappShareOpen}
+          opportunityId={lockedOpportunityId}
+          dealId={dealId || null}
+          selectedRefs={selectedRequestRefs(
+            selectedRows
+              .filter((row) => row.lodItem && mapReviewStatusToRequestable(row.reviewStatus))
+              .map((row) => row.lodItem!),
+          )}
+          onClose={() => setWhatsappShareOpen(false)}
+        />
+      ) : null}
+
       <DocumentWorkspaceMailbox
         open={Boolean(mailbox)}
         mode={mailbox === "request" ? "request" : "send"}
@@ -1540,22 +1626,45 @@ export function DocumentWorkspace() {
           toast.message("Draft saved to Outbox. Nothing has been sent.");
         }}
         onQueue={({ to, cc, subject, htmlBody, zip }) => {
-          void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
-            method: "POST",
-            body: JSON.stringify({
-              action: "compose_validate",
-              opportunityId: lockedOpportunityId,
-              dealId: dealId || null,
-              documentIds: selectedRows.map((row) => row.record?.id).filter(Boolean),
-              to,
-              cc,
-              htmlBody,
-            }),
-          }).then(async (res) => {
+          const requestRefs = selectedRequestRefs(
+            selectedRows.filter((row) => row.lodItem && mapReviewStatusToRequestable(row.reviewStatus)).map((row) => row.lodItem!),
+          );
+          const prepare = requestRefs.length
+            ? authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+                method: "POST",
+                body: JSON.stringify({
+                  action: "prepare_handoff",
+                  opportunityId: lockedOpportunityId,
+                  dealId: dealId || null,
+                  channel: "email",
+                  selectedRefs: requestRefs,
+                  to,
+                  cc,
+                  htmlBody,
+                  queueEmail: true,
+                }),
+              })
+            : authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+                method: "POST",
+                body: JSON.stringify({
+                  action: "compose_validate",
+                  opportunityId: lockedOpportunityId,
+                  dealId: dealId || null,
+                  documentIds: selectedRows.map((row) => row.record?.id).filter(Boolean),
+                  to,
+                  cc,
+                  htmlBody,
+                }),
+              });
+          void prepare.then(async (res) => {
             const json = await res.json().catch(() => ({}));
             const data = json?.data ?? json;
-            if (!data?.ok) {
+            if (!data?.ok && data?.code === "MISSING_OR_INVALID_SENDER_EMAIL") {
               toast.error(data?.message || DOCUMENT_WORKSPACE_SENDER_CC_MISSING);
+              return;
+            }
+            if (data?.sent) {
+              toast.error("Email was not sent.");
               return;
             }
             const queued = queueOutboxMessage({

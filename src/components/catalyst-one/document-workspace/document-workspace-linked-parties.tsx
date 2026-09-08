@@ -9,11 +9,13 @@ export function DocumentWorkspaceLinkedParties({
   activeKey,
   onSelect,
   compact,
+  newCountsByEntityId,
 }: {
   parties: DocumentWorkspaceLinkedParty[];
   activeKey: string;
   onSelect: (party: DocumentWorkspaceLinkedParty) => void;
   compact?: boolean;
+  newCountsByEntityId?: Record<string, number>;
 }) {
   return (
     <section
@@ -42,6 +44,11 @@ export function DocumentWorkspaceLinkedParties({
           >
             <span className="block font-medium">{party.displayName}</span>
             <span className="block text-[10px] opacity-80">{party.roleLabel}</span>
+            {party.entityId && newCountsByEntityId?.[party.entityId] ? (
+              <span data-new-from-email-count={party.entityId} className="mt-0.5 inline-flex rounded-full bg-amber-200 px-1.5 text-[10px] text-amber-950">
+                {newCountsByEntityId[party.entityId]} new
+              </span>
+            ) : null}
           </button>
         ))}
       </div>

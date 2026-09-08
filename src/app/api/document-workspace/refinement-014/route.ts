@@ -19,6 +19,14 @@ import {
   revokeUploadSession,
 } from "@server/services/document-workspace/document-workspace-refinement-014.service";
 import {
+  listInboundEmailReviewQueue,
+  listUnseenInboundEmailSummary,
+  prepareDocumentRequestHandoff,
+  recordWhatsAppHandoffOpened,
+  recordWhatsAppHandoffCancelled,
+  reviewInboundAttachment,
+} from "@server/services/document-workspace/document-workspace-refinement-014d.service";
+import {
   documentWorkspaceHttpError,
   isTokenAuthFailure,
 } from "@/lib/document-workspace/access-decision";
@@ -40,6 +48,24 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const view = url.searchParams.get("view")?.trim() || "parties";
     const claimedOrganizationId = url.searchParams.get("organizationId");
+    if (view === "inbound-review") {
+      const opportunityId = url.searchParams.get("opportunityId")?.trim() || "";
+      if (!opportunityId) return errorResponse(400, "VALIDATION", "opportunityId is required");
+      const data = await listInboundEmailReviewQueue({
+        actorUserId: actor.userId,
+        opportunityId,
+        dealId: url.searchParams.get("dealId"),
+      });
+      return successResponse(data);
+    }
+    if (view === "inbound-new-summary") {
+      const opportunityIds = url.searchParams.get("opportunityIds")?.split(",") ?? [];
+      const data = await listUnseenInboundEmailSummary({
+        actorUserId: actor.userId,
+        opportunityIds,
+      });
+      return successResponse(data);
+    }
     if (view === "inbound-new") {
       const opportunityId = url.searchParams.get("opportunityId")?.trim() || "";
       if (!opportunityId) return errorResponse(400, "VALIDATION", "opportunityId is required");
@@ -188,6 +214,63 @@ export async function POST(request: Request) {
           actorUserId: actor.userId,
           opportunityId: String(body.opportunityId || ""),
           documentId: typeof body.documentId === "string" ? body.documentId : null,
+        }),
+      );
+    }
+
+    if (action === "inbound_review") {
+      return successResponse(
+        await reviewInboundAttachment({
+          actorUserId: actor.userId,
+          opportunityId: String(body.opportunityId || ""),
+          dealId: typeof body.dealId === "string" ? body.dealId : null,
+          documentId: String(body.documentId || ""),
+          decision: body.decision as "confirm" | "change" | "duplicate" | "ignore" | "attach",
+          typeRef: typeof body.typeRef === "string" ? body.typeRef : null,
+          categoryLabel: typeof body.categoryLabel === "string" ? body.categoryLabel : null,
+          participantId: typeof body.participantId === "string" ? body.participantId : null,
+          targetOpportunityId: typeof body.targetOpportunityId === "string" ? body.targetOpportunityId : null,
+          employeeConfirmedOther: body.employeeConfirmedOther === true,
+          reason: typeof body.reason === "string" ? body.reason : null,
+        }),
+      );
+    }
+
+    if (action === "prepare_handoff") {
+      return successResponse(
+        await prepareDocumentRequestHandoff({
+          actorUserId: actor.userId,
+          opportunityId: String(body.opportunityId || ""),
+          dealId: typeof body.dealId === "string" ? body.dealId : null,
+          channel: body.channel === "whatsapp" ? "whatsapp" : "email",
+          selectedRefs: Array.isArray(body.selectedRefs) ? (body.selectedRefs as string[]) : [],
+          browserSubmittedMobile: typeof body.mobile === "string" ? body.mobile : null,
+          to: Array.isArray(body.to) ? (body.to as string[]) : [],
+          cc: Array.isArray(body.cc) ? (body.cc as string[]) : [],
+          htmlBody: typeof body.htmlBody === "string" ? body.htmlBody : undefined,
+          queueEmail: body.queueEmail === true,
+        }),
+      );
+    }
+
+    if (action === "whatsapp_handoff_opened") {
+      return successResponse(
+        await recordWhatsAppHandoffOpened({
+          actorUserId: actor.userId,
+          opportunityId: String(body.opportunityId || ""),
+          dealId: typeof body.dealId === "string" ? body.dealId : null,
+          correlationId: String(body.correlationId || ""),
+        }),
+      );
+    }
+
+    if (action === "whatsapp_handoff_cancelled") {
+      return successResponse(
+        await recordWhatsAppHandoffCancelled({
+          actorUserId: actor.userId,
+          opportunityId: String(body.opportunityId || ""),
+          dealId: typeof body.dealId === "string" ? body.dealId : null,
+          correlationId: String(body.correlationId || ""),
         }),
       );
     }

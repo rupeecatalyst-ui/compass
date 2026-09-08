@@ -4,6 +4,7 @@
  */
 
 import { isUnclassifiedDocumentTypeRef } from "@/constants/document-intake";
+import { inboundFileCountsTowardReadiness } from "@/lib/document-workspace/inbound-classification";
 import type { DocumentWorkspaceReviewStatus } from "@/constants/document-workspace";
 import type { DocumentRegistryRecord } from "@/types/document-registry";
 import type { DocumentRequestItemState } from "@/types/document-requests";
@@ -33,8 +34,8 @@ export function deriveDocumentWorkspaceReviewStatus(input: {
 
   const hasFile = Boolean(record && record.versions.length > 0);
   if (hasFile) {
-    if (record?.uploadSource === "email" || isUnclassifiedDocumentTypeRef(record?.typeRef)) {
-      return "received";
+    if (!inboundFileCountsTowardReadiness(record) || isUnclassifiedDocumentTypeRef(record?.typeRef)) {
+      return "pending";
     }
     if (lod?.status === "uploaded") return "received";
     return "under_review";

@@ -30,7 +30,26 @@ export {
 } from "./linked-parties";
 export type { DocumentWorkspaceLinkedParty } from "./linked-parties";
 export { validateLockedDocumentSelection } from "./selection";
-export { planDocumentWorkspaceZip } from "./zip-package";
+export {
+  revalidateChecklistSelection,
+  isRequestableChecklistStatus,
+  mapReviewStatusToRequestable,
+} from "./checklist-selection";
+export {
+  classifyInboundAttachment,
+  inboundFileCountsTowardReadiness,
+  decideSilentOtherAssignment,
+} from "./inbound-classification";
+export {
+  buildDocumentWorkspaceRequestMessageDto,
+  formatRequestMessagePlainText,
+} from "./request-message-dto";
+export {
+  resolveWhatsAppHandoffMobile,
+  buildWhatsAppDeepLink,
+  preferNativeWebShare,
+} from "./whatsapp-handoff";
+export { filterUnseenInboundEmailDocuments, inboundEmailVersionKey, countUnseenInboundByOwner } from "./inbound-email-new";
 export {
   validateDocumentWorkspaceUpload,
   sanitizeDownloadFilename,
@@ -47,7 +66,6 @@ export {
   decideParticipantBelongsToTransaction,
   decideCrossTransactionSelection,
 } from "./access-decision";
-export { filterUnseenInboundEmailDocuments, inboundEmailVersionKey } from "./inbound-email-new";
 export {
   deriveDocumentWorkspaceCategoryReadiness,
   groupDocumentWorkspaceRowsByCategory,

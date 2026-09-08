@@ -60,6 +60,7 @@ export type DurableDocumentInput = {
   uploadedBy: string;
   verifiedAt?: string | null;
   verifiedBy?: string | null;
+  inboundClassificationJson?: Record<string, unknown> | null;
   /** base64 content — inlined when under MAX_CONTENT_BYTES; larger → object store */
   contentBase64?: string | null;
 };
@@ -380,6 +381,7 @@ export const enterpriseTransactionDocumentService = {
       verifiedAt: input.verifiedAt ? new Date(input.verifiedAt) : null,
       verifiedBy: input.verifiedBy ?? null,
       malwareScanStatus: DOCUMENT_WORKSPACE_MALWARE_STATUS_NOT_CONFIGURED,
+      inboundClassificationJson: input.inboundClassificationJson ?? undefined,
       ...binaryFields,
     };
 

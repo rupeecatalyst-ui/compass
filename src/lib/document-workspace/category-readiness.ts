@@ -7,6 +7,7 @@
 import type { DocumentWorkspaceReviewStatus } from "@/constants/document-workspace";
 import type { DocumentWorkspaceCardReadiness } from "@/types/document-workspace-card-grid";
 import type { DocumentWorkspaceRow } from "@/lib/document-workspace/merge-rows";
+import { inboundFileCountsTowardReadiness } from "@/lib/document-workspace/inbound-classification";
 
 export type DocumentWorkspaceCategoryReadiness = {
   categoryKey: string;
@@ -60,7 +61,10 @@ export function deriveDocumentWorkspaceCategoryReadiness(
   for (const [key, list] of grouped) {
     const lead = list[0]!;
     const status = categoryStatus(list);
-    const fileCount = list.reduce((sum, row) => sum + (row.fileCount || 0), 0);
+    const fileCount = list.reduce((sum, row) => {
+      if (row.record && !inboundFileCountsTowardReadiness(row.record)) return sum;
+      return sum + (row.fileCount || 0);
+    }, 0);
     const mandatory = Boolean(lead.lodItem?.mandatory);
     out.push({
       categoryKey: key,

@@ -4461,6 +4461,8 @@ model EnterpriseTransactionDocument {
   restoreReason      String?   @map("restore_reason") @db.Text
   supersededByDocumentId String? @map("superseded_by_document_id")
   malwareScanStatus  String    @default("not_configured") @map("malware_scan_status")
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014D — inbound classification snapshot (not a second document store).
+  inboundClassificationJson Json? @map("inbound_classification_json")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -4474,6 +4476,7 @@ model EnterpriseTransactionDocument {
   @@index([organizationId, storageKey], map: "etd_org_storage_key_idx")
   @@index([organizationId, dealId], map: "etd_org_deal_idx")
   @@index([organizationId, ownerEntityId], map: "etd_org_owner_entity_idx")
+  @@index([organizationId, inboundEmailId], map: "etd_org_inbound_email_idx")
   @@map("enterprise_transaction_documents")
 }
 

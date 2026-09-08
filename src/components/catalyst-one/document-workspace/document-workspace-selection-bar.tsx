@@ -7,11 +7,13 @@ export function DocumentWorkspaceSelectionBar({
   onClear,
   onRequest,
   onSend,
+  onWhatsApp,
 }: {
   selectedCount: number;
   onClear: () => void;
   onRequest: () => void;
   onSend: () => void;
+  onWhatsApp?: () => void;
 }) {
   return (
     <div
@@ -28,6 +30,11 @@ export function DocumentWorkspaceSelectionBar({
       <Button type="button" size="sm" variant="outline" className="h-7" onClick={onSend}>
         Send Documents
       </Button>
+      {onWhatsApp ? (
+        <Button type="button" size="sm" variant="outline" className="h-7" onClick={onWhatsApp}>
+          WhatsApp checklist
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -29,6 +29,10 @@ import {
   filterUnseenInboundEmailDocuments,
   inboundEmailVersionKey,
 } from "@/lib/document-workspace/inbound-email-new";
+import {
+  inboundOutcomeIsNewEligible,
+  parseInboundClassificationJson,
+} from "@/lib/document-workspace/inbound-classification";
 import { isValidEmailAddress } from "@/lib/enterprise-communication-center/recipient-router";
 import {
   DOCUMENT_WORKSPACE_GENERIC_FILE_REJECTED,
@@ -732,6 +736,7 @@ export async function listUnseenInboundEmailDocuments(input: {
       contactId: true,
       ownerEntityId: true,
       documentScope: true,
+      inboundClassificationJson: true,
     },
   });
   const seen = await prisma.enterpriseDocumentVersionSeen.findMany({
@@ -752,6 +757,11 @@ export async function listUnseenInboundEmailDocuments(input: {
     originalFilename: row.originalFilename,
     ownerEntityId: row.ownerEntityId || row.contactId,
     documentScope: row.documentScope,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    newEligible: inboundOutcomeIsNewEligible(
+      parseInboundClassificationJson(row.inboundClassificationJson)?.outcome,
+    ),
   }));
   const unseen = filterUnseenInboundEmailDocuments({ candidates, seenKeys: seen });
   return { unseen, count: unseen.length };
@@ -784,6 +794,17 @@ export async function markDocumentVersionSeen(input: {
       documentId: authorised.documentId || input.documentId,
       versionKey: input.versionKey,
     },
+  });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+    actorId: authorised.actor.userId,
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.DOCUMENT_VERSION_SEEN,
+    documentId: authorised.documentId || input.documentId,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    sourceChannel: "document_workspace",
+    metadata: { versionMarked: true },
   });
   return { ok: true };
 }
