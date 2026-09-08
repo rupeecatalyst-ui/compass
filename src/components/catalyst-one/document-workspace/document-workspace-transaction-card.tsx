@@ -11,9 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DOCUMENT_WORKSPACE_CARD_GRID_OPEN_DEAL_LABEL,
-  DOCUMENT_WORKSPACE_CARD_GRID_OPEN_LABEL,
   DOCUMENT_WORKSPACE_CARD_GRID_READINESS_UNAVAILABLE,
 } from "@/constants/document-workspace-card-grid";
+import {
+  DOCUMENT_WORKSPACE_OPEN_CONTACT_LABEL,
+  DOCUMENT_WORKSPACE_VIEW_DOCUMENTS_LABEL,
+} from "@/constants/document-workspace-contact-centric";
 import { cn } from "@/lib/utils";
 import type {
   DocumentWorkspaceCardGroup,
@@ -57,7 +60,7 @@ function ReadinessMeter({ readiness }: { readiness: DocumentWorkspaceCardReadine
         />
       </div>
       <p className="text-[10px] leading-snug text-muted-foreground">
-        Required {readiness.required} · Received {readiness.received} · Accepted {readiness.accepted}
+        Categories {readiness.accepted}/{readiness.required} complete · Files {readiness.received}
         {" · "}Pending {readiness.pending}
         {readiness.rejected ? ` · Rejected ${readiness.rejected}` : ""}
         {readiness.expired ? ` · Expired ${readiness.expired}` : ""}
@@ -82,11 +85,13 @@ export function DocumentWorkspaceTransactionCardView({
   readiness,
   onOpenOpportunity,
   onOpenDeal,
+  onOpenContact,
 }: {
   group: DocumentWorkspaceCardGroup;
   readiness: DocumentWorkspaceCardReadiness;
   onOpenOpportunity: (card: DocumentWorkspaceOpportunityCard) => void;
   onOpenDeal: (card: DocumentWorkspaceDealCard) => void;
+  onOpenContact: (card: DocumentWorkspaceOpportunityCard | DocumentWorkspaceDealCard) => void;
 }) {
   const card = group.opportunity;
   const dealCount = group.deals.length;
@@ -100,7 +105,7 @@ export function DocumentWorkspaceTransactionCardView({
       data-opportunity-group={card.opportunityId}
       aria-label={`Opportunity ${identity}`}
       className={cn(
-        "flex h-full min-w-0 flex-col gap-3 rounded-xl border border-teal-500/20 bg-[#0b1220] p-4",
+        "flex h-full min-w-0 flex-col gap-2 rounded-xl border border-teal-500/20 bg-[#0b1220] p-3",
         "shadow-[0_8px_24px_rgba(0,0,0,0.28)]",
       )}
     >
@@ -139,15 +144,27 @@ export function DocumentWorkspaceTransactionCardView({
 
       <ReadinessMeter readiness={readiness} />
 
-      <Button
-        type="button"
-        data-open-opportunity=""
-        className="mt-auto h-8 w-full bg-teal-500/15 text-xs font-medium text-teal-100 hover:bg-teal-500/25 focus-visible:ring-2 focus-visible:ring-teal-400/60"
-        aria-label={`${DOCUMENT_WORKSPACE_CARD_GRID_OPEN_LABEL} for ${identity}`}
-        onClick={() => onOpenOpportunity(card)}
-      >
-        {DOCUMENT_WORKSPACE_CARD_GRID_OPEN_LABEL}
-      </Button>
+      <div className="mt-auto grid grid-cols-2 gap-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          data-open-contact=""
+          className="h-8 text-[11px] focus-visible:ring-2 focus-visible:ring-teal-400/60"
+          aria-label={`${DOCUMENT_WORKSPACE_OPEN_CONTACT_LABEL} for ${identity}`}
+          onClick={() => onOpenContact(card)}
+        >
+          {DOCUMENT_WORKSPACE_OPEN_CONTACT_LABEL}
+        </Button>
+        <Button
+          type="button"
+          data-open-opportunity=""
+          className="h-8 bg-teal-500/15 text-[11px] font-medium text-teal-100 hover:bg-teal-500/25 focus-visible:ring-2 focus-visible:ring-teal-400/60"
+          aria-label={`${DOCUMENT_WORKSPACE_VIEW_DOCUMENTS_LABEL} for ${identity}`}
+          onClick={() => onOpenOpportunity(card)}
+        >
+          {DOCUMENT_WORKSPACE_VIEW_DOCUMENTS_LABEL}
+        </Button>
+      </div>
 
       {dealCount > 0 ? (
         <div data-lender-deals="" className="space-y-1.5 border-t border-white/10 pt-3">
@@ -180,16 +197,28 @@ export function DocumentWorkspaceTransactionCardView({
                     </p>
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  data-open-deal=""
-                  className="mt-2 h-7 w-full text-[11px] focus-visible:ring-2 focus-visible:ring-teal-400/60"
-                  aria-label={`${DOCUMENT_WORKSPACE_CARD_GRID_OPEN_DEAL_LABEL} for ${deal.lenderName}, ${deal.dealNumber}`}
-                  onClick={() => onOpenDeal(deal)}
-                >
-                  {DOCUMENT_WORKSPACE_CARD_GRID_OPEN_DEAL_LABEL}
-                </Button>
+                <div className="mt-2 grid grid-cols-2 gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    data-open-deal-contact=""
+                    className="h-7 text-[11px] focus-visible:ring-2 focus-visible:ring-teal-400/60"
+                    aria-label={`${DOCUMENT_WORKSPACE_OPEN_CONTACT_LABEL} for ${deal.lenderName}, ${deal.dealNumber}`}
+                    onClick={() => onOpenContact(deal)}
+                  >
+                    {DOCUMENT_WORKSPACE_OPEN_CONTACT_LABEL}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    data-open-deal=""
+                    className="h-7 text-[11px] focus-visible:ring-2 focus-visible:ring-teal-400/60"
+                    aria-label={`${DOCUMENT_WORKSPACE_CARD_GRID_OPEN_DEAL_LABEL} for ${deal.lenderName}, ${deal.dealNumber}`}
+                    onClick={() => onOpenDeal(deal)}
+                  >
+                    {DOCUMENT_WORKSPACE_VIEW_DOCUMENTS_LABEL}
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>

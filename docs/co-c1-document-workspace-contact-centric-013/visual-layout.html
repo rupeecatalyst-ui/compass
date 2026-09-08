@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Refinement 13 — Contact-centric Document Workspace</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #05070c; color: #e8eef7; }
+      .page { display: flex; min-height: 100vh; }
+      .opener { flex: 1; min-width: 0; padding: 16px; box-sizing: border-box; }
+      .desk { min-width: 50vw; width: 50%; border-left: 1px solid #1f2937; background: #0b1220; padding: 16px; box-sizing: border-box; }
+      @media (max-width: 767px) { .page { flex-direction: column; } .desk { width: 100%; min-width: 100%; min-height: 100vh; } .opener { display: none; } }
+      h1 { font-size: 20px; margin: 0; }
+      .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+      @media (min-width: 768px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (min-width: 1024px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      .card { background: #0b1220; border: 1px solid rgba(45,212,191,.2); border-radius: 12px; padding: 12px; }
+      .borrower { font-size: 20px; font-weight: 600; margin: 0; }
+      .number { font-size: 12px; color: #94a3b8; }
+      .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+      .preview { min-height: 40vh; border: 1px dashed #334155; display: flex; align-items: center; justify-content: center; }
+    </style>
+  </head>
+  <body>
+    <div class="page" data-document-workspace-refinement="013">
+      <section class="opener" data-document-workspace-opener="012">
+        <h1>Document Workspace</h1>
+        <p class="number">Enterprise Document Registry · Single Source of Truth</p>
+        <div class="grid" data-card-grid-columns="">
+          <article class="card" data-card-kind="opportunity">
+            <h2 class="borrower" data-borrower-heading="">Acme Homes Pvt Ltd</h2>
+            <p class="number">OPP-2026-000099 · Home Loan · Documents</p>
+            <p class="number">RC employee: Arun · 50% · Files 4 · Pending 2</p>
+            <div class="actions">
+              <button data-open-contact="">Open Contact</button>
+              <button data-open-opportunity="">View Documents</button>
+            </div>
+          </article>
+        </div>
+      </section>
+      <aside class="desk" data-document-workspace-desk="013">
+        <h1>Locked workspace</h1>
+        <p class="number">Acme Homes Pvt Ltd · OPP-2026-000099 · DEAL-2026-000015 · HDFC · Documents · Arun · 50%</p>
+        <div class="preview">Large preview · Action Centre beside preview</div>
+      </aside>
+    </div>
+  </body>
+</html>

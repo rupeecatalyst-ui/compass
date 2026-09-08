@@ -29,6 +29,7 @@ import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunit
 import { listDocumentsForOpportunityRuntime } from "@/lib/document-registry";
 import { getDocumentRequestState } from "@/lib/document-requests";
 import { isCanonicalDocumentWorkspaceId } from "@/lib/document-workspace/context-lock";
+import { buildContact360Href, displayDocumentWorkspacePartyName } from "@/lib/document-workspace/contact-href";
 import {
   DOCUMENT_WORKSPACE_CARD_GRID_DEFAULT_FILTERS,
   buildDocumentWorkspaceCardGroups,
@@ -56,8 +57,16 @@ import type {
   DocumentWorkspaceOpportunityGroupInput,
 } from "@/types/document-workspace-card-grid";
 
-function borrowerName(contactName?: string | null, companyName?: string | null): string {
-  return displayOpportunityText(contactName || companyName);
+function borrowerName(
+  contactName?: string | null,
+  companyName?: string | null,
+  companyId?: string | null,
+): string {
+  return displayDocumentWorkspacePartyName({
+    companyId,
+    companyName,
+    contactName,
+  });
 }
 
 function mapDeal(
@@ -74,6 +83,7 @@ function mapDeal(
     borrowerName: borrowerName(
       deal.primaryContactName || opportunity.primaryContactName,
       deal.companyName || opportunity.companyName,
+      deal.companyId || opportunity.companyId,
     ),
     lenderName: displayOpportunityText(deal.primaryCounterpartyName),
     lenderId: deal.lenderId,
@@ -100,7 +110,11 @@ function mapOpportunity(
   return {
     opportunityId: opportunity.id,
     opportunityNumber: opportunity.opportunityNumber,
-    borrowerName: borrowerName(opportunity.primaryContactName, opportunity.companyName),
+    borrowerName: borrowerName(
+      opportunity.primaryContactName,
+      opportunity.companyName,
+      opportunity.companyId,
+    ),
     product: displayOpportunityText(opportunity.productLabel),
     amountLabel: displayOpportunityAmount(opportunity.requestedAmount, {
       captured: opportunity.requirementCaptured,
@@ -372,6 +386,17 @@ export function DocumentWorkspaceSwitcher({
     onSelect(buildDocumentWorkspaceCardSelectPayload(card));
   };
 
+  const openContact = (
+    card: DocumentWorkspaceOpportunityCard | DocumentWorkspaceDealCard,
+  ) => {
+    const href = buildContact360Href({
+      contactId: card.contactId,
+      companyId: card.companyId,
+    });
+    if (!href) return;
+    window.location.assign(href);
+  };
+
   const loadMore = () => {
     if (busy || loadingMore || !hasMore) return;
     void loadPage({
@@ -385,6 +410,7 @@ export function DocumentWorkspaceSwitcher({
   return (
     <div
       data-document-workspace-card-grid="012"
+      data-document-workspace-card-grid-013=""
       data-default-sort={DOCUMENT_WORKSPACE_CARD_GRID_DEFAULT_SORT}
       className={cn("flex w-full min-w-0 flex-col gap-3", compact ? "max-h-[28rem]" : "")}
     >
@@ -419,7 +445,7 @@ export function DocumentWorkspaceSwitcher({
         <p className="text-[11px] text-muted-foreground">
           {busy
             ? "Loading authorised registries…"
-            : "Newest Opportunities first. Open a borrower card or a nested lender Deal. Context never changes from names, mobile, or email."}
+            : "Newest transactions first. Open Contact uses the canonical Contact or Company id. View Documents locks that Opportunity or Deal only."}
         </p>
       )}
 
@@ -450,6 +476,7 @@ export function DocumentWorkspaceSwitcher({
                 readiness={readinessByKey.get(group.opportunity.key) ?? { available: false }}
                 onOpenOpportunity={openOpportunity}
                 onOpenDeal={openDeal}
+                onOpenContact={openContact}
               />
             ))}
           </div>

@@ -24,6 +24,13 @@ export {
 export { mergeDocumentWorkspaceRows } from "./merge-rows";
 export type { DocumentWorkspaceRow } from "./merge-rows";
 export {
+  deriveDocumentWorkspaceCategoryReadiness,
+  groupDocumentWorkspaceRowsByCategory,
+  summarizeDocumentWorkspaceCategoryReadiness,
+} from "./category-readiness";
+export type { DocumentWorkspaceCategoryReadiness } from "./category-readiness";
+export { buildContact360Href, displayDocumentWorkspacePartyName } from "./contact-href";
+export {
   recordDocumentWorkspaceRequestBatch,
   listDocumentWorkspaceRequestBatches,
   markDocumentWorkspaceRequestResponse,
