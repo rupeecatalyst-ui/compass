@@ -23,6 +23,9 @@ export type EnterpriseMarketingFoundationStatus = {
     providerConnectEnabled: false;
     sheetsMode: "off" | "fixture" | "live";
     sheetsReadEnabled: boolean;
+    sourceStatus?: "OFF" | "FIXTURE" | "LIVE" | "NOT_CONFIGURED";
+    sourceNotice?: string;
+    googleCredentialsConfigured?: boolean;
     emailMode?: "off" | "dry_run" | "live";
     whatsappMode?: "off" | "dry_run" | "live";
     notice: string;

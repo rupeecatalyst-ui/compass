@@ -34,6 +34,7 @@ import {
   MARKETING_CHANNEL_NOT_CONFIGURED_LABEL,
   MARKETING_DEFAULT_BATCH_POLICY,
   MARKETING_FILTER_OPS,
+  MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL,
   MARKETING_PERMISSIONS,
   MARKETING_TEST_MODE_BANNER,
   MARKETING_LIVE_PROVIDER_SENDING_DISABLED,
@@ -962,7 +963,8 @@ export function MarketingCampaignBuilderPage({
               {sourceMode?.connectionState === "CONFIGURATION_REQUIRED" ||
               sourceMode?.sourceStatus === "NOT_CONFIGURED" ? (
                 <p className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive">
-                  Configuration Required — authorise a workbook in Marketing Data Sources before selecting an audience.
+                  {MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL} — authorise a workbook in Marketing
+                  Data Sources before selecting an audience. Fixture data is not being used.
                 </p>
               ) : null}
               <div className="grid gap-4 md:grid-cols-2">
@@ -976,19 +978,40 @@ export function MarketingCampaignBuilderPage({
                       setMappingConfirmed(false);
                       setSnapshotStatus("Unavailable");
                     }}
+                    disabled={bindings.length === 0}
                   >
                     <SelectTrigger data-mkt-authorised-workbook="true">
-                      <SelectValue placeholder="Select authorised workbook" />
+                      <SelectValue
+                        placeholder={
+                          bindings.length === 0
+                            ? MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL
+                            : "Select authorised workbook"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {bindings.map((row) => (
-                        <SelectItem key={row.id} value={row.id}>
-                          {row.displayName}
-                          {row.connectionState ? ` (${row.connectionState})` : ""}
+                      {bindings.length === 0 ? (
+                        <SelectItem value="__configuration_required" disabled>
+                          {MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL}
                         </SelectItem>
-                      ))}
+                      ) : (
+                        bindings.map((row) => (
+                          <SelectItem key={row.id} value={row.id}>
+                            {row.displayName}
+                            {row.connectionState ? ` (${row.connectionState})` : ""}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
+                  {bindings.length === 0 ? (
+                    <p
+                      className="text-sm font-semibold text-destructive"
+                      data-mkt-authorised-workbook-empty="true"
+                    >
+                      {MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Worksheet tab</Label>

@@ -6,8 +6,6 @@
 
 import {
   ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED,
-  ENTERPRISE_MARKETING_SHEETS_MODE,
-  ENTERPRISE_MARKETING_SHEETS_READ_ENABLED,
   MARKETING_SHEETS_PAGE_MAX_ROWS,
   MARKETING_SHEETS_PREVIEW_MAX_ROWS,
 } from "@/constants/enterprise-marketing-engine";
@@ -38,12 +36,6 @@ import {
   revokeAuthorisedWorkbook,
 } from "./workbook-registry";
 
-function assertSheetsReadEnabled() {
-  if (!ENTERPRISE_MARKETING_SHEETS_READ_ENABLED) {
-    throw new EnterpriseMarketingSafetyError("dataSource.sheetsRead");
-  }
-}
-
 function assertNoAudienceImport() {
   if (ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED) {
     throw new EnterpriseMarketingSafetyError("audience.import");
@@ -51,7 +43,6 @@ function assertNoAudienceImport() {
 }
 
 function resolvePort(organizationId: string): MarketingDataSourcePort {
-  assertSheetsReadEnabled();
   assertNoAudienceImport();
   const source = assertMarketingSheetsConfigured();
   if (source.status === "FIXTURE") {
@@ -71,7 +62,7 @@ export const marketingDataSourceService = {
   getMode() {
     const source = resolveMarketingSheetsSourceStatus();
     return {
-      sheetsMode: ENTERPRISE_MARKETING_SHEETS_MODE,
+      sheetsMode: source.sheetsMode,
       sheetsReadEnabled: source.status === "FIXTURE" || source.status === "LIVE",
       audienceImportEnabled: ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED,
       previewMaxRows: MARKETING_SHEETS_PREVIEW_MAX_ROWS,
@@ -148,7 +139,7 @@ export const marketingDataSourceService = {
     actor: { userId?: string; organizationId?: string | null },
     input: { id?: string; displayName: string; spreadsheetId?: string },
   ): Promise<MarketingDataSourceBinding> {
-    assertSheetsReadEnabled();
+    assertNoAudienceImport();
     assertMarketingSheetsConfigured();
     const organizationId = orgId(actor.organizationId);
     const binding = await registerAuthorisedWorkbook({

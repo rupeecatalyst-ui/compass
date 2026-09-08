@@ -41,12 +41,17 @@ const registrySrc = read("server/services/enterprise-marketing-engine/workbook-r
 const googleAdapter = read("server/services/enterprise-marketing-engine/adapters/google-sheets.adapter.ts");
 const freezeSrc = read("src/lib/enterprise-marketing-engine/freeze-audience.ts");
 const safetySrc = read("src/constants/enterprise-marketing-engine/safety.ts");
+const sheetsRuntimeSrc = read("src/constants/enterprise-marketing-engine/sheets-runtime.ts");
 
 mustInclude(builder, "data-mkt-authorised-workbook");
+mustInclude(builder, "data-mkt-authorised-workbook-empty");
+mustInclude(builder, "MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL");
 mustInclude(builder, "Freeze audience snapshot");
 mustInclude(builder, "CONFIGURATION_REQUIRED");
 mustInclude(builder, "MARKETING_WORKBOOK_CONNECTION_LABELS");
 mustInclude(sourcesUi, "CONFIGURATION_REQUIRED");
+mustInclude(sourcesUi, "MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL");
+mustInclude(sourcesUi, "data-mkt-authorised-workbook-empty");
 mustInclude(sourcesUi, "Access Revoked");
 mustInclude(sourcesUi, "Validation Failed");
 mustInclude(sourcesUi, "Connected");
@@ -58,6 +63,9 @@ assert.doesNotMatch(googleAdapter, /NEXT_PUBLIC_GOOGLE/);
 assert.doesNotMatch(builder, /GOOGLE_SHEETS_PRIVATE_KEY/);
 mustInclude(freezeSrc, "Does not create Contacts or Opportunities");
 mustInclude(safetySrc, "export const ENTERPRISE_MARKETING_EXECUTION_ENABLED = false");
+mustInclude(sheetsRuntimeSrc, "isMarketingProductionLikeRuntime");
+mustInclude(sheetsRuntimeSrc, "isMarketingFixtureRuntimeAllowed");
+mustInclude(sheetsRuntimeSrc, 'env("NODE_ENV").toLowerCase() === "production"');
 record("UI_CONTRACT", "PASS", "Audience step, connection states, freeze CTA, server-only credentials");
 
 const rca = read("server/services/enterprise-marketing-engine/data-source.service.ts");
@@ -109,6 +117,112 @@ assert.equal(emptyMode.status, "NOT_CONFIGURED");
 process.env.ENTERPRISE_MARKETING_SHEETS_MODE = "fixture";
 process.env.ENTERPRISE_MARKETING_ALLOW_FIXTURE = "true";
 record("RCA_RUNTIME_NOT_CONFIGURED", "PASS", `live without credentials => ${emptyMode.status}`);
+
+function snapshotEnv(keys) {
+  const prev = {};
+  for (const key of keys) prev[key] = process.env[key];
+  return prev;
+}
+
+function restoreEnv(prev) {
+  for (const [key, value] of Object.entries(prev)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+}
+
+const productionFixtureEnvKeys = [
+  "NODE_ENV",
+  "VERCEL_ENV",
+  "HOSTNAME",
+  "HOST",
+  "NEXTAUTH_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "ENTERPRISE_MARKETING_SHEETS_MODE",
+  "ENTERPRISE_MARKETING_ALLOW_FIXTURE",
+  "ENTERPRISE_PERSISTENCE_MODE",
+  "GOOGLE_SHEETS_CLIENT_EMAIL",
+  "GOOGLE_SHEETS_PRIVATE_KEY",
+];
+
+{
+  const prev = snapshotEnv(productionFixtureEnvKeys);
+  process.env.NODE_ENV = "production";
+  process.env.HOSTNAME = "catalyst-one.rupeecatalyst.com";
+  process.env.ENTERPRISE_MARKETING_SHEETS_MODE = "fixture";
+  process.env.ENTERPRISE_MARKETING_ALLOW_FIXTURE = "true";
+  process.env.ENTERPRISE_PERSISTENCE_MODE = "prisma";
+  delete process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
+  delete process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+  assert.equal(authorised.isMarketingFixtureRuntimeAllowed(), false);
+  const rejected = authorised.resolveMarketingSheetsSourceStatus();
+  assert.equal(rejected.status, "NOT_CONFIGURED");
+  assert.equal(rejected.sheetsMode, "off");
+  assert.equal(rejected.fixtureAllowed, false);
+  assert.equal(rejected.authorisedWorkbookId, null);
+  const mode = dataSource.marketingDataSourceService.getMode();
+  assert.equal(mode.sheetsMode, "off");
+  assert.equal(mode.sourceStatus, "NOT_CONFIGURED");
+  assert.equal(mode.fixtureVisible, false);
+  assert.equal(mode.connectionState, "CONFIGURATION_REQUIRED");
+  const listed = await dataSource.marketingDataSourceService.listBindings(
+    { userId: "prod-admin", organizationId: "org-prod-fixture", role: "ADMIN" },
+    { operatorOnly: true },
+  );
+  assert.equal(listed.length, 0);
+  restoreEnv(prev);
+  record(
+    "PRODUCTION_FIXTURE_REJECTED",
+    "PASS",
+    "NODE_ENV=production + ALLOW_FIXTURE cannot expose fixture workbooks or sheetsMode=fixture",
+  );
+}
+
+{
+  const prev = snapshotEnv(productionFixtureEnvKeys);
+  process.env.NODE_ENV = "test";
+  process.env.HOSTNAME = "catalyst-one.rupeecatalyst.com";
+  process.env.ENTERPRISE_MARKETING_SHEETS_MODE = "fixture";
+  process.env.ENTERPRISE_MARKETING_ALLOW_FIXTURE = "true";
+  delete process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
+  delete process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+  assert.equal(authorised.isMarketingProductionLikeRuntime(), true);
+  assert.equal(authorised.isMarketingFixtureRuntimeAllowed(), false);
+  const rejected = authorised.resolveMarketingSheetsSourceStatus();
+  assert.equal(rejected.status, "NOT_CONFIGURED");
+  assert.equal(rejected.sheetsMode, "off");
+  restoreEnv(prev);
+  record("NON_LOOPBACK_FIXTURE_REJECTED", "PASS", "public hostname refuses fixture even with ALLOW_FIXTURE");
+}
+
+{
+  const prev = snapshotEnv(productionFixtureEnvKeys);
+  process.env.NODE_ENV = "production";
+  delete process.env.ENTERPRISE_MARKETING_SHEETS_MODE;
+  delete process.env.ENTERPRISE_MARKETING_ALLOW_FIXTURE;
+  delete process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
+  delete process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+  const unset = authorised.resolveMarketingSheetsSourceStatus();
+  assert.equal(unset.status, "NOT_CONFIGURED");
+  assert.notEqual(unset.sheetsMode, "fixture");
+  restoreEnv(prev);
+  record("PRODUCTION_UNSET_MODE_NOT_FIXTURE", "PASS", "unset ENTERPRISE_MARKETING_SHEETS_MODE in production is not fixture");
+}
+
+process.env.ENTERPRISE_PERSISTENCE_MODE = "memory";
+process.env.NEXT_PUBLIC_ENTERPRISE_PERSISTENCE_MODE = "memory";
+process.env.ENTERPRISE_MARKETING_SHEETS_MODE = "fixture";
+process.env.ENTERPRISE_MARKETING_ALLOW_FIXTURE = "true";
+delete process.env.HOSTNAME;
+delete process.env.HOST;
+delete process.env.NEXTAUTH_URL;
+delete process.env.NEXT_PUBLIC_APP_URL;
+delete process.env.VERCEL_ENV;
+if (process.env.NODE_ENV === "production") delete process.env.NODE_ENV;
+const localFixture = authorised.resolveMarketingSheetsSourceStatus();
+assert.equal(localFixture.status, "FIXTURE");
+assert.equal(localFixture.sheetsMode, "fixture");
+record("LOCAL_FIXTURE_BAT_PRESERVED", "PASS", "local memory + ALLOW_FIXTURE still uses the controlled fixture adapter");
 
 const orgA = "org-mkt-google-a";
 const orgB = "org-mkt-google-b";

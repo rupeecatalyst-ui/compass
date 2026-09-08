@@ -17,8 +17,10 @@ export type MarketingSheetsSourceStatus = (typeof MARKETING_SHEETS_SOURCE_STATUS
 export const MARKETING_FIXTURE_VISIBLE_LABEL =
   "FIXTURE MODE — controlled non-production dataset. Not live Google Sheets." as const;
 
+export const MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL = "Google configuration required" as const;
+
 export const MARKETING_NOT_CONFIGURED_LABEL =
-  "NOT_CONFIGURED — Google Sheets is not available. Fixture data is not being used." as const;
+  "Google configuration required — Google Sheets is not available. Fixture data is not being used." as const;
 
 export const MARKETING_WORKBOOK_CONNECTION_STATES = [
   "CONNECTED",

@@ -5,6 +5,14 @@
  * Email + WhatsApp delivery infrastructure use dry_run mode by default.
  */
 
+import {
+  isMarketingSheetsReadEnabled,
+  requestedMarketingSheetsMode,
+  type EnterpriseMarketingSheetsMode,
+} from "./sheets-runtime";
+
+export type { EnterpriseMarketingSheetsMode } from "./sheets-runtime";
+
 /** Live campaign send (email / WhatsApp / digital bulk) — false until PO authorizes. */
 export const ENTERPRISE_MARKETING_EXECUTION_ENABLED = false as const;
 
@@ -41,21 +49,12 @@ export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false as const;
 
 /**
  * CO-MARKETING-MKT-02 — Google Sheets data-source READ mode.
+ * Snapshot at module load only. Production status must call resolveMarketingSheetsSourceStatus().
  */
-export type EnterpriseMarketingSheetsMode = "off" | "fixture" | "live";
-
-function resolveSheetsMode(): EnterpriseMarketingSheetsMode {
-  const raw = (process.env.ENTERPRISE_MARKETING_SHEETS_MODE ?? "fixture").trim().toLowerCase();
-  if (raw === "fixture" || raw === "live" || raw === "off") return raw;
-  return "fixture";
-}
-
 export const ENTERPRISE_MARKETING_SHEETS_MODE: EnterpriseMarketingSheetsMode =
-  typeof process !== "undefined" ? resolveSheetsMode() : "fixture";
+  typeof process !== "undefined" ? requestedMarketingSheetsMode() : "fixture";
 
-export const ENTERPRISE_MARKETING_SHEETS_READ_ENABLED =
-  ENTERPRISE_MARKETING_SHEETS_MODE === "fixture" ||
-  ENTERPRISE_MARKETING_SHEETS_MODE === "live";
+export const ENTERPRISE_MARKETING_SHEETS_READ_ENABLED = isMarketingSheetsReadEnabled();
 
 export {
   ENTERPRISE_MARKETING_EMAIL_MODE,

@@ -11,11 +11,10 @@ import {
   ENTERPRISE_MARKETING_MODULE_ID,
   ENTERPRISE_MARKETING_MODULE_TITLE,
   ENTERPRISE_MARKETING_SAFETY,
-  ENTERPRISE_MARKETING_SHEETS_MODE,
-  ENTERPRISE_MARKETING_SHEETS_READ_ENABLED,
   ENTERPRISE_MARKETING_WHATSAPP_MODE,
   MARKETING_PERMISSIONS,
 } from "@/constants/enterprise-marketing-engine";
+import { resolveMarketingSheetsSourceStatus } from "@/lib/enterprise-marketing-engine/authorised-workbook";
 import { MARKETING_PORT_NAMES } from "@/lib/enterprise-marketing-engine/ports";
 import type { EnterpriseMarketingFoundationStatus } from "@/types/enterprise-marketing-engine";
 import { recordMarketingAuditEvent } from "./audit";
@@ -45,6 +44,9 @@ export const enterpriseMarketingFoundationService = {
       organizationId: actor?.organizationId ?? null,
     });
 
+    const sheets = resolveMarketingSheetsSourceStatus();
+    const sheetsReadEnabled = sheets.status === "FIXTURE" || sheets.status === "LIVE";
+
     return {
       moduleId: ENTERPRISE_MARKETING_MODULE_ID,
       title: ENTERPRISE_MARKETING_MODULE_TITLE,
@@ -57,8 +59,11 @@ export const enterpriseMarketingFoundationService = {
         handoffMode: ENTERPRISE_MARKETING_HANDOFF_MODE,
         audienceImportEnabled: false,
         providerConnectEnabled: false,
-        sheetsMode: ENTERPRISE_MARKETING_SHEETS_MODE,
-        sheetsReadEnabled: ENTERPRISE_MARKETING_SHEETS_READ_ENABLED,
+        sheetsMode: sheets.sheetsMode,
+        sheetsReadEnabled,
+        sourceStatus: sheets.status,
+        sourceNotice: sheets.notice,
+        googleCredentialsConfigured: sheets.googleCredentialsConfigured,
         emailMode: ENTERPRISE_MARKETING_EMAIL_MODE,
         whatsappMode: ENTERPRISE_MARKETING_WHATSAPP_MODE,
         notice: ENTERPRISE_MARKETING_SAFETY.notice,
@@ -70,9 +75,9 @@ export const enterpriseMarketingFoundationService = {
         campaignBuilder: "authoring_preview",
         campaignLifecycle: "governance",
         assetLibrary: "foundation",
-        dataSourceConnect: ENTERPRISE_MARKETING_SHEETS_READ_ENABLED ? "read_only" : "disabled",
-        sheetsAdapter: ENTERPRISE_MARKETING_SHEETS_MODE,
-        audienceEngine: ENTERPRISE_MARKETING_SHEETS_READ_ENABLED
+        dataSourceConnect: sheetsReadEnabled ? "read_only" : "disabled",
+        sheetsAdapter: sheets.sheetsMode,
+        audienceEngine: sheetsReadEnabled
           ? "definition_preview"
           : "disabled",
         emailSend:

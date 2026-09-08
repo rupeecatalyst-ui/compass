@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { authenticatedJsonFetch } from "@/lib/api-client";
-import { MARKETING_SHEETS_PREVIEW_MAX_ROWS } from "@/constants/enterprise-marketing-engine";
+import { MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL, MARKETING_SHEETS_PREVIEW_MAX_ROWS } from "@/constants/enterprise-marketing-engine";
 import type { MarketingDataSourceBinding } from "@/types/enterprise-marketing-data-source";
 import type { MarketingDatasetDescriptor } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
 import { MarketingModuleNav } from "./marketing-module-nav";
@@ -249,8 +249,12 @@ export function MarketingDataSourcesPanel() {
             </p>
           ) : null}
           {mode?.sourceStatus === "NOT_CONFIGURED" || mode?.connectionState === "CONFIGURATION_REQUIRED" ? (
-            <p className="mt-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 font-semibold text-destructive">
-              Configuration Required — NOT_CONFIGURED — Google Sheets is not available. Fixture data is not being used.
+            <p
+              className="mt-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 font-semibold text-destructive"
+              data-mkt-google-configuration-required="true"
+            >
+              {MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL} — Google Sheets is not available. Fixture
+              data is not being used.
             </p>
           ) : null}
           {mode?.connectionState === "ACCESS_REVOKED" ? (
@@ -285,18 +289,42 @@ export function MarketingDataSourcesPanel() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap gap-2">
-                  <Select value={selectedId || undefined} onValueChange={setSelectedId}>
-                    <SelectTrigger className="min-w-[220px]">
-                      <SelectValue placeholder="Select source" />
+                  <Select
+                    value={selectedId || undefined}
+                    onValueChange={setSelectedId}
+                    disabled={bindings.length === 0}
+                  >
+                    <SelectTrigger className="min-w-[220px]" data-mkt-authorised-workbook="true">
+                      <SelectValue
+                        placeholder={
+                          bindings.length === 0
+                            ? MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL
+                            : "Select source"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {bindings.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.displayName}
+                      {bindings.length === 0 ? (
+                        <SelectItem value="__configuration_required" disabled>
+                          {MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL}
                         </SelectItem>
-                      ))}
+                      ) : (
+                        bindings.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.displayName}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
+                  {bindings.length === 0 ? (
+                    <p
+                      className="w-full text-sm font-semibold text-destructive"
+                      data-mkt-authorised-workbook-empty="true"
+                    >
+                      {MARKETING_GOOGLE_CONFIGURATION_REQUIRED_LABEL}
+                    </p>
+                  ) : null}
                   <Button
                     variant="outline"
                     size="sm"

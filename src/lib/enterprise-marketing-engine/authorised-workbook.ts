@@ -3,8 +3,12 @@
  * Server-only Google credentials. Never fall back to fixture in production.
  */
 
-import { isEnterprisePersistencePrisma } from "@/constants/enterprise-persistence";
-import type { EnterpriseMarketingSheetsMode } from "@/constants/enterprise-marketing-engine/safety";
+import {
+  isMarketingFixtureRuntimeAllowed,
+  operationalMarketingSheetsMode,
+  requestedMarketingSheetsMode,
+  type EnterpriseMarketingSheetsMode,
+} from "@/constants/enterprise-marketing-engine/sheets-runtime";
 import {
   MARKETING_FIXTURE_VISIBLE_LABEL,
   MARKETING_FIXTURE_WORKBOOK_ID,
@@ -13,6 +17,13 @@ import {
   type MarketingSheetsSourceStatus,
   type MarketingWorkbookConnectionState,
 } from "@/constants/enterprise-marketing-engine/authorised-workbook";
+
+export {
+  isMarketingFixtureExplicitlyAllowed,
+  isMarketingFixtureRuntimeAllowed,
+  isMarketingProductionLikeRuntime,
+  requestedMarketingSheetsMode,
+} from "@/constants/enterprise-marketing-engine/sheets-runtime";
 
 export type MarketingSheetsSourceResolution = {
   status: MarketingSheetsSourceStatus;
@@ -25,18 +36,25 @@ export type MarketingSheetsSourceResolution = {
   notice: string;
 };
 
-function currentSheetsMode(): EnterpriseMarketingSheetsMode {
-  const raw = (process.env.ENTERPRISE_MARKETING_SHEETS_MODE ?? "fixture").trim().toLowerCase();
-  if (raw === "fixture" || raw === "live" || raw === "off") return raw;
-  return "fixture";
-}
-
 function env(name: string): string {
   return (process.env[name] ?? "").trim();
 }
 
 function googleCredentialsConfigured(): boolean {
   return Boolean(env("GOOGLE_SHEETS_CLIENT_EMAIL") && env("GOOGLE_SHEETS_PRIVATE_KEY"));
+}
+
+function notConfiguredResolution(googleConfigured: boolean): MarketingSheetsSourceResolution {
+  return {
+    status: "NOT_CONFIGURED",
+    sheetsMode: operationalMarketingSheetsMode({ status: "NOT_CONFIGURED" }),
+    authorisedWorkbookId: null,
+    authorisedWorkbookDisplayName: null,
+    googleCredentialsConfigured: googleConfigured,
+    fixtureAllowed: false,
+    label: "NOT_CONFIGURED",
+    notice: MARKETING_NOT_CONFIGURED_LABEL,
+  };
 }
 
 export function readAuthorisedSpreadsheetIdFromEnv(): string | null {
@@ -46,32 +64,16 @@ export function readAuthorisedSpreadsheetIdFromEnv(): string | null {
   return legacy || null;
 }
 
-export function isMarketingFixtureExplicitlyAllowed(): boolean {
-  const raw = env("ENTERPRISE_MARKETING_ALLOW_FIXTURE").toLowerCase();
-  return raw === "true" || raw === "1" || raw === "yes";
-}
-
-/**
- * Fixture is never a silent production fallback.
- * Production-like Prisma persistence requires an explicit allow flag.
- */
-export function isMarketingFixtureRuntimeAllowed(): boolean {
-  if (currentSheetsMode() !== "fixture") return false;
-  if (isMarketingFixtureExplicitlyAllowed()) return true;
-  if (isEnterprisePersistencePrisma()) return false;
-  return true;
-}
-
 export function resolveMarketingSheetsSourceStatus(): MarketingSheetsSourceResolution {
-  const sheetsMode = currentSheetsMode();
+  const requested = requestedMarketingSheetsMode();
   const googleConfigured = googleCredentialsConfigured();
   const authorisedFromEnv = readAuthorisedSpreadsheetIdFromEnv();
   const fixtureAllowed = isMarketingFixtureRuntimeAllowed();
 
-  if (sheetsMode === "off") {
+  if (requested === "off") {
     return {
       status: "OFF",
-      sheetsMode,
+      sheetsMode: "off",
       authorisedWorkbookId: null,
       authorisedWorkbookDisplayName: null,
       googleCredentialsConfigured: googleConfigured,
@@ -81,25 +83,27 @@ export function resolveMarketingSheetsSourceStatus(): MarketingSheetsSourceResol
     };
   }
 
-  if (sheetsMode === "live") {
-    if (!googleConfigured) {
-      return {
-        status: "NOT_CONFIGURED",
-        sheetsMode,
-        authorisedWorkbookId: authorisedFromEnv,
-        authorisedWorkbookDisplayName: env("MARKETING_SHEETS_DEFAULT_DISPLAY_NAME") || null,
-        googleCredentialsConfigured: false,
-        fixtureAllowed: false,
-        label: "NOT_CONFIGURED",
-        notice: MARKETING_NOT_CONFIGURED_LABEL,
-      };
-    }
+  if (fixtureAllowed) {
+    return {
+      status: "FIXTURE",
+      sheetsMode: "fixture",
+      authorisedWorkbookId: MARKETING_FIXTURE_WORKBOOK_ID,
+      authorisedWorkbookDisplayName: "Controlled Fixture — Marketing Master (non-production)",
+      googleCredentialsConfigured: googleConfigured,
+      fixtureAllowed: true,
+      label: "FIXTURE",
+      notice: MARKETING_FIXTURE_VISIBLE_LABEL,
+    };
+  }
+
+  if (googleConfigured) {
     return {
       status: "LIVE",
-      sheetsMode,
+      sheetsMode: "live",
       authorisedWorkbookId: authorisedFromEnv,
-      authorisedWorkbookDisplayName:
-        env("MARKETING_SHEETS_DEFAULT_DISPLAY_NAME") || "Authorised Marketing Master",
+      authorisedWorkbookDisplayName: authorisedFromEnv
+        ? env("MARKETING_SHEETS_DEFAULT_DISPLAY_NAME") || "Authorised Marketing Master"
+        : null,
       googleCredentialsConfigured: true,
       fixtureAllowed: false,
       label: "LIVE GOOGLE SHEETS (server-side, read-only)",
@@ -108,30 +112,7 @@ export function resolveMarketingSheetsSourceStatus(): MarketingSheetsSourceResol
     };
   }
 
-  // fixture mode
-  if (!fixtureAllowed) {
-    return {
-      status: "NOT_CONFIGURED",
-      sheetsMode,
-      authorisedWorkbookId: null,
-      authorisedWorkbookDisplayName: null,
-      googleCredentialsConfigured: googleConfigured,
-      fixtureAllowed: false,
-      label: "NOT_CONFIGURED",
-      notice: MARKETING_NOT_CONFIGURED_LABEL,
-    };
-  }
-
-  return {
-    status: "FIXTURE",
-    sheetsMode,
-    authorisedWorkbookId: MARKETING_FIXTURE_WORKBOOK_ID,
-    authorisedWorkbookDisplayName: "Controlled Fixture — Marketing Master (non-production)",
-    googleCredentialsConfigured: googleConfigured,
-    fixtureAllowed: true,
-    label: "FIXTURE",
-    notice: MARKETING_FIXTURE_VISIBLE_LABEL,
-  };
+  return notConfiguredResolution(googleConfigured);
 }
 
 export function assertMarketingSheetsConfigured(): MarketingSheetsSourceResolution {
