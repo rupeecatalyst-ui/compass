@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -18,6 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   DOCUMENT_WORKSPACE_CHANGE_TRANSACTION,
   DOCUMENT_WORKSPACE_DRAFT_WARNING,
@@ -127,10 +134,11 @@ import {
 import { validateLockedDocumentSelection } from "@/lib/document-workspace/selection";
 import { inboundEmailVersionKey } from "@/lib/document-workspace/inbound-email-new";
 import { downloadTemporaryDocumentWorkspaceZip } from "@/lib/document-workspace/temporary-zip";
-import { DOCUMENT_WORKSPACE_NEW_FROM_EMAIL_BADGE, DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL, DOCUMENT_WORKSPACE_SENDER_CC_MISSING } from "@/constants/document-workspace-refinement-014";
+import { DOCUMENT_WORKSPACE_NEW_FROM_EMAIL_BADGE, DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL, DOCUMENT_WORKSPACE_SENDER_CC_MISSING, DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL, DOCUMENT_WORKSPACE_DESK_DIALOG_DESCRIPTION, DOCUMENT_WORKSPACE_DESK_DIALOG_TITLE, DOCUMENT_WORKSPACE_DESK_LIST_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_ACTION_CLASSNAME, DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME, DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME } from "@/constants/document-workspace-refinement-014";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { Mail } from "lucide-react";
 import type { OutboxMessage } from "@/types/enterprise-action-center";
+import { restoreDocumentWorkspaceViewDocumentsFocus } from "@/lib/document-workspace/transaction-card-grid";
 
 export function DocumentWorkspace() {
   const { user } = useAuthContext();
@@ -858,18 +866,54 @@ export function DocumentWorkspace() {
       </div>
   );
 
-  if (!deskOpen) {
-    return opener;
-  }
+  const closeDesk = () => {
+    persistRestore();
+    applyLockedHref({});
+  };
 
-  const deskClass = cn(
-    "flex min-h-[calc(100dvh-4rem)] w-full min-w-0 flex-col bg-background",
-    "fixed inset-0 z-40",
+  const deskSurface = (content: ReactNode, overlays: ReactNode = null) => (
+    <>
+      {opener}
+      <Sheet
+        open={deskOpen}
+        onOpenChange={(open) => {
+          if (!open && deskOpen) closeDesk();
+        }}
+      >
+        <SheetContent
+          side="right"
+          hideCloseButton={false}
+          allowOutsideClose={false}
+          overlayClassName="bg-black/40"
+          className={DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME}
+          data-document-workspace-desk="014"
+          data-document-workspace-desk-layout="right-sheet"
+          aria-labelledby="document-workspace-desk-title"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            restoreDocumentWorkspaceViewDocumentsFocus();
+          }}
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle id="document-workspace-desk-title">
+              {DOCUMENT_WORKSPACE_DESK_DIALOG_TITLE}
+            </SheetTitle>
+            <SheetDescription>{DOCUMENT_WORKSPACE_DESK_DIALOG_DESCRIPTION}</SheetDescription>
+          </SheetHeader>
+          {content}
+        </SheetContent>
+      </Sheet>
+      {overlays}
+    </>
   );
 
+  if (!deskOpen) {
+    return deskSurface(null);
+  }
+
   if (lockError) {
-    return (
-      <aside className={deskClass} data-document-workspace-desk="014">
+    return deskSurface(
+      <aside className="flex h-full min-h-0 w-full min-w-0 flex-col bg-background">
         <div className="space-y-4 p-4 sm:p-6">
         <header>
           <h1 className="text-xl font-semibold tracking-tight">{DOCUMENT_WORKSPACE_TITLE}</h1>
@@ -891,19 +935,27 @@ export function DocumentWorkspace() {
   }
 
   if (loading && !file) {
-    return (
-      <aside className={deskClass} data-document-workspace-desk="014">
-      <ChanakyaLoadingExperience
-        module="documents"
-        statusLabel="Opening Document Workspace…"
-      />
-        </aside>
+    return deskSurface(
+      <aside className="flex h-full min-h-0 w-full min-w-0 flex-col bg-background">
+        <ChanakyaLoadingExperience
+          module="documents"
+          statusLabel="Opening Document Workspace…"
+        />
+      </aside>,
     );
   }
 
-  return (
-    <aside className={deskClass} data-document-workspace-desk="014">
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+  const deskBodyGridClass = previewRow
+    ? actionOpen
+      ? DOCUMENT_WORKSPACE_DESK_PREVIEW_ACTION_CLASSNAME
+      : DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME
+    : actionOpen
+      ? DOCUMENT_WORKSPACE_DESK_LIST_ACTION_CLASSNAME
+      : "flex min-h-0 flex-1 flex-col overflow-hidden";
+
+  return deskSurface(
+    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden bg-background">
+    <div className="flex h-full min-h-0 flex-col">
       <header className="border-b border-border/60 px-4 py-3 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -926,21 +978,38 @@ export function DocumentWorkspace() {
             <Link href={oppHref} className="text-xs text-muted-foreground underline-offset-4 hover:underline">
               Open Opportunity
             </Link>
-            <Button type="button" size="sm" variant="outline" className="lg:hidden" onClick={() => setActionOpen(true)}>
-              Document List
+            {previewRow ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-[1280px]:hidden"
+                onClick={() => setPreviewId(null)}
+              >
+                Document List
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={closeDesk}
+            >
+              {DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL}
             </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => applyLockedHref({})}>
+            <Button type="button" size="sm" variant="outline" onClick={closeDesk}>
               {DOCUMENT_WORKSPACE_CHANGE_TRANSACTION}
             </Button>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="lg:hidden"
+              aria-expanded={actionOpen}
+              aria-controls="document-workspace-action-centre"
               onClick={() => {
                 savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
                 persistRestore();
-                setActionOpen(true);
+                setActionOpen((open) => !open);
               }}
             >
               <PanelRight className="mr-1.5 h-3.5 w-3.5" />
@@ -990,7 +1059,7 @@ export function DocumentWorkspace() {
         ) : null}
       </header>
 
-      <div className="hidden border-b border-border/60 px-4 py-2 sm:px-6 lg:block">
+      <div className="hidden border-b border-border/60 px-4 py-2 sm:px-6 min-[1280px]:block">
         <DocumentWorkspaceLinkedParties
           parties={parties}
           activeKey={activePartyKey}
@@ -1012,7 +1081,7 @@ export function DocumentWorkspace() {
           }}
         />
       </div>
-      <div className="border-b border-border/60 px-4 py-2 lg:hidden">
+      <div className="border-b border-border/60 px-4 py-2 min-[1280px]:hidden">
         <select
           className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
           value={activePartyKey}
@@ -1030,13 +1099,13 @@ export function DocumentWorkspace() {
         </select>
       </div>
 
-      <div className={cn("flex min-h-0 flex-1", previewRow ? "lg:grid lg:grid-cols-[minmax(12rem,22%)_minmax(0,1fr)_minmax(16rem,24%)]" : "lg:grid lg:grid-cols-[minmax(0,76%)_minmax(16rem,24%)]")}>
+      <div className={deskBodyGridClass}>
         <div
           ref={tableScrollRef}
           key={`document-workspace-rows:${registryTick}:${requestTick}`}
           className={cn(
             "min-w-0 flex-1 overflow-auto px-4 py-3 sm:px-6",
-            previewRow && "max-lg:hidden",
+            previewRow && "max-md:hidden",
           )}
         >
           <DocumentWorkspaceOpsBar
@@ -1272,7 +1341,7 @@ export function DocumentWorkspace() {
             onAccept={() => applyReview(previewRow, "accepted")}
             onReject={(reason) => applyReview(previewRow, "rejected", reason)}
             onRequestReplacement={(reason) => applyReview(previewRow, "replacement_requested", reason)}
-            fullscreen={fullscreen || (typeof window !== "undefined" && window.innerWidth < 1024)}
+            fullscreen={fullscreen}
             onToggleFullscreen={() => setFullscreen((v) => !v)}
             onPrevious={() => {
               const idx = tabRows.findIndex((row) => row.id === previewRow.id);
@@ -1323,7 +1392,9 @@ export function DocumentWorkspace() {
         }}
       />
       </div>
-
+    </div>
+    </aside>,
+      <>
       {composer === "email" && file ? (
         <EmailContextWorkspace
           open
@@ -1549,8 +1620,7 @@ export function DocumentWorkspace() {
           toast.success("Internal note recorded on the registry row.");
         }}
       />
-    </div>
-    </aside>
+      </>
   );
 }
 

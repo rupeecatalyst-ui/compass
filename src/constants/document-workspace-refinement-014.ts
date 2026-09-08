@@ -1,10 +1,38 @@
 /**
  * CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014
- * Full-screen contact-centric Document Workspace. Registry remains SSOT.
+ * Contact-centric registry with a right-side document desk. Registry remains SSOT.
  */
 
 export const DOCUMENT_WORKSPACE_REFINEMENT_014_ID =
   "CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014" as const;
+
+/** Desktop desk starts at this viewport width (px). */
+export const DOCUMENT_WORKSPACE_DESK_BREAKPOINT_PX = 1280;
+export const DOCUMENT_WORKSPACE_DESK_DESKTOP_MIN_VW = 50;
+export const DOCUMENT_WORKSPACE_DESK_DESKTOP_TARGET_VW = 55;
+export const DOCUMENT_WORKSPACE_DESK_DESKTOP_MAX_VW = 60;
+export const DOCUMENT_WORKSPACE_DESK_DESKTOP_MAX_REM = 72;
+export const DOCUMENT_WORKSPACE_DESK_TABLET_MIN_VW = 70;
+export const DOCUMENT_WORKSPACE_DESK_TABLET_TARGET_VW = 80;
+export const DOCUMENT_WORKSPACE_DESK_TABLET_MAX_VW = 85;
+
+/** Canonical Sheet width contract. Literal classes required for Tailwind JIT. */
+export const DOCUMENT_WORKSPACE_DESK_SHEET_CLASSNAME =
+  "flex h-full w-full flex-col gap-0 overflow-x-hidden p-0 sm:max-w-none md:w-[80vw] md:min-w-[70vw] md:max-w-[85vw] min-[1280px]:w-[55vw] min-[1280px]:min-w-[50vw] min-[1280px]:max-w-[min(60vw,72rem)]";
+
+export const DOCUMENT_WORKSPACE_DESK_PREVIEW_SPLIT_CLASSNAME =
+  "flex min-h-0 flex-1 flex-col overflow-hidden md:flex-col min-[1280px]:grid min-[1280px]:grid-cols-2";
+
+export const DOCUMENT_WORKSPACE_DESK_PREVIEW_ACTION_CLASSNAME =
+  "flex min-h-0 flex-1 flex-col overflow-hidden min-[1280px]:grid min-[1280px]:grid-cols-[minmax(10rem,22%)_minmax(0,1fr)_minmax(14rem,22%)]";
+
+export const DOCUMENT_WORKSPACE_DESK_LIST_ACTION_CLASSNAME =
+  "flex min-h-0 flex-1 overflow-hidden min-[1280px]:grid min-[1280px]:grid-cols-[minmax(0,1fr)_minmax(14rem,24%)]";
+
+export const DOCUMENT_WORKSPACE_CLOSE_DESK_LABEL = "Close";
+export const DOCUMENT_WORKSPACE_DESK_DIALOG_TITLE = "Document Workspace";
+export const DOCUMENT_WORKSPACE_DESK_DIALOG_DESCRIPTION =
+  "Documents for the selected contact and transaction. The registry remains behind this desk.";
 
 export const DOCUMENT_WORKSPACE_NO_CO_APPLICANT = "No co-applicant added";
 export const DOCUMENT_WORKSPACE_LINKED_PARTIES_LABEL = "Linked Parties";

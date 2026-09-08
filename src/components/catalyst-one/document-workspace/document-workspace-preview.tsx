@@ -102,9 +102,11 @@ export function DocumentWorkspacePreview({
 
   return (
     <aside
+      data-document-workspace-preview-pane=""
+      data-document-workspace-preview-share="half"
       className={cn(
-        "flex min-h-[80vh] flex-1 flex-col border-l border-border/70 bg-background",
-        fullscreen && "fixed inset-0 z-[90] min-h-0 border-l-0",
+        "flex min-h-0 flex-1 flex-col border-t border-border/70 bg-background md:border-t min-[1280px]:border-l min-[1280px]:border-t-0",
+        fullscreen && "fixed inset-0 z-[90] min-h-0 border-l-0 border-t-0",
       )}
       aria-label="Document preview"
     >
@@ -153,8 +155,18 @@ export function DocumentWorkspacePreview({
               <Download className="h-3.5 w-3.5" />
             </Button>
           ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 md:hidden"
+            onClick={onClose}
+          >
+            Back
+          </Button>
           <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={onClose}>
             <X className="h-3.5 w-3.5" />
+            <span className="sr-only">Close preview</span>
           </Button>
         </div>
       </header>
@@ -239,9 +251,9 @@ export function DocumentWorkspacePreview({
           >
             Request Replacement
           </Button>
-          <span className="ml-auto hidden text-[10px] text-muted-foreground sm:inline">
+          <span className="ml-auto hidden text-[10px] text-muted-foreground min-[1280px]:inline">
             <Expand className="mr-1 inline h-3 w-3" />
-            Preview occupies most of the workspace. Closing restores the registry list.
+            Preview occupies about half of the document desk.
           </span>
         </div>
       </footer>

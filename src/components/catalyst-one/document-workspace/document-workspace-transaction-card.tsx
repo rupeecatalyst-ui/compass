@@ -180,6 +180,7 @@ export function DocumentWorkspaceTransactionCardView({
             {group.deals.map((deal) => (
               <li
                 key={deal.key}
+                data-transaction-card-key={deal.key}
                 data-deal-row={deal.dealId}
                 data-deal-id={deal.dealId}
                 data-opportunity-id={deal.opportunityId}
