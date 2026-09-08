@@ -1,0 +1,11 @@
+{
+  "name": "tablet",
+  "width": 768,
+  "height": 1024,
+  "file": "visual-tablet.png",
+  "desk": {
+    "width": 384,
+    "viewport": 768
+  },
+  "halfOrMore": true
+}
