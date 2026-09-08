@@ -4,6 +4,11 @@
 
 export { enterpriseMarketingFoundationService } from "./foundation.service";
 export { marketingDataSourceService } from "./data-source.service";
+export {
+  registerAuthorisedWorkbook,
+  listDurableAuthorisedWorkbooks,
+  ensureAudienceDurabilityPorts,
+} from "./workbook-registry";
 export { marketingAudienceService, seedMarketingPreviouslyContacted, resetMarketingPreviouslyContacted } from "./audience.service";
 export { marketingCampaignService } from "./campaign.service";
 export { marketingAssetService } from "./asset.service";

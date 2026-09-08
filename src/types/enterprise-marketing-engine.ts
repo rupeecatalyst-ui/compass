@@ -85,6 +85,7 @@ export type MarketingAuditEventKind =
   | "navigation.opened"
   | "data_source.list"
   | "data_source.upsert"
+  | "data_source.revoke"
   | "data_source.discover"
   | "data_source.preview"
   | "audience.list"

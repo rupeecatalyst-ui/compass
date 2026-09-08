@@ -64,6 +64,9 @@ export const marketingAudienceDefinitionStore = {
     mappingConfirmed?: boolean;
     suppressionPolicy?: MarketingSuppressionPolicy;
     eligibilityRules?: MarketingEligibilityRules;
+    campaignId?: string | null;
+    lastSnapshotId?: string | null;
+    lastSnapshotHash?: string | null;
   }): MarketingAudienceDefinition {
     const ts = nowIso();
     const id = input.id?.trim() || `mkt-aud-${input.organizationId}-${Date.now()}`;
@@ -94,6 +97,7 @@ export const marketingAudienceDefinitionStore = {
       bindingId: input.bindingId.trim(),
       datasetId: input.datasetId.trim(),
       datasetDisplayName: input.datasetDisplayName ?? null,
+      campaignId: input.campaignId ?? prev?.campaignId ?? null,
       filterDefinition: input.filterDefinition ?? prev?.filterDefinition ?? emptyFilterDefinition(),
       exclusionDefinition:
         input.exclusionDefinition ?? prev?.exclusionDefinition ?? emptyFilterDefinition(),
@@ -104,6 +108,8 @@ export const marketingAudienceDefinitionStore = {
       ),
       suppressionPolicy: input.suppressionPolicy ?? prev?.suppressionPolicy ?? DEFAULT_SUPPRESSION,
       eligibilityRules: input.eligibilityRules ?? prev?.eligibilityRules ?? DEFAULT_ELIGIBILITY,
+      lastSnapshotId: input.lastSnapshotId ?? prev?.lastSnapshotId ?? null,
+      lastSnapshotHash: input.lastSnapshotHash ?? prev?.lastSnapshotHash ?? null,
       createdAt: prev?.createdAt ?? ts,
       updatedAt: ts,
     };

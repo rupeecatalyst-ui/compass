@@ -29,6 +29,7 @@ import { recordMarketingAuditEvent } from "./audit";
 import { marketingAudienceDefinitionStore } from "./audience-definition-store";
 import { marketingDataSourceService } from "./data-source.service";
 import { marketingSuppressionStore } from "./suppression-store";
+import { ensureAudienceDurabilityPorts } from "./workbook-registry";
 
 function assertAudienceStaysNonOperational() {
   if (ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED) {
@@ -157,10 +158,63 @@ async function evaluateAudiencePreview(input: {
   };
 }
 
+async function persistDurableAudienceDefinition(
+  actorUserId: string | null | undefined,
+  saved: MarketingAudienceDefinition,
+) {
+  const ports = ensureAudienceDurabilityPorts();
+  if (!ports) return;
+  await ports.audienceDefinitions.upsert({
+    id: saved.id,
+    organizationId: saved.organizationId,
+    campaignId: saved.campaignId ?? null,
+    bindingId: saved.bindingId,
+    sourceTabId: saved.datasetId,
+    sourceTabName: saved.datasetDisplayName ?? saved.datasetId,
+    columnMap: saved.columnMap ?? { email: "" },
+    name: saved.name,
+    description: saved.description ?? null,
+    filterDefinition: saved.filterDefinition,
+    exclusionDefinition: saved.exclusionDefinition,
+    suppressionPolicy: saved.suppressionPolicy,
+    eligibilityRules: saved.eligibilityRules,
+    mappingConfirmed: saved.mappingConfirmed,
+    createdByUserId: actorUserId ?? null,
+    updatedByUserId: actorUserId ?? null,
+    createdAt: saved.createdAt,
+    updatedAt: saved.updatedAt,
+  });
+}
+
+async function hydrateDurableAudienceDefinitions(organizationId: string) {
+  const ports = getConfiguredMarketingDurabilityPorts() ?? ensureAudienceDurabilityPorts();
+  if (!ports) return;
+  const rows = await ports.audienceDefinitions.list(organizationId);
+  for (const row of rows) {
+    marketingAudienceDefinitionStore.upsert({
+      id: row.id,
+      organizationId: row.organizationId,
+      name: row.name || "Audience",
+      description: row.description ?? null,
+      bindingId: row.bindingId,
+      datasetId: row.sourceTabId,
+      datasetDisplayName: row.sourceTabName,
+      campaignId: row.campaignId,
+      columnMap: row.columnMap,
+      mappingConfirmed: Boolean(row.mappingConfirmed),
+      filterDefinition: row.filterDefinition as MarketingFilterDefinition | undefined,
+      exclusionDefinition: row.exclusionDefinition as MarketingFilterDefinition | undefined,
+      suppressionPolicy: row.suppressionPolicy as MarketingSuppressionPolicy | undefined,
+      eligibilityRules: row.eligibilityRules as MarketingEligibilityRules | undefined,
+    });
+  }
+}
+
 export const marketingAudienceService = {
-  list(actor: { userId?: string; organizationId?: string | null }) {
+  async list(actor: { userId?: string; organizationId?: string | null }) {
     assertAudienceStaysNonOperational();
     const organizationId = orgId(actor.organizationId);
+    await hydrateDurableAudienceDefinitions(organizationId);
     const items = marketingAudienceDefinitionStore.list(organizationId);
     recordMarketingAuditEvent({
       kind: "audience.list",
@@ -171,9 +225,10 @@ export const marketingAudienceService = {
     return items;
   },
 
-  get(actor: { userId?: string; organizationId?: string | null }, audienceId: string) {
+  async get(actor: { userId?: string; organizationId?: string | null }, audienceId: string) {
     assertAudienceStaysNonOperational();
     const organizationId = orgId(actor.organizationId);
+    await hydrateDurableAudienceDefinitions(organizationId);
     const item = marketingAudienceDefinitionStore.getForOrg(audienceId, organizationId);
     if (!item) {
       throw Object.assign(new Error("Audience not found"), {
@@ -184,7 +239,7 @@ export const marketingAudienceService = {
     return item;
   },
 
-  upsert(
+  async upsert(
     actor: { userId?: string; organizationId?: string | null },
     input: {
       id?: string;
@@ -193,6 +248,7 @@ export const marketingAudienceService = {
       bindingId: string;
       datasetId: string;
       datasetDisplayName?: string | null;
+      campaignId?: string | null;
       filterDefinition?: MarketingFilterDefinition;
       exclusionDefinition?: MarketingFilterDefinition;
       suppressionPolicy?: MarketingSuppressionPolicy;
@@ -203,13 +259,12 @@ export const marketingAudienceService = {
       confirmMapping?: boolean;
       headers?: string[];
     },
-  ): MarketingAudienceDefinition {
+  ): Promise<MarketingAudienceDefinition> {
     assertAudienceStaysNonOperational();
     const organizationId = orgId(actor.organizationId);
     marketingDataSourceService.getPort(organizationId);
-    const binding = marketingDataSourceService
-      .listBindings(actor)
-      .find((b) => b.id === input.bindingId);
+    const bindings = await marketingDataSourceService.listBindings(actor);
+    const binding = bindings.find((b) => b.id === input.bindingId);
     if (!binding) {
       throw Object.assign(new Error("Data source binding not found for organization"), {
         statusCode: 404,
@@ -234,6 +289,7 @@ export const marketingAudienceService = {
       columnMap: mapping?.map ?? input.columnMap ?? null,
       mappingConfirmed: Boolean(mapping?.confirmed || input.mappingConfirmed),
     });
+    await persistDurableAudienceDefinition(actor.userId ?? null, saved);
     recordMarketingAuditEvent({
       kind: "audience.upsert",
       actorUserId: actor.userId ?? null,
@@ -324,7 +380,7 @@ export const marketingAudienceService = {
     audienceId: string,
     opts?: { fullScan?: boolean },
   ) {
-    const def = this.get(actor, audienceId);
+    const def = await this.get(actor, audienceId);
     return this.previewDraft(actor, {
       bindingId: def.bindingId,
       datasetId: def.datasetId,
@@ -349,7 +405,7 @@ export const marketingAudienceService = {
     },
   ) {
     assertAudienceStaysNonOperational();
-    const ports = getConfiguredMarketingDurabilityPorts();
+    const ports = ensureAudienceDurabilityPorts();
     if (!ports) {
       throw Object.assign(new Error("Durable snapshot ports are not configured"), {
         statusCode: 503,
@@ -357,7 +413,7 @@ export const marketingAudienceService = {
       });
     }
     const organizationId = orgId(actor.organizationId);
-    const def = this.get(actor, input.audienceId);
+    const def = await this.get(actor, input.audienceId);
     if (!def.mapping || !def.mappingConfirmed) {
       throw Object.assign(
         new Error("Confirm the column mapping before freezing an audience snapshot"),
@@ -370,9 +426,8 @@ export const marketingAudienceService = {
       : { headers: [] };
     const datasets = await marketingDataSourceService.discover(actor, def.bindingId);
     const tab = datasets.find((d) => d.externalDatasetId === def.datasetId);
-    const binding = marketingDataSourceService
-      .listBindings(actor)
-      .find((b) => b.id === def.bindingId);
+    const bindings = await marketingDataSourceService.listBindings(actor);
+    const binding = bindings.find((b) => b.id === def.bindingId);
     if (!binding) {
       throw Object.assign(new Error("Authorised workbook binding not found"), {
         statusCode: 404,
@@ -411,6 +466,12 @@ export const marketingAudienceService = {
         eligibleCount: frozen.eligibleCount,
       },
     });
+    const stamped = marketingAudienceDefinitionStore.upsert({
+      ...def,
+      lastSnapshotId: frozen.snapshot.id,
+      lastSnapshotHash: frozen.snapshotHash,
+    });
+    await persistDurableAudienceDefinition(actor.userId ?? null, stamped);
     return frozen;
   },
 

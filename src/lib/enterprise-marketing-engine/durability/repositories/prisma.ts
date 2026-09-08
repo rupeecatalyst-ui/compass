@@ -44,12 +44,31 @@ export function createPrismaMarketingDurabilityPorts(
     kind: MARKETING_PRISMA_ADAPTER_KIND,
     bindings: {
       async upsert(record) {
+        const data = {
+          id: record.id,
+          organizationId: record.organizationId,
+          displayName: record.displayName,
+          spreadsheetId: record.spreadsheetId,
+          driveFileId: record.driveFileId,
+          authorised: record.authorised,
+          authRef: record.authRef,
+          status: record.status,
+          createdByUserId: record.createdByUserId,
+          updatedByUserId: record.updatedByUserId,
+          createdAt: requireDate(record.createdAt),
+          updatedAt: requireDate(record.updatedAt),
+        };
         const row = (await db.enterpriseMarketingSheetBinding.upsert({
           where: { id: record.id },
-          create: record,
-          update: record,
+          create: data,
+          update: data,
         })) as MarketingDurableSheetBindingRecord;
-        return row;
+        return {
+          ...record,
+          ...row,
+          createdAt: requireDate((row as { createdAt?: Date | string }).createdAt ?? record.createdAt).toISOString(),
+          updatedAt: requireDate((row as { updatedAt?: Date | string }).updatedAt ?? record.updatedAt).toISOString(),
+        };
       },
       async getForOrg(id, organizationId) {
         return (await db.enterpriseMarketingSheetBinding.findFirst({
@@ -64,11 +83,35 @@ export function createPrismaMarketingDurabilityPorts(
     },
     audienceDefinitions: {
       async upsert(record) {
-        return (await db.enterpriseMarketingAudienceDefinition.upsert({
+        const data = {
+          id: record.id,
+          organizationId: record.organizationId,
+          campaignId: null,
+          bindingId: record.bindingId,
+          name: record.name || "Audience",
+          description: record.description ?? null,
+          sourceTabId: record.sourceTabId,
+          sourceTabName: record.sourceTabName,
+          columnMapJson: record.columnMap,
+          filterDefinitionJson: record.filterDefinition ?? {},
+          exclusionJson: record.exclusionDefinition ?? null,
+          suppressionPolicyJson: record.suppressionPolicy ?? {},
+          eligibilityRulesJson: record.eligibilityRules ?? {},
+          createdByUserId: record.createdByUserId,
+          updatedByUserId: record.updatedByUserId,
+          createdAt: requireDate(record.createdAt),
+          updatedAt: requireDate(record.updatedAt),
+        };
+        const row = (await db.enterpriseMarketingAudienceDefinition.upsert({
           where: { id: record.id },
-          create: record,
-          update: record,
-        })) as typeof record;
+          create: data,
+          update: data,
+        })) as Record<string, unknown>;
+        return {
+          ...record,
+          id: String(row.id ?? record.id),
+          columnMap: (row.columnMapJson as MarketingDurableAudienceDefinitionRecord["columnMap"]) ?? record.columnMap,
+        };
       },
       async getForOrg(id, organizationId) {
         return (await db.enterpriseMarketingAudienceDefinition.findFirst({

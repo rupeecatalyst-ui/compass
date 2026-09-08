@@ -46,6 +46,8 @@ type ModeInfo = {
   authorisedWorkbookId?: string | null;
   authorisedWorkbookDisplayName?: string | null;
   fixtureVisible?: boolean;
+  connectionState?: "CONNECTED" | "CONFIGURATION_REQUIRED" | "ACCESS_REVOKED" | "VALIDATION_FAILED";
+  googleCredentialsConfigured?: boolean;
 };
 
 type PreviewPayload = {
@@ -86,6 +88,7 @@ export function MarketingDataSourcesPanel() {
     null,
   );
   const [newName, setNewName] = useState("Marketing Master Database");
+  const [newSpreadsheetId, setNewSpreadsheetId] = useState("");
 
   const refreshList = useCallback(async () => {
     setLoading(true);
@@ -168,6 +171,7 @@ export function MarketingDataSourcesPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           displayName: newName,
+          spreadsheetId: newSpreadsheetId.trim() || undefined,
         }),
       });
       const body = (await res.json()) as ApiEnvelope<{ binding: MarketingDataSourceBinding }>;
@@ -179,6 +183,28 @@ export function MarketingDataSourcesPanel() {
       await refreshList();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save binding");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revokeBinding = async () => {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      const res = await authenticatedJsonFetch("/api/admin/marketing/data-sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "revoke", id: selectedId }),
+      });
+      const body = (await res.json()) as ApiEnvelope<{ binding: MarketingDataSourceBinding }>;
+      if (!res.ok || !body.success || !body.data) {
+        throw new Error(body.error?.message || "Failed to revoke workbook");
+      }
+      toast.success("Workbook access revoked for this organisation");
+      await refreshList();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to revoke workbook");
     } finally {
       setBusy(false);
     }
@@ -222,9 +248,24 @@ export function MarketingDataSourcesPanel() {
               FIXTURE MODE — controlled non-production dataset. Not live Google Sheets.
             </p>
           ) : null}
-          {mode?.sourceStatus === "NOT_CONFIGURED" ? (
+          {mode?.sourceStatus === "NOT_CONFIGURED" || mode?.connectionState === "CONFIGURATION_REQUIRED" ? (
             <p className="mt-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2 font-semibold text-destructive">
-              NOT_CONFIGURED — Google Sheets is not available. Fixture data is not being used.
+              Configuration Required — NOT_CONFIGURED — Google Sheets is not available. Fixture data is not being used.
+            </p>
+          ) : null}
+          {mode?.connectionState === "ACCESS_REVOKED" ? (
+            <p className="mt-2 rounded-md border border-destructive px-3 py-2 font-semibold text-destructive">
+              Access Revoked — this organisation can no longer read the authorised workbook.
+            </p>
+          ) : null}
+          {mode?.connectionState === "VALIDATION_FAILED" ? (
+            <p className="mt-2 rounded-md border border-destructive px-3 py-2 font-semibold text-destructive">
+              Validation Failed — workbook access could not be verified.
+            </p>
+          ) : null}
+          {mode?.connectionState === "CONNECTED" ? (
+            <p className="mt-2 rounded-md border border-emerald-600 px-3 py-2 font-semibold text-emerald-800">
+              Connected — operators may select active authorised workbooks for this organisation.
             </p>
           ) : null}
         </CardContent>
@@ -281,6 +322,10 @@ export function MarketingDataSourcesPanel() {
                       <dd>{selected.status}</dd>
                     </div>
                     <div>
+                      <dt className="text-xs uppercase text-muted-foreground">Connection</dt>
+                      <dd>{selected.connectionState ?? "—"}</dd>
+                    </div>
+                    <div>
                       <dt className="text-xs uppercase text-muted-foreground">Last discover</dt>
                       <dd className="text-xs">{selected.lastDiscoverAt ?? "—"}</dd>
                     </div>
@@ -314,6 +359,14 @@ export function MarketingDataSourcesPanel() {
                     <Table2 className="mr-1.5 h-3.5 w-3.5" />
                     Discover tabs
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy || !selectedId}
+                    onClick={() => void revokeBinding()}
+                  >
+                    Revoke access
+                  </Button>
                 </div>
                 {health ? (
                   <p className={`text-sm ${health.ok ? "text-emerald-700" : "text-destructive"}`}>
@@ -341,15 +394,26 @@ export function MarketingDataSourcesPanel() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="mkt-ds-workbook">Authorised workbook ID</Label>
+                  <Label htmlFor="mkt-ds-workbook">Spreadsheet ID to authorise</Label>
                   <Input
                     id="mkt-ds-workbook"
-                    readOnly
-                    value={mode?.authorisedWorkbookId ?? ""}
-                    placeholder="NOT_CONFIGURED"
+                    readOnly={mode?.sourceStatus === "FIXTURE"}
+                    value={
+                      mode?.sourceStatus === "FIXTURE"
+                        ? mode?.authorisedWorkbookId ?? ""
+                        : newSpreadsheetId
+                    }
+                    onChange={(e) => setNewSpreadsheetId(e.target.value)}
+                    placeholder={
+                      mode?.sourceStatus === "LIVE"
+                        ? "Paste the Google Spreadsheet ID (not a Drive folder URL)"
+                        : "NOT_CONFIGURED"
+                    }
                   />
                   <p className="text-xs text-muted-foreground">
-                    {mode?.authorisedWorkbookDisplayName ?? "No authorised workbook is configured."}
+                    {mode?.sourceStatus === "LIVE"
+                      ? "Administrators register specific spreadsheet IDs. Arbitrary Drive browsing is blocked. Credentials stay on the server."
+                      : mode?.authorisedWorkbookDisplayName ?? "No authorised workbook is configured."}
                   </p>
                 </div>
                 <Button

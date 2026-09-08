@@ -60,6 +60,9 @@ export type MarketingAudienceDefinition = {
   mappingConfirmed: boolean;
   suppressionPolicy: MarketingSuppressionPolicy;
   eligibilityRules: MarketingEligibilityRules;
+  lastSnapshotId?: string | null;
+  lastSnapshotHash?: string | null;
+  campaignId?: string | null;
   createdAt: string;
   updatedAt: string;
 };

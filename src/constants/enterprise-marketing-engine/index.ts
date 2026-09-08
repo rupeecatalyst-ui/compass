@@ -48,7 +48,10 @@ export {
   MARKETING_FIXTURE_WORKBOOK_ID,
   MARKETING_NOT_CONFIGURED_LABEL,
   MARKETING_SHEETS_SOURCE_STATUSES,
+  MARKETING_WORKBOOK_CONNECTION_LABELS,
+  MARKETING_WORKBOOK_CONNECTION_STATES,
   type MarketingSheetsSourceStatus,
+  type MarketingWorkbookConnectionState,
 } from "./authorised-workbook";
 
 export {
