@@ -18,6 +18,11 @@ export interface DocumentEntityLinks {
   participantId?: string;
   /** CO-ARCH — applicant | shared | lender (BAT #23) */
   documentScope?: "applicant" | "shared" | "lender";
+  participantRole?: string;
+  /** ECM Contact / Company id for applicant ownership. Never match by display name. */
+  ownerEntityId?: string;
+  inboundEmailId?: string;
+  inboundAttachmentId?: string;
   /** Canonical Enterprise Deal id when the record is Deal / lender-specific. */
   dealId?: string;
   /** Company registry id for business/entity-owned documents. */

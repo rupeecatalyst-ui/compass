@@ -6,13 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   FolderUp,
-  Maximize2,
-  Minimize2,
   PanelRight,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +21,6 @@ import {
 import {
   DOCUMENT_WORKSPACE_CHANGE_TRANSACTION,
   DOCUMENT_WORKSPACE_DRAFT_WARNING,
-  DOCUMENT_WORKSPACE_OWNER_TABS,
   DOCUMENT_WORKSPACE_STALE_CONTEXT,
   DOCUMENT_WORKSPACE_SUBTITLE,
   DOCUMENT_WORKSPACE_TITLE,
@@ -52,7 +48,6 @@ import {
   canReviewDocuments,
   canUploadDocuments,
   deleteDocumentFromRegistry,
-  downloadDocumentFromRegistry,
   hydrateDocumentRegistryFromServer,
   listDocumentsForOpportunityRuntime,
   reclassifyDocumentRegistryRecord,
@@ -116,10 +111,25 @@ import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-cli
 import type { LoanFile } from "@/types/catalyst-one";
 import { uploadFolderAsDocumentPackage } from "@/lib/document-package";
 import { DocumentWorkspaceOpsBar, DocumentWorkspaceRowDialogs } from "@/components/catalyst-one/document-workspace/document-workspace-ops-bar";
+import { DocumentWorkspaceLinkedParties } from "@/components/catalyst-one/document-workspace/document-workspace-linked-parties";
+import { DocumentWorkspaceMailbox } from "@/components/catalyst-one/document-workspace/document-workspace-mailbox";
+import { DocumentWorkspaceSelectionBar } from "@/components/catalyst-one/document-workspace/document-workspace-selection-bar";
 import {
   buildContact360Href,
   groupDocumentWorkspaceRowsByCategory,
 } from "@/lib/document-workspace";
+import {
+  defaultLinkedPartyKey,
+  mergeLinkedParties,
+  partyMatchesRow,
+  type DocumentWorkspaceLinkedParty,
+} from "@/lib/document-workspace/linked-parties";
+import { validateLockedDocumentSelection } from "@/lib/document-workspace/selection";
+import { inboundEmailVersionKey } from "@/lib/document-workspace/inbound-email-new";
+import { downloadTemporaryDocumentWorkspaceZip } from "@/lib/document-workspace/temporary-zip";
+import { DOCUMENT_WORKSPACE_NEW_FROM_EMAIL_BADGE, DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL, DOCUMENT_WORKSPACE_SENDER_CC_MISSING } from "@/constants/document-workspace-refinement-014";
+import { authenticatedJsonFetch } from "@/lib/api-client";
+import { Mail } from "lucide-react";
 import type { OutboxMessage } from "@/types/enterprise-action-center";
 
 export function DocumentWorkspace() {
@@ -161,7 +171,10 @@ export function DocumentWorkspace() {
   const [secureLink, setSecureLink] = useState("");
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [pendingSwitch, setPendingSwitch] = useState<DocumentWorkspaceContextInput | null>(null);
-  const [deskExpanded, setDeskExpanded] = useState(false);
+  const [linkedParties, setLinkedParties] = useState<DocumentWorkspaceLinkedParty[]>([]);
+  const [activePartyKey, setActivePartyKey] = useState("primary");
+  const [mailbox, setMailbox] = useState<"request" | "send" | null>(null);
+  const [inboundNewIds, setInboundNewIds] = useState<string[]>([]);
   const [rowDialog, setRowDialog] = useState<{
     row: DocumentWorkspaceRow;
     mode: "replace" | "remove" | "email" | "note";
@@ -226,6 +239,52 @@ export function DocumentWorkspace() {
       cancelled = true;
     };
   }, [contextKey, opportunityId, dealIdFromUrl, searchParams]);
+
+  useEffect(() => {
+    if (!lock?.opportunityId) {
+      setLinkedParties([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await authenticatedJsonFetch(
+          `/api/document-workspace/refinement-014?opportunityId=${encodeURIComponent(lock.opportunityId)}&dealId=${encodeURIComponent(lock.dealId || "")}`,
+        );
+        const json = await res.json().catch(() => ({}));
+        const data = json?.data ?? json;
+        if (cancelled || !data?.parties) return;
+        setLinkedParties(data.parties as DocumentWorkspaceLinkedParty[]);
+        setActivePartyKey((current) =>
+          (data.parties as DocumentWorkspaceLinkedParty[]).some((p) => p.key === current)
+            ? current
+            : data.defaultKey || defaultLinkedPartyKey(data.parties),
+        );
+      } catch {
+        if (!cancelled) {
+          const fallback = mergeLinkedParties({
+            opportunityParticipants: [],
+            lockKind: lock.dealId ? "deal" : "opportunity",
+          });
+          setLinkedParties(fallback);
+          setActivePartyKey(defaultLinkedPartyKey(fallback));
+        }
+      }
+      try {
+        const inbound = await authenticatedJsonFetch(
+          `/api/document-workspace/refinement-014?view=inbound-new&opportunityId=${encodeURIComponent(lock.opportunityId)}&dealId=${encodeURIComponent(lock.dealId || "")}`,
+        );
+        const json = await inbound.json().catch(() => ({}));
+        const unseen = (json?.data?.unseen ?? []) as Array<{ documentId: string }>;
+        if (!cancelled) setInboundNewIds(unseen.map((row) => row.documentId));
+      } catch {
+        if (!cancelled) setInboundNewIds([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lock?.opportunityId, lock?.dealId]);
 
   useEffect(() => {
     const transition = documentWorkspaceTransientUiAfterFingerprintChange({
@@ -327,9 +386,33 @@ export function DocumentWorkspace() {
     [requestState?.lodItems],
   );
   const unclassified = useMemo(() => listUnclassifiedReceivedDocuments(records), [records]);
+  const parties = useMemo(
+    () =>
+      linkedParties.length
+        ? linkedParties
+        : mergeLinkedParties({
+            opportunityParticipants: participants,
+            lockKind: dealId ? "deal" : "opportunity",
+          }),
+    [linkedParties, participants, dealId],
+  );
+  const activeParty = parties.find((p) => p.key === activePartyKey) ?? parties.find((p) => p.selectable) ?? null;
   const tabRows = useMemo(
-    () => rows.filter((row) => row.ownerTab === ownerTab),
-    [rows, ownerTab],
+    () =>
+      rows.filter((row) =>
+        activeParty
+          ? partyMatchesRow({
+              party: activeParty,
+              ownerTab: row.ownerTab,
+            ownerEntityId: row.record?.links.ownerEntityId || row.record?.links.contactId || row.record?.links.companyId,
+            participantRowId: row.record?.links.participantId || row.lodItem?.participantId,
+            participantRole: row.record?.links.participantRole,
+              contactId: row.record?.links.contactId,
+              companyId: row.record?.links.companyId,
+            })
+          : row.ownerTab === ownerTab,
+      ),
+    [rows, activeParty, ownerTab],
   );
   const previewRow = rows.find((row) => row.id === previewId) || null;
   const selectedRows = rows.filter((row) => selectedIds.includes(row.id));
@@ -373,10 +456,6 @@ export function DocumentWorkspace() {
     });
   };
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
   const uploadToRow = async (row: DocumentWorkspaceRow, files: FileList | File[]) => {
     if (!file || !canUploadDocuments(user)) {
       toast.error("You do not have permission to upload documents.");
@@ -392,14 +471,25 @@ export function DocumentWorkspace() {
         uploadedByUserId: user?.id,
         links: {
           ...buildEntityLinksFromLoanFile(file, {
-            participantId: row.lodItem?.participantId,
+            participantId: row.lodItem?.participantId || activeParty?.participantRowId,
+            ownerEntityId:
+              activeParty?.key === "shared" || activeParty?.key === "property"
+                ? undefined
+                : activeParty?.entityId || lock?.contactId,
             documentScope:
-              row.ownerTab === "shared" || row.ownerTab === "property" ? "shared" : "applicant",
+              row.ownerTab === "shared" || row.ownerTab === "property" || activeParty?.key === "shared" || activeParty?.key === "property"
+                ? "shared"
+                : "applicant",
           }),
           opportunityId: lockedOpportunityId,
           dealId: dealId || undefined,
-          contactId: lock?.contactId || undefined,
+          contactId:
+            activeParty?.key === "shared" || activeParty?.key === "property"
+              ? undefined
+              : activeParty?.entityId || lock?.contactId || undefined,
           companyId: lock?.companyId || undefined,
+          participantRole: activeParty?.entityKind === "context" ? undefined : activeParty?.role,
+          ownerEntityId: activeParty?.entityKind === "context" ? undefined : activeParty?.entityId || undefined,
         },
         replaceRecordId: row.registryRecordId,
         uploadSource: "manual_upload",
@@ -489,6 +579,31 @@ export function DocumentWorkspace() {
       });
       const link = `${window.location.origin}${buildCustomerUploadPortalPath(session.uploadSession!.token)}`;
       setSecureLink(link);
+      void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "create_request",
+          opportunityId: lockedOpportunityId,
+          dealId: dealId || null,
+          partyEntityId: activeParty?.entityId || lock?.contactId || "",
+          partyEntityKind: activeParty?.entityKind === "company" ? "company" : "contact",
+          participantRowId: activeParty?.participantRowId,
+          participantRole: activeParty?.role,
+          items: target.map((row) => ({
+            typeRef: row.typeRef,
+            categoryLabel: row.categoryLabel,
+            requestRef: row.requestRef || row.typeRef,
+          })),
+        }),
+      })
+        .then(async (res) => {
+          const json = await res.json().catch(() => ({}));
+          const data = json?.data ?? json;
+          if (data?.uploadPath) {
+            setSecureLink(`${window.location.origin}${data.uploadPath}`);
+          }
+        })
+        .catch(() => undefined);
       recordDocumentWorkspaceRequestBatch({
         opportunityId: lockedOpportunityId,
         dealId: dealId || null,
@@ -503,23 +618,26 @@ export function DocumentWorkspace() {
         uploadToken: session.uploadSession?.token,
       });
       toast.message("Request drafted. Nothing has been sent.");
+      setMailbox("request");
       return;
     }
     if (id === "custom_email" || id === "template_email") {
-      const queued = queueOutboxMessage({
-        channel: "email",
-        entityType: "opportunity",
-        entityId: lockedOpportunityId,
-        recipientId: commParticipants[0]?.id || "customer",
-        recipientName: commParticipants[0]?.name || lock?.customerName || file?.customerName || "Customer",
-        recipientType: "customer",
-        subject: "Document request",
-        body: groupedDraft || buildGrouped(target),
+      const selection = validateLockedDocumentSelection({
+        organizationId: lock?.organizationId || "",
+        opportunityId: lockedOpportunityId,
+        dealId: dealId || null,
+        selected: selectedRows.map((row) => ({
+          id: row.id,
+          organizationId: lock?.organizationId,
+          opportunityId: row.record?.links.opportunityId || lockedOpportunityId,
+          dealId: row.record?.links.dealId || dealId || null,
+        })),
       });
-      pauseOutboxCountdown(queued.id);
-      setEditingMessage(queued);
-      setComposerFingerprint(lock?.fingerprint || contextKey);
-      setComposer("email");
+      if (selectedRows.length && !selection.ok) {
+        toast.error("Selection must stay inside this locked transaction.");
+        return;
+      }
+      setMailbox("send");
       return;
     }
     if (id === "whatsapp") {
@@ -534,11 +652,22 @@ export function DocumentWorkspace() {
     }
     if (id === "download_selected" || id === "download_pack") {
       const pack = (id === "download_pack" ? rows : selectedRows).filter((row) => row.record);
-      void (async () => {
-        for (const row of pack) {
-          if (row.record) await downloadDocumentFromRegistry(row.record);
+      const records = pack.map((row) => row.record!).filter(Boolean);
+      if (!records.length) {
+        toast.error("Select documents that already have files.");
+        return;
+      }
+      void downloadTemporaryDocumentWorkspaceZip({
+        records,
+        partyFolder: activeParty?.displayName || lock?.customerName || "Documents",
+        filename: `documents-${lockedOpportunityId.slice(0, 8)}.zip`,
+      }).then((result) => {
+        if (!result.ok) {
+          toast.error(result.code === "PACKAGE_TOO_LARGE" ? "Package exceeds the allowed size." : "ZIP could not be built.");
+          return;
         }
-      })();
+        toast.message("Temporary ZIP downloaded. It was not stored in the Document Registry.");
+      });
       return;
     }
     if (id === "send_to_lender") {
@@ -606,8 +735,14 @@ export function DocumentWorkspace() {
         uploadedByUserId: user?.id,
         links: {
           ...lockedLinks,
-          participantId: input.participantId,
-          documentScope: input.participantId ? "applicant" : "shared",
+          participantId: input.participantId || (activeParty?.entityKind === "context" ? undefined : activeParty?.participantRowId || undefined),
+          documentScope:
+            activeParty?.key === "shared" || activeParty?.key === "property" || !activeParty?.entityId
+              ? "shared"
+              : "applicant",
+          ownerEntityId: activeParty?.entityId || undefined,
+          participantRole: activeParty?.entityKind === "context" ? undefined : activeParty?.role,
+          dealId: dealId || undefined,
         },
         replaceRecordId: input.replaceRecordId,
         uploadSource: "manual_upload",
@@ -728,17 +863,13 @@ export function DocumentWorkspace() {
   }
 
   const deskClass = cn(
-    "flex min-h-[calc(100dvh-4rem)] min-w-0 flex-col border-l border-border/70 bg-background",
-    deskExpanded
-      ? "fixed inset-0 z-40 w-full"
-      : "fixed inset-0 z-40 w-full lg:static lg:w-1/2 lg:min-w-[50vw] lg:max-w-none",
+    "flex min-h-[calc(100dvh-4rem)] w-full min-w-0 flex-col bg-background",
+    "fixed inset-0 z-40",
   );
 
   if (lockError) {
     return (
-      <div className="relative flex min-h-[calc(100dvh-4rem)] w-full">
-        <div className="hidden min-w-0 lg:block lg:w-1/2">{opener}</div>
-        <aside className={deskClass} data-document-workspace-desk="013">
+      <aside className={deskClass} data-document-workspace-desk="014">
         <div className="space-y-4 p-4 sm:p-6">
         <header>
           <h1 className="text-xl font-semibold tracking-tight">{DOCUMENT_WORKSPACE_TITLE}</h1>
@@ -756,34 +887,31 @@ export function DocumentWorkspace() {
         </Button>
       </div>
         </aside>
-      </div>
     );
   }
 
   if (loading && !file) {
     return (
-      <div className="relative flex min-h-[calc(100dvh-4rem)] w-full">
-        <div className="hidden min-w-0 lg:block lg:w-1/2">{opener}</div>
-        <aside className={deskClass} data-document-workspace-desk="013">
+      <aside className={deskClass} data-document-workspace-desk="014">
       <ChanakyaLoadingExperience
         module="documents"
         statusLabel="Opening Document Workspace…"
       />
         </aside>
-      </div>
     );
   }
 
   return (
-    <div className="relative flex min-h-[calc(100dvh-4rem)] w-full">
-      <div className={cn("min-w-0", deskExpanded ? "hidden" : "hidden lg:block lg:w-1/2")}>{opener}</div>
-      <aside className={deskClass} data-document-workspace-desk="013">
+    <aside className={deskClass} data-document-workspace-desk="014">
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
       <header className="border-b border-border/60 px-4 py-3 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">{DOCUMENT_WORKSPACE_TITLE}</h1>
-            <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_SUBTITLE}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Contact</p>
+            <h1 className="text-2xl font-semibold tracking-tight" data-document-workspace-contact-name="">
+              {lock?.customerName || contextLabel}
+            </h1>
+            <p className="text-xs text-muted-foreground">{DOCUMENT_WORKSPACE_TITLE} · {DOCUMENT_WORKSPACE_SUBTITLE}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {contactHref ? (
@@ -798,15 +926,8 @@ export function DocumentWorkspace() {
             <Link href={oppHref} className="text-xs text-muted-foreground underline-offset-4 hover:underline">
               Open Opportunity
             </Link>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              data-document-workspace-expand=""
-              onClick={() => setDeskExpanded((v) => !v)}
-            >
-              {deskExpanded ? <Minimize2 className="mr-1 h-3.5 w-3.5" /> : <Maximize2 className="mr-1 h-3.5 w-3.5" />}
-              {deskExpanded ? "Half workspace" : "Expand workspace"}
+            <Button type="button" size="sm" variant="outline" className="lg:hidden" onClick={() => setActionOpen(true)}>
+              Document List
             </Button>
             <Button type="button" size="sm" variant="outline" onClick={() => applyLockedHref({})}>
               {DOCUMENT_WORKSPACE_CHANGE_TRANSACTION}
@@ -815,6 +936,7 @@ export function DocumentWorkspace() {
               type="button"
               size="sm"
               variant="outline"
+              className="lg:hidden"
               onClick={() => {
                 savedScroll.current = tableScrollRef.current?.scrollTop ?? 0;
                 persistRestore();
@@ -848,7 +970,7 @@ export function DocumentWorkspace() {
           <Summary label="Readiness" value={`${readiness.label} · ${readiness.completionPct}%`} />
           <Summary
             label="Counts"
-            value={`R ${counts.received} · P ${counts.pending} · U ${counts.under_review} · X ${counts.rejected} · E ${counts.expired}`}
+            value={`R ${counts.received} · P ${counts.pending} · U ${counts.under_review} · X ${counts.rejected} · E ${counts.expired}${inboundNewIds.length ? ` · ${inboundNewIds.length} new email documents` : ""}`}
           />
         </dl>
         {unclassified.length > 0 ? (
@@ -868,36 +990,54 @@ export function DocumentWorkspace() {
         ) : null}
       </header>
 
-      <Tabs
-        value={ownerTab}
-        onValueChange={(v) => {
-          const next = v as DocumentWorkspaceOwnerTabId;
-          setOwnerTab(next);
-          applyLockedHref({
-            ...request,
-            opportunityId: lockedOpportunityId,
-            dealId: dealId || null,
-            ownerTab: next,
-            documentId: previewId,
-          });
-        }}
-      >
-        <div className="overflow-x-auto border-b border-border/60 px-4 py-2 sm:px-6">
-          <TabsList className="h-8">
-            {DOCUMENT_WORKSPACE_OWNER_TABS.map((tab) => (
-              <TabsTrigger key={tab.id} value={tab.id} className="text-xs">
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-      </Tabs>
+      <div className="hidden border-b border-border/60 px-4 py-2 sm:px-6 lg:block">
+        <DocumentWorkspaceLinkedParties
+          parties={parties}
+          activeKey={activePartyKey}
+          onSelect={(party) => {
+            setActivePartyKey(party.key);
+            setOwnerTab(
+              party.key === "shared"
+                ? "shared"
+                : party.key === "property"
+                  ? "property"
+                  : party.role === "co_applicant"
+                    ? "co_applicants"
+                    : party.role === "guarantor"
+                      ? "guarantors"
+                      : party.role === "company"
+                        ? "business"
+                        : "primary",
+            );
+          }}
+        />
+      </div>
+      <div className="border-b border-border/60 px-4 py-2 lg:hidden">
+        <select
+          className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+          value={activePartyKey}
+          onChange={(e) => {
+            const party = parties.find((item) => item.key === e.target.value);
+            if (party?.selectable) setActivePartyKey(party.key);
+          }}
+          aria-label="Linked Parties"
+        >
+          {parties.map((party) => (
+            <option key={party.key} value={party.key} disabled={!party.selectable}>
+              {party.displayName} · {party.roleLabel}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <div className={cn("flex min-h-0 flex-1", previewRow ? "lg:grid lg:grid-cols-2" : "")}>
+      <div className={cn("flex min-h-0 flex-1", previewRow ? "lg:grid lg:grid-cols-[minmax(12rem,22%)_minmax(0,1fr)_minmax(16rem,24%)]" : "lg:grid lg:grid-cols-[minmax(0,76%)_minmax(16rem,24%)]")}>
         <div
           ref={tableScrollRef}
           key={`document-workspace-rows:${registryTick}:${requestTick}`}
-          className="min-w-0 flex-1 overflow-auto px-4 py-3 sm:px-6"
+          className={cn(
+            "min-w-0 flex-1 overflow-auto px-4 py-3 sm:px-6",
+            previewRow && "max-lg:hidden",
+          )}
         >
           <DocumentWorkspaceOpsBar
             canUpload={canUploadDocuments(user)}
@@ -906,6 +1046,12 @@ export function DocumentWorkspace() {
             onFolderFiles={(files) => void onFolderFiles(files)}
             onOtherSave={(input) => void onOtherSave(input)}
             onAttachInbound={onAttachInbound}
+          />
+          <DocumentWorkspaceSelectionBar
+            selectedCount={selectedIds.length}
+            onClear={() => setSelectedIds([])}
+            onRequest={() => onAction("request_selected")}
+            onSend={() => onAction("custom_email")}
           />
           <table className="w-full min-w-[64rem] text-left text-xs" data-category-groups={String(groupedTabRows.size)}>
             <thead className="sticky top-0 bg-background">
@@ -924,18 +1070,59 @@ export function DocumentWorkspace() {
               </tr>
             </thead>
             <tbody>
-              {tabRows.map((row) => (
-                <tr key={row.id} className="border-b border-border/50 align-top">
+              {tabRows.map((row) => {
+                const inboundNew = Boolean(row.record && inboundNewIds.includes(row.record.id));
+                return (
+                <tr
+                  key={row.id}
+                  className={cn(
+                    "border-b border-border/50 align-top",
+                    inboundNew && "bg-amber-50/80 dark:bg-amber-950/30",
+                  )}
+                >
                   <td className="py-2">
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(row.id)}
-                      onChange={() => toggleSelect(row.id)}
+                      onChange={() => {
+                        const next = selectedIds.includes(row.id)
+                          ? selectedIds.filter((x) => x !== row.id)
+                          : [...selectedIds, row.id];
+                        const check = validateLockedDocumentSelection({
+                          organizationId: lock?.organizationId || "",
+                          opportunityId: lockedOpportunityId,
+                          dealId: dealId || null,
+                          selected: rows
+                            .filter((item) => next.includes(item.id))
+                            .map((item) => ({
+                              id: item.id,
+                              organizationId: lock?.organizationId,
+                              opportunityId: item.record?.links.opportunityId || lockedOpportunityId,
+                              dealId: item.record?.links.dealId || dealId || null,
+                            })),
+                        });
+                        if (next.length && !check.ok) {
+                          toast.error("Selection must stay inside this locked transaction.");
+                          return;
+                        }
+                        setSelectedIds(next);
+                      }}
                       aria-label={`Select ${row.typeLabel}`}
                     />
                   </td>
                   <td className="py-2">
-                    <p className="font-medium">{row.typeLabel}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{row.typeLabel}</p>
+                      <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={() => openPreview(row.id)}>
+                        Preview
+                      </Button>
+                      {inboundNew ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-900">
+                          <Mail className="h-3 w-3" />
+                          {DOCUMENT_WORKSPACE_NEW_FROM_EMAIL_BADGE}
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="text-muted-foreground">{row.categoryLabel}</p>
                   </td>
                   <td className="py-2">{row.ownerLabel}</td>
@@ -1036,9 +1223,37 @@ export function DocumentWorkspace() {
                         />
                       </label>
                     </div>
+                    {inboundNew && row.record ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="mt-1 h-7 px-2"
+                        onClick={() => {
+                          const version = row.record?.versions.find((v) => v.isCurrent) ?? row.record?.versions[0];
+                          void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+                            method: "POST",
+                            body: JSON.stringify({
+                              action: "mark_seen",
+                              documentId: row.record?.id,
+                              versionKey: inboundEmailVersionKey({
+                                versionId: version?.id,
+                                versionNumber: version?.version,
+                                uploadedAt: version?.uploadedAt,
+                              }),
+                            }),
+                          }).then(() => {
+                            setInboundNewIds((ids) => ids.filter((id) => id !== row.record?.id));
+                          });
+                        }}
+                      >
+                        {DOCUMENT_WORKSPACE_MARK_AS_SEEN_LABEL}
+                      </Button>
+                    ) : null}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {tabRows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-10 text-center text-muted-foreground">
@@ -1057,11 +1272,18 @@ export function DocumentWorkspace() {
             onAccept={() => applyReview(previewRow, "accepted")}
             onReject={(reason) => applyReview(previewRow, "rejected", reason)}
             onRequestReplacement={(reason) => applyReview(previewRow, "replacement_requested", reason)}
-            fullscreen={fullscreen}
+            fullscreen={fullscreen || (typeof window !== "undefined" && window.innerWidth < 1024)}
             onToggleFullscreen={() => setFullscreen((v) => !v)}
+            onPrevious={() => {
+              const idx = tabRows.findIndex((row) => row.id === previewRow.id);
+              if (idx > 0) openPreview(tabRows[idx - 1]!.id);
+            }}
+            onNext={() => {
+              const idx = tabRows.findIndex((row) => row.id === previewRow.id);
+              if (idx >= 0 && idx < tabRows.length - 1) openPreview(tabRows[idx + 1]!.id);
+            }}
           />
         ) : null}
-      </div>
 
       <DocumentWorkspaceActionDrawer
         open={actionOpen}
@@ -1100,6 +1322,7 @@ export function DocumentWorkspace() {
           contactId: lock?.contactId || file?.customerId,
         }}
       />
+      </div>
 
       {composer === "email" && file ? (
         <EmailContextWorkspace
@@ -1163,6 +1386,81 @@ export function DocumentWorkspace() {
           }}
         />
       ) : null}
+
+      <DocumentWorkspaceMailbox
+        open={Boolean(mailbox)}
+        mode={mailbox === "request" ? "request" : "send"}
+        fromEmail={user?.email || ""}
+        senderCc={user?.email || ""}
+        initialTo={activeParty?.email || ""}
+        attachments={selectedRows.map((row) => ({
+          id: row.id,
+          filename: row.record?.displayName || row.typeLabel,
+          versionLabel: `v${row.record?.versions.find((v) => v.isCurrent)?.version ?? row.record?.version ?? 1}`,
+        }))}
+        requestedList={selectedRows.map((row) => row.typeLabel)}
+        secureLink={mailbox === "request" ? secureLink : undefined}
+        onClose={() => setMailbox(null)}
+        onSaveDraft={({ subject, htmlBody }) => {
+          const queued = queueOutboxMessage({
+            channel: "email",
+            entityType: "opportunity",
+            entityId: lockedOpportunityId,
+            recipientId: activeParty?.entityId || "customer",
+            recipientName: activeParty?.displayName || lock?.customerName || "Customer",
+            recipientType: "customer",
+            subject,
+            body: htmlBody,
+          });
+          pauseOutboxCountdown(queued.id);
+          toast.message("Draft saved to Outbox. Nothing has been sent.");
+        }}
+        onQueue={({ to, cc, subject, htmlBody, zip }) => {
+          void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+            method: "POST",
+            body: JSON.stringify({
+              action: "compose_validate",
+              to,
+              cc,
+              htmlBody,
+            }),
+          }).then(async (res) => {
+            const json = await res.json().catch(() => ({}));
+            const data = json?.data ?? json;
+            if (!data?.ok) {
+              toast.error(data?.message || DOCUMENT_WORKSPACE_SENDER_CC_MISSING);
+              return;
+            }
+            const queued = queueOutboxMessage({
+              channel: "email",
+              entityType: "opportunity",
+              entityId: lockedOpportunityId,
+              recipientId: activeParty?.entityId || "customer",
+              recipientName: to[0] || lock?.customerName || "Customer",
+              recipientType: "customer",
+              subject,
+              body: data.text || htmlBody,
+            });
+            pauseOutboxCountdown(queued.id);
+            void authenticatedJsonFetch("/api/document-workspace/refinement-014", {
+              method: "POST",
+              body: JSON.stringify({
+                action: "share_event",
+                opportunityId: lockedOpportunityId,
+                dealId: dealId || null,
+                recipientLabel: to[0] || "Recipient",
+                recipientEmail: to[0] || null,
+                documentIds: selectedRows.map((row) => row.record?.id).filter(Boolean),
+                versionIds: selectedRows.map((row) => row.record?.versions.find((v) => v.isCurrent)?.id).filter(Boolean),
+                attachmentMode: zip ? "zip" : "individual",
+                outboxId: queued.id,
+              }),
+            });
+            toast.message("Queued to Outbox (paused). No email or OTP was sent.");
+            setMailbox(null);
+          });
+        }}
+      />
 
       <Dialog open={Boolean(pendingSwitch)} onOpenChange={(open) => !open && setPendingSwitch(null)}>
         <DialogContent className="sm:max-w-md" allowOutsideClose>
@@ -1252,8 +1550,7 @@ export function DocumentWorkspace() {
         }}
       />
     </div>
-      </aside>
-    </div>
+    </aside>
   );
 }
 

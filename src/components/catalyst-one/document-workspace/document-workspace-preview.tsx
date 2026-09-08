@@ -35,6 +35,8 @@ export function DocumentWorkspacePreview({
   onRequestReplacement,
   fullscreen,
   onToggleFullscreen,
+  onPrevious,
+  onNext,
 }: {
   row: DocumentWorkspaceRow;
   canReview: boolean;
@@ -44,6 +46,8 @@ export function DocumentWorkspacePreview({
   onRequestReplacement: (reason: string) => void;
   fullscreen: boolean;
   onToggleFullscreen: () => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
 }) {
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
@@ -99,7 +103,7 @@ export function DocumentWorkspacePreview({
   return (
     <aside
       className={cn(
-        "flex min-h-[28rem] flex-col border-l border-border/70 bg-background",
+        "flex min-h-[80vh] flex-1 flex-col border-l border-border/70 bg-background",
         fullscreen && "fixed inset-0 z-[90] min-h-0 border-l-0",
       )}
       aria-label="Document preview"
@@ -113,6 +117,12 @@ export function DocumentWorkspacePreview({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1">
+          <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={onPrevious} disabled={!onPrevious}>
+            Prev
+          </Button>
+          <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={onNext} disabled={!onNext}>
+            Next
+          </Button>
           <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={() => setZoom((z) => Math.max(50, z - 10))}>
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
@@ -189,7 +199,7 @@ export function DocumentWorkspacePreview({
               <iframe
                 title={row.typeLabel}
                 src={previewUrl!}
-                className="h-full min-h-[24rem] w-full rounded-md border border-border/50 bg-white"
+                className="h-[min(82vh,calc(100dvh-12rem))] min-h-[24rem] w-full rounded-md border border-border/50 bg-white"
                 style={{ transform: `rotate(${rotation}deg) scale(${zoom / 100})`, transformOrigin: "top center" }}
               />
             )
@@ -231,7 +241,7 @@ export function DocumentWorkspacePreview({
           </Button>
           <span className="ml-auto hidden text-[10px] text-muted-foreground sm:inline">
             <Expand className="mr-1 inline h-3 w-3" />
-            Preview uses about half the workspace. Closing restores the registry.
+            Preview occupies most of the workspace. Closing restores the registry list.
           </span>
         </div>
       </footer>

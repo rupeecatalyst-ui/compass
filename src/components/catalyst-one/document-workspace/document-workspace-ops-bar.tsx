@@ -61,7 +61,7 @@ export function DocumentWorkspaceOpsBar({
 
   return (
     <div
-      data-document-workspace-ops="013"
+      data-document-workspace-ops="014"
       className="mb-3 flex flex-wrap items-center gap-2 border-b border-border/60 pb-3"
     >
       <Button

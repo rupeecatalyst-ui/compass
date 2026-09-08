@@ -24,6 +24,15 @@ export {
 export { mergeDocumentWorkspaceRows } from "./merge-rows";
 export type { DocumentWorkspaceRow } from "./merge-rows";
 export {
+  mergeLinkedParties,
+  defaultLinkedPartyKey,
+  partyMatchesRow,
+} from "./linked-parties";
+export type { DocumentWorkspaceLinkedParty } from "./linked-parties";
+export { validateLockedDocumentSelection } from "./selection";
+export { planDocumentWorkspaceZip } from "./zip-package";
+export { filterUnseenInboundEmailDocuments, inboundEmailVersionKey } from "./inbound-email-new";
+export {
   deriveDocumentWorkspaceCategoryReadiness,
   groupDocumentWorkspaceRowsByCategory,
   summarizeDocumentWorkspaceCategoryReadiness,

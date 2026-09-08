@@ -789,6 +789,10 @@ export function buildEntityLinksFromLoanFile(
     ...(documentScope === "applicant" && ownerEntityId && file.customerId !== ownerEntityId
       ? { companyId: ownerEntityId }
       : {}),
+    ...(scope && "participantRole" in (scope as object) && (scope as { participantRole?: string }).participantRole
+      ? { participantRole: (scope as { participantRole?: string }).participantRole }
+      : {}),
+    ...(ownerEntityId ? { ownerEntityId } : {}),
   };
 }
 

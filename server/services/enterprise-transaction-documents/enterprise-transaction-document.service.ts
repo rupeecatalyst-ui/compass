@@ -29,6 +29,11 @@ export type DurableDocumentInput = {
   contactId?: string | null;
   customerId?: string | null;
   participantId?: string | null;
+  participantRole?: string | null;
+  ownerEntityId?: string | null;
+  dealId?: string | null;
+  inboundEmailId?: string | null;
+  inboundAttachmentId?: string | null;
   lenderId?: string | null;
   documentScope?: string | null;
   typeRef: string;
@@ -55,6 +60,11 @@ export type DurableDocumentDto = {
   contactId?: string | null;
   customerId?: string | null;
   participantId?: string | null;
+  participantRole?: string | null;
+  ownerEntityId?: string | null;
+  dealId?: string | null;
+  inboundEmailId?: string | null;
+  inboundAttachmentId?: string | null;
   lenderId?: string | null;
   documentScope: string;
   typeRef: string;
@@ -87,6 +97,11 @@ type EtdRow = {
   contactId: string | null;
   customerId: string | null;
   participantId: string | null;
+  participantRole: string | null;
+  ownerEntityId: string | null;
+  dealId: string | null;
+  inboundEmailId: string | null;
+  inboundAttachmentId: string | null;
   lenderId: string | null;
   documentScope: string;
   typeRef: string;
@@ -131,6 +146,11 @@ function serialize(row: EtdRow, includeContent: boolean): DurableDocumentDto {
     contactId: row.contactId,
     customerId: row.customerId,
     participantId: row.participantId,
+    participantRole: row.participantRole,
+    ownerEntityId: row.ownerEntityId,
+    dealId: row.dealId,
+    inboundEmailId: row.inboundEmailId,
+    inboundAttachmentId: row.inboundAttachmentId,
     lenderId: row.lenderId,
     documentScope: row.documentScope,
     typeRef: row.typeRef,
@@ -310,6 +330,11 @@ export const enterpriseTransactionDocumentService = {
       contactId: input.contactId ?? null,
       customerId: input.customerId ?? null,
       participantId: input.participantId ?? null,
+      participantRole: input.participantRole ?? null,
+      ownerEntityId: input.ownerEntityId ?? null,
+      dealId: input.dealId ?? null,
+      inboundEmailId: input.inboundEmailId ?? null,
+      inboundAttachmentId: input.inboundAttachmentId ?? null,
       lenderId: input.lenderId ?? null,
       documentScope: input.documentScope || "applicant",
       typeRef: input.typeRef,

@@ -59,10 +59,9 @@ export function DocumentWorkspaceActionDrawer({
   const deal = deals.find((d) => d.id === selectedDealId) ?? deals[0];
   const recipients = useMemo(() => (deal ? mapDealLenderRecipients(deal) : []), [deal]);
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col sm:max-w-md" allowOutsideClose>
-        <SheetHeader>
+  const body = (
+    <>
+        <SheetHeader className="text-left">
           <SheetTitle>Action Centre</SheetTitle>
           <p className="text-xs text-muted-foreground">
             {selectedCount} selected. Opening an action does not send.
@@ -188,8 +187,28 @@ export function DocumentWorkspaceActionDrawer({
             </Button>
           </div>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </>
+  );
+
+  return (
+    <>
+      <aside
+        className="hidden min-h-0 overflow-y-auto border-l border-border/70 bg-background p-3 lg:flex lg:flex-col"
+        data-document-workspace-action-centre="014"
+        aria-label="Action Centre"
+      >
+        {body}
+      </aside>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col sm:max-w-sm lg:hidden"
+          allowOutsideClose
+        >
+          {body}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
