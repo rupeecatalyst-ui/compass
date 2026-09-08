@@ -9,7 +9,6 @@ import {
 } from "@/constants/document-package";
 import {
   deleteDocumentFromRegistry,
-  downloadDocumentFromRegistry,
   getDocumentBlob,
   getDocumentPreviewUrl,
   getDocumentRegistryRecord,
@@ -29,7 +28,6 @@ import {
   getDocumentPackage,
   softDeleteDocumentPackage,
   removeDocumentIdFromPackage,
-  renameDocumentPackage,
   updateDocumentPackage,
 } from "./store";
 import { syncDocumentPackageToServer } from "./server-sync";
@@ -297,7 +295,7 @@ export async function deleteDocumentPackageWithContents(input: {
   if (input.deleteContainedFiles) {
     for (const docId of [...pkg.documentIds]) {
       const record = getDocumentRegistryRecord(docId);
-      await deleteDocumentFromRegistry(docId);
+      await deleteDocumentFromRegistry(docId, "Removed from Document Package");
       if (record) {
         removeDocumentIdFromPackage(pkg.id, docId, record.fileSizeBytes);
         appendDocumentPackageTimeline({

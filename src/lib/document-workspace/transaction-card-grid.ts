@@ -332,3 +332,19 @@ export function writeDocumentWorkspaceCardGridState(
     /* quota / private mode */
   }
 }
+
+/** Return keyboard focus to the View Documents control that opened the desk. */
+export function restoreDocumentWorkspaceViewDocumentsFocus(): void {
+  if (typeof document === "undefined") return;
+  const lastKey = readDocumentWorkspaceCardGridState()?.lastCardKey;
+  if (!lastKey) return;
+  const escaped =
+    typeof CSS !== "undefined" && typeof CSS.escape === "function"
+      ? CSS.escape(lastKey)
+      : lastKey.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const card = document.querySelector(`[data-transaction-card-key="${escaped}"]`);
+  const trigger = card?.querySelector<HTMLElement>(
+    "[data-open-opportunity], [data-open-deal]",
+  );
+  (trigger ?? (card instanceof HTMLElement ? card : null))?.focus?.();
+}

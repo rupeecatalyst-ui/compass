@@ -246,6 +246,14 @@ model Organization {
   enterpriseDocumentObjectBlobs      EnterpriseDocumentObjectBlob[]
   /// CO-DOC-005 — Enterprise Document Package Registry (additive; migration pending approval)
   enterpriseDocumentPackages         EnterpriseDocumentPackage[]
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014 — durable request / upload / share / seen (not a document SSOT)
+  enterpriseDocumentCustomerRequests EnterpriseDocumentCustomerRequest[]
+  enterpriseDocumentUploadSessions   EnterpriseDocumentUploadSession[]
+  enterpriseDocumentShareEvents      EnterpriseDocumentShareEvent[]
+  enterpriseDocumentVersionSeen      EnterpriseDocumentVersionSeen[]
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — append-only audit + durable portal rate limits
+  enterpriseDocumentWorkspaceAuditEvents EnterpriseDocumentWorkspaceAuditEvent[]
+  enterpriseDocumentWorkspaceRateLimits  EnterpriseDocumentWorkspaceRateLimit[]
   /// CO-WP-001 — Enterprise Wealth Partner Registry (additive; Contact/Company remain identity SSOT)
   enterpriseWealthPartners                 EnterpriseWealthPartner[]
   enterpriseWealthPartnerNetworkMembers    EnterpriseWealthPartnerNetworkMember[]
@@ -4436,6 +4444,11 @@ model EnterpriseTransactionDocument {
   contactId          String?   @map("contact_id")
   customerId         String?   @map("customer_id")
   participantId      String?   @map("participant_id")
+  participantRole    String?   @map("participant_role")
+  ownerEntityId      String?   @map("owner_entity_id")
+  dealId             String?   @map("deal_id")
+  inboundEmailId     String?   @map("inbound_email_id")
+  inboundAttachmentId String?  @map("inbound_attachment_id")
   lenderId           String?   @map("lender_id")
   documentScope      String    @default("applicant") @map("document_scope")
   typeRef            String    @map("type_ref")
@@ -4456,6 +4469,21 @@ model EnterpriseTransactionDocument {
   storageProvider    String?   @map("storage_provider")
   contentHash        String?   @map("content_hash")
   contentVersion     Int       @default(1) @map("content_version")
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — recoverable deletion (binaries retained)
+  deletedAt          DateTime? @map("deleted_at")
+  deletedByUserId    String?   @map("deleted_by_user_id")
+  deletionReason     String?   @map("deletion_reason") @db.Text
+  priorStatus        String?   @map("prior_status")
+  retentionUntil     DateTime? @map("retention_until")
+  purgeEligibleAt    DateTime? @map("purge_eligible_at")
+  purgeStatus        String?   @map("purge_status")
+  restoredAt         DateTime? @map("restored_at")
+  restoredByUserId   String?   @map("restored_by_user_id")
+  restoreReason      String?   @map("restore_reason") @db.Text
+  supersededByDocumentId String? @map("superseded_by_document_id")
+  malwareScanStatus  String    @default("not_configured") @map("malware_scan_status")
+  /// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014D — inbound classification snapshot (not a second document store).
+  inboundClassificationJson Json? @map("inbound_classification_json")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
@@ -4463,8 +4491,13 @@ model EnterpriseTransactionDocument {
 
   @@unique([organizationId, clientRecordId], map: "etd_org_client_record_key")
   @@index([organizationId, opportunityId, status], map: "etd_org_opp_status_idx")
+  @@index([organizationId, deletedAt], map: "etd_org_deleted_at_idx")
+  @@index([organizationId, retentionUntil], map: "etd_org_retention_idx")
   @@index([organizationId, contactId], map: "etd_org_contact_idx")
   @@index([organizationId, storageKey], map: "etd_org_storage_key_idx")
+  @@index([organizationId, dealId], map: "etd_org_deal_idx")
+  @@index([organizationId, ownerEntityId], map: "etd_org_owner_entity_idx")
+  @@index([organizationId, inboundEmailId], map: "etd_org_inbound_email_idx")
   @@map("enterprise_transaction_documents")
 }
 
@@ -4490,6 +4523,61 @@ model EnterpriseDocumentObjectBlob {
   @@index([organizationId, opportunityId], map: "edob_org_opp_idx")
   @@index([organizationId, documentId], map: "edob_org_doc_idx")
   @@map("enterprise_document_object_blobs")
+}
+
+/// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — append-only Document Workspace audit ledger.
+/// No FK to documents/requests so history survives business-record deletion. Not editable via DW APIs.
+model EnterpriseDocumentWorkspaceAuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  actorType      String   @map("actor_type")
+  actorId        String?  @map("actor_id")
+  action         String
+  documentId     String?  @map("document_id")
+  contentVersion Int?     @map("content_version")
+  contactId      String?  @map("contact_id")
+  companyId      String?  @map("company_id")
+  opportunityId  String?  @map("opportunity_id")
+  dealId         String?  @map("deal_id")
+  requestId      String?  @map("request_id")
+  sessionId      String?  @map("session_id")
+  shareEventId   String?  @map("share_event_id")
+  sourceChannel  String?  @map("source_channel")
+  outcome        String   @default("success")
+  reason         String?  @db.Text
+  metadataJson   Json?    @map("metadata_json")
+  correlationId  String?  @map("correlation_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt], map: "edwae_org_time_idx")
+  @@index([organizationId, documentId, createdAt], map: "edwae_org_doc_time_idx")
+  @@index([organizationId, action, createdAt], map: "edwae_org_action_time_idx")
+  @@index([organizationId, opportunityId, createdAt], map: "edwae_org_opp_time_idx")
+  @@index([organizationId, correlationId], map: "edwae_org_corr_idx")
+  @@map("enterprise_document_workspace_audit_events")
+}
+
+/// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014C — durable hashed upload-portal rate windows (Postgres, multi-instance).
+model EnterpriseDocumentWorkspaceRateLimit {
+  id             String   @id @default(cuid())
+  hashedBucket   String   @map("hashed_bucket")
+  windowStart    DateTime @map("window_start")
+  windowMs       Int      @map("window_ms")
+  count          Int      @default(0)
+  maxAttempts    Int      @map("max_attempts")
+  organizationId String?  @map("organization_id")
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([hashedBucket, windowStart], map: "edwrl_bucket_window_key")
+  @@index([expiresAt], map: "edwrl_expires_idx")
+  @@index([organizationId, hashedBucket], map: "edwrl_org_bucket_idx")
+  @@map("enterprise_document_workspace_rate_limits")
 }
 
 /// CO-DOC-005 — Durable Document Package Registry (folder uploads).
@@ -5452,5 +5540,160 @@ model CompassOtpChallenge {
   @@index([organizationId, journeyRef], map: "cotp_org_journey_idx")
   @@index([organizationId, mobile, createdAt], map: "cotp_org_mobile_idx")
   @@map("compass_otp_challenges")
+}
+
+/// CO-C1-DOCUMENT-WORKSPACE-REFINEMENT-014 — durable customer document request (workflow only).
+/// Binaries remain EnterpriseTransactionDocument. ZIP bytes are never stored here.
+model EnterpriseDocumentCustomerRequest {
+  id                 String   @id @default(cuid())
+  organizationId     String   @map("organization_id")
+  opportunityId      String   @map("opportunity_id")
+  dealId             String?  @map("deal_id")
+  partyEntityId      String   @map("party_entity_id")
+  partyEntityKind    String   @map("party_entity_kind")
+  participantRowId   String?  @map("participant_row_id")
+  participantRole    String?  @map("participant_role")
+  status             String   @default("open")
+  expiresAt          DateTime @map("expires_at")
+  closedAt           DateTime? @map("closed_at")
+  closedByUserId     String?  @map("closed_by_user_id")
+  createdByUserId    String   @map("created_by_user_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  items        EnterpriseDocumentCustomerRequestItem[]
+  sessions     EnterpriseDocumentUploadSession[]
+  audits       EnterpriseDocumentRequestAudit[]
+
+  @@index([organizationId, opportunityId, status], map: "edcr_org_opp_status_idx")
+  @@index([organizationId, partyEntityId], map: "edcr_org_party_idx")
+  @@map("enterprise_document_customer_requests")
+}
+
+model EnterpriseDocumentCustomerRequestItem {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  requestId       String   @map("request_id")
+  typeRef         String   @map("type_ref")
+  categoryLabel   String   @map("category_label")
+  requestRef      String   @map("request_ref")
+  status          String   @default("requested")
+  registryRecordId String? @map("registry_record_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  request EnterpriseDocumentCustomerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, requestId], map: "edcri_org_request_idx")
+  @@map("enterprise_document_customer_request_items")
+}
+
+model EnterpriseDocumentRequestAudit {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  requestId      String   @map("request_id")
+  action         String
+  actorUserId    String?  @map("actor_user_id")
+  detail         String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  request EnterpriseDocumentCustomerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt], map: "edcra_request_created_idx")
+  @@map("enterprise_document_request_audits")
+}
+
+model EnterpriseDocumentUploadSession {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  requestId      String    @map("request_id")
+  tokenHash      String    @unique @map("token_hash")
+  tokenPrefix    String    @map("token_prefix")
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  revokedByUserId String?  @map("revoked_by_user_id")
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  request      EnterpriseDocumentCustomerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  otps         EnterpriseDocumentUploadOtp[]
+  audits       EnterpriseDocumentUploadAudit[]
+
+  @@index([organizationId, requestId, active], map: "edus_org_request_active_idx")
+  @@map("enterprise_document_upload_sessions")
+}
+
+model EnterpriseDocumentUploadOtp {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  sessionId      String    @map("session_id")
+  otpHash        String    @map("otp_hash")
+  expiresAt      DateTime  @map("expires_at")
+  attemptCount   Int       @default(0) @map("attempt_count")
+  maxAttempts    Int       @default(5) @map("max_attempts")
+  lastAttemptAt  DateTime? @map("last_attempt_at")
+  verifiedAt     DateTime? @map("verified_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  session EnterpriseDocumentUploadSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt], map: "eduo_session_created_idx")
+  @@map("enterprise_document_upload_otps")
+}
+
+model EnterpriseDocumentUploadAudit {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  sessionId      String   @map("session_id")
+  action         String
+  detail         String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  session EnterpriseDocumentUploadSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt], map: "edua_session_created_idx")
+  @@map("enterprise_document_upload_audits")
+}
+
+/// Share/send manifest — document IDs and versions only. Never stores ZIP binaries.
+model EnterpriseDocumentShareEvent {
+  id                 String   @id @default(cuid())
+  organizationId     String   @map("organization_id")
+  opportunityId      String   @map("opportunity_id")
+  dealId             String?  @map("deal_id")
+  actorUserId        String   @map("actor_user_id")
+  recipientLabel     String   @map("recipient_label")
+  recipientEmail     String?  @map("recipient_email")
+  recipientContactId String?  @map("recipient_contact_id")
+  documentIdsJson    Json     @map("document_ids_json")
+  versionIdsJson     Json     @map("version_ids_json")
+  attachmentMode     String   @map("attachment_mode")
+  zipFilename        String?  @map("zip_filename")
+  outboxId           String?  @map("outbox_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, opportunityId, createdAt], map: "edse_org_opp_created_idx")
+  @@map("enterprise_document_share_events")
+}
+
+/// Per-user / per-version inbound "new" state. Not browser storage.
+model EnterpriseDocumentVersionSeen {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  documentId     String   @map("document_id")
+  versionKey     String   @map("version_key")
+  seenAt         DateTime @default(now()) @map("seen_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, userId, documentId, versionKey], map: "edvs_org_user_doc_ver_key")
+  @@index([organizationId, userId], map: "edvs_org_user_idx")
+  @@map("enterprise_document_version_seen")
 }
 

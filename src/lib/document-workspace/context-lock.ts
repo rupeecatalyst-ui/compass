@@ -412,6 +412,10 @@ export function filterRegistryRecordsForLockedContext(input: {
   const opportunityId = input.opportunityId.trim();
   const dealId = input.dealId?.trim() || "";
   return input.records.filter((record) => {
+    const status = String(record.status || "").toLowerCase();
+    if (status === "deleted" || status === "eligible_for_purge" || status === "superseded") {
+      return false;
+    }
     const links = record.links;
     const recordOpp = links.opportunityId?.trim() || "";
     const recordDeal = links.dealId?.trim() || "";

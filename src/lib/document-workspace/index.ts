@@ -24,6 +24,49 @@ export {
 export { mergeDocumentWorkspaceRows } from "./merge-rows";
 export type { DocumentWorkspaceRow } from "./merge-rows";
 export {
+  mergeLinkedParties,
+  defaultLinkedPartyKey,
+  partyMatchesRow,
+} from "./linked-parties";
+export type { DocumentWorkspaceLinkedParty } from "./linked-parties";
+export { validateLockedDocumentSelection } from "./selection";
+export {
+  revalidateChecklistSelection,
+  isRequestableChecklistStatus,
+  mapReviewStatusToRequestable,
+} from "./checklist-selection";
+export {
+  classifyInboundAttachment,
+  inboundFileCountsTowardReadiness,
+  decideSilentOtherAssignment,
+} from "./inbound-classification";
+export {
+  buildDocumentWorkspaceRequestMessageDto,
+  formatRequestMessagePlainText,
+} from "./request-message-dto";
+export {
+  resolveWhatsAppHandoffMobile,
+  buildWhatsAppDeepLink,
+  preferNativeWebShare,
+} from "./whatsapp-handoff";
+export { filterUnseenInboundEmailDocuments, inboundEmailVersionKey, countUnseenInboundByOwner } from "./inbound-email-new";
+export {
+  validateDocumentWorkspaceUpload,
+  sanitizeDownloadFilename,
+  shouldInlinePreview,
+  isSafeDocumentStorageKey,
+} from "./file-security";
+export {
+  capabilityAllowed,
+  decideAuthenticatedActor,
+  decideOrganizationScope,
+  decideHierarchyVisibility,
+  decideDocumentBelongsToContext,
+  decideDealBelongsToOpportunity,
+  decideParticipantBelongsToTransaction,
+  decideCrossTransactionSelection,
+} from "./access-decision";
+export {
   deriveDocumentWorkspaceCategoryReadiness,
   groupDocumentWorkspaceRowsByCategory,
   summarizeDocumentWorkspaceCategoryReadiness,

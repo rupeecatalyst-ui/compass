@@ -50,6 +50,12 @@ export type InboundMatchContext = {
     isInternalUser: boolean;
   };
   openTransactionsByContact?: InboundMatchCandidate[];
+  /** Verified secure request / upload-session correlation — never a loose filename. */
+  secureRequest?: {
+    opportunityId: string;
+    dealId?: string | null;
+    contactId?: string | null;
+  } | null;
 };
 
 function extractReferences(text: string): string[] {
@@ -128,6 +134,19 @@ export function matchInboundEmailTransaction(
       dealId: thread.dealId,
       contactId: thread.contactId,
       outboundSourceEventId: thread.sourceEventId,
+      senderRole,
+    };
+  }
+
+  const secure = input.secureRequest;
+  if (secure?.opportunityId) {
+    return {
+      status: "matched",
+      reason: "secure_request_identifier",
+      opportunityId: secure.opportunityId,
+      dealId: secure.dealId ?? null,
+      contactId: secure.contactId ?? null,
+      outboundSourceEventId: null,
       senderRole,
     };
   }

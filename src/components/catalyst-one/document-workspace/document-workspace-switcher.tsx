@@ -28,8 +28,9 @@ import { enterpriseOpportunityApiClient } from "@/lib/enterprise-opportunity/opp
 import type { EnterpriseOpportunityApiRecord } from "@/lib/enterprise-opportunity/opportunity-api-client";
 import { listDocumentsForOpportunityRuntime } from "@/lib/document-registry";
 import { getDocumentRequestState } from "@/lib/document-requests";
-import { isCanonicalDocumentWorkspaceId } from "@/lib/document-workspace/context-lock";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import { buildContact360Href, displayDocumentWorkspacePartyName } from "@/lib/document-workspace/contact-href";
+import { isCanonicalDocumentWorkspaceId } from "@/lib/document-workspace/context-lock";
 import {
   DOCUMENT_WORKSPACE_CARD_GRID_DEFAULT_FILTERS,
   buildDocumentWorkspaceCardGroups,
@@ -156,6 +157,7 @@ export function DocumentWorkspaceSwitcher({
   const [busy, setBusy] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newFromEmailByOpportunity, setNewFromEmailByOpportunity] = useState<Record<string, number>>({});
   const loadGen = useRef(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const restoreScroll = useRef(restored.current?.scrollTop ?? 0);
@@ -322,6 +324,28 @@ export function DocumentWorkspaceSwitcher({
     () => buildDocumentWorkspaceCardGroups(groups, filters, query, actor),
     [actor, filters, groups, query],
   );
+  useEffect(() => {
+    const ids = groupedAll.map((group) => group.opportunityId);
+    if (!ids.length) {
+      setNewFromEmailByOpportunity({});
+      return;
+    }
+    let cancelled = false;
+    void authenticatedJsonFetch(
+      `/api/document-workspace/refinement-014?view=inbound-new-summary&opportunityIds=${encodeURIComponent(ids.join(","))}`,
+    )
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        setNewFromEmailByOpportunity((json?.data?.byOpportunity ?? {}) as Record<string, number>);
+      })
+      .catch(() => {
+        if (!cancelled) setNewFromEmailByOpportunity({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [groupedAll]);
   const readinessByKey = useMemo(() => {
     const map = new Map<string, DocumentWorkspaceCardReadiness>();
     for (const group of groupedAll) {
@@ -477,6 +501,7 @@ export function DocumentWorkspaceSwitcher({
                 onOpenOpportunity={openOpportunity}
                 onOpenDeal={openDeal}
                 onOpenContact={openContact}
+                newFromEmailCount={newFromEmailByOpportunity[group.opportunityId] ?? 0}
               />
             ))}
           </div>

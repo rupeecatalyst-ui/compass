@@ -120,7 +120,7 @@ export function DocumentRegistryPanel({
 
   const confirmDelete = async () => {
     if (!deleteTarget || !canDeleteDocuments(user)) return;
-    await deleteDocumentFromRegistry(deleteTarget.id);
+    await deleteDocumentFromRegistry(deleteTarget.id, "Removed from Document Center");
     toast.success("Document deleted");
     setDeleteTarget(null);
     onRefresh();

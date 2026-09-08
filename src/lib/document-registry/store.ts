@@ -1,6 +1,6 @@
 /**
  * CO-SPRINT-114 — Enterprise Document Registry store.
- * Metadata in localStorage; binary content in IndexedDB.
+ * Metadata in localStorage; protected binaries are not persisted in the browser.
  */
 
 import { DOCUMENT_REGISTRY_STORAGE_KEY, DOCUMENT_REGISTRY_UPDATED_EVENT } from "@/constants/document-registry";
@@ -17,6 +17,7 @@ import type {
 } from "@/types/document-registry";
 import type { LoanFileDocument } from "@/types/catalyst-one";
 import { createBlobObjectUrl, deleteDocumentBlob, saveDocumentBlob } from "./blob-store";
+import { fetchAuthorisedDocumentObjectUrl } from "./authorised-binary";
 import { validateDocumentFile } from "./file-utils";
 
 const SCHEMA_VERSION = 1 as const;
@@ -685,24 +686,41 @@ export function reclassifyDocumentRegistryRecord(input: {
   return snap.records[idx]!;
 }
 
-export async function deleteDocumentFromRegistry(recordId: string): Promise<boolean> {
+export async function deleteDocumentFromRegistry(
+  recordId: string,
+  reason: string,
+): Promise<boolean> {
   const snap = readSnapshot();
   const idx = snap.records.findIndex((r) => r.id === recordId);
   if (idx < 0) return false;
 
   const record = snap.records[idx]!;
   const now = new Date().toISOString();
+  const deletionReason = String(reason || "").trim();
+  if (!deletionReason) return false;
 
   for (const v of record.versions) {
     try {
       await deleteDocumentBlob(v.blobId);
     } catch {
-      /* best-effort blob cleanup */
+      /* ephemeral cache only */
     }
   }
 
   snap.records[idx] = { ...record, status: "deleted", updatedAt: now };
   writeSnapshot(snap);
+
+  if (record.links.opportunityId) {
+    void import("./server-sync").then(({ moveDocumentToDeletedOnServer }) =>
+      moveDocumentToDeletedOnServer({
+        opportunityId: record.links.opportunityId!,
+        documentId: record.id,
+        clientRecordId: record.id,
+        dealId: record.links.dealId,
+        reason: deletionReason,
+      }),
+    );
+  }
 
   if (record.links.loanFileId) {
     removeLoanFileDocumentLink(record.links.loanFileId, record.categoryLabel);
@@ -719,8 +737,18 @@ export async function downloadDocumentFromRegistry(
     record.versions.find((v) => v.isCurrent) ??
     record.versions[0];
   if (!version) throw new Error("No version available");
+  if (record.status === "deleted") throw new Error("File content not found in storage");
 
-  const url = await createBlobObjectUrl(version.blobId);
+  let url = await createBlobObjectUrl(version.blobId);
+  if (!url && record.links.opportunityId) {
+    url = await fetchAuthorisedDocumentObjectUrl({
+      documentId: record.id,
+      opportunityId: record.links.opportunityId,
+      dealId: record.links.dealId,
+      mimeType: version.mimeType,
+      disposition: "attachment",
+    });
+  }
   if (!url) throw new Error("File content not found in storage");
 
   const a = document.createElement("a");
@@ -739,7 +767,17 @@ export async function getDocumentPreviewUrl(
     record.versions.find((v) => v.isCurrent) ??
     record.versions[0];
   if (!version) return null;
-  return createBlobObjectUrl(version.blobId);
+  if (record.status === "deleted") return null;
+  const local = await createBlobObjectUrl(version.blobId);
+  if (local) return local;
+  if (!record.links.opportunityId) return null;
+  return fetchAuthorisedDocumentObjectUrl({
+    documentId: record.id,
+    opportunityId: record.links.opportunityId,
+    dealId: record.links.dealId,
+    mimeType: version.mimeType,
+    disposition: "inline",
+  });
 }
 
 export function buildEntityLinksFromLoanFile(
@@ -789,6 +827,10 @@ export function buildEntityLinksFromLoanFile(
     ...(documentScope === "applicant" && ownerEntityId && file.customerId !== ownerEntityId
       ? { companyId: ownerEntityId }
       : {}),
+    ...(scope && "participantRole" in (scope as object) && (scope as { participantRole?: string }).participantRole
+      ? { participantRole: (scope as { participantRole?: string }).participantRole }
+      : {}),
+    ...(ownerEntityId ? { ownerEntityId } : {}),
   };
 }
 
@@ -840,7 +882,7 @@ export async function mergeDurableDocumentsIntoLocalRegistry(
       const needsOpp =
         !existing.links.opportunityId?.trim() ||
         existing.links.opportunityId === item.opportunityNumber;
-      if (needsOpp || existing.status === "deleted") {
+      if (needsOpp) {
         existing.links = {
           ...existing.links,
           opportunityId: ctx.opportunityId || item.opportunityId,
@@ -851,10 +893,13 @@ export async function mergeDurableDocumentsIntoLocalRegistry(
             (existing.links.documentScope as "applicant" | "shared" | "lender") ||
             ((item.documentScope as "applicant" | "shared" | "lender") ?? "applicant"),
         };
-        if (existing.status === "deleted") existing.status = "active";
         existing.updatedAt = now;
         added += 1;
       }
+      if (item.status && item.status !== existing.status && existing.status !== "deleted") {
+        existing.status = item.status as DocumentRegistryRecord["status"];
+      }
+      if (item.status === "deleted") existing.status = "deleted";
       continue;
     }
 
