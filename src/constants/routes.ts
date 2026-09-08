@@ -14,6 +14,8 @@ export const ROUTES = {
    * Not Mission Control. Not Executive Briefing.
    */
   DASHBOARD: "/dashboard",
+  /** Catalyst One employee/user PWA companion (not Wealth Partner). */
+  EMPLOYEE_PWA: "/pwa",
   CUSTOMERS: "/customers",
   MY_DEALS: "/my-deals",
   /** CO-ARCH-003 — Enterprise Opportunity Registry (requirement queue). */

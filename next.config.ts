@@ -144,6 +144,19 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: "/pwa/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/pwa/" },
+        ],
+      },
+      {
+        source: "/pwa/manifest.webmanifest",
+        headers: [
+          { key: "Cache-Control", value: "no-cache" },
+        ],
+      },
     ];
   },
   /** CO-DEPLOY-BAT-008 / CO-DEPLOY-LENDER-001 — Cap workers on Vercel 8GB builders to avoid OOM SIGKILL. */

@@ -687,6 +687,27 @@ async function loadChecklistItems(authorised: DocumentWorkspaceAuthorisedContext
   };
 }
 
+export async function listDocumentWorkspaceLodChecklist(input: {
+  actorUserId: string;
+  opportunityId: string;
+  dealId?: string | null;
+}) {
+  const authorised = await requireAuthorisedWorkspace({
+    userId: input.actorUserId,
+    capability: "view",
+    opportunityId: input.opportunityId,
+    dealId: input.dealId,
+  });
+  const checklist = await loadChecklistItems(authorised);
+  return {
+    ...checklist,
+    incompleteProgrammeDisclaimer: checklist.incompleteProgramme
+      ? DOCUMENT_WORKSPACE_INCOMPLETE_PROGRAMME_DISCLAIMER
+      : null,
+    desktopWorkspaceHref: `/document-workspace?opportunityId=${encodeURIComponent(authorised.opportunityId)}`,
+  };
+}
+
 export async function prepareDocumentRequestHandoff(input: {
   actorUserId: string;
   opportunityId: string;

@@ -21,6 +21,7 @@ import {
 import {
   listInboundEmailReviewQueue,
   listUnseenInboundEmailSummary,
+  listDocumentWorkspaceLodChecklist,
   prepareDocumentRequestHandoff,
   recordWhatsAppHandoffOpened,
   recordWhatsAppHandoffCancelled,
@@ -52,6 +53,16 @@ export async function GET(request: Request) {
       const opportunityId = url.searchParams.get("opportunityId")?.trim() || "";
       if (!opportunityId) return errorResponse(400, "VALIDATION", "opportunityId is required");
       const data = await listInboundEmailReviewQueue({
+        actorUserId: actor.userId,
+        opportunityId,
+        dealId: url.searchParams.get("dealId"),
+      });
+      return successResponse(data);
+    }
+    if (view === "lod-checklist") {
+      const opportunityId = url.searchParams.get("opportunityId")?.trim() || "";
+      if (!opportunityId) return errorResponse(400, "VALIDATION", "opportunityId is required");
+      const data = await listDocumentWorkspaceLodChecklist({
         actorUserId: actor.userId,
         opportunityId,
         dealId: url.searchParams.get("dealId"),

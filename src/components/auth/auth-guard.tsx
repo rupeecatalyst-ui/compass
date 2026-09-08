@@ -28,7 +28,11 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
     if (!isAuthenticated) {
       // Clear stale middleware cookie so /login is not bounced back to the app
       clearSession();
-      router.replace(ROUTES.LOGIN);
+      const next =
+        pathname.startsWith(ROUTES.EMPLOYEE_PWA)
+          ? `?next=${encodeURIComponent(pathname)}`
+          : "";
+      router.replace(`${ROUTES.LOGIN}${next}`);
       return;
     }
 

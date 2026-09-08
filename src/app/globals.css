@@ -243,3 +243,14 @@
     overflow-anchor: none;
   }
 }
+
+.employee-pwa-shell {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .employee-pwa-shell * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

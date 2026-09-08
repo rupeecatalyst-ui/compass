@@ -59,7 +59,16 @@ export function useAuth() {
         isLoading: false,
         isAuthenticated: true,
       });
-      router.push(session.user.mustChangePassword ? ROUTES.CHANGE_PASSWORD : ROUTES.CONTACTS);
+      let destination: string = ROUTES.CONTACTS;
+      if (session.user.mustChangePassword) {
+        destination = ROUTES.CHANGE_PASSWORD;
+      } else if (typeof window !== "undefined") {
+        const next = new URLSearchParams(window.location.search).get("next");
+        const standalone = window.matchMedia("(display-mode: standalone)").matches;
+        if (next?.startsWith(ROUTES.EMPLOYEE_PWA)) destination = next;
+        else if (standalone) destination = ROUTES.EMPLOYEE_PWA;
+      }
+      router.push(destination);
       return session;
     },
     [router],
