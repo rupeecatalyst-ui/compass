@@ -9,6 +9,7 @@ import {
   type LeadJourneyModuleId,
 } from "@/constants/lead-opportunity-journey";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
+import { buildAuthorisedDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 
 /** Navigable spine used by workspace Continue / Back CTAs (certification order). */
 export type BusinessJourneyNavId =
@@ -43,8 +44,8 @@ export const BUSINESS_JOURNEY_NAV_SPINE: BusinessJourneyNavStep[] = [
   },
   {
     id: "document_center",
-    label: "Document Center",
-    href: ROUTES.DOCUMENT_CENTER,
+    label: "Documents",
+    href: ROUTES.DOCUMENT_WORKSPACE,
     leadModuleId: "document_center",
   },
   {
@@ -132,6 +133,11 @@ export function buildBusinessJourneyHref(
   context?: { fileId?: string | null; opportunityId?: string | null },
 ): string {
   // CO-UX-002 — Deal stages: workspace only when Deal id present; else Deal Registry.
+  if (step.id === "document_center") {
+    return buildAuthorisedDocumentWorkspaceHref({
+      opportunityId: context?.opportunityId,
+    });
+  }
   if (
     step.href === ROUTES.DEALS ||
     step.href === ROUTES.MY_DEALS ||

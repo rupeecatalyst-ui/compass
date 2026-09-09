@@ -14,6 +14,7 @@ import {
   committedAmountsEqual,
   correctionPreservesHistory,
   decideAccountingAdvantageHandoff,
+  decideCompassSubmissionAdvantageCommit,
   decideDealCannotIntroduceCommitment,
   decideOrdinaryCommitmentMutation,
   decideRecalculationCannotMutateCommitment,
@@ -342,6 +343,96 @@ check("Chanakya Opportunity 360 payload includes Advantage Committed (₹)", () 
   const src = read("src/lib/chanakya-enterprise-read-context/opportunity-360.ts");
   assert.ok(src.includes("advantageCommitted"));
   assert.ok(src.includes('label: "Advantage Committed (₹)"'));
+});
+
+check("COMPASS snapshot handoff keys by Opportunity id, never by name", () => {
+  const submitted = {
+    opportunityId: "clopportunitysanjay01",
+    snapshotOpportunityId: "clopportunitysanjay01",
+    productCode: "home-loan",
+    existingCommittedAmount: null,
+    snapshotTotalAdvantageAmount: "125000",
+    snapshotCalculationStatus: "ready",
+    snapshotCalculatedAt: "2026-09-09T10:00:00.000Z",
+    journeySubmittedAt: "2026-09-09T10:05:00.000Z",
+  };
+  const commit = decideCompassSubmissionAdvantageCommit(submitted);
+  assert.equal(commit.action, "commit");
+  assert.equal(commit.action === "commit" ? commit.reason : null, "submitted_snapshot");
+  assert.equal(commit.action === "commit" ? commit.amount : null, "125000");
+
+  const hlbt = decideCompassSubmissionAdvantageCommit({
+    ...submitted,
+    productCode: "home-loan-balance-transfer",
+    snapshotTotalAdvantageAmount: "250000",
+  });
+  assert.equal(hlbt.action, "commit");
+
+  const provisional = decideCompassSubmissionAdvantageCommit({
+    ...submitted,
+    journeySubmittedAt: null,
+    opportunitySnapshot: {},
+  });
+  assert.equal(provisional.action, "skip");
+  assert.equal(provisional.action === "skip" ? provisional.reason : null, "journey_not_submitted");
+
+  const recalcAfter = decideCompassSubmissionAdvantageCommit({
+    ...submitted,
+    snapshotCalculatedAt: "2026-09-09T12:00:00.000Z",
+  });
+  assert.equal(recalcAfter.action, "skip");
+  assert.equal(recalcAfter.action === "skip" ? recalcAfter.reason : null, "snapshot_after_submission");
+
+  const lap = decideCompassSubmissionAdvantageCommit({
+    ...submitted,
+    productCode: "LOAN_AGAINST_PROPERTY",
+    productLabel: "Loan Against Property",
+  });
+  assert.equal(lap.action, "skip");
+  assert.equal(lap.action === "skip" ? lap.reason : null, "product_not_applicable");
+
+  const mismatch = decideCompassSubmissionAdvantageCommit({
+    ...submitted,
+    snapshotOpportunityId: "clopportunitysomeoneelse",
+  });
+  assert.equal(mismatch.action, "skip");
+  assert.equal(mismatch.action === "skip" ? mismatch.reason : null, "snapshot_opportunity_mismatch");
+
+  const already = decideCompassSubmissionAdvantageCommit({
+    ...submitted,
+    existingCommittedAmount: "125000",
+    snapshotTotalAdvantageAmount: "999999",
+  });
+  assert.equal(already.action, "skip");
+  assert.equal(already.action === "skip" ? already.reason : null, "already_committed");
+
+  const absent = decideCompassSubmissionAdvantageCommit({
+    ...submitted,
+    snapshotOpportunityId: null,
+  });
+  assert.equal(absent.action, "skip");
+  assert.equal(absent.action === "skip" ? absent.reason : null, "snapshot_absent");
+
+  const again = decideCompassSubmissionAdvantageCommit({
+    ...submitted,
+    existingCommittedAmount: "125000",
+  });
+  assert.equal(again.action, "skip");
+  assert.equal(again.action === "skip" ? again.reason : null, "already_committed");
+
+  const service = read("server/services/advantage-committed/advantage-committed.service.ts");
+  assert.ok(service.includes("commitAdvantageFromCompassSnapshot"));
+  assert.ok(service.includes("compassAdvantageSnapshot.findUnique"));
+  assert.ok(service.includes("readCompassJourneySubmittedAt"));
+  assert.ok(service.includes("opportunity.id"));
+  assert.equal(service.includes("primaryContactName"), false);
+  assert.equal(service.includes("Sanjay Shah"), false);
+  const handoff = read("src/lib/advantage-committed/compass-handoff.ts");
+  assert.equal(handoff.includes("Sanjay"), false);
+  const journey = read("server/services/compass-customer-gateway/compass-journey.service.ts");
+  assert.ok(journey.includes("commitAdvantageFromCompassSnapshot"));
+  const getOpp = read("server/services/enterprise-opportunity/index.ts");
+  assert.ok(getOpp.includes("commitAdvantageFromCompassSnapshot"));
 });
 
 const scannedRoots = [

@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, MessageSquare, SendHorizonal } from "lucide-react";
 import Link from "next/link";
 import { formatINR } from "@/lib/format-currency";
-import { ROUTES } from "@/constants/routes";
-import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import {
   mapLoanDocumentsToEcwViewerDocs,
@@ -284,8 +282,7 @@ export function EnterpriseCreditWorkspace() {
     return <OpportunityBoundStage stage="credit_workbench" />;
   }
 
-  const docCenterHref = buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
-    fileId: file.id,
+  const docCenterHref = buildCanonicalJourneyStageHref("documents", {
     opportunityId,
   });
 

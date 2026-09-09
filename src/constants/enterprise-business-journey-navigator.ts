@@ -13,6 +13,7 @@ import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import type { BusinessJourneyNavId } from "@/constants/enterprise-business-journey-navigation";
 import { ROUTES } from "@/constants/routes";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
+import { buildAuthorisedDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 
 /** Purpose shown under Continue CTA — why the next step matters. */
 export const BUSINESS_JOURNEY_TRANSITION_PURPOSE: Partial<
@@ -121,7 +122,7 @@ export function buildNavigatorStageHref(
     case "strategic_workspace":
       return buildJourneyHref(ROUTES.OPPORTUNITY_WORKSPACE, { fileId, opportunityId });
     case "document_center":
-      return buildJourneyHref(ROUTES.DOCUMENT_CENTER, { fileId, opportunityId });
+      return buildAuthorisedDocumentWorkspaceHref({ opportunityId });
     case "credit_workbench":
       return buildJourneyHref(ROUTES.CREDIT_WORKBENCH, { fileId, opportunityId });
     case "loan_workspace":

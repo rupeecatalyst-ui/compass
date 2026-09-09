@@ -17,6 +17,7 @@
 import { ROUTES } from "@/constants/routes";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
+import { buildAuthorisedDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 
 export const CANONICAL_JOURNEY_HEADER_NAME = "Business Journey";
 
@@ -68,7 +69,7 @@ export const CANONICAL_JOURNEY_STAGES: CanonicalJourneyStageDef[] = [
     label: "Documents",
     shortLabel: "Documents",
     purpose: "Collect all customer documents for this Opportunity.",
-    href: ROUTES.DOCUMENT_CENTER,
+    href: ROUTES.DOCUMENT_WORKSPACE,
     navigable: true,
     sortOrder: 2,
   },
@@ -182,6 +183,10 @@ export function buildCanonicalJourneyStageHref(
   const dealId = (context?.dealId || "").trim() || null;
   const fileId = (context?.fileId || "").trim() || null;
   const opportunityId = context?.opportunityId ?? null;
+
+  if (stageId === "documents") {
+    return buildAuthorisedDocumentWorkspaceHref({ opportunityId });
+  }
 
   // CO-UX-002 — Deal / Disbursement / Pipeline never open bare `/deals` (404).
   if (

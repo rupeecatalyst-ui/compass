@@ -38,6 +38,7 @@ import { syncContactIdentityPatchToEcm } from "@server/services/ecm/contact-ssot
 import { emitOpportunityLifecycleToEarBestEffort } from "@server/services/enterprise-activity/opportunity-lifecycle-ear";
 import { propagateOpportunityRcEmployeeToInheritedDeals } from "@server/services/enterprise-deal/rc-employee-assignment.service";
 import { resolveRcEmployee } from "@/lib/enterprise-deal/rc-employee-assignment";
+import { commitAdvantageFromCompassSnapshot } from "@server/services/advantage-committed/advantage-committed.service";
 import {
   assertNonEmpty,
   assertOpportunityLifecycle,
@@ -280,7 +281,6 @@ export class EnterpriseOpportunityService {
     const {
       organizationId,
       primaryBorrowerKind,
-      isCompanyBorrower,
       companyId,
       primaryContactId,
       asDialogue,
@@ -989,6 +989,14 @@ export class EnterpriseOpportunityService {
 
   async getOpportunity(opportunityId: string) {
     const organizationId = await this.orgId();
+    try {
+      await commitAdvantageFromCompassSnapshot({
+        organizationId,
+        opportunityId,
+      });
+    } catch {
+      /* Missing Advantage snapshot/commit tables must not block Opportunity read. */
+    }
     const row = await enterpriseOpportunityRepository.requireOpportunity(
       organizationId,
       opportunityId,

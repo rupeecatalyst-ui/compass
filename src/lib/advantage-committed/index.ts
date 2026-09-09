@@ -44,3 +44,13 @@ export {
   projectAdvantageCommitted,
   serializeAdvantageCommittedApi,
 } from "./projection";
+export {
+  COMPASS_ADVANTAGE_COMMIT_ACTOR,
+  COMPASS_ADVANTAGE_COMMIT_REASON,
+  COMPASS_JOURNEY_SUBMITTED_AT_KEY,
+  COMPASS_OPERATIONAL_HANDOFF_AT_KEY,
+  decideCompassSubmissionAdvantageCommit,
+  readCompassJourneySubmittedAt,
+  snapshotCalculatedAtOrBeforeSubmission,
+} from "./compass-handoff";
+export type { CompassAdvantageCommitDecision } from "./compass-handoff";

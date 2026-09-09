@@ -113,6 +113,29 @@ export function buildDocumentWorkspaceHref(input: DocumentWorkspaceContextInput)
   return q ? `${ROUTES.DOCUMENT_WORKSPACE}?${q}` : ROUTES.DOCUMENT_WORKSPACE;
 }
 
+/**
+ * Opportunity/transaction Documents CTA — Opportunity id only.
+ * Organisation, Deal, document, participant, and storage keys stay server-resolved (014B).
+ */
+export function resolveAuthorisedDocumentWorkspaceOpportunityId(
+  value?: string | null,
+): string | null {
+  const trimmed = value?.trim() || "";
+  if (!trimmed) return null;
+  if (!isCanonicalDocumentWorkspaceId(trimmed)) return null;
+  return trimmed;
+}
+
+export function buildAuthorisedDocumentWorkspaceHref(input: {
+  opportunityId?: string | null;
+}): string {
+  const opportunityId = resolveAuthorisedDocumentWorkspaceOpportunityId(input.opportunityId);
+  if (!opportunityId) return ROUTES.DOCUMENT_WORKSPACE;
+  const params = new URLSearchParams();
+  params.set("opportunityId", opportunityId);
+  return `${ROUTES.DOCUMENT_WORKSPACE}?${params.toString()}`;
+}
+
 export function documentWorkspaceFingerprint(input: {
   organizationId?: string | null;
   opportunityId?: string | null;

@@ -12,6 +12,7 @@ import {
   executeCompassFirstSubmissionHandoff,
   snapshotHasOperationalHandoff,
 } from "./compass-operational-handoff.service";
+import { commitAdvantageFromCompassSnapshot } from "@server/services/advantage-committed/advantage-committed.service";
 import { toDocumentUploadSource } from "@/constants/document-intake";
 import { resolveProductUniquenessKey } from "@/constants/opportunity-active-uniqueness";
 import {
@@ -811,6 +812,14 @@ export const compassJourneyService = {
     }
 
     if (SUBMITTED_STATUSES.has(row.lifecycleStatus)) {
+      try {
+        await commitAdvantageFromCompassSnapshot({
+          organizationId,
+          opportunityId: row.id,
+        });
+      } catch {
+        /* Duplicate submit remains an acknowledgement; commitment is idempotent. */
+      }
       const lod = await this.getLod(token);
       return {
         submitted: true,
@@ -867,6 +876,15 @@ export const compassJourneyService = {
         actorUserId: null,
         skipLifecycleEar: true,
       });
+    }
+
+    try {
+      await commitAdvantageFromCompassSnapshot({
+        organizationId,
+        opportunityId: updated.id,
+      });
+    } catch {
+      /* Missing Advantage snapshot must not block COMPASS submit. */
     }
 
     const lod = await this.getLod(token);

@@ -51,14 +51,13 @@ import {
 } from "@/lib/lead-opportunity-journey/opportunity-field-display";
 import { formatOpportunitySourceDisplay } from "@/constants/opportunity-business-source";
 import { getContextAwareVisibility } from "@/lib/context-aware-data-collection";
-import { buildJourneyHref, getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
+import { getJourneyStageDisplayLabel } from "@/constants/lead-opportunity-journey";
 import { buildCanonicalJourneyStageHref } from "@/constants/canonical-journey-header";
 import { isPropertySectionVisible, type PropertyType } from "@/constants/loan-stage-master";
 import { isProductSecured } from "@/constants/product-master";
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
 import { syncParticipantLegacyFields } from "@/lib/loan-participants";
 import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
-import { ROUTES } from "@/constants/routes";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { PropertyTypeSelect } from "@/components/catalyst-one/shared/property-type-select";
 import { findOperationalEcmContactById } from "@/lib/enterprise-registry";
@@ -177,10 +176,11 @@ export function CreditBenchWorkspace() {
   }, [dashboardEntry, hasUrlContext, file, router]);
 
   const context = useMemo(() => journeyContextFromLoanFile(file), [file]);
-  const profile = useMemo(
-    () => (file ? businessProfileFromLoanFile(file) : null),
-    [file, stated.statedNatureOfBusiness, contactEditOpen],
-  );
+  const profile = useMemo(() => {
+    void contactEditOpen;
+    void stated.statedNatureOfBusiness;
+    return file ? businessProfileFromLoanFile(file) : null;
+  }, [file, stated.statedNatureOfBusiness, contactEditOpen]);
   const categoryCtx = useMemo(
     () => getContextAwareVisibility(file?.employmentType),
     [file?.employmentType],
@@ -296,8 +296,7 @@ export function CreditBenchWorkspace() {
       );
     const toDocs = () =>
       router.push(
-        buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
-          fileId: file.id,
+        buildCanonicalJourneyStageHref("documents", {
           opportunityId: opportunityId ?? undefined,
         }),
       );

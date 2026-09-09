@@ -113,8 +113,8 @@ export const ACTION_CENTER_CATALOG: Array<
   },
   {
     id: "upload_documents",
-    label: "Upload Documents",
-    description: "Collect and update the transaction document checklist in place.",
+    label: "Documents",
+    description: "Open the dedicated Document Workspace for this Opportunity.",
     group: "documents",
     entityTypes: ["loan", "opportunity", "customer"],
   },

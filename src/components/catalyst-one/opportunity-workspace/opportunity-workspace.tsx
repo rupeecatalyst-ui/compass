@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -10,7 +10,6 @@ import {
 } from "./opportunity-workspace-context";
 import { WorkspaceContactSummary } from "./workspace-contact-summary";
 import { WorkspaceBorrowerPartySections } from "./workspace-borrower-party-sections";
-import { WorkspaceDocumentRequestsPanel } from "./workspace-document-requests-panel";
 import { WorkspaceLifeStrategyBoard } from "./workspace-life-strategy-board";
 import { WorkspaceTasksPanel } from "./workspace-tasks-panel";
 import { WorkspaceWorkflowPanel } from "./workspace-workflow-panel";
@@ -33,6 +32,7 @@ import { OW_COMPASS_ASSESSMENT_NAV } from "./strategic-tabs";
 import { WorkspaceCompassAssessmentPanel } from "./workspace-compass-assessment-panel";
 import { WorkspaceCompassDeskStrip } from "./workspace-compass-desk-strip";
 import { COMPASS_WEBSITE_SOURCE_CODE } from "@/constants/enterprise-opportunity/company-borrower-create";
+import { buildAuthorisedDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 import { getStrategicCompetition } from "@/lib/strategic-competition";
 import {
   ContactCreationIntentScreen,
@@ -61,7 +61,6 @@ import {
 } from "@/lib/opportunity-loan-continuity";
 import type { DocumentCompletionScore } from "@/lib/document-completion/score";
 import {
-  buildJourneyHref,
   getJourneyStageDisplayLabel,
 } from "@/constants/lead-opportunity-journey";
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
@@ -178,6 +177,19 @@ function OpportunityWorkspaceShell() {
     return q ? `${ROUTES.CREDIT_WORKBENCH}?${q}` : ROUTES.CREDIT_WORKBENCH;
   }, [opportunity?.id, loanHref]);
 
+  const openDocumentWorkspace = useCallback(() => {
+    router.push(
+      buildAuthorisedDocumentWorkspaceHref({
+        opportunityId: opportunityId || opportunity?.id,
+      }),
+    );
+  }, [opportunity?.id, opportunityId, router]);
+
+  useEffect(() => {
+    if (tab !== "documents") return;
+    openDocumentWorkspace();
+  }, [openDocumentWorkspace, tab]);
+
   const openTab = (next: OwStrategicTabId) => {
     setTab(next);
     const focusMap: Partial<Record<OwStrategicTabId, WorkspaceFocus>> = {
@@ -235,7 +247,7 @@ function OpportunityWorkspaceShell() {
         loanNav("lenders");
         break;
       case "documents":
-        openTab("documents");
+        openDocumentWorkspace();
         break;
       case "timeline":
         openTab("workflow");
@@ -481,7 +493,7 @@ function OpportunityWorkspaceShell() {
                 setEditContact(contact);
                 setEditOpen(true);
               }}
-              onUploadDocuments={() => openTab("documents")}
+              onUploadDocuments={() => openDocumentWorkspace()}
               onActivitySaved={() => refresh()}
             />
             <LoanStructureCommandControl
@@ -581,7 +593,9 @@ function OpportunityWorkspaceShell() {
               {tab === "funding_strategy" && <WorkspaceLifeStrategyBoard />}
               {tab === "notes" && <WorkspaceNotesPanel />}
               {tab === "timeline" && <WorkspaceDialoguePanel />}
-              {tab === "documents" && <WorkspaceDocumentRequestsPanel />}
+              {tab === "documents" && (
+                <p className="text-sm text-muted-foreground">Opening Document Workspace…</p>
+              )}
               {tab === "tasks" && <WorkspaceTasksPanel />}
               {tab === "workflow" && <WorkspaceWorkflowPanel />}
               {tab === "compass_assessment" && opportunityId ? (

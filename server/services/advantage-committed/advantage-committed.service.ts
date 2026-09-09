@@ -15,6 +15,10 @@ import {
   projectAdvantageCommitted,
   resolveAdvantageCommittedProductCode,
   serializeAdvantageCommittedApi,
+  COMPASS_ADVANTAGE_COMMIT_ACTOR,
+  COMPASS_ADVANTAGE_COMMIT_REASON,
+  decideCompassSubmissionAdvantageCommit,
+  readCompassJourneySubmittedAt,
 } from "@/lib/advantage-committed";
 import { OpportunityValidationError } from "@server/services/enterprise-opportunity/opportunity-validation";
 import type { AdvantageCommittedHistoryEvent } from "@/types/advantage-committed";
@@ -188,6 +192,98 @@ export async function commitAdvantageFromMarketing(input: {
     return { opportunity: updated, event };
   }
   return { opportunity: updated, event: null };
+}
+
+export async function commitAdvantageFromCompassSnapshot(input: {
+  organizationId: string;
+  opportunityId: string;
+  actorUserId?: string | null;
+}): Promise<{ committed: boolean; reason: string }> {
+  const opportunityId = input.opportunityId.trim();
+  if (!opportunityId) return { committed: false, reason: "missing_opportunity_id" };
+
+  const opportunity = await prisma.enterpriseOpportunity.findFirst({
+    where: {
+      id: opportunityId,
+      organizationId: input.organizationId,
+      isDeleted: false,
+    },
+  });
+  if (!opportunity) return { committed: false, reason: "opportunity_not_found" };
+
+  let snapshot: {
+    opportunityId: string;
+    totalAdvantageAmount: unknown;
+    calculationStatus: string | null;
+    calculatedAt: Date | string | null;
+  } | null = null;
+  try {
+    snapshot = await prisma.compassAdvantageSnapshot.findUnique({
+      where: { opportunityId },
+    });
+  } catch {
+    return { committed: false, reason: "snapshot_absent" };
+  }
+
+  const decision = decideCompassSubmissionAdvantageCommit({
+    opportunityId: opportunity.id,
+    snapshotOpportunityId: snapshot?.opportunityId ?? null,
+    productCode: opportunity.productCode,
+    productLabel: opportunity.productLabel,
+    existingCommittedAmount: (opportunity as CommitmentColumns).advantageCommittedAmount,
+    snapshotTotalAdvantageAmount: snapshot?.totalAdvantageAmount ?? null,
+    snapshotCalculationStatus: snapshot?.calculationStatus ?? null,
+    snapshotCalculatedAt: snapshot?.calculatedAt ?? null,
+    journeySubmittedAt: readCompassJourneySubmittedAt(opportunity.snapshot),
+    opportunitySnapshot: opportunity.snapshot,
+  });
+  if (decision.action !== "commit") {
+    return { committed: false, reason: decision.reason };
+  }
+
+  const actorUserId = input.actorUserId?.trim() || COMPASS_ADVANTAGE_COMMIT_ACTOR;
+  const commitment = initialCommitmentCreatePatch({
+    authorizedAmount: decision.amount,
+    productCode: opportunity.productCode,
+    productLabel: opportunity.productLabel,
+    actorUserId,
+  });
+  if (!commitment) {
+    return { committed: false, reason: "snapshot_amount_absent" };
+  }
+
+  await prisma.enterpriseOpportunity.update({
+    where: { id: opportunity.id },
+    data: {
+      ...commitment,
+      sourceCode: opportunity.sourceCode || "website_compass",
+    } as Prisma.EnterpriseOpportunityUncheckedUpdateInput,
+  });
+
+  const event = await db.enterpriseOpportunityAdvantageCommitmentEvent.create({
+    data: {
+      organizationId: input.organizationId,
+      opportunityId: opportunity.id,
+      eventKind: ADVANTAGE_COMMITTED_EVENT_KIND.ORIGINAL_COMMIT,
+      amount: new Prisma.Decimal(String(commitment.advantageCommittedAmount)),
+      previousAmount: null,
+      currency: ADVANTAGE_COMMITTED_CURRENCY,
+      productCode: (commitment.advantageCommittedProductCode as string | null) ?? null,
+      reason: COMPASS_ADVANTAGE_COMMIT_REASON,
+      requestedByUserId: actorUserId,
+      approvedByUserId: actorUserId,
+      originatingOpportunityId: opportunity.id,
+      originalCommitmentId: null,
+      version: 1,
+    },
+  });
+  await prisma.enterpriseOpportunity.update({
+    where: { id: opportunity.id },
+    data: {
+      advantageCommitmentId: event.id,
+    } as Prisma.EnterpriseOpportunityUncheckedUpdateInput,
+  });
+  return { committed: true, reason: decision.reason };
 }
 
 export async function listAdvantageCommitmentHistory(input: {

@@ -45,7 +45,7 @@ export const OPPORTUNITY_WORKSPACE_STAGES: OpportunityWorkspaceStageDef[] = [
     id: "document_center",
     label: "Documents",
     purpose: "Collect all customer documents.",
-    href: ROUTES.DOCUMENT_CENTER,
+    href: ROUTES.DOCUMENT_WORKSPACE,
     moduleId: "document_center",
     sortOrder: 2,
   },

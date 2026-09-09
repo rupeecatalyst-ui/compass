@@ -44,6 +44,8 @@ export interface ChanakyaRadarDealRow {
   customerId?: string;
   /** Display Deal ref (DEAL-… preferred; OPP-… legacy fallback). */
   dealId: string;
+  /** Parent Opportunity canonical id when projected from LoanFile / Opportunity Registry. */
+  enterpriseOpportunityId?: string;
   /** Parent Opportunity ref when known (not the Radar SSOT). */
   opportunityNumber?: string;
   borrower: string;
@@ -326,6 +328,7 @@ export function mapLoanFileToRadarDealRow(file: LoanFile): ChanakyaRadarDealRow 
     enterpriseDealId,
     customerId: file.customerId?.trim() || undefined,
     dealId: dealDisplay,
+    enterpriseOpportunityId: file.enterpriseOpportunityId?.trim() || undefined,
     opportunityNumber,
     borrower: file.customerName,
     product: file.loanProduct || "—",

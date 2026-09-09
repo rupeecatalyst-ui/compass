@@ -11,8 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
-import { ROUTES } from "@/constants/routes";
+import { buildAuthorisedDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 import { recordControlledException } from "@/lib/system-driven-enterprise";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import type { DocumentCompletionScore } from "@/lib/document-completion/score";
@@ -43,14 +42,9 @@ export function DocumentCompletionGateDialog({
   criticalItems?: EdieChecklistItem[];
 }) {
   const { user } = useAuthContext();
-  const firstCritical = criticalItems?.[0] ?? null;
-  const focusHref = buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
-    fileId,
-    opportunityId,
-    focus: firstCritical?.typeRef,
-    section: firstCritical?.moduleId,
-  });
-  const centerHref = buildJourneyHref(ROUTES.DOCUMENT_CENTER, { fileId, opportunityId });
+  const documentsHref = buildAuthorisedDocumentWorkspaceHref({ opportunityId });
+  const focusHref = documentsHref;
+  const centerHref = documentsHref;
   const reasons = score?.blockReasons ?? [];
   const missing = score?.criticalMissing ?? criticalItems?.map((c) => c.label) ?? [];
 
@@ -173,7 +167,7 @@ export function DocumentCompletionGateDialog({
             ) : (
               <Button asChild type="button" variant="ghost" size="sm">
                 <Link href={centerHref} onClick={() => onOpenChange(false)}>
-                  Open Document Center
+                  Open Document Workspace
                 </Link>
               </Button>
             )}

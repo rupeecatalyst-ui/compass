@@ -44,6 +44,7 @@ import {
 } from "@/constants/chanakya-radar";
 import { ROUTES } from "@/constants/routes";
 import { buildJourneyHref } from "@/constants/lead-opportunity-journey";
+import { buildAuthorisedDocumentWorkspaceHref } from "@/lib/document-workspace/context-lock";
 import { buildDealWorkspaceHref } from "@/lib/loan-journey/adr-018-routing";
 import { setActiveOpportunityContext } from "@/lib/lead-opportunity-journey/active-context";
 import {
@@ -388,6 +389,7 @@ export function ChanakyaRadarWorkspace() {
     const file = {
       id: row.fileId,
       enterpriseDealId: row.enterpriseDealId,
+      enterpriseOpportunityId: row.enterpriseOpportunityId,
       customerName: row.borrower,
       customerId: row.customerId,
       loanProduct: row.product,
@@ -408,7 +410,7 @@ export function ChanakyaRadarWorkspace() {
       file,
       portfolioHealthScore: model.vector.healthScore,
     };
-  }, [selectedFileId, scopedRows, model.vector.healthScore]);
+  }, [selectedFileId, scopedRows, model]);
 
   const kpiById = useMemo(() => {
     const map = Object.fromEntries(model.kpis.map((k) => [k.id, k])) as Record<
@@ -416,7 +418,7 @@ export function ChanakyaRadarWorkspace() {
       (typeof model.kpis)[number]
     >;
     return map;
-  }, [model.kpis]);
+  }, [model]);
 
   const dormantCount = useMemo(
     () =>
@@ -941,9 +943,8 @@ export function ChanakyaRadarWorkspace() {
               onViewDocuments={() => {
                 setOpportunityContext(selectedPreview.file, selectedPreview.card);
                 router.push(
-                  buildJourneyHref(ROUTES.DOCUMENT_CENTER, {
-                    fileId: selectedPreview.file.id,
-                    opportunityId: selectedPreview.card.opportunityNumber,
+                  buildAuthorisedDocumentWorkspaceHref({
+                    opportunityId: selectedPreview.file.enterpriseOpportunityId,
                   }),
                 );
               }}

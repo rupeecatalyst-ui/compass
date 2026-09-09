@@ -423,6 +423,34 @@ function isoDaysAgo(days) {
   mustContain("src/types/contact-strategy.ts", "assignedOwnerUserId");
   mustContain("src/app/api/contact-strategy/route.ts", "requireAccessToken");
   console.log("\n--- 7B Private Sticky Notes ---");
+  mustContain("src/constants/sticky-notes.ts", "STICKY_NOTE_WORKSPACE_BLOCKS");
+  mustContain("src/constants/sticky-notes.ts", 'id: "title"');
+  mustContain("src/constants/sticky-notes.ts", 'id: "body"');
+  mustContain("src/constants/sticky-notes.ts", 'id: "checklist"');
+  mustContain("src/constants/sticky-notes.ts", 'id: "reminder_link"');
+  mustContain(
+    "src/components/catalyst-one/sticky-notes/sticky-notes-workspace.tsx",
+    "data-sticky-block",
+  );
+  mustContain(
+    "src/components/catalyst-one/sticky-notes/sticky-notes-workspace.tsx",
+    "lg:grid-cols-2",
+  );
+  mustNotContain(
+    "src/components/catalyst-one/sticky-notes/sticky-notes-workspace.tsx",
+    "bg-amber-100",
+    "coloured sticky-note card fill",
+  );
+  mustNotContain(
+    "src/components/catalyst-one/sticky-notes/sticky-notes-workspace.tsx",
+    "sm:grid-cols-2 xl:grid-cols-3",
+    "legacy sticky-card grid",
+  );
+  mustContain(
+    "src/components/catalyst-one/sticky-notes/sticky-notes-workspace.tsx",
+    "@/lib/sticky-notes/client",
+    "same sticky-notes client SSOT",
+  );
 }
 
 if (failed) {

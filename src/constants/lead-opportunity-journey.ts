@@ -41,9 +41,9 @@ export const LEAD_OPPORTUNITY_JOURNEY: LeadJourneyModule[] = [
   {
     id: "document_center",
     stage: "lead",
-    label: "Document Center",
-    href: ROUTES.DOCUMENT_CENTER,
-    title: "Document Center",
+    label: "Documents",
+    href: ROUTES.DOCUMENT_WORKSPACE,
+    title: "Document Workspace",
   },
   {
     id: "credit_workbench",
