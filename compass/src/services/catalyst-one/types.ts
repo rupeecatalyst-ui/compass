@@ -79,6 +79,13 @@ export type LenderRecommendationResult = {
   reasons: string[];
   benefits: string[];
   rank: number;
+  tentativeOffer?: string | null;
+  requestedAmount?: string | null;
+  shortfall?: string | null;
+  tenure?: string | null;
+  foir?: string | null;
+  whyThisRecommendation?: string | null;
+  matchState?: string | null;
 };
 
 export type SarathiIntelligenceResult = {
@@ -91,6 +98,18 @@ export type DiscoveryIntelligenceResult = {
   lenders: LenderRecommendationResult[];
   recommendationsStatus: "ready" | "pending" | "unavailable";
   recommendationsMessage: string;
+  needsCoApplicant?: boolean;
+  assistedOffer?: {
+    headline: string;
+    body: string;
+    requestedAmountRupees: number | null;
+    ltvSupportedAmountRupees: number | null;
+    incomeSupportedAmountRupees: number | null;
+    eligibilityGapRupees: number | null;
+    enhancementRoutes: string[];
+  } | null;
+  cibilNotKnownDisclaimer?: boolean;
+  expertSla?: { borrowerCopy: string; expectedContactAtIso: string; remainingWorkingMs: number; state: string } | null;
   sarathi: SarathiIntelligenceResult;
   journeySessionToken?: string;
   opportunityRef?: string;

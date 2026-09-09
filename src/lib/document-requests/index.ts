@@ -46,6 +46,7 @@ export {
 export {
   subscribeDocumentRequestsUpdated,
   getDocumentRequestState,
+  hydrateDocumentRequestStateFromServer,
   refreshDocumentRequestFromRegistry,
   generateAndPersistLod,
   getActiveLodVersion,

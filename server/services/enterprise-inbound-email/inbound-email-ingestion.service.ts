@@ -20,6 +20,12 @@ import {
 import { inboundEmailServerConfigService } from "@server/services/enterprise-inbound-email/inbound-email-server-config.service";
 import { enterpriseNotificationService } from "@server/services/enterprise-notification/enterprise-notification.service";
 import { enterpriseTransactionDocumentService } from "@server/services/enterprise-transaction-documents/enterprise-transaction-document.service";
+import { validateDocumentWorkspaceUpload } from "@/lib/document-workspace/file-security";
+import { classifyInboundAttachment } from "@/lib/document-workspace/inbound-classification";
+import { DOCUMENT_WORKSPACE_STATUS_QUARANTINED } from "@/constants/document-workspace-lifecycle";
+import { DOCUMENT_WORKSPACE_AUDIT_ACTIONS } from "@/constants/document-workspace-audit";
+import { DOCUMENT_WORKSPACE_AUDIT_ACTOR_SYSTEM } from "@/constants/document-workspace-audit";
+import { appendDocumentWorkspaceAuditBestEffort } from "@server/services/document-workspace/document-workspace-audit.service";
 import { enterpriseInboundEmailRepository } from "@server/repositories/enterprise-inbound-email/enterprise-inbound-email.repository";
 import { prisma } from "@server/lib/prisma";
 
@@ -33,6 +39,60 @@ function buildActivityDialogueHref(args: {
   if (args.opportunityId) params.set("opportunityId", args.opportunityId);
   if (args.dealId) params.set("dealId", args.dealId);
   return `${ROUTES.ACTIVITY}?${params.toString()}`;
+}
+
+async function stampInboundDocumentClassification(args: {
+  organizationId: string;
+  documentId: string;
+  inboundEmailId: string;
+  inboundAttachmentId?: string | null;
+  matchReason: string;
+  opportunityId: string;
+  dealId: string | null;
+  contactId: string | null;
+  filename: string;
+  mimeType: string;
+  fileSecurityRejected?: boolean;
+  duplicateOfDocumentId?: string | null;
+}): Promise<void> {
+  const snapshot = classifyInboundAttachment({
+    matchReason: args.matchReason,
+    opportunityId: args.opportunityId,
+    dealId: args.dealId,
+    contactId: args.contactId,
+    filename: args.filename,
+    mimeType: args.mimeType,
+    fileSecurityRejected: args.fileSecurityRejected,
+    duplicateOfDocumentId: args.duplicateOfDocumentId,
+  });
+  await prisma.enterpriseTransactionDocument.update({
+    where: { id: args.documentId },
+    data: {
+      inboundEmailId: args.inboundEmailId,
+      inboundAttachmentId: args.inboundAttachmentId ?? undefined,
+      inboundClassificationJson: { ...snapshot },
+    },
+  });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId: args.organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_SYSTEM,
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.INBOUND_ATTACHMENT_DETECTED,
+    documentId: args.documentId,
+    opportunityId: args.opportunityId,
+    dealId: args.dealId,
+    sourceChannel: "inbound_email",
+    metadata: { evidenceCount: snapshot.evidenceCodes.length, outcome: snapshot.outcome },
+  });
+  await appendDocumentWorkspaceAuditBestEffort({
+    organizationId: args.organizationId,
+    actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_SYSTEM,
+    action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.INBOUND_CLASSIFICATION_SUGGESTED,
+    documentId: args.documentId,
+    opportunityId: args.opportunityId,
+    dealId: args.dealId,
+    sourceChannel: "inbound_email",
+    metadata: { outcome: snapshot.outcome, method: snapshot.method, confidenceBand: snapshot.confidenceBand },
+  });
 }
 
 function inboundEarSourceEventId(messageId: string): string {
@@ -335,6 +395,73 @@ async function processMatchedInbound(args: {
   });
 
   for (const attachment of email.attachments) {
+    const bytes = attachment.content ? Uint8Array.from(attachment.content) : new Uint8Array();
+    const validation = validateDocumentWorkspaceUpload({
+      filename: attachment.filename,
+      declaredMime: attachment.mimeType,
+      byteLength: attachment.sizeBytes || bytes.byteLength,
+      bytes,
+    });
+    if (!validation.ok) {
+      const snapshot = classifyInboundAttachment({
+        matchReason: match.reason,
+        opportunityId: match.opportunityId,
+        dealId: match.dealId,
+        contactId: match.contactId,
+        filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        fileSecurityRejected: true,
+      });
+      const rejected = await prisma.enterpriseTransactionDocument.create({
+        data: {
+          organizationId,
+          opportunityId: match.opportunityId,
+          opportunityNumber: opp.opportunityNumber ?? null,
+          clientRecordId: `inbound-email-rejected:${earSourceEventId}:${attachment.contentHash.slice(0, 16)}`,
+          loanFileId: match.dealId ?? null,
+          contactId: match.contactId ?? null,
+          inboundEmailId: ledgerId,
+          documentScope: "shared",
+          typeRef: createUnclassifiedDocumentTypeRef(
+            `inbound-rejected:${attachment.contentHash.slice(0, 16)}`,
+          ),
+          categoryLabel: "Inbound Email Attachment",
+          originalFilename: attachment.filename,
+          displayName: attachment.filename,
+          mimeType: attachment.mimeType,
+          fileSizeBytes: attachment.sizeBytes,
+          status: DOCUMENT_WORKSPACE_STATUS_QUARANTINED,
+          uploadSource: "email",
+          uploadedBy: `inbound:${email.fromEmail}`,
+          inboundClassificationJson: { ...snapshot },
+        },
+      });
+      const rejectedAtt = await enterpriseInboundEmailRepository.createAttachment({
+        organizationId,
+        inboundEmailId: ledgerId,
+        filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        contentHash: attachment.contentHash,
+        documentId: rejected.id,
+      });
+      await prisma.enterpriseTransactionDocument.update({
+        where: { id: rejected.id },
+        data: { inboundAttachmentId: rejectedAtt.id },
+      });
+      await appendDocumentWorkspaceAuditBestEffort({
+        organizationId,
+        actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_SYSTEM,
+        action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.INBOUND_ATTACHMENT_DETECTED,
+        documentId: rejected.id,
+        opportunityId: match.opportunityId,
+        dealId: match.dealId,
+        sourceChannel: "inbound_email",
+        metadata: { outcome: snapshot.outcome },
+      });
+      continue;
+    }
+
     const existingAtt = await enterpriseInboundEmailRepository.findAttachmentByHash(
       organizationId,
       ledgerId,
@@ -365,6 +492,7 @@ async function processMatchedInbound(args: {
                   clientRecordId: `inbound-email:${earSourceEventId}:${attachment.contentHash}`,
                   loanFileId: match.dealId ?? null,
                   contactId: match.contactId ?? null,
+                  inboundEmailId: ledgerId,
                   documentScope: "shared",
                   typeRef: createUnclassifiedDocumentTypeRef(
                     `inbound-email:${earSourceEventId}:${attachment.contentHash.slice(0, 16)}`,
@@ -385,7 +513,7 @@ async function processMatchedInbound(args: {
                 },
               })
             ).id;
-      await enterpriseInboundEmailRepository.createAttachment({
+      const att = await enterpriseInboundEmailRepository.createAttachment({
         organizationId,
         inboundEmailId: ledgerId,
         filename: attachment.filename,
@@ -393,6 +521,19 @@ async function processMatchedInbound(args: {
         sizeBytes: attachment.sizeBytes,
         contentHash: attachment.contentHash,
         documentId,
+      });
+      await stampInboundDocumentClassification({
+        organizationId,
+        documentId,
+        inboundEmailId: ledgerId,
+        inboundAttachmentId: att.id,
+        matchReason: match.reason,
+        opportunityId: match.opportunityId,
+        dealId: match.dealId,
+        contactId: match.contactId,
+        filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        duplicateOfDocumentId: sameOpportunity && sameDeal ? orgDup.id : orgDup.id,
       });
       continue;
     }
@@ -406,6 +547,7 @@ async function processMatchedInbound(args: {
         clientRecordId,
         loanFileId: match.dealId,
         contactId: match.contactId,
+        inboundEmailId: ledgerId,
         documentScope: "shared",
         typeRef: createUnclassifiedDocumentTypeRef(clientRecordId),
         categoryLabel: "Inbound Email Attachment",
@@ -419,7 +561,7 @@ async function processMatchedInbound(args: {
       },
     );
 
-    await enterpriseInboundEmailRepository.createAttachment({
+    const att = await enterpriseInboundEmailRepository.createAttachment({
       organizationId,
       inboundEmailId: ledgerId,
       filename: attachment.filename,
@@ -427,6 +569,18 @@ async function processMatchedInbound(args: {
       sizeBytes: attachment.sizeBytes,
       contentHash: attachment.contentHash,
       documentId: doc.id,
+    });
+    await stampInboundDocumentClassification({
+      organizationId,
+      documentId: doc.id,
+      inboundEmailId: ledgerId,
+      inboundAttachmentId: att.id,
+      matchReason: match.reason,
+      opportunityId: match.opportunityId,
+      dealId: match.dealId,
+      contactId: match.contactId,
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
     });
   }
 

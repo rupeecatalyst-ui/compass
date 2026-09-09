@@ -52,6 +52,9 @@ export function clearTokens(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_KEY);
   document.cookie = "compass-access-token=; path=/; max-age=0; SameSite=Lax";
+  void import("@/lib/document-registry/blob-store").then((mod) => {
+    mod.clearEphemeralDocumentBlobs();
+  });
 }
 
 function isAuthoritativeAuthRejection(status: number | undefined): boolean {

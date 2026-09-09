@@ -8,7 +8,7 @@ import { DiscoveryAmbientIntelligence } from "@/components/ambient-intelligence/
 import { DiscoveryAnalysisStep } from "@/components/home-loan-experience/discovery/discovery-analysis-step";
 import { DiscoveryCompass } from "@/components/home-loan-experience/discovery/discovery-compass";
 import { DiscoveryConfirmationStep } from "@/components/home-loan-experience/discovery/discovery-confirmation-step";
-import { useDiscovery } from "@/components/home-loan-experience/discovery/discovery-context";
+import { useDiscovery, type DiscoveryAnswers } from "@/components/home-loan-experience/discovery/discovery-context";
 import { DiscoveryDocumentsStep } from "@/components/home-loan-experience/discovery/discovery-documents-step";
 import { DiscoveryLendersStep } from "@/components/home-loan-experience/discovery/discovery-lenders-step";
 import { DiscoveryProgress } from "@/components/home-loan-experience/discovery/discovery-progress";
@@ -32,7 +32,6 @@ import {
   parseCompassCustomerIdentity,
   parseCompassDisplayName,
   parseCompassMobile,
-  parseCompassOptionalEmail,
 } from "@/lib/customer-identity";
 import { cn } from "@/lib/utils";
 
@@ -69,6 +68,115 @@ function QuestionHeader({ heading, helper }: { heading: string; helper: string }
   );
 }
 
+function OptionCards({
+  heading,
+  helper,
+  options,
+  value,
+  onSelect,
+}: {
+  heading: string;
+  helper: string;
+  options: Array<{ id: string; label: string }>;
+  value?: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <DiscoveryScreen stepKey={heading}>
+      <QuestionHeader heading={heading} helper={helper} />
+      <div className="mx-auto grid w-full max-w-md gap-3">
+        {options.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onSelect(opt.id)}
+            className={cn(
+              "rounded-2xl border p-5 text-left text-base font-medium transition-all duration-300",
+              "border-white/[0.08] bg-white/[0.02] hover:border-primary/30 hover:bg-primary/[0.06]",
+              value === opt.id && "border-primary/35 bg-primary/[0.08]",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </DiscoveryScreen>
+  );
+}
+
+type Certainty = "exact" | "approximate" | "not_known";
+
+function KnownValueStep({
+  stepKey,
+  heading,
+  helper,
+  inputMode,
+  placeholder,
+  displayValue,
+  certainty,
+  onChangeValue,
+  onChangeCertainty,
+  onContinue,
+  htmlType = "text",
+}: {
+  stepKey: string;
+  heading: string;
+  helper: string;
+  inputMode: "numeric" | "decimal" | "text";
+  placeholder: string;
+  displayValue: string;
+  certainty?: Certainty;
+  onChangeValue: (raw: string) => void;
+  onChangeCertainty: (certainty: Certainty) => void;
+  onContinue: (certainty?: Certainty) => void;
+  htmlType?: "text" | "date";
+}) {
+  const canContinue = certainty === "not_known" || Boolean(displayValue.trim());
+  return (
+    <DiscoveryScreen stepKey={stepKey}>
+      <QuestionHeader heading={heading} helper={helper} />
+      <div className="mx-auto w-full max-w-md space-y-4">
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            ["exact", "Exact"],
+            ["approximate", "Approximate"],
+            ["not_known", "Not known"],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChangeCertainty(id)}
+              className={cn(
+                "rounded-2xl border px-2 py-3 text-xs font-medium transition-all",
+                "border-white/[0.08] bg-white/[0.02] hover:border-primary/30",
+                certainty === id && "border-primary/35 bg-primary/[0.08]",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {certainty !== "not_known" ? (
+          <input
+            type={htmlType}
+            inputMode={htmlType === "date" ? undefined : inputMode}
+            value={displayValue}
+            onChange={(e) => onChangeValue(e.target.value)}
+            placeholder={placeholder}
+            className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+          />
+        ) : (
+          <p className="text-center text-sm text-muted-foreground">We’ll keep this as not known. It will not be treated as zero.</p>
+        )}
+        <Button size="lg" className="h-12 w-full" disabled={!canContinue} onClick={() => onContinue(certainty)}>
+          Continue
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </DiscoveryScreen>
+  );
+}
+
 function MiniHomePreview({ scale }: { scale: number }) {
   return (
     <motion.div
@@ -94,19 +202,14 @@ function MobileStep() {
   const [attempted, setAttempted] = useState(false);
   const reduceMotion = useReducedMotion();
   const c = discoveryCopy.mobile;
-
   const identity = parseCompassCustomerIdentity({
     displayName: answers.displayName,
     mobile: answers.mobile,
     personalEmail: answers.personalEmail,
   });
-  const nameError = parseCompassDisplayName(answers.displayName);
   const mobileError = parseCompassMobile(answers.mobile);
-  const emailError = parseCompassOptionalEmail(answers.personalEmail);
-  const canContinue = identity.ok;
-  const showNameError = attempted && !nameError.ok ? nameError.message : null;
+  const canContinue = identity.ok || (parseCompassDisplayName(answers.displayName).ok && mobileError.ok);
   const showMobileError = attempted && !mobileError.ok ? mobileError.message : null;
-  const showEmailError = attempted && !emailError.ok ? emailError.message : null;
 
   const continueAfterIdentity = async () => {
     setPhase("starting");
@@ -144,29 +247,14 @@ function MobileStep() {
 
   return (
     <DiscoveryScreen stepKey="mobile">
-      <QuestionHeader heading={c.heading} helper={c.helper} />
+      <QuestionHeader
+        heading="Where can our Home Loan Specialist reach you if you need help with this assessment?"
+        helper="We collect your mobile number before income assessment so a specialist can continue this conversation if you get stuck. We do not collect email on this screen."
+      />
       <div className="mx-auto w-full max-w-md space-y-4">
         <AnimatePresence mode="wait">
           {phase === "form" ? (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-              <label className="block space-y-2">
-                <span className="text-sm text-muted-foreground">{c.fullNameLabel}</span>
-                <input
-                  type="text"
-                  autoComplete="name"
-                  value={answers.displayName}
-                  onChange={(e) => setAnswer("displayName", e.target.value)}
-                  placeholder={c.fullNamePlaceholder}
-                  aria-invalid={Boolean(showNameError)}
-                  aria-describedby={showNameError ? "identity-name-error" : undefined}
-                  className={fieldClass}
-                />
-                {showNameError ? (
-                  <p id="identity-name-error" role="alert" className="text-sm text-destructive">
-                    {showNameError}
-                  </p>
-                ) : null}
-              </label>
               <label className="block space-y-2">
                 <span className="text-sm text-muted-foreground">{c.mobileLabel}</span>
                 <input
@@ -183,24 +271,6 @@ function MobileStep() {
                 {showMobileError ? (
                   <p id="identity-mobile-error" role="alert" className="text-sm text-destructive">
                     {showMobileError}
-                  </p>
-                ) : null}
-              </label>
-              <label className="block space-y-2">
-                <span className="text-sm text-muted-foreground">{c.emailLabel}</span>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  value={answers.personalEmail}
-                  onChange={(e) => setAnswer("personalEmail", e.target.value)}
-                  placeholder={c.emailPlaceholder}
-                  aria-invalid={Boolean(showEmailError)}
-                  aria-describedby={showEmailError ? "identity-email-error" : undefined}
-                  className={fieldClass}
-                />
-                {showEmailError ? (
-                  <p id="identity-email-error" role="alert" className="text-sm text-destructive">
-                    {showEmailError}
                   </p>
                 ) : null}
               </label>
@@ -435,6 +505,27 @@ export function DiscoveryJourney() {
       }
 
       case "propertyValue": {
+        if (productCode === "home-loan-balance-transfer") {
+          return (
+            <KnownValueStep
+              stepKey="propertyValue"
+              heading="What is the current estimated value of the property?"
+              helper="Customer-declared estimate. Exact, approximate, or not known."
+              inputMode="numeric"
+              placeholder="Estimated value in ₹"
+              displayValue={answers.propertyValue ? String(answers.propertyValue) : ""}
+              certainty={answers.propertyValueCertainty}
+              onChangeValue={(raw) => {
+                const n = Number(raw.replace(/\D/g, ""));
+                setAnswer("propertyValue", raw.replace(/\D/g, "") ? n : 0);
+              }}
+              onChangeCertainty={(certainty) => {
+                setAnswer("propertyValueCertainty", certainty);
+              }}
+              onContinue={() => goNext({ propertyValueCertainty: answers.propertyValueCertainty })}
+            />
+          );
+        }
         const c = discoveryCopy.propertyValue;
         return (
           <DiscoveryScreen stepKey="propertyValue">
@@ -467,63 +558,164 @@ export function DiscoveryJourney() {
         const c = discoveryCopy.currentLender;
         return (
           <DiscoveryScreen stepKey="currentLender">
-            <QuestionHeader heading={c.heading} helper={c.helper} />
+            <QuestionHeader heading="Which institution currently holds this Home Loan?" helper="You can name the lender or mark it as not known. We will not invent a lender." />
             <div className="mx-auto w-full max-w-md space-y-4">
               <input
-                value={answers.currentLender ?? ""}
+                value={answers.currentLender === "not_known" ? "" : answers.currentLender ?? ""}
                 onChange={(e) => setAnswer("currentLender", e.target.value)}
                 placeholder={c.placeholder}
                 className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
               />
-              <div className="flex justify-center">
-                <Button
-                  size="lg"
-                  className="h-12 px-10"
-                  disabled={(answers.currentLender ?? "").trim().length < 2}
-                  onClick={goNext}
-                >
-                  {discoveryCopy.buttons.next}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                size="lg"
+                className="h-12 w-full"
+                disabled={
+                  answers.currentLender !== "not_known" &&
+                  (answers.currentLender ?? "").trim().length < 2
+                }
+                onClick={goNext}
+              >
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <button
+                type="button"
+                className="w-full text-sm text-muted-foreground underline-offset-4 hover:underline"
+                onClick={() => {
+                  setAnswer("currentLender", "not_known");
+                  goNext({ currentLender: "not_known" });
+                }}
+              >
+                Not known
+              </button>
             </div>
           </DiscoveryScreen>
         );
       }
 
-      case "outstandingLoanAmount": {
-        const c = discoveryCopy.outstandingLoanAmount;
+      case "outstandingLoanAmount":
         return (
-          <DiscoveryScreen stepKey="outstandingLoanAmount">
-            <QuestionHeader heading={c.heading} helper={c.helper} />
-            <div className="mx-auto w-full max-w-lg">
-              <PremiumSlider
-                value={answers.outstandingLoanAmount ?? c.default}
-                min={c.min}
-                max={c.max}
-                minLabel={c.minLabel}
-                maxLabel={c.maxLabel}
-                onChange={(v) => setAnswer("outstandingLoanAmount", v)}
-              />
-              <div className="mt-8 flex justify-center">
-                <Button
-                  size="lg"
-                  className="h-12 px-10"
-                  onClick={() => {
-                    if (answers.outstandingLoanAmount == null) {
-                      setAnswer("outstandingLoanAmount", c.default);
-                    }
-                    goNext();
-                  }}
-                >
-                  {c.cta}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </DiscoveryScreen>
+          <KnownValueStep
+            stepKey="outstandingLoanAmount"
+            heading="What is the current principal outstanding?"
+            helper="Exact, approximate, or not known. Unknown is not converted to zero."
+            inputMode="numeric"
+            placeholder="Outstanding amount in ₹"
+            displayValue={answers.outstandingLoanAmount != null ? String(answers.outstandingLoanAmount) : ""}
+            certainty={answers.outstandingCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("outstandingLoanAmount", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("outstandingCertainty", certainty);
+              if (certainty === "not_known") setAnswer("outstandingLoanAmount", undefined);
+            }}
+            onContinue={(certainty) => goNext({ outstandingCertainty: certainty })}
+          />
         );
-      }
+
+      case "originalSanctionedAmount":
+        return (
+          <KnownValueStep
+            stepKey="originalSanctionedAmount"
+            heading="What was the original sanctioned loan amount?"
+            helper="The amount originally sanctioned, not the current outstanding. Exact, approximate, or not known."
+            inputMode="numeric"
+            placeholder="Sanctioned amount in ₹"
+            displayValue={answers.originalSanctionedAmount != null ? String(answers.originalSanctionedAmount) : ""}
+            certainty={answers.originalSanctionedCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("originalSanctionedAmount", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("originalSanctionedCertainty", certainty);
+              if (certainty === "not_known") setAnswer("originalSanctionedAmount", undefined);
+            }}
+            onContinue={(certainty) => goNext({ originalSanctionedCertainty: certainty })}
+          />
+        );
+
+      case "loanStartDate":
+        return (
+          <KnownValueStep
+            stepKey="loanStartDate"
+            heading="When was this Home Loan disbursed?"
+            helper="Used only for programme-specific seasoning. There is no universal seasoning rule. Exact, approximate, or not known."
+            inputMode="text"
+            htmlType="date"
+            placeholder="Disbursement date"
+            displayValue={answers.loanStartDate ?? ""}
+            certainty={answers.loanStartDateCertainty}
+            onChangeValue={(raw) => setAnswer("loanStartDate", raw || undefined)}
+            onChangeCertainty={(certainty) => {
+              setAnswer("loanStartDateCertainty", certainty);
+              if (certainty === "not_known") setAnswer("loanStartDate", undefined);
+            }}
+            onContinue={(certainty) => goNext({ loanStartDateCertainty: certainty })}
+          />
+        );
+
+      case "rateType":
+        return (
+          <OptionCards
+            heading="What is the current interest-rate type?"
+            helper="Floating, fixed, hybrid, or not known. Unknown is preserved — it is not assumed."
+            value={answers.rateType}
+            options={[
+              { id: "floating", label: "Floating" },
+              { id: "fixed", label: "Fixed" },
+              { id: "hybrid", label: "Hybrid" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("rateType", id as DiscoveryAnswers["rateType"]);
+              goNext({ rateType: id as DiscoveryAnswers["rateType"] });
+            }}
+          />
+        );
+
+      case "originalTenureMonths":
+        return (
+          <KnownValueStep
+            stepKey="originalTenureMonths"
+            heading="What was the original tenure of this Home Loan?"
+            helper="Asked only when remaining tenure is not known."
+            inputMode="numeric"
+            placeholder="Original tenure in months"
+            displayValue={answers.originalTenureMonths != null ? String(answers.originalTenureMonths) : ""}
+            certainty={answers.originalTenureCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("originalTenureMonths", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("originalTenureCertainty", certainty);
+              if (certainty === "not_known") setAnswer("originalTenureMonths", undefined);
+            }}
+            onContinue={(certainty) => goNext({ originalTenureCertainty: certainty })}
+          />
+        );
+
+      case "pincode":
+        return (
+          <KnownValueStep
+            stepKey="pincode"
+            heading="What is the property pincode?"
+            helper="Location is used with city. Exact, approximate, or not known."
+            inputMode="numeric"
+            placeholder="6-digit pincode"
+            displayValue={answers.pincode ?? ""}
+            certainty={answers.pincodeCertainty}
+            onChangeValue={(raw) => setAnswer("pincode", raw.replace(/\D/g, "").slice(0, 6) || undefined)}
+            onChangeCertainty={(certainty) => {
+              setAnswer("pincodeCertainty", certainty);
+              if (certainty === "not_known") setAnswer("pincode", undefined);
+            }}
+            onContinue={(certainty) => goNext({ pincodeCertainty: certainty })}
+          />
+        );
 
       case "propertyUsage": {
         const c = discoveryCopy.propertyUsage;
@@ -609,6 +801,26 @@ export function DiscoveryJourney() {
       }
 
       case "loanPurpose": {
+        if (productCode === "home-loan") {
+          return (
+            <OptionCards
+              heading="What are you planning to finance?"
+              helper="Choose the purpose that best matches this Home Loan."
+              value={answers.loanPurpose}
+              options={[
+                { id: "purchase_home", label: "Purchase a home" },
+                { id: "construct_owned_plot", label: "Construct on an owned plot" },
+                { id: "plot_and_construct", label: "Purchase a plot and construct" },
+                { id: "extend_renovate", label: "Extend or renovate an existing home" },
+              ]}
+              onSelect={(id) => {
+                setAnswer("loanPurpose", id);
+                nudgeCompass();
+                goNext({ loanPurpose: id });
+              }}
+            />
+          );
+        }
         const c = discoveryCopy.loanPurpose;
         return (
           <DiscoveryScreen stepKey="loanPurpose">
@@ -825,10 +1037,12 @@ export function DiscoveryJourney() {
       case "existingEmi": {
         const c = discoveryCopy.existingEmi;
         const heading =
-          productCode === "home-loan-balance-transfer" ? "Current EMI" : c.heading;
+          productCode === "home-loan-balance-transfer"
+            ? "What other monthly EMIs do you currently pay?"
+            : c.heading;
         const helper =
           productCode === "home-loan-balance-transfer"
-            ? "Monthly EMI on the loan being transferred."
+            ? "Do not include the Home Loan EMI being transferred. That EMI is replaced by the proposed EMI in post-transfer FOIR."
             : c.helper;
         return (
           <DiscoveryScreen stepKey="existingEmi">
@@ -856,7 +1070,498 @@ export function DiscoveryJourney() {
       case "city":
         return <CityStep />;
 
+      case "builderSource":
+        return (
+          <OptionCards
+            heading="Is the property being purchased from a builder or an existing owner?"
+            helper="This determines the construction questions we ask next."
+            value={answers.builderSource}
+            options={[
+              { id: "builder", label: "Builder" },
+              { id: "resale", label: "Existing owner / Resale" },
+              { id: "not_decided", label: "Not decided" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("builderSource", id);
+              goNext({ builderSource: id });
+            }}
+          />
+        );
+
+      case "constructionStatus":
+        return (
+          <OptionCards
+            heading="What is the construction status?"
+            helper="Ready, under construction, or newly launched — not a single ambiguous property status."
+            value={answers.constructionStatus}
+            options={[
+              { id: "ready", label: "Ready for possession" },
+              { id: "under_construction", label: "Under construction" },
+              { id: "newly_launched", label: "Newly launched / Not yet started" },
+              { id: "not_sure", label: "Not sure" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("constructionStatus", id);
+              setAnswer("propertyType", id === "ready" ? "ready" : "construction");
+              goNext({ constructionStatus: id });
+            }}
+          />
+        );
+
+      case "occupancy":
+        return (
+          <OptionCards
+            heading="How will the property be occupied?"
+            helper="Occupancy can affect programme eligibility."
+            value={answers.occupancy}
+            options={[
+              { id: "self-occupied", label: "Self occupied" },
+              { id: "rented", label: "Rented" },
+              { id: "vacant", label: "Vacant" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("occupancy", id);
+              goNext({ occupancy: id });
+            }}
+          />
+        );
+
+      case "propertyKind":
+        return (
+          <OptionCards
+            heading="What type of property is this?"
+            helper="Programme rules, if uploaded, use this property type. Unknown is preserved."
+            value={answers.propertyKind}
+            options={[
+              { id: "apartment", label: "Apartment" },
+              { id: "independent_house", label: "Independent house" },
+              { id: "villa", label: "Villa" },
+              { id: "plot", label: "Plot" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("propertyKind", id);
+              goNext({ propertyKind: id });
+            }}
+          />
+        );
+
+      case "possessionStatus":
+        return (
+          <OptionCards
+            heading="Do you already have possession of the property?"
+            helper="Possession is asked separately from construction status."
+            value={answers.possessionStatus}
+            options={[
+              { id: "possessed", label: "Yes — possessed" },
+              { id: "not_possessed", label: "Not yet possessed" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("possessionStatus", id);
+              goNext({ possessionStatus: id });
+            }}
+          />
+        );
+
+      case "registrationStatus":
+        return (
+          <OptionCards
+            heading="Is the property registered?"
+            helper="Asked only when possession or ready status makes registration relevant."
+            value={answers.registrationStatus}
+            options={[
+              { id: "registered", label: "Registered" },
+              { id: "not_registered", label: "Not registered" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("registrationStatus", id);
+              goNext({ registrationStatus: id });
+            }}
+          />
+        );
+
+      case "topUpPurpose":
+        return (
+          <OptionCards
+            heading="What is the purpose of the top-up?"
+            helper="Asked only when an active verified lender programme requires a top-up purpose."
+            value={answers.topUpPurpose}
+            options={[
+              { id: "renovation", label: "Renovation / improvement" },
+              { id: "personal", label: "Personal use" },
+              { id: "business", label: "Business use" },
+              { id: "other", label: "Other" },
+              { id: "not_known", label: "Not known" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("topUpPurpose", id);
+              goNext({ topUpPurpose: id });
+            }}
+          />
+        );
+
+      case "displayName":
+        return (
+          <DiscoveryScreen stepKey="displayName">
+            <QuestionHeader
+              heading="Before we continue, what should we call you?"
+              helper="We use your name so our Home Loan Specialist can address you personally. We do not collect your mobile number on this screen."
+            />
+            <div className="mx-auto w-full max-w-md space-y-4">
+              <input
+                type="text"
+                autoComplete="name"
+                value={answers.displayName}
+                onChange={(e) => setAnswer("displayName", e.target.value)}
+                placeholder="Your full name"
+                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+              />
+              <Button
+                size="lg"
+                className="h-12 w-full"
+                disabled={!answers.displayName.trim()}
+                onClick={() => goNext()}
+              >
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </DiscoveryScreen>
+        );
+
+      case "dateOfBirth":
+        return (
+          <DiscoveryScreen stepKey="dateOfBirth">
+            <QuestionHeader
+              heading="What is your date of birth?"
+              helper="Tenure is calculated in months against the programme’s maximum age at loan maturity."
+            />
+            <div className="mx-auto w-full max-w-md space-y-4">
+              <input
+                type="date"
+                value={answers.dateOfBirth || ""}
+                onChange={(e) => setAnswer("dateOfBirth", e.target.value)}
+                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+              />
+              <Button
+                size="lg"
+                className="h-12 w-full"
+                disabled={!answers.dateOfBirth}
+                onClick={() => goNext()}
+              >
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </DiscoveryScreen>
+        );
+
+      case "residency":
+        return (
+          <OptionCards
+            heading="What is your residency status?"
+            helper="Programmes may treat resident and NRI applicants differently."
+            value={answers.residency}
+            options={[
+              { id: "resident", label: "Resident Indian" },
+              { id: "nri", label: "NRI" },
+              { id: "not_sure", label: "Not sure" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("residency", id);
+              goNext({ residency: id });
+            }}
+          />
+        );
+
+      case "email":
+        return (
+          <DiscoveryScreen stepKey="email">
+            <QuestionHeader
+              heading="Where should we email your personalised lender comparison?"
+              helper="Email is optional here. Talk to an Expert still works without it."
+            />
+            <div className="mx-auto w-full max-w-md space-y-4">
+              <input
+                type="email"
+                autoComplete="email"
+                value={answers.personalEmail}
+                onChange={(e) => setAnswer("personalEmail", e.target.value)}
+                placeholder="name@example.com"
+                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+              />
+              <Button size="lg" className="h-12 w-full" onClick={() => goNext()}>
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </DiscoveryScreen>
+        );
+
+      case "topUpChoice":
+        return (
+          <OptionCards
+            heading="Do you also require a top-up loan?"
+            helper="You can transfer the existing Home Loan only, or add a top-up if needed."
+            value={answers.topUpChoice}
+            options={[
+              { id: "bt_only", label: "Balance Transfer only" },
+              { id: "with_topup", label: "Balance Transfer with Top-up" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("topUpChoice", id);
+              goNext({ topUpChoice: id });
+            }}
+          />
+        );
+
+      case "repaymentTrack":
+        return (
+          <OptionCards
+            heading="Have all EMIs been paid on time during the last 12 months?"
+            helper="The actual lender-required repayment period remains programme-specific."
+            value={answers.repaymentTrack}
+            options={[
+              { id: "yes", label: "Yes" },
+              { id: "no", label: "No" },
+              { id: "not_sure", label: "Not sure" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("repaymentTrack", id as DiscoveryAnswers["repaymentTrack"]);
+              goNext({ repaymentTrack: id as DiscoveryAnswers["repaymentTrack"] });
+            }}
+          />
+        );
+
+      case "coApplicant":
+        return (
+          <OptionCards
+            heading="Your current income may not fully support the requested loan amount. Would you like to add a co-applicant to improve your eligibility assessment?"
+            helper="We only ask this when the initial salaried assessment cannot support the requested amount."
+            value={answers.coApplicantDecision}
+            options={[
+              { id: "yes", label: "Yes" },
+              { id: "no", label: "No" },
+              { id: "not_decided", label: "Not decided" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("coApplicantDecision", id as DiscoveryAnswers["coApplicantDecision"]);
+              goNext({ coApplicantDecision: id as DiscoveryAnswers["coApplicantDecision"] });
+            }}
+          />
+        );
+
+      case "topUpAmount":
+        return (
+          <KnownValueStep
+            stepKey="topUpAmount"
+            heading="How much top-up do you require?"
+            helper="Asked only for Balance Transfer with Top-up. Exact, approximate, or not known."
+            inputMode="numeric"
+            placeholder="Top-up amount in ₹"
+            displayValue={answers.topUpAmount ? String(answers.topUpAmount) : ""}
+            certainty={answers.topUpAmountCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("topUpAmount", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("topUpAmountCertainty", certainty);
+              if (certainty === "not_known") setAnswer("topUpAmount", undefined);
+            }}
+            onContinue={(certainty) => goNext({ topUpAmountCertainty: certainty })}
+          />
+        );
+
+      case "currentRoi":
+        return (
+          <KnownValueStep
+            stepKey="currentRoi"
+            heading="What is the current interest rate on your Home Loan?"
+            helper="Exact, approximate, or not known. Unknown values are not treated as zero."
+            inputMode="decimal"
+            placeholder="% p.a."
+            displayValue={answers.currentRoi != null ? String(answers.currentRoi) : ""}
+            certainty={answers.currentRoiCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/[^\d.]/g, ""));
+              setAnswer("currentRoi", Number.isFinite(n) && raw.trim() ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("currentRoiCertainty", certainty);
+              if (certainty === "not_known") setAnswer("currentRoi", undefined);
+            }}
+            onContinue={(certainty) => goNext({ currentRoiCertainty: certainty })}
+          />
+        );
+
+      case "currentEmi":
+        return (
+          <KnownValueStep
+            stepKey="currentEmi"
+            heading="What is your current Home Loan EMI?"
+            helper="Used for before/after comparison. In post-transfer FOIR it is replaced by the proposed EMI, not added to it."
+            inputMode="numeric"
+            placeholder="Monthly EMI in ₹"
+            displayValue={answers.currentEmi ? String(answers.currentEmi) : ""}
+            certainty={answers.currentEmiCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("currentEmi", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("currentEmiCertainty", certainty);
+              if (certainty === "not_known") setAnswer("currentEmi", undefined);
+            }}
+            onContinue={(certainty) => goNext({ currentEmiCertainty: certainty })}
+          />
+        );
+
+      case "remainingTenureMonths":
+        return (
+          <KnownValueStep
+            stepKey="remainingTenureMonths"
+            heading="How many months remain on the current Home Loan?"
+            helper="Required for an indicative saving. If not known, we will not show a saving or break-even figure."
+            inputMode="numeric"
+            placeholder="Months remaining"
+            displayValue={answers.remainingTenureMonths != null ? String(answers.remainingTenureMonths) : ""}
+            certainty={answers.remainingTenureCertainty}
+            onChangeValue={(raw) => {
+              const n = Number(raw.replace(/\D/g, ""));
+              setAnswer("remainingTenureMonths", raw.replace(/\D/g, "") ? n : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("remainingTenureCertainty", certainty);
+              if (certainty === "not_known") setAnswer("remainingTenureMonths", undefined);
+            }}
+            onContinue={(certainty) =>
+              goNext({
+                remainingTenureCertainty: certainty,
+                remainingTenureMonths: certainty === "not_known" ? undefined : answers.remainingTenureMonths,
+              })
+            }
+          />
+        );
+
+      case "delayedEmiCount":
+        return (
+          <KnownValueStep
+            stepKey="delayedEmiCount"
+            heading="How many EMIs were delayed or missed?"
+            helper="Asked only when repayment is not clean. Unknown is not converted to zero. The acceptable track remains programme-specific."
+            inputMode="numeric"
+            placeholder="Number of delayed EMIs"
+            displayValue={answers.delayedEmiCount != null ? String(answers.delayedEmiCount) : ""}
+            certainty={answers.delayedEmiCountCertainty}
+            onChangeValue={(raw) => {
+              const digits = raw.replace(/\D/g, "");
+              setAnswer("delayedEmiCount", digits ? Number(digits) : undefined);
+            }}
+            onChangeCertainty={(certainty) => {
+              setAnswer("delayedEmiCountCertainty", certainty);
+              if (certainty === "not_known") setAnswer("delayedEmiCount", undefined);
+            }}
+            onContinue={(certainty) => goNext({ delayedEmiCountCertainty: certainty })}
+          />
+        );
+
+      case "coApplicantRelationship":
+        return (
+          <OptionCards
+            heading="What is the co-applicant’s relationship to you?"
+            helper="Co-applicant income is accepted only where the lender programme permits it."
+            value={answers.coApplicantRelationship}
+            options={[
+              { id: "spouse", label: "Spouse" },
+              { id: "parent", label: "Parent" },
+              { id: "child", label: "Son / Daughter" },
+              { id: "sibling", label: "Sibling" },
+              { id: "other", label: "Other" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("coApplicantRelationship", id);
+              goNext({ coApplicantRelationship: id });
+            }}
+          />
+        );
+
+      case "coApplicantDob":
+        return (
+          <DiscoveryScreen stepKey="coApplicantDob">
+            <QuestionHeader heading="What is the co-applicant’s date of birth?" helper="Whose age governs tenure is taken from the lender programme, not assumed." />
+            <div className="mx-auto w-full max-w-md space-y-4">
+              <input
+                type="date"
+                value={answers.coApplicantDob || ""}
+                onChange={(e) => setAnswer("coApplicantDob", e.target.value)}
+                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+              />
+              <Button size="lg" className="h-12 w-full" disabled={!answers.coApplicantDob} onClick={() => goNext()}>
+                Continue<ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </DiscoveryScreen>
+        );
+
+      case "coApplicantEmployment":
+        return (
+          <OptionCards
+            heading="What is the co-applicant’s employment type?"
+            helper="Only collected after you choose to add a co-applicant."
+            value={answers.coApplicantEmployment}
+            options={[
+              { id: "salaried", label: "Salaried" },
+              { id: "self-employed-professional", label: "Self-employed professional" },
+              { id: "self-employed-business", label: "Self-employed business" },
+            ]}
+            onSelect={(id) => {
+              setAnswer("coApplicantEmployment", id);
+              goNext({ coApplicantEmployment: id });
+            }}
+          />
+        );
+
+      case "coApplicantIncome":
+        return (
+          <DiscoveryScreen stepKey="coApplicantIncome">
+            <QuestionHeader heading="What is the co-applicant’s approximate monthly income?" helper="Accepted in a lender calculation only when that programme permits co-applicant income." />
+            <div className="mx-auto w-full max-w-md space-y-4">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={answers.coApplicantIncome ? String(answers.coApplicantIncome) : ""}
+                onChange={(e) => setAnswer("coApplicantIncome", Number(e.target.value.replace(/\D/g, "")) || 0)}
+                placeholder="Monthly income in ₹"
+                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+              />
+              <Button size="lg" className="h-12 w-full" onClick={() => goNext()}>Continue<ArrowRight className="h-4 w-4" /></Button>
+            </div>
+          </DiscoveryScreen>
+        );
+
+      case "coApplicantExistingEmi":
+        return (
+          <DiscoveryScreen stepKey="coApplicantExistingEmi">
+            <QuestionHeader heading="What existing monthly EMIs does the co-applicant have?" helper="Combined obligations are included in FOIR only after you add a co-applicant." />
+            <div className="mx-auto w-full max-w-md space-y-4">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={answers.coApplicantExistingEmi != null ? String(answers.coApplicantExistingEmi) : ""}
+                onChange={(e) => setAnswer("coApplicantExistingEmi", Number(e.target.value.replace(/\D/g, "")) || 0)}
+                placeholder="Existing EMIs in ₹"
+                className="h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 text-sm outline-none focus:border-primary/35"
+              />
+              <Button size="lg" className="h-12 w-full" onClick={() => goNext()}>Continue<ArrowRight className="h-4 w-4" /></Button>
+            </div>
+          </DiscoveryScreen>
+        );
+
       case "analysing":
+      case "reanalyse":
         return <DiscoveryAnalysisStep />;
 
       case "advantage":

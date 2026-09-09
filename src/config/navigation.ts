@@ -160,6 +160,7 @@ export const administrationChildren: NavSubItem[] = [
   { title: "Lender Program Portal", href: ROUTES.ADMIN_LENDER_PROGRAM_PORTAL },
   { title: "Lookup Masters", href: ROUTES.ADMIN_REFERENCE_MASTERS },
   { title: "Product Programs", href: ROUTES.ADMIN_PRODUCT_PROGRAMS },
+  { title: "Home Loan Recommendation Masters", href: ROUTES.ADMIN_HOME_LOAN_RECOMMENDATION_MASTERS },
   { title: "Document Types", href: ROUTES.ADMIN_DOCUMENT_TYPES },
   { title: "Product Library", href: ROUTES.ADMIN_PRODUCT_LIBRARY },
   { title: "Enterprise Asset Library", href: ROUTES.ADMIN_ENTERPRISE_ASSETS },

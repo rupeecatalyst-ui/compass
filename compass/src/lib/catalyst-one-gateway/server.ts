@@ -101,4 +101,11 @@ export const catalystOneGateway = {
       body: JSON.stringify(body),
     });
   },
+  talkToExpert(journeyToken: string) {
+    return callCatalystOne("/api/compass/journey/expert", {
+      method: "POST",
+      journeyToken,
+      body: JSON.stringify({}),
+    });
+  },
 };

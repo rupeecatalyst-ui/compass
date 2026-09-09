@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,19 @@ import type { DocumentWorkspaceRow } from "@/lib/document-workspace";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 import { mapDealLenderRecipients } from "@/lib/document-workspace/lender-pack";
 import { cn } from "@/lib/utils";
+import { DOCUMENT_WORKSPACE_DESK_BREAKPOINT_PX } from "@/constants/document-workspace-refinement-014";
+
+function useDesktopDocumentDesk() {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${DOCUMENT_WORKSPACE_DESK_BREAKPOINT_PX}px)`);
+    const apply = () => setDesktop(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return desktop;
+}
 
 export function DocumentWorkspaceActionDrawer({
   open,
@@ -56,13 +69,13 @@ export function DocumentWorkspaceActionDrawer({
   taskContext?: { opportunityId?: string; dealId?: string; contactId?: string };
 }) {
   const [panel, setPanel] = useState<"actions" | "request" | "lender">("actions");
+  const desktopDesk = useDesktopDocumentDesk();
   const deal = deals.find((d) => d.id === selectedDealId) ?? deals[0];
   const recipients = useMemo(() => (deal ? mapDealLenderRecipients(deal) : []), [deal]);
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col sm:max-w-md" allowOutsideClose>
-        <SheetHeader>
+  const body = (
+    <>
+        <SheetHeader className="text-left">
           <SheetTitle>Action Centre</SheetTitle>
           <p className="text-xs text-muted-foreground">
             {selectedCount} selected. Opening an action does not send.
@@ -188,8 +201,34 @@ export function DocumentWorkspaceActionDrawer({
             </Button>
           </div>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </>
+  );
+
+  return (
+    <>
+      <aside
+        className={cn(
+          "hidden min-h-0 overflow-y-auto border-l border-border/70 bg-background p-3",
+          open && "min-[1280px]:flex min-[1280px]:flex-col",
+        )}
+        data-document-workspace-action-centre="014"
+        data-document-workspace-action-centre-collapsed={open ? "false" : "true"}
+        id="document-workspace-action-centre"
+        aria-label="Action Centre"
+        aria-hidden={!open}
+      >
+        {body}
+      </aside>
+      <Sheet open={open && !desktopDesk} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col sm:max-w-sm min-[1280px]:hidden"
+          allowOutsideClose
+        >
+          {body}
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 

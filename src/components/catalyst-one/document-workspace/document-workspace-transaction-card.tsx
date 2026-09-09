@@ -86,12 +86,14 @@ export function DocumentWorkspaceTransactionCardView({
   onOpenOpportunity,
   onOpenDeal,
   onOpenContact,
+  newFromEmailCount,
 }: {
   group: DocumentWorkspaceCardGroup;
   readiness: DocumentWorkspaceCardReadiness;
   onOpenOpportunity: (card: DocumentWorkspaceOpportunityCard) => void;
   onOpenDeal: (card: DocumentWorkspaceDealCard) => void;
   onOpenContact: (card: DocumentWorkspaceOpportunityCard | DocumentWorkspaceDealCard) => void;
+  newFromEmailCount?: number;
 }) {
   const card = group.opportunity;
   const dealCount = group.deals.length;
@@ -128,6 +130,11 @@ export function DocumentWorkspaceTransactionCardView({
         >
           {card.borrowerName}
         </h2>
+        {newFromEmailCount ? (
+          <p data-new-from-email-count="" className="text-[11px] font-medium text-amber-300">
+            {newFromEmailCount} new from email
+          </p>
+        ) : null}
         <p data-record-number="" className="truncate text-xs text-muted-foreground">
           {card.opportunityNumber}
         </p>
@@ -180,6 +187,7 @@ export function DocumentWorkspaceTransactionCardView({
             {group.deals.map((deal) => (
               <li
                 key={deal.key}
+                data-transaction-card-key={deal.key}
                 data-deal-row={deal.dealId}
                 data-deal-id={deal.dealId}
                 data-opportunity-id={deal.opportunityId}

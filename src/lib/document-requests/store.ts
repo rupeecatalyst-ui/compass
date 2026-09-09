@@ -1,6 +1,7 @@
 /**
  * Document Requests workspace state + secure upload sessions.
- * Client persistence only — no new Prisma document tables.
+ * Business identity/status/history are server-authoritative (EnterpriseDocumentCustomerRequest).
+ * Browser storage may keep presentation state only.
  * Uploads always go to Enterprise Document Registry SSOT.
  */
 
@@ -10,6 +11,7 @@ import {
   CUSTOMER_PORTAL_DEFAULT_STAGE,
   DOCUMENT_REQUEST_LINK_EXPIRY_DAYS,
   DOCUMENT_REQUESTS_STORAGE_KEY,
+  DOCUMENT_REQUESTS_UI_STORAGE_KEY,
   DOCUMENT_REQUESTS_UPDATED_EVENT,
 } from "@/constants/document-requests";
 import { listDocumentsForOpportunityRuntime } from "@/lib/document-registry";
@@ -41,25 +43,95 @@ import type {
 
 type StoreShape = Record<string, DocumentRequestWorkspaceState>;
 
+let memoryStore: StoreShape = {};
+
+export type DocumentRequestUiPresentation = {
+  activeTab?: string;
+  filters?: Record<string, string>;
+  expandedGroups?: string[];
+  unsavedCheckboxState?: string[];
+};
+
 function newId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function readStore(): StoreShape {
+function readUiStore(): Record<string, DocumentRequestUiPresentation> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = localStorage.getItem(DOCUMENT_REQUESTS_STORAGE_KEY);
+    const raw = localStorage.getItem(DOCUMENT_REQUESTS_UI_STORAGE_KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as StoreShape;
+    return JSON.parse(raw) as Record<string, DocumentRequestUiPresentation>;
   } catch {
     return {};
   }
 }
 
-function writeStore(next: StoreShape) {
+function writeUiStore(next: Record<string, DocumentRequestUiPresentation>) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(DOCUMENT_REQUESTS_STORAGE_KEY, JSON.stringify(next));
+  localStorage.setItem(DOCUMENT_REQUESTS_UI_STORAGE_KEY, JSON.stringify(next));
+}
+
+export function getDocumentRequestUiState(opportunityId: string): DocumentRequestUiPresentation {
+  return readUiStore()[opportunityId.trim()] || {};
+}
+
+export function saveDocumentRequestUiState(
+  opportunityId: string,
+  patch: DocumentRequestUiPresentation,
+): DocumentRequestUiPresentation {
+  const id = opportunityId.trim();
+  const store = readUiStore();
+  const next = { ...(store[id] || {}), ...patch };
+  store[id] = next;
+  writeUiStore(store);
+  return next;
+}
+
+function readStore(): StoreShape {
+  return memoryStore;
+}
+
+function writeStore(next: StoreShape) {
+  memoryStore = next;
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(DOCUMENT_REQUESTS_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
   window.dispatchEvent(new CustomEvent(DOCUMENT_REQUESTS_UPDATED_EVENT));
+}
+
+export function hydrateDocumentRequestStateFromServer(
+  opportunityId: string,
+  lodItems: DocumentRequestItemState[],
+  lodVersionId?: string | null,
+): DocumentRequestWorkspaceState {
+  const current = getDocumentRequestState(opportunityId);
+  return saveState({
+    ...current,
+    opportunityId,
+    lodItems,
+    lodVersions: lodVersionId
+      ? [
+          {
+            id: lodVersionId,
+            versionNumber: 1,
+            generatedAt: new Date().toISOString(),
+            generatedBy: "server",
+            borrowerTypeLabel: "—",
+            productLabel: "—",
+            constitutionLabel: "—",
+            dimensionKey: lodVersionId,
+            structureKey: lodVersionId,
+            documentCount: lodItems.length,
+            typeRefs: lodItems.map((item) => item.typeRef),
+            active: true,
+          },
+        ]
+      : current.lodVersions,
+  });
 }
 
 export function subscribeDocumentRequestsUpdated(listener: () => void): () => void {

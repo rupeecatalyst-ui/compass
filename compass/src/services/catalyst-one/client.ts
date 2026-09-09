@@ -43,11 +43,66 @@ function answersPayload(productCode: CompassProductCode, answers: DiscoveryAnswe
     currentLender: answers.currentLender,
     outstandingLoanAmount: answers.outstandingLoanAmount,
     approxCibilScore: answers.approxCibilScore,
+    builderSource: answers.builderSource,
+    constructionStatus: answers.constructionStatus,
+    occupancy: answers.occupancy,
+    dateOfBirth: answers.dateOfBirth,
+    residency: answers.residency,
+    topUpChoice: answers.topUpChoice,
+    topUpAmount: answers.topUpAmount,
+    currentRoi: answers.currentRoi,
+    currentEmi: answers.currentEmi,
+    remainingTenureMonths: answers.remainingTenureMonths,
+    repaymentTrack: answers.repaymentTrack,
+    delayedEmiCount: answers.delayedEmiCount,
+    delayedEmiCountCertainty: answers.delayedEmiCountCertainty,
+    originalSanctionedAmount: answers.originalSanctionedAmount,
+    originalSanctionedCertainty: answers.originalSanctionedCertainty,
+    outstandingCertainty: answers.outstandingCertainty,
+    loanStartDate: answers.loanStartDate,
+    loanStartDateCertainty: answers.loanStartDateCertainty,
+    currentRoiCertainty: answers.currentRoiCertainty,
+    rateType: answers.rateType,
+    currentEmiCertainty: answers.currentEmiCertainty,
+    remainingTenureCertainty: answers.remainingTenureCertainty,
+    originalTenureMonths: answers.originalTenureMonths,
+    originalTenureCertainty: answers.originalTenureCertainty,
+    pincode: answers.pincode,
+    pincodeCertainty: answers.pincodeCertainty,
+    propertyKind: answers.propertyKind,
+    propertyValueCertainty: answers.propertyValueCertainty,
+    possessionStatus: answers.possessionStatus,
+    registrationStatus: answers.registrationStatus,
+    topUpAmountCertainty: answers.topUpAmountCertainty,
+    topUpPurpose: answers.topUpPurpose,
+    coApplicantDecision: answers.coApplicantDecision,
+    coApplicantRelationship: answers.coApplicantRelationship,
+    coApplicantDob: answers.coApplicantDob,
+    coApplicantEmployment: answers.coApplicantEmployment,
+    coApplicantIncome: answers.coApplicantIncome,
+    coApplicantExistingEmi: answers.coApplicantExistingEmi,
   };
   const allowed = new Set(getPersistedDiscoveryAnswerKeys(productCode));
+  const unknownCertainties: Array<[string, string | undefined]> = [
+    ["propertyValue", answers.propertyValueCertainty],
+    ["outstandingLoanAmount", answers.outstandingCertainty],
+    ["originalSanctionedAmount", answers.originalSanctionedCertainty],
+    ["currentRoi", answers.currentRoiCertainty],
+    ["currentEmi", answers.currentEmiCertainty],
+    ["remainingTenureMonths", answers.remainingTenureCertainty],
+    ["originalTenureMonths", answers.originalTenureCertainty],
+    ["topUpAmount", answers.topUpAmountCertainty],
+    ["loanStartDate", answers.loanStartDateCertainty],
+    ["pincode", answers.pincodeCertainty],
+    ["delayedEmiCount", answers.delayedEmiCountCertainty],
+  ];
+  const omitValues = new Set(
+    unknownCertainties.filter(([, certainty]) => certainty === "not_known").map(([key]) => key),
+  );
   const payload: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(raw)) {
     if (!allowed.has(key) || value == null) continue;
+    if (omitValues.has(key)) continue;
     if (typeof value === "string" && !value.trim()) continue;
     payload[key] = value;
   }
@@ -135,6 +190,10 @@ export async function fetchDiscoveryIntelligence(input: {
     recommendations: {
       status: DiscoveryIntelligenceResult["recommendationsStatus"];
       message: string;
+      needsCoApplicant?: boolean;
+      needsCoApplicantPrompt?: boolean;
+      assistedOffer?: DiscoveryIntelligenceResult["assistedOffer"];
+      cibilNotKnownDisclaimer?: boolean;
       cards: Array<{
         lenderRef: string;
         displayName: string;
@@ -145,9 +204,17 @@ export async function fetchDiscoveryIntelligence(input: {
         processingTimeLabel: string | null;
         reasons: string[];
         benefits: string[];
+        tentativeOfferLabel?: string | null;
+        requestedAmountLabel?: string | null;
+        shortfallLabel?: string | null;
+        tenureLabel?: string | null;
+        foirLabel?: string | null;
+        whyThisRecommendation?: string | null;
+        matchState?: string | null;
       }>;
     };
     sarathiMessages: string[];
+    expertSla?: DiscoveryIntelligenceResult["expertSla"];
   };
 
   const lenders: DiscoveryIntelligenceResult["lenders"] = analysis.recommendations.cards.map(
@@ -163,6 +230,13 @@ export async function fetchDiscoveryIntelligence(input: {
       processingTime: card.processingTimeLabel || "Advisor-assisted",
       reasons: card.reasons,
       benefits: card.benefits,
+      tentativeOffer: card.tentativeOfferLabel ?? null,
+      requestedAmount: card.requestedAmountLabel ?? null,
+      shortfall: card.shortfallLabel ?? null,
+      tenure: card.tenureLabel ?? null,
+      foir: card.foirLabel ?? null,
+      whyThisRecommendation: card.whyThisRecommendation ?? null,
+      matchState: card.matchState ?? null,
     }),
   );
 
@@ -172,6 +246,12 @@ export async function fetchDiscoveryIntelligence(input: {
     lenders,
     recommendationsStatus: analysis.recommendations.status,
     recommendationsMessage: analysis.recommendations.message,
+    needsCoApplicant: Boolean(
+      analysis.recommendations.needsCoApplicantPrompt ?? analysis.recommendations.needsCoApplicant,
+    ),
+    assistedOffer: analysis.recommendations.assistedOffer ?? null,
+    cibilNotKnownDisclaimer: Boolean(analysis.recommendations.cibilNotKnownDisclaimer),
+    expertSla: analysis.expertSla ?? null,
     sarathi: { messages: analysis.sarathiMessages },
     journeySessionToken: input.journeySessionToken,
   };
@@ -237,4 +317,33 @@ export async function submitCompassApplication(
     throw new Error(body?.error || "Submission failed.");
   }
   return response.json() as Promise<CompassSubmitResponse>;
+}
+
+export async function requestCompassTalkToExpert(
+  journeySessionToken: string,
+): Promise<NonNullable<DiscoveryIntelligenceResult["expertSla"]>> {
+  const response = await fetch("/api/journey/expert", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${journeySessionToken}`,
+    },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error || "Unable to request a Home Loan Specialist.");
+  }
+  const data = (await response.json()) as {
+    borrowerCopy?: string;
+    sla?: { expectedContactAtIso: string; remainingWorkingMs: number; state: string; deadlineIso?: string };
+    expertSla?: DiscoveryIntelligenceResult["expertSla"];
+  };
+  if (data.expertSla) return data.expertSla;
+  return {
+    borrowerCopy: data.borrowerCopy || "Our Home Loan Specialist will contact you within one working hour.",
+    expectedContactAtIso: data.sla?.expectedContactAtIso || "",
+    remainingWorkingMs: data.sla?.remainingWorkingMs ?? 0,
+    state: data.sla?.state || "working_sla_active",
+  };
 }

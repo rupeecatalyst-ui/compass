@@ -23,9 +23,12 @@ import {
   DOCUMENT_WORKSPACE_FOLDER_UPLOAD_LABEL,
   DOCUMENT_WORKSPACE_INTERNAL_NOTE_LABEL,
   DOCUMENT_WORKSPACE_OTHER_DOCUMENTS_LABEL,
-  DOCUMENT_WORKSPACE_REMOVE_CONFIRM,
   DOCUMENT_WORKSPACE_REPLACE_REASON_REQUIRED,
 } from "@/constants/document-workspace-contact-centric";
+import {
+  DOCUMENT_WORKSPACE_DELETION_REASON_REQUIRED,
+  DOCUMENT_WORKSPACE_MOVE_TO_DELETED_LABEL,
+} from "@/constants/document-workspace-lifecycle";
 import type { DocumentWorkspaceRow } from "@/lib/document-workspace";
 import type { DocumentRegistryRecord } from "@/types/document-registry";
 import { listEdieDocumentTypeOptions } from "@/lib/document-requests";
@@ -61,7 +64,7 @@ export function DocumentWorkspaceOpsBar({
 
   return (
     <div
-      data-document-workspace-ops="013"
+      data-document-workspace-ops="014"
       className="mb-3 flex flex-wrap items-center gap-2 border-b border-border/60 pb-3"
     >
       <Button
@@ -292,7 +295,7 @@ export function DocumentWorkspaceRowDialogs({
   mode: "replace" | "remove" | "email" | "note" | null;
   onClose: () => void;
   onReplace: (reason: string, file: File) => void;
-  onRemove: () => void;
+  onRemove: (reason: string) => void;
   onEmail: (recipientId: string) => void;
   onNote: (note: string) => void;
   recipients: Recipient[];
@@ -337,15 +340,26 @@ export function DocumentWorkspaceRowDialogs({
       <Dialog open={mode === "remove"} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-md" allowOutsideClose>
           <DialogHeader>
-            <DialogTitle className="text-sm">Remove document</DialogTitle>
-            <DialogDescription>{DOCUMENT_WORKSPACE_REMOVE_CONFIRM}</DialogDescription>
+            <DialogTitle className="text-sm">{DOCUMENT_WORKSPACE_MOVE_TO_DELETED_LABEL}</DialogTitle>
+            <DialogDescription>{DOCUMENT_WORKSPACE_DELETION_REASON_REQUIRED}</DialogDescription>
           </DialogHeader>
+          <Textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder={DOCUMENT_WORKSPACE_DELETION_REASON_REQUIRED}
+          />
           <DialogFooter>
             <Button type="button" variant="ghost" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="button" size="sm" variant="destructive" onClick={onRemove}>
-              Confirm remove
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={!reason.trim()}
+              onClick={() => onRemove(reason.trim())}
+            >
+              {DOCUMENT_WORKSPACE_MOVE_TO_DELETED_LABEL}
             </Button>
           </DialogFooter>
         </DialogContent>

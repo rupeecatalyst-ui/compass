@@ -1,5 +1,5 @@
 /**
- * CO-C1-CONTEXT-LOCKED-DOCUMENT-WORKSPACE-008 — lock Document Workspace to canonical IDs.
+ * CO-C1-CONTEXT-LOCKED-DOCUMENT-WORKSPACE-008 / 014B — lock Document Workspace to canonical IDs.
  */
 
 import {
@@ -8,10 +8,12 @@ import {
   requireAccessToken,
   successResponse,
 } from "@/lib/api/auth-route-utils";
+import { parseDocumentWorkspaceContextRequest } from "@server/services/document-workspace/document-workspace-context.service";
+import { resolveDocumentWorkspaceAccess } from "@server/services/document-workspace/document-workspace-access.service";
 import {
-  parseDocumentWorkspaceContextRequest,
-  resolveDocumentWorkspaceContext,
-} from "@server/services/document-workspace/document-workspace-context.service";
+  documentWorkspaceHttpError,
+  isTokenAuthFailure,
+} from "@/lib/document-workspace/access-decision";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,29 +21,23 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const actor = requireAccessToken(request);
-    const result = await resolveDocumentWorkspaceContext({
-      actor: { userId: actor.userId, role: actor.role },
-      request: parseDocumentWorkspaceContextRequest(new URL(request.url)),
+    const parsed = parseDocumentWorkspaceContextRequest(new URL(request.url));
+    const authorised = await resolveDocumentWorkspaceAccess({
+      userId: actor.userId,
+      capability: "view",
+      claimedOrganizationId: parsed.organizationId,
+      opportunityId: parsed.opportunityId,
+      dealId: parsed.dealId,
+      contactId: parsed.contactId,
+      companyId: parsed.companyId,
+      documentId: parsed.documentId,
     });
-    const status = result.ok
-      ? 200
-      : result.code === "UNAUTHORIZED"
-        ? 403
-        : result.code === "NOT_FOUND" || result.code === "DELETED"
-          ? 404
-          : result.code === "CROSS_ORGANIZATION" || result.code === "OPPORTUNITY_DEAL_MISMATCH"
-            ? 409
-            : 400;
-    return successResponse(result, status);
+    return successResponse({ ok: true, context: authorised.lock });
   } catch (err) {
-    if (typeof err === "object" && err && "status" in err) {
-      return fromAuthError(err as { status: number; body: never });
+    if (isTokenAuthFailure(err)) {
+      return fromAuthError(err);
     }
-    const status = Number((err as { statusCode?: number }).statusCode) || 500;
-    return errorResponse(
-      status,
-      (err as { code?: string }).code || "DOCUMENT_WORKSPACE_CONTEXT_FAILED",
-      err instanceof Error ? err.message : "Failed to lock Document Workspace context",
-    );
+    const mapped = documentWorkspaceHttpError(err);
+    return errorResponse(mapped.status, mapped.code, mapped.message);
   }
 }

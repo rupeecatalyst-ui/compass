@@ -129,8 +129,13 @@ export function CustomerDocumentCollectionPortal({
   const [flash, setFlash] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState("");
-  const [saarthiInput, setSaarthiInput] = useState("");
+  const [otpNeeded, setOtpNeeded] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [otpMessage, setOtpMessage] = useState<string | null>(null);
+  const [durableItemIds, setDurableItemIds] = useState<Record<string, string>>({});
   const [saarthiThread, setSaarthiThread] = useState<SaarthiMessage[]>([]);
+  const [saarthiInput, setSaarthiInput] = useState("");
   const openedRef = useRef(false);
 
   const reload = useCallback((opts?: { audit?: boolean }) => {
@@ -158,11 +163,27 @@ export function CustomerDocumentCollectionPortal({
     reload({ audit: true });
     const unsubDr = subscribeDocumentRequestsUpdated(() => reload({ audit: false }));
     const unsubReg = subscribeDocumentRegistryUpdated(() => reload({ audit: false }));
+    if (token) {
+      void fetch(`/api/document-workspace/upload-portal?token=${encodeURIComponent(token)}`)
+        .then((res) => res.json())
+        .then((json) => {
+          const data = json?.data ?? json;
+          if (data?.ok) {
+            setOtpNeeded(true);
+            const map: Record<string, string> = {};
+            for (const item of data.items ?? []) {
+              if (item.requestRef) map[item.requestRef] = item.id;
+            }
+            setDurableItemIds(map);
+          }
+        })
+        .catch(() => undefined);
+    }
     return () => {
       unsubDr();
       unsubReg();
     };
-  }, [reload]);
+  }, [reload, token]);
 
   useEffect(() => {
     if (!state?.uploadSession || openedRef.current) return;
@@ -216,6 +237,28 @@ export function CustomerDocumentCollectionPortal({
     }
     setBusyRef(getDocumentRequestRef(item));
     setFlash(null);
+    if (otpVerified) {
+      const requestItemId = durableItemIds[getDocumentRequestRef(item)];
+      if (!requestItemId) {
+        setFlash("This upload link does not include that document.");
+        setBusyRef(null);
+        return;
+      }
+      const form = new FormData();
+      form.set("token", token);
+      form.set("requestItemId", requestItemId);
+      form.set("file", file, file.name);
+      const res = await fetch("/api/document-workspace/upload-portal", {
+        method: "POST",
+        body: form,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        setFlash(json?.error?.message || json?.data?.message || "This file could not be accepted.");
+        setBusyRef(null);
+        return;
+      }
+    }
     const result = await ingestCustomerPortalDocument({
       session,
       item,
@@ -291,6 +334,71 @@ export function CustomerDocumentCollectionPortal({
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  if (otpNeeded && !otpVerified) {
+    return (
+      <main className="min-h-dvh bg-zinc-950 px-4 py-10 text-zinc-100" data-document-upload-otp="014">
+        <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-zinc-900/80 p-6">
+          <h1 className="text-lg font-semibold">Verify your email</h1>
+          <p className="mt-2 text-sm text-zinc-400">
+            Enter the email verification code sent to the selected party’s canonical email. Codes are not sent when delivery is disabled.
+          </p>
+          <input
+            className="mt-4 h-10 w-full rounded-md border border-white/20 bg-zinc-950 px-3 text-sm"
+            value={otpValue}
+            onChange={(e) => setOtpValue(e.target.value)}
+            inputMode="numeric"
+            maxLength={6}
+            aria-label="Email OTP"
+          />
+          {otpMessage ? <p className="mt-2 text-xs text-amber-300">{otpMessage}</p> : null}
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              className="rounded-md border border-white/20 px-3 py-2 text-xs"
+              onClick={() => {
+                void fetch("/api/document-workspace/upload-portal", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "issue_otp", token }),
+                })
+                  .then((res) => res.json())
+                  .then((json) => {
+                    const data = json?.data ?? json;
+                    setOtpMessage(
+                      data?.deliveryEnabled
+                        ? "A code would be emailed when delivery is enabled."
+                        : "OTP generated but not sent (delivery disabled).",
+                    );
+                  });
+              }}
+            >
+              Request code
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-white px-3 py-2 text-xs text-zinc-950"
+              onClick={() => {
+                void fetch("/api/document-workspace/upload-portal", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "verify_otp", token, otp: otpValue }),
+                })
+                  .then((res) => res.json())
+                  .then((json) => {
+                    const data = json?.data ?? json;
+                    if (data?.ok) setOtpVerified(true);
+                    else setOtpMessage(data?.message || "Verification failed.");
+                  });
+              }}
+            >
+              Verify
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (invalid) {
     if (embedded) {

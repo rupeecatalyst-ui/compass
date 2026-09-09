@@ -42,6 +42,9 @@ export function calculateAdvantageFromSchedule(input: {
   schedule: CompassAdvantageScheduleInput | null;
   productCode: string;
   requestedLoanAmount: string | null | undefined;
+  /** When set, Advantage uses this base (lender tentative offer) without changing the formula. */
+  calculationBaseAmount?: string | null;
+  calculationBaseKind?: "tentative_offer" | "requested_amount";
   unavailableStatus?: CompassAdvantageCalculationStatus;
   unavailableReason?: string;
 }): CompassAdvantageCalculationResult {
@@ -97,7 +100,7 @@ export function calculateAdvantageFromSchedule(input: {
     return empty("not_available", "draft_not_effective", explanationFor("not_available"));
   }
 
-  const amount = input.requestedLoanAmount?.trim() ?? "";
+  const amount = (input.calculationBaseAmount?.trim() || input.requestedLoanAmount?.trim()) ?? "";
   if (!amount || !isValidNonNegativeDecimal(amount) || compareExactDecimal(amount, "0") <= 0) {
     return empty(
       "required_inputs_unavailable",
@@ -136,8 +139,9 @@ export function calculateAdvantageFromSchedule(input: {
   }
 
   const percentLabel = rateToPercentDisplay(range.percentageRate);
+  const baseKind = input.calculationBaseKind === "tentative_offer" ? "tentative offer" : "requested loan amount";
   const explanationParts = [
-    `${TITLE} is ${formatInrFromRupees(percentageBenefit)} (${percentLabel}% of the requested loan amount)`,
+    `${TITLE} is ${formatInrFromRupees(percentageBenefit)} (${percentLabel}% of the ${baseKind})`,
   ];
   for (const component of fixedComponents) {
     explanationParts.push(`${component.name}: ${formatInrFromRupees(component.amountRupees)}`);

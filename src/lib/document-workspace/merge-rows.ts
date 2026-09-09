@@ -4,6 +4,7 @@
  * Same registry ids — never copied binaries.
  */
 
+import { isDocumentWorkspaceInactiveLifecycleStatus } from "@/constants/document-workspace-lifecycle";
 import type { DocumentWorkspaceOwnerTabId } from "@/constants/document-workspace";
 import type { DocumentWorkspaceReviewStatus } from "@/constants/document-workspace";
 import { deriveDocumentWorkspaceReviewStatus } from "@/lib/document-workspace/review-status";
@@ -43,7 +44,7 @@ export function mergeDocumentWorkspaceRows(input: {
   const rows: DocumentWorkspaceRow[] = [];
 
   for (const lodItem of input.lodItems) {
-    const linked =
+    const linkedRaw =
       (lodItem.registryRecordId
         ? input.records.find((r) => r.id === lodItem.registryRecordId)
         : undefined) ??
@@ -53,6 +54,10 @@ export function mergeDocumentWorkspaceRows(input: {
           r.typeRef === lodItem.typeRef &&
           (!lodItem.participantId || r.links.participantId === lodItem.participantId),
       );
+    const linked =
+      linkedRaw && !isDocumentWorkspaceInactiveLifecycleStatus(linkedRaw.status)
+        ? linkedRaw
+        : undefined;
     if (linked) usedRecordIds.add(linked.id);
     const owner = resolveDocumentWorkspaceOwnerTab({
       record: linked,
@@ -86,7 +91,7 @@ export function mergeDocumentWorkspaceRows(input: {
   }
 
   for (const record of input.records) {
-    if (record.status === "deleted" || usedRecordIds.has(record.id)) continue;
+    if (isDocumentWorkspaceInactiveLifecycleStatus(record.status) || usedRecordIds.has(record.id)) continue;
     const owner = resolveDocumentWorkspaceOwnerTab({
       record,
       participants: input.participants,
