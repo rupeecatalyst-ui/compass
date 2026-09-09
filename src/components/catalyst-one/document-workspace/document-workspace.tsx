@@ -69,6 +69,7 @@ import {
   createOrRegenerateUploadSession,
   deriveOpportunityDocumentReadiness,
   getDocumentRequestState,
+  hydrateDocumentRequestStateFromServer,
   markItemRemarks,
   refreshDocumentRequestFromRegistry,
   requestDocumentItems,
@@ -102,6 +103,7 @@ import {
   readDocumentWorkspaceRestore,
   writeDocumentWorkspaceRestore,
 } from "@/lib/document-workspace/context-lock";
+import type { DocumentRequestItemState } from "@/types/document-requests";
 import type {
   DocumentWorkspaceContextInput,
   DocumentWorkspaceLockFailure,
@@ -430,6 +432,57 @@ export function DocumentWorkspace() {
     if (res.ok && body.success && Array.isArray(body.data?.items)) {
       setDeletedItems(body.data.items);
     }
+  }, [lockedOpportunityId, dealId]);
+
+  useEffect(() => {
+    if (!lockedOpportunityId) return;
+    let cancelled = false;
+    void (async () => {
+      const params = new URLSearchParams({
+        view: "lod-checklist",
+        opportunityId: lockedOpportunityId,
+      });
+      if (dealId) params.set("dealId", dealId);
+      const res = await authenticatedJsonFetch(
+        `/api/document-workspace/refinement-014?${params.toString()}`,
+      );
+      const body = (await res.json()) as {
+        success?: boolean;
+        data?: {
+          items?: Array<{
+            requestRef: string;
+            typeRef: string;
+            label: string;
+            status: string;
+            mandatory: boolean;
+            ownerLabel: string;
+            ownerKind: string;
+          }>;
+          lodVersionId?: string | null;
+        };
+      };
+      if (cancelled || !res.ok || !body.success || !Array.isArray(body.data?.items)) return;
+      hydrateDocumentRequestStateFromServer(
+        lockedOpportunityId,
+        body.data.items.map((item) => ({
+          requestRef: item.requestRef,
+          typeRef: item.typeRef,
+          label: item.label,
+          category: "journey",
+          moduleId: "server_ssot",
+          moduleLabel: "Document Request",
+          mandatory: item.mandatory,
+          critical: false,
+          ownerName: item.ownerLabel,
+          ownerRoleLabel: item.ownerKind,
+          status: item.status as DocumentRequestItemState["status"],
+        })),
+        body.data.lodVersionId,
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [lockedOpportunityId, dealId]);
   const records = useMemo(
     () =>

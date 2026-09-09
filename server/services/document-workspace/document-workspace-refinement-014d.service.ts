@@ -25,8 +25,15 @@ import { isOperationalSmtpDeliveryEnabled } from "@/constants/enterprise-communi
 import { DOCUMENT_WORKSPACE_STATUS_QUARANTINED } from "@/constants/document-workspace-lifecycle";
 import { isUnclassifiedDocumentTypeRef } from "@/constants/document-intake";
 import { generateOpportunityLod, EdieLodCertificationError } from "@/lib/document-requests/generate-lod";
-import { getDocumentRequestState } from "@/lib/document-requests/store";
 import { canCitePublishedProgramme } from "@/lib/product-programme-operations/legacy-review";
+import {
+  loadLodChecklistRequest,
+  persistLodChecklistItems,
+  overlayDurableItemStatuses,
+  loadAuthoritativeSelectedItems,
+  markLodChecklistShared,
+  mapDurableItemToLodState,
+} from "@server/services/document-workspace/document-request-ssot.service";
 import { enforceMandatoryInitiatingSenderCc } from "@/lib/enterprise-communication-center/initiating-sender-cc";
 import { isValidEmailAddress } from "@/lib/enterprise-communication-center/recipient-router";
 import {
@@ -548,9 +555,18 @@ async function loadChecklistItems(authorised: DocumentWorkspaceAuthorisedContext
     }
   }
 
-  const existing = getDocumentRequestState(opportunity.id);
-  let lodItems: DocumentRequestItemState[] = existing.lodItems;
-  let lodVersionId = existing.lodVersions?.[0]?.id ?? null;
+  const durableRequest = await loadLodChecklistRequest({
+    organizationId: authorised.organizationId,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+  });
+  let lodItems: DocumentRequestItemState[] = durableRequest
+    ? durableRequest.items.map(mapDurableItemToLodState)
+    : [];
+  let lodVersionId = durableRequest?.lodVersionId ?? null;
+  if (durableRequest?.programmeVersionRef) {
+    programmeVersionRef = durableRequest.programmeVersionRef;
+  }
   try {
     const generated = generateOpportunityLod({
       productLabel: opportunity.productLabel || "Loan",
@@ -570,6 +586,22 @@ async function loadChecklistItems(authorised: DocumentWorkspaceAuthorisedContext
   }
 
   if (!lodVersionId && programmeVersionRef) lodVersionId = programmeVersionRef;
+
+  if (lodItems.length) {
+    const persisted = await persistLodChecklistItems({
+      organizationId: authorised.organizationId,
+      opportunityId: authorised.opportunityId,
+      dealId: authorised.dealId,
+      actorUserId: authorised.actor.userId,
+      partyEntityId: opportunity.primaryContactId || authorised.opportunityId,
+      lodItems,
+      lodVersionId,
+      programmeVersionRef,
+    });
+    lodItems = persisted.items.map(mapDurableItemToLodState);
+    lodVersionId = persisted.lodVersionId;
+    if (persisted.programmeVersionRef) programmeVersionRef = persisted.programmeVersionRef;
+  }
 
   const durable = await prisma.enterpriseTransactionDocument.findMany({
     where: {
@@ -659,6 +691,22 @@ async function loadChecklistItems(authorised: DocumentWorkspaceAuthorisedContext
     reviews,
   );
 
+  const durableForStatus = await loadLodChecklistRequest({
+    organizationId: authorised.organizationId,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+  });
+  if (durableForStatus) {
+    await overlayDurableItemStatuses({
+      organizationId: authorised.organizationId,
+      requestId: durableForStatus.id,
+      updates: items.map((item) => ({
+        requestRef: item.requestRef,
+        status: item.status,
+      })),
+    });
+  }
+
   await appendDocumentWorkspaceAuditBestEffort({
     organizationId: authorised.organizationId,
     actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_SYSTEM,
@@ -727,13 +775,32 @@ export async function prepareDocumentRequestHandoff(input: {
     dealId: input.dealId,
   });
   const checklist = await loadChecklistItems(authorised);
+  const durableSelected = await loadAuthoritativeSelectedItems({
+    organizationId: authorised.organizationId,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    selectedRefs: input.selectedRefs,
+  });
+  if (!durableSelected) {
+    await appendDocumentWorkspaceAuditBestEffort({
+      organizationId: authorised.organizationId,
+      actorType: DOCUMENT_WORKSPACE_AUDIT_ACTOR_EMPLOYEE,
+      actorId: authorised.actor.userId,
+      action: DOCUMENT_WORKSPACE_AUDIT_ACTIONS.SELECTION_REJECTED_VALIDATION,
+      opportunityId: authorised.opportunityId,
+      dealId: authorised.dealId,
+      outcome: "denied",
+      metadata: { code: "STALE_SELECTION" },
+    });
+    portalFailure(400, "STALE_SELECTION", "Selected requirements must be re-read from the server request.");
+  }
   const validated = revalidateChecklistSelection({
     organizationId: authorised.organizationId,
     opportunityId: authorised.opportunityId,
     dealId: authorised.dealId,
     lodVersionId: checklist.lodVersionId,
     selectedRefs: input.selectedRefs,
-    canonicalItems: checklist.items,
+    canonicalItems: durableSelected,
   });
   if (!validated.ok) {
     await appendDocumentWorkspaceAuditBestEffort({
@@ -795,6 +862,12 @@ export async function prepareDocumentRequestHandoff(input: {
       correlationId,
       sourceChannel: "whatsapp",
       metadata: { selectedCount: dto.selectedCount, delivered: false, sent: false },
+    });
+    await markLodChecklistShared({
+      organizationId: authorised.organizationId,
+      opportunityId: authorised.opportunityId,
+      dealId: authorised.dealId,
+      channel: "whatsapp",
     });
     return {
       ok: true,
@@ -887,6 +960,14 @@ export async function prepareDocumentRequestHandoff(input: {
     });
     queued = true;
   }
+
+  await markLodChecklistShared({
+    organizationId: authorised.organizationId,
+    opportunityId: authorised.opportunityId,
+    dealId: authorised.dealId,
+    channel: "email",
+    queued,
+  });
 
   return {
     ok: true,

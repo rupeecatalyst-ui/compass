@@ -66,6 +66,7 @@
     "verify:co-c1-document-workspace-refinement-014b": "node --import tsx scripts/co-c1-document-workspace-refinement-014b-verify.mjs",
     "verify:co-c1-document-workspace-refinement-014c": "node --import tsx scripts/co-c1-document-workspace-refinement-014c-verify.mjs",
     "verify:co-c1-document-workspace-refinement-014d": "node --import tsx scripts/co-c1-document-workspace-refinement-014d-verify.mjs",
+    "verify:co-c1-document-request-server-ssot": "node --import tsx scripts/co-c1-document-request-server-ssot-verify.mjs",
     "verify:co-c1-employee-pwa-001": "node --import tsx scripts/co-c1-employee-pwa-001-verify.mjs",
     "verify:co-c1-chanakya-realtime-intelligence-001": "node --import tsx scripts/co-c1-chanakya-realtime-intelligence-001-verify.mjs",
     "verify:co-c1-enterprise-chart-readability-001": "node --import tsx scripts/co-c1-enterprise-chart-readability-001-verify.mjs",

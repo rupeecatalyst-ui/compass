@@ -5554,6 +5554,15 @@ model EnterpriseDocumentCustomerRequest {
   participantRowId   String?  @map("participant_row_id")
   participantRole    String?  @map("participant_role")
   status             String   @default("open")
+  requestKind        String   @default("customer_collection") @map("request_kind")
+  requestVersion     Int      @default(1) @map("request_version")
+  lodVersionId       String?  @map("lod_version_id")
+  programmeVersionRef String? @map("programme_version_ref")
+  generatedAt        DateTime? @map("generated_at")
+  queuedAt           DateTime? @map("queued_at")
+  sharedAt           DateTime? @map("shared_at")
+  sharedChannel      String?  @map("shared_channel")
+  revokedAt          DateTime? @map("revoked_at")
   expiresAt          DateTime @map("expires_at")
   closedAt           DateTime? @map("closed_at")
   closedByUserId     String?  @map("closed_by_user_id")
@@ -5568,6 +5577,7 @@ model EnterpriseDocumentCustomerRequest {
 
   @@index([organizationId, opportunityId, status], map: "edcr_org_opp_status_idx")
   @@index([organizationId, partyEntityId], map: "edcr_org_party_idx")
+  @@index([organizationId, opportunityId, requestKind, status], map: "edcr_org_opp_kind_status_idx")
   @@map("enterprise_document_customer_requests")
 }
 
@@ -5580,11 +5590,19 @@ model EnterpriseDocumentCustomerRequestItem {
   requestRef      String   @map("request_ref")
   status          String   @default("requested")
   registryRecordId String? @map("registry_record_id")
+  participantId   String?  @map("participant_id")
+  ownerKind       String?  @map("owner_kind")
+  ownerLabel      String?  @map("owner_label")
+  label           String?
+  mandatory       Boolean  @default(true)
+  lodVersionId    String?  @map("lod_version_id")
+  programmeVersionRef String? @map("programme_version_ref")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   request EnterpriseDocumentCustomerRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
+  @@unique([requestId, requestRef], map: "edcri_request_ref_key")
   @@index([organizationId, requestId], map: "edcri_org_request_idx")
   @@map("enterprise_document_customer_request_items")
 }
