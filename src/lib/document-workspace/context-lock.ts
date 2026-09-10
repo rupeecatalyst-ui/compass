@@ -468,6 +468,29 @@ export function composerMustRefuseStaleContext(input: {
   return opened !== current;
 }
 
+/**
+ * Desk actions (Custom Email, Template Email, Request, WhatsApp, Download Pack)
+ * must follow the current server lock vs URL request — never compare the
+ * resolved lock fingerprint to the sparse URL fingerprint.
+ */
+export function documentWorkspaceDeskActionsMustRefuse(input: {
+  lockMatchesRequest: boolean;
+  authorised: boolean;
+}): boolean {
+  return input.authorised !== true || input.lockMatchesRequest !== true;
+}
+
+/** Capture the authorised lock fingerprint when a composer or mailbox opens. */
+export function captureAuthorisedComposerFingerprint(input: {
+  lockFingerprint?: string | null;
+  lockMatchesRequest: boolean;
+  authorised: boolean;
+}): string | null {
+  if (documentWorkspaceDeskActionsMustRefuse(input)) return null;
+  const fingerprint = input.lockFingerprint?.trim() || "";
+  return fingerprint || null;
+}
+
 export function hasUnsavedDocumentWorkspaceDraft(input: {
   groupedDraft?: string | null;
   coverBody?: string | null;

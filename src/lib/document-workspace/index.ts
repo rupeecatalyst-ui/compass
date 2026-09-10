@@ -83,6 +83,8 @@ export {
   buildDocumentWorkspaceHref,
   filterRegistryRecordsForLockedContext,
   composerMustRefuseStaleContext,
+  documentWorkspaceDeskActionsMustRefuse,
+  captureAuthorisedComposerFingerprint,
   parseDocumentWorkspaceSearchParams,
 } from "./context-lock";
 export type { DocumentWorkspaceContextInput } from "@/types/document-workspace-context";

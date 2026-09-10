@@ -206,6 +206,14 @@ expect(
   "inaccessible resource stays generic 404",
   publicDocumentWorkspaceAccessMessage(404) === DOCUMENT_WORKSPACE_GENERIC_UNAVAILABLE,
 );
+mustContain(
+  "src/components/catalyst-one/document-workspace/document-workspace.tsx",
+  "documentWorkspaceDeskActionsMustRefuse",
+);
+mustNotContain(
+  "src/components/catalyst-one/document-workspace/document-workspace.tsx",
+  "openedFingerprint: lock?.fingerprint",
+);
 
 mustContain(
   "src/components/catalyst-one/opportunity-workspace/opportunity-workspace.tsx",

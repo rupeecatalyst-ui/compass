@@ -92,7 +92,9 @@ import { mapDealLenderRecipients } from "@/lib/document-workspace/lender-pack";
 import { fetchDocumentWorkspaceContext } from "@/lib/document-workspace/context-client";
 import {
   buildDocumentWorkspaceHref,
+  captureAuthorisedComposerFingerprint,
   composerMustRefuseStaleContext,
+  documentWorkspaceDeskActionsMustRefuse,
   documentWorkspaceFingerprint,
   documentWorkspaceTransientUiAfterFingerprintChange,
   filterRegistryRecordsForLockedContext,
@@ -221,6 +223,12 @@ export function DocumentWorkspace() {
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(0);
   const previousContextKey = useRef<string | null>(null);
+  const lockMatchesRequest = lockMatchesCurrentDocumentWorkspaceRequest(lock, request);
+  const deskAuthorised = Boolean(lock) && !lockError;
+  const deskActionsRefused = documentWorkspaceDeskActionsMustRefuse({
+    lockMatchesRequest,
+    authorised: deskAuthorised,
+  });
 
   useEffect(() => {
     return subscribeDocumentRegistryUpdated(() => setRegistryTick((n) => n + 1));
@@ -399,21 +407,28 @@ export function DocumentWorkspace() {
     if (
       composerMustRefuseStaleContext({
         openedFingerprint: composerFingerprint,
-        currentFingerprint: lock?.fingerprint || contextKey,
-        authorised: Boolean(lock) && !lockError,
+        currentFingerprint: lock?.fingerprint,
+        authorised: deskAuthorised && lockMatchesRequest,
       })
     ) {
       setComposer(null);
       setEditingMessage(null);
       toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
     }
-  }, [composer, composerFingerprint, contextKey, lock, lockError]);
+  }, [composer, composerFingerprint, deskAuthorised, lock, lockMatchesRequest]);
+
+  useEffect(() => {
+    if (!mailbox && !whatsappShareOpen) return;
+    if (!lockError && (!lock || lockMatchesRequest)) return;
+    setMailbox(null);
+    setWhatsappShareOpen(false);
+    toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
+  }, [lock, lockError, lockMatchesRequest, mailbox, whatsappShareOpen]);
 
   const participants = useMemo(
     () => (file ? resolveLoanParticipants(file) : []),
     [file],
   );
-  const lockMatchesRequest = lockMatchesCurrentDocumentWorkspaceRequest(lock, request);
   const lockedOpportunityId = lockMatchesRequest
     ? lock?.opportunityId || opportunityId
     : "";
@@ -689,16 +704,15 @@ export function DocumentWorkspace() {
   };
 
   const onAction = (id: DocumentWorkspaceActionId) => {
-    if (
-      composerMustRefuseStaleContext({
-        openedFingerprint: lock?.fingerprint,
-        currentFingerprint: contextKey,
-        authorised: Boolean(lock) && !lockError,
-      })
-    ) {
+    if (deskActionsRefused) {
       toast.error(DOCUMENT_WORKSPACE_STALE_CONTEXT);
       return;
     }
+    const authorisedComposerFingerprint = captureAuthorisedComposerFingerprint({
+      lockFingerprint: lock?.fingerprint,
+      lockMatchesRequest,
+      authorised: deskAuthorised,
+    });
     const requestable = rows.filter((row) => mapReviewStatusToRequestable(row.reviewStatus));
     const pending = requestable;
     const target = id === "request_all_pending" ? pending : selectedRows.filter((row) => mapReviewStatusToRequestable(row.reviewStatus));
@@ -762,6 +776,7 @@ export function DocumentWorkspace() {
         uploadToken: session.uploadSession?.token,
       });
       toast.message("Request drafted. Nothing has been sent.");
+      setComposerFingerprint(authorisedComposerFingerprint);
       setMailbox("request");
       return;
     }
@@ -781,6 +796,7 @@ export function DocumentWorkspace() {
         toast.error("Selection must stay inside this locked transaction.");
         return;
       }
+      setComposerFingerprint(authorisedComposerFingerprint);
       setMailbox("send");
       return;
     }
@@ -798,7 +814,7 @@ export function DocumentWorkspace() {
       return;
     }
     if (id === "schedule_followup") {
-      setComposerFingerprint(lock?.fingerprint || contextKey);
+      setComposerFingerprint(authorisedComposerFingerprint);
       setComposer("followup");
       return;
     }
@@ -1817,7 +1833,13 @@ export function DocumentWorkspace() {
           });
           pauseOutboxCountdown(queued.id);
           setEditingMessage(queued);
-          setComposerFingerprint(lock?.fingerprint || contextKey);
+          setComposerFingerprint(
+            captureAuthorisedComposerFingerprint({
+              lockFingerprint: lock?.fingerprint,
+              lockMatchesRequest,
+              authorised: deskAuthorised,
+            }),
+          );
           setComposer("email");
           setRowDialog(null);
           toast.message("Document email queued to Outbox. Nothing was sent.");
