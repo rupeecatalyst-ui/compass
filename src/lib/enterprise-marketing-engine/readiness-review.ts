@@ -17,6 +17,12 @@ import {
 } from "@/constants/enterprise-marketing-engine/execution";
 import { MARKETING_LIVE_PROVIDER_SENDING_DISABLED } from "@/constants/enterprise-marketing-engine/delivery-operations";
 import { ENTERPRISE_MARKETING_EXECUTION_ENABLED } from "@/constants/enterprise-marketing-engine/safety";
+import {
+  MARKETING_PHASE1_FROM_EMAIL,
+  MARKETING_PHASE1_FROM_NAME,
+  MARKETING_PHASE1_LIVE_RECIPIENT_CEILING,
+  MARKETING_PHASE1_REPLY_TO,
+} from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 
 function display(value: string | number | null | undefined): string {
   if (value == null || value === "") return "Unavailable";
@@ -170,6 +176,14 @@ export function composeMarketingReadinessReview(input: {
     },
     { label: "Approver", value: display(input.campaign.governance.approvedByUserId) },
     { label: "Approval timestamp", value: display(input.campaign.governance.approvedAt) },
+    { label: "Live execution", value: "OFF" },
+    { label: "Provider connect", value: "OFF" },
+    { label: "Phase-1 live recipient ceiling", value: String(MARKETING_PHASE1_LIVE_RECIPIENT_CEILING) },
+    {
+      label: "Phase-1 sender identity",
+      value: `${MARKETING_PHASE1_FROM_NAME} <${MARKETING_PHASE1_FROM_EMAIL}> · reply ${MARKETING_PHASE1_REPLY_TO}`,
+    },
+    { label: "Email provider adapter", value: "Hostinger SMTP · live gates OFF" },
   ];
 
   return {

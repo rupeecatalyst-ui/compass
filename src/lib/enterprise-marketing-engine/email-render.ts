@@ -23,10 +23,12 @@ function esc(s: string): string {
   return sanitizeMarketingPlainText(s);
 }
 
-function textToHtmlParagraphs(raw: string): string {
-  const sanitised = sanitizeMarketingRichText(raw);
-  if (/<[a-z][\s\S]*>/i.test(sanitised)) return sanitised;
-  return esc(raw)
+function textToHtmlParagraphs(template: string, personalize: (s: string) => string): string {
+  const sanitisedTemplate = sanitizeMarketingRichText(template);
+  const htmlish = /<[a-z][\s\S]*>/i.test(sanitisedTemplate);
+  const merged = personalize(sanitisedTemplate);
+  if (htmlish) return merged;
+  return merged
     .split(/\n{2,}/)
     .map(
       (p) =>
@@ -83,13 +85,13 @@ function renderBlock(
       </td></tr>`;
     }
     case "text":
-      return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props)}">${textToHtmlParagraphs(personalize(propString(props, "html")))}</td></tr>`;
+      return `<tr><td style="padding:${cellPad(props)};" align="${alignOf(props)}">${textToHtmlParagraphs(propString(props, "html"), personalize)}</td></tr>`;
     case "image_text": {
       const url = propString(props, "url");
       return `<tr><td style="padding:8px 24px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
           ${url ? `<td width="40%" style="padding-right:12px;vertical-align:top;"><img src="${esc(url)}" alt="${esc(propString(props, "alt", "Image"))}" width="200" style="display:block;width:100%;max-width:200px;height:auto;border:0;" /></td>` : ""}
-          <td style="vertical-align:top;">${textToHtmlParagraphs(personalize(propString(props, "html")))}</td>
+          <td style="vertical-align:top;">${textToHtmlParagraphs(propString(props, "html"), personalize)}</td>
         </tr></table>
       </td></tr>`;
     }
@@ -151,8 +153,8 @@ function renderBlock(
     case "columns":
       return `<tr><td style="padding:${cellPad(props)};">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-          <td width="50%" valign="top" style="padding-right:8px;font-size:14px;color:#1f2937;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${textToHtmlParagraphs(personalize(propString(props, "left")))}</td>
-          <td width="50%" valign="top" style="padding-left:8px;font-size:14px;color:#1f2937;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${textToHtmlParagraphs(personalize(propString(props, "right")))}</td>
+          <td width="50%" valign="top" style="padding-right:8px;font-size:14px;color:#1f2937;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${textToHtmlParagraphs(propString(props, "left"), personalize)}</td>
+          <td width="50%" valign="top" style="padding-left:8px;font-size:14px;color:#1f2937;font-family:${MARKETING_EMAIL_SAFE_FONT_STACK};">${textToHtmlParagraphs(propString(props, "right"), personalize)}</td>
         </tr></table>
       </td></tr>`;
     case "social": {
@@ -193,7 +195,8 @@ export function renderMarketingEmailHtml(args: {
   trackingEnabled?: boolean;
   utm?: MarketingUtmConfig | null;
 }): string {
-  const personalize = (s: string) => applyPersonalization(s, args.personalization ?? {});
+  const personalize = (s: string) =>
+    applyPersonalization(s, args.personalization ?? {}, { escapeHtml: true });
   const maxWidth = args.mode === "mobile" ? 360 : 600;
   const linkOpts = {
     trackingEnabled: args.trackingEnabled ?? false,
@@ -234,7 +237,8 @@ export function renderMarketingEmailPlaintext(args: {
   trackingEnabled?: boolean;
   utm?: MarketingUtmConfig | null;
 }): string {
-  const personalize = (s: string) => applyPersonalization(s, args.personalization ?? {});
+  const personalize = (s: string) =>
+    applyPersonalization(s, args.personalization ?? {}, { escapeHtml: false });
   if (args.plainTextOverride?.trim()) {
     return personalize(args.plainTextOverride.trim());
   }

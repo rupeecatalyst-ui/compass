@@ -46,6 +46,7 @@ export const MARKETING_CONSENT_SOURCES = [
   "CAMPAIGN",
   "LEGAL",
   "SYSTEM_FIXTURE",
+  "PUBLIC_UNSUBSCRIBE",
 ] as const;
 export type MarketingConsentSource = (typeof MARKETING_CONSENT_SOURCES)[number];
 

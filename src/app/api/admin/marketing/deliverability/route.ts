@@ -46,6 +46,10 @@ export async function POST(request: Request) {
     requireAdministrator(actor);
     const ctx = await actorCtx(actor);
     const body = (await request.json().catch(() => ({}))) as { action?: string };
+    if (body.action === "verify_smtp") {
+      const verified = await marketingDeliverabilityService.verifySmtp(ctx);
+      return successResponse(verified);
+    }
     if (body.action === "dns_lookup" || body.action === "verify_email") {
       marketingDeliverabilityService.lookupDns(ctx);
     }

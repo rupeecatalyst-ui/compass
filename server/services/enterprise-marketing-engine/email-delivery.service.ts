@@ -10,9 +10,20 @@ import {
 } from "@/constants/enterprise-marketing-engine";
 import { applyPersonalization } from "@/lib/enterprise-marketing-engine/personalization";
 import {
+  failClosedMarketingDeliverySuppression,
+  marketingDeliveryFingerprints,
+} from "@/lib/enterprise-marketing-engine/delivery-suppression";
+import {
+  bindMarketingUnsubscribeUrl,
+  tryMintMarketingUnsubscribeUrl,
+} from "@/lib/enterprise-marketing-engine/unsubscribe-token";
+import {
   renderMarketingEmailHtml,
   renderMarketingEmailPlaintext,
 } from "@/lib/enterprise-marketing-engine/email-render";
+import { lookupDurableMarketingSend, marketingDurableSendAlreadyCompleted } from "@/lib/enterprise-marketing-engine/durable-send-idempotency";
+import { isMarketingPhase1Sender } from "@/lib/enterprise-marketing-engine/phase1-sender";
+import { marketingPhase1DeliverySender } from "@/lib/enterprise-marketing-engine/phase1-sender-identity";
 import { mapDeliveryOutcomeToLedgerStatus } from "@/lib/enterprise-marketing-engine/email-delivery/map-outcome";
 import { redactMarketingEmail } from "@/lib/enterprise-marketing-engine/email-delivery/redact-email";
 import { validateMarketingEmailDeliveryRequest } from "@/lib/enterprise-marketing-engine/email-delivery/validate-request";
@@ -30,6 +41,8 @@ import type {
 import type { MarketingCampaignVersion } from "@/types/enterprise-marketing-campaign";
 import { recordMarketingAuditEvent } from "./audit";
 import { createDryRunEmailDeliveryPort } from "./adapters/dry-run-email-delivery.adapter";
+import { createHostingerSmtpEmailDeliveryPort } from "./adapters/hostinger-smtp.adapter";
+import { createHostingerSmtpTransport } from "./adapters/hostinger-smtp-transport";
 import { marketingEmailDeliveryRecordStore } from "./delivery-record-store";
 import { marketingExecutionLedgerStore } from "./execution-ledger-store";
 import {
@@ -37,6 +50,7 @@ import {
   engagementTypeFromDeliveryOutcome,
 } from "./engagement.service";
 import { marketingSenderIdentityStore } from "./sender-identity-store";
+import { marketingSuppressionStore } from "./suppression-store";
 
 function nowIso() {
   return new Date().toISOString();
@@ -50,9 +64,40 @@ function resolvePort(): MarketingEmailDeliveryPort {
     if (!ENTERPRISE_MARKETING_EXECUTION_ENABLED || !ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED) {
       throw new EnterpriseMarketingSafetyError("email.delivery.live_not_authorized");
     }
-    throw new EnterpriseMarketingSafetyError("email.delivery.live_adapter_not_implemented");
+    return createHostingerSmtpEmailDeliveryPort({
+      transport: createHostingerSmtpTransport(),
+    });
   }
   return createDryRunEmailDeliveryPort();
+}
+
+function applyUnsubscribePlaceholders(request: MarketingEmailDeliveryRequest): MarketingEmailDeliveryRequest {
+  const url = tryMintMarketingUnsubscribeUrl({
+    organizationId: request.organizationId,
+    recipientFingerprint: request.recipientFingerprint,
+    campaignId: request.campaignId,
+  });
+  if (!url) return request;
+  return {
+    ...request,
+    htmlBody: bindMarketingUnsubscribeUrl(request.htmlBody, url),
+    textBody: bindMarketingUnsubscribeUrl(request.textBody, url),
+  };
+}
+
+function evaluateDeliverySuppression(request: MarketingEmailDeliveryRequest) {
+  if (!request.recipientFingerprint?.trim()) {
+    return failClosedMarketingDeliverySuppression({ fingerprints: [] });
+  }
+  const fingerprints = marketingDeliveryFingerprints(request);
+  const decision = marketingSuppressionStore.evaluateDelivery({
+    organizationId: request.organizationId,
+    fingerprints,
+    channel: "EMAIL",
+    phase: "delivery",
+    campaignId: request.campaignId,
+  });
+  return failClosedMarketingDeliverySuppression({ fingerprints, decision });
 }
 
 function resolveSender(input: {
@@ -89,6 +134,26 @@ function resolveSender(input: {
     }
   }
   const fallback = marketingSenderIdentityStore.getDefaultActive(input.organizationId);
+  if (ENTERPRISE_MARKETING_EMAIL_MODE === "live") {
+    const phase1 = marketingSenderIdentityStore
+      .list(input.organizationId)
+      .find((identity) =>
+        isMarketingPhase1Sender({
+          fromAddress: identity.fromAddress,
+          displayName: identity.displayName,
+          replyTo: identity.replyTo,
+        }),
+      );
+    if (phase1?.active) {
+      return {
+        senderIdentityId: phase1.id,
+        displayName: phase1.displayName,
+        fromAddress: phase1.fromAddress,
+        replyTo: phase1.replyTo,
+      };
+    }
+    return marketingPhase1DeliverySender();
+  }
   if (!fallback) return null;
   return {
     senderIdentityId: fallback.id,
@@ -168,6 +233,18 @@ export const marketingEmailDeliveryService = {
       };
     }
 
+    const durable = await lookupDurableMarketingSend(request.organizationId, request.idempotencyKey);
+    if (marketingDurableSendAlreadyCompleted(durable)) {
+      return {
+        idempotencyKey: request.idempotencyKey,
+        outcome: durable?.status === "delivered" ? "SENT" : "ACCEPTED",
+        providerMessageId: durable?.providerMessageId ?? null,
+        errorCode: null,
+        dryRun: ENTERPRISE_MARKETING_EMAIL_MODE !== "live",
+        duplicate: true,
+      };
+    }
+
     const validationError = validateMarketingEmailDeliveryRequest(request);
     if (validationError) {
       const result: MarketingEmailDeliveryResult = {
@@ -183,8 +260,24 @@ export const marketingEmailDeliveryService = {
       return result;
     }
 
+    const suppression = evaluateDeliverySuppression(request);
+    if (suppression.blocked) {
+      const result: MarketingEmailDeliveryResult = {
+        idempotencyKey: request.idempotencyKey,
+        outcome: "BLOCKED",
+        errorCode: suppression.code,
+        errorMessage: "Marketing delivery blocked by suppression",
+        providerMessageId: null,
+        dryRun: ENTERPRISE_MARKETING_EMAIL_MODE !== "live",
+      };
+      this.persistRecord(request, result);
+      await this.emitDeliveryEvent(request, result);
+      return result;
+    }
+
+    const prepared = applyUnsubscribePlaceholders(request);
     const port = resolvePort();
-    const result = await port.deliver(request);
+    const result = await port.deliver(prepared);
     this.persistRecord(request, result);
     await this.emitDeliveryEvent(request, result);
 

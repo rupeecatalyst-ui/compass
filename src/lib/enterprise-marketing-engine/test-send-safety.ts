@@ -11,6 +11,10 @@ import {
 } from "@/constants/enterprise-marketing-engine/personalisation";
 import { ENTERPRISE_MARKETING_EXECUTION_ENABLED } from "@/constants/enterprise-marketing-engine/safety";
 import { ENTERPRISE_MARKETING_EMAIL_MODE } from "@/constants/enterprise-marketing-engine/email-delivery";
+import {
+  assertMarketingLiveTestRecipientAllowlisted,
+  isMarketingLiveTestRecipientAllowlisted,
+} from "@/lib/enterprise-marketing-engine/test-recipient-allowlist";
 
 export type MarketingTestSendHistoryEntry = {
   id: string;
@@ -67,6 +71,15 @@ export function assertMarketingTestSendConfirmed(input: {
   }
 }
 
+/**
+ * Live test-send extra barrier. Dry-run keeps the internal 008 allowlist.
+ * Campaign audiences never read this env list.
+ */
+export function assertMarketingLiveTestSendAllowlistIfLive(email: string): string {
+  if (ENTERPRISE_MARKETING_EMAIL_MODE !== "live") return email.trim().toLowerCase();
+  return assertMarketingLiveTestRecipientAllowlisted(email);
+}
+
 export function assertMarketingTestSendDryRunOnly(input: { dryRun?: boolean }): void {
   if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
     throw Object.assign(new Error("Live send is disabled in TEST MODE."), {
@@ -86,6 +99,26 @@ export function assertMarketingTestSendDryRunOnly(input: { dryRun?: boolean }): 
       code: "TEST_SEND_PROVIDER_FORBIDDEN",
     });
   }
+}
+
+/**
+ * Future controlled live test-send remains allowlist-only.
+ * Does not add operator addresses. Does not authorise live send while flags are off.
+ */
+export function assessMarketingControlledTestSendSafety(input: { recipientEmail: string }): {
+  allowlisted: boolean;
+  liveAllowlisted: boolean;
+  liveSendAuthorized: false;
+  actuallySent: false;
+  dryRunRequired: true;
+} {
+  return {
+    allowlisted: isMarketingInternalTestRecipient(input.recipientEmail),
+    liveAllowlisted: isMarketingLiveTestRecipientAllowlisted(input.recipientEmail),
+    liveSendAuthorized: false,
+    actuallySent: false,
+    dryRunRequired: true,
+  };
 }
 
 export function forceMarketingTestSendNotActuallySent(): false {

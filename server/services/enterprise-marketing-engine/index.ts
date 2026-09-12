@@ -14,6 +14,7 @@ export { marketingCampaignService } from "./campaign.service";
 export { marketingAssetService } from "./asset.service";
 export { marketingExecutionService } from "./execution.service";
 export { marketingEmailDeliveryService } from "./email-delivery.service";
+export { marketingUnsubscribeService } from "./unsubscribe.service";
 export { marketingWhatsAppDeliveryService } from "./whatsapp-delivery.service";
 export { marketingWhatsAppTemplateStore } from "./whatsapp-template-store";
 export { marketingChannelPolicyStore } from "./channel-policy-store";
@@ -53,5 +54,12 @@ export { marketingDeliverabilityService } from "./deliverability.service";
 export { marketingProviderContractService } from "./provider-webhook.service";
 export { marketingProviderWebhookStore } from "./provider-webhook-store";
 export { createFixtureEmailProviderPort } from "./adapters/fixture-email-provider.adapter";
+export { createHostingerSmtpEmailDeliveryPort } from "./adapters/hostinger-smtp.adapter";
+export { createHostingerSmtpTransport } from "./adapters/hostinger-smtp-transport";
+export {
+  connectMarketingLiveEmailProvider,
+  createLiveEmailProviderPort,
+  executeMarketingLiveEmailProviderSend,
+} from "./adapters/live-email-provider.adapter";
 export { marketingCampaignMonitoringService } from "./campaign-monitoring.service";
 export { marketingOperationalHealthService } from "./operational-health.service";

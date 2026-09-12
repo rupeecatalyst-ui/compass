@@ -122,6 +122,7 @@ export type MarketingAuditEventKind =
   | "consent.lift"
   | "consent.policy.update"
   | "consent.export.prepare"
+  | "consent.public_unsubscribe"
   | "execution.configure"
   | "execution.batch.dry_run"
   | "execution.batch.frozen_snapshot"

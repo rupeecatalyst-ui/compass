@@ -11,8 +11,11 @@ import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/p
 import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
 import { composeMarketingDeliverabilityReadiness } from "@/lib/enterprise-marketing-engine/deliverability-readiness";
+import { assessMarketingLiveEmailProviderReadiness } from "@/lib/enterprise-marketing-engine/live-email-provider-readiness";
 import { forbidMarketingDnsMutation } from "@/lib/enterprise-marketing-engine/sender-eligibility";
+import { createHostingerSmtpTransport } from "./adapters/hostinger-smtp-transport";
 import { marketingSenderIdentityStore } from "./sender-identity-store";
+import type { MarketingSmtpVerifyResult } from "@/lib/enterprise-marketing-engine/ports/smtp-transport.port";
 
 type Actor = {
   userId?: string;
@@ -40,6 +43,7 @@ export const marketingDeliverabilityService = {
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.SENDER_MANAGE);
     const organizationId = orgId(actor.organizationId);
     const senders = marketingSenderIdentityStore.list(organizationId);
+    const smtpReadiness = assessMarketingLiveEmailProviderReadiness();
     return {
       readiness: composeMarketingDeliverabilityReadiness({
         organizationId,
@@ -47,6 +51,20 @@ export const marketingDeliverabilityService = {
         executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
         simulated: true,
       }),
+      smtpReadiness: {
+        selectedProvider: smtpReadiness.selectedProvider,
+        executionEnabled: smtpReadiness.executionEnabled,
+        providerConnectEnabled: smtpReadiness.providerConnectEnabled,
+        liveSendAuthorized: smtpReadiness.liveSendAuthorized,
+        phase1LiveRecipientCeiling: smtpReadiness.phase1LiveRecipientCeiling,
+        phase1Sender: smtpReadiness.phase1Sender,
+        smtpConfigured: smtpReadiness.smtp.blockers.length === 0,
+        smtpBlockers: smtpReadiness.smtp.blockers,
+        unsubscribeSecretPresent: smtpReadiness.unsubscribeSecretPresent,
+        publicOriginPresent: smtpReadiness.publicOriginPresent,
+        blockedReasons: smtpReadiness.blockedReasons,
+        notice: smtpReadiness.notice,
+      },
       senders: senders.map((row) => marketingSenderIdentityStore.toPublicDto(row)),
     };
   },
@@ -54,5 +72,24 @@ export const marketingDeliverabilityService = {
   lookupDns(actor: Actor): never {
     void actor.userId;
     return forbidMarketingDnsMutation();
+  },
+
+  async verifySmtp(
+    actor: Actor,
+    deps?: { transport?: { verify(): Promise<MarketingSmtpVerifyResult> } },
+  ): Promise<MarketingSmtpVerifyResult> {
+    assertMarketingPermission(actor, MARKETING_PERMISSIONS.SENDER_MANAGE);
+    orgId(actor.organizationId);
+    const transport = deps?.transport ?? createHostingerSmtpTransport();
+    const result = await transport.verify();
+    const serialized = JSON.stringify(result);
+    if (/ENTERPRISE_MARKETING_SMTP_PASSWORD/i.test(serialized)) {
+      return {
+        status: "FAILED",
+        code: "marketing.smtp.transport_failure",
+        notice: "SMTP verification failed",
+      };
+    }
+    return result;
   },
 };

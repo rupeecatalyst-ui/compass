@@ -6,6 +6,11 @@ export type { MarketingDataSourcePort } from "./data-source.port";
 export type { MarketingEmailChannelPort } from "./email-channel.port";
 export type { MarketingEmailProviderPort } from "./email-provider.port";
 export type { MarketingEmailDeliveryPort } from "./email-delivery.port";
+export type { MarketingLiveEmailProviderPort } from "./live-email-provider.port";
+export type {
+  MarketingSmtpTransport,
+  MarketingSmtpVerifyResult,
+} from "./smtp-transport.port";
 export type { MarketingWhatsAppChannelPort } from "./whatsapp-channel.port";
 export type { MarketingWhatsAppDeliveryPort } from "./whatsapp-delivery.port";
 export type { MarketingSmsDeliveryPort } from "./sms-delivery.port";

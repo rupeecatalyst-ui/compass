@@ -6,6 +6,7 @@
 
 import { ENTERPRISE_MARKETING_EXECUTION_ENABLED } from "@/constants/enterprise-marketing-engine";
 import { MARKETING_EXECUTION_LEASE_TTL_MS } from "@/constants/enterprise-marketing-engine/execution";
+import { assertMarketingPhase1LiveAudienceCeiling } from "@/lib/enterprise-marketing-engine/phase1-live-ceiling";
 import { zonedDateKey } from "@/lib/enterprise-marketing-engine/execution/batch-schedule";
 import {
   computeMarketingSnapshotPacingPlan,
@@ -248,13 +249,6 @@ export async function runMarketingSnapshotPacingTick(input: {
   shouldSuppressDelivery?: (recipient: MarketingDurableSnapshotRecipientRecord) => boolean;
   recovery?: MarketingRecoveryStore;
 }): Promise<MarketingSnapshotPacingTickResult> {
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-    throw Object.assign(new Error("Live marketing send is disabled"), {
-      statusCode: 403,
-      code: "LIVE_SEND_BLOCKED",
-    });
-  }
-
   const now = input.now ?? new Date();
   const nowMs = now.getTime();
   const probe = input.probe ?? createMarketingPacingProviderProbe();
@@ -275,6 +269,13 @@ export async function runMarketingSnapshotPacingTick(input: {
   const recipients = sortSnapshotRecipients(
     await ports.snapshotRecipients.listBySnapshot(organizationId, snapshot.id),
   );
+  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
+    assertMarketingPhase1LiveAudienceCeiling(recipients.length);
+    throw Object.assign(new Error("Live marketing send is disabled"), {
+      statusCode: 403,
+      code: "LIVE_SEND_BLOCKED",
+    });
+  }
   const plan = computeMarketingSnapshotPacingPlan({
     eligibleCount: recipients.length,
     policy: input.policy,

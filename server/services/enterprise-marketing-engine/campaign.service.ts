@@ -40,6 +40,7 @@ import {
 } from "@/lib/enterprise-marketing-engine/preview-workspace";
 import {
   assertMarketingInternalTestRecipient,
+  assertMarketingLiveTestSendAllowlistIfLive,
   assertMarketingTestSendConfirmed,
   assertMarketingTestSendDryRunOnly,
   forceMarketingTestSendNotActuallySent,
@@ -933,7 +934,9 @@ export const marketingCampaignService = {
       confirmed: input.confirmed,
       confirmationPhrase: input.confirmationPhrase,
     });
-    const recipientEmail = assertMarketingInternalTestRecipient(input.recipientEmail ?? "");
+    const recipientEmail = assertMarketingLiveTestSendAllowlistIfLive(
+      assertMarketingInternalTestRecipient(input.recipientEmail ?? ""),
+    );
 
     const preview = await this.preview(actor, campaignId, input.personalization, {
       sampleRecipientId: input.sampleRecipientId,

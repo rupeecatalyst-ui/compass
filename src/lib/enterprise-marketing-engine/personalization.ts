@@ -9,6 +9,7 @@ import {
   MARKETING_PERSONALIZATION_TOKENS,
   type MarketingPersonalizationToken,
 } from "@/constants/enterprise-marketing-engine/content";
+import { sanitizeMarketingPlainText } from "@/lib/enterprise-marketing-engine/html-sanitize";
 
 const TOKEN_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g;
 /** Any mustache pair — used to reject expressions, prototypes, and unknown tokens. */
@@ -52,16 +53,22 @@ export function assertSafePersonalizationTokens(text: string): void {
   }
 }
 
+export function escapeMarketingMergeValue(value: string): string {
+  return sanitizeMarketingPlainText(value);
+}
+
 /**
  * Apply allowlisted tokens. Missing values use safe fallbacks (never leave raw tokens in rendered email).
+ * Recipient-derived merge values are HTML-escaped by default. Template HTML is preserved.
  * Does not execute arbitrary expressions.
  */
 export function applyPersonalization(
   text: string,
   values: Partial<Record<MarketingPersonalizationToken, string>>,
-  opts?: { leavePlaceholders?: boolean },
+  opts?: { leavePlaceholders?: boolean; escapeHtml?: boolean },
 ): string {
   assertSafePersonalizationTokens(text);
+  const escapeHtml = opts?.escapeHtml !== false;
   const normalized: Partial<Record<MarketingPersonalizationToken, string>> = {
     ...values,
   };
@@ -81,9 +88,14 @@ export function applyPersonalization(
       return "";
     }
     const v = normalized[key];
-    if (v != null && String(v).length) return String(v);
-    if (opts?.leavePlaceholders) return `{{${name}}}`;
-    return MARKETING_PERSONALIZATION_FALLBACKS[key] ?? "";
+    const raw =
+      v != null && String(v).length
+        ? String(v)
+        : opts?.leavePlaceholders
+          ? `{{${name}}}`
+          : (MARKETING_PERSONALIZATION_FALLBACKS[key] ?? "");
+    if (opts?.leavePlaceholders && raw === `{{${name}}}`) return raw;
+    return escapeHtml ? escapeMarketingMergeValue(raw) : raw;
   });
 }
 
