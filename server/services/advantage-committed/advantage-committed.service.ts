@@ -12,6 +12,7 @@ import {
   canonicalCommittedRupees,
   decideOrdinaryCommitmentMutation,
   isAdvantageCommittedApplicableProduct,
+  compassAdvantageToCommitmentAmount,
   projectAdvantageCommitted,
   resolveAdvantageCommittedProductCode,
   serializeAdvantageCommittedApi,
@@ -188,6 +189,73 @@ export async function commitAdvantageFromMarketing(input: {
     return { opportunity: updated, event };
   }
   return { opportunity: updated, event: null };
+}
+
+export async function commitAdvantageFromCompass(input: {
+  organizationId: string;
+  opportunityId: string;
+  eligible?: boolean;
+  status?: string | null;
+  authorizedAmount?: unknown;
+  productCode?: string | null;
+  productLabel?: string | null;
+  actorUserId: string;
+}) {
+  const amount = compassAdvantageToCommitmentAmount({
+    eligible: input.eligible,
+    status: input.status,
+    totalAdvantageAmount:
+      typeof input.authorizedAmount === "string" || typeof input.authorizedAmount === "number"
+        ? input.authorizedAmount
+        : null,
+  });
+  if (!amount) return { skipped: "no_amount" as const, opportunity: null, event: null };
+
+  const existing = await prisma.enterpriseOpportunity.findUnique({
+    where: { id: input.opportunityId },
+    select: { advantageCommittedAmount: true },
+  });
+  if (canonicalCommittedRupees(existing?.advantageCommittedAmount)) {
+    return { skipped: "already_committed" as const, opportunity: existing, event: null };
+  }
+
+  const commitment = initialCommitmentCreatePatch({
+    authorizedAmount: amount,
+    productCode: input.productCode,
+    productLabel: input.productLabel,
+    actorUserId: input.actorUserId,
+  });
+  if (!commitment) return { skipped: "not_applicable" as const, opportunity: existing, event: null };
+
+  const updated = await prisma.enterpriseOpportunity.update({
+    where: { id: input.opportunityId },
+    data: commitment as Prisma.EnterpriseOpportunityUncheckedUpdateInput,
+  });
+
+  const event = await db.enterpriseOpportunityAdvantageCommitmentEvent.create({
+    data: {
+      organizationId: input.organizationId,
+      opportunityId: input.opportunityId,
+      eventKind: ADVANTAGE_COMMITTED_EVENT_KIND.ORIGINAL_COMMIT,
+      amount: new Prisma.Decimal(String(commitment.advantageCommittedAmount)),
+      previousAmount: null,
+      currency: ADVANTAGE_COMMITTED_CURRENCY,
+      productCode: (commitment.advantageCommittedProductCode as string | null) ?? null,
+      reason: "COMPASS journey — Advantage calculated for this Opportunity.",
+      requestedByUserId: input.actorUserId,
+      approvedByUserId: input.actorUserId,
+      originatingOpportunityId: input.opportunityId,
+      originalCommitmentId: null,
+      version: 1,
+    },
+  });
+  await prisma.enterpriseOpportunity.update({
+    where: { id: input.opportunityId },
+    data: {
+      advantageCommitmentId: event.id,
+    } as Prisma.EnterpriseOpportunityUncheckedUpdateInput,
+  });
+  return { skipped: null, opportunity: updated, event };
 }
 
 export async function listAdvantageCommitmentHistory(input: {

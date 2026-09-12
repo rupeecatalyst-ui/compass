@@ -23,6 +23,7 @@ import {
   preserveCommittedAmountAcrossRecalculation,
   projectAdvantageCommitted,
   resolveAdvantageCommittedDisplay,
+  compassAdvantageToCommitmentAmount,
 } from "../src/lib/advantage-committed/index.ts";
 import {
   createFixtureOpportunityCreatePort,
@@ -374,6 +375,56 @@ const leakFiles = scanned.filter((abs) => {
 check("Forbidden product labels are not introduced outside the SSOT list", () => {
   const allowed = leakFiles.filter((abs) => !rel(abs).includes("constants/advantage-committed.ts"));
   assert.equal(allowed.length, 0, allowed.map(rel).join(", "));
+});
+
+check("COMPASS Advantage amount X maps to Opportunity commitment X", () => {
+  assert.equal(
+    compassAdvantageToCommitmentAmount({
+      eligible: true,
+      status: "ready",
+      totalAdvantageAmount: "25000",
+    }),
+    "25000",
+  );
+  const projected = projectAdvantageCommitted({
+    id: "opp-test",
+    organizationId: "org-test",
+    productCode: "HOME_LOAN",
+    advantageCommittedAmount: "25000",
+    advantageCommittedProductCode: "HOME_LOAN",
+  });
+  assert.equal(projected.amount, "25000");
+  assert.equal(projected.display, "₹25,000");
+});
+
+check("Missing COMPASS Advantage does not invent a commitment", () => {
+  assert.equal(
+    compassAdvantageToCommitmentAmount({
+      eligible: false,
+      status: "ineligible",
+      totalAdvantageAmount: "25000",
+    }),
+    null,
+  );
+  const projected = projectAdvantageCommitted({
+    id: "opp-empty",
+    organizationId: "org-test",
+    productCode: "HOME_LOAN",
+    advantageCommittedAmount: null,
+  });
+  assert.equal(projected.amount, null);
+  assert.equal(projected.status, "not_committed");
+});
+
+check("COMPASS journey writes Advantage onto the Opportunity commitment field", () => {
+  const journey = read("server/services/compass-customer-gateway/compass-journey.service.ts");
+  assert.match(journey, /commitAdvantageFromCompass/);
+  assert.match(journey, /advantage\.totalAdvantageAmount/);
+  const serialize = read("server/services/enterprise-opportunity/opportunity-serialize.ts");
+  assert.match(serialize, /serializeAdvantageCommittedApi/);
+  const readout = read("src/components/catalyst-one/shared/advantage-committed-readout.tsx");
+  assert.match(readout, /ADVANTAGE_COMMITTED_LABEL/);
+  assert.match(readout, /resolveAdvantageCommittedDisplay/);
 });
 
 if (failed) {

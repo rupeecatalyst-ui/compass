@@ -51,6 +51,7 @@ import {
 } from "@/lib/enterprise-company-master/name-normalize";
 import { buildCompassJourneyConfig } from "./compass-journey-config.service";
 import { computeCompassAdvantage } from "./compass-advantage.service";
+import { commitAdvantageFromCompass } from "@server/services/advantage-committed/advantage-committed.service";
 import { pinAdvantageOnOpportunity } from "@server/services/compass-advantage/compass-advantage-commercial.service";
 import { pinAlreadySet } from "@/lib/compass-advantage/pin";
 import {
@@ -636,6 +637,19 @@ export const compassJourneyService = {
       snapshot: row.snapshot,
       persist: true,
     });
+    try {
+      await commitAdvantageFromCompass({
+        organizationId,
+        opportunityId: row.id,
+        eligible: advantage.eligible,
+        status: advantage.status,
+        authorizedAmount: advantage.totalAdvantageAmount,
+        productCode: definition.enterpriseProductCode,
+        actorUserId: "compass-customer-gateway",
+      });
+    } catch {
+      /* Advantage Committed persistence must not block COMPASS recommendations. */
+    }
 
     const sarathiMessages = recommendations.cards.slice(0, 3).map((card, index) => {
       if (index === 0) {

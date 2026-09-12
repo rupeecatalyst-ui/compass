@@ -51,6 +51,7 @@ export function ProductProgramsWorkspace() {
   const [loading, setLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<EnterpriseLenderProgramRecord | null>(null);
+  const [preselectedLenderId, setPreselectedLenderId] = useState<string | undefined>();
   const [filters, setFilters] = useState(EMPTY_PROGRAMME_REGISTRY_FILTERS);
 
   const load = useCallback(async () => {
@@ -84,7 +85,14 @@ export function ProductProgramsWorkspace() {
   }, [load]);
 
   useEffect(() => {
-    const programId = new URLSearchParams(window.location.search).get("programId");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
+      setEditing(null);
+      setPreselectedLenderId(params.get("lenderId")?.trim() || undefined);
+      setEditorOpen(true);
+      return;
+    }
+    const programId = params.get("programId");
     if (!programId || programs.length === 0) return;
     const match = programs.find((row) => row.id === programId);
     if (match) {
@@ -116,14 +124,18 @@ export function ProductProgramsWorkspace() {
     return (
       <div className="p-4 md:p-6 lg:p-8">
         <ProductProgrammeEditor
+          key={editing?.id ?? `new-${preselectedLenderId ?? "none"}`}
           lenders={lenders}
           products={products}
           policies={policies}
           initial={editing}
+          defaultLenderId={editing ? undefined : preselectedLenderId}
           actor={actor}
           onClose={() => {
             setEditorOpen(false);
             setEditing(null);
+            setPreselectedLenderId(undefined);
+            window.history.replaceState({}, "", ROUTES.ADMIN_PRODUCT_PROGRAMS);
           }}
           onSaved={() => {
             void load();
@@ -152,6 +164,7 @@ export function ProductProgramsWorkspace() {
               data-testid="programme-new"
               onClick={() => {
                 setEditing(null);
+                setPreselectedLenderId(undefined);
                 setEditorOpen(true);
               }}
             >

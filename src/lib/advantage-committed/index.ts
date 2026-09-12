@@ -44,3 +44,4 @@ export {
   projectAdvantageCommitted,
   serializeAdvantageCommittedApi,
 } from "./projection";
+export { compassAdvantageToCommitmentAmount } from "./compass-propagation";

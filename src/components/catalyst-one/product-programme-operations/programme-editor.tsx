@@ -76,6 +76,7 @@ export function ProductProgrammeEditor({
   products,
   policies,
   initial,
+  defaultLenderId,
   actor,
   onClose,
   onSaved,
@@ -84,13 +85,17 @@ export function ProductProgrammeEditor({
   products: { id?: string; code: string; label: string }[];
   policies: { id: string; label: string; status?: string }[];
   initial?: EnterpriseLenderProgramRecord | null;
+  defaultLenderId?: string;
   actor: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [state, setState] = useState<ProgrammeEditorState>(
-    initial ? recordToEditorState(initial) : emptyProgrammeEditorState(),
-  );
+  const [state, setState] = useState<ProgrammeEditorState>(() => {
+    if (initial) return recordToEditorState(initial);
+    const empty = emptyProgrammeEditorState();
+    if (defaultLenderId) empty.lenderId = defaultLenderId;
+    return empty;
+  });
   const [baseline, setBaseline] = useState(JSON.stringify(state));
   const [saving, setSaving] = useState(false);
   const dirty = JSON.stringify(state) !== baseline;

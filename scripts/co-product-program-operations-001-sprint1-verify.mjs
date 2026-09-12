@@ -60,6 +60,96 @@ if (!patch.includes("productProgrammeOperationsService.update")) {
   process.exit(1);
 }
 
+const lenderRegistry = readFileSync(
+  join(root, "src/components/catalyst-one/lender-registry-admin/lender-registry-admin-workspace.tsx"),
+  "utf8",
+);
+if (lenderRegistry.includes("NewProductProgramWizard")) {
+  console.error("Lender Registry still mounts the legacy Product Program wizard.");
+  process.exit(1);
+}
+if (!lenderRegistry.includes("ADMIN_PRODUCT_PROGRAMS") || !lenderRegistry.includes('new: "1"')) {
+  console.error("Lender Registry New Product Program does not route to the canonical editor.");
+  process.exit(1);
+}
+
+const workspace = readFileSync(
+  join(root, "src/components/catalyst-one/enterprise-mdm/product-programs-workspace.tsx"),
+  "utf8",
+);
+if (!workspace.includes('params.get("new") === "1"') || !workspace.includes("ProductProgrammeEditor")) {
+  console.error("Canonical Product Programs workspace does not open create from query.");
+  process.exit(1);
+}
+
+const editor = readFileSync(
+  join(root, "src/components/catalyst-one/product-programme-operations/programme-editor.tsx"),
+  "utf8",
+);
+if (!editor.includes("ControlledMultiSelect") || !editor.includes("PROGRAMME_EMPLOYMENT_TYPES")) {
+  console.error("Canonical editor is missing controlled Employment Types.");
+  process.exit(1);
+}
+if (!editor.includes("toProgrammeWritePayload")) {
+  console.error("Canonical editor is not using the structured write payload.");
+  process.exit(1);
+}
+
+const masters = readFileSync(
+  join(root, "src/constants/product-programme-operations/controlled-masters.ts"),
+  "utf8",
+);
+for (const label of [
+  "Salaried",
+  "Self-employed Professional",
+  "Self-employed Non-professional/Business",
+  "Not applicable",
+]) {
+  if (!masters.includes(`label: "${label}"`)) {
+    console.error(`Controlled Employment Type missing: ${label}`);
+    process.exit(1);
+  }
+}
+
+const writePayload = readFileSync(
+  join(root, "src/lib/product-programme-operations/to-write-payload.ts"),
+  "utf8",
+);
+if (writePayload.includes("employmentType:") && !writePayload.includes("employmentTypes")) {
+  console.error("Write payload still uses legacy employmentType.");
+  process.exit(1);
+}
+
+const schema = readFileSync(
+  join(root, "src/lib/product-programme-operations/request-schema.ts"),
+  "utf8",
+);
+if (!schema.includes("rejectUnknownProgrammeFields") || !schema.includes('"employmentTypes"')) {
+  console.error("Canonical request schema no longer rejects unknown fields.");
+  process.exit(1);
+}
+try {
+  const schemaMod = await import(
+    pathToFileURL(join(root, "src/lib/product-programme-operations/request-schema.ts")).href
+  );
+  let unknownBlocked = false;
+  try {
+    schemaMod.rejectUnknownProgrammeFields({
+      lenderId: "lender-1",
+      employmentType: "Salaried",
+      roiPercent: 8.5,
+    });
+  } catch (error) {
+    unknownBlocked = String(error?.message ?? "").includes("Unknown fields are not allowed");
+  }
+  if (!unknownBlocked) {
+    console.error("Unknown-field regression: legacy wizard fields were accepted.");
+    process.exit(1);
+  }
+} catch (error) {
+  if (String(error?.message ?? "").includes("Unknown-field regression")) throw error;
+}
+
 console.log(
   JSON.stringify(
     {

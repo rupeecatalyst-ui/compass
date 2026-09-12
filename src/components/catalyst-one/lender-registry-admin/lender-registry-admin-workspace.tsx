@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Download, Plus, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { NewLenderWizard } from "@/components/catalyst-one/lender-registry-admin/new-lender-wizard";
-import { NewProductProgramWizard } from "@/components/catalyst-one/lender-registry-admin/new-product-program-wizard";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { PageHeader } from "@/components/design-system/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,7 @@ function canMaintainRegistry(role: string | undefined): boolean {
 
 export function LenderRegistryAdminWorkspace() {
   const { user } = useAuthContext();
+  const router = useRouter();
   const canMaintain = canMaintainRegistry(user?.role);
   const [lenders, setLenders] = useState<EnterpriseLenderRecord[]>([]);
   const [programs, setPrograms] = useState<EnterpriseLenderProgramRecord[]>([]);
@@ -64,8 +65,6 @@ export function LenderRegistryAdminWorkspace() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "archived">("all");
   const [enabledFilter, setEnabledFilter] = useState<"all" | "active" | "inactive">("all");
   const [lenderWizardOpen, setLenderWizardOpen] = useState(false);
-  const [programWizardOpen, setProgramWizardOpen] = useState(false);
-  const [programWizardLenderId, setProgramWizardLenderId] = useState<string | undefined>();
   const [showValidation, setShowValidation] = useState(false);
   const [seedingPrograms, setSeedingPrograms] = useState(false);
 
@@ -166,9 +165,10 @@ export function LenderRegistryAdminWorkspace() {
     }
   }
 
-  function openProgramWizard(lenderId?: string) {
-    setProgramWizardLenderId(lenderId);
-    setProgramWizardOpen(true);
+  function openCanonicalProgramEditor(lenderId?: string) {
+    const qs = new URLSearchParams({ new: "1" });
+    if (lenderId) qs.set("lenderId", lenderId);
+    router.push(`${ROUTES.ADMIN_PRODUCT_PROGRAMS}?${qs.toString()}`);
   }
 
   return (
@@ -197,7 +197,7 @@ export function LenderRegistryAdminWorkspace() {
                 >
                   {seedingPrograms ? "Seeding…" : "Seed Programs"}
                 </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => openProgramWizard()}>
+                <Button type="button" variant="outline" size="sm" onClick={() => openCanonicalProgramEditor()}>
                   <Plus className="mr-1 h-4 w-4" /> New Product Program
                 </Button>
                 <Button type="button" size="sm" onClick={() => setLenderWizardOpen(true)}>
@@ -419,7 +419,7 @@ export function LenderRegistryAdminWorkspace() {
                             type="button"
                             size="sm"
                             variant="outline"
-                            onClick={() => openProgramWizard(lender.id)}
+                            onClick={() => openCanonicalProgramEditor(lender.id)}
                           >
                             + Program
                           </Button>
@@ -473,13 +473,6 @@ export function LenderRegistryAdminWorkspace() {
       <NewLenderWizard
         open={lenderWizardOpen}
         onOpenChange={setLenderWizardOpen}
-        onCompleted={() => void load()}
-      />
-      <NewProductProgramWizard
-        open={programWizardOpen}
-        onOpenChange={setProgramWizardOpen}
-        lenders={lenders}
-        preselectedLenderId={programWizardLenderId}
         onCompleted={() => void load()}
       />
     </div>
