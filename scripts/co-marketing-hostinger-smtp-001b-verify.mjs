@@ -19,6 +19,7 @@ if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 3
 }
 process.env.ENTERPRISE_MARKETING_EMAIL_MODE = "dry_run";
 delete process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST;
+assert.equal(process.env.ENTERPRISE_MARKETING_EMAIL_MODE, "dry_run");
 
 const pkg = read("package.json");
 const safety = read("src/constants/enterprise-marketing-engine/safety.ts");
@@ -28,7 +29,8 @@ const panelSrc = read("src/components/catalyst-one/admin/marketing/marketing-del
 assert.ok(pkg.includes('"nodemailer"'));
 assert.ok(pkg.includes("verify:co-marketing-hostinger-smtp-001b"));
 assert.ok(safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = false"));
-assert.ok(safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false"));
+assert.ok(safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true"));
+assert.ok(!safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false"));
 assert.ok(transportSrc.includes("requireTLS"));
 assert.ok(transportSrc.includes('minVersion: "TLSv1.2"'));
 assert.ok(transportSrc.includes("logger: false"));
@@ -82,7 +84,7 @@ const { configureMarketingDurabilityTestFixture, resetMarketingDurabilityComposi
 );
 
 assert.equal(safetyConst.ENTERPRISE_MARKETING_EXECUTION_ENABLED, false);
-assert.equal(safetyConst.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED, false);
+assert.equal(safetyConst.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED, true);
 
 const secretEnv = {
   ENTERPRISE_MARKETING_SMTP_HOST: "smtp.hostinger.com",
@@ -140,11 +142,11 @@ const mockFactory = (input) => {
   };
 };
 
-const flagsOff = transportMod.createHostingerSmtpTransport({
+const connectOnExecOff = transportMod.createHostingerSmtpTransport({
   env: secretEnv,
   clientFactory: mockFactory,
 });
-const offSend = await flagsOff.send({
+const offSend = await connectOnExecOff.send({
   to: "one@example.com",
   fromName: "Rupee Catalyst Opportunities",
   fromEmail: "opportunities@rupeecatalyst.com",
@@ -155,23 +157,41 @@ const offSend = await flagsOff.send({
   idempotencyKey: "k-off",
 });
 assert.equal(offSend.accepted, false);
-assert.equal(flagsOff.clientCreateCount(), 0);
+assert.equal(offSend.errorCode, "marketing.execution.disabled");
+assert.equal(connectOnExecOff.clientCreateCount(), 0);
 assert.equal(factoryCalls.length, 0);
+assert.equal(sendMailCalls.length, 0);
 
 const actor = { userId: "verify-1b", organizationId: "org-smtp-1b", role: "SUPER_ADMIN" };
 senderStoreMod.marketingSenderIdentityStore.reset?.();
 const snapshot = delivMod.marketingDeliverabilityService.snapshot(actor);
+assert.equal(snapshot.smtpReadiness.executionEnabled, false);
+assert.equal(snapshot.smtpReadiness.providerConnectEnabled, true);
 assert.equal(snapshot.smtpReadiness.liveSendAuthorized, false);
 const snapshotJson = JSON.stringify(snapshot);
 assert.equal(snapshotJson.includes("fixture-not-a-real-password"), false);
 assert.equal(factoryCalls.length, 0);
 
+const handshake = await delivMod.marketingDeliverabilityService.verifySmtp(actor, {
+  transport: connectOnExecOff,
+});
+assert.equal(handshake.status, "CONNECTED");
+assert.equal(verifyCalls.length, 1);
+assert.equal(sendMailCalls.length, 0);
+assert.equal(connectOnExecOff.clientCreateCount(), 1);
+
+const flagsOff = transportMod.createHostingerSmtpTransport({
+  env: secretEnv,
+  clientFactory: mockFactory,
+  gates: { executionEnabled: false, providerConnectEnabled: false },
+});
 const blockedVerify = await delivMod.marketingDeliverabilityService.verifySmtp(actor, {
   transport: flagsOff,
 });
 assert.equal(blockedVerify.status, "BLOCKED");
-assert.equal(verifyCalls.length, 0);
+assert.equal(verifyCalls.length, 1);
 assert.equal(sendMailCalls.length, 0);
+assert.equal(flagsOff.clientCreateCount(), 0);
 
 const liveTransport = transportMod.createHostingerSmtpTransport({
   env: secretEnv,
@@ -180,7 +200,7 @@ const liveTransport = transportMod.createHostingerSmtpTransport({
 });
 const verified = await liveTransport.verify();
 assert.equal(verified.status, "CONNECTED");
-assert.equal(verifyCalls.length, 1);
+assert.equal(verifyCalls.length, 2);
 assert.equal(sendMailCalls.length, 0);
 assert.equal(liveTransport.clientCreateCount(), 1);
 const verifiedJson = JSON.stringify(verified);

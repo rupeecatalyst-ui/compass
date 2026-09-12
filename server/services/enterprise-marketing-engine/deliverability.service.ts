@@ -53,8 +53,8 @@ export const marketingDeliverabilityService = {
       }),
       smtpReadiness: {
         selectedProvider: smtpReadiness.selectedProvider,
-        executionEnabled: smtpReadiness.executionEnabled,
-        providerConnectEnabled: smtpReadiness.providerConnectEnabled,
+        executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+        providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
         liveSendAuthorized: smtpReadiness.liveSendAuthorized,
         phase1LiveRecipientCeiling: smtpReadiness.phase1LiveRecipientCeiling,
         phase1Sender: smtpReadiness.phase1Sender,

@@ -43,9 +43,11 @@ export const ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED = false as const;
 
 /**
  * Broad provider-connect kill switch for live ESP/WA/ads adapters.
- * Remains false in MKT-09 — dry_run adapters do not require this.
+ * Step 5: SMTP handshake (transport.verify) may construct a client.
+ * Live send remains blocked while ENTERPRISE_MARKETING_EXECUTION_ENABLED is false
+ * and EMAIL_MODE remains dry_run.
  */
-export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false as const;
+export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true as const;
 
 /**
  * CO-MARKETING-MKT-02 — Google Sheets data-source READ mode.

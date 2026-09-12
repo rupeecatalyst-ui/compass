@@ -25,7 +25,8 @@ const transportSrc = read("server/services/enterprise-marketing-engine/adapters/
 const deliverySrc = read("server/services/enterprise-marketing-engine/email-delivery.service.ts");
 const personalization = read("src/lib/enterprise-marketing-engine/personalization.ts");
 assert.ok(safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = false"));
-assert.ok(safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false"));
+assert.ok(safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true"));
+assert.ok(!safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false"));
 assert.doesNotMatch(adapterSrc, /fetch\(/);
 assert.doesNotMatch(transportSrc, /connect\(/);
 assert.ok(deliverySrc.includes("createDryRunEmailDeliveryPort"));
@@ -71,7 +72,7 @@ const [
 ]);
 
 assert.equal(safetyConst.ENTERPRISE_MARKETING_EXECUTION_ENABLED, false);
-assert.equal(safetyConst.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED, false);
+assert.equal(safetyConst.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED, true);
 
 const secretEnv = {
   ENTERPRISE_MARKETING_SMTP_HOST: "smtp.hostinger.com",
@@ -431,6 +432,9 @@ const dry = await svc.deliver({
   textBody: "Hello",
 });
 assert.equal(dry.dryRun, true);
+assert.equal(svc.getMode().emailMode, "dry_run");
+assert.equal(svc.getMode().executionEnabled, false);
+assert.equal(svc.getMode().providerConnectEnabled, true);
 assert.equal(svc.getMode().liveSendAuthorized, false);
 
 store.reset();
