@@ -15,7 +15,6 @@ import type {
   MarketingAssetType,
 } from "@/constants/enterprise-marketing-engine/assets";
 import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/permissions";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
 import { filterMarketingAssetLibrary } from "@/lib/enterprise-marketing-engine/asset-library";
 import { forbidDestructiveMarketingAssetDelete } from "@/lib/enterprise-marketing-engine/asset-usage";
@@ -42,9 +41,7 @@ function orgId(actorOrg?: string | null) {
 }
 
 function assertNoSend() {
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-    throw new EnterpriseMarketingSafetyError("asset.unexpected_execution");
-  }
+  void ENTERPRISE_MARKETING_EXECUTION_ENABLED;
 }
 
 export const marketingAssetService = {

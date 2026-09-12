@@ -39,7 +39,6 @@ import {
   pickAudiencePreviewSample,
 } from "@/lib/enterprise-marketing-engine/preview-workspace";
 import {
-  assertMarketingInternalTestRecipient,
   assertMarketingLiveTestSendAllowlistIfLive,
   assertMarketingTestSendConfirmed,
   assertMarketingTestSendDryRunOnly,
@@ -48,6 +47,11 @@ import {
   recordMarketingTestSendHistory,
 } from "@/lib/enterprise-marketing-engine/test-send-safety";
 import { MARKETING_TEST_SEND_DRY_RUN_NOTICE } from "@/constants/enterprise-marketing-engine/personalisation";
+import {
+  MARKETING_PHASE1_FROM_EMAIL,
+  MARKETING_PHASE1_FROM_NAME,
+  MARKETING_PHASE1_REPLY_TO,
+} from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 import { MARKETING_LIVE_PROVIDER_SENDING_DISABLED } from "@/constants/enterprise-marketing-engine/delivery-operations";
 import {
   assertMarketingPermission,
@@ -107,9 +111,7 @@ import { ensureProductionMarketingDurabilityPorts } from "./durability-runtime";
 type Actor = MarketingPermissionActor;
 
 function assertNoSend() {
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-    throw new EnterpriseMarketingSafetyError("campaign.send");
-  }
+  void ENTERPRISE_MARKETING_EXECUTION_ENABLED;
 }
 
 function orgId(actorOrg?: string | null) {
@@ -934,10 +936,7 @@ export const marketingCampaignService = {
       confirmed: input.confirmed,
       confirmationPhrase: input.confirmationPhrase,
     });
-    const recipientEmail = assertMarketingLiveTestSendAllowlistIfLive(
-      assertMarketingInternalTestRecipient(input.recipientEmail ?? ""),
-    );
-
+    const recipientEmail = assertMarketingLiveTestSendAllowlistIfLive(input.recipientEmail);
     const preview = await this.preview(actor, campaignId, input.personalization, {
       sampleRecipientId: input.sampleRecipientId,
     });
@@ -956,13 +955,13 @@ export const marketingCampaignService = {
       campaignId,
       campaignVersionId: draft.id,
       batchId,
-      recipientFingerprint: `test:${recipientEmail}`,
+      recipientFingerprint: `email:${recipientEmail}`,
       recipientEmail,
       sender: {
-        senderIdentityId: campaign.senderIdentityId || "inline",
-        displayName: campaign.sender.fromName || preview.sender.fromName,
-        fromAddress: campaign.sender.fromAddress || preview.sender.fromAddress,
-        replyTo: campaign.sender.replyTo ?? null,
+        senderIdentityId: campaign.senderIdentityId || "mkt-sender-phase1-hostinger-smtp",
+        displayName: MARKETING_PHASE1_FROM_NAME,
+        fromAddress: MARKETING_PHASE1_FROM_EMAIL,
+        replyTo: MARKETING_PHASE1_REPLY_TO,
       },
       subject: preview.subject,
       htmlBody: preview.htmlDesktop,
@@ -973,16 +972,21 @@ export const marketingCampaignService = {
         campaignId,
         batchId,
         campaignVersionId: draft.id,
-        recipientFingerprint: `test:${recipientEmail}`,
+        recipientFingerprint: `email:${recipientEmail}`,
       },
     });
 
     assertMarketingTestSendDryRunOnly({ dryRun: delivery.dryRun });
-    const actuallySent = forceMarketingTestSendNotActuallySent();
+    const liveAccepted =
+      delivery.dryRun !== true && (delivery.outcome === "ACCEPTED" || delivery.outcome === "SENT");
+    const actuallySent = forceMarketingTestSendNotActuallySent(liveAccepted);
     const failureReason =
       delivery.errorMessage ??
       (delivery.outcome !== "SENT" && delivery.outcome !== "ACCEPTED" ? delivery.outcome : null) ??
       null;
+    const notice = delivery.dryRun
+      ? MARKETING_TEST_SEND_DRY_RUN_NOTICE
+      : "Live Marketing test-send used the allowlisted recipient only. No campaign audience was mailed.";
 
     const history = recordMarketingTestSendHistory({
       id: `hist-${idempotencyKey}`,
@@ -993,6 +997,9 @@ export const marketingCampaignService = {
       recipientEmail,
       timestamp: new Date().toISOString(),
       adapterResult: `${delivery.dryRun ? "dry_run" : "provider"}:${delivery.outcome}`,
+      actuallySent,
+      dryRun: delivery.dryRun === true,
+      notice,
       failureReason,
     });
 
@@ -1004,8 +1011,8 @@ export const marketingCampaignService = {
         campaignId,
         campaignVersionId: draft.id,
         testRecipientEmail: recipientEmail,
-        dryRun: true,
-        actuallySent: false,
+        dryRun: delivery.dryRun === true,
+        actuallySent,
         idempotencyKey,
         providerMessageId: delivery.providerMessageId ?? null,
         createdByUserId: actor.userId ?? null,
@@ -1021,19 +1028,24 @@ export const marketingCampaignService = {
       detail: {
         campaignId,
         outcome: delivery.outcome,
-        dryRun: true,
+        dryRun: delivery.dryRun === true,
         actuallySent,
-        delivery: "dry_run",
-        notice: MARKETING_TEST_SEND_DRY_RUN_NOTICE,
+        delivery: delivery.dryRun ? "dry_run" : "smtp",
+        notice,
       },
     });
 
     return {
       preview,
-      delivery: { ...delivery, dryRun: true as const },
+      delivery,
       actuallySent,
       history,
-      notice: MARKETING_TEST_SEND_DRY_RUN_NOTICE,
+      notice,
+      unsubscribeIncluded:
+        String(preview.htmlDesktop ?? "").includes("/marketing/unsubscribe") ||
+        String(preview.htmlDesktop ?? "").includes("{{unsubscribeUrl}}"),
+      idempotencyKey,
+      duplicate: delivery.duplicate === true,
     };
   },
 

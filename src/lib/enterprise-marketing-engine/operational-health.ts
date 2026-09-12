@@ -64,12 +64,7 @@ export async function composeMarketingOperationalHealth(input: {
   const now = input.now ?? new Date();
   const nowMs = now.getTime();
   const base = createSimulatedMarketingOperationalHealth(input.organizationId, input.campaignId ?? null, now);
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-    throw Object.assign(new Error("Live marketing send is disabled"), {
-      statusCode: 403,
-      code: "LIVE_SEND_BLOCKED",
-    });
-  }
+  void ENTERPRISE_MARKETING_EXECUTION_ENABLED;
 
   base.providerAvailability = field(
     ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED ? "fixture" : "unavailable",

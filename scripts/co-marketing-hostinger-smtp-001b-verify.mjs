@@ -28,7 +28,8 @@ const delivSrc = read("server/services/enterprise-marketing-engine/deliverabilit
 const panelSrc = read("src/components/catalyst-one/admin/marketing/marketing-deliverability-panel.tsx");
 assert.ok(pkg.includes('"nodemailer"'));
 assert.ok(pkg.includes("verify:co-marketing-hostinger-smtp-001b"));
-assert.ok(safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = false"));
+assert.ok(safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = true"));
+assert.ok(!safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = false"));
 assert.ok(safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true"));
 assert.ok(!safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false"));
 assert.ok(transportSrc.includes("requireTLS"));
@@ -83,7 +84,7 @@ const { configureMarketingDurabilityTestFixture, resetMarketingDurabilityComposi
   ts("src/lib/enterprise-marketing-engine/durability/composition.ts")
 );
 
-assert.equal(safetyConst.ENTERPRISE_MARKETING_EXECUTION_ENABLED, false);
+assert.equal(safetyConst.ENTERPRISE_MARKETING_EXECUTION_ENABLED, true);
 assert.equal(safetyConst.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED, true);
 
 const secretEnv = {
@@ -145,6 +146,7 @@ const mockFactory = (input) => {
 const connectOnExecOff = transportMod.createHostingerSmtpTransport({
   env: secretEnv,
   clientFactory: mockFactory,
+  gates: { executionEnabled: false, providerConnectEnabled: true },
 });
 const offSend = await connectOnExecOff.send({
   to: "one@example.com",
@@ -165,7 +167,7 @@ assert.equal(sendMailCalls.length, 0);
 const actor = { userId: "verify-1b", organizationId: "org-smtp-1b", role: "SUPER_ADMIN" };
 senderStoreMod.marketingSenderIdentityStore.reset?.();
 const snapshot = delivMod.marketingDeliverabilityService.snapshot(actor);
-assert.equal(snapshot.smtpReadiness.executionEnabled, false);
+assert.equal(snapshot.smtpReadiness.executionEnabled, true);
 assert.equal(snapshot.smtpReadiness.providerConnectEnabled, true);
 assert.equal(snapshot.smtpReadiness.liveSendAuthorized, false);
 const snapshotJson = JSON.stringify(snapshot);
@@ -230,6 +232,17 @@ assert.equal(
   testSendMod.assertMarketingLiveTestSendAllowlistIfLive("qa@rupeecatalyst.com"),
   "qa@rupeecatalyst.com",
 );
+process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST = "qa@rupeecatalyst.com";
+assert.equal(allowlistMod.resolveExactMarketingLiveTestRecipient(), "qa@rupeecatalyst.com");
+assert.equal(
+  allowlistMod.resolveExactMarketingLiveTestRecipient("qa@rupeecatalyst.com"),
+  "qa@rupeecatalyst.com",
+);
+assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient("other@rupeecatalyst.com"));
+process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST = "one@rupeecatalyst.com,two@rupeecatalyst.com";
+assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient());
+delete process.env.ENTERPRISE_MARKETING_TEST_RECIPIENT_ALLOWLIST;
+assert.throws(() => allowlistMod.resolveExactMarketingLiveTestRecipient());
 const testSafety = testSendMod.assessMarketingControlledTestSendSafety({
   recipientEmail: "qa@rupeecatalyst.com",
 });

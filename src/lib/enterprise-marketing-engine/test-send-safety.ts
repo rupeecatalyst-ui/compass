@@ -9,11 +9,14 @@ import {
   MARKETING_TEST_SEND_CONFIRMATION_PHRASE,
   MARKETING_TEST_SEND_DRY_RUN_NOTICE,
 } from "@/constants/enterprise-marketing-engine/personalisation";
-import { ENTERPRISE_MARKETING_EXECUTION_ENABLED } from "@/constants/enterprise-marketing-engine/safety";
+import {
+  ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+  ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
+} from "@/constants/enterprise-marketing-engine/safety";
 import { ENTERPRISE_MARKETING_EMAIL_MODE } from "@/constants/enterprise-marketing-engine/email-delivery";
 import {
-  assertMarketingLiveTestRecipientAllowlisted,
   isMarketingLiveTestRecipientAllowlisted,
+  resolveExactMarketingLiveTestRecipient,
 } from "@/lib/enterprise-marketing-engine/test-recipient-allowlist";
 
 export type MarketingTestSendHistoryEntry = {
@@ -25,8 +28,8 @@ export type MarketingTestSendHistoryEntry = {
   recipientEmail: string;
   timestamp: string;
   adapterResult: string;
-  actuallySent: false;
-  dryRun: true;
+  actuallySent: boolean;
+  dryRun: boolean;
   failureReason: string | null;
   notice: string;
 };
@@ -75,23 +78,23 @@ export function assertMarketingTestSendConfirmed(input: {
  * Live test-send extra barrier. Dry-run keeps the internal 008 allowlist.
  * Campaign audiences never read this env list.
  */
-export function assertMarketingLiveTestSendAllowlistIfLive(email: string): string {
-  if (ENTERPRISE_MARKETING_EMAIL_MODE !== "live") return email.trim().toLowerCase();
-  return assertMarketingLiveTestRecipientAllowlisted(email);
+export function assertMarketingLiveTestSendAllowlistIfLive(email?: string): string {
+  if (ENTERPRISE_MARKETING_EMAIL_MODE !== "live") {
+    return assertMarketingInternalTestRecipient(email ?? "");
+  }
+  const resolved = resolveExactMarketingLiveTestRecipient(email);
+  return assertMarketingInternalTestRecipient(resolved);
 }
 
 export function assertMarketingTestSendDryRunOnly(input: { dryRun?: boolean }): void {
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-    throw Object.assign(new Error("Live send is disabled in TEST MODE."), {
-      statusCode: 403,
-      code: "TEST_SEND_LIVE_FORBIDDEN",
-    });
-  }
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "live") {
-    throw Object.assign(new Error("Live email mode is not authorised for test send."), {
-      statusCode: 403,
-      code: "TEST_SEND_LIVE_FORBIDDEN",
-    });
+    if (!ENTERPRISE_MARKETING_EXECUTION_ENABLED || !ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED) {
+      throw Object.assign(new Error("Live test-send is not authorised."), {
+        statusCode: 403,
+        code: "TEST_SEND_LIVE_FORBIDDEN",
+      });
+    }
+    return;
   }
   if (input.dryRun === false) {
     throw Object.assign(new Error("Test send adapter must remain dry-run. No provider call is authorised."), {
@@ -121,7 +124,10 @@ export function assessMarketingControlledTestSendSafety(input: { recipientEmail:
   };
 }
 
-export function forceMarketingTestSendNotActuallySent(): false {
+export function forceMarketingTestSendNotActuallySent(sent?: boolean): boolean {
+  if (ENTERPRISE_MARKETING_EMAIL_MODE === "live" && ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
+    return sent === true;
+  }
   return false;
 }
 
@@ -132,6 +138,8 @@ export function recordMarketingTestSendHistory(
     notice?: string;
   },
 ): MarketingTestSendHistoryEntry {
+  const live =
+    ENTERPRISE_MARKETING_EMAIL_MODE === "live" && ENTERPRISE_MARKETING_EXECUTION_ENABLED;
   const stored: MarketingTestSendHistoryEntry = {
     id: entry.id,
     campaignId: entry.campaignId,
@@ -141,10 +149,12 @@ export function recordMarketingTestSendHistory(
     recipientEmail: entry.recipientEmail,
     timestamp: entry.timestamp,
     adapterResult: entry.adapterResult,
-    actuallySent: false,
-    dryRun: true,
+    actuallySent: live ? entry.actuallySent === true : false,
+    dryRun: live ? entry.dryRun !== false && entry.actuallySent !== true : true,
     failureReason: entry.failureReason,
-    notice: MARKETING_TEST_SEND_DRY_RUN_NOTICE,
+    notice: live
+      ? entry.notice ?? "Live Marketing test-send used the allowlisted recipient only."
+      : MARKETING_TEST_SEND_DRY_RUN_NOTICE,
   };
   history.unshift(stored);
   return stored;

@@ -8,7 +8,6 @@ import {
   ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
 } from "@/constants/enterprise-marketing-engine";
 import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/permissions";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
 import { composeMarketingDeliverabilityReadiness } from "@/lib/enterprise-marketing-engine/deliverability-readiness";
 import { assessMarketingLiveEmailProviderReadiness } from "@/lib/enterprise-marketing-engine/live-email-provider-readiness";
@@ -37,9 +36,6 @@ function orgId(actorOrg?: string | null) {
 
 export const marketingDeliverabilityService = {
   snapshot(actor: Actor) {
-    if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-      throw new EnterpriseMarketingSafetyError("deliverability.unexpected_execution");
-    }
     assertMarketingPermission(actor, MARKETING_PERMISSIONS.SENDER_MANAGE);
     const organizationId = orgId(actor.organizationId);
     const senders = marketingSenderIdentityStore.list(organizationId);

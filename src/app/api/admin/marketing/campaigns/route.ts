@@ -324,11 +324,8 @@ export async function POST(request: Request) {
       if (!body.campaignId) {
         return errorResponse(400, "INVALID_INPUT", "campaignId is required");
       }
-      if (!body.testRecipientEmail?.trim()) {
-        return errorResponse(400, "INVALID_INPUT", "testRecipientEmail is required");
-      }
       const result = await marketingCampaignService.testSend(ctx, body.campaignId, {
-        recipientEmail: body.testRecipientEmail,
+        recipientEmail: body.testRecipientEmail ?? "",
         personalization: body.personalization,
         confirmed: body.testSendConfirmed,
         confirmationPhrase: body.testSendConfirmationPhrase,

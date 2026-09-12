@@ -24,7 +24,8 @@ const adapterSrc = read("server/services/enterprise-marketing-engine/adapters/ho
 const transportSrc = read("server/services/enterprise-marketing-engine/adapters/hostinger-smtp-transport.ts");
 const deliverySrc = read("server/services/enterprise-marketing-engine/email-delivery.service.ts");
 const personalization = read("src/lib/enterprise-marketing-engine/personalization.ts");
-assert.ok(safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = false"));
+assert.ok(safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = true"));
+assert.ok(!safety.includes("ENTERPRISE_MARKETING_EXECUTION_ENABLED = false"));
 assert.ok(safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true"));
 assert.ok(!safety.includes("ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = false"));
 assert.doesNotMatch(adapterSrc, /fetch\(/);
@@ -71,7 +72,7 @@ const [
   import(ts("src/constants/enterprise-marketing-engine/safety.ts")),
 ]);
 
-assert.equal(safetyConst.ENTERPRISE_MARKETING_EXECUTION_ENABLED, false);
+assert.equal(safetyConst.ENTERPRISE_MARKETING_EXECUTION_ENABLED, true);
 assert.equal(safetyConst.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED, true);
 
 const secretEnv = {
@@ -160,7 +161,9 @@ const sizedAudience = audienceMod.assessMarketingAudienceLiveCertification({
 });
 assert.equal(sizedAudience.certified, true);
 
-const closedTransport = transportMod.createHostingerSmtpTransport();
+const closedTransport = transportMod.createHostingerSmtpTransport({
+  gates: { executionEnabled: false, providerConnectEnabled: true },
+});
 const closedSend = await closedTransport.send({
   to: "ok@example.com",
   fromName: "Rupee Catalyst Opportunities",
@@ -218,6 +221,7 @@ assert.equal(smtpCalls.length, 0);
 const gated = adapterMod.createHostingerSmtpEmailDeliveryPort({
   transport: mockTransport,
   smtpEnv: secretEnv,
+  gates: { executionEnabled: false, providerConnectEnabled: true },
 });
 const gatedResult = await gated.deliver({
   idempotencyKey: "smtp:flags-off",
@@ -433,7 +437,7 @@ const dry = await svc.deliver({
 });
 assert.equal(dry.dryRun, true);
 assert.equal(svc.getMode().emailMode, "dry_run");
-assert.equal(svc.getMode().executionEnabled, false);
+assert.equal(svc.getMode().executionEnabled, true);
 assert.equal(svc.getMode().providerConnectEnabled, true);
 assert.equal(svc.getMode().liveSendAuthorized, false);
 

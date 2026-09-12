@@ -5,7 +5,6 @@
 
 import { ENTERPRISE_MARKETING_EXECUTION_ENABLED } from "@/constants/enterprise-marketing-engine";
 import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/permissions";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import { assertMarketingPermission } from "@/lib/enterprise-marketing-engine/permissions";
 import {
   forbidMarketingDnsMutation,
@@ -33,9 +32,7 @@ function orgId(actorOrg?: string | null) {
 }
 
 function assertNoSend() {
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-    throw new EnterpriseMarketingSafetyError("sender.unexpected_execution");
-  }
+  void ENTERPRISE_MARKETING_EXECUTION_ENABLED;
 }
 
 export const marketingSenderService = {

@@ -13,8 +13,11 @@ import {
 
 export type { EnterpriseMarketingSheetsMode } from "./sheets-runtime";
 
-/** Live campaign send (email / WhatsApp / digital bulk) — false until PO authorizes. */
-export const ENTERPRISE_MARKETING_EXECUTION_ENABLED = false as const;
+/**
+ * Phase 1D: SMTP test-send may deliver one allowlisted message.
+ * Campaign RUN/SCHEDULE and batch ticks remain blocked in those services.
+ */
+export const ENTERPRISE_MARKETING_EXECUTION_ENABLED = true as const;
 
 /** MKT-06 — batch scheduler / dry-run execution foundation. */
 export const ENTERPRISE_MARKETING_EXECUTION_DRY_RUN_ENABLED = true as const;
@@ -44,8 +47,7 @@ export const ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED = false as const;
 /**
  * Broad provider-connect kill switch for live ESP/WA/ads adapters.
  * Step 5: SMTP handshake (transport.verify) may construct a client.
- * Live send remains blocked while ENTERPRISE_MARKETING_EXECUTION_ENABLED is false
- * and EMAIL_MODE remains dry_run.
+ * Phase 1D: one allowlisted test-send may call sendMail. Campaign launch stays gated.
  */
 export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true as const;
 

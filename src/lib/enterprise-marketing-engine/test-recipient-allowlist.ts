@@ -19,6 +19,31 @@ export function parseMarketingTestRecipientAllowlist(
     .filter((item) => item.includes("@") && !item.includes(" "));
 }
 
+export function resolveExactMarketingLiveTestRecipient(requested?: string): string {
+  const allowlist = parseMarketingTestRecipientAllowlist();
+  if (allowlist.length === 0) {
+    throw Object.assign(new Error("Live Marketing test-send allowlist is empty"), {
+      statusCode: 403,
+      code: MARKETING_SMTP_BLOCK.allowlistEmpty,
+    });
+  }
+  if (allowlist.length !== 1) {
+    throw Object.assign(new Error("Live Marketing test-send requires exactly one allowlisted recipient"), {
+      statusCode: 403,
+      code: MARKETING_SMTP_BLOCK.allowlistNotExactlyOne,
+    });
+  }
+  const only = allowlist[0];
+  const requestedNorm = (requested ?? "").trim().toLowerCase();
+  if (requestedNorm && requestedNorm !== only) {
+    throw Object.assign(new Error("Test recipient is not on the live allowlist"), {
+      statusCode: 403,
+      code: MARKETING_SMTP_BLOCK.recipientNotAllowlisted,
+    });
+  }
+  return only;
+}
+
 export function isMarketingLiveTestRecipientAllowlisted(
   email: string,
   raw?: string,

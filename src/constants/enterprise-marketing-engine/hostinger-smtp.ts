@@ -45,6 +45,7 @@ export const MARKETING_SMTP_BLOCK = {
   invalidPort: "marketing.smtp.invalid_port",
   tlsRequired: "marketing.smtp.tls_required",
   allowlistEmpty: "marketing.test.allowlist_empty",
+  allowlistNotExactlyOne: "marketing.test.allowlist_not_exactly_one",
   recipientNotAllowlisted: "marketing.test.recipient_not_allowlisted",
   senderNotPhase1: "marketing.sender.not_phase1_sender",
   unsubscribeSecretMissing: "marketing.unsubscribe.secret_missing",

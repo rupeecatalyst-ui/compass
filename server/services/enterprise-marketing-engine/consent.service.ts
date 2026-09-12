@@ -11,7 +11,6 @@ import {
   type MarketingConsentSource,
 } from "@/constants/enterprise-marketing-engine/consent-suppression";
 import { MARKETING_PERMISSIONS } from "@/constants/enterprise-marketing-engine/permissions";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
 import { assertMarketingPermission, canViewMarketingRecipientPii } from "@/lib/enterprise-marketing-engine/permissions";
 import { filterMarketingConsentRegistry } from "@/lib/enterprise-marketing-engine/consent-registry";
 import { maskMarketingConsentIdentity } from "@/lib/enterprise-marketing-engine/consent-redact";
@@ -42,9 +41,7 @@ function orgId(actorOrg?: string | null) {
 }
 
 function assertNoSend() {
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-    throw new EnterpriseMarketingSafetyError("consent.unexpected_execution");
-  }
+  void ENTERPRISE_MARKETING_EXECUTION_ENABLED;
 }
 
 function requireReason(reason: string | null | undefined, action: string) {
