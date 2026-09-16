@@ -20,6 +20,7 @@ import type {
   MarketingDatasetSchema,
   MarketingRowPage,
 } from "@/lib/enterprise-marketing-engine/ports/data-source.port";
+import { resolveMarketingSheetsSourceStatus } from "@/lib/enterprise-marketing-engine/authorised-workbook";
 import { marketingDataSourceBindingStore } from "../binding-store";
 import { classifyGoogleSheetsAccessError } from "./google-sheets-errors";
 
@@ -329,11 +330,16 @@ export function createGoogleSheetsMarketingDataSourcePort(
       const binding = requireBinding(bindingId, organizationId);
       let stage: "AUTHORIZE" | "SPREADSHEETS_GET" = "AUTHORIZE";
       let authorizeCompleted = false;
+      let runtimeSpreadsheetMatchesConfigured: boolean | null = null;
       try {
         loadServiceAccount();
         const sheets = await getSheetsClient();
         authorizeCompleted = true;
         stage = "SPREADSHEETS_GET";
+        const configuredSpreadsheetId = resolveMarketingSheetsSourceStatus().authorisedWorkbookId;
+        runtimeSpreadsheetMatchesConfigured = configuredSpreadsheetId === null
+          ? null
+          : binding.spreadsheetId === configuredSpreadsheetId;
         await sheets.spreadsheets.get({
           spreadsheetId: binding.spreadsheetId,
           fields: "spreadsheetId,properties.title",
@@ -358,7 +364,7 @@ export function createGoogleSheetsMarketingDataSourcePort(
         });
         return {
           ok: false,
-          diagnostic: { stage, authorizeCompleted, ...safeHealthErrorMetadata(err) },
+          diagnostic: { stage, authorizeCompleted, runtimeSpreadsheetMatchesConfigured, ...safeHealthErrorMetadata(err) },
           message: "Google Sheets health check failed.",
           mode: "live",
           connectionState:

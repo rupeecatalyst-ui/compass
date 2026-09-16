@@ -78,6 +78,7 @@ type HealthCheckResult = {
     authorizeCompleted: boolean;
     httpStatus: number | null;
     googleReason: string;
+    runtimeSpreadsheetMatchesConfigured: boolean | null;
   };
 };
 export function MarketingDataSourcesPanel() {
@@ -418,6 +419,10 @@ export function MarketingDataSourcesPanel() {
                         <dt>Authorization completed:</dt><dd>{health.diagnostic.authorizeCompleted ? "Yes" : "No"}</dd>
                         <dt>HTTP status:</dt><dd>{health.diagnostic.httpStatus ?? "Not available"}</dd>
                         <dt>Google reason:</dt><dd>{health.diagnostic.googleReason}</dd>
+                        <dt>Runtime spreadsheet matches configured:</dt>
+                        <dd>{health.diagnostic.runtimeSpreadsheetMatchesConfigured === null
+                          ? "Unknown"
+                          : health.diagnostic.runtimeSpreadsheetMatchesConfigured ? "Yes" : "No"}</dd>
                       </dl>
                     ) : null}
                   </div>
