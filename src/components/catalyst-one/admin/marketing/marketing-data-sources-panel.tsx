@@ -69,6 +69,17 @@ type PreviewPayload = {
   cappedAt: number;
 };
 
+type HealthCheckResult = {
+  ok: boolean;
+  message?: string;
+  mode?: string;
+  diagnostic?: {
+    stage: "AUTHORIZE" | "SPREADSHEETS_GET";
+    authorizeCompleted: boolean;
+    httpStatus: number | null;
+    googleReason: string;
+  };
+};
 export function MarketingDataSourcesPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -84,7 +95,7 @@ export function MarketingDataSourcesPanel() {
     method: string;
     note: string;
   } | null>(null);
-  const [health, setHealth] = useState<{ ok: boolean; message?: string; mode?: string } | null>(
+  const [health, setHealth] = useState<HealthCheckResult | null>(
     null,
   );
   const [newName, setNewName] = useState("Marketing Master Database");
@@ -142,7 +153,7 @@ export function MarketingDataSourcesPanel() {
         throw new Error(body.error?.message || `Failed: ${view}`);
       }
       if (view === "health") {
-        setHealth(body.data.health as { ok: boolean; message?: string; mode?: string });
+        setHealth(body.data.health as HealthCheckResult);
       }
       if (view === "datasets") {
         const list = (body.data.datasets as MarketingDatasetDescriptor[]) ?? [];
@@ -397,9 +408,19 @@ export function MarketingDataSourcesPanel() {
                   </Button>
                 </div>
                 {health ? (
-                  <p className={`text-sm ${health.ok ? "text-emerald-700" : "text-destructive"}`}>
-                    {health.ok ? "Healthy" : "Unhealthy"} — {health.message}
-                  </p>
+                  <div className="space-y-1 text-sm">
+                    <p className={health.ok ? "text-emerald-700" : "text-destructive"}>
+                      {health.ok ? "Healthy" : "Unhealthy"} — {health.message}
+                    </p>
+                    {!health.ok && health.diagnostic ? (
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-muted-foreground">
+                        <dt>Stage:</dt><dd>{health.diagnostic.stage}</dd>
+                        <dt>Authorization completed:</dt><dd>{health.diagnostic.authorizeCompleted ? "Yes" : "No"}</dd>
+                        <dt>HTTP status:</dt><dd>{health.diagnostic.httpStatus ?? "Not available"}</dd>
+                        <dt>Google reason:</dt><dd>{health.diagnostic.googleReason}</dd>
+                      </dl>
+                    ) : null}
+                  </div>
                 ) : null}
               </CardContent>
             </Card>
