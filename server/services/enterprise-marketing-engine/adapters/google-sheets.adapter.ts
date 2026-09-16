@@ -195,6 +195,29 @@ async function resolveSheetTitle(
   });
 }
 
+function safeHealthErrorMetadata(err: unknown) {
+  const error = err as {
+    code?: unknown;
+    response?: {
+      status?: unknown;
+      data?: { error?: { status?: unknown; errors?: Array<{ reason?: unknown }> } };
+    };
+  } | null;
+  const rawStatus = error?.response?.status ?? error?.code;
+  const status = typeof rawStatus === "number" ? rawStatus : Number(rawStatus);
+  const httpStatus = Number.isInteger(status) && status >= 100 && status <= 599 ? status : null;
+  const rawReason = error?.response?.data?.error?.errors?.[0]?.reason ?? error?.response?.data?.error?.status;
+  const allowedReasons = new Set([
+    "notFound", "NOT_FOUND", "forbidden", "PERMISSION_DENIED",
+    "insufficientPermissions", "accessNotConfigured", "authError", "UNAUTHENTICATED",
+    "invalid", "INVALID_ARGUMENT", "badRequest", "rateLimitExceeded",
+    "RESOURCE_EXHAUSTED", "quotaExceeded",
+  ]);
+  const googleReason = typeof rawReason === "string" && allowedReasons.has(rawReason)
+    ? rawReason
+    : "UNKNOWN";
+  return { httpStatus, googleReason };
+}
 export function createGoogleSheetsMarketingDataSourcePort(
   organizationId: string,
 ): MarketingDataSourcePort {
@@ -304,9 +327,13 @@ export function createGoogleSheetsMarketingDataSourcePort(
 
     async healthCheck(bindingId) {
       const binding = requireBinding(bindingId, organizationId);
+      let stage: "AUTHORIZE" | "SPREADSHEETS_GET" = "AUTHORIZE";
+      let authorizeCompleted = false;
       try {
         loadServiceAccount();
         const sheets = await getSheetsClient();
+        authorizeCompleted = true;
+        stage = "SPREADSHEETS_GET";
         await sheets.spreadsheets.get({
           spreadsheetId: binding.spreadsheetId,
           fields: "spreadsheetId,properties.title",
@@ -325,13 +352,14 @@ export function createGoogleSheetsMarketingDataSourcePort(
         marketingDataSourceBindingStore.patch(bindingId, organizationId, {
           lastHealthAt: new Date().toISOString(),
           lastHealthOk: false,
-          lastHealthMessage: classified.message,
-          lastError: classified.message,
+          lastHealthMessage: "Google Sheets health check failed.",
+          lastError: "Google Sheets health check failed.",
           status: classified.code === "ACCESS_REVOKED" ? "DISABLED" : "ERROR",
         });
         return {
           ok: false,
-          message: classified.message,
+          diagnostic: { stage, authorizeCompleted, ...safeHealthErrorMetadata(err) },
+          message: "Google Sheets health check failed.",
           mode: "live",
           connectionState:
             classified.code === "ACCESS_REVOKED" ? "ACCESS_REVOKED" : "VALIDATION_FAILED",
