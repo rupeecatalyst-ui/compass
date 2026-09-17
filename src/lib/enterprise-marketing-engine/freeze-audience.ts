@@ -57,6 +57,7 @@ export async function freezeApprovedAudienceSnapshot(input: {
   organizationId: string;
   campaignId: string;
   campaignVersionId: string;
+  audienceDefinitionId?: string | null;
   sourceBindingId: string;
   sourceWorkbookId: string;
   sourceTabId: string;
@@ -117,6 +118,7 @@ export async function freezeApprovedAudienceSnapshot(input: {
     organizationId: input.organizationId,
     campaignId: input.campaignId,
     campaignVersionId: input.campaignVersionId,
+    audienceDefinitionId: input.audienceDefinitionId ?? null,
     sourceBindingId: input.sourceBindingId,
     sourceWorkbookId: input.sourceWorkbookId,
     sourceTabId: input.sourceTabId,

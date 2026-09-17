@@ -110,6 +110,7 @@ export type MarketingDurableAudienceSnapshotRecord = MarketingDurableActorStamp 
   organizationId: string;
   campaignId: string;
   campaignVersionId: string;
+  audienceDefinitionId?: string | null;
   sourceBindingId: string;
   sourceWorkbookId: string;
   sourceTabId: string;

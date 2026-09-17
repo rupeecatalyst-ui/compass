@@ -7,7 +7,7 @@ import type {
   MarketingCampaignVersion,
 } from "@/types/enterprise-marketing-campaign";
 import type { MarketingPrePublishCheckResult } from "@/types/enterprise-marketing-campaign";
-import type { MarketingColumnMap } from "@/types/enterprise-marketing-durability";
+import type { MarketingColumnMap, MarketingDurableAudienceSnapshotRecord } from "@/types/enterprise-marketing-durability";
 import type { MarketingSenderIdentity } from "@/types/enterprise-marketing-email-delivery";
 import { inspectMarketingPersonalisationUsage } from "@/lib/enterprise-marketing-engine/personalisation-catalogue";
 import { hasMarketingUnsubscribeBlock } from "@/lib/enterprise-marketing-engine/visual-editor";
@@ -34,6 +34,21 @@ function senderConfigured(campaign: MarketingCampaign): boolean {
   );
 }
 
+export function isCurrentFrozenMarketingAudienceSnapshot(
+  campaign: MarketingCampaign,
+  version: MarketingCampaignVersion,
+  snapshot: MarketingDurableAudienceSnapshotRecord | null | undefined,
+): boolean {
+  return Boolean(
+    snapshot?.id && snapshot.frozenAt && snapshot.sourceBindingId &&
+    version.campaignId === campaign.id &&
+    snapshot.organizationId === campaign.organizationId &&
+    snapshot.campaignId === campaign.id &&
+    snapshot.campaignVersionId === version.id &&
+    (snapshot.audienceDefinitionId == null || snapshot.audienceDefinitionId === campaign.audienceId),
+  );
+}
+
 /**
  * Prepare validation before APPROVED (and reusable for SCHEDULE readiness).
  * Does not send. Returns structured checks — caller decides hard fail.
@@ -45,11 +60,15 @@ export function runMarketingPrePublishChecks(input: {
   mappingConfirmed?: boolean;
   senderIdentity?: MarketingSenderIdentity | null;
   requireApprovedSender?: boolean;
+  frozenSnapshot?: MarketingDurableAudienceSnapshotRecord | null;
+  requireFrozenSnapshot?: boolean;
 }): MarketingPrePublishCheckResult {
   const { campaign, version } = input;
   const checks: MarketingPrePublishCheckResult["checks"] = [];
 
-  const audienceOk = Boolean(campaign.audienceId?.trim());
+  const audienceOk = input.requireFrozenSnapshot
+    ? isCurrentFrozenMarketingAudienceSnapshot(campaign, version, input.frozenSnapshot)
+    : Boolean(campaign.audienceId?.trim());
   checks.push({
     id: "audience",
     label: "Audience configured",

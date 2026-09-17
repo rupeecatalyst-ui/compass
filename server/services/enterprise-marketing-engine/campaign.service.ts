@@ -77,6 +77,7 @@ import { composeMarketingReadinessReview } from "@/lib/enterprise-marketing-engi
 import { unresolvedPersonalisationTokens } from "@/lib/enterprise-marketing-engine/campaign-builder-shell";
 import {
   assertReadyForApproval,
+  isCurrentFrozenMarketingAudienceSnapshot,
   runMarketingPrePublishChecks,
 } from "@/lib/enterprise-marketing-engine/pre-publish";
 import { assertMarketingSenderEligibleForCampaignApproval } from "@/lib/enterprise-marketing-engine/sender-eligibility";
@@ -134,6 +135,18 @@ function loadCampaignMapping(
   const def = marketingAudienceDefinitionStore.getForOrg(audienceId, organizationId);
   if (!def) return { columnMap: null, mappingConfirmed: false };
   return { columnMap: def.columnMap, mappingConfirmed: def.mappingConfirmed };
+}
+
+async function loadCurrentFrozenSnapshot(campaign: MarketingCampaign, version: MarketingCampaignVersion) {
+  const ports = isEnterprisePersistencePrisma()
+    ? ensureProductionMarketingDurabilityPorts()
+    : getConfiguredMarketingDurabilityPorts();
+  if (!ports) return { required: false, snapshot: null };
+  const snapshots = await ports.snapshots.listByCampaign(campaign.organizationId, campaign.id);
+  const snapshot = [...snapshots]
+    .sort((a, b) => b.frozenAt.localeCompare(a.frozenAt))
+    .find((row) => isCurrentFrozenMarketingAudienceSnapshot(campaign, version, row)) ?? null;
+  return { required: true, snapshot };
 }
 
 function validateContentTokens(content: MarketingContentDocument, subject: string, previewText: string) {
@@ -473,11 +486,14 @@ export const marketingCampaignService = {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
     const mapping = loadCampaignMapping(actor, campaign.audienceId);
+    const frozenAudience = await loadCurrentFrozenSnapshot(campaign, draft);
     return runMarketingPrePublishChecks({
       campaign,
       version: draft,
-      columnMap: mapping.columnMap,
-      mappingConfirmed: mapping.mappingConfirmed,
+      columnMap: frozenAudience.snapshot?.columnMap ?? mapping.columnMap,
+      mappingConfirmed: Boolean(frozenAudience.snapshot) || mapping.mappingConfirmed,
+      frozenSnapshot: frozenAudience.snapshot,
+      requireFrozenSnapshot: frozenAudience.required,
     });
   },
 
@@ -543,32 +559,20 @@ export const marketingCampaignService = {
         productionCapable: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
       });
       const mapping = loadCampaignMapping(actor, existing.audienceId);
+      const frozenAudience = await loadCurrentFrozenSnapshot(existing, draft);
       const checks = runMarketingPrePublishChecks({
         campaign: existing,
         version: draft,
-        columnMap: mapping.columnMap,
-        mappingConfirmed: mapping.mappingConfirmed,
+        columnMap: frozenAudience.snapshot?.columnMap ?? mapping.columnMap,
+        mappingConfirmed: Boolean(frozenAudience.snapshot) || mapping.mappingConfirmed,
+        frozenSnapshot: frozenAudience.snapshot,
+        requireFrozenSnapshot: frozenAudience.required,
       });
       assertReadyForApproval(checks);
       const frozen = await marketingCampaignStore.freezeVersion(draft.id, "APPROVED");
-      const durabilityPorts = getConfiguredMarketingDurabilityPorts();
-      let snapshotFrozen = !durabilityPorts;
-      if (durabilityPorts && existing.audienceId) {
-        await marketingAudienceService.freezeForCampaign(
-          { userId: actor.userId, organizationId },
-          {
-            audienceId: existing.audienceId,
-            campaignId,
-            campaignVersionId: frozen.id,
-            channel: existing.channel,
-          },
-        );
-        const snaps = await durabilityPorts.snapshots.listByCampaign(organizationId, campaignId);
-        snapshotFrozen = snaps.some((row) => Boolean(row.frozenAt));
-      }
       assertApprovalFreezesContentAndAudience({
         contentFrozen: Boolean(frozen.immutable && frozen.frozenAt),
-        snapshotFrozen,
+        snapshotFrozen: !frozenAudience.required || Boolean(frozenAudience.snapshot),
       });
       await marketingCampaignStore.updateCampaign(campaignId, organizationId, {
         activePublishedVersionId: frozen.id,
@@ -606,18 +610,16 @@ export const marketingCampaignService = {
 
     if (action === "RUN") {
       const mapping = loadCampaignMapping(actor, existing.audienceId);
+      const frozenAudience = await loadCurrentFrozenSnapshot(existing, draft);
       const checks = runMarketingPrePublishChecks({
         campaign: existing,
         version: draft,
-        columnMap: mapping.columnMap,
-        mappingConfirmed: mapping.mappingConfirmed,
+        columnMap: frozenAudience.snapshot?.columnMap ?? mapping.columnMap,
+        mappingConfirmed: Boolean(frozenAudience.snapshot) || mapping.mappingConfirmed,
+        frozenSnapshot: frozenAudience.snapshot,
+        requireFrozenSnapshot: frozenAudience.required,
       });
-      const ports = getConfiguredMarketingDurabilityPorts();
-      let snapshotFrozen = !ports;
-      if (ports) {
-        const snaps = await ports.snapshots.listByCampaign(organizationId, campaignId);
-        snapshotFrozen = snaps.some((row) => Boolean(row.frozenAt));
-      }
+      const snapshotFrozen = !frozenAudience.required || Boolean(frozenAudience.snapshot);
       assertLaunchBlockersPass(
         buildMarketingLaunchBlockers({
           prePublishBlockingCodes: checks.blockingCodes,
@@ -1129,18 +1131,16 @@ export const marketingCampaignService = {
     }
     const organizationId = orgId(actor.organizationId);
     const mapping = loadCampaignMapping(actor, campaign.audienceId);
+    const frozenAudience = await loadCurrentFrozenSnapshot(campaign, draft);
     const checks = runMarketingPrePublishChecks({
       campaign,
       version: draft,
-      columnMap: mapping.columnMap,
-      mappingConfirmed: mapping.mappingConfirmed,
+      columnMap: frozenAudience.snapshot?.columnMap ?? mapping.columnMap,
+      mappingConfirmed: Boolean(frozenAudience.snapshot) || mapping.mappingConfirmed,
+      frozenSnapshot: frozenAudience.snapshot,
+      requireFrozenSnapshot: frozenAudience.required,
     });
-    const ports = getConfiguredMarketingDurabilityPorts();
-    let snapshotFrozen = !ports;
-    if (ports) {
-      const snaps = await ports.snapshots.listByCampaign(organizationId, campaignId);
-      snapshotFrozen = snaps.some((row) => Boolean(row.frozenAt));
-    }
+    const snapshotFrozen = !frozenAudience.required || Boolean(frozenAudience.snapshot);
     const blockers = buildMarketingLaunchBlockers({
       prePublishBlockingCodes: checks.blockingCodes,
       contentFrozen: Boolean(draft.immutable && draft.frozenAt),
@@ -1198,16 +1198,14 @@ export const marketingCampaignService = {
     if (!draft) {
       throw Object.assign(new Error("Draft missing"), { statusCode: 500, code: "VERSION_MISSING" });
     }
-    const organizationId = orgId(actor.organizationId);
     const mapping = loadCampaignMapping(actor, campaign.audienceId);
     const history = listMarketingTestSendHistory(campaignId);
-    const ports = getConfiguredMarketingDurabilityPorts();
-    const snaps = ports ? await ports.snapshots.listByCampaign(organizationId, campaignId) : [];
-    const snapshot = [...snaps].sort((a, b) => b.frozenAt.localeCompare(a.frozenAt))[0] ?? null;
+    const frozenAudience = await loadCurrentFrozenSnapshot(campaign, draft);
+    const snapshot = frozenAudience.snapshot;
     return composeMarketingReadinessReview({
       campaign,
       version: draft,
-      columnMap: mapping.columnMap,
+      columnMap: snapshot?.columnMap ?? mapping.columnMap,
       snapshot,
       unresolvedWarnings: unresolvedPersonalisationTokens({
         subject: draft.subject,

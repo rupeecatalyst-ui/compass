@@ -27,6 +27,7 @@ import type {
 } from "@/types/enterprise-marketing-durability";
 import { recordMarketingAuditEvent } from "./audit";
 import { marketingAudienceDefinitionStore } from "./audience-definition-store";
+import { marketingCampaignStore } from "./campaign-store";
 import { marketingDataSourceService } from "./data-source.service";
 import { marketingSuppressionStore } from "./suppression-store";
 import { ensureAudienceDurabilityPorts } from "./workbook-registry";
@@ -420,6 +421,14 @@ export const marketingAudienceService = {
     }
     const organizationId = orgId(actor.organizationId);
     const def = await this.get(actor, input.audienceId);
+    const campaign = await marketingCampaignStore.getForOrg(input.campaignId, organizationId);
+    const version = await marketingCampaignStore.getVersion(input.campaignVersionId);
+    if (!campaign || campaign.currentDraftVersionId !== input.campaignVersionId || version?.campaignId !== campaign.id) {
+      throw Object.assign(new Error("Audience snapshot requires the current campaign draft version"), {
+        statusCode: 400,
+        code: "CAMPAIGN_VERSION_MISMATCH",
+      });
+    }
     if (!def.mapping || !def.mappingConfirmed) {
       throw Object.assign(
         new Error("Confirm the column mapping before freezing an audience snapshot"),
@@ -447,6 +456,7 @@ export const marketingAudienceService = {
       organizationId,
       campaignId: input.campaignId,
       campaignVersionId: input.campaignVersionId,
+      audienceDefinitionId: def.id,
       sourceBindingId: def.bindingId,
       sourceWorkbookId: binding.spreadsheetId,
       sourceTabId: def.datasetId,
@@ -478,6 +488,9 @@ export const marketingAudienceService = {
       lastSnapshotHash: frozen.snapshotHash,
     });
     await persistDurableAudienceDefinition(actor.userId ?? null, stamped);
+    if (campaign.audienceId !== def.id) {
+      await marketingCampaignStore.updateCampaign(campaign.id, organizationId, { audienceId: def.id });
+    }
     return frozen;
   },
 

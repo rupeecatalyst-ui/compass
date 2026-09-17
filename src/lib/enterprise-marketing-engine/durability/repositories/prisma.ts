@@ -182,6 +182,7 @@ export function createPrismaMarketingDurabilityPorts(
             organizationId: record.organizationId,
             campaignId: record.campaignId,
             campaignVersionId: record.campaignVersionId,
+            audienceDefinitionId: record.audienceDefinitionId ?? null,
             sourceBindingId: record.sourceBindingId,
             sourceWorkbookId: record.sourceWorkbookId,
             sourceTabId: record.sourceTabId,

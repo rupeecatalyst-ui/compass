@@ -5,6 +5,7 @@ import { confirmMarketingColumnMap } from "../src/lib/enterprise-marketing-engin
 import { scanMarketingAudienceEligibility } from "../src/lib/enterprise-marketing-engine/eligibility-scan.ts";
 import { freezeApprovedAudienceSnapshot } from "../src/lib/enterprise-marketing-engine/freeze-audience.ts";
 import { emptyFilterDefinition } from "../src/lib/enterprise-marketing-engine/audience-filters.ts";
+import { runMarketingPrePublishChecks } from "../src/lib/enterprise-marketing-engine/pre-publish.ts";
 
 let stored;
 const delegate = {
@@ -114,7 +115,8 @@ assert.equal(preview.counts.suppressed, 1);
 const snapshots = durable;
 const freezeInput = {
   ports: snapshots, port, organizationId: "org", campaignId: "campaign",
-  campaignVersionId: "version", sourceBindingId: "binding", sourceWorkbookId: "workbook",
+  campaignVersionId: "version", audienceDefinitionId: "audience",
+  sourceBindingId: "binding", sourceWorkbookId: "workbook",
   sourceTabId: "Sheet1", sourceTabName: "Sheet1", headers, inclusion: filters,
   exclusion: filters, eligibilityRules: rules, mapping: reloaded.mapping, lookups,
 };
@@ -123,6 +125,7 @@ assert.equal(frozen.eligibleCount, 4);
 const readBack = await snapshots.snapshots.getForOrg(frozen.snapshot.id, "org");
 assert.equal(readBack.campaignId, "campaign");
 assert.equal(readBack.campaignVersionId, "version");
+assert.equal(readBack.audienceDefinitionId, "audience");
 assert.equal(readBack.sourceRowCount, 999);
 assert.equal(readBack.validEmailCount, 5);
 assert.equal(readBack.suppressedCount, 1);
@@ -130,6 +133,27 @@ assert.equal(readBack.snapshotHash, frozen.snapshotHash);
 assert.deepEqual(readBack.columnMap, mapping.map);
 assert.equal(storedRecipients.length, 4);
 assert.equal((await snapshots.snapshots.listByCampaign("org", "campaign"))[0].id, frozen.snapshot.id);
+const reloadedCampaign = {
+  id: "campaign", organizationId: "org", audienceId: "audience",
+  sender: { fromName: "Marketing", fromAddress: "marketing@example.com" },
+  schedulePlaceholder: { enabled: false }, routingPlaceholder: { mode: "UNCONFIGURED" },
+  notificationPlaceholder: { inApp: false, email: false, whatsapp: false },
+};
+const reloadedVersion = {
+  id: "version", campaignId: "campaign", subject: "UAT", previewText: "",
+  content: { blocks: [] },
+};
+const audienceCheck = (snapshot, campaign = reloadedCampaign, version = reloadedVersion) =>
+  runMarketingPrePublishChecks({
+    campaign, version, frozenSnapshot: snapshot, requireFrozenSnapshot: true,
+    columnMap: snapshot?.columnMap ?? null, mappingConfirmed: Boolean(snapshot),
+  }).checks.find((check) => check.id === "audience");
+const [reloadedSnapshot] = await snapshots.snapshots.listByCampaign("org", "campaign");
+assert.equal(audienceCheck(reloadedSnapshot).passed, true);
+assert.equal(audienceCheck(null).message, "Link an audience before approval");
+assert.equal(audienceCheck({ ...reloadedSnapshot, campaignVersionId: "old-version" }).passed, false);
+assert.equal(audienceCheck(reloadedSnapshot, { ...reloadedCampaign, audienceId: "other-audience" }).passed, false);
+assert.equal(audienceCheck({ ...reloadedSnapshot, audienceDefinitionId: null }, { ...reloadedCampaign, audienceId: null }).passed, true);
 await durable.audienceDefinitions.upsert({
   ...reloaded, lastSnapshotId: frozen.snapshot.id, lastSnapshotHash: frozen.snapshotHash,
 });
@@ -141,4 +165,4 @@ await assert.rejects(
   (error) => error.code === "MAPPING_NOT_CONFIRMED",
 );
 assert.equal((await snapshots.snapshots.listByCampaign("org", "campaign")).length, 1);
-console.log("OK: confirmed mapping previews 4, Prisma snapshot create/read-back links campaign, unconfirmed freeze blocked");
+console.log("OK: preview 4, frozen Prisma snapshot reload clears current-version audience blocker, missing/wrong snapshot blocked, unconfirmed freeze blocked");
