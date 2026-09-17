@@ -58,6 +58,24 @@ function audienceDefinitionFromRow(row: Record<string, unknown>): MarketingDurab
   };
 }
 
+function audienceSnapshotFromRow(row: Record<string, unknown>): MarketingDurableAudienceSnapshotRecord {
+  const storedMap = row.columnMapJson as MarketingDurableAudienceSnapshotRecord["columnMap"] & {
+    _snapshotHash?: string | null;
+  };
+  const { _snapshotHash, ...columnMap } = storedMap;
+  return {
+    ...(row as unknown as MarketingDurableAudienceSnapshotRecord),
+    columnMap,
+    snapshotHash: _snapshotHash ?? undefined,
+    filterSnapshot: row.filterSnapshotJson,
+    exclusionSnapshot: row.exclusionSnapshotJson,
+    extractedAt: requireDate(row.extractedAt as Date).toISOString(),
+    frozenAt: requireDate(row.frozenAt as Date).toISOString(),
+    createdAt: requireDate(row.createdAt as Date).toISOString(),
+    updatedAt: requireDate(row.updatedAt as Date).toISOString(),
+  };
+}
+
 export function createPrismaMarketingDurabilityPorts(
   client: MarketingDurabilityPrismaSurface,
 ): MarketingDurabilityPorts {
@@ -158,19 +176,49 @@ export function createPrismaMarketingDurabilityPorts(
     },
     snapshots: {
       async insert(record) {
-        return (await db.enterpriseMarketingAudienceSnapshot.create({
-          data: record,
-        })) as Awaited<ReturnType<MarketingDurabilityPorts["snapshots"]["insert"]>>;
+        const row = (await db.enterpriseMarketingAudienceSnapshot.create({
+          data: {
+            id: record.id,
+            organizationId: record.organizationId,
+            campaignId: record.campaignId,
+            campaignVersionId: record.campaignVersionId,
+            sourceBindingId: record.sourceBindingId,
+            sourceWorkbookId: record.sourceWorkbookId,
+            sourceTabId: record.sourceTabId,
+            sourceTabName: record.sourceTabName,
+            extractedAt: requireDate(record.extractedAt),
+            frozenAt: requireDate(record.frozenAt),
+            frozenByUserId: record.frozenByUserId,
+            eligibleCount: record.eligibleCount,
+            estimatedBatchCount: record.estimatedBatchCount,
+            columnMapJson: { ...record.columnMap, _snapshotHash: record.snapshotHash ?? null },
+            filterSnapshotJson: record.filterSnapshot ?? {},
+            exclusionSnapshotJson: record.exclusionSnapshot ?? null,
+            sourceRowCount: record.sourceRowCount ?? 0,
+            validEmailCount: record.validEmailCount ?? 0,
+            duplicateCount: record.duplicateCount ?? 0,
+            invalidCount: record.invalidCount ?? 0,
+            suppressedCount: record.suppressedCount ?? 0,
+            previouslyContactedCount: record.previouslyContactedCount ?? 0,
+            createdByUserId: record.createdByUserId,
+            updatedByUserId: record.updatedByUserId,
+            createdAt: requireDate(record.createdAt),
+            updatedAt: requireDate(record.updatedAt),
+          },
+        })) as Record<string, unknown>;
+        return audienceSnapshotFromRow(row);
       },
       async getForOrg(id, organizationId) {
-        return (await db.enterpriseMarketingAudienceSnapshot.findFirst({
+        const row = (await db.enterpriseMarketingAudienceSnapshot.findFirst({
           where: { id, organizationId },
-        })) as Awaited<ReturnType<MarketingDurabilityPorts["snapshots"]["getForOrg"]>>;
+        })) as Record<string, unknown> | null;
+        return row ? audienceSnapshotFromRow(row) : null;
       },
       async listByCampaign(organizationId, campaignId) {
-        return (await db.enterpriseMarketingAudienceSnapshot.findMany({
+        const rows = (await db.enterpriseMarketingAudienceSnapshot.findMany({
           where: { organizationId, campaignId },
-        })) as Awaited<ReturnType<MarketingDurabilityPorts["snapshots"]["listByCampaign"]>>;
+        })) as Record<string, unknown>[];
+        return rows.map(audienceSnapshotFromRow);
       },
     },
     snapshotRecipients: {
