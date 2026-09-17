@@ -151,11 +151,11 @@ export function MarketingSettingsPanel() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <ShieldAlert className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-            MARKETING TEST MODE
+            {safety?.executionEnabled && safety?.providerConnectEnabled ? "MARKETING LIVE GATES ON" : "MARKETING TEST MODE"}
           </CardTitle>
           <CardDescription>
             Email delivery mode: <strong>{safety?.emailMode ?? mode}</strong>. Live provider connect
-            is OFF. Campaign controlled tests are SIMULATED — not ACTUALLY SENT.
+            is {safety?.providerConnectEnabled ? "ON" : "OFF"}. Controlled test sends follow the effective delivery gates.
           </CardDescription>
         </CardHeader>
         {safety ? (

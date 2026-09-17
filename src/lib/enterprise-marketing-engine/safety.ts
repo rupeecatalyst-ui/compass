@@ -30,6 +30,12 @@ export function assertDryRunExecutionAllowed(operation = "execution.dry_run"): v
   }
 }
 
+export function assertMarketingLiveExecutionGate(
+  enabled: boolean = ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+): void {
+  if (!enabled) throw new EnterpriseMarketingSafetyError("campaign.execution");
+}
+
 /** Allows dry_run email delivery; live requires explicit flags + PO authorization. */
 export function assertEmailDeliveryAllowed(operation = "email.deliver"): void {
   if (ENTERPRISE_MARKETING_EMAIL_MODE === "off") {

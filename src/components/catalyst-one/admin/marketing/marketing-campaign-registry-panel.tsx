@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
-  ENTERPRISE_MARKETING_EXECUTION_ENABLED,
   MARKETING_CAMPAIGN_REGISTRY_STATUSES,
   MARKETING_CAMPAIGN_STATUS_LABELS,
   MARKETING_CHANNELS,
@@ -60,6 +59,7 @@ export function MarketingCampaignRegistryPanel() {
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [audiences, setAudiences] = useState<MarketingAudienceDefinition[]>([]);
   const [analytics, setAnalytics] = useState<MarketingAnalyticsDashboard | null>(null);
+  const [liveGates, setLiveGates] = useState({ executionEnabled: false, providerConnectEnabled: false });
   const [filters, setFilters] = useState<MarketingRegistryFilters>(() => {
     const status = searchParams.get("status");
     const base = defaultMarketingRegistryFilters();
@@ -79,16 +79,26 @@ export function MarketingCampaignRegistryPanel() {
     setLoading(true);
     setError(null);
     try {
-      const [campRes, audRes, analyticsRes] = await Promise.all([
+      const [campRes, audRes, analyticsRes, statusRes] = await Promise.all([
         authenticatedJsonFetch("/api/admin/marketing/campaigns"),
         authenticatedJsonFetch("/api/admin/marketing/audiences"),
         authenticatedJsonFetch("/api/admin/marketing/analytics"),
+        authenticatedJsonFetch("/api/admin/marketing"),
       ]);
       const campBody = (await campRes.json()) as ApiEnvelope<{ campaigns: MarketingCampaign[] }>;
       if (!campRes.ok || !campBody.success) {
         throw new Error(campBody.error?.message ?? "Failed to load campaigns");
       }
       setCampaigns(campBody.data?.campaigns ?? []);
+      if (statusRes.ok) {
+        const statusBody = (await statusRes.json()) as ApiEnvelope<{ safety: typeof liveGates }>;
+        if (statusBody.success && statusBody.data?.safety) {
+          setLiveGates({
+            executionEnabled: statusBody.data.safety.executionEnabled === true,
+            providerConnectEnabled: statusBody.data.safety.providerConnectEnabled === true,
+          });
+        }
+      }
       if (audRes.ok) {
         const audBody = (await audRes.json()) as ApiEnvelope<{ audiences: MarketingAudienceDefinition[] }>;
         setAudiences(audBody.data?.audiences ?? []);
@@ -125,9 +135,9 @@ export function MarketingCampaignRegistryPanel() {
         audiences,
         analyticsRows: analytics?.campaigns ?? null,
         actor: ACTOR,
-        executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+        executionEnabled: liveGates.executionEnabled,
       }),
-    [filtered, audiences, analytics],
+    [filtered, audiences, analytics, liveGates.executionEnabled],
   );
   const paged = useMemo(
     () => paginateMarketingCollection(rows, page, MARKETING_REGISTRY_PAGE_SIZE),
@@ -188,7 +198,7 @@ export function MarketingCampaignRegistryPanel() {
 
       <MarketingModuleNav activeId="registry" />
 
-      {!ENTERPRISE_MARKETING_EXECUTION_ENABLED ? (
+      {!(liveGates.executionEnabled && liveGates.providerConnectEnabled) ? (
         <div className="mkt-cc-banner" role="status">
           {MARKETING_TEST_MODE_BANNER}
         </div>

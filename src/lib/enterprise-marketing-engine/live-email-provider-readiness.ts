@@ -19,9 +19,7 @@ import {
 } from "@/constants/enterprise-marketing-engine/hostinger-smtp";
 import {
   MARKETING_LIVE_ADAPTER_EXECUTION_BLOCKED,
-  MARKETING_LIVE_ADAPTER_NOT_CONNECTED,
   MARKETING_LIVE_PROVIDER_DECISION_REQUIRED,
-  MARKETING_LIVE_PROVIDER_NOTICE,
   MARKETING_LIVE_PROVIDER_STATUS,
   MARKETING_PROVIDER_CONNECT_BLOCKED,
   MARKETING_PROVIDER_VERIFICATION_AWAITING,
@@ -52,14 +50,14 @@ export function readMarketingProviderEnvPresence(): MarketingProviderEnvPresence
 
 export type MarketingLiveEmailProviderReadiness = {
   emailMode: typeof ENTERPRISE_MARKETING_EMAIL_MODE;
-  executionEnabled: false;
-  providerConnectEnabled: false;
+  executionEnabled: boolean;
+  providerConnectEnabled: boolean;
   dryRunActive: boolean;
-  liveSendAuthorized: false;
-  canConnect: false;
-  canLiveSend: false;
+  liveSendAuthorized: boolean;
+  canConnect: boolean;
+  canLiveSend: boolean;
   providerDecisionRequired: false;
-  providerStatus: typeof MARKETING_LIVE_PROVIDER_STATUS;
+  providerStatus: string;
   selectedProvider: "smtp";
   phase1LiveRecipientCeiling: typeof MARKETING_PHASE1_LIVE_RECIPIENT_CEILING;
   phase1Sender: {
@@ -92,27 +90,26 @@ export function assessMarketingLiveEmailProviderReadiness(
   const publicOriginPresent = Boolean(
     (env.NEXT_PUBLIC_APP_URL ?? env.NEXTAUTH_URL ?? env.APP_URL ?? "").trim(),
   );
-  const dryRunActive = ENTERPRISE_MARKETING_EMAIL_MODE !== "off";
+  const dryRunActive = ENTERPRISE_MARKETING_EMAIL_MODE === "dry_run";
   const blockedReasons = [
-    MARKETING_LIVE_ADAPTER_EXECUTION_BLOCKED,
-    MARKETING_PROVIDER_CONNECT_BLOCKED,
-    MARKETING_LIVE_ADAPTER_NOT_CONNECTED,
-    MARKETING_SMTP_BLOCK.executionDisabled,
-    MARKETING_SMTP_BLOCK.providerConnectDisabled,
+    ...(!ENTERPRISE_MARKETING_EXECUTION_ENABLED ? [MARKETING_LIVE_ADAPTER_EXECUTION_BLOCKED, MARKETING_SMTP_BLOCK.executionDisabled] : []),
+    ...(!ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED ? [MARKETING_PROVIDER_CONNECT_BLOCKED, MARKETING_SMTP_BLOCK.providerConnectDisabled] : []),
     ...smtp.blockers,
   ];
   if (!unsubscribeSecretPresent) blockedReasons.push(MARKETING_SMTP_BLOCK.unsubscribeSecretMissing);
   if (!publicOriginPresent) blockedReasons.push(MARKETING_SMTP_BLOCK.publicOriginMissing);
   return {
     emailMode: ENTERPRISE_MARKETING_EMAIL_MODE,
-    executionEnabled: false,
-    providerConnectEnabled: false,
+    executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+    providerConnectEnabled: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED,
     dryRunActive,
-    liveSendAuthorized: false,
-    canConnect: false,
-    canLiveSend: false,
+    liveSendAuthorized: ENTERPRISE_MARKETING_EMAIL_MODE === "live" && ENTERPRISE_MARKETING_EXECUTION_ENABLED && ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED && blockedReasons.length === 0,
+    canConnect: ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED && smtp.blockers.length === 0,
+    canLiveSend: ENTERPRISE_MARKETING_EMAIL_MODE === "live" && ENTERPRISE_MARKETING_EXECUTION_ENABLED && ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED && blockedReasons.length === 0,
     providerDecisionRequired: MARKETING_LIVE_PROVIDER_DECISION_REQUIRED,
-    providerStatus: MARKETING_LIVE_PROVIDER_STATUS,
+    providerStatus: ENTERPRISE_MARKETING_EXECUTION_ENABLED && ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED
+      ? "SMTP_ADAPTER_GATES_ON"
+      : MARKETING_LIVE_PROVIDER_STATUS,
     selectedProvider: "smtp",
     phase1LiveRecipientCeiling: MARKETING_PHASE1_LIVE_RECIPIENT_CEILING,
     phase1Sender: {
@@ -127,7 +124,7 @@ export function assessMarketingLiveEmailProviderReadiness(
     publicOriginPresent,
     providerVerificationState: MARKETING_PROVIDER_VERIFICATION_AWAITING,
     blockedReasons,
-    notice: MARKETING_LIVE_PROVIDER_NOTICE,
+    notice: `Phase 1 Hostinger SMTP: live execution ${ENTERPRISE_MARKETING_EXECUTION_ENABLED ? "ON" : "OFF"}; provider connect ${ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED ? "ON" : "OFF"}.`,
   };
 }
 

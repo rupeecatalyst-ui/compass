@@ -80,7 +80,7 @@ import {
   runMarketingPrePublishChecks,
 } from "@/lib/enterprise-marketing-engine/pre-publish";
 import { assertMarketingSenderEligibleForCampaignApproval } from "@/lib/enterprise-marketing-engine/sender-eligibility";
-import { EnterpriseMarketingSafetyError } from "@/lib/enterprise-marketing-engine/safety";
+import { assertMarketingLiveExecutionGate } from "@/lib/enterprise-marketing-engine/safety";
 import type {
   MarketingCampaign,
   MarketingCampaignPreviewPayload,
@@ -521,9 +521,7 @@ export const marketingCampaignService = {
 
     // SEND-capable actions remain state-only — never call providers
     if (action === "RUN" || action === "SCHEDULE") {
-      if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-        throw new EnterpriseMarketingSafetyError("campaign.execution");
-      }
+      assertMarketingLiveExecutionGate();
     }
 
     const from = existing.status;

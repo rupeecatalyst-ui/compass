@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
-  ENTERPRISE_MARKETING_EXECUTION_ENABLED,
   MARKETING_BUILDER_TIMEZONES,
   MARKETING_BUILDER_UNSAVED_MESSAGE,
   MARKETING_BUILDER_UNSAVED_TITLE,
@@ -179,6 +178,7 @@ export function MarketingCampaignBuilderPage({
   const [templates, setTemplates] = useState<MarketingContentTemplate[]>([]);
   const [prePublish, setPrePublish] = useState<MarketingPrePublishCheckResult | null>(null);
   const [gateMessage, setGateMessage] = useState<string | null>(null);
+  const [liveGates, setLiveGates] = useState({ executionEnabled: false, providerConnectEnabled: false });
 
   const draft: MarketingBuilderDraft = useMemo(
     () => ({
@@ -304,10 +304,11 @@ export function MarketingCampaignBuilderPage({
       setLoading(true);
       setError(null);
       try {
-        const [detail, sourceRes, tplRes] = await Promise.all([
+        const [detail, sourceRes, tplRes, statusRes] = await Promise.all([
           loadCampaign(),
           authenticatedJsonFetch("/api/admin/marketing/data-sources?scope=operator"),
           authenticatedJsonFetch("/api/admin/marketing/campaigns?view=templates"),
+          authenticatedJsonFetch("/api/admin/marketing"),
         ]);
         if (cancelled) return;
         if (sourceRes.ok) {
@@ -326,6 +327,15 @@ export function MarketingCampaignBuilderPage({
         if (tplRes.ok) {
           const tplBody = (await tplRes.json()) as ApiEnvelope<{ templates: MarketingContentTemplate[] }>;
           setTemplates(tplBody.data?.templates ?? []);
+        }
+        if (statusRes.ok) {
+          const statusBody = (await statusRes.json()) as ApiEnvelope<{ safety: typeof liveGates }>;
+          if (statusBody.success && statusBody.data?.safety) {
+            setLiveGates({
+              executionEnabled: statusBody.data.safety.executionEnabled === true,
+              providerConnectEnabled: statusBody.data.safety.providerConnectEnabled === true,
+            });
+          }
         }
         if (detail.campaign.audienceId) {
           const audRes = await authenticatedJsonFetch("/api/admin/marketing/audiences");
@@ -692,7 +702,7 @@ export function MarketingCampaignBuilderPage({
         draft,
         status: campaign.status,
         actor: ACTOR,
-        executionEnabled: ENTERPRISE_MARKETING_EXECUTION_ENABLED,
+        executionEnabled: liveGates.executionEnabled,
         prePublish,
       })
     : null;
@@ -731,6 +741,7 @@ export function MarketingCampaignBuilderPage({
           startAt: startAt || null,
           endAt: null,
         },
+        liveGates,
       })
     : null;
   const deliveryOps = projectMarketingDeliveryOperations(executionSummary);
@@ -813,7 +824,7 @@ export function MarketingCampaignBuilderPage({
         </div>
       </header>
 
-      {!ENTERPRISE_MARKETING_EXECUTION_ENABLED ? (
+      {!(liveGates.executionEnabled && liveGates.providerConnectEnabled) ? (
         <div className="mkt-cc-banner" role="status">
           {MARKETING_TEST_MODE_BANNER}
         </div>
@@ -1424,7 +1435,11 @@ export function MarketingCampaignBuilderPage({
               />
               <div className="mkt-production-lane space-y-3">
               <h3 className="font-semibold">Production approval & launch</h3>
-                <p className="text-sm text-muted-foreground">{MARKETING_LIVE_PROVIDER_SENDING_DISABLED}</p>
+                <p className="text-sm text-muted-foreground">
+                  {liveGates.executionEnabled && liveGates.providerConnectEnabled
+                    ? "Live gates are ON. Approval and delivery safeguards still apply."
+                    : MARKETING_LIVE_PROVIDER_SENDING_DISABLED}
+                </p>
                 <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"

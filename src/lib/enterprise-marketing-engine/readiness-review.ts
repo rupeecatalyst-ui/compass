@@ -16,7 +16,7 @@ import {
   MARKETING_DEFAULT_BATCH_SIZE,
 } from "@/constants/enterprise-marketing-engine/execution";
 import { MARKETING_LIVE_PROVIDER_SENDING_DISABLED } from "@/constants/enterprise-marketing-engine/delivery-operations";
-import { ENTERPRISE_MARKETING_EXECUTION_ENABLED } from "@/constants/enterprise-marketing-engine/safety";
+import { ENTERPRISE_MARKETING_EXECUTION_ENABLED, ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED } from "@/constants/enterprise-marketing-engine/safety";
 import {
   MARKETING_PHASE1_FROM_EMAIL,
   MARKETING_PHASE1_FROM_NAME,
@@ -73,7 +73,7 @@ export type MarketingReadinessReviewField = { label: string; value: string };
 export type MarketingReadinessReviewModel = {
   fields: MarketingReadinessReviewField[];
   unresolvedWarnings: string[];
-  liveProviderSendingDisabled: true;
+  liveProviderSendingDisabled: boolean;
   notice: string;
   snapshotFrozen: boolean;
   contentFrozen: boolean;
@@ -112,7 +112,10 @@ export function composeMarketingReadinessReview(input: {
   unresolvedWarnings?: string[];
   latestTestSend?: MarketingTestSendHistoryEntry | null;
   batchPolicy?: MarketingBatchPolicy | null;
+  liveGates?: { executionEnabled: boolean; providerConnectEnabled: boolean };
 }): MarketingReadinessReviewModel {
+  const executionEnabled = input.liveGates?.executionEnabled ?? ENTERPRISE_MARKETING_EXECUTION_ENABLED;
+  const providerConnectEnabled = input.liveGates?.providerConnectEnabled ?? ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED;
   const policy = input.batchPolicy ?? input.campaign.batchPolicy ?? MARKETING_DEFAULT_BATCH_POLICY;
   const counts = input.preview?.counts;
   const snapshot = input.snapshot;
@@ -176,22 +179,22 @@ export function composeMarketingReadinessReview(input: {
     },
     { label: "Approver", value: display(input.campaign.governance.approvedByUserId) },
     { label: "Approval timestamp", value: display(input.campaign.governance.approvedAt) },
-    { label: "Live execution", value: "OFF" },
-    { label: "Provider connect", value: "OFF" },
+    { label: "Live execution", value: executionEnabled ? "ON" : "OFF" },
+    { label: "Provider connect", value: providerConnectEnabled ? "ON" : "OFF" },
     { label: "Phase-1 live recipient ceiling", value: String(MARKETING_PHASE1_LIVE_RECIPIENT_CEILING) },
     {
       label: "Phase-1 sender identity",
       value: `${MARKETING_PHASE1_FROM_NAME} <${MARKETING_PHASE1_FROM_EMAIL}> · reply ${MARKETING_PHASE1_REPLY_TO}`,
     },
-    { label: "Email provider adapter", value: "Hostinger SMTP · live gates OFF" },
+    { label: "Email provider adapter", value: `Hostinger SMTP · live gates ${executionEnabled && providerConnectEnabled ? "ON" : "OFF"}` },
   ];
 
   return {
     fields,
     unresolvedWarnings: warnings,
-    liveProviderSendingDisabled: true,
-    notice: ENTERPRISE_MARKETING_EXECUTION_ENABLED
-      ? "Live execution flag is on — this programme still must not send."
+    liveProviderSendingDisabled: !(executionEnabled && providerConnectEnabled),
+    notice: executionEnabled && providerConnectEnabled
+      ? "Live gates are ON. Sending still requires approval and all delivery safeguards."
       : MARKETING_LIVE_PROVIDER_SENDING_DISABLED,
     snapshotFrozen: Boolean(snapshot?.id && snapshot.frozenAt),
     contentFrozen: Boolean(input.version.immutable && input.version.frozenAt),

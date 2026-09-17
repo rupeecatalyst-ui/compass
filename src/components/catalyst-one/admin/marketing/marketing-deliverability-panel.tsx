@@ -32,9 +32,9 @@ type Readiness = {
 
 type SmtpReadiness = {
   selectedProvider: string;
-  executionEnabled: false;
-  providerConnectEnabled: false;
-  liveSendAuthorized: false;
+  executionEnabled: boolean;
+  providerConnectEnabled: boolean;
+  liveSendAuthorized: boolean;
   phase1LiveRecipientCeiling: number;
   phase1Sender: { fromName: string; fromEmail: string; replyTo: string };
   smtpConfigured: boolean;
@@ -123,7 +123,9 @@ export function MarketingDeliverabilityPanel() {
     <div className="mkt-cc">
       <div className="mkt-cc-page space-y-5">
         <MarketingModuleNav activeId="deliverability" />
-        <div className="mkt-cc-banner">{MARKETING_TEST_MODE_BANNER}</div>
+        {!(smtpReadiness?.executionEnabled && smtpReadiness?.providerConnectEnabled) ? (
+          <div className="mkt-cc-banner">{MARKETING_TEST_MODE_BANNER}</div>
+        ) : null}
         <div>
           <p className="mkt-cc-kicker">Readiness</p>
           <h1 className="mkt-cc-title">Sender identity and deliverability</h1>
@@ -154,8 +156,8 @@ export function MarketingDeliverabilityPanel() {
                 <p className="text-sm text-muted-foreground">{smtpReadiness.notice}</p>
                 <ul className="space-y-1 text-sm">
                   <li>Provider: {smtpReadiness.selectedProvider}</li>
-                  <li>Live execution: OFF</li>
-                  <li>Provider connect: OFF</li>
+                  <li>Live execution: {smtpReadiness.executionEnabled ? "ON" : "OFF"}</li>
+                  <li>Provider connect: {smtpReadiness.providerConnectEnabled ? "ON" : "OFF"}</li>
                   <li>Phase-1 live ceiling: {smtpReadiness.phase1LiveRecipientCeiling} recipients</li>
                   <li>
                     Sender: {smtpReadiness.phase1Sender.fromName} &lt;{smtpReadiness.phase1Sender.fromEmail}

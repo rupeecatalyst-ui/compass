@@ -21,11 +21,11 @@ export async function POST(request: Request) {
     );
   }
 
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
+  if (!ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
     return errorResponse(
       403,
       "LIVE_SEND_BLOCKED",
-      "Marketing cron refuses to run while live execution is enabled.",
+      "Marketing cron refuses to run while live execution is disabled.",
     );
   }
 

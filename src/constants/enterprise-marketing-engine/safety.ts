@@ -14,10 +14,14 @@ import {
 export type { EnterpriseMarketingSheetsMode } from "./sheets-runtime";
 
 /**
- * Phase 1D: SMTP test-send may deliver one allowlisted message.
- * Campaign RUN/SCHEDULE and batch ticks remain blocked in those services.
+ * Live execution requires explicit server configuration and downstream safeguards.
  */
-export const ENTERPRISE_MARKETING_EXECUTION_ENABLED = true as const;
+export function marketingGateEnabled(value: string | undefined): boolean {
+  return value === "true";
+}
+
+export const ENTERPRISE_MARKETING_EXECUTION_ENABLED =
+  typeof process !== "undefined" && marketingGateEnabled(process.env.ENTERPRISE_MARKETING_EXECUTION_ENABLED);
 
 /** MKT-06 — batch scheduler / dry-run execution foundation. */
 export const ENTERPRISE_MARKETING_EXECUTION_DRY_RUN_ENABLED = true as const;
@@ -45,11 +49,10 @@ export const ENTERPRISE_MARKETING_HANDOFF_MODE: EnterpriseMarketingHandoffMode =
 export const ENTERPRISE_MARKETING_AUDIENCE_IMPORT_ENABLED = false as const;
 
 /**
- * Broad provider-connect kill switch for live ESP/WA/ads adapters.
- * Step 5: SMTP handshake (transport.verify) may construct a client.
- * Phase 1D: one allowlisted test-send may call sendMail. Campaign launch stays gated.
+ * Provider connection requires explicit server configuration.
  */
-export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED = true as const;
+export const ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED =
+  typeof process !== "undefined" && marketingGateEnabled(process.env.ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED);
 
 /**
  * CO-MARKETING-MKT-02 — Google Sheets data-source READ mode.
@@ -81,6 +84,5 @@ export const ENTERPRISE_MARKETING_SAFETY = {
   sheetsMode: ENTERPRISE_MARKETING_SHEETS_MODE,
   sheetsReadEnabled: ENTERPRISE_MARKETING_SHEETS_READ_ENABLED,
   sprint: "CO-MARKETING-ACTIVATION-002",
-  notice:
-    "EME ACTIVATION-002 — Full Command Center workflow active in MARKETING TEST MODE (dry-run / fixture). Live unrestricted bulk email/WhatsApp remain OFF. No 100k audience mirror. Controlled qualified handoff only.",
+  notice: `EME ACTIVATION-002 — Live execution ${ENTERPRISE_MARKETING_EXECUTION_ENABLED ? "ON" : "OFF"}; provider connect ${ENTERPRISE_MARKETING_PROVIDER_CONNECT_ENABLED ? "ON" : "OFF"}. Campaign sends remain subject to approval, snapshot, and delivery safeguards.`,
 } as const;

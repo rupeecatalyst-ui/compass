@@ -271,10 +271,6 @@ export async function runMarketingSnapshotPacingTick(input: {
   );
   if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
     assertMarketingPhase1LiveAudienceCeiling(recipients.length);
-    throw Object.assign(new Error("Live marketing send is disabled"), {
-      statusCode: 403,
-      code: "LIVE_SEND_BLOCKED",
-    });
   }
   const plan = computeMarketingSnapshotPacingPlan({
     eligibleCount: recipients.length,

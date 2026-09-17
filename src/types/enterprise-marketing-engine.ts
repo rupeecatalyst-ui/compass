@@ -15,12 +15,12 @@ export type EnterpriseMarketingFoundationStatus = {
   engineName: string;
   sprint: "CO-MARKETING-MKT-01" | "CO-MARKETING-MKT-02" | "CO-MARKETING-MKT-03" | "CO-MARKETING-MKT-04" | "CO-MARKETING-MKT-05" | "CO-MARKETING-MKT-06" | "CO-MARKETING-MKT-07" | "CO-MARKETING-MKT-08" | "CO-MARKETING-MKT-09" | "CO-MARKETING-MKT-10" | "CO-MARKETING-MKT-11" | "CO-MARKETING-MKT-12" | "CO-MARKETING-MKT-13" | "CO-MARKETING-ACTIVATION-002";
   safety: {
-    executionEnabled: false;
+    executionEnabled: boolean;
     executionDryRunEnabled?: boolean;
     handoffEnabled: boolean;
     handoffMode?: "fixture" | "live";
     audienceImportEnabled: false;
-    providerConnectEnabled: false;
+    providerConnectEnabled: boolean;
     sheetsMode: "off" | "fixture" | "live";
     sheetsReadEnabled: boolean;
     sourceStatus?: "OFF" | "FIXTURE" | "LIVE" | "NOT_CONFIGURED";

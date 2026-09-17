@@ -3,10 +3,7 @@
  * No email / WhatsApp / digital provider send. Ledger stores touched recipients only.
  */
 
-import {
-  ENTERPRISE_MARKETING_EXECUTION_ENABLED,
-  type MarketingCampaignStatus,
-} from "@/constants/enterprise-marketing-engine";
+import { ENTERPRISE_MARKETING_EXECUTION_ENABLED, type MarketingCampaignStatus } from "@/constants/enterprise-marketing-engine";
 import {
   MARKETING_CRON_MAX_CAMPAIGNS_PER_TICK,
   MARKETING_DEFAULT_BATCH_POLICY,
@@ -55,12 +52,6 @@ const RUNNABLE: MarketingCampaignStatus[] = ["SCHEDULED", "RUNNING"];
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function assertNoProviderSend() {
-  if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
-    throw new EnterpriseMarketingSafetyError("execution.live_send_blocked_in_dry_run_sprint");
-  }
 }
 
 function suppressionCandidates(quality: {
@@ -172,7 +163,6 @@ async function tickBatchInternal(
   opts?: { forceRun?: boolean; holderId?: string; adminTriggered?: boolean },
 ): Promise<MarketingExecutionTickResult> {
   assertDryRunExecutionAllowed("execution.tickBatch");
-  assertNoProviderSend();
 
   const holderId = opts?.holderId ?? `worker-${Date.now()}`;
   const campaign = await marketingCampaignStore.get(campaignId);
@@ -219,6 +209,12 @@ async function tickBatchInternal(
         forceRun: opts?.forceRun,
         now,
         ports: durabilityPorts,
+      });
+    }
+    if (ENTERPRISE_MARKETING_EXECUTION_ENABLED) {
+      throw Object.assign(new Error("Live execution requires a durable frozen audience snapshot"), {
+        statusCode: 403,
+        code: "SNAPSHOT_REQUIRED",
       });
     }
 
