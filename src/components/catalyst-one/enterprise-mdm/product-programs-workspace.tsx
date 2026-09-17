@@ -39,6 +39,19 @@ import {
 } from "@/lib/product-programme-operations/registry-filters";
 import { PROGRAMME_EMPLOYMENT_TYPES } from "@/constants/product-programme-operations/controlled-masters";
 
+export async function loadProgrammesAndPolicyVersions<TPrograms, TPolicies>(
+  loadProgrammes: () => Promise<TPrograms>,
+  loadPolicies: () => Promise<TPolicies>,
+): Promise<{ programmes: TPrograms; policies: TPolicies | null; policyLoadFailed: boolean }> {
+  const [programmes, policies] = await Promise.allSettled([loadProgrammes(), loadPolicies()]);
+  if (programmes.status === "rejected") throw programmes.reason;
+  return {
+    programmes: programmes.value,
+    policies: policies.status === "fulfilled" ? policies.value : null,
+    policyLoadFailed: policies.status === "rejected",
+  };
+}
+
 export function ProductProgramsWorkspace() {
   const { user } = useAuthContext();
   const actor =
@@ -59,22 +72,28 @@ export function ProductProgramsWorkspace() {
     setLoading(true);
     setError(null);
     try {
-      const [progRes, prodRes, lenderRes, policyResponse] = await Promise.all([
-        lenderRegistryClient.queryPrograms({ pageSize: 200 }),
+      const [registry, prodRes, lenderRes] = await Promise.all([
+        loadProgrammesAndPolicyVersions(
+          () => lenderRegistryClient.queryPrograms({ pageSize: 200 }),
+          async () => {
+            const response = await authenticatedJsonFetch("/api/lender-registry/published-policy-versions");
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+              throw new Error(result?.error?.message ?? "Failed to load published policy versions");
+            }
+            return result.data as { id: string; policyId: string; name: string; policyCode: string; versionNumber: number }[];
+          },
+        ),
         listProductMaster().catch(() => ({ items: [] as { id?: string; code: string; label: string }[] })),
         lenderRegistryClient.queryLenders({ pageSize: 200 }).catch(() => ({ items: [] })),
-        authenticatedJsonFetch("/api/lender-registry/published-policy-versions"),
       ]);
-      const policyResult = await policyResponse.json();
-      if (!policyResponse.ok || !policyResult.success) {
-        throw new Error(policyResult?.error?.message ?? "Failed to load published policy versions");
-      }
-      setPolicies((policyResult.data as { id: string; policyId: string; name: string; policyCode: string; versionNumber: number }[]).map((version) => ({
+      setPolicies((registry.policies ?? []).map((version) => ({
         id: version.id,
         policyId: version.policyId,
         label: `${version.name} (${version.policyCode}, v${version.versionNumber})`,
       })));
-      setPrograms((progRes.items ?? []) as EnterpriseLenderProgramRecord[]);
+      setPrograms((registry.programmes.items ?? []) as EnterpriseLenderProgramRecord[]);
+      if (registry.policyLoadFailed) setError("Published policy versions are temporarily unavailable. Existing programmes remain accessible.");
       setProducts(
         (prodRes.items ?? []).map((item: { id?: string; code: string; label: string }) => ({
           id: item.id,

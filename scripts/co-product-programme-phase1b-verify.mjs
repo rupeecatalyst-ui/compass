@@ -8,6 +8,7 @@ import { PROGRAMME_BAT_FIXTURES } from "../src/lib/product-programme-operations/
 import { parseStructuredProgrammePayload } from "../src/lib/product-programme-operations/request-schema.ts";
 import { structuredPayloadToCreateInput, structuredPayloadToUpdateInput } from "../src/lib/product-programme-operations/to-registry-input.ts";
 import { calculateSalariedFoir, maxEmiFromFoirCap } from "../src/lib/home-loan-recommendation/foir.ts";
+import { loadProgrammesAndPolicyVersions } from "../src/components/catalyst-one/enterprise-mdm/product-programs-workspace.tsx";
 
 const root = join(fileURLToPath(new URL("..", import.meta.url)));
 const source = (path) => readFileSync(join(root, path), "utf8");
@@ -52,6 +53,21 @@ assert.match(editor, /policyVersionId: value/);
 assert.match(editor, /creditRiskPolicyRef: policies\.find\(\(policy\) => policy\.id === value\)\?\.policyId/);
 assert.match(service, /assertPublishedPolicyVersion\(payload\.policyVersionId, input\.organizationId\)/);
 assert.match(service, /assertPublishedPolicyVersion\(existing\.policyVersionId \?\? null, input\.organizationId\)/);
+
+const programmes = { items: [{ id: "draft-1" }] };
+const versions = [{ id: "version-1", policyId: "policy-1" }];
+const withVersions = await loadProgrammesAndPolicyVersions(() => Promise.resolve(programmes), () => Promise.resolve(versions));
+assert.deepEqual(withVersions, { programmes, policies: versions, policyLoadFailed: false });
+const withNoVersions = await loadProgrammesAndPolicyVersions(() => Promise.resolve(programmes), () => Promise.resolve([]));
+assert.deepEqual(withNoVersions, { programmes, policies: [], policyLoadFailed: false });
+const policyFailure = await loadProgrammesAndPolicyVersions(() => Promise.resolve(programmes), () => Promise.reject(new Error("policy unavailable")));
+assert.deepEqual(policyFailure, { programmes, policies: null, policyLoadFailed: true });
+await assert.rejects(
+  loadProgrammesAndPolicyVersions(() => Promise.reject(new Error("programmes unavailable")), () => Promise.resolve(versions)),
+  /programmes unavailable/,
+);
+assert.match(workspace, /setPrograms\(\(registry\.programmes\.items \?\? \[\]\)/);
+assert.match(workspace, /setPolicies\(\(registry\.policies \?\? \[\]\)\.map/);
 
 const changedTypeScriptFiles = [
   "server/repositories/credit-risk-policy/durable-policy.repository.ts",
