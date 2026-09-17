@@ -2088,6 +2088,9 @@ enum ProgrammeCompletenessState {
 enum DurablePolicyStatus {
   draft
   pending_approval
+  validated
+  testing
+  approved
   published
   superseded
   retired

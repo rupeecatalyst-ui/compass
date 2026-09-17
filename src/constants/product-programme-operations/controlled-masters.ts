@@ -108,6 +108,9 @@ export type ProgrammeCompletenessState = (typeof PROGRAMME_COMPLETENESS_STATES)[
 export const DURABLE_POLICY_STATUSES = [
   "draft",
   "pending_approval",
+  "validated",
+  "testing",
+  "approved",
   "published",
   "superseded",
   "retired",
