@@ -16,6 +16,16 @@ import {
 } from "@/types/product-programme-operations";
 import { evaluateProgrammeCompleteness } from "@/lib/product-programme-operations/completeness";
 import { deriveEmploymentFamily } from "@/lib/product-programme-operations/employment";
+import { durablePolicyRepository } from "@server/repositories/credit-risk-policy/durable-policy.repository";
+
+async function assertPublishedPolicyVersion(policyVersionId: string | null, organizationId: string): Promise<void> {
+  if (policyVersionId === null) return;
+  if (!(await durablePolicyRepository.isPublishedVersion(policyVersionId, organizationId))) {
+    throw new ProgrammeValidationError("Published policy version is invalid", [
+      { field: "policyVersionId", message: "Select a published policy version from this organization." },
+    ]);
+  }
+}
 
 function assertAdmin(role: string): void {
   if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
@@ -42,6 +52,7 @@ export const productProgrammeOperationsService = {
   }) {
     assertAdmin(input.actorRole);
     const payload = this.parseBody(input.body);
+    await assertPublishedPolicyVersion(payload.policyVersionId, input.organizationId);
     const created = await lenderRegistryRepository.createProgram(
       input.organizationId,
       structuredPayloadToCreateInput(payload, input.actorUserId),
@@ -115,6 +126,7 @@ export const productProgrammeOperationsService = {
             ...raw,
           },
     );
+    await assertPublishedPolicyVersion(payload.policyVersionId, input.organizationId);
     const updateInput = structuredPayloadToUpdateInput(payload, input.actorUserId);
     const updated = createDraftRevision
       ? await lenderRegistryRepository.createDraftFromPublished(input.programId, updateInput)
@@ -277,6 +289,7 @@ export const productProgrammeOperationsService = {
     if (!completeness.complete) {
       throw new ProgrammeValidationError("Programme is not complete enough to publish", completeness.errors);
     }
+    await assertPublishedPolicyVersion(existing.policyVersionId ?? null, input.organizationId);
     const updated = await lenderRegistryRepository.publishApprovedProgram(input.programId, input.actorUserId);
     await lenderRegistryRepository.recordProgramAudit({
       organizationId: input.organizationId,

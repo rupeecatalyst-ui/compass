@@ -83,7 +83,7 @@ export function ProductProgrammeEditor({
 }: {
   lenders: EnterpriseLenderRecord[];
   products: { id?: string; code: string; label: string }[];
-  policies: { id: string; label: string; status?: string }[];
+  policies: { id: string; policyId: string; label: string }[];
   initial?: EnterpriseLenderProgramRecord | null;
   defaultLenderId?: string;
   actor: string;
@@ -478,7 +478,10 @@ export function ProductProgrammeEditor({
         <Field label="Published policy version">
           <Select
             value={state.policyVersionId ?? undefined}
-            onValueChange={(value) => patch({ policyVersionId: value, creditRiskPolicyRef: value })}
+            onValueChange={(value) => patch({
+              policyVersionId: value,
+              creditRiskPolicyRef: policies.find((policy) => policy.id === value)?.policyId ?? null,
+            })}
           >
             <SelectTrigger><SelectValue placeholder="Select published policy" /></SelectTrigger>
             <SelectContent>

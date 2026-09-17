@@ -53,6 +53,19 @@ function mapVersion(row: {
 }
 
 export const durablePolicyRepository = {
+  async listPublishedVersions(organizationId: string): Promise<DurablePolicyVersionRecord[]> {
+    const rows = await prisma.enterpriseCreditRiskPolicyVersion.findMany({
+      where: {
+        organizationId,
+        status: "published",
+        policy: { organizationId, status: "published", isDeleted: false },
+      },
+      include: { policy: true },
+      orderBy: [{ policy: { name: "asc" } }, { versionNumber: "desc" }],
+    });
+    return rows.map(mapVersion);
+  },
+
   async createPublishedPolicy(input: {
     organizationId: string;
     actorUserId: string;
@@ -121,5 +134,18 @@ export const durablePolicyRepository = {
       include: { policy: true },
     });
     return row ? mapVersion(row) : null;
+  },
+
+  async isPublishedVersion(id: string, organizationId: string): Promise<boolean> {
+    const row = await prisma.enterpriseCreditRiskPolicyVersion.findFirst({
+      where: {
+        id,
+        organizationId,
+        status: "published",
+        policy: { organizationId, status: "published", isDeleted: false },
+      },
+      select: { id: true },
+    });
+    return row !== null;
   },
 };

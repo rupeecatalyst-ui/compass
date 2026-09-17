@@ -31,7 +31,7 @@ import type {
   EnterpriseLenderProgramRecord,
   EnterpriseLenderRecord,
 } from "@/types/enterprise-lender-registry";
-import { listSelectableCreditRiskPolicies } from "@/lib/enterprise-lender-registry/resolve-program-policy";
+import { authenticatedJsonFetch } from "@/lib/api-client";
 import {
   EMPTY_PROGRAMME_REGISTRY_FILTERS,
   filterProgrammeRegistry,
@@ -47,6 +47,7 @@ export function ProductProgramsWorkspace() {
   const [programs, setPrograms] = useState<EnterpriseLenderProgramRecord[]>([]);
   const [lenders, setLenders] = useState<EnterpriseLenderRecord[]>([]);
   const [products, setProducts] = useState<{ id?: string; code: string; label: string }[]>([]);
+  const [policies, setPolicies] = useState<{ id: string; policyId: string; label: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -58,11 +59,21 @@ export function ProductProgramsWorkspace() {
     setLoading(true);
     setError(null);
     try {
-      const [progRes, prodRes, lenderRes] = await Promise.all([
+      const [progRes, prodRes, lenderRes, policyResponse] = await Promise.all([
         lenderRegistryClient.queryPrograms({ pageSize: 200 }),
         listProductMaster().catch(() => ({ items: [] as { id?: string; code: string; label: string }[] })),
         lenderRegistryClient.queryLenders({ pageSize: 200 }).catch(() => ({ items: [] })),
+        authenticatedJsonFetch("/api/lender-registry/published-policy-versions"),
       ]);
+      const policyResult = await policyResponse.json();
+      if (!policyResponse.ok || !policyResult.success) {
+        throw new Error(policyResult?.error?.message ?? "Failed to load published policy versions");
+      }
+      setPolicies((policyResult.data as { id: string; policyId: string; name: string; policyCode: string; versionNumber: number }[]).map((version) => ({
+        id: version.id,
+        policyId: version.policyId,
+        label: `${version.name} (${version.policyCode}, v${version.versionNumber})`,
+      })));
       setPrograms((progRes.items ?? []) as EnterpriseLenderProgramRecord[]);
       setProducts(
         (prodRes.items ?? []).map((item: { id?: string; code: string; label: string }) => ({
@@ -75,6 +86,7 @@ export function ProductProgramsWorkspace() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load programs");
       setPrograms([]);
+      setPolicies([]);
     } finally {
       setLoading(false);
     }
@@ -113,12 +125,6 @@ export function ProductProgramsWorkspace() {
     const lender = lenders.find((item) => item.id === id);
     return lender?.displayName || lender?.label || id.slice(0, 8);
   };
-
-  const policies = listSelectableCreditRiskPolicies().map((policy) => ({
-    id: policy.policyId,
-    label: `${policy.policyName} (${policy.policyCode})`,
-    status: policy.status,
-  }));
 
   if (editorOpen) {
     return (

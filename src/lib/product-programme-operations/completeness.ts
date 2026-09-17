@@ -86,8 +86,9 @@ export function evaluateProgrammeCompleteness(
     );
   }
 
-  require("minFoirExact", Boolean(payload.minFoirExact || payload.maxFoirExact), "FOIR range is required.");
-  require("minDbrExact", Boolean(payload.minDbrExact || payload.maxDbrExact), "DBR range is required.");
+  // Ratios are lender methodology configuration, not universal publication fields.
+  // Salaried programmes may specify FOIR; self-employed methodology is selected above.
+  // DBR is optional for both families until a product methodology requires it.
 
   void PROGRAMME_PROPERTY_TYPES;
   return { complete: errors.length === 0, errors };
