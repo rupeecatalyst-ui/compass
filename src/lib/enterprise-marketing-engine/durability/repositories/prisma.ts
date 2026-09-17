@@ -32,6 +32,32 @@ function requireDate(value: Date | string): Date {
   return value instanceof Date ? value : new Date(value);
 }
 
+function audienceDefinitionFromRow(row: Record<string, unknown>): MarketingDurableAudienceDefinitionRecord {
+  const storedMap = row.columnMapJson as MarketingDurableAudienceDefinitionRecord["columnMap"] & {
+    _confirmation?: {
+      mappingConfirmed?: boolean;
+      mapping?: MarketingDurableAudienceDefinitionRecord["mapping"];
+      lastSnapshotId?: string | null;
+      lastSnapshotHash?: string | null;
+    };
+  };
+  const { _confirmation, ...columnMap } = storedMap;
+  return {
+    ...(row as unknown as MarketingDurableAudienceDefinitionRecord),
+    columnMap,
+    mappingConfirmed: _confirmation?.mappingConfirmed === true,
+    mapping: _confirmation?.mapping ?? null,
+    lastSnapshotId: _confirmation?.lastSnapshotId ?? null,
+    lastSnapshotHash: _confirmation?.lastSnapshotHash ?? null,
+    filterDefinition: row.filterDefinitionJson,
+    exclusionDefinition: row.exclusionJson,
+    suppressionPolicy: row.suppressionPolicyJson,
+    eligibilityRules: row.eligibilityRulesJson,
+    createdAt: requireDate(row.createdAt as Date).toISOString(),
+    updatedAt: requireDate(row.updatedAt as Date).toISOString(),
+  };
+}
+
 export function createPrismaMarketingDurabilityPorts(
   client: MarketingDurabilityPrismaSurface,
 ): MarketingDurabilityPorts {
@@ -86,13 +112,21 @@ export function createPrismaMarketingDurabilityPorts(
         const data = {
           id: record.id,
           organizationId: record.organizationId,
-          campaignId: null,
+          campaignId: record.campaignId,
           bindingId: record.bindingId,
           name: record.name || "Audience",
           description: record.description ?? null,
           sourceTabId: record.sourceTabId,
           sourceTabName: record.sourceTabName,
-          columnMapJson: record.columnMap,
+          columnMapJson: {
+            ...record.columnMap,
+            _confirmation: {
+              mappingConfirmed: record.mappingConfirmed === true,
+              mapping: record.mapping ?? null,
+              lastSnapshotId: record.lastSnapshotId ?? null,
+              lastSnapshotHash: record.lastSnapshotHash ?? null,
+            },
+          },
           filterDefinitionJson: record.filterDefinition ?? {},
           exclusionJson: record.exclusionDefinition ?? null,
           suppressionPolicyJson: record.suppressionPolicy ?? {},
@@ -107,21 +141,19 @@ export function createPrismaMarketingDurabilityPorts(
           create: data,
           update: data,
         })) as Record<string, unknown>;
-        return {
-          ...record,
-          id: String(row.id ?? record.id),
-          columnMap: (row.columnMapJson as MarketingDurableAudienceDefinitionRecord["columnMap"]) ?? record.columnMap,
-        };
+        return audienceDefinitionFromRow(row);
       },
       async getForOrg(id, organizationId) {
-        return (await db.enterpriseMarketingAudienceDefinition.findFirst({
+        const row = (await db.enterpriseMarketingAudienceDefinition.findFirst({
           where: { id, organizationId },
-        })) as MarketingDurableAudienceDefinitionRecord | null;
+        })) as Record<string, unknown> | null;
+        return row ? audienceDefinitionFromRow(row) : null;
       },
       async list(organizationId) {
-        return (await db.enterpriseMarketingAudienceDefinition.findMany({
+        const rows = (await db.enterpriseMarketingAudienceDefinition.findMany({
           where: { organizationId },
-        })) as MarketingDurableAudienceDefinitionRecord[];
+        })) as Record<string, unknown>[];
+        return rows.map(audienceDefinitionFromRow);
       },
     },
     snapshots: {

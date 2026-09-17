@@ -100,6 +100,9 @@ export type MarketingDurableAudienceDefinitionRecord = MarketingDurableActorStam
   suppressionPolicy?: unknown;
   eligibilityRules?: unknown;
   mappingConfirmed?: boolean;
+  mapping?: MarketingConfirmedColumnMapping | null;
+  lastSnapshotId?: string | null;
+  lastSnapshotHash?: string | null;
 };
 
 export type MarketingDurableAudienceSnapshotRecord = MarketingDurableActorStamp & {
