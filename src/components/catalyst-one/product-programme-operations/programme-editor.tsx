@@ -75,6 +75,7 @@ export function ProductProgrammeEditor({
   lenders,
   products,
   policies,
+  policyState,
   initial,
   defaultLenderId,
   actor,
@@ -84,6 +85,7 @@ export function ProductProgrammeEditor({
   lenders: EnterpriseLenderRecord[];
   products: { id?: string; code: string; label: string }[];
   policies: { id: string; policyId: string; label: string }[];
+  policyState: { status: "loading" | "loaded" | "empty" | "error"; message?: string };
   initial?: EnterpriseLenderProgramRecord | null;
   defaultLenderId?: string;
   actor: string;
@@ -476,7 +478,17 @@ export function ProductProgrammeEditor({
       <section className="space-y-4 rounded-xl border border-border p-5" data-section="policy">
         <h3 className="text-lg font-semibold">7. Policy</h3>
         <Field label="Published policy version">
+          <p className="text-xs text-muted-foreground" role="status">
+            {policyState.status === "loading"
+              ? "Loading published policy versions…"
+              : policyState.status === "error"
+                ? `Unable to load published policy versions: ${policyState.message ?? "Request failed"}`
+                : policyState.status === "empty"
+                  ? "No durable published policy versions available."
+                  : `Published policy versions loaded: ${policies.length}`}
+          </p>
           <Select
+            disabled={policyState.status !== "loaded" || policies.length === 0}
             value={state.policyVersionId ?? undefined}
             onValueChange={(value) => patch({
               policyVersionId: value,

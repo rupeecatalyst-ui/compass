@@ -42,14 +42,45 @@ import { PROGRAMME_EMPLOYMENT_TYPES } from "@/constants/product-programme-operat
 export async function loadProgrammesAndPolicyVersions<TPrograms, TPolicies>(
   loadProgrammes: () => Promise<TPrograms>,
   loadPolicies: () => Promise<TPolicies>,
-): Promise<{ programmes: TPrograms; policies: TPolicies | null; policyLoadFailed: boolean }> {
+): Promise<{ programmes: TPrograms; policies: TPolicies | null; policyLoadFailed: boolean; policyError: unknown | null }> {
   const [programmes, policies] = await Promise.allSettled([loadProgrammes(), loadPolicies()]);
   if (programmes.status === "rejected") throw programmes.reason;
   return {
     programmes: programmes.value,
     policies: policies.status === "fulfilled" ? policies.value : null,
     policyLoadFailed: policies.status === "rejected",
+    policyError: policies.status === "rejected" ? policies.reason : null,
   };
+}
+
+type PublishedPolicyVersion = { id: string; policyId: string; name: string; policyCode: string; versionNumber: number };
+type PolicyOption = { id: string; policyId: string; label: string };
+
+export function toPublishedPolicyOptions(versions: PublishedPolicyVersion[]): PolicyOption[] {
+  return versions.map((version) => ({
+    id: version.id,
+    policyId: version.policyId,
+    label: `${version.name} (${version.policyCode}, v${version.versionNumber})`,
+  }));
+}
+
+export async function fetchPublishedPolicyVersions(
+  fetcher: typeof authenticatedJsonFetch = authenticatedJsonFetch,
+): Promise<PublishedPolicyVersion[]> {
+  const response = await fetcher("/api/lender-registry/published-policy-versions");
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    const message = typeof result?.error?.message === "string" ? result.error.message : "Request failed";
+    throw new Error(`HTTP ${response.status}: ${message}`);
+  }
+  if (!Array.isArray(result.data) || !result.data.every((version: unknown) => {
+    if (!version || typeof version !== "object") return false;
+    const row = version as Record<string, unknown>;
+    return typeof row.id === "string" && typeof row.policyId === "string" &&
+      typeof row.name === "string" && typeof row.policyCode === "string" &&
+      typeof row.versionNumber === "number";
+  })) throw new Error("Published policy version response was invalid.");
+  return result.data as PublishedPolicyVersion[];
 }
 
 export function ProductProgramsWorkspace() {
@@ -60,7 +91,8 @@ export function ProductProgramsWorkspace() {
   const [programs, setPrograms] = useState<EnterpriseLenderProgramRecord[]>([]);
   const [lenders, setLenders] = useState<EnterpriseLenderRecord[]>([]);
   const [products, setProducts] = useState<{ id?: string; code: string; label: string }[]>([]);
-  const [policies, setPolicies] = useState<{ id: string; policyId: string; label: string }[]>([]);
+  const [policies, setPolicies] = useState<PolicyOption[]>([]);
+  const [policyState, setPolicyState] = useState<{ status: "loading" | "loaded" | "empty" | "error"; message?: string }>({ status: "loading" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -71,29 +103,25 @@ export function ProductProgramsWorkspace() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setPolicies([]);
+    setPolicyState({ status: "loading" });
     try {
       const [registry, prodRes, lenderRes] = await Promise.all([
         loadProgrammesAndPolicyVersions(
           () => lenderRegistryClient.queryPrograms({ pageSize: 200 }),
-          async () => {
-            const response = await authenticatedJsonFetch("/api/lender-registry/published-policy-versions");
-            const result = await response.json();
-            if (!response.ok || !result.success) {
-              throw new Error(result?.error?.message ?? "Failed to load published policy versions");
-            }
-            return result.data as { id: string; policyId: string; name: string; policyCode: string; versionNumber: number }[];
-          },
+          fetchPublishedPolicyVersions,
         ),
         listProductMaster().catch(() => ({ items: [] as { id?: string; code: string; label: string }[] })),
         lenderRegistryClient.queryLenders({ pageSize: 200 }).catch(() => ({ items: [] })),
       ]);
-      setPolicies((registry.policies ?? []).map((version) => ({
-        id: version.id,
-        policyId: version.policyId,
-        label: `${version.name} (${version.policyCode}, v${version.versionNumber})`,
-      })));
+      setPolicies(toPublishedPolicyOptions(registry.policies ?? []));
       setPrograms((registry.programmes.items ?? []) as EnterpriseLenderProgramRecord[]);
-      if (registry.policyLoadFailed) setError("Published policy versions are temporarily unavailable. Existing programmes remain accessible.");
+      if (registry.policyLoadFailed) {
+        const message = registry.policyError instanceof Error ? registry.policyError.message : "Request failed";
+        setPolicyState({ status: "error", message: message.startsWith("HTTP ") ? message : "Unable to load published policy versions." });
+      } else {
+        setPolicyState({ status: registry.policies?.length ? "loaded" : "empty" });
+      }
       setProducts(
         (prodRes.items ?? []).map((item: { id?: string; code: string; label: string }) => ({
           id: item.id,
@@ -106,6 +134,7 @@ export function ProductProgramsWorkspace() {
       setError(err instanceof Error ? err.message : "Failed to load programs");
       setPrograms([]);
       setPolicies([]);
+      setPolicyState({ status: "error", message: "Unable to load published policy versions." });
     } finally {
       setLoading(false);
     }
@@ -153,6 +182,7 @@ export function ProductProgramsWorkspace() {
           lenders={lenders}
           products={products}
           policies={policies}
+          policyState={policyState}
           initial={editing}
           defaultLenderId={editing ? undefined : preselectedLenderId}
           actor={actor}

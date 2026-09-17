@@ -3,14 +3,19 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import * as React from "react";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { evaluateProgrammeCompleteness } from "../src/lib/product-programme-operations/completeness.ts";
 import { PROGRAMME_BAT_FIXTURES } from "../src/lib/product-programme-operations/fixtures.ts";
 import { parseStructuredProgrammePayload } from "../src/lib/product-programme-operations/request-schema.ts";
 import { structuredPayloadToCreateInput, structuredPayloadToUpdateInput } from "../src/lib/product-programme-operations/to-registry-input.ts";
 import { calculateSalariedFoir, maxEmiFromFoirCap } from "../src/lib/home-loan-recommendation/foir.ts";
-import { loadProgrammesAndPolicyVersions } from "../src/components/catalyst-one/enterprise-mdm/product-programs-workspace.tsx";
+import { fetchPublishedPolicyVersions, loadProgrammesAndPolicyVersions, toPublishedPolicyOptions } from "../src/components/catalyst-one/enterprise-mdm/product-programs-workspace.tsx";
+import { ProductProgrammeEditor } from "../src/components/catalyst-one/product-programme-operations/programme-editor.tsx";
 
 const root = join(fileURLToPath(new URL("..", import.meta.url)));
+globalThis.React = React;
 const source = (path) => readFileSync(join(root, path), "utf8");
 const complete = (payload) => evaluateProgrammeCompleteness(payload).errors;
 
@@ -55,19 +60,50 @@ assert.match(service, /assertPublishedPolicyVersion\(payload\.policyVersionId, i
 assert.match(service, /assertPublishedPolicyVersion\(existing\.policyVersionId \?\? null, input\.organizationId\)/);
 
 const programmes = { items: [{ id: "draft-1" }] };
-const versions = [{ id: "version-1", policyId: "policy-1" }];
+const versions = [{ id: "version-1", policyId: "policy-1", name: "Home Loan Policy", policyCode: "HL", versionNumber: 2 }];
+const fakeResponse = (status, data) => async () => ({ ok: status >= 200 && status < 300, status, json: async () => data });
+const fetchedVersions = await fetchPublishedPolicyVersions(fakeResponse(200, { success: true, data: versions }));
+assert.deepEqual(toPublishedPolicyOptions(fetchedVersions), [{ id: "version-1", policyId: "policy-1", label: "Home Loan Policy (HL, v2)" }]);
+const renderEditor = (policies, policyState) => renderToStaticMarkup(createElement(ProductProgrammeEditor, {
+  lenders: [], products: [], policies, policyState, actor: "fixture", onClose() {}, onSaved() {},
+}));
+assert.match(renderEditor(toPublishedPolicyOptions(fetchedVersions), { status: "loaded" }), /Published policy versions loaded: 1/);
+assert.match(editor, /<SelectItem key=\{policy\.id\} value=\{policy\.id\}>\{policy\.label\}<\/SelectItem>/);
+assert.deepEqual(await fetchPublishedPolicyVersions(fakeResponse(200, { success: true, data: [] })), []);
+assert.deepEqual(toPublishedPolicyOptions([]), []);
+assert.match(renderEditor([], { status: "empty" }), /No durable published policy versions available/);
+await assert.rejects(fetchPublishedPolicyVersions(fakeResponse(401, { success: false, error: { message: "Authentication required" } })), /HTTP 401: Authentication required/);
+assert.match(renderEditor([], { status: "error", message: "HTTP 401: Authentication required" }), /Unable to load published policy versions: HTTP 401: Authentication required/);
+assert.equal(toPublishedPolicyOptions(versions).some((option) => option.id === "pol_ver_001"), false);
 const withVersions = await loadProgrammesAndPolicyVersions(() => Promise.resolve(programmes), () => Promise.resolve(versions));
-assert.deepEqual(withVersions, { programmes, policies: versions, policyLoadFailed: false });
+assert.deepEqual(withVersions, { programmes, policies: versions, policyLoadFailed: false, policyError: null });
 const withNoVersions = await loadProgrammesAndPolicyVersions(() => Promise.resolve(programmes), () => Promise.resolve([]));
-assert.deepEqual(withNoVersions, { programmes, policies: [], policyLoadFailed: false });
-const policyFailure = await loadProgrammesAndPolicyVersions(() => Promise.resolve(programmes), () => Promise.reject(new Error("policy unavailable")));
-assert.deepEqual(policyFailure, { programmes, policies: null, policyLoadFailed: true });
+assert.deepEqual(withNoVersions, { programmes, policies: [], policyLoadFailed: false, policyError: null });
+const policyFailure = await loadProgrammesAndPolicyVersions(
+  () => Promise.resolve(programmes),
+  () => fetchPublishedPolicyVersions(fakeResponse(401, { success: false, error: { message: "Authentication required" } })),
+);
+assert.equal(policyFailure.programmes, programmes);
+assert.equal(policyFailure.policies, null);
+assert.equal(policyFailure.policyLoadFailed, true);
+assert.match(policyFailure.policyError.message, /HTTP 401: Authentication required/);
+const malformedPolicyResponse = await loadProgrammesAndPolicyVersions(
+  () => Promise.resolve(programmes),
+  () => fetchPublishedPolicyVersions(fakeResponse(200, { success: true, data: [null] })),
+);
+assert.equal(malformedPolicyResponse.programmes, programmes);
+assert.equal(malformedPolicyResponse.policyLoadFailed, true);
 await assert.rejects(
   loadProgrammesAndPolicyVersions(() => Promise.reject(new Error("programmes unavailable")), () => Promise.resolve(versions)),
   /programmes unavailable/,
 );
 assert.match(workspace, /setPrograms\(\(registry\.programmes\.items \?\? \[\]\)/);
-assert.match(workspace, /setPolicies\(\(registry\.policies \?\? \[\]\)\.map/);
+assert.match(workspace, /setPolicies\(toPublishedPolicyOptions\(registry\.policies \?\? \[\]\)\)/);
+assert.match(workspace, /setPolicyState\(\{ status: "error", message:/);
+assert.match(editor, /No durable published policy versions available/);
+assert.match(editor, /Unable to load published policy versions:/);
+assert.match(editor, /Published policy versions loaded:/);
+assert.match(editor, /disabled=\{policyState\.status !== "loaded" \|\| policies\.length === 0\}/);
 
 const changedTypeScriptFiles = [
   "server/repositories/credit-risk-policy/durable-policy.repository.ts",
