@@ -26,10 +26,13 @@ const EAL_MODULE = "Enterprise Asset Library";
 function policyStatusToAssetStatus(status: PolicyLifecycleStatus) {
   const map: Record<PolicyLifecycleStatus, import("@/types/atlas").AtlasAssetStatus> = {
     draft: "development",
+    pending_approval: "review",
     validated: "review",
     testing: "review",
     approved: "review",
     published: "active",
+    superseded: "retired",
+    retired: "retired",
     archived: "retired",
   };
   return map[status];

@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { searchCreditRiskPolicies } from "@/lib/credit-risk-engine/policy-store";
+import { listDurablePolicies, type DurablePolicyRecord } from "@/lib/credit-risk-engine/durable-policy-admin";
 import { PolicyCard } from "@/components/catalyst-one/credit-risk-engine/policy-card";
 import { PolicyLibraryKpiGrid } from "@/components/catalyst-one/credit-risk-engine/policy-library/policy-library-kpi-grid";
 import { CreditRiskEngineShell } from "@/components/catalyst-one/credit-risk-engine/credit-risk-engine-shell";
@@ -13,9 +13,19 @@ import { WORKSPACE_CLOSE } from "@/constants/workspace-navigation";
 
 export function PolicyLibraryView() {
   const [query, setQuery] = useState("");
+  const [records, setRecords] = useState<DurablePolicyRecord[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let active = true;
+    void listDurablePolicies().then(rows => { if (active) setRecords(rows); })
+      .catch(() => { if (active) setLoadError("Durable policies could not be loaded."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
   const policies = useMemo(
-    () => (query ? searchCreditRiskPolicies(query) : searchCreditRiskPolicies("")),
-    [query],
+    () => records.filter(row => `${row.policyName} ${row.policyCode} ${row.lenderName} ${row.productName}`.toLowerCase().includes(query.trim().toLowerCase())),
+    [query, records],
   );
 
   return (
@@ -38,8 +48,10 @@ export function PolicyLibraryView() {
       }
     >
       <div className="space-y-6">
-        <PolicyLibraryKpiGrid />
+        <PolicyLibraryKpiGrid policies={records} />
         <div className="space-y-4">
+          {loading && <p role="status">Loading durable policies…</p>}
+          {loadError && <p role="alert" className="text-destructive">{loadError}</p>}
           <p className="text-sm text-muted-foreground">
             {policies.length} polic{policies.length === 1 ? "y" : "ies"} · Only published versions are active at runtime
           </p>

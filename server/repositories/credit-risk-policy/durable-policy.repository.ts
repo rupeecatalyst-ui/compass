@@ -1,4 +1,5 @@
 import { prisma } from "@server/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import type { DurablePolicyVersionRecord } from "@/types/product-programme-operations";
 
@@ -98,8 +99,8 @@ export const durablePolicyRepository = {
             organizationId: input.organizationId,
             versionNumber: 1,
             status: "published",
-            eligibilityRules: input.eligibilityRules ?? {},
-            creditRules: input.creditRules ?? {},
+            eligibilityRules: (input.eligibilityRules ?? {}) as Prisma.InputJsonObject,
+            creditRules: (input.creditRules ?? {}) as Prisma.InputJsonObject,
             payload: {},
             sourceRef: input.sourceRef ?? null,
             createdBy: input.actorUserId,

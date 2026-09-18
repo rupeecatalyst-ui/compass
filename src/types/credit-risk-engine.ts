@@ -6,10 +6,13 @@
 /** Policy lifecycle — only `published` policies are active at runtime. */
 export type PolicyLifecycleStatus =
   | "draft"
+  | "pending_approval"
   | "validated"
   | "testing"
   | "approved"
   | "published"
+  | "superseded"
+  | "retired"
   | "archived";
 
 export const POLICY_LIFECYCLE_ORDER: PolicyLifecycleStatus[] = [

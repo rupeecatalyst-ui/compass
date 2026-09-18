@@ -10,7 +10,7 @@ import {
   Layers,
   ShieldCheck,
 } from "lucide-react";
-import { getPolicyLibraryDashboardMetrics } from "@/lib/credit-risk-engine/policy-store";
+import type { CreditRiskPolicySummary } from "@/types/credit-risk-engine";
 import { Card, CardContent } from "@/components/ui/card";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { cn } from "@/lib/utils";
@@ -25,8 +25,17 @@ const accentMap = {
   muted: "from-muted/40 to-muted/10 text-muted-foreground border-border/40",
 } as const;
 
-export function PolicyLibraryKpiGrid() {
-  const metrics = getPolicyLibraryDashboardMetrics();
+export function PolicyLibraryKpiGrid({ policies: latest }: { policies: CreditRiskPolicySummary[] }) {
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const metrics = {
+    totalPolicies: latest.length,
+    activePolicies: latest.filter(p => p.status === "published").length,
+    draftPolicies: latest.filter(p => p.status === "draft").length,
+    publishedPolicies: latest.filter(p => p.status === "published").length,
+    pendingApprovalPolicies: latest.filter(p => p.status === "approved").length,
+    recentlyModified: latest.filter(p => new Date(p.lastModified).getTime() >= sevenDaysAgo).length,
+    policyCategories: new Set(latest.map(p => p.productId)).size,
+  };
 
   const stats = [
     { id: "total", label: "Total Policies", value: String(metrics.totalPolicies), icon: Layers, accent: "primary" as const },

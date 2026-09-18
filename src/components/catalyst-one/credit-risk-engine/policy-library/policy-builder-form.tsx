@@ -6,10 +6,7 @@ import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import { categoryToPolicySection } from "@/constants/policy-rule-sections";
 import { useProductMasterOptions } from "@/lib/enterprise-product-master";
-import {
-  savePolicyDraft,
-  transitionPolicyStatus,
-} from "@/lib/credit-risk-engine/policy-store";
+import { saveDurablePolicy, transitionDurablePolicy } from "@/lib/credit-risk-engine/durable-policy-admin";
 import { searchActiveLenders } from "@/lib/deal-workspace/lender-program-api";
 import { POLICY_RULE_CATEGORY_PAIRS } from "@/constants/policy-rule-sections";
 import { getRuleById } from "@/lib/credit-risk-engine/rule-store";
@@ -93,6 +90,8 @@ export function PolicyBuilderForm({ initialPolicy, initialRuleRefs = [] }: Polic
   const [activeSection, setActiveSection] = useState<PolicyRuleSectionId>("financial");
   const [ruleRefs, setRuleRefs] = useState<PolicyRuleReference[]>(initialRuleRefs);
   const [savedPolicyId, setSavedPolicyId] = useState<string | undefined>(initialPolicy?.policyId);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     policyCode: initialPolicy?.policyCode ?? "",
@@ -170,9 +169,11 @@ export function PolicyBuilderForm({ initialPolicy, initialRuleRefs = [] }: Polic
     setRuleRefs((prev) => prev.filter((r) => r.ruleId !== ruleId));
   }
 
-  function handleSaveDraft() {
-    const record = savePolicyDraft({
-      policyId: savedPolicyId ?? initialPolicy?.policyId,
+  async function handleSaveDraft() {
+    setBusy(true);
+    setActionError(null);
+    try {
+    const record = await saveDurablePolicy({
       policyCode: form.policyCode,
       policyName: form.policyName,
       description: form.description,
@@ -186,7 +187,6 @@ export function PolicyBuilderForm({ initialPolicy, initialRuleRefs = [] }: Polic
       approvalAuthority: form.approvalAuthority,
       effectiveFrom: form.effectiveFrom || undefined,
       effectiveTo: form.effectiveTo || undefined,
-      createdBy: form.createdBy,
       ruleRefs: ruleRefs.map(({ ruleId, ruleCode, ruleName, sectionId, majorVersion, minorVersion, sortOrder }) => ({
         ruleId,
         ruleCode,
@@ -196,16 +196,25 @@ export function PolicyBuilderForm({ initialPolicy, initialRuleRefs = [] }: Polic
         minorVersion,
         sortOrder,
       })),
-    });
+    }, savedPolicyId ?? initialPolicy?.policyId);
     setSavedPolicyId(record.policyId);
     router.push(`${ROUTES.ADMIN_CREDIT_RISK_POLICY_LIBRARY}/${record.policyId}`);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Policy could not be saved.");
+    } finally { setBusy(false); }
   }
 
-  function handleTransition(to: CreditRiskPolicySummary["status"]) {
+  async function handleTransition(to: "validated" | "testing" | "approved" | "published") {
     const id = savedPolicyId ?? initialPolicy?.policyId;
     if (!id) return;
-    transitionPolicyStatus(id, to, form.createdBy);
-    router.push(`${ROUTES.ADMIN_CREDIT_RISK_POLICY_LIBRARY}/${id}`);
+    setBusy(true);
+    setActionError(null);
+    try {
+      await transitionDurablePolicy(id, to);
+      router.push(`${ROUTES.ADMIN_CREDIT_RISK_POLICY_LIBRARY}/${id}`);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Lifecycle transition failed.");
+    } finally { setBusy(false); }
   }
 
   return (
@@ -351,15 +360,16 @@ export function PolicyBuilderForm({ initialPolicy, initialRuleRefs = [] }: Polic
         />
 
         <div className="sticky bottom-0 z-10 flex flex-wrap gap-2 border-t border-border/60 bg-background/95 py-4 backdrop-blur">
-          <Button onClick={handleSaveDraft} disabled={!form.policyCode || !form.policyName || !form.lenderId || !form.productId}>
+          {actionError && <p role="alert" className="w-full text-sm text-destructive">{actionError}</p>}
+          <Button onClick={() => void handleSaveDraft()} disabled={busy || !form.policyCode || !form.policyName || !form.lenderId || !form.productId}>
             Save Draft
           </Button>
           {(savedPolicyId ?? initialPolicy?.policyId) && (
             <>
-              <Button variant="outline" onClick={() => handleTransition("validated")}>Validate</Button>
-              <Button variant="outline" onClick={() => handleTransition("testing")}>Test</Button>
-              <Button variant="outline" onClick={() => handleTransition("approved")}>Approve</Button>
-              <Button variant="default" onClick={() => handleTransition("published")}>Publish</Button>
+              <Button variant="outline" disabled={busy || initialPolicy?.status !== "draft"} onClick={() => void handleTransition("validated")}>Validate</Button>
+              <Button variant="outline" disabled={busy || initialPolicy?.status !== "validated"} onClick={() => void handleTransition("testing")}>Test</Button>
+              <Button variant="outline" disabled={busy || initialPolicy?.status !== "testing"} onClick={() => void handleTransition("approved")}>Approve</Button>
+              <Button variant="default" disabled={busy || initialPolicy?.status !== "approved"} onClick={() => void handleTransition("published")}>Publish</Button>
             </>
           )}
         </div>

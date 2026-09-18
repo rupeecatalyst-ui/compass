@@ -5,7 +5,7 @@ import {
   POLICY_LIFECYCLE_LABELS,
   POLICY_STATUS_PILL_VARIANT,
 } from "@/constants/credit-risk-engine";
-import { getPolicyVersions } from "@/lib/credit-risk-engine/policy-store";
+import type { CreditRiskPolicySummary } from "@/types/credit-risk-engine";
 import { StatusPill } from "@/components/design-system/status-pill";
 import { Card } from "@/components/ui/card";
 import {
@@ -17,12 +17,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface PolicyVersionHistoryTableProps {
-  policyId: string;
-}
+interface PolicyVersionHistoryTableProps { versions: CreditRiskPolicySummary[]; }
 
-export function PolicyVersionHistoryTable({ policyId }: PolicyVersionHistoryTableProps) {
-  const versions = getPolicyVersions(policyId);
+export function PolicyVersionHistoryTable({ versions }: PolicyVersionHistoryTableProps) {
 
   return (
     <Card className="glass-card overflow-hidden border-border/60">
