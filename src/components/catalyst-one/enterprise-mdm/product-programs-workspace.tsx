@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { lenderRegistryClient } from "@/lib/enterprise-lender-registry";
@@ -99,8 +99,21 @@ export function ProductProgramsWorkspace() {
   const [editing, setEditing] = useState<EnterpriseLenderProgramRecord | null>(null);
   const [preselectedLenderId, setPreselectedLenderId] = useState<string | undefined>();
   const [filters, setFilters] = useState(EMPTY_PROGRAMME_REGISTRY_FILTERS);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const loadSequence = useRef(0);
+
+  useEffect(() => {
+    const search = filters.search.trim();
+    if (!search) {
+      setDebouncedSearch("");
+      return;
+    }
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(timer);
+  }, [filters.search]);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError(null);
     setPolicies([]);
@@ -108,12 +121,13 @@ export function ProductProgramsWorkspace() {
     try {
       const [registry, prodRes, lenderRes] = await Promise.all([
         loadProgrammesAndPolicyVersions(
-          () => lenderRegistryClient.queryPrograms({ pageSize: 200 }),
+          () => lenderRegistryClient.queryPrograms({ pageSize: 200, search: debouncedSearch || undefined }),
           fetchPublishedPolicyVersions,
         ),
         listProductMaster().catch(() => ({ items: [] as { id?: string; code: string; label: string }[] })),
         lenderRegistryClient.queryLenders({ pageSize: 200 }).catch(() => ({ items: [] })),
       ]);
+      if (sequence !== loadSequence.current) return;
       setPolicies(toPublishedPolicyOptions(registry.policies ?? []));
       setPrograms((registry.programmes.items ?? []) as EnterpriseLenderProgramRecord[]);
       if (registry.policyLoadFailed) {
@@ -131,14 +145,15 @@ export function ProductProgramsWorkspace() {
       );
       setLenders((lenderRes.items ?? []) as EnterpriseLenderRecord[]);
     } catch (err) {
+      if (sequence !== loadSequence.current) return;
       setError(err instanceof Error ? err.message : "Failed to load programs");
       setPrograms([]);
       setPolicies([]);
       setPolicyState({ status: "error", message: "Unable to load published policy versions." });
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     void load();
@@ -161,8 +176,9 @@ export function ProductProgramsWorkspace() {
     }
   }, [programs]);
 
+  const searchPending = filters.search.trim() !== debouncedSearch;
   const filtered = useMemo(
-    () => filterProgrammeRegistry(programs, filters),
+    () => filterProgrammeRegistry(programs, { ...filters, search: "" }),
     [programs, filters],
   );
 
@@ -319,16 +335,18 @@ export function ProductProgramsWorkspace() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {loading || searchPending ? (
               <TableRow>
                 <TableCell colSpan={13} className="text-sm text-muted-foreground">
-                  Loading…
+                  {filters.search.trim() ? "Searching programmes…" : "Loading…"}
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={13} className="text-sm text-muted-foreground">
-                  No programmes yet. Create a structured draft — the matrix will not auto-publish empty programmes.
+                  {filters.search.trim()
+                    ? "No programmes match this search."
+                    : "No programmes yet. Create a structured draft — the matrix will not auto-publish empty programmes."}
                 </TableCell>
               </TableRow>
             ) : (
