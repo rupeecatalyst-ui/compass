@@ -35,6 +35,7 @@
     "cert:production-clean-sha": "node scripts/co-production-regression-014-clean-sha.mjs",
     "cert:production-shell-smoke": "node --env-file=.env.local scripts/co-production-regression-014-shell-smoke.mjs",
     "cert:production-regression-014": "node --env-file=.env.local scripts/co-production-regression-014-certify.mjs",
+    "cert:canonical-lender-stage1:production-readonly": "node scripts/co-c1-canonical-lender-recommendation-stage1-hostinger-certify.mjs",
     "verify:co-production-regression-014": "node scripts/co-production-regression-014-verify.mjs",
     "ops:verify": "node scripts/co-ops-002-verify.mjs",
     "gov:verify": "node scripts/co-gov-001-verify.mjs",
