@@ -14,6 +14,8 @@ export type ProgrammeMatchInput = {
   age?: number | null;
   transactionType?: string | null;
   propertyType?: string | null;
+  propertyCategory?: string | null;
+  constructionStatus?: string | null;
 };
 
 function inRange(value: number | null | undefined, min: number | null | undefined, max: number | null | undefined): boolean {
@@ -63,6 +65,27 @@ export function matchPublishedProgramme(
   if (input.transactionType && (program.transactionTypes ?? []).length > 0 && !program.transactionTypes?.includes(input.transactionType)) {
     return { matched: false, reason: "Transaction type is outside programme eligibility." };
   }
+  const usesNewPropertyModel =
+    (program.propertyCategories ?? []).length > 0 ||
+    (program.constructionStatuses ?? []).length > 0;
+  if (usesNewPropertyModel) {
+    if (
+      input.propertyCategory &&
+      (program.propertyCategories ?? []).length > 0 &&
+      !program.propertyCategories?.includes(input.propertyCategory)
+    ) {
+      return { matched: false, reason: "Property category is outside programme eligibility." };
+    }
+    if (
+      input.constructionStatus &&
+      (program.constructionStatuses ?? []).length > 0 &&
+      !program.constructionStatuses?.includes(input.constructionStatus)
+    ) {
+      return { matched: false, reason: "Construction status is outside programme eligibility." };
+    }
+  }
+  // Legacy published records retain their existing propertyTypes data and matching behavior.
+  // Do not reinterpret legacy values as either a category or a construction status.
   if (!inRange(input.cibil, program.minCibil, program.maxCibil)) {
     return { matched: false, reason: "CIBIL is outside programme range." };
   }

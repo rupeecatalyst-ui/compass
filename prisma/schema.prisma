@@ -2775,6 +2775,8 @@ model EnterpriseLenderProgram {
   residencyEligibility Json?                     @map("residency_eligibility")
   customerSegments  Json?                        @map("customer_segments")
   propertyTypes     Json?                        @map("property_types")
+  propertyCategories Json?                       @map("property_categories")
+  constructionStatuses Json?                     @map("construction_statuses")
   transactionTypes  Json?                        @map("transaction_types")
   incomeAssessmentMethods Json?                  @map("income_assessment_methods")
   rateType          String?                      @map("rate_type")

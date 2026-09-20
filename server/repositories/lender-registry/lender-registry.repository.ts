@@ -46,6 +46,8 @@ function publishedProgramToCreateInput(
     residencyEligibility: Prisma.JsonValue | null;
     customerSegments: Prisma.JsonValue | null;
     propertyTypes: Prisma.JsonValue | null;
+    propertyCategories: Prisma.JsonValue | null;
+    constructionStatuses: Prisma.JsonValue | null;
     transactionTypes: Prisma.JsonValue | null;
     incomeAssessmentMethods: Prisma.JsonValue | null;
     rateType: string | null;
@@ -106,6 +108,8 @@ function publishedProgramToCreateInput(
     residencyEligibility: jsonStrings(published.residencyEligibility),
     customerSegments: jsonStrings(published.customerSegments),
     propertyTypes: jsonStrings(published.propertyTypes),
+    propertyCategories: jsonStrings(published.propertyCategories),
+    constructionStatuses: jsonStrings(published.constructionStatuses),
     transactionTypes: jsonStrings(published.transactionTypes),
     incomeAssessmentMethods: jsonStrings(published.incomeAssessmentMethods),
     rateType: published.rateType ?? undefined,
@@ -1152,6 +1156,8 @@ export class LenderRegistryRepository {
         residencyEligibility: structured.residencyEligibility,
         customerSegments: structured.customerSegments,
         propertyTypes: structured.propertyTypes,
+        propertyCategories: structured.propertyCategories,
+        constructionStatuses: structured.constructionStatuses,
         transactionTypes: structured.transactionTypes,
         incomeAssessmentMethods: structured.incomeAssessmentMethods,
         rateType: structured.rateType,

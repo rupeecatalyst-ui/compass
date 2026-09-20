@@ -245,6 +245,8 @@ export const productProgrammeOperationsService = {
       residencyEligibility: (existing.residencyEligibility ?? []) as never,
       customerSegments: existing.customerSegments ?? [],
       propertyTypes: existing.propertyTypes ?? [],
+      propertyCategories: existing.propertyCategories ?? [],
+      constructionStatuses: existing.constructionStatuses ?? [],
       transactionTypes: existing.transactionTypes ?? [],
       geographyStates: existing.eligibleStates ?? [],
       geographyCities: existing.eligibleCities ?? [],

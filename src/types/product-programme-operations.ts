@@ -43,6 +43,8 @@ export type StructuredProgrammePayload = ProgrammeMoneyFields & {
   residencyEligibility: ProgrammeResidencyId[];
   customerSegments: string[];
   propertyTypes: string[];
+  propertyCategories: string[];
+  constructionStatuses: string[];
   transactionTypes: string[];
   geographyStates: string[];
   geographyCities: string[];

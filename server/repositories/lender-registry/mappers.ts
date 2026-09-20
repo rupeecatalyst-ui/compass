@@ -440,6 +440,8 @@ export function mapProgramRow(row: {
   residencyEligibility?: unknown;
   customerSegments?: unknown;
   propertyTypes?: unknown;
+  propertyCategories?: unknown;
+  constructionStatuses?: unknown;
   transactionTypes?: unknown;
   incomeAssessmentMethods?: unknown;
   rateType?: string | null;
@@ -560,6 +562,8 @@ export function mapProgramRow(row: {
     residencyEligibility: jsonToStringArray((row.residencyEligibility as never) ?? null),
     customerSegments: jsonToStringArray((row.customerSegments as never) ?? null),
     propertyTypes: jsonToStringArray((row.propertyTypes as never) ?? null),
+    propertyCategories: jsonToStringArray((row.propertyCategories as never) ?? null),
+    constructionStatuses: jsonToStringArray((row.constructionStatuses as never) ?? null),
     transactionTypes: jsonToStringArray((row.transactionTypes as never) ?? null),
     incomeAssessmentMethods: jsonToStringArray((row.incomeAssessmentMethods as never) ?? null),
     rateType: row.rateType ?? null,

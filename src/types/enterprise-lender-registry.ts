@@ -289,6 +289,8 @@ export interface EnterpriseLenderProgramRecord {
   residencyEligibility?: string[] | null;
   customerSegments?: string[] | null;
   propertyTypes?: string[] | null;
+  propertyCategories?: string[] | null;
+  constructionStatuses?: string[] | null;
   transactionTypes?: string[] | null;
   incomeAssessmentMethods?: string[] | null;
   rateType?: string | null;
@@ -489,6 +491,8 @@ export interface CreateLenderProgramInput {
   residencyEligibility?: string[];
   customerSegments?: string[];
   propertyTypes?: string[];
+  propertyCategories?: string[];
+  constructionStatuses?: string[];
   transactionTypes?: string[];
   incomeAssessmentMethods?: string[];
   rateType?: string;
@@ -560,6 +564,8 @@ export interface UpdateLenderProgramInput {
   residencyEligibility?: string[] | null;
   customerSegments?: string[] | null;
   propertyTypes?: string[] | null;
+  propertyCategories?: string[] | null;
+  constructionStatuses?: string[] | null;
   transactionTypes?: string[] | null;
   incomeAssessmentMethods?: string[] | null;
   rateType?: string | null;

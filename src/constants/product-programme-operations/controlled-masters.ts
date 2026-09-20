@@ -68,6 +68,15 @@ export const PROGRAMME_PROPERTY_TYPES = [
   { id: "not_applicable", label: "Not applicable" },
 ] as const;
 
+export const PROGRAMME_PROPERTY_CATEGORIES = [
+  { id: "residential", label: "Residential" },
+] as const;
+
+export const PROGRAMME_CONSTRUCTION_STATUSES = [
+  { id: "ready", label: "Ready" },
+  { id: "under_construction", label: "Under Construction" },
+] as const;
+
 export const PROGRAMME_RATE_TYPES = [
   { id: "floating", label: "Floating" },
   { id: "fixed", label: "Fixed" },

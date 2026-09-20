@@ -1,5 +1,4 @@
 import type { ProgrammeFieldError, StructuredProgrammePayload } from "@/types/product-programme-operations";
-import { PROGRAMME_PROPERTY_TYPES } from "@/constants/product-programme-operations/controlled-masters";
 
 const PROPERTY_PRODUCT_CODES = new Set(["HOME_LOAN", "HOME_LOAN_BT", "LAP"]);
 
@@ -61,7 +60,26 @@ export function evaluateProgrammeCompleteness(
 
   const productCode = (payload.productCode ?? "").toUpperCase().replaceAll("-", "_");
   if (PROPERTY_PRODUCT_CODES.has(productCode)) {
-    require("propertyTypes", payload.propertyTypes.length > 0, "Property type is required for this product.");
+    const usesNewPropertyModel =
+      payload.propertyCategories.length > 0 || payload.constructionStatuses.length > 0;
+    if (usesNewPropertyModel) {
+      require(
+        "propertyCategories",
+        payload.propertyCategories.length > 0,
+        "Property category is required for this product.",
+      );
+      require(
+        "constructionStatuses",
+        payload.constructionStatuses.length > 0,
+        "Construction status is required for this product.",
+      );
+    } else {
+      require(
+        "propertyTypes",
+        payload.propertyTypes.length > 0,
+        "Property eligibility is required for this product.",
+      );
+    }
   } else if (payload.propertyTypes.some((id) => id !== "not_applicable")) {
     require(
       "propertyTypes",
@@ -87,6 +105,5 @@ export function evaluateProgrammeCompleteness(
   // Salaried programmes may specify FOIR; self-employed methodology is selected above.
   // DBR is optional for both families until a product methodology requires it.
 
-  void PROGRAMME_PROPERTY_TYPES;
   return { complete: errors.length === 0, errors };
 }

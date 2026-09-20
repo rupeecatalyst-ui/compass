@@ -1,6 +1,8 @@
 import {
   PROGRAMME_BENCHMARKS,
   PROGRAMME_INCOME_ASSESSMENT_METHODS,
+  PROGRAMME_CONSTRUCTION_STATUSES,
+  PROGRAMME_PROPERTY_CATEGORIES,
   PROGRAMME_PROPERTY_TYPES,
   PROGRAMME_RATE_TYPES,
   PROGRAMME_TRANSACTION_TYPES,
@@ -32,6 +34,8 @@ const ALLOWED_WRITE_KEYS = new Set([
   "residencyEligibility",
   "customerSegments",
   "propertyTypes",
+  "propertyCategories",
+  "constructionStatuses",
   "transactionTypes",
   "eligibleStates",
   "eligibleCities",
@@ -167,6 +171,16 @@ export function parseStructuredProgrammePayload(
       asStringArray(body.propertyTypes, "propertyTypes"),
       PROGRAMME_PROPERTY_TYPES,
       "propertyTypes",
+    ),
+    propertyCategories: assertControlled(
+      asStringArray(body.propertyCategories, "propertyCategories"),
+      PROGRAMME_PROPERTY_CATEGORIES,
+      "propertyCategories",
+    ),
+    constructionStatuses: assertControlled(
+      asStringArray(body.constructionStatuses, "constructionStatuses"),
+      PROGRAMME_CONSTRUCTION_STATUSES,
+      "constructionStatuses",
     ),
     transactionTypes: assertControlled(
       asStringArray(body.transactionTypes, "transactionTypes"),

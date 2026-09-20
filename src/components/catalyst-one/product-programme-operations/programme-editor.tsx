@@ -20,7 +20,8 @@ import {
   PROGRAMME_EMPLOYMENT_TYPES,
   PROGRAMME_INCOME_ASSESSMENT_METHODS,
   PROGRAMME_LEGAL_CONSTITUTIONS,
-  PROGRAMME_PROPERTY_TYPES,
+  PROGRAMME_CONSTRUCTION_STATUSES,
+  PROGRAMME_PROPERTY_CATEGORIES,
   PROGRAMME_RATE_TYPES,
   PROGRAMME_RESIDENCY,
   PROGRAMME_TRANSACTION_TYPES,
@@ -114,7 +115,7 @@ export function ProductProgrammeEditor({
 
   const completeness = useMemo(() => evaluateProgrammeCompleteness(state), [state]);
   const employmentFamily = deriveEmploymentFamily(state.employmentTypes);
-  const productCode = (state.productCode ?? "").toUpperCase();
+  const productCode = (state.productCode ?? "").toUpperCase().replaceAll("-", "_");
   const isPropertyProduct = PROPERTY_PRODUCTS.has(productCode);
   const isBt = productCode === "HOME_LOAN_BT" || state.transactionTypes.includes("balance_transfer");
   const salariedOnly = employmentFamily === "salaried";
@@ -278,7 +279,15 @@ export function ProductProgrammeEditor({
                 patch({
                   productCode: value,
                   productId: product?.id ?? null,
-                  propertyTypes: PROPERTY_PRODUCTS.has(value) ? state.propertyTypes : ["not_applicable"],
+                  propertyTypes: PROPERTY_PRODUCTS.has(value.toUpperCase().replaceAll("-", "_"))
+                    ? state.propertyTypes
+                    : ["not_applicable"],
+                  propertyCategories: PROPERTY_PRODUCTS.has(value.toUpperCase().replaceAll("-", "_"))
+                    ? state.propertyCategories
+                    : [],
+                  constructionStatuses: PROPERTY_PRODUCTS.has(value.toUpperCase().replaceAll("-", "_"))
+                    ? state.constructionStatuses
+                    : [],
                   transactionTypes:
                     value === "HOME_LOAN_BT"
                       ? Array.from(new Set([...state.transactionTypes, "balance_transfer"]))
@@ -377,12 +386,27 @@ export function ProductProgrammeEditor({
           <p className="text-sm">Balance Transfer conditions are required for this product.</p>
         ) : null}
         {isPropertyProduct ? (
-          <ControlledMultiSelect
-            label="Property types"
-            values={state.propertyTypes}
-            options={PROGRAMME_PROPERTY_TYPES.filter((item) => item.id !== "not_applicable")}
-            onChange={(propertyTypes) => patch({ propertyTypes })}
-          />
+          <>
+            <ControlledMultiSelect
+              label="Property category"
+              values={state.propertyCategories}
+              options={PROGRAMME_PROPERTY_CATEGORIES}
+              onChange={(propertyCategories) => patch({ propertyCategories })}
+            />
+            <ControlledMultiSelect
+              label="Construction status"
+              values={state.constructionStatuses}
+              options={PROGRAMME_CONSTRUCTION_STATUSES}
+              onChange={(constructionStatuses) => patch({ constructionStatuses })}
+            />
+            {state.propertyCategories.length === 0 &&
+            state.constructionStatuses.length === 0 &&
+            state.propertyTypes.length > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Legacy property eligibility retained for this existing programme.
+              </p>
+            ) : null}
+          </>
         ) : (
           <p className="text-sm text-muted-foreground">Non-property product — property type recorded as Not applicable.</p>
         )}
