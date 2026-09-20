@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Download, Plus, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { NewLenderWizard } from "@/components/catalyst-one/lender-registry-admin/new-lender-wizard";
+import { LenderMergeDialog } from "@/components/catalyst-one/lender-registry-admin/lender-merge-dialog";
 import { useAuthContext } from "@/components/providers/auth-provider";
 import { PageHeader } from "@/components/design-system/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +66,7 @@ export function LenderRegistryAdminWorkspace() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "archived">("all");
   const [enabledFilter, setEnabledFilter] = useState<"all" | "active" | "inactive">("all");
   const [lenderWizardOpen, setLenderWizardOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [seedingPrograms, setSeedingPrograms] = useState(false);
 
@@ -203,11 +205,15 @@ export function LenderRegistryAdminWorkspace() {
                 <Button type="button" size="sm" onClick={() => setLenderWizardOpen(true)}>
                   <Plus className="mr-1 h-4 w-4" /> New Lender
                 </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setMergeOpen(true)}>
+                  Merge duplicates
+                </Button>
               </>
             ) : null}
           </div>
         }
       />
+      <LenderMergeDialog open={mergeOpen} onOpenChange={setMergeOpen} lenders={lenders} onMerged={() => void load()} />
 
       {!canMaintain ? (
         <Card className="border-warning/40 bg-warning/5 p-3 text-sm text-warning">

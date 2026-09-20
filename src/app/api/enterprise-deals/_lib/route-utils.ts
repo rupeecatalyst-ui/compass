@@ -146,6 +146,7 @@ export function parseDealSearchQuery(
     (url.searchParams.get("scope") as EnterpriseDealSearchQuery["scope"]) ?? "all";
   const scope = resolveEffectiveDealSearchScope(requestedScope, role);
   return {
+    lenderId: url.searchParams.get("lenderId") ?? undefined,
     q: url.searchParams.get("q") ?? undefined,
     legacyLoanFileId: url.searchParams.get("legacyLoanFileId") ?? undefined,
     productFamily: (url.searchParams.get("productFamily") as EnterpriseDealSearchQuery["productFamily"]) ?? undefined,

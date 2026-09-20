@@ -70,6 +70,32 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import type { EnterpriseDealApiRecord } from "@/lib/enterprise-deal/deal-api-client";
 
+async function loadAllDealsForLender(
+  lenderId: string,
+  view: "summary" | "full",
+): Promise<EnterpriseDealApiRecord[]> {
+  const first = await enterpriseDealApiClient.searchDeals({
+    lenderId,
+    archived: false,
+    page: 1,
+    pageSize: 100,
+    view,
+  });
+  const items = [...(first.items ?? [])];
+  const totalPages = first.totalPages ?? Math.ceil(first.total / 100);
+  for (let page = 2; page <= totalPages; page += 1) {
+    const next = await enterpriseDealApiClient.searchDeals({
+      lenderId,
+      archived: false,
+      page,
+      pageSize: 100,
+      view,
+    });
+    items.push(...(next.items ?? []));
+  }
+  return items;
+}
+
 function displayMetric(value: string | number | null | undefined): string {
   if (value == null) return "Not available";
   const s = String(value).trim();
@@ -106,6 +132,7 @@ export function EnterpriseLenderDirectorySlideOver({
   const [employees, setEmployees] = useState<EldLenderEmployeeRow[]>([]);
   const [contactQuery, setContactQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [selectedEmployee, setSelectedEmployee] = useState<EldLenderEmployeeRow | null>(null);
   const [employeeOpen, setEmployeeOpen] = useState(false);
@@ -165,17 +192,13 @@ export function EnterpriseLenderDirectorySlideOver({
         enabled: true,
         pageSize: 500,
       }),
-      enterpriseDealApiClient
-        .searchDeals({ archived: false, pageSize: 200, view: "full" })
-        .catch(() => ({ items: [] as Awaited<
-          ReturnType<typeof enterpriseDealApiClient.searchDeals>
-        >["items"] })),
+      loadAllDealsForLender(lenderId, "full"),
     ]);
     const lenderItems = lendersResult.items ?? [];
     const composed = composeEldLenderEmployeeRows({
       contacts,
       lenders: lenderItems,
-      deals: dealsResult.items ?? [],
+      deals: dealsResult,
       productOptions,
     });
     setEmployees(filterEmployeesForInstitution(composed, lenderId));
@@ -185,6 +208,7 @@ export function EnterpriseLenderDirectorySlideOver({
     if (!open || !lenderId) return;
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     void (async () => {
       try {
         const [prog, docs, dealsResult] = await Promise.all([
@@ -193,16 +217,12 @@ export function EnterpriseLenderDirectorySlideOver({
             pageSize: 200,
           }),
           lenderRegistryClient.listDocuments(lenderId),
-          enterpriseDealApiClient
-            .searchDeals({ archived: false, pageSize: 200, view: "summary" })
-            .catch(() => ({ items: [] as EnterpriseDealApiRecord[] })),
+          loadAllDealsForLender(lenderId, "summary"),
         ]);
         if (cancelled) return;
         setPrograms(prog.items ?? []);
         setDocuments(Array.isArray(docs) ? docs : []);
-        const lenderDealsForLender = (dealsResult.items ?? []).filter(
-          (d) => d.lenderId === lenderId,
-        );
+        const lenderDealsForLender = dealsResult;
         setLenderDeals(lenderDealsForLender);
         setLenderDealIds(lenderDealsForLender.map((d) => d.id).filter(Boolean));
         setLenderOpportunityIds(
@@ -215,7 +235,7 @@ export function EnterpriseLenderDirectorySlideOver({
           ),
         );
         await reloadEmployees();
-      } catch {
+      } catch (error) {
         if (!cancelled) {
           setPrograms([]);
           setDocuments([]);
@@ -223,6 +243,11 @@ export function EnterpriseLenderDirectorySlideOver({
           setLenderDeals([]);
           setLenderDealIds([]);
           setLenderOpportunityIds([]);
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "Lender workspace data is temporarily unavailable.",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -399,6 +424,10 @@ export function EnterpriseLenderDirectorySlideOver({
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             {!row ? null : loading ? (
               <p className="text-sm text-muted-foreground">Loading lender workspace…</p>
+            ) : loadError ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                Unable to load authoritative lender data. {loadError}
+              </div>
             ) : tab === "summary" ? (
               <div className="space-y-3">
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

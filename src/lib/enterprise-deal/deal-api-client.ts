@@ -132,6 +132,16 @@ async function bindActiveDeal(deal: EnterpriseDealApiRecord): Promise<void> {
 }
 
 export const enterpriseDealApiClient = {
+  async lenderMetrics(): Promise<Record<string, {
+    deals: number;
+    activeDeals: number;
+    opportunities: number;
+    stages: Record<string, number>;
+  }>> {
+    ensureDealFetcherWired();
+    return dealFetch("/api/enterprise-deals/lender-metrics");
+  },
+
   async createDeal(body: DealCreateBody): Promise<EnterpriseDealApiRecord> {
     ensureDealFetcherWired();
     const created = await dealFetch<EnterpriseDealApiRecord>("/api/enterprise-deals", {
@@ -194,11 +204,13 @@ export const enterpriseDealApiClient = {
     productFamily?: string;
     /** Canonical contact id — never a display-name join. */
     primaryContactId?: string;
+    /** Durable Enterprise Lender id; filtering is enforced server-side. */
+    lenderId?: string;
     /** Free-text: deal number, customer, lender, product, RM, opportunity */
     q?: string;
     /** CO-PERF-002 — Phase 1 registry paint */
     view?: "summary" | "full";
-  } = {}): Promise<{ items: EnterpriseDealApiRecord[]; total: number; view?: string }> {
+  } = {}): Promise<{ items: EnterpriseDealApiRecord[]; total: number; page?: number; pageSize?: number; totalPages?: number; view?: string }> {
     ensureDealFetcherWired();
     const params = new URLSearchParams({
       page: String(query.page ?? 1),
@@ -209,11 +221,15 @@ export const enterpriseDealApiClient = {
     if (query.archived === true) params.set("archived", "true");
     if (query.productFamily) params.set("productFamily", query.productFamily);
     if (query.primaryContactId) params.set("primaryContactId", query.primaryContactId);
+    if (query.lenderId) params.set("lenderId", query.lenderId);
     if (query.q?.trim()) params.set("q", query.q.trim());
     if (query.view) params.set("view", query.view);
     const page = await dealFetch<{
       items: EnterpriseDealApiRecord[];
       total: number;
+      page?: number;
+      pageSize?: number;
+      totalPages?: number;
       view?: string;
     }>(`/api/enterprise-deals?${params.toString()}`);
     for (const row of page.items) putSessionDeal(row);

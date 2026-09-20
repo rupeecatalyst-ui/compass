@@ -421,6 +421,10 @@ export class EnterpriseDealService {
     return { ...withOpp, ...extras };
   }
 
+  async summarizeDealsByLender() {
+    return enterpriseDealRepository.summarizeDealsByLender(await this.orgId());
+  }
+
   async searchDeals(query: EnterpriseDealSearchQuery) {
     const organizationId = await this.orgId();
     const result = await enterpriseDealRepository.searchDeals(organizationId, query);

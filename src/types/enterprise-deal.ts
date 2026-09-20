@@ -13,6 +13,7 @@ import type {
 export type DealSearchScope = "my" | "team" | "all";
 
 export type EnterpriseDealSearchQuery = {
+  lenderId?: string;
   q?: string;
   legacyLoanFileId?: string;
   productFamily?: DealProductFamily;

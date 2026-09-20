@@ -688,6 +688,50 @@ export class EnterpriseDealRepository {
     return deal;
   }
 
+  async summarizeDealsByLender(organizationId: string) {
+    const where: Prisma.EnterpriseDealWhereInput = {
+      organizationId,
+      isDeleted: false,
+      archived: false,
+      lenderId: { not: null },
+    };
+    const [groups, opportunityLinks] = await Promise.all([
+      prisma.enterpriseDeal.groupBy({
+        by: ["lenderId", "grossStage", "lifecycleStatus"],
+        where,
+        _count: { _all: true },
+      }),
+      prisma.enterpriseDeal.findMany({
+        where: { ...where, opportunityId: { not: null } },
+        select: { lenderId: true, opportunityId: true },
+        distinct: ["lenderId", "opportunityId"],
+      }),
+    ]);
+    const result: Record<string, {
+      deals: number;
+      activeDeals: number;
+      opportunities: number;
+      stages: Record<string, number>;
+    }> = {};
+    for (const group of groups) {
+      if (!group.lenderId) continue;
+      const row = result[group.lenderId] ?? {
+        deals: 0,
+        activeDeals: 0,
+        opportunities: 0,
+        stages: {},
+      };
+      row.deals += group._count._all;
+      if (group.lifecycleStatus === "active") row.activeDeals += group._count._all;
+      row.stages[group.grossStage] = (row.stages[group.grossStage] ?? 0) + group._count._all;
+      result[group.lenderId] = row;
+    }
+    for (const link of opportunityLinks) {
+      if (link.lenderId && result[link.lenderId]) result[link.lenderId].opportunities += 1;
+    }
+    return result;
+  }
+
   async searchDeals(organizationId: string, query: EnterpriseDealSearchQuery) {
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 25));
@@ -695,6 +739,8 @@ export class EnterpriseDealRepository {
       organizationId,
       isDeleted: query.includeDeleted ? undefined : false,
     };
+
+    if (query.lenderId) where.lenderId = query.lenderId;
 
     if (query.archived !== undefined) where.archived = query.archived;
     if (query.legacyLoanFileId) where.legacyLoanFileId = query.legacyLoanFileId;

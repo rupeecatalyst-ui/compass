@@ -31,6 +31,11 @@ import { resolvePilotOrganizationId } from "@server/repositories/ecm/organizatio
 import { lenderContactsDocumentsRepository } from "@server/repositories/lender-registry/lender-contacts-documents.repository";
 
 import { lenderRegistryRepository } from "@server/repositories/lender-registry/lender-registry.repository";
+import {
+  executeLenderMerge,
+  inspectLenderDependencies,
+  previewLenderMerge,
+} from "@server/repositories/lender-registry/lender-consolidation.repository";
 
 import { productRegistryRepository } from "@server/repositories/product-registry/product-registry.repository";
 
@@ -347,12 +352,29 @@ export class LenderRegistryService {
 
   }
 
+  async previewLenderMerge(sourceId: string, targetId: string) {
+    return previewLenderMerge(await resolvePilotOrganizationId(), sourceId, targetId);
+  }
+
+  async mergeLenders(input: {
+    sourceId: string;
+    targetId: string;
+    actorUserId: string;
+    actorName?: string;
+    reason: string;
+  }) {
+    return executeLenderMerge({
+      organizationId: await resolvePilotOrganizationId(),
+      ...input,
+    });
+  }
+
 
 
   async getLenderById(id: string) {
-
-    return lenderRegistryRepository.findLenderById(id);
-
+    const organizationId = await resolvePilotOrganizationId();
+    const lender = await lenderRegistryRepository.findLenderById(id);
+    return lender?.organizationId === organizationId ? lender : null;
   }
 
 
@@ -376,6 +398,32 @@ export class LenderRegistryService {
       : null;
 
     if (duplicate) throw new Error(`Lender "${input.code}" already exists.`);
+
+    const normalizeIdentity = (value?: string | null) =>
+      (value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const proposedNames = new Set(
+      [input.label, input.displayName, input.legalName]
+        .map(normalizeIdentity)
+        .filter(Boolean),
+    );
+    const existingLenders = await lenderRegistryRepository.queryLenders(organizationId, {
+      pageSize: 5000,
+      status: "all",
+      enabled: "all",
+    });
+    const likelyDuplicate = existingLenders.items.find((row) => {
+      const names = [row.label, row.displayName, row.legalName]
+        .map(normalizeIdentity)
+        .filter(Boolean);
+      return names.some((name) => proposedNames.has(name)) ||
+        Boolean(input.rbiRegistrationNumber && row.rbiRegistrationNumber &&
+          normalizeIdentity(input.rbiRegistrationNumber) === normalizeIdentity(row.rbiRegistrationNumber));
+    });
+    if (likelyDuplicate) {
+      throw new Error(
+        `Possible duplicate lender: ${likelyDuplicate.label} (${likelyDuplicate.code}). Review or merge the existing master before creating another.`,
+      );
+    }
 
 
 
@@ -413,7 +461,7 @@ export class LenderRegistryService {
 
     const existing = await lenderRegistryRepository.findLenderById(id);
 
-    if (!existing) throw new Error("Lender not found.");
+    if (!existing || existing.organizationId !== organizationId) throw new Error("Lender not found.");
 
 
 
@@ -467,7 +515,7 @@ export class LenderRegistryService {
 
     const existing = await lenderRegistryRepository.findLenderById(id);
 
-    if (!existing) throw new Error("Lender not found.");
+    if (!existing || existing.organizationId !== organizationId) throw new Error("Lender not found.");
 
 
 
@@ -507,7 +555,7 @@ export class LenderRegistryService {
 
     const existing = await lenderRegistryRepository.findLenderById(id);
 
-    if (!existing) throw new Error("Lender not found.");
+    if (!existing || existing.organizationId !== organizationId) throw new Error("Lender not found.");
 
 
 
@@ -557,7 +605,15 @@ export class LenderRegistryService {
 
     const existing = await lenderRegistryRepository.findLenderById(id);
 
-    if (!existing) throw new Error("Lender not found.");
+    if (!existing || existing.organizationId !== organizationId) throw new Error("Lender not found.");
+
+    const dependencies = await inspectLenderDependencies(organizationId, id);
+    const dependencyTotal = Object.values(dependencies).reduce((sum, count) => sum + count, 0);
+    if (dependencyTotal > 0) {
+      throw new Error(
+        `Lender has ${dependencyTotal} durable dependency reference(s). Merge it into a canonical lender instead of deleting it.`,
+      );
+    }
 
 
 
@@ -604,8 +660,9 @@ export class LenderRegistryService {
 
 
   async getProgramById(id: string) {
-
-    return lenderRegistryRepository.findProgramById(id);
+    const organizationId = await resolvePilotOrganizationId();
+    const program = await lenderRegistryRepository.findProgramById(id);
+    return program?.organizationId === organizationId ? program : null;
 
   }
 

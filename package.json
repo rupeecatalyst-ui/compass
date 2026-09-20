@@ -92,6 +92,7 @@
     "verify:co-tasks-planner-003": "node scripts/co-tasks-planner-003-verify.mjs",
     "verify:co-ete-recurring-001": "node scripts/co-ete-recurring-001-verify.mjs",
     "verify:co-arch-eld-001": "node scripts/co-arch-eld-001-verify.mjs",
+    "verify:co-lender-360-p0-data-integrity": "node --import tsx scripts/co-lender-360-p0-data-integrity-verify.mjs",
     "verify:co-mc-002": "node scripts/co-mc-002-verify.mjs",
     "verify:co-doc-003": "node scripts/co-doc-003-verify.mjs",
     "verify:co-doc-005": "node scripts/co-doc-005-verify.mjs",
