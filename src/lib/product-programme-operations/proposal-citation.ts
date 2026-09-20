@@ -20,9 +20,11 @@ export function citePublishedProgramme(program: EnterpriseLenderProgramRecord): 
   const roi =
     program.minRoiExact && program.maxRoiExact
       ? `${program.minRoiExact}–${program.maxRoiExact}%`
-      : program.minRoiExact || program.maxRoiExact
-        ? `${program.minRoiExact ?? "n/a"}–${program.maxRoiExact ?? "n/a"}%`
-        : null;
+      : program.minRoiExact
+        ? `From ${program.minRoiExact}%`
+        : program.maxRoiExact
+          ? `Up to ${program.maxRoiExact}%`
+          : null;
   return {
     lenderId: program.lenderId,
     programmeId: program.id,

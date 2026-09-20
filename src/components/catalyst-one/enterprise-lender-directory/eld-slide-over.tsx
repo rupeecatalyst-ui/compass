@@ -643,9 +643,13 @@ export function EnterpriseLenderDirectorySlideOver({
                                   : null,
                                 p.minRoiExact && p.maxRoiExact
                                   ? `ROI ${p.minRoiExact}–${p.maxRoiExact}%`
-                                  : p.roiPercent != null
-                                    ? `ROI ${p.roiPercent}%`
-                                    : null,
+                                  : p.minRoiExact
+                                    ? `ROI From ${p.minRoiExact}%`
+                                    : p.maxRoiExact
+                                      ? `ROI Up to ${p.maxRoiExact}%`
+                                      : p.roiPercent != null
+                                        ? `ROI ${p.roiPercent}%`
+                                        : null,
                                 p.processingFeeLabel ||
                                   (p.processingFeePct != null
                                     ? `PF ${p.processingFeePct}%`

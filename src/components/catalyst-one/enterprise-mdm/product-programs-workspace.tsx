@@ -366,6 +366,10 @@ export function ProductProgramsWorkspace() {
                   <TableCell className="text-xs">
                     {row.minRoiExact && row.maxRoiExact
                       ? `${row.minRoiExact}–${row.maxRoiExact}%`
+                      : row.minRoiExact
+                        ? `From ${row.minRoiExact}%`
+                        : row.maxRoiExact
+                          ? `Up to ${row.maxRoiExact}%`
                       : row.roiPercent != null
                         ? `${row.roiPercent}%`
                         : "—"}

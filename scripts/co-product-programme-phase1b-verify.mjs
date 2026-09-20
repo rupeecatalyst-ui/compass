@@ -11,6 +11,8 @@ import { PROGRAMME_BAT_FIXTURES } from "../src/lib/product-programme-operations/
 import { parseStructuredProgrammePayload } from "../src/lib/product-programme-operations/request-schema.ts";
 import { structuredPayloadToCreateInput, structuredPayloadToUpdateInput } from "../src/lib/product-programme-operations/to-registry-input.ts";
 import { calculateSalariedFoir, maxEmiFromFoirCap } from "../src/lib/home-loan-recommendation/foir.ts";
+import { applyStricterLenderLtvCap, calculateRegulatoryMaxLoanAmount } from "../src/lib/home-loan-recommendation/rbi-ltv.ts";
+import { citePublishedProgramme } from "../src/lib/product-programme-operations/proposal-citation.ts";
 import { fetchPublishedPolicyVersions, loadProgrammesAndPolicyVersions, toPublishedPolicyOptions } from "../src/components/catalyst-one/enterprise-mdm/product-programs-workspace.tsx";
 import { ProductProgrammeEditor } from "../src/components/catalyst-one/product-programme-operations/programme-editor.tsx";
 
@@ -27,6 +29,18 @@ assert.equal(parseStructuredProgrammePayload({ lenderId: "l", code: "c", label: 
 assert.throws(() => parseStructuredProgrammePayload({ lenderId: "l", code: "c", label: "n", maxFoirExact: "55.1234567" }));
 assert.ok(complete({ ...salaried, policyVersionId: null }).some((error) => error.field === "policyVersionId"));
 assert.ok(complete({ ...salaried, minLoanAmountExact: null }).some((error) => error.field === "minLoanAmountExact"));
+for (const productCode of ["HOME-LOAN", "HOME_LOAN", "HOME_LOAN_BT"]) {
+  const errors = complete({
+    ...salaried,
+    productCode,
+    transactionTypes: productCode === "HOME_LOAN_BT" ? ["balance_transfer"] : salaried.transactionTypes,
+    maxRoiExact: null,
+    minLtvExact: null,
+    maxLtvExact: null,
+  });
+  assert.equal(errors.some((error) => ["maxRoiExact", "minLtvExact", "maxLtvExact"].includes(error.field)), false);
+}
+assert.deepEqual(complete({ ...salaried, minLtvExact: "50.000000", maxLtvExact: "80.000000" }), []);
 
 const selfEmployed = PROGRAMME_BAT_FIXTURES.homeLoanSelfEmployed({
   minFoirExact: null, maxFoirExact: null, minDbrExact: null, maxDbrExact: null,
@@ -38,6 +52,28 @@ assert.deepEqual(complete(mixed), []);
 
 assert.equal(maxEmiFromFoirCap({ eligibleMonthlyIncomeRupees: 100000, existingMonthlyEmiRupees: 10000, maxFoirPercent: 50 }), 40000);
 assert.equal(calculateSalariedFoir({ eligibleMonthlyIncomeRupees: 100000, existingMonthlyEmiRupees: 10000, proposedMonthlyEmiRupees: 40000, replacedHomeLoanEmiRupees: 20000, isBalanceTransfer: true, maxFoirPercent: 50 }).foirPercent, 50);
+const regulatoryLtv = calculateRegulatoryMaxLoanAmount({ propertyValueRupees: 50_00_000 });
+assert.equal(
+  applyStricterLenderLtvCap({
+    regulatoryMaxRupees: regulatoryLtv.maxValidLoanAmountRupees,
+    propertyValueRupees: 50_00_000,
+    lenderMaxLtvPercent: null,
+  }).amountRupees,
+  regulatoryLtv.maxValidLoanAmountRupees,
+);
+assert.equal(
+  citePublishedProgramme({
+    ...salaried,
+    id: "programme-1",
+    minRoiExact: "7.250000",
+    maxRoiExact: null,
+    enabled: true,
+    isLivePublished: true,
+    publicationState: "published",
+    completenessState: "complete",
+  }).roiRange,
+  "From 7.250000%",
+);
 
 const schema = source("prisma/schema.prisma");
 const repository = source("server/repositories/credit-risk-policy/durable-policy.repository.ts");

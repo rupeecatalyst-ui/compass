@@ -21,7 +21,6 @@ export function evaluateProgrammeCompleteness(
   require("minLoanAmountExact", Boolean(payload.minLoanAmountExact), "Minimum loan amount is required.");
   require("maxLoanAmountExact", Boolean(payload.maxLoanAmountExact), "Maximum loan amount is required.");
   require("minRoiExact", Boolean(payload.minRoiExact), "Minimum ROI is required.");
-  require("maxRoiExact", Boolean(payload.maxRoiExact), "Maximum ROI is required.");
   require("rateType", Boolean(payload.rateType), "Rate type is required.");
   require("benchmarkCode", Boolean(payload.benchmarkCode), "Benchmark is required.");
   require("minCibil", payload.minCibil != null, "Minimum CIBIL is required.");
@@ -60,11 +59,9 @@ export function evaluateProgrammeCompleteness(
     );
   }
 
-  const productCode = (payload.productCode ?? "").toUpperCase();
+  const productCode = (payload.productCode ?? "").toUpperCase().replaceAll("-", "_");
   if (PROPERTY_PRODUCT_CODES.has(productCode)) {
     require("propertyTypes", payload.propertyTypes.length > 0, "Property type is required for this product.");
-    require("minLtvExact", Boolean(payload.minLtvExact), "Minimum LTV is required.");
-    require("maxLtvExact", Boolean(payload.maxLtvExact), "Maximum LTV is required.");
   } else if (payload.propertyTypes.some((id) => id !== "not_applicable")) {
     require(
       "propertyTypes",

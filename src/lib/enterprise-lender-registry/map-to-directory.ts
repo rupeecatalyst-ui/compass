@@ -85,6 +85,10 @@ export function mapRegistryProgramToDirectoryRow(
     roiLabel:
       program.minRoiExact && program.maxRoiExact
         ? `${program.minRoiExact}–${program.maxRoiExact}%`
+        : program.minRoiExact
+          ? `From ${program.minRoiExact}%`
+          : program.maxRoiExact
+            ? `Up to ${program.maxRoiExact}%`
         : roiExact
           ? `${Number(roiExact).toFixed(2)}%`
           : "—",
