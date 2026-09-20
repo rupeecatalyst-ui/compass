@@ -4,7 +4,10 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const APPROVED = "20260917120000_co_credit_risk_policy_lifecycle_status";
+const APPROVED = new Set([
+  "20260917120000_co_credit_risk_policy_lifecycle_status",
+  "20260920160000_co_hl_property_model",
+]);
 const MIGRATION_NAME = /^\d{14}_[a-z0-9_]+$/;
 const PREFIX = "[prisma-status-probe]";
 
@@ -38,7 +41,7 @@ export function classifyStatus(output, exitCode, migrationNames) {
     if (!pending.length || (count && Number(count[1]) !== pending.length)) {
       return { kind: "UNCLASSIFIED", pending: [] };
     }
-    return { kind: pending.length === 1 && pending[0] === APPROVED ? "APPROVED_PENDING_ONLY" : "OTHER_PENDING", pending };
+    return { kind: pending.every((name) => APPROVED.has(name)) ? "APPROVED_PENDING_ONLY" : "OTHER_PENDING", pending };
   }
   if (exitCode === 0 && /Database schema is up to date/i.test(output)) {
     return { kind: "UP_TO_DATE", pending: [] };
