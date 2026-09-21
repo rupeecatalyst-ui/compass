@@ -1,6 +1,6 @@
 /**
  * Hostinger-only launcher for the committed Stage 1 read-only certification.
- * It validates the reviewed one-commit lineage before starting the harness and
+ * It validates the reviewed two-commit lineage before starting the harness and
  * intentionally fails the build after a successful certification.
  */
 import { spawnSync } from "node:child_process";
@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const APPROVED_PARENT = "a960af4233e24c18a58082344ec119bd308814b7";
+export const APPROVED_WRAPPER_COMMIT = "ca91473ce7a13976ff17db9be6e6d805b2dcea4c";
 export const PASS_MARKER =
   "[stage1-production-certification] PASS_RECORDED_INTENTIONAL_DEPLOYMENT_ABORT";
 export const INTENTIONAL_ABORT_EXIT = 86;
@@ -67,13 +68,17 @@ function requireGit(git, args, code) {
 export function verifyRepositoryIdentity(git) {
   const parents = normalizeLines(requireGit(git, ["rev-list", "--parents", "-n", "1", "HEAD"], "GIT_HEAD_UNAVAILABLE"))[0]?.split(/\s+/) ?? [];
   if (parents.length !== 2) fail("HEAD_PARENT_COUNT_INVALID");
-  if (parents[1] !== APPROVED_PARENT) fail("HEAD_PARENT_UNAPPROVED");
+  if (parents[1] !== APPROVED_WRAPPER_COMMIT) fail("HEAD_PARENT_UNAPPROVED");
+
+  const wrapperParents = normalizeLines(requireGit(git, ["rev-list", "--parents", "-n", "1", APPROVED_WRAPPER_COMMIT], "WRAPPER_COMMIT_UNAVAILABLE"))[0]?.split(/\s+/) ?? [];
+  if (wrapperParents.length !== 2 || wrapperParents[0] !== APPROVED_WRAPPER_COMMIT ||
+      wrapperParents[1] !== APPROVED_PARENT) fail("WRAPPER_LINEAGE_UNAPPROVED");
 
   const ancestor = git(["merge-base", "--is-ancestor", APPROVED_PARENT, "HEAD"]);
   if (ancestor.error || ancestor.status !== 0) fail("APPROVED_PARENT_NOT_ANCESTOR");
 
   const count = requireGit(git, ["rev-list", "--count", `${APPROVED_PARENT}..HEAD`], "COMMIT_COUNT_UNAVAILABLE");
-  if (count !== "1") fail("COMMIT_COUNT_INVALID");
+  if (count !== "2") fail("COMMIT_COUNT_INVALID");
 
   const status = requireGit(git, ["status", "--porcelain", "--untracked-files=all"], "WORKTREE_STATUS_UNAVAILABLE");
   if (status) fail("WORKTREE_NOT_CLEAN");
@@ -93,6 +98,20 @@ export function verifyRepositoryIdentity(git) {
 
   const harness = git(["diff", "--quiet", APPROVED_PARENT, "HEAD", "--", HARNESS_PATH]);
   if (harness.error || harness.status !== 0) fail("HARNESS_IDENTITY_MISMATCH");
+
+  // Compare complete committed text, including whitespace: only this insertion
+  // into the immutable wrapper commit's package.json is authorized.
+  const packages = [APPROVED_WRAPPER_COMMIT, "HEAD"].map((ref) => {
+    const result = git(["show", `${ref}:package.json`]);
+    if (result.error || result.status !== 0) fail("PACKAGE_IDENTITY_UNAVAILABLE");
+    return String(result.output ?? "");
+  });
+  const canonicalEntry = '    "cert:canonical-lender-stage1:production-readonly": "node scripts/co-c1-canonical-lender-recommendation-stage1-hostinger-certify.mjs",';
+  const aliasEntry = '    "cert:stage1": "npm run cert:canonical-lender-stage1:production-readonly",';
+  const parts = packages[0].split(canonicalEntry);
+  if (parts.length !== 2 || packages[1] !== `${parts[0]}${canonicalEntry}\n${aliasEntry}${parts[1]}`) {
+    fail("PACKAGE_ALIAS_IDENTITY_MISMATCH");
+  }
 }
 
 export function verifyMigrationFlag(value) {
