@@ -8,17 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { appendEdcTimelineEntry } from "@/lib/enterprise-dialogue-center";
 import { isBusinessCompletionRequiredError } from "@/lib/business-completion";
-import { deriveChanakyaOpportunityRecommendations } from "@/lib/chanakya-opportunity-recommendations";
+import { useChanakyaCanonicalRecommendations } from "@/hooks/use-chanakya-canonical-recommendations";
 import { resolveStatedDraftForFile } from "@/lib/lead-opportunity-journey/stated-draft";
 import { resolveOpportunityRuntimeCaseSync } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import { getExcludedCompetitionKeys } from "@/lib/strategic-competition";
 import {
-  buildCanonicalLenderRef,
   isCanonicalDealLenderOption,
   isProvisionalBfLenderCode,
   isSoftGoLiveLenderId,
   listCanonicalEnterpriseLenderOptionsAsync,
-  resolvePublishedLenderOption,
 } from "@/lib/enterprise-lender-registry/published-directory";
 import {
   ensureLoanWorkspaceForOpportunityAsync,
@@ -31,7 +29,6 @@ import {
   removeStrategicShortlistItem,
   runMoveToDealTransition,
   syncShortlistToIdentified,
-  upsertStrategicAnalysis,
   upsertStrategicShortlistItem,
   type StrategicLenderSelectedBy,
   type StrategicLenderShortlistItem,
@@ -54,7 +51,9 @@ type BoardInstitution = {
   lenderCode?: string;
   productRefs: string[];
   businessMappingRefs: string[];
-  successProbability: number;
+  successProbability?: number;
+  lenderScore?: null;
+  canonicalRecommendation?: boolean;
   eligibility: string;
   eligibilityNote: string;
   recommended: boolean;
@@ -64,14 +63,13 @@ type BoardInstitution = {
 /**
  * LIFE three-column strategy board — decision support only.
  * BAT #11 — Chanakya column consumes canonical Opportunity recommendation SSOT
- * (`deriveChanakyaOpportunityRecommendations`). Manual column stays independent.
+ * (server canonical recommendation service). Manual column stays independent.
  * Select → Execution Queue → Move to Deal → Deal Workspace.
  */
 export function WorkspaceLifeStrategyBoard() {
   const router = useRouter();
   const {
     opportunityId,
-    opportunityNumber,
     registryOpportunity,
     registryLoadStatus,
     contact,
@@ -196,70 +194,17 @@ export function WorkspaceLifeStrategyBoard() {
     };
   }, [opportunityId, debouncedSearch, competitionTick]);
 
-  /** Same canonical engine as Opportunity Workspace → Chanakya Recommendation tab. */
-  const chanakyaResult = useMemo(() => {
-    if (!opportunityId) {
-      return {
-        ready: false as const,
-        guidance: ["Open an Opportunity to view Chanakya Recommendations."],
-        missingRequirements: [],
-        recommendations: [] as ReturnType<
-          typeof deriveChanakyaOpportunityRecommendations
-        >["recommendations"],
-        analyzedAt: new Date().toISOString(),
-      };
-    }
-    const file =
-      leadCaseFile ?? resolveOpportunityRuntimeCaseSync({ opportunityId }) ?? null;
-    if (!file) {
-      return {
-        ready: false as const,
-        guidance: [
-          "Opportunity context is still loading. Complete Lead Information / Opportunity Setup, then return here.",
-        ],
-        missingRequirements: [],
-        recommendations: [] as ReturnType<
-          typeof deriveChanakyaOpportunityRecommendations
-        >["recommendations"],
-        analyzedAt: new Date().toISOString(),
-      };
-    }
-    return deriveChanakyaOpportunityRecommendations({
-      file,
-      stated: resolveStatedDraftForFile(file),
-    });
-  }, [
-    opportunityId,
-    leadCaseFile,
+  const recommendationFile = leadCaseFile ?? resolveOpportunityRuntimeCaseSync({ opportunityId }) ?? null;
+  const canonical = useChanakyaCanonicalRecommendations(
+    opportunityId, recommendationFile,
+    recommendationFile ? resolveStatedDraftForFile(recommendationFile) : undefined,
     refreshKey,
-    competitionTick,
-    contact?.city,
-    contact?.id,
-    productLabel,
-    loanAmountLabel,
-  ]);
-
-  useEffect(() => {
-    if (!opportunityId || !chanakyaResult.ready) return;
-    const excluded = getExcludedCompetitionKeys(opportunityId);
-    const rows = chanakyaResult.recommendations.filter(
-      (r) => !excluded.has(normalizeLenderKey(r.lenderRef || r.lenderName)),
-    );
-    upsertStrategicAnalysis(
-      opportunityId,
-      rows.map((r) => ({
-        lenderRef: r.lenderRef,
-        lenderName: r.lenderName,
-        product: productLabel,
-        productRefs: [],
-        successProbability: r.confidencePct,
-        reasonForRecommendation: r.reason,
-        strategicRank: r.rank,
-        specialNotes: "Recommended by Chanakya Opportunity Engine",
-        createdBy: "Chanakya",
-      })),
-    );
-  }, [opportunityId, chanakyaResult, productLabel]);
+  );
+  const chanakyaResult = useMemo(() => ({
+    ready: canonical.result?.status === "ready",
+    guidance: [canonical.guidance],
+    recommendations: canonical.result?.recommendations ?? [],
+  }), [canonical.result, canonical.guidance]);
 
   const queueKeys = useMemo(
     () => new Set(queue.map((q) => normalizeLenderKey(q.lenderRef || q.lenderName))),
@@ -271,28 +216,28 @@ export function WorkspaceLifeStrategyBoard() {
     const excluded = getExcludedCompetitionKeys(opportunityId);
     const rows: BoardInstitution[] = [];
     for (const r of chanakyaResult.recommendations) {
-      if (excluded.has(normalizeLenderKey(r.lenderRef || r.lenderName))) continue;
-      if (queueKeys.has(normalizeLenderKey(r.lenderRef || r.lenderName))) continue;
-      const resolved =
-        resolvePublishedLenderOption(r.enterpriseLenderId || r.lenderRef) ||
-        resolvePublishedLenderOption(r.lenderName);
-      if (!resolved || !isCanonicalDealLenderOption(resolved)) continue;
+      if (excluded.has(normalizeLenderKey(`lender:${r.lenderId}`))) continue;
+      if (queueKeys.has(normalizeLenderKey(`lender:${r.lenderId}`))) continue;
+      const lenderRef = `lender:${r.lenderId}`;
+      if (rows.some((row) => row.lenderRef === lenderRef)) continue;
       rows.push({
-        lenderRef: buildCanonicalLenderRef(resolved),
-        lenderName: resolved.displayName || resolved.code || r.lenderName,
-        enterpriseLenderId: resolved.id,
-        lenderCode: resolved.seedKey || resolved.code,
+        lenderRef,
+        lenderName: r.lenderName,
+        enterpriseLenderId: r.lenderId,
         productRefs: [],
         businessMappingRefs: [],
-        successProbability: r.confidencePct,
-        eligibility: "eligible",
-        eligibilityNote: "Chanakya Recommendation Engine",
+        canonicalRecommendation: true,
+        lenderScore: r.lenderScore,
+        eligibility: r.matchState,
+        eligibilityNote: r.matchState.replaceAll("_", " "),
         recommended: true,
-        reason: r.reason,
+        reason: r.customerExplanation,
       });
     }
     return rows;
-  }, [opportunityId, chanakyaResult, queueKeys]);
+  // Competition exclusions live in external storage; its event counter invalidates this list.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opportunityId, chanakyaResult, queueKeys, competitionTick]);
 
   const manualPool = useMemo(() => {
     return registryManual.filter((i) => !queueKeys.has(normalizeLenderKey(i.lenderRef)));
@@ -377,6 +322,8 @@ export function WorkspaceLifeStrategyBoard() {
         productRefs: inst.productRefs,
         successProbability: inst.successProbability,
         strategicScore: inst.successProbability,
+        canonicalRecommendation: inst.canonicalRecommendation,
+        lenderScore: inst.lenderScore,
         reasonForRecommendation: inst.reason,
         specialNotes:
           selectedBy === "chanakya"
@@ -564,7 +511,7 @@ export function WorkspaceLifeStrategyBoard() {
         {/* Column 1 — Chanakya Recommendation (canonical SSOT) */}
         <StrategyColumn
           title="Chanakya Recommendation"
-          subtitle="Canonical engine · competition excluded"
+          subtitle="Assessed offer / ROI order · no governed lender score"
           accent="amber"
         >
           {recommendations.length === 0 ? (
@@ -675,7 +622,7 @@ export function WorkspaceLifeStrategyBoard() {
                       </p>
                     </div>
                     <span className="shrink-0 rounded-md bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-violet-100">
-                      {Math.round(item.strategicScore ?? item.successProbability ?? 0)}%
+                      {item.canonicalRecommendation ? "Score unavailable" : `${Math.round(item.strategicScore ?? item.successProbability ?? 0)}%`}
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
@@ -779,7 +726,7 @@ function LenderCard({
   disabled,
 }: {
   name: string;
-  score: number;
+  score?: number;
   reason: string;
   eligibility: string;
   actionLabel: string;
@@ -792,7 +739,7 @@ function LenderCard({
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 truncate text-sm font-semibold text-zinc-50">{name}</p>
         <span className="shrink-0 rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-zinc-100">
-          {Math.round(score)}%
+          {score == null ? "Score unavailable" : `${Math.round(score)}%`}
         </span>
       </div>
       {!compact && (

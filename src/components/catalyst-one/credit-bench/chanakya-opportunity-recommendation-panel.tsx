@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
   ChanakyaGapInlineField,
@@ -9,7 +9,7 @@ import {
 } from "@/components/catalyst-one/credit-bench/chanakya-gap-inline-field";
 import { ChanakyaLoadingExperience } from "@/components/catalyst-one/chanakya-loading";
 import {
-  deriveChanakyaOpportunityRecommendations,
+  listChanakyaRecommendationGaps,
 } from "@/lib/chanakya-opportunity-recommendations";
 import {
   buildLeadInformationPatchBody,
@@ -27,17 +27,7 @@ import { loadLoanFiles, saveLoanFiles } from "@/lib/loan-files-storage";
 import { isOpportunityRuntimeCase } from "@/lib/lead-opportunity-journey/opportunity-runtime-adapter";
 import type { EcwStatedInformationDraft } from "@/types/enterprise-credit-workspace";
 import type { LoanFile } from "@/types/catalyst-one";
-import { cn } from "@/lib/utils";
-
-function Stars({ count }: { count: number }) {
-  const n = Math.max(1, Math.min(5, Math.round(count)));
-  return (
-    <span className="tracking-tight text-amber-600 dark:text-amber-400" aria-label={`${n} of 5 stars`}>
-      {"★".repeat(n)}
-      <span className="text-muted-foreground/40">{"☆".repeat(5 - n)}</span>
-    </span>
-  );
-}
+import { useChanakyaCanonicalRecommendations } from "@/hooks/use-chanakya-canonical-recommendations";
 
 /**
  * BAT #10 / #21 / #25 — Interactive Chanakya lender recommendations.
@@ -59,27 +49,19 @@ export function ChanakyaOpportunityRecommendationPanel({
   onFileChange: (patch: Partial<LoanFile>) => void;
   onAfterPersist?: () => void | Promise<void>;
 }) {
-  const result = useMemo(
-    () => deriveChanakyaOpportunityRecommendations({ file, stated }),
-    [file, stated],
+  const [assessmentRevision, setAssessmentRevision] = useState(0);
+  const canonical = useChanakyaCanonicalRecommendations(
+    opportunityId || file.enterpriseOpportunityId || (isOpportunityRuntimeCase(file) ? file.id : null), file, stated, assessmentRevision,
   );
-
+  const gaps = useMemo(() => listChanakyaRecommendationGaps(file, stated), [file, stated]);
+  const result = {
+    ready: canonical.result?.status === "ready",
+    recommendations: canonical.result?.recommendations ?? [],
+    missingRequirements: gaps,
+    guidance: [canonical.guidance],
+  };
+  const generating = canonical.loading;
   const [savingGapId, setSavingGapId] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const wasReadyRef = useRef(result.ready);
-
-  useEffect(() => {
-    if (!wasReadyRef.current && result.ready) {
-      setGenerating(true);
-      const t = window.setTimeout(() => setGenerating(false), 900);
-      wasReadyRef.current = true;
-      return () => window.clearTimeout(t);
-    }
-    if (!result.ready) {
-      wasReadyRef.current = false;
-      setGenerating(false);
-    }
-  }, [result.ready]);
 
   const persistOpportunityPatch = useCallback(
     async (payload: Extract<ChanakyaGapSavePayload, { kind: "opportunity" }>) => {
@@ -139,6 +121,7 @@ export function ChanakyaOpportunityRecommendationPanel({
         ),
       );
       await onAfterPersist?.();
+      setAssessmentRevision((value) => value + 1);
     },
     [file, onAfterPersist, onFileChange, opportunityId],
   );
@@ -189,52 +172,17 @@ export function ChanakyaOpportunityRecommendationPanel({
       </div>
 
       <div className="mt-4 space-y-3">
-        {showRecommendations &&
-          result.recommendations.map((row) => (
-            <article
-              key={`${row.rank}-${row.lenderName}`}
-              className={cn(
-                "rounded-xl border border-border/70 bg-muted/15 px-3.5 py-3",
-                row.rank === 1 && "border-teal-500/35 bg-teal-500/5",
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-2">
-                  <span
-                    className={cn(
-                      "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-                      row.rank === 1
-                        ? "bg-teal-600 text-white"
-                        : "bg-muted text-muted-foreground",
-                    )}
-                    aria-hidden
-                  >
-                    <Check className="h-3 w-3" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Stars count={row.stars} />
-                      <h3 className="text-sm font-semibold text-foreground">{row.lenderName}</h3>
-                      <span className="rounded-md border border-border/60 bg-background/80 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Score {row.score}
-                      </span>
-                    </div>
-                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                      {row.reason}
-                    </p>
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Confidence
-                  </p>
-                  <p className="text-sm font-semibold tabular-nums text-teal-800 dark:text-teal-200">
-                    {row.confidencePct}%
-                  </p>
-                </div>
-              </div>
-            </article>
-          ))}
+        <p className="text-xs text-muted-foreground">
+          Ordered by assessed offer and applicable ROI. No governed lender score or final business ranking is available.
+        </p>
+        {showRecommendations && result.recommendations.map((row) => (
+          <article key={row.programmeId} className="rounded-xl border border-border/70 px-3.5 py-3">
+            <h3 className="text-sm font-semibold">{row.lenderName}</h3>
+            <p className="text-xs text-muted-foreground">{row.programmeCode} &middot; {row.matchState.replaceAll("_", " ")}</p>
+            <p className="mt-1.5 text-xs">{row.customerExplanation}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Lender score: unavailable</p>
+          </article>
+        ))}
 
         {generating && (
           <ChanakyaLoadingExperience

@@ -51,6 +51,9 @@ export interface StrategicLenderShortlistItem {
   productRefs?: string[];
   expectedRoi?: number;
   successProbability?: number;
+  /** Preserve unscored canonical assessments without legacy enrichment. */
+  canonicalRecommendation?: boolean;
+  lenderScore?: null;
   specialNotes?: string;
   branchName?: string;
   executorName?: string;
@@ -146,7 +149,7 @@ export function upsertStrategicAnalysis(
   // Re-rank by strategic score descending
   bucket.analysed = bucket.analysed
     .sort((a, b) => (b.strategicScore ?? 0) - (a.strategicScore ?? 0))
-    .map((item, i) => ({ ...item, strategicRank: i + 1 }));
+    .map((item, i) => ({ ...item, strategicRank: item.canonicalRecommendation ? undefined : i + 1 }));
   bucket.updatedAt = new Date().toISOString();
   map[opportunityId] = bucket;
   writeAnalysisMap(map);
@@ -292,6 +295,24 @@ function enrichStrategyFields(
   item: Partial<StrategicLenderShortlistItem> & { lenderRef: string; lenderName: string },
   index: number,
 ): StrategicLenderShortlistItem {
+  if (item.canonicalRecommendation) {
+    return {
+      ...item,
+      lenderScore: null,
+      successProbability: undefined,
+      strategicScore: undefined,
+      strategicRank: undefined,
+      expectedRoi: item.expectedRoi,
+      foirAssessment: undefined,
+      cibilAssessment: undefined,
+      incomeFit: undefined,
+      policyFit: undefined,
+      expectedTurnaround: undefined,
+      chanakyaRecommendation: undefined,
+      createdBy: item.createdBy ?? "Chanakya",
+      createdAt: item.createdAt ?? new Date().toISOString(),
+    };
+  }
   const score =
     item.strategicScore ??
     item.successProbability ??
@@ -308,6 +329,8 @@ function enrichStrategyFields(
   return {
     lenderRef: item.lenderRef,
     lenderName: item.lenderName,
+    canonicalRecommendation: undefined,
+    lenderScore: undefined,
     enterpriseLenderId: item.enterpriseLenderId,
     lenderCode: item.lenderCode,
     product: item.product,
@@ -376,6 +399,7 @@ function probabilityFromScore(score?: number): LenderProbability {
 
 function toCasePatch(item: StrategicLenderShortlistItem, opportunityId: string, actor: string, now: string) {
   return {
+    ...(item.canonicalRecommendation ? { probability: undefined } : {}),
     product: item.product,
     expectedRoi: item.expectedRoi,
     specialNotes: item.specialNotes,
@@ -467,7 +491,7 @@ export function syncShortlistToIdentified(
       status: "active",
       caseStage: "identified",
       expectedLoanAmount: file.requiredAmount,
-      probability: probabilityFromScore(item.strategicScore ?? item.successProbability),
+      probability: item.canonicalRecommendation ? undefined : probabilityFromScore(item.strategicScore ?? item.successProbability),
       isPrimary: cases.length === 0,
       createdBy: item.createdBy || actor,
       createdAt: item.createdAt || now,
