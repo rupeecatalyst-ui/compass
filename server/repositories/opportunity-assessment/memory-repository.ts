@@ -11,20 +11,9 @@ import type {
   OpportunityAssessmentRecommendationRunRecord,
   OpportunityAssessmentRevisionRecord,
 } from "@server/services/opportunity-assessment/types";
+import { AssessmentCommandUniquenessCollision, type OpportunityAssessmentRepository } from "./contract";
 
-export class AssessmentCommandUniquenessCollision extends Error {
-  readonly organizationId: string;
-  readonly commandId: string;
-  readonly existingRevisionId: string;
-
-  constructor(organizationId: string, commandId: string, existingRevisionId: string) {
-    super("COMMAND_UNIQUENESS_COLLISION");
-    this.name = "AssessmentCommandUniquenessCollision";
-    this.organizationId = organizationId;
-    this.commandId = commandId;
-    this.existingRevisionId = existingRevisionId;
-  }
-}
+export { AssessmentCommandUniquenessCollision };
 
 export type OpportunityAssessmentStore = {
   assessments: Map<string, OpportunityAssessmentRecord>;
@@ -62,7 +51,7 @@ function commandKey(organizationId: string, commandId: string) {
   return `${organizationId}:${commandId}`;
 }
 
-export class MemoryOpportunityAssessmentRepository {
+export class MemoryOpportunityAssessmentRepository implements OpportunityAssessmentRepository {
   failNextTransactionAfter: "revision-insert" | null = null;
   private queue: Promise<void> = Promise.resolve();
 

@@ -40,6 +40,7 @@
     "verify:co-c1-chanakya-stage5c1-opportunity-assessment": "node --conditions=react-server --import tsx scripts/co-c1-chanakya-stage5c1-opportunity-assessment-verify.mjs",
     "verify:co-c1-chanakya-stage5c2-opportunity-assessment-service": "node --conditions=react-server --import tsx scripts/co-c1-chanakya-stage5c2-opportunity-assessment-service-verify.mjs",
     "verify:co-c1-chanakya-stage5c2a-opportunity-assessment-schema": "node --conditions=react-server --import tsx scripts/co-c1-chanakya-stage5c2a-opportunity-assessment-schema-verify.mjs",
+    "verify:co-c1-chanakya-stage5c3-opportunity-assessment-prisma": "node --conditions=react-server --import tsx scripts/co-c1-chanakya-stage5c3-opportunity-assessment-prisma-verify.mjs",
     "verify:co-production-regression-014": "node scripts/co-production-regression-014-verify.mjs",
     "ops:verify": "node scripts/co-ops-002-verify.mjs",
     "gov:verify": "node scripts/co-gov-001-verify.mjs",

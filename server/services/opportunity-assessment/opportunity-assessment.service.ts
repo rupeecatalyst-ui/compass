@@ -8,8 +8,8 @@ import {
 } from "@/types/opportunity-assessment";
 import {
   AssessmentCommandUniquenessCollision,
-  MemoryOpportunityAssessmentRepository,
-} from "@server/repositories/opportunity-assessment/memory-repository";
+  type OpportunityAssessmentRepository,
+} from "@server/repositories/opportunity-assessment/contract";
 import { hashOpportunityAssessmentRevisionContent } from "./content-hash";
 import { OpportunityAssessmentError } from "./errors";
 import { applyTrustedActorToFacts, validateOpportunityAssessmentProvenance } from "./provenance";
@@ -43,7 +43,7 @@ const TERMINAL_RUN_STATUSES = new Set<AssessmentRunResultStatus>([
 ]);
 
 export class OpportunityAssessmentService {
-  constructor(private readonly repo: MemoryOpportunityAssessmentRepository) {}
+  constructor(private readonly repo: OpportunityAssessmentRepository) {}
 
   async getOrCreateAssessment(actor: OpportunityAssessmentActorContext, opportunityId: string) {
     this.assertTrustedOrganization(actor.organizationId);
