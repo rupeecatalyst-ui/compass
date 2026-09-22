@@ -341,6 +341,10 @@ model Organization {
   compassHomeLoanAssessments               CompassHomeLoanAssessment[]
   compassExpertSlaEvents                   CompassExpertSlaEvent[]
   compassOtpChallenges                     CompassOtpChallenge[]
+  /// Stage 5C1 — durable Opportunity Assessment (no fabricated backfill)
+  enterpriseOpportunityAssessments         EnterpriseOpportunityAssessment[]
+  enterpriseOpportunityAssessmentRevisions EnterpriseOpportunityAssessmentRevision[]
+  enterpriseOpportunityAssessmentRecommendationRuns EnterpriseOpportunityAssessmentRecommendationRun[]
   /// CO-CCC-001 — Corporate Compliance Center
   cccLegalEntities                         CccLegalEntity[]
   cccInstitutionProfiles                   CccInstitutionProfile[]
@@ -3226,6 +3230,9 @@ model EnterpriseOpportunity {
   advantageCommitmentEvents EnterpriseOpportunityAdvantageCommitmentEvent[]
   compassHomeLoanAssessment CompassHomeLoanAssessment?
   compassExpertSlaEvents    CompassExpertSlaEvent[]
+  opportunityAssessment     EnterpriseOpportunityAssessment?
+  opportunityAssessmentRevisions EnterpriseOpportunityAssessmentRevision[]
+  opportunityAssessmentRecommendationRuns EnterpriseOpportunityAssessmentRecommendationRun[]
 
   @@unique([organizationId, opportunityNumber], map: "eopp_org_number_key")
   @@unique([organizationId, legacyLoanFileId], map: "eopp_org_legacy_loan_file_key")
@@ -3269,6 +3276,94 @@ model EnterpriseOpportunityAdvantageCommitmentEvent {
   @@index([organizationId, opportunityId, createdAt], map: "eopp_ace_org_opp_created_idx")
   @@index([organizationId, originalCommitmentId], map: "eopp_ace_org_original_idx")
   @@map("enterprise_opportunity_advantage_commitment_events")
+}
+
+/// Stage 5C1 — mutable Opportunity-owned eligibility assessment workspace.
+/// One row per Opportunity. Existing Opportunities may have no row. No business-value defaults.
+/// FOIR and LTV are never persisted as editable truth.
+model EnterpriseOpportunityAssessment {
+  id                                 String   @id @default(cuid())
+  organizationId                     String   @map("organization_id")
+  opportunityId                      String   @unique @map("opportunity_id")
+  currentRevisionId                  String?  @map("current_revision_id")
+  draftFactsJson                     Json     @map("draft_facts_json")
+  sourceFingerprintJson              Json     @map("source_fingerprint_json")
+  readinessStatus                    String   @map("readiness_status")
+  unsupportedReasonCode              String?  @map("unsupported_reason_code")
+  selectedContributorParticipantRef  String?  @map("selected_contributor_participant_ref")
+  rowVersion                         Int      @default(1) @map("row_version")
+  createdByUserId                    String?  @map("created_by_user_id")
+  updatedByUserId                    String?  @map("updated_by_user_id")
+  updatedChannel                     String   @map("updated_channel")
+  createdAt                          DateTime @default(now()) @map("created_at")
+  updatedAt                          DateTime @updatedAt @map("updated_at")
+
+  organization     Organization                            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity      EnterpriseOpportunity                   @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  currentRevision  EnterpriseOpportunityAssessmentRevision? @relation("AssessmentCurrentRevision", fields: [currentRevisionId], references: [id], onDelete: SetNull)
+  revisions        EnterpriseOpportunityAssessmentRevision[] @relation("AssessmentRevisions")
+  recommendationRuns EnterpriseOpportunityAssessmentRecommendationRun[]
+
+  @@index([organizationId, readinessStatus], map: "eoa_org_readiness_idx")
+  @@map("enterprise_opportunity_assessments")
+}
+
+/// Stage 5C1 — immutable assessment revision. Never mutate after insert.
+model EnterpriseOpportunityAssessmentRevision {
+  id                    String    @id @default(cuid())
+  organizationId        String    @map("organization_id")
+  opportunityId         String    @map("opportunity_id")
+  assessmentId          String    @map("assessment_id")
+  revisionNumber        Int       @map("revision_number")
+  factsJson             Json      @map("facts_json")
+  normalizedInputJson   Json      @map("normalized_input_json")
+  sourceFingerprintJson Json      @map("source_fingerprint_json")
+  factsSchemaVersion    String    @map("facts_schema_version")
+  mapperVersion         String    @map("mapper_version")
+  readinessStatus       String    @map("readiness_status")
+  finalizedAt           DateTime  @map("finalized_at")
+  finalizedByUserId     String?   @map("finalized_by_user_id")
+  finalizedChannel      String    @map("finalized_channel")
+  supersededAt          DateTime? @map("superseded_at")
+
+  organization Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity         @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  assessment   EnterpriseOpportunityAssessment @relation("AssessmentRevisions", fields: [assessmentId], references: [id], onDelete: Restrict)
+  currentFor   EnterpriseOpportunityAssessment[] @relation("AssessmentCurrentRevision")
+  recommendationRuns EnterpriseOpportunityAssessmentRecommendationRun[]
+
+  @@unique([assessmentId, revisionNumber], map: "eoar_assessment_revision_key")
+  @@index([organizationId, opportunityId, revisionNumber], map: "eoar_org_opp_revision_idx")
+  @@map("enterprise_opportunity_assessment_revisions")
+}
+
+/// Stage 5C1 — recommendation execution persistence contract only. No mapper/runtime wiring.
+/// Does not store raw policy JSON, lender scores, stars, or confidence.
+model EnterpriseOpportunityAssessmentRecommendationRun {
+  id                         String   @id @default(cuid())
+  organizationId             String   @map("organization_id")
+  opportunityId              String   @map("opportunity_id")
+  assessmentId               String   @map("assessment_id")
+  revisionId                 String   @map("revision_id")
+  assessedAt                 DateTime @map("assessed_at")
+  asOf                       DateTime @map("as_of")
+  mapperVersion              String   @map("mapper_version")
+  calculationVersion         String   @map("calculation_version")
+  factsSchemaVersion         String   @map("facts_schema_version")
+  resultStatus               String   @map("result_status")
+  missingInputCodes          Json     @map("missing_input_codes")
+  rejectedProgrammeCodesJson Json     @map("rejected_programme_codes_json")
+  acceptedProgrammeIdsJson   Json     @map("accepted_programme_ids_json")
+  cibilNotKnownDisclaimer    Boolean  @map("cibil_not_known_disclaimer")
+
+  organization Organization                          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  opportunity  EnterpriseOpportunity                 @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  assessment   EnterpriseOpportunityAssessment       @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  revision     EnterpriseOpportunityAssessmentRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, opportunityId, assessedAt], map: "eoarr_org_opp_assessed_idx")
+  @@index([revisionId], map: "eoarr_revision_idx")
+  @@map("enterprise_opportunity_assessment_recommendation_runs")
 }
 
 /// CO-ARCH-003 Phase 2B Sprint 1 — Accounting Invoice Party Master
