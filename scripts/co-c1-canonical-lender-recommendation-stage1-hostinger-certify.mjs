@@ -1,33 +1,30 @@
 /**
- * Hostinger-only launcher for the committed Stage 1 read-only certification.
- * It validates the reviewed two-commit lineage before starting the harness and
- * intentionally fails the build after a successful certification.
+ * Independent certification launcher for the current canonical recommendation
+ * architecture. Not part of `npm run build`. Does not abort Hostinger deploys.
+ *
+ * Default harness mode: database-free --self-test.
  */
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const APPROVED_PARENT = "a960af4233e24c18a58082344ec119bd308814b7";
-export const APPROVED_WRAPPER_COMMIT = "ca91473ce7a13976ff17db9be6e6d805b2dcea4c";
-export const PASS_MARKER =
-  "[stage1-production-certification] PASS_RECORDED_INTENTIONAL_DEPLOYMENT_ABORT";
-export const INTENTIONAL_ABORT_EXIT = 86;
+export const APPROVED_APPLICATION_BASE = "017acdeef412fcdc49edf9e628ff7d86cd71cb24";
+export const APPROVED_PRODUCTION_BASE = "d080869fec6104b676798589ac5407d1f48a20de";
+export const CERTIFICATION_ID = "CO-CHANAKYA-CANONICAL-CERT-5C5-001";
+export const PASS_MARKER = "[canonical-recommendation-certification] PASS";
 
 const WRAPPER_PATH =
   "scripts/co-c1-canonical-lender-recommendation-stage1-hostinger-certify.mjs";
 const HARNESS_PATH =
   "scripts/co-c1-canonical-lender-recommendation-stage1-production-certify.mjs";
-const ALLOWED_COMMIT_PATHS = ["package.json", WRAPPER_PATH];
-const STAGE1_PATHS = [
-  "scripts/co-c1-canonical-lender-recommendation-stage1-verify.mjs",
-  "server/services/lender-recommendation/canonical-lender-recommendation.service.ts",
-  "server/services/lender-recommendation/index.ts",
-  "server/services/lender-recommendation/policy-rule-parser.ts",
-  "server/services/lender-recommendation/programme-assessment-adapter.ts",
-  "server/services/lender-recommendation/programme-availability.ts",
-  "server/services/lender-recommendation/recommendation-programme.repository.ts",
-  "src/types/canonical-lender-recommendation.ts",
-];
+const MANIFEST_PATH = "scripts/co-c1-canonical-recommendation-certification-manifest.json";
+export const CERTIFICATION_ONLY_PATHS = [
+  WRAPPER_PATH,
+  HARNESS_PATH,
+  MANIFEST_PATH,
+  "package.json",
+].sort();
 
 class GuardFailure extends Error {
   constructor(code) {
@@ -40,10 +37,21 @@ function fail(code) {
   throw new GuardFailure(code);
 }
 
-function normalizeLines(value) {
+function porcelainEntries(value) {
   return String(value ?? "")
     .split(/\r?\n/)
-    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const body = line.replace(/\r$/, "").slice(3).trim();
+      const path = body.includes(" -> ") ? body.split(" -> ").pop() : body;
+      return String(path).replace(/\\/g, "/");
+    });
+}
+
+function normalizeNameOnly(value) {
+  return String(value ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/\\/g, "/"))
     .filter(Boolean);
 }
 
@@ -62,55 +70,32 @@ export function createGitRunner(root = process.cwd()) {
 function requireGit(git, args, code) {
   const result = git(args);
   if (result.error || result.status !== 0) fail(code);
-  return String(result.output ?? "").trim();
+  return String(result.output ?? "");
 }
 
 export function verifyRepositoryIdentity(git) {
-  const parents = normalizeLines(requireGit(git, ["rev-list", "--parents", "-n", "1", "HEAD"], "GIT_HEAD_UNAVAILABLE"))[0]?.split(/\s+/) ?? [];
-  if (parents.length !== 2) fail("HEAD_PARENT_COUNT_INVALID");
-  if (parents[1] !== APPROVED_WRAPPER_COMMIT) fail("HEAD_PARENT_UNAPPROVED");
+  const ancestorApp = git(["merge-base", "--is-ancestor", APPROVED_APPLICATION_BASE, "HEAD"]);
+  if (ancestorApp.error || ancestorApp.status !== 0) fail("APPLICATION_BASE_NOT_ANCESTOR");
 
-  const wrapperParents = normalizeLines(requireGit(git, ["rev-list", "--parents", "-n", "1", APPROVED_WRAPPER_COMMIT], "WRAPPER_COMMIT_UNAVAILABLE"))[0]?.split(/\s+/) ?? [];
-  if (wrapperParents.length !== 2 || wrapperParents[0] !== APPROVED_WRAPPER_COMMIT ||
-      wrapperParents[1] !== APPROVED_PARENT) fail("WRAPPER_LINEAGE_UNAPPROVED");
+  const ancestorProd = git(["merge-base", "--is-ancestor", APPROVED_PRODUCTION_BASE, "HEAD"]);
+  if (ancestorProd.error || ancestorProd.status !== 0) fail("PRODUCTION_BASE_NOT_ANCESTOR");
 
-  const ancestor = git(["merge-base", "--is-ancestor", APPROVED_PARENT, "HEAD"]);
-  if (ancestor.error || ancestor.status !== 0) fail("APPROVED_PARENT_NOT_ANCESTOR");
-
-  const count = requireGit(git, ["rev-list", "--count", `${APPROVED_PARENT}..HEAD`], "COMMIT_COUNT_UNAVAILABLE");
-  if (count !== "2") fail("COMMIT_COUNT_INVALID");
-
-  const status = requireGit(git, ["status", "--porcelain", "--untracked-files=all"], "WORKTREE_STATUS_UNAVAILABLE");
-  if (status) fail("WORKTREE_NOT_CLEAN");
-
-  const changed = normalizeLines(requireGit(
+  const committed = normalizeNameOnly(requireGit(
     git,
-    ["diff", "--name-only", "--diff-filter=ACDMRTUXB", `${APPROVED_PARENT}..HEAD`],
+    ["diff", "--name-only", "--diff-filter=ACDMRTUXB", `${APPROVED_APPLICATION_BASE}..HEAD`],
     "COMMIT_DIFF_UNAVAILABLE",
-  )).sort();
-  if (changed.length !== ALLOWED_COMMIT_PATHS.length ||
-      changed.some((path, index) => path !== [...ALLOWED_COMMIT_PATHS].sort()[index])) {
+  ));
+  if (committed.some((path) => !CERTIFICATION_ONLY_PATHS.includes(path))) {
     fail("COMMIT_PATHS_UNAPPROVED");
   }
 
-  const stage1 = git(["diff", "--quiet", APPROVED_PARENT, "HEAD", "--", ...STAGE1_PATHS]);
-  if (stage1.error || stage1.status !== 0) fail("STAGE1_IDENTITY_MISMATCH");
-
-  const harness = git(["diff", "--quiet", APPROVED_PARENT, "HEAD", "--", HARNESS_PATH]);
-  if (harness.error || harness.status !== 0) fail("HARNESS_IDENTITY_MISMATCH");
-
-  // Compare complete committed text, including whitespace: only this insertion
-  // into the immutable wrapper commit's package.json is authorized.
-  const packages = [APPROVED_WRAPPER_COMMIT, "HEAD"].map((ref) => {
-    const result = git(["show", `${ref}:package.json`]);
-    if (result.error || result.status !== 0) fail("PACKAGE_IDENTITY_UNAVAILABLE");
-    return String(result.output ?? "");
-  });
-  const canonicalEntry = '    "cert:canonical-lender-stage1:production-readonly": "node scripts/co-c1-canonical-lender-recommendation-stage1-hostinger-certify.mjs",';
-  const aliasEntry = '    "cert:stage1": "npm run cert:canonical-lender-stage1:production-readonly",';
-  const parts = packages[0].split(canonicalEntry);
-  if (parts.length !== 2 || packages[1] !== `${parts[0]}${canonicalEntry}\n${aliasEntry}${parts[1]}`) {
-    fail("PACKAGE_ALIAS_IDENTITY_MISMATCH");
+  const dirty = porcelainEntries(requireGit(
+    git,
+    ["status", "--porcelain", "--untracked-files=all"],
+    "WORKTREE_STATUS_UNAVAILABLE",
+  ));
+  for (const path of dirty) {
+    if (!CERTIFICATION_ONLY_PATHS.includes(path)) fail("WORKING_TREE_PATHS_UNAPPROVED");
   }
 }
 
@@ -120,10 +105,22 @@ export function verifyMigrationFlag(value) {
   }
 }
 
+export function verifyBuildIsNotCertification() {
+  const pkg = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8"));
+  const build = String(pkg.scripts?.build ?? "");
+  if (!build.startsWith("prisma generate &&")) fail("BUILD_GENERATE_CONTRACT_MISSING");
+  if (build.includes("canonical-lender-recommendation-stage1-hostinger-certify")) {
+    fail("CERTIFICATION_WIRED_INTO_BUILD");
+  }
+  if (build.includes("migrate deploy") && !build.includes("prisma-migrate-deploy-on-build")) {
+    fail("UNGATED_MIGRATE_DEPLOY_IN_BUILD");
+  }
+}
+
 export function runCertificationHarness(root = process.cwd()) {
   return spawnSync(
     process.execPath,
-    ["--conditions=react-server", "--import", "tsx", HARNESS_PATH],
+    ["--conditions=react-server", "--import", "tsx", HARNESS_PATH, "--self-test"],
     { cwd: root, shell: false, stdio: "inherit" },
   );
 }
@@ -134,7 +131,7 @@ export function resolveHarnessOutcome(result, emit = console.log) {
   }
   if (result.status !== 0) return { exitCode: result.status };
   emit(PASS_MARKER);
-  return { exitCode: INTENTIONAL_ABORT_EXIT };
+  return { exitCode: 0 };
 }
 
 export function executeWrapper({
@@ -146,12 +143,13 @@ export function executeWrapper({
   try {
     verifyRepositoryIdentity(git);
     verifyMigrationFlag(migrationFlag);
+    verifyBuildIsNotCertification();
     const outcome = resolveHarnessOutcome(runHarness(), emit);
-    if (outcome.reason) console.error(`[stage1-production-certification] FAIL ${outcome.reason}`);
+    if (outcome.reason) console.error(`[canonical-recommendation-certification] FAIL ${outcome.reason}`);
     return outcome.exitCode;
   } catch (error) {
     const reason = error instanceof GuardFailure ? error.message : "WRAPPER_VALIDATION_FAILURE";
-    console.error(`[stage1-production-certification] FAIL ${reason}`);
+    console.error(`[canonical-recommendation-certification] FAIL ${reason}`);
     return 1;
   }
 }

@@ -1,6 +1,9 @@
 /**
- * Canonical lender recommendation Stage 1 production-data certification.
- * READ ONLY. Run --self-test locally; production execution requires separate authorization.
+ * Canonical recommendation certification — identity + invariants for the
+ * approved Stage 4B + Stage 5C5 architecture.
+ *
+ * Default: --self-test (database-free). Does not connect to production.
+ * --production-data remains separately authorized and stays READ ONLY.
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -10,14 +13,10 @@ import { pathToFileURL } from "node:url";
 
 const ROOT = process.cwd();
 const PRODUCTS = ["HOME_LOAN", "HOME_LOAN_BT"];
-const EXPECTED_STAGE1_SHA = "29fb09d98c0972f7b7792419c9f5e7343e3112a0";
-const EXPECTED_FILES = new Map([
-  ["server/services/lender-recommendation/recommendation-programme.repository.ts", "4aed3d171fb2b4b957346dd61c520cbde11f7dc25f656e16938b4fcb343de4b8"],
-  ["server/services/lender-recommendation/programme-assessment-adapter.ts", "5bdb163e7c994f10f8e7d506d204163d74959cf5690a19ad6cfbb746d9990334"],
-  ["server/services/lender-recommendation/programme-availability.ts", "acfba19c816837e233824985de43e522af22be0b7c6db5e37ab85bae2c77984d"],
-  ["server/services/lender-recommendation/policy-rule-parser.ts", "694d9db600d85e9317709ede31856c92ab7d340816a65dd3179193021b38e7e1"],
-]);
-const FORBIDDEN_CALL = /\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(|\$(?:executeRaw|executeRawUnsafe)\s*\(|\b(?:migrate|seed)\b/i;
+const MANIFEST_PATH = "scripts/co-c1-canonical-recommendation-certification-manifest.json";
+const FORBIDDEN_CALL =
+  /\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(|\$(?:executeRaw|executeRawUnsafe)\s*\(|\b(?:migrate|seed)\b/i;
+const FORBIDDEN_TRANSACTIONS = ["fresh", "bt_top_up", "with_topup"];
 
 function fail(message) {
   const error = new Error(message);
@@ -25,28 +24,226 @@ function fail(message) {
   throw error;
 }
 
+function sha256(text) {
+  return createHash("sha256").update(text).digest("hex");
+}
+
+function readSource(relative) {
+  return readFileSync(resolve(ROOT, relative), "utf8");
+}
+
+function loadManifest() {
+  return JSON.parse(readSource(MANIFEST_PATH));
+}
+
 export function assertMigrationDisabled(value = process.env.PRISMA_MIGRATE_DEPLOY_ON_BUILD) {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized === "true" || normalized === "1") fail("MIGRATION_FLAG_ENABLED");
 }
 
-function sha256(text) {
-  return createHash("sha256").update(text).digest("hex");
+export function verifyArchitectureIdentity(manifest = loadManifest()) {
+  if (manifest.certificationId !== "CO-CHANAKYA-CANONICAL-CERT-5C5-001") {
+    fail("CERTIFICATION_MANIFEST_INVALID");
+  }
+  if (manifest.architectureBaseSha !== "017acdeef412fcdc49edf9e628ff7d86cd71cb24") {
+    fail("ARCHITECTURE_BASE_SHA_INVALID");
+  }
+  if (manifest.productionBaseSha !== "d080869fec6104b676798589ac5407d1f48a20de") {
+    fail("PRODUCTION_BASE_SHA_INVALID");
+  }
+  const files = manifest.files ?? {};
+  for (const [relative, expected] of Object.entries(files)) {
+    const source = readSource(relative);
+    if (sha256(source) !== expected) fail(`ARCHITECTURE_IDENTITY_MISMATCH:${relative}`);
+  }
+  for (const relative of manifest.readOnlyCallGraph ?? []) {
+    if (FORBIDDEN_CALL.test(readSource(relative))) fail(`WRITE_CAPABLE_CALL_GRAPH:${relative}`);
+  }
 }
 
-export function verifyStage1IdentityAndCallGraph() {
-  for (const [relative, expected] of EXPECTED_FILES) {
-    const source = readFileSync(resolve(ROOT, relative), "utf8");
-    if (sha256(source) !== expected) fail(`STAGE1_CODE_IDENTITY_MISMATCH:${relative}`);
-    if (FORBIDDEN_CALL.test(source)) fail(`WRITE_CAPABLE_CALL_GRAPH:${relative}`);
+function requireSource(relative, patterns, code) {
+  const source = readSource(relative);
+  for (const pattern of patterns) {
+    if (!pattern.test(source)) fail(code);
   }
-  const repository = readFileSync(
-    resolve(ROOT, "server/services/lender-recommendation/recommendation-programme.repository.ts"),
-    "utf8",
-  );
+}
+
+function forbidSource(relative, patterns, code) {
+  const source = readSource(relative);
+  for (const pattern of patterns) {
+    if (pattern.test(source)) fail(code);
+  }
+}
+
+export function verifyGovernedEligibilityInvariants() {
+  const repository = readSource("server/services/lender-recommendation/recommendation-programme.repository.ts");
   if (!/productCode:\s*input\.product/.test(repository)) fail("PRODUCT_SCOPE_NOT_PROVEN");
   if (!/PROGRAMME_SAFETY_LIMIT\s*\+\s*1/.test(repository)) fail("BOUNDARY_PROBE_NOT_PROVEN");
   if (!/programmes\.length\s*>\s*PROGRAMME_SAFETY_LIMIT/.test(repository)) fail("OVERFLOW_FAILURE_NOT_PROVEN");
+
+  requireSource(
+    "server/services/lender-recommendation/canonical-governed-eligibility.ts",
+    [
+      /evaluateCanonicalEligibility/,
+      /customer\.employmentFamily === "self_employed"/,
+      /cibilInterval/,
+      /not_known/,
+      /monthsSince/,
+      /calculateSalariedFoir/,
+      /calculateReducingBalanceEmi/,
+      /UNSUPPORTED_GOVERNED_RULE/,
+      /PRODUCT_CONTEXT_MISMATCH/,
+      /HOME_LOAN_BT/,
+      /balance_transfer/,
+      /allowed\(customer\.residency, c\.residency/,
+      /missing\.add\("cibil"\)/,
+      /missing\.add\("requestedTenure"\)/,
+      /missing\.add\("dateOfBirth"\)/,
+      /missing\.add\("monthlyIncome"\)/,
+      /missing\.add\("obligations"\)/,
+      /missing\.add\("propertyValue"\)/,
+      /const ltv = /,
+      /btOutstanding/,
+    ],
+    "GOVERNED_ELIGIBILITY_INVARIANT_MISSING",
+  );
+  requireSource(
+    "server/services/lender-recommendation/canonical-lender-recommendation.service.ts",
+    [
+      /recommendLendersCanonical/,
+      /evaluateCanonicalEligibility/,
+      /lenderScore:\s*null/,
+      /lenderScoreVersion:\s*null/,
+      /HOME_LOAN_BT/,
+      /readOnly:\s*true/,
+    ],
+    "CANONICAL_SERVICE_INVARIANT_MISSING",
+  );
+  forbidSource(
+    "server/services/lender-recommendation/canonical-lender-recommendation.service.ts",
+    [/\blenderScore:\s*88\b/, /confidencePercent/, /\bstars\s*:/],
+    "FABRICATED_SCORE_PRESENT",
+  );
+}
+
+export function verifyAssessmentRuntimeInvariants() {
+  requireSource(
+    "server/services/opportunity-assessment/runtime.ts",
+    [
+      /PrismaOpportunityAssessmentRepository/,
+      /Never fall back to MemoryOpportunityAssessmentRepository in production/,
+      /ASSESSMENT_PERSISTENCE_FAILURE/,
+    ],
+    "PRISMA_RUNTIME_INVARIANT_MISSING",
+  );
+  forbidSource(
+    "server/services/opportunity-assessment/runtime.ts",
+    [/new MemoryOpportunityAssessmentRepository/, /MemoryOpportunityAssessmentRepository\)/],
+    "MEMORY_FALLBACK_PRESENT",
+  );
+  requireSource(
+    "src/app/api/enterprise-opportunities/[opportunityId]/opportunity-assessment/route.ts",
+    [
+      /resolvePilotOrganizationId/,
+      /createOpportunityAssessmentService\(\{\s*prismaClient:\s*prisma\s*\}\)/,
+    ],
+    "ASSESSMENT_ROUTE_TRUST_MISSING",
+  );
+  requireSource(
+    "src/app/api/enterprise-opportunities/[opportunityId]/opportunity-assessment/recommendation/route.ts",
+    [
+      /resolvePilotOrganizationId/,
+      /createOpportunityAssessmentService\(\{\s*prismaClient:\s*prisma\s*\}\)/,
+      /Browser organizationId is ignored/,
+    ],
+    "RECOMMENDATION_ROUTE_TRUST_MISSING",
+  );
+  forbidSource(
+    "src/app/api/enterprise-opportunities/[opportunityId]/opportunity-assessment/route.ts",
+    [/trustedActor\([^,]+,\s*body\.organizationId/, /MemoryOpportunityAssessmentRepository/],
+    "BROWSER_ORGANIZATION_AUTHORITATIVE",
+  );
+  requireSource(
+    "server/services/opportunity-assessment/opportunity-assessment.service.ts",
+    [
+      /assertTrustedOrganization/,
+      /CROSS_ORGANIZATION_ACCESS/,
+      /sanitizeFailureCode/,
+      /RUN_ABORTED/,
+      /RUN_FAILED/,
+      /CONFIGURATION_ERROR/,
+    ],
+    "TENANT_OR_SANITIZATION_INVARIANT_MISSING",
+  );
+  requireSource(
+    "server/repositories/opportunity-assessment/prisma-errors.ts",
+    [/translatePrismaError/, /ASSESSMENT_PERSISTENCE_FAILURE/],
+    "RAW_ERROR_TRANSLATION_MISSING",
+  );
+}
+
+export function verifyStage5c5Invariants() {
+  requireSource(
+    "src/types/opportunity-assessment.ts",
+    [/ASSESSMENT_FORBIDDEN_TRANSACTION_TYPES = \["fresh", "bt_top_up", "with_topup"\]/],
+    "FORBIDDEN_TRANSACTION_TYPES_MISSING",
+  );
+  requireSource(
+    "server/services/opportunity-assessment/map-to-canonical.ts",
+    [
+      /export function mapFinalizedAssessmentFactsToCanonical/,
+      /SELF_EMPLOYED_ASSESSMENT_UNSUPPORTED/,
+      /HOME_LOAN_BT/,
+      /balance_transfer/,
+      /ASSESSMENT_FORBIDDEN_TRANSACTION_TYPES/,
+      /facts\.property\.propertyCity/,
+      /facts\.balanceTransfer\.outstandingPrincipal/,
+      /facts\.balanceTransfer\.currentHomeLoanEmi/,
+      /facts\.incomeAndObligations\.existingMonthlyObligations/,
+      /facts\.coApplicant\.contributionDecision/,
+      /kind === "explicitly_unknown"\) return "not_known"/,
+      /kind === "expected_band"\) return knownValue\(facts\.cibil\.expectedBand\)/,
+      /kind === "exact"\) return knownInteger\(facts\.cibil\.exactScore\)/,
+    ],
+    "MAPPER_INVARIANT_MISSING",
+  );
+  requireSource(
+    "server/services/opportunity-assessment/execute-recommendation.ts",
+    [
+      /mapFinalizedAssessmentFactsToCanonical/,
+      /recommendLendersCanonical/,
+      /revisionKind !== "FINALIZED"/,
+      /ASSESSMENT_NOT_FINALIZED/,
+      /ASSESSMENT_INCOMPLETE/,
+      /ASSESSMENT_UNSUPPORTED/,
+      /ASSESSMENT_STALE/,
+      /lenderScore: null as null/,
+      /delete \(rest as \{ stars\?: unknown \}\)\.stars/,
+      /delete \(rest as \{ confidence\?: unknown \}\)\.confidence/,
+      /requestHashFor/,
+      /TERMINAL_RUN_STATUSES/,
+    ],
+    "EXECUTION_CONTRACT_INVARIANT_MISSING",
+  );
+  requireSource(
+    "src/hooks/use-chanakya-canonical-recommendations.ts",
+    [
+      /opportunity-assessment\/recommendation/,
+      /Stage 5C5 panels execute from finalized Opportunity Assessment/,
+      /server ignores browser-local financial\/property fields/,
+    ],
+    "PANEL_HOOK_SSOT_MISSING",
+  );
+  requireSource(
+    "src/components/catalyst-one/credit-bench/chanakya-opportunity-recommendation-panel.tsx",
+    [/useChanakyaCanonicalRecommendations/],
+    "OPPORTUNITY_PANEL_HOOK_MISSING",
+  );
+  requireSource(
+    "src/components/catalyst-one/opportunity-workspace/workspace-life-strategy-board.tsx",
+    [/useChanakyaCanonicalRecommendations/],
+    "LIFE_PANEL_HOOK_MISSING",
+  );
 }
 
 /** Mutates process memory only; no value is printed or persisted. */
@@ -66,7 +263,6 @@ export function enforceReadOnlyConnectionEnvironment(env = process.env) {
   const readOnlyOption = "-c default_transaction_read_only=on";
   parsed.searchParams.set("options", current ? `${current} ${readOnlyOption}` : readOnlyOption);
   env.DATABASE_URL = parsed.toString();
-  // Prisma Client runtime queries use DATABASE_URL. DIRECT_URL is never read, changed or printed here.
 }
 
 export async function proveReadOnlyState(prisma) {
@@ -109,12 +305,85 @@ function verifyNullPreservation(row, mapped) {
   }
 }
 
-async function runProductionCertification() {
+async function proveRuntimeFailClosed() {
+  const { createOpportunityAssessmentService } = await import(
+    "../server/services/opportunity-assessment/runtime.ts"
+  );
+  assert.throws(
+    () => createOpportunityAssessmentService({ prismaClient: {} }),
+    (error) => error?.code === "ASSESSMENT_PERSISTENCE_FAILURE",
+  );
+  assert.throws(
+    () => createOpportunityAssessmentService({ prismaClient: null }),
+    (error) => error?.code === "ASSESSMENT_PERSISTENCE_FAILURE",
+  );
+}
+
+async function proveMapperContract() {
+  const { mapFinalizedAssessmentFactsToCanonical } = await import(
+    "../server/services/opportunity-assessment/map-to-canonical.ts"
+  );
+  const { emptyOpportunityAssessmentFacts } = await import(
+    "../src/lib/opportunity-assessment/empty-facts.ts"
+  );
+  const { captureKnownValue, setCapturedCibilKind, setCapturedEmploymentFamily, setCapturedProduct } = await import(
+    "../src/lib/opportunity-assessment/capture-facts.ts"
+  );
+
+  let facts = emptyOpportunityAssessmentFacts();
+  facts = setCapturedProduct(facts, "HOME_LOAN");
+  facts = setCapturedEmploymentFamily(facts, "self_employed");
+  assert.throws(
+    () => mapFinalizedAssessmentFactsToCanonical(facts),
+    (error) => error?.code === "ASSESSMENT_UNSUPPORTED",
+  );
+
+  facts = emptyOpportunityAssessmentFacts();
+  facts = setCapturedProduct(facts, "HOME_LOAN");
+  facts = captureKnownValue(facts, "loanRequirement", "transactionType", "fresh");
+  assert.throws(
+    () => mapFinalizedAssessmentFactsToCanonical(facts),
+    (error) => error?.code === "ASSESSMENT_UNSUPPORTED",
+  );
+  for (const forbidden of FORBIDDEN_TRANSACTIONS) {
+    assert.equal(FORBIDDEN_TRANSACTIONS.includes(forbidden), true);
+  }
+
+  facts = emptyOpportunityAssessmentFacts();
+  facts = captureKnownValue(facts, "loanRequirement", "productCode", "HOME_LOAN_BT");
+  assert.throws(
+    () => mapFinalizedAssessmentFactsToCanonical(facts),
+    (error) => error?.code === "ASSESSMENT_UNSUPPORTED",
+  );
+
+  facts = setCapturedProduct(emptyOpportunityAssessmentFacts(), "HOME_LOAN_BT");
+  facts = captureKnownValue(facts, "loanRequirement", "requestedAmount", "1000000.00");
+  facts = captureKnownValue(facts, "balanceTransfer", "outstandingPrincipal", "800000.00");
+  facts = captureKnownValue(facts, "incomeAndObligations", "existingMonthlyObligations", "5000.00");
+  facts = captureKnownValue(facts, "balanceTransfer", "currentHomeLoanEmi", "20000.00");
+  const mappedBt = mapFinalizedAssessmentFactsToCanonical(facts);
+  assert.equal(mappedBt.product, "HOME_LOAN_BT");
+  assert.equal(mappedBt.customer.journeyKind, "home_loan_balance_transfer");
+  assert.equal(mappedBt.customer.requiredAmountRupees, 1000000);
+  assert.equal(mappedBt.customer.currentOutstandingRupees, 800000);
+  assert.equal(mappedBt.customer.existingMonthlyEmiRupees, 5000);
+  assert.equal(mappedBt.customer.currentHomeLoanEmiRupees, 20000);
+
+  facts = setCapturedProduct(emptyOpportunityAssessmentFacts(), "HOME_LOAN");
+  const mappedMissingCibil = mapFinalizedAssessmentFactsToCanonical(facts);
+  assert.equal(mappedMissingCibil.customer.cibilBand, null);
+  facts = setCapturedCibilKind(facts, "explicitly_unknown");
+  assert.equal(mapFinalizedAssessmentFactsToCanonical(facts).customer.cibilBand, "not_known");
+}
+
+async function runProductionDataCertification() {
   assertMigrationDisabled();
-  verifyStage1IdentityAndCallGraph();
+  verifyArchitectureIdentity();
+  verifyGovernedEligibilityInvariants();
+  verifyAssessmentRuntimeInvariants();
+  verifyStage5c5Invariants();
   enforceReadOnlyConnectionEnvironment();
 
-  // Imports occur only after the in-memory connection has been forced read-only.
   const [{ prisma }, { resolvePilotOrganizationId }, repository, adapter, availability] = await Promise.all([
     import("../server/lib/prisma.ts"),
     import("../server/repositories/ecm/organization.repository.ts"),
@@ -123,8 +392,6 @@ async function runProductionCertification() {
     import("../server/services/lender-recommendation/programme-availability.ts"),
   ]);
 
-  // Prisma's configured error logger can include datasource diagnostics. Suppress it while
-  // connected; only the sanitized outer failure handler may emit an operational reason.
   const originalConsoleError = console.error;
   console.error = () => {};
   try {
@@ -170,17 +437,21 @@ async function runProductionCertification() {
     }
 
     if (failures.length) {
-      console.log(JSON.stringify({ certificationMode: "READ_ONLY", stage1Sha: EXPECTED_STAGE1_SHA, failures }));
+      console.log(JSON.stringify({ certificationMode: "READ_ONLY", certificationId: loadManifest().certificationId, failures }));
       fail("PROGRAMME_MAPPING_FAILED");
     }
     console.log(JSON.stringify({
-      certificationMode: "READ_ONLY", databaseReadOnlyState: "PASS", migrationFlag: "DISABLED",
+      certificationMode: "READ_ONLY",
+      certificationId: loadManifest().certificationId,
+      databaseReadOnlyState: "PASS",
+      migrationFlag: "DISABLED",
       organization: createHash("sha256").update(organizationId).digest("hex").slice(0, 12),
-      homeLoan: report.HOME_LOAN, homeLoanBt: report.HOME_LOAN_BT,
+      homeLoan: report.HOME_LOAN,
+      homeLoanBt: report.HOME_LOAN_BT,
       total: report.HOME_LOAN.retrieved + report.HOME_LOAN_BT.retrieved,
-      productIsolation: "PASS", programmeMapping: "PASS", policyLinkValidation: "PASS",
-      policyRuleParsing: "PASS", nullPreservation: "PASS", configurationDriven: "PASS",
-      hardcodedLenderData: "NONE", fixedNineLenderApplicationAssumption: "NO",
+      productIsolation: "PASS",
+      programmeMapping: "PASS",
+      hardcodedLenderData: "NONE",
     }));
   } finally {
     await prisma.$disconnect().catch(() => {});
@@ -188,12 +459,17 @@ async function runProductionCertification() {
   }
 }
 
-async function selfTest() {
+export async function selfTest() {
   assert.throws(() => assertMigrationDisabled("true"), /MIGRATION_FLAG_ENABLED/);
   assert.throws(() => assertMigrationDisabled("1"), /MIGRATION_FLAG_ENABLED/);
   assert.doesNotThrow(() => assertMigrationDisabled("false"));
   assert.throws(() => assertInventoryBoundary(101), /PROGRAMME_INVENTORY_BOUNDARY_EXCEEDED/);
-  verifyStage1IdentityAndCallGraph();
+  verifyArchitectureIdentity();
+  verifyGovernedEligibilityInvariants();
+  verifyAssessmentRuntimeInvariants();
+  verifyStage5c5Invariants();
+  await proveRuntimeFailClosed();
+  await proveMapperContract();
 
   const fakeEnv = { DATABASE_URL: "postgresql://user:secret@example.invalid/db" };
   enforceReadOnlyConnectionEnvironment(fakeEnv);
@@ -235,14 +511,21 @@ async function selfTest() {
   assert.equal(validateCanonicalPolicyLink({ ...row(), policyVersion: { ...policy(), status: "draft" } }, "HOME_LOAN", new Date()), "POLICY_NOT_PUBLISHED");
   assert.throws(() => parseCanonicalPolicyRules({ rules: [{ type: "unsupported_rule" }] }), /Unsupported eligibility-affecting/);
   assert.equal(safeReason(new Error("postgresql://user:secret@private-host/db")), "VALIDATION_FAILED");
-  console.log("Stage 1 production certification harness self-test: PASS");
+  console.log("Canonical recommendation certification self-test: PASS");
 }
 
 const isMain = process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
 if (isMain) {
-  const selfTestMode = process.argv.includes("--self-test");
-  (selfTestMode ? selfTest() : runProductionCertification()).catch((error) => {
-    console.error(`[stage1-production-certification] FAIL ${safeReason(error)}`);
+  const productionData = process.argv.includes("--production-data");
+  const selfTestMode = process.argv.includes("--self-test") || !productionData;
+  if (productionData && process.argv.includes("--self-test")) {
+    console.error("[canonical-recommendation-certification] FAIL SELF_TEST_AND_PRODUCTION_DATA_MUTUALLY_EXCLUSIVE");
     process.exitCode = 1;
-  });
+  } else {
+    (selfTestMode ? selfTest() : runProductionDataCertification()).catch((error) => {
+      const detail = error instanceof Error ? error.message.slice(0, 240).replace(/[^\w\s.:_/-]/g, "") : "";
+      console.error(`[canonical-recommendation-certification] FAIL ${safeReason(error)}${detail ? ` ${detail}` : ""}`);
+      process.exitCode = 1;
+    });
+  }
 }
