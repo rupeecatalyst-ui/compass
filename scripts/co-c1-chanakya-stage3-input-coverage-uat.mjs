@@ -7,12 +7,31 @@ import ts from "typescript";
 
 let databaseAttempts = 0;
 globalThis.prisma = new Proxy({}, { get() { databaseAttempts++; throw new Error("DATABASE_FORBIDDEN"); } });
-const { recommendLendersCanonical } = await import("../server/services/lender-recommendation/canonical-lender-recommendation.service.ts");
 // Preserve the original Stage 3 characterization against its frozen Stage 2 source.
 // Current Stage 4A is tested separately below; these historical failures are NOT current acceptance tests.
 const baseline = "53a2c20ada2384b969ca22b90814a44d92511153";
 const baselineSource = path => execFileSync("git", ["show", `${baseline}:${path}`], {
   cwd: fileURLToPath(new URL("..", import.meta.url)), encoding: "utf8",
+});
+// Stage 4B now fixes the historical service/adapter defects. Freeze those too so
+// this artifact remains an honest reproduction, not a test expecting today's engine to be unsafe.
+function loadFrozen(path, imports) {
+  const exports = {};
+  vm.runInNewContext(ts.transpileModule(baselineSource(path), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText, { exports, require: name => {
+    if (!(name in imports)) throw new Error("UNEXPECTED_FROZEN_IMPORT");
+    return imports[name];
+  } });
+  return exports;
+}
+const frozenParser = loadFrozen("server/services/lender-recommendation/policy-rule-parser.ts", {});
+const frozenAdapter = loadFrozen("server/services/lender-recommendation/programme-assessment-adapter.ts", { "./policy-rule-parser": frozenParser });
+const { mapCanonicalProgramme } = frozenAdapter;
+const { recommendLendersCanonical } = loadFrozen("server/services/lender-recommendation/canonical-lender-recommendation.service.ts", {
+  "server-only": {}, "./programme-assessment-adapter": frozenAdapter,
+  "./recommendation-programme.repository": { loadCanonicalProgrammeInventory: () => { throw new Error("DATABASE_FORBIDDEN"); } },
+  "@/lib/home-loan-recommendation/engine": await import("../src/lib/home-loan-recommendation/engine.ts"),
 });
 const baselineImports = {
   "server-only": {},
@@ -30,7 +49,6 @@ vm.runInNewContext(ts.transpileModule(baselineSource("server/services/enterprise
 } });
 const { recommendForChanakyaOpportunity, chanakyaAssessmentDraftSchema } = baselineExports;
 console.log(`HISTORICAL_STAGE3_BASE: ${baseline}; current Stage 4A fixtures follow separately.`);
-const { mapCanonicalProgramme } = await import("../server/services/lender-recommendation/programme-assessment-adapter.ts");
 const { isCanonicalProgrammeAvailable } = await import("../server/services/lender-recommendation/programme-availability.ts");
 const { absoluteRupeesToStoredString } = await import("../src/lib/enterprise-financial-input/index.ts");
 const now = new Date("2026-09-21T12:00:00Z");

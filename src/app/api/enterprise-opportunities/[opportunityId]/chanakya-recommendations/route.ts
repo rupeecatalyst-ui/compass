@@ -19,6 +19,12 @@ export async function POST(request: Request, context: { params: Promise<{ opport
   } catch (error) {
     const status = typeof error === "object" && error !== null && "status" in error
       && [401, 403, 404, 503].includes(Number(error.status)) ? Number(error.status) : 400;
-    return NextResponse.json({ success: false, error: { code: "RECOMMENDATION_UNAVAILABLE" } }, { status });
+    const reason = typeof error === "object" && error !== null && "message" in error ? error.message : null;
+    const missingInputs = status === 400 && reason === "DURABLE_ASSESSMENT_INPUT_REQUIRED"
+      ? ["monthlyIncome", "obligations", "propertyValue"]
+      : status === 400 && reason === "BT_OUTSTANDING_REQUIRED" ? ["btOutstanding"] : [];
+    return NextResponse.json({ success: false, error: {
+      code: missingInputs.length ? "ASSESSMENT_INPUT_REQUIRED" : "RECOMMENDATION_UNAVAILABLE", missingInputs,
+    } }, { status, headers: { "Cache-Control": "no-store" } });
   }
 }

@@ -7,7 +7,7 @@ export type CanonicalRecommendationProduct = (typeof CANONICAL_RECOMMENDATION_PR
 export type CanonicalLenderRecommendationRequest = {
   organizationId: string;
   product: CanonicalRecommendationProduct;
-  customer: CustomerAssessmentInput;
+  customer: CustomerAssessmentInput & { employmentType?: string | null; state?: string | null };
   asOf?: Date;
 };
 
@@ -15,7 +15,16 @@ export type CanonicalProgrammeRejection = {
   programmeId: string;
   code: string;
   reason: string;
+  missingInputs?: CanonicalAssessmentField[];
 };
+
+/** Fixed public vocabulary only; never policy payloads, database errors or borrower values. */
+export type CanonicalAssessmentField =
+  | "residency" | "cibil" | "dateOfBirth" | "requestedTenure" | "employment"
+  | "monthlyIncome" | "obligations" | "propertyValue" | "propertyType" | "constructionStatus"
+  | "constitution" | "city" | "state" | "requestedAmount" | "coApplicant"
+  | "btOutstanding" | "loanStartDate" | "repaymentTrack" | "delayedEmis"
+  | "occupancy" | "possession" | "registration";
 
 export type CanonicalRecommendationCard = HomeLoanRecommendationEngineResult["cards"][number] & {
   policyId: string;
@@ -36,4 +45,6 @@ export type CanonicalLenderRecommendationResult = {
     lenderScoreVersion: null;
   };
   analyzedAt: string;
+  missingInputs?: CanonicalAssessmentField[];
+  cibilNotKnownDisclaimer?: boolean;
 };

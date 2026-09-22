@@ -16,9 +16,10 @@ const row = (overrides = {}) => ({
   id: "programme-1", organizationId: "org-1", lenderId: "lender-1", productCode: "HOME_LOAN",
   code: "BASE_TEST_HL", label: "Test HL", versionNumber: 1, transactionTypes: null,
   policyVersionId: "policy-version-1", policyVersion: policy(),
-  lender: { displayName: "Test Lender", label: "Test Lender", code: "TEST" },
+  lender: { displayName: "Test Lender", label: "Test Lender", code: "TEST", organizationId: "org-1",
+    enabled: true, isDeleted: false, lifecycleStatus: "active", operationalStatus: "active" },
   isDeleted: false, enabled: true, isLivePublished: true, publicationState: "published", completenessState: "complete",
-  lifecycleStatus: "published", status: "active", approvalStatus: "approved", effectiveFrom: null, effectiveUntil: null,
+  lifecycleStatus: "active", status: "active", approvalStatus: "approved", effectiveFrom: null, effectiveUntil: null,
   minIncomeExact: null, maxIncomeExact: null, minLoanAmountExact: null, maxLoanAmountExact: null,
   minFoirExact: null, maxFoirExact: null, minDbrExact: null, maxDbrExact: null,
   minRoiExact: "8.500000", maxRoiExact: "9.000000", minLtvExact: null, maxLtvExact: "80.000000",
@@ -55,9 +56,10 @@ assert.throws(() => parseCanonicalPolicyRules({ rules: [{ type: "unapproved_inco
 let engineCalls = 0;
 const result = await recommendLendersCanonical({
   organizationId: "org-1", product: "HOME_LOAN", asOf: now,
-  customer: { journeyKind: "home_loan", requiredAmountRupees: null, propertyValueRupees: null, employmentFamily: "salaried" },
+  customer: { journeyKind: "home_loan", requiredAmountRupees: 1000000, propertyValueRupees: 4000000, employmentFamily: "salaried",
+    monthlyIncomeRupees: 200000, existingMonthlyEmiRupees: 0, dateOfBirth: "1990-01-01", cibilBand: 780, customerSelectedTenureMonths: 240 },
 }, {
-  loadInventory: async () => ({ programmes: [row()], lenderCategories: new Map([["lender-1", "A"]]) }),
+  loadInventory: async () => ({ programmes: [row({ maxFoirExact: "60" })], lenderCategories: new Map([["lender-1", "A"]]) }),
   runEngine: ({ programmes }) => {
     engineCalls += 1;
     assert.equal(programmes.length, 1);
@@ -69,6 +71,19 @@ const result = await recommendLendersCanonical({
 assert.equal(engineCalls, 1);
 assert.equal(result.readOnly, true);
 assert.equal(result.versions.lenderScoreVersion, null);
+
+// Keep the original incomplete-customer case as a negative regression: stricter
+// eligibility must prevent that programme from reaching calculation.
+const { runHomeLoanRecommendationEngine } = await import("../src/lib/home-loan-recommendation/engine.ts");
+const missingResult = await recommendLendersCanonical({ organizationId: "org-1", product: "HOME_LOAN", asOf: now,
+  customer: { journeyKind: "home_loan", requiredAmountRupees: null, propertyValueRupees: null, employmentFamily: "salaried" },
+}, {
+  loadInventory: async () => ({ programmes: [row()], lenderCategories: new Map([["lender-1", "A"]]) }),
+  runEngine: input => { assert.equal(input.programmes.length, 0); return runHomeLoanRecommendationEngine(input); },
+});
+assert.equal(missingResult.recommendations.length, 0);
+assert.ok(missingResult.missingInputs.includes("propertyValue"));
+assert.ok(missingResult.missingInputs.includes("requestedTenure"));
 
 // Configuration-driven candidate universe: no lender/programme identity is encoded.
 const availability = (candidate) => isCanonicalProgrammeAvailable({

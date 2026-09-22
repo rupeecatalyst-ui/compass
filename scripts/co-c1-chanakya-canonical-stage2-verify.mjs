@@ -24,9 +24,10 @@ function programme(id, product = "HOME_LOAN") {
       policy: { id: `policy-${id}`, organizationId: "org-test", lenderId: `lender-${id}`, productCode: product,
         status: "published", currentPublishedVersionId: `version-${id}`, isDeleted: false },
     },
-    lender: { displayName: `Configured ${id}`, label: id, code: id },
+    lender: { displayName: `Configured ${id}`, label: id, code: id, organizationId: "org-test",
+      enabled: true, isDeleted: false, lifecycleStatus: "active", operationalStatus: "active" },
     isDeleted: false, enabled: true, isLivePublished: true, publicationState: "published", completenessState: "complete",
-    lifecycleStatus: "published", status: "active", approvalStatus: "approved", effectiveFrom: null, effectiveUntil: null,
+    lifecycleStatus: "active", status: "active", approvalStatus: "approved", effectiveFrom: null, effectiveUntil: null,
     minIncomeExact: null, maxIncomeExact: null, minLoanAmountExact: null, maxLoanAmountExact: "10000000",
     minFoirExact: null, maxFoirExact: "60", minDbrExact: null, maxDbrExact: null,
     minRoiExact: "8.5", maxRoiExact: "9", minLtvExact: null, maxLtvExact: "80",
@@ -53,7 +54,8 @@ assert.equal(requests.length, 0);
 const evaluate = async (opp = opportunity) => {
   const mapped = mapChanakyaOpportunityInputs(opp);
   return recommend({ organizationId: opp.organizationId, product: mapped.product,
-    customer: { ...mapped.customer, ...draft } });
+    customer: { ...mapped.customer, ...draft, customerSelectedTenureMonths: 240,
+      ...(mapped.product === "HOME_LOAN_BT" ? { currentOutstandingRupees: 1200000, currentOutstandingCertainty: "exact" } : {}) } });
 };
 let result = await evaluate();
 assert.equal(requests.length, 1);
@@ -116,6 +118,9 @@ assert.equal(serviceCalls, 0);
 rows = [programme("route")];
 assert.equal((await invoke()).status, 400, "local declarations cannot satisfy durable capture");
 assert.equal(serviceCalls, 1);
+const missingResponse = await invoke();
+assert.equal(missingResponse.body.error.code, "ASSESSMENT_INPUT_REQUIRED");
+assert.deepEqual(Array.from(missingResponse.body.error.missingInputs), ["monthlyIncome", "obligations", "propertyValue"]);
 
 const panel = source("src/components/catalyst-one/credit-bench/chanakya-opportunity-recommendation-panel.tsx");
 const board = source("src/components/catalyst-one/opportunity-workspace/workspace-life-strategy-board.tsx");
@@ -134,7 +139,7 @@ assert.match(board, /Selected via Manual Recommendation/);
 // and failed requests never fall back to the browser registry calculator.
 let hookState, effect, cleanup, priorKey, pending = [];
 const hookExports = {};
-vm.runInNewContext(ts.transpileModule(hook, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+vm.runInNewContext(ts.transpileModule(hook, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
   exports: hookExports, AbortController,
   require(name) {
     if (name === "react") return {
@@ -163,6 +168,13 @@ assert.equal(render("three").result, null);
 assert.equal(render("three").loading, false);
 cleanup();
 assert.equal(pending[2].options.signal.aborted, true);
+assert.equal(render("missing-fields").result, null); flushEffect();
+pending[3].resolve({ ok: false, json: async () => ({ success: false,
+  error: { missingInputs: ["monthlyIncome", "obligations", "RAW_SENTINEL", "__proto__"] } }) });
+await new Promise(resolve => setImmediate(resolve));
+assert.match(render("missing-fields").guidance, /monthly income, existing obligations/);
+assert.doesNotMatch(render("missing-fields").guidance, /RAW_SENTINEL|__proto__/);
+cleanup();
 
 // Exercise shortlist enrichment in isolation; preserve unrelated legacy behavior.
 const sync = source("src/lib/strategic-lender-pipeline/sync.ts");

@@ -35,7 +35,10 @@ function nullableFiniteNumber(value: unknown, field: string): number | null {
  */
 export function parseCanonicalPolicyRules(value: unknown): ParsedCanonicalPolicyRules {
   const root = record(value);
-  if (!root || Object.keys(root).length === 0) return { cibilRanges: [] };
+  if (value == null) return { cibilRanges: [] };
+  if (!root) throw new UnsupportedEligibilityPolicyRuleError("invalid_document");
+  if (Object.keys(root).length === 0) return { cibilRanges: [] };
+  if (Object.keys(root).some(key => key !== "rules")) throw new UnsupportedEligibilityPolicyRuleError("unknown_document_field");
   if (!Array.isArray(root.rules)) {
     throw new UnsupportedEligibilityPolicyRuleError("unstructured_policy_document");
   }
@@ -44,9 +47,15 @@ export function parseCanonicalPolicyRules(value: unknown): ParsedCanonicalPolicy
   for (const item of root.rules) {
     const rule = record(item);
     const type = typeof rule?.type === "string" ? rule.type : "missing_type";
-    if (type !== "cibil_range") throw new UnsupportedEligibilityPolicyRuleError(type);
+    if (!rule || type !== "cibil_range") throw new UnsupportedEligibilityPolicyRuleError(type);
+    if (Object.keys(rule).some(key => !["type", "minimum", "maximum"].includes(key))) {
+      throw new UnsupportedEligibilityPolicyRuleError("unknown_rule_field");
+    }
     const minimum = nullableFiniteNumber(rule.minimum, "minimum");
     const maximum = nullableFiniteNumber(rule.maximum, "maximum");
+    if ([minimum, maximum].some(value => value != null && (!Number.isInteger(value) || value < 0))) {
+      throw new Error("POLICY_CIBIL_RANGE_INVALID");
+    }
     if (minimum != null && maximum != null && minimum > maximum) {
       throw new Error("Policy CIBIL range minimum cannot exceed maximum.");
     }

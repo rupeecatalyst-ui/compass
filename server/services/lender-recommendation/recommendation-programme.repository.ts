@@ -24,7 +24,7 @@ export async function loadCanonicalProgrammeInventory(input: {
   product: CanonicalRecommendationProduct;
   asOf: Date;
 }): Promise<CanonicalProgrammeInventory> {
-  const [programmes, categories] = await prisma.$transaction([
+  const [programmes, categories, overrides] = await prisma.$transaction([
     prisma.enterpriseLenderProgram.findMany({
       where: {
         organizationId: input.organizationId,
@@ -40,7 +40,9 @@ export async function loadCanonicalProgrammeInventory(input: {
         ],
       },
       include: {
-        lender: { select: { displayName: true, label: true, code: true } },
+        lender: { select: { displayName: true, label: true, code: true, organizationId: true,
+          enabled: true, isDeleted: true, lifecycleStatus: true, operationalStatus: true,
+          effectiveFrom: true, effectiveUntil: true } },
         policyVersion: { include: { policy: true } },
       },
       orderBy: [{ code: "asc" }, { versionNumber: "desc" }, { id: "asc" }],
@@ -55,9 +57,16 @@ export async function loadCanonicalProgrammeInventory(input: {
       },
       orderBy: [{ versionNumber: "desc" }, { updatedAt: "desc" }],
     }),
+    prisma.hlRecommendationOverride.findMany({
+      where: { organizationId: input.organizationId, isDeleted: false, lifecycleStatus: "active",
+        startsAt: { lte: input.asOf }, OR: [{ endsAt: null }, { endsAt: { gte: input.asOf } }] },
+      select: { lenderId: true, programmeId: true },
+      take: PROGRAMME_SAFETY_LIMIT + 1,
+    }),
   ]);
 
   if (programmes.length > PROGRAMME_SAFETY_LIMIT) throw new CanonicalProgrammeInventoryLimitError();
+  if (overrides.length > PROGRAMME_SAFETY_LIMIT) throw new CanonicalProgrammeInventoryLimitError();
 
   const lenderCategories = new Map<string, RecommendationLenderCategory>();
   for (const row of categories) {
@@ -65,5 +74,9 @@ export async function loadCanonicalProgrammeInventory(input: {
       lenderCategories.set(row.lenderId, row.category as RecommendationLenderCategory);
     }
   }
-  return { programmes: programmes as unknown as CanonicalProgrammeRow[], lenderCategories };
+  // Until narrower override semantics are supported, any active applicable override
+  // blocks the candidate. Do not guess geography or treat an override as permission.
+  const governedProgrammes = programmes.map(row => ({ ...row, suspendedByOverride: overrides.some(override =>
+    (!override.lenderId && !override.programmeId) || override.lenderId === row.lenderId || override.programmeId === row.id) }));
+  return { programmes: governedProgrammes as unknown as CanonicalProgrammeRow[], lenderCategories };
 }
