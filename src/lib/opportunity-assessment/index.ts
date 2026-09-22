@@ -15,3 +15,16 @@ export {
   parseOpportunityAssessmentFacts,
   safeParseOpportunityAssessmentFacts,
 } from "@/lib/opportunity-assessment/facts-schema";
+export {
+  c1CapturedFact,
+  captureKnownValue,
+  clearCaptureFact,
+  declareKnownZeroObligations,
+  emptyCapturedAssessmentFacts,
+  setCapturedCibilBand,
+  setCapturedCibilExact,
+  setCapturedCibilKind,
+  setCapturedContribution,
+  setCapturedEmploymentFamily,
+  setCapturedProduct,
+} from "@/lib/opportunity-assessment/capture-facts";

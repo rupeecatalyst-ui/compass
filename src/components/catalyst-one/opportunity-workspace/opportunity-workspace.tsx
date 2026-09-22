@@ -29,8 +29,9 @@ import { WorkspaceNotesPanel } from "./workspace-notes-panel";
 import { WorkspaceDialoguePanel } from "./workspace-dialogue-panel";
 import { WorkspaceStrategicTabs } from "./workspace-strategic-tabs";
 import type { OwStrategicTabId } from "./strategic-tabs";
-import { OW_COMPASS_ASSESSMENT_NAV } from "./strategic-tabs";
+import { OW_COMPASS_ASSESSMENT_NAV, OW_OPPORTUNITY_ASSESSMENT_NAV } from "./strategic-tabs";
 import { WorkspaceCompassAssessmentPanel } from "./workspace-compass-assessment-panel";
+import { WorkspaceOpportunityAssessmentPanel } from "./workspace-opportunity-assessment-panel";
 import { WorkspaceCompassDeskStrip } from "./workspace-compass-desk-strip";
 import { COMPASS_WEBSITE_SOURCE_CODE } from "@/constants/enterprise-opportunity/company-borrower-create";
 import { getStrategicCompetition } from "@/lib/strategic-competition";
@@ -61,7 +62,6 @@ import {
 } from "@/lib/opportunity-loan-continuity";
 import type { DocumentCompletionScore } from "@/lib/document-completion/score";
 import {
-  buildJourneyHref,
   getJourneyStageDisplayLabel,
 } from "@/constants/lead-opportunity-journey";
 import type { LoanStructureNavTarget } from "@/lib/loan-structure";
@@ -195,6 +195,7 @@ function OpportunityWorkspaceShell() {
       tasks: "tasks",
       workflow: "workflow",
       compass_assessment: "overview",
+      opportunity_assessment: "stage",
     };
     const mapped = focusMap[next];
     if (mapped) setFocus(mapped);
@@ -543,11 +544,12 @@ function OpportunityWorkspaceShell() {
             <WorkspaceStrategicTabs
               active={tab}
               onSelect={openTab}
-              extraTabs={
-                registryOpportunity?.sourceCode === COMPASS_WEBSITE_SOURCE_CODE
+              extraTabs={[
+                OW_OPPORTUNITY_ASSESSMENT_NAV,
+                ...(registryOpportunity?.sourceCode === COMPASS_WEBSITE_SOURCE_CODE
                   ? [OW_COMPASS_ASSESSMENT_NAV]
-                  : []
-              }
+                  : []),
+              ]}
             />
             {registryOpportunity?.sourceCode === COMPASS_WEBSITE_SOURCE_CODE && opportunityId ? (
               <WorkspaceCompassDeskStrip opportunityId={opportunityId} />
@@ -584,6 +586,15 @@ function OpportunityWorkspaceShell() {
               {tab === "documents" && <WorkspaceDocumentRequestsPanel />}
               {tab === "tasks" && <WorkspaceTasksPanel />}
               {tab === "workflow" && <WorkspaceWorkflowPanel />}
+              {tab === "opportunity_assessment" && opportunityId ? (
+                <WorkspaceOpportunityAssessmentPanel
+                  opportunityId={opportunityId}
+                  opportunityContext={{
+                    productLabel: registryOpportunity.productLabel,
+                    cityLabel: registryOpportunity.cityLabel,
+                  }}
+                />
+              ) : null}
               {tab === "compass_assessment" && opportunityId ? (
                 <WorkspaceCompassAssessmentPanel opportunityId={opportunityId} />
               ) : null}

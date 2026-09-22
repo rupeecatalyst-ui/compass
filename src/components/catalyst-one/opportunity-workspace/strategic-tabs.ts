@@ -2,6 +2,8 @@
  * Lead Stage Strategic Workspace — tab model (Strategic Workspace v2.0).
  */
 
+import { OW_OPPORTUNITY_ASSESSMENT_NAV as CANONICAL_ASSESSMENT_NAV } from "@/constants/opportunity-assessment-capture";
+
 export type OwStrategicTabId =
   | "overview"
   | "customer"
@@ -16,7 +18,8 @@ export type OwStrategicTabId =
   | "documents"
   | "tasks"
   | "workflow"
-  | "compass_assessment";
+  | "compass_assessment"
+  | "opportunity_assessment";
 
 /**
  * Horizontal Strategic Tabs — frozen order (Business Certified UX Spec v2.0).
@@ -45,6 +48,8 @@ export const OW_COMPASS_ASSESSMENT_NAV = {
   id: "compass_assessment" as const,
   label: "COMPASS Assessment",
 };
+
+export const OW_OPPORTUNITY_ASSESSMENT_NAV = CANONICAL_ASSESSMENT_NAV;
 
 export function getOwChanakyaTabGuidance(tab: OwStrategicTabId): {
   headline: string;
@@ -139,6 +144,15 @@ export function getOwChanakyaTabGuidance(tab: OwStrategicTabId): {
         nudges: [
           "Record a Talk to an Expert contact outcome to stop the working-hour SLA.",
           "Declared customer answers remain separate from later verified values.",
+        ],
+      };
+    case "opportunity_assessment":
+      return {
+        headline: "Opportunity Assessment",
+        message: "Capture durable HOME_LOAN / HOME_LOAN_BT facts before Chanakya recommendations.",
+        nudges: [
+          "Missing is not zero. Exact CIBIL is not a band.",
+          "Finalize only when required facts are complete. Saving does not run recommendations.",
         ],
       };
     case "overview":

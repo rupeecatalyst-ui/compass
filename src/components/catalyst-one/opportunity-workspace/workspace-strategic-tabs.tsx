@@ -51,6 +51,9 @@ export function WorkspaceStrategicTabs({
                 item.id === "compass_assessment" &&
                   !selected &&
                   "border border-sky-500/30 bg-sky-500/5 text-sky-100 hover:bg-sky-500/15",
+                item.id === "opportunity_assessment" &&
+                  !selected &&
+                  "border border-teal-500/30 bg-teal-500/5 text-teal-100 hover:bg-teal-500/15",
                 !isLife &&
                   selected &&
                   "bg-teal-500/20 text-teal-50 ring-1 ring-teal-400/40",
