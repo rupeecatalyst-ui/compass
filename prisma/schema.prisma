@@ -3309,6 +3309,7 @@ model EnterpriseOpportunityAssessment {
 }
 
 /// Stage 5C1 — immutable assessment revision. Never mutate after insert.
+/// Stage 5C2A — explicit command/content/kind columns; finalized_* nullable for SAVED.
 model EnterpriseOpportunityAssessmentRevision {
   id                    String    @id @default(cuid())
   organizationId        String    @map("organization_id")
@@ -3321,9 +3322,15 @@ model EnterpriseOpportunityAssessmentRevision {
   factsSchemaVersion    String    @map("facts_schema_version")
   mapperVersion         String    @map("mapper_version")
   readinessStatus       String    @map("readiness_status")
-  finalizedAt           DateTime  @map("finalized_at")
+  /// SAVED | FINALIZED. Nullable only for hypothetical pre-5C2A rows; new writes require it.
+  revisionKind          String?   @map("revision_kind")
+  commandId             String?   @map("command_id")
+  commandHash           String?   @map("command_hash")
+  contentHash           String?   @map("content_hash")
+  /// Null on SAVED. Required on FINALIZED (enforced by application + CHECK).
+  finalizedAt           DateTime? @map("finalized_at")
   finalizedByUserId     String?   @map("finalized_by_user_id")
-  finalizedChannel      String    @map("finalized_channel")
+  finalizedChannel      String?   @map("finalized_channel")
   supersededAt          DateTime? @map("superseded_at")
 
   organization Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -3333,11 +3340,14 @@ model EnterpriseOpportunityAssessmentRevision {
   recommendationRuns EnterpriseOpportunityAssessmentRecommendationRun[]
 
   @@unique([assessmentId, revisionNumber], map: "eoar_assessment_revision_key")
+  /// Tenant-safe command idempotency. PostgreSQL allows multiple NULLs for pre-5C2A rows.
+  @@unique([organizationId, commandId], map: "eoar_org_command_id_key")
   @@index([organizationId, opportunityId, revisionNumber], map: "eoar_org_opp_revision_idx")
   @@map("enterprise_opportunity_assessment_revisions")
 }
 
 /// Stage 5C1 — recommendation execution persistence contract only. No mapper/runtime wiring.
+/// Stage 5C2A — explicit requestHash + sanitized failureCode. Does not store raw errors/credentials.
 /// Does not store raw policy JSON, lender scores, stars, or confidence.
 model EnterpriseOpportunityAssessmentRecommendationRun {
   id                         String   @id @default(cuid())
@@ -3345,6 +3355,8 @@ model EnterpriseOpportunityAssessmentRecommendationRun {
   opportunityId              String   @map("opportunity_id")
   assessmentId               String   @map("assessment_id")
   revisionId                 String   @map("revision_id")
+  /// Nullable only for hypothetical pre-5C2A rows; new writes require it. Identity remains `id` (requestId).
+  requestHash                String?  @map("request_hash")
   assessedAt                 DateTime @map("assessed_at")
   asOf                       DateTime @map("as_of")
   mapperVersion              String   @map("mapper_version")
@@ -3355,6 +3367,8 @@ model EnterpriseOpportunityAssessmentRecommendationRun {
   rejectedProgrammeCodesJson Json     @map("rejected_programme_codes_json")
   acceptedProgrammeIdsJson   Json     @map("accepted_programme_ids_json")
   cibilNotKnownDisclaimer    Boolean  @map("cibil_not_known_disclaimer")
+  /// Finite sanitized codes only. Null on pending/successful runs.
+  failureCode                String?  @map("failure_code")
 
   organization Organization                          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   opportunity  EnterpriseOpportunity                 @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
