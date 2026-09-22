@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { authenticatedJsonFetch } from "@/lib/api-client";
+import { absoluteRupeesFromStoredString, parseFinancialMagnitudeInput } from "@/lib/enterprise-financial-input";
 import type { CanonicalLenderRecommendationResult } from "@/types/canonical-lender-recommendation";
 import type { LoanFile } from "@/types/catalyst-one";
 import type { EcwStatedInformationDraft } from "@/types/enterprise-credit-workspace";
 
 function amount(value: string | number | undefined): number | null {
   if (value == null || String(value).trim() === "") return null;
-  const numeric = Number(String(value).replace(/,/g, ""));
-  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
+  // Preserve explicit zero; positive amounts use the same contract as the editor.
+  if (parseFinancialMagnitudeInput(String(value)) === 0) return 0;
+  return absoluteRupeesFromStoredString(String(value)) ?? null;
 }
 
 /** Transport only: all eligibility, policy validation and ordering remain on the server. */
@@ -20,9 +22,9 @@ export function useChanakyaCanonicalRecommendations(
   revision?: string | number,
 ) {
   const body = JSON.stringify({
-    monthlyIncomeRupees: amount(stated?.statedIncomeMonthly || file?.businessDetails?.monthlySalary),
+    monthlyIncomeRupees: amount(stated?.statedIncomeMonthly ?? file?.businessDetails?.monthlySalary),
     existingMonthlyEmiRupees: amount(stated?.statedObligations ?? file?.businessDetails?.existingEmi),
-    propertyValueRupees: amount(stated?.statedPropertyValue || file?.approxPropertyValue),
+    propertyValueRupees: amount(stated?.statedPropertyValue ?? file?.approxPropertyValue),
     propertyType: stated?.statedPropertyType || file?.propertyType || null,
     constitution: stated?.statedConstitution || file?.businessDetails?.constitution || null,
   });
@@ -52,5 +54,5 @@ export function useChanakyaCanonicalRecommendations(
   const result = state.key === key ? state.result : null;
   const loading = Boolean(opportunityId && file && state.key !== key);
   return { result, loading, guidance: loading ? "Assessing published programmes..." :
-    "No eligible recommendation is available. Complete assessment inputs (including income, obligations and property value) and verify published programme/policy configuration." };
+    "No eligible recommendation is available. Saved assessment inputs are required; local financial/property drafts are not yet durable recommendation inputs." };
 }

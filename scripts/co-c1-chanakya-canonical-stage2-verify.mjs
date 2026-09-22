@@ -6,7 +6,8 @@ import ts from "typescript";
 // Reject any accidental database access before importing application modules.
 let databaseAttempts = 0;
 globalThis.prisma = new Proxy({}, { get() { databaseAttempts++; throw new Error("DATABASE_FORBIDDEN_IN_TEST"); } });
-const { recommendForChanakyaOpportunity, chanakyaAssessmentDraftSchema } = await import("../server/services/enterprise-opportunity/chanakya-recommendations.ts");
+const { recommendForChanakyaOpportunity, chanakyaAssessmentDraftSchema, mapChanakyaOpportunityInputs } = await import("../server/services/enterprise-opportunity/chanakya-recommendations.ts");
+const money = await import("../src/lib/enterprise-financial-input/index.ts");
 const { recommendLendersCanonical } = await import("../server/services/lender-recommendation/canonical-lender-recommendation.service.ts");
 const { isCanonicalProgrammeAvailable } = await import("../server/services/lender-recommendation/programme-availability.ts");
 
@@ -45,7 +46,15 @@ const recommend = request => {
     lenderCategories: new Map(rows.map(row => [row.lenderId, "A"])),
   }) });
 };
-const evaluate = (opp = opportunity) => recommendForChanakyaOpportunity(opp, draft, recommend);
+// Stage 4A deliberately blocks local-only financial declarations. Test that boundary,
+// then retain the Stage 2 engine/order/lifecycle fixtures with explicit synthetic inputs.
+await assert.rejects(recommendForChanakyaOpportunity(opportunity, draft, recommend), /DURABLE_ASSESSMENT_INPUT_REQUIRED/);
+assert.equal(requests.length, 0);
+const evaluate = async (opp = opportunity) => {
+  const mapped = mapChanakyaOpportunityInputs(opp);
+  return recommend({ organizationId: opp.organizationId, product: mapped.product,
+    customer: { ...mapped.customer, ...draft } });
+};
 let result = await evaluate();
 assert.equal(requests.length, 1);
 assert.equal(result.recommendations.length, 2, "real canonical engine returns configured eligible programmes");
@@ -74,8 +83,9 @@ rows = [{ ...candidate, policyVersion: null }];
 assert.equal((await evaluate()).recommendations.length, 0);
 rows = [{ ...candidate, policyVersion: { ...candidate.policyVersion, eligibilityRules: { rules: [{ type: "unapproved_income_rule" }] } } }];
 assert.equal((await evaluate()).recommendations.length, 0);
-const failedInventory = await recommendForChanakyaOpportunity(opportunity, draft, req =>
-  recommendLendersCanonical(req, { loadInventory: async () => { throw new Error("synthetic"); } }));
+const failedInventory = await recommendLendersCanonical({ organizationId: opportunity.organizationId,
+  ...mapChanakyaOpportunityInputs(opportunity), customer: { ...mapChanakyaOpportunityInputs(opportunity).customer, ...draft } },
+  { loadInventory: async () => { throw new Error("synthetic"); } });
 assert.equal(failedInventory.status, "configuration_error");
 
 // Execute the real route body with explicit auth/storage doubles; never start an HTTP server.
@@ -104,7 +114,7 @@ assert.equal((await invoke("outside-org")).status, 404); assert.equal(serviceCal
 assert.equal((await invoke("authorized-id", { ...draft, product: "HOME_LOAN_BT" })).status, 400);
 assert.equal(serviceCalls, 0);
 rows = [programme("route")];
-assert.equal((await invoke()).body.data.recommendations.length, 1);
+assert.equal((await invoke()).status, 400, "local declarations cannot satisfy durable capture");
 assert.equal(serviceCalls, 1);
 
 const panel = source("src/components/catalyst-one/credit-bench/chanakya-opportunity-recommendation-panel.tsx");
@@ -132,6 +142,7 @@ vm.runInNewContext(ts.transpileModule(hook, { compilerOptions: { module: ts.Modu
       useEffect: (run, [key]) => { if (key !== priorKey) { effect = run; priorKey = key; } },
     };
     if (name.endsWith("api-client")) return { authenticatedJsonFetch: (url, options) => new Promise((resolve, reject) => pending.push({ url, options, resolve, reject })) };
+    if (name.endsWith("enterprise-financial-input")) return money;
     throw new Error("Unexpected hook import");
   },
 });
