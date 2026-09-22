@@ -9,6 +9,15 @@ export {
   projectOpportunityAssessmentCapture,
   listOpportunityAssessmentRecommendationRuns,
 } from "./http";
+export {
+  getOpportunityAssessmentRecommendation,
+  executeOpportunityAssessmentRecommendation,
+} from "./recommendation-http";
+export {
+  executeFinalizedAssessmentRecommendation,
+  readFinalizedAssessmentRecommendation,
+} from "./execute-recommendation";
+export { mapFinalizedAssessmentFactsToCanonical } from "./map-to-canonical";
 export type {
   OpportunityAssessmentActorContext,
   OpportunityAssessmentReadModel,
@@ -16,3 +25,4 @@ export type {
 } from "./types";
 export type { OpportunityAssessmentSaveBody } from "./http";
 export type { OpportunityAssessmentCaptureDto } from "@/types/opportunity-assessment-capture";
+export type { OpportunityAssessmentRecommendationDto } from "@/types/opportunity-assessment-recommendation";

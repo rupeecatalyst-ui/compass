@@ -28,3 +28,7 @@ export {
   setCapturedEmploymentFamily,
   setCapturedProduct,
 } from "@/lib/opportunity-assessment/capture-facts";
+export {
+  projectChanakyaLifeRecommendationColumn,
+  projectChanakyaOpportunityRecommendationPanel,
+} from "@/lib/opportunity-assessment/recommendation-presentation";

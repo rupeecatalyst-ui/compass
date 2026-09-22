@@ -135,7 +135,10 @@ export function mapChanakyaOpportunityInputs(
   };
 }
 
-/** Product, tenant and borrower facts come exclusively from authorized saved sources. */
+/**
+ * Stage 2 / 4A legacy Opportunity-source path. Not used by Opportunity/LIFE CHANAKYA panels
+ * after Stage 5C5. Canonical HL/HLBT panels execute only from a finalized Opportunity Assessment.
+ */
 export async function recommendForChanakyaOpportunity(
   opportunity: Opportunity,
   draft: z.infer<typeof chanakyaAssessmentDraftSchema>,

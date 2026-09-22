@@ -482,12 +482,16 @@ export function WorkspaceLifeStrategyBoard() {
     refresh();
   };
 
-  const chanakyaEmptyText = !chanakyaResult.ready
-    ? chanakyaResult.guidance[0] ??
-      "Complete Opportunity details to generate Chanakya Recommendations."
-    : recommendations.length === 0
-      ? "No open recommendations. Adjust competition or clear the Execution Queue."
-      : "";
+  const chanakyaEmptyText = canonical.assessmentNotReady
+    ? canonical.guidance
+    : canonical.noEligibleLender
+      ? canonical.guidance
+      : !chanakyaResult.ready
+        ? chanakyaResult.guidance[0] ??
+          "Finalize the Opportunity Assessment before Chanakya can recommend lenders."
+        : recommendations.length === 0
+          ? "No open recommendations. Adjust competition or clear the Execution Queue."
+          : "";
 
   return (
     <div className="flex min-h-[calc(100dvh-11rem)] flex-col gap-1.5">
