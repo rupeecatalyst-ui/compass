@@ -34,6 +34,10 @@ export type CompassJourneyFieldDef = {
   notRequiredWhenFilled?: string[];
   maxWhenField?: string;
   maxWhenMap?: Record<string, number>;
+  capture?: boolean;
+  mandatoryForRecommendation?: boolean;
+  applicability?: "all" | "salaried" | "self_employed";
+  captureStepId?: string | null;
 };
 
 export type CompassJourneyConfigDto = {

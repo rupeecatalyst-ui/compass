@@ -18,6 +18,7 @@ export type OpportunityAssessmentCaptureDto = {
   facts: OpportunityAssessmentFactsV1;
   sourceFingerprint: OpportunityAssessmentSourceFingerprint;
   missingLabels: string[];
+  journeyFields?: import("@/types/product-journey-definition").ProductJourneyFieldRow[];
   recommendationExecuted: false;
   recommendationRunCreated: false;
 };

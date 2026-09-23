@@ -23,7 +23,12 @@ import {
   setCapturedContribution,
   setCapturedEmploymentFamily,
   setCapturedProduct,
+  setCapturedPropertyCategory,
 } from "@/lib/opportunity-assessment/capture-facts";
+import { bootstrapProductJourneyFields } from "@/constants/product-journey/bootstrap";
+import { GOVERNED_PROPERTY_CATEGORIES, isEmploymentClassificationAsPropertyCategory } from "@/constants/product-journey/property-category";
+import { captureJourneyFields } from "@/lib/product-journey/applicability";
+import { assessmentPathIsConfigured } from "@/lib/product-journey/readiness-fields";
 import { emptyOpportunityAssessmentFacts } from "@/lib/opportunity-assessment";
 import type {
   AssessmentCibilKind,
@@ -166,6 +171,14 @@ export function WorkspaceOpportunityAssessmentPanel({
 
   const product = facts.loanRequirement.productCode.value;
   const employment = facts.borrower.employmentFamily.value;
+  const journeyRows = useMemo(() => {
+    const configured = model?.journeyFields?.length
+      ? model.journeyFields
+      : bootstrapProductJourneyFields(product ?? "HOME_LOAN");
+    return captureJourneyFields(configured, employment ?? "unknown");
+  }, [model?.journeyFields, product, employment]);
+  const showPath = (path: string) =>
+    path.startsWith("loanRequirement.") || assessmentPathIsConfigured(path, journeyRows, "capture");
   const cibilKind = (facts.cibil.kind.value ?? (facts.cibil.kind.state === "missing" ? "missing" : null)) as
     | AssessmentCibilKind
     | "missing"
@@ -217,6 +230,7 @@ export function WorkspaceOpportunityAssessmentPanel({
       <OwGlassPanel>
         <OwSectionLabel>Borrower</OwSectionLabel>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {showPath("borrower.residency") ? (
           <Field label="Residency" fact={facts.borrower.residency}>
             <select
               className={inputClass}
@@ -234,6 +248,8 @@ export function WorkspaceOpportunityAssessmentPanel({
               <option value="nri">NRI</option>
             </select>
           </Field>
+          ) : null}
+          {showPath("borrower.dateOfBirth") ? (
           <Field label="Date of birth" fact={facts.borrower.dateOfBirth}>
             <Input
               type="date"
@@ -248,6 +264,7 @@ export function WorkspaceOpportunityAssessmentPanel({
               }
             />
           </Field>
+          ) : null}
           <Field label="Employment" fact={facts.borrower.employmentFamily}>
             <select
               className={inputClass}
@@ -266,6 +283,7 @@ export function WorkspaceOpportunityAssessmentPanel({
               <option value="unknown">Unknown</option>
             </select>
           </Field>
+          {showPath("borrower.employmentTypeCode") ? (
           <Field label="Occupation type" fact={facts.borrower.employmentTypeCode}>
             <Input
               className={inputClass}
@@ -279,6 +297,7 @@ export function WorkspaceOpportunityAssessmentPanel({
               }
             />
           </Field>
+          ) : null}
           <Field label="CIBIL status" fact={facts.cibil.kind}>
             <select
               className={inputClass}
@@ -354,6 +373,7 @@ export function WorkspaceOpportunityAssessmentPanel({
                 : "Monthly income is captured after salaried employment is known."}
             </p>
           )}
+          {showPath("incomeAndObligations.existingMonthlyObligations") ? (
           <Field label="Existing monthly obligations" fact={facts.incomeAndObligations.existingMonthlyObligations}>
             <Input
               className={inputClass}
@@ -383,6 +403,8 @@ export function WorkspaceOpportunityAssessmentPanel({
               I declare zero existing EMI
             </label>
           </Field>
+          ) : null}
+          {showPath("incomeAndObligations.requestedTenureMonths") ? (
           <Field label="Requested tenure (months)" fact={facts.incomeAndObligations.requestedTenureMonths}>
             <Input
               className={inputClass}
@@ -398,6 +420,7 @@ export function WorkspaceOpportunityAssessmentPanel({
               }}
             />
           </Field>
+          ) : null}
         </div>
       </OwGlassPanel>
 
@@ -465,19 +488,36 @@ export function WorkspaceOpportunityAssessmentPanel({
               }
             />
           </Field>
-          <Field label="Category" fact={facts.property.propertyCategory}>
-            <Input
+          {showPath("property.propertyCategory") ? (
+          <Field label="Property category" fact={facts.property.propertyCategory}>
+            <select
               className={inputClass}
-              value={facts.property.propertyCategory.value ?? ""}
+              value={
+                isEmploymentClassificationAsPropertyCategory(facts.property.propertyCategory.value)
+                  ? ""
+                  : facts.property.propertyCategory.value ?? ""
+              }
               onChange={(event) =>
                 setFacts(
                   event.target.value
-                    ? captureKnownValue(facts, "property", "propertyCategory", event.target.value)
+                    ? setCapturedPropertyCategory(facts, event.target.value)
                     : clearCaptureFact(facts, "property", "propertyCategory"),
                 )
               }
-            />
+            >
+              <option value="">Missing</option>
+              {GOVERNED_PROPERTY_CATEGORIES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            {isEmploymentClassificationAsPropertyCategory(facts.property.propertyCategory.value) ? (
+              <p className="text-[11px] text-amber-200">Stored value is not a property category and cannot be used.</p>
+            ) : null}
           </Field>
+          ) : null}
+          {showPath("property.constructionStatus") ? (
           <Field label="Construction status" fact={facts.property.constructionStatus}>
             <Input
               className={inputClass}
@@ -491,6 +531,8 @@ export function WorkspaceOpportunityAssessmentPanel({
               }
             />
           </Field>
+          ) : null}
+          {showPath("property.occupancy") ? (
           <Field label="Occupancy" fact={facts.property.occupancy}>
             <Input
               className={inputClass}
@@ -504,6 +546,8 @@ export function WorkspaceOpportunityAssessmentPanel({
               }
             />
           </Field>
+          ) : null}
+          {showPath("property.propertyCity") ? (
           <Field label="Property city" fact={facts.property.propertyCity}>
             <Input
               className={inputClass}
@@ -518,6 +562,8 @@ export function WorkspaceOpportunityAssessmentPanel({
               }
             />
           </Field>
+          ) : null}
+          {showPath("borrower.journeyCity") ? (
           <Field label="Journey city (separate)" fact={facts.borrower.journeyCity}>
             <Input
               className={inputClass}
@@ -531,6 +577,7 @@ export function WorkspaceOpportunityAssessmentPanel({
               }
             />
           </Field>
+          ) : null}
         </div>
       </OwGlassPanel>
 
@@ -548,7 +595,9 @@ export function WorkspaceOpportunityAssessmentPanel({
                 ["loanStartDate", "Loan start date"],
                 ["delayedEmiCount", "Delayed EMI count"],
               ] as const
-            ).map(([key, label]) => (
+            )
+              .filter(([key]) => showPath(`balanceTransfer.${key}`))
+              .map(([key, label]) => (
               <Field key={key} label={label} fact={facts.balanceTransfer[key]}>
                 <Input
                   className={inputClass}
@@ -572,6 +621,7 @@ export function WorkspaceOpportunityAssessmentPanel({
                 />
               </Field>
             ))}
+            {showPath("balanceTransfer.repaymentTrack") ? (
             <Field label="Repayment track" fact={facts.balanceTransfer.repaymentTrack}>
               <select
                 className={inputClass}
@@ -595,10 +645,12 @@ export function WorkspaceOpportunityAssessmentPanel({
                 <option value="not_sure">Not sure</option>
               </select>
             </Field>
+            ) : null}
           </div>
         </OwGlassPanel>
       ) : null}
 
+      {showPath("coApplicant.participantRef") || showPath("coApplicant.contributionDecision") ? (
       <OwGlassPanel>
         <OwSectionLabel>Co-applicant</OwSectionLabel>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -635,6 +687,7 @@ export function WorkspaceOpportunityAssessmentPanel({
           </Field>
         </div>
       </OwGlassPanel>
+      ) : null}
 
       {employment === "self_employed" ? (
         <OwGlassPanel>

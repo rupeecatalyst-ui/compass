@@ -119,7 +119,7 @@ export class OpportunityAssessmentService {
         throw new OpportunityAssessmentError("ASSESSMENT_STALE");
       }
 
-      const derived = deriveOpportunityAssessmentReadiness(facts);
+      const derived = deriveOpportunityAssessmentReadiness(facts, input.journeyFields);
       const isFinalized = input.kind === "FINALIZED";
       if (isFinalized) {
         if (input.normalizedInput == null || typeof input.normalizedInput !== "object") {

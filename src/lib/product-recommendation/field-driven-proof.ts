@@ -111,10 +111,11 @@ export async function runFieldDrivenRecommendationProof() {
     assert.match(pickerSource, /discoverCanonicalRecommendationFields/);
     assert.match(discoverSource, /emptyOpportunityAssessmentFacts|walkAssessmentFactLeaves/);
     assert.match(workspace, /listProjectedRecommendationFields/);
-    assert.match(workspace, /Recommendation Weightage/);
-    assert.match(workspace, /Fields used for Match %/);
+    assert.match(workspace, /Product Journey & Recommendation Master/);
+    assert.match(workspace, /\+ Add Field/);
+    assert.match(workspace, /\+ Add Criteria/);
+    assert.match(workspace, /TOTAL WEIGHTAGE/);
     assert.match(workspace, /Home Loan Balance Transfer/);
-    assert.match(workspace, /Total Weight/);
     assert.match(workspace, /Save Draft/);
     assert.match(workspace, /Not Known/);
     assert.match(workspace, /Lender Categories/);
@@ -122,6 +123,7 @@ export async function runFieldDrivenRecommendationProof() {
     assert.match(workspace, /Version History \/ Audit Details/);
     assert.doesNotMatch(workspace, /Create labelled unapproved drafts/);
     assert.doesNotMatch(workspace, /supportedCriteria/);
+    assert.doesNotMatch(workspace, /Fields used for Match %/);
     assert.doesNotMatch(pickerSource, /assessment:selfEmployedEvidence\.vintage/);
     console.log("B field picker discovers from canonical sources, not a recommendation appearance catalog: PASS");
   }

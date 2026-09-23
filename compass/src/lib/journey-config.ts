@@ -19,6 +19,10 @@ export type CompassJourneyConfigField = {
   notRequiredWhenFilled?: string[];
   maxWhenField?: string;
   maxWhenMap?: Record<string, number>;
+  capture?: boolean;
+  mandatoryForRecommendation?: boolean;
+  applicability?: "all" | "salaried" | "self_employed";
+  captureStepId?: string | null;
 };
 
 export type CompassJourneyConfig = {
@@ -129,9 +133,18 @@ export function isMonthlyIncomeStepRequired(
   config: CompassJourneyConfig | null | undefined,
   answers: Record<string, string | number | boolean | null | undefined>,
 ): boolean {
-  const field = findJourneyField(config, "monthlyIncomeLabel", "monthlyIncome");
+  const field = findJourneyField(config, "monthlyIncomeLabel", "monthlyIncome", "assessment:incomeAndObligations.monthlyIncome");
   if (!field) return false;
   const employment = String(answers.incomeType || answers.employmentTypeCode || "").trim();
+  if (field.applicability === "salaried") return employment === "salaried";
+  if (field.applicability === "self_employed") {
+    return (
+      employment === "self-employed-professional" ||
+      employment === "self-employed-business" ||
+      employment === "professional" ||
+      employment === "business"
+    );
+  }
   const turnoverFilled = (field.notRequiredWhenFilled ?? ["annualTurnover", "annualTurnoverLabel"]).some(
     (key) => hasFilledValue(answers[key]),
   );
@@ -152,4 +165,27 @@ export function cibilFieldOptions(
   config: CompassJourneyConfig | null | undefined,
 ): { value: string; label: string }[] {
   return findJourneyField(config, "approxCibilScore")?.options ?? [];
+}
+
+const SHELL_BEFORE = ["welcome"] as const;
+const IDENTITY = ["mobile"] as const;
+const SHELL_AFTER = ["analysing", "advantage", "lenders", "documents", "review", "confirmation"] as const;
+
+export function governedDiscoveryStepOrder<T extends string>(
+  config: CompassJourneyConfig | null | undefined,
+  fallback: readonly T[],
+): T[] {
+  const captureSteps = (config?.fields ?? [])
+    .filter((field) => field.capture !== false && field.captureStepId)
+    .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0))
+    .map((field) => field.captureStepId as T);
+  if (captureSteps.length === 0) return [...fallback];
+  const seen = new Set<string>();
+  const ordered: T[] = [];
+  for (const step of [...SHELL_BEFORE, ...IDENTITY, ...captureSteps, ...SHELL_AFTER]) {
+    if (seen.has(step)) continue;
+    seen.add(step);
+    ordered.push(step as T);
+  }
+  return ordered;
 }

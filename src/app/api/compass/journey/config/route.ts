@@ -13,5 +13,5 @@ export async function GET(request: NextRequest) {
   const productCode = requireActiveCompassProduct(request.nextUrl.searchParams.get("productCode"));
   if (productCode instanceof Response) return productCode;
 
-  return compassGatewaySuccess(compassJourneyService.getConfig(productCode));
+  return compassGatewaySuccess(await compassJourneyService.getConfig(productCode));
 }

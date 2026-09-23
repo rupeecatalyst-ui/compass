@@ -41,7 +41,7 @@ type MasterRow = {
   lender?: { code?: string; label?: string; displayName?: string | null };
 };
 
-type BusinessArea = "weightage" | "categories" | "cibil" | "ltv";
+type BusinessArea = "journey" | "weightage" | "categories" | "cibil" | "ltv";
 
 const PRODUCT_CHOICES = [
   { code: "HOME_LOAN", label: "Home Loan" },
@@ -67,7 +67,8 @@ function scoreabilityLabel(value: string): string {
 function productLabel(code: string | undefined): string {
   if (!code) return "Not specified";
   const known = PRODUCT_CHOICES.find((item) => recommendationProductCodesEquivalent(item.code, code));
-  return known?.label ?? code;
+  if (known) return known.label;
+  return code.replaceAll("_", " ");
 }
 
 function pickWorkingWeightRow(rows: MasterRow[], productCode: string): MasterRow | null {
@@ -112,6 +113,15 @@ export function HomeLoanRecommendationMastersWorkspace() {
     cibil?: MasterRow[];
     ltv?: MasterRow[];
     categories?: MasterRow[];
+    products?: Array<{ code: string; label: string; sortOrder: number }>;
+    definitions?: Array<{
+      id: string;
+      productCode: string;
+      lifecycleStatus: string;
+      versionNumber?: number;
+      fieldsJson?: unknown;
+    }>;
+    bootstrap?: Record<string, Array<{ fieldId: string; applicability: "all" | "salaried" | "self_employed"; capture: boolean; mandatoryForRecommendation: boolean; displayOrder: number }>>;
     authorisedCibilRules?: typeof AUTHORISED_CIBIL_CATEGORY_RULES;
     libraryLtvDefault?: {
       slabs: typeof AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS;
@@ -120,10 +130,23 @@ export function HomeLoanRecommendationMastersWorkspace() {
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [area, setArea] = useState<BusinessArea>("weightage");
+  const [area, setArea] = useState<BusinessArea>("journey");
   const [productCode, setProductCode] = useState<string>("HOME_LOAN");
   const [historyVersionId, setHistoryVersionId] = useState<string | null>(null);
   const [draftWeights, setDraftWeights] = useState<Record<string, number>>({});
+  const [draftFields, setDraftFields] = useState<
+    Array<{
+      fieldId: string;
+      applicability: "all" | "salaried" | "self_employed";
+      capture: boolean;
+      mandatoryForRecommendation: boolean;
+      displayOrder: number;
+    }>
+  >([]);
+  const [addFieldId, setAddFieldId] = useState("");
+  const [addFieldQuery, setAddFieldQuery] = useState("");
+  const [addCriterionId, setAddCriterionId] = useState("");
+  const [addCriterionQuery, setAddCriterionQuery] = useState("");
 
   const reload = async () => {
     const res = await authenticatedJsonFetch("/api/admin/home-loan-recommendation-masters");
@@ -135,6 +158,18 @@ export function HomeLoanRecommendationMastersWorkspace() {
     void reload();
   }, []);
 
+  const productChoices = data?.products?.length ? data.products : [...PRODUCT_CHOICES];
+  const journeyRows = useMemo(
+    () =>
+      (data?.definitions ?? []).filter((row) =>
+        recommendationProductCodesEquivalent(row.productCode, productCode),
+      ),
+    [data?.definitions, productCode],
+  );
+  const journeyDraft =
+    journeyRows.find((row) => row.lifecycleStatus === "draft") ??
+    journeyRows.find((row) => row.lifecycleStatus === "active") ??
+    null;
   const productRows = useMemo(
     () => (data?.weights ?? []).filter((row) => recommendationProductCodesEquivalent(row.productCode, productCode)),
     [data?.weights, productCode],
@@ -171,9 +206,30 @@ export function HomeLoanRecommendationMastersWorkspace() {
       return;
     }
     setDraftWeights(asWeightMap(selectedRow.weightsJson));
-    // Id + stored weights are the edit surface; selectedRow object identity changes on list reload.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRow?.id, selectedRow?.weightsJson]);
+
+  useEffect(() => {
+    const source =
+      journeyDraft?.fieldsJson ??
+      data?.bootstrap?.[productCode] ??
+      data?.bootstrap?.HOME_LOAN ??
+      [];
+    if (!Array.isArray(source)) {
+      setDraftFields([]);
+      return;
+    }
+    setDraftFields(
+      source.map((row: { fieldId?: string; applicability?: string; capture?: boolean; mandatoryForRecommendation?: boolean; displayOrder?: number }, index: number) => ({
+        fieldId: String(row.fieldId ?? ""),
+        applicability:
+          row.applicability === "salaried" || row.applicability === "self_employed" ? row.applicability : "all",
+        capture: row.capture !== false,
+        mandatoryForRecommendation: row.mandatoryForRecommendation === true,
+        displayOrder: typeof row.displayOrder === "number" ? row.displayOrder : index * 10,
+      })).filter((row) => row.fieldId),
+    );
+  }, [journeyDraft?.id, journeyDraft?.fieldsJson, data?.bootstrap, productCode]);
 
   const post = async (payload: Record<string, unknown>, success = "Saved.") => {
     setBusy(true);
@@ -211,6 +267,33 @@ export function HomeLoanRecommendationMastersWorkspace() {
       "Draft weights saved. Percentages were not auto-balanced.",
     );
   };
+
+  const saveJourney = async () => {
+    let draftId = journeyDraft?.lifecycleStatus === "draft" ? journeyDraft.id : null;
+    if (!draftId) {
+      const created = await post({ intent: "ensure_journey_draft", productCode }, "Journey draft opened.");
+      draftId = created && typeof created === "object" && "id" in created ? String(created.id) : null;
+    }
+    if (!draftId) return;
+    await post(
+      { intent: "save_journey_draft", id: draftId, fieldsJson: draftFields },
+      "Journey fields saved. Capture, mandatory-for-recommendation, and Match % remain separate.",
+    );
+  };
+
+  const selectedWeightRows = availableFields.filter((field) => fieldIsSelected(draftWeights, field));
+  const unselectedFields = availableFields.filter((field) => !fieldIsSelected(draftWeights, field));
+  const unconfiguredJourneyFields = availableFields.filter((field) => {
+    if (draftFields.some((row) => row.fieldId === field.id)) return false;
+    if (!addFieldQuery.trim()) return true;
+    const query = addFieldQuery.trim().toLowerCase();
+    return field.label.toLowerCase().includes(query) || field.id.toLowerCase().includes(query);
+  });
+  const unselectedSearchFields = unselectedFields.filter((field) => {
+    if (!addCriterionQuery.trim()) return true;
+    const query = addCriterionQuery.trim().toLowerCase();
+    return field.label.toLowerCase().includes(query) || field.id.toLowerCase().includes(query);
+  });
 
   const VersionList = ({
     title,
@@ -275,16 +358,19 @@ export function HomeLoanRecommendationMastersWorkspace() {
   return (
     <div className="space-y-4 p-4">
       <div>
-        <h1 className="text-xl font-semibold">Home Loan Recommendation Masters</h1>
+        <h1 className="text-xl font-semibold">Product Journey & Recommendation Master</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Configure how Home Loan recommendations are weighted. Lender categories, CIBIL rules and regulatory LTV are
-          shown as they already exist. Versioning stays under Version History / Audit Details.
+          One screen for product questions, recommendation-mandatory facts, and Match % weights. Product tabs come from
+          Product Master. Capture, mandatory-for-recommendation, and Match % stay separate.
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant={area === "journey" ? "default" : "outline"} onClick={() => setArea("journey")}>
+          Product Journey
+        </Button>
         <Button size="sm" variant={area === "weightage" ? "default" : "outline"} onClick={() => setArea("weightage")}>
-          Recommendation Weightage
+          Match %
         </Button>
         <Button size="sm" variant={area === "categories" ? "default" : "outline"} onClick={() => setArea("categories")}>
           Lender Categories
@@ -299,92 +385,277 @@ export function HomeLoanRecommendationMastersWorkspace() {
 
       {message ? <p className="text-sm">{message}</p> : null}
 
+      {area === "journey" || area === "weightage" ? (
+        <div className="flex flex-wrap gap-2">
+          {productChoices.map((choice) => (
+            <Button
+              key={choice.code}
+              size="sm"
+              variant={recommendationProductCodesEquivalent(productCode, choice.code) ? "default" : "outline"}
+              onClick={() => setProductCode(choice.code)}
+            >
+              {choice.label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+
+      {area === "journey" ? (
+        <Card className="space-y-4 p-4">
+          <div>
+            <h2 className="text-base font-semibold">Configured fields for {productLabel(productCode)}</h2>
+            <p className="text-sm text-muted-foreground">
+              Only configured rows appear. Add Field uses canonical discovery. Capture, mandatory-for-recommendation, and
+              Match % are separate settings.
+            </p>
+          </div>
+          {draftFields.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No fields configured for this product yet.</p>
+          ) : (
+            draftFields.map((row, index) => (
+              <div key={`${row.fieldId}-${index}`} className="grid gap-2 border-b border-border/60 py-2 md:grid-cols-6">
+                <p className="text-sm font-medium md:col-span-2" title={row.fieldId}>
+                  {availableFields.find((field) => field.id === row.fieldId)?.label ?? row.fieldId}
+                </p>
+                <select
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  value={row.applicability}
+                  onChange={(event) =>
+                    setDraftFields((current) =>
+                      current.map((item, itemIndex) =>
+                        itemIndex === index
+                          ? { ...item, applicability: event.target.value as "all" | "salaried" | "self_employed" }
+                          : item,
+                      ),
+                    )
+                  }
+                >
+                  <option value="all">All</option>
+                  <option value="salaried">Salaried</option>
+                  <option value="self_employed">Self-employed</option>
+                </select>
+                <label className="flex items-center gap-2 text-xs">
+                  <Checkbox
+                    checked={row.capture}
+                    onCheckedChange={(value) =>
+                      setDraftFields((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, capture: value === true } : item,
+                        ),
+                      )
+                    }
+                  />
+                  Capture
+                </label>
+                <label className="flex items-center gap-2 text-xs">
+                  <Checkbox
+                    checked={row.mandatoryForRecommendation}
+                    onCheckedChange={(value) =>
+                      setDraftFields((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, mandatoryForRecommendation: value === true } : item,
+                        ),
+                      )
+                    }
+                  />
+                  Mandatory for recommendation
+                </label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDraftFields((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))
+          )}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-72">
+              <p className="text-xs text-muted-foreground">Add Field</p>
+              <Input
+                className="mt-1"
+                placeholder="Search canonical fields"
+                value={addFieldQuery}
+                onChange={(event) => setAddFieldQuery(event.target.value)}
+              />
+              <select
+                className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                value={addFieldId}
+                onChange={(event) => setAddFieldId(event.target.value)}
+              >
+                <option value="">Select a canonical field</option>
+                {unconfiguredJourneyFields.map((field) => (
+                  <option key={field.id} value={field.id}>
+                    {field.label} ({field.id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              size="sm"
+              disabled={!addFieldId}
+              onClick={() => {
+                setDraftFields((current) => [
+                  ...current,
+                  {
+                    fieldId: addFieldId,
+                    applicability: "all",
+                    capture: true,
+                    mandatoryForRecommendation: false,
+                    displayOrder: (current.at(-1)?.displayOrder ?? 0) + 10,
+                  },
+                ]);
+                setAddFieldId("");
+              }}
+            >
+              + Add Field
+            </Button>
+          </div>
+          <Button disabled={busy} onClick={() => void saveJourney()}>
+            Save Journey Draft
+          </Button>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Journey version lineage. Activation replaces the TypeScript bootstrap for this product.</p>
+            {journeyRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Bootstrap in effect until a version is saved and activated.</p>
+            ) : (
+              journeyRows.map((row) => (
+                <div key={row.id} className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span>{productLabel(row.productCode)}</span>
+                  <span>Version {row.versionNumber ?? 1}</span>
+                  <span>{row.lifecycleStatus}</span>
+                  {row.lifecycleStatus === "draft" ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() =>
+                        void post(
+                          { intent: "transition_journey", id: row.id, action: "submit_review" },
+                          "Journey submitted for checker.",
+                        )
+                      }
+                    >
+                      Submit for checker
+                    </Button>
+                  ) : null}
+                  {row.lifecycleStatus === "checker_review" ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() =>
+                        void post({ intent: "transition_journey", id: row.id, action: "approve" }, "Journey approved.")
+                      }
+                    >
+                      Approve
+                    </Button>
+                  ) : null}
+                  {row.lifecycleStatus === "approved" ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() =>
+                        void post({ intent: "transition_journey", id: row.id, action: "activate" }, "Journey activated.")
+                      }
+                    >
+                      Activate
+                    </Button>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      ) : null}
+
       {area === "weightage" ? (
         <Card className="space-y-4 p-4">
           <div>
-            <p className="text-sm font-medium">Product</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {PRODUCT_CHOICES.map((choice) => (
-                <Button
-                  key={choice.code}
-                  size="sm"
-                  variant={recommendationProductCodesEquivalent(productCode, choice.code) ? "default" : "outline"}
-                  onClick={() => setProductCode(choice.code)}
-                >
-                  {choice.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-base font-semibold">Fields used for Match %</h2>
+            <h2 className="text-base font-semibold">Match % criteria</h2>
             <p className="text-sm text-muted-foreground">
-              These fields are discovered automatically for {productLabel(productCode)}. Select any number and enter
-              weights manually.
+              Only selected criteria appear. Weights are manual. Activation requires exactly 100%. No silent balancing.
             </p>
           </div>
-
-          {availableFields.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No governed fields were discovered for this product.</p>
+          {selectedWeightRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No Match % criteria selected.</p>
           ) : (
-            <div className="space-y-1">
-              {availableFields.map((field) => {
-                const selected = fieldIsSelected(draftWeights, field);
-                const storedKey = Object.prototype.hasOwnProperty.call(draftWeights, field.id)
-                  ? field.id
-                  : (field.aliases.find((alias) => Object.prototype.hasOwnProperty.call(draftWeights, alias)) ??
-                    field.id);
-                const canEdit = !historyVersionId;
-                return (
-                  <div key={field.id} className="flex flex-wrap items-center gap-3 border-b border-border/60 py-2">
-                    <Checkbox
-                      checked={selected}
-                      disabled={busy || !canEdit}
-                      onCheckedChange={(value) => {
-                        if (value === true) {
-                          setDraftWeights((current) =>
-                            fieldIsSelected(current, field) ? current : { ...current, [field.id]: 0 },
-                          );
-                        } else {
-                          setDraftWeights((current) => deselectFieldKeys(current, field));
-                        }
-                      }}
-                    />
-                    <Label className="min-w-56" title={field.id}>
-                      {field.label}
-                    </Label>
-                    <Badge variant="outline">{field.sourceKind === "derived" ? "Derived" : "Raw"}</Badge>
-                    {field.scoreability !== "fully_scorable" ? (
-                      <Badge variant="outline">{scoreabilityLabel(field.scoreability)}</Badge>
-                    ) : null}
-                    {selected ? (
-                      <Input
-                        type="number"
-                        className="w-24"
-                        disabled={busy || !canEdit}
-                        value={Number.isFinite(draftWeights[storedKey]) ? String(draftWeights[storedKey]) : ""}
-                        onChange={(event) => {
-                          const next = Number(event.target.value);
-                          setDraftWeights((current) => ({
-                            ...current,
-                            [storedKey]: Number.isFinite(next) ? next : 0,
-                          }));
-                        }}
-                      />
-                    ) : null}
-                    {selected ? <span className="text-xs text-muted-foreground">%</span> : null}
-                  </div>
-                );
-              })}
-            </div>
+            selectedWeightRows.map((field) => {
+              const storedKey = Object.prototype.hasOwnProperty.call(draftWeights, field.id)
+                ? field.id
+                : (field.aliases.find((alias) => Object.prototype.hasOwnProperty.call(draftWeights, alias)) ?? field.id);
+              return (
+                <div key={field.id} className="flex flex-wrap items-center gap-3 border-b border-border/60 py-2">
+                  <Label className="min-w-56" title={field.id}>
+                    {field.label}
+                  </Label>
+                  <Badge variant="outline">{field.sourceKind === "derived" ? "Derived" : "Raw"}</Badge>
+                  <Input
+                    type="number"
+                    className="w-24"
+                    disabled={busy || Boolean(historyVersionId)}
+                    value={Number.isFinite(draftWeights[storedKey]) ? String(draftWeights[storedKey]) : ""}
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
+                      setDraftWeights((current) => ({
+                        ...current,
+                        [storedKey]: Number.isFinite(next) ? next : 0,
+                      }));
+                    }}
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy || Boolean(historyVersionId)}
+                    onClick={() => setDraftWeights((current) => deselectFieldKeys(current, field))}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              );
+            })
           )}
-
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-72">
+              <p className="text-xs text-muted-foreground">Select criteria</p>
+              <Input
+                className="mt-1"
+                placeholder="Search governed criteria"
+                value={addCriterionQuery}
+                disabled={Boolean(historyVersionId)}
+                onChange={(event) => setAddCriterionQuery(event.target.value)}
+              />
+              <select
+                className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                value={addCriterionId}
+                disabled={Boolean(historyVersionId)}
+                onChange={(event) => setAddCriterionId(event.target.value)}
+              >
+                <option value="">Choose a governed criterion</option>
+                {unselectedSearchFields.map((field) => (
+                  <option key={field.id} value={field.id}>
+                    {field.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              size="sm"
+              disabled={!addCriterionId || Boolean(historyVersionId)}
+              onClick={() => {
+                setDraftWeights((current) => ({ ...current, [addCriterionId]: 0 }));
+                setAddCriterionId("");
+              }}
+            >
+              + Add Criteria
+            </Button>
+          </div>
           <p className={`text-sm font-medium ${total === 100 ? "text-emerald-300" : "text-amber-200"}`}>
-            Total Weight: {total}%
-            {total === 100
-              ? " — approve/activate only if every selected field is scoreable"
-              : " — draft may be saved at any total"}
+            TOTAL WEIGHTAGE: {total}%
+            {total === 100 ? " — activation allowed" : " — draft may be saved at any total"}
           </p>
           {!historyVersionId ? (
             <Button disabled={busy} onClick={() => void saveDraft()}>
@@ -395,7 +666,6 @@ export function HomeLoanRecommendationMastersWorkspace() {
               Viewing a historical version. Return to the current draft from Version History to save weights.
             </p>
           )}
-
           <VersionList title="Weightage versions for this product" kind="weights" rows={productRows} />
         </Card>
       ) : null}

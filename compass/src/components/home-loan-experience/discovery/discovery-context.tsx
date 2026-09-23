@@ -10,7 +10,7 @@ import {
 } from "@/config/compass-lending-products";
 import { persistDiscoveryAnswers, restoreDiscoveryAnswers } from "@/lib/discovery-session";
 import type { CompassJourneyConfig } from "@/lib/journey-config";
-import { isMonthlyIncomeStepRequired } from "@/lib/journey-config";
+import { isMonthlyIncomeStepRequired, governedDiscoveryStepOrder } from "@/lib/journey-config";
 import { clearDiscoveryLaunchUrl } from "@/discovery-template/launch-discovery";
 import {
   fetchCompassJourneyConfig,
@@ -286,7 +286,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
         ? { ...answers, ...(arg as Partial<DiscoveryAnswers>) }
         : answers;
     setStep((current) => {
-      const order = getDiscoveryStepOrder(productCode);
+      const order = governedDiscoveryStepOrder(journeyConfig, getDiscoveryStepOrder(productCode));
       const idx = order.indexOf(current);
       for (let i = idx + 1; i < order.length; i += 1) {
         const candidate = order[i];
@@ -316,7 +316,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
 
   const goBack = useCallback(() => {
     setStep((current) => {
-      const order = getDiscoveryStepOrder(productCode);
+      const order = governedDiscoveryStepOrder(journeyConfig, getDiscoveryStepOrder(productCode));
       const idx = order.indexOf(current);
       for (let i = idx - 1; i >= 0; i -= 1) {
         const candidate = order[i];

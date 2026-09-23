@@ -14,6 +14,12 @@ import {
   simulateHomeLoanRecommendation,
   transitionHlMaster,
 } from "@server/services/home-loan-recommendation/hl-recommendation-masters.service";
+import {
+  ensureProductJourneyDraft,
+  listProductJourneyDefinitions,
+  saveProductJourneyDraft,
+  transitionProductJourneyDefinition,
+} from "@server/services/product-journey/product-journey-definition.service";
 import type { CustomerAssessmentInput } from "@/lib/home-loan-recommendation/assisted-offer";
 
 const WRITE_ROLES = new Set(["SUPER_ADMIN", "ADMIN"]);
@@ -25,8 +31,11 @@ export async function GET(request: Request) {
       return errorResponse(403, "FORBIDDEN", "Administrator access is required.");
     }
     const organizationId = await resolvePilotOrganizationId();
-    const data = await listHlRecommendationMasters(organizationId);
-    return successResponse(data);
+    const [data, journey] = await Promise.all([
+      listHlRecommendationMasters(organizationId),
+      listProductJourneyDefinitions(organizationId),
+    ]);
+    return successResponse({ ...data, ...journey });
   } catch (err) {
     if (typeof err === "object" && err !== null && "status" in err) {
       return fromAuthError(err as { status: number; body: ApiResponse<unknown> });
@@ -51,7 +60,35 @@ export async function POST(request: Request) {
       customer?: CustomerAssessmentInput;
       productCode?: string;
       weightsJson?: Record<string, number>;
+      fieldsJson?: unknown;
     };
+    if (body.intent === "ensure_journey_draft" && body.productCode) {
+      const data = await ensureProductJourneyDraft({
+        organizationId,
+        productCode: body.productCode,
+        makerUserId: actor.userId,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "save_journey_draft" && body.id && body.fieldsJson) {
+      const data = await saveProductJourneyDraft({
+        organizationId,
+        id: body.id,
+        actorUserId: actor.userId,
+        fieldsJson: body.fieldsJson,
+      });
+      return successResponse(data);
+    }
+    if (body.intent === "transition_journey" && body.id && body.action) {
+      const data = await transitionProductJourneyDefinition({
+        organizationId,
+        id: body.id,
+        action: body.action,
+        actorUserId: actor.userId,
+        comment: body.comment,
+      });
+      return successResponse(data);
+    }
     if (body.intent === "ensure_weight_draft" && body.productCode) {
       const data = await ensureProductWeightDraft({
         organizationId,

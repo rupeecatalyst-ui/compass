@@ -27,6 +27,7 @@ export {
   setCapturedContribution,
   setCapturedEmploymentFamily,
   setCapturedProduct,
+  setCapturedPropertyCategory,
 } from "@/lib/opportunity-assessment/capture-facts";
 export {
   projectChanakyaLifeRecommendationColumn,

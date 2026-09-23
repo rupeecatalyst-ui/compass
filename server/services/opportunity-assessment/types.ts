@@ -118,6 +118,7 @@ export type SaveAssessmentRevisionInput = {
   kind: AssessmentRevisionKind;
   normalizedInput?: unknown | null;
   normalizedInputVersion?: string | null;
+  journeyFields?: import("@/types/product-journey-definition").ProductJourneyFieldRow[] | null;
 };
 
 export type BeginRecommendationRunInput = {

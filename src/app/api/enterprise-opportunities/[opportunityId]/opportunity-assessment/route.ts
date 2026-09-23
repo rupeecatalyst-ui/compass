@@ -13,11 +13,20 @@ import {
 } from "@server/services/opportunity-assessment/http";
 import { loadOpportunityAssessmentReuseSources } from "@server/services/opportunity-assessment/reuse-sources";
 import { createOpportunityAssessmentService } from "@server/services/opportunity-assessment/runtime";
+import { resolveJourneyFieldsSafe } from "@server/services/product-journey/product-journey-definition.service";
 
 type Ctx = { params: Promise<{ opportunityId: string }> };
 
 function trustedActor(userId: string, organizationId: string) {
   return { organizationId, actorUserId: userId, channel: "C1" as const };
+}
+
+function governedJourneyResolver(organizationId: string) {
+  return (facts: { loanRequirement: { productCode: { value: string | null } } }) =>
+    resolveJourneyFieldsSafe({
+      organizationId,
+      productCode: facts.loanRequirement.productCode.value ?? "HOME_LOAN",
+    });
 }
 
 export async function GET(request: Request, context: Ctx) {
@@ -33,6 +42,7 @@ export async function GET(request: Request, context: Ctx) {
       opportunityId,
       undefined,
       reuseSources,
+      governedJourneyResolver(organizationId),
     );
     return NextResponse.json(result.body, { status: result.status });
   } catch (err) {
@@ -55,6 +65,7 @@ export async function POST(request: Request, context: Ctx) {
       trustedActor(actor.userId, organizationId),
       opportunityId,
       body,
+      governedJourneyResolver(organizationId),
     );
     return NextResponse.json(result.body, { status: result.status });
   } catch (err) {

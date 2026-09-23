@@ -1,4 +1,5 @@
 import { cloneAssessmentFact, emptyOpportunityAssessmentFacts, missingAssessmentFact } from "@/lib/opportunity-assessment";
+import { rejectEmploymentAsPropertyCategory } from "@/constants/product-journey/property-category";
 import type {
   AssessmentCibilKind,
   AssessmentContributionDecision,
@@ -141,6 +142,12 @@ export function setCapturedContribution(
   decision: AssessmentContributionDecision,
 ) {
   return captureKnownValue(facts, "coApplicant", "contributionDecision", decision);
+}
+
+export function setCapturedPropertyCategory(facts: OpportunityAssessmentFactsV1, raw: string) {
+  const governed = rejectEmploymentAsPropertyCategory(raw);
+  if (!governed) return clearCaptureFact(facts, "property", "propertyCategory");
+  return captureKnownValue(facts, "property", "propertyCategory", governed);
 }
 
 export function emptyCapturedAssessmentFacts(): OpportunityAssessmentFactsV1 {

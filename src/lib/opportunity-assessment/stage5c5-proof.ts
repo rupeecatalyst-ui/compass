@@ -286,8 +286,11 @@ export async function runStage5c5Proof() {
     facts.borrower.residency = { ...facts.borrower.residency, value: null, state: "missing", sourceChannel: null };
     await capture(service, "opp-res", facts, "SAVED", "cmd-res");
     const ran = await execute(service, dependencies, "opp-res");
-    assert.equal(ran.body.data?.failureCode, "ASSESSMENT_INCOMPLETE");
-    console.log("10 MISSING_RESIDENCY_CANNOT_EXECUTE: PASS");
+    assert.equal(ran.body.data?.failureCode, "ASSESSMENT_NOT_FINALIZED");
+    const finalized = await capture(service, "opp-res-final", facts, "FINALIZED", "cmd-res-final");
+    assert.equal(finalized.status, 200);
+    assert.equal(finalized.body.data?.currentRevisionKind, "FINALIZED");
+    console.log("10 MISSING_RESIDENCY_NOT_A_RECOMMENDATION_GATE: PASS");
   }
 
   {

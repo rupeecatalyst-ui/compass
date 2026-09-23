@@ -96,17 +96,15 @@ export async function runOpportunityAssessmentReuseProof() {
 
   const missing = collectOpportunityAssessmentMissingLabels(overlaid);
   assert.deepEqual(missing.sort(), [
-    "Construction status",
-    "Date of birth",
-    "Existing monthly obligations",
-    "Monthly income",
-    "Property category",
-    "Property city",
-    "Property value",
-    "Requested tenure",
-    "Residency",
+    "Existing Monthly Obligations",
+    "Monthly Income",
+    "Property Value",
+    "Requested Tenure",
   ].sort());
-  assert.equal(formatAssessmentIncompleteGuidance(missing.length), "Assessment incomplete — 9 required details missing");
+  assert.equal(missing.includes("Date of birth"), false);
+  assert.equal(missing.includes("Residency"), false);
+  assert.equal(missing.includes("Property category"), false);
+  assert.equal(formatAssessmentIncompleteGuidance(missing.length), "Assessment incomplete — 4 required details missing");
   console.log("MISSING_COUNT: PASS");
 
   const knownProduct = setCapturedProduct(emptyCapturedAssessmentFacts(), "HOME_LOAN");
@@ -202,10 +200,10 @@ export async function runOpportunityAssessmentReuseProof() {
     assert.equal(recommendation.body.data?.executionAllowed, false);
     assert.equal(recommendation.body.data?.recommendationExecuted, false);
     assert.equal(recommendation.body.data?.recommendationRunCreated, false);
-    assert.equal(recommendation.body.data?.missingLabels?.length, 9);
+    assert.equal(recommendation.body.data?.missingLabels?.length, 4);
     assert.equal(
       recommendation.body.data?.guidance,
-      "Assessment incomplete — 9 required details missing",
+      "Assessment incomplete — 4 required details missing",
     );
     console.log("GET_OVERLAY_NOT_PERSISTED: PASS");
     console.log("AUTO_FINALIZE: NO");

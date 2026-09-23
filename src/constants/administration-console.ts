@@ -329,9 +329,9 @@ export const ADMINISTRATION_CATEGORIES: AdministrationCategory[] = [
       },
       {
         id: "home-loan-recommendation-masters",
-        title: "Home Loan Recommendation Masters",
+        title: "Product Journey & Recommendation Master",
         description:
-          "Versioned lender category, weightage, CIBIL-to-category, regulatory LTV and override masters for Home Loan / HL BT.",
+          "Configure product questions, recommendation-mandatory facts, and Match % weights from one screen. Product tabs come from Product Master.",
         href: ROUTES.ADMIN_HOME_LOAN_RECOMMENDATION_MASTERS,
         keywords: ["home loan", "balance transfer", "recommendation", "cibil", "ltv", "foir"],
       },

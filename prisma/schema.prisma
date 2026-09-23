@@ -331,6 +331,8 @@ model Organization {
   organizationAuditEntries                 OrganizationAuditEntry[]
   /// CO-HL-PROGRAM-001 — Product-scoped lender selection priority (does not mutate lender master)
   enterpriseProductLenderPriorities        EnterpriseProductLenderPriority[]
+  /// Product Journey & Recommendation Master — product-generic capture/mandatory config
+  productJourneyDefinitions                ProductJourneyDefinition[]
   /// CO-C1-HL-BT-POLICY-001 — recommendation masters (no live lender policies seeded)
   hlRecommendationLenderCategories         HlRecommendationLenderCategoryAssignment[]
   hlProductRecommendationRuleSets          HlProductRecommendationRuleSet[]
@@ -5430,6 +5432,34 @@ model HlRecommendationLenderCategoryAssignment {
   @@unique([organizationId, lineageId, versionNumber], map: "hlcat_org_lineage_version_key")
   @@index([organizationId, lenderId, lifecycleStatus], map: "hlcat_org_lender_status_idx")
   @@map("hl_recommendation_lender_categories")
+}
+
+/// Product-generic journey/capture/mandatory-for-recommendation configuration.
+/// Match % weights remain on HlProductRecommendationRuleSet.weightsJson.
+model ProductJourneyDefinition {
+  id                String   @id @default(cuid())
+  organizationId    String   @map("organization_id")
+  productCode       String   @map("product_code")
+  lineageId         String   @map("lineage_id")
+  versionNumber     Int      @default(1) @map("version_number")
+  previousVersionId String?  @map("previous_version_id")
+  lifecycleStatus   String   @default("draft") @map("lifecycle_status")
+  fieldsJson        Json     @map("fields_json")
+  makerUserId       String   @map("maker_user_id")
+  checkerUserId     String?  @map("checker_user_id")
+  approvedAt        DateTime? @map("approved_at")
+  activatedAt       DateTime? @map("activated_at")
+  labelledUnapproved Boolean @default(false) @map("labelled_unapproved")
+  isDeleted         Boolean  @default(false) @map("is_deleted")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  auditJson         Json     @default("[]") @map("audit_json")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, lineageId, versionNumber], map: "pjd_org_lineage_version_key")
+  @@index([organizationId, productCode, lifecycleStatus], map: "pjd_org_product_status_idx")
+  @@map("product_journey_definitions")
 }
 
 model HlProductRecommendationRuleSet {

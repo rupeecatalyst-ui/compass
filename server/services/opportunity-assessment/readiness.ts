@@ -1,4 +1,8 @@
 import type { AssessmentFact, AssessmentReadinessStatus, OpportunityAssessmentFactsV1 } from "@/types/opportunity-assessment";
+import type { ProductJourneyFieldRow } from "@/types/product-journey-definition";
+import { bootstrapProductJourneyFields } from "@/constants/product-journey/bootstrap";
+import { mandatoryRecommendationFields } from "@/lib/product-journey/applicability";
+import { journeyFieldIsSatisfied } from "@/lib/product-journey/readiness-fields";
 import { OpportunityAssessmentError } from "./errors";
 
 function collectFacts(facts: OpportunityAssessmentFactsV1): AssessmentFact<unknown>[] {
@@ -14,7 +18,23 @@ function collectFacts(facts: OpportunityAssessmentFactsV1): AssessmentFact<unkno
   ];
 }
 
-export function deriveOpportunityAssessmentReadiness(facts: OpportunityAssessmentFactsV1): {
+function productCodeOf(facts: OpportunityAssessmentFactsV1): string | null {
+  const value = facts.loanRequirement.productCode.value;
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+export function resolveJourneyFieldsForFacts(
+  facts: OpportunityAssessmentFactsV1,
+  persistedFields?: readonly ProductJourneyFieldRow[] | null,
+): ProductJourneyFieldRow[] {
+  if (persistedFields && persistedFields.length > 0) return [...persistedFields];
+  return bootstrapProductJourneyFields(productCodeOf(facts));
+}
+
+export function deriveOpportunityAssessmentReadiness(
+  facts: OpportunityAssessmentFactsV1,
+  journeyFields?: readonly ProductJourneyFieldRow[] | null,
+): {
   readinessStatus: AssessmentReadinessStatus;
   unsupportedReasonCode: string | null;
 } {
@@ -35,35 +55,11 @@ export function deriveOpportunityAssessmentReadiness(facts: OpportunityAssessmen
     if (tx.value && tx.value !== "balance_transfer") {
       return { readinessStatus: "unsupported", unsupportedReasonCode: "HLBT_TRANSACTION_TYPE_UNSUPPORTED" };
     }
-    if (facts.balanceTransfer.outstandingPrincipal.state === "missing") {
-      return { readinessStatus: "incomplete", unsupportedReasonCode: null };
-    }
   }
 
-  const required: Array<AssessmentFact<unknown>> = [
-    facts.borrower.residency,
-    facts.borrower.employmentFamily,
-    facts.borrower.dateOfBirth,
-    facts.incomeAndObligations.existingMonthlyObligations,
-    facts.incomeAndObligations.requestedTenureMonths,
-    facts.loanRequirement.productCode,
-    facts.loanRequirement.requestedAmount,
-    facts.property.propertyValue,
-    facts.property.propertyCategory,
-    facts.property.constructionStatus,
-    facts.property.propertyCity,
-  ];
-
-  if (facts.borrower.employmentFamily.value === "salaried") {
-    required.push(facts.incomeAndObligations.monthlyIncome);
-  }
-
-  if (required.some((fact) => fact.state === "missing" || fact.state === "unconfirmed" || fact.value == null)) {
-    return { readinessStatus: "incomplete", unsupportedReasonCode: null };
-  }
-
-  const cibilKind = facts.cibil.kind;
-  if (cibilKind.state === "missing" || cibilKind.value === "missing") {
+  const rows = resolveJourneyFieldsForFacts(facts, journeyFields);
+  const required = mandatoryRecommendationFields(rows, facts.borrower.employmentFamily.value ?? "unknown");
+  if (required.some((row) => !journeyFieldIsSatisfied(facts, row))) {
     return { readinessStatus: "incomplete", unsupportedReasonCode: null };
   }
 

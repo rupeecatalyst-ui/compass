@@ -24,7 +24,12 @@ import {
   getApprovedMaxRequestedAmountRupees,
   getApprovedRequestedAmountMaxLabel,
 } from "@/constants/enterprise-product-master";
+import { bootstrapProductJourneyFields } from "@/constants/product-journey/bootstrap";
+import { journeyFieldMatchesIdcKey } from "@/lib/product-journey";
+import type { ProductJourneyFieldRow } from "@/types/product-journey-definition";
 import { buildPartnerOpportunityJourneyConfig } from "@server/services/partner-gateway/partner-opportunity-journey-config.service";
+
+const IDENTITY_KEYS = new Set(["mobile", "mobilePrimary", "displayName"]);
 
 function compassOtpEnabled(): boolean {
   return process.env.COMPASS_OTP_ENABLED === "true";
@@ -91,7 +96,10 @@ function mapIdcField(
   };
 }
 
-export function buildCompassJourneyConfig(productCode: CompassProductCode): CompassJourneyConfigDto {
+export function buildCompassJourneyConfig(
+  productCode: CompassProductCode,
+  journeyFields?: ProductJourneyFieldRow[] | null,
+): CompassJourneyConfigDto {
   const definition = getCompassProductDefinition(productCode);
   const partnerConfig = buildPartnerOpportunityJourneyConfig();
   const transactionType = definition.transactionType;
@@ -99,24 +107,40 @@ export function buildCompassJourneyConfig(productCode: CompassProductCode): Comp
     transactionType,
     lendingType: definition.isSecured ? "secured" : "unsecured",
   };
+  const effectiveJourney =
+    journeyFields && journeyFields.length > 0
+      ? [...journeyFields]
+      : bootstrapProductJourneyFields(definition.enterpriseProductCode);
+  const captureRows = effectiveJourney.filter((row) => row.capture);
 
   const visibleSections = resolveVisibleIdcSections(partnerConfig.detailSections, {
     primaryBorrowerKind: definition.borrowerKind,
     productCode: definition.enterpriseProductCode,
     values,
+    journeyFields: captureRows,
   });
 
   const fields: CompassJourneyFieldDef[] = [];
   for (const section of visibleSections) {
     for (const field of section.fields) {
-      fields.push(
-        mapIdcField(
+      if (captureRows.length > 0 && !IDENTITY_KEYS.has(field.key) && !captureRows.some((row) => journeyFieldMatchesIdcKey(row, field.key))) {
+        continue;
+      }
+      const match = captureRows.find((row) => journeyFieldMatchesIdcKey(row, field.key));
+      fields.push({
+        ...mapIdcField(
           field,
           partnerConfig.optionSets,
           section.sectionId,
           definition.enterpriseProductCode,
         ),
-      );
+        required: match ? match.mandatoryForRecommendation : Boolean(field.required),
+        capture: true,
+        mandatoryForRecommendation: match?.mandatoryForRecommendation,
+        applicability: match?.applicability,
+        captureStepId: match?.captureStepId ?? null,
+        sequence: match?.displayOrder ?? field.displayOrder,
+      });
     }
   }
 
@@ -126,15 +150,35 @@ export function buildCompassJourneyConfig(productCode: CompassProductCode): Comp
       (f) => f.key === "mobilePrimary" || f.inputMode === "tel",
     );
     if (mobileCapture) {
-      fields.unshift(
-        mapIdcField(
+      fields.unshift({
+        ...mapIdcField(
           mobileCapture,
           partnerConfig.optionSets,
           "identity",
           definition.enterpriseProductCode,
         ),
-      );
+        capture: true,
+        captureStepId: "mobile",
+      });
     }
+  }
+
+  for (const row of captureRows) {
+    const already = fields.some((field) => field.fieldId === row.fieldId || (row.idcKeys ?? []).includes(field.fieldId));
+    if (already) continue;
+    if (!row.captureStepId) continue;
+    fields.push({
+      fieldId: row.fieldId,
+      label: row.label ?? row.fieldId,
+      fieldType: "text",
+      required: row.mandatoryForRecommendation,
+      sequence: row.displayOrder,
+      groupId: "product_journey",
+      capture: true,
+      mandatoryForRecommendation: row.mandatoryForRecommendation,
+      applicability: row.applicability,
+      captureStepId: row.captureStepId,
+    });
   }
 
   fields.sort((a, b) => a.sequence - b.sequence);

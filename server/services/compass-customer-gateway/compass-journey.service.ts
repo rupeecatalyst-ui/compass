@@ -50,6 +50,7 @@ import {
   normalizeCompanyNameKey,
 } from "@/lib/enterprise-company-master/name-normalize";
 import { buildCompassJourneyConfig } from "./compass-journey-config.service";
+import { resolveJourneyFieldsSafe } from "@server/services/product-journey/product-journey-definition.service";
 import { computeCompassAdvantage } from "./compass-advantage.service";
 import { commitAdvantageFromCompass } from "@server/services/advantage-committed/advantage-committed.service";
 import { pinAdvantageOnOpportunity } from "@server/services/compass-advantage/compass-advantage-commercial.service";
@@ -337,8 +338,14 @@ async function buildDetail(organizationId: string, opportunityId: string) {
 }
 
 export const compassJourneyService = {
-  getConfig(productCode: CompassProductCode): CompassJourneyConfigDto {
-    return buildCompassJourneyConfig(productCode);
+  async getConfig(productCode: CompassProductCode): Promise<CompassJourneyConfigDto> {
+    const definition = getCompassProductDefinition(productCode);
+    const organizationId = await resolveCompassGatewayOrganizationId();
+    const journeyFields = await resolveJourneyFieldsSafe({
+      organizationId,
+      productCode: definition.enterpriseProductCode,
+    });
+    return buildCompassJourneyConfig(productCode, journeyFields);
   },
 
   async startJourney(input: CompassJourneyStartRequest): Promise<CompassJourneyStartResponse> {
