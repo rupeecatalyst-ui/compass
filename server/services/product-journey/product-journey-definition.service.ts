@@ -58,19 +58,28 @@ export async function loadActiveOrBootstrapJourneyFields(input: {
 }
 
 export async function listProductJourneyDefinitions(organizationId: string) {
-  const rows = await prisma.productJourneyDefinition.findMany({
-    where: { organizationId, isDeleted: false },
-    orderBy: { updatedAt: "desc" },
-    take: 200,
-  });
-  return {
-    products: await listProductJourneyTabs(),
-    definitions: rows,
-    bootstrap: {
-      HOME_LOAN: bootstrapProductJourneyFields("HOME_LOAN"),
-      HOME_LOAN_BT: bootstrapProductJourneyFields("HOME_LOAN_BT"),
-    },
+  const bootstrap = {
+    HOME_LOAN: bootstrapProductJourneyFields("HOME_LOAN"),
+    HOME_LOAN_BT: bootstrapProductJourneyFields("HOME_LOAN_BT"),
   };
+  try {
+    const rows = await prisma.productJourneyDefinition.findMany({
+      where: { organizationId, isDeleted: false },
+      orderBy: { updatedAt: "desc" },
+      take: 200,
+    });
+    return {
+      products: await listProductJourneyTabs(),
+      definitions: rows,
+      bootstrap,
+    };
+  } catch {
+    return {
+      products: await listProductJourneyTabs(),
+      definitions: [],
+      bootstrap,
+    };
+  }
 }
 
 export async function ensureProductJourneyDraft(input: {
