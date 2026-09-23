@@ -23,6 +23,7 @@ export type OpportunityAssessmentRecommendationDto = {
   guidance: string;
   result: CanonicalLenderRecommendationResult | null;
   sourceFingerprint: OpportunityAssessmentSourceFingerprint | null;
+  missingLabels: string[];
 };
 
 export type OpportunityAssessmentRecommendationExecuteBody = {

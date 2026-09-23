@@ -99,10 +99,12 @@ export function useChanakyaCanonicalRecommendations(
           dto = isAssessmentDto(second.data) ? second.data : dto;
           result = isCanonicalResult(dto?.result) ? dto.result : result;
         }
-        const missing = missingLabels(first.error?.missingInputs ?? dto?.result?.missingInputs);
+        const missing = Array.isArray(dto?.missingLabels) && dto.missingLabels.length
+          ? dto.missingLabels
+          : missingLabels(first.error?.missingInputs ?? dto?.result?.missingInputs);
         const guidance = dto?.guidance
           ?? (missing.length
-            ? `Additional saved assessment information is required: ${missing.join(", ")}.`
+            ? `Assessment incomplete — ${missing.length} required details missing`
             : result?.cibilNotKnownDisclaimer
               ? "CIBIL is not known. Any recommendation remains subject to credit verification."
               : "Finalize the Opportunity Assessment before Chanakya can recommend lenders.");
@@ -141,5 +143,7 @@ export function useChanakyaCanonicalRecommendations(
     dto: current?.dto ?? null,
     assessmentNotReady: current?.dto ? !current.dto.executionAllowed : !loading,
     noEligibleLender: current?.dto?.resultStatus === "no_eligible_programmes",
+    missingCount: current?.dto?.missingLabels?.length ?? current?.missing.length ?? 0,
+    missingLabels: current?.dto?.missingLabels ?? current?.missing ?? [],
   };
 }

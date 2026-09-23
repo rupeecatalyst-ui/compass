@@ -1,13 +1,17 @@
 import {
-  OPPORTUNITY_ASSESSMENT_CAPTURE_FIELD_LABELS,
   OPPORTUNITY_ASSESSMENT_READINESS_COPY,
   OPPORTUNITY_ASSESSMENT_UNSUPPORTED_COPY,
 } from "@/constants/opportunity-assessment-capture";
 import { buildOpportunityAssessmentSourceFingerprint } from "@/lib/opportunity-assessment/fingerprint";
-import type { AssessmentFact, OpportunityAssessmentFactsV1 } from "@/types/opportunity-assessment";
+import {
+  applyMissingOnlyOpportunityReuse,
+  type AssessmentReuseSources,
+} from "@/lib/opportunity-assessment/reuse-opportunity-facts";
+import type { OpportunityAssessmentFactsV1 } from "@/types/opportunity-assessment";
 import type { OpportunityAssessmentCaptureDto } from "@/types/opportunity-assessment-capture";
 import { OpportunityAssessmentError, type OpportunityAssessmentErrorCode } from "./errors";
 import { hashOpportunityAssessmentCommand } from "./content-hash";
+import { collectOpportunityAssessmentMissingLabels } from "./missing-labels";
 import { deriveOpportunityAssessmentReadiness } from "./readiness";
 import { OpportunityAssessmentService } from "./opportunity-assessment.service";
 import {
@@ -40,62 +44,46 @@ export type OpportunityAssessmentSaveBody = {
   organizationId?: unknown;
 };
 
-function collectMissingLabels(facts: OpportunityAssessmentFactsV1): string[] {
+export function overlayOpportunityAssessmentFacts(
+  read: OpportunityAssessmentReadModel,
+  sources?: AssessmentReuseSources | null,
+) {
+  const revisionKind = read.currentRevision?.revisionKind ?? null;
+  const facts = applyMissingOnlyOpportunityReuse(read.facts, sources ?? null, { revisionKind });
   const derived = deriveOpportunityAssessmentReadiness(facts);
-  if (derived.readinessStatus !== "incomplete") return [];
-  const required: Array<{ path: string; fact: AssessmentFact<unknown> }> = [
-    { path: "borrower.residency", fact: facts.borrower.residency },
-    { path: "borrower.employmentFamily", fact: facts.borrower.employmentFamily },
-    { path: "borrower.dateOfBirth", fact: facts.borrower.dateOfBirth },
-    { path: "incomeAndObligations.existingMonthlyObligations", fact: facts.incomeAndObligations.existingMonthlyObligations },
-    { path: "incomeAndObligations.requestedTenureMonths", fact: facts.incomeAndObligations.requestedTenureMonths },
-    { path: "loanRequirement.productCode", fact: facts.loanRequirement.productCode },
-    { path: "loanRequirement.requestedAmount", fact: facts.loanRequirement.requestedAmount },
-    { path: "property.propertyValue", fact: facts.property.propertyValue },
-    { path: "property.propertyCategory", fact: facts.property.propertyCategory },
-    { path: "property.constructionStatus", fact: facts.property.constructionStatus },
-    { path: "property.propertyCity", fact: facts.property.propertyCity },
-    { path: "cibil.kind", fact: facts.cibil.kind },
-  ];
-  if (facts.borrower.employmentFamily.value === "salaried") {
-    required.push({ path: "incomeAndObligations.monthlyIncome", fact: facts.incomeAndObligations.monthlyIncome });
-  }
-  if (facts.loanRequirement.productCode.value === "HOME_LOAN_BT") {
-    required.push({
-      path: "balanceTransfer.outstandingPrincipal",
-      fact: facts.balanceTransfer.outstandingPrincipal,
-    });
-  }
-  return required
-    .filter((item) => item.fact.state === "missing" || item.fact.state === "unconfirmed" || item.fact.value == null || item.fact.value === "missing")
-    .map((item) => OPPORTUNITY_ASSESSMENT_CAPTURE_FIELD_LABELS[item.path] ?? item.path)
-    .filter((label, index, all) => all.indexOf(label) === index);
+  const readinessStatus = revisionKind === "FINALIZED" ? read.readinessStatus : derived.readinessStatus;
+  const unsupportedReasonCode =
+    revisionKind === "FINALIZED" ? read.assessment.unsupportedReasonCode : derived.unsupportedReasonCode;
+  return { facts, readinessStatus, unsupportedReasonCode, revisionKind };
 }
 
 export function projectOpportunityAssessmentCapture(
   read: OpportunityAssessmentReadModel,
   unsupportedReasonCode: string | null,
+  sources?: AssessmentReuseSources | null,
 ): OpportunityAssessmentCaptureDto {
+  const overlaid = overlayOpportunityAssessmentFacts(read, sources);
+  const displayUnsupported = overlaid.unsupportedReasonCode ?? unsupportedReasonCode;
   const unsupportedCopy =
-    unsupportedReasonCode && OPPORTUNITY_ASSESSMENT_UNSUPPORTED_COPY[unsupportedReasonCode]
-      ? OPPORTUNITY_ASSESSMENT_UNSUPPORTED_COPY[unsupportedReasonCode]
-      : read.readinessStatus === "unsupported"
+    displayUnsupported && OPPORTUNITY_ASSESSMENT_UNSUPPORTED_COPY[displayUnsupported]
+      ? OPPORTUNITY_ASSESSMENT_UNSUPPORTED_COPY[displayUnsupported]
+      : overlaid.readinessStatus === "unsupported"
         ? OPPORTUNITY_ASSESSMENT_READINESS_COPY.unsupported
         : null;
   return {
     assessmentId: read.assessment.id,
     opportunityId: read.assessment.opportunityId,
     rowVersion: read.rowVersion,
-    readinessStatus: read.readinessStatus,
-    readinessCopy: OPPORTUNITY_ASSESSMENT_READINESS_COPY[read.readinessStatus],
+    readinessStatus: overlaid.readinessStatus,
+    readinessCopy: OPPORTUNITY_ASSESSMENT_READINESS_COPY[overlaid.readinessStatus],
     unsupportedCopy,
     stale: read.stale,
     staleReasons: read.staleReasons,
-    currentRevisionKind: read.currentRevision?.revisionKind ?? null,
+    currentRevisionKind: overlaid.revisionKind,
     currentRevisionNumber: read.currentRevisionNumber,
-    facts: read.facts,
+    facts: overlaid.facts,
     sourceFingerprint: read.sourceFingerprint,
-    missingLabels: collectMissingLabels(read.facts),
+    missingLabels: collectOpportunityAssessmentMissingLabels(overlaid.facts),
     recommendationExecuted: false,
     recommendationRunCreated: false,
   };
@@ -143,13 +131,14 @@ async function readProjected(
   opportunityId: string,
   assessmentId: string,
   currentSourceFingerprint?: OpportunityAssessmentReadModel["sourceFingerprint"] | null,
+  sources?: AssessmentReuseSources | null,
 ) {
   const read = await service.readCurrentAssessment(actor, {
     assessmentId,
     opportunityId,
     currentSourceFingerprint,
   });
-  return projectOpportunityAssessmentCapture(read, read.assessment.unsupportedReasonCode);
+  return projectOpportunityAssessmentCapture(read, read.assessment.unsupportedReasonCode, sources);
 }
 
 export async function getOpportunityAssessmentCapture(
@@ -157,6 +146,7 @@ export async function getOpportunityAssessmentCapture(
   actor: OpportunityAssessmentActorContext,
   opportunityId: string,
   assessmentId?: string,
+  sources?: AssessmentReuseSources | null,
 ): Promise<OpportunityAssessmentHttpResult> {
   try {
     if (!opportunityId.trim()) {
@@ -165,7 +155,7 @@ export async function getOpportunityAssessmentCapture(
     const id = assessmentId?.trim()
       ? assessmentId
       : (await service.getOrCreateAssessment(actor, opportunityId)).id;
-    const data = await readProjected(service, actor, opportunityId, id);
+    const data = await readProjected(service, actor, opportunityId, id, null, sources);
     return { status: 200, body: { success: true, data } };
   } catch (error) {
     return mapOpportunityAssessmentHttpError(error);

@@ -7,6 +7,7 @@ import {
 import { mapOpportunityAssessmentHttpError } from "./http";
 import { OpportunityAssessmentService } from "./opportunity-assessment.service";
 import type { OpportunityAssessmentActorContext } from "./types";
+import type { AssessmentReuseSources } from "@/lib/opportunity-assessment/reuse-opportunity-facts";
 import type {
   OpportunityAssessmentRecommendationDto,
   OpportunityAssessmentRecommendationExecuteBody,
@@ -27,6 +28,7 @@ export async function getOpportunityAssessmentRecommendation(
   opportunityId: string,
   body: OpportunityAssessmentRecommendationExecuteBody = {},
   dependencies: ExecuteFinalizedAssessmentRecommendationDependencies = {},
+  reuseSources?: AssessmentReuseSources | null,
 ): Promise<OpportunityAssessmentRecommendationHttpResult> {
   try {
     if (!opportunityId.trim()) throw new OpportunityAssessmentError("ASSESSMENT_NOT_FOUND");
@@ -37,6 +39,7 @@ export async function getOpportunityAssessmentRecommendation(
         opportunityId,
         assessmentId: body.assessmentId,
         currentSourceFingerprint: body.currentSourceFingerprint ?? null,
+        reuseSources: reuseSources ?? null,
       },
       dependencies,
     );

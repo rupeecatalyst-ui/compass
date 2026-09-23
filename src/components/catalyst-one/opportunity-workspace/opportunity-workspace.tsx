@@ -100,7 +100,14 @@ function OpportunityWorkspaceShell() {
     setFocus,
     refresh,
   } = useOpportunityWorkspace();
-  const [tab, setTab] = useState<OwStrategicTabId>("overview");
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState<OwStrategicTabId>(() =>
+    requestedTab === "opportunity_assessment" ? "opportunity_assessment" : "overview",
+  );
+  const appliedAssessmentTab = useRef<string | null>(
+    requestedTab === "opportunity_assessment" ? requestedTab : null,
+  );
 
   const [intentOpen, setIntentOpen] = useState(false);
   const [creationIntent, setCreationIntent] = useState<ContactCreationIntentResult | null>(null);
@@ -125,6 +132,7 @@ function OpportunityWorkspaceShell() {
   }, [opportunityId]);
 
   useEffect(() => {
+    if (tab === "opportunity_assessment") return;
     const map: Partial<Record<WorkspaceFocus, OwStrategicTabId>> = {
       life: "funding_strategy",
       documents: "documents",
@@ -138,6 +146,13 @@ function OpportunityWorkspaceShell() {
     if (next) setTab(next);
     else if (focus === "overview" && tab === "timeline") setTab("overview");
   }, [focus, tab]);
+
+  useEffect(() => {
+    if (requestedTab !== "opportunity_assessment") return;
+    if (appliedAssessmentTab.current === requestedTab) return;
+    appliedAssessmentTab.current = requestedTab;
+    setTab("opportunity_assessment");
+  }, [requestedTab]);
 
   const activeLoan = useMemo(() => {
     // FS-01 — Opportunity projection (leadCaseFile) is runtime authority.
@@ -195,7 +210,7 @@ function OpportunityWorkspaceShell() {
       tasks: "tasks",
       workflow: "workflow",
       compass_assessment: "overview",
-      opportunity_assessment: "stage",
+      opportunity_assessment: "overview",
     };
     const mapped = focusMap[next];
     if (mapped) setFocus(mapped);

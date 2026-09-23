@@ -45,6 +45,7 @@
     "verify:co-c1-chanakya-stage5c5-finalized-assessment-recommendation": "node --conditions=react-server --import tsx scripts/co-c1-chanakya-stage5c5-finalized-assessment-recommendation-verify.mjs",
     "verify:co-c1-field-driven-recommendation": "node --conditions=react-server --import tsx scripts/co-c1-field-driven-recommendation-verify.mjs",
     "verify:co-c1-universal-match-percent": "node --conditions=react-server --import tsx scripts/co-c1-universal-match-percent-verify.mjs",
+    "verify:co-c1-opportunity-assessment-reuse": "node --conditions=react-server --import tsx scripts/co-c1-opportunity-assessment-reuse-verify.mjs",
     "verify:co-production-regression-014": "node scripts/co-production-regression-014-verify.mjs",
     "ops:verify": "node scripts/co-ops-002-verify.mjs",
     "gov:verify": "node scripts/co-gov-001-verify.mjs",

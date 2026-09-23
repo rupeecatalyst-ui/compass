@@ -26,5 +26,9 @@ export const OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY = {
   RUN_ALREADY_TERMINAL: "This recommendation run is already complete.",
 } as const;
 
+export function formatAssessmentIncompleteGuidance(missingCount: number): string {
+  return `Assessment incomplete — ${missingCount} required details missing`;
+}
+
 export type OpportunityAssessmentRecommendationCopyCode =
   keyof typeof OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY;

@@ -11,6 +11,7 @@ import {
   saveOpportunityAssessmentCapture,
   type OpportunityAssessmentSaveBody,
 } from "@server/services/opportunity-assessment/http";
+import { loadOpportunityAssessmentReuseSources } from "@server/services/opportunity-assessment/reuse-sources";
 import { createOpportunityAssessmentService } from "@server/services/opportunity-assessment/runtime";
 
 type Ctx = { params: Promise<{ opportunityId: string }> };
@@ -25,10 +26,13 @@ export async function GET(request: Request, context: Ctx) {
     const { opportunityId } = await context.params;
     const organizationId = await resolvePilotOrganizationId();
     const service = createOpportunityAssessmentService({ prismaClient: prisma });
+    const reuseSources = await loadOpportunityAssessmentReuseSources(opportunityId);
     const result = await getOpportunityAssessmentCapture(
       service,
       trustedActor(actor.userId, organizationId),
       opportunityId,
+      undefined,
+      reuseSources,
     );
     return NextResponse.json(result.body, { status: result.status });
   } catch (err) {

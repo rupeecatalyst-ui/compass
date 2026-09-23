@@ -6,11 +6,15 @@ import type { CanonicalLenderRecommendationResult } from "@/types/canonical-lend
 import type { CanonicalRecommendationDependencies } from "@server/services/lender-recommendation/canonical-lender-recommendation.service";
 import { recommendLendersCanonical } from "@server/services/lender-recommendation/canonical-lender-recommendation.service";
 import {
+  formatAssessmentIncompleteGuidance,
   OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY,
 } from "@/constants/opportunity-assessment-recommendation";
 import type { OpportunityAssessmentRecommendationDto } from "@/types/opportunity-assessment-recommendation";
+import type { AssessmentReuseSources } from "@/lib/opportunity-assessment/reuse-opportunity-facts";
 import { hashOpportunityAssessmentCommand } from "./content-hash";
 import { OpportunityAssessmentError } from "./errors";
+import { overlayOpportunityAssessmentFacts } from "./http";
+import { collectOpportunityAssessmentMissingLabels } from "./missing-labels";
 import { mapFinalizedAssessmentFactsToCanonical } from "./map-to-canonical";
 import { OpportunityAssessmentService, TERMINAL_RUN_STATUSES } from "./opportunity-assessment.service";
 import type {
@@ -29,6 +33,7 @@ export type ExecuteFinalizedAssessmentRecommendationInput = {
   asOf?: Date | string;
   currentSourceFingerprint?: SaveAssessmentRevisionInput["sourceFingerprint"] | null;
   persist?: boolean;
+  reuseSources?: AssessmentReuseSources | null;
 };
 
 export type ExecuteFinalizedAssessmentRecommendationDependencies = CanonicalRecommendationDependencies & {
@@ -94,7 +99,20 @@ function requestHashFor(input: {
   });
 }
 
+function incompleteGuidance(missingLabels: string[], failureCode: string | null, status: AssessmentRunResultStatus | null) {
+  if (
+    missingLabels.length > 0 &&
+    (failureCode === "ASSESSMENT_REVISION_REQUIRED" ||
+      failureCode === "ASSESSMENT_NOT_FINALIZED" ||
+      failureCode === "ASSESSMENT_INCOMPLETE")
+  ) {
+    return formatAssessmentIncompleteGuidance(missingLabels.length);
+  }
+  return guidanceFor(failureCode, status);
+}
+
 function emptyDto(opportunityId: string, failureCode: string | null, extra: Partial<OpportunityAssessmentRecommendationDto> = {}): OpportunityAssessmentRecommendationDto {
+  const missingLabels = extra.missingLabels ?? [];
   return {
     opportunityId,
     assessmentId: extra.assessmentId ?? null,
@@ -110,9 +128,10 @@ function emptyDto(opportunityId: string, failureCode: string | null, extra: Part
     requestHash: extra.requestHash ?? null,
     resultStatus: extra.resultStatus ?? null,
     failureCode,
-    guidance: extra.guidance ?? guidanceFor(failureCode, extra.resultStatus ?? null),
+    guidance: extra.guidance ?? incompleteGuidance(missingLabels, failureCode, extra.resultStatus ?? null),
     result: extra.result ?? null,
     sourceFingerprint: extra.sourceFingerprint ?? null,
+    missingLabels,
   };
 }
 
@@ -120,8 +139,11 @@ function dtoFromRead(
   opportunityId: string,
   read: OpportunityAssessmentReadModel,
   extra: Partial<OpportunityAssessmentRecommendationDto> = {},
+  sources?: AssessmentReuseSources | null,
 ): OpportunityAssessmentRecommendationDto {
   const blocked = gateCode(read);
+  const overlaid = overlayOpportunityAssessmentFacts(read, sources);
+  const missingLabels = extra.missingLabels ?? collectOpportunityAssessmentMissingLabels(overlaid.facts);
   return emptyDto(opportunityId, extra.failureCode ?? blocked, {
     assessmentId: read.assessment.id,
     revisionId: read.currentRevision?.id ?? null,
@@ -132,7 +154,10 @@ function dtoFromRead(
     executionAllowed: blocked == null,
     sourceFingerprint: read.sourceFingerprint,
     ...extra,
-    guidance: extra.guidance ?? guidanceFor(extra.failureCode ?? blocked, extra.resultStatus ?? null),
+    missingLabels: extra.missingLabels ?? missingLabels,
+    guidance:
+      extra.guidance ??
+      incompleteGuidance(extra.missingLabels ?? missingLabels, extra.failureCode ?? blocked, extra.resultStatus ?? null),
   });
 }
 
@@ -160,7 +185,9 @@ export async function readFinalizedAssessmentRecommendation(
 ): Promise<OpportunityAssessmentRecommendationDto> {
   const { created, read } = await loadAssessment(service, actor, input);
   const blocked = gateCode(read);
-  if (blocked || !read.currentRevision) return dtoFromRead(input.opportunityId, read);
+  if (blocked || !read.currentRevision) {
+    return dtoFromRead(input.opportunityId, read, {}, input.reuseSources);
+  }
 
   const runs = await service.listRecommendationRuns(actor, created.id);
   const latest = latestRunForRevision(runs, read.currentRevision.id);

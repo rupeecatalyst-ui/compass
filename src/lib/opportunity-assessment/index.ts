@@ -32,3 +32,7 @@ export {
   projectChanakyaLifeRecommendationColumn,
   projectChanakyaOpportunityRecommendationPanel,
 } from "@/lib/opportunity-assessment/recommendation-presentation";
+export {
+  applyMissingOnlyOpportunityReuse,
+  type AssessmentReuseSources,
+} from "@/lib/opportunity-assessment/reuse-opportunity-facts";

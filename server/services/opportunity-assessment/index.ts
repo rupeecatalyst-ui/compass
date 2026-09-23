@@ -7,8 +7,10 @@ export {
   getOpportunityAssessmentCapture,
   saveOpportunityAssessmentCapture,
   projectOpportunityAssessmentCapture,
+  overlayOpportunityAssessmentFacts,
   listOpportunityAssessmentRecommendationRuns,
 } from "./http";
+export { collectOpportunityAssessmentMissingLabels } from "./missing-labels";
 export {
   getOpportunityAssessmentRecommendation,
   executeOpportunityAssessmentRecommendation,

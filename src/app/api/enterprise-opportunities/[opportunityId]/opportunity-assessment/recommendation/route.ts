@@ -11,6 +11,7 @@ import {
   executeOpportunityAssessmentRecommendation,
   getOpportunityAssessmentRecommendation,
 } from "@server/services/opportunity-assessment/recommendation-http";
+import { loadOpportunityAssessmentReuseSources } from "@server/services/opportunity-assessment/reuse-sources";
 import type { OpportunityAssessmentRecommendationExecuteBody } from "@/types/opportunity-assessment-recommendation";
 
 type Ctx = { params: Promise<{ opportunityId: string }> };
@@ -26,10 +27,14 @@ export async function GET(request: Request, context: Ctx) {
     const { opportunityId } = await context.params;
     const organizationId = await resolvePilotOrganizationId();
     const service = createOpportunityAssessmentService({ prismaClient: prisma });
+    const reuseSources = await loadOpportunityAssessmentReuseSources(opportunityId);
     const result = await getOpportunityAssessmentRecommendation(
       service,
       trustedActor(actor.userId, organizationId),
       opportunityId,
+      {},
+      {},
+      reuseSources,
     );
     return NextResponse.json(result.body, { status: result.status, headers: { "Cache-Control": "no-store" } });
   } catch (err) {
