@@ -1,8 +1,9 @@
 import type { CanonicalAssessmentProgramme } from "./programme-assessment-adapter";
 import type { CanonicalAssessmentField, CanonicalLenderRecommendationRequest } from "@/types/canonical-lender-recommendation";
-import { applyCibilCategoryGate } from "@/lib/home-loan-recommendation/cibil-category";
 import { calculateReducingBalanceEmi } from "@/lib/home-loan-recommendation/tenure";
 import { calculateSalariedFoir } from "@/lib/home-loan-recommendation/foir";
+import { contributingCoApplicantIncomeRupees } from "@/lib/product-recommendation/home-loan-inputs";
+import { resolveHomeLoanCibilCategoryUniverse } from "@/lib/product-recommendation/home-loan-cibil-universe";
 import type { ProgrammeAssessmentCard } from "@/lib/home-loan-recommendation/engine";
 
 type Customer = CanonicalLenderRecommendationRequest["customer"];
@@ -49,8 +50,9 @@ function cibilInterval(value: Customer["cibilBand"]): [number, number] | "unknow
 
 export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgramme, customer: Customer, asOf: Date): GovernedVerdict | null {
   const c = programme.canonicalConstraints;
-  if (c.unsupportedConstraintPresent || c.requiredDocumentTypeIds?.length ||
-      c.minDbrPercent != null || c.maxDbrPercent != null || customer.employmentFamily === "self_employed" ||
+  // FOIR is the only affordability ratio. Persisted DBR bounds are not recommendation eligibility.
+  // requiredDocumentTypeIds remain programme LOD; they are not a lender-eligibility reject.
+  if (c.unsupportedConstraintPresent || customer.employmentFamily === "self_employed" ||
       programme.selfEmployedMethodologyPresent === true) return rejected("UNSUPPORTED_GOVERNED_RULE");
   const expectedJourney = programme.canonicalProduct === "HOME_LOAN" ? "home_loan" : "home_loan_balance_transfer";
   if (customer.journeyKind !== expectedJourney) return rejected("PRODUCT_CONTEXT_MISMATCH");
@@ -88,7 +90,7 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
       else if (!within(interval[0], range.minimum, null) || !within(interval[1], null, range.maximum)) missing.add("cibil");
     }
   }
-  if (!programme.lenderCategory || !applyCibilCategoryGate({ cibilBandOrScore: customer.cibilBand }).permittedCategories.includes(programme.lenderCategory)) mismatch = true;
+  if (!programme.lenderCategory || !resolveHomeLoanCibilCategoryUniverse(customer.cibilBand).permittedCategories.includes(programme.lenderCategory)) mismatch = true;
 
   const tenure = customer.customerSelectedTenureMonths;
   // Required for EMI/FOIR calculation even when no programme tenure bound is populated.
@@ -126,14 +128,13 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
   if (!positive(customer.requiredAmountRupees)) missing.add("requestedAmount");
   else if (!within(customer.requiredAmountRupees, c.minLoanAmountRupees, c.maxLoanAmountRupees)) mismatch = true;
   if (customer.coApplicantDecision === "yes" && !customer.coApplicant) missing.add("coApplicant");
-  if (customer.coApplicant) {
+  if (customer.coApplicantDecision === "yes" && customer.coApplicant) {
     if (!nonnegative(customer.coApplicant.existingMonthlyEmiRupees)) missing.add("coApplicant");
     if (programme.acceptsCoApplicantIncome === true) {
       if (!customer.coApplicant.employmentType) missing.add("coApplicant");
       else if (customer.coApplicant.employmentType !== "salaried") return rejected("UNSUPPORTED_GOVERNED_RULE");
+      if (!positive(customer.coApplicant.monthlyIncomeRupees)) missing.add("coApplicant");
     }
-    if (programme.acceptsCoApplicantIncome === true &&
-        (customer.coApplicantDecision !== "yes" || !positive(customer.coApplicant.monthlyIncomeRupees))) missing.add("coApplicant");
   }
 
   if (programme.canonicalProduct === "HOME_LOAN_BT") {
@@ -157,17 +158,22 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
   }
   if (missing.size) return rejected("ASSESSMENT_INPUT_REQUIRED", [...missing]);
   if (mismatch) return rejected("ELIGIBILITY_NOT_MET");
-  // No invented ROI/FOIR rule. The existing salaried calculator requires both.
+  // ROI + programme FOIR norm are required to calculate FOIR. Above-norm FOIR is not an automatic reject.
   const roi = number(c.minRoiPercent);
   if (roi == null || c.maxFoirPercent == null) return rejected("PROGRAMME_CONFIGURATION_INVALID");
-  const coIncome = programme.acceptsCoApplicantIncome === true && customer.coApplicant ? customer.coApplicant.monthlyIncomeRupees! : 0;
+  const coIncome = contributingCoApplicantIncomeRupees({
+    acceptsCoApplicantIncome: programme.acceptsCoApplicantIncome,
+    coApplicantDecision: customer.coApplicantDecision,
+    coApplicantIncomeRupees: customer.coApplicant?.monthlyIncomeRupees,
+  });
   const income = customer.monthlyIncomeRupees! + coIncome;
-  const obligations = customer.existingMonthlyEmiRupees! + (customer.coApplicant?.existingMonthlyEmiRupees ?? 0);
+  const obligations = customer.existingMonthlyEmiRupees! +
+    (customer.coApplicantDecision === "yes" ? (customer.coApplicant?.existingMonthlyEmiRupees ?? 0) : 0);
   const emi = calculateReducingBalanceEmi({ principalRupees: customer.requiredAmountRupees!, annualRoiPercent: roi, tenureMonths: tenure! });
   const foir = calculateSalariedFoir({ eligibleMonthlyIncomeRupees: income, existingMonthlyEmiRupees: obligations,
     proposedMonthlyEmiRupees: emi, maxFoirPercent: number(c.maxFoirPercent) });
-  if (emi == null || foir.foirPercent == null || !within((obligations + emi) / income * 100, c.minFoirPercent, c.maxFoirPercent)) {
-    return rejected("ELIGIBILITY_NOT_MET");
+  if (emi == null || foir.foirPercent == null) {
+    return rejected("PROGRAMME_CONFIGURATION_INVALID");
   }
   const ltv = customer.requiredAmountRupees! / customer.propertyValueRupees! * 100;
   // Conservative rejection is permitted: no lower amount is presented as approval for the request.
@@ -181,13 +187,18 @@ export function canonicalCardSatisfies(programme: CanonicalAssessmentProgramme, 
   if (!positive(card.tentativeOfferRupees) || !positive(card.indicativeEmiRupees) ||
       card.tenureMonths !== customer.customerSelectedTenureMonths || card.lenderId !== programme.lenderId ||
       card.propertyValueConsideredRupees !== customer.propertyValueRupees || !finite(card.foirPercent) || !finite(card.applicableRoiPercent)) return false;
-  const income = customer.monthlyIncomeRupees! + (programme.acceptsCoApplicantIncome === true && customer.coApplicant ? customer.coApplicant.monthlyIncomeRupees! : 0);
-  const obligations = customer.existingMonthlyEmiRupees! + (customer.coApplicant?.existingMonthlyEmiRupees ?? 0);
-  return ["standard_match", "exact_match", "closest_feasible_option"].includes(card.matchState)
+  const income = customer.monthlyIncomeRupees! + contributingCoApplicantIncomeRupees({
+    acceptsCoApplicantIncome: programme.acceptsCoApplicantIncome,
+    coApplicantDecision: customer.coApplicantDecision,
+    coApplicantIncomeRupees: customer.coApplicant?.monthlyIncomeRupees,
+  });
+  const obligations = customer.existingMonthlyEmiRupees! +
+    (customer.coApplicantDecision === "yes" ? (customer.coApplicant?.existingMonthlyEmiRupees ?? 0) : 0);
+  return ["standard_match", "exact_match", "closest_feasible_option", "conditional_match"].includes(card.matchState)
     && card.tentativeOfferRupees <= customer.requiredAmountRupees!
     && within(card.tentativeOfferRupees, c.minLoanAmountRupees, c.maxLoanAmountRupees)
-    && within(card.foirPercent, c.minFoirPercent, c.maxFoirPercent)
-    && within((obligations + card.indicativeEmiRupees) / income * 100, c.minFoirPercent, c.maxFoirPercent)
+    && finite(card.foirPercent)
+    && finite((obligations + card.indicativeEmiRupees) / income * 100)
     && within(card.applicableRoiPercent, c.minRoiPercent, c.maxRoiPercent)
     && within(card.tentativeOfferRupees / customer.propertyValueRupees! * 100, c.minLtvPercent, c.maxLtvPercent)
     && (programme.canonicalProduct !== "HOME_LOAN_BT" ||

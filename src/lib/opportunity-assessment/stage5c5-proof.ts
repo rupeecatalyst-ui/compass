@@ -17,6 +17,7 @@ import {
 } from "@/lib/opportunity-assessment/recommendation-presentation";
 import { MemoryOpportunityAssessmentRepository } from "@server/repositories/opportunity-assessment/memory-repository";
 import { isCanonicalProgrammeAvailable } from "@server/services/lender-recommendation/programme-availability";
+import { createCriterionEvaluatorRegistry } from "@/lib/product-recommendation";
 import {
   createOpportunityAssessmentService,
   executeOpportunityAssessmentRecommendation,
@@ -53,8 +54,10 @@ function programme(id = "base", product = "HOME_LOAN", patch: Record<string, unk
     lifecycleStatus: "active", status: "active", approvalStatus: "approved", effectiveFrom: null, effectiveUntil: null,
     residencyEligibility: ["resident"], minIncomeExact: "30000", maxIncomeExact: null,
     minLoanAmountExact: "100000", maxLoanAmountExact: "10000000", minFoirExact: null, maxFoirExact: "60",
-    minDbrExact: null, maxDbrExact: null, minRoiExact: "8.5", maxRoiExact: "9", minLtvExact: null, maxLtvExact: "80",
+    minDbrExact: null as string | null, maxDbrExact: null as string | null, minRoiExact: "8.5", maxRoiExact: "9",
+    minLtvExact: null, maxLtvExact: "80",
     minCibil: 750, maxCibil: 900, minAge: 21, maxAge: 65, minTenureMonths: 60, maxTenureMonths: 240,
+    requiredDocumentTypeIds: null as string[] | null,
     requiredSeasoningMonths: product === "HOME_LOAN_BT" ? 12 : null,
     repaymentCleanRequired: product === "HOME_LOAN_BT" ? true : null,
     maxDelayedEmis: product === "HOME_LOAN_BT" ? 2 : null,
@@ -99,6 +102,31 @@ function homeLoanBtFacts(): OpportunityAssessmentFactsV1 {
   return facts;
 }
 
+function proofScoring(organizationId = "org-1", productCode = "HOME_LOAN") {
+  return {
+    resolveActiveRuleSet: async () => ({
+      id: "proof-rule",
+      organizationId,
+      productCode,
+      lineageId: "proof-lineage",
+      versionNumber: 1,
+      labelledUnapproved: false,
+      simulationOnly: false,
+      lifecycleStatus: "active",
+      weights: { selected: { proofEqual: 100 }, total: 100 },
+    }),
+    criterionRegistry: createCriterionEvaluatorRegistry({
+      proofEqual: ({ weightPercent }) => ({
+        criterionKey: "proofEqual",
+        status: "scored" as const,
+        criterionScore: 100,
+        weightPercent,
+        weightedContribution: 100,
+      }),
+    }),
+  };
+}
+
 function harness(rows: ReturnType<typeof programme>[] = [programme("z-first"), programme("a-second")]) {
   const repository = new MemoryOpportunityAssessmentRepository();
   const service = createOpportunityAssessmentService({ repository });
@@ -114,6 +142,7 @@ function harness(rows: ReturnType<typeof programme>[] = [programme("z-first"), p
       lenderCategories: new Map(rows.map((row) => [row.lenderId, "A" as const])),
     }),
     now: () => asOf,
+    ...proofScoring(),
   };
   return { repository, service, dependencies, rows };
 }
@@ -169,7 +198,7 @@ export async function runStage5c5Proof() {
     assert.equal(ran.body.data?.resultStatus, "ready");
     assert.equal(ran.body.data?.revisionId, saved.body.data && (await getOpportunityAssessmentRecommendation(service, ACTOR, "opp-hl", {}, dependencies)).body.data?.revisionId);
     assert.ok((ran.body.data?.result?.recommendations.length ?? 0) >= 2);
-    assert.deepEqual(ran.body.data?.result?.recommendations.map((row) => row.programmeId), ["z-first", "a-second"]);
+    assert.deepEqual(ran.body.data?.result?.recommendations.map((row) => row.programmeId), ["a-second", "z-first"]);
     assert.equal(ran.body.data?.runId, "req-hl-1");
     const mapped = mapFinalizedAssessmentFactsToCanonical(before);
     assert.equal(mapped.product, "HOME_LOAN");
@@ -466,6 +495,32 @@ export async function runStage5c5Proof() {
     assert.equal(unchanged.contentHash, contentHash);
     console.log("41 STALE_FAIL_CLOSED: PASS");
     console.log("42 EXECUTION_DOES_NOT_MUTATE_REVISION: PASS");
+  }
+
+  {
+    const hyphen = programme("alias-home-loan");
+    hyphen.policyVersion.policy.productCode = "HOME-LOAN";
+    hyphen.maxDbrExact = "65";
+    hyphen.requiredDocumentTypeIds = ["doc:pan"];
+    const { service, dependencies } = harness([hyphen]);
+    await capture(service, "opp-alias", salariedHomeLoanFacts(), "FINALIZED", "cmd-alias");
+    const ran = await execute(service, dependencies, "opp-alias", { requestId: "req-alias" });
+    assert.equal(ran.status, 200);
+    assert.equal(ran.body.data?.resultStatus, "ready");
+    assert.ok((ran.body.data?.result?.recommendations.length ?? 0) >= 1);
+    assert.notEqual(ran.body.data?.result?.rejectedProgrammes[0]?.reason, "POLICY_PRODUCT_MISMATCH");
+    assert.notEqual(ran.body.data?.result?.rejectedProgrammes[0]?.reason, "UNSUPPORTED_GOVERNED_RULE");
+    assert.notEqual(ran.body.data?.result?.rejectedProgrammes[0]?.reason, "PROGRAMME_CONFIGURATION_INVALID");
+    assert.ok(ran.body.data?.result?.recommendations.every((card) => card.lenderScore === null));
+    assertNoFabrication(ran.body.data!);
+    const lap = programme("genuine-mismatch");
+    lap.policyVersion.policy.productCode = "LAP";
+    const mismatchHarness = harness([lap]);
+    await capture(mismatchHarness.service, "opp-mismatch", salariedHomeLoanFacts(), "FINALIZED", "cmd-mismatch");
+    const mismatched = await execute(mismatchHarness.service, mismatchHarness.dependencies, "opp-mismatch", { requestId: "req-mismatch" });
+    assert.equal(mismatched.body.data?.result?.rejectedProgrammes[0]?.reason, "POLICY_PRODUCT_MISMATCH");
+    console.log("43 PRODUCT_ALIAS_WITH_DBR_AND_LOD_REACHES_EVALUATION: PASS");
+    console.log("44 GENUINE_PRODUCT_MISMATCH_PRESERVED: PASS");
   }
 
   {

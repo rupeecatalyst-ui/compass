@@ -1,5 +1,6 @@
 import type { AssessableProgramme } from "@/lib/home-loan-recommendation/engine";
 import type { RecommendationLenderCategory } from "@/lib/home-loan-recommendation/cibil-category";
+import { productCodesEquivalent } from "@/lib/product-programme-operations/product-aliases";
 import type { CanonicalRecommendationProduct } from "@/types/canonical-lender-recommendation";
 import { parseCanonicalPolicyRules, type ParsedCanonicalPolicyRules } from "./policy-rule-parser";
 import { governedList as list, governedNumber as num, governedExact as exact, projectAssessmentSettings } from "./programme-assessment-settings";
@@ -93,7 +94,7 @@ export function validateCanonicalPolicyLink(
   if (version.organizationId !== row.organizationId || version.policy.organizationId !== row.organizationId) return "POLICY_ORGANIZATION_MISMATCH";
   if (version.policyId !== version.policy.id) return "POLICY_LINEAGE_MISMATCH";
   if (version.policy.lenderId !== row.lenderId) return "POLICY_LENDER_MISMATCH";
-  if (version.policy.productCode !== product) return "POLICY_PRODUCT_MISMATCH";
+  if (!productCodesEquivalent(version.policy.productCode, product)) return "POLICY_PRODUCT_MISMATCH";
   if (version.status !== "published" || version.policy.status !== "published" || version.policy.isDeleted) return "POLICY_NOT_PUBLISHED";
   if (version.policy.currentPublishedVersionId !== version.id) return "POLICY_CURRENT_VERSION_MISMATCH";
   if (!dateValid(asOf, version.effectiveFrom, version.effectiveUntil)) return "POLICY_NOT_EFFECTIVE";

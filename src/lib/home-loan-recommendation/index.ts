@@ -1,5 +1,7 @@
 export { calculateRegulatoryMaxLoanAmount, applyStricterLenderLtvCap } from "./rbi-ltv";
-export { calculateSalariedFoir, maxEmiFromFoirCap } from "./foir";
+export { calculateSalariedFoir, maxEmiFromFoirCap, FOIR_GOVERNED_DERIVED_FACTS } from "./foir";
+export { listHomeLoanGovernedDerivedFacts } from "./governed-derived-facts";
+export type { GovernedDerivedFactDescriptor } from "./governed-derived-fact";
 export {
   calculateEffectiveTenureMonths,
   calculateReducingBalanceEmi,

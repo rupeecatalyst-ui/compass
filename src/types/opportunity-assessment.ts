@@ -232,6 +232,16 @@ export type OpportunityAssessmentAcceptedProgrammeId = {
   policyVersionId: string;
   policyVersionNumber?: number;
   lenderScore: null;
+  matchPercent?: number | null;
+  matchRank?: number | null;
+  ruleSetVersion?: string | null;
+  criterionContributions?: Array<{
+    criterionKey: string;
+    criterionScore: number | null;
+    weightPercent: number;
+    weightedContribution: number | null;
+    status: string;
+  }> | null;
 };
 
 export type OpportunityAssessmentMissingInputCodes = CanonicalAssessmentField[];

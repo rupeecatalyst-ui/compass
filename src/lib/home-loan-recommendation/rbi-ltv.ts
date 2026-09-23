@@ -1,5 +1,19 @@
 import type { RegulatoryLtvSlab } from "@/constants/home-loan-recommendation/rbi-ltv-slabs";
 import { AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS } from "@/constants/home-loan-recommendation/rbi-ltv-slabs";
+import type { GovernedDerivedFactDescriptor } from "./governed-derived-fact";
+
+const HL = ["HOME_LOAN", "HOME_LOAN_BT"] as const;
+
+/** Canonical derived output of calculateRegulatoryMaxLoanAmount / applyStricterLenderLtvCap. */
+export const LTV_GOVERNED_DERIVED_FACTS: readonly GovernedDerivedFactDescriptor[] = [
+  {
+    id: "derived:ltvPercent",
+    label: "LTV",
+    productCodes: HL,
+    valueType: "percent",
+    customerFactRef: "derived:ltvPercent",
+  },
+];
 
 export type RegulatoryLtvResult = {
   propertyValueRupees: number;

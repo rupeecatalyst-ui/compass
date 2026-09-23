@@ -1,3 +1,16 @@
+import type { GovernedDerivedFactDescriptor } from "./governed-derived-fact";
+
+/** Canonical derived output of calculateIndicativeBtSaving. */
+export const BT_GOVERNED_DERIVED_FACTS: readonly GovernedDerivedFactDescriptor[] = [
+  {
+    id: "derived:btSavingsRupees",
+    label: "Balance transfer savings",
+    productCodes: ["HOME_LOAN_BT"],
+    valueType: "currency",
+    customerFactRef: "derived:btSavingsRupees",
+  },
+];
+
 /**
  * Home Loan Balance Transfer journey values.
  * Unknown stays unknown. Never coerce missing technical values to zero.

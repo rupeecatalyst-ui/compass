@@ -18,7 +18,7 @@ export const OPPORTUNITY_ASSESSMENT_RECOMMENDATION_COPY = {
   UNSUPPORTED_RECOMMENDATION_PRODUCT: "Canonical recommendation supports Home Loan and Home Loan BT only.",
   UNSUPPORTED_RECOMMENDATION_TRANSACTION: "This transaction type is not supported for canonical recommendation.",
   NO_ELIGIBLE_PROGRAMMES: "No eligible lender programme matched this finalized assessment.",
-  READY: "Ordered by assessed offer and applicable ROI. No governed lender score is available.",
+  READY: "Ranked by Match % where a governed active weight set can be scored. No invented lender score, stars, or confidence is used.",
   CONFIGURATION_ERROR: "Recommendation configuration is unavailable.",
   RUN_FAILED: "Recommendation could not be completed.",
   CROSS_ORGANIZATION_ACCESS: "Recommendation is not available for this workspace.",

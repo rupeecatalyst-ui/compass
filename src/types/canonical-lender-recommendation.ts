@@ -31,6 +31,16 @@ export type CanonicalRecommendationCard = HomeLoanRecommendationEngineResult["ca
   policyVersionId: string;
   policyVersionNumber: number;
   lenderScore: null;
+  matchPercent: number | null;
+  matchRank: number | null;
+  presentationTier: "primary" | "additional" | "evaluated" | null;
+  criterionContributions: Array<{
+    criterionKey: string;
+    criterionScore: number | null;
+    weightPercent: number;
+    weightedContribution: number | null;
+    status: string;
+  }> | null;
 };
 
 export type CanonicalLenderRecommendationResult = {
@@ -41,6 +51,17 @@ export type CanonicalLenderRecommendationResult = {
   rejectedProgrammes: CanonicalProgrammeRejection[];
   retrievedProgrammeCount: number;
   evaluatedProgrammeCount: number;
+  presentation?: {
+    primaryProgrammeIds: string[];
+    additionalProgrammeIds: string[];
+  };
+  matchPercent?: {
+    ruleSetId: string | null;
+    ruleSetLineageId: string | null;
+    ruleSetVersion: number | null;
+    weights: Record<string, number> | null;
+    failureCode: string | null;
+  };
   versions: HomeLoanRecommendationEngineResult["versions"] & {
     lenderScoreVersion: null;
   };

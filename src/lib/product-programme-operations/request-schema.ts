@@ -20,6 +20,35 @@ import {
   type StructuredProgrammePayload,
 } from "@/types/product-programme-operations";
 
+const PROGRAMME_DOCUMENT_KEYS = new Set(["requiredDocumentTypeIds", "requiredDocuments"]);
+
+const PROGRAMME_IDENTITY_AND_OPERATION_KEYS = new Set([
+  "lenderId",
+  "productId",
+  "productCode",
+  "productVariantCode",
+  "code",
+  "label",
+  "description",
+  "notes",
+  "remarks",
+  "policyVersionId",
+  "creditRiskPolicyRef",
+  "processingFeeLabel",
+  "concessions",
+  "deviationCategories",
+  "effectiveFrom",
+  "reviewAt",
+  "effectiveUntil",
+  "lifecycleStatus",
+  "status",
+  "enabled",
+  "expectedLockVersion",
+  "createDraftRevision",
+  "createdBy",
+  "modifiedBy",
+]);
+
 const ALLOWED_WRITE_KEYS = new Set([
   "lenderId",
   "productId",
@@ -86,6 +115,16 @@ const ALLOWED_WRITE_KEYS = new Set([
   "createdBy",
   "modifiedBy",
 ]);
+
+/**
+ * Programme constraint keys owned by PPO. Documents remain LOD.
+ * Identity, lifecycle, and operational write keys are not product constraint fields.
+ */
+export function listDiscoverableProgrammeConstraintKeys(): string[] {
+  return [...ALLOWED_WRITE_KEYS].filter(
+    (key) => !PROGRAMME_DOCUMENT_KEYS.has(key) && !PROGRAMME_IDENTITY_AND_OPERATION_KEYS.has(key),
+  );
+}
 
 function asStringArray(value: unknown, field: string): string[] {
   if (value == null) return [];

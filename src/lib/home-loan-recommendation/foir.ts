@@ -1,3 +1,19 @@
+import type { GovernedDerivedFactDescriptor } from "./governed-derived-fact";
+
+const HL = ["HOME_LOAN", "HOME_LOAN_BT"] as const;
+
+/** Canonical derived output of calculateSalariedFoir. Not a recommendation catalog entry. */
+export const FOIR_GOVERNED_DERIVED_FACTS: readonly GovernedDerivedFactDescriptor[] = [
+  {
+    id: "derived:foirPercent",
+    label: "FOIR",
+    productCodes: HL,
+    valueType: "percent",
+    customerFactRef: "derived:foirPercent",
+    notes: "Calculated. Never stored as customer-entered Assessment truth.",
+  },
+];
+
 /**
  * Salaried FOIR — programme-specific. Never invent a FOIR cap.
  *

@@ -1,3 +1,32 @@
+import type { GovernedDerivedFactDescriptor } from "./governed-derived-fact";
+
+const HL = ["HOME_LOAN", "HOME_LOAN_BT"] as const;
+
+/** Canonical derived outputs of ageInMonthsFromDateOfBirth, tenure, and EMI calculators. */
+export const TENURE_GOVERNED_DERIVED_FACTS: readonly GovernedDerivedFactDescriptor[] = [
+  {
+    id: "derived:proposedEmiRupees",
+    label: "Proposed EMI",
+    productCodes: HL,
+    valueType: "currency",
+    customerFactRef: "derived:proposedEmiRupees",
+  },
+  {
+    id: "derived:ageYears",
+    label: "Current age",
+    productCodes: HL,
+    valueType: "integer",
+    customerFactRef: "borrower.dateOfBirth",
+  },
+  {
+    id: "derived:ageAtMaturityYears",
+    label: "Age at maturity",
+    productCodes: HL,
+    valueType: "integer",
+    customerFactRef: "borrower.dateOfBirth",
+  },
+];
+
 /**
  * Customer-specific tenure in months.
  * “Maximum permitted age at loan maturity: 75 years” is not an automatic fresh-loan qualification.

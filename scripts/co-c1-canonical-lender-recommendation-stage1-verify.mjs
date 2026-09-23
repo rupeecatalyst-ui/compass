@@ -46,6 +46,12 @@ assert.throws(() => mapCanonicalProgramme({ row: { ...bt, transactionTypes: null
 assert.equal(validateCanonicalPolicyLink(row({ policyVersion: policy({ organizationId: "org-2" }) }), "HOME_LOAN", now), "POLICY_ORGANIZATION_MISMATCH");
 assert.equal(validateCanonicalPolicyLink(row({ policyVersion: policy({ policy: { ...policy().policy, lenderId: "lender-2" } }) }), "HOME_LOAN", now), "POLICY_LENDER_MISMATCH");
 assert.equal(validateCanonicalPolicyLink(row({ policyVersion: policy({ policy: { ...policy().policy, productCode: "HOME_LOAN_BT" } }) }), "HOME_LOAN", now), "POLICY_PRODUCT_MISMATCH");
+assert.equal(validateCanonicalPolicyLink(row({ policyVersion: policy({ policy: { ...policy().policy, productCode: "HOME-LOAN" } }) }), "HOME_LOAN", now), null);
+assert.equal(validateCanonicalPolicyLink(row({ policyVersion: policy({ policy: { ...policy().policy, productCode: "LAP" } }) }), "HOME_LOAN", now), "POLICY_PRODUCT_MISMATCH");
+assert.equal(validateCanonicalPolicyLink(row({
+  productCode: "HOME_LOAN_BT",
+  policyVersion: policy({ policy: { ...policy().policy, productCode: "HOME-LOAN" } }),
+}), "HOME_LOAN_BT", now), "POLICY_PRODUCT_MISMATCH");
 assert.equal(validateCanonicalPolicyLink(row({ policyVersion: null }), "HOME_LOAN", now), "POLICY_VERSION_MISSING");
 assert.equal(validateCanonicalPolicyLink(row({ policyVersion: policy({ status: "draft" }) }), "HOME_LOAN", now), "POLICY_NOT_PUBLISHED");
 

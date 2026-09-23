@@ -8,6 +8,7 @@ import type {
   CanonicalLenderRecommendationRequest,
   CanonicalLenderRecommendationResult,
   CanonicalProgrammeRejection,
+  CanonicalRecommendationCard,
 } from "@/types/canonical-lender-recommendation";
 import {
   mapCanonicalProgramme,
@@ -17,11 +18,44 @@ import {
   loadCanonicalProgrammeInventory,
   type CanonicalProgrammeInventory,
 } from "./recommendation-programme.repository";
+import {
+  createGovernedCriterionRegistry,
+  presentationSlice,
+  rankByMatchPercent,
+  scoreProgrammes,
+  type CriterionEvaluatorRegistry,
+} from "@/lib/product-recommendation";
+import type { ActiveRecommendationRuleSet } from "@/lib/product-recommendation/types";
+import { loadActiveRecommendationRuleSet } from "./load-active-rule-set";
 
 export type CanonicalRecommendationDependencies = {
   loadInventory?: typeof loadCanonicalProgrammeInventory;
   runEngine?: typeof runHomeLoanRecommendationEngine;
+  resolveActiveRuleSet?: (input: {
+    organizationId: string;
+    productCode: string;
+  }) => Promise<ActiveRecommendationRuleSet | null | "AMBIGUOUS" | "INVALID">;
+  criterionRegistry?: CriterionEvaluatorRegistry;
 };
+
+/** Closed policy-link vocabulary only. Arbitrary Error.message must not appear on the DTO. */
+const POLICY_LINK_REJECTION_CODES = new Set([
+  "POLICY_VERSION_MISSING",
+  "POLICY_ORGANIZATION_MISMATCH",
+  "POLICY_LINEAGE_MISMATCH",
+  "POLICY_LENDER_MISMATCH",
+  "POLICY_PRODUCT_MISMATCH",
+  "POLICY_NOT_PUBLISHED",
+  "POLICY_CURRENT_VERSION_MISMATCH",
+  "POLICY_NOT_EFFECTIVE",
+]);
+
+function canonicalRejectionReason(error: unknown): string {
+  if (error instanceof UnsupportedEligibilityPolicyRuleError) return "UNSUPPORTED_GOVERNED_RULE";
+  if (error instanceof Error && error.message === "UNSUPPORTED_GOVERNED_RULE") return "UNSUPPORTED_GOVERNED_RULE";
+  if (error instanceof Error && POLICY_LINK_REJECTION_CODES.has(error.message)) return error.message;
+  return "PROGRAMME_CONFIGURATION_INVALID";
+}
 
 /** Read-only orchestration. This function contains no persistence operation. */
 export async function recommendLendersCanonical(
@@ -76,9 +110,7 @@ export async function recommendLendersCanonical(
       rejectedProgrammes.push({
         programmeId: row.id,
         code: row.code,
-        reason: error instanceof UnsupportedEligibilityPolicyRuleError ||
-          (error instanceof Error && error.message === "UNSUPPORTED_GOVERNED_RULE")
-          ? "UNSUPPORTED_GOVERNED_RULE" : "PROGRAMME_CONFIGURATION_INVALID",
+        reason: canonicalRejectionReason(error),
       });
     }
   }
@@ -111,46 +143,221 @@ export async function recommendLendersCanonical(
         customerExplanation: "Programme assessment excludes savings because comparison information is incomplete.",
       } : {}),
       lenderScore: null as null,
+      matchPercent: null,
+      matchRank: null,
+      presentationTier: null,
+      criterionContributions: null,
       policyId: programme.policyId,
       policyVersionId: programme.policyVersionId,
       policyVersionNumber: programme.policyVersionNumber,
     };
   });
 
-  return {
-    status: recommendations.length ? "ready" : "no_eligible_programmes",
-    product: request.product,
-    readOnly: true,
+  const scored = await applyUniversalMatchPercent({
+    request,
     recommendations,
     rejectedProgrammes,
-    retrievedProgrammeCount: inventory.programmes.length,
-    evaluatedProgrammeCount: accepted.length,
-    versions: { ...engine.versions, lenderScoreVersion: null },
-    analyzedAt: engine.analyzedAt,
-    missingInputs: [...new Set(rejectedProgrammes.flatMap(row => row.missingInputs ?? []))],
-    cibilNotKnownDisclaimer: engine.cibilNotKnownDisclaimer,
-  };
+    inventoryCount: inventory.programmes.length,
+    acceptedCount: accepted.length,
+    engine,
+    dependencies,
+  });
+  return scored;
 }
 
 function configurationFailure(
   product: CanonicalLenderRecommendationRequest["product"],
   asOf: Date,
+  extra: Partial<CanonicalLenderRecommendationResult> = {},
 ): CanonicalLenderRecommendationResult {
   return {
     status: "configuration_error",
     product,
     readOnly: true,
     recommendations: [],
-    rejectedProgrammes: [],
-    retrievedProgrammeCount: 0,
-    evaluatedProgrammeCount: 0,
-    versions: {
+    rejectedProgrammes: extra.rejectedProgrammes ?? [],
+    retrievedProgrammeCount: extra.retrievedProgrammeCount ?? 0,
+    evaluatedProgrammeCount: extra.evaluatedProgrammeCount ?? 0,
+    presentation: { primaryProgrammeIds: [], additionalProgrammeIds: [] },
+    matchPercent: extra.matchPercent ?? {
+      ruleSetId: null,
+      ruleSetLineageId: null,
+      ruleSetVersion: null,
+      weights: null,
+      failureCode: "RULE_SET_REQUIRED",
+    },
+    versions: extra.versions ?? {
       calculationVersion: "unavailable",
       ruleSetVersion: null,
       categoryRuleVersion: null,
       lenderScoreVersion: null,
       ltvMasterVersion: null,
     },
-    analyzedAt: asOf.toISOString(),
+    analyzedAt: extra.analyzedAt ?? asOf.toISOString(),
+    missingInputs: extra.missingInputs,
+    cibilNotKnownDisclaimer: extra.cibilNotKnownDisclaimer,
+  };
+}
+
+async function applyUniversalMatchPercent(input: {
+  request: CanonicalLenderRecommendationRequest;
+  recommendations: CanonicalRecommendationCard[];
+  rejectedProgrammes: CanonicalProgrammeRejection[];
+  inventoryCount: number;
+  acceptedCount: number;
+  engine: ReturnType<typeof runHomeLoanRecommendationEngine>;
+  dependencies: CanonicalRecommendationDependencies;
+}): Promise<CanonicalLenderRecommendationResult> {
+  const { request, recommendations, rejectedProgrammes, inventoryCount, acceptedCount, engine, dependencies } = input;
+  const asOf = request.asOf ?? new Date();
+  const base = {
+    product: request.product,
+    readOnly: true as const,
+    rejectedProgrammes,
+    retrievedProgrammeCount: inventoryCount,
+    evaluatedProgrammeCount: acceptedCount,
+    versions: { ...engine.versions, lenderScoreVersion: null as null, ruleSetVersion: null },
+    analyzedAt: engine.analyzedAt,
+    missingInputs: [...new Set(rejectedProgrammes.flatMap((row) => row.missingInputs ?? []))],
+    cibilNotKnownDisclaimer: engine.cibilNotKnownDisclaimer,
+  };
+
+  if (recommendations.length === 0) {
+    return {
+      status: "no_eligible_programmes",
+      ...base,
+      recommendations,
+      presentation: { primaryProgrammeIds: [], additionalProgrammeIds: [] },
+      matchPercent: { ruleSetId: null, ruleSetLineageId: null, ruleSetVersion: null, weights: null, failureCode: null },
+    };
+  }
+
+  let ruleSet: ActiveRecommendationRuleSet | null = null;
+  if (dependencies.resolveActiveRuleSet) {
+    const resolved = await dependencies.resolveActiveRuleSet({
+      organizationId: request.organizationId,
+      productCode: request.product,
+    });
+    if (resolved === "AMBIGUOUS") {
+      return configurationFailure(request.product, asOf, {
+        ...base,
+        matchPercent: { ruleSetId: null, ruleSetLineageId: null, ruleSetVersion: null, weights: null, failureCode: "RULE_SET_AMBIGUOUS" },
+      });
+    }
+    if (resolved === "INVALID") {
+      return configurationFailure(request.product, asOf, {
+        ...base,
+        matchPercent: { ruleSetId: null, ruleSetLineageId: null, ruleSetVersion: null, weights: null, failureCode: "WEIGHTS_NOT_EXACTLY_100" },
+      });
+    }
+    ruleSet = resolved;
+  } else {
+    const loaded = await loadActiveRecommendationRuleSet({
+      organizationId: request.organizationId,
+      productCode: request.product,
+    });
+    if (loaded.status === "ambiguous") {
+      return configurationFailure(request.product, asOf, {
+        ...base,
+        matchPercent: { ruleSetId: null, ruleSetLineageId: null, ruleSetVersion: null, weights: null, failureCode: "RULE_SET_AMBIGUOUS" },
+      });
+    }
+    if (loaded.status === "invalid") {
+      return configurationFailure(request.product, asOf, {
+        ...base,
+        matchPercent: { ruleSetId: null, ruleSetLineageId: null, ruleSetVersion: null, weights: null, failureCode: loaded.reason },
+      });
+    }
+    ruleSet = loaded.status === "resolved" ? loaded.ruleSet : null;
+  }
+
+  if (!ruleSet) {
+    return configurationFailure(request.product, asOf, {
+      ...base,
+      matchPercent: { ruleSetId: null, ruleSetLineageId: null, ruleSetVersion: null, weights: null, failureCode: "RULE_SET_REQUIRED" },
+    });
+  }
+
+  const registry = dependencies.criterionRegistry ?? createGovernedCriterionRegistry();
+  const scored = scoreProgrammes({
+    ruleSet,
+    programmes: recommendations.map((card) => ({ programmeId: card.programmeId, context: { programmeId: card.programmeId } })),
+    registry,
+  });
+  if (!scored.ok) {
+    return configurationFailure(request.product, asOf, {
+      ...base,
+      versions: { ...base.versions, ruleSetVersion: String(ruleSet.versionNumber) },
+      matchPercent: {
+        ruleSetId: ruleSet.id,
+        ruleSetLineageId: ruleSet.lineageId,
+        ruleSetVersion: ruleSet.versionNumber,
+        weights: { ...ruleSet.weights.selected },
+        failureCode: scored.code,
+      },
+    });
+  }
+
+  const byId = new Map(scored.scores.map((row) => [row.programmeId, row]));
+  if (recommendations.some((card) => !byId.has(card.programmeId))) {
+    return configurationFailure(request.product, asOf, {
+      ...base,
+      versions: { ...base.versions, ruleSetVersion: String(ruleSet.versionNumber) },
+      matchPercent: {
+        ruleSetId: ruleSet.id,
+        ruleSetLineageId: ruleSet.lineageId,
+        ruleSetVersion: ruleSet.versionNumber,
+        weights: { ...ruleSet.weights.selected },
+        failureCode: "NON_SCORABLE",
+      },
+    });
+  }
+  const ranked = rankByMatchPercent(
+    recommendations.map((card) => {
+      const score = byId.get(card.programmeId)!;
+      return {
+        item: card,
+        programmeId: card.programmeId,
+        matchPercent: score.matchPercent,
+        applicableRoiPercent: card.applicableRoiPercent,
+        tentativeOfferRupees: card.tentativeOfferRupees,
+      };
+    }),
+  );
+  const slice = presentationSlice(ranked);
+  const rankedCards: CanonicalRecommendationCard[] = ranked.map((row) => {
+    const score = byId.get(row.programmeId);
+    return {
+      ...row.item,
+      matchPercent: row.matchPercent,
+      matchRank: row.rank,
+      presentationTier: row.presentationTier,
+      criterionContributions:
+        score?.contributions.map((item) => ({
+          criterionKey: item.criterionKey,
+          criterionScore: item.criterionScore,
+          weightPercent: item.weightPercent,
+          weightedContribution: item.weightedContribution,
+          status: item.status,
+        })) ?? null,
+    };
+  });
+
+  return {
+    status: rankedCards.length ? "ready" : "no_eligible_programmes",
+    ...base,
+    recommendations: rankedCards,
+    presentation: {
+      primaryProgrammeIds: slice.primary.map((row) => row.programmeId),
+      additionalProgrammeIds: slice.additional.map((row) => row.programmeId),
+    },
+    matchPercent: {
+      ruleSetId: ruleSet.id,
+      ruleSetLineageId: ruleSet.lineageId,
+      ruleSetVersion: ruleSet.versionNumber,
+      weights: { ...ruleSet.weights.selected },
+      failureCode: null,
+    },
+    versions: { ...base.versions, ruleSetVersion: `${ruleSet.lineageId}:${ruleSet.versionNumber}` },
   };
 }

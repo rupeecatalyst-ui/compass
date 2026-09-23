@@ -102,10 +102,30 @@ export function verifyGovernedEligibilityInvariants() {
       /missing\.add\("monthlyIncome"\)/,
       /missing\.add\("obligations"\)/,
       /missing\.add\("propertyValue"\)/,
+      /c\.maxFoirPercent == null/,
+      /maxFoirPercent: number\(c\.maxFoirPercent\)/,
       /const ltv = /,
       /btOutstanding/,
     ],
     "GOVERNED_ELIGIBILITY_INVARIANT_MISSING",
+  );
+  forbidSource(
+    "server/services/lender-recommendation/canonical-governed-eligibility.ts",
+    [
+      /c\.requiredDocumentTypeIds\?\.length/,
+      /c\.minDbrPercent != null \|\| c\.maxDbrPercent != null/,
+      /maxFoirPercent\s*=\s*70/,
+      /maxDbrPercent[^\n]{0,80}maxFoirPercent/,
+    ],
+    "DBR_OR_DOCUMENT_ELIGIBILITY_OR_HARDCODED_FOIR",
+  );
+  requireSource(
+    "server/services/lender-recommendation/programme-assessment-adapter.ts",
+    [
+      /requiredDocumentTypeIds: list\(r\.requiredDocumentTypeIds\)/,
+      /maxDbrPercent: bound\(r\.maxDbrExact, r\.maxDbrPercent\)/,
+    ],
+    "LOD_OR_DBR_FIELDS_NOT_PRESERVED",
   );
   requireSource(
     "server/services/lender-recommendation/canonical-lender-recommendation.service.ts",
@@ -116,8 +136,23 @@ export function verifyGovernedEligibilityInvariants() {
       /lenderScoreVersion:\s*null/,
       /HOME_LOAN_BT/,
       /readOnly:\s*true/,
+      /POLICY_LINK_REJECTION_CODES/,
+      /POLICY_PRODUCT_MISMATCH/,
     ],
     "CANONICAL_SERVICE_INVARIANT_MISSING",
+  );
+  requireSource(
+    "server/services/lender-recommendation/programme-assessment-adapter.ts",
+    [
+      /productCodesEquivalent/,
+      /POLICY_PRODUCT_MISMATCH/,
+    ],
+    "POLICY_PRODUCT_EQUIVALENCE_MISSING",
+  );
+  forbidSource(
+    "server/services/lender-recommendation/programme-assessment-adapter.ts",
+    [/version\.policy\.productCode\s*!==\s*product/],
+    "STRICT_POLICY_PRODUCT_COMPARATOR_PRESENT",
   );
   forbidSource(
     "server/services/lender-recommendation/canonical-lender-recommendation.service.ts",
@@ -509,6 +544,8 @@ export async function selfTest() {
   assert.throws(() => mapCanonicalProgramme({ row: row(), product: "HOME_LOAN_BT", lenderCategory: "A", asOf: new Date() }), /PRODUCT_MISMATCH/);
   assert.doesNotThrow(() => mapCanonicalProgramme({ row: row("HOME_LOAN_BT", ["balance_transfer"]), product: "HOME_LOAN_BT", lenderCategory: "C", asOf: new Date() }));
   assert.equal(validateCanonicalPolicyLink({ ...row(), policyVersion: { ...policy(), status: "draft" } }, "HOME_LOAN", new Date()), "POLICY_NOT_PUBLISHED");
+  assert.equal(validateCanonicalPolicyLink({ ...row(), policyVersion: policy("HOME-LOAN") }, "HOME_LOAN", new Date()), null);
+  assert.equal(validateCanonicalPolicyLink({ ...row(), policyVersion: policy("LAP") }, "HOME_LOAN", new Date()), "POLICY_PRODUCT_MISMATCH");
   assert.throws(() => parseCanonicalPolicyRules({ rules: [{ type: "unsupported_rule" }] }), /Unsupported eligibility-affecting/);
   assert.equal(safeReason(new Error("postgresql://user:secret@private-host/db")), "VALIDATION_FAILED");
   console.log("Canonical recommendation certification self-test: PASS");

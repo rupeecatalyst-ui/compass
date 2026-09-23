@@ -8,6 +8,8 @@ export type ChanakyaRecommendationPanelView = {
   ready: boolean;
   guidance: string;
   programmeIds: string[];
+  primaryProgrammeIds: string[];
+  additionalProgrammeIds: string[];
   lenderScores: Array<null>;
   cards: NonNullable<OpportunityAssessmentRecommendationDto["result"]>["recommendations"];
 };
@@ -36,6 +38,8 @@ function projectChanakyaRecommendationView(
     ready: dto.result?.status === "ready",
     guidance: dto.guidance,
     programmeIds: cards.map((card) => card.programmeId),
+    primaryProgrammeIds: dto.result?.presentation?.primaryProgrammeIds ?? cards.filter((card) => card.presentationTier === "primary").map((card) => card.programmeId),
+    additionalProgrammeIds: dto.result?.presentation?.additionalProgrammeIds ?? cards.filter((card) => card.presentationTier === "additional").map((card) => card.programmeId),
     lenderScores: cards.map(() => null),
     cards,
   };

@@ -8,7 +8,9 @@ import type { ApiResponse } from "@/types/api";
 import { resolvePilotOrganizationId } from "@server/repositories/ecm/organization.repository";
 import {
   createUnapprovedDraftMasters,
+  ensureProductWeightDraft,
   listHlRecommendationMasters,
+  saveWeightDraft,
   simulateHomeLoanRecommendation,
   transitionHlMaster,
 } from "@server/services/home-loan-recommendation/hl-recommendation-masters.service";
@@ -47,7 +49,17 @@ export async function POST(request: Request) {
       action?: "submit_review" | "approve" | "reject" | "activate";
       comment?: string;
       customer?: CustomerAssessmentInput;
+      productCode?: string;
+      weightsJson?: Record<string, number>;
     };
+    if (body.intent === "ensure_weight_draft" && body.productCode) {
+      const data = await ensureProductWeightDraft({
+        organizationId,
+        productCode: body.productCode,
+        makerUserId: actor.userId,
+      });
+      return successResponse(data);
+    }
     if (body.intent === "create_unapproved_drafts") {
       const data = await createUnapprovedDraftMasters({
         organizationId,
@@ -60,6 +72,15 @@ export async function POST(request: Request) {
         return errorResponse(400, "CUSTOMER_REQUIRED", "Simulation requires a customer assessment payload.");
       }
       return successResponse(simulateHomeLoanRecommendation(body.customer));
+    }
+    if (body.intent === "save_weight_draft" && body.id && body.weightsJson) {
+      const data = await saveWeightDraft({
+        organizationId,
+        id: body.id,
+        actorUserId: actor.userId,
+        weightsJson: body.weightsJson,
+      });
+      return successResponse(data);
     }
     if (body.intent === "transition" && body.kind && body.id && body.action) {
       const data = await transitionHlMaster({
