@@ -58,7 +58,21 @@ mustNotContain(workspace, "LeadOpportunityJourneyChrome", "no journey chrome");
 mustNotContain(workspace, "mobilePrimary", "no mobile field");
 mustNotContain(workspace, "personalEmail", "no email field");
 mustContain(lockLib, "NAME_OR_PII_RESOLUTION_FORBIDDEN", "pii resolution forbidden");
-mustContain("src/app/api/document-workspace/context/route.ts", "resolveDocumentWorkspaceContext", "API lock");
+mustContain(
+  "src/app/api/document-workspace/context/route.ts",
+  "resolveDocumentWorkspaceAccess",
+  "API lock (current access+lock resolver)",
+);
+mustContain(
+  "server/services/document-workspace/document-workspace-access.service.ts",
+  "lockDocumentWorkspaceContext",
+  "access resolver still applies 008 lock",
+);
+mustContain(
+  "server/services/document-workspace/document-workspace-access.service.ts",
+  "decideHierarchyVisibility",
+  "assignment visibility remains in the lock path",
+);
 mustContain(
   "src/components/catalyst-one/document-center/document-center-workspace.tsx",
   "listDocumentsForOpportunityRuntime",
