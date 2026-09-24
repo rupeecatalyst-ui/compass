@@ -10,6 +10,7 @@ import { resolveEffectiveJourneyFields } from "@/lib/product-journey/parse";
 import {
   listProjectedRecommendationFields,
   resolveProjectedField,
+  sortByFriendlyDisplayLabel,
 } from "@/lib/product-recommendation/field-projection";
 import type { ProjectedRecommendationField } from "@/lib/product-recommendation/types";
 import type { ProductJourneyFieldRow } from "@/types/product-journey-definition";
@@ -86,9 +87,9 @@ export function listAdditionalEligibilityFilterFields(input: {
         productCodes: [input.productCode],
       });
     }
-    return options;
+    return sortByFriendlyDisplayLabel(options);
   }
-  return projected.filter(isCustomerSelectable).map(optionFromProjected);
+  return sortByFriendlyDisplayLabel(projected.filter(isCustomerSelectable).map(optionFromProjected));
 }
 
 export function assertFilterFieldsAreModuleScoped(input: {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { parseProductJourneyFields } from "@/lib/product-journey/parse";
+import { parseProductJourneyFields, reorderVisibleJourneyFields } from "@/lib/product-journey/parse";
 import type { ProductJourneyFieldRow, ProductJourneyApplicability } from "@/types/product-journey-definition";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,10 @@ import {
   deselectFieldKeys,
   fieldIsSelected,
   listProjectedRecommendationFields,
+  normalizeDraftCriterionWeights,
   recommendationProductCodesEquivalent,
+  resolveProjectedField,
+  sortByFriendlyDisplayLabel,
 } from "@/lib/product-recommendation";
 import { AUTHORISED_CIBIL_CATEGORY_RULES } from "@/lib/home-loan-recommendation/cibil-category";
 import {
@@ -44,12 +47,18 @@ type MasterRow = {
 type BusinessArea = "journey" | "weightage" | "categories" | "cibil" | "ltv";
 
 function asWeightMap(value: unknown): Record<string, number> {
+  const parsed = normalizeDraftCriterionWeights(value);
+  if (!("error" in parsed)) return { ...parsed.selected };
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const next: Record<string, number> = {};
   for (const [key, weight] of Object.entries(value as Record<string, unknown>)) {
     if (typeof weight === "number" && Number.isFinite(weight)) next[key] = weight;
   }
   return next;
+}
+
+function journeyRowVisible(row: ProductJourneyFieldRow, category: ProductJourneyApplicability): boolean {
+  return category === "all" || row.applicability === "all" || row.applicability === category;
 }
 
 function pickWorkingWeightRow(rows: MasterRow[], productCode: string): MasterRow | null {
@@ -125,6 +134,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
   const [addFieldQuery, setAddFieldQuery] = useState("");
   const [addCriterionId, setAddCriterionId] = useState("");
   const [addCriterionQuery, setAddCriterionQuery] = useState("");
+  const [dragVisibleIndex, setDragVisibleIndex] = useState<number | null>(null);
 
   const reload = async () => {
     const res = await authenticatedJsonFetch("/api/admin/home-loan-recommendation-masters");
@@ -171,7 +181,11 @@ export function HomeLoanRecommendationMastersWorkspace() {
     () => listProjectedRecommendationFields({ productCode }),
     [productCode],
   );
-  const availableCaptureFields = availableFields.filter((field) => field.fieldKind === "assessment_fact");
+  const pickerFields = useMemo(() => sortByFriendlyDisplayLabel(availableFields), [availableFields]);
+  const availableCaptureFields = useMemo(
+    () => sortByFriendlyDisplayLabel(availableFields.filter((field) => field.fieldKind === "assessment_fact")),
+    [availableFields],
+  );
   const cibilRules = data?.authorisedCibilRules ?? AUTHORISED_CIBIL_CATEGORY_RULES;
   const ltvSlabs = data?.libraryLtvDefault?.slabs ?? AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS;
   const categoryGroups = useMemo(() => {
@@ -257,10 +271,45 @@ export function HomeLoanRecommendationMastersWorkspace() {
     );
   };
 
-  const visibleJourneyRows = draftFields.map((row, index) => ({ row, index })).filter(({ row }) => customerCategory === "all" || row.applicability === "all" || row.applicability === customerCategory);
+  const visibleJourneyRows = draftFields
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => journeyRowVisible(row, customerCategory));
 
-  const selectedWeightRows = availableFields.filter((field) => fieldIsSelected(draftWeights, field));
-  const unselectedFields = availableFields.filter((field) => !fieldIsSelected(draftWeights, field));
+  const selectedWeightRows = (() => {
+    const seen = new Set<string>();
+    const rows = pickerFields.filter((field) => {
+      if (!fieldIsSelected(draftWeights, field)) return false;
+      seen.add(field.id);
+      return true;
+    });
+    for (const key of Object.keys(draftWeights)) {
+      if (seen.has(key)) continue;
+      const resolved = resolveProjectedField(key, availableFields);
+      if (resolved) {
+        if (seen.has(resolved.id)) continue;
+        seen.add(resolved.id);
+        rows.push(resolved);
+        continue;
+      }
+      seen.add(key);
+      rows.push({
+        id: key,
+        label: key,
+        productCodes: [productCode],
+        sourceKind: "raw",
+        fieldKind: "assessment_fact",
+        valueType: "number",
+        customerFactRef: null,
+        programmeFactRef: null,
+        evaluatorType: "not_implemented",
+        selectable: true,
+        scoreability: "not_implemented",
+        aliases: [],
+      });
+    }
+    return rows;
+  })();
+  const unselectedFields = pickerFields.filter((field) => !fieldIsSelected(draftWeights, field));
   const unconfiguredJourneyFields = availableCaptureFields.filter((field) => {
     if (draftFields.some((row) => row.fieldId === field.id && (row.applicability === "all" || customerCategory === "all" || row.applicability === customerCategory))) return false;
     if (!addFieldQuery.trim()) return true;
@@ -400,8 +449,96 @@ export function HomeLoanRecommendationMastersWorkspace() {
           {visibleJourneyRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">No fields configured for this product yet.</p>
           ) : (
-            visibleJourneyRows.map(({ row, index }) => (
-              <div role="group" aria-label={`Configured field ${row.fieldId}`} key={`${row.fieldId}-${index}`} className="grid gap-2 border-b border-border/60 py-2 md:grid-cols-6">
+            <>
+            <div className="hidden gap-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-7">
+              <span>Order</span>
+              <span className="md:col-span-2">Field</span>
+              <span>Customer Category</span>
+              <span>Show/Capture</span>
+              <span>Mandatory for Recommendation</span>
+              <span>Remove</span>
+            </div>
+            {visibleJourneyRows.map(({ row, index }, visibleIndex) => (
+              <div
+                role="group"
+                aria-label={`Configured field ${row.fieldId}`}
+                key={`${row.fieldId}-${index}`}
+                className="grid gap-2 border-b border-border/60 py-2 md:grid-cols-7"
+                draggable
+                onDragStart={() => setDragVisibleIndex(visibleIndex)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => {
+                  if (dragVisibleIndex == null) return;
+                  setDraftFields((current) =>
+                    reorderVisibleJourneyFields(
+                      current,
+                      (item) => journeyRowVisible(item, customerCategory),
+                      dragVisibleIndex,
+                      visibleIndex,
+                    ),
+                  );
+                  setDragVisibleIndex(null);
+                }}
+                onDragEnd={() => setDragVisibleIndex(null)}
+              >
+                <div className="flex items-center gap-1">
+                  <span className="cursor-grab text-xs text-muted-foreground" aria-hidden="true">↕</span>
+                  <Input
+                    aria-label={`Order for ${row.fieldId}`}
+                    className="h-9 w-16"
+                    type="number"
+                    min={1}
+                    value={String(row.displayOrder)}
+                    onChange={(event) => {
+                      const nextOrder = Number(event.target.value);
+                      setDraftFields((current) =>
+                        parseProductJourneyFields(
+                          current.map((item, itemIndex) =>
+                            itemIndex === index
+                              ? { ...item, displayOrder: Number.isFinite(nextOrder) ? nextOrder : item.displayOrder }
+                              : item,
+                          ),
+                        ),
+                      );
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Move ${row.fieldId} up`}
+                    disabled={visibleIndex === 0}
+                    onClick={() =>
+                      setDraftFields((current) =>
+                        reorderVisibleJourneyFields(
+                          current,
+                          (item) => journeyRowVisible(item, customerCategory),
+                          visibleIndex,
+                          visibleIndex - 1,
+                        ),
+                      )
+                    }
+                  >
+                    ↑
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Move ${row.fieldId} down`}
+                    disabled={visibleIndex === visibleJourneyRows.length - 1}
+                    onClick={() =>
+                      setDraftFields((current) =>
+                        reorderVisibleJourneyFields(
+                          current,
+                          (item) => journeyRowVisible(item, customerCategory),
+                          visibleIndex,
+                          visibleIndex + 1,
+                        ),
+                      )
+                    }
+                  >
+                    ↓
+                  </Button>
+                </div>
                 <select className="h-9 rounded-md border border-input bg-background px-2 text-sm md:col-span-2"
                   aria-label={`Field for ${row.fieldId}`} value={row.fieldId}
                   onChange={(event) => setDraftFields((current) => current.map((item, itemIndex) => itemIndex === index ? {
@@ -465,7 +602,8 @@ export function HomeLoanRecommendationMastersWorkspace() {
                   Remove
                 </Button>
               </div>
-            ))
+            ))}
+            </>
           )}
           <Button size="sm" variant="outline" onClick={() => setShowFieldPicker((open) => !open)}>+ Add Field</Button>
           {showFieldPicker ? <div className="flex flex-wrap items-end gap-2">
@@ -591,7 +729,11 @@ export function HomeLoanRecommendationMastersWorkspace() {
                 <div role="group" aria-label={`Match criterion ${field.id}`} key={field.id} className="flex flex-wrap items-center gap-3 border-b border-border/60 py-2">
                   <select className="h-9 min-w-56 rounded-md border border-input bg-background px-2 text-sm"
                     aria-label={`Criterion for ${field.label}`} value={field.id} disabled={busy || Boolean(historyVersionId)}
-                    onChange={(event) => setDraftWeights((current) => ({ ...deselectFieldKeys(current, field), [event.target.value]: current[storedKey] ?? 0 }))}>
+                    onChange={(event) => setDraftWeights((current) => {
+                      const next = { ...deselectFieldKeys(current, field), [event.target.value]: current[storedKey] ?? 0 };
+                      const parsed = normalizeDraftCriterionWeights(next);
+                      return "error" in parsed ? next : { ...parsed.selected };
+                    })}>
                     {availableFields.filter((option) => option.id === field.id || !fieldIsSelected(draftWeights, option)).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
                   </select>
                   <Input
@@ -605,10 +747,15 @@ export function HomeLoanRecommendationMastersWorkspace() {
                     value={Number.isFinite(draftWeights[storedKey]) ? String(draftWeights[storedKey]) : ""}
                     onChange={(event) => {
                       const next = Number(event.target.value);
-                      setDraftWeights((current) => ({
-                        ...current,
-                        [storedKey]: Number.isFinite(next) ? next : 0,
-                      }));
+                      setDraftWeights((current) => {
+                        const parsed = normalizeDraftCriterionWeights({
+                          ...current,
+                          [storedKey]: Number.isFinite(next) ? next : 0,
+                        });
+                        return "error" in parsed
+                          ? { ...current, [storedKey]: Number.isFinite(next) ? next : 0 }
+                          : { ...parsed.selected };
+                      });
                     }}
                   />
                   <span className="text-xs text-muted-foreground">%</span>
@@ -616,7 +763,11 @@ export function HomeLoanRecommendationMastersWorkspace() {
                     size="sm"
                     variant="ghost"
                     disabled={busy || Boolean(historyVersionId)}
-                    onClick={() => setDraftWeights((current) => deselectFieldKeys(current, field))}
+                    onClick={() => setDraftWeights((current) => {
+                      const next = deselectFieldKeys(current, field);
+                      const parsed = normalizeDraftCriterionWeights(next);
+                      return "error" in parsed ? next : { ...parsed.selected };
+                    })}
                   >
                     Remove
                   </Button>
@@ -654,7 +805,10 @@ export function HomeLoanRecommendationMastersWorkspace() {
               size="sm"
               disabled={!addCriterionId || Boolean(historyVersionId)}
               onClick={() => {
-                setDraftWeights((current) => ({ ...current, [addCriterionId]: 0 }));
+                setDraftWeights((current) => {
+                  const parsed = normalizeDraftCriterionWeights({ ...current, [addCriterionId]: 0 });
+                  return "error" in parsed ? { ...current, [addCriterionId]: 0 } : { ...parsed.selected };
+                });
                 setAddCriterionId("");
                 setShowCriterionPicker(false);
               }}

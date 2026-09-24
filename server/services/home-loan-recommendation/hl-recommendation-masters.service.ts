@@ -3,7 +3,7 @@ import { AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS, AUTHORISED_INDIVIDUAL_HOUSING_
 import { runHomeLoanRecommendationEngine } from "@/lib/home-loan-recommendation/engine";
 import type { CustomerAssessmentInput } from "@/lib/home-loan-recommendation/assisted-offer";
 import {
-  parseCriterionWeights,
+  normalizeDraftCriterionWeights,
   listProjectedRecommendationFields,
   validateWeightPublish,
   canonicalizeRecommendationProductCode,
@@ -203,7 +203,7 @@ export async function saveWeightDraft(input: {
   });
   if (!row) throw new Error("Master version not found.");
   if (row.lifecycleStatus !== "draft") throw new Error("Only Draft versions can be edited.");
-  const parsed = parseCriterionWeights(input.weightsJson);
+  const parsed = normalizeDraftCriterionWeights(input.weightsJson);
   if ("error" in parsed) throw new Error(parsed.error);
   const audit = Array.isArray(row.auditJson) ? [...(row.auditJson as object[])] : [];
   audit.push({ event: "save_weight_draft", actorUserId: input.actorUserId, total: parsed.total, at: new Date().toISOString() });

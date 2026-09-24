@@ -1,5 +1,5 @@
 import type { ActiveRecommendationRuleSet } from "@/lib/product-recommendation/types";
-import { parseCriterionWeights } from "@/lib/product-recommendation/weights";
+import { normalizeDraftCriterionWeights } from "@/lib/product-recommendation/weights";
 import { recommendationProductCodesEquivalent } from "@/lib/product-recommendation/product-code";
 
 export type StoredRecommendationRuleSetRow = {
@@ -38,7 +38,7 @@ export function resolveActiveRecommendationRuleSet(input: {
   if (eligible.length === 0) return { status: "missing" };
   if (eligible.length > 1) return { status: "ambiguous" };
   const row = eligible[0]!;
-  const parsed = parseCriterionWeights(row.weightsJson);
+  const parsed = normalizeDraftCriterionWeights(row.weightsJson);
   if ("error" in parsed) return { status: "invalid", reason: parsed.error };
   return {
     status: "resolved",

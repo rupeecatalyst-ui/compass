@@ -4,16 +4,48 @@ import type { ParsedCriterionWeights, ProjectedRecommendationField } from "./typ
 import { CANONICAL_RECOMMENDATION_FIELD_PROJECTION, resolveProjectedField } from "./field-projection";
 import { isRegisteredEvaluatorType } from "./evaluator-types";
 
+/** Persisted by older drafts next to real criterion keys. Never a Match % criterion. */
+export const RESERVED_WEIGHT_METADATA_KEYS = new Set(["total", "weightsTotal", "selected", "error"]);
+
 export function parseCriterionWeights(raw: unknown): ParsedCriterionWeights | { error: string } {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
     return { error: "WEIGHTS_JSON_INVALID" };
   }
   const selected: Record<string, number> = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (RESERVED_WEIGHT_METADATA_KEYS.has(key)) continue;
     if (!key.trim()) return { error: "CRITERION_KEY_INVALID" };
     if (typeof value !== "number" || !Number.isFinite(value)) return { error: "WEIGHT_NOT_NUMERIC" };
     if (value < 0) return { error: "WEIGHT_NEGATIVE" };
     selected[key] = value;
+  }
+  const total = Object.values(selected).reduce((sum, weight) => sum + weight, 0);
+  return { selected, total };
+}
+
+/**
+ * Draft/edit normalization only. Does not rewrite historical stored JSON on read.
+ * Collapses alias + canonical duplicates onto the canonical field ID and drops metadata keys.
+ */
+export function normalizeDraftCriterionWeights(
+  raw: unknown,
+  catalog: readonly ProjectedRecommendationField[] = CANONICAL_RECOMMENDATION_FIELD_PROJECTION,
+): ParsedCriterionWeights | { error: string } {
+  const parsed = parseCriterionWeights(raw);
+  if ("error" in parsed) return parsed;
+  const incoming = parsed.selected;
+  const selected: Record<string, number> = {};
+  const claimed = new Set<string>();
+  for (const [key, value] of Object.entries(incoming)) {
+    const field = resolveProjectedField(key, catalog);
+    const canonical = field?.id ?? key;
+    if (claimed.has(canonical)) continue;
+    if (field && Object.prototype.hasOwnProperty.call(incoming, field.id)) {
+      selected[field.id] = incoming[field.id]!;
+    } else {
+      selected[canonical] = value;
+    }
+    claimed.add(canonical);
   }
   const total = Object.values(selected).reduce((sum, weight) => sum + weight, 0);
   return { selected, total };
@@ -34,7 +66,7 @@ export function validateWeightPublish(
   registry: CriterionEvaluatorRegistry = createGovernedEvaluatorTypeRegistry(),
   catalog: readonly ProjectedRecommendationField[] = CANONICAL_RECOMMENDATION_FIELD_PROJECTION,
 ): string | null {
-  const parsed = parseCriterionWeights(weightsJson);
+  const parsed = normalizeDraftCriterionWeights(weightsJson, catalog);
   if ("error" in parsed) return parsed.error;
   const totalError = assertActivateableWeights(parsed);
   if (totalError) return totalError;

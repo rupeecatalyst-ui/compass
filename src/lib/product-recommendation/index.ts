@@ -18,9 +18,18 @@ export {
   fieldIsSelected,
   selectedWeightForField,
   deselectFieldKeys,
+  compareByFriendlyDisplayLabel,
+  sortByFriendlyDisplayLabel,
 } from "./field-projection";
 export { discoverCanonicalRecommendationFields } from "./discover-canonical-fields";
-export { parseCriterionWeights, weightsTotalExact100, assertActivateableWeights, validateWeightPublish } from "./weights";
+export {
+  parseCriterionWeights,
+  normalizeDraftCriterionWeights,
+  weightsTotalExact100,
+  assertActivateableWeights,
+  validateWeightPublish,
+  RESERVED_WEIGHT_METADATA_KEYS,
+} from "./weights";
 export { scoreProgrammes, type ScoreableProgramme } from "./score";
 export { rankByMatchPercent, presentationSlice, type RankableCandidate } from "./rank";
 export { resolveActiveRecommendationRuleSet } from "./resolve-active-rule-set";

@@ -1,4 +1,11 @@
-export { parseProductJourneyFields, resolveEffectiveJourneyFields, assertJourneyFieldAvailable } from "./parse";
+export {
+  parseProductJourneyFields,
+  resolveEffectiveJourneyFields,
+  assertJourneyFieldAvailable,
+  stampJourneyDisplayOrder,
+  reorderJourneyFields,
+  reorderVisibleJourneyFields,
+} from "./parse";
 export {
   employmentFamilyFromValue,
   fieldAppliesToEmployment,

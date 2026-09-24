@@ -111,7 +111,9 @@ export function buildCompassJourneyConfig(
     journeyFields && journeyFields.length > 0
       ? [...journeyFields]
       : bootstrapProductJourneyFields(definition.enterpriseProductCode);
-  const captureRows = effectiveJourney.filter((row) => row.capture);
+  const captureRows = [...effectiveJourney]
+    .filter((row) => row.capture)
+    .sort((a, b) => a.displayOrder - b.displayOrder);
 
   const visibleSections = resolveVisibleIdcSections(partnerConfig.detailSections, {
     primaryBorrowerKind: definition.borrowerKind,

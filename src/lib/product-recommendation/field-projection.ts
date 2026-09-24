@@ -218,3 +218,15 @@ export function deselectFieldKeys(
   for (const alias of field.aliases) delete next[alias];
   return next;
 }
+
+export function compareByFriendlyDisplayLabel(
+  left: { label: string; id: string },
+  right: { label: string; id: string },
+): number {
+  const byLabel = left.label.localeCompare(right.label, "en", { sensitivity: "base", numeric: true });
+  return byLabel !== 0 ? byLabel : left.id.localeCompare(right.id);
+}
+
+export function sortByFriendlyDisplayLabel<T extends { label: string; id: string }>(rows: readonly T[]): T[] {
+  return [...rows].sort(compareByFriendlyDisplayLabel);
+}
