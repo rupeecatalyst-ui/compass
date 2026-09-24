@@ -549,7 +549,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
                     applicability: item.applicability, capture: item.capture, mandatoryForRecommendation: item.mandatoryForRecommendation, displayOrder: item.displayOrder,
                   } : item))}>
                   {!availableCaptureFields.some((field) => field.id === row.fieldId) ? <option value={row.fieldId}>{resolveProductJourneyFieldLabel(row.fieldId, row.label)}</option> : null}
-                  {availableCaptureFields.filter((field) => field.id === row.fieldId || !draftFields.some((item) => item.fieldId === field.id && (item.applicability === row.applicability || item.applicability === "all" || row.applicability === "all"))).map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}
+                  {availableCaptureFields.filter((field) => field.id === row.fieldId || !draftFields.some((item) => item.fieldId === field.id && (item.applicability === row.applicability || item.applicability === "all" || row.applicability === "all"))).map((field) => <option key={field.id} value={field.id}>{resolveProductJourneyFieldLabel(field.id, field.label)}</option>)}
                 </select>
                 <select
                   className="h-9 rounded-md border border-input bg-background px-2 text-sm"

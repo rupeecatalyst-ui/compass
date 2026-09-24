@@ -19,6 +19,7 @@ export type MailboxAttachment = {
 
 export function DocumentWorkspaceMailbox({
   open,
+  contextFingerprint,
   mode,
   fromEmail,
   senderCc,
@@ -31,6 +32,7 @@ export function DocumentWorkspaceMailbox({
   onSaveDraft,
 }: {
   open: boolean;
+  contextFingerprint?: string | null;
   mode: DocumentWorkspaceMailboxMode;
   fromEmail: string;
   senderCc: string;
@@ -64,6 +66,15 @@ export function DocumentWorkspaceMailbox({
   useEffect(() => {
     setKept(attachments);
   }, [attachments]);
+
+  useEffect(() => {
+    setTo(initialTo);
+    setKept(attachments);
+    setSubject(mode === "request" ? "Document request" : "Documents for your review");
+    setBody("");
+    // Fingerprint is the authorization identity. Do not reset on local attachment edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- context-bound composer only
+  }, [contextFingerprint]);
 
   const htmlBody = useMemo(() => {
     const list =

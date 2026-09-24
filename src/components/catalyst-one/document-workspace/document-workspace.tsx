@@ -364,6 +364,7 @@ export function DocumentWorkspace() {
       setCoverBody(transition.coverBody);
       setSecureLink(transition.secureLink);
       setLenderRecipientId(transition.lenderRecipientId);
+      setMailbox(transition.mailbox);
     }
     const restored = contextKey ? readDocumentWorkspaceRestore(contextKey) : null;
     setOwnerTab(parseOwnerTabParam(request.ownerTab || restored?.ownerTab));
@@ -1652,6 +1653,7 @@ export function DocumentWorkspace() {
 
       <DocumentWorkspaceMailbox
         open={Boolean(mailbox)}
+        contextFingerprint={lock?.fingerprint || contextKey}
         mode={mailbox === "request" ? "request" : "send"}
         fromEmail={user?.email || ""}
         senderCc={user?.email || ""}
@@ -1771,6 +1773,7 @@ export function DocumentWorkspace() {
                 setGroupedDraft("");
                 setCoverBody("");
                 setComposer(null);
+                setMailbox(null);
                 setSwitcherOpen(false);
                 if (next) applyLockedHref(next);
               }}

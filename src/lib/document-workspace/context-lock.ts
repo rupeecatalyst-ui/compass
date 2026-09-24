@@ -173,6 +173,7 @@ export type DocumentWorkspaceClearedTransientUi = {
   lenderRecipientId: string;
   fullscreen: boolean;
   actionOpen: boolean;
+  mailbox: null;
 };
 
 export function documentWorkspaceTransientUiAfterFingerprintChange(input: {
@@ -196,6 +197,7 @@ export function documentWorkspaceTransientUiAfterFingerprintChange(input: {
       lenderRecipientId: "",
       fullscreen: false,
       actionOpen: false,
+      mailbox: null,
     };
   }
   return {
@@ -211,6 +213,7 @@ export function documentWorkspaceTransientUiAfterFingerprintChange(input: {
     lenderRecipientId: "",
     fullscreen: false,
     actionOpen: false,
+    mailbox: null,
   };
 }
 
