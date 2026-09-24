@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { authenticatedJsonFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { parseProductJourneyFields } from "@/lib/product-journey/parse";
+import type { ProductJourneyFieldRow, ProductJourneyApplicability } from "@/types/product-journey-definition";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   deselectFieldKeys,
   fieldIsSelected,
@@ -43,11 +43,6 @@ type MasterRow = {
 
 type BusinessArea = "journey" | "weightage" | "categories" | "cibil" | "ltv";
 
-const PRODUCT_CHOICES = [
-  { code: "HOME_LOAN", label: "Home Loan" },
-  { code: "HOME_LOAN_BT", label: "Home Loan Balance Transfer" },
-] as const;
-
 function asWeightMap(value: unknown): Record<string, number> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const next: Record<string, number> = {};
@@ -55,20 +50,6 @@ function asWeightMap(value: unknown): Record<string, number> {
     if (typeof weight === "number" && Number.isFinite(weight)) next[key] = weight;
   }
   return next;
-}
-
-function scoreabilityLabel(value: string): string {
-  if (value === "fully_scorable") return "Fully scorable";
-  if (value === "inputs_wired_scoring_contract_pending") return "Scoring contract pending";
-  if (value === "not_implemented") return "Not implemented";
-  return value.replaceAll("_", " ");
-}
-
-function productLabel(code: string | undefined): string {
-  if (!code) return "Not specified";
-  const known = PRODUCT_CHOICES.find((item) => recommendationProductCodesEquivalent(item.code, code));
-  if (known) return known.label;
-  return code.replaceAll("_", " ");
 }
 
 function pickWorkingWeightRow(rows: MasterRow[], productCode: string): MasterRow | null {
@@ -134,15 +115,12 @@ export function HomeLoanRecommendationMastersWorkspace() {
   const [productCode, setProductCode] = useState<string>("HOME_LOAN");
   const [historyVersionId, setHistoryVersionId] = useState<string | null>(null);
   const [draftWeights, setDraftWeights] = useState<Record<string, number>>({});
-  const [draftFields, setDraftFields] = useState<
-    Array<{
-      fieldId: string;
-      applicability: "all" | "salaried" | "self_employed";
-      capture: boolean;
-      mandatoryForRecommendation: boolean;
-      displayOrder: number;
-    }>
-  >([]);
+  const [draftFields, setDraftFields] = useState<ProductJourneyFieldRow[]>([]);
+  const [customerCategory, setCustomerCategory] = useState<ProductJourneyApplicability>("all");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [showFieldPicker, setShowFieldPicker] = useState(false);
+  const [showCriterionPicker, setShowCriterionPicker] = useState(false);
   const [addFieldId, setAddFieldId] = useState("");
   const [addFieldQuery, setAddFieldQuery] = useState("");
   const [addCriterionId, setAddCriterionId] = useState("");
@@ -151,14 +129,22 @@ export function HomeLoanRecommendationMastersWorkspace() {
   const reload = async () => {
     const res = await authenticatedJsonFetch("/api/admin/home-loan-recommendation-masters");
     const body = await res.json();
+    if (!res.ok || body.success === false) throw new Error(body?.error?.message || "Unable to load Product Journey Master.");
     setData(body.data ?? body);
   };
 
   useEffect(() => {
-    void reload();
+    void reload().catch((error) => setLoadError(error instanceof Error ? error.message : "Unable to load masters.")).finally(() => setLoading(false));
   }, []);
 
-  const productChoices = data?.products?.length ? data.products : [...PRODUCT_CHOICES];
+  const productChoices = useMemo(() => data?.products ?? [], [data?.products]);
+  const productLabel = (code: string | undefined) =>
+    productChoices.find((item) => recommendationProductCodesEquivalent(item.code, code))?.label ?? code?.replaceAll("_", " ") ?? "Not specified";
+  useEffect(() => {
+    if (productChoices.length && !productChoices.some((item) => recommendationProductCodesEquivalent(item.code, productCode))) {
+      setProductCode(productChoices[0]!.code);
+    }
+  }, [productChoices, productCode]);
   const journeyRows = useMemo(
     () =>
       (data?.definitions ?? []).filter((row) =>
@@ -185,6 +171,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
     () => listProjectedRecommendationFields({ productCode }),
     [productCode],
   );
+  const availableCaptureFields = availableFields.filter((field) => field.fieldKind === "assessment_fact");
   const cibilRules = data?.authorisedCibilRules ?? AUTHORISED_CIBIL_CATEGORY_RULES;
   const ltvSlabs = data?.libraryLtvDefault?.slabs ?? AUTHORISED_INDIVIDUAL_HOUSING_LTV_SLABS;
   const categoryGroups = useMemo(() => {
@@ -198,6 +185,12 @@ export function HomeLoanRecommendationMastersWorkspace() {
 
   useEffect(() => {
     setHistoryVersionId(null);
+    setShowFieldPicker(false);
+    setShowCriterionPicker(false);
+    setAddFieldId("");
+    setAddCriterionId("");
+    setAddFieldQuery("");
+    setAddCriterionQuery("");
   }, [productCode]);
 
   useEffect(() => {
@@ -210,25 +203,8 @@ export function HomeLoanRecommendationMastersWorkspace() {
   }, [selectedRow?.id, selectedRow?.weightsJson]);
 
   useEffect(() => {
-    const source =
-      journeyDraft?.fieldsJson ??
-      data?.bootstrap?.[productCode] ??
-      data?.bootstrap?.HOME_LOAN ??
-      [];
-    if (!Array.isArray(source)) {
-      setDraftFields([]);
-      return;
-    }
-    setDraftFields(
-      source.map((row: { fieldId?: string; applicability?: string; capture?: boolean; mandatoryForRecommendation?: boolean; displayOrder?: number }, index: number) => ({
-        fieldId: String(row.fieldId ?? ""),
-        applicability:
-          row.applicability === "salaried" || row.applicability === "self_employed" ? row.applicability : "all",
-        capture: row.capture !== false,
-        mandatoryForRecommendation: row.mandatoryForRecommendation === true,
-        displayOrder: typeof row.displayOrder === "number" ? row.displayOrder : index * 10,
-      })).filter((row) => row.fieldId),
-    );
+    const source = journeyDraft?.fieldsJson ?? data?.bootstrap?.[productCode] ?? [];
+    setDraftFields(parseProductJourneyFields(source));
   }, [journeyDraft?.id, journeyDraft?.fieldsJson, data?.bootstrap, productCode]);
 
   const post = async (payload: Record<string, unknown>, success = "Saved.") => {
@@ -240,7 +216,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
         body: JSON.stringify(payload),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error?.message || "Request failed.");
+      if (!res.ok || body.success === false) throw new Error(body?.error?.message || "Request failed.");
       setMessage(success);
       await reload();
       return body.data ?? body;
@@ -281,10 +257,12 @@ export function HomeLoanRecommendationMastersWorkspace() {
     );
   };
 
+  const visibleJourneyRows = draftFields.map((row, index) => ({ row, index })).filter(({ row }) => customerCategory === "all" || row.applicability === "all" || row.applicability === customerCategory);
+
   const selectedWeightRows = availableFields.filter((field) => fieldIsSelected(draftWeights, field));
   const unselectedFields = availableFields.filter((field) => !fieldIsSelected(draftWeights, field));
-  const unconfiguredJourneyFields = availableFields.filter((field) => {
-    if (draftFields.some((row) => row.fieldId === field.id)) return false;
+  const unconfiguredJourneyFields = availableCaptureFields.filter((field) => {
+    if (draftFields.some((row) => row.fieldId === field.id && (row.applicability === "all" || customerCategory === "all" || row.applicability === customerCategory))) return false;
     if (!addFieldQuery.trim()) return true;
     const query = addFieldQuery.trim().toLowerCase();
     return field.label.toLowerCase().includes(query) || field.id.toLowerCase().includes(query);
@@ -383,7 +361,9 @@ export function HomeLoanRecommendationMastersWorkspace() {
         </Button>
       </div>
 
-      {message ? <p className="text-sm">{message}</p> : null}
+      {message ? <p role="status" className="text-sm">{message}</p> : null}
+      {loadError ? <p role="alert">{loadError}</p> : null}
+      {loading ? <p role="status">Loading Product Journey Master...</p> : null}
 
       {area === "journey" || area === "weightage" ? (
         <div className="flex flex-wrap gap-2">
@@ -400,7 +380,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
         </div>
       ) : null}
 
-      {area === "journey" ? (
+      {!loading && !loadError && area === "journey" ? (
         <Card className="space-y-4 p-4">
           <div>
             <h2 className="text-base font-semibold">Configured fields for {productLabel(productCode)}</h2>
@@ -409,16 +389,33 @@ export function HomeLoanRecommendationMastersWorkspace() {
               Match % are separate settings.
             </p>
           </div>
-          {draftFields.length === 0 ? (
+          <label className="flex items-center gap-2 text-sm">
+            Customer category
+            <select aria-label="Customer category" value={customerCategory} onChange={(event) => { setCustomerCategory(event.target.value as ProductJourneyApplicability); setAddFieldId(""); }}>
+              <option value="all">All categories</option>
+              <option value="salaried">Salaried</option>
+              <option value="self_employed">Self-employed</option>
+            </select>
+          </label>
+          {visibleJourneyRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">No fields configured for this product yet.</p>
           ) : (
-            draftFields.map((row, index) => (
-              <div key={`${row.fieldId}-${index}`} className="grid gap-2 border-b border-border/60 py-2 md:grid-cols-6">
-                <p className="text-sm font-medium md:col-span-2" title={row.fieldId}>
-                  {availableFields.find((field) => field.id === row.fieldId)?.label ?? row.fieldId}
-                </p>
+            visibleJourneyRows.map(({ row, index }) => (
+              <div role="group" aria-label={`Configured field ${row.fieldId}`} key={`${row.fieldId}-${index}`} className="grid gap-2 border-b border-border/60 py-2 md:grid-cols-6">
+                <select className="h-9 rounded-md border border-input bg-background px-2 text-sm md:col-span-2"
+                  aria-label={`Field for ${row.fieldId}`} value={row.fieldId}
+                  onChange={(event) => setDraftFields((current) => current.map((item, itemIndex) => itemIndex === index ? {
+                    ...item, fieldId: event.target.value,
+                    label: undefined, captureStepId: undefined, idcKeys: undefined, seedReason: undefined,
+                    ...data?.bootstrap?.[productCode]?.find((field) => field.fieldId === event.target.value),
+                    applicability: item.applicability, capture: item.capture, mandatoryForRecommendation: item.mandatoryForRecommendation, displayOrder: item.displayOrder,
+                  } : item))}>
+                  {!availableCaptureFields.some((field) => field.id === row.fieldId) ? <option value={row.fieldId}>{row.fieldId}</option> : null}
+                  {availableCaptureFields.filter((field) => field.id === row.fieldId || !draftFields.some((item) => item.fieldId === field.id && (item.applicability === row.applicability || item.applicability === "all" || row.applicability === "all"))).map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}
+                </select>
                 <select
                   className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  aria-label={`Customer category for ${row.fieldId}`}
                   value={row.applicability}
                   onChange={(event) =>
                     setDraftFields((current) =>
@@ -445,7 +442,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
                       )
                     }
                   />
-                  Capture
+                  Show/Capture
                 </label>
                 <label className="flex items-center gap-2 text-xs">
                   <Checkbox
@@ -470,7 +467,8 @@ export function HomeLoanRecommendationMastersWorkspace() {
               </div>
             ))
           )}
-          <div className="flex flex-wrap items-end gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowFieldPicker((open) => !open)}>+ Add Field</Button>
+          {showFieldPicker ? <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-72">
               <p className="text-xs text-muted-foreground">Add Field</p>
               <Input
@@ -481,6 +479,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
               />
               <select
                 className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                aria-label="Canonical field"
                 value={addFieldId}
                 onChange={(event) => setAddFieldId(event.target.value)}
               >
@@ -499,26 +498,28 @@ export function HomeLoanRecommendationMastersWorkspace() {
                 setDraftFields((current) => [
                   ...current,
                   {
+                    ...data?.bootstrap?.[productCode]?.find((field) => field.fieldId === addFieldId),
                     fieldId: addFieldId,
-                    applicability: "all",
+                    applicability: customerCategory,
                     capture: true,
                     mandatoryForRecommendation: false,
                     displayOrder: (current.at(-1)?.displayOrder ?? 0) + 10,
                   },
                 ]);
                 setAddFieldId("");
+                setShowFieldPicker(false);
               }}
             >
-              + Add Field
+              Add selected field
             </Button>
-          </div>
+          </div> : null}
           <Button disabled={busy} onClick={() => void saveJourney()}>
             Save Journey Draft
           </Button>
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Journey version lineage. Activation replaces the TypeScript bootstrap for this product.</p>
+            <p className="text-xs text-muted-foreground">Journey version lineage. Activation applies this version to the product journey.</p>
             {journeyRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Bootstrap in effect until a version is saved and activated.</p>
+              <p className="text-sm text-muted-foreground">Default configuration in effect until a version is saved and activated.</p>
             ) : (
               journeyRows.map((row) => (
                 <div key={row.id} className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -571,7 +572,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
         </Card>
       ) : null}
 
-      {area === "weightage" ? (
+      {!loading && !loadError && area === "weightage" ? (
         <Card className="space-y-4 p-4">
           <div>
             <h2 className="text-base font-semibold">Match % criteria</h2>
@@ -587,12 +588,17 @@ export function HomeLoanRecommendationMastersWorkspace() {
                 ? field.id
                 : (field.aliases.find((alias) => Object.prototype.hasOwnProperty.call(draftWeights, alias)) ?? field.id);
               return (
-                <div key={field.id} className="flex flex-wrap items-center gap-3 border-b border-border/60 py-2">
-                  <Label className="min-w-56" title={field.id}>
-                    {field.label}
-                  </Label>
-                  <Badge variant="outline">{field.sourceKind === "derived" ? "Derived" : "Raw"}</Badge>
+                <div role="group" aria-label={`Match criterion ${field.id}`} key={field.id} className="flex flex-wrap items-center gap-3 border-b border-border/60 py-2">
+                  <select className="h-9 min-w-56 rounded-md border border-input bg-background px-2 text-sm"
+                    aria-label={`Criterion for ${field.label}`} value={field.id} disabled={busy || Boolean(historyVersionId)}
+                    onChange={(event) => setDraftWeights((current) => ({ ...deselectFieldKeys(current, field), [event.target.value]: current[storedKey] ?? 0 }))}>
+                    {availableFields.filter((option) => option.id === field.id || !fieldIsSelected(draftWeights, option)).map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                  </select>
                   <Input
+                    aria-label={`Weight % for ${field.label}`}
+                    min={0}
+                    max={100}
+                    step="any"
                     type="number"
                     className="w-24"
                     disabled={busy || Boolean(historyVersionId)}
@@ -618,7 +624,8 @@ export function HomeLoanRecommendationMastersWorkspace() {
               );
             })
           )}
-          <div className="flex flex-wrap items-end gap-2">
+          <Button size="sm" variant="outline" disabled={Boolean(historyVersionId)} onClick={() => setShowCriterionPicker((open) => !open)}>+ Add Criteria</Button>
+          {showCriterionPicker ? <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-72">
               <p className="text-xs text-muted-foreground">Select criteria</p>
               <Input
@@ -630,6 +637,7 @@ export function HomeLoanRecommendationMastersWorkspace() {
               />
               <select
                 className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                aria-label="Match criterion"
                 value={addCriterionId}
                 disabled={Boolean(historyVersionId)}
                 onChange={(event) => setAddCriterionId(event.target.value)}
@@ -648,14 +656,15 @@ export function HomeLoanRecommendationMastersWorkspace() {
               onClick={() => {
                 setDraftWeights((current) => ({ ...current, [addCriterionId]: 0 }));
                 setAddCriterionId("");
+                setShowCriterionPicker(false);
               }}
             >
-              + Add Criteria
+              Add selected criterion
             </Button>
-          </div>
+          </div> : null}
           <p className={`text-sm font-medium ${total === 100 ? "text-emerald-300" : "text-amber-200"}`}>
             TOTAL WEIGHTAGE: {total}%
-            {total === 100 ? " — activation allowed" : " — draft may be saved at any total"}
+            {total === 100 ? " — total valid; governed scoring required" : " — draft may be saved at any total"}
           </p>
           {!historyVersionId ? (
             <Button disabled={busy} onClick={() => void saveDraft()}>

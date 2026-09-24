@@ -22,6 +22,16 @@ import type { ProductJourneyFieldRow } from "@/types/product-journey-definition"
 
 const HL_CAPTURE: ProductJourneyFieldRow[] = [
   {
+    fieldId: "assessment:borrower.ageYears",
+    label: "Age",
+    applicability: "all",
+    capture: true,
+    mandatoryForRecommendation: false,
+    displayOrder: 15,
+    captureStepId: "ageYears",
+    idcKeys: ["ageYears"],
+  },
+  {
     fieldId: "assessment:borrower.employmentFamily",
     label: "Employment Type",
     applicability: "all",

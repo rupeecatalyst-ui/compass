@@ -27,7 +27,7 @@ export function resolveJourneyFieldsForFacts(
   facts: OpportunityAssessmentFactsV1,
   persistedFields?: readonly ProductJourneyFieldRow[] | null,
 ): ProductJourneyFieldRow[] {
-  if (persistedFields && persistedFields.length > 0) return [...persistedFields];
+  if (persistedFields != null) return [...persistedFields];
   return bootstrapProductJourneyFields(productCodeOf(facts));
 }
 
@@ -50,6 +50,10 @@ export function deriveOpportunityAssessmentReadiness(
   }
 
   const product = facts.loanRequirement.productCode;
+  // A product context is required to resolve its governed journey, even when it has no mandatory fields.
+  if (product.state !== "known" || !product.value) {
+    return { readinessStatus: "incomplete", unsupportedReasonCode: null };
+  }
   if (product.value === "HOME_LOAN_BT") {
     const tx = facts.loanRequirement.transactionType;
     if (tx.value && tx.value !== "balance_transfer") {

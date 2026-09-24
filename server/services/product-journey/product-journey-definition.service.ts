@@ -34,11 +34,7 @@ export async function resolveJourneyFieldsSafe(input: {
   organizationId: string;
   productCode: string;
 }) {
-  try {
-    return await loadActiveOrBootstrapJourneyFields(input);
-  } catch {
-    return bootstrapProductJourneyFields(input.productCode);
-  }
+  return loadActiveOrBootstrapJourneyFields(input);
 }
 
 export async function loadActiveOrBootstrapJourneyFields(input: {
@@ -62,8 +58,7 @@ export async function listProductJourneyDefinitions(organizationId: string) {
     HOME_LOAN: bootstrapProductJourneyFields("HOME_LOAN"),
     HOME_LOAN_BT: bootstrapProductJourneyFields("HOME_LOAN_BT"),
   };
-  try {
-    const rows = await prisma.productJourneyDefinition.findMany({
+  const rows = await prisma.productJourneyDefinition.findMany({
       where: { organizationId, isDeleted: false },
       orderBy: { updatedAt: "desc" },
       take: 200,
@@ -73,13 +68,7 @@ export async function listProductJourneyDefinitions(organizationId: string) {
       definitions: rows,
       bootstrap,
     };
-  } catch {
-    return {
-      products: await listProductJourneyTabs(),
-      definitions: [],
-      bootstrap,
-    };
-  }
+
 }
 
 export async function ensureProductJourneyDraft(input: {

@@ -17,12 +17,14 @@ export function parseProductJourneyFields(raw: unknown): ProductJourneyFieldRow[
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const row = item as Record<string, unknown>;
     const fieldId = typeof row.fieldId === "string" ? row.fieldId.trim() : "";
-    if (!fieldId || seen.has(fieldId)) continue;
+    if (!fieldId) continue;
     const applicability = APPLICABILITY.has(String(row.applicability))
       ? (row.applicability as ProductJourneyApplicability)
       : "all";
     const displayOrder = typeof row.displayOrder === "number" && Number.isFinite(row.displayOrder) ? row.displayOrder : rows.length * 10;
-    seen.add(fieldId);
+    const identity = `${fieldId}:${applicability}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
     rows.push({
       fieldId,
       label: typeof row.label === "string" ? row.label : undefined,
@@ -43,7 +45,7 @@ export function resolveEffectiveJourneyFields(input: {
   persistedFields?: unknown;
 }): ProductJourneyFieldRow[] {
   const persisted = parseProductJourneyFields(input.persistedFields);
-  if (persisted.length > 0) return persisted;
+  if (Array.isArray(input.persistedFields)) return persisted;
   const canonical = canonicalizeRecommendationProductCode(input.productCode) ?? input.productCode ?? "";
   return bootstrapProductJourneyFields(canonical);
 }

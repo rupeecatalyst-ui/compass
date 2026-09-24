@@ -17,6 +17,7 @@ export function assessmentPathForJourneyField(fieldId: string): string | null {
   if (fieldId.startsWith("assessment:")) return fieldId.slice("assessment:".length);
   const idc = fieldId.startsWith("idc:") ? fieldId.slice(4) : fieldId;
   const map: Record<string, string> = {
+    ageYears: "borrower.ageYears",
     employmentTypeCode: "borrower.employmentFamily",
     monthlyIncome: "incomeAndObligations.monthlyIncome",
     monthlyIncomeLabel: "incomeAndObligations.monthlyIncome",
@@ -32,9 +33,9 @@ export function assessmentPathForJourneyField(fieldId: string): string | null {
 }
 
 export function journeyFieldIsSatisfied(facts: OpportunityAssessmentFactsV1, row: ProductJourneyFieldRow): boolean {
-  if (row.fieldId.startsWith("derived:")) return true;
+  if (row.fieldId.startsWith("derived:")) return false;
   const path = assessmentPathForJourneyField(row.fieldId);
-  if (!path) return true;
+  if (!path) return false;
   const fact = factAtPath(facts, path);
   if (!fact) return false;
   if (path === "property.propertyCategory" && isEmploymentClassificationAsPropertyCategory(String(fact.value ?? ""))) {
