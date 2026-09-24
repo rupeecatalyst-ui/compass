@@ -119,3 +119,74 @@ export function structuredUpdateData(input: UpdateLenderProgramInput) {
     additionalEligibilityFilters: jsonOrUndefined(input.additionalEligibilityFilters),
   };
 }
+
+/** Merge published create-input with defined draft/editor overlay fields. Undefined does not wipe. */
+export function overlayDefinedCreateInput(
+  published: CreateLenderProgramInput,
+  input: UpdateLenderProgramInput,
+): CreateLenderProgramInput {
+  const next: CreateLenderProgramInput = { ...published, createdBy: input.modifiedBy };
+  const assign = <K extends keyof CreateLenderProgramInput>(key: K, value: CreateLenderProgramInput[K] | undefined) => {
+    if (value !== undefined) next[key] = value;
+  };
+  assign("lenderId", input.lenderId);
+  assign("productId", input.productId ?? undefined);
+  assign("productCode", input.productCode ?? undefined);
+  assign("label", input.label);
+  assign("description", input.description ?? undefined);
+  assign("borrowerType", input.borrowerType ?? undefined);
+  assign("employmentType", input.employmentType ?? undefined);
+  assign("roiPercent", input.roiPercent ?? undefined);
+  assign("processingFeeLabel", input.processingFeeLabel ?? undefined);
+  assign("maxTenureMonths", input.maxTenureMonths ?? undefined);
+  assign("minCibil", input.minCibil ?? undefined);
+  assign("minAge", input.minAge ?? undefined);
+  assign("maxAge", input.maxAge ?? undefined);
+  assign("creditRiskPolicyRef", input.creditRiskPolicyRef ?? undefined);
+  assign("requiredDocumentTypeIds", input.requiredDocumentTypeIds ?? undefined);
+  assign("requiredDocuments", input.requiredDocuments ?? undefined);
+  assign("eligibleStates", input.eligibleStates ?? undefined);
+  assign("eligibleCities", input.eligibleCities ?? undefined);
+  assign("averageTatDays", input.averageTatDays ?? undefined);
+  assign("remarks", input.remarks ?? undefined);
+  assign("notes", input.notes ?? undefined);
+  assign("productVariantCode", input.productVariantCode ?? undefined);
+  assign("applicantTypes", input.applicantTypes ?? undefined);
+  assign("employmentTypes", input.employmentTypes ?? undefined);
+  assign("legalConstitutions", input.legalConstitutions ?? undefined);
+  assign("residencyEligibility", input.residencyEligibility ?? undefined);
+  assign("customerSegments", input.customerSegments ?? undefined);
+  assign("propertyTypes", input.propertyTypes ?? undefined);
+  assign("propertyCategories", input.propertyCategories ?? undefined);
+  assign("constructionStatuses", input.constructionStatuses ?? undefined);
+  assign("transactionTypes", input.transactionTypes ?? undefined);
+  assign("incomeAssessmentMethods", input.incomeAssessmentMethods ?? undefined);
+  assign("rateType", input.rateType ?? undefined);
+  assign("benchmarkCode", input.benchmarkCode ?? undefined);
+  assign("concessions", input.concessions ?? undefined);
+  assign("deviationCategories", input.deviationCategories ?? undefined);
+  assign("policyVersionId", input.policyVersionId ?? undefined);
+  assign("minTenureMonths", input.minTenureMonths ?? undefined);
+  assign("maxCibil", input.maxCibil ?? undefined);
+  assign("minRoiExact", input.minRoiExact);
+  assign("maxRoiExact", input.maxRoiExact);
+  assign("minLoanAmountExact", input.minLoanAmountExact);
+  assign("maxLoanAmountExact", input.maxLoanAmountExact);
+  assign("minIncomeExact", input.minIncomeExact);
+  assign("maxIncomeExact", input.maxIncomeExact);
+  assign("processingFeeAmountExact", input.processingFeeAmountExact);
+  assign("processingFeePctExact", input.processingFeePctExact);
+  assign("minLtvExact", input.minLtvExact);
+  assign("maxLtvExact", input.maxLtvExact);
+  assign("minFoirExact", input.minFoirExact);
+  assign("maxFoirExact", input.maxFoirExact);
+  assign("minDbrExact", input.minDbrExact);
+  assign("maxDbrExact", input.maxDbrExact);
+  assign("spreadExact", input.spreadExact);
+  assign("reviewAt", input.reviewAt);
+  assign("effectiveFrom", input.effectiveFrom);
+  assign("effectiveUntil", input.effectiveUntil);
+  assign("policyAssessmentJson", input.policyAssessmentJson);
+  assign("additionalEligibilityFilters", input.additionalEligibilityFilters);
+  return next;
+}
