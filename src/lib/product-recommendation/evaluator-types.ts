@@ -1,10 +1,15 @@
 /**
  * Reusable evaluator types. Keyed by type, not by business field.
- * No 0–100 scoring mathematics is defined here.
+ * Approved contracts implement only frozen deterministic formulas.
+ * Unapproved degradation curves stay on pending_contract.
  */
 export const RECOMMENDATION_EVALUATOR_TYPES = {
   PENDING_CONTRACT: "pending_contract",
   NOT_IMPLEMENTED: "not_implemented",
+  CAPPED_REQUIREMENT_RATIO: "capped_requirement_ratio",
+  RELATIVE_TO_ELIGIBLE_MAX: "relative_to_eligible_max",
+  WITHIN_NORM_OR_PENDING: "within_norm_or_pending",
+  LOWEST_AMONG_ELIGIBLE_OR_PENDING: "lowest_among_eligible_or_pending",
 } as const;
 
 export type RegisteredEvaluatorTypeId =

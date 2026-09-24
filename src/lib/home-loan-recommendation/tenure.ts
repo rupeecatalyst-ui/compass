@@ -25,6 +25,14 @@ export const TENURE_GOVERNED_DERIVED_FACTS: readonly GovernedDerivedFactDescript
     valueType: "integer",
     customerFactRef: "borrower.dateOfBirth",
   },
+  {
+    id: "derived:effectiveTenureMonths",
+    label: "Effective available tenure",
+    productCodes: HL,
+    valueType: "integer",
+    customerFactRef: "derived:effectiveTenureMonths",
+    notes: "MIN(programme maximum tenure, maximum maturity age − customer age). Age is an input, not a Match % criterion.",
+  },
 ];
 
 /**
@@ -97,7 +105,26 @@ export function calculateEffectiveTenureMonths(input: TenureCapInput): Effective
 
   if (input.maxAgeAtMaturityYears != null && governingAge != null) {
     const maturityMonths = input.maxAgeAtMaturityYears * 12;
-    ageBased = Math.max(0, maturityMonths - governingAge);
+    ageBased = maturityMonths - governingAge;
+    if (ageBased <= 0) {
+      return {
+        status: "unknown",
+        effectiveTenureMonths: null,
+        components: {
+          programmeMaxTenureMonths: input.programmeMaxTenureMonths,
+          ageBasedTenureMonths: ageBased,
+          retirementCapMonths: input.retirementCapMonths ?? null,
+          propertyCapMonths: input.propertyCapMonths ?? null,
+          customerSelectedTenureMonths: input.customerSelectedTenureMonths ?? null,
+        },
+        ageAtMaturityYearsLabel:
+          input.maxAgeAtMaturityYears != null
+            ? `Maximum permitted age at loan maturity: ${input.maxAgeAtMaturityYears} years`
+            : null,
+        unknownReason: "Effective tenure is nonpositive after applying maximum maturity age.",
+        reasonCodes,
+      };
+    }
     if (ageBased < (input.programmeMaxTenureMonths ?? ageBased)) {
       reasonCodes.push("AGE_LIMIT_REDUCED_TENURE");
     }

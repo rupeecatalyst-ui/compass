@@ -23,6 +23,8 @@ export type CustomerAssessmentInput = {
   loanPurpose?: string | null;
   builderSource?: string | null;
   dateOfBirth?: string | null;
+  /** Governed captured age. Used when date of birth is not required for tenure. */
+  ageYears?: number | null;
   employmentFamily: "salaried" | "self_employed" | "unknown";
   constitution?: string | null;
   residency?: string | null;

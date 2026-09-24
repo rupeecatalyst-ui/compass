@@ -126,8 +126,9 @@ export function scoreProgrammes(input: {
     if (contributions.some((row) => row.status === "evaluator_missing")) {
       return { ok: false, code: "EVALUATOR_MISSING" };
     }
-    if (contributions.some((row) => row.status === "scoring_contract_pending")) {
-      return { ok: false, code: "SCORING_CONTRACT_PENDING" };
+    const pending = contributions.find((row) => row.status === "scoring_contract_pending");
+    if (pending) {
+      return { ok: false, code: "SCORING_CONTRACT_PENDING", detail: pending.reason ?? programme.programmeId };
     }
     if (contributions.some((row) => row.status === "missing_required_input")) {
       return { ok: false, code: "SCORING_INPUT_REQUIRED", detail: programme.programmeId };

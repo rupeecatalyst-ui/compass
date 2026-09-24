@@ -98,7 +98,7 @@ await check("PARSED_POLICY_RANGE_ENFORCED", 0, customer, [policyRange]);
 await check("PARSED_POLICY_RANGE_SATISFIED", 1, { ...customer, cibilBand: 820 }, [policyRange]);
 await check("AGE_WITHIN_POLICY", 1);
 await check("AGE_TOO_YOUNG", 0, { ...customer, dateOfBirth: "2010-01-01" });
-await check("AGE_AT_MATURITY_EXCEEDED", 0, { ...customer, dateOfBirth: "1970-01-01" });
+await check("AGE_AT_MATURITY_REDUCES_TENURE", 1, { ...customer, dateOfBirth: "1970-01-01" });
 await check("MISSING_DOB", 0, { ...customer, dateOfBirth: null }, [hl], "HOME_LOAN", "A", "dateOfBirth");
 await check("INVALID_CALENDAR_DOB", 0, { ...customer, dateOfBirth: "1990-02-30" }, [hl], "HOME_LOAN", "A", "dateOfBirth");
 await check("TENURE_WITHIN_MAXIMUM", 1, { ...customer, customerSelectedTenureMonths: 180 });
@@ -184,7 +184,7 @@ await check("COAPPLICANT_UNKNOWN_INCOME_METHOD", 0, { ...customer, coApplicantDe
   [{ ...hl, policyAssessmentJson: { acceptsCoApplicantIncome: true } }], "HOME_LOAN", "A", "coApplicant");
 await check("COAPPLICANT_UNSUPPORTED_INCOME_METHOD", 0, { ...customer, coApplicantDecision: "yes", coApplicant: { employmentType: "self-employed-business", monthlyIncomeRupees: 50000, existingMonthlyEmiRupees: 0 } },
   [{ ...hl, policyAssessmentJson: { acceptsCoApplicantIncome: true } }]);
-await check("MATURITY_POLICY_JSON", 0, customer, [{ ...hl, policyAssessmentJson: { maxAgeAtMaturityYears: 50 } }]);
+await check("MATURITY_POLICY_JSON_REDUCES_TENURE", 1, customer, [{ ...hl, policyAssessmentJson: { maxAgeAtMaturityYears: 50 } }]);
 for (const bad of [[], "garbage", { rules: [], ignoredConstraint: true }, { rules: [null] },
   { rules: [{ type: "cibil_range", minimum: 750, ignoredConstraint: true }] }]) assert.throws(() => parseCanonicalPolicyRules(bad));
 for (const patch of [{ minCibil: "750" }, { minCibil: 900, maxCibil: 750 }, { residencyEligibility: "resident" },
@@ -194,7 +194,7 @@ for (const patch of [{ minCibil: "750" }, { minCibil: 900, maxCibil: 750 }, { re
 const secretLikeRule = { ...hl, policyVersion: { ...hl.policyVersion, eligibilityRules: { rules: [{ type: "DO_NOT_ECHO_SENTINEL" }] } } };
 assert.doesNotMatch(JSON.stringify(await assess(customer, [secretLikeRule])), /DO_NOT_ECHO_SENTINEL/);
 await check("ACTIVE_OVERRIDE_BLOCKS", 0, customer, [{ ...hl, suspendedByOverride: true }]);
-await check("MATURITY_ONE_DAY_OVER_LIMIT", 0, { ...customer, dateOfBirth: "1981-09-20" });
+await check("MATURITY_ONE_DAY_OVER_LIMIT", 1, { ...customer, dateOfBirth: "1981-09-20" });
 await check("MATURITY_EXACT_BOUNDARY", 1, { ...customer, dateOfBirth: "1981-09-21" });
 const proposedEmi = calculateReducingBalanceEmi({ principalRupees: customer.requiredAmountRupees, annualRoiPercent: 8.5, tenureMonths: 240 });
 await check("FOIR_ROUNDING_CANNOT_HIDE_EXCESS", 1, { ...customer, existingMonthlyEmiRupees: customer.monthlyIncomeRupees * 0.6 - proposedEmi + 0.01 });

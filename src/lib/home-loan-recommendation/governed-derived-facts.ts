@@ -7,6 +7,7 @@ import type { GovernedDerivedFactDescriptor } from "./governed-derived-fact";
 import { FOIR_GOVERNED_DERIVED_FACTS } from "./foir";
 import { LTV_GOVERNED_DERIVED_FACTS } from "./rbi-ltv";
 import { TENURE_GOVERNED_DERIVED_FACTS } from "./tenure";
+import { TENTATIVE_OFFER_GOVERNED_DERIVED_FACTS } from "./tentative-offer";
 import { BT_GOVERNED_DERIVED_FACTS } from "./bt-journey";
 
 const HL = ["HOME_LOAN", "HOME_LOAN_BT"] as const;
@@ -27,6 +28,7 @@ export function listHomeLoanGovernedDerivedFacts(): readonly GovernedDerivedFact
     ...FOIR_GOVERNED_DERIVED_FACTS,
     ...LTV_GOVERNED_DERIVED_FACTS,
     ...TENURE_GOVERNED_DERIVED_FACTS,
+    ...TENTATIVE_OFFER_GOVERNED_DERIVED_FACTS,
     ...BT_GOVERNED_DERIVED_FACTS,
     ...ENGINE_GOVERNED_DERIVED_FACTS,
   ];

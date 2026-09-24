@@ -1,3 +1,19 @@
+import type { GovernedDerivedFactDescriptor } from "./governed-derived-fact";
+
+const HL = ["HOME_LOAN", "HOME_LOAN_BT"] as const;
+
+/** Canonical derived output of calculateTentativeOffer. */
+export const TENTATIVE_OFFER_GOVERNED_DERIVED_FACTS: readonly GovernedDerivedFactDescriptor[] = [
+  {
+    id: "derived:assessedOfferRupees",
+    label: "Eligible / tentative loan amount",
+    productCodes: HL,
+    valueType: "currency",
+    customerFactRef: "derived:assessedOfferRupees",
+    notes: "Programme-specific assessed offer. Never a universal borrower amount.",
+  },
+];
+
 export type TentativeOfferCaps = {
   requiredAmountRupees: number | null;
   ltvSupportedAmountRupees: number | null;

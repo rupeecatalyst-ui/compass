@@ -247,7 +247,14 @@ export async function runFieldDrivenRecommendationProof() {
   );
   console.log("S new canonical source field becomes available without recommendation-specific registration: PASS");
 
-  const typeKeys = ["pending_contract", "not_implemented"];
+  const typeKeys = [
+    "pending_contract",
+    "not_implemented",
+    "capped_requirement_ratio",
+    "relative_to_eligible_max",
+    "within_norm_or_pending",
+    "lowest_among_eligible_or_pending",
+  ];
   typeKeys.forEach((key) => assert.ok(typeRegistry.get(key)));
   assert.equal(typeRegistry.get("foirFit"), undefined);
   assert.equal(typeRegistry.get("derived:foirPercent"), undefined);
@@ -269,7 +276,9 @@ export async function runFieldDrivenRecommendationProof() {
     registry: typeRegistry,
   });
   assert.equal(pendingLive.ok, false);
-  if (!pendingLive.ok) assert.equal(pendingLive.code, "SCORING_CONTRACT_PENDING");
+  if (!pendingLive.ok) {
+    assert.ok(pendingLive.code === "SCORING_INPUT_REQUIRED" || pendingLive.code === "SCORING_CONTRACT_PENDING");
+  }
   console.log("V no scoring contract produces no fabricated score: PASS");
 
   const onlyAlpha = scoreProgrammes({

@@ -25,16 +25,6 @@ function monthsSince(value: unknown, asOf: Date): number | null {
     - (asOf.getUTCDate() < date.getUTCDate() ? 1 : 0);
 }
 
-function addCalendarMonths(iso: string, months: number): Date {
-  const date = new Date(`${iso}T00:00:00Z`);
-  const day = date.getUTCDate();
-  date.setUTCDate(1);
-  date.setUTCMonth(date.getUTCMonth() + months);
-  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
-  date.setUTCDate(Math.min(day, lastDay));
-  return date;
-}
-
 /** A band is an interval, never an invented exact score. Open-ended bands stay open. */
 function cibilInterval(value: Customer["cibilBand"]): [number, number] | "unknown" | null {
   if (finite(value) && Number.isInteger(value) && /^\d{3}$/.test(String(value))) return [value, value];
@@ -96,7 +86,11 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
   // Required for EMI/FOIR calculation even when no programme tenure bound is populated.
   if (!positive(tenure) || !Number.isInteger(tenure)) missing.add("requestedTenure");
   else if (!within(tenure, c.minTenureMonths, c.maxTenureMonths)) mismatch = true;
-  const age = monthsSince(customer.dateOfBirth, asOf);
+  const age =
+    monthsSince(customer.dateOfBirth, asOf) ??
+    (customer.ageYears != null && Number.isFinite(customer.ageYears) && customer.ageYears > 0
+      ? Math.round(customer.ageYears * 12)
+      : null);
   if (c.minAge != null || c.maxAge != null || programme.maxAgeAtMaturityYears != null) {
     if (age == null) missing.add("dateOfBirth");
     else if (!within(age, c.minAge == null ? null : c.minAge * 12, c.maxAge == null ? null : c.maxAge * 12)) mismatch = true;
@@ -106,18 +100,13 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
     const party = programme.ageGoverningParty;
     const coAge = monthsSince(customer.coApplicant?.dateOfBirth, asOf);
     let governing = age;
-    let governingDob = customer.dateOfBirth;
-    if (party === "co_applicant") { governing = coAge; governingDob = customer.coApplicant?.dateOfBirth; }
+    if (party === "co_applicant") governing = coAge;
     if (party === "younger" || party === "older") {
       governing = age == null || coAge == null ? null : party === "younger" ? Math.min(age, coAge) : Math.max(age, coAge);
-      if (governing != null && customer.dateOfBirth && customer.coApplicant?.dateOfBirth) {
-        const dates = [customer.dateOfBirth, customer.coApplicant.dateOfBirth].sort();
-        governingDob = party === "younger" ? dates[1] : dates[0];
-      }
     }
     if (governing == null) missing.add(party && party !== "applicant" ? "coApplicant" : "dateOfBirth");
-    else if (positive(tenure) && governingDob &&
-      addCalendarMonths(asOf.toISOString().slice(0, 10), tenure) > addCalendarMonths(governingDob, maturity * 12)) mismatch = true;
+    // Requested tenure above age-permitted tenure reduces EffectiveAvailableTenure.
+    // It is not an automatic programme exclusion.
   }
 
   if (customer.employmentFamily !== "salaried") missing.add("employment");
@@ -158,22 +147,25 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
   }
   if (missing.size) return rejected("ASSESSMENT_INPUT_REQUIRED", [...missing]);
   if (mismatch) return rejected("ELIGIBILITY_NOT_MET");
-  // ROI + programme FOIR norm are required to calculate FOIR. Above-norm FOIR is not an automatic reject.
+  // Programme FOIR norm is required to calculate FOIR. No global default. Above-norm FOIR is not an automatic reject.
+  // Missing comparable ROI must not eliminate an otherwise eligible programme.
+  if (c.maxFoirPercent == null) return rejected("PROGRAMME_CONFIGURATION_INVALID");
   const roi = number(c.minRoiPercent);
-  if (roi == null || c.maxFoirPercent == null) return rejected("PROGRAMME_CONFIGURATION_INVALID");
-  const coIncome = contributingCoApplicantIncomeRupees({
-    acceptsCoApplicantIncome: programme.acceptsCoApplicantIncome,
-    coApplicantDecision: customer.coApplicantDecision,
-    coApplicantIncomeRupees: customer.coApplicant?.monthlyIncomeRupees,
-  });
-  const income = customer.monthlyIncomeRupees! + coIncome;
-  const obligations = customer.existingMonthlyEmiRupees! +
-    (customer.coApplicantDecision === "yes" ? (customer.coApplicant?.existingMonthlyEmiRupees ?? 0) : 0);
-  const emi = calculateReducingBalanceEmi({ principalRupees: customer.requiredAmountRupees!, annualRoiPercent: roi, tenureMonths: tenure! });
-  const foir = calculateSalariedFoir({ eligibleMonthlyIncomeRupees: income, existingMonthlyEmiRupees: obligations,
-    proposedMonthlyEmiRupees: emi, maxFoirPercent: number(c.maxFoirPercent) });
-  if (emi == null || foir.foirPercent == null) {
-    return rejected("PROGRAMME_CONFIGURATION_INVALID");
+  if (roi != null) {
+    const coIncome = contributingCoApplicantIncomeRupees({
+      acceptsCoApplicantIncome: programme.acceptsCoApplicantIncome,
+      coApplicantDecision: customer.coApplicantDecision,
+      coApplicantIncomeRupees: customer.coApplicant?.monthlyIncomeRupees,
+    });
+    const income = customer.monthlyIncomeRupees! + coIncome;
+    const obligations = customer.existingMonthlyEmiRupees! +
+      (customer.coApplicantDecision === "yes" ? (customer.coApplicant?.existingMonthlyEmiRupees ?? 0) : 0);
+    const emi = calculateReducingBalanceEmi({ principalRupees: customer.requiredAmountRupees!, annualRoiPercent: roi, tenureMonths: tenure! });
+    const foir = calculateSalariedFoir({ eligibleMonthlyIncomeRupees: income, existingMonthlyEmiRupees: obligations,
+      proposedMonthlyEmiRupees: emi, maxFoirPercent: number(c.maxFoirPercent) });
+    if (emi == null || foir.foirPercent == null) {
+      return rejected("PROGRAMME_CONFIGURATION_INVALID");
+    }
   }
   const ltv = customer.requiredAmountRupees! / customer.propertyValueRupees! * 100;
   // Conservative rejection is permitted: no lower amount is presented as approval for the request.
@@ -184,9 +176,11 @@ export function evaluateCanonicalEligibility(programme: CanonicalAssessmentProgr
 /** Final output proof: a shared calculation must not turn a rejected constraint into a conditional card. */
 export function canonicalCardSatisfies(programme: CanonicalAssessmentProgramme, customer: Customer, card: ProgrammeAssessmentCard): boolean {
   const c = programme.canonicalConstraints;
-  if (!positive(card.tentativeOfferRupees) || !positive(card.indicativeEmiRupees) ||
-      card.tenureMonths !== customer.customerSelectedTenureMonths || card.lenderId !== programme.lenderId ||
-      card.propertyValueConsideredRupees !== customer.propertyValueRupees || !finite(card.foirPercent) || !finite(card.applicableRoiPercent)) return false;
+  const roiMissing = !finite(card.applicableRoiPercent);
+  if (!positive(card.tentativeOfferRupees) || card.lenderId !== programme.lenderId ||
+      card.propertyValueConsideredRupees !== customer.propertyValueRupees || !positive(card.tenureMonths)) return false;
+  if (positive(customer.customerSelectedTenureMonths) && card.tenureMonths > customer.customerSelectedTenureMonths) return false;
+  if (!roiMissing && (!positive(card.indicativeEmiRupees) || !finite(card.foirPercent))) return false;
   const income = customer.monthlyIncomeRupees! + contributingCoApplicantIncomeRupees({
     acceptsCoApplicantIncome: programme.acceptsCoApplicantIncome,
     coApplicantDecision: customer.coApplicantDecision,
@@ -197,9 +191,9 @@ export function canonicalCardSatisfies(programme: CanonicalAssessmentProgramme, 
   return ["standard_match", "exact_match", "closest_feasible_option", "conditional_match"].includes(card.matchState)
     && card.tentativeOfferRupees <= customer.requiredAmountRupees!
     && within(card.tentativeOfferRupees, c.minLoanAmountRupees, c.maxLoanAmountRupees)
-    && finite(card.foirPercent)
-    && finite((obligations + card.indicativeEmiRupees) / income * 100)
-    && within(card.applicableRoiPercent, c.minRoiPercent, c.maxRoiPercent)
+    && (roiMissing || (finite(card.foirPercent)
+      && finite((obligations + card.indicativeEmiRupees!) / income * 100)
+      && within(card.applicableRoiPercent, c.minRoiPercent, c.maxRoiPercent)))
     && within(card.tentativeOfferRupees / customer.propertyValueRupees! * 100, c.minLtvPercent, c.maxLtvPercent)
     && (programme.canonicalProduct !== "HOME_LOAN_BT" ||
       (positive(card.transferComponentRupees) && card.transferComponentRupees <= customer.currentOutstandingRupees!));

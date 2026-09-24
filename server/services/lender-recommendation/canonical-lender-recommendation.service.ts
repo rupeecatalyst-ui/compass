@@ -19,6 +19,7 @@ import {
   type CanonicalProgrammeInventory,
 } from "./recommendation-programme.repository";
 import {
+  buildHomeLoanMatchPercentContexts,
   createGovernedCriterionRegistry,
   presentationSlice,
   rankByMatchPercent,
@@ -115,10 +116,9 @@ export async function recommendLendersCanonical(
     }
   }
 
-  // Age/seasoning were proved above at asOf. Avoid the shared legacy helper's separate wall clock.
-  // Requested tenure remains supplied and checked; no programme maximum substitutes for it.
+  // Seasoning was proved above at asOf. Maturity age remains an input to effective tenure / EMI.
   const engine = runEngine({ customer: request.customer, programmes: accepted.map(programme => ({
-    ...programme, maxAge: null, maxAgeAtMaturityYears: null, requiredSeasoningMonths: null,
+    ...programme, requiredSeasoningMonths: null,
   })), now: asOf });
   const byProgramme = new Map(accepted.map((row) => [row.id, row]));
   const recommendations = engine.cards.filter(card => {
@@ -161,6 +161,7 @@ export async function recommendLendersCanonical(
     acceptedCount: accepted.length,
     engine,
     dependencies,
+    programmesById: byProgramme,
   });
   return scored;
 }
@@ -207,8 +208,9 @@ async function applyUniversalMatchPercent(input: {
   acceptedCount: number;
   engine: ReturnType<typeof runHomeLoanRecommendationEngine>;
   dependencies: CanonicalRecommendationDependencies;
+  programmesById: Map<string, CanonicalAssessmentProgramme>;
 }): Promise<CanonicalLenderRecommendationResult> {
-  const { request, recommendations, rejectedProgrammes, inventoryCount, acceptedCount, engine, dependencies } = input;
+  const { request, recommendations, rejectedProgrammes, inventoryCount, acceptedCount, engine, dependencies, programmesById } = input;
   const asOf = request.asOf ?? new Date();
   const base = {
     product: request.product,
@@ -279,22 +281,70 @@ async function applyUniversalMatchPercent(input: {
   }
 
   const registry = dependencies.criterionRegistry ?? createGovernedCriterionRegistry();
+  const contexts = buildHomeLoanMatchPercentContexts(
+    recommendations.map((card) => {
+      const programme = programmesById.get(card.programmeId);
+      return {
+        programmeId: card.programmeId,
+        requiredDocumentTypeIds: programme?.canonicalConstraints.requiredDocumentTypeIds ?? null,
+        maxDbrPercent: programme?.canonicalConstraints.maxDbrPercent ?? null,
+        minDbrPercent: programme?.canonicalConstraints.minDbrPercent ?? null,
+        maxFoirPercent: card.programmeFoirPercent ?? programme?.canonicalConstraints.maxFoirPercent ?? null,
+        minRoiPercent: card.applicableRoiPercent ?? programme?.canonicalConstraints.minRoiPercent ?? null,
+        maxRoiPercent: programme?.canonicalConstraints.maxRoiPercent ?? null,
+        minLtvPercent: programme?.canonicalConstraints.minLtvPercent ?? null,
+        maxLtvPercent: programme?.canonicalConstraints.maxLtvPercent ?? null,
+        acceptsCoApplicantIncome: programme?.acceptsCoApplicantIncome ?? null,
+        requiredAmountRupees: card.requiredAmountRupees ?? request.customer.requiredAmountRupees,
+        assessedOfferRupees: card.tentativeOfferRupees,
+        propertyValueRupees: request.customer.propertyValueRupees,
+        monthlyIncomeRupees: request.customer.monthlyIncomeRupees ?? null,
+        existingMonthlyEmiRupees: request.customer.existingMonthlyEmiRupees ?? null,
+        customerSelectedTenureMonths: request.customer.customerSelectedTenureMonths ?? null,
+        effectiveTenureMonths: card.tenureMonths,
+        programmeMaxTenureMonths: programme?.maxTenureMonths ?? programme?.canonicalConstraints.maxTenureMonths ?? null,
+        maxAgeAtMaturityYears: programme?.maxAgeAtMaturityYears ?? programme?.maxAge ?? null,
+        ageYears: request.customer.ageYears ?? null,
+        coApplicantDecision: request.customer.coApplicantDecision ?? null,
+        coApplicantIncomeRupees: request.customer.coApplicant?.monthlyIncomeRupees ?? null,
+        coApplicantExistingMonthlyEmiRupees: request.customer.coApplicant?.existingMonthlyEmiRupees ?? null,
+      };
+    }),
+  );
   const scored = scoreProgrammes({
     ruleSet,
-    programmes: recommendations.map((card) => ({ programmeId: card.programmeId, context: { programmeId: card.programmeId } })),
+    programmes: recommendations.map((card, index) => {
+      const context = contexts[index];
+      return {
+        programmeId: card.programmeId,
+        context: context && !("error" in context) ? context : { programmeId: card.programmeId },
+      };
+    }),
     registry,
   });
   if (!scored.ok) {
+    const retainCandidates = scored.code === "SCORING_CONTRACT_PENDING" || scored.code === "SCORING_INPUT_REQUIRED";
+    const matchPercent = {
+      ruleSetId: ruleSet.id,
+      ruleSetLineageId: ruleSet.lineageId,
+      ruleSetVersion: ruleSet.versionNumber,
+      weights: { ...ruleSet.weights.selected },
+      failureCode: scored.detail ?? scored.code,
+    };
+    if (retainCandidates) {
+      return {
+        status: "ready",
+        ...base,
+        recommendations,
+        presentation: { primaryProgrammeIds: [], additionalProgrammeIds: [] },
+        matchPercent,
+        versions: { ...base.versions, ruleSetVersion: `${ruleSet.lineageId}:${ruleSet.versionNumber}` },
+      };
+    }
     return configurationFailure(request.product, asOf, {
       ...base,
       versions: { ...base.versions, ruleSetVersion: String(ruleSet.versionNumber) },
-      matchPercent: {
-        ruleSetId: ruleSet.id,
-        ruleSetLineageId: ruleSet.lineageId,
-        ruleSetVersion: ruleSet.versionNumber,
-        weights: { ...ruleSet.weights.selected },
-        failureCode: scored.code,
-      },
+      matchPercent,
     });
   }
 

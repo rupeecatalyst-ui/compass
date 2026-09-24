@@ -25,7 +25,13 @@ export { scoreProgrammes, type ScoreableProgramme } from "./score";
 export { rankByMatchPercent, presentationSlice, type RankableCandidate } from "./rank";
 export { resolveActiveRecommendationRuleSet } from "./resolve-active-rule-set";
 export { resolveHomeLoanCibilCategoryUniverse } from "./home-loan-cibil-universe";
-export { buildHomeLoanMatchPercentContext, contributingCoApplicantIncomeRupees } from "./home-loan-inputs";
+export {
+  buildHomeLoanMatchPercentContext,
+  buildHomeLoanMatchPercentContexts,
+  contributingCoApplicantIncomeRupees,
+  resolveEffectiveAvailableTenureMonths,
+} from "./home-loan-inputs";
+export { MATCH_PERCENT_CRITERION_REASONS } from "./match-percent-reasons";
 export type {
   ActiveRecommendationRuleSet,
   CriterionEvaluation,

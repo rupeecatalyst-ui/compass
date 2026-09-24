@@ -147,7 +147,7 @@ export function runHomeLoanRecommendationEngine(input: {
   let anyWouldBenefitFromCoApplicant = false;
 
   for (const program of available) {
-    const card = assessOneProgramme(program, input.customer, regulatory);
+    const card = assessOneProgramme(program, input.customer, regulatory, input.now);
     if (
       card.matchState === "more_information_required" ||
       card.matchState === "assisted_assessment"
@@ -331,12 +331,17 @@ function assessOneProgramme(
   program: AssessableProgramme,
   customer: CustomerAssessmentInput,
   regulatory: ReturnType<typeof calculateRegulatoryMaxLoanAmount> | null,
+  now?: Date,
 ): ProgrammeAssessmentCard {
   const reasonCodes: string[] = [];
   const roi = programmeRoi(program);
   const programmeMax = programmeMaxAmount(program);
-  const applicantAgeMonths = ageInMonthsFromDateOfBirth(customer.dateOfBirth);
-  const coAgeMonths = ageInMonthsFromDateOfBirth(customer.coApplicant?.dateOfBirth);
+  const applicantAgeMonths =
+    ageInMonthsFromDateOfBirth(customer.dateOfBirth, now) ??
+    (customer.ageYears != null && Number.isFinite(customer.ageYears) && customer.ageYears > 0
+      ? Math.round(customer.ageYears * 12)
+      : null);
+  const coAgeMonths = ageInMonthsFromDateOfBirth(customer.coApplicant?.dateOfBirth, now);
   const tenure = calculateEffectiveTenureMonths({
     programmeMaxTenureMonths: program.maxTenureMonths ?? null,
     maxAgeAtMaturityYears: program.maxAgeAtMaturityYears ?? program.maxAge ?? null,

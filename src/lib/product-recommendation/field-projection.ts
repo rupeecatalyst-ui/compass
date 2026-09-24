@@ -16,6 +16,8 @@ type FieldBindingOverlay = {
   programmeFactRef?: string | null;
   aliases?: readonly string[];
   notes?: string;
+  evaluatorType?: ProjectedRecommendationField["evaluatorType"];
+  scoreability?: ProjectedRecommendationField["scoreability"];
 };
 
 /**
@@ -30,11 +32,37 @@ const RECOMMENDATION_FIELD_BINDINGS: Record<string, FieldBindingOverlay> = {
     programmeFactRef: "ppo:minCibil",
     notes: "CIBIL A/B/C category remains candidate-universe logic and is not this field.",
   },
-  "derived:foirPercent": { programmeFactRef: "ppo:maxFoirExact", aliases: ["foirFit"] },
-  "derived:ltvPercent": { programmeFactRef: "ppo:maxLtvExact", aliases: ["ltvFit"] },
+  "derived:foirPercent": {
+    programmeFactRef: "ppo:maxFoirExact",
+    aliases: ["foirFit"],
+    evaluatorType: RECOMMENDATION_EVALUATOR_TYPES.WITHIN_NORM_OR_PENDING,
+    scoreability: "fully_scorable",
+  },
+  "derived:ltvPercent": {
+    programmeFactRef: "ppo:maxLtvExact",
+    aliases: ["ltvFit"],
+    evaluatorType: RECOMMENDATION_EVALUATOR_TYPES.PENDING_CONTRACT,
+    scoreability: "inputs_wired_scoring_contract_pending",
+    notes: "Actual LTV is calculated. The 0–100 LTV scoring curve is not business-approved.",
+  },
   "derived:ageYears": { programmeFactRef: "ppo:minAge" },
   "derived:ageAtMaturityYears": { programmeFactRef: "ppo:maxAge" },
-  "derived:applicableRoiPercent": { programmeFactRef: "ppo:minRoiExact", aliases: ["roiCompetitiveness"] },
+  "derived:applicableRoiPercent": {
+    programmeFactRef: "ppo:minRoiExact",
+    aliases: ["roiCompetitiveness"],
+    evaluatorType: RECOMMENDATION_EVALUATOR_TYPES.LOWEST_AMONG_ELIGIBLE_OR_PENDING,
+    scoreability: "fully_scorable",
+  },
+  "derived:assessedOfferRupees": {
+    aliases: ["eligibleAmount", "fundingFit"],
+    evaluatorType: RECOMMENDATION_EVALUATOR_TYPES.CAPPED_REQUIREMENT_RATIO,
+    scoreability: "fully_scorable",
+  },
+  "derived:effectiveTenureMonths": {
+    aliases: ["tenureAvailability"],
+    evaluatorType: RECOMMENDATION_EVALUATOR_TYPES.RELATIVE_TO_ELIGIBLE_MAX,
+    scoreability: "fully_scorable",
+  },
   "derived:btSavingsRupees": { aliases: ["balanceTransferBenefit"] },
 };
 
@@ -101,6 +129,8 @@ function applyBindingOverlay(row: ProjectedRecommendationField): ProjectedRecomm
     programmeFactRef: overlay.programmeFactRef !== undefined ? overlay.programmeFactRef : row.programmeFactRef,
     aliases: overlay.aliases ?? row.aliases,
     notes: overlay.notes ?? row.notes,
+    evaluatorType: overlay.evaluatorType ?? row.evaluatorType,
+    scoreability: overlay.scoreability ?? row.scoreability,
   };
 }
 
